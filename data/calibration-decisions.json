@@ -1,0 +1,25 @@
+{
+  "status": "locked",
+  "mode": "CROSS_MARKET_BLIND_DECISIONS",
+  "cutoff": "2026-08-13T15:00:00",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "lockedBeforeReveal": true,
+  "method": "REACT_V1_strict_blind_multitimeframe",
+  "decisions": {
+    "EURUSD": {"directionalBias":"BUY","structuralBias":"BUY","tacticalBias":"RECOVERY_FROM_PULLBACK","confidence":"MEDIUM","entryQuality":"FAIR","action":"WAIT_FOR_H1_RECLAIM","invalidation":"Acceptance below 1.1512"},
+    "GBPUSD": {"directionalBias":"BUY","structuralBias":"BUY","tacticalBias":"BEARISH_PULLBACK","confidence":"MEDIUM","entryQuality":"FAIR","action":"WAIT_FOR_BULLISH_RECLAIM","invalidation":"Acceptance below 1.3475"},
+    "USDJPY": {"directionalBias":"NEUTRAL","structuralBias":"BEARISH_D1","tacticalBias":"BULLISH_H4_H1","confidence":"LOW","entryQuality":"POOR","action":"NO_TRADE_CONFLICT","invalidation":"Resolve D1 versus H4/H1 conflict first"},
+    "USDCHF": {"directionalBias":"BUY","structuralBias":"BUY","tacticalBias":"OVERSOLD_PULLBACK","confidence":"MEDIUM_HIGH","entryQuality":"FAIR","action":"WAIT_FOR_M15_M5_REVERSAL","invalidation":"Acceptance below 0.8126 then 0.8097"},
+    "USDCAD": {"directionalBias":"SELL","structuralBias":"SELL","tacticalBias":"BULLISH_REBOUND","confidence":"MEDIUM","entryQuality":"FAIR","action":"WAIT_FOR_REJECTION","invalidation":"H4 acceptance above rebound structure"},
+    "AUDUSD": {"directionalBias":"BUY","structuralBias":"BUY","tacticalBias":"BEARISH_PULLBACK","confidence":"MEDIUM","entryQuality":"FAIR","action":"WAIT_FOR_H1_M15_RECLAIM","invalidation":"Acceptance below 0.7044 then 0.7023"},
+    "NZDUSD": {"directionalBias":"SELL","structuralBias":"BEARISH_H4_H1","tacticalBias":"OVERSOLD_REBOUND","confidence":"MEDIUM","entryQuality":"FAIR","action":"WAIT_FOR_REBOUND_REJECTION","invalidation":"Sustained H1 reclaim above short-term trend structure"},
+    "DAX": {"directionalBias":"BUY","structuralBias":"BUY","tacticalBias":"M5_PULLBACK","confidence":"HIGH","entryQuality":"GOOD","action":"BUY_ON_M5_RECLAIM","invalidation":"H1 breakdown below 46.77 then 46.265"},
+    "BTCUSD": {"directionalBias":"SELL","structuralBias":"SELL","tacticalBias":"M15_M5_BOUNCE","confidence":"MEDIUM_HIGH","entryQuality":"FAIR","action":"WAIT_FOR_BOUNCE_REJECTION","invalidation":"H4 acceptance above 64515 then 65474"},
+    "ETHUSD": {"directionalBias":"NEUTRAL","structuralBias":"NEUTRAL","tacticalBias":"M15_BULLISH_M1_PULLBACK","confidence":"LOW","entryQuality":"POOR","action":"NO_TRADE_UNTIL_H1_H4_ALIGN","invalidation":"Not applicable while neutral"},
+    "XAUUSD": {"directionalBias":"SELL","structuralBias":"HTF_BULLISH_BUT_EXHAUSTED","tacticalBias":"H1_M15_M5_BEARISH","confidence":"MEDIUM_HIGH","entryQuality":"GOOD","action":"SELL_RALLIES_UNLESS_H1_RECLAIMS","invalidation":"H1 reclaim above 4399-4400 and sustained acceptance; no long solely from M5 reclaim"},
+    "SPX": {"directionalBias":"UNAVAILABLE","action":"NO_TEST","reason":"Twelve Data free-plan data unavailable"},
+    "NAS100": {"directionalBias":"UNAVAILABLE","action":"NO_TEST","reason":"Twelve Data free-plan data unavailable"},
+    "JP225": {"directionalBias":"UNAVAILABLE","action":"NO_TEST","reason":"Current Twelve Data symbol mapping invalid/unavailable"},
+    "XAGUSD": {"directionalBias":"UNAVAILABLE","action":"NO_TEST","reason":"Twelve Data free-plan data unavailable"}
+  }
+}
