@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 from datetime import datetime, timezone
-import scripts.blind_backtest_crypto as v6
+import blind_backtest_crypto as v6
 
 COINS = ["POPCAT", "TAO", "TON", "FARTCOIN", "IP"]
 CUTOFFS = v6.CUTOFFS
@@ -12,7 +12,6 @@ def load_swap(sym, cut):
     frames, sums = {}, {}
     for k, bar in v6.TF.items():
         c = [x for x in v6.okx_hist(inst, bar, cut) if x["ts"] + v6.TF_MS[k] <= cut]
-        # Young coins may not have 200 bars. 60 remains minimum for RSI/EMA50/structure stability.
         if len(c) < 60:
             raise RuntimeError(f"{k} swap insufficient:{len(c)}")
         frames[k] = c
