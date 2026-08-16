@@ -1,0 +1,133 @@
+name: Fetch Market Data
+
+on:
+  push:
+    paths:
+      - "request.json"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-market:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read requested symbol
+        id: symbol
+        shell: bash
+        run: |
+          SYMBOL=$(python3 -c "import json; print(json.load(open('request.json'))['symbol'].upper())")
+          echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
+          echo "Requested symbol: $SYMBOL"
+
+      - name: Fetch market data
+        shell: bash
+        run: |
+          mkdir -p data
+
+          SYMBOL="${{ steps.symbol.outputs.symbol }}"
+          URL="https://forex-chart-api.hanlinh227.workers.dev/analysis/$SYMBOL"
+
+          echo "Fetching market data for $SYMBOL"
+
+          HTTP_CODE=$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --output data/latest.tmp.json \
+            --write-out "%{http_code}" \
+            "$URL")
+
+          echo "HTTP status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Worker returned HTTP $HTTP_CODE"
+            cat data/latest.tmp.json
+            exit 1
+          fi
+
+      - name: Validate response
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          path = "data/latest.tmp.json"
+
+          try:
+              with open(path, "r", encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception as e:
+              print("Invalid JSON:", e)
+              sys.exit(1)
+
+          if data.get("status") not in ("ok", "partial"):
+              print("Worker status:", data.get("status"))
+              print(data)
+              sys.exit(1)
+
+          if not data.get("symbol"):
+              print("Missing symbol")
+              sys.exit(1)
+
+          with open("data/latest.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+
+          print("Symbol:", data.get("symbol"))
+          print("Current price:", data.get("currentPrice"))
+          print("Price time:", data.get("currentPriceTime"))
+          print("Analysis ready:", data.get("analysisReady"))
+          PY
+
+      - name: Create status file
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          from datetime import datetime, timezone
+
+          with open("request.json", "r", encoding="utf-8") as f:
+              request = json.load(f)
+
+          with open("data/latest.json", "r", encoding="utf-8") as f:
+              market = json.load(f)
+
+          status = {
+              "requestedSymbol": request["symbol"].upper(),
+              "returnedSymbol": market.get("symbol"),
+              "currentPrice": market.get("currentPrice"),
+              "currentPriceTime": market.get("currentPriceTime"),
+              "analysisReady": market.get("analysisReady"),
+              "successfulFrames": market.get("successfulFrames"),
+              "failedFrames": market.get("failedFrames"),
+              "updatedAt": datetime.now(timezone.utc).isoformat()
+          }
+
+          with open("data/status.json", "w", encoding="utf-8") as f:
+              json.dump(status, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Commit market data
+        shell: bash
+        run: |
+          rm -f data/latest.tmp.json
+
+          git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
+
+          git add data/latest.json data/status.json
+
+          if git diff --cached --quiet; then
+            echo "No market data changes."
+            exit 0
+          fi
+
+          git commit -m "Update market data for ${{ steps.symbol.outputs.symbol }}"
+          git push
