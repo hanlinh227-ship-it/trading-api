@@ -1,0 +1,44 @@
+name: Compact Calibration Summary
+
+on:
+  push:
+    paths:
+      - "compact-request.json"
+
+permissions:
+  contents: write
+
+jobs:
+  compact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build compact summary
+        run: |
+          python3 <<'PY'
+          import json
+          p='data/calibration-blind.json'
+          with open(p,encoding='utf-8') as f: d=json.load(f)
+          out={'cutoff':d.get('cutoff'),'timezone':d.get('timezone'),'futureDataIncluded':d.get('futureDataIncluded'),'lookAheadDetected':d.get('lookAheadDetected'),'symbols':{}}
+          for s,v in d.get('symbols',{}).items():
+            item={'class':v.get('class'),'tdSymbol':v.get('tdSymbol'),'status':v.get('status'),'frames':{}}
+            if v.get('status')=='ok':
+              for tf in ['D1','H4','H1','M15','M5','M1']:
+                x=v.get('frames',{}).get(tf,{})
+                item['frames'][tf]={k:x.get(k) for k in ['lastClosed','close','ema20','ema50','ema200','rsi14','atr14','recent50High','recent50Low','trend']}
+            else:
+              item['error']=v.get('error')
+            out['symbols'][s]=item
+          with open('data/calibration-compact.json','w',encoding='utf-8') as f: json.dump(out,f,ensure_ascii=False,indent=2)
+          PY
+      - name: Commit
+        run: |
+          git config user.name market-data-bot
+          git config user.email market-data-bot@users.noreply.github.com
+          git add data/calibration-compact.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Update compact calibration summary"
+          git pull --rebase origin main
+          git push origin HEAD:main
