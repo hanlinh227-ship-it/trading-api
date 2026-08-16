@@ -1,10 +1,10 @@
 {
-  "requestedSymbol": "GBPUSD",
-  "returnedSymbol": "GBPUSD",
-  "currentPrice": 1.35317,
-  "currentPriceTime": "2026-08-16 03:40:00",
+  "requestedSymbol": "XAUUSD",
+  "returnedSymbol": "XAUUSD",
+  "currentPrice": 4375.64658,
+  "currentPriceTime": "2026-08-16 03:45:00",
   "analysisReady": true,
   "successfulFrames": 5,
   "failedFrames": 0,
-  "updatedAt": "2026-08-16T03:44:17.690175+00:00"
+  "updatedAt": "2026-08-16T03:49:32.619905+00:00"
 }
