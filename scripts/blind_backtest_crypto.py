@@ -28,7 +28,7 @@ def ms_to_iso(ms):
 
 
 def http_json(url):
-    req = urllib.request.Request(url, headers={"Accept":"application/json","User-Agent":"trading-api-blind-test/1.1"})
+    req = urllib.request.Request(url, headers={"Accept":"application/json","User-Agent":"trading-api-blind-test/1.2"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
 
@@ -50,15 +50,14 @@ def rows_to_candles(rows):
 
 
 def fetch_history(inst, bar, cutoff_ms, limit=300):
-    # OKX 'after' = records older than supplied timestamp.
     url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar={urllib.parse.quote(bar)}&after={cutoff_ms}&limit={limit}"
     return rows_to_candles((http_json(url).get("data") or []))
 
 
 def fetch_future(inst, cutoff_ms, hours=12):
-    # OKX 'before' = records newer than supplied timestamp.
     end_ms = cutoff_ms + hours*3600*1000
-    url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar=5m&before={cutoff_ms}&limit=300"
+    # OKX bounded pagination: newer than cutoff ('before') AND older than horizon end ('after').
+    url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar=5m&before={cutoff_ms}&after={end_ms}&limit=300"
     candles = rows_to_candles((http_json(url).get("data") or []))
     return [x for x in candles if cutoff_ms <= x["ts"] < end_ms]
 
@@ -154,7 +153,6 @@ def run_one(symbol,cutoff):
     frames={}; sums={}
     for key,bar in TF.items():
         cs=fetch_history(inst,bar,cutoff_ms,300)
-        # STRICT BLIND: only fully closed candles are allowed.
         cs=[x for x in cs if x["ts"] + TF_MS[key] <= cutoff_ms]
         if len(cs)<50: raise RuntimeError(f"{symbol} {key}: insufficient candles {len(cs)}")
         frames[key]=cs; sums[key]=summary(cs)
