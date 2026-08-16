@@ -1,0 +1,38 @@
+name: Blind Missing Swap Backtest
+
+on:
+  push:
+    paths:
+      - "scripts/blind_missing_swap.py"
+      - ".github/workflows/blind-missing-swap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  blind-missing-swap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run missing swap blind test
+        run: |
+          mkdir -p data
+          python3 scripts/blind_missing_swap.py
+
+      - name: Commit result
+        run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/blind_missing_swap.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Run missing swap blind backtest"
+          git pull --rebase origin main
+          git push origin HEAD:main
