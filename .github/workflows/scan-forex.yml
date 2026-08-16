@@ -1,0 +1,385 @@
+name: Scan Forex Market
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  forex-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ==================================================
+      # 28 PAIRS - 4 GROUPS OF 7
+      # ==================================================
+
+      - name: Scan Group 1
+        shell: bash
+        run: |
+          mkdir -p scan
+
+          PAIRS=(
+            EURUSD GBPUSD USDJPY USDCHF
+            USDCAD AUDUSD NZDUSD
+          )
+
+          for SYMBOL in "${PAIRS[@]}"; do
+            echo "Scanning $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
+              > "scan/$SYMBOL.json"
+          done
+
+      - name: Wait for Twelve Data quota
+        run: sleep 65
+
+      - name: Scan Group 2
+        shell: bash
+        run: |
+          PAIRS=(
+            EURJPY EURGBP EURCHF EURAUD
+            EURNZD EURCAD GBPJPY
+          )
+
+          for SYMBOL in "${PAIRS[@]}"; do
+            echo "Scanning $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
+              > "scan/$SYMBOL.json"
+          done
+
+      - name: Wait for Twelve Data quota
+        run: sleep 65
+
+      - name: Scan Group 3
+        shell: bash
+        run: |
+          PAIRS=(
+            GBPCHF GBPAUD GBPNZD GBPCAD
+            AUDJPY AUDNZD AUDCAD
+          )
+
+          for SYMBOL in "${PAIRS[@]}"; do
+            echo "Scanning $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
+              > "scan/$SYMBOL.json"
+          done
+
+      - name: Wait for Twelve Data quota
+        run: sleep 65
+
+      - name: Scan Group 4
+        shell: bash
+        run: |
+          PAIRS=(
+            AUDCHF NZDJPY NZDCAD NZDCHF
+            CADJPY CADCHF CHFJPY
+          )
+
+          for SYMBOL in "${PAIRS[@]}"; do
+            echo "Scanning $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
+              > "scan/$SYMBOL.json"
+          done
+
+      # ==================================================
+      # SCORE ALL PAIRS
+      # ==================================================
+
+      - name: Rank Forex pairs
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import glob
+          import os
+
+          rankings = []
+
+          for file in glob.glob("scan/*.json"):
+              try:
+                  with open(file, "r", encoding="utf-8") as f:
+                      data = json.load(f)
+              except Exception:
+                  continue
+
+              if data.get("status") != "ok":
+                  continue
+
+              symbol = data.get("symbol")
+              s = data.get("summary") or {}
+
+              close = s.get("close")
+              ema20 = s.get("ema20")
+              ema50 = s.get("ema50")
+              ema200 = s.get("ema200")
+              rsi = s.get("rsi14")
+              atr = s.get("atr14")
+
+              if None in (
+                  close,
+                  ema20,
+                  ema50,
+                  rsi,
+                  atr
+              ):
+                  continue
+
+              score = 0
+              direction = "NEUTRAL"
+
+              # Strong trend
+              if close > ema20 > ema50:
+                  score += 3
+                  direction = "BUY"
+
+              elif close < ema20 < ema50:
+                  score += 3
+                  direction = "SELL"
+
+              # EMA200 confirmation
+              if ema200 is not None:
+
+                  if (
+                      direction == "BUY"
+                      and close > ema200
+                  ):
+                      score += 2
+
+                  if (
+                      direction == "SELL"
+                      and close < ema200
+                  ):
+                      score += 2
+
+              # RSI momentum
+              if direction == "BUY":
+
+                  if 52 <= rsi <= 70:
+                      score += 2
+
+              elif direction == "SELL":
+
+                  if 30 <= rsi <= 48:
+                      score += 2
+
+              # Avoid overextended market
+              if rsi > 78 or rsi < 22:
+                  score -= 2
+
+              rankings.append({
+                  "symbol": symbol,
+                  "direction": direction,
+                  "score": score,
+                  "close": close,
+                  "rsi": rsi,
+                  "atr": atr
+              })
+
+          rankings.sort(
+              key=lambda x: x["score"],
+              reverse=True
+          )
+
+          result = {
+              "status": "ok",
+              "pairsScanned": len(rankings),
+              "topCandidates": rankings[:5]
+          }
+
+          with open(
+              "scan/ranking.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  result,
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          print(json.dumps(result, indent=2))
+          PY
+
+      # ==================================================
+      # SELECT TOP 1
+      # ==================================================
+
+      - name: Select best pair
+        id: best
+        shell: bash
+        run: |
+          SYMBOL=$(python3 - <<'PY'
+          import json
+
+          with open(
+              "scan/ranking.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          top = data.get(
+              "topCandidates",
+              []
+          )
+
+          if not top:
+              print("")
+          else:
+              print(
+                  top[0]["symbol"]
+              )
+          PY
+          )
+
+          echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
+          echo "Best pair: $SYMBOL"
+
+      - name: Wait before full analysis
+        if: steps.best.outputs.symbol != ''
+        run: sleep 65
+
+      # ==================================================
+      # FULL ANALYSIS TOP 1
+      # ==================================================
+
+      - name: Full analysis best pair
+        if: steps.best.outputs.symbol != ''
+        shell: bash
+        run: |
+          SYMBOL="${{ steps.best.outputs.symbol }}"
+
+          echo "Full analysis: $SYMBOL"
+
+          curl \
+            --silent \
+            --show-error \
+            --location \
+            "https://forex-chart-api.hanlinh227.workers.dev/analysis/$SYMBOL" \
+            > scan/best-analysis.json
+
+      - name: Wait before realtime refresh
+        if: steps.best.outputs.symbol != ''
+        run: sleep 65
+
+      - name: Refresh M1 best pair
+        if: steps.best.outputs.symbol != ''
+        shell: bash
+        run: |
+          SYMBOL="${{ steps.best.outputs.symbol }}"
+
+          curl \
+            --silent \
+            --show-error \
+            --location \
+            "https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL" \
+            > scan/best-refresh.json
+
+      # ==================================================
+      # FINAL FILE
+      # ==================================================
+
+      - name: Create final scan result
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          from datetime import datetime, timezone
+
+          with open(
+              "scan/ranking.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              ranking = json.load(f)
+
+          try:
+              with open(
+                  "scan/best-analysis.json",
+                  "r",
+                  encoding="utf-8"
+              ) as f:
+                  analysis = json.load(f)
+          except:
+              analysis = None
+
+          try:
+              with open(
+                  "scan/best-refresh.json",
+                  "r",
+                  encoding="utf-8"
+              ) as f:
+                  refresh = json.load(f)
+          except:
+              refresh = None
+
+          result = {
+              "updatedAt":
+                  datetime.now(
+                      timezone.utc
+                  ).isoformat(),
+
+              "ranking":
+                  ranking,
+
+              "bestAnalysis":
+                  analysis,
+
+              "bestRefresh":
+                  refresh
+          }
+
+          with open(
+              "data/forex-scan.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  result,
+                  f,
+                  ensure_ascii=False,
+                  separators=(",", ":")
+              )
+          PY
+
+      - name: Commit Forex scan
+        shell: bash
+        run: |
+          git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
+
+          git add data/forex-scan.json
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "Update Forex market scan"
+          git push
