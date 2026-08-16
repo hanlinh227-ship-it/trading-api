@@ -1,0 +1,23 @@
+{
+  "cutoff": "2026-08-13T15:00:00",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "phase": "blind",
+  "id": 1,
+  "symbols": [
+    {"name": "EURUSD", "td": "EUR/USD", "class": "fx"},
+    {"name": "GBPUSD", "td": "GBP/USD", "class": "fx"},
+    {"name": "USDJPY", "td": "USD/JPY", "class": "fx"},
+    {"name": "USDCHF", "td": "USD/CHF", "class": "fx"},
+    {"name": "USDCAD", "td": "USD/CAD", "class": "fx"},
+    {"name": "AUDUSD", "td": "AUD/USD", "class": "fx"},
+    {"name": "NZDUSD", "td": "NZD/USD", "class": "fx"},
+    {"name": "SPX", "td": "SPX", "class": "index"},
+    {"name": "NAS100", "td": "NDX", "class": "index"},
+    {"name": "JP225", "td": "N225", "class": "index"},
+    {"name": "DAX", "td": "DAX", "class": "index"},
+    {"name": "BTCUSD", "td": "BTC/USD", "class": "crypto"},
+    {"name": "ETHUSD", "td": "ETH/USD", "class": "crypto"},
+    {"name": "XAUUSD", "td": "XAU/USD", "class": "metal"},
+    {"name": "XAGUSD", "td": "XAG/USD", "class": "metal"}
+  ]
+}
