@@ -1,0 +1,1878 @@
+name: Blind Market Backtest
+
+on:
+  push:
+    paths:
+      - "backtest-request.json"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# ============================================================
+# DÙNG CHUNG KHÓA QUOTA VỚI:
+# - fetch-market.yml
+# - scan-forex.yml
+#
+# Không cho LIVE / SCAN / BACKTEST gọi Twelve Data cùng lúc.
+# ============================================================
+
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+
+
+jobs:
+
+  backtest:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ======================================================
+      # 1. CHECKOUT
+      # ======================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      # ======================================================
+      # 2. INITIALIZE
+      # ======================================================
+
+      - name: Initialize folders
+        shell: bash
+        run: |
+          mkdir -p data
+          mkdir -p data/backtest-temp
+
+
+      # ======================================================
+      # 3. READ + VALIDATE REQUEST
+      #
+      # backtest-request.json:
+      #
+      # {
+      #   "symbol": "GBPUSD",
+      #   "cutoff": "2026-08-14T10:00:00",
+      #   "timezone": "Asia/Ho_Chi_Minh",
+      #   "phase": "blind",
+      #   "id": 1
+      # }
+      # ======================================================
+
+      - name: Read backtest request
+        id: request
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+          from datetime import datetime
+
+          with open(
+              "backtest-request.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+              req = json.load(f)
+
+          symbol = str(
+              req.get("symbol", "")
+          ).upper().strip()
+
+          cutoff = str(
+              req.get("cutoff", "")
+          ).strip()
+
+          timezone_name = str(
+              req.get(
+                  "timezone",
+                  "Asia/Ho_Chi_Minh"
+              )
+          ).strip()
+
+          phase = str(
+              req.get(
+                  "phase",
+                  "blind"
+              )
+          ).lower().strip()
+
+          request_id = req.get(
+              "id"
+          )
+
+          if not symbol:
+              print("ERROR: symbol is missing")
+              sys.exit(1)
+
+          if not cutoff:
+              print("ERROR: cutoff is missing")
+              sys.exit(1)
+
+          try:
+              datetime.fromisoformat(
+                  cutoff
+              )
+          except Exception:
+              print(
+                  "ERROR: cutoff must use "
+                  "YYYY-MM-DDTHH:MM:SS"
+              )
+              sys.exit(1)
+
+          if phase not in (
+              "blind",
+              "reveal"
+          ):
+              print(
+                  "ERROR: phase must be "
+                  "'blind' or 'reveal'"
+              )
+              sys.exit(1)
+
+          print("==============================")
+          print("BACKTEST REQUEST")
+          print("Symbol:", symbol)
+          print("Cutoff:", cutoff)
+          print("Timezone:", timezone_name)
+          print("Phase:", phase)
+          print("ID:", request_id)
+          print("==============================")
+          PY
+
+          SYMBOL=$(python3 - <<'PY'
+          import json
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              d = json.load(f)
+
+          print(
+              d["symbol"].upper()
+          )
+          PY
+          )
+
+          CUTOFF=$(python3 - <<'PY'
+          import json
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              d = json.load(f)
+
+          print(
+              d["cutoff"]
+          )
+          PY
+          )
+
+          TIMEZONE=$(python3 - <<'PY'
+          import json
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              d = json.load(f)
+
+          print(
+              d.get(
+                  "timezone",
+                  "Asia/Ho_Chi_Minh"
+              )
+          )
+          PY
+          )
+
+          PHASE=$(python3 - <<'PY'
+          import json
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              d = json.load(f)
+
+          print(
+              d.get(
+                  "phase",
+                  "blind"
+              ).lower()
+          )
+          PY
+          )
+
+          REQUEST_ID=$(python3 - <<'PY'
+          import json
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              d = json.load(f)
+
+          print(
+              d.get(
+                  "id",
+                  0
+              )
+          )
+          PY
+          )
+
+          echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
+          echo "cutoff=$CUTOFF" >> "$GITHUB_OUTPUT"
+          echo "timezone=$TIMEZONE" >> "$GITHUB_OUTPUT"
+          echo "phase=$PHASE" >> "$GITHUB_OUTPUT"
+          echo "request_id=$REQUEST_ID" >> "$GITHUB_OUTPUT"
+
+
+      # ======================================================
+      # 4. MAP SYMBOL TO TWELVE DATA FORMAT
+      #
+      # GBPUSD  -> GBP/USD
+      # EURUSD  -> EUR/USD
+      # XAUUSD  -> XAU/USD
+      # BTCUSD  -> BTC/USD
+      # SOLUSD  -> SOL/USD
+      # BTCUSDT -> BTC/USDT
+      # ======================================================
+
+      - name: Map Twelve Data symbol
+        id: map
+        shell: bash
+        run: |
+          SYMBOL="${{ steps.request.outputs.symbol }}"
+
+          TD_SYMBOL=$(python3 - "$SYMBOL" <<'PY'
+          import sys
+
+          symbol = sys.argv[1].upper()
+
+          aliases = {
+              "XAUUSD": "XAU/USD",
+              "XAGUSD": "XAG/USD",
+              "XPTUSD": "XPT/USD",
+              "XPDUSD": "XPD/USD"
+          }
+
+          if symbol in aliases:
+              print(
+                  aliases[symbol]
+              )
+              raise SystemExit
+
+          quote_assets = [
+              "USDT",
+              "USDC",
+              "USD",
+              "EUR",
+              "GBP",
+              "JPY",
+              "CHF",
+              "CAD",
+              "AUD",
+              "NZD",
+              "BTC",
+              "ETH"
+          ]
+
+          result = None
+
+          for quote in quote_assets:
+
+              if (
+                  symbol.endswith(quote)
+                  and
+                  len(symbol) > len(quote)
+              ):
+
+                  base = symbol[
+                      :-len(quote)
+                  ]
+
+                  result = (
+                      f"{base}/{quote}"
+                  )
+
+                  break
+
+          if result:
+              print(result)
+          else:
+              print(symbol)
+          PY
+          )
+
+          echo "td_symbol=$TD_SYMBOL" >> "$GITHUB_OUTPUT"
+
+          echo "Twelve Data symbol: $TD_SYMBOL"
+
+
+      # ======================================================
+      # 5. SECURITY CHECK
+      #
+      # Kiểm tra secret có tồn tại.
+      # Không in API key ra log.
+      # ======================================================
+
+      - name: Check Twelve Data secret
+        shell: bash
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          if [ -z "$TD_API_KEY" ]; then
+
+            echo \
+              "ERROR: TWELVEDATA_API_KEY secret is missing."
+
+            exit 1
+
+          fi
+
+          echo \
+            "TWELVEDATA_API_KEY: configured"
+
+
+      # ======================================================
+      # ================= BLIND PHASE =========================
+      # ======================================================
+      #
+      # TUYỆT ĐỐI KHÔNG TẢI DATA SAU CUTOFF.
+      #
+      # Đây là hàng rào chống look-ahead.
+      # ======================================================
+
+
+      # ======================================================
+      # 6. BLIND — FETCH D1
+      # ======================================================
+
+      - name: Blind - Fetch D1
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          TD_SYMBOL="${{ steps.map.outputs.td_symbol }}"
+          CUTOFF="${{ steps.request.outputs.cutoff }}"
+          TIMEZONE="${{ steps.request.outputs.timezone }}"
+
+          echo \
+            "Fetching D1 up to cutoff: $CUTOFF"
+
+          curl \
+            --silent \
+            --show-error \
+            --location \
+            --get \
+            "https://api.twelvedata.com/time_series" \
+            --data-urlencode "symbol=$TD_SYMBOL" \
+            --data-urlencode "interval=1day" \
+            --data-urlencode "outputsize=250" \
+            --data-urlencode "end_date=$CUTOFF" \
+            --data-urlencode "timezone=$TIMEZONE" \
+            --data-urlencode "order=asc" \
+            --data-urlencode "apikey=$TD_API_KEY" \
+            -o data/backtest-temp/D1.json
+
+
+      # ======================================================
+      # 7. VALIDATE D1
+      # ======================================================
+
+      - name: Blind - Validate D1
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          path = (
+              "data/backtest-temp/D1.json"
+          )
+
+          try:
+
+              with open(
+                  path,
+                  encoding="utf-8"
+              ) as f:
+                  data = json.load(f)
+
+          except Exception as e:
+
+              print(
+                  "Invalid D1 JSON:",
+                  e
+              )
+
+              sys.exit(1)
+
+          if data.get("status") == "error":
+
+              print(
+                  "Twelve Data D1 error:"
+              )
+
+              print(
+                  json.dumps(
+                      data,
+                      indent=2
+                  )
+              )
+
+              sys.exit(1)
+
+          if not data.get("values"):
+
+              print(
+                  "D1 returned no candles"
+              )
+
+              sys.exit(1)
+
+          print(
+              "D1 validation PASS"
+          )
+          PY
+
+
+      # ======================================================
+      # 8. WAIT QUOTA
+      #
+      # Basic plan hiện tại giới hạn theo phút.
+      # Chờ để tránh chạm maximum/minute.
+      # ======================================================
+
+      - name: Blind - Wait quota after D1
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          echo \
+            "Waiting for Twelve Data quota reset..."
+
+          sleep 65
+
+
+      # ======================================================
+      # 9. BLIND — FETCH H4 / H1 / M15 / M5
+      # ======================================================
+
+      - name: Blind - Fetch H4 H1 M15 M5
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          TD_SYMBOL="${{ steps.map.outputs.td_symbol }}"
+          CUTOFF="${{ steps.request.outputs.cutoff }}"
+          TIMEZONE="${{ steps.request.outputs.timezone }}"
+
+          fetch_frame () {
+
+            INTERVAL="$1"
+            NAME="$2"
+            SIZE="$3"
+
+            echo \
+              "Fetching $NAME ($INTERVAL)"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --get \
+              "https://api.twelvedata.com/time_series" \
+              --data-urlencode "symbol=$TD_SYMBOL" \
+              --data-urlencode "interval=$INTERVAL" \
+              --data-urlencode "outputsize=$SIZE" \
+              --data-urlencode "end_date=$CUTOFF" \
+              --data-urlencode "timezone=$TIMEZONE" \
+              --data-urlencode "order=asc" \
+              --data-urlencode "apikey=$TD_API_KEY" \
+              -o \
+              "data/backtest-temp/$NAME.json"
+          }
+
+          fetch_frame \
+            "4h" \
+            "H4" \
+            "250"
+
+          fetch_frame \
+            "1h" \
+            "H1" \
+            "250"
+
+          fetch_frame \
+            "15min" \
+            "M15" \
+            "250"
+
+          fetch_frame \
+            "5min" \
+            "M5" \
+            "250"
+
+
+      # ======================================================
+      # 10. VALIDATE H4/H1/M15/M5
+      # ======================================================
+
+      - name: Blind - Validate intraday frames
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          names = [
+              "H4",
+              "H1",
+              "M15",
+              "M5"
+          ]
+
+          failed = []
+
+          for name in names:
+
+              path = (
+                  f"data/backtest-temp/"
+                  f"{name}.json"
+              )
+
+              try:
+
+                  with open(
+                      path,
+                      encoding="utf-8"
+                  ) as f:
+                      data = json.load(f)
+
+              except Exception as e:
+
+                  failed.append(
+                      f"{name}: invalid JSON "
+                      f"{e}"
+                  )
+
+                  continue
+
+              if data.get(
+                  "status"
+              ) == "error":
+
+                  failed.append(
+                      f"{name}: "
+                      f"{data.get('message')}"
+                  )
+
+                  continue
+
+              if not data.get(
+                  "values"
+              ):
+
+                  failed.append(
+                      f"{name}: no candles"
+                  )
+
+          if failed:
+
+              print(
+                  "Frame validation FAILED:"
+              )
+
+              for item in failed:
+                  print(item)
+
+              sys.exit(1)
+
+          print(
+              "H4/H1/M15/M5 validation PASS"
+          )
+          PY
+
+
+      # ======================================================
+      # 11. WAIT BEFORE M1
+      # ======================================================
+
+      - name: Blind - Wait before M1
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          echo \
+            "Waiting before M1..."
+
+          sleep 65
+
+
+      # ======================================================
+      # 12. BLIND — FETCH M1
+      # ======================================================
+
+      - name: Blind - Fetch M1
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          TD_SYMBOL="${{ steps.map.outputs.td_symbol }}"
+          CUTOFF="${{ steps.request.outputs.cutoff }}"
+          TIMEZONE="${{ steps.request.outputs.timezone }}"
+
+          echo \
+            "Fetching M1 up to $CUTOFF"
+
+          curl \
+            --silent \
+            --show-error \
+            --location \
+            --get \
+            "https://api.twelvedata.com/time_series" \
+            --data-urlencode "symbol=$TD_SYMBOL" \
+            --data-urlencode "interval=1min" \
+            --data-urlencode "outputsize=250" \
+            --data-urlencode "end_date=$CUTOFF" \
+            --data-urlencode "timezone=$TIMEZONE" \
+            --data-urlencode "order=asc" \
+            --data-urlencode "apikey=$TD_API_KEY" \
+            -o data/backtest-temp/M1.json
+
+
+      # ======================================================
+      # 13. VALIDATE M1
+      # ======================================================
+
+      - name: Blind - Validate M1
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open(
+              "data/backtest-temp/M1.json",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          if data.get(
+              "status"
+          ) == "error":
+
+              print(
+                  json.dumps(
+                      data,
+                      indent=2
+                  )
+              )
+
+              sys.exit(1)
+
+          if not data.get(
+              "values"
+          ):
+
+              print(
+                  "M1 returned no candles"
+              )
+
+              sys.exit(1)
+
+          print(
+              "M1 validation PASS"
+          )
+          PY
+
+
+      # ======================================================
+      # 14. BUILD BLIND SNAPSHOT
+      #
+      # Tính:
+      # EMA20/50/200
+      # RSI14
+      # ATR14
+      # recent high/low
+      # trend
+      #
+      # Sau bước này ChatGPT chỉ cần đọc:
+      #
+      # data/backtest-blind.json
+      #
+      # KHÔNG CÓ TƯƠNG LAI.
+      # ======================================================
+
+      - name: Blind - Build snapshot
+        if: steps.request.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+          from datetime import (
+              datetime,
+              timezone
+          )
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              req = json.load(f)
+
+
+          FRAME_FILES = {
+
+              "D1":
+                  "data/backtest-temp/D1.json",
+
+              "H4":
+                  "data/backtest-temp/H4.json",
+
+              "H1":
+                  "data/backtest-temp/H1.json",
+
+              "M15":
+                  "data/backtest-temp/M15.json",
+
+              "M5":
+                  "data/backtest-temp/M5.json",
+
+              "M1":
+                  "data/backtest-temp/M1.json"
+          }
+
+
+          def load_rows(path):
+
+              with open(
+                  path,
+                  encoding="utf-8"
+              ) as f:
+                  raw = json.load(f)
+
+              if raw.get(
+                  "status"
+              ) == "error":
+
+                  print(raw)
+
+                  sys.exit(1)
+
+              values = raw.get(
+                  "values",
+                  []
+              )
+
+              rows = []
+
+              for item in values:
+
+                  try:
+
+                      rows.append({
+
+                          "datetime":
+                              item["datetime"],
+
+                          "open":
+                              float(
+                                  item["open"]
+                              ),
+
+                          "high":
+                              float(
+                                  item["high"]
+                              ),
+
+                          "low":
+                              float(
+                                  item["low"]
+                              ),
+
+                          "close":
+                              float(
+                                  item["close"]
+                              )
+                      })
+
+                  except Exception:
+                      continue
+
+              if not rows:
+
+                  raise RuntimeError(
+                      f"No valid candles "
+                      f"in {path}"
+                  )
+
+              return rows
+
+
+          def ema(
+              values,
+              period
+          ):
+
+              if len(
+                  values
+              ) < period:
+
+                  return None
+
+              seed = sum(
+                  values[:period]
+              ) / period
+
+              multiplier = (
+                  2
+                  /
+                  (
+                      period
+                      +
+                      1
+                  )
+              )
+
+              result = seed
+
+              for value in values[
+                  period:
+              ]:
+
+                  result = (
+                      (
+                          value
+                          -
+                          result
+                      )
+                      *
+                      multiplier
+                      +
+                      result
+                  )
+
+              return result
+
+
+          def rsi(
+              values,
+              period=14
+          ):
+
+              if len(
+                  values
+              ) <= period:
+
+                  return None
+
+              gains = []
+              losses = []
+
+              for i in range(
+                  1,
+                  len(values)
+              ):
+
+                  change = (
+                      values[i]
+                      -
+                      values[
+                          i - 1
+                      ]
+                  )
+
+                  gains.append(
+                      max(
+                          change,
+                          0
+                      )
+                  )
+
+                  losses.append(
+                      max(
+                          -change,
+                          0
+                      )
+                  )
+
+              avg_gain = (
+                  sum(
+                      gains[:period]
+                  )
+                  /
+                  period
+              )
+
+              avg_loss = (
+                  sum(
+                      losses[:period]
+                  )
+                  /
+                  period
+              )
+
+              for i in range(
+                  period,
+                  len(gains)
+              ):
+
+                  avg_gain = (
+                      (
+                          avg_gain
+                          *
+                          (
+                              period - 1
+                          )
+                      )
+                      +
+                      gains[i]
+                  ) / period
+
+                  avg_loss = (
+                      (
+                          avg_loss
+                          *
+                          (
+                              period - 1
+                          )
+                      )
+                      +
+                      losses[i]
+                  ) / period
+
+              if avg_loss == 0:
+
+                  return 100.0
+
+              rs = (
+                  avg_gain
+                  /
+                  avg_loss
+              )
+
+              return (
+                  100
+                  -
+                  (
+                      100
+                      /
+                      (
+                          1
+                          +
+                          rs
+                      )
+                  )
+              )
+
+
+          def atr(
+              rows,
+              period=14
+          ):
+
+              if len(
+                  rows
+              ) <= period:
+
+                  return None
+
+              tr_values = []
+
+              for i in range(
+                  1,
+                  len(rows)
+              ):
+
+                  current = rows[i]
+
+                  previous = rows[
+                      i - 1
+                  ]
+
+                  high = current[
+                      "high"
+                  ]
+
+                  low = current[
+                      "low"
+                  ]
+
+                  previous_close = (
+                      previous[
+                          "close"
+                      ]
+                  )
+
+                  true_range = max(
+
+                      high
+                      -
+                      low,
+
+                      abs(
+                          high
+                          -
+                          previous_close
+                      ),
+
+                      abs(
+                          low
+                          -
+                          previous_close
+                      )
+                  )
+
+                  tr_values.append(
+                      true_range
+                  )
+
+              value = (
+                  sum(
+                      tr_values[
+                          :period
+                      ]
+                  )
+                  /
+                  period
+              )
+
+              for tr in tr_values[
+                  period:
+              ]:
+
+                  value = (
+                      (
+                          value
+                          *
+                          (
+                              period - 1
+                          )
+                      )
+                      +
+                      tr
+                  ) / period
+
+              return value
+
+
+          frames = {}
+
+          for (
+              name,
+              path
+          ) in FRAME_FILES.items():
+
+              rows = load_rows(
+                  path
+              )
+
+              closes = [
+                  row["close"]
+                  for row in rows
+              ]
+
+              latest = rows[-1]
+
+              recent = (
+                  rows[-50:]
+                  if len(rows) >= 50
+                  else rows
+              )
+
+              ema20 = ema(
+                  closes,
+                  20
+              )
+
+              ema50 = ema(
+                  closes,
+                  50
+              )
+
+              ema200 = ema(
+                  closes,
+                  200
+              )
+
+              rsi14 = rsi(
+                  closes,
+                  14
+              )
+
+              atr14 = atr(
+                  rows,
+                  14
+              )
+
+              trend = "neutral"
+
+              if (
+                  ema20 is not None
+                  and
+                  ema50 is not None
+              ):
+
+                  if (
+                      latest["close"]
+                      >
+                      ema20
+                      >
+                      ema50
+                  ):
+
+                      trend = "bullish"
+
+                  elif (
+                      latest["close"]
+                      <
+                      ema20
+                      <
+                      ema50
+                  ):
+
+                      trend = "bearish"
+
+              frames[name] = {
+
+                  "latestCandle":
+                      latest,
+
+                  "summary": {
+
+                      "close":
+                          latest[
+                              "close"
+                          ],
+
+                      "ema20":
+                          ema20,
+
+                      "ema50":
+                          ema50,
+
+                      "ema200":
+                          ema200,
+
+                      "rsi14":
+                          rsi14,
+
+                      "atr14":
+                          atr14,
+
+                      "recent50High":
+                          max(
+                              row[
+                                  "high"
+                              ]
+                              for row
+                              in recent
+                          ),
+
+                      "recent50Low":
+                          min(
+                              row[
+                                  "low"
+                              ]
+                              for row
+                              in recent
+                          ),
+
+                      "trend":
+                          trend
+                  },
+
+                  "recentCandles":
+                      rows[-20:]
+              }
+
+
+          output = {
+
+              "status":
+                  "ok",
+
+              "mode":
+                  "BLIND_BACKTEST",
+
+              "phase":
+                  "blind",
+
+              "symbol":
+                  req[
+                      "symbol"
+                  ].upper(),
+
+              "cutoff":
+                  req[
+                      "cutoff"
+                  ],
+
+              "timezone":
+                  req.get(
+                      "timezone",
+                      "Asia/Ho_Chi_Minh"
+                  ),
+
+              "requestId":
+                  req.get(
+                      "id"
+                  ),
+
+              "futureDataIncluded":
+                  False,
+
+              "frames":
+                  frames,
+
+              "dataGuard": {
+
+                  "cutoffLocked":
+                      True,
+
+                  "futureDataIncluded":
+                      False,
+
+                  "futureRevealAllowed":
+                      False,
+
+                  "lookAheadProtection":
+                      "ENABLED"
+              },
+
+              "generatedAt":
+                  datetime.now(
+                      timezone.utc
+                  ).isoformat()
+          }
+
+
+          with open(
+              "data/backtest-blind.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  output,
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+
+          print("================================")
+          print("BLIND BACKTEST READY")
+          print("Symbol:", output["symbol"])
+          print("Cutoff:", output["cutoff"])
+          print("Timezone:", output["timezone"])
+          print("Future included: FALSE")
+          print("Look-ahead protection: ENABLED")
+          print("================================")
+          PY
+
+
+      # ======================================================
+      # ================= REVEAL PHASE ========================
+      # ======================================================
+      #
+      # Chỉ chạy SAU KHI:
+      #
+      # 1. ChatGPT đã đọc blind file.
+      # 2. Bias đã được khóa.
+      # 3. Entry/SL/TP đã được khóa.
+      #
+      # Sau đó mới đổi phase = reveal.
+      # ======================================================
+
+
+      # ======================================================
+      # 15. VERIFY BLIND EXISTS BEFORE REVEAL
+      # ======================================================
+
+      - name: Reveal - Verify blind snapshot exists
+        if: steps.request.outputs.phase == 'reveal'
+        shell: bash
+        run: |
+          if [ ! -f \
+            "data/backtest-blind.json" ]; then
+
+            echo \
+              "ERROR: backtest-blind.json does not exist."
+
+            echo \
+              "Run BLIND phase first."
+
+            exit 1
+
+          fi
+
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              request = json.load(f)
+
+          with open(
+              "data/backtest-blind.json",
+              encoding="utf-8"
+          ) as f:
+              blind = json.load(f)
+
+          request_symbol = (
+              request[
+                  "symbol"
+              ].upper()
+          )
+
+          blind_symbol = (
+              blind[
+                  "symbol"
+              ].upper()
+          )
+
+          request_cutoff = (
+              request[
+                  "cutoff"
+              ]
+          )
+
+          blind_cutoff = (
+              blind[
+                  "cutoff"
+              ]
+          )
+
+          if (
+              request_symbol
+              !=
+              blind_symbol
+          ):
+
+              print(
+                  "ERROR: reveal symbol "
+                  "does not match blind."
+              )
+
+              sys.exit(1)
+
+          if (
+              request_cutoff
+              !=
+              blind_cutoff
+          ):
+
+              print(
+                  "ERROR: reveal cutoff "
+                  "does not match blind."
+              )
+
+              sys.exit(1)
+
+          print(
+              "Blind/reveal match PASS"
+          )
+          PY
+
+
+      # ======================================================
+      # 16. FETCH FUTURE M5
+      #
+      # Future window = 24 hours after cutoff.
+      # ======================================================
+
+      - name: Reveal - Fetch future M5
+        if: steps.request.outputs.phase == 'reveal'
+        shell: bash
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          TD_SYMBOL="${{ steps.map.outputs.td_symbol }}"
+          CUTOFF="${{ steps.request.outputs.cutoff }}"
+          TIMEZONE="${{ steps.request.outputs.timezone }}"
+
+          END_DATE=$(python3 - <<'PY'
+          import json
+          from datetime import (
+              datetime,
+              timedelta
+          )
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          cutoff = datetime.fromisoformat(
+              data[
+                  "cutoff"
+              ]
+          )
+
+          end = (
+              cutoff
+              +
+              timedelta(
+                  hours=24
+              )
+          )
+
+          print(
+              end.isoformat(
+                  timespec="seconds"
+              )
+          )
+          PY
+          )
+
+          echo \
+            "Reveal from $CUTOFF to $END_DATE"
+
+          curl \
+            --silent \
+            --show-error \
+            --location \
+            --get \
+            "https://api.twelvedata.com/time_series" \
+            --data-urlencode "symbol=$TD_SYMBOL" \
+            --data-urlencode "interval=5min" \
+            --data-urlencode "start_date=$CUTOFF" \
+            --data-urlencode "end_date=$END_DATE" \
+            --data-urlencode "timezone=$TIMEZONE" \
+            --data-urlencode "outputsize=5000" \
+            --data-urlencode "order=asc" \
+            --data-urlencode "apikey=$TD_API_KEY" \
+            -o \
+            data/backtest-temp/future-M5.json
+
+
+      # ======================================================
+      # 17. VALIDATE REVEAL DATA
+      # ======================================================
+
+      - name: Reveal - Validate future data
+        if: steps.request.outputs.phase == 'reveal'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open(
+              "data/backtest-temp/future-M5.json",
+              encoding="utf-8"
+          ) as f:
+              data = json.load(f)
+
+          if data.get(
+              "status"
+          ) == "error":
+
+              print(
+                  json.dumps(
+                      data,
+                      indent=2
+                  )
+              )
+
+              sys.exit(1)
+
+          values = data.get(
+              "values",
+              []
+          )
+
+          if not values:
+
+              print(
+                  "ERROR: no future candles"
+              )
+
+              sys.exit(1)
+
+          print(
+              "Reveal candles:",
+              len(values)
+          )
+
+          print(
+              "Reveal validation PASS"
+          )
+          PY
+
+
+      # ======================================================
+      # 18. BUILD REVEAL OUTPUT
+      #
+      # Lưu:
+      # first price
+      # final price
+      # future high
+      # future low
+      # M5 candles
+      #
+      # ChatGPT dùng phần này để tính:
+      # MFE
+      # MAE
+      # TP/SL
+      # RR
+      # Bias PASS/FAIL
+      # Timing PASS/FAIL
+      # ======================================================
+
+      - name: Reveal - Build result
+        if: steps.request.outputs.phase == 'reveal'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+          from datetime import (
+              datetime,
+              timezone
+          )
+
+          with open(
+              "backtest-request.json",
+              encoding="utf-8"
+          ) as f:
+              req = json.load(f)
+
+          with open(
+              "data/backtest-temp/future-M5.json",
+              encoding="utf-8"
+          ) as f:
+              raw = json.load(f)
+
+          if raw.get(
+              "status"
+          ) == "error":
+
+              print(raw)
+
+              sys.exit(1)
+
+          values = raw.get(
+              "values",
+              []
+          )
+
+          rows = []
+
+          for item in values:
+
+              try:
+
+                  rows.append({
+
+                      "datetime":
+                          item[
+                              "datetime"
+                          ],
+
+                      "open":
+                          float(
+                              item[
+                                  "open"
+                              ]
+                          ),
+
+                      "high":
+                          float(
+                              item[
+                                  "high"
+                              ]
+                          ),
+
+                      "low":
+                          float(
+                              item[
+                                  "low"
+                              ]
+                          ),
+
+                      "close":
+                          float(
+                              item[
+                                  "close"
+                              ]
+                          )
+                  })
+
+              except Exception:
+                  continue
+
+          if not rows:
+
+              print(
+                  "ERROR: no valid "
+                  "reveal rows"
+              )
+
+              sys.exit(1)
+
+          first = rows[0]
+
+          last = rows[-1]
+
+          high_row = max(
+              rows,
+              key=lambda x: x[
+                  "high"
+              ]
+          )
+
+          low_row = min(
+              rows,
+              key=lambda x: x[
+                  "low"
+              ]
+          )
+
+          result = {
+
+              "status":
+                  "ok",
+
+              "mode":
+                  "BACKTEST_REVEAL",
+
+              "phase":
+                  "reveal",
+
+              "symbol":
+                  req[
+                      "symbol"
+                  ].upper(),
+
+              "cutoff":
+                  req[
+                      "cutoff"
+                  ],
+
+              "timezone":
+                  req.get(
+                      "timezone",
+                      "Asia/Ho_Chi_Minh"
+                  ),
+
+              "requestId":
+                  req.get(
+                      "id"
+                  ),
+
+              "futureWindow": {
+
+                  "firstCandle":
+                      first,
+
+                  "lastCandle":
+                      last,
+
+                  "highestPrice":
+                      high_row[
+                          "high"
+                      ],
+
+                  "highestPriceTime":
+                      high_row[
+                          "datetime"
+                      ],
+
+                  "lowestPrice":
+                      low_row[
+                          "low"
+                      ],
+
+                  "lowestPriceTime":
+                      low_row[
+                          "datetime"
+                      ],
+
+                  "startPrice":
+                      first[
+                          "open"
+                      ],
+
+                  "endPrice":
+                      last[
+                          "close"
+                      ],
+
+                  "candleCount":
+                      len(
+                          rows
+                      ),
+
+                  "candles":
+                      rows
+              },
+
+              "dataGuard": {
+
+                  "blindPhaseRequired":
+                      True,
+
+                  "blindSnapshotMatched":
+                      True
+              },
+
+              "generatedAt":
+                  datetime.now(
+                      timezone.utc
+                  ).isoformat()
+          }
+
+          with open(
+              "data/backtest-reveal.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  result,
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          print("================================")
+          print("REVEAL READY")
+          print("Symbol:", result["symbol"])
+          print("Start:", result["futureWindow"]["startPrice"])
+          print("High:", result["futureWindow"]["highestPrice"])
+          print("Low:", result["futureWindow"]["lowestPrice"])
+          print("End:", result["futureWindow"]["endPrice"])
+          print("Candles:", result["futureWindow"]["candleCount"])
+          print("================================")
+          PY
+
+
+      # ======================================================
+      # 19. CLEAN TEMP FILES
+      # ======================================================
+
+      - name: Clean temporary files
+        if: always()
+        shell: bash
+        run: |
+          rm -rf \
+            data/backtest-temp
+
+
+      # ======================================================
+      # 20. COMMIT OUTPUT
+      # ======================================================
+
+      - name: Commit backtest output
+        shell: bash
+        run: |
+          git config \
+            user.name \
+            "market-data-bot"
+
+          git config \
+            user.email \
+            "market-data-bot@users.noreply.github.com"
+
+          if [ -f \
+            "data/backtest-blind.json" ]; then
+
+            git add \
+              data/backtest-blind.json
+
+          fi
+
+          if [ -f \
+            "data/backtest-reveal.json" ]; then
+
+            git add \
+              data/backtest-reveal.json
+
+          fi
+
+          if git diff \
+            --cached \
+            --quiet
+          then
+
+            echo \
+              "No backtest output changes."
+
+            exit 0
+
+          fi
+
+          PHASE="${{ steps.request.outputs.phase }}"
+
+          SYMBOL="${{ steps.request.outputs.symbol }}"
+
+          git commit \
+            -m \
+            "Backtest $PHASE data for $SYMBOL"
+
+
+      # ======================================================
+      # 21. SAFE SYNC + PUSH
+      #
+      # Chống lỗi:
+      # main -> main (fetch first)
+      # ======================================================
+
+      - name: Sync latest main and push safely
+        shell: bash
+        run: |
+          LAST_MESSAGE=$(git log \
+            -1 \
+            --pretty=%B)
+
+          if echo \
+            "$LAST_MESSAGE" \
+            | grep -q \
+            "^Backtest "
+          then
+
+            echo \
+              "Synchronizing latest main..."
+
+            git pull \
+              --rebase \
+              origin \
+              main
+
+            echo \
+              "Pushing backtest output..."
+
+            git push \
+              origin \
+              HEAD:main
+
+          else
+
+            echo \
+              "Nothing to push."
+
+          fi
