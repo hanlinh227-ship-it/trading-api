@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import json, math, urllib.parse, urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 OKX_BASE = "https://www.okx.com"
 
@@ -16,6 +16,7 @@ TESTS = [
 ]
 
 TF = {"D1":"1Dutc", "H4":"4H", "H1":"1H", "M15":"15m", "M5":"5m"}
+TF_MS = {"D1":86400000, "H4":14400000, "H1":3600000, "M15":900000, "M5":300000}
 
 
 def iso_to_ms(s):
@@ -27,7 +28,7 @@ def ms_to_iso(ms):
 
 
 def http_json(url):
-    req = urllib.request.Request(url, headers={"Accept":"application/json","User-Agent":"trading-api-blind-test/1.0"})
+    req = urllib.request.Request(url, headers={"Accept":"application/json","User-Agent":"trading-api-blind-test/1.1"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.loads(r.read().decode("utf-8"))
 
@@ -38,33 +39,28 @@ def f(x):
     except: return None
 
 
-def fetch_history(inst, bar, cutoff_ms, limit=300):
-    # OKX 'after' returns records older than the supplied timestamp.
-    url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar={urllib.parse.quote(bar)}&after={cutoff_ms}&limit={limit}"
-    data=http_json(url)
-    rows=data.get("data") or []
+def rows_to_candles(rows):
     out=[]
     for r in rows:
-        ts=int(r[0]);
+        ts=int(r[0])
         out.append({"ts":ts,"datetime":ms_to_iso(ts),"open":f(r[1]),"high":f(r[2]),"low":f(r[3]),"close":f(r[4]),"volume":f(r[5])})
     out=[x for x in out if x["close"] is not None]
     out.sort(key=lambda x:x["ts"])
     return out
 
 
+def fetch_history(inst, bar, cutoff_ms, limit=300):
+    # OKX 'after' = records older than supplied timestamp.
+    url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar={urllib.parse.quote(bar)}&after={cutoff_ms}&limit={limit}"
+    return rows_to_candles((http_json(url).get("data") or []))
+
+
 def fetch_future(inst, cutoff_ms, hours=12):
-    # use current/history endpoint and page backwards from end horizon, then filter after cutoff
+    # OKX 'before' = records newer than supplied timestamp.
     end_ms = cutoff_ms + hours*3600*1000
-    url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar=5m&before={end_ms}&limit=300"
-    data=http_json(url)
-    rows=data.get("data") or []
-    out=[]
-    for r in rows:
-        ts=int(r[0])
-        if cutoff_ms <= ts <= end_ms:
-            out.append({"ts":ts,"datetime":ms_to_iso(ts),"open":f(r[1]),"high":f(r[2]),"low":f(r[3]),"close":f(r[4]),"volume":f(r[5])})
-    out.sort(key=lambda x:x["ts"])
-    return out
+    url = f"{OKX_BASE}/api/v5/market/history-candles?instId={urllib.parse.quote(inst)}&bar=5m&before={cutoff_ms}&limit=300"
+    candles = rows_to_candles((http_json(url).get("data") or []))
+    return [x for x in candles if cutoff_ms <= x["ts"] < end_ms]
 
 
 def ema(vals,p):
@@ -111,20 +107,17 @@ def summary(cs):
 
 
 def decide(sums, m15_cs):
-    # frozen scoring: HTF weighted highest; market only when alignment is strong.
     weights={"D1":3.0,"H4":3.0,"H1":2.0,"M15":1.5,"M5":1.0}
     score=0.0; aligned={"bull":0,"bear":0}
     for k,w in weights.items():
         s=sums[k]; c=s["close"]
         if s["trend"]=="bullish": score+=w; aligned["bull"]+=1
         elif s["trend"]=="bearish": score-=w; aligned["bear"]+=1
-        if s["ema200"] is not None:
-            score += (0.35*w if c>s["ema200"] else -0.35*w)
+        if s["ema200"] is not None: score += (0.35*w if c>s["ema200"] else -0.35*w)
         if s["rsi14"] is not None:
             if s["rsi14"]>=55: score+=0.20*w
             elif s["rsi14"]<=45: score-=0.20*w
     d1=sums["D1"]["trend"]; h4=sums["H4"]["trend"]
-    # Severe HTF disagreement means wait.
     if (d1=="bullish" and h4=="bearish") or (d1=="bearish" and h4=="bullish"):
         return "WAIT",score,None,None
     side="WAIT"
@@ -133,28 +126,22 @@ def decide(sums, m15_cs):
     entry=m15_cs[-1]["close"]
     a=sums["M15"]["atr14"] or (entry*0.01)
     swing_low=min(x["low"] for x in m15_cs[-8:]); swing_high=max(x["high"] for x in m15_cs[-8:])
-    if side=="BUY":
-        sl=min(swing_low, entry-1.15*a); risk=entry-sl; tp=entry+2*risk
-    elif side=="SELL":
-        sl=max(swing_high, entry+1.15*a); risk=sl-entry; tp=entry-2*risk
-    else:
-        sl=tp=None
-    return side,score,sl,tp
+    if side=="BUY": sl=min(swing_low, entry-1.15*a)
+    elif side=="SELL": sl=max(swing_high, entry+1.15*a)
+    else: sl=None
+    return side,score,sl,None
 
 
 def evaluate(side,entry,sl,tp,future):
     if side=="WAIT":
         if not future:return {"result":"WAIT_NO_DATA"}
-        max_up=max(x["high"] for x in future)-entry; max_dn=entry-min(x["low"] for x in future)
-        return {"result":"WAIT","maxUp":max_up,"maxDown":max_dn}
+        return {"result":"WAIT","maxUp":max(x["high"] for x in future)-entry,"maxDown":entry-min(x["low"] for x in future)}
     mfe=mae=0.0
     for x in future:
         if side=="BUY":
-            mfe=max(mfe,x["high"]-entry); mae=max(mae,entry-x["low"])
-            hit_sl=x["low"]<=sl; hit_tp=x["high"]>=tp
+            mfe=max(mfe,x["high"]-entry); mae=max(mae,entry-x["low"]); hit_sl=x["low"]<=sl; hit_tp=x["high"]>=tp
         else:
-            mfe=max(mfe,entry-x["low"]); mae=max(mae,x["high"]-entry)
-            hit_sl=x["high"]>=sl; hit_tp=x["low"]<=tp
+            mfe=max(mfe,entry-x["low"]); mae=max(mae,x["high"]-entry); hit_sl=x["high"]>=sl; hit_tp=x["low"]<=tp
         if hit_sl and hit_tp:return {"result":"AMBIGUOUS_SAME_CANDLE","mfe":mfe,"mae":mae}
         if hit_sl:return {"result":"SL","mfe":mfe,"mae":mae}
         if hit_tp:return {"result":"TP2R","mfe":mfe,"mae":mae}
@@ -167,27 +154,18 @@ def run_one(symbol,cutoff):
     frames={}; sums={}
     for key,bar in TF.items():
         cs=fetch_history(inst,bar,cutoff_ms,300)
-        # only candles opened before cutoff; enough history for indicators
-        cs=[x for x in cs if x["ts"]<cutoff_ms]
+        # STRICT BLIND: only fully closed candles are allowed.
+        cs=[x for x in cs if x["ts"] + TF_MS[key] <= cutoff_ms]
         if len(cs)<50: raise RuntimeError(f"{symbol} {key}: insufficient candles {len(cs)}")
         frames[key]=cs; sums[key]=summary(cs)
     entry=frames["M5"][-1]["close"]
-    side,score,sl,tp=decide(sums,frames["M15"])
-    # force entry to exact last M5 close available at cutoff
-    if side=="BUY" and sl is not None:
-        risk=entry-sl; tp=entry+2*risk
-    elif side=="SELL" and sl is not None:
-        risk=sl-entry; tp=entry-2*risk
+    side,score,sl,_=decide(sums,frames["M15"])
+    tp=None
+    if side=="BUY" and sl is not None: tp=entry+2*(entry-sl)
+    elif side=="SELL" and sl is not None: tp=entry-2*(sl-entry)
     future=fetch_future(inst,cutoff_ms,12)
     out=evaluate(side,entry,sl,tp,future)
-    return {
-        "symbol":symbol,"cutoff":cutoff,"source":"OKX historical REST","blind":True,
-        "decision":side,"score":round(score,2),"entry":entry,
-        "sl":sl,"tp2R":tp,
-        "snapshot":{k:{kk:(round(vv,8) if isinstance(vv,float) else vv) for kk,vv in s.items()} for k,s in sums.items()},
-        "outcome12h":out,
-        "futureCandles":len(future)
-    }
+    return {"symbol":symbol,"cutoff":cutoff,"source":"OKX historical REST","blind":True,"decision":side,"score":round(score,2),"entry":entry,"sl":sl,"tp2R":tp,"snapshot":{k:{kk:(round(vv,8) if isinstance(vv,float) else vv) for kk,vv in s.items()} for k,s in sums.items()},"outcome12h":out,"futureCandles":len(future)}
 
 
 def main():
@@ -198,8 +176,9 @@ def main():
     trades=[r for r in results if r.get("decision") in ("BUY","SELL")]
     wins=sum(1 for r in trades if r.get("outcome12h",{}).get("result")=="TP2R")
     losses=sum(1 for r in trades if r.get("outcome12h",{}).get("result")=="SL")
+    open12=sum(1 for r in trades if r.get("outcome12h",{}).get("result")=="OPEN_12H")
     waits=sum(1 for r in results if r.get("decision")=="WAIT")
-    payload={"generatedAt":datetime.now(timezone.utc).isoformat(),"method":"Frozen blind technical engine; no future candles used in decision; 12h forward check; 2R target","tests":results,"summary":{"cases":len(results),"trades":len(trades),"wins":wins,"losses":losses,"waits":waits,"winRateClosed":round(100*wins/(wins+losses),2) if wins+losses else None}}
+    payload={"generatedAt":datetime.now(timezone.utc).isoformat(),"method":"Strict blind technical engine; only fully closed candles before cutoff; 12h forward M5 check; 2R target","tests":results,"summary":{"cases":len(results),"trades":len(trades),"wins":wins,"losses":losses,"open12h":open12,"waits":waits,"winRateClosed":round(100*wins/(wins+losses),2) if wins+losses else None}}
     with open("data/blind_backtest.json","w",encoding="utf-8") as f: json.dump(payload,f,ensure_ascii=False,indent=2)
     print(json.dumps(payload["summary"],indent=2))
 
