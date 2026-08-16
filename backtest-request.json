@@ -2,6 +2,6 @@
   "symbol": "GBPUSD",
   "cutoff": "2026-08-14T10:00:00",
   "timezone": "Asia/Ho_Chi_Minh",
-  "phase": "blind",
-  "id": 2
+  "phase": "reveal",
+  "id": 3
 }
