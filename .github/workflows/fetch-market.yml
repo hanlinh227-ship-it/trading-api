@@ -10,13 +10,11 @@ on:
 permissions:
   contents: write
 
-# =========================================================
-# KHÔNG CHO WORKFLOW NÀY CHẠY SONG SONG VỚI FOREX SCAN
-# Cả 2 cùng dùng Twelve Data nên phải xếp hàng.
-# =========================================================
-
+# Forex/metals/index still use the Cloudflare/Twelve Data path.
+# Crypto is fetched directly from public exchange market-data APIs
+# on the GitHub runner, so it does not spend Twelve Data credits.
 concurrency:
-  group: twelvedata-api
+  group: market-data-api
   cancel-in-progress: false
 
 jobs:
@@ -24,50 +22,88 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       # =====================================================
       # CHECKOUT
       # =====================================================
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       # =====================================================
-      # READ SYMBOL
+      # READ + CLASSIFY SYMBOL
       # =====================================================
-
       - name: Read requested symbol
         id: symbol
         shell: bash
         run: |
-          SYMBOL=$(python3 - <<'PY'
+          python3 <<'PY' >> "$GITHUB_OUTPUT"
           import json
+
+          FOREX = {
+              "USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD",
+              "SGD","HKD","NOK","SEK","DKK","PLN","CZK","HUF",
+              "MXN","ZAR","TRY","CNH","CNY"
+          }
+          CRYPTO_QUOTES = ["FDUSD","USDT","USDC","USD","BTC","ETH","BNB","EUR"]
+          EXPLICIT_NON_CRYPTO = {
+              "XAUUSD","GOLD","XAGUSD","SILVER","XPTUSD","XPDUSD",
+              "SPX","SP500","US500","SPX500","NDX","NAS100","NASDAQ100","USTEC",
+              "IXIC","NASDAQ","DJI","US30","DOW","N225","JP225","NIKKEI","NIKKEI225",
+              "DAX","DEX","DE40","GER40","FTSE","UK100","CAC","FR40","HSI","VIX","RUT"
+          }
 
           with open("request.json", "r", encoding="utf-8") as f:
               data = json.load(f)
 
-          print(data["symbol"].upper())
+          symbol = str(data["symbol"]).upper().replace("/", "").replace("-", "").replace("_", "").replace(":", "").replace(" ", "")
+
+          is_crypto = False
+          if symbol not in EXPLICIT_NON_CRYPTO:
+              # Forex must win over crypto (EURUSD must stay forex).
+              is_forex = False
+              if len(symbol) == 6 and symbol.isalpha():
+                  base, quote = symbol[:3], symbol[3:]
+                  is_forex = base in FOREX and quote in FOREX and base != quote
+
+              if not is_forex:
+                  for quote in CRYPTO_QUOTES:
+                      if symbol.endswith(quote):
+                          base = symbol[:-len(quote)]
+                          if 2 <= len(base) <= 20 and base.isalnum() and base != quote:
+                              is_crypto = True
+                              break
+
+          print(f"symbol={symbol}")
+          print(f"is_crypto={'true' if is_crypto else 'false'}")
           PY
-          )
 
-          echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
-
-          echo "Requested symbol: $SYMBOL"
+          echo "Requested symbol: ${{ steps.symbol.outputs.symbol }}"
+          echo "Crypto: ${{ steps.symbol.outputs.is_crypto }}"
 
       # =====================================================
-      # FULL ANALYSIS
+      # CRYPTO DIRECT FETCH
+      # Binance -> OKX -> Bybit on GitHub runner
+      # Creates BOTH analysis.tmp.json and refresh.tmp.json.
+      # =====================================================
+      - name: Fetch crypto directly from exchanges
+        if: steps.symbol.outputs.is_crypto == 'true'
+        shell: bash
+        run: |
+          mkdir -p data
+          python3 scripts/fetch_crypto.py "${{ steps.symbol.outputs.symbol }}" data
+
+      # =====================================================
+      # NON-CRYPTO FULL ANALYSIS VIA WORKER
       # D1 + H4 + H1 + M15 + M5
       # =====================================================
-
-      - name: Fetch full analysis
+      - name: Fetch non-crypto full analysis
+        if: steps.symbol.outputs.is_crypto != 'true'
         shell: bash
         run: |
           mkdir -p data
 
           SYMBOL="${{ steps.symbol.outputs.symbol }}"
-
           URL="https://forex-chart-api.hanlinh227.workers.dev/analysis/$SYMBOL"
 
           echo "Fetching full analysis for $SYMBOL"
@@ -93,7 +129,6 @@ jobs:
       # =====================================================
       # VALIDATE ANALYSIS JSON
       # =====================================================
-
       - name: Validate full analysis
         shell: bash
         run: |
@@ -102,13 +137,8 @@ jobs:
           import sys
 
           try:
-              with open(
-                  "data/analysis.tmp.json",
-                  "r",
-                  encoding="utf-8"
-              ) as f:
+              with open("data/analysis.tmp.json", "r", encoding="utf-8") as f:
                   data = json.load(f)
-
           except Exception as e:
               print("Invalid analysis JSON:", e)
               sys.exit(1)
@@ -128,17 +158,19 @@ jobs:
               sys.exit(1)
 
           print("Full analysis validated: 5/5")
+          print("Provider:", data.get("provider"))
+          print("Source exchange:", data.get("sourceExchange"))
           PY
 
       # =====================================================
-      # M1 REFRESH
+      # NON-CRYPTO M1 REFRESH VIA WORKER
+      # Crypto refresh is already created by fetch_crypto.py.
       # =====================================================
-
-      - name: Fetch latest M1 price
+      - name: Fetch non-crypto latest M1 price
+        if: steps.symbol.outputs.is_crypto != 'true'
         shell: bash
         run: |
           SYMBOL="${{ steps.symbol.outputs.symbol }}"
-
           URL="https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL"
 
           echo "Refreshing M1 for $SYMBOL"
@@ -164,7 +196,6 @@ jobs:
       # =====================================================
       # VALIDATE + CREATE OUTPUT
       # =====================================================
-
       - name: Validate and merge market data
         shell: bash
         run: |
@@ -173,62 +204,30 @@ jobs:
           import sys
           from datetime import datetime, timezone
 
-          with open(
-              "request.json",
-              "r",
-              encoding="utf-8"
-          ) as f:
+          with open("request.json", "r", encoding="utf-8") as f:
               request = json.load(f)
 
-          requested_symbol = request["symbol"].upper()
+          requested_symbol = str(request["symbol"]).upper().replace("/", "").replace("-", "").replace("_", "").replace(":", "").replace(" ", "")
 
           try:
-
-              with open(
-                  "data/analysis.tmp.json",
-                  "r",
-                  encoding="utf-8"
-              ) as f:
+              with open("data/analysis.tmp.json", "r", encoding="utf-8") as f:
                   analysis = json.load(f)
-
-              with open(
-                  "data/refresh.tmp.json",
-                  "r",
-                  encoding="utf-8"
-              ) as f:
+              with open("data/refresh.tmp.json", "r", encoding="utf-8") as f:
                   refresh = json.load(f)
-
           except Exception as e:
-
               print("Invalid JSON:", e)
               sys.exit(1)
 
-          # ==================================================
           # SYMBOL CHECK
-          # ==================================================
-
           if analysis.get("symbol") != requested_symbol:
-              print(
-                  "Wrong analysis symbol:",
-                  analysis.get("symbol"),
-                  "expected:",
-                  requested_symbol
-              )
+              print("Wrong analysis symbol:", analysis.get("symbol"), "expected:", requested_symbol)
               sys.exit(1)
 
           if refresh.get("symbol") != requested_symbol:
-              print(
-                  "Wrong refresh symbol:",
-                  refresh.get("symbol"),
-                  "expected:",
-                  requested_symbol
-              )
+              print("Wrong refresh symbol:", refresh.get("symbol"), "expected:", requested_symbol)
               sys.exit(1)
 
-          # ==================================================
           # ANALYSIS CHECK
-          # ==================================================
-
           if analysis.get("status") not in ("ok", "partial"):
               print("Analysis error:")
               print(json.dumps(analysis, indent=2))
@@ -238,18 +237,11 @@ jobs:
               print("Analysis is not ready")
               sys.exit(1)
 
-          if analysis.get("successfulFrames") != 5:
+          if analysis.get("successfulFrames") != 5 or analysis.get("failedFrames") != 0:
               print("Not all analysis frames succeeded")
               sys.exit(1)
 
-          if analysis.get("failedFrames") != 0:
-              print("Analysis has failed frames")
-              sys.exit(1)
-
-          # ==================================================
           # REFRESH CHECK
-          # ==================================================
-
           if refresh.get("status") not in ("ok", "partial"):
               print("Refresh returned API error:")
               print(json.dumps(refresh, indent=2))
@@ -268,197 +260,92 @@ jobs:
               print("Missing currentPriceTime")
               sys.exit(1)
 
-          # ==================================================
-          # COMPACT ANALYSIS
-          # ==================================================
-
           frames = {}
-
-          for key in [
-              "D1",
-              "H4",
-              "H1",
-              "M15",
-              "M5"
-          ]:
-
-              frame = (
-                  analysis.get("timeframes")
-                  or {}
-              ).get(key) or {}
-
-              candles = (
-                  frame.get("candles")
-                  or []
-              )
-
+          for key in ["D1", "H4", "H1", "M15", "M5"]:
+              frame = (analysis.get("timeframes") or {}).get(key) or {}
+              candles = frame.get("candles") or []
               frames[key] = {
-
-                  "status":
-                      frame.get("status"),
-
-                  "interval":
-                      frame.get("interval"),
-
-                  "latestCandle":
-                      frame.get("latestCandle"),
-
-                  "summary":
-                      frame.get("summary"),
-
-                  "recentCandles":
-                      candles[-15:]
+                  "status": frame.get("status"),
+                  "interval": frame.get("interval"),
+                  "latestCandle": frame.get("latestCandle"),
+                  "summary": frame.get("summary"),
+                  "recentCandles": candles[-15:]
               }
 
-          # ==================================================
-          # M1
-          # ==================================================
+          m1_frame = (refresh.get("timeframes") or {}).get("M1") or {}
+          m1_candles = m1_frame.get("candles") or []
 
-          m1_frame = (
-              refresh.get("timeframes")
-              or {}
-          ).get("M1") or {}
-
-          m1_candles = (
-              m1_frame.get("candles")
-              or []
-          )
-
-          # ==================================================
-          # STATUS.JSON
-          # ==================================================
+          provider = refresh.get("provider") or analysis.get("provider")
+          source_exchange = refresh.get("sourceExchange") or analysis.get("sourceExchange")
+          source_type = refresh.get("sourceType") or analysis.get("sourceType")
 
           status = {
-
-              "requestedSymbol":
-                  requested_symbol,
-
-              "returnedSymbol":
-                  analysis.get("symbol"),
-
-              "marketSymbol":
-                  analysis.get("marketSymbol"),
-
-              "marketType":
-                  analysis.get("marketType"),
-
-              "analysisGeneratedAt":
-                  analysis.get("generatedAt"),
-
-              "liveRefreshGeneratedAt":
-                  refresh.get("generatedAt"),
-
-              "currentPrice":
-                  live_price,
-
-              "currentPriceTime":
-                  live_time,
-
-              "priceSource":
-                  "M1 refresh",
-
-              "dataAgeSeconds":
-                  live_age,
-
-              "stale":
-                  live_stale,
-
-              "marketClosedPossible":
-                  refresh.get(
-                      "marketClosedPossible"
-                  ),
-
-              "analysisReady":
-                  True,
-
-              "successfulFrames":
-                  analysis.get(
-                      "successfulFrames"
-                  ),
-
-              "failedFrames":
-                  analysis.get(
-                      "failedFrames"
-                  ),
-
-              "frames":
-                  frames,
-
+              "requestedSymbol": requested_symbol,
+              "returnedSymbol": analysis.get("symbol"),
+              "marketSymbol": analysis.get("marketSymbol"),
+              "marketType": analysis.get("marketType"),
+              "provider": provider,
+              "sourceExchange": source_exchange,
+              "sourceType": source_type,
+              "fallbackUsed": refresh.get("fallbackUsed", analysis.get("fallbackUsed")),
+              "analysisGeneratedAt": analysis.get("generatedAt"),
+              "liveRefreshGeneratedAt": refresh.get("generatedAt"),
+              "currentPrice": live_price,
+              "currentPriceTime": live_time,
+              "lastPrice": refresh.get("lastPrice", live_price),
+              "bid": refresh.get("bid"),
+              "ask": refresh.get("ask"),
+              "spread": refresh.get("spread"),
+              "priceSource": source_exchange or provider or "M1 refresh",
+              "priceType": refresh.get("priceType"),
+              "dataAgeSeconds": live_age,
+              "quoteAgeMs": refresh.get("quoteAgeMs"),
+              "stale": live_stale,
+              "executionReady": refresh.get("executionReady"),
+              "symbolVerified": refresh.get("symbolVerified"),
+              "marketClosedPossible": refresh.get("marketClosedPossible"),
+              "analysisReady": True,
+              "successfulFrames": analysis.get("successfulFrames"),
+              "failedFrames": analysis.get("failedFrames"),
+              "frames": frames,
               "M1": {
-
-                  "latestCandle":
-                      m1_frame.get(
-                          "latestCandle"
-                      ),
-
-                  "summary":
-                      m1_frame.get(
-                          "summary"
-                      ),
-
-                  "recentCandles":
-                      m1_candles[-15:]
+                  "latestCandle": m1_frame.get("latestCandle"),
+                  "summary": m1_frame.get("summary"),
+                  "recentCandles": m1_candles[-15:]
               },
-
-              "updatedAt":
-                  datetime.now(
-                      timezone.utc
-                  ).isoformat()
+              "updatedAt": datetime.now(timezone.utc).isoformat()
           }
 
-          with open(
-              "data/status.json",
-              "w",
-              encoding="utf-8"
-          ) as f:
-
-              json.dump(
-                  status,
-                  f,
-                  ensure_ascii=False,
-                  indent=2
-              )
-
-          # ==================================================
-          # FULL RAW BACKUP
-          # ==================================================
+          with open("data/status.json", "w", encoding="utf-8") as f:
+              json.dump(status, f, ensure_ascii=False, indent=2)
 
           combined = {
-
-              "analysis":
-                  analysis,
-
-              "refresh":
-                  refresh
+              "analysis": analysis,
+              "refresh": refresh
           }
 
-          with open(
-              "data/latest.json",
-              "w",
-              encoding="utf-8"
-          ) as f:
-
-              json.dump(
-                  combined,
-                  f,
-                  ensure_ascii=False,
-                  separators=(",", ":")
-              )
+          with open("data/latest.json", "w", encoding="utf-8") as f:
+              json.dump(combined, f, ensure_ascii=False, separators=(",", ":"))
 
           print("================================")
           print("SYMBOL:", requested_symbol)
+          print("MARKET:", analysis.get("marketType"))
+          print("PROVIDER:", provider)
+          print("SOURCE EXCHANGE:", source_exchange)
           print("PRICE:", live_price)
+          print("BID:", refresh.get("bid"))
+          print("ASK:", refresh.get("ask"))
           print("PRICE TIME:", live_time)
           print("AGE:", live_age)
           print("STALE:", live_stale)
-          print("FRAMES: 5/5")
+          print("EXECUTION READY:", refresh.get("executionReady"))
+          print("FRAMES: 5/5 + M1")
           print("================================")
           PY
 
       # =====================================================
       # CLEAN TEMP FILES
       # =====================================================
-
       - name: Clean temporary files
         shell: bash
         run: |
@@ -468,56 +355,32 @@ jobs:
       # =====================================================
       # COMMIT LOCALLY
       # =====================================================
-
       - name: Commit fresh market data
         shell: bash
         run: |
           git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
 
-          git config user.email \
-            "market-data-bot@users.noreply.github.com"
-
-          git add \
-            data/latest.json \
-            data/status.json
+          git add data/latest.json data/status.json
 
           if git diff --cached --quiet; then
-
             echo "No market data changes."
-
             exit 0
           fi
 
-          git commit \
-            -m "Refresh live market data for ${{ steps.symbol.outputs.symbol }}"
+          git commit -m "Refresh live market data for ${{ steps.symbol.outputs.symbol }}"
 
       # =====================================================
       # SAFE PUSH
-      #
-      # Nếu main đã thay đổi trong lúc workflow chạy:
-      # pull --rebase trước rồi mới push.
       # =====================================================
-
       - name: Sync and push safely
         shell: bash
         run: |
           if git log -1 --pretty=%B | grep -q "^Refresh live market data for"; then
-
             echo "Synchronizing latest main..."
-
-            git pull \
-              --rebase \
-              origin \
-              main
-
+            git pull --rebase origin main
             echo "Pushing result..."
-
-            git push \
-              origin \
-              HEAD:main
-
+            git push origin HEAD:main
           else
-
             echo "Nothing to push."
-
           fi
