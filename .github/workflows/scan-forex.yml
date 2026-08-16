@@ -3,6 +3,10 @@ name: Scan Forex Market
 on:
   workflow_dispatch:
 
+  push:
+    paths:
+      - "scan-request.json"
+
 permissions:
   contents: write
 
@@ -15,98 +19,160 @@ jobs:
         uses: actions/checkout@v4
 
       # ==================================================
-      # 28 PAIRS - 4 GROUPS OF 7
+      # 28 FOREX PAIRS
+      # 4 GROUPS × 7 PAIRS
+      #
+      # Mỗi cặp dùng route /scan/SYMBOL
+      # chỉ lấy H1 để tiết kiệm Twelve Data credits.
       # ==================================================
 
       - name: Scan Group 1
         shell: bash
         run: |
           mkdir -p scan
+          mkdir -p data
 
           PAIRS=(
-            EURUSD GBPUSD USDJPY USDCHF
-            USDCAD AUDUSD NZDUSD
+            EURUSD
+            GBPUSD
+            USDJPY
+            USDCHF
+            USDCAD
+            AUDUSD
+            NZDUSD
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
             echo "Scanning $SYMBOL"
 
-            curl \
+            HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
-              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
-              > "scan/$SYMBOL.json"
+              --output "scan/$SYMBOL.json" \
+              --write-out "%{http_code}" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
+
+            echo "$SYMBOL HTTP $HTTP_CODE"
+
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              echo "$SYMBOL scan failed"
+            fi
           done
 
-      - name: Wait for Twelve Data quota
-        run: sleep 65
+      - name: Wait Twelve Data quota after Group 1
+        shell: bash
+        run: |
+          echo "Waiting 65 seconds..."
+          sleep 65
 
       - name: Scan Group 2
         shell: bash
         run: |
           PAIRS=(
-            EURJPY EURGBP EURCHF EURAUD
-            EURNZD EURCAD GBPJPY
+            EURJPY
+            EURGBP
+            EURCHF
+            EURAUD
+            EURNZD
+            EURCAD
+            GBPJPY
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
             echo "Scanning $SYMBOL"
 
-            curl \
+            HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
-              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
-              > "scan/$SYMBOL.json"
+              --output "scan/$SYMBOL.json" \
+              --write-out "%{http_code}" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
+
+            echo "$SYMBOL HTTP $HTTP_CODE"
+
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              echo "$SYMBOL scan failed"
+            fi
           done
 
-      - name: Wait for Twelve Data quota
-        run: sleep 65
+      - name: Wait Twelve Data quota after Group 2
+        shell: bash
+        run: |
+          echo "Waiting 65 seconds..."
+          sleep 65
 
       - name: Scan Group 3
         shell: bash
         run: |
           PAIRS=(
-            GBPCHF GBPAUD GBPNZD GBPCAD
-            AUDJPY AUDNZD AUDCAD
+            GBPCHF
+            GBPAUD
+            GBPNZD
+            GBPCAD
+            AUDJPY
+            AUDNZD
+            AUDCAD
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
             echo "Scanning $SYMBOL"
 
-            curl \
+            HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
-              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
-              > "scan/$SYMBOL.json"
+              --output "scan/$SYMBOL.json" \
+              --write-out "%{http_code}" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
+
+            echo "$SYMBOL HTTP $HTTP_CODE"
+
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              echo "$SYMBOL scan failed"
+            fi
           done
 
-      - name: Wait for Twelve Data quota
-        run: sleep 65
+      - name: Wait Twelve Data quota after Group 3
+        shell: bash
+        run: |
+          echo "Waiting 65 seconds..."
+          sleep 65
 
       - name: Scan Group 4
         shell: bash
         run: |
           PAIRS=(
-            AUDCHF NZDJPY NZDCAD NZDCHF
-            CADJPY CADCHF CHFJPY
+            AUDCHF
+            NZDJPY
+            NZDCAD
+            NZDCHF
+            CADJPY
+            CADCHF
+            CHFJPY
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
             echo "Scanning $SYMBOL"
 
-            curl \
+            HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
-              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL" \
-              > "scan/$SYMBOL.json"
+              --output "scan/$SYMBOL.json" \
+              --write-out "%{http_code}" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
+
+            echo "$SYMBOL HTTP $HTTP_CODE"
+
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+              echo "$SYMBOL scan failed"
+            fi
           done
 
       # ==================================================
-      # SCORE ALL PAIRS
+      # RANK ALL 28 PAIRS
       # ==================================================
 
       - name: Rank Forex pairs
@@ -130,28 +196,37 @@ jobs:
                   continue
 
               symbol = data.get("symbol")
-              s = data.get("summary") or {}
 
-              close = s.get("close")
-              ema20 = s.get("ema20")
-              ema50 = s.get("ema50")
-              ema200 = s.get("ema200")
-              rsi = s.get("rsi14")
-              atr = s.get("atr14")
+              summary = data.get("summary") or {}
 
-              if None in (
+              close = summary.get("close")
+              ema20 = summary.get("ema20")
+              ema50 = summary.get("ema50")
+              ema200 = summary.get("ema200")
+              rsi = summary.get("rsi14")
+              atr = summary.get("atr14")
+              recent_high = summary.get("recent50High")
+              recent_low = summary.get("recent50Low")
+              trend = summary.get("trend")
+
+              required = [
                   close,
                   ema20,
                   ema50,
                   rsi,
                   atr
-              ):
+              ]
+
+              if any(v is None for v in required):
                   continue
 
               score = 0
               direction = "NEUTRAL"
 
-              # Strong trend
+              # ------------------------------------------
+              # TREND
+              # ------------------------------------------
+
               if close > ema20 > ema50:
                   score += 3
                   direction = "BUY"
@@ -160,7 +235,10 @@ jobs:
                   score += 3
                   direction = "SELL"
 
-              # EMA200 confirmation
+              # ------------------------------------------
+              # EMA200 CONFIRMATION
+              # ------------------------------------------
+
               if ema200 is not None:
 
                   if (
@@ -169,38 +247,123 @@ jobs:
                   ):
                       score += 2
 
-                  if (
+                  elif (
                       direction == "SELL"
                       and close < ema200
                   ):
                       score += 2
 
-              # RSI momentum
+              # ------------------------------------------
+              # RSI MOMENTUM
+              # ------------------------------------------
+
               if direction == "BUY":
 
-                  if 52 <= rsi <= 70:
+                  if 52 <= rsi <= 68:
                       score += 2
+
+                  elif 68 < rsi <= 72:
+                      score += 1
 
               elif direction == "SELL":
 
-                  if 30 <= rsi <= 48:
+                  if 32 <= rsi <= 48:
                       score += 2
 
-              # Avoid overextended market
-              if rsi > 78 or rsi < 22:
-                  score -= 2
+                  elif 28 <= rsi < 32:
+                      score += 1
+
+              # ------------------------------------------
+              # AVOID EXTREME RSI
+              # ------------------------------------------
+
+              if rsi >= 75:
+                  score -= 3
+
+              if rsi <= 25:
+                  score -= 3
+
+              # ------------------------------------------
+              # DISTANCE FROM 50-BAR EXTREMES
+              #
+              # Avoid buying too close to recent high,
+              # or selling too close to recent low.
+              # ------------------------------------------
+
+              distance_to_high = None
+              distance_to_low = None
+
+              if recent_high is not None and recent_high != 0:
+                  distance_to_high = abs(
+                      recent_high - close
+                  ) / abs(recent_high)
+
+              if recent_low is not None and recent_low != 0:
+                  distance_to_low = abs(
+                      close - recent_low
+                  ) / abs(recent_low)
+
+              if direction == "BUY":
+
+                  if (
+                      distance_to_high is not None
+                      and distance_to_high < 0.001
+                  ):
+                      score -= 1
+
+              elif direction == "SELL":
+
+                  if (
+                      distance_to_low is not None
+                      and distance_to_low < 0.001
+                  ):
+                      score -= 1
 
               rankings.append({
                   "symbol": symbol,
                   "direction": direction,
                   "score": score,
                   "close": close,
+                  "ema20": ema20,
+                  "ema50": ema50,
+                  "ema200": ema200,
                   "rsi": rsi,
-                  "atr": atr
+                  "atr": atr,
+                  "recent50High": recent_high,
+                  "recent50Low": recent_low,
+                  "trend": trend,
+                  "distanceToHigh": distance_to_high,
+                  "distanceToLow": distance_to_low
               })
 
+          # ----------------------------------------------
+          # TIE BREAKER
+          #
+          # 1. Score cao nhất
+          # 2. RSI gần vùng momentum lý tưởng
+          # 3. ATR lớn hơn
+          # ----------------------------------------------
+
+          def momentum_quality(item):
+              rsi = item.get("rsi")
+
+              if rsi is None:
+                  return -999
+
+              if item["direction"] == "BUY":
+                  return -abs(rsi - 60)
+
+              if item["direction"] == "SELL":
+                  return -abs(rsi - 40)
+
+              return -999
+
           rankings.sort(
-              key=lambda x: x["score"],
+              key=lambda x: (
+                  x["score"],
+                  momentum_quality(x),
+                  x["atr"]
+              ),
               reverse=True
           )
 
@@ -223,11 +386,16 @@ jobs:
                   indent=2
               )
 
-          print(json.dumps(result, indent=2))
+          print(
+              json.dumps(
+                  result,
+                  indent=2
+              )
+          )
           PY
 
       # ==================================================
-      # SELECT TOP 1
+      # PICK TOP 1
       # ==================================================
 
       - name: Select best pair
@@ -259,14 +427,26 @@ jobs:
           )
 
           echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
+
           echo "Best pair: $SYMBOL"
+
+      # ==================================================
+      # WAIT BEFORE FULL ANALYSIS
+      #
+      # 28 scan requests vừa hoàn tất.
+      # Chờ quota rồi mới gọi 5-frame analysis.
+      # ==================================================
 
       - name: Wait before full analysis
         if: steps.best.outputs.symbol != ''
-        run: sleep 65
+        shell: bash
+        run: |
+          echo "Waiting 65 seconds before full analysis..."
+          sleep 65
 
       # ==================================================
       # FULL ANALYSIS TOP 1
+      # D1 + H4 + H1 + M15 + M5
       # ==================================================
 
       - name: Full analysis best pair
@@ -275,18 +455,33 @@ jobs:
         run: |
           SYMBOL="${{ steps.best.outputs.symbol }}"
 
-          echo "Full analysis: $SYMBOL"
+          echo "Full analysis for $SYMBOL"
 
-          curl \
+          HTTP_CODE=$(curl \
             --silent \
             --show-error \
             --location \
-            "https://forex-chart-api.hanlinh227.workers.dev/analysis/$SYMBOL" \
-            > scan/best-analysis.json
+            --output scan/best-analysis.json \
+            --write-out "%{http_code}" \
+            "https://forex-chart-api.hanlinh227.workers.dev/analysis/$SYMBOL")
 
-      - name: Wait before realtime refresh
-        if: steps.best.outputs.symbol != ''
-        run: sleep 65
+          echo "Analysis HTTP $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Full analysis failed"
+            cat scan/best-analysis.json
+            exit 1
+          fi
+
+      # ==================================================
+      # LIVE M1 REFRESH
+      #
+      # Full analysis = 5 credits
+      # Refresh = 1 credit
+      #
+      # Tổng 6 credits nên có thể refresh ngay,
+      # không cần sleep thêm 65 giây.
+      # ==================================================
 
       - name: Refresh M1 best pair
         if: steps.best.outputs.symbol != ''
@@ -294,15 +489,26 @@ jobs:
         run: |
           SYMBOL="${{ steps.best.outputs.symbol }}"
 
-          curl \
+          echo "Refreshing live M1 for $SYMBOL"
+
+          HTTP_CODE=$(curl \
             --silent \
             --show-error \
             --location \
-            "https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL" \
-            > scan/best-refresh.json
+            --output scan/best-refresh.json \
+            --write-out "%{http_code}" \
+            "https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL")
+
+          echo "Refresh HTTP $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Refresh failed"
+            cat scan/best-refresh.json
+            exit 1
+          fi
 
       # ==================================================
-      # FINAL FILE
+      # CREATE FINAL RESULT
       # ==================================================
 
       - name: Create final scan result
@@ -326,7 +532,7 @@ jobs:
                   encoding="utf-8"
               ) as f:
                   analysis = json.load(f)
-          except:
+          except Exception:
               analysis = None
 
           try:
@@ -336,8 +542,57 @@ jobs:
                   encoding="utf-8"
               ) as f:
                   refresh = json.load(f)
-          except:
+          except Exception:
               refresh = None
+
+          live_valid = False
+          live_reason = None
+
+          if refresh is None:
+
+              live_reason = "NO_REFRESH_DATA"
+
+          else:
+
+              age = refresh.get(
+                  "dataAgeSeconds"
+              )
+
+              stale = refresh.get(
+                  "stale"
+              )
+
+              market_closed = refresh.get(
+                  "marketClosedPossible"
+              )
+
+              price = refresh.get(
+                  "currentPrice"
+              )
+
+              if price is None:
+
+                  live_reason = "NO_CURRENT_PRICE"
+
+              elif stale is True:
+
+                  live_reason = "STALE_DATA"
+
+              elif (
+                  age is None
+                  or age > 120
+              ):
+
+                  live_reason = "PRICE_TOO_OLD"
+
+              elif market_closed is True:
+
+                  live_reason = "MARKET_CLOSED"
+
+              else:
+
+                  live_valid = True
+                  live_reason = "OK"
 
           result = {
               "updatedAt":
@@ -348,11 +603,29 @@ jobs:
               "ranking":
                   ranking,
 
+              "bestSymbol":
+                  (
+                      analysis.get("symbol")
+                      if analysis
+                      else None
+                  ),
+
               "bestAnalysis":
                   analysis,
 
               "bestRefresh":
-                  refresh
+                  refresh,
+
+              "liveValidation": {
+                  "validForMarketEntry":
+                      live_valid,
+
+                  "reason":
+                      live_reason,
+
+                  "maxAllowedAgeSeconds":
+                      120
+              }
           }
 
           with open(
@@ -367,7 +640,17 @@ jobs:
                   ensure_ascii=False,
                   separators=(",", ":")
               )
+
+          print(
+              "Live validation:",
+              live_valid,
+              live_reason
+          )
           PY
+
+      # ==================================================
+      # SAVE RESULT
+      # ==================================================
 
       - name: Commit Forex scan
         shell: bash
@@ -378,8 +661,11 @@ jobs:
           git add data/forex-scan.json
 
           if git diff --cached --quiet; then
+            echo "No Forex scan changes."
             exit 0
           fi
 
-          git commit -m "Update Forex market scan"
+          git commit \
+            -m "Update Forex market scan"
+
           git push
