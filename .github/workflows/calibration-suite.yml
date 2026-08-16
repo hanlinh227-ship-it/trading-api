@@ -1,0 +1,415 @@
+name: Cross Market Calibration Suite
+
+on:
+  push:
+    paths:
+      - "calibration-request.json"
+      - "data/calibration-decisions.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+
+jobs:
+  calibration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Initialize
+        run: |
+          mkdir -p data/calibration-temp
+
+      - name: Validate request
+        id: req
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json, sys
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          with open('calibration-request.json', encoding='utf-8') as f:
+              r = json.load(f)
+
+          phase = str(r.get('phase', 'blind')).lower()
+          if phase not in ('blind', 'reveal'):
+              raise SystemExit('phase must be blind or reveal')
+          if not r.get('symbols'):
+              raise SystemExit('symbols is empty')
+          datetime.fromisoformat(r['cutoff'])
+          ZoneInfo(r.get('timezone', 'Asia/Ho_Chi_Minh'))
+          names = [x['name'] for x in r['symbols']]
+          if len(names) != len(set(names)):
+              raise SystemExit('duplicate symbol names')
+          print('phase=', phase)
+          print('cutoff=', r['cutoff'])
+          print('symbols=', len(names))
+          PY
+
+          PHASE=$(python3 - <<'PY'
+          import json
+          print(json.load(open('calibration-request.json'))['phase'].lower())
+          PY
+          )
+          echo "phase=$PHASE" >> "$GITHUB_OUTPUT"
+
+      - name: Check API key
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          test -n "$TD_API_KEY" || (echo "TWELVEDATA_API_KEY missing" && exit 1)
+          echo "API key configured"
+
+      - name: Create fetch helper
+        shell: bash
+        run: |
+          cat > /tmp/fetch_group.py <<'PY'
+          import json, os, subprocess, sys, urllib.parse
+          from datetime import datetime, timedelta
+
+          frame = sys.argv[1]
+          group = int(sys.argv[2])
+          phase = sys.argv[3]
+
+          with open('calibration-request.json', encoding='utf-8') as f:
+              req = json.load(f)
+
+          symbols = req['symbols']
+          groups = [symbols[:7], symbols[7:]]
+          chosen = groups[group]
+          cutoff = req['cutoff']
+          tz = req.get('timezone', 'Asia/Ho_Chi_Minh')
+          api = os.environ['TD_API_KEY']
+
+          interval_map = {
+              'D1': '1day',
+              'H4': '4h',
+              'H1': '1h',
+              'M15': '15min',
+              'M5': '5min',
+              'M1': '1min',
+              'FUTURE_M5': '5min',
+          }
+          interval = interval_map[frame]
+
+          if phase == 'reveal':
+              end = (datetime.fromisoformat(cutoff) + timedelta(hours=24)).isoformat(timespec='seconds')
+
+          for s in chosen:
+              name = s['name']
+              td = s['td']
+              params = [
+                  ('symbol', td),
+                  ('interval', interval),
+                  ('order', 'asc'),
+                  ('apikey', api),
+              ]
+
+              if phase == 'blind':
+                  params += [('outputsize', '250'), ('end_date', cutoff)]
+                  if frame != 'D1':
+                      params += [('timezone', tz)]
+              else:
+                  params += [
+                      ('outputsize', '1000'),
+                      ('start_date', cutoff),
+                      ('end_date', end),
+                      ('timezone', tz),
+                  ]
+
+              url = 'https://api.twelvedata.com/time_series?' + urllib.parse.urlencode(params)
+              suffix = frame if phase == 'blind' else 'FUTURE_M5'
+              path = f'data/calibration-temp/{name}-{suffix}.json'
+              print('Fetching', name, suffix)
+              p = subprocess.run(['curl','--silent','--show-error','--location',url,'-o',path], text=True)
+              if p.returncode != 0:
+                  with open(path, 'w', encoding='utf-8') as f:
+                      json.dump({'status':'error','message':'curl failure'}, f)
+          PY
+
+      - name: Blind D1 group 1
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py D1 0 blind
+
+      - name: Wait 1
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind D1 group 2
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py D1 1 blind
+
+      - name: Wait 2
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind H4 group 1
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py H4 0 blind
+
+      - name: Wait 3
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind H4 group 2
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py H4 1 blind
+
+      - name: Wait 4
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind H1 group 1
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py H1 0 blind
+
+      - name: Wait 5
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind H1 group 2
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py H1 1 blind
+
+      - name: Wait 6
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind M15 group 1
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py M15 0 blind
+
+      - name: Wait 7
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind M15 group 2
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py M15 1 blind
+
+      - name: Wait 8
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind M5 group 1
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py M5 0 blind
+
+      - name: Wait 9
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind M5 group 2
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py M5 1 blind
+
+      - name: Wait 10
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind M1 group 1
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py M1 0 blind
+
+      - name: Wait 11
+        if: steps.req.outputs.phase == 'blind'
+        run: sleep 65
+
+      - name: Blind M1 group 2
+        if: steps.req.outputs.phase == 'blind'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py M1 1 blind
+
+      - name: Build strict blind calibration snapshot
+        if: steps.req.outputs.phase == 'blind'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json, os
+          from datetime import datetime, timedelta, timezone
+          from zoneinfo import ZoneInfo
+
+          req = json.load(open('calibration-request.json', encoding='utf-8'))
+          tz = ZoneInfo(req.get('timezone','Asia/Ho_Chi_Minh'))
+          cutoff = datetime.fromisoformat(req['cutoff']).replace(tzinfo=tz)
+          durations = {'H4':timedelta(hours=4),'H1':timedelta(hours=1),'M15':timedelta(minutes=15),'M5':timedelta(minutes=5),'M1':timedelta(minutes=1)}
+          frames = ['D1','H4','H1','M15','M5','M1']
+
+          def ema(v,p):
+              if len(v)<p: return None
+              x=sum(v[:p])/p; a=2/(p+1)
+              for z in v[p:]: x=a*z+(1-a)*x
+              return x
+
+          def rsi(v,p=14):
+              if len(v)<=p: return None
+              gs=[]; ls=[]
+              for a,b in zip(v[:-1],v[1:]):
+                  d=b-a; gs.append(max(d,0)); ls.append(max(-d,0))
+              ag=sum(gs[:p])/p; al=sum(ls[:p])/p
+              for g,l in zip(gs[p:],ls[p:]):
+                  ag=(ag*(p-1)+g)/p; al=(al*(p-1)+l)/p
+              if al==0: return 100.0
+              return 100-100/(1+ag/al)
+
+          def atr(rows,p=14):
+              if len(rows)<=p: return None
+              tr=[]
+              for i in range(1,len(rows)):
+                  h=rows[i]['high']; l=rows[i]['low']; pc=rows[i-1]['close']
+                  tr.append(max(h-l,abs(h-pc),abs(l-pc)))
+              x=sum(tr[:p])/p
+              for z in tr[p:]: x=(x*(p-1)+z)/p
+              return x
+
+          out={'status':'ok','mode':'CROSS_MARKET_BLIND_CALIBRATION','cutoff':req['cutoff'],'timezone':req.get('timezone'),'requestId':req.get('id'),'futureDataIncluded':False,'lookAheadDetected':False,'symbols':{}}
+
+          for spec in req['symbols']:
+              name=spec['name']; item={'class':spec['class'],'tdSymbol':spec['td'],'status':'ok','frames':{}}
+              for fr in frames:
+                  path=f'data/calibration-temp/{name}-{fr}.json'
+                  try:
+                      raw=json.load(open(path,encoding='utf-8'))
+                  except Exception as e:
+                      item['status']='unavailable'; item['error']=f'{fr}: {e}'; break
+                  if raw.get('status')=='error' or not raw.get('values'):
+                      item['status']='unavailable'; item['error']=f"{fr}: {raw.get('message','no values')}"; break
+                  rows=[]
+                  for x in raw['values']:
+                      try:
+                          dt=x['datetime']
+                          if fr=='D1':
+                              if datetime.strptime(dt[:10],'%Y-%m-%d').date() >= cutoff.date():
+                                  continue
+                          else:
+                              st=datetime.fromisoformat(dt).replace(tzinfo=tz)
+                              if st+durations[fr] > cutoff:
+                                  continue
+                          rows.append({'datetime':dt,'open':float(x['open']),'high':float(x['high']),'low':float(x['low']),'close':float(x['close'])})
+                      except Exception:
+                          pass
+                  if not rows:
+                      item['status']='unavailable'; item['error']=f'{fr}: no closed candles'; break
+                  closes=[x['close'] for x in rows]; latest=rows[-1]; recent=rows[-50:]
+                  e20=ema(closes,20); e50=ema(closes,50); e200=ema(closes,200); rr=rsi(closes); aa=atr(rows)
+                  trend='neutral'
+                  if e20 is not None and e50 is not None:
+                      if latest['close']>e20>e50: trend='bullish'
+                      elif latest['close']<e20<e50: trend='bearish'
+                  item['frames'][fr]={'lastClosed':latest['datetime'],'close':latest['close'],'ema20':e20,'ema50':e50,'ema200':e200,'rsi14':rr,'atr14':aa,'recent50High':max(x['high'] for x in recent),'recent50Low':min(x['low'] for x in recent),'trend':trend,'recentCandles':rows[-12:]}
+              out['symbols'][name]=item
+
+          json.dump(out,open('data/calibration-blind.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
+          print('Blind symbols available:',sum(1 for x in out['symbols'].values() if x['status']=='ok'))
+          for k,v in out['symbols'].items(): print(k,v['status'],v.get('error',''))
+          PY
+
+      - name: Verify decisions before reveal
+        if: steps.req.outputs.phase == 'reveal'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json, os
+          if not os.path.exists('data/calibration-decisions.json'):
+              raise SystemExit('Missing data/calibration-decisions.json; lock blind decisions first')
+          req=json.load(open('calibration-request.json'))
+          d=json.load(open('data/calibration-decisions.json'))
+          if d.get('cutoff')!=req.get('cutoff'):
+              raise SystemExit('Decision cutoff mismatch')
+          if not d.get('lockedBeforeReveal'):
+              raise SystemExit('Decisions are not locked')
+          print('Decision lock PASS')
+          PY
+
+      - name: Reveal group 1
+        if: steps.req.outputs.phase == 'reveal'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py FUTURE_M5 0 reveal
+
+      - name: Reveal wait
+        if: steps.req.outputs.phase == 'reveal'
+        run: sleep 65
+
+      - name: Reveal group 2
+        if: steps.req.outputs.phase == 'reveal'
+        env:
+          TD_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python3 /tmp/fetch_group.py FUTURE_M5 1 reveal
+
+      - name: Build reveal comparison data
+        if: steps.req.outputs.phase == 'reveal'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          from datetime import datetime, timezone
+          req=json.load(open('calibration-request.json',encoding='utf-8'))
+          decisions=json.load(open('data/calibration-decisions.json',encoding='utf-8'))
+          out={'status':'ok','mode':'CROSS_MARKET_REVEAL','cutoff':req['cutoff'],'timezone':req.get('timezone'),'requestId':req.get('id'),'symbols':{}}
+          for spec in req['symbols']:
+              name=spec['name']; path=f'data/calibration-temp/{name}-FUTURE_M5.json'
+              try: raw=json.load(open(path,encoding='utf-8'))
+              except Exception as e:
+                  out['symbols'][name]={'status':'unavailable','error':str(e)}; continue
+              if raw.get('status')=='error' or not raw.get('values'):
+                  out['symbols'][name]={'status':'unavailable','error':raw.get('message','no values')}; continue
+              rows=[]
+              for x in raw['values']:
+                  try: rows.append({'datetime':x['datetime'],'open':float(x['open']),'high':float(x['high']),'low':float(x['low']),'close':float(x['close'])})
+                  except Exception: pass
+              if not rows:
+                  out['symbols'][name]={'status':'unavailable','error':'no valid rows'}; continue
+              hi=max(rows,key=lambda x:x['high']); lo=min(rows,key=lambda x:x['low'])
+              out['symbols'][name]={'status':'ok','startPrice':rows[0]['open'],'endPrice':rows[-1]['close'],'highestPrice':hi['high'],'highestTime':hi['datetime'],'lowestPrice':lo['low'],'lowestTime':lo['datetime'],'candleCount':len(rows),'candles':rows}
+          json.dump(out,open('data/calibration-reveal.json','w',encoding='utf-8'),ensure_ascii=False,indent=2)
+          PY
+
+      - name: Clean temporary files
+        if: always()
+        run: rm -rf data/calibration-temp
+
+      - name: Commit output
+        shell: bash
+        run: |
+          git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
+          PHASE="${{ steps.req.outputs.phase }}"
+          if [ "$PHASE" = "blind" ]; then git add data/calibration-blind.json; fi
+          if [ "$PHASE" = "reveal" ]; then git add data/calibration-reveal.json; fi
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Calibration $PHASE snapshot"
+          git pull --rebase origin main
+          git push origin HEAD:main
