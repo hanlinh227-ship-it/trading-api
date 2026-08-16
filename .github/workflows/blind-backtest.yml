@@ -1,0 +1,44 @@
+name: Blind Crypto Backtest
+
+on:
+  push:
+    paths:
+      - "scripts/blind_backtest_crypto.py"
+      - ".github/workflows/blind-backtest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: blind-crypto-backtest
+  cancel-in-progress: false
+
+jobs:
+  blind-backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run blind backtest
+        shell: bash
+        run: |
+          mkdir -p data
+          python3 scripts/blind_backtest_crypto.py
+
+      - name: Commit result
+        shell: bash
+        run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/blind_backtest.json
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Run blind crypto backtest"
+          git pull --rebase origin main
+          git push origin HEAD:main
