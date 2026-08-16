@@ -1,0 +1,158 @@
+{
+  "version": "REACT_MULTI_MARKET_V2_LOCKED",
+  "status": "active",
+  "purpose": "Realtime discretionary analysis and blind calibration across FX, indices, crypto and metals",
+  "globalRules": {
+    "pipeline": ["DATA_QUALITY","REGIME","EXPECTATIONS","SURPRISE","REACTION","RELATIVE_STRENGTH","FLOW_POSITIONING","CROSS_ASSET","STRUCTURE","VOLATILITY","CONTRADICTION","TIMING","RISK_VETO"],
+    "timeframeHierarchy": {
+      "D1": "regime and structural context",
+      "H4": "structural direction and major POI",
+      "H1": "intraday directional state",
+      "M15": "setup qualification",
+      "M5": "execution trigger",
+      "M1": "freshness and timing only"
+    },
+    "closedCandleOnlyForBacktest": true,
+    "separateBiasFromEntry": true,
+    "outputs": ["directionalBias","structuralBias","tacticalBias","confidence","entryQuality","action","invalidation"],
+    "hardVeto": [
+      "STALE_DATA",
+      "WRONG_SYMBOL_OR_INSTRUMENT",
+      "INCOMPLETE_DATA",
+      "MARKET_CLOSED",
+      "ABNORMAL_SOURCE_DEVIATION",
+      "MAJOR_EVENT_IMMINENT_WITHOUT_EVENT_PLAN",
+      "EXTREME_SPREAD_OR_ILLIQUIDITY",
+      "CHASED_MOVE",
+      "BAD_RR",
+      "CRITICAL_CONTRADICTION"
+    ],
+    "newConflictRules": [
+      "D1 alone cannot force a trade when H4 and H1 oppose it; keep structural bias but downgrade action to WAIT.",
+      "M5 or M1 cannot reverse H1/H4 by themselves.",
+      "When H4 and H1 are both stretched RSI <= 32 or >= 68 and M5/M1 reverse strongly, directional confidence is capped at LOW-MEDIUM until H1 reconfirms.",
+      "A lower-timeframe reclaim is not enough to buy an exhausted metal or crypto trend when H1 remains broken.",
+      "If a symbol mapping returns a price scale inconsistent with the intended instrument, classify WRONG_SYMBOL and prohibit analysis/trading."
+    ],
+    "eventRisk": {
+      "tier1": ["CPI","PPI","NFP","FOMC","central_bank_rate_decision","major_intervention_risk"],
+      "defaultRule": "No fresh MARKET entry immediately before tier-1 data unless the setup is explicitly an event strategy.",
+      "metalsAndJPY": "Use stricter event veto because response can be nonlinear and fast."
+    }
+  },
+  "assetClassModels": {
+    "FX": {
+      "weights": {"relativePolicyAndYields": 0.25,"macroSurpriseAndReaction": 0.20,"relativeStrength": 0.20,"D1H4Structure": 0.20,"H1M15Timing": 0.10,"positioningRisk": 0.05},
+      "coreRule": "Compare currencies first, pair second. Structural D1/H4 bias is preferred; H1/M15 determines whether to enter now or wait.",
+      "antiChaseRule": "If H4/H1 RSI is stretched and lower timeframes are already reversing, do not chase the structural direction; require H1 reconfirmation."
+    },
+    "CRYPTO": {
+      "weights": {"BTCRegime": 0.25,"D1H4Structure": 0.20,"spotRelativeStrength": 0.15,"fundingOIliquidations": 0.15,"macroLiquidity": 0.10,"tokenSpecific": 0.05,"M15M5Timing": 0.10},
+      "executionRule": "Use exchange execution price as final MARKET reference and Twelve Data/composite as structure cross-check when available.",
+      "antiCounterTrendRule": "A M15/M5 bounce against bearish D1/H4 is tactical only until H1/H4 reclaim."
+    },
+    "METALS": {
+      "weights": {"USDAndRates": 0.20,"riskAndGeopolitics": 0.15,"D1H4Structure": 0.20,"H1Structure": 0.20,"flowPositioning": 0.10,"volatility": 0.10,"M15M5Timing": 0.05},
+      "exhaustionRule": "If D1 RSI > 70, price is at/under major HTF resistance or EMA200, and H1 plus M15 are bearish, prohibit buy-the-dip from M5 alone.",
+      "confirmationRule": "For long continuation after a sharp metal selloff, require H1 reclaim/acceptance, not only M5 reclaim.",
+      "eventRule": "Tier-1 U.S. data can override technical setup; downgrade to WAIT unless post-event reaction confirms."
+    },
+    "INDEX": {
+      "weights": {"ratesAndLiquidity": 0.20,"growthEarnings": 0.15,"breadth": 0.15,"volatilityCredit": 0.15,"futuresStructure": 0.20,"cashStructure": 0.10,"FXSpecificDriver": 0.05},
+      "sourceRule": "Exact instrument validation is mandatory. Never treat an ETF/equity sharing an index-like ticker as the cash index.",
+      "executionRule": "Prefer corresponding index future for realtime confirmation; cash index is context, futures are execution/price-discovery reference outside cash hours."
+    }
+  },
+  "symbols": {
+    "EURUSD": {
+      "drivers": ["Fed_vs_ECB","US_EU_2Y_yield_spread","DXY","Eurozone_growth_inflation","risk_sentiment"],
+      "model": "FX",
+      "specialRule": "D1 bullish with H1 pullback remains BUY-structural only; require H1/M15 reclaim before MARKET.",
+      "calibrationEvidence": "PASS_2026-08-13_15VN"
+    },
+    "GBPUSD": {
+      "drivers": ["Fed_vs_BoE","UK_US_yields","UK_growth_inflation","DXY","risk_sentiment"],
+      "model": "FX",
+      "specialRule": "Structural GBP strength may coexist with H1 bearish pullback; avoid selling solely from H1 when D1/H4 support GBP unless structural break confirms.",
+      "calibrationEvidence": "PASS_2026-08-13_15VN_and_prior_blind"
+    },
+    "USDJPY": {
+      "drivers": ["Fed_vs_BoJ","US_Japan_yield_spread","carry","intervention_risk","Nikkei","risk_sentiment"],
+      "model": "FX",
+      "specialRule": "When D1 and H4/H1 disagree, default NO TRADE. Intervention/event risk is a hard confidence cap.",
+      "calibrationEvidence": "NEUTRAL_PASS_2026-08-13_15VN"
+    },
+    "USDCHF": {
+      "drivers": ["Fed_vs_SNB","US_CH_yields","risk_aversion","EURCHF_context","DXY"],
+      "model": "FX",
+      "specialRule": "HTF bullish plus deeply oversold M5 is a pullback condition, not an immediate sell; wait lower-timeframe reversal for long.",
+      "calibrationEvidence": "PASS_2026-08-13_15VN"
+    },
+    "USDCAD": {
+      "drivers": ["Fed_vs_BoC","US_Canada_yields","WTI","Canada_growth_inflation","risk_sentiment"],
+      "model": "FX",
+      "specialRule": "D1 structural trend can dominate a H1 rebound; use rebound rejection rather than chase H1 momentum.",
+      "calibrationEvidence": "PASS_2026-08-13_15VN"
+    },
+    "AUDUSD": {
+      "drivers": ["RBA_vs_Fed","AU_US_yields","China_growth_policy","industrial_commodities","risk_sentiment"],
+      "model": "FX",
+      "specialRule": "Treat H1 selloff inside D1 uptrend as pullback until H4/D1 structure breaks; require reclaim for long execution.",
+      "calibrationEvidence": "PASS_2026-08-13_15VN"
+    },
+    "NZDUSD": {
+      "drivers": ["RBNZ_vs_Fed","NZ_US_yields","China_risk","AUDNZD_relative","risk_sentiment"],
+      "model": "FX",
+      "specialRule": "NEW: when H4 and H1 RSI are near 30 and M5/M1 momentum has already turned up, structural SELL confidence is capped LOW and bias becomes NEUTRAL-TO-SELL until H1 re-breaks. Do not extrapolate an oversold trend.",
+      "calibrationEvidence": "FAIL_2026-08-13_15VN_rule_adjusted"
+    },
+    "BTCUSD": {
+      "drivers": ["global_liquidity","USD_rates","spot_flow","ETF_flow_if_available","funding_OI_liquidations","crypto_risk"],
+      "model": "CRYPTO",
+      "specialRule": "Bearish D1/H4 plus M15/M5 bounce = sell-rally environment unless H1/H4 reclaim major structure.",
+      "calibrationEvidence": "PASS_2026-08-13_15VN"
+    },
+    "ETHUSD": {
+      "drivers": ["BTC_regime","ETHBTC_relative_strength","global_liquidity","spot_flow","funding_OI_liquidations","Ethereum_catalysts"],
+      "model": "CRYPTO",
+      "specialRule": "NEW: BTC regime weight increased. If BTC D1/H4 is bearish while ETH is below D1 EMA200 and lacks H4 bullish acceptance, classify ETH as BEARISH-NEUTRAL / SELL-RALLIES rather than pure neutral unless ETHBTC relative strength strongly contradicts.",
+      "calibrationEvidence": "MIXED_2026-08-13_15VN_rule_adjusted"
+    },
+    "XAUUSD": {
+      "drivers": ["DXY","US2Y","US10Y","real_yields_if_available","Fed_expectations","risk_geopolitics","gold_futures_flow"],
+      "model": "METALS",
+      "specialRule": "D1 RSI >70 + HTF resistance/EMA200 + H1/M15 bearish = no buy-the-dip from M5. Sell-rally or WAIT until H1 reclaims. Tier-1 U.S. data requires stricter veto.",
+      "calibrationEvidence": "PASS_after_rule_change_2026-08-13_15VN; prior_long_rule_failed"
+    },
+    "XAGUSD": {
+      "drivers": ["XAUUSD","DXY","rates","industrial_cycle","China","copper","gold_silver_ratio"],
+      "model": "METALS",
+      "specialRule": "Use gold framework but require wider volatility allowance and stronger industrial confirmation. No blind calibration evidence on current free feed.",
+      "calibrationEvidence": "UNAVAILABLE_FREE_FEED"
+    },
+    "SPX": {
+      "drivers": ["Fed_rates","earnings_growth","credit","breadth","VIX","ES_futures"],
+      "model": "INDEX",
+      "specialRule": "Validate true S&P 500 index/future source; current Twelve Data free feed unavailable.",
+      "calibrationEvidence": "UNAVAILABLE_FREE_FEED"
+    },
+    "NAS100": {
+      "drivers": ["real_rates","mega_cap_earnings","semiconductors","breadth","VIX","NQ_futures"],
+      "model": "INDEX",
+      "specialRule": "Higher duration/rate sensitivity than SPX. Validate true Nasdaq-100/NQ source; current Twelve Data free feed unavailable.",
+      "calibrationEvidence": "UNAVAILABLE_FREE_FEED"
+    },
+    "JP225": {
+      "drivers": ["JPY","BoJ","JGB_yields","global_equities","Japan_earnings","Nikkei_futures"],
+      "model": "INDEX",
+      "specialRule": "JPY move is a primary driver but correlation is dynamic. Current N225 mapping failed; do not trade until symbol source is validated.",
+      "calibrationEvidence": "INVALID_MAPPING_CURRENT_FEED"
+    },
+    "DAX": {
+      "drivers": ["ECB","EUR","Europe_growth","global_equities","energy","DAX_futures"],
+      "model": "INDEX",
+      "specialRule": "Current Twelve Data ticker DAX returned ~47, inconsistent with intended German index scale; mark WRONG_SYMBOL. Prior apparent PASS is invalid and must not be used as evidence.",
+      "calibrationEvidence": "INVALID_TEST_WRONG_INSTRUMENT"
+    }
+  }
+}
