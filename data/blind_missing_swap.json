@@ -1,0 +1,248 @@
+{
+  "generatedAt": "2026-08-16T23:55:42.371073+00:00",
+  "method": "V6 missing Breakout coins via OKX USDT perpetual swap fallback",
+  "samples": {
+    "OLD_2026-08-13_12UTC": {
+      "summary": {
+        "requested": 5,
+        "marketTrades": 3,
+        "dataErrors": 2,
+        "resolved": 3,
+        "wins": 2,
+        "losses": 1,
+        "unresolved": 0,
+        "winRateResolved": 66.67,
+        "expectancyR": 0.4
+      },
+      "tests": [
+        {
+          "symbol": "POPCATUSDT",
+          "cutoff": "2026-08-13T12:00:00Z",
+          "source": "OKX USDT-SWAP",
+          "blind": true,
+          "decision": "SELL",
+          "score": -0.949,
+          "entry": 0.0422,
+          "sl": 0.0426,
+          "tp": 0.041780000000000005,
+          "plannedRR": 1.05,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -6.479,
+            "ltfScore": 3.078322721680026,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.9791316596220745,
+            "btcBias": -1.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 0.04203507741267351
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0004400000000000029,
+            "mae": 0.00014999999999999736,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TAOUSDT",
+          "cutoff": "2026-08-13T12:00:00Z",
+          "source": "OKX USDT-SWAP",
+          "blind": true,
+          "decision": "SELL",
+          "score": -2.108,
+          "entry": 199.2,
+          "sl": 200.3,
+          "tp": 197.71499999999995,
+          "plannedRR": 1.35,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -1.9940000000000002,
+            "ltfScore": -2.9267247776814194,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.28116941631281644,
+            "btcBias": -1.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3157894736842105,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 199.9135972525457
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 1.3000000000000114,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TONUSDT",
+          "cutoff": "2026-08-13T12:00:00Z",
+          "error": "D1 swap insufficient:0"
+        },
+        {
+          "symbol": "FARTCOINUSDT",
+          "cutoff": "2026-08-13T12:00:00Z",
+          "source": "OKX USDT-SWAP",
+          "blind": true,
+          "decision": "BUY",
+          "score": 1.224,
+          "entry": 0.1335,
+          "sl": 0.13259858784825737,
+          "tp": 0.13453662397450403,
+          "plannedRR": 1.15,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": 3.0810000000000004,
+            "ltfScore": -0.5316,
+            "meanReversionScore": 0.6,
+            "relativeStrengthScore": 1.0003374215518535,
+            "btcBias": -1.7,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.472222222222224,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.13286961829387858
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0015999999999999903,
+            "mae": 0.00040000000000001146,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "IPUSDT",
+          "cutoff": "2026-08-13T12:00:00Z",
+          "error": "D1 swap insufficient:0"
+        }
+      ]
+    },
+    "NEW_2026-08-14_08UTC": {
+      "summary": {
+        "requested": 5,
+        "marketTrades": 3,
+        "dataErrors": 2,
+        "resolved": 3,
+        "wins": 0,
+        "losses": 3,
+        "unresolved": 0,
+        "winRateResolved": 0.0,
+        "expectancyR": -1.0
+      },
+      "tests": [
+        {
+          "symbol": "POPCATUSDT",
+          "cutoff": "2026-08-14T08:00:00Z",
+          "source": "OKX USDT-SWAP",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.718,
+          "entry": 0.0414,
+          "sl": 0.04252,
+          "tp": 0.040223999999999996,
+          "plannedRR": 1.05,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -9.834,
+            "ltfScore": -4.675343797645367,
+            "meanReversionScore": 1.7000000000000002,
+            "relativeStrengthScore": -0.047478618395577765,
+            "btcBias": -1.7,
+            "chaseAdjustment": 1.45,
+            "rangePositionH1": 0.20430107526881627,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.041922733781858595
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.00028000000000000247,
+            "mae": 0.0011499999999999982,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TAOUSDT",
+          "cutoff": "2026-08-14T08:00:00Z",
+          "source": "OKX USDT-SWAP",
+          "blind": true,
+          "decision": "BUY",
+          "score": 1.017,
+          "entry": 199.6,
+          "sl": 198.62764764626098,
+          "tp": 200.6695875891129,
+          "plannedRR": 1.1,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "range",
+            "htfScore": 2.9140000000000006,
+            "ltfScore": -3.6949322204188886,
+            "meanReversionScore": 1.1,
+            "relativeStrengthScore": 0.13585569638176587,
+            "btcBias": -1.7,
+            "chaseAdjustment": 1.0,
+            "rangePositionH1": 0.31325301204819167,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 201.45238837399532
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.9000000000000057,
+            "mae": 1.1999999999999886,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TONUSDT",
+          "cutoff": "2026-08-14T08:00:00Z",
+          "error": "D1 swap insufficient:0"
+        },
+        {
+          "symbol": "FARTCOINUSDT",
+          "cutoff": "2026-08-14T08:00:00Z",
+          "source": "OKX USDT-SWAP",
+          "blind": true,
+          "decision": "BUY",
+          "score": 4.47,
+          "entry": 0.1389,
+          "sl": 0.13749295541584508,
+          "tp": 0.14072915795940139,
+          "plannedRR": 1.3,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": 9.768999999999998,
+            "ltfScore": -1.2515999999999998,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 2.323638118325133,
+            "btcBias": -1.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6645569620253167,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.1378345863659709
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0007000000000000062,
+            "mae": 0.0015000000000000013,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "IPUSDT",
+          "cutoff": "2026-08-14T08:00:00Z",
+          "error": "D1 swap insufficient:0"
+        }
+      ]
+    }
+  }
+}
