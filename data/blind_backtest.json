@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T23:21:05.962642+00:00",
+  "generatedAt": "2026-08-16T23:22:13.056099+00:00",
   "method": "Strict blind technical engine; only fully closed candles before cutoff; 12h forward M5 check; 2R target",
   "tests": [
     {
@@ -60,9 +60,11 @@
         }
       },
       "outcome12h": {
-        "result": "WAIT_NO_DATA"
+        "result": "WAIT",
+        "maxUp": 225.20000000000437,
+        "maxDown": 46.400000000001455
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "ETHUSDT",
@@ -122,11 +124,11 @@
         }
       },
       "outcome12h": {
-        "result": "OPEN_12H",
-        "mfe": 0.0,
-        "mae": 0.0
+        "result": "SL",
+        "mfe": 0.6899999999998272,
+        "mae": 4.990000000000009
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "SOLUSDT",
@@ -186,11 +188,11 @@
         }
       },
       "outcome12h": {
-        "result": "OPEN_12H",
-        "mfe": 0.0,
-        "mae": 0.0
+        "result": "SL",
+        "mfe": 0.18000000000000682,
+        "mae": 0.29999999999999716
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "XRPUSDT",
@@ -250,11 +252,11 @@
         }
       },
       "outcome12h": {
-        "result": "OPEN_12H",
-        "mfe": 0.0,
-        "mae": 0.0
+        "result": "SL",
+        "mfe": 0.004899999999999904,
+        "mae": 0.0030000000000001137
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "AAVEUSDT",
@@ -314,9 +316,11 @@
         }
       },
       "outcome12h": {
-        "result": "WAIT_NO_DATA"
+        "result": "WAIT",
+        "maxUp": 0.14999999999999147,
+        "maxDown": 1.8900000000000006
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "SUIUSDT",
@@ -376,9 +380,11 @@
         }
       },
       "outcome12h": {
-        "result": "WAIT_NO_DATA"
+        "result": "WAIT",
+        "maxUp": 0.0049000000000000155,
+        "maxDown": 0.009699999999999931
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "PENGUUSDT",
@@ -439,10 +445,10 @@
       },
       "outcome12h": {
         "result": "OPEN_12H",
-        "mfe": 0.0,
-        "mae": 0.0
+        "mfe": 6.200000000000042e-05,
+        "mae": 4.2999999999999636e-05
       },
-      "futureCandles": 0
+      "futureCandles": 143
     },
     {
       "symbol": "KAITOUSDT",
@@ -502,20 +508,20 @@
         }
       },
       "outcome12h": {
-        "result": "OPEN_12H",
-        "mfe": 0.0,
-        "mae": 0.0
+        "result": "TP2R",
+        "mfe": 0.012499999999999956,
+        "mae": 0.0037000000000000366
       },
-      "futureCandles": 0
+      "futureCandles": 143
     }
   ],
   "summary": {
     "cases": 8,
     "trades": 5,
-    "wins": 0,
-    "losses": 0,
-    "open12h": 5,
+    "wins": 1,
+    "losses": 3,
+    "open12h": 1,
     "waits": 3,
-    "winRateClosed": null
+    "winRateClosed": 25.0
   }
 }
