@@ -1,0 +1,40 @@
+name: Ultra Calibration Extract
+on:
+  push:
+    paths: ["ultra-request.json"]
+permissions:
+  contents: write
+jobs:
+  ultra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: |
+          python3 <<'PY'
+          import json
+          with open('data/calibration-blind.json',encoding='utf-8') as f:d=json.load(f)
+          o={'cutoff':d['cutoff'],'symbols':{}}
+          for s,v in d['symbols'].items():
+            if v.get('status')!='ok':
+              o['symbols'][s]={'class':v.get('class'),'status':v.get('status'),'error':v.get('error')};continue
+            z={'class':v.get('class'),'status':'ok'}
+            for tf in ['D1','H4','H1','M15','M5','M1']:
+              x=v['frames'][tf]
+              c=x.get('close'); e20=x.get('ema20'); e50=x.get('ema50'); e200=x.get('ema200')
+              rel='mixed'
+              if None not in (c,e20,e50):
+                if c>e20>e50: rel='up'
+                elif c<e20<e50: rel='down'
+              z[tf]={'c':c,'r':round(x.get('rsi14') or 0,1),'t':x.get('trend'),'rel':rel,'atr':x.get('atr14'),'hi':x.get('recent50High'),'lo':x.get('recent50Low')}
+            o['symbols'][s]=z
+          with open('data/calibration-ultra.json','w',encoding='utf-8') as f:json.dump(o,f,ensure_ascii=False,indent=2)
+          PY
+      - run: |
+          git config user.name market-data-bot
+          git config user.email market-data-bot@users.noreply.github.com
+          git add data/calibration-ultra.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Update ultra calibration extract"
+          git pull --rebase origin main
+          git push origin HEAD:main
