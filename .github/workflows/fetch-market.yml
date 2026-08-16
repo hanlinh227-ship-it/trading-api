@@ -26,7 +26,12 @@ jobs:
           echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
           echo "Requested symbol: $SYMBOL"
 
-      - name: Fetch market data
+      # ==========================================================
+      # 1. FULL ANALYSIS
+      # D1 + H4 + H1 + M15 + M5
+      # ==========================================================
+
+      - name: Fetch full analysis
         shell: bash
         run: |
           mkdir -p data
@@ -34,25 +39,58 @@ jobs:
           SYMBOL="${{ steps.symbol.outputs.symbol }}"
           URL="https://forex-chart-api.hanlinh227.workers.dev/analysis/$SYMBOL"
 
-          echo "Fetching market data for $SYMBOL"
+          echo "Fetching full analysis for $SYMBOL"
 
           HTTP_CODE=$(curl \
             --silent \
             --show-error \
             --location \
-            --output data/latest.tmp.json \
+            --output data/analysis.tmp.json \
             --write-out "%{http_code}" \
             "$URL")
 
-          echo "HTTP status: $HTTP_CODE"
+          echo "Analysis HTTP status: $HTTP_CODE"
 
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            echo "Worker returned HTTP $HTTP_CODE"
-            cat data/latest.tmp.json
+            echo "Analysis request failed"
+            cat data/analysis.tmp.json
             exit 1
           fi
 
-      - name: Validate and create compact files
+      # ==========================================================
+      # 2. LIVE REFRESH
+      # M1 mới nhất
+      # ==========================================================
+
+      - name: Fetch latest M1 price
+        shell: bash
+        run: |
+          SYMBOL="${{ steps.symbol.outputs.symbol }}"
+          URL="https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL"
+
+          echo "Refreshing current price for $SYMBOL"
+
+          HTTP_CODE=$(curl \
+            --silent \
+            --show-error \
+            --location \
+            --output data/refresh.tmp.json \
+            --write-out "%{http_code}" \
+            "$URL")
+
+          echo "Refresh HTTP status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Refresh request failed"
+            cat data/refresh.tmp.json
+            exit 1
+          fi
+
+      # ==========================================================
+      # 3. VALIDATE + MERGE
+      # ==========================================================
+
+      - name: Validate and merge market data
         shell: bash
         run: |
           python3 <<'PY'
@@ -60,71 +98,198 @@ jobs:
           import sys
           from datetime import datetime, timezone
 
-          source = "data/latest.tmp.json"
+          with open("request.json", "r", encoding="utf-8") as f:
+              request = json.load(f)
+
+          requested_symbol = request["symbol"].upper()
 
           try:
-              with open(source, "r", encoding="utf-8") as f:
-                  market = json.load(f)
+              with open("data/analysis.tmp.json", "r", encoding="utf-8") as f:
+                  analysis = json.load(f)
+
+              with open("data/refresh.tmp.json", "r", encoding="utf-8") as f:
+                  refresh = json.load(f)
+
           except Exception as e:
               print("Invalid JSON:", e)
               sys.exit(1)
 
-          if market.get("status") not in ("ok", "partial"):
-              print("Worker status:", market.get("status"))
-              print(market)
+          # ------------------------------------------------------
+          # CHECK SYMBOL
+          # ------------------------------------------------------
+
+          if analysis.get("symbol") != requested_symbol:
+              print("Analysis returned wrong symbol")
               sys.exit(1)
 
-          if not market.get("symbol"):
-              print("Missing symbol")
+          if refresh.get("symbol") != requested_symbol:
+              print("Refresh returned wrong symbol")
               sys.exit(1)
 
-          with open("request.json", "r", encoding="utf-8") as f:
-              request = json.load(f)
+          # ------------------------------------------------------
+          # CHECK ANALYSIS
+          # ------------------------------------------------------
 
-          # Keep full raw payload for audit/reprocessing.
-          with open("data/latest.json", "w", encoding="utf-8") as f:
-              json.dump(market, f, ensure_ascii=False, separators=(",", ":"))
+          if analysis.get("status") not in ("ok", "partial"):
+              print("Analysis failed:", analysis)
+              sys.exit(1)
+
+          if not analysis.get("analysisReady"):
+              print("Analysis is not ready")
+              print(analysis.get("frameStatus"))
+              sys.exit(1)
+
+          if analysis.get("successfulFrames") != 5:
+              print("Not all 5 analysis frames succeeded")
+              sys.exit(1)
+
+          # ------------------------------------------------------
+          # CHECK REFRESH
+          # ------------------------------------------------------
+
+          if refresh.get("status") not in ("ok", "partial"):
+              print("Refresh failed:", refresh)
+              sys.exit(1)
+
+          live_price = refresh.get("currentPrice")
+          live_time = refresh.get("currentPriceTime")
+          live_age = refresh.get("dataAgeSeconds")
+          live_stale = refresh.get("stale")
+
+          if live_price is None:
+              print("Missing refreshed price")
+              sys.exit(1)
+
+          # ------------------------------------------------------
+          # COMPACT FRAME DATA
+          # ------------------------------------------------------
 
           frames = {}
+
           for key in ["D1", "H4", "H1", "M15", "M5"]:
-              frame = (market.get("timeframes") or {}).get(key) or {}
+              frame = (analysis.get("timeframes") or {}).get(key) or {}
+
               candles = frame.get("candles") or []
+
               frames[key] = {
                   "status": frame.get("status"),
                   "interval": frame.get("interval"),
                   "latestCandle": frame.get("latestCandle"),
                   "summary": frame.get("summary"),
-                  "recentCandles": candles[-12:]
+
+                  # 15 nến gần nhất đủ để ChatGPT đọc
+                  # cấu trúc ngắn hạn mà không làm file quá lớn
+                  "recentCandles": candles[-15:]
               }
 
+          # M1 refresh
+          m1_frame = (
+              refresh.get("timeframes") or {}
+          ).get("M1") or {}
+
+          m1_candles = m1_frame.get("candles") or []
+
+          # ------------------------------------------------------
+          # STATUS FILE — FILE CHÍNH CHATGPT ĐỌC
+          # ------------------------------------------------------
+
           status = {
-              "requestedSymbol": request["symbol"].upper(),
-              "returnedSymbol": market.get("symbol"),
-              "marketSymbol": market.get("marketSymbol"),
-              "marketType": market.get("marketType"),
-              "currentPrice": market.get("currentPrice"),
-              "currentPriceTime": market.get("currentPriceTime"),
-              "dataAgeSeconds": market.get("dataAgeSeconds"),
-              "stale": market.get("stale"),
-              "analysisReady": market.get("analysisReady"),
-              "successfulFrames": market.get("successfulFrames"),
-              "failedFrames": market.get("failedFrames"),
+              "requestedSymbol": requested_symbol,
+
+              "returnedSymbol": analysis.get("symbol"),
+
+              "marketSymbol": analysis.get("marketSymbol"),
+
+              "marketType": analysis.get("marketType"),
+
+              "analysisGeneratedAt": analysis.get("generatedAt"),
+
+              "liveRefreshGeneratedAt": refresh.get("generatedAt"),
+
+              "currentPrice": live_price,
+
+              "currentPriceTime": live_time,
+
+              "priceSource": "M1 refresh",
+
+              "dataAgeSeconds": live_age,
+
+              "stale": live_stale,
+
+              "analysisReady": True,
+
+              "successfulFrames": analysis.get("successfulFrames"),
+
+              "failedFrames": analysis.get("failedFrames"),
+
               "frames": frames,
-              "updatedAt": datetime.now(timezone.utc).isoformat()
+
+              "M1": {
+                  "latestCandle": m1_frame.get("latestCandle"),
+                  "summary": m1_frame.get("summary"),
+                  "recentCandles": m1_candles[-15:]
+              },
+
+              "updatedAt": datetime.now(
+                  timezone.utc
+              ).isoformat()
           }
 
-          with open("data/status.json", "w", encoding="utf-8") as f:
-              json.dump(status, f, ensure_ascii=False, indent=2)
+          with open(
+              "data/status.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
 
-          print("Symbol:", market.get("symbol"))
-          print("Current price:", market.get("currentPrice"))
-          print("Analysis ready:", market.get("analysisReady"))
+              json.dump(
+                  status,
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          # ------------------------------------------------------
+          # RAW DATA
+          # ------------------------------------------------------
+
+          combined = {
+              "analysis": analysis,
+              "refresh": refresh
+          }
+
+          with open(
+              "data/latest.json",
+              "w",
+              encoding="utf-8"
+          ) as f:
+
+              json.dump(
+                  combined,
+                  f,
+                  ensure_ascii=False,
+                  separators=(",", ":")
+              )
+
+          print("===================================")
+          print("SYMBOL:", requested_symbol)
+          print("LIVE PRICE:", live_price)
+          print("LIVE TIME:", live_time)
+          print("AGE:", live_age)
+          print("STALE:", live_stale)
+          print("ANALYSIS FRAMES: 5/5")
+          print("===================================")
+
           PY
 
-      - name: Commit market data
+      # ==========================================================
+      # 4. SAVE TO GITHUB
+      # ==========================================================
+
+      - name: Commit fresh market data
         shell: bash
         run: |
-          rm -f data/latest.tmp.json
+          rm -f data/analysis.tmp.json
+          rm -f data/refresh.tmp.json
 
           git config user.name "market-data-bot"
           git config user.email "market-data-bot@users.noreply.github.com"
@@ -132,9 +297,9 @@ jobs:
           git add data/latest.json data/status.json
 
           if git diff --cached --quiet; then
-            echo "No market data changes."
+            echo "No data changes."
             exit 0
           fi
 
-          git commit -m "Update market data for ${{ steps.symbol.outputs.symbol }}"
+          git commit -m "Refresh live market data for ${{ steps.symbol.outputs.symbol }}"
           git push
