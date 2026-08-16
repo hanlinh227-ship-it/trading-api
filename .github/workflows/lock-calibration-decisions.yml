@@ -1,0 +1,215 @@
+name: Lock Calibration Decisions
+
+on:
+  push:
+    paths:
+      - ".github/workflows/lock-calibration-decisions.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build blind-only decisions
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json, math, os, sys
+          from datetime import datetime, timezone
+
+          with open('calibration-request.json', encoding='utf-8') as f:
+              req = json.load(f)
+          with open('data/calibration-blind.json', encoding='utf-8') as f:
+              blind = json.load(f)
+
+          if req.get('phase') != 'blind':
+              raise SystemExit('Request is not blind phase')
+          if blind.get('status') != 'ok':
+              raise SystemExit('Blind snapshot is not OK')
+          if blind.get('futureDataIncluded') is not False or blind.get('lookAheadDetected') is not False:
+              raise SystemExit('Blind integrity check failed')
+          if blind.get('cutoff') != req.get('cutoff'):
+              raise SystemExit('Cutoff mismatch')
+
+          weights = {'D1': 3.0, 'H4': 3.0, 'H1': 2.5, 'M15': 1.5, 'M5': 0.75, 'M1': 0.25}
+          direction_score = {'bullish': 1.0, 'bearish': -1.0, 'neutral': 0.0}
+
+          def frame_score(fr):
+              t = direction_score.get(fr.get('trend'), 0.0)
+              r = fr.get('rsi14')
+              mom = 0.0
+              if isinstance(r, (int,float)):
+                  if r >= 60: mom = 0.35
+                  elif r >= 53: mom = 0.15
+                  elif r <= 40: mom = -0.35
+                  elif r <= 47: mom = -0.15
+              return max(-1.25, min(1.25, t + mom))
+
+          def fmt(x, cls):
+              if cls == 'fx':
+                  return round(x, 5)
+              if cls in ('crypto','metal','index'):
+                  return round(x, 2)
+              return round(x, 5)
+
+          decisions = {}
+          unavailable = {}
+
+          for sym, s in blind.get('symbols', {}).items():
+              cls = s.get('class','unknown')
+              if s.get('status') != 'ok':
+                  unavailable[sym] = {'class': cls, 'status': s.get('status'), 'error': s.get('error')}
+                  continue
+              frames = s.get('frames', {})
+              needed = ['D1','H4','H1','M15','M5','M1']
+              if any(k not in frames for k in needed):
+                  unavailable[sym] = {'class': cls, 'status':'incomplete_frames'}
+                  continue
+
+              raw = sum(weights[k]*frame_score(frames[k]) for k in needed)
+              ht = 0.5*frame_score(frames['D1']) + 0.5*frame_score(frames['H4'])
+              tactical = 0.55*frame_score(frames['H1']) + 0.30*frame_score(frames['M15']) + 0.15*frame_score(frames['M5'])
+              h1 = frames['H1']; m15 = frames['M15']; m5 = frames['M5']; d1 = frames['D1']; h4 = frames['H4']
+              price = m5['close']
+              atr1 = max(float(h1.get('atr14') or 0), 1e-12)
+              atr5 = max(float(m5.get('atr14') or 0), 1e-12)
+
+              # Class-aware conflict / event sensitivity guard.
+              conflict = (ht > 0.25 and tactical < -0.35) or (ht < -0.25 and tactical > 0.35)
+              extreme = False
+              r1 = d1.get('rsi14')
+              if isinstance(r1,(int,float)) and (r1 >= 70 or r1 <= 30):
+                  extreme = True
+
+              # Metals require stronger H1 confirmation when HTF is stretched/conflicted.
+              if cls == 'metal' and (conflict or extreme):
+                  raw *= 0.55
+              # Crypto gives H1/H4 more influence, downweights noisy M1/M5 flips.
+              if cls == 'crypto':
+                  raw = 3.2*frame_score(d1)+3.4*frame_score(h4)+3.0*frame_score(h1)+1.2*frame_score(m15)+0.45*frame_score(m5)+0.10*frame_score(frames['M1'])
+              # FX avoids forcing a direction during HTF/intraday disagreement.
+              if cls == 'fx' and conflict:
+                  raw *= 0.65
+
+              if raw >= 2.0:
+                  directional = 'BUY'
+              elif raw <= -2.0:
+                  directional = 'SELL'
+              else:
+                  directional = 'NEUTRAL_WAIT'
+
+              structural = 'BULLISH' if ht >= 0.25 else 'BEARISH' if ht <= -0.25 else 'NEUTRAL'
+              tactical_bias = 'BULLISH' if tactical >= 0.25 else 'BEARISH' if tactical <= -0.25 else 'NEUTRAL'
+
+              strength = abs(raw)
+              if directional == 'NEUTRAL_WAIT': conf='LOW'
+              elif strength >= 6.5 and not conflict: conf='HIGH'
+              elif strength >= 3.5: conf='MEDIUM_HIGH'
+              else: conf='MEDIUM'
+              if conflict and conf == 'HIGH': conf='MEDIUM_HIGH'
+              if cls == 'metal' and (conflict or extreme) and conf in ('HIGH','MEDIUM_HIGH'): conf='MEDIUM'
+
+              # Entry quality: only GOOD when H1 and M15 align with directional bias.
+              side = 1 if directional == 'BUY' else -1 if directional == 'SELL' else 0
+              h1s = frame_score(h1); m15s = frame_score(m15); m5s = frame_score(m5)
+              aligned = side and h1s*side > 0.25 and m15s*side >= 0
+              entry_quality = 'GOOD' if aligned and abs(m5s) <= 1.0 else 'FAIR' if side else 'POOR'
+              if conflict or (cls == 'metal' and extreme):
+                  entry_quality = 'FAIR' if side else 'POOR'
+
+              # Trigger/invalidation levels from ATR and recent structure, blind-only.
+              if directional == 'BUY':
+                  reclaim = price + 0.20*atr1
+                  invalid = min(float(h1.get('recent50Low', price-atr1)), price - 0.90*atr1)
+                  trigger = {
+                      'type':'H1_M15_CONFIRM_RECLAIM' if (cls == 'metal' or conflict) else 'M15_M5_CONFIRM_RECLAIM',
+                      'condition': f"Require closed-candle bullish confirmation above {fmt(reclaim,cls)}; no entry while H1 acceptance is below the trigger zone",
+                      'referenceLevel': fmt(reclaim,cls)
+                  }
+                  invalidation = f"Invalidate BUY on H1 acceptance below {fmt(invalid,cls)} or structural low failure before confirmation"
+              elif directional == 'SELL':
+                  breakdown = price - 0.20*atr1
+                  invalid = max(float(h1.get('recent50High', price+atr1)), price + 0.90*atr1)
+                  trigger = {
+                      'type':'H1_M15_CONFIRM_BREAKDOWN' if (cls == 'metal' or conflict) else 'M15_M5_CONFIRM_BREAKDOWN',
+                      'condition': f"Require closed-candle bearish confirmation below {fmt(breakdown,cls)}; no entry while H1 acceptance is above the trigger zone",
+                      'referenceLevel': fmt(breakdown,cls)
+                  }
+                  invalidation = f"Invalidate SELL on H1 acceptance above {fmt(invalid,cls)} or structural high failure before confirmation"
+              else:
+                  trigger = {
+                      'type':'WAIT_FOR_ALIGNMENT',
+                      'condition':'No directional entry until H1 and M15 align with H4 or a clean HTF structure break/reclaim is confirmed',
+                      'referenceLevel': fmt(price,cls)
+                  }
+                  invalidation = 'No setup is valid while higher-timeframe and intraday structure remain conflicted'
+
+              # Hard vetoes.
+              hard_vetoes=[]
+              if conflict: hard_vetoes.append('HTF_INTRADAY_CONFLICT')
+              if cls == 'metal' and extreme: hard_vetoes.append('D1_MOMENTUM_EXTREME_REQUIRES_H1_CONFIRMATION')
+              if cls in ('metal','index','fx'): hard_vetoes.append('HIGH_IMPACT_EVENT_GATE_REQUIRED_IN_LIVE_USE')
+              if cls == 'crypto': hard_vetoes.append('NO_M1_ONLY_REVERSAL_ENTRY')
+
+              decisions[sym] = {
+                  'class': cls,
+                  'status':'locked',
+                  'directionalBias': directional,
+                  'structuralBias': structural,
+                  'tacticalBias': tactical_bias,
+                  'confidence': conf,
+                  'entryQuality': entry_quality,
+                  'score': round(raw,3),
+                  'conflict': conflict,
+                  'trigger': trigger,
+                  'invalidation': invalidation,
+                  'hardVetoes': hard_vetoes,
+                  'blindEvidence': {
+                      'D1Trend': d1.get('trend'), 'D1RSI': d1.get('rsi14'),
+                      'H4Trend': h4.get('trend'), 'H4RSI': h4.get('rsi14'),
+                      'H1Trend': h1.get('trend'), 'H1RSI': h1.get('rsi14'),
+                      'M15Trend': m15.get('trend'), 'M5Trend': m5.get('trend')
+                  }
+              }
+
+          out = {
+              'status':'locked',
+              'mode':'CROSS_MARKET_BLIND_DECISIONS',
+              'cutoff': blind['cutoff'],
+              'timezone': blind.get('timezone'),
+              'blindRequestId': blind.get('requestId'),
+              'lockedBeforeReveal': True,
+              'futureDataUsed': False,
+              'lookAheadVerified': True,
+              'method':'REACT_MTF_V1_CLASS_AWARE',
+              'decisions': decisions,
+              'unavailable': unavailable,
+              'generatedAt': datetime.now(timezone.utc).isoformat()
+          }
+          with open('data/calibration-decisions.json','w',encoding='utf-8') as f:
+              json.dump(out,f,ensure_ascii=False,indent=2)
+
+          # Prepare reveal only after decisions are on disk.
+          req['phase']='reveal'
+          req['id']=int(req.get('id',0))+1
+          with open('calibration-request.json','w',encoding='utf-8') as f:
+              json.dump(req,f,ensure_ascii=False,indent=2)
+          print('Locked', len(decisions), 'decisions; unavailable', len(unavailable))
+          PY
+
+      - name: Commit locked decisions and start reveal
+        shell: bash
+        run: |
+          git config user.name market-data-bot
+          git config user.email market-data-bot@users.noreply.github.com
+          git add data/calibration-decisions.json calibration-request.json
+          git commit -m "Lock blind calibration decisions and start reveal"
+          git pull --rebase origin main
+          git push origin HEAD:main
