@@ -1,33 +1,50 @@
 {
   "status": "ok",
-  "mode": "BLIND_BACKTEST",
+  "mode": "BLIND_BACKTEST_V2",
   "phase": "blind",
   "symbol": "GBPUSD",
   "cutoff": "2026-08-14T10:00:00",
   "timezone": "Asia/Ho_Chi_Minh",
-  "requestId": 1,
+  "requestId": 2,
   "futureDataIncluded": false,
+  "lookAheadDetected": false,
+  "lookAheadProtection": "STRICT_CLOSED_CANDLES",
+  "lastClosed": {
+    "D1": "2026-08-13",
+    "H4": "2026-08-14 04:00:00",
+    "H1": "2026-08-14 09:00:00",
+    "M15": "2026-08-14 09:45:00",
+    "M5": "2026-08-14 09:55:00",
+    "M1": "2026-08-14 09:59:00"
+  },
   "frames": {
     "D1": {
-      "latestCandle": {
-        "datetime": "2026-08-14",
-        "open": 1.34871,
-        "high": 1.35613,
-        "low": 1.34834,
-        "close": 1.35341
+      "latestClosedCandle": {
+        "datetime": "2026-08-13",
+        "open": 1.34952,
+        "high": 1.35126,
+        "low": 1.3475,
+        "close": 1.3487
       },
       "summary": {
-        "close": 1.35341,
-        "ema20": 1.3464173573544782,
-        "ema50": 1.3421659600401858,
-        "ema200": 1.3429487059223963,
-        "rsi14": 64.49398453716697,
-        "atr14": 0.00555908623838255,
-        "recent50High": 1.35613,
-        "recent50Low": 1.31807,
+        "close": 1.3487,
+        "ema20": 1.345681289707581,
+        "ema50": 1.3417070196336633,
+        "ema200": 1.3428435672884538,
+        "rsi14": 58.247160383978276,
+        "atr14": 0.005387477487488903,
+        "recent50High": 1.35583,
+        "recent50Low": 1.31478,
         "trend": "bullish"
       },
-      "recentCandles": [
+      "recentClosedCandles": [
+        {
+          "datetime": "2026-07-25",
+          "open": 1.33231,
+          "high": 1.33257,
+          "low": 1.33177,
+          "close": 1.33237
+        },
         {
           "datetime": "2026-07-26",
           "open": 1.33234,
@@ -160,36 +177,36 @@
           "high": 1.35126,
           "low": 1.3475,
           "close": 1.3487
-        },
-        {
-          "datetime": "2026-08-14",
-          "open": 1.34871,
-          "high": 1.35613,
-          "low": 1.34834,
-          "close": 1.35341
         }
       ]
     },
     "H4": {
-      "latestCandle": {
-        "datetime": "2026-08-14 08:00:00",
-        "open": 1.34976,
-        "high": 1.34999,
-        "low": 1.34891,
-        "close": 1.34971
+      "latestClosedCandle": {
+        "datetime": "2026-08-14 04:00:00",
+        "open": 1.34871,
+        "high": 1.3498,
+        "low": 1.34834,
+        "close": 1.34979
       },
       "summary": {
-        "close": 1.34971,
-        "ema20": 1.3497853159039075,
-        "ema50": 1.3487454569355604,
-        "ema200": 1.34349079976068,
-        "rsi14": 50.170565760982846,
-        "atr14": 0.001822953463666639,
+        "close": 1.34979,
+        "ema20": 1.3497932438937932,
+        "ema50": 1.348706087830891,
+        "ema200": 1.343428295235664,
+        "rsi14": 50.48317037910176,
+        "atr14": 0.0018801037301025365,
         "recent50High": 1.35402,
         "recent50Low": 1.34347,
         "trend": "neutral"
       },
-      "recentCandles": [
+      "recentClosedCandles": [
+        {
+          "datetime": "2026-08-11 00:00:00",
+          "open": 1.3515,
+          "high": 1.3515,
+          "low": 1.35051,
+          "close": 1.35078
+        },
         {
           "datetime": "2026-08-11 04:00:00",
           "open": 1.35074,
@@ -322,36 +339,36 @@
           "high": 1.3498,
           "low": 1.34834,
           "close": 1.34979
-        },
-        {
-          "datetime": "2026-08-14 08:00:00",
-          "open": 1.34976,
-          "high": 1.34999,
-          "low": 1.34891,
-          "close": 1.34971
         }
       ]
     },
     "H1": {
-      "latestCandle": {
-        "datetime": "2026-08-14 10:00:00",
-        "open": 1.34892,
-        "high": 1.34975,
+      "latestClosedCandle": {
+        "datetime": "2026-08-14 09:00:00",
+        "open": 1.3491,
+        "high": 1.34943,
         "low": 1.34891,
-        "close": 1.34957
+        "close": 1.34892
       },
       "summary": {
-        "close": 1.34957,
-        "ema20": 1.3491996532321449,
-        "ema50": 1.349553212132019,
-        "ema200": 1.3484694615104182,
-        "rsi14": 52.20696848387835,
-        "atr14": 0.0008709590027977011,
+        "close": 1.34892,
+        "ema20": 1.3491606693618443,
+        "ema50": 1.3495525269129187,
+        "ema200": 1.3484584008220828,
+        "rsi14": 47.161917461987045,
+        "atr14": 0.000873340464551374,
         "recent50High": 1.35402,
         "recent50Low": 1.3475,
-        "trend": "neutral"
+        "trend": "bearish"
       },
-      "recentCandles": [
+      "recentClosedCandles": [
+        {
+          "datetime": "2026-08-13 14:00:00",
+          "open": 1.34812,
+          "high": 1.34882,
+          "low": 1.3476,
+          "close": 1.34841
+        },
         {
           "datetime": "2026-08-13 15:00:00",
           "open": 1.34837,
@@ -484,36 +501,36 @@
           "high": 1.34943,
           "low": 1.34891,
           "close": 1.34892
-        },
-        {
-          "datetime": "2026-08-14 10:00:00",
-          "open": 1.34892,
-          "high": 1.34975,
-          "low": 1.34891,
-          "close": 1.34957
         }
       ]
     },
     "M15": {
-      "latestCandle": {
-        "datetime": "2026-08-14 10:00:00",
-        "open": 1.34892,
-        "high": 1.34927,
+      "latestClosedCandle": {
+        "datetime": "2026-08-14 09:45:00",
+        "open": 1.34936,
+        "high": 1.34943,
         "low": 1.34891,
-        "close": 1.34913
+        "close": 1.34892
       },
       "summary": {
-        "close": 1.34913,
-        "ema20": 1.3491297084674752,
-        "ema50": 1.349078035534263,
-        "ema200": 1.3497326576201725,
-        "rsi14": 50.610701634124496,
-        "atr14": 0.0003571553912140579,
+        "close": 1.34892,
+        "ema20": 1.3491296777798405,
+        "ema50": 1.3490759145356628,
+        "ema200": 1.3497387144806796,
+        "rsi14": 46.757929531956485,
+        "atr14": 0.0003569365751536073,
         "recent50High": 1.35095,
         "recent50Low": 1.34802,
-        "trend": "bullish"
+        "trend": "neutral"
       },
-      "recentCandles": [
+      "recentClosedCandles": [
+        {
+          "datetime": "2026-08-14 05:00:00",
+          "open": 1.34856,
+          "high": 1.3488,
+          "low": 1.34853,
+          "close": 1.34854
+        },
         {
           "datetime": "2026-08-14 05:15:00",
           "open": 1.34856,
@@ -646,36 +663,36 @@
           "high": 1.34943,
           "low": 1.34891,
           "close": 1.34892
-        },
-        {
-          "datetime": "2026-08-14 10:00:00",
-          "open": 1.34892,
-          "high": 1.34927,
-          "low": 1.34891,
-          "close": 1.34913
         }
       ]
     },
     "M5": {
-      "latestCandle": {
-        "datetime": "2026-08-14 10:00:00",
-        "open": 1.34892,
-        "high": 1.34911,
+      "latestClosedCandle": {
+        "datetime": "2026-08-14 09:55:00",
+        "open": 1.34907,
+        "high": 1.34912,
         "low": 1.34891,
-        "close": 1.3491
+        "close": 1.34892
       },
       "summary": {
-        "close": 1.3491,
-        "ema20": 1.3491995925726916,
-        "ema50": 1.3491635039973255,
-        "ema200": 1.3490865128405989,
-        "rsi14": 46.24336041676337,
-        "atr14": 0.0001996254328637383,
+        "close": 1.34892,
+        "ema20": 1.349210076001396,
+        "ema50": 1.3491660959972174,
+        "ema200": 1.349086377291262,
+        "rsi14": 39.11099607666324,
+        "atr14": 0.00019959662000710449,
         "recent50High": 1.34981,
-        "recent50Low": 1.34878,
+        "recent50Low": 1.34874,
         "trend": "neutral"
       },
-      "recentCandles": [
+      "recentClosedCandles": [
+        {
+          "datetime": "2026-08-14 08:20:00",
+          "open": 1.34925,
+          "high": 1.3493,
+          "low": 1.34907,
+          "close": 1.34927
+        },
         {
           "datetime": "2026-08-14 08:25:00",
           "open": 1.3492,
@@ -808,36 +825,36 @@
           "high": 1.34912,
           "low": 1.34891,
           "close": 1.34892
-        },
-        {
-          "datetime": "2026-08-14 10:00:00",
-          "open": 1.34892,
-          "high": 1.34911,
-          "low": 1.34891,
-          "close": 1.3491
         }
       ]
     },
     "M1": {
-      "latestCandle": {
-        "datetime": "2026-08-14 10:00:00",
-        "open": 1.34892,
-        "high": 1.34901,
-        "low": 1.34892,
-        "close": 1.34899
+      "latestClosedCandle": {
+        "datetime": "2026-08-14 09:59:00",
+        "open": 1.34896,
+        "high": 1.34896,
+        "low": 1.34891,
+        "close": 1.34892
       },
       "summary": {
-        "close": 1.34899,
-        "ema20": 1.3491249345852172,
-        "ema50": 1.3491944948876873,
-        "ema200": 1.3492118393283197,
-        "rsi14": 39.43332733493135,
-        "atr14": 0.00010058437332691647,
+        "close": 1.34892,
+        "ema20": 1.349139138225767,
+        "ema50": 1.3492028416177975,
+        "ema200": 1.3492140688693102,
+        "rsi14": 33.84267382786936,
+        "atr14": 0.00010139855589051424,
         "recent50High": 1.34943,
         "recent50Low": 1.34891,
         "trend": "bearish"
       },
-      "recentCandles": [
+      "recentClosedCandles": [
+        {
+          "datetime": "2026-08-14 09:40:00",
+          "open": 1.34929,
+          "high": 1.34933,
+          "low": 1.34927,
+          "close": 1.34929
+        },
         {
           "datetime": "2026-08-14 09:41:00",
           "open": 1.34927,
@@ -970,22 +987,17 @@
           "high": 1.34896,
           "low": 1.34891,
           "close": 1.34892
-        },
-        {
-          "datetime": "2026-08-14 10:00:00",
-          "open": 1.34892,
-          "high": 1.34901,
-          "low": 1.34892,
-          "close": 1.34899
         }
       ]
     }
   },
   "dataGuard": {
     "cutoffLocked": true,
+    "onlyClosedCandles": true,
+    "incompleteCandlesRemoved": true,
     "futureDataIncluded": false,
-    "futureRevealAllowed": false,
-    "lookAheadProtection": "ENABLED"
+    "lookAheadDetected": false,
+    "revealAllowed": false
   },
-  "generatedAt": "2026-08-16T06:51:39.845640+00:00"
+  "generatedAt": "2026-08-16T07:01:17.255125+00:00"
 }
