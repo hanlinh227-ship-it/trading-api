@@ -1,7 +1,7 @@
 {
-  "symbol": "GBPUSD",
-  "cutoff": "2026-08-14T10:00:00",
+  "symbol": "XAUUSD",
+  "cutoff": "2026-08-13T15:00:00",
   "timezone": "Asia/Ho_Chi_Minh",
-  "phase": "reveal",
-  "id": 3
+  "phase": "blind",
+  "id": 4
 }
