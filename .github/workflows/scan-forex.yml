@@ -10,28 +10,63 @@ on:
 permissions:
   contents: write
 
+# =========================================================
+# KHÓA TWELVE DATA
+#
+# Forex Scan và Fetch Market Data không được chạy cùng lúc.
+#
+# Nếu đang scan Forex mà bạn yêu cầu XAUUSD:
+# XAUUSD sẽ chờ scan xong rồi mới chạy.
+#
+# Không cancel job đang chạy.
+# =========================================================
+
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+
 jobs:
   forex-scan:
+
     runs-on: ubuntu-latest
 
     steps:
+
+      # =====================================================
+      # CHECKOUT
+      # =====================================================
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # ==================================================
-      # 28 FOREX PAIRS
-      # 4 GROUPS × 7 PAIRS
-      #
-      # Mỗi cặp dùng route /scan/SYMBOL
-      # chỉ lấy H1 để tiết kiệm Twelve Data credits.
-      # ==================================================
+      # =====================================================
+      # INITIALIZE
+      # =====================================================
 
-      - name: Scan Group 1
+      - name: Initialize
         shell: bash
         run: |
           mkdir -p scan
           mkdir -p data
 
+      # =====================================================
+      # FUNCTION NOTES
+      #
+      # Mỗi group = 7 API credits.
+      # Twelve Data Basic = 8/min.
+      #
+      # Sau mỗi group nghỉ 65 giây.
+      # =====================================================
+
+      # =====================================================
+      # GROUP 1
+      # =====================================================
+
+      - name: Scan Group 1
+        shell: bash
+        run: |
           PAIRS=(
             EURUSD
             GBPUSD
@@ -43,28 +78,112 @@ jobs:
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
+
             echo "Scanning $SYMBOL"
 
             HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
+              --retry 2 \
+              --retry-delay 2 \
               --output "scan/$SYMBOL.json" \
               --write-out "%{http_code}" \
               "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
 
             echo "$SYMBOL HTTP $HTTP_CODE"
 
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-              echo "$SYMBOL scan failed"
-            fi
           done
 
-      - name: Wait Twelve Data quota after Group 1
+      # =====================================================
+      # VALIDATE GROUP 1
+      # =====================================================
+
+      - name: Validate Group 1
         shell: bash
         run: |
-          echo "Waiting 65 seconds..."
+          python3 <<'PY'
+          import json
+          import sys
+
+          pairs = [
+              "EURUSD",
+              "GBPUSD",
+              "USDJPY",
+              "USDCHF",
+              "USDCAD",
+              "AUDUSD",
+              "NZDUSD"
+          ]
+
+          failed = []
+
+          for symbol in pairs:
+
+              try:
+
+                  with open(
+                      f"scan/{symbol}.json",
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+                      data = json.load(f)
+
+              except Exception:
+
+                  failed.append(symbol)
+                  continue
+
+              if data.get("status") != "ok":
+
+                  failed.append(symbol)
+
+          with open(
+              "scan/group1-failed.txt",
+              "w"
+          ) as f:
+
+              for symbol in failed:
+                  f.write(symbol + "\n")
+
+          print("Group 1 failed:", failed)
+          PY
+
+      - name: Wait after Group 1
+        shell: bash
+        run: |
           sleep 65
+
+      # =====================================================
+      # RETRY GROUP 1 FAILURES
+      # =====================================================
+
+      - name: Retry Group 1 failures
+        shell: bash
+        run: |
+          if [ ! -s scan/group1-failed.txt ]; then
+
+            echo "Group 1: no retry needed."
+
+            exit 0
+          fi
+
+          while read SYMBOL; do
+
+            echo "Retrying $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --output "scan/$SYMBOL.json" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL"
+
+          done < scan/group1-failed.txt
+
+      # =====================================================
+      # GROUP 2
+      # =====================================================
 
       - name: Scan Group 2
         shell: bash
@@ -80,28 +199,111 @@ jobs:
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
+
             echo "Scanning $SYMBOL"
 
             HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
+              --retry 2 \
+              --retry-delay 2 \
               --output "scan/$SYMBOL.json" \
               --write-out "%{http_code}" \
               "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
 
             echo "$SYMBOL HTTP $HTTP_CODE"
 
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-              echo "$SYMBOL scan failed"
-            fi
           done
 
-      - name: Wait Twelve Data quota after Group 2
+      # =====================================================
+      # VALIDATE GROUP 2
+      # =====================================================
+
+      - name: Validate Group 2
         shell: bash
         run: |
-          echo "Waiting 65 seconds..."
+          python3 <<'PY'
+          import json
+
+          pairs = [
+              "EURJPY",
+              "EURGBP",
+              "EURCHF",
+              "EURAUD",
+              "EURNZD",
+              "EURCAD",
+              "GBPJPY"
+          ]
+
+          failed = []
+
+          for symbol in pairs:
+
+              try:
+
+                  with open(
+                      f"scan/{symbol}.json",
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+
+                      data = json.load(f)
+
+              except Exception:
+
+                  failed.append(symbol)
+                  continue
+
+              if data.get("status") != "ok":
+                  failed.append(symbol)
+
+          with open(
+              "scan/group2-failed.txt",
+              "w"
+          ) as f:
+
+              for symbol in failed:
+                  f.write(symbol + "\n")
+
+          print("Group 2 failed:", failed)
+          PY
+
+      - name: Wait after Group 2
+        shell: bash
+        run: |
           sleep 65
+
+      # =====================================================
+      # RETRY GROUP 2
+      # =====================================================
+
+      - name: Retry Group 2 failures
+        shell: bash
+        run: |
+          if [ ! -s scan/group2-failed.txt ]; then
+
+            echo "Group 2: no retry needed."
+
+            exit 0
+          fi
+
+          while read SYMBOL; do
+
+            echo "Retrying $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --output "scan/$SYMBOL.json" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL"
+
+          done < scan/group2-failed.txt
+
+      # =====================================================
+      # GROUP 3
+      # =====================================================
 
       - name: Scan Group 3
         shell: bash
@@ -117,28 +319,111 @@ jobs:
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
+
             echo "Scanning $SYMBOL"
 
             HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
+              --retry 2 \
+              --retry-delay 2 \
               --output "scan/$SYMBOL.json" \
               --write-out "%{http_code}" \
               "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
 
             echo "$SYMBOL HTTP $HTTP_CODE"
 
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-              echo "$SYMBOL scan failed"
-            fi
           done
 
-      - name: Wait Twelve Data quota after Group 3
+      # =====================================================
+      # VALIDATE GROUP 3
+      # =====================================================
+
+      - name: Validate Group 3
         shell: bash
         run: |
-          echo "Waiting 65 seconds..."
+          python3 <<'PY'
+          import json
+
+          pairs = [
+              "GBPCHF",
+              "GBPAUD",
+              "GBPNZD",
+              "GBPCAD",
+              "AUDJPY",
+              "AUDNZD",
+              "AUDCAD"
+          ]
+
+          failed = []
+
+          for symbol in pairs:
+
+              try:
+
+                  with open(
+                      f"scan/{symbol}.json",
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+
+                      data = json.load(f)
+
+              except Exception:
+
+                  failed.append(symbol)
+                  continue
+
+              if data.get("status") != "ok":
+                  failed.append(symbol)
+
+          with open(
+              "scan/group3-failed.txt",
+              "w"
+          ) as f:
+
+              for symbol in failed:
+                  f.write(symbol + "\n")
+
+          print("Group 3 failed:", failed)
+          PY
+
+      - name: Wait after Group 3
+        shell: bash
+        run: |
           sleep 65
+
+      # =====================================================
+      # RETRY GROUP 3
+      # =====================================================
+
+      - name: Retry Group 3 failures
+        shell: bash
+        run: |
+          if [ ! -s scan/group3-failed.txt ]; then
+
+            echo "Group 3: no retry needed."
+
+            exit 0
+          fi
+
+          while read SYMBOL; do
+
+            echo "Retrying $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --output "scan/$SYMBOL.json" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL"
+
+          done < scan/group3-failed.txt
+
+      # =====================================================
+      # GROUP 4
+      # =====================================================
 
       - name: Scan Group 4
         shell: bash
@@ -154,60 +439,315 @@ jobs:
           )
 
           for SYMBOL in "${PAIRS[@]}"; do
+
             echo "Scanning $SYMBOL"
 
             HTTP_CODE=$(curl \
               --silent \
               --show-error \
               --location \
+              --retry 2 \
+              --retry-delay 2 \
               --output "scan/$SYMBOL.json" \
               --write-out "%{http_code}" \
               "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL")
 
             echo "$SYMBOL HTTP $HTTP_CODE"
 
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-              echo "$SYMBOL scan failed"
-            fi
           done
 
-      # ==================================================
-      # RANK ALL 28 PAIRS
-      # ==================================================
+      # =====================================================
+      # VALIDATE GROUP 4
+      # =====================================================
+
+      - name: Validate Group 4
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+
+          pairs = [
+              "AUDCHF",
+              "NZDJPY",
+              "NZDCAD",
+              "NZDCHF",
+              "CADJPY",
+              "CADCHF",
+              "CHFJPY"
+          ]
+
+          failed = []
+
+          for symbol in pairs:
+
+              try:
+
+                  with open(
+                      f"scan/{symbol}.json",
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+
+                      data = json.load(f)
+
+              except Exception:
+
+                  failed.append(symbol)
+                  continue
+
+              if data.get("status") != "ok":
+                  failed.append(symbol)
+
+          with open(
+              "scan/group4-failed.txt",
+              "w"
+          ) as f:
+
+              for symbol in failed:
+                  f.write(symbol + "\n")
+
+          print("Group 4 failed:", failed)
+          PY
+
+      # =====================================================
+      # WAIT BEFORE RETRY GROUP 4
+      # =====================================================
+
+      - name: Wait after Group 4
+        shell: bash
+        run: |
+          sleep 65
+
+      # =====================================================
+      # RETRY GROUP 4
+      # =====================================================
+
+      - name: Retry Group 4 failures
+        shell: bash
+        run: |
+          if [ ! -s scan/group4-failed.txt ]; then
+
+            echo "Group 4: no retry needed."
+
+            exit 0
+          fi
+
+          while read SYMBOL; do
+
+            echo "Retrying $SYMBOL"
+
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --output "scan/$SYMBOL.json" \
+              "https://forex-chart-api.hanlinh227.workers.dev/scan/$SYMBOL"
+
+          done < scan/group4-failed.txt
+
+      # =====================================================
+      # FINAL VALIDATION
+      #
+      # PHẢI ĐỦ 28/28
+      # =====================================================
+
+      - name: Validate all 28 pairs
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          pairs = [
+              "EURUSD",
+              "GBPUSD",
+              "USDJPY",
+              "USDCHF",
+              "USDCAD",
+              "AUDUSD",
+              "NZDUSD",
+
+              "EURJPY",
+              "EURGBP",
+              "EURCHF",
+              "EURAUD",
+              "EURNZD",
+              "EURCAD",
+              "GBPJPY",
+
+              "GBPCHF",
+              "GBPAUD",
+              "GBPNZD",
+              "GBPCAD",
+              "AUDJPY",
+              "AUDNZD",
+              "AUDCAD",
+
+              "AUDCHF",
+              "NZDJPY",
+              "NZDCAD",
+              "NZDCHF",
+              "CADJPY",
+              "CADCHF",
+              "CHFJPY"
+          ]
+
+          ok = []
+          failed = []
+
+          for symbol in pairs:
+
+              try:
+
+                  with open(
+                      f"scan/{symbol}.json",
+                      "r",
+                      encoding="utf-8"
+                  ) as f:
+
+                      data = json.load(f)
+
+              except Exception as e:
+
+                  failed.append(
+                      {
+                          "symbol": symbol,
+                          "error": str(e)
+                      }
+                  )
+
+                  continue
+
+              if data.get("status") == "ok":
+
+                  ok.append(symbol)
+
+              else:
+
+                  failed.append(
+                      {
+                          "symbol": symbol,
+                          "error":
+                              data.get("error")
+                              or data.get("message")
+                              or data.get("status")
+                      }
+                  )
+
+          print("================================")
+          print("FOREX SCAN VALIDATION")
+          print("OK:", len(ok), "/ 28")
+          print("FAILED:", failed)
+          print("================================")
+
+          if len(ok) != 28:
+
+              print(
+                  "SCAN REJECTED:"
+                  " not all 28 pairs succeeded."
+              )
+
+              sys.exit(1)
+
+          print("ALL 28 PAIRS PASSED.")
+          PY
+
+      # =====================================================
+      # RANK ALL PAIRS
+      # =====================================================
 
       - name: Rank Forex pairs
         shell: bash
         run: |
           python3 <<'PY'
           import json
-          import glob
-          import os
+
+          pairs = [
+              "EURUSD",
+              "GBPUSD",
+              "USDJPY",
+              "USDCHF",
+              "USDCAD",
+              "AUDUSD",
+              "NZDUSD",
+
+              "EURJPY",
+              "EURGBP",
+              "EURCHF",
+              "EURAUD",
+              "EURNZD",
+              "EURCAD",
+              "GBPJPY",
+
+              "GBPCHF",
+              "GBPAUD",
+              "GBPNZD",
+              "GBPCAD",
+              "AUDJPY",
+              "AUDNZD",
+              "AUDCAD",
+
+              "AUDCHF",
+              "NZDJPY",
+              "NZDCAD",
+              "NZDCHF",
+              "CADJPY",
+              "CADCHF",
+              "CHFJPY"
+          ]
 
           rankings = []
 
-          for file in glob.glob("scan/*.json"):
-              try:
-                  with open(file, "r", encoding="utf-8") as f:
-                      data = json.load(f)
-              except Exception:
-                  continue
+          for symbol in pairs:
 
-              if data.get("status") != "ok":
-                  continue
+              with open(
+                  f"scan/{symbol}.json",
+                  "r",
+                  encoding="utf-8"
+              ) as f:
 
-              symbol = data.get("symbol")
+                  data = json.load(f)
 
-              summary = data.get("summary") or {}
+              summary = (
+                  data.get("summary")
+                  or {}
+              )
 
-              close = summary.get("close")
-              ema20 = summary.get("ema20")
-              ema50 = summary.get("ema50")
-              ema200 = summary.get("ema200")
-              rsi = summary.get("rsi14")
-              atr = summary.get("atr14")
-              recent_high = summary.get("recent50High")
-              recent_low = summary.get("recent50Low")
-              trend = summary.get("trend")
+              close = summary.get(
+                  "close"
+              )
+
+              ema20 = summary.get(
+                  "ema20"
+              )
+
+              ema50 = summary.get(
+                  "ema50"
+              )
+
+              ema200 = summary.get(
+                  "ema200"
+              )
+
+              rsi = summary.get(
+                  "rsi14"
+              )
+
+              atr = summary.get(
+                  "atr14"
+              )
+
+              recent_high = summary.get(
+                  "recent50High"
+              )
+
+              recent_low = summary.get(
+                  "recent50Low"
+              )
+
+              trend = summary.get(
+                  "trend"
+              )
 
               required = [
                   close,
@@ -217,27 +757,44 @@ jobs:
                   atr
               ]
 
-              if any(v is None for v in required):
+              if any(
+                  value is None
+                  for value in required
+              ):
+
                   continue
 
               score = 0
+
               direction = "NEUTRAL"
 
-              # ------------------------------------------
+              # ===========================================
               # TREND
-              # ------------------------------------------
+              # ===========================================
 
-              if close > ema20 > ema50:
+              if (
+                  close >
+                  ema20 >
+                  ema50
+              ):
+
                   score += 3
+
                   direction = "BUY"
 
-              elif close < ema20 < ema50:
+              elif (
+                  close <
+                  ema20 <
+                  ema50
+              ):
+
                   score += 3
+
                   direction = "SELL"
 
-              # ------------------------------------------
-              # EMA200 CONFIRMATION
-              # ------------------------------------------
+              # ===========================================
+              # EMA200
+              # ===========================================
 
               if ema200 is not None:
 
@@ -245,37 +802,43 @@ jobs:
                       direction == "BUY"
                       and close > ema200
                   ):
+
                       score += 2
 
                   elif (
                       direction == "SELL"
                       and close < ema200
                   ):
+
                       score += 2
 
-              # ------------------------------------------
-              # RSI MOMENTUM
-              # ------------------------------------------
+              # ===========================================
+              # RSI
+              # ===========================================
 
               if direction == "BUY":
 
                   if 52 <= rsi <= 68:
+
                       score += 2
 
                   elif 68 < rsi <= 72:
+
                       score += 1
 
               elif direction == "SELL":
 
                   if 32 <= rsi <= 48:
+
                       score += 2
 
                   elif 28 <= rsi < 32:
+
                       score += 1
 
-              # ------------------------------------------
-              # AVOID EXTREME RSI
-              # ------------------------------------------
+              # ===========================================
+              # EXTREME RSI
+              # ===========================================
 
               if rsi >= 75:
                   score -= 3
@@ -283,94 +846,169 @@ jobs:
               if rsi <= 25:
                   score -= 3
 
-              # ------------------------------------------
-              # DISTANCE FROM 50-BAR EXTREMES
-              #
-              # Avoid buying too close to recent high,
-              # or selling too close to recent low.
-              # ------------------------------------------
+              # ===========================================
+              # DISTANCE FROM HIGH / LOW
+              # ===========================================
 
               distance_to_high = None
               distance_to_low = None
 
-              if recent_high is not None and recent_high != 0:
-                  distance_to_high = abs(
-                      recent_high - close
-                  ) / abs(recent_high)
+              if (
+                  recent_high is not None
+                  and recent_high != 0
+              ):
 
-              if recent_low is not None and recent_low != 0:
-                  distance_to_low = abs(
-                      close - recent_low
-                  ) / abs(recent_low)
+                  distance_to_high = (
+                      abs(
+                          recent_high
+                          - close
+                      )
+                      /
+                      abs(
+                          recent_high
+                      )
+                  )
+
+              if (
+                  recent_low is not None
+                  and recent_low != 0
+              ):
+
+                  distance_to_low = (
+                      abs(
+                          close
+                          - recent_low
+                      )
+                      /
+                      abs(
+                          recent_low
+                      )
+                  )
 
               if direction == "BUY":
 
                   if (
-                      distance_to_high is not None
-                      and distance_to_high < 0.001
+                      distance_to_high
+                      is not None
+                      and
+                      distance_to_high
+                      < 0.001
                   ):
+
                       score -= 1
 
               elif direction == "SELL":
 
                   if (
-                      distance_to_low is not None
-                      and distance_to_low < 0.001
+                      distance_to_low
+                      is not None
+                      and
+                      distance_to_low
+                      < 0.001
                   ):
+
                       score -= 1
 
               rankings.append({
-                  "symbol": symbol,
-                  "direction": direction,
-                  "score": score,
-                  "close": close,
-                  "ema20": ema20,
-                  "ema50": ema50,
-                  "ema200": ema200,
-                  "rsi": rsi,
-                  "atr": atr,
-                  "recent50High": recent_high,
-                  "recent50Low": recent_low,
-                  "trend": trend,
-                  "distanceToHigh": distance_to_high,
-                  "distanceToLow": distance_to_low
+
+                  "symbol":
+                      symbol,
+
+                  "direction":
+                      direction,
+
+                  "score":
+                      score,
+
+                  "close":
+                      close,
+
+                  "ema20":
+                      ema20,
+
+                  "ema50":
+                      ema50,
+
+                  "ema200":
+                      ema200,
+
+                  "rsi":
+                      rsi,
+
+                  "atr":
+                      atr,
+
+                  "recent50High":
+                      recent_high,
+
+                  "recent50Low":
+                      recent_low,
+
+                  "trend":
+                      trend,
+
+                  "distanceToHigh":
+                      distance_to_high,
+
+                  "distanceToLow":
+                      distance_to_low
               })
 
-          # ----------------------------------------------
-          # TIE BREAKER
-          #
-          # 1. Score cao nhất
-          # 2. RSI gần vùng momentum lý tưởng
-          # 3. ATR lớn hơn
-          # ----------------------------------------------
+          # ===============================================
+          # TIE BREAK
+          # ===============================================
 
           def momentum_quality(item):
+
               rsi = item.get("rsi")
 
               if rsi is None:
                   return -999
 
               if item["direction"] == "BUY":
-                  return -abs(rsi - 60)
+
+                  return -abs(
+                      rsi - 60
+                  )
 
               if item["direction"] == "SELL":
-                  return -abs(rsi - 40)
+
+                  return -abs(
+                      rsi - 40
+                  )
 
               return -999
 
           rankings.sort(
+
               key=lambda x: (
+
                   x["score"],
+
                   momentum_quality(x),
+
                   x["atr"]
               ),
+
               reverse=True
           )
 
           result = {
-              "status": "ok",
-              "pairsScanned": len(rankings),
-              "topCandidates": rankings[:5]
+
+              "status":
+                  "ok",
+
+              "pairsRequested":
+                  28,
+
+              "pairsScanned":
+                  len(rankings),
+
+              "scanComplete":
+                  len(rankings) == 28,
+
+              "topCandidates":
+                  rankings[:5]
           }
 
           with open(
@@ -394,9 +1032,9 @@ jobs:
           )
           PY
 
-      # ==================================================
+      # =====================================================
       # PICK TOP 1
-      # ==================================================
+      # =====================================================
 
       - name: Select best pair
         id: best
@@ -410,6 +1048,7 @@ jobs:
               "r",
               encoding="utf-8"
           ) as f:
+
               data = json.load(f)
 
           top = data.get(
@@ -418,36 +1057,36 @@ jobs:
           )
 
           if not top:
+
               print("")
+
           else:
+
               print(
                   top[0]["symbol"]
               )
           PY
           )
 
-          echo "symbol=$SYMBOL" >> "$GITHUB_OUTPUT"
+          echo \
+            "symbol=$SYMBOL" \
+            >> "$GITHUB_OUTPUT"
 
           echo "Best pair: $SYMBOL"
 
-      # ==================================================
-      # WAIT BEFORE FULL ANALYSIS
-      #
-      # 28 scan requests vừa hoàn tất.
-      # Chờ quota rồi mới gọi 5-frame analysis.
-      # ==================================================
+      # =====================================================
+      # WAIT FOR QUOTA RESET
+      # =====================================================
 
       - name: Wait before full analysis
         if: steps.best.outputs.symbol != ''
         shell: bash
         run: |
-          echo "Waiting 65 seconds before full analysis..."
           sleep 65
 
-      # ==================================================
+      # =====================================================
       # FULL ANALYSIS TOP 1
-      # D1 + H4 + H1 + M15 + M5
-      # ==================================================
+      # =====================================================
 
       - name: Full analysis best pair
         if: steps.best.outputs.symbol != ''
@@ -455,7 +1094,7 @@ jobs:
         run: |
           SYMBOL="${{ steps.best.outputs.symbol }}"
 
-          echo "Full analysis for $SYMBOL"
+          echo "Full analysis: $SYMBOL"
 
           HTTP_CODE=$(curl \
             --silent \
@@ -468,20 +1107,15 @@ jobs:
           echo "Analysis HTTP $HTTP_CODE"
 
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            echo "Full analysis failed"
+
             cat scan/best-analysis.json
+
             exit 1
           fi
 
-      # ==================================================
-      # LIVE M1 REFRESH
-      #
-      # Full analysis = 5 credits
-      # Refresh = 1 credit
-      #
-      # Tổng 6 credits nên có thể refresh ngay,
-      # không cần sleep thêm 65 giây.
-      # ==================================================
+      # =====================================================
+      # M1 REFRESH TOP 1
+      # =====================================================
 
       - name: Refresh M1 best pair
         if: steps.best.outputs.symbol != ''
@@ -489,7 +1123,7 @@ jobs:
         run: |
           SYMBOL="${{ steps.best.outputs.symbol }}"
 
-          echo "Refreshing live M1 for $SYMBOL"
+          echo "Refreshing M1: $SYMBOL"
 
           HTTP_CODE=$(curl \
             --silent \
@@ -502,112 +1136,185 @@ jobs:
           echo "Refresh HTTP $HTTP_CODE"
 
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            echo "Refresh failed"
+
             cat scan/best-refresh.json
+
             exit 1
           fi
 
-      # ==================================================
+      # =====================================================
+      # VALIDATE TOP 1
+      # =====================================================
+
+      - name: Validate best pair data
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+
+          with open(
+              "scan/best-analysis.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              analysis = json.load(f)
+
+          with open(
+              "scan/best-refresh.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              refresh = json.load(f)
+
+          if (
+              analysis.get(
+                  "successfulFrames"
+              )
+              != 5
+          ):
+
+              print(
+                  "Top pair analysis is not 5/5"
+              )
+
+              sys.exit(1)
+
+          if not analysis.get(
+              "analysisReady"
+          ):
+
+              print(
+                  "Top pair analysisReady=false"
+              )
+
+              sys.exit(1)
+
+          if refresh.get(
+              "currentPrice"
+          ) is None:
+
+              print(
+                  "M1 price missing"
+              )
+
+              sys.exit(1)
+
+          print(
+              "Top pair validation passed."
+          )
+          PY
+
+      # =====================================================
       # CREATE FINAL RESULT
-      # ==================================================
+      # =====================================================
 
       - name: Create final scan result
         shell: bash
         run: |
           python3 <<'PY'
           import json
-          from datetime import datetime, timezone
+          from datetime import (
+              datetime,
+              timezone
+          )
 
           with open(
               "scan/ranking.json",
               "r",
               encoding="utf-8"
           ) as f:
+
               ranking = json.load(f)
 
-          try:
-              with open(
-                  "scan/best-analysis.json",
-                  "r",
-                  encoding="utf-8"
-              ) as f:
-                  analysis = json.load(f)
-          except Exception:
-              analysis = None
+          with open(
+              "scan/best-analysis.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
 
-          try:
-              with open(
-                  "scan/best-refresh.json",
-                  "r",
-                  encoding="utf-8"
-              ) as f:
-                  refresh = json.load(f)
-          except Exception:
-              refresh = None
+              analysis = json.load(f)
+
+          with open(
+              "scan/best-refresh.json",
+              "r",
+              encoding="utf-8"
+          ) as f:
+
+              refresh = json.load(f)
 
           live_valid = False
+
           live_reason = None
 
-          if refresh is None:
+          age = refresh.get(
+              "dataAgeSeconds"
+          )
 
-              live_reason = "NO_REFRESH_DATA"
+          stale = refresh.get(
+              "stale"
+          )
+
+          market_closed = refresh.get(
+              "marketClosedPossible"
+          )
+
+          price = refresh.get(
+              "currentPrice"
+          )
+
+          if price is None:
+
+              live_reason = \
+                  "NO_CURRENT_PRICE"
+
+          elif stale is True:
+
+              live_reason = \
+                  "STALE_DATA"
+
+          elif age is None:
+
+              live_reason = \
+                  "UNKNOWN_PRICE_AGE"
+
+          elif age > 120:
+
+              live_reason = \
+                  "PRICE_TOO_OLD"
+
+          elif market_closed is True:
+
+              live_reason = \
+                  "MARKET_CLOSED"
 
           else:
 
-              age = refresh.get(
-                  "dataAgeSeconds"
-              )
+              live_valid = True
 
-              stale = refresh.get(
-                  "stale"
-              )
-
-              market_closed = refresh.get(
-                  "marketClosedPossible"
-              )
-
-              price = refresh.get(
-                  "currentPrice"
-              )
-
-              if price is None:
-
-                  live_reason = "NO_CURRENT_PRICE"
-
-              elif stale is True:
-
-                  live_reason = "STALE_DATA"
-
-              elif (
-                  age is None
-                  or age > 120
-              ):
-
-                  live_reason = "PRICE_TOO_OLD"
-
-              elif market_closed is True:
-
-                  live_reason = "MARKET_CLOSED"
-
-              else:
-
-                  live_valid = True
-                  live_reason = "OK"
+              live_reason = "OK"
 
           result = {
+
               "updatedAt":
                   datetime.now(
                       timezone.utc
                   ).isoformat(),
 
+              "scanComplete":
+                  True,
+
+              "pairsScanned":
+                  28,
+
               "ranking":
                   ranking,
 
               "bestSymbol":
-                  (
-                      analysis.get("symbol")
-                      if analysis
-                      else None
+                  analysis.get(
+                      "symbol"
                   ),
 
               "bestAnalysis":
@@ -617,6 +1324,7 @@ jobs:
                   refresh,
 
               "liveValidation": {
+
                   "validForMarketEntry":
                       live_valid,
 
@@ -648,24 +1356,75 @@ jobs:
           )
           PY
 
-      # ==================================================
-      # SAVE RESULT
-      # ==================================================
+      # =====================================================
+      # COMMIT RESULT
+      # =====================================================
 
       - name: Commit Forex scan
         shell: bash
         run: |
-          git config user.name "market-data-bot"
-          git config user.email "market-data-bot@users.noreply.github.com"
+          git config \
+            user.name \
+            "market-data-bot"
 
-          git add data/forex-scan.json
+          git config \
+            user.email \
+            "market-data-bot@users.noreply.github.com"
 
-          if git diff --cached --quiet; then
-            echo "No Forex scan changes."
+          git add \
+            data/forex-scan.json
+
+          if git diff \
+            --cached \
+            --quiet
+          then
+
+            echo \
+              "No Forex scan changes."
+
             exit 0
+
           fi
 
           git commit \
             -m "Update Forex market scan"
 
-          git push
+      # =====================================================
+      # SAFE SYNC + PUSH
+      #
+      # Đây chính là phần sửa lỗi:
+      #
+      # main -> main (fetch first)
+      # =====================================================
+
+      - name: Sync latest main and push safely
+        shell: bash
+        run: |
+          if git log \
+            -1 \
+            --pretty=%B \
+            | grep -q \
+            "^Update Forex market scan"
+          then
+
+            echo \
+              "Fetching latest repository state..."
+
+            git pull \
+              --rebase \
+              origin \
+              main
+
+            echo \
+              "Pushing Forex scan..."
+
+            git push \
+              origin \
+              HEAD:main
+
+          else
+
+            echo \
+              "Nothing to push."
+
+          fi
