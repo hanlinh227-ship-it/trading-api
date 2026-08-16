@@ -1,8 +1,8 @@
 {
   "cutoff": "2026-08-07T15:00:00",
   "timezone": "Asia/Ho_Chi_Minh",
-  "phase": "blind",
-  "id": 4,
+  "phase": "reveal",
+  "id": 5,
   "symbols": [
     {"name": "EURUSD", "td": "EUR/USD", "class": "fx"},
     {"name": "GBPUSD", "td": "GBP/USD", "class": "fx"},
