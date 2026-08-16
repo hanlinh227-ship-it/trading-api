@@ -1,0 +1,300 @@
+{
+  "cutoff": "2026-08-13T15:00:00",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "lockedBeforeReveal": true,
+  "symbols": {
+    "EURUSD": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "BUY",
+        "structuralBias": "BUY",
+        "tacticalBias": "RECOVERY_FROM_PULLBACK",
+        "confidence": "MEDIUM",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_H1_RECLAIM",
+        "invalidation": "Acceptance below 1.1512"
+      },
+      "status": "ok",
+      "start": 1.15268,
+      "end": 1.15509,
+      "high": 1.1554,
+      "highTime": "2026-08-14 15:00:00",
+      "low": 1.15227,
+      "lowTime": "2026-08-13 15:00:00",
+      "net": 0.0024100000000000232,
+      "direction24h": "UP",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "GBPUSD": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "BUY",
+        "structuralBias": "BUY",
+        "tacticalBias": "BEARISH_PULLBACK",
+        "confidence": "MEDIUM",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_BULLISH_RECLAIM",
+        "invalidation": "Acceptance below 1.3475"
+      },
+      "status": "ok",
+      "start": 1.34837,
+      "end": 1.3515,
+      "high": 1.35181,
+      "highTime": "2026-08-14 15:00:00",
+      "low": 1.3476,
+      "lowTime": "2026-08-13 16:05:00",
+      "net": 0.003129999999999855,
+      "direction24h": "UP",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "USDJPY": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "NEUTRAL",
+        "structuralBias": "BEARISH_D1",
+        "tacticalBias": "BULLISH_H4_H1",
+        "confidence": "LOW",
+        "entryQuality": "POOR",
+        "action": "NO_TRADE_CONFLICT",
+        "invalidation": "Resolve D1 versus H4/H1 conflict first"
+      },
+      "status": "ok",
+      "start": 159.36696,
+      "end": 159.20341,
+      "high": 159.56954,
+      "highTime": "2026-08-14 03:45:00",
+      "low": 159.03591,
+      "lowTime": "2026-08-13 21:15:00",
+      "net": -0.16355000000001496,
+      "direction24h": "DOWN",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "USDCHF": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "BUY",
+        "structuralBias": "BUY",
+        "tacticalBias": "OVERSOLD_PULLBACK",
+        "confidence": "MEDIUM_HIGH",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_M15_M5_REVERSAL",
+        "invalidation": "Acceptance below 0.8126 then 0.8097"
+      },
+      "status": "ok",
+      "start": 0.81294,
+      "end": 0.81359,
+      "high": 0.81476,
+      "highTime": "2026-08-14 03:00:00",
+      "low": 0.81137,
+      "lowTime": "2026-08-13 21:20:00",
+      "net": 0.0006500000000000394,
+      "direction24h": "UP",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "USDCAD": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "SELL",
+        "structuralBias": "SELL",
+        "tacticalBias": "BULLISH_REBOUND",
+        "confidence": "MEDIUM",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_REJECTION",
+        "invalidation": "H4 acceptance above rebound structure"
+      },
+      "status": "ok",
+      "start": 1.39525,
+      "end": 1.38904,
+      "high": 1.39557,
+      "highTime": "2026-08-13 15:30:00",
+      "low": 1.38886,
+      "lowTime": "2026-08-14 15:00:00",
+      "net": -0.006210000000000049,
+      "direction24h": "DOWN",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "AUDUSD": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "BUY",
+        "structuralBias": "BUY",
+        "tacticalBias": "BEARISH_PULLBACK",
+        "confidence": "MEDIUM",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_H1_M15_RECLAIM",
+        "invalidation": "Acceptance below 0.7044 then 0.7023"
+      },
+      "status": "ok",
+      "start": 0.70491,
+      "end": 0.70725,
+      "high": 0.70744,
+      "highTime": "2026-08-14 15:00:00",
+      "low": 0.70466,
+      "lowTime": "2026-08-13 15:15:00",
+      "net": 0.0023400000000000087,
+      "direction24h": "UP",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "NZDUSD": {
+      "class": "fx",
+      "decision": {
+        "directionalBias": "SELL",
+        "structuralBias": "BEARISH_H4_H1",
+        "tacticalBias": "OVERSOLD_REBOUND",
+        "confidence": "MEDIUM",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_REBOUND_REJECTION",
+        "invalidation": "Sustained H1 reclaim above short-term trend structure"
+      },
+      "status": "ok",
+      "start": 0.58351,
+      "end": 0.58757,
+      "high": 0.58773,
+      "highTime": "2026-08-14 15:00:00",
+      "low": 0.58315,
+      "lowTime": "2026-08-13 15:15:00",
+      "net": 0.0040600000000000636,
+      "direction24h": "UP",
+      "biasResult": "FAIL",
+      "candleCount": 289
+    },
+    "SPX": {
+      "class": "index",
+      "decision": {
+        "directionalBias": "UNAVAILABLE",
+        "action": "NO_TEST",
+        "reason": "Twelve Data free-plan data unavailable"
+      },
+      "status": "unavailable",
+      "error": "This symbol is available starting with the Grow or Venture plan. Consider upgrading now at https://twelvedata.com/pricing"
+    },
+    "NAS100": {
+      "class": "index",
+      "decision": {
+        "directionalBias": "UNAVAILABLE",
+        "action": "NO_TEST",
+        "reason": "Twelve Data free-plan data unavailable"
+      },
+      "status": "unavailable",
+      "error": "This symbol is available starting with the Grow or Venture plan. Consider upgrading now at https://twelvedata.com/pricing"
+    },
+    "JP225": {
+      "class": "index",
+      "decision": {
+        "directionalBias": "UNAVAILABLE",
+        "action": "NO_TEST",
+        "reason": "Current Twelve Data symbol mapping invalid/unavailable"
+      },
+      "status": "unavailable",
+      "error": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data"
+    },
+    "DAX": {
+      "class": "index",
+      "decision": {
+        "directionalBias": "BUY",
+        "structuralBias": "BUY",
+        "tacticalBias": "M5_PULLBACK",
+        "confidence": "HIGH",
+        "entryQuality": "GOOD",
+        "action": "BUY_ON_M5_RECLAIM",
+        "invalidation": "H1 breakdown below 46.77 then 46.265"
+      },
+      "status": "ok",
+      "start": 47.16,
+      "end": 47.18,
+      "high": 47.2798,
+      "highTime": "2026-08-14 02:50:00",
+      "low": 46.779,
+      "lowTime": "2026-08-14 00:05:00",
+      "net": 0.020000000000003126,
+      "direction24h": "UP",
+      "biasResult": "PASS",
+      "candleCount": 22
+    },
+    "BTCUSD": {
+      "class": "crypto",
+      "decision": {
+        "directionalBias": "SELL",
+        "structuralBias": "SELL",
+        "tacticalBias": "M15_M5_BOUNCE",
+        "confidence": "MEDIUM_HIGH",
+        "entryQuality": "FAIR",
+        "action": "WAIT_FOR_BOUNCE_REJECTION",
+        "invalidation": "H4 acceptance above 64515 then 65474"
+      },
+      "status": "ok",
+      "start": 63865.84,
+      "end": 62926.0,
+      "high": 63999.0,
+      "highTime": "2026-08-13 21:35:00",
+      "low": 62802.27,
+      "lowTime": "2026-08-13 23:40:00",
+      "net": -939.8399999999965,
+      "direction24h": "DOWN",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "ETHUSD": {
+      "class": "crypto",
+      "decision": {
+        "directionalBias": "NEUTRAL",
+        "structuralBias": "NEUTRAL",
+        "tacticalBias": "M15_BULLISH_M1_PULLBACK",
+        "confidence": "LOW",
+        "entryQuality": "POOR",
+        "action": "NO_TRADE_UNTIL_H1_H4_ALIGN",
+        "invalidation": "Not applicable while neutral"
+      },
+      "status": "ok",
+      "start": 1895.57,
+      "end": 1874.3,
+      "high": 1897.36,
+      "highTime": "2026-08-13 21:35:00",
+      "low": 1863.67,
+      "lowTime": "2026-08-13 23:40:00",
+      "net": -21.269999999999982,
+      "direction24h": "DOWN",
+      "biasResult": "MIXED",
+      "candleCount": 289
+    },
+    "XAUUSD": {
+      "class": "metal",
+      "decision": {
+        "directionalBias": "SELL",
+        "structuralBias": "HTF_BULLISH_BUT_EXHAUSTED",
+        "tacticalBias": "H1_M15_M5_BEARISH",
+        "confidence": "MEDIUM_HIGH",
+        "entryQuality": "GOOD",
+        "action": "SELL_RALLIES_UNLESS_H1_RECLAIMS",
+        "invalidation": "H1 reclaim above 4399-4400 and sustained acceptance; no long solely from M5 reclaim"
+      },
+      "status": "ok",
+      "start": 4370.36596,
+      "end": 4342.7806,
+      "high": 4401.02104,
+      "highTime": "2026-08-13 20:00:00",
+      "low": 4310.61379,
+      "lowTime": "2026-08-14 12:30:00",
+      "net": -27.585360000000037,
+      "direction24h": "DOWN",
+      "biasResult": "PASS",
+      "candleCount": 289
+    },
+    "XAGUSD": {
+      "class": "metal",
+      "decision": {
+        "directionalBias": "UNAVAILABLE",
+        "action": "NO_TEST",
+        "reason": "Twelve Data free-plan data unavailable"
+      },
+      "status": "unavailable",
+      "error": "This symbol is available starting with the Grow or Venture plan. Consider upgrading now at https://twelvedata.com/pricing"
+    }
+  }
+}
