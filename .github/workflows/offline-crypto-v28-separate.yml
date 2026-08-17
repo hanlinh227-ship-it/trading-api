@@ -1,0 +1,21 @@
+name: Offline Crypto V28 Separate
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_crypto_v28_separate.py'
+      - '.github/workflows/offline-crypto-v28-separate.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Crypto V28 zero-credit optimizer
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_crypto_v28_separate.py
