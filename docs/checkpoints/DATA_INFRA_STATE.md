@@ -5,126 +5,108 @@ Repo: `hanlinh227-ship-it/trading-api`
 
 ## PURPOSE
 
-Current live-data infrastructure only. Historical research engines remain outside the active runtime.
+Current live-data infrastructure only. Historical research engines are not part of the active runtime.
 
-## CANONICAL SINGLE-SYMBOL PATH
+## SINGLE-SYMBOL PATH
 
 Trigger: `request.json`
 Workflow: `.github/workflows/fetch-market.yml`
 Outputs:
-- `data/status.json`
-- `data/latest.json`
+- `data/status.json` — compact canonical state;
+- `data/latest.json` — full current provider evidence.
 
 ### Crypto
-- `scripts/fetch_crypto.py`
-- exchange-native Binance / OKX / Bybit fallback;
-- direct last price + bid + ask + exchange timestamp;
-- D1/H4/H1/M15/M5 + M1 reference;
-- strict execution target quote age <=10s.
+- `scripts/fetch_crypto.py`;
+- exchange-native Binance -> OKX -> Bybit fallback where available;
+- direct last price, bid, ask and venue timestamp;
+- D1/H4/H1/M15/M5 analysis plus M1 reference.
 
 ### Supported non-crypto
-- `scripts/twelvedata_market.py`
-- direct Twelve Data API using GitHub Actions secret `TWELVEDATA_API_KEY`;
-- explicit canonical symbol/type registry;
-- `/quote` for current aggregated price and `last_quote_at` timestamp;
-- `/time_series` metadata validation for every timeframe;
-- closed candles only for technical calculations;
-- D1/H4/H1/M15/M5 + M1 reference;
-- no fabricated bid/ask/spread.
-
-### Unsupported / ambiguous instruments
-Return `DATA_BLOCK`. Do not substitute a same-text ticker, ETF, CFD, cash index, spot commodity or futures proxy.
+- `scripts/twelvedata_market.py`;
+- direct Twelve Data REST from GitHub Actions;
+- no Cloudflare Worker in the canonical runtime;
+- explicit symbol registry;
+- exact `time_series` metadata validation;
+- closed candles for technical indicators;
+- `/quote` for identity + `last_quote_at`;
+- `/price` for latest aggregated value only after identity validation;
+- quote >65 seconds old => `DATA_BLOCK`.
 
 ## FOREX UNIVERSE PATH
 
 Trigger: `scan-request.json`
 Workflow: `.github/workflows/scan-forex.yml`
 
-Direct Grow55 staged budget:
-- 28 H1 broad scans ~28 credits;
-- Top 3 × D1/H4/M15/M5 while reusing H1 ~12 credits;
-- Top 3 `/quote` ~3 credits;
-- normal total ~43 credits;
-- reserve ~12 credits.
+Grow55 staged budget:
+- 28 H1 broad scans = 28 credits;
+- Top 3 × D1/H4/M15/M5, H1 reused = 12 credits;
+- Top 3 × (`/quote` + `/price`) = 6 credits;
+- total = 46/55;
+- reserve = 9 credits.
 
-All Twelve Data workflows share `concurrency.group=twelvedata-api`.
+All Twelve Data workflows share concurrency group `twelvedata-api`.
 
 ## CRYPTO UNIVERSE PATH
 
 Trigger: `data/live_scan_request.txt`
 Workflow: `.github/workflows/live-crypto-v74-scan.yml`
 
-Exchange-native data remains primary.
-
-## CROSS-MARKET AUDIT
-
-Workflow: `.github/workflows/audit-market-data.yml`
-Script: `scripts/audit_market_data.py`
-Evidence: `data/market-data-audit.json`
-
-Audit covers:
-- exchange-native BTC/ETH/SOL;
-- direct Twelve Data Forex;
-- direct Twelve Data XAU/XAG spot metals;
-- expected DATA_BLOCK for unsafe cash indices;
-- expected DATA_BLOCK for exact futures unavailable through current Grow55 catalog.
+Exchange-native data remains primary for candidate ranking and execution context.
 
 ## PRICE INTEGRITY MODEL
 
-Keep these separate:
-1. provider fetch time;
-2. underlying quote timestamp;
-3. executable bid/ask spread.
+The repository distinguishes:
+
+1. **provider market timestamp** — e.g. Twelve Data `last_quote_at` or exchange tick timestamp;
+2. **our fetch time** — when GitHub received the response;
+3. **latest aggregated price value** — Twelve Data `/price` after identity validation;
+4. **executable spread** — venue/broker bid and ask.
+
+These fields are never conflated.
 
 ### Crypto
-Exchange timestamp and bid/ask are normally available and must be verified.
+Exchange REST supplies timestamp + bid/ask. V74 target quote age <=10 seconds.
 
-### Twelve Data supported non-crypto
-`/quote.last_quote_at` is the current provider quote timestamp. This is materially better than treating API fetch time as quote time.
+### Forex / spot metals / supported commodities
+Twelve Data:
+- `/time_series` proves symbol/type per timeframe;
+- `/quote` proves identity and gives `last_quote_at`;
+- `/price` supplies latest aggregated value;
+- hard stale block >65 seconds;
+- V74 Forex MARKET freshness target <=30 seconds;
+- broker bid/ask are not fabricated.
 
-Twelve Data still does not provide an executable broker bid/ask through this path, so `executionReady` remains false where spread verification is required for MARKET execution.
-
-### Closed candles
-D1/H4/H1/M15/M5/M1 indicators are computed only from closed candles. An in-progress candle must not leak into closed-bar technical calculations.
-
-## INSTRUMENT COLLISION DEFENSE
-
-The old shorthand Worker mapping produced demonstrably wrong cash-index data:
-- NDX request path returned ~19.4;
-- SPX request path returned ~0.085.
-
-Those were unrelated instruments with colliding ticker text. Canonical live logic therefore no longer trusts shorthand ticker identity.
-
-Direct-client checks include:
-- exact canonical provider symbol;
-- expected provider `type` in time-series metadata;
-- quote symbol;
-- quote timestamp;
-- explicit supported-market registry.
+Therefore a Twelve Data value can be suitable for analysis while still requiring broker/venue confirmation before MARKET execution.
 
 ## MARKET-TYPE ROUTING
 
 ### Forex
-Direct Twelve Data strict client.
+Direct strict Twelve Data Grow55.
 
 ### Crypto
-Exchange-native REST.
+Exchange-native REST. Twelve Data is optional enrichment only.
 
-### Spot metals
-Direct Twelve Data strict client for verified XAU/USD and XAG/USD; never conflate with GC/SI futures.
+### Spot metals / energy
+Use exact canonical Twelve Data mappings only when metadata and freshness pass. XAUUSD/XAGUSD remain separate from GC/SI.
 
 ### Cash indices
-Currently `DATA_BLOCK` in the Twelve strict client because exact Grow55/core-endpoint access is not proven. Use another authoritative cash-index source rather than proxy futures.
+Current Grow55/core endpoints cannot safely prove NAS100/NDX, US500/SPX, DAX or N225-family cash indices. These return `DATA_BLOCK`. Never use NQ/ES or same-text securities as silent proxies.
 
 ### Futures
-NQ/MNQ/ES/MES/GC/CL currently `DATA_BLOCK` through Twelve strict client because exact CME/COMEX/NYMEX contracts are not proven in current Grow55 catalog/search. Use an authoritative futures feed or user's platform.
+Current Grow55 catalog/search does not expose exact provable NQ/MNQ/ES/MES/GC/SI/CL contracts. These return `DATA_BLOCK`; use an authoritative futures feed or the user's platform price.
+
+## PERMANENT AUDIT
+
+- workflow: `.github/workflows/audit-market-data.yml`;
+- script: `scripts/audit_market_data.py`;
+- evidence: `data/market-data-audit.json`.
+
+Audit covers supported Forex/Crypto/metals plus expected index/futures blocks and stale-feed rejection.
 
 ## ACTIVE FILE POLICY
 
-Keep only current runtime/checkpoint/audit files. The redundant standalone fast-Forex workflow and trigger were removed. Temporary secret-check files were also removed after diagnosis.
-
-Legacy optimizer generations, blind tests, calibration suites, provider snapshot collectors and probe jobs remain in Git history only.
+Keep only current runtime, audit and checkpoint files. Diagnostic/probe workflows are temporary and must be removed after conclusions are captured. Git history remains the archive.
 
 ## FAILURE RULE
 
-If exact instrument/type/venue/contract, quote timestamp, required freshness or executable spread cannot be verified, return `DATA_BLOCK`. A live system must prefer no price over a wrong price.
+If exact symbol/type/contract, quote freshness or required execution fields cannot be verified, return `DATA_BLOCK`. Forced-daily research rules never authorize fabricated live data.
