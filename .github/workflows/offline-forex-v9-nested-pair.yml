@@ -1,0 +1,21 @@
+name: Offline Forex V9 Nested Pair
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_forex_v9_nested_pair.py'
+      - '.github/workflows/offline-forex-v9-nested-pair.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Forex V9 zero-credit nested walk-forward
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_forex_v9_nested_pair.py
