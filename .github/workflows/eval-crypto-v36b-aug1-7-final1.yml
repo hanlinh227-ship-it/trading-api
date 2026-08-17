@@ -1,0 +1,26 @@
+name: Eval Crypto V36b Aug1-7 Final1
+on:
+  push:
+    paths:
+      - 'scripts/eval_crypto_v36b_aug1_7_final1.py'
+      - '.github/workflows/eval-crypto-v36b-aug1-7-final1.yml'
+      - 'data/provider_snapshots/crypto_4h_aug1_8_2026_final1.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ML dependency
+        run: pip install -q numpy scikit-learn
+      - name: Evaluate frozen V36b on untouched final1
+        env:
+          PYTHONUNBUFFERED: '1'
+          PYTHONPATH: '.'
+        run: python scripts/eval_crypto_v36b_aug1_7_final1.py
