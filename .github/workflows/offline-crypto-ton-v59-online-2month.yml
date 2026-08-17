@@ -1,0 +1,24 @@
+name: Offline Crypto TON V59 Online 2Month
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_ton_v59_online_2month.py'
+      - '.github/workflows/offline-crypto-ton-v59-online-2month.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Run TON online adaptive June-July test
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_ton_v59_online_2month.py
