@@ -29,8 +29,6 @@ for field,fn in {
     for r in usable:groups[fn(r)].append(r)
     out[field]={str(k):stat(v) for k,v in sorted(groups.items(),key=lambda x:str(x[0]))}
 
-# rank simple observable features by winner vs loser averages to guide next version without peeking at any new sample
-features=['score']
 for name,getter in {
     'absScore':lambda r:abs(r['score']),
     'htfScore':lambda r:r['model'].get('htfScore',0),
@@ -40,14 +38,11 @@ for name,getter in {
     'chaseAbs':lambda r:abs(r['model'].get('chaseAdjustment',0)),
     'rs':lambda r:r['model'].get('relativeStrengthScore',0),
     'rangePos':lambda r:r['model'].get('rangePositionH1',.5),
-    'm15Vol':lambda r:r.get('snapshot',{}).get('M15',{}).get('volumeRatio',0) if 'snapshot' in r else 0,
-    'm15Dist':lambda r:abs(r.get('snapshot',{}).get('M15',{}).get('dist20ATR',0)) if 'snapshot' in r else 0,
 }.items():
     ws=[getter(r) for r in usable if r['outcome']['result']=='TP']
     ls=[getter(r) for r in usable if r['outcome']['result']=='SL']
     if ws and ls:out.setdefault('featureMeans',{})[name]={'TP':round(statistics.mean(ws),4),'SL':round(statistics.mean(ls),4)}
 
-# list losers and winners compactly for pattern inspection
 out['trades']=[{
     'symbol':r['symbol'],'side':r['decision'],'result':r['outcome']['result'],'score':r['score'],'rr':r['plannedRR'],
     'profile':r['model']['profile'],'regime':r['model']['regime'],'htf':round(r['model'].get('htfScore',0),2),'ltf':round(r['model'].get('ltfScore',0),2),
@@ -56,3 +51,4 @@ out['trades']=[{
 } for r in usable]
 with open('data/v12_diagnostics.json','w') as f:json.dump(out,f,indent=2)
 print(json.dumps({k:v for k,v in out.items() if k not in ('trades',)},indent=2))
+# diagnostics-v2
