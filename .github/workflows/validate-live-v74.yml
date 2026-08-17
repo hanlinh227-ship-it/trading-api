@@ -1,4 +1,5 @@
 name: Validate Live V74
+
 on:
   push:
     paths:
@@ -7,24 +8,40 @@ on:
       - 'data/nocut_intraday_allpass_v73.json'
       - '.github/workflows/validate-live-v74.yml'
   workflow_dispatch:
+
 concurrency:
   group: validate-live-v74
   cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Verify lean V74 dependency chain
+        shell: bash
+        run: |
+          test -f scripts/live_symbol_analysis_v74.py
+          test -f scripts/nocut_intraday_method_v73.py
+          test -f data/nocut_intraday_allpass_v73.json
+          test -f scripts/fetch_crypto.py
+          test ! -f scripts/build_nocut_allpass_v73.py
+          echo "V74 dependency chain is present and legacy optimizer build path is absent."
+
       - name: Validate all 89 live playbooks
         env:
           PYTHONPATH: .
           PYTHONUNBUFFERED: '1'
         run: python scripts/live_symbol_analysis_v74.py --validate
+
       - name: Smoke test representative symbols
         env:
           PYTHONPATH: .
@@ -36,14 +53,16 @@ jobs:
           python scripts/live_symbol_analysis_v74.py WLD > /tmp/wld-v74.json
           python scripts/live_symbol_analysis_v74.py S > /tmp/s-v74.json
           python scripts/live_symbol_analysis_v74.py XPL > /tmp/xpl-v74.json
+
           python - <<'PY'
           import json
+
           for p in ('eurusd','btc','lit','hbar','wld','s','xpl'):
-              d=json.load(open('/tmp/'+p+'-v74.json'))
-              assert d['version']=='LIVE_SYMBOL_ANALYSIS_V74'
-              assert d['rr']['default']==1.0
-              assert d['tradeCount']['minimumEligibleDay']==1
-              assert d['tradeCount']['maximumPerDay']==3
+              d = json.load(open('/tmp/' + p + '-v74.json'))
+              assert d['version'] == 'LIVE_SYMBOL_ANALYSIS_V74'
+              assert d['rr']['default'] == 1.0
+              assert d['tradeCount']['minimumEligibleDay'] == 1
+              assert d['tradeCount']['maximumPerDay'] == 3
               assert d['liveGates']['stalePriceForbidden'] is True
               print(p, d['symbol'], d['setupArchetype'])
           PY
