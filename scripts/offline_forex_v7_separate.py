@@ -31,7 +31,7 @@ def day_state(rows):
     for r in rows:by[r['date']].append(r)
     states={}
     for d,x in by.items():
-        buy=[r for r in x if r['side']=='BUY']; sell=[r for r in x if r['side']=='SELL']
+        buy=[r for r in x if r['side']=='BUY']
         aligned=sum((r['side']=='BUY' and r['h1']>0) or (r['side']=='SELL' and r['h1']<0) for r in x)/max(1,len(x))
         h4aligned=sum((r['side']=='BUY' and r['h4']>0) or (r['side']=='SELL' and r['h4']<0) for r in x)/max(1,len(x))
         states[d]={
@@ -46,10 +46,10 @@ def day_state(rows):
     return states
 
 def candidates():
-    # Forex-specific: day common-factor gate + V5/F8 trade state.
+    # Narrow search around the proven V5/F8 region rather than brute-force millions of combinations.
     for p in itertools.product(
-      ('ANY','BUY','SELL'),(0,.5,1,1.5,2),(0,15,20,25),(0,.35,.55,.7),(0,2,3,4),('ANY','H1','H1H4'),
-      (0,.55,.65,.75),(0,.55,.65,.75),(0,15,20,25),(0,.35,.5,.6),('ANY','LOW_REGIME','HIGH_REGIME')):
+      ('ANY','BUY'),(.5,1,1.5),(15,20,25),(0,.35,.55),(2,3,4),('H1','H1H4'),
+      (0,.55,.65),(0,.55,.65),(15,20,25),(0,.35,.5),('ANY','LOW_REGIME')):
         yield p
 
 def passed(r,p,states):
@@ -65,7 +65,6 @@ def passed(r,p,states):
     if dadx and s['medianAdx']<dadx:return False
     if dcoh and s['medianCoh3']<dcoh:return False
     if dreg=='LOW_REGIME' and s['regimeShare']>.35:return False
-    if dreg=='HIGH_REGIME' and s['regimeShare']<.35:return False
     return True
 
 def choose(dev,states):
@@ -80,7 +79,6 @@ def choose(dev,states):
             if q['n']>=3:by.append(q['wr'])
         med=statistics.median(by) if by else s['wr']; pos=sum(v>=50 for v in by)/max(1,len(by))
         lower=100*wilson(s['wins'],s['n'])
-        # Prefer lower-bound + day robustness before raw WR.
         score=(lower,pos,med,s['meanR'],s['wr'],min(s['n'],100))
         if best is None or score>best[0]:best=(score,p,s,{'medianDayWR':round(med,2),'positiveDayRate':round(pos,3),'wilsonLB':round(lower,2)})
     return best
