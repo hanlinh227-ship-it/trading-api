@@ -1,13 +1,13 @@
 # Trading API
 
-Canonical live Trading repository.
+Canonical Trading repository.
 
 ## Architecture
 
 - **V73** — frozen no-CUT statistical prior. Never rebuild/optimize during live use.
-- **V74** — live-analysis / execution authority.
+- **V74** — current live-analysis / execution authority.
 - **V75 Fast Data** — speed/data-integrity layer; it does not change V73/V74 trading rules.
-- **V76 Entry** — isolated Forex entry/execution research + optional post-V75 live gate. Only R2 methods that pass DEV/VALIDATION/OOS gates may be live-eligible.
+- **V76 Entry R2** — locked Forex entry research. Final result: **no retained archetype and 0/28 live-promoted Forex methods**. It is research evidence, not an active signal engine.
 - **Twelve Data Grow55** — direct strict source for supported Forex and spot metal/commodity data.
 - **Crypto execution data** — exchange-native Binance / OKX / Bybit REST; universe scanner currently uses exact OKX USDT spot.
 
@@ -18,7 +18,7 @@ Canonical live Trading repository.
 3. Crypto universe → `data/crypto-fast.json`;
 4. open `status.json`, `latest.json` or detailed scans only when deeper evidence is needed.
 
-V76 research never sits in this live data path.
+V76 research never sits in this live data path. Current Forex live decisions remain V74 using V75 data.
 
 ## Live workflows
 
@@ -29,11 +29,37 @@ V76 research never sits in this live data path.
 - `validate-nocut-v73.yml` — frozen V73 validation.
 - `validate-live-v74.yml` — V74 playbook validation.
 
-## V76 workflows
+## Isolated V76 workflows
 
-- `research-v76-entry.yml` — explicit/manual research only; never auto-runs on ordinary live-data changes.
-- `validate-entry-v76.yml` — compile/protocol/method validation.
-- `summarize-v76.yml` — builds compact `data/v76_entry_summary.json` when locked methods change.
+- `research-v76-entry.yml` — explicit research only.
+- `validate-entry-v76.yml` — compile/protocol/R2-method validation.
+- `summarize-v76.yml` — builds compact JSON + 28-pair markdown summary.
+
+## V76 R2 result
+
+Research run `32053656572` completed successfully using 30,000 M5 bars per Forex pair, approximately 2026-05-05 through 2026-08-17.
+
+Six objective setup families A–F were tested. Each had 12 variants:
+`CLOSE / RETEST / LIMIT_FVG × STRUCTURE / STRUCTURE_ATR × RR1 / RR2` = **72 variants**.
+
+Protocol: chronological **60% DEV / 20% VALIDATION / 20% untouched OOS**. DEV ranks; VALIDATION gates; OOS only promotes/rejects and never retunes. LIMIT_FVG fill-candle scoring is deliberately conservative and same-bar TP+SL is SL.
+
+Final:
+- retained archetypes: **NONE**;
+- promoted symbols: **0/28**;
+- all 28 methods: `RESEARCH_ONLY`;
+- C_SWEEP_FVG = best available research candidate for 18 pairs;
+- D_BREAK_RETEST_CONT = best available research candidate for 10 pairs;
+- A_SWEEP_MSS, B_H1_PULLBACK_RECLAIM, E_FAILED_BREAK_REV and F_IFVG_RECLAIM are fully rejected in this R2 hypothesis set.
+
+C/D are **not live-approved strategies**. Do not retune R2 after seeing OOS to force a pass.
+
+Compact evidence:
+- `data/v76_entry_summary.json`;
+- `data/v76_pair_table.md`;
+- detailed `data/v76_entry_research.json` and `data/v76_entry_methods.json`.
+
+`scripts/entry_v76.py` accepts only `V76-ENTRY-METHODS-R2`, blocks pilot/old methods, and returns NO_ENTRY for every current R2 method because none is OOS-promoted.
 
 ## Active data / execution scripts
 
@@ -49,21 +75,14 @@ V76 research never sits in this live data path.
 
 - `research_v76_entry_forex.py` — objective setup primitives/metrics; not the canonical full research entrypoint.
 - `evaluate_v76_entry_forex.py` — conservative R2 evaluator.
-- `fetch_v76_history.py` — quota-safe grouped M5 history fetcher.
+- `fetch_v76_history.py` — grouped quota-safe M5 history fetcher.
 - `run_v76_entry_research.py` — canonical full R2 research runner.
-- `entry_v76.py` — post-V75 live gate; blocks pilot/old methods and non-promoted methods.
-- `summarize_v76.py` — compact result reader.
+- `entry_v76.py` — post-V75 safety gate.
+- `summarize_v76.py` — compact result/table builder.
 
-## V76 protocol
+## Historical-data limitations
 
-Six objective families A–F are tested: M15 sweep→M5 MSS, H1 trend→M15 pullback→M5 reclaim, sweep→FVG, breakout→retest continuation, failed breakout reversal, and IFVG reclaim.
-
-Each tests 12 variants: CLOSE/RETEST/LIMIT_FVG × STRUCTURE/STRUCTURE_ATR × RR1/RR2 = **72 variants** total.
-
-Research uses chronological **60% DEV / 20% VALIDATION / 20% untouched OOS**. DEV ranks, VALIDATION gates, OOS only promotes/rejects; OOS never retunes thresholds. Conservative LIMIT_FVG scoring prevents fill-bar order look-ahead. Historical news-window claims are not fabricated without a canonical timestamped macro-event feed; current V74 news checks remain mandatory.
-
-Final live flow:
-`V75 data → V74 HTF/context → V76 locked symbol method → M15 → M5 → current news → final venue quote/spread → MARKET / LIMIT / NO_ENTRY`.
+Historical broker bid/ask was unavailable, so R2 uses a fixed 0.05R round-trip cost model. A complete timestamped historical high-impact macro calendar was not available in the canonical research feed, so V76 does not fabricate before/after-news labels from volatility. Current V74 news/context checks remain mandatory live.
 
 ## V75 speed
 
@@ -81,9 +100,12 @@ Cash NAS100/US500/DAX/N225 families and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DAT
 
 ## Validation / checkpoints
 
-Post-V75 cross-market audit `32050497678`: SUCCESS, 7 PASS / 10 BLOCKED_AS_DESIGNED / 0 FAIL.
-
-V73 validator `32050638267`: SUCCESS. V74 validator `32050656054`: SUCCESS. V76 protocol validator `32054399860`: SUCCESS and explicitly proves pilot/older methods are blocked from live execution.
+- Post-V75 cross-market audit `32050497678`: SUCCESS, 7 PASS / 10 BLOCKED_AS_DESIGNED / 0 FAIL.
+- V73 validator `32050638267`: SUCCESS.
+- V74 validator `32050656054`: SUCCESS.
+- V76 R2 research `32053656572`: SUCCESS.
+- V76 summary/table `32054967541`: SUCCESS.
+- V76 post-R2 validator `32055039365`: SUCCESS; methods R2, 28 pairs, retained=[], promoted=[], conservative fill behavior and V73 frozen all validated.
 
 Read in order:
 1. `docs/checkpoints/MASTER_TRADING_STATE.md`
@@ -91,4 +113,4 @@ Read in order:
 3. `docs/checkpoints/ENTRY_EXECUTION_V76.md`
 4. relevant data/market checkpoint.
 
-Legacy optimizer/research generations remain in Git history and must not be confused with current runtime.
+Legacy optimizer/research generations remain in Git history and must not be confused with current runtime. Any future entry hypothesis after V76 R2 must be separately versioned with a new untouched OOS window rather than rewriting R2.
