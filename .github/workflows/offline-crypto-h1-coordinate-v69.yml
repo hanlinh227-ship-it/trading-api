@@ -1,0 +1,22 @@
+name: Offline Crypto H1 Coordinate V69
+on:
+  push:
+    paths:
+      - '.github/workflows/offline-crypto-h1-coordinate-v69.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Run V69
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_h1_coordinate_v69.py
