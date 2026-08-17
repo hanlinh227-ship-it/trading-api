@@ -1,0 +1,23 @@
+name: Blind Crypto Backtest V24 Validation
+on:
+  push:
+    paths:
+      - 'scripts/blind_backtest_crypto_v24_validation.py'
+      - '.github/workflows/blind-backtest-v24-validation.yml'
+  workflow_dispatch:
+jobs:
+  v24-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/blind_backtest_crypto_v24_validation.py
+      - run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/blind_backtest_v24_validation.json
+          git commit -m "Run locked V24 five-date validation" || exit 0
+          git pull --rebase origin main || true
+          git push || true
