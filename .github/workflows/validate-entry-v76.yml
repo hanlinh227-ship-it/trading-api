@@ -1,4 +1,4 @@
-name: Validate Entry V76
+name: Validate Entry V76 R2
 
 on:
   workflow_dispatch:
@@ -11,79 +11,47 @@ on:
       - 'scripts/entry_v76.py'
       - 'data/v76_entry_methods.json'
       - '.github/workflows/validate-entry-v76.yml'
-
 permissions:
   contents: read
-
 concurrency:
   group: validate-entry-v76
   cancel-in-progress: true
-
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
+        with: {fetch-depth: 1}
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+        with: {python-version: '3.11'}
       - name: Compile V76 modules
-        run: |
-          python -m py_compile \
-            scripts/research_v76_entry_forex.py \
-            scripts/evaluate_v76_entry_forex.py \
-            scripts/fetch_v76_history.py \
-            scripts/run_v76_entry_research.py \
-            scripts/entry_v76.py \
-            scripts/summarize_v76.py
-      - name: Validate frozen research definitions
-        run: python scripts/research_v76_entry_forex.py --self-test
-      - name: Validate grouped history geometry
-        run: python scripts/fetch_v76_history.py
-      - name: Validate evaluator protocol and conservative intrabar scoring
+        run: python -m py_compile scripts/research_v76_entry_forex.py scripts/evaluate_v76_entry_forex.py scripts/fetch_v76_history.py scripts/run_v76_entry_research.py scripts/entry_v76.py scripts/summarize_v76.py
+      - run: python scripts/research_v76_entry_forex.py --self-test
+      - run: python scripts/fetch_v76_history.py
+      - name: Validate R2 protocol
         run: |
           PYTHONPATH=scripts python - <<'PY'
           from datetime import datetime, timezone
           import research_v76_entry_forex as base
           import evaluate_v76_entry_forex as ev
-          p=ev.protocol_summary()
-          assert p['split']=='chronological 60/20/20'
-          assert p['oosMinN'] >= 20
-          assert 'conservative' in p['limitFillBar']
-          ts=int(datetime(2026,8,17,13,0,tzinfo=timezone.utc).timestamp())
-          assert ev.session_label(ts)=='OVERLAP'
-          rows=[[i*300,100.0,100.5,99.5,100.0,1.0] for i in range(30)]
-          rows[21]=[21*300,100.0,102.0,98.0,100.0,1.0]
-          m5=base.enrich(rows,300)
-          sig={'i':20,'side':'LONG','level':100.0,'structure':99.0,'fvg':[99.9,100.1],'context':{'session':'OVERLAP','htfAlignment':'MIXED','volRegime':'NORMAL','m15LiquidityRoom':'2_TO_4_ATR','h1LiquidityRoom':'GE_4_ATR'}}
-          t=ev.simulate(sig,m5,'LIMIT_FVG','STRUCTURE',1)
-          assert t and t['outcome']=='SL', t
-          print(p)
-          print('conservative same-fill-bar SL test PASS')
+          p=ev.protocol_summary(); assert p['split']=='chronological 60/20/20'; assert p['oosMinN']>=20; assert 'conservative' in p['limitFillBar']
+          assert ev.session_label(int(datetime(2026,8,17,13,0,tzinfo=timezone.utc).timestamp()))=='OVERLAP'
+          rows=[[i*300,100.0,100.5,99.5,100.0,1.0] for i in range(30)]; rows[21]=[21*300,100.0,102.0,98.0,100.0,1.0]
+          m5=base.enrich(rows,300); sig={'i':20,'side':'LONG','level':100.0,'structure':99.0,'fvg':[99.9,100.1],'context':{'session':'OVERLAP','htfAlignment':'MIXED','volRegime':'NORMAL','m15LiquidityRoom':'2_TO_4_ATR','h1LiquidityRoom':'GE_4_ATR'}}
+          t=ev.simulate(sig,m5,'LIMIT_FVG','STRUCTURE',1); assert t and t['outcome']=='SL',t
+          print(p); print('conservative fill-bar PASS')
           PY
-      - name: Validate locked methods or prove pilot is blocked
+      - name: Validate methods
         run: |
-          if [ ! -f data/v76_entry_methods.json ]; then
-            echo 'No methods file yet; code validation only.'
-            exit 0
-          fi
-          OUT="$(python scripts/entry_v76.py --validate --methods data/v76_entry_methods.json)"
-          echo "$OUT"
-          VERSION="$(python - <<'PY'
-          import json
-          print(json.load(open('data/v76_entry_methods.json'))['version'])
-          PY
-          )"
-          if [ "$VERSION" = "V76-ENTRY-METHODS-R2" ]; then
+          OUT="$(python scripts/entry_v76.py --validate --methods data/v76_entry_methods.json)"; echo "$OUT"
+          VERSION="$(python -c "import json;print(json.load(open('data/v76_entry_methods.json'))['version'])")"
+          if [ "$VERSION" = 'V76-ENTRY-METHODS-R2' ]; then
             echo "$OUT" | grep -q '"validation": "PASS"'
-            python scripts/summarize_v76.py data/v76_entry_methods.json /tmp/v76-summary.json
+            python scripts/summarize_v76.py data/v76_entry_methods.json /tmp/v76-summary.json /tmp/v76-table.md
           else
             echo "$OUT" | grep -q 'STALE_METHODS_BLOCKED'
-            echo "Pilot/older methods correctly blocked from live execution."
           fi
-      - name: Verify V73 remains frozen
+      - name: Verify V73 frozen
         run: |
           test -f data/nocut_intraday_allpass_v73.json
           test ! -f scripts/build_nocut_allpass_v73.py
