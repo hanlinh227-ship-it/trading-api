@@ -36,25 +36,39 @@ jobs:
             scripts/evaluate_v76_entry_forex.py \
             scripts/fetch_v76_history.py \
             scripts/run_v76_entry_research.py \
-            scripts/entry_v76.py
+            scripts/entry_v76.py \
+            scripts/summarize_v76.py
       - name: Validate frozen research definitions
         run: python scripts/research_v76_entry_forex.py --self-test
       - name: Validate grouped history geometry
         run: python scripts/fetch_v76_history.py
-      - name: Validate evaluator protocol
+      - name: Validate evaluator protocol and conservative intrabar scoring
         run: |
           PYTHONPATH=scripts python - <<'PY'
+          from datetime import datetime, timezone
+          import research_v76_entry_forex as base
           import evaluate_v76_entry_forex as ev
           p=ev.protocol_summary()
           assert p['split']=='chronological 60/20/20'
           assert p['oosMinN'] >= 20
           assert 'conservative' in p['limitFillBar']
+          ts=int(datetime(2026,8,17,13,0,tzinfo=timezone.utc).timestamp())
+          assert ev.session_label(ts)=='OVERLAP'
+          rows=[]
+          for i in range(30): rows.append([i*300,100.0,100.5,99.5,100.0,1.0])
+          rows[21]=[21*300,100.0,102.0,98.0,100.0,1.0]
+          m5=base.enrich(rows,300)
+          sig={'i':20,'side':'LONG','level':100.0,'structure':99.0,'fvg':[99.9,100.1],'context':{'session':'OVERLAP','htfAlignment':'MIXED','volRegime':'NORMAL','m15LiquidityRoom':'2_TO_4_ATR','h1LiquidityRoom':'GE_4_ATR'}}
+          t=ev.simulate(sig,m5,'LIMIT_FVG','STRUCTURE',1)
+          assert t and t['outcome']=='SL', t
           print(p)
+          print('conservative same-fill-bar SL test PASS')
           PY
       - name: Validate locked methods when present
         run: |
           if [ -f data/v76_entry_methods.json ]; then
             python scripts/entry_v76.py --validate --methods data/v76_entry_methods.json
+            python scripts/summarize_v76.py data/v76_entry_methods.json /tmp/v76-summary.json
           else
             echo 'No methods file yet; code validation only.'
           fi
