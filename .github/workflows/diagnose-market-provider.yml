@@ -1,0 +1,141 @@
+name: Diagnose Market Provider
+
+on:
+  push:
+    paths:
+      - "data/provider_diag_request.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      TD_KEY_A: ${{ secrets.TWELVE_DATA_API_KEY }}
+      TD_KEY_B: ${{ secrets.TWELVEDATA_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Probe Worker routes and optional direct Twelve Data metadata
+        shell: bash
+        run: |
+          mkdir -p data
+          python3 <<'PY'
+          import json, os, urllib.parse, urllib.request, urllib.error
+          from datetime import datetime, timezone
+
+          WORKER = "https://forex-chart-api.hanlinh227.workers.dev"
+          probes = [
+              "analysis/EURUSD", "price/EURUSD", "refresh/EURUSD",
+              "analysis/XAUUSD", "price/XAUUSD",
+              "analysis/NAS100", "analysis/NDX", "price/NAS100", "price/NDX",
+              "analysis/SPX", "analysis/US500", "price/SPX",
+              "analysis/N225", "analysis/NIKKEI225",
+              "analysis/DAX", "analysis/DE40",
+              "analysis/NQ", "analysis/MNQ", "analysis/ES", "analysis/MES",
+              "analysis/GC", "analysis/SI", "analysis/CL",
+              "symbol_search/NDX", "search/NDX", "quote/NDX", "raw/NDX",
+          ]
+
+          def fetch_json(url, headers=None, timeout=30):
+              req = urllib.request.Request(url, headers=headers or {"User-Agent": "trading-api-diagnostic/1.0"})
+              try:
+                  with urllib.request.urlopen(req, timeout=timeout) as r:
+                      raw = r.read().decode("utf-8", errors="replace")
+                      try:
+                          body = json.loads(raw)
+                      except Exception:
+                          body = {"raw": raw[:2000]}
+                      return {"httpStatus": r.status, "ok": True, "body": body}
+              except urllib.error.HTTPError as e:
+                  raw = e.read().decode("utf-8", errors="replace")
+                  try:
+                      body = json.loads(raw)
+                  except Exception:
+                      body = {"raw": raw[:2000]}
+                  return {"httpStatus": e.code, "ok": False, "body": body}
+              except Exception as e:
+                  return {"httpStatus": None, "ok": False, "error": str(e)}
+
+          def summarize(resp):
+              body = resp.get("body") or {}
+              tf = (body.get("timeframes") or {}).get("M5") or (body.get("timeframes") or {}).get("H1") or {}
+              return {
+                  "httpStatus": resp.get("httpStatus"),
+                  "ok": resp.get("ok"),
+                  "status": body.get("status"),
+                  "symbol": body.get("symbol"),
+                  "marketSymbol": body.get("marketSymbol"),
+                  "marketType": body.get("marketType"),
+                  "provider": body.get("provider"),
+                  "sourceType": body.get("sourceType"),
+                  "currentPrice": body.get("currentPrice"),
+                  "priceType": body.get("priceType"),
+                  "generatedAt": body.get("generatedAt"),
+                  "currentPriceTime": body.get("currentPriceTime"),
+                  "latestCandle": tf.get("latestCandle"),
+                  "error": resp.get("error") or body.get("message") or body.get("error"),
+                  "rawBody": body if not resp.get("ok") else None,
+              }
+
+          worker = {}
+          for path in probes:
+              worker[path] = summarize(fetch_json(f"{WORKER}/{path}"))
+              print(path, json.dumps(worker[path], ensure_ascii=False))
+
+          td_key = os.environ.get("TD_KEY_A") or os.environ.get("TD_KEY_B") or ""
+          direct = {
+              "secretAvailable": bool(td_key),
+              "secretNameUsed": "TWELVE_DATA_API_KEY" if os.environ.get("TD_KEY_A") else ("TWELVEDATA_API_KEY" if os.environ.get("TD_KEY_B") else None),
+              "requests": {}
+          }
+
+          if td_key:
+              headers = {"Authorization": f"apikey {td_key}", "User-Agent": "trading-api-diagnostic/1.0"}
+              symbols = ["NDX", "SPX", "NQ", "MNQ", "ES", "MES", "XAU/USD", "EUR/USD", "BTC/USD"]
+              for sym in symbols:
+                  q = urllib.parse.quote(sym, safe="")
+                  direct["requests"][f"symbol_search:{sym}"] = fetch_json(
+                      f"https://api.twelvedata.com/symbol_search?symbol={q}&outputsize=20&show_plan=true", headers=headers)
+              # Representative core endpoint metadata/quote probes.
+              for sym in ["NDX", "SPX", "NQ", "ES", "XAU/USD", "EUR/USD"]:
+                  q = urllib.parse.quote(sym, safe="")
+                  direct["requests"][f"quote:{sym}"] = fetch_json(
+                      f"https://api.twelvedata.com/quote?symbol={q}", headers=headers)
+                  direct["requests"][f"time_series:{sym}"] = fetch_json(
+                      f"https://api.twelvedata.com/time_series?symbol={q}&interval=1min&outputsize=3&timezone=UTC", headers=headers)
+          else:
+              print("No Twelve Data GitHub secret found; direct metadata probe skipped.")
+
+          out = {
+              "generatedAt": datetime.now(timezone.utc).isoformat(),
+              "workerBase": WORKER,
+              "worker": worker,
+              "directTwelveData": direct,
+          }
+          with open("data/market-provider-diagnostics.json", "w", encoding="utf-8") as f:
+              json.dump(out, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Commit diagnostics
+        shell: bash
+        run: |
+          git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
+          git add data/market-provider-diagnostics.json
+          if git diff --cached --quiet; then
+            echo "No diagnostic changes."
+            exit 0
+          fi
+          git commit -m "Record market-provider diagnostics"
+          git pull --rebase origin main
+          git push origin HEAD:main
