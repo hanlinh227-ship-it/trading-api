@@ -1,9 +1,10 @@
 # CASH INDICES STATE
 
-Updated: 2026-08-17 (UTC+7)
+Updated: 2026-08-17 UTC+7
 
 ## Hard instrument rule
-Default index requests mean CASH indices, not futures.
+Default index requests mean CASH indices unless the user explicitly asks for futures.
+
 Never substitute NQ/ES/MNQ/MES prices for cash-index prices.
 
 ## Canonical aliases
@@ -14,46 +15,67 @@ Never substitute NQ/ES/MNQ/MES prices for cash-index prices.
 - DAX / DEX / DE40 / GER40 -> DAX Cash -> `DAX`
 - UK100 -> FTSE cash index where supported
 - FR40 -> CAC cash index where supported
-- HSI, VIX, RUT when specifically requested and supported.
+- HSI, VIX, RUT only when specifically requested and provider mapping is verified.
 
-NQ/ES/MNQ/MES must remain blocked in cash-index resolver paths to prevent silent cash/futures confusion.
+NQ/ES/MNQ/MES remain blocked in cash-index resolver paths to prevent silent cash/futures confusion.
 
-## Data status
-The project Twelve Data mappings support major cash-index aliases, but Twelve Data Basic entitlement has blocked some index data. Example: NDX/NAS100 returned an entitlement message requiring Grow/Venture. If the provider cannot deliver the requested cash index, report the limitation instead of fabricating a price from futures or CFDs.
+## Data policy — Grow 55
+Twelve Data Grow 55 is the primary aggregated path for supported cash indices through the Worker.
+
+Before using a value:
+- verify the exact cash-index mapping;
+- verify current provider entitlement/support;
+- verify market/session state;
+- distinguish latest `/price` fetch time from a true exchange/venue quote timestamp;
+- never invent bid/ask or spread when the feed does not provide them.
+
+If the provider cannot deliver the exact requested cash index, return `DATA_BLOCK` or identify the limitation. Do not substitute futures, ETFs or CFDs unless the user explicitly requests that alternate instrument.
 
 ## Analysis workflow
 - D1/H4: macro regime, major trend and liquidity.
 - H1: intraday bias and current structural leg.
-- M15: setup, sweep, displacement, breakout/retest, VWAP/volume context where available.
-- M5: entry confirmation/timing.
-- M1/latest: execution refresh only.
+- M15: setup/location, sweep, displacement, breakout/retest, VWAP/volume context where reliable.
+- M5: execution trigger/confirmation.
+- latest `/price`: current aggregated price reference.
+- M1: recent-candle timing/reference only; not a replacement for final `/price`.
 
 ## Macro drivers
-For US indices, incorporate:
+US indices:
 - Fed/rate expectations;
-- US10Y/yield moves;
-- CPI/PCE/NFP/jobs/growth data;
+- US Treasury yields, especially US10Y;
+- CPI/PCE/NFP/jobs/growth;
 - major tech/earnings context for Nasdaq when material;
-- risk sentiment and geopolitical shocks.
-For Nikkei, incorporate JPY/BoJ/Japan policy and global risk sentiment.
-For DAX/European indices, incorporate ECB/euro-area macro and regional/global risk conditions.
+- risk sentiment/geopolitical shocks.
+
+Nikkei:
+- JPY;
+- BoJ/MoF policy;
+- Japan inflation/wages/growth;
+- global risk and US-tech linkage where material.
+
+European indices:
+- ECB/euro-area macro;
+- regional fiscal/political risk;
+- global risk conditions.
 
 ## Technical stack
 - structure/liquidity first;
-- EMA20/50/200 for trend/pullback context;
+- EMA20/50/200 as trend/pullback context;
 - RSI14 for momentum/exhaustion;
 - ATR14 for volatility/SL buffer;
 - VWAP and Volume Profile when reliable data exists;
-- SMT/correlation comparison among related indices may be used when feed quality supports it.
+- SMT/correlation comparisons only when exact related instruments are correctly identified.
 
 ## Entry logic
-Preferred MARKET entry requires HTF/intraday alignment plus an M15/M5 trigger. Avoid chasing after extended displacement. Strong triggers include sweep/reclaim, breakout/retest, controlled pullback to VWAP/EMA/structure, and clear rejection from liquidity/SR.
+A strong MARKET setup requires HTF/intraday alignment plus an M15 location and M5 confirmation. Avoid chasing extended displacement.
+
+Typical triggers:
+- sweep/reclaim;
+- breakout/retest;
+- controlled pullback to VWAP/EMA/structure;
+- clear rejection from liquidity/SR.
+
+If exact executable quote timestamp/spread is required but unavailable from the aggregated feed, obtain platform confirmation or return `DATA_BLOCK` rather than call the setup MARKET-ready.
 
 ## SL / TP
-SL is defined by structural invalidation, with ATR only as a buffer. TP should be tied to the next liquidity pool, prior high/low, value-area boundary, VWAP extension or other defensible structural objective. Do not force the same points/RR on all indices.
-
-## Existing E8/EA context
-An earlier E8 index-bot foundation referenced broker symbols such as ASX.c, DAX.c, DOW.c, NIKKEI.c, NSDQ.c, SP.c and used separate prop-firm risk management. Treat those as broker/EA symbols and do not mix them with the canonical cash-index API aliases unless mapping is explicitly verified.
-
-## Cross-chat continuation
-Read `MASTER_TRADING_STATE.md`, this file, and `DATA_INFRA_STATE.md`. Verify exact cash symbol/provider entitlement before issuing any live price or MARKET entry.
+SL is defined by structural invalidation; ATR is only a buffer. TP is tied to meaningful liquidity, prior high/low, value-area boundary, VWAP extension or another defensible structural objective. Do not impose one fixed point distance/RR on every index.
