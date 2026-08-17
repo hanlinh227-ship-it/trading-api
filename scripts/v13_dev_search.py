@@ -24,15 +24,12 @@ def side_for(policy, base_side, score, model, sums):
         if pos>=.65:return 'SELL'
         if pos<=.35:return 'BUY'
         return htf_side
-    # hybrid: trend follows HTF; ranges fade location; transition blends location + HTF and avoids late chase.
     if rg=='trend': return htf_side
     if rg=='range': return 'SELL' if pos>=.55 else 'BUY'
     chase=model.get('chaseAdjustment',0)
     if pos>=.72:return 'SELL'
     if pos<=.28:return 'BUY'
-    if abs(chase)>=1.6 and abs(htf)<7:
-        # stretched transition: fade the price location rather than follow late impulse
-        return 'SELL' if pos>=.5 else 'BUY'
+    if abs(chase)>=1.6 and abs(htf)<7:return 'SELL' if pos>=.5 else 'BUY'
     return htf_side if abs(htf)>=3 else ltf_side
 
 def future(source,sym,cut):
@@ -80,7 +77,6 @@ def main():
     for policy,lb,sf,rr in itertools.product(POLICIES,LOOKBACKS,STOP_FACTORS,RRS):
         per={k:eval_cfg(v,policy,lb,sf,rr) for k,v in data.items()}
         minwr=min(x['winRate'] for x in per.values());minexp=min(x['expectancyR'] for x in per.values());avgwr=sum(x['winRate'] for x in per.values())/len(per);avgexp=sum(x['expectancyR'] for x in per.values())/len(per)
-        # Robust score rewards both win rate and RR/expectancy; worst sample matters most.
         robust=minwr + 8*minexp + 2*(rr-1.5) + .15*avgwr + 3*avgexp
         grid.append({'policy':policy,'lookback':lb,'stopFactor':sf,'rr':rr,'perSample':per,'minWinRate':round(minwr,2),'minExpectancyR':round(minexp,3),'avgWinRate':round(avgwr,2),'avgExpectancyR':round(avgexp,3),'robustScore':round(robust,3)})
     feasible=[x for x in grid if x['minExpectancyR']>0 and x['minWinRate']>=40 and x['rr']>=1.5]
@@ -89,3 +85,4 @@ def main():
     with open('data/v13_dev_search.json','w') as f:json.dump(payload,f,indent=2)
     print(json.dumps({'top':top[:10]},indent=2))
 if __name__=='__main__':main()
+# trigger-v2
