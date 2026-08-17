@@ -1,0 +1,20 @@
+name: Eval EURUSD V32 Oct2024 Final
+on:
+  push:
+    paths:
+      - 'scripts/eval_eurusd_v32_oct2024_final.py'
+      - '.github/workflows/eval-eurusd-v32-oct2024-final.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate locked EURUSD candidate
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/eval_eurusd_v32_oct2024_final.py
