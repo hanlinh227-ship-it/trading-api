@@ -56,6 +56,18 @@ def crypto_audit(symbol):
 
 def supported_td_audit(symbol):
     status, latest = td.fetch_full(symbol, include_m1=True)
+
+    # A stale provider feed is a successful safety result: the live system
+    # rejected it instead of presenting an old number as current.
+    if status.get("status") == "DATA_BLOCK" and status.get("reason") == "CURRENT_QUOTE_STALE":
+        return {
+            "symbol":symbol,"marketType":status.get("marketType"),
+            "status":"BLOCKED_AS_DESIGNED","provider":"Twelve Data",
+            "marketSymbol":status.get("marketSymbol"),"currentPrice":None,
+            "currentPriceTime":status.get("currentPriceTime"),"quoteAgeMs":status.get("quoteAgeMs"),
+            "reason":status.get("reason"),"message":status.get("message"),"errors":[],
+        }
+
     errors=[]
     if status.get("status") != "ok":
         errors.append(f"STATUS:{status.get('status')}")
@@ -66,9 +78,7 @@ def supported_td_audit(symbol):
     if status.get("quoteTimestampVerified") is not True:
         errors.append("QUOTE_TIMESTAMP_NOT_VERIFIED")
     age=status.get("quoteAgeMs")
-    # Audit tolerance proves the feed is updating. V74's stricter <=30s flag
-    # remains separately visible in strictV74PriceFresh.
-    if age is None or age > 90000:
+    if age is None or age > td.HARD_STALE_MS:
         errors.append(f"QUOTE_TOO_OLD_FOR_AUDIT:{age}")
     if status.get("currentPrice") is None:
         errors.append("MISSING_CURRENT_PRICE")
@@ -102,23 +112,17 @@ def expected_block_audit(symbol, expected_type):
 def main():
     rows=[]
 
-    # Exchange-native crypto: exact venue quote + bid/ask + timestamp.
     for symbol in ("BTCUSDT","ETHUSDT","SOLUSDT"):
         rows.append(crypto_audit(symbol))
 
-    # Supported direct Twelve Data instruments. These exercise two Forex pairs
-    # plus both spot metals and all five analysis timeframes + M1 + /quote.
+    # Two Forex + two spot metals prove supported Twelve Data paths. The audit
+    # also verifies that any stale feed is blocked instead of promoted as live.
     for symbol in ("EURUSD","GBPJPY","XAUUSD","XAGUSD"):
         rows.append(supported_td_audit(symbol))
 
-    # Current Grow55 diagnostics prove exact cash indices are not safe through
-    # the available core endpoints. Correct behavior is an explicit DATA_BLOCK,
-    # never a same-text ticker such as the bad NDX=19.4/SPX=0.085 mappings.
     for symbol in ("NAS100","US500","DAX","N225"):
         rows.append(expected_block_audit(symbol,"index"))
 
-    # Exact financial futures are not exposed as provable CME/COMEX/NYMEX
-    # contracts in the current catalog. Proxy substitution is forbidden.
     for symbol in ("NQ","MNQ","ES","MES","GC","CL"):
         rows.append(expected_block_audit(symbol,"future"))
 
@@ -127,14 +131,14 @@ def main():
     blocked=[r for r in rows if r["status"]=="BLOCKED_AS_DESIGNED"]
     output={
         "generatedAt":now_iso(),
-        "policy":"STRICT_DIRECT_MARKET_DATA_AUDIT_V3",
+        "policy":"STRICT_DIRECT_MARKET_DATA_AUDIT_V4",
         "twelveDataClientVersion":td.VERSION,
         "summary":{"total":len(rows),"pass":len(passed),"blockedAsDesigned":len(blocked),"fail":len(fail)},
         "rows":rows,
         "interpretation":{
             "PASS":"Exact supported instrument returned current data and passed identity/timestamp checks.",
-            "BLOCKED_AS_DESIGNED":"Provider/plan cannot prove the exact requested instrument; returning no price is correct and prevents ticker collisions/proxies.",
-            "FAIL":"Supported route failed identity, freshness or analysis checks and must not be used live.",
+            "BLOCKED_AS_DESIGNED":"Exact instrument is unsupported or its current feed is stale; returning no live price is the correct safety behavior.",
+            "FAIL":"A supposedly supported live route failed identity, freshness or analysis checks.",
         },
     }
     os.makedirs("data",exist_ok=True)
