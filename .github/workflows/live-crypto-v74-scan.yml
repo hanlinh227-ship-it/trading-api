@@ -1,14 +1,13 @@
-name: Live Crypto V74 Scan
+name: Live Crypto V75 Fast Scan
 
 on:
   push:
     paths:
-      - '.github/workflows/live-crypto-v74-scan.yml'
       - 'data/live_scan_request.txt'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   scan:
@@ -16,142 +15,16 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Fetch fresh OKX market data and rank V74 candidates
-        env:
-          PYTHONUNBUFFERED: '1'
+          fetch-depth: 1
+      - name: Scan V74 crypto universe with V75 staged engine
+        run: python3 scripts/scan_crypto_v75.py data
+      - name: Commit compact crypto snapshot
         run: |
-          python - <<'PY'
-          import json, urllib.parse, urllib.request
-          from concurrent.futures import ThreadPoolExecutor, as_completed
-          from datetime import datetime, timezone
-
-          BASE='https://www.okx.com'
-          CANDIDATES=['UNI','SOL','ETH','XRP']
-          BARS={'1D':'1Dutc','4H':'4H','1H':'1H','15m':'15m','5m':'5m'}
-
-          def get(path,params=None,timeout=4):
-              q=('?'+urllib.parse.urlencode(params)) if params else ''
-              req=urllib.request.Request(BASE+path+q,headers={'User-Agent':'trading-api-v74/1.3'})
-              with urllib.request.urlopen(req,timeout=timeout) as r:
-                  obj=json.loads(r.read().decode())
-              if obj.get('code')!='0':
-                  raise RuntimeError(obj)
-              return obj['data']
-
-          def ema(vals,n):
-              a=2/(n+1); x=vals[0]
-              for v in vals[1:]: x=a*v+(1-a)*x
-              return x
-
-          def rsi(vals,n=14):
-              ds=[vals[i]-vals[i-1] for i in range(1,len(vals))]
-              up=[max(x,0) for x in ds[-n:]]; dn=[max(-x,0) for x in ds[-n:]]
-              au=sum(up)/n; ad=sum(dn)/n
-              return 100 if ad==0 else 100-(100/(1+au/ad))
-
-          def atr(rows,n=14):
-              tr=[]
-              for i in range(1,len(rows)):
-                  h,l,pc=rows[i][2],rows[i][3],rows[i-1][4]
-                  tr.append(max(h-l,abs(h-pc),abs(l-pc)))
-              return sum(tr[-n:])/n
-
-          def fetch_candles(sym,label,bar):
-              raw=get('/api/v5/market/candles',{'instId':sym+'-USDT','bar':bar,'limit':'100'})
-              rows=[]
-              for x in raw:
-                  rows.append([int(x[0]),float(x[1]),float(x[2]),float(x[3]),float(x[4]),float(x[5]),str(x[-1])])
-              rows.sort(key=lambda x:x[0])
-              return sym,label,rows
-
-          def metrics(rows):
-              closed=[x for x in rows if x[6]=='1'] or rows[:-1]
-              c=[x[4] for x in closed]
-              return {'close':c[-1],'ema20':ema(c[-60:],20),'ema50':ema(c,50),'rsi':rsi(c),'atr':atr(closed)},closed
-
-          def recent_sweep(rows,side):
-              rr=rows
-              for j in range(max(12,len(rr)-8),len(rr)):
-                  if j<10: continue
-                  prior=rr[j-10:j]
-                  if side=='LONG':
-                      lvl=min(x[3] for x in prior)
-                      if rr[j][3]<lvl and rr[j][4]>lvl: return True,lvl
-                  else:
-                      lvl=max(x[2] for x in prior)
-                      if rr[j][2]>lvl and rr[j][4]<lvl: return True,lvl
-              return False,None
-
-          def m5_trigger(rows,side):
-              rr=rows
-              last=rr[-1]; prev=rr[-2]; a=atr(rr); body=abs(last[4]-last[1])
-              if side=='LONG':
-                  hi=max(x[2] for x in rr[-10:-2])
-                  disp=last[4]>hi and last[4]>last[1] and body>=0.40*a
-                  reclaim=prev[3]<min(x[3] for x in rr[-10:-2]) and prev[4]>prev[1] and last[4]>prev[4]
-                  return bool(disp or reclaim),{'disp':disp,'reclaim':reclaim,'priorBreak':hi}
-              lo=min(x[3] for x in rr[-10:-2])
-              disp=last[4]<lo and last[4]<last[1] and body>=0.40*a
-              reclaim=prev[2]>max(x[2] for x in rr[-10:-2]) and prev[4]<prev[1] and last[4]<prev[4]
-              return bool(disp or reclaim),{'disp':disp,'reclaim':reclaim,'priorBreak':lo}
-
-          candle_data={s:{} for s in CANDIDATES}
-          errors=[]
-          jobs=[]
-          with ThreadPoolExecutor(max_workers=10) as ex:
-              for s in CANDIDATES:
-                  for label,bar in BARS.items():
-                      jobs.append(ex.submit(fetch_candles,s,label,bar))
-              for fut in as_completed(jobs):
-                  try:
-                      s,label,rows=fut.result(); candle_data[s][label]=rows
-                  except Exception as e:
-                      errors.append(repr(e))
-
-          out=[]
-          for s in CANDIDATES:
-              try:
-                  if len(candle_data[s])!=5: raise RuntimeError('missing candles')
-                  tick=get('/api/v5/market/ticker',{'instId':s+'-USDT'})[0]
-                  bid=float(tick['bidPx']); ask=float(tick['askPx']); last=float(tick['last']); mid=(bid+ask)/2
-                  ts=int(tick['ts'])
-                  md,D=metrics(candle_data[s]['1D']); m4,H4=metrics(candle_data[s]['4H']); m1,H1=metrics(candle_data[s]['1H']); m15,M15=metrics(candle_data[s]['15m']); m5,M5=metrics(candle_data[s]['5m'])
-                  scores={}; details={}
-                  for side in ('LONG','SHORT'):
-                      sign=1 if side=='LONG' else -1; sc=0.0
-                      sc += 0.8 if sign*(md['close']-md['ema20'])>0 else -0.4
-                      sc += 1.3 if sign*(m4['close']-m4['ema20'])>0 else -0.7
-                      sc += 1.0 if sign*(m4['ema20']-m4['ema50'])>0 else -0.5
-                      sc += 1.5 if sign*(m1['close']-m1['ema20'])>0 else -0.8
-                      sc += 1.2 if sign*(m1['ema20']-m1['ema50'])>0 else -0.6
-                      sc += 0.7 if sign*(m15['close']-m15['ema20'])>0 else -0.3
-                      sc += 0.5 if sign*(m5['close']-m5['ema20'])>0 else -0.2
-                      healthy=(47<=m1['rsi']<=68) if side=='LONG' else (32<=m1['rsi']<=53)
-                      sc += 0.7 if healthy else 0
-                      dist=abs(m1['close']-m1['ema20'])/max(m1['atr'],1e-12)
-                      sc += 0.7 if dist<=1.0 else (-1.0 if dist>1.6 else 0)
-                      sw,lvl=recent_sweep(M15,side); trig,tg=m5_trigger(M5,side)
-                      if sw: sc+=1.7
-                      if trig: sc+=2.2
-                      scores[side]=sc; details[side]={'m15Sweep':sw,'sweepLevel':lvl,'m5Trigger':trig,**tg}
-                  side=max(scores,key=scores.get); score=scores[side]; a15=m15['atr']
-                  if side=='LONG':
-                      swing=min(x[3] for x in M15[-10:]); sl=min(swing-0.12*a15,mid-0.65*a15); risk=mid-sl; tp1=mid+risk; tp2=mid+2*risk
-                      h1target=max(x[2] for x in H1[-30:]); room=(h1target-mid)/risk if risk>0 else -99
-                  else:
-                      swing=max(x[2] for x in M15[-10:]); sl=max(swing+0.12*a15,mid+0.65*a15); risk=sl-mid; tp1=mid-risk; tp2=mid-2*risk
-                      h1target=min(x[3] for x in H1[-30:]); room=(mid-h1target)/risk if risk>0 else -99
-                  out.append({'symbol':s,'side':side,'score':round(score,3),'marketReady':bool(score>=5.8 and (details[side]['m5Trigger'] or details[side]['m15Sweep'])),'strictM5Ready':bool(score>=5.8 and details[side]['m5Trigger']),'bid':bid,'ask':ask,'last':last,'mid':mid,'tickerTs':ts,'spreadPct':round((ask-bid)/mid*100,6),'volCcy24h':float(tick.get('volCcy24h') or 0),'D1':md,'H4':m4,'H1':m1,'M15':m15,'M5':m5,'trigger':details[side],'sl':sl,'risk':risk,'tp1':tp1,'tp2':tp2,'roomToH1LiquidityR':room,'rr2EligibleByRoom':bool(room>=2.2)})
-              except Exception as e:
-                  out.append({'symbol':s,'error':repr(e)})
-
-          good=[x for x in out if 'error' not in x]
-          good.sort(key=lambda x:(x.get('strictM5Ready',False),x['marketReady'],x['score'],x['volCcy24h']),reverse=True)
-          now=datetime.now(timezone.utc)
-          print('LIVE_SCAN_JSON_START')
-          print(json.dumps({'fetchedAtUTC':now.isoformat(),'epochMs':int(now.timestamp()*1000),'source':'OKX public REST fetched by GitHub runner','candidateCount':len(good),'top':good,'errors':errors[:3]},separators=(',',':')))
-          print('LIVE_SCAN_JSON_END')
-          PY
+          git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
+          git add data/crypto-fast.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update V75 fast crypto scan"
+          git pull --rebase origin main
+          git push origin HEAD:main
