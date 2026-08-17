@@ -4,8 +4,11 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 import blind_backtest_crypto as v6
 
-# Regression only. Fresh unseen sample is added only after this policy is locked.
-CUTOFFS=[("OLD_REGRESSION_2026-08-13_12UTC","2026-08-13T12:00:00Z",False)]
+# V12 policy is locked. The fresh sample below was not used for tuning.
+CUTOFFS=[
+    ("OLD_REGRESSION_2026-08-13_12UTC","2026-08-13T12:00:00Z",False),
+    ("FRESH_BLIND_2026-08-12_12UTC","2026-08-12T12:00:00Z",True),
+]
 MAX_FORWARD_HOURS=96
 
 
