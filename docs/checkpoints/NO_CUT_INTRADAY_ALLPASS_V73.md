@@ -1,43 +1,40 @@
 # NO-CUT INTRADAY ALL-PASS V73
 
 Updated: 2026-08-17 UTC+7
-Status: CURRENT forced-daily intraday development checkpoint
+Status: FROZEN statistical/development prior
 
-## Locked target
+## Locked target represented by the frozen artifact
 - CUT is forbidden.
-- NO TRADE day is forbidden.
-- Each Forex pair / Crypto symbol must trade 1–3 times per day; the current frozen passing maps use exactly 1 trade/day.
-- RR may only be 1:1 or 1:2; every current passing map uses RR1:1.
-- Per-symbol development WR is TP / all simulated daily trades and must be >=80%.
+- Discretionary whole-day NO TRADE is forbidden.
+- Each Forex pair / Crypto symbol targets 1–3 trades per eligible day; current frozen passing maps use exactly 1 trade/day.
+- RR may only be 1:1 or 1:2; current frozen passing maps use RR1:1.
+- Per-symbol development WR gate was >=80%.
 - TIMEOUT is a non-win.
-- If TP and SL are both touched inside the same OHLC bar, score SL conservatively.
-- Each symbol owns its own entry method plus its own news/context profile.
+- Same-bar TP+SL is scored as SL conservatively.
+- Each symbol owns its own frozen method and historical context metadata.
 
-## Final development gate
-- Forex: **28/28 PASS**; minimum individual WR **80.00%**.
-- Crypto: **61/61 PASS**; minimum individual WR **80.22%**.
+## Frozen development gate
+- Forex: **28/28 PASS**; minimum individual development WR **80.00%**.
+- Crypto: **61/61 PASS**; minimum individual development WR **80.22%**.
 - Forex uses H1.
 - 59 Crypto symbols use H1.
-- TON and IP intentionally use their own 4H method because full common-source H1 history was unavailable; this is a symbol-specific design, not an exclusion.
+- TON/IP use dedicated 4H methods.
 
-Last difficult Crypto symbols:
-- HBAR: 87TP / 4SL / 0 timeout = 95.60%.
-- TAO: 88TP / 3SL / 0 timeout = 96.70%.
-- TON: 83TP / 6SL / 2 timeout = 91.21%.
-- IP: 79TP / 11SL / 1 timeout = 86.81%.
+Recorded difficult-symbol development results:
+- HBAR 95.60%.
+- TAO 96.70%.
+- TON 91.21%.
+- IP 86.81%.
 
-## Frozen architecture
-Forex:
-- V64 base styles for pairs already >=80%.
-- V66 targeted H1 refinement for the 11 V64 failures.
+## Frozen lineage
+The frozen artifact was assembled from the completed development lineage:
+- Forex V64 base + V66 targeted refinement;
+- Crypto V69 static passes + V70 observable routers + V71 HBAR/TAO + V72 TON/IP.
 
-Crypto:
-- V69 fixed H1 styles where a static per-coin rule already passed.
-- V70 observable 00UTC regime routers for most V69 failures.
-- V71 expanded H1 routers for HBAR and full-history TAO.
-- V72 dedicated 4H routers for TON and IP.
+Those optimizer/rebuild generations are historical provenance, **not active runtime code**. They have been removed from the active `main` tree during repository cleanup so live operation cannot accidentally rerun or retune V73. Git history remains the archive if the historical development lineage ever needs inspection.
 
-Exact frozen methods, router trees, action definitions, statistics, timeframes and per-symbol news/context profiles live in:
+## Canonical runtime sources
+Frozen source of truth:
 - `data/nocut_intraday_allpass_v73.json`
 
 Operational reader:
@@ -47,24 +44,26 @@ Hard-gate validator:
 - `scripts/validate_nocut_v73.py`
 - `.github/workflows/validate-nocut-v73.yml`
 
-Canonical rebuild workflow:
-- `.github/workflows/build-nocut-allpass-v73.yml`
-- successful rebase-safe build run: `32032071403`.
+Historical build run `32032071403` remains provenance only; there is intentionally no active V73 rebuild workflow after cleanup.
 
-Final operational validation:
-- validation run: `32033371607`, job `95398145183` — PASS.
-- confirmed 28 Forex + 61 Crypto, min WR 80.00% / 80.22%.
-- confirmed frozen maps are exactly 1 trade/day.
-- confirmed 89/89 instruments contain news/context profiles.
-- confirmed 39 instruments use valid observable regime routers.
-- canonical reader smoke-tested EURUSD and SOL.
-- router/action smoke-tested BTC, HBAR, TAO, TON and IP with no missing action references.
+Operational validation evidence retained in project history:
+- validation run `32033371607`, job `95398145183` — PASS;
+- 28 Forex + 61 Crypto;
+- minimum development WR 80.00% / 80.22%;
+- frozen maps exactly 1 trade/day;
+- 89/89 instruments contain context metadata;
+- router/action references validated.
 
-## Live news/context rule
-News is symbol-specific. Since a daily trade is mandatory, a news/event shock does **not** silently turn the day into NO TRADE. Instead it is used point-in-time to route/confirm the symbol's frozen execution geometry/regime. No historical news is fabricated where a point-in-time archive was unavailable.
+## Live-use rule
+**Never execute V73 raw.** V73 is only the frozen statistical/setup prior consumed by V74.
+
+For current live context, symbol identity, news, price freshness, M15/M5 confirmation, execution quality and structural risk, always use `LIVE_SYMBOL_ANALYSIS_V74.md` and the current data policy.
+
+The old V73 live-news metadata is retained inside the frozen JSON for provenance but is deprecated for current crypto context because V74 corrected identity/profile mappings.
 
 ## Integrity classification
 **EXPOSED DEVELOPMENT ALL-PASS — NOT UNTOUCHED OOS.**
-May–Jul 2026 was used to search/refine these maps and is therefore development data. It is correct to say the requested development target is met for 28/28 Forex + 61/61 Crypto. It is not correct to call these WR values a future/live guarantee.
 
-Next integrity step: freeze V73 exactly as-is and test it unchanged on independent history/forward data. Do not retune that holdout before reporting it as validation.
+May–Jul 2026 was used to search/refine these maps. The requested development gate was met, but the development WR must not be described as a future/live guarantee.
+
+V73 must remain unchanged while V73+V74 forward/OOS evidence is collected. A future method change must create a new version rather than silently rewriting V73.
