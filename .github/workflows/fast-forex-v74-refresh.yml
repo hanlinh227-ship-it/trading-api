@@ -1,4 +1,4 @@
-name: Fast Forex V74 Refresh
+name: Fast Forex Aggregated Price Refresh
 
 on:
   workflow_dispatch:
@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+# Lightweight one-credit final reference-price refresh.
+# Twelve Data /price is an aggregated latest-price reference.
+# The Worker generatedAt field is fetch time, NOT a verified broker quote
+# timestamp, and this workflow does not invent bid/ask/spread.
 concurrency:
   group: twelvedata-api
   cancel-in-progress: false
@@ -20,15 +24,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Refresh requested Forex symbol with latest price
+      - name: Fetch latest aggregated Forex price
         shell: bash
         run: |
           SYMBOL=$(tr -d '[:space:]' < data/forex_fast_request.txt)
           echo "SYMBOL=$SYMBOL"
+
           curl --silent --show-error --location --fail \
             "https://forex-chart-api.hanlinh227.workers.dev/price/$SYMBOL" \
-            -o refresh.json
-          echo "FAST_FOREX_REFRESH_JSON_START"
-          cat refresh.json
-          echo
-          echo "FAST_FOREX_REFRESH_JSON_END"
+            -o price.json
+
+          python3 <<'PY'
+          import json
+
+          with open("price.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          if data.get("status") not in ("ok", "partial"):
+              raise SystemExit("Price endpoint returned error")
+          if data.get("currentPrice") is None:
+              raise SystemExit("Missing currentPrice")
+
+          out = {
+              "symbol": data.get("symbol"),
+              "marketSymbol": data.get("marketSymbol"),
+              "provider": data.get("provider"),
+              "currentPrice": data.get("currentPrice"),
+              "priceType": data.get("priceType"),
+              "fetchedAt": data.get("generatedAt"),
+              "quoteTimestampVerified": False,
+              "bid": data.get("bid"),
+              "ask": data.get("ask"),
+              "spreadVerified": data.get("bid") is not None and data.get("ask") is not None,
+              "marketEntryNeedsVenueConfirmation": True,
+          }
+          print(json.dumps(out, ensure_ascii=False, indent=2))
+          PY
