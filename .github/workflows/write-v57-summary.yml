@@ -1,0 +1,30 @@
+name: Write V57 Summary
+on:
+  push:
+    paths:
+      - 'scripts/write_v57_summary_from_logs.py'
+      - '.github/workflows/write-v57-summary.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: write
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Parse V57 logs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/write_v57_summary_from_logs.py
+      - name: Commit summary
+        run: |
+          git config user.name 'research-summary-bot'
+          git config user.email 'research-summary-bot@users.noreply.github.com'
+          git add data/v57_compact_summary.json
+          git commit -m 'Save compact V57 per-coin results' || exit 0
+          git pull --rebase origin main || true
+          git push origin HEAD:main
