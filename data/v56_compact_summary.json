@@ -1,0 +1,184 @@
+{
+  "version": "V56_COMPACT",
+  "runId": 32026926958,
+  "passCount": 3,
+  "failCount": 8,
+  "passed": [
+    "LIT",
+    "S",
+    "XPL"
+  ],
+  "failed": [
+    "DOT",
+    "FLOKI",
+    "INJ",
+    "LDO",
+    "ONDO",
+    "POL",
+    "TAO",
+    "WLD"
+  ],
+  "results": {
+    "DOT": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "XPL": {
+      "status": "PASS",
+      "frozen": {
+        "stage": "FEB_MAR",
+        "params": [
+          "HYBRID",
+          8,
+          1.0,
+          0.75,
+          3,
+          0.75,
+          2,
+          1,
+          0.15,
+          0.0
+        ],
+        "development": {
+          "expectedDays": 28,
+          "tradedDays": 28,
+          "missing": 0,
+          "tp": 9,
+          "sl": 0,
+          "cut": 19,
+          "resolved": 9,
+          "wr": 100.0,
+          "cutRate": 67.86,
+          "meanR": 0.33
+        },
+        "final": {
+          "expectedDays": 31,
+          "tradedDays": 31,
+          "missing": 0,
+          "tp": 5,
+          "sl": 1,
+          "cut": 25,
+          "resolved": 6,
+          "wr": 83.33,
+          "cutRate": 80.65,
+          "meanR": 0.128
+        },
+        "pass": true
+      }
+    },
+    "LIT": {
+      "status": "PASS",
+      "frozen": {
+        "stage": "FEB_MAR",
+        "params": [
+          "RELBTC",
+          12,
+          1.0,
+          1.25,
+          3,
+          0.75,
+          2,
+          1,
+          0.05,
+          0.1
+        ],
+        "development": {
+          "expectedDays": 28,
+          "tradedDays": 28,
+          "missing": 0,
+          "tp": 10,
+          "sl": 0,
+          "cut": 18,
+          "resolved": 10,
+          "wr": 100.0,
+          "cutRate": 64.29,
+          "meanR": 0.333
+        },
+        "final": {
+          "expectedDays": 31,
+          "tradedDays": 31,
+          "missing": 0,
+          "tp": 6,
+          "sl": 1,
+          "cut": 24,
+          "resolved": 7,
+          "wr": 85.71,
+          "cutRate": 77.42,
+          "meanR": 0.124
+        },
+        "pass": true
+      }
+    },
+    "POL": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "INJ": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "TAO": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "FLOKI": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "S": {
+      "status": "PASS",
+      "frozen": {
+        "stage": "FEB_MAR",
+        "params": [
+          "OWN_H4",
+          16,
+          1.0,
+          1.0,
+          3,
+          0.75,
+          2,
+          2,
+          -0.15,
+          0.2
+        ],
+        "development": {
+          "expectedDays": 28,
+          "tradedDays": 28,
+          "missing": 0,
+          "tp": 17,
+          "sl": 0,
+          "cut": 11,
+          "resolved": 17,
+          "wr": 100.0,
+          "cutRate": 39.29,
+          "meanR": 0.509
+        },
+        "final": {
+          "expectedDays": 31,
+          "tradedDays": 31,
+          "missing": 0,
+          "tp": 16,
+          "sl": 3,
+          "cut": 12,
+          "resolved": 19,
+          "wr": 84.21,
+          "cutRate": 38.71,
+          "meanR": 0.26
+        },
+        "pass": true
+      }
+    },
+    "ONDO": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "WLD": {
+      "status": "FAIL",
+      "frozen": null
+    },
+    "LDO": {
+      "status": "FAIL",
+      "frozen": null
+    }
+  }
+}
