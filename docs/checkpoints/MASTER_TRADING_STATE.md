@@ -47,13 +47,14 @@ Purpose: canonical handoff/checkpoint for continuing the Trading project across 
 
 ### Crypto / Breakout
 - Direct exchange data through GitHub runner is preferred over Twelve Data for crypto.
-- Exchange route: Binance -> OKX -> Bybit; OKX has been the reliable source in recent tests.
-- Surviving research family remains short-horizon momentum + H4/H1 structure + BTC-relative strength + taker-flow/market-breadth context + structural SL/dynamic RR, but **no version is validated as the main/live engine**.
-- V24-Core produced exceptional Jul04/Jul02 samples, then locked June validation showed 42.75% resolved WR, avg RR 1.647 and +0.132R with extreme date instability; V24 remains diagnostic only.
-- V25 development showed that globally reversing direction during a synchronized breadth/flow climax is wrong; Jun30 became 0 TP / 56 SL and the rule was rejected.
-- V26 locked true-blind May test isolated the macro-anchor hypothesis and failed decisively: 275 trades, 272 resolved, 79 TP / 193 SL, 29.04% WR, avg RR 1.646, expectancy -0.235R; four of five May dates were negative. Therefore “macro always owns direction” is rejected as a general solution.
-- Jun30 barrier comparison showed 46 symbols hit SL in both V24 SELL and V25 BUY, indicating a market-quality/timing/barrier failure rather than a simple directional error.
-- Current next research direction is **market-quality + entry timing + barrier geometry**, not another direction flip or generic indicator stack. Extreme breadth is a risk marker to investigate, not a finalized threshold. Live `CHAOS/NO TRADE` logic, if developed, must remain separate from forced-MARKET stress testing.
+- Exchange route: Binance -> OKX -> Bybit.
+- Useful research ingredients remain short-horizon momentum + H4/H1 structure + BTC-relative strength + taker-flow/market-breadth context + structural SL/dynamic RR, but **no version is validated as a main/live all-market engine**.
+- V24 unchanged June validation: 42.75% resolved WR, avg RR 1.647, +0.132R but extreme date instability; V24 remains diagnostic only.
+- V25 synchronized whole-market climax reversal is rejected.
+- V26 macro-always-owns-direction failed true-blind May: 79 TP / 193 SL, 29.04% WR, -0.235R.
+- V27 final random blind used untouched April 9, 2026 and delayed entry to a completed M15. Of 55 symbols with valid historical frames: 11 TP / 43 SL / 1 unresolved, 20.37% WR, 1.60R avg, -0.470R; 6h direction accuracy 21.82%, 24h accuracy 25.45%. Six universe symbols lacked usable historical frames. Historical OKX taker-flow coverage at that old timestamp was 0%.
+- Do not rerun another random date just to seek a better result. The forced-position-on-every-coin idea is not robust enough for live use.
+- **Preferred live direction is selective ranking:** BTC/market-quality first, D1/H4/H1 structure + short momentum, M15/M5 setup, fresh order flow only when available, structure-based SL, realistic RR, and explicit `NO TRADE / CHAOS` when market quality is poor. Rank only the strongest few setups rather than forcing every coin.
 
 ### Metals
 - XAUUSD/XAGUSD are separate from crypto/index logic.
