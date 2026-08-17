@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """V76 live Forex entry gate.
-Reads V75 status + locked V76 methods. It never fetches market data itself.
+Reads V75 status + locked V76 R2 methods. It never fetches market data itself.
+Any pilot/older methods file is blocked from live authorization.
 """
 from __future__ import annotations
 import argparse, json, os, sys
@@ -8,7 +9,8 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 import research_v76_entry_forex as r
 
-VERSION='V76-ENTRY-LIVE-R1'
+VERSION='V76-ENTRY-LIVE-R2'
+EXPECTED_METHODS_VERSION='V76-ENTRY-METHODS-R2'
 
 def pdt(s):
     d=datetime.fromisoformat(str(s).replace('Z','+00:00'))
@@ -24,8 +26,8 @@ def detect(status,method):
     fs=status.get('frames') or {};m5r=rows(fs.get('M5'));m15r=rows(fs.get('M15'))
     if len(m5r)<15 or len(m15r)<15:return None,'INSUFFICIENT_COMPACT_BARS'
     m5=r.enrich(m5r,300);m15=r.enrich(m15r,900);i=len(m5r)-1;j=len(m15r)-1;arch=method['archetype']
-    h1=((fs.get('H1') or {}).get('summary') or {});hc=h1.get('close');he20=h1.get('ema20');he50=h1.get('ema50')
-    h1side='LONG' if None not in (hc,he20,he50) and hc>he20>he50 else 'SHORT' if None not in (hc,he20,he50) and hc<he20<he50 else 'NEUTRAL'
+    h1=((fs.get('H1') or {}).get('summary') or {});hc=h1.get('close');e20=h1.get('ema20');e50=h1.get('ema50')
+    h1side='LONG' if None not in (hc,e20,e50) and hc>e20>e50 else 'SHORT' if None not in (hc,e20,e50) and hc<e20<e50 else 'NEUTRAL'
     def mk(side,level,structure,z=None):return {'side':side,'level':level,'structure':structure,'fvg':z,'signalClose':m5r[-1][4],'atr':m5.atr14[i]}
     if arch in ('A_SWEEP_MSS','C_SWEEP_FVG'):
         for jj in range(j,max(7,j-2),-1):
@@ -37,7 +39,7 @@ def detect(status,method):
         return None,'SETUP_NOT_PRESENT'
     if arch=='B_H1_PULLBACK_RECLAIM':
         if h1side=='NEUTRAL' or m15.ema20[j] is None:return None,'H1_OR_M15_NOT_READY'
-        side=h1side;bar=m15r[-1];e=m15.ema20[j];ok=(side=='LONG' and bar[3]<=e<bar[4]) or (side=='SHORT' and bar[2]>=e>bar[4]);disp=r.displacement(m5,i,side)
+        side=h1side;b=m15r[-1];e=m15.ema20[j];ok=(side=='LONG' and b[3]<=e<b[4]) or (side=='SHORT' and b[2]>=e>b[4]);disp=r.displacement(m5,i,side)
         if ok and disp is not None:return mk(side,disp,min(x[3] for x in m5r[-10:]) if side=='LONG' else max(x[2] for x in m5r[-10:]),r.fvg_at(m5,i,side)),None
         return None,'SETUP_NOT_PRESENT'
     if arch=='D_BREAK_RETEST_CONT':
@@ -95,20 +97,26 @@ def plan(status,method,venue_bid=None,venue_ask=None,venue_ts=None,news_clear=Fa
     executable=False;venue={}
     if venue_bid is not None and venue_ask is not None and venue_ts:
         age=(datetime.now(timezone.utc)-pdt(venue_ts).astimezone(timezone.utc)).total_seconds();spread=float(venue_ask)-float(venue_bid);mid=(float(venue_ask)+float(venue_bid))/2;spread_r=spread/dist if dist else 99
-        executable=age<=30 and spread>=0 and spread_r<=.10;venue={'bid':venue_bid,'ask':venue_ask,'timestamp':venue_ts,'ageSeconds':round(age,3),'spreadR':round(spread_r,4),'mid':mid}
+        executable=0<=age<=30 and spread>=0 and spread_r<=.10;venue={'bid':venue_bid,'ask':venue_ask,'timestamp':venue_ts,'ageSeconds':round(age,3),'spreadR':round(spread_r,4),'mid':mid}
     action=intent if executable and news_clear else 'NO_ENTRY';reason=None if action!='NO_ENTRY' else 'NEWS_CHECK_REQUIRED' if executable and not news_clear else 'VENUE_CONFIRMATION_REQUIRED'
     return {'version':VERSION,'symbol':status.get('requestedSymbol'),'action':action,'reason':reason,'technicalIntent':intent,'side':side,'entry':entry,'sl':sl,'tp':tp,'rr':rr,'riskDistance':dist,'roomR':room,'newsClear':news_clear,'venue':venue,'method':{k:method.get(k) for k in ('archetype','entryMode','stopMode','rr')},'evidence':{'validation':method.get('validation'),'oos':method.get('oos')}}
 
 def validate(methods):
+    v=methods.get('version')
+    if v!=EXPECTED_METHODS_VERSION:
+        print(json.dumps({'version':VERSION,'methodsVersion':v,'expected':EXPECTED_METHODS_VERSION,'validation':'STALE_METHODS_BLOCKED'}));return False
     assert methods.get('selectionFrozen') is True and methods.get('selectionData')=='DEV_PLUS_VALIDATION_ONLY' and methods.get('oosUsedFor')=='PROMOTION_GATE_ONLY'
     mm=methods.get('methods') or {};assert set(mm)==set(r.PAIRS)
-    for m in mm.values():
-        assert m.get('archetype') in r.SETUP_DEFS and m.get('entryMode') in r.ENTRY_MODES and m.get('stopMode') in r.STOP_MODES and m.get('rr') in r.RR_VALUES
-    print(json.dumps({'version':VERSION,'pairs':len(mm),'retained':methods.get('retainedArchetypes'),'validation':'PASS'}))
+    for m in mm.values():assert m.get('archetype') in r.SETUP_DEFS and m.get('entryMode') in r.ENTRY_MODES and m.get('stopMode') in r.STOP_MODES and m.get('rr') in r.RR_VALUES
+    print(json.dumps({'version':VERSION,'methodsVersion':v,'pairs':len(mm),'retained':methods.get('retainedArchetypes'),'validation':'PASS'}));return True
+
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('status',nargs='?',default='data/status.json');ap.add_argument('--methods',default='data/v76_entry_methods.json');ap.add_argument('--venue-bid',type=float);ap.add_argument('--venue-ask',type=float);ap.add_argument('--venue-ts');ap.add_argument('--news-clear',action='store_true');ap.add_argument('--validate',action='store_true');a=ap.parse_args();methods=json.load(open(a.methods,encoding='utf-8'))
     if a.validate:return validate(methods)
-    status=json.load(open(a.status,encoding='utf-8'));sym=status.get('requestedSymbol') or status.get('symbol');method=(methods.get('methods') or {}).get(sym)
+    status=json.load(open(a.status,encoding='utf-8'));sym=status.get('requestedSymbol') or status.get('symbol')
+    if methods.get('version')!=EXPECTED_METHODS_VERSION:
+        print(json.dumps({'version':VERSION,'symbol':sym,'action':'NO_ENTRY','reason':'STALE_OR_UNVALIDATED_V76_METHODS_VERSION','methodsVersion':methods.get('version'),'expected':EXPECTED_METHODS_VERSION},separators=(',',':')));return
+    method=(methods.get('methods') or {}).get(sym)
     if not method:print(json.dumps({'version':VERSION,'symbol':sym,'action':'NO_ENTRY','reason':'NO_V76_METHOD'}));return
     print(json.dumps(plan(status,method,a.venue_bid,a.venue_ask,a.venue_ts,a.news_clear),ensure_ascii=False,separators=(',',':')))
 if __name__=='__main__':main()
