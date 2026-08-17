@@ -1,223 +1,119 @@
 # MASTER TRADING STATE
 
 Updated: 2026-08-17 UTC+7
-Purpose: canonical handoff/checkpoint for continuing the Trading project across new ChatGPT conversations.
+Purpose: canonical handoff/checkpoint for the Trading project.
 
-## Cross-chat protocol
-Read this file first, then `CURRENT_HANDOFF.md`, `FOREX_V15_PRE_AUG_LOCK.md`, `FOREX_V15_FINAL1_PASS.md`, `CRYPTO_V36B_PRE_AUG_LOCK.md`, `CRYPTO_V36B_FINAL1_PASS.md`, `TRADE_MANAGEMENT_HOURLY_V1.md`, and `CRYPTO_SYMBOL_PROFILES_V1.md`.
+## Read order
+1. `CURRENT_HANDOFF.md`
+2. `PER_SYMBOL_DAILY_80WR_V1.md`
+3. `data/per_symbol_daily_80wr_summary_2026-08-17.json`
+4. `FOREX_V15_FINAL1_PASS.md`
+5. `CRYPTO_V36B_FINAL1_PASS.md`
+6. `TRADE_MANAGEMENT_HOURLY_V1.md`
+7. `CRYPTO_SYMBOL_PROFILES_V1.md`
 
-## Mandatory separation
-**Forex and Crypto remain two separate research/entry systems.** Do not mix Forex currency-factor features into Crypto or Crypto BTC/breadth features into Forex.
+# Mandatory architecture separation
+Forex and Crypto are separate research systems.
+- Forex context: cross-currency factors, 3/6/12/24/72h coherence/rank, H1/H4 structure, session path, ADX/RSI/EMA/ATR.
+- Crypto context: BTC regime, breadth/dispersion, relative strength vs BTC, D1/H4, momentum, linked-driver/symbol profiles.
+Do not mix one market's feature architecture into the other.
 
-## Universal accounting/integrity rules
-- Scanner must evaluate the full configured universe; NO TRADE is allowed and expected for non-qualified symbols.
-- Displayed win rate is `TP / (TP + SL)`.
-- CUT is excluded from displayed TP/SL WR by user convention, but CUT count/rate/R and managed expectancy including CUT are mandatory.
-- Initial planned RR must be exactly 1.0 or 1.5 for the promoted systems.
-- Structural invalidation determines SL; ATR is a floor/buffer, not a substitute for structure.
-- Never retune an exposed final holdout and relabel it blind.
-- Final selector parameters must be locked before final-holdout data is fetched.
-- Backtest success is not a guarantee of identical live/future WR.
+# Accounting rules
+- Displayed WR = `TP / (TP + SL)`.
+- CUT is excluded from displayed WR by user convention but is a real trade and MUST be included in CUT rate, CUT R, mean managed R and drawdown.
+- Never count NO TRADE as a win.
+- Never hide CUTs to claim an inflated success rate.
+- Structural invalidation determines SL; ATR is a buffer/floor.
+- Backtest success is not a live/future guarantee.
 
-# RESEARCH TARGET STATUS
-Requested target:
-- scan all 28 Forex pairs and all 61 Crypto symbols;
-- selective MARKET/LIMIT/NO TRADE allowed;
-- TP/SL WR >=80%;
-- planned RR 1:1 or 1:1.5;
-- positive managed expectancy including CUT;
-- no future leakage;
-- pass a new untouched holdout after parameters are frozen.
+# TWO DISTINCT OPERATING/RESEARCH MODES
 
-**Current research status: TARGET ACHIEVED.**
-Canonical machine-readable record: `data/final_target_80wr_validation_2026-08-17.json`.
+## Mode A — selective scanner with untouched validation
+This remains the strongest integrity-controlled mode.
 
-# FOREX — PROMOTED V15
-## Data/integrity chain
-- New H1 research snapshot: `data/provider_snapshots/forex_h1_feb_jul_2026.json`.
-- Coverage: all 28 configured Forex pairs.
-- V15 was optimized/walk-forward tested only on pre-August data.
-- Frozen before August in `FOREX_V15_PRE_AUG_LOCK.md`.
-- Untouched final snapshot fetched afterward: `data/provider_snapshots/forex_h1_aug1_8_2026_final1.json`.
-- Final evaluator: `scripts/eval_forex_v15_aug1_7_final1.py`.
-- GitHub Actions final run: `32019229044`.
+### Forex V15
+- scans all 28 pairs, can NO TRADE;
+- LIMIT, RR1:1;
+- pre-Aug: 55 selected, 35TP/7SL/13CUT, TP/SL WR83.33%, +0.491R/trade;
+- untouched Aug03-07: 5 selected, 5TP/0SL/0CUT, WR100%, +1.000R/trade;
+- final run `32019229044`.
 
-## Frozen V15 method
-Forex-specific context:
-- cross-currency factor state from 3h/6h/12h/24h/72h returns;
-- currency coherence/rank separation;
-- H1 + completed H4 structure;
-- ADX/RSI, session path, EMA distance;
-- independent BUY/SELL hypotheses;
-- ExtraTrees meta-label selects TAKE vs NO TRADE and direction;
-- top 1 qualifying setup per UTC day across the full 28-pair scan.
+### Crypto V36b
+- scans/loads all 61 symbols, can NO TRADE;
+- LIMIT, RR1:1;
+- pre-Aug: 92 selected, 66TP/15SL/11CUT, TP/SL WR81.48%, +0.553R/trade;
+- untouched Aug01-07: 7 selected, 4TP/1SL/2CUT, TP/SL WR80%, +0.657R/trade;
+- final run `32019086571`.
 
-Execution:
-- LIMIT;
-- planned RR **1:1**;
-- structural swing lookback 6h;
-- ATR risk floor 0.65;
-- limit offset 0.35 ATR;
-- limit expiry 4h;
-- max hold 12h;
-- from H+2, CUT only if current R <= -0.45 and hourly close breaks EMA20 against thesis.
+These are the systems with untouched August evidence. Do not retune those August blocks and call them blind again.
 
-Selector:
-- ExtraTrees depth 7;
-- min leaf 25;
-- probability threshold 0.70;
-- BUY-vs-SELL probability margin 0.08;
-- Top 1/day.
+## Mode B — forced-daily per-symbol intraday research
+Latest user target:
+- no cross-symbol Top-K ranking;
+- every Forex pair trades once on every tested trading weekday;
+- every Crypto symbol trades once every eligible calendar day after enough history exists;
+- each symbol chooses only its own best intraday setup;
+- every individual symbol must reach displayed WR >=80%;
+- RR allowed 1:1 or1:2;
+- CUT remains separate but economically accounted.
 
-## Pre-Aug expanding walk-forward
-May:
-- 18 selected;
-- 12 TP / 2 SL / 4 CUT;
-- TP/SL WR 85.71%;
-- mean managed R +0.562.
+Canonical checkpoint: `PER_SYMBOL_DAILY_80WR_V1.md`.
+Machine summary: `data/per_symbol_daily_80wr_summary_2026-08-17.json`.
 
-June:
-- 8 selected;
-- 6 TP / 0 SL / 2 CUT;
-- TP/SL WR 100.00%;
-- mean managed R +0.729.
+### Forex forced-daily — V18
+- engine: `scripts/offline_forex_daily_per_symbol_v18.py`;
+- workflow run `32027011521`, job `95378428657`;
+- period: May-Jul2026, 66 weekdays/pair;
+- **28/28 PASS, 0 FAIL**;
+- **100% daily coverage for every pair**;
+- individual displayed WR range **90%-100%**;
+- every pair mean managed R >0;
+- all passing configs chose RR1:1;
+- dominant family REVERT/anti-chase;
+- EURCAD and GBPAUD use FAST; AUDCAD uses SESSION;
+- exact pair-specific window/direction/ATR/swing/CUT map is deterministically generated by V18 and printed in run `32027011521`.
 
-July:
-- 29 selected;
-- 17 TP / 5 SL / 7 CUT;
-- TP/SL WR 77.27%;
-- mean managed R +0.382.
+Material caveat: CUT rates are high (roughly 54%-79%). Thus 90-100% displayed WR does not mean 90-100% of all daily trades hit TP.
 
-Combined May-Jul:
-- **55 selected**;
-- **35 TP / 7 SL / 13 CUT**;
-- **TP/SL WR 83.33%**;
-- **mean managed R +0.491**;
-- CUT rate 23.64%;
-- 14 pairs actually traded; all 28 were scanned.
+### Crypto forced-daily — V40 + TAO V39
+- all-symbol engine: `scripts/offline_crypto_daily_per_symbol_v40_all.py`;
+- workflow run `32026984878`, job `95378353821`;
+- **61/61 PASS, 0 FAIL**;
+- 60 symbols have about 91-92 May-Jul eligible days with 100% daily coverage;
+- V40 displayed WR range **91.30%-100%**;
+- all symbols mean managed R >0;
+- all passing configs chose RR1:1;
+- focused V40 optimizer selected REVERT/anti-chase for all61, while window/direction/ATR/CUT settings remain symbol-specific.
 
-## Untouched August Final1
-Signal dates: 2026-08-03 through 2026-08-07.
-- **840 pair/time scans** across all 28 pairs;
-- **5 selected**;
-- **5 TP / 0 SL / 0 CUT**;
-- **TP/SL WR 100.00%**;
-- **mean managed R +1.000R/trade**;
-- planned RR **1:1**;
-- `finalTargetMet: true`.
+TAO had only24 usable May-Jul days, therefore a >=1-month extension was required:
+- script `offline_crypto_tao_31day_v39.py`;
+- run `32026760842`, job `95377672150`;
+- 31/31 eligible days traded;
+- 21TP/0SL/10CUT;
+- WR100%; +0.729R/day; RR1:1.
 
-Final trades:
-- Aug03 EURCHF SELL -> TP;
-- Aug04 EURAUD BUY -> TP;
-- Aug05 NZDCAD BUY -> TP;
-- Aug06 EURJPY SELL -> TP;
-- Aug07 CADJPY SELL -> TP.
+Crypto forced-daily also has high CUT rates (commonly ~50%-79%). This is a central part of the method and must always be shown.
 
-**Forex V15 is the promoted selective research scanner.** Preserve F8/V7 only as historical comparators, not current promoted systems.
+# Integrity classification of forced-daily result
+**DEVELOPMENT TARGET MET, NOT UNTOUCHED BLIND VALIDATION.**
+The V18/V40 family/window/management maps were optimized on May-Jul and then measured on those same development rows. Therefore:
+- it is valid to say the requested forced-daily development backtest has found >=80% per-symbol configurations for 28/28 Forex and61/61 Crypto;
+- it is NOT valid to call those May-Jul numbers an independent future holdout;
+- the next higher-confidence step is to freeze these exact per-symbol maps and run them unchanged on a new untouched month.
 
-# CRYPTO — PROMOTED V36b
-## Data/integrity chain
-- New 4H snapshot: `data/provider_snapshots/crypto_4h_feb_jul_2026.json`.
-- Coverage: **61/61** configured symbols.
-- Sources: OKX 57, Gate 2, Kraken 2.
-- V36b corrected warm-up eligibility so newly listed coins cannot become candidates before every required indicator exists.
-- Frozen before August in `CRYPTO_V36B_PRE_AUG_LOCK.md`.
-- Untouched final snapshot fetched afterward: `data/provider_snapshots/crypto_4h_aug1_8_2026_final1.json`.
-- Final evaluator: `scripts/eval_crypto_v36b_aug1_7_final1.py`.
-- GitHub Actions final run: `32019086571`.
+# Key research finding
+Forcing a trade every day changes the optimal architecture dramatically:
+- selective V15/V36b work by refusing marginal setups;
+- forced-daily V18/V40 survive mostly through REVERT/anti-chase selection plus aggressive early CUT management.
+The user-requested displayed WR is therefore very sensitive to CUT accounting. Always report economic expectancy alongside WR.
 
-## Frozen V36b method
-Crypto-specific context:
-- BTC 24h/72h regime;
-- full-market breadth and cross-sectional dispersion;
-- 24h/72h relative strength vs BTC;
-- H4 + completed D1 structure;
-- ADX/RSI/EMA path and momentum;
-- 61 symbol identities + linked-driver family context;
-- HistGradientBoosting meta-label selects TAKE vs NO TRADE and direction;
-- top 1 qualifying setup per UTC day across the full 61-symbol scan.
-
-Execution:
-- LIMIT;
-- planned RR **1:1**;
-- structural swing lookback 5 x 4H bars;
-- ATR risk floor 0.65;
-- limit offset 0.70 ATR;
-- limit expiry 1 x 4H bar;
-- max hold 4 x 4H bars;
-- no early management CUT in this frozen candidate; unresolved positions become timeout CUT.
-
-Selector:
-- HistGradientBoosting depth 3;
-- min leaf 8;
-- probability threshold 0.66;
-- BUY-vs-SELL probability margin 0.16;
-- Top 1/day.
-
-## Pre-Aug expanding walk-forward
-May:
-- 31 selected;
-- 22 TP / 6 SL / 3 CUT;
-- TP/SL WR 78.57%;
-- mean managed R +0.499.
-
-June:
-- 30 selected;
-- 23 TP / 5 SL / 2 CUT;
-- TP/SL WR 82.14%;
-- mean managed R +0.586.
-
-July:
-- 31 selected;
-- 21 TP / 4 SL / 6 CUT;
-- TP/SL WR 84.00%;
-- mean managed R +0.576.
-
-Combined May-Jul:
-- **92 selected**;
-- **66 TP / 15 SL / 11 CUT**;
-- **TP/SL WR 81.48%**;
-- **mean managed R +0.553**;
-- CUT rate 11.96%;
-- 40 symbols actually traded; all 61 were loaded/scanned.
-
-## Untouched August Final1
-Signal dates: 2026-08-01 through 2026-08-07.
-- requested scan slots: **2,562**;
-- eligible scan slots: **2,562**;
-- **7 selected**;
-- **4 TP / 1 SL / 2 CUT**;
-- **TP/SL WR 80.00%**;
-- **mean managed R +0.657R/trade** including CUT;
-- average CUT R +0.798R;
-- CUT rate 28.57%;
-- planned RR **1:1**;
-- `finalTargetMet: true`.
-
-Final outcomes:
-- Aug01 STX BUY -> CUT +0.965R;
-- Aug02 LDO SELL -> CUT +0.630R;
-- Aug03 ADA BUY -> TP;
-- Aug04 WLD SELL -> TP;
-- Aug05 KAITO SELL -> TP;
-- Aug06 JTO BUY -> TP;
-- Aug07 HYPE SELL -> SL.
-
-**Crypto V36b is the promoted selective research scanner.** Preserve V24/Apr16/V34C only as historical comparators.
-
-# Live/forward interpretation
-Promotion means the backtest/research target was achieved under the stated selective full-universe scan protocol. It does NOT mean every individual symbol independently has an 80% WR, nor that future/live WR is guaranteed.
-
-Live operation must still:
-- refresh exact current price before issuing any signal;
-- apply point-in-time news/economic-calendar/event context as an additional live safety layer;
-- use MARKET/LIMIT/NO TRADE according to current geometry;
-- after fill, review open trades with current price/structure/news and record HOLD/CUT decisions without hindsight;
-- preserve CUT accounting separately from TP/SL WR.
-
-## Provider efficiency
-- Crypto Feb-Jul and August final snapshots used public exchange endpoints and are now frozen in-repo.
-- Forex Feb-Jul and August final snapshots used Twelve Data only for snapshot collection; optimization/evaluation after snapshots were frozen ran offline without repeated provider calls.
+# Live/forward requirements
+Before any real signal:
+- refresh exact current price;
+- use point-in-time news/calendar/event context;
+- use the symbol's own method map, never universe Top-K for forced-daily mode;
+- after fill, review the position sequentially using only information available then;
+- record TP/SL/CUT and actual R.
 
 ## Handoff phrase
-`Tiếp tục Trading từ GitHub checkpoint mới nhất. Research target 80% đã đạt theo selective full-universe scanner protocol. Forex promoted = V15, scans 28/28, RR1:1, pre-Aug 83.33% on 55 selected, untouched Aug03-07 = 5TP/0SL =100%. Crypto promoted = V36b, loads/scans 61/61, RR1:1, pre-Aug 81.48% on92 selected, untouched Aug01-07 =4TP/1SL/2CUT =80% TP/SL WR, +0.657R incl CUT. Đọc FOREX_V15_PRE_AUG_LOCK.md, FOREX_V15_FINAL1_PASS.md, CRYPTO_V36B_PRE_AUG_LOCK.md, CRYPTO_V36B_FINAL1_PASS.md và data/final_target_80wr_validation_2026-08-17.json. Không retune final holdouts.`
+`Tiếp tục Trading từ MASTER_TRADING_STATE.md và PER_SYMBOL_DAILY_80WR_V1.md. Có 2 mode: selective V15/V36b có untouched August validation; forced-daily per-symbol V18/V40 là development-optimized. Forced-daily: Forex 28/28 PASS, 66/66 weekday coverage mỗi pair, WR riêng90-100%, RR1:1; Crypto61/61 PASS, 100% eligible-day coverage, WR riêng91.3-100%, RR1:1; TAO xác nhận31/31 ngày. CUT rate cao khoảng50-79% và bắt buộc phải báo, không được coi CUT là TP. Không dùng cross-symbol Top-K trong forced-daily mode.`
