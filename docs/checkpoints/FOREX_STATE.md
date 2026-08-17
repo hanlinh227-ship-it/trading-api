@@ -7,10 +7,10 @@ Maintain a repeatable Forex analysis/signal workflow for the 8 major currencies:
 
 ## Current operating state
 - Forex research is ACTIVE.
-- The old rule “always maintain Top 3” is no longer considered safe. The live scanner may return 0, 1, 2 or 3 trades.
-- `NO TRADE` is a valid and important output when the market-quality/entry-quality gate fails.
-- Do not invent a MARKET trade when fresh data, structure, or news quality is inadequate.
-- Crypto methodology is frozen separately; do not transfer crypto-specific BTC breadth/order-flow rules into Forex.
+- The old rule “always maintain Top 3” is rejected. The scanner may return 0, 1, 2 or 3 trades.
+- `NO TRADE` is a valid and important output.
+- Do not invent a MARKET trade when fresh data, structure, macro/news quality or execution quality is inadequate.
+- Crypto methodology is frozen separately; do not import crypto-specific BTC breadth/order-flow rules into Forex.
 
 ## Universe — 28 pairs
 EURUSD, GBPUSD, USDJPY, USDCHF, USDCAD, AUDUSD, NZDUSD,
@@ -18,163 +18,186 @@ EURJPY, EURGBP, EURCHF, EURAUD, EURNZD, EURCAD, GBPJPY,
 GBPCHF, GBPAUD, GBPNZD, GBPCAD, AUDJPY, AUDNZD, AUDCAD,
 AUDCHF, NZDJPY, NZDCAD, NZDCHF, CADJPY, CADCHF, CHFJPY.
 
+## Minimal technical stack
+Do not stack redundant indicators. Current common technical core is limited to:
+- EMA20/50: trend, value/pullback location, H1/H4 slope/alignment;
+- RSI14: momentum/exhaustion only;
+- ATR14: structural SL buffer, chase/risk normalization;
+- ADX14: trend-vs-chop quality gate;
+- 6h/24h/72h cross-currency strength from all 28 pairs.
+
+M15 is enough for the universe scan because H1/H4 can be derived locally. M5 is required only for live execution candidates. M1/latest is only for final executable-price refresh.
+
+## Currency-specific live driver profiles
+Each currency must be judged with its own macro/fundamental driver set; do not use one generic news formula for all currencies.
+
+- USD: Fed/rate expectations, PCE/CPI, labour/NFP, US yields and broad risk conditions.
+- EUR: ECB/rate path, HICP/core inflation, wages/services inflation, euro-area growth and energy shock.
+- GBP: BoE/rate path, CPI/services inflation, wage growth and UK growth/activity.
+- JPY: BoJ policy, wages/core inflation, JGB yields, carry dynamics and MOF intervention risk. FX intervention is under Japan MOF authority and executed by the BoJ on instruction.
+- CHF: SNB policy, Swiss inflation, risk-off demand and explicit SNB willingness to intervene against rapid/excessive CHF appreciation.
+- CAD: BoC policy, CPI/jobs, oil/energy path, US trade/growth and Canada-US trade policy risk.
+- AUD: RBA policy, trimmed-mean inflation, labour/capacity pressure, China/global growth, commodities and risk sentiment.
+- NZD: RBNZ OCR, CPI, spare capacity/labour, dairy/export conditions and global rates/risk.
+
+Historical F3 does NOT reconstruct old macro/news point-in-time data after the fact; doing so would invite hindsight. Macro/news profiles are a live gate layered on top of the price-side engine.
+
 ## Research evidence
 
-### F1 — diagnostic / rejected selection logic
-F1 fetched one Twelve Data M15 series per pair and derived H1/H4 plus 24h/72h currency strength locally. Its early June development block had insufficient lookback coverage, so its RR choice is not valid evidence.
+### F1 — rejected naive ranking
+Fully covered July evidence at RR 1.5:
+- forced all pairs: 140 signals, 136 resolved, 55 TP / 81 SL, 40.44% WR, +0.011R;
+- naive Top3 strongest-score MARKET: 4 TP / 11 SL, 26.67% WR, -0.333R;
+- same Top3 fixed LIMIT: 13 fills, 2 TP / 11 SL, -0.451R.
 
-The fully covered July block is now revealed/development data forever:
-- forced all-pair MARKET at RR 1.5: 140 signals, 136 resolved, 55 TP / 81 SL, 40.44% WR, +0.011R expectancy;
-- naive “Top 3 strongest score” MARKET: 15/15 resolved, 4 TP / 11 SL, 26.67% WR, -0.333R;
-- same Top 3 with fixed 0.30R LIMIT: 13 fills, 2 TP / 11 SL, 15.38% WR, -0.451R despite higher effective RR.
+Lesson: highest raw strength/trend score is often crowded/exhausted. Raw-score ranking is rejected.
 
-Lesson: the highest absolute trend/strength score is often a crowded or exhausted entry. Ranking by raw strength alone is rejected.
+### F2 — anti-crowding quality gate
+Blind holdout: Aug04, Aug05, Aug06, Aug10, Aug11 at 08:00 UTC.
+- forced all-pair RR2.1: 126 resolved, 38 TP / 88 SL, 30.16% WR, -0.065R;
+- selective MARKET: only 4 signals passed; 3 TP / 1 SL, 75.0% WR, +1.325R at test RR2.1;
+- selective LIMIT: 3 fills, 2 TP / 1 SL, avg effective RR 3.133, +1.756R among resolved fills;
+- four trades are far too few to claim stable 75% WR.
 
-### F2 — anti-crowding / quality-gate candidate
-F2 uses the revealed July F1 block only as development and locks an untouched holdout before outcomes:
-- validation cutoffs: 2026-08-04, 08-05, 08-06, 08-10, 08-11 at 08:00 UTC;
-- one M15 series per pair; H1/H4 derived locally;
-- 6h/24h/72h cross-currency strength;
-- H4/H1 alignment + H1 EMA slope;
-- moderate RSI band, M15 momentum confirmation, anti-chase and structural-risk gates;
-- extreme score is penalized instead of rewarded;
-- a currency cannot appear twice in the selected set;
+Key lesson: Aug05 forced benchmark produced 0 TP / 25 SL while F2 selected zero trades. `NO TRADE` can be more valuable than forcing exposure.
+
+### F3 — currency profiles + ADX + structural execution
+F3 was frozen before five new holdout cutoffs were opened. Exact cutoff strings had no repo hits before F3 creation:
+- 2026-07-31 08:00 UTC
+- 2026-08-03 08:00 UTC
+- 2026-08-07 08:00 UTC
+- 2026-08-12 08:00 UTC
+- 2026-08-14 08:00 UTC
+
+F3 changes versus F2:
+- keeps EMA20/50 + RSI14 + ATR14 and adds only ADX14 for trend/chop quality;
+- applies currency-specific ADX/chase/volatility gates, stricter for JPY/CHF/CAD-sensitive setups;
+- uses 6h/24h/72h currency strength plus H4/H1 alignment and M15 confirmation;
+- continuation near value is classified MARKET;
+- expected pullback is classified LIMIT at M15 EMA20 when structurally valid, otherwise a capped pullback fallback;
 - structure defines SL first;
-- fixed test LIMIT = 0.25R pullback, 4h expiry;
-- RR grid was selected only from development forced-market data.
+- RR 1.8 and 2.1 were both predeclared; 1.8 is baseline, not selected after outcomes.
 
-Development selected RR 2.1, but it does NOT generalize as a universal RR:
-- development forced: 44 TP / 84 SL from 128 resolved, 34.38% WR, +0.066R;
-- blind validation forced: 38 TP / 88 SL from 126 resolved, 30.16% WR, -0.065R.
-Conclusion: forcing every pair is not robust and RR 2.1 must not be treated as a universal target.
+F3 blind baseline RR1.8 — all 28 pairs evaluated at all 5 dates:
+- forced benchmark: 140 signals, 128 resolved, 44 TP / 84 SL, 34.38% WR, -0.037R;
+- selective gate: only 3 signals across 5 dates;
+- selective MARKET: 1 TP / 1 SL, 1 timeout, 50.0% WR among resolved, +0.400R;
+- selective LIMIT: 3/3 filled; 1 TP / 1 SL, 1 timeout, 50.0% resolved WR, avg effective RR 3.445, +0.899R among resolved;
+- selective HYBRID: 1 TP / 1 SL, 1 timeout, +0.400R.
 
-Selective F2 blind holdout:
-- only 4 setups passed the strict quality gate across 5 daily cutoffs;
-- MARKET: 3 TP / 1 SL = 75.00% WR, RR 2.1 in the test, +1.325R expectancy;
-- LIMIT: 3 fills of 4; 2 TP / 1 SL, 66.67% WR among fills; average effective RR 3.133; +1.756R among resolved fills; one MARKET winner reached target before the limit filled;
-- HYBRID: 3 resolved, 2 TP / 1 SL, +1.411R; one signal did not resolve because its limit missed a continuation.
+F3 predeclared stretch RR2.1:
+- forced benchmark: 39 TP / 89 SL from 128 resolved, 30.47% WR, -0.055R;
+- selective MARKET: 1 TP / 1 SL + 1 timeout, 50.0% resolved WR, +0.550R;
+- selective LIMIT: 1 TP / 1 SL + 1 timeout, avg effective RR 3.921, +1.103R among resolved.
 
-Important: 4 selective trades is far too small to claim a stable 75% win rate. F2 is a promising quality gate, NOT a fully validated profit engine.
+F3 date lessons at RR1.8:
+- Jul31: EURNZD SELL MARKET passed and TP; LIMIT also filled and TP with ~2.799 effective RR.
+- Aug03: EURGBP BUY classified LIMIT; both MARKET and LIMIT timed out in 24h.
+- Aug07: no setup passed while forced benchmark was only 3 TP / 22 SL among resolved.
+- Aug12: no setup passed while forced benchmark was 7 TP / 21 SL.
+- Aug14: EURAUD SELL classified LIMIT but SL.
 
-Blind date lessons:
-- Aug04: EURNZD SELL passed; MARKET TP; 0.25R LIMIT missed because target was reached first.
-- Aug05: forced-all-pair result was 0 TP / 25 SL among resolved trades, while F2 selected ZERO trades. This is strong evidence that `NO TRADE`/market-quality filtering matters.
-- Aug06: EURJPY BUY passed and MARKET TP.
-- Aug10: GBPUSD BUY passed and MARKET TP; LIMIT also filled and TP.
-- Aug11: GBPAUD BUY passed and SL. The gate reduces bad exposure but is not infallible.
+Interpretation:
+- F3 does NOT confirm the apparent F2 75% WR. The next blind block fell to 50% among only two resolved selective trades.
+- Therefore the engine is not yet statistically stable and must not be advertised as a 75% system.
+- LIMIT improved payoff geometry materially when it worked, but did not improve hit rate in F3.
+- Forced all-pair direction remains negative expectancy at both 1.8R and 2.1R, so forcing every pair is rejected as a live rule.
+- The correct direction remains selective quality gating + `NO TRADE`, not more indicators or a bias-flip formula.
 
-Retained result: `data/blind_backtest_forex_f2.json`.
-Active reusable research engine: `scripts/blind_backtest_forex_f2.py`.
+Retained evidence:
+- `scripts/blind_backtest_forex_f2.py`
+- `data/blind_backtest_forex_f2.json`
+- `scripts/blind_backtest_forex_f3.py`
+- `data/blind_backtest_forex_f3.json`
 
-## Practical Forex analysis framework from now on
+## Important per-currency diagnostic from F3 forced benchmark
+These are pair-involvement diagnostics, NOT independent currency-model win rates because each pair contributes to two currencies:
+- AUD 54.55%
+- NZD 45.45%
+- GBP 40.62%
+- JPY 40.62%
+- USD 37.50%
+- EUR 24.24%
+- CHF 20.00%
+- CAD 9.68%
+
+Do not tune these percentages directly on the same revealed block. They indicate where the current price-only model is weakest. In particular, CAD/CHF/EUR require stronger live macro/context gating rather than looser technical filters.
+
+## Practical Forex framework from now on
 
 ### 1. Currency regime first
-Before judging a pair, score the individual currencies across the 28-pair network:
-- 6h strength = immediate session impulse;
-- 24h strength = intraday regime;
-- 72h strength = short swing context.
-Prefer pairs where at least 2/3 horizons agree, with 6h not contradicting the proposed trade.
+Build 6h/24h/72h strength for all 8 currencies across the 28-pair network. Prefer at least 2/3 horizon agreement and do not allow 6h to directly contradict the proposed trade.
 
-For live use, overlay real macro context:
-- central-bank policy/rate expectations;
-- inflation, employment and growth data;
-- DXY/US yields for USD;
-- risk-on/risk-off for JPY/CHF/AUD/NZD;
-- commodity context for CAD/AUD/NZD.
+### 2. Apply the currency-specific macro profile
+Before live entry, check the relevant central-bank, inflation, labour/growth and currency-specific external drivers listed above. Macro is a gate/context layer, not an excuse to override clearly broken price structure.
 
-### 2. H4/H1 structure, not raw score
-- H4 defines the broader tradable direction/regime.
-- H1 must agree with the trade and its EMA20 slope should not contradict it.
-- Do not reward the most extreme score automatically; extreme trends may already be exhausted/crowded.
-- D1 remains useful for deeper live context, but F2 showed H4/H1 + multi-horizon currency strength can be derived cheaply for the universe scan.
+### 3. H4/H1 structure
+- H4 defines broader tradable regime.
+- H1 must align and its EMA20 slope must not contradict the thesis.
+- ADX is used only to reject chop/weak-trend states, not as a directional signal.
+- Extreme raw score is not rewarded automatically.
 
-### 3. M15 setup quality
-Require a real setup, not simply “trend is strong”:
-- continuation after controlled pullback;
-- breakout + hold/retest;
-- liquidity sweep + reclaim/rejection;
-- displacement with room to the next liquidity target.
-Avoid entries that are far from M15 value/EMA or have oversized structural risk.
+### 4. M15 setup
+Require a real setup: controlled continuation, breakout-retest, sweep/reclaim, rejection or displacement with room. Avoid chase and oversized structural risk.
 
-### 4. M5 execution trigger
-M5 is required before a live MARKET entry:
-- confirms continuation/reclaim/rejection;
-- rejects a setup if M5 directly contradicts the H1/M15 thesis;
-- helps distinguish MARKET continuation from LIMIT pullback.
-
-M1/latest is only for final executable price refresh.
-
-### 5. Selection / correlation gate
-- Rank quality, not raw trend magnitude.
-- Maximum 3 trades, but 0–2 is completely valid.
-- Do not select two trades dominated by the same currency factor unless explicitly justified; default is one appearance per currency in the Top set.
-- Avoid stacking equivalent USD, JPY, AUD, etc. exposure through multiple correlated pairs.
+### 5. M5 live trigger
+M5 confirms/rejects actual execution. It decides whether the observed M15 setup is still valid now.
 
 ### 6. MARKET vs LIMIT
-Do NOT use a rigid LIMIT distance for every trade.
+Prefer MARKET when continuation is clean, H4/H1/strength align and price remains near value.
+Prefer LIMIT only when a pullback is structurally expected and a real M15 EMA/SR/FVG/OB/retracement zone exists. LIMIT must have expiry/cancel conditions.
 
-Prefer MARKET when:
-- H4/H1 and currency strength align;
-- M15/M5 show clean continuation;
-- price is not excessively chased;
-- waiting for a pullback risks missing the move.
+F3 confirms: LIMIT can improve RR strongly, but it does not automatically improve win rate.
 
-Prefer LIMIT only when:
-- a controlled pullback is structurally expected;
-- a clear M15 S/R, EMA/VWAP, FVG/OB or retracement zone exists;
-- the order has a cancellation/expiry condition;
-- better entry meaningfully improves RR without invalidating the thesis.
+### 7. SL / RR
+- Structural invalidation first; ATR is buffer/floor only.
+- Practical baseline should seek >=1.5R room.
+- 1.8R is the current research baseline balance.
+- 2.1R can be used only when structure/liquidity genuinely supports it; it is not a universal target.
+- If structure cannot support a worthwhile target, `NO TRADE`.
 
-F2 confirms the same execution lesson seen in crypto: a better LIMIT price can improve effective RR but can also miss a real continuation winner.
+### 8. Correlation / selection
+- Maximum 3 trades, but 0–2 is normal.
+- Default: one appearance per currency in the selected set to avoid duplicated factor exposure.
+- Do not force Top 3.
 
-### 7. SL and RR
-- Structural invalidation first; ATR is only a buffer/floor.
-- Never choose SL from a desired lot size.
-- Do not hard-code RR 2.1 just because it won the F2 development grid.
-- Practical default: require at least about 1.5R room; prefer roughly 1.8–2.1R when the next real liquidity/structure target supports it; use a smaller realistic RR rather than placing TP beyond structure.
-- If the structure cannot support a worthwhile RR, `NO TRADE`.
+## Twelve Data efficiency
+Preferred staged architecture:
+1. Universe scan: one M15 `/time_series` per pair = 28 symbol credits.
+2. Derive H1/H4, EMA/RSI/ATR/ADX and 6h/24h/72h strength locally.
+3. Fetch M5 only for up to 3 finalists.
+4. Fetch M1/latest only for up to 3 executable finalists.
 
-### 8. News gate
-Before live entry, check high-impact events relevant to either currency. CPI, NFP, central-bank decisions/speeches, employment and inflation data can invalidate a purely technical entry. Do not open blindly into red-impact events.
-
-## Twelve Data efficiency plan
-Research proved that separate D1/H4/H1/M15 calls are unnecessary for the universe scan.
-
-Preferred staged design:
-1. Universe scan: one M15 `/time_series` per pair = 28 symbol credits; batch into groups while respecting the plan's per-minute quota.
-2. Derive 6h/24h/72h strength and H1/H4 locally from that M15 history.
-3. Fetch M5 only for the few candidates that pass the universe gate, maximum 3 under normal operation.
-4. Fetch M1/latest only for pairs that are genuinely execution candidates, maximum 3.
-
-A full 28-pair scan plus M5+M1 for three finalists therefore targets about 34 Twelve Data symbol credits rather than full multi-timeframe calls for all 28 pairs. Raw historical research dumps should not be committed.
+Target: about 34 symbol credits for a full scan with three finalists rather than full multi-timeframe calls for every pair. Raw historical dumps are not committed.
 
 ## Risk
-General discretionary default: approximately 0.25%-0.50% account risk per trade unless a prop-firm rule or user instruction specifies otherwise. Correlated exposure must be counted together.
+General discretionary default: approximately 0.25%-0.50% account risk per trade unless prop rules/user instruction specify otherwise. Count correlated exposure together.
 
-## Live output format
+## Live output
 For each eligible signal:
 - pair + BUY/SELL;
-- exact refreshed current price/source/time;
+- exact refreshed price/source/time;
 - MARKET or LIMIT and why;
 - Entry;
 - hard structural SL;
-- TP / realistic RR;
+- TP and realistic RR;
 - 6h/24h/72h currency-strength context;
-- H4/H1/M15/M5 setup reason;
-- macro/news gate;
+- currency-specific macro driver status;
+- H4/H1/M15/M5 reasoning;
 - cancellation/early-exit condition;
 - confidence/rank.
 
-If nothing passes, output `NO TRADE` rather than manufacturing three positions.
+If nothing passes, output `NO TRADE`.
 
 ## Rejected methods — do not revive without new evidence
-- always force BUY/SELL on all 28 pairs as a live rule;
-- always maintain exactly Top 3 regardless of quality;
-- rank solely by the highest EMA/RSI/raw-strength score;
-- repeated exposure to the same currency factor in the Top set;
-- rigid universal RR chosen from one development sample;
-- rigid LIMIT pullback on every signal;
-- indicator stacking without a distinct role.
+- force BUY/SELL on all 28 pairs as a live rule;
+- always maintain exactly Top 3;
+- rank solely by highest EMA/RSI/raw-strength score;
+- indicator stacking with overlapping roles;
+- repeated exposure to the same currency factor;
+- rigid universal RR from one sample;
+- rigid LIMIT distance on every setup;
+- claim 75% WR from F2's four trades.
 
 ## Cross-chat rule
 At a new chat, read `MASTER_TRADING_STATE.md`, `CURRENT_HANDOFF.md`, this file, then live pipeline status before issuing Forex entries.
