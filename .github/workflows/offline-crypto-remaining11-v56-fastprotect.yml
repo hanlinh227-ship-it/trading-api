@@ -1,0 +1,26 @@
+name: Offline Crypto Remaining11 V56 FastProtect
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_remaining11_v56_fastprotect.py'
+      - '.github/workflows/offline-crypto-remaining11-v56-fastprotect.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  symbol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        symbol: [DOT,FLOKI,INJ,LDO,LIT,ONDO,POL,S,TAO,WLD,XPL]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run compact H+1 protective search
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+          TARGET_SYMBOL: ${{ matrix.symbol }}
+        run: python scripts/offline_crypto_remaining11_v56_fastprotect.py
