@@ -7,6 +7,9 @@ on:
       - 'scripts/validate_nocut_v73.py'
       - '.github/workflows/validate-nocut-v73.yml'
   workflow_dispatch:
+concurrency:
+  group: validate-nocut-v73
+  cancel-in-progress: true
 jobs:
   validate:
     runs-on: ubuntu-latest
