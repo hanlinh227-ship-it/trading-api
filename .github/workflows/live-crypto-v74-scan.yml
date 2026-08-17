@@ -23,15 +23,14 @@ jobs:
           PYTHONUNBUFFERED: '1'
         run: |
           python - <<'PY'
-          import json, math, statistics, time, urllib.parse, urllib.request
+          import json, urllib.parse, urllib.request
           from datetime import datetime, timezone
 
           BASE='https://data-api.binance.vision'
-          FAPI='https://fapi.binance.com'
 
-          def get(base,path,params=None,timeout=12):
+          def get(path,params=None,timeout=10):
               q=('?'+urllib.parse.urlencode(params)) if params else ''
-              req=urllib.request.Request(base+path+q,headers={'User-Agent':'trading-api-v74/1.0'})
+              req=urllib.request.Request(BASE+path+q,headers={'User-Agent':'trading-api-v74/1.1'})
               with urllib.request.urlopen(req,timeout=timeout) as r:
                   return json.loads(r.read().decode())
 
@@ -54,7 +53,7 @@ jobs:
               return sum(tr[-n:])/n
 
           def bars(sym,interval,limit=220):
-              raw=get(BASE,'/api/v3/klines',{'symbol':sym+'USDT','interval':interval,'limit':limit})
+              raw=get('/api/v3/klines',{'symbol':sym+'USDT','interval':interval,'limit':limit})
               return [[int(x[0]),float(x[1]),float(x[2]),float(x[3]),float(x[4]),float(x[5])] for x in raw]
 
           def metrics(rows):
@@ -62,7 +61,6 @@ jobs:
               return {'close':c[-1],'ema20':ema(c[-80:],20),'ema50':ema(c[-150:],50),'ema200':ema(c,200),'rsi':rsi(c),'atr':atr(rows)}
 
           def recent_sweep(rows,side):
-              # Search recent closed candles for sweep + reclaim of prior 10-bar liquidity.
               rr=rows[:-1]
               for j in range(max(12,len(rr)-8),len(rr)):
                   if j<10: continue
@@ -78,8 +76,7 @@ jobs:
           def m5_trigger(rows,side):
               rr=rows[:-1]
               last=rr[-1]; prev=rr[-2]
-              a=atr(rr)
-              body=abs(last[4]-last[1])
+              a=atr(rr); body=abs(last[4]-last[1])
               if side=='LONG':
                   prior_hi=max(x[2] for x in rr[-10:-2])
                   disp=(last[4]>prior_hi and last[4]>last[1] and body>=0.45*a)
@@ -92,9 +89,9 @@ jobs:
 
           cfg=json.load(open('data/nocut_intraday_allpass_v73.json'))
           universe=list(cfg['crypto']['symbols'])
-          ex=get(BASE,'/api/v3/exchangeInfo')
+          ex=get('/api/v3/exchangeInfo')
           tradable={s['symbol'] for s in ex['symbols'] if s.get('status')=='TRADING'}
-          ticks=get(BASE,'/api/v3/ticker/24hr')
+          ticks=get('/api/v3/ticker/24hr')
           tv={t['symbol']:t for t in ticks if t.get('symbol','').endswith('USDT')}
           candidates=[]
           for s in universe:
@@ -103,18 +100,17 @@ jobs:
                   try:qv=float(tv[pair].get('quoteVolume') or 0)
                   except:qv=0
                   candidates.append((qv,s))
-          candidates=sorted(candidates,reverse=True)[:18]
+          candidates=sorted(candidates,reverse=True)[:10]
 
           out=[]
           for qv,s in candidates:
               try:
                   D=bars(s,'1d'); H4=bars(s,'4h'); H1=bars(s,'1h'); M15=bars(s,'15m'); M5=bars(s,'5m')
                   md,m4,m1,m15,m5=map(metrics,(D,H4,H1,M15,M5))
-                  book=get(BASE,'/api/v3/ticker/bookTicker',{'symbol':s+'USDT'})
+                  book=get('/api/v3/ticker/bookTicker',{'symbol':s+'USDT'})
                   bid=float(book['bidPrice']); ask=float(book['askPrice']); mid=(bid+ask)/2
                   spread=(ask-bid)/mid if mid else 0
-                  scores={}
-                  detail={}
+                  scores={}; detail={}
                   for side in ('LONG','SHORT'):
                       sign=1 if side=='LONG' else -1
                       sc=0.0
@@ -140,23 +136,15 @@ jobs:
                   a15=m15['atr']
                   if side=='LONG':
                       swing=min(x[3] for x in M15[-10:-1]); sl=min(swing-0.12*a15,mid-0.65*a15); risk=mid-sl; tp1=mid+risk; tp2=mid+2*risk
-                      h1target=max(x[2] for x in H1[-30:-1])
-                      room=(h1target-mid)/risk if risk>0 else -99
+                      h1target=max(x[2] for x in H1[-30:-1]); room=(h1target-mid)/risk if risk>0 else -99
                   else:
                       swing=max(x[2] for x in M15[-10:-1]); sl=max(swing+0.12*a15,mid+0.65*a15); risk=sl-mid; tp1=mid-risk; tp2=mid-2*risk
-                      h1target=min(x[3] for x in H1[-30:-1])
-                      room=(mid-h1target)/risk if risk>0 else -99
-                  try:
-                      prem=get(FAPI,'/fapi/v1/premiumIndex',{'symbol':s+'USDT'},timeout=6)
-                      funding=float(prem.get('lastFundingRate',0)); mark=float(prem.get('markPrice',mid))
-                  except Exception:
-                      funding=None; mark=None
+                      h1target=min(x[3] for x in H1[-30:-1]); room=(mid-h1target)/risk if risk>0 else -99
                   out.append({
                     'symbol':s,'side':side,'score':round(score,3),'marketReady':bool(score>=6.0 and (detail[side]['m5Trigger'] or detail[side]['m15Sweep'])),
                     'bid':bid,'ask':ask,'mid':mid,'spreadPct':round(spread*100,5),'quoteVolume24h':qv,
                     'D1':md,'H4':m4,'H1':m1,'M15':m15,'M5':m5,'trigger':detail[side],
-                    'sl':sl,'risk':risk,'tp1':tp1,'tp2':tp2,'roomToH1LiquidityR':room,'rr2EligibleByRoom':bool(room>=2.2),
-                    'fundingRate':funding,'futuresMark':mark
+                    'sl':sl,'risk':risk,'tp1':tp1,'tp2':tp2,'roomToH1LiquidityR':room,'rr2EligibleByRoom':bool(room>=2.2)
                   })
               except Exception as e:
                   out.append({'symbol':s,'error':repr(e)})
