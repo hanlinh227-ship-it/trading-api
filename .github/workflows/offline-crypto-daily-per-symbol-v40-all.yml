@@ -1,0 +1,26 @@
+name: Offline Crypto Daily Per Symbol V40 All
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_daily_per_symbol_v40_all.py'
+      - '.github/workflows/offline-crypto-daily-per-symbol-v40-all.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Optimize all 61 coins independently
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_daily_per_symbol_v40_all.py
+      - name: Print canonical all-coin method map
+        run: cat data/offline_crypto_daily_per_symbol_v40_all.json
