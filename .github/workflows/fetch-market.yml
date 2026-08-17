@@ -9,7 +9,6 @@ on:
 permissions:
   contents: write
 
-# Twelve Data calls share one quota lock with the Forex universe scanner.
 concurrency:
   group: twelvedata-api
   cancel-in-progress: false
@@ -26,15 +25,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read request and classify crypto route
+      - name: Read request and classify route
         id: request
         shell: bash
         run: |
           python3 <<'PY' >> "$GITHUB_OUTPUT"
           import json
+
           with open("request.json", "r", encoding="utf-8") as f:
               raw = str(json.load(f)["symbol"]).upper()
           symbol = "".join(ch for ch in raw if ch.isalnum())
+
+          forex_ccy = {
+              "USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","SGD","HKD",
+              "NOK","SEK","DKK","PLN","CZK","HUF","MXN","ZAR","TRY","CNH","CNY",
+          }
+          is_forex = (
+              len(symbol) == 6 and symbol.isalpha()
+              and symbol[:3] in forex_ccy and symbol[3:] in forex_ccy
+              and symbol[:3] != symbol[3:]
+          )
+
           crypto_quotes = ("FDUSD","USDT","USDC","USD","BTC","ETH","BNB","EUR")
           noncrypto_reserved = {
               "XAUUSD","XAGUSD","XPTUSD","XPDUSD","WTIUSD","BRENTUSD",
@@ -43,16 +54,20 @@ jobs:
               "DAX","GDAXI","DE40","GER40","FTSE","UK100","CAC","FR40","HSI","VIX","RUT",
               "NQ","MNQ","ES","MES","GC","SI","CL","GOLD","SILVER","WTI","BRENT",
           }
+
           is_crypto = False
-          if symbol not in noncrypto_reserved:
+          if not is_forex and symbol not in noncrypto_reserved:
               for q in crypto_quotes:
                   if symbol.endswith(q) and len(symbol) > len(q) + 1:
                       is_crypto = True
                       break
+
           print(f"symbol={symbol}")
+          print(f"is_forex={'true' if is_forex else 'false'}")
           print(f"is_crypto={'true' if is_crypto else 'false'}")
           PY
           echo "Requested: ${{ steps.request.outputs.symbol }}"
+          echo "Forex route: ${{ steps.request.outputs.is_forex }}"
           echo "Crypto route: ${{ steps.request.outputs.is_crypto }}"
 
       - name: Fetch crypto from exchange-native APIs
@@ -123,7 +138,7 @@ jobs:
           print(json.dumps({k:status.get(k) for k in ("requestedSymbol","marketSymbol","provider","currentPrice","currentPriceTime","quoteAgeMs","executionReady")}, ensure_ascii=False, indent=2))
           PY
 
-      - name: Fetch supported non-crypto directly from Twelve Data
+      - name: Fetch non-crypto from strict Twelve Data client
         if: steps.request.outputs.is_crypto != 'true'
         shell: bash
         run: |
