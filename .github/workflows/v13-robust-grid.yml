@@ -1,0 +1,26 @@
+name: V13 Robust Grid
+on:
+  push:
+    paths:
+      - "scripts/v13_robust_grid.py"
+      - ".github/workflows/v13-robust-grid.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  grid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: |
+          mkdir -p data
+          python3 scripts/v13_robust_grid.py
+      - run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/v13_robust_grid.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Run V13 robust grid"
+          git pull --rebase origin main
+          git push origin HEAD:main
