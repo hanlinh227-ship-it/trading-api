@@ -1,25 +1,61 @@
 # NO-CUT INTRADAY ALL-PASS V73
 
 Updated: 2026-08-17 UTC+7
+Status: CURRENT forced-daily intraday development checkpoint
 
-## Locked user target
-- No CUT.
-- No NO-TRADE day.
-- 1 to 3 trades per symbol per day; current passing development maps use exactly 1/day.
-- RR only 1:1 or 1:2; current passing maps use 1:1.
-- Every Forex pair and every Crypto symbol must have development WR >=80%.
-- Every symbol has its own method and news/context profile.
+## Locked target
+- CUT is forbidden.
+- NO TRADE day is forbidden.
+- Each Forex pair / Crypto symbol must trade 1–3 times per day; the current frozen passing maps use exactly 1 trade/day.
+- RR may only be 1:1 or 1:2; every current passing map uses RR1:1.
+- Per-symbol development WR is TP / all simulated daily trades and must be >=80%.
+- TIMEOUT is a non-win.
+- If TP and SL are both touched inside the same OHLC bar, score SL conservatively.
+- Each symbol owns its own entry method plus its own news/context profile.
 
-## Development result
-- Forex: 28/28 PASS; minimum per-pair WR 80.00%.
-- Crypto: 61/61 PASS; minimum per-coin WR 80.22%.
-- H1 is canonical for Forex and 59 crypto symbols. TON/IP use their own 4H regime method because full H1 spot history was unavailable in the common source.
-- All results count TIMEOUT as a non-win and same-bar TP+SL as SL.
+## Final development gate
+- Forex: **28/28 PASS**; minimum individual WR **80.00%**.
+- Crypto: **61/61 PASS**; minimum individual WR **80.22%**.
+- Forex uses H1.
+- 59 Crypto symbols use H1.
+- TON and IP intentionally use their own 4H method because full common-source H1 history was unavailable; this is a symbol-specific design, not an exclusion.
 
-## Canonical sources
-- Forex: V64 base + V66 targeted refinement.
-- Crypto: V69 static passes + V70 observable regime routers + V71 HBAR/TAO special H1 + V72 TON/IP special 4H.
-- Exact frozen methods, routers, actions, statistics and news profiles are in `data/nocut_intraday_allpass_v73.json`.
+Last difficult Crypto symbols:
+- HBAR: 87TP / 4SL / 0 timeout = 95.60%.
+- TAO: 88TP / 3SL / 0 timeout = 96.70%.
+- TON: 83TP / 6SL / 2 timeout = 91.21%.
+- IP: 79TP / 11SL / 1 timeout = 86.81%.
 
-## Integrity
-**This is an exposed-development all-pass checkpoint, not untouched OOS validation.** May-Jul was used to search/refine the maps. The next integrity step is to freeze V73 unchanged and test on independent history before calling it robust/live-proven.
+## Frozen architecture
+Forex:
+- V64 base styles for pairs already >=80%.
+- V66 targeted H1 refinement for the 11 V64 failures.
+
+Crypto:
+- V69 fixed H1 styles where a static per-coin rule already passed.
+- V70 observable 00UTC regime routers for most V69 failures.
+- V71 expanded H1 routers for HBAR and full-history TAO.
+- V72 dedicated 4H routers for TON and IP.
+
+Exact frozen methods, router trees, action definitions, statistics, timeframes and per-symbol news/context profiles live in:
+- `data/nocut_intraday_allpass_v73.json`
+
+Operational reader:
+- `scripts/nocut_intraday_method_v73.py`
+
+Hard-gate validator:
+- `scripts/validate_nocut_v73.py`
+- `.github/workflows/validate-nocut-v73.yml`
+
+Canonical rebuild workflow:
+- `.github/workflows/build-nocut-allpass-v73.yml`
+- successful rebase-safe build run: `32032071403`.
+
+## Live news/context rule
+News is symbol-specific. Since a daily trade is mandatory, a news/event shock does **not** silently turn the day into NO TRADE. Instead it is used point-in-time to route/confirm the symbol's frozen execution geometry/regime. No historical news is fabricated where a point-in-time archive was unavailable.
+
+## Integrity classification
+**EXPOSED DEVELOPMENT ALL-PASS — NOT UNTOUCHED OOS.**
+May–Jul 2026 was used to search/refine these maps and is therefore development data. It is correct to say the requested development target is met for 28/28 Forex + 61/61 Crypto. It is not correct to call these WR values a future/live guarantee.
+
+Next integrity step: freeze V73 exactly as-is and test it unchanged on independent history/forward data. Do not retune that holdout before reporting it as validation.
