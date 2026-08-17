@@ -48,8 +48,10 @@ Purpose: canonical handoff/checkpoint for continuing the Trading project across 
 ### Crypto / Breakout
 - Direct exchange data through GitHub runner is preferred over Twelve Data for crypto.
 - Exchange route: Binance -> OKX -> Bybit; OKX has been the reliable source in recent tests.
-- Current research direction: short-horizon momentum + H4/H1 structure + BTC-relative strength + actual taker order-flow confirmation + market breadth/regime; structural M15 SL and dynamic RR.
-- V24-Core is the most promising current research architecture. V24 produced very strong unseen samples but is NOT yet promoted as a fully validated final engine; further locked unseen samples are required.
+- Surviving research family: short-horizon momentum + H4/H1 structure + BTC-relative strength + actual taker order-flow confirmation + market breadth/regime; structural M15 SL and dynamic RR.
+- V24-Core produced exceptional Jul04/Jul02 samples, but a locked five-date June validation exposed major instability: 42.75% resolved WR, avg planned RR 1.647 and +0.132R aggregate expectancy, with individual dates ranging from 7.27% WR / -0.807R to 83.33% / +1.228R.
+- Therefore V24-Core is **not promoted as a final/main live engine**. It remains a diagnostic baseline. Its first locked `distribution_reversal` sample was negative, so its regime guard is not validated.
+- Immediate research direction: diagnose Jun30/Jun27 directional failures, create only a minimal theory-driven successor if justified, then freeze it and test on a completely untouched block such as May 2026. Do not reuse June as blind evidence after diagnosis.
 
 ### Metals
 - XAUUSD/XAGUSD are separate from crypto/index logic.
