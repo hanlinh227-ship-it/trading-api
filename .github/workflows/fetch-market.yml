@@ -1,4 +1,4 @@
-name: Fetch Market Data — Canonical
+name: Fetch Market Data — Canonical Fast V75
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Read request and classify route
         id: request
@@ -66,9 +66,6 @@ jobs:
           print(f"is_forex={'true' if is_forex else 'false'}")
           print(f"is_crypto={'true' if is_crypto else 'false'}")
           PY
-          echo "Requested: ${{ steps.request.outputs.symbol }}"
-          echo "Forex route: ${{ steps.request.outputs.is_forex }}"
-          echo "Crypto route: ${{ steps.request.outputs.is_crypto }}"
 
       - name: Fetch crypto from exchange-native APIs
         if: steps.request.outputs.is_crypto == 'true'
@@ -92,7 +89,11 @@ jobs:
           spread_ok = bid is not None and ask is not None
           quote_ok = refresh.get("currentPriceTime") is not None and age is not None
           strict = bool(quote_ok and age <= 10000 and refresh.get("stale") is not True)
-          ready = bool(strict and spread_ok and refresh.get("symbolVerified") is True and analysis.get("analysisReady") is True)
+          ready = bool(
+              strict and spread_ok
+              and refresh.get("symbolVerified") is True
+              and analysis.get("analysisReady") is True
+          )
 
           status = {
               "status": "ok" if analysis.get("analysisReady") is True else "partial",
@@ -127,38 +128,68 @@ jobs:
                   "exactQuoteTimestampVerified": quote_ok,
                   "spreadVerified": spread_ok,
                   "marketEntryNeedsVenueConfirmation": not ready,
+                  "closedCandlesOnly": True,
               },
               "updatedAt": now,
           }
           latest = {"analysis": analysis, "refresh": refresh, "updatedAt": now}
           with open("data/status.json", "w", encoding="utf-8") as f:
-              json.dump(status, f, ensure_ascii=False, indent=2)
+              json.dump(status, f, ensure_ascii=False, separators=(",", ":"))
           with open("data/latest.json", "w", encoding="utf-8") as f:
               json.dump(latest, f, ensure_ascii=False, separators=(",", ":"))
-          print(json.dumps({k:status.get(k) for k in ("requestedSymbol","marketSymbol","provider","currentPrice","currentPriceTime","quoteAgeMs","executionReady")}, ensure_ascii=False, indent=2))
+          print(json.dumps({
+              k:status.get(k) for k in (
+                  "requestedSymbol","marketSymbol","provider","currentPrice",
+                  "currentPriceTime","quoteAgeMs","executionReady"
+              )
+          }, ensure_ascii=False))
           PY
 
-      - name: Fetch non-crypto from strict Twelve Data client
+      - name: Fetch non-crypto from V75 fast strict Twelve Data client
         if: steps.request.outputs.is_crypto != 'true'
         shell: bash
         run: |
           mkdir -p data
           python3 scripts/twelvedata_market.py "${{ steps.request.outputs.symbol }}" data
 
+      - name: Build compact decision snapshot
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import sys
+          sys.path.insert(0, "scripts")
+          import twelvedata_market as td
+
+          with open("data/status.json", "r", encoding="utf-8") as f:
+              status = json.load(f)
+          decision = td.build_decision(status)
+          with open("data/decision.json", "w", encoding="utf-8") as f:
+              json.dump(decision, f, ensure_ascii=False, separators=(",", ":"))
+
+          print(json.dumps({
+              "symbol": decision.get("symbol"),
+              "price": decision.get("currentPrice"),
+              "bias": decision.get("technicalBias"),
+              "m5": decision.get("m5TriggerPrefilter"),
+              "next": decision.get("nextAction"),
+          }, ensure_ascii=False))
+          PY
+
       - name: Clean temporary files
         shell: bash
         run: rm -f data/analysis.tmp.json data/refresh.tmp.json data/quote.tmp.json data/*.tmp.json
 
-      - name: Commit canonical market state
+      - name: Commit compact canonical market state
         shell: bash
         run: |
           git config user.name "market-data-bot"
           git config user.email "market-data-bot@users.noreply.github.com"
-          git add data/status.json data/latest.json
+          git add data/status.json data/latest.json data/decision.json
           if git diff --cached --quiet; then
             echo "No market-data changes."
             exit 0
           fi
-          git commit -m "Refresh canonical market data for ${{ steps.request.outputs.symbol }}"
+          git commit -m "Refresh V75 market data for ${{ steps.request.outputs.symbol }}"
           git pull --rebase origin main
           git push origin HEAD:main
