@@ -1,0 +1,24 @@
+name: Offline Forex Intraday NoCut V62
+on:
+  push:
+    paths:
+      - 'scripts/offline_forex_intraday_nocut_v62.py'
+      - '.github/workflows/offline-forex-intraday-nocut-v62.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Run Forex V62
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_forex_intraday_nocut_v62.py
+      - run: cat data/offline_forex_intraday_nocut_v62.json
