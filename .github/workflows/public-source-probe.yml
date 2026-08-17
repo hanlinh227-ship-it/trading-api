@@ -1,0 +1,27 @@
+name: Public Source Probe
+on:
+  push:
+    paths:
+      - '.github/workflows/public-source-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe endpoints
+        run: |
+          set +e
+          for u in \
+            'https://stooq.com/q/d/l/?s=eurusd&d1=20260101&d2=20260815&i=d' \
+            'https://query1.finance.yahoo.com/v8/finance/chart/EURUSD=X?interval=1d&period1=1767225600&period2=1786752000' \
+            'https://query1.finance.yahoo.com/v8/finance/chart/EURUSD=X?interval=1h&period1=1767225600&period2=1786752000' \
+            'https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=2' \
+            'https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=4H&limit=2' \
+            'https://api.bybit.com/v5/market/kline?category=spot&symbol=BTCUSDT&interval=240&limit=2'
+          do
+            echo "URL=$u"
+            curl -L -sS --max-time 6 -o /tmp/out -w 'HTTP=%{http_code} TIME=%{time_total} SIZE=%{size_download}\n' "$u"
+            head -c 180 /tmp/out; echo
+          done
