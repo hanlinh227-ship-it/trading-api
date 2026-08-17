@@ -19,13 +19,13 @@ CRYPTO_QUOTES = ("FDUSD","USDT","USDC","USD","BTC","ETH","BNB","EUR")
 # assumptions. They exist only to catch obvious identity collisions such as
 # NAS100 resolving to an unrelated $19 security.
 EXPLICIT = {
-    # Spot metals / commodity aggregates supported by the current Twelve path.
-    "XAUUSD": {"market_type": "commodity", "provider_symbol": "XAU/USD", "min": 500, "max": 10000},
-    "GOLD":   {"market_type": "commodity", "provider_symbol": "XAU/USD", "min": 500, "max": 10000},
-    "XAGUSD": {"market_type": "commodity", "provider_symbol": "XAG/USD", "min": 5, "max": 500},
-    "SILVER": {"market_type": "commodity", "provider_symbol": "XAG/USD", "min": 5, "max": 500},
-    "XPTUSD": {"market_type": "commodity", "provider_symbol": "XPT/USD", "min": 100, "max": 10000},
-    "XPDUSD": {"market_type": "commodity", "provider_symbol": "XPD/USD", "min": 100, "max": 10000},
+    # Spot metals. Keep these distinct from exact GC/SI futures.
+    "XAUUSD": {"market_type": "metal", "provider_symbol": "XAU/USD", "min": 500, "max": 10000},
+    "GOLD":   {"market_type": "metal", "provider_symbol": "XAU/USD", "min": 500, "max": 10000},
+    "XAGUSD": {"market_type": "metal", "provider_symbol": "XAG/USD", "min": 5, "max": 500},
+    "SILVER": {"market_type": "metal", "provider_symbol": "XAG/USD", "min": 5, "max": 500},
+    "XPTUSD": {"market_type": "metal", "provider_symbol": "XPT/USD", "min": 100, "max": 10000},
+    "XPDUSD": {"market_type": "metal", "provider_symbol": "XPD/USD", "min": 100, "max": 10000},
 
     # Cash indices. Provider must prove index identity; no futures proxy allowed.
     "NAS100": {"market_type": "index", "provider_symbol": "NDX", "min": 1000, "max": 100000},
@@ -129,6 +129,7 @@ def _norm_type(value) -> str:
         "crypto": "crypto",
         "cryptocurrency": "crypto",
         "commodity": "commodity",
+        "metal": "metal",
         "index": "index",
         "indices": "index",
         "futures": "futures",
@@ -158,7 +159,6 @@ def validate_identity(requested: str, payload: dict, m5_close=None) -> list[str]
 
     expected_provider = _norm_provider_symbol(spec.get("provider_symbol"))
     actual_provider = _norm_provider_symbol(payload.get("marketSymbol"))
-    # Forex/commodity slash formatting is meaningful; aliases are not accepted.
     if expected_provider and actual_provider != expected_provider:
         errors.append(f"PROVIDER_SYMBOL_MISMATCH:{actual_provider or 'missing'}!= {expected_provider}")
 
