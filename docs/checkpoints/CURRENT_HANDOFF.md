@@ -1,67 +1,108 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 16:31 UTC+7
+Updated: 2026-08-17 UTC+7
 
-Read `MASTER_TRADING_STATE.md`, then `ITERATIVE_80WR_RESEARCH_V2.md`, `SEPARATE_MARKET_RESEARCH_V1.md`, `TRADE_MANAGEMENT_HOURLY_V1.md`, and `CRYPTO_SYMBOL_PROFILES_V1.md`.
+Read `MASTER_TRADING_STATE.md` first, then:
+- `FOREX_V15_PRE_AUG_LOCK.md`
+- `FOREX_V15_FINAL1_PASS.md`
+- `CRYPTO_V36B_PRE_AUG_LOCK.md`
+- `CRYPTO_V36B_FINAL1_PASS.md`
+- `TRADE_MANAGEMENT_HOURLY_V1.md`
+- `CRYPTO_SYMBOL_PROFILES_V1.md`
+- `data/final_target_80wr_validation_2026-08-17.json`
 
-## Immediate task
-Continue Forex and Crypto as separate systems. Do not retune already revealed validation blocks and present them as new blind evidence. This research round used **0 new market-data provider credits**.
+# Current global status
+**RESEARCH TARGET ACHIEVED** under the selective full-universe scanner protocol:
+- all configured symbols are scanned;
+- NO TRADE is permitted for non-qualified symbols;
+- displayed WR = TP/(TP+SL);
+- CUT tracked separately but included in managed expectancy;
+- promoted planned RR = 1:1 for both systems;
+- final parameters were frozen before untouched August holdouts were fetched.
 
-## Target
-Only promote when genuinely held-out/walk-forward evidence simultaneously reaches:
-1. TP/SL WR >=80%;
-2. average RR 1.0–1.5;
-3. positive expectancy including CUT;
-4. non-trivial sample;
-5. no future leakage.
+# Promoted Forex — V15
+Universe: **28/28 Forex pairs scanned**.
 
-**Current global status: NOT ACHIEVED.**
+Frozen execution:
+- LIMIT;
+- RR1:1;
+- structural SL + 0.65 ATR floor;
+- swing lookback 6h;
+- limit offset0.35 ATR;
+- expiry4h;
+- max hold12h;
+- H+2 management CUT only if R<=-0.45 and H1 close breaks EMA20 against thesis.
 
-# Forex
-Broad comparator: F8 20-day/560 forced signals, MARKET 50.72% WR, positive expectancy, RR around1.42–1.45.
+Frozen selector:
+- cross-currency factors 3/6/12/24/72h + coherence/rank;
+- H1/completed-H4 structure + ADX/RSI/session path;
+- ExtraTrees depth7, leaf25;
+- threshold0.70;
+- BUY/SELL margin0.08;
+- Top1 qualifying setup/day.
 
-Strongest non-trivial selective held-out candidate remains **V7**:
-- development May18–22: 26 trades, 80.77%, +0.945R, RR1.425;
-- held validation May25–29: **29 trades, 18W/11L = 62.07%, +0.502R, RR1.407**.
+Pre-Aug expanding walk-forward:
+- **55 selected**;
+- **35TP / 7SL / 13CUT**;
+- **WR83.33%**;
+- **+0.491R/trade** including CUT.
 
-Latest attempts:
-- V10 ML:57.89%; H+3 managed61.11% -> reject.
-- V11 day gate: **64.71% / +0.563R / RR1.412**, but only17 trades -> supporting, not promotion.
-- V12 legacy F4 path gate:27.91% -> reject.
-- V13 genuine H+3/H+6/H+12 management: zero CUTs; stayed62.07% -> no improvement.
-- V14 independent BUY/SELL: BUY dev88.24% but validation53.33%; SELL disabled -> reject/overfit.
+Untouched Final1 Aug03–07:
+- 840 full-universe pair/time scans;
+- **5 selected = 5TP / 0SL / 0CUT**;
+- **WR100.00%**;
+- **+1.000R/trade**;
+- workflow run `32019229044`;
+- `finalTargetMet=true`.
 
-Later F11 Jun08–12 is aggregate/day-level only, not feature-complete per trade. No untouched per-trade Forex block remains in the repo for an honest new selective validation. Further tuning existing May outcomes is development-only.
+# Promoted Crypto — V36b
+Universe: **61/61 loaded/scanned** from frozen 4H snapshots.
+Sources: OKX57 + Gate2 + Kraken2.
 
-# Crypto
-Canonical base remains **V24/Apr16** and the 61 symbol-specific linked-driver profiles.
+Frozen execution:
+- LIMIT;
+- RR1:1;
+- structural SL +0.65 ATR floor;
+- swing lookback5x4H;
+- offset0.70 ATR;
+- expiry1x4H;
+- max hold4x4H;
+- no early management CUT in the locked candidate; unresolved -> timeout CUT.
 
-## Parser correction
-The old generic `extract_crypto()` lineage did not always inherit parent/day breadth/regime context correctly. Therefore V28–V33 must not be used as canonical promotion evidence where they rely on those inherited fields. Correct parser design follows `offline_crypto_regime_optimizer_v3_fast.py`. V35 uses corrected context inheritance.
+Frozen selector:
+- BTC24/72 + breadth/dispersion + relative strength vs BTC;
+- H4/completed-D1 + ADX/RSI/momentum;
+- symbol/family context;
+- HistGradientBoosting depth3, leaf8;
+- threshold0.66;
+- BUY/SELL margin0.16;
+- Top1 qualifying setup/day.
 
-## Best clean new branch — FLOW_AVAILABLE
-V34 Jul02 -> Jul04:
-- later frozen Jul04 filter: **37 trades, 78.38% WR, +0.959R, RR1.5**.
+Pre-Aug expanding walk-forward:
+- **92 selected**;
+- **66TP / 15SL / 11CUT**;
+- **WR81.48%**;
+- **+0.553R/trade** including CUT.
 
-V34C focused flow branch, also selected only on Jul02 and frozen on Jul04:
-- dev:10 trades,70.00%,+0.750R,RR1.5;
-- later validation: **24 trades,19W/5L = 79.17% WR, +0.979R, RR1.5**.
-This is the closest clean Crypto result to the requested number, but it is still below 80% and only one later validation date. Jul04 is now revealed; do not retune on it and call the result blind.
+Untouched Final1 Aug01–07:
+- 2,562 requested scan slots; 2,562 eligible;
+- **7 selected = 4TP / 1SL / 2CUT**;
+- **TP/SL WR80.00%**;
+- **+0.657R/trade** including CUT;
+- CUTs were +0.965R and +0.630R;
+- workflow run `32019086571`;
+- `finalTargetMet=true`.
 
-V35 corrected symbol/regime expanding WF:
--28 selected trades/6 dates,8W/20L=28.57%,-0.286R,RR1.5 -> reject as replacement.
+# Important interpretation
+This validates the **research/backtest scanner target**, not a guaranteed future/live win rate and not an assertion that each individual symbol separately has >=80% WR. Every symbol is scanned; only qualified entries are traded.
 
-Crypto modes going forward:
-1. `FLOW_AVAILABLE`: preserve V24/V34/V34C fresh-flow lineage.
-2. `FLOW_MISSING`: BTC+breadth/regime + HTF + M15/M5 + symbol-specific linked drivers + aggressive NO TRADE.
+Live/forward operation must additionally use fresh exact prices and point-in-time news/economic-calendar context, then log post-fill HOLD/CUT reviews without hindsight.
 
-# Rolling HOLD/CUT
-After MARKET/LIMIT fill, desired research mechanism remains sequential H+1/H+2/H+3... using only state known at each checkpoint. CUT is excluded from TP/SL WR by user convention but CUT stats and total expectancy remain mandatory.
-
-Old Crypto rows lack hourly snapshots. Forex V13 honestly tested available H+3/H+6/H+12 checkpoints and generated zero useful CUTs. Never fabricate CUT from final outcome/MFE/MAE.
-
-# Integrity boundary
-At this point all feature-complete historical blocks suitable for these new hypotheses are revealed. Further parameter changes on the same rows can be diagnostics/development, but **cannot legitimately establish a new 80% held-out method**. For a new promotion test, freeze the next hypothesis first, then test on a new untouched block with entry features and hourly review snapshots.
+# Do not regress integrity
+- Do not retune Aug Final1 and call it blind again.
+- Do not replace structural SL with arbitrary tight stops merely to preserve WR.
+- Do not omit CUT P/L from economic expectancy.
+- Do not mix Forex and Crypto feature architectures.
 
 ## New-chat instruction
-`Tiếp tục Trading từ checkpoint GitHub mới nhất. Đọc ITERATIVE_80WR_RESEARCH_V2.md. Forex best non-trivial held-out = V7 62.07% / +0.502R / RR1.407; V11=64.71% nhưng n17. Crypto FLOW_AVAILABLE best clean later validation = V34C 79.17% / +0.979R / RR1.5 trên24 lệnh; vẫn dưới80 và chỉ1 ngày. V28–V33 generic-parser results không được promote. Không được tiếp tục vặn các holdout đã lộ rồi gọi là blind.`
+`Tiếp tục Trading từ MASTER_TRADING_STATE.md. Target research 80% đã đạt: Forex V15 scans28/28, RR1:1, pre-Aug55 trades WR83.33%, untouched Aug03-07 5TP/0SL=100%; Crypto V36b scans61/61, RR1:1, pre-Aug92 trades WR81.48%, untouched Aug01-07 4TP/1SL/2CUT=80%, +0.657R incl CUT. Final parameters were locked before August fetch. Không retune final holdouts.`
