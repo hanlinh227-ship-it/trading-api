@@ -1,0 +1,14 @@
+name: Diagnose V24 Failures
+on:
+  push:
+    paths:
+      - 'scripts/diagnose_v24_failures.py'
+      - '.github/workflows/diagnose-v24-failures.yml'
+  workflow_dispatch:
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/diagnose_v24_failures.py
