@@ -1,0 +1,21 @@
+name: Offline Crypto V35 Corrected Symbol Regime
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_crypto_v35_corrected_symbol_regime.py'
+      - '.github/workflows/offline-crypto-v35-corrected-symbol-regime.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run corrected Crypto V35 zero-credit walk-forward
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_crypto_v35_corrected_symbol_regime.py
