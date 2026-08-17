@@ -44,7 +44,8 @@ def r_value(m, is_limit=False):
 def walk(x, ctx=None):
     ctx=dict(ctx or {})
     if isinstance(x,dict):
-        for k in ('cutoff','signalTime','entryTime','date','generatedAt'):
+        # Never use generatedAt as a trade date. Only genuine historical decision timestamps may set it.
+        for k in ('cutoff','signalTime','entryTime','date'):
             if k in x:
                 d=first_date(x.get(k))
                 if d: ctx['date']=d; break
@@ -74,7 +75,6 @@ def load_rows(asset):
         for ctx,rec in walk(data):
             sym=ctx.get('symbol'); date=ctx.get('date')
             if not sym or not date:continue
-            # normalize crypto symbols
             if asset=='CRYPTO' and not sym.endswith('USDT'): continue
             if asset=='FOREX' and (len(sym)!=6 or sym.endswith('USDT')): continue
             m=rec.get('market') if isinstance(rec.get('market'),dict) else None
@@ -107,30 +107,34 @@ def walkforward(rows, min_hist=2):
     for date in dates:
         day=[r for r in rows if r['date']==date]
         qday=[]; rday=[]
-        for r in day:
-            sym=r['symbol']; prior=hist[sym]
+        # Freeze eligibility at the start of each blind date so symbols on the same date cannot train each other.
+        eligible={}
+        route_limit={}
+        for sym in {r['symbol'] for r in day}:
+            prior=hist[sym]; d=[x for x in dhist[sym] if isinstance(x,bool)]
             qual=False
             if len(prior)>=min_hist:
                 mean=statistics.mean(prior); wr=sum(x>0 for x in prior)/max(1,sum(x!=0 for x in prior))
-                d=[x for x in dhist[sym] if isinstance(x,bool)]
                 dacc=sum(d)/len(d) if d else None
-                # Require positive historical expectancy plus acceptable hit rate, OR strong direction with near-flat expectancy.
                 qual=(mean>0.05 and wr>=0.45) or (dacc is not None and dacc>=0.65 and mean>-0.05)
-            tested.append(r['marketR'])
-            if qual:
+            eligible[sym]=qual
+            lp=[x for x in lhist[sym] if x is not None]
+            route_limit[sym]=len(lp)>=min_hist and len(prior)>=min_hist and statistics.mean(lp)>statistics.mean(prior)+0.20
+        for r in day:
+            sym=r['symbol']; tested.append(r['marketR'])
+            if eligible.get(sym):
                 qday.append(r['marketR']); qualified.append(r['marketR'])
-                # LIMIT only if prior filled/flat observations show a real R advantage. Otherwise MARKET.
-                lp=[x for x in lhist[sym] if x is not None]
-                use_limit=len(lp)>=min_hist and statistics.mean(lp) > statistics.mean(prior)+0.20
+                use_limit=route_limit.get(sym,False)
                 rv=(r['limitR'] if use_limit and r['limitR'] is not None else r['marketR'])
                 routed.append(rv);rday.append(rv)
-            hist[sym].append(r['marketR'])
+        for r in day:
+            sym=r['symbol']; hist[sym].append(r['marketR'])
             if r['limitR'] is not None:lhist[sym].append(r['limitR'])
             if isinstance(r['direction24'],bool):dhist[sym].append(r['direction24'])
         bydate[date]={'all':summarize([r['marketR'] for r in day]),'qualifiedMarket':summarize(qday),'qualifiedRouted':summarize(rday)}
     return {'dates':dates,'allMarket':summarize(tested),'qualifiedMarket':summarize(qualified),
             'qualifiedAdaptiveExecution':summarize(routed),'byDate':bydate,
-            'rule':{'minPriorResolved':min_hist,'qualification':'prior meanR > +0.05 and WR>=45%, OR prior direction24>=65% with meanR>-0.05','execution':'LIMIT only when prior LIMIT meanR exceeds prior MARKET meanR by >0.20R; else MARKET'}}
+            'rule':{'minPriorResolved':min_hist,'qualification':'prior meanR > +0.05 and WR>=45%, OR prior direction24>=65% with meanR>-0.05','execution':'LIMIT only when prior LIMIT meanR exceeds prior MARKET meanR by >0.20R; else MARKET','sameDateLeakage':False}}
 
 def diagnostics(rows):
     sl=[r for r in rows if r['marketR']<0]
@@ -141,9 +145,9 @@ def diagnostics(rows):
             'pctKnownSLThatWereEntryBarrierErrors':round(100*len(right24)/(len(right24)+len(wrong24)),2) if right24 or wrong24 else None}
 
 def main():
-    out={'version':'CROSS-MARKET OFFLINE WALK-FORWARD V1','providerCreditsUsed':0,'integrity':{
+    out={'version':'CROSS-MARKET OFFLINE WALK-FORWARD V1.1','providerCreditsUsed':0,'integrity':{
         'usesOnlyCommittedBlindResults':True,'chronologicalWalkForward':True,'futureBlockNotUsedForQualification':True,
-        'notAReconstructionOfMissingRawCandles':True}}
+        'sameDateTradesDoNotTrainEachOther':True,'generatedAtNeverUsedAsTradeDate':True,'notAReconstructionOfMissingRawCandles':True}}
     for asset in ('FOREX','CRYPTO'):
         rows=load_rows(asset)
         out[asset]={'rowsRecovered':len(rows),'files':FILES[asset],'walkForward':walkforward(rows),'diagnostics':diagnostics(rows)}
