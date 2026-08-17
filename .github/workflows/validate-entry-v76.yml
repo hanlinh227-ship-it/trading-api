@@ -54,8 +54,7 @@ jobs:
           assert 'conservative' in p['limitFillBar']
           ts=int(datetime(2026,8,17,13,0,tzinfo=timezone.utc).timestamp())
           assert ev.session_label(ts)=='OVERLAP'
-          rows=[]
-          for i in range(30): rows.append([i*300,100.0,100.5,99.5,100.0,1.0])
+          rows=[[i*300,100.0,100.5,99.5,100.0,1.0] for i in range(30)]
           rows[21]=[21*300,100.0,102.0,98.0,100.0,1.0]
           m5=base.enrich(rows,300)
           sig={'i':20,'side':'LONG','level':100.0,'structure':99.0,'fvg':[99.9,100.1],'context':{'session':'OVERLAP','htfAlignment':'MIXED','volRegime':'NORMAL','m15LiquidityRoom':'2_TO_4_ATR','h1LiquidityRoom':'GE_4_ATR'}}
@@ -64,13 +63,25 @@ jobs:
           print(p)
           print('conservative same-fill-bar SL test PASS')
           PY
-      - name: Validate locked methods when present
+      - name: Validate locked methods or prove pilot is blocked
         run: |
-          if [ -f data/v76_entry_methods.json ]; then
-            python scripts/entry_v76.py --validate --methods data/v76_entry_methods.json
+          if [ ! -f data/v76_entry_methods.json ]; then
+            echo 'No methods file yet; code validation only.'
+            exit 0
+          fi
+          OUT="$(python scripts/entry_v76.py --validate --methods data/v76_entry_methods.json)"
+          echo "$OUT"
+          VERSION="$(python - <<'PY'
+          import json
+          print(json.load(open('data/v76_entry_methods.json'))['version'])
+          PY
+          )"
+          if [ "$VERSION" = "V76-ENTRY-METHODS-R2" ]; then
+            echo "$OUT" | grep -q '"validation": "PASS"'
             python scripts/summarize_v76.py data/v76_entry_methods.json /tmp/v76-summary.json
           else
-            echo 'No methods file yet; code validation only.'
+            echo "$OUT" | grep -q 'STALE_METHODS_BLOCKED'
+            echo "Pilot/older methods correctly blocked from live execution."
           fi
       - name: Verify V73 remains frozen
         run: |
