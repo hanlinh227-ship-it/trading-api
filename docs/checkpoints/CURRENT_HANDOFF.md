@@ -1,114 +1,108 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 14:55 UTC+7
+Updated: 2026-08-17 15:17 UTC+7
 
-Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint. Do not reconstruct strategy state from memory when checkpoints exist.
+Read `MASTER_TRADING_STATE.md` first, then this file, then `CROSSMARKET_80WR_OFFLINE_AUDIT.md`, then the relevant market checkpoint. Do not reconstruct strategy state from memory when checkpoints exist.
 
-## Immediate active task
-Forex method development. Research benchmark forces BUY/SELL on all 28 pairs; no Top-3/NO-TRADE in benchmark. **F8 factor-coherence + session + pair-archetype is the frozen research baseline**, now positive across four consecutive chronological 5-day validation blocks without changing the engine.
+## Immediate active state
+The latest task was a **zero-provider-credit full historical re-audit of Forex + Crypto** with a requested promotion target of **>=80% held-out/walk-forward WR and average RR >=1.0 (preferred >=1.5)**.
 
-## F8 frozen architecture
-Minimal indicators: EMA20/50, RSI14, ATR14, ADX14.
-Main edge comes from:
+The target was **NOT validated**. It is forbidden to manufacture 80% by hindsight, cherry-picking revealed dates, tiny TP, or outcome-derived filters.
+
+Full audit checkpoint:
+`docs/checkpoints/CROSSMARKET_80WR_OFFLINE_AUDIT.md`
+
+Pre-audit recovery marker:
+`docs/checkpoints/archive/2026-08-17_1507_PRE_80WR_OPTIMIZATION.md`
+Recovery commit: `de58e0a0ea2a6054b9c5839736be0efa80d01dce`.
+
+## Provider usage
+The latest optimization/audit used **0 Twelve Data credits and 0 exchange market-data API calls**. It read only already committed result JSONs.
+
+## Forex — canonical state
+**F8 remains the frozen research baseline. Do not replace it with an 80%-optimized hindsight model.**
+
+F8 architecture:
+- EMA20/50, RSI14, ATR14, ADX14 only;
 - 3h/6h/12h/24h/72h currency-factor coherence;
-- cross-sectional dispersion/rank separation;
-- 8h session location/breakout/sweep;
+- dispersion/rank separation;
+- 8h session state;
 - five pair archetypes;
-- horizon-matched SL/TP/expiry.
+- horizon-matched structural SL/TP/expiry;
+- MARKET vs LIMIT by setup.
 
-Frozen archetype models:
-- USD_MAJOR -> FACTOR_BAL
-- JPY_CROSS -> SESSION_SWEEP
-- EUROPE_CROSS -> FACTOR_BAL
-- COMMODITY_CROSS -> FACTOR_FAST
-- MIXED_CROSS -> FACTOR_BAL
+Four consecutive frozen 5-day validation blocks:
+- May18–22: MARKET +0.111R;
+- May25–29: MARKET +0.338R;
+- Jun01–05: MARKET +0.247R;
+- Jun08–12: MARKET +0.251R.
 
-## Four consecutive frozen F8 blocks
-### May18–22
-MARKET 58 TP /69 SL, +0.111R. LIMIT +0.030R.
-### May25–29
-MARKET 61 TP /50 SL, +0.338R. LIMIT +0.435R. Recommended +0.333R.
-### Jun01–05
-MARKET 66 TP /63 SL, +0.247R. LIMIT +0.325R. Recommended +0.252R.
-### Jun08–12
-F11 development gate selected no change (`selectedThreshold=null`), so this is another frozen-F8 holdout.
-MARKET 63 TP /59 SL, +0.251R. LIMIT +0.199R. Recommended +0.267R.
+Combined 20 days / 560 forced signals:
+- MARKET: 489 resolved, **248 TP / 241 SL = 50.72% WR**, weighted expectancy ~**+0.233R**;
+- LIMIT: 403 resolved, 169 TP / 234 SL, weighted expectancy ~**+0.246R**;
+- recommended: 487 resolved, 247 TP / 240 SL, weighted expectancy ~**+0.237R**.
 
-## Combined frozen-F8 evidence
-20 trading days / 560 forced signals.
-MARKET:
-- 489 resolved;
-- 248 TP /241 SL;
-- WR **50.72%**;
-- weighted expectancy ~**+0.233R**.
+Main remaining Forex weakness: **common-factor/date-regime catastrophe**, not a single consistently bad pair group. Jun04 remains the key example: 5 TP / 22 SL, -0.565R, 19/22 SL true bias errors.
 
-LIMIT:
-- 403 resolved;
-- 169 TP /234 SL;
-- WR 41.94%;
-- weighted expectancy ~**+0.246R**.
+Latest 80WR audit could not legitimately form a held-out >=80% pair gate from compatible pair-level historical tables. F8 therefore remains unchanged.
 
-Recommended execution:
-- 487 resolved;
-- 247 TP /240 SL;
-- WR 50.72%;
-- weighted expectancy ~**+0.237R**.
+## Crypto — canonical state
+No validated forced all-coin live engine.
 
-Combined direction across 560 signals:
-- chosen 58.57%;
-- 3h 59.64%;
-- 6h 55.36%;
-- 12h 55.54%;
-- 24h 53.21%.
+Recovered committed audit set:
+- 640 resolved trades / 12 dates;
+- 229 wins / 411 losses;
+- **35.78% WR**;
+- mean **-0.057R**;
+- average RR **1.639**.
 
-F8 is the strongest Forex evidence so far, but forced-all-pair success remains research evidence, not a mandate to trade every pair live.
+Zero-credit V1 walk-forward selector:
+- 48 trades / 9 dates;
+- **27.08% WR**;
+- -0.268R;
+- avg RR 1.685.
+Best direct in-sample ceiling in that rule family: **54.24% WR**, +0.433R, avg RR 1.669 — diagnostic only.
 
-## Latest rejected/no-change improvements
-- F9 three-horizon: positive but inferior to F8 on same May25–29 block.
-- F10 USD_MID: development improvement did not clear the predeclared selection margin, so F8 stayed unchanged; USD_MAJOR then performed +0.399R on Jun01–05.
-- F10 leave-one-pair-out factor network: MARKET +0.239R vs F8 +0.247R on same Jun01–05; direction unchanged. Self-inclusion is not the issue.
-- F11 day-conflict MID_FACTOR: thresholds 0.55/0.65/0.75 activated zero development days, therefore no model change; do not lower thresholds on revealed data.
+Regime-aware V3 audit with inherited day breadth/state:
+- walk-forward 27 trades / 5 dates;
+- **25.93% WR**;
+- -0.304R;
+- avg RR 1.735.
+Best direct in-sample rule: **59.26% WR**, +0.569R, avg RR 1.679 — not promotable.
 
-## Main remaining weakness
-**Catastrophic common-factor/date regime failure** rather than one consistently bad pair group.
-Example Jun04:
-- 5 TP /22 SL;
-- MARKET -0.565R;
-- direction12/24 21.43%;
-- 19/22 SL were true bias-wrong.
-F8 still kept Jun01–05 positive overall, but reducing this tail-day failure is the next meaningful research target.
+Therefore the 80% target is not supported by existing Crypto evidence. Static symbol reputation and historical winner lists must not be the main gate. Current BTC + breadth/regime + HTF structure + M15/M5 path dominate live evaluation.
 
-## Next research rule
-Freeze F8. Any new common-factor/day-regime hypothesis must:
-1. be defined using revealed data only;
-2. be locked before a new untouched block;
-3. compare modified method vs frozen F8 on the SAME 28-pair block;
-4. keep all 28 pairs forced in benchmark;
-5. add no redundant indicators;
-6. be rejected if it does not materially beat F8.
+## Surviving cross-market improvements
+1. Regime/bias -> structure -> setup -> execution -> structural SL -> realistic TP.
+2. Separate bias error from entry/barrier error.
+3. Never shrink TP solely to inflate WR.
+4. MARKET for fresh continuation only; do not chase exhausted movement.
+5. LIMIT only for a real structural pullback/retest.
+6. Forced all-symbol trading is research stress only; live may output NO TRADE.
+7. Forex pair history = confidence modifier, not primary direction engine.
+8. Crypto symbol history = weak gate; market state dominates.
+9. A future >=80% claim requires genuinely independent validation, not retuning these revealed blocks.
 
-## Live Forex rule
-Forced benchmark does not imply live forced trading. Live entry still requires:
-- fresh exact pair price;
-- currency-specific macro/news context;
-- F8 factor/archetype state;
-- H4/H1 structure;
-- M15 setup;
-- M5 trigger;
-- structural SL and realistic horizon/liquidity target;
-- setup-dependent MARKET vs LIMIT.
+## Latest research files
+- `docs/checkpoints/CROSSMARKET_80WR_OFFLINE_AUDIT.md`
+- `scripts/offline_crossmarket_optimizer_80wr.py`
+- `.github/workflows/offline-crossmarket-optimizer-80wr.yml`
+- `scripts/offline_crypto_regime_optimizer_v2.py`
+- `.github/workflows/offline-crypto-regime-optimizer-v2.yml`
+- `scripts/offline_crypto_regime_optimizer_v3_fast.py`
+- `.github/workflows/offline-crypto-regime-v3-fast.yml`
 
-## Twelve Data efficiency
-One M15 history per 28 pairs ≈28 symbol credits/block; H1/H4/features derived locally. Reuse data for model comparisons; workflows share quota concurrency + cooldown.
+Completed evidence runs:
+- `32009158360` — Crossmarket 80WR offline optimizer, success.
+- `32009450389` — Crypto regime V3 fast, success.
 
-## Active Forex files
-- `scripts/blind_backtest_forex_f8.py`
-- `data/blind_backtest_forex_f8.json`
-- `data/blind_backtest_forex_f8_holdout2.json`
-- `data/blind_backtest_forex_f10_loo.json`
-- `data/blind_backtest_forex_f10_usd_mid.json`
-- `data/blind_backtest_forex_f11_day_conflict.json`
-- `docs/checkpoints/FOREX_STATE.md`
+## Live entry rule
+Historical research does not authorize stale execution. For any live Forex/Crypto entry:
+- refresh exact symbol/current price;
+- verify current market regime and relevant news/macro;
+- use HTF structure and lower-timeframe setup;
+- define structural invalidation first;
+- choose MARKET/LIMIT/NO TRADE based on path, not desired WR.
 
 ## New-chat instruction
-`Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan.`
+`Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md, docs/checkpoints/CURRENT_HANDOFF.md và docs/checkpoints/CROSSMARKET_80WR_OFFLINE_AUDIT.md trước, sau đó đọc checkpoint thị trường liên quan. Không được nói mục tiêu 80% đã đạt.`
