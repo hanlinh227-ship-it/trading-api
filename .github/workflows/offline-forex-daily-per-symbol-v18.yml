@@ -22,3 +22,5 @@ jobs:
           PYTHONPATH: '.'
           PYTHONUNBUFFERED: '1'
         run: python scripts/offline_forex_daily_per_symbol_v18.py
+      - name: Print canonical per-pair method map
+        run: cat data/offline_forex_daily_per_symbol_v18.json
