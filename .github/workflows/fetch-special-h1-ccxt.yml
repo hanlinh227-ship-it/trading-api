@@ -1,0 +1,28 @@
+name: Fetch IP TON H1 CCXT
+on:
+  push:
+    paths:
+      - '.github/workflows/fetch-special-h1-ccxt.yml'
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q ccxt
+      - name: Fetch public H1 history
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/fetch_special_h1_ccxt.py
+      - name: Commit snapshot
+        run: |
+          git config user.name "history-data-bot"
+          git config user.email "history-data-bot@users.noreply.github.com"
+          git add data/provider_snapshots/ip_ton_h1_jan_jul_2026_ccxt.json
+          git diff --cached --quiet || git commit -m "Save IP TON public H1 CCXT history"
+          git push
