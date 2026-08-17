@@ -1,0 +1,45 @@
+name: Build NoCut AllPass V73
+on:
+  push:
+    paths:
+      - '.github/workflows/build-nocut-allpass-v73.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Rebuild Forex component maps
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: |
+          python scripts/offline_forex_nocut_geometry_v64.py
+          python scripts/offline_forex_nocut_refine_v66.py
+      - name: Rebuild Crypto component maps
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: |
+          python scripts/offline_crypto_h1_coordinate_v69.py
+          python scripts/offline_crypto_h1_regime_router_v70.py
+          python scripts/offline_crypto_h1_special_v71.py
+          python scripts/offline_crypto_4h_ton_ip_v72.py
+      - name: Build canonical V73
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/build_nocut_allpass_v73.py
+      - name: Commit canonical checkpoint only
+        run: |
+          git config user.name "trading-checkpoint-bot"
+          git config user.email "trading-checkpoint-bot@users.noreply.github.com"
+          git add data/nocut_intraday_allpass_v73.json docs/checkpoints/NO_CUT_INTRADAY_ALLPASS_V73.md
+          git diff --cached --quiet || git commit -m "Save no-cut intraday all-pass V73 checkpoint"
+          git push
