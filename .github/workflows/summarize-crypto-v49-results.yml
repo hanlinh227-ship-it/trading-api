@@ -1,0 +1,24 @@
+name: Summarize Crypto V49 Results
+on:
+  push:
+    paths:
+      - 'scripts/summarize_crypto_v49_results.py'
+      - '.github/workflows/summarize-crypto-v49-results.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Recompute and summarize frozen V49 matrix
+        env:
+          PYTHONUNBUFFERED: '1'
+          PYTHONPATH: '.'
+        run: python scripts/summarize_crypto_v49_results.py
