@@ -1,0 +1,27 @@
+name: Fetch Crypto Special H1 CC
+on:
+  push:
+    paths:
+      - '.github/workflows/fetch-crypto-special-h1-cc.yml'
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch public H1 history
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/fetch_crypto_special_h1_cryptocompare.py
+      - name: Commit snapshot
+        run: |
+          git config user.name "history-data-bot"
+          git config user.email "history-data-bot@users.noreply.github.com"
+          git add data/provider_snapshots/crypto_special_h1_jan_jul_2026_cryptocompare.json
+          git diff --cached --quiet || git commit -m "Save special crypto H1 history"
+          git push
