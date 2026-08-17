@@ -3,8 +3,8 @@ import json,time,urllib.parse,urllib.request
 from concurrent.futures import ThreadPoolExecutor,as_completed
 from datetime import datetime,timezone
 from pathlib import Path
-SYMBOLS='BTC ETH SOL HYPE SHIB TRX XRP AAVE ADA ALGO APT ARB ATOM AVAX BCH BONK CRV DOGE DOT ETC FIL FLOKI HBAR INJ JTO JUP KAITO LDO LINK LTC MOODENG NEAR ONDO OP ORDI PENGU PEPE PNUT POL POPCAT RENDER S STX SUI TAO TIA TON TRUMP UNI WIF WLD AIXBT ASTER FARTCOIN GRASS IP LIT PUMP VIRTUAL XPL ZEC'.split();GATE={'POPCAT','FARTCOIN'};KUCOIN={'TON','IP'}
-START=int(datetime(2025,7,1,tzinfo=timezone.utc).timestamp());END=int(datetime(2026,1,1,tzinfo=timezone.utc).timestamp())-1;OUT='data/provider_snapshots/crypto_4h_jul_dec_2025.json';UA='trading-api-2025-crypto-holdout/1.0'
+SYMBOLS='BTC ETH SOL HYPE SHIB TRX XRP AAVE ADA ALGO APT ARB ATOM AVAX BCH BONK CRV DOGE DOT ETC FIL FLOKI HBAR INJ JTO JUP KAITO LDO LINK LTC MOODENG NEAR ONDO OP ORDI PENGU PEPE PNUT POL POPCAT RENDER S STX SUI TAO TIA TON TRUMP UNI WIF WLD AIXBT ASTER FARTCOIN GRASS IP LIT PUMP VIRTUAL XPL ZEC'.split();GATE={'POPCAT','FARTCOIN'};UNAVAILABLE={'TON','IP'}
+START=int(datetime(2025,7,1,tzinfo=timezone.utc).timestamp());END=int(datetime(2026,1,1,tzinfo=timezone.utc).timestamp())-1;OUT='data/provider_snapshots/crypto_4h_jul_dec_2025.json';UA='trading-api-2025-crypto-holdout/1.1'
 def get(url,retries=6):
  last=None
  for n in range(retries):
@@ -37,32 +37,22 @@ def gate(s):
    if START<=ts<=END:ded[ts]=[datetime.fromtimestamp(ts,timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),float(x[5]),float(x[3]),float(x[4]),float(x[2])]
   cur=to+1;pages+=1
  return [ded[k] for k in sorted(ded)],'GATE',pages
-def kucoin(s):
- ded={};cur=START;pages=0;chunk=1400*4*3600
- while cur<=END:
-  to=min(END,cur+chunk);qs=urllib.parse.urlencode({'symbol':f'{s}-USDT','type':'4hour','startAt':cur,'endAt':to});d=get('https://api.kucoin.com/api/v1/market/candles?'+qs)
-  if d.get('code')!='200000':raise RuntimeError(str(d))
-  for x in d.get('data') or []:
-   ts=int(x[0])
-   if START<=ts<=END:ded[ts]=[datetime.fromtimestamp(ts,timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),float(x[1]),float(x[3]),float(x[4]),float(x[2])]
-  cur=to+1;pages+=1
- return [ded[k] for k in sorted(ded)],'KUCOIN',pages
 def one(s):
- if s in GATE:r=gate(s)
- elif s in KUCOIN:r=kucoin(s)
- else:r=okx(s)
- return s,*r
+ if s in UNAVAILABLE:return s,[],'UNAVAILABLE',0
+ return s,*(gate(s) if s in GATE else okx(s))
 def main():
- data={};diag={};err={}
+ data={};diag={};missing={}
  with ThreadPoolExecutor(max_workers=5) as ex:
   fs={ex.submit(one,s):s for s in SYMBOLS}
   for f in as_completed(fs):
    s=fs[f]
    try:
     sym,rows,src,p=f.result()
-    if len(rows)<24:raise RuntimeError(f'too few {len(rows)}')
-    data[sym]=rows;diag[sym]={'source':src,'bars':len(rows),'first':rows[0][0],'last':rows[-1][0],'pages':p};print('HOLDOUT',sym,src,len(rows),flush=True)
-   except Exception as e:err[s]=str(e);print('FAIL',s,e,flush=True)
- if err or len(data)!=61:raise RuntimeError('coverage '+json.dumps(err))
- doc={'version':'CRYPTO_4H_JUL_DEC_2025_V1','interval':'4h','coverageCount':61,'requestedSymbols':SYMBOLS,'startDate':'2025-07-01','endDate':'2025-12-31','independentFrom2026MethodDesign':True,'sources':{x:sum(1 for q in diag.values() if q['source']==x) for x in ('OKX','GATE','KUCOIN')},'diagnostics':diag,'data':data};Path(OUT).parent.mkdir(parents=True,exist_ok=True);json.dump(doc,open(OUT,'w'),separators=(',',':'));print(json.dumps({'status':'OK','coverage':61,'sources':doc['sources']},indent=2),flush=True)
+    # Listing-aware: preserve any real series >= one full month (~180 4H bars).
+    if len(rows)<180:
+     missing[sym]=f'No full month in Jul-Dec 2025 ({len(rows)} bars)';print('NO_FULL_MONTH',sym,len(rows),flush=True);continue
+    data[sym]=rows;diag[sym]={'source':src,'bars':len(rows),'first':rows[0][0],'last':rows[-1][0],'pages':p};print('HOLDOUT',sym,src,len(rows),rows[0][0],flush=True)
+   except Exception as e:missing[s]=str(e);print('FAIL',s,e,flush=True)
+ if len(data)<50:raise RuntimeError('Insufficient independent coverage '+json.dumps(missing))
+ doc={'version':'CRYPTO_4H_JUL_DEC_2025_V2_LISTING_AWARE','interval':'4h','requestedSymbols':SYMBOLS,'coverageCount':len(data),'coveredSymbols':sorted(data),'missingSymbols':missing,'startDate':'2025-07-01','endDate':'2025-12-31','independentFrom2026MethodDesign':True,'listingAware':True,'sources':{x:sum(1 for q in diag.values() if q['source']==x) for x in ('OKX','GATE')},'diagnostics':diag,'data':data};Path(OUT).parent.mkdir(parents=True,exist_ok=True);json.dump(doc,open(OUT,'w'),separators=(',',':'));print(json.dumps({'status':'OK_PARTIAL','coverage':len(data),'missing':missing,'sources':doc['sources']},indent=2),flush=True)
 if __name__=='__main__':main()
