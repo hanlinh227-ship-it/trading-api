@@ -1,0 +1,21 @@
+name: Offline Crypto V34 Flow Mode
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_crypto_v34_flow_mode.py'
+      - '.github/workflows/offline-crypto-v34-flow-mode.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Crypto V34 zero-credit flow validation
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_crypto_v34_flow_mode.py
