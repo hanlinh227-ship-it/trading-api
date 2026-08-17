@@ -1,0 +1,26 @@
+name: Offline Crypto V60 UserCriteria Remaining
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_v60_usercriteria_remaining.py'
+      - '.github/workflows/offline-crypto-v60-usercriteria-remaining.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  symbol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        symbol: [DOT,FLOKI,INJ,LDO,ONDO,POL,TAO,WLD]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run exact user-criteria protective search
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+          TARGET_SYMBOL: ${{ matrix.symbol }}
+        run: python scripts/offline_crypto_v60_usercriteria_remaining.py
