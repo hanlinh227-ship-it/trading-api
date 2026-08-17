@@ -1,6 +1,6 @@
 # MASTER TRADING STATE
 
-Updated: 2026-08-17 UTC+7
+Updated: 2026-08-18 UTC+7
 Purpose: single canonical state for the Trading project.
 
 ## Read order
@@ -8,162 +8,184 @@ Purpose: single canonical state for the Trading project.
 2. `NO_CUT_INTRADAY_ALLPASS_V73.md`
 3. `LIVE_SYMBOL_ANALYSIS_V74.md`
 4. `TWELVEDATA_GROW55_DATA_POLICY.md`
-5. relevant market checkpoint: `FUTURES_NQ_ES_STATE.md`, `CASH_INDICES_STATE.md`, or `METALS_STATE.md`
+5. relevant market checkpoint.
 
 # CURRENT ARCHITECTURE
 
 ## V73 — frozen statistical prior
-V73 is the frozen no-CUT forced-daily prior.
 
-Hard rules retained in the frozen artifact:
-- no CUT;
-- no discretionary whole-day NO TRADE;
-- 1–3 trades per eligible day;
-- frozen development maps currently use exactly 1 trade/day;
-- RR only 1:1 or 1:2;
-- frozen passing maps use RR1:1;
-- TIMEOUT = non-win;
-- same-bar TP+SL = SL conservatively.
+V73 is frozen. No live workflow may rebuild or optimize it.
 
-Frozen development result:
-- Forex: 28/28 PASS, minimum pair WR 80.00%;
-- Crypto: 61/61 PASS, minimum symbol WR 80.22%;
-- Forex: H1;
-- 59 Crypto: H1;
-- TON/IP: dedicated 4H methods.
+Frozen development result remains:
+- Forex 28/28 PASS, minimum development WR 80.00%;
+- Crypto 61/61 PASS, minimum development WR 80.22%;
+- Forex H1; 59 Crypto H1; TON/IP 4H;
+- frozen passing maps currently use 1 trade/day and RR1:1.
 
-Canonical V73 runtime files:
+Classification: **exposed development all-pass, not untouched OOS; never promise future/live WR.**
+
+Canonical files:
 - `data/nocut_intraday_allpass_v73.json`
 - `scripts/nocut_intraday_method_v73.py`
 - `scripts/validate_nocut_v73.py`
-- `.github/workflows/validate-nocut-v73.yml`
 
-**V73 is frozen. Rebuild/optimizer generations are not part of the active tree.** Historical research remains recoverable from Git history. This prevents accidental retuning or execution of an obsolete research engine.
+## V74 — live analysis / execution rules
 
-Integrity classification:
-**EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS.**
-Historical development WR is not a future/live guarantee.
+V74 remains the decision authority over V73.
 
-## V74 — current live-analysis / execution layer
-Every live Forex/Crypto analysis uses V74 over the frozen V73 prior where applicable.
+Live order:
+1. exact instrument / venue / contract;
+2. fresh timestamped market data;
+3. current symbol-specific news/context;
+4. D1/H4 liquidity/regime;
+5. H1 structure;
+6. frozen V73 prior where applicable;
+7. M15 tradable location;
+8. strict M5 close-confirmed MSS/displacement + retest;
+9. structural SL first;
+10. RR1 default; RR2 only with >=2.2R clean room after costs;
+11. final execution-venue quote/spread before MARKET;
+12. forward-log without retuning from that outcome.
 
-Canonical files:
-- `scripts/live_symbol_analysis_v74.py`
-- `docs/checkpoints/LIVE_SYMBOL_ANALYSIS_V74.md`
-- `.github/workflows/validate-live-v74.yml`
+Coverage remains 28 Forex + 61 Crypto = 89/89 V74 playbooks.
 
-Coverage:
-- 28 Forex + 61 Crypto = 89/89 live playbooks;
-- current crypto identities explicitly mapped;
-- no generic `OTHER` live fallback;
-- V73 signal hour = observation anchor only;
-- `DUAL_FADE` = geometry, never a blind two-sided order.
+## V75 — Fast Data layer
 
-# LIVE DECISION ORDER
-1. Resolve exact symbol / instrument / venue / contract.
-2. Refresh current market data and validate identity/timestamp.
-3. Refresh current symbol-specific news/macro/project context.
-4. D1/H4 draw-on-liquidity, regime, premium/discount.
-5. H1 structure and point-in-time observable features only.
-6. Read frozen V73 prior/router without optimizing it.
-7. Require M15 tradable location.
-8. Require M5 close-confirmed MSS/displacement + retest for strict execution.
-9. Structural SL first; ATR only a volatility floor.
-10. Default RR1; RR2 only with >=2.2R clean structural room after costs.
-11. Verify final venue/price/timestamp/spread before MARKET.
-12. Record forward result without retuning from that outcome.
+V75 changes **data latency and read efficiency only**. It does not weaken V74 and does not modify V73.
 
-# DATA ARCHITECTURE — GROW55 DIRECT STRICT V3
+Preferred live-read artifacts:
+- single symbol → `data/decision.json`;
+- Forex scan → `data/forex-fast.json`;
+- Crypto scan → `data/crypto-fast.json`.
 
-Primary policy: `TWELVEDATA_GROW55_DATA_POLICY.md`.
-Canonical non-crypto client: `scripts/twelvedata_market.py` version `V3-TWELVEDATA-DIRECT-STRICT`.
+Detailed files are opened only when necessary.
 
-The old Cloudflare Worker shorthand mapping is not part of the canonical runtime after ticker-collision diagnostics proved it unsafe for cash indices.
+### Single-symbol non-crypto
 
-## Forex
-- direct Twelve Data Grow55;
-- explicit `AAA/BBB` mapping;
-- every timeframe validates exact provider `meta.symbol` + `meta.type`;
-- indicators and M5 confirmation use closed candles only;
-- `/quote` proves identity and supplies `last_quote_at`;
-- `/price` supplies latest aggregated value only after identity is proven;
-- quote age >65s => DATA_BLOCK;
-- V74 MARKET review target remains <=30s;
-- full 28-pair staged scan budget = approximately 46/55 credits, leaving 9 reserve.
+`scripts/twelvedata_market.py` = `V4-TWELVEDATA-FAST-STRICT`.
 
-## Crypto
-- final execution quote is exchange-native Binance / OKX / Bybit where supported;
-- exact venue, bid, ask and exchange timestamp take priority over aggregated sources;
-- target quote age <=10s.
+- D1/H4/H1/M15/M5 fetched in parallel;
+- M1 disabled by default;
+- indicators still use full history in memory;
+- only compact candle tails stored;
+- `/quote` proves identity/timestamp before `/price` is accepted;
+- closed candles only;
+- Twelve Data quote >65s => DATA_BLOCK;
+- V74 Forex freshness target remains <=30s;
+- no fabricated bid/ask.
 
-## Futures
-- futures are separate from cash indices;
-- MNQ/MES preferred execution instruments for the NQ/ES system;
-- current Grow55 diagnostics do not expose exact provable NQ/MNQ/ES/MES/GC/SI/CL contracts;
-- Twelve Data therefore returns DATA_BLOCK for those exact futures symbols;
-- use authoritative futures feed or user platform price until exact contract feed is integrated;
-- never proxy cash/spot data.
+Benchmark USDJPY run `32049389246`: data stage ~**0.38s** once runner was ready.
 
-## Cash indices
-- current Grow55/core endpoints do not safely prove NAS100/NDX, US500/SPX, DAX/GDAXI or N225-family cash indices;
-- those aliases deliberately return DATA_BLOCK;
-- never substitute futures, CFDs, ETFs or a same-text security.
+### Forex universe
 
-## Metals / spot commodities
-- XAUUSD/XAGUSD use verified spot identities such as `XAU/USD`, `XAG/USD`;
-- spot remains separate from GC/SI futures;
-- correct identity with a stale timestamp still returns DATA_BLOCK.
+Engine: `scripts/scan_forex_v75.py`.
+Workflow: `.github/workflows/scan-forex.yml`.
 
-# PRICE INTEGRITY
+Pipeline: `28 H1 broad → Top3 D1/H4/M15/M5 + quote/price` with independent calls parallelized.
 
-Distinguish four concepts:
-1. provider market timestamp (`last_quote_at` / exchange timestamp);
-2. our fetch time;
-3. latest aggregated price value (`/price` after identity validation);
-4. executable venue bid/ask spread.
+Grow55 budget: 46/55 credits, reserve 9.
 
-They are not interchangeable.
+Benchmark run `32049900306`: **28 pairs + Top3 deep in 0.643s** data time.
 
-- Crypto normally has exchange bid/ask and exact exchange timestamp.
-- Twelve Data non-crypto does not provide executable broker bid/ask in this integration; do not invent spread.
-- If exact identity, timestamp freshness or required execution fields cannot be verified, return DATA_BLOCK rather than fabricate execution data.
+### Crypto single symbol
 
-# CANONICAL AUDIT
+`scripts/fetch_crypto.py` = `V2-CRYPTO-FAST-STRICT`.
 
-Permanent cross-market audit:
-- `.github/workflows/audit-market-data.yml`
-- `scripts/audit_market_data.py`
-- `data/market-data-audit.json`
+- exchange-native exact symbol;
+- 5 TF in parallel;
+- closed candles only;
+- no mandatory M1;
+- final ticker refresh;
+- quote target <=10s with real bid/ask.
 
-Final V3 audit run `32047340663` completed SUCCESS with 17 cases: 7 PASS, 10 BLOCKED_AS_DESIGNED, 0 FAIL.
+BTCUSDT benchmark run `32050032469`: 5/5 frames, quote age 241ms, data stage ~**1.27s**.
 
-# ACTIVE REPOSITORY SCOPE
+### Crypto universe
 
-Active workflows:
+Engine: `scripts/scan_crypto_v75.py`.
+Workflow: `.github/workflows/live-crypto-v75-scan.yml`.
+
+Pipeline:
+`61 V74 identities → exact OKX USDT availability → all available H1 → Top12 M15/M5 → Top5 D1/H4 → live bid/ask/timestamp`.
+
+Benchmark run `32050388431`:
+- 61 identities requested;
+- 57 exact OKX USDT instruments available;
+- 57/57 analyzed = 100% coverage;
+- errors 0;
+- data stage **5.427s**.
+
+Missing identities are never substituted with another token.
+
+# MARKET DATA INTEGRITY
+
+The old Cloudflare shorthand Worker is not canonical runtime. Same-text ticker collisions are permanently rejected.
+
+Rules:
+1. explicit canonical identity;
+2. exact provider symbol/type metadata;
+3. closed candles only for technical calculations;
+4. provider timestamp != fetch time;
+5. `/price` accepted only after identity proof;
+6. stale data is never called live;
+7. no fabricated spread;
+8. cash index, futures and spot are never interchangeable.
+
+## Current support
+
+Forex: direct Twelve Data Grow55 exact `AAA/BBB` mapping.
+
+Crypto: exchange-native Binance/OKX/Bybit for single-symbol; OKX exact USDT spot for universe scan.
+
+Spot metals/commodities: exact Twelve Data identity when supported/fresh.
+
+Cash indices NAS100/US500/DAX/N225-family: current Grow55 path cannot safely prove exact cash index → `DATA_BLOCK`.
+
+Exact futures NQ/MNQ/ES/MES/GC/SI/CL: current Grow55 path cannot prove exact CME/COMEX/NYMEX contract → `DATA_BLOCK` until an authoritative feed is integrated.
+
+# VALIDATION
+
+Post-V75 market-data audit run `32050497678` = SUCCESS:
+- 17 total;
+- 7 PASS;
+- 10 BLOCKED_AS_DESIGNED;
+- 0 FAIL.
+
+V73 validator run `32050638267` = SUCCESS.
+V74 validator run `32050656054` = SUCCESS.
+
+# ACTIVE REPOSITORY
+
+Workflows:
 - `fetch-market.yml`
 - `scan-forex.yml`
-- `live-crypto-v74-scan.yml`
+- `live-crypto-v75-scan.yml`
 - `audit-market-data.yml`
 - `validate-nocut-v73.yml`
 - `validate-live-v74.yml`
 
-Active scripts:
-- `fetch_crypto.py`
+Scripts:
 - `twelvedata_market.py`
+- `fetch_crypto.py`
+- `scan_forex_v75.py`
+- `scan_crypto_v75.py`
 - `audit_market_data.py`
 - `nocut_intraday_method_v73.py`
 - `validate_nocut_v73.py`
 - `live_symbol_analysis_v74.py`
 
-Legacy blind tests, calibration suites, one-off provider diagnostics, old optimizer versions, old result JSONs and obsolete snapshot/refresh workflows are not part of the current architecture. Git history remains the archive.
+Legacy optimizers, blind tests, one-off diagnostics and obsolete live-data paths remain in Git history only.
+
+# REMAINING BOTTLENECK
+
+The engines themselves are now fast. The main remaining end-to-end delay is GitHub Actions runner provisioning, checkout and commit. To remove that, move V75 runtime to a persistent service/edge cache; further API micro-optimization alone cannot remove runner startup latency.
 
 # SPECIAL MARKET RULES
 
-## NQ/ES Futures
-Compare NQ/ES or MNQ/MES and normally choose one stronger setup. Structural SL first, then contract count. Risk framework remains approximately USD 500 maximum SL and USD 1,500 target when structure genuinely permits it.
+NQ/ES Futures: compare MNQ/MES and normally choose one stronger setup. Structural SL first, then contract count. User framework remains roughly max SL $500 / target $1,500 when structure supports it.
 
-## Live trade frequency
-Frozen V73 minimum-trade research rules never authorize fabricated prices, stale quotes or wrong-instrument MARKET orders. DATA_BLOCK overrides forced-trade research logic when data integrity fails.
+DATA_BLOCK always overrides any forced-trade research rule.
 
 ## Handoff phrase
-`Tiếp tục Trading từ MASTER_TRADING_STATE.md. Current state = V73 frozen prior + V74 live layer + Twelve Data Grow55 direct strict V3. Do not rebuild/re-optimize V73 or resurrect legacy research. For live analysis verify exact instrument, current timestamped data, current news/context, D1-H4-H1 bias, V73 prior where applicable, M15 location, M5 close-confirmed trigger, structural SL and final execution-venue data.`
+
+`Continue Trading with V73 frozen + V74 execution rules + V75 Fast Data. Read decision.json / forex-fast.json / crypto-fast.json first. Verify exact instrument, fresh timestamped data, current news/context, D1-H4-H1, M15 location, strict M5 trigger, structural SL and final execution-venue spread. Never proxy cash/futures and never label stale data live.`
