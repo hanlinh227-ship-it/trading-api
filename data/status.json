@@ -10,17 +10,17 @@
   "sourceExchange": "Forex",
   "sourceType": "direct_api_strict_metadata",
   "clientVersion": "V3-TWELVEDATA-DIRECT-STRICT",
-  "currentPrice": 159.36145,
-  "currentPriceTime": "2026-08-17T16:56:00Z",
-  "priceFetchedAt": "2026-08-17T16:56:09.776367Z",
+  "currentPrice": 159.36381,
+  "currentPriceTime": "2026-08-17T16:58:00Z",
+  "priceFetchedAt": "2026-08-17T16:58:36.100119Z",
   "priceType": "twelvedata_price_validated_by_quote",
   "bid": null,
   "ask": null,
   "spread": null,
-  "quoteAgeMs": 9465,
+  "quoteAgeMs": 35927,
   "quoteTimestampVerified": true,
   "priceFreshnessType": "TWELVEDATA_LAST_QUOTE_AT_PLUS_PRICE",
-  "strictV74PriceFresh": true,
+  "strictV74PriceFresh": false,
   "executionSpreadVerified": false,
   "executionReady": false,
   "marketClosedPossible": false,
@@ -621,7 +621,7 @@
         "currency_quote": "Japanese Yen",
         "type": "Physical Currency"
       },
-      "fetchedAt": "2026-08-17T16:56:07.683016Z"
+      "fetchedAt": "2026-08-17T16:58:35.009340Z"
     },
     "H4": {
       "status": "ok",
@@ -1375,7 +1375,7 @@
         "currency_quote": "Japanese Yen",
         "type": "Physical Currency"
       },
-      "fetchedAt": "2026-08-17T16:56:08.152673Z"
+      "fetchedAt": "2026-08-17T16:58:35.111669Z"
     },
     "H1": {
       "status": "ok",
@@ -2289,7 +2289,7 @@
         "currency_quote": "Japanese Yen",
         "type": "Physical Currency"
       },
-      "fetchedAt": "2026-08-17T16:56:08.434576Z"
+      "fetchedAt": "2026-08-17T16:58:35.282608Z"
     },
     "M15": {
       "status": "ok",
@@ -3283,12 +3283,12 @@
         "currency_quote": "Japanese Yen",
         "type": "Physical Currency"
       },
-      "fetchedAt": "2026-08-17T16:56:08.712863Z"
+      "fetchedAt": "2026-08-17T16:58:35.455118Z"
     },
     "M5": {
       "status": "ok",
       "interval": "5min",
-      "candleCount": 220,
+      "candleCount": 219,
       "latestCandle": {
         "datetime": "2026-08-17 16:50:00",
         "open": 159.36639,
@@ -3300,8 +3300,8 @@
       "summary": {
         "close": 159.37957,
         "ema20": 159.35570787,
-        "ema50": 159.31449422,
-        "ema200": 159.1729709,
+        "ema50": 159.31449331,
+        "ema200": 159.17160345,
         "rsi14": 59.64,
         "atr14": 0.02839498,
         "recent50High": 159.40515,
@@ -4277,7 +4277,7 @@
         "currency_quote": "Japanese Yen",
         "type": "Physical Currency"
       },
-      "fetchedAt": "2026-08-17T16:56:09.006553Z"
+      "fetchedAt": "2026-08-17T16:58:35.628229Z"
     }
   },
   "M1Reference": {
@@ -4285,49 +4285,25 @@
     "interval": "1min",
     "candleCount": 80,
     "latestCandle": {
-      "datetime": "2026-08-17 16:54:00",
-      "open": 159.36734,
-      "high": 159.38045,
-      "low": 159.36636,
-      "close": 159.37957,
+      "datetime": "2026-08-17 16:57:00",
+      "open": 159.35761,
+      "high": 159.36842,
+      "low": 159.35456,
+      "close": 159.36475,
       "volume": null
     },
     "summary": {
-      "close": 159.37957,
-      "ema20": 159.36807785,
-      "ema50": 159.36828997,
+      "close": 159.36475,
+      "ema20": 159.36650158,
+      "ema50": 159.36794561,
       "ema200": null,
-      "rsi14": 58.41,
-      "atr14": 0.01061076,
-      "recent50High": 159.39405,
+      "rsi14": 49.05,
+      "atr14": 0.01133505,
+      "recent50High": 159.38645,
       "recent50Low": 159.32679,
-      "trend": "neutral"
+      "trend": "bearish"
     },
     "candles": [
-      [
-        "2026-08-17 16:25:00",
-        159.34636,
-        159.3659,
-        159.34636,
-        159.36452,
-        null
-      ],
-      [
-        "2026-08-17 16:26:00",
-        159.35861,
-        159.36549,
-        159.35811,
-        159.35811,
-        null
-      ],
-      [
-        "2026-08-17 16:27:00",
-        159.35866,
-        159.36361,
-        159.35866,
-        159.36274,
-        null
-      ],
       [
         "2026-08-17 16:28:00",
         159.35826,
@@ -4543,6 +4519,30 @@
         159.36636,
         159.37957,
         null
+      ],
+      [
+        "2026-08-17 16:55:00",
+        159.3755,
+        159.3755,
+        159.36485,
+        159.36578,
+        null
+      ],
+      [
+        "2026-08-17 16:56:00",
+        159.3665,
+        159.3665,
+        159.3525,
+        159.3554,
+        null
+      ],
+      [
+        "2026-08-17 16:57:00",
+        159.35761,
+        159.36842,
+        159.35456,
+        159.36475,
+        null
       ]
     ],
     "providerMeta": {
@@ -4552,7 +4552,7 @@
       "currency_quote": "Japanese Yen",
       "type": "Physical Currency"
     },
-    "fetchedAt": "2026-08-17T16:56:09.196771Z"
+    "fetchedAt": "2026-08-17T16:58:35.732199Z"
   },
   "dataIntegrity": {
     "canonicalMappingVerified": true,
@@ -4564,5 +4564,5 @@
     "closedCandlesOnly": true,
     "hardStaleThresholdMs": 65000
   },
-  "updatedAt": "2026-08-17T16:56:09.776450Z"
+  "updatedAt": "2026-08-17T16:58:36.100174Z"
 }
