@@ -51,6 +51,15 @@ Canonical rebuild workflow:
 - `.github/workflows/build-nocut-allpass-v73.yml`
 - successful rebase-safe build run: `32032071403`.
 
+Final operational validation:
+- validation run: `32033371607`, job `95398145183` — PASS.
+- confirmed 28 Forex + 61 Crypto, min WR 80.00% / 80.22%.
+- confirmed frozen maps are exactly 1 trade/day.
+- confirmed 89/89 instruments contain news/context profiles.
+- confirmed 39 instruments use valid observable regime routers.
+- canonical reader smoke-tested EURUSD and SOL.
+- router/action smoke-tested BTC, HBAR, TAO, TON and IP with no missing action references.
+
 ## Live news/context rule
 News is symbol-specific. Since a daily trade is mandatory, a news/event shock does **not** silently turn the day into NO TRADE. Instead it is used point-in-time to route/confirm the symbol's frozen execution geometry/regime. No historical news is fabricated where a point-in-time archive was unavailable.
 
