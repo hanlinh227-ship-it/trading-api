@@ -1,0 +1,29 @@
+name: Fetch TON H1 CryptoCompare 2026
+on:
+  push:
+    paths:
+      - 'scripts/fetch_ton_h1_cryptocompare_2026.py'
+      - '.github/workflows/fetch-ton-h1-cryptocompare-2026.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch TON hourly history
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/fetch_ton_h1_cryptocompare_2026.py
+      - name: Freeze TON H1 snapshot
+        run: |
+          git config user.name 'ton-h1-snapshot-bot'
+          git config user.email 'ton-h1-snapshot-bot@users.noreply.github.com'
+          git add data/provider_snapshots/ton_h1_jan_jul_2026_cryptocompare.json
+          git commit -m 'Freeze TON H1 Jan-Jul 2026 CryptoCompare snapshot' || exit 0
+          git pull --rebase origin main || true
+          git push origin HEAD:main
