@@ -67,6 +67,16 @@ Treat **V24-Core** as the most promising research direction, NOT yet a final pro
 
 V24-Core = 6h/24h/72h momentum + H4/H1 structure + H4 EMA + BTC relative strength + M15 anti-chase/location + first-5m OKX taker-flow + market breadth/flow regime + structural SL + dynamic 1.6-2.0R.
 
+## Active research dependency chain
+To keep the repository lean, the active tree now retains only the crypto code needed to reproduce/extend the current lineage:
+- `scripts/blind_backtest_crypto.py`
+- `scripts/blind_backtest_crypto_v17.py`
+- `scripts/blind_backtest_crypto_v22.py`
+- `scripts/blind_backtest_crypto_v24.py`
+- key result files `data/blind_backtest_v17.json`, `data/blind_backtest_v22.json`, `data/blind_backtest_v24.json`
+- current workflow `.github/workflows/blind-backtest-v24.yml`
+Historical rejected experiments and one-off diagnostic/raw outputs were summarized before removal from the active tree. Their conclusions are preserved in `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`; old Git commits still provide forensic recovery if ever required.
+
 ## Live entry standard
 For actual current signals, do not blindly force MARKET across the universe. Refresh the exact coin now; verify Breakout support; analyze D1/H4/H1/M15/M5 plus relevant catalysts/news/token unlocks where material; check order-flow context when available; then issue MARKET only if the live request/rules allow it and execution gates pass.
 
@@ -74,4 +84,4 @@ For actual current signals, do not blindly force MARKET across the universe. Ref
 Coin-specific token unlocks, listings/delistings, protocol upgrades, exploits, governance, regulatory news and major BTC/ETH market events should be treated as event-risk/context layers, not automatic BUY/SELL triggers.
 
 ## Cross-chat continuation
-New chat: read `MASTER_TRADING_STATE.md`, this file, and the latest `data/blind_backtest_v*.json` / active script before changing the crypto method.
+New chat: read `MASTER_TRADING_STATE.md`, `CURRENT_HANDOFF.md`, this file, `CRYPTO_RESEARCH_ARCHIVE.md` when historical context is needed, and the current V24 script/result before changing the crypto method.
