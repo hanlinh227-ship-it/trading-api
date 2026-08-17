@@ -1,0 +1,1971 @@
+{
+  "generatedAt": "2026-08-17T01:11:50.300970+00:00",
+  "method": "V14 development search: short-horizon time-series momentum, H4/H1 structure, BTC-relative strength, breadth, reversal only in low-ADX extreme ranges",
+  "dev": [
+    [
+      "DEV_12AUG",
+      "2026-08-12T12:00:00Z"
+    ],
+    [
+      "DEV_05AUG",
+      "2026-08-05T12:00:00Z"
+    ]
+  ],
+  "top": [
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "expectancyR": 0.058
+        },
+        "DEV_05AUG": {
+          "wins": 24,
+          "losses": 31,
+          "unresolved": 1,
+          "winRate": 43.64,
+          "expectancyR": 0.091
+        }
+      },
+      "minWinRate": 42.31,
+      "minExpectancyR": 0.058,
+      "avgWinRate": 42.98,
+      "avgExpectancyR": 0.074,
+      "robustScore": 48.27
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 29,
+          "unresolved": 5,
+          "winRate": 43.14,
+          "expectancyR": 0.078
+        },
+        "DEV_05AUG": {
+          "wins": 23,
+          "losses": 32,
+          "unresolved": 1,
+          "winRate": 41.82,
+          "expectancyR": 0.045
+        }
+      },
+      "minWinRate": 41.82,
+      "minExpectancyR": 0.045,
+      "avgWinRate": 42.48,
+      "avgExpectancyR": 0.061,
+      "robustScore": 47.552
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 30,
+          "unresolved": 5,
+          "winRate": 41.18,
+          "expectancyR": 0.029
+        },
+        "DEV_05AUG": {
+          "wins": 23,
+          "losses": 32,
+          "unresolved": 1,
+          "winRate": 41.82,
+          "expectancyR": 0.045
+        }
+      },
+      "minWinRate": 41.18,
+      "minExpectancyR": 0.029,
+      "avgWinRate": 41.5,
+      "avgExpectancyR": 0.037,
+      "robustScore": 46.561
+    }
+  ],
+  "grid": [
+    {
+      "policy": "v6_base",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 37,
+          "unresolved": 2,
+          "winRate": 31.48,
+          "expectancyR": -0.213
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "winRate": 21.43,
+          "expectancyR": -0.464
+        }
+      },
+      "minWinRate": 21.43,
+      "minExpectancyR": -0.464,
+      "avgWinRate": 26.45,
+      "avgExpectancyR": -0.339,
+      "robustScore": 18.949
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 15,
+          "losses": 38,
+          "unresolved": 3,
+          "winRate": 28.3,
+          "expectancyR": -0.236
+        },
+        "DEV_05AUG": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "winRate": 19.64,
+          "expectancyR": -0.47
+        }
+      },
+      "minWinRate": 19.64,
+      "minExpectancyR": -0.47,
+      "avgWinRate": 23.97,
+      "avgExpectancyR": -0.353,
+      "robustScore": 17.257
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "winRate": 26.92,
+          "expectancyR": -0.219
+        },
+        "DEV_05AUG": {
+          "wins": 9,
+          "losses": 47,
+          "unresolved": 0,
+          "winRate": 16.07,
+          "expectancyR": -0.534
+        }
+      },
+      "minWinRate": 16.07,
+      "minExpectancyR": -0.534,
+      "avgWinRate": 21.5,
+      "avgExpectancyR": -0.377,
+      "robustScore": 13.18
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 36,
+          "unresolved": 3,
+          "winRate": 32.08,
+          "expectancyR": -0.198
+        },
+        "DEV_05AUG": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "winRate": 19.64,
+          "expectancyR": -0.509
+        }
+      },
+      "minWinRate": 19.64,
+      "minExpectancyR": -0.509,
+      "avgWinRate": 25.86,
+      "avgExpectancyR": -0.354,
+      "robustScore": 16.593
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 15,
+          "losses": 38,
+          "unresolved": 3,
+          "winRate": 28.3,
+          "expectancyR": -0.236
+        },
+        "DEV_05AUG": {
+          "wins": 10,
+          "losses": 46,
+          "unresolved": 0,
+          "winRate": 17.86,
+          "expectancyR": -0.518
+        }
+      },
+      "minWinRate": 17.86,
+      "minExpectancyR": -0.518,
+      "avgWinRate": 23.08,
+      "avgExpectancyR": -0.377,
+      "robustScore": 14.819
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "winRate": 26.92,
+          "expectancyR": -0.219
+        },
+        "DEV_05AUG": {
+          "wins": 9,
+          "losses": 47,
+          "unresolved": 0,
+          "winRate": 16.07,
+          "expectancyR": -0.534
+        }
+      },
+      "minWinRate": 16.07,
+      "minExpectancyR": -0.534,
+      "avgWinRate": 21.5,
+      "avgExpectancyR": -0.377,
+      "robustScore": 13.18
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "winRate": 40.38,
+          "expectancyR": 0.01
+        },
+        "DEV_05AUG": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "winRate": 32.14,
+          "expectancyR": -0.196
+        }
+      },
+      "minWinRate": 32.14,
+      "minExpectancyR": -0.196,
+      "avgWinRate": 36.26,
+      "avgExpectancyR": -0.093,
+      "robustScore": 34.252
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "winRate": 36.54,
+          "expectancyR": -0.013
+        },
+        "DEV_05AUG": {
+          "wins": 16,
+          "losses": 40,
+          "unresolved": 0,
+          "winRate": 28.57,
+          "expectancyR": -0.229
+        }
+      },
+      "minWinRate": 28.57,
+      "minExpectancyR": -0.229,
+      "avgWinRate": 32.55,
+      "avgExpectancyR": -0.121,
+      "robustScore": 30.324
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 33,
+          "unresolved": 7,
+          "winRate": 32.65,
+          "expectancyR": -0.053
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.275
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.275,
+      "avgWinRate": 28.82,
+      "avgExpectancyR": -0.164,
+      "robustScore": 26.217
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 30,
+          "unresolved": 5,
+          "winRate": 41.18,
+          "expectancyR": 0.029
+        },
+        "DEV_05AUG": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "winRate": 32.14,
+          "expectancyR": -0.196
+        }
+      },
+      "minWinRate": 32.14,
+      "minExpectancyR": -0.196,
+      "avgWinRate": 36.66,
+      "avgExpectancyR": -0.084,
+      "robustScore": 34.329
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "winRate": 36.54,
+          "expectancyR": -0.013
+        },
+        "DEV_05AUG": {
+          "wins": 16,
+          "losses": 40,
+          "unresolved": 0,
+          "winRate": 28.57,
+          "expectancyR": -0.229
+        }
+      },
+      "minWinRate": 28.57,
+      "minExpectancyR": -0.229,
+      "avgWinRate": 32.55,
+      "avgExpectancyR": -0.121,
+      "robustScore": 30.324
+    },
+    {
+      "policy": "v6_base",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 33,
+          "unresolved": 7,
+          "winRate": 32.65,
+          "expectancyR": -0.053
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.275
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.275,
+      "avgWinRate": 28.82,
+      "avgExpectancyR": -0.164,
+      "robustScore": 26.217
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 36,
+          "unresolved": 3,
+          "winRate": 32.08,
+          "expectancyR": -0.198
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 41,
+          "unresolved": 0,
+          "winRate": 26.79,
+          "expectancyR": -0.33
+        }
+      },
+      "minWinRate": 26.79,
+      "minExpectancyR": -0.33,
+      "avgWinRate": 29.43,
+      "avgExpectancyR": -0.264,
+      "robustScore": 26.23
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 36,
+          "unresolved": 4,
+          "winRate": 30.77,
+          "expectancyR": -0.169
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.325
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.325,
+      "avgWinRate": 27.88,
+      "avgExpectancyR": -0.247,
+      "robustScore": 24.855
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "winRate": 29.41,
+          "expectancyR": -0.147
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 43,
+          "unresolved": 1,
+          "winRate": 21.82,
+          "expectancyR": -0.367
+        }
+      },
+      "minWinRate": 21.82,
+      "minExpectancyR": -0.367,
+      "avgWinRate": 25.62,
+      "avgExpectancyR": -0.257,
+      "robustScore": 21.453
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "winRate": 32.69,
+          "expectancyR": -0.183
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.375
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.375,
+      "avgWinRate": 28.84,
+      "avgExpectancyR": -0.279,
+      "robustScore": 23.874
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 36,
+          "unresolved": 4,
+          "winRate": 30.77,
+          "expectancyR": -0.169
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.325
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.325,
+      "avgWinRate": 27.88,
+      "avgExpectancyR": -0.247,
+      "robustScore": 24.855
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "winRate": 29.41,
+          "expectancyR": -0.147
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 43,
+          "unresolved": 1,
+          "winRate": 21.82,
+          "expectancyR": -0.367
+        }
+      },
+      "minWinRate": 21.82,
+      "minExpectancyR": -0.367,
+      "avgWinRate": 25.62,
+      "avgExpectancyR": -0.257,
+      "robustScore": 21.453
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 30,
+          "unresolved": 5,
+          "winRate": 41.18,
+          "expectancyR": 0.029
+        },
+        "DEV_05AUG": {
+          "wins": 23,
+          "losses": 32,
+          "unresolved": 1,
+          "winRate": 41.82,
+          "expectancyR": 0.045
+        }
+      },
+      "minWinRate": 41.18,
+      "minExpectancyR": 0.029,
+      "avgWinRate": 41.5,
+      "avgExpectancyR": 0.037,
+      "robustScore": 46.561
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 20,
+          "losses": 31,
+          "unresolved": 5,
+          "winRate": 39.22,
+          "expectancyR": 0.059
+        },
+        "DEV_05AUG": {
+          "wins": 20,
+          "losses": 35,
+          "unresolved": 1,
+          "winRate": 36.36,
+          "expectancyR": -0.018
+        }
+      },
+      "minWinRate": 36.36,
+      "minExpectancyR": -0.018,
+      "avgWinRate": 37.79,
+      "avgExpectancyR": 0.02,
+      "robustScore": 41.276
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 31,
+          "unresolved": 8,
+          "winRate": 35.42,
+          "expectancyR": 0.027
+        },
+        "DEV_05AUG": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "winRate": 30.19,
+          "expectancyR": -0.125
+        }
+      },
+      "minWinRate": 30.19,
+      "minExpectancyR": -0.125,
+      "avgWinRate": 32.8,
+      "avgExpectancyR": -0.049,
+      "robustScore": 33.73
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 29,
+          "unresolved": 6,
+          "winRate": 42.0,
+          "expectancyR": 0.05
+        },
+        "DEV_05AUG": {
+          "wins": 22,
+          "losses": 33,
+          "unresolved": 1,
+          "winRate": 40.0,
+          "expectancyR": 0.0
+        }
+      },
+      "minWinRate": 40.0,
+      "minExpectancyR": 0.0,
+      "avgWinRate": 41.0,
+      "avgExpectancyR": 0.025,
+      "robustScore": 44.995
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 20,
+          "losses": 31,
+          "unresolved": 5,
+          "winRate": 39.22,
+          "expectancyR": 0.059
+        },
+        "DEV_05AUG": {
+          "wins": 20,
+          "losses": 35,
+          "unresolved": 1,
+          "winRate": 36.36,
+          "expectancyR": -0.018
+        }
+      },
+      "minWinRate": 36.36,
+      "minExpectancyR": -0.018,
+      "avgWinRate": 37.79,
+      "avgExpectancyR": 0.02,
+      "robustScore": 41.276
+    },
+    {
+      "policy": "tsmom",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 31,
+          "unresolved": 8,
+          "winRate": 35.42,
+          "expectancyR": 0.027
+        },
+        "DEV_05AUG": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "winRate": 30.19,
+          "expectancyR": -0.125
+        }
+      },
+      "minWinRate": 30.19,
+      "minExpectancyR": -0.125,
+      "avgWinRate": 32.8,
+      "avgExpectancyR": -0.049,
+      "robustScore": 33.73
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 18,
+          "losses": 36,
+          "unresolved": 2,
+          "winRate": 33.33,
+          "expectancyR": -0.167
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 39,
+          "unresolved": 0,
+          "winRate": 30.36,
+          "expectancyR": -0.241
+        }
+      },
+      "minWinRate": 30.36,
+      "minExpectancyR": -0.241,
+      "avgWinRate": 31.84,
+      "avgExpectancyR": -0.204,
+      "robustScore": 31.159
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "winRate": 30.19,
+          "expectancyR": -0.185
+        },
+        "DEV_05AUG": {
+          "wins": 16,
+          "losses": 40,
+          "unresolved": 0,
+          "winRate": 28.57,
+          "expectancyR": -0.229
+        }
+      },
+      "minWinRate": 28.57,
+      "minExpectancyR": -0.229,
+      "avgWinRate": 29.38,
+      "avgExpectancyR": -0.207,
+      "robustScore": 29.685
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "winRate": 26.92,
+          "expectancyR": -0.219
+        },
+        "DEV_05AUG": {
+          "wins": 13,
+          "losses": 42,
+          "unresolved": 1,
+          "winRate": 23.64,
+          "expectancyR": -0.315
+        }
+      },
+      "minWinRate": 23.64,
+      "minExpectancyR": -0.315,
+      "avgWinRate": 25.28,
+      "avgExpectancyR": -0.267,
+      "robustScore": 23.723
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 18,
+          "losses": 35,
+          "unresolved": 3,
+          "winRate": 33.96,
+          "expectancyR": -0.151
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 41,
+          "unresolved": 0,
+          "winRate": 26.79,
+          "expectancyR": -0.33
+        }
+      },
+      "minWinRate": 26.79,
+      "minExpectancyR": -0.33,
+      "avgWinRate": 30.38,
+      "avgExpectancyR": -0.24,
+      "robustScore": 26.413
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "winRate": 30.19,
+          "expectancyR": -0.185
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 41,
+          "unresolved": 0,
+          "winRate": 26.79,
+          "expectancyR": -0.277
+        }
+      },
+      "minWinRate": 26.79,
+      "minExpectancyR": -0.277,
+      "avgWinRate": 28.49,
+      "avgExpectancyR": -0.231,
+      "robustScore": 27.246
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "winRate": 26.92,
+          "expectancyR": -0.219
+        },
+        "DEV_05AUG": {
+          "wins": 13,
+          "losses": 42,
+          "unresolved": 1,
+          "winRate": 23.64,
+          "expectancyR": -0.315
+        }
+      },
+      "minWinRate": 23.64,
+      "minExpectancyR": -0.315,
+      "avgWinRate": 25.28,
+      "avgExpectancyR": -0.267,
+      "robustScore": 23.723
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "expectancyR": 0.058
+        },
+        "DEV_05AUG": {
+          "wins": 24,
+          "losses": 31,
+          "unresolved": 1,
+          "winRate": 43.64,
+          "expectancyR": 0.091
+        }
+      },
+      "minWinRate": 42.31,
+      "minExpectancyR": 0.058,
+      "avgWinRate": 42.98,
+      "avgExpectancyR": 0.074,
+      "robustScore": 48.27
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "winRate": 40.38,
+          "expectancyR": 0.09
+        },
+        "DEV_05AUG": {
+          "wins": 20,
+          "losses": 35,
+          "unresolved": 1,
+          "winRate": 36.36,
+          "expectancyR": -0.018
+        }
+      },
+      "minWinRate": 36.36,
+      "minExpectancyR": -0.018,
+      "avgWinRate": 38.37,
+      "avgExpectancyR": 0.036,
+      "robustScore": 41.392
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 32,
+          "unresolved": 7,
+          "winRate": 34.69,
+          "expectancyR": 0.006
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 37,
+          "unresolved": 2,
+          "winRate": 31.48,
+          "expectancyR": -0.087
+        }
+      },
+      "minWinRate": 31.48,
+      "minExpectancyR": -0.087,
+      "avgWinRate": 33.09,
+      "avgExpectancyR": -0.04,
+      "robustScore": 35.459
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 29,
+          "unresolved": 5,
+          "winRate": 43.14,
+          "expectancyR": 0.078
+        },
+        "DEV_05AUG": {
+          "wins": 23,
+          "losses": 32,
+          "unresolved": 1,
+          "winRate": 41.82,
+          "expectancyR": 0.045
+        }
+      },
+      "minWinRate": 41.82,
+      "minExpectancyR": 0.045,
+      "avgWinRate": 42.48,
+      "avgExpectancyR": 0.061,
+      "robustScore": 47.552
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "winRate": 40.38,
+          "expectancyR": 0.09
+        },
+        "DEV_05AUG": {
+          "wins": 20,
+          "losses": 35,
+          "unresolved": 1,
+          "winRate": 36.36,
+          "expectancyR": -0.018
+        }
+      },
+      "minWinRate": 36.36,
+      "minExpectancyR": -0.018,
+      "avgWinRate": 38.37,
+      "avgExpectancyR": 0.036,
+      "robustScore": 41.392
+    },
+    {
+      "policy": "tsmom_structure",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 32,
+          "unresolved": 7,
+          "winRate": 34.69,
+          "expectancyR": 0.006
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 37,
+          "unresolved": 2,
+          "winRate": 31.48,
+          "expectancyR": -0.087
+        }
+      },
+      "minWinRate": 31.48,
+      "minExpectancyR": -0.087,
+      "avgWinRate": 33.09,
+      "avgExpectancyR": -0.04,
+      "robustScore": 35.459
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 37,
+          "unresolved": 2,
+          "winRate": 31.48,
+          "expectancyR": -0.213
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "winRate": 21.43,
+          "expectancyR": -0.464
+        }
+      },
+      "minWinRate": 21.43,
+      "minExpectancyR": -0.464,
+      "avgWinRate": 26.45,
+      "avgExpectancyR": -0.339,
+      "robustScore": 18.949
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "winRate": 30.19,
+          "expectancyR": -0.185
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "winRate": 21.43,
+          "expectancyR": -0.421
+        }
+      },
+      "minWinRate": 21.43,
+      "minExpectancyR": -0.421,
+      "avgWinRate": 25.81,
+      "avgExpectancyR": -0.303,
+      "robustScore": 19.908
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 15,
+          "losses": 37,
+          "unresolved": 4,
+          "winRate": 28.85,
+          "expectancyR": -0.163
+        },
+        "DEV_05AUG": {
+          "wins": 10,
+          "losses": 46,
+          "unresolved": 0,
+          "winRate": 17.86,
+          "expectancyR": -0.482
+        }
+      },
+      "minWinRate": 17.86,
+      "minExpectancyR": -0.482,
+      "avgWinRate": 23.36,
+      "avgExpectancyR": -0.323,
+      "robustScore": 15.875
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "winRate": 32.69,
+          "expectancyR": -0.183
+        },
+        "DEV_05AUG": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "winRate": 19.64,
+          "expectancyR": -0.509
+        }
+      },
+      "minWinRate": 19.64,
+      "minExpectancyR": -0.509,
+      "avgWinRate": 26.16,
+      "avgExpectancyR": -0.346,
+      "robustScore": 16.652
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "winRate": 30.19,
+          "expectancyR": -0.185
+        },
+        "DEV_05AUG": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "winRate": 19.64,
+          "expectancyR": -0.47
+        }
+      },
+      "minWinRate": 19.64,
+      "minExpectancyR": -0.47,
+      "avgWinRate": 24.91,
+      "avgExpectancyR": -0.328,
+      "robustScore": 17.447
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 15,
+          "losses": 37,
+          "unresolved": 4,
+          "winRate": 28.85,
+          "expectancyR": -0.163
+        },
+        "DEV_05AUG": {
+          "wins": 10,
+          "losses": 46,
+          "unresolved": 0,
+          "winRate": 17.86,
+          "expectancyR": -0.482
+        }
+      },
+      "minWinRate": 17.86,
+      "minExpectancyR": -0.482,
+      "avgWinRate": 23.36,
+      "avgExpectancyR": -0.323,
+      "robustScore": 15.875
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "expectancyR": 0.058
+        },
+        "DEV_05AUG": {
+          "wins": 19,
+          "losses": 36,
+          "unresolved": 1,
+          "winRate": 34.55,
+          "expectancyR": -0.136
+        }
+      },
+      "minWinRate": 34.55,
+      "minExpectancyR": -0.136,
+      "avgWinRate": 38.43,
+      "avgExpectancyR": -0.039,
+      "robustScore": 37.685
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "winRate": 40.38,
+          "expectancyR": 0.09
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 38,
+          "unresolved": 1,
+          "winRate": 30.91,
+          "expectancyR": -0.165
+        }
+      },
+      "minWinRate": 30.91,
+      "minExpectancyR": -0.165,
+      "avgWinRate": 35.65,
+      "avgExpectancyR": -0.038,
+      "robustScore": 33.925
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 18,
+          "losses": 31,
+          "unresolved": 7,
+          "winRate": 36.73,
+          "expectancyR": 0.065
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "winRate": 27.27,
+          "expectancyR": -0.209
+        }
+      },
+      "minWinRate": 27.27,
+      "minExpectancyR": -0.209,
+      "avgWinRate": 32.0,
+      "avgExpectancyR": -0.072,
+      "robustScore": 29.804
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 29,
+          "unresolved": 5,
+          "winRate": 43.14,
+          "expectancyR": 0.078
+        },
+        "DEV_05AUG": {
+          "wins": 19,
+          "losses": 36,
+          "unresolved": 1,
+          "winRate": 34.55,
+          "expectancyR": -0.136
+        }
+      },
+      "minWinRate": 34.55,
+      "minExpectancyR": -0.136,
+      "avgWinRate": 38.84,
+      "avgExpectancyR": -0.029,
+      "robustScore": 37.764
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "winRate": 40.38,
+          "expectancyR": 0.09
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 38,
+          "unresolved": 1,
+          "winRate": 30.91,
+          "expectancyR": -0.165
+        }
+      },
+      "minWinRate": 30.91,
+      "minExpectancyR": -0.165,
+      "avgWinRate": 35.65,
+      "avgExpectancyR": -0.038,
+      "robustScore": 33.925
+    },
+    {
+      "policy": "breadth_momentum",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 18,
+          "losses": 31,
+          "unresolved": 7,
+          "winRate": 36.73,
+          "expectancyR": 0.065
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "winRate": 27.27,
+          "expectancyR": -0.209
+        }
+      },
+      "minWinRate": 27.27,
+      "minExpectancyR": -0.209,
+      "avgWinRate": 32.0,
+      "avgExpectancyR": -0.072,
+      "robustScore": 29.804
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 18,
+          "losses": 36,
+          "unresolved": 2,
+          "winRate": 33.33,
+          "expectancyR": -0.167
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.375
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.375,
+      "avgWinRate": 29.16,
+      "avgExpectancyR": -0.271,
+      "robustScore": 23.937
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 36,
+          "unresolved": 3,
+          "winRate": 32.08,
+          "expectancyR": -0.134
+        },
+        "DEV_05AUG": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "expectancyR": -0.325
+        }
+      },
+      "minWinRate": 25.0,
+      "minExpectancyR": -0.325,
+      "avgWinRate": 28.54,
+      "avgExpectancyR": -0.23,
+      "robustScore": 24.986
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 32,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 36,
+          "unresolved": 4,
+          "winRate": 30.77,
+          "expectancyR": -0.108
+        },
+        "DEV_05AUG": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "winRate": 19.64,
+          "expectancyR": -0.43
+        }
+      },
+      "minWinRate": 19.64,
+      "minExpectancyR": -0.43,
+      "avgWinRate": 25.2,
+      "avgExpectancyR": -0.269,
+      "robustScore": 18.558
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 18,
+          "losses": 34,
+          "unresolved": 4,
+          "winRate": 34.62,
+          "expectancyR": -0.135
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "winRate": 21.43,
+          "expectancyR": -0.464
+        }
+      },
+      "minWinRate": 21.43,
+      "minExpectancyR": -0.464,
+      "avgWinRate": 28.02,
+      "avgExpectancyR": -0.299,
+      "robustScore": 19.255
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 17,
+          "losses": 36,
+          "unresolved": 3,
+          "winRate": 32.08,
+          "expectancyR": -0.134
+        },
+        "DEV_05AUG": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "winRate": 21.43,
+          "expectancyR": -0.421
+        }
+      },
+      "minWinRate": 21.43,
+      "minExpectancyR": -0.421,
+      "avgWinRate": 26.75,
+      "avgExpectancyR": -0.277,
+      "robustScore": 20.098
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 32,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 16,
+          "losses": 36,
+          "unresolved": 4,
+          "winRate": 30.77,
+          "expectancyR": -0.108
+        },
+        "DEV_05AUG": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "winRate": 19.64,
+          "expectancyR": -0.43
+        }
+      },
+      "minWinRate": 19.64,
+      "minExpectancyR": -0.43,
+      "avgWinRate": 25.2,
+      "avgExpectancyR": -0.269,
+      "robustScore": 18.558
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "expectancyR": 0.106
+        },
+        "DEV_05AUG": {
+          "wins": 19,
+          "losses": 36,
+          "unresolved": 1,
+          "winRate": 34.55,
+          "expectancyR": -0.136
+        }
+      },
+      "minWinRate": 34.55,
+      "minExpectancyR": -0.136,
+      "avgWinRate": 39.39,
+      "avgExpectancyR": -0.015,
+      "robustScore": 37.872
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "expectancyR": 0.142
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 38,
+          "unresolved": 1,
+          "winRate": 30.91,
+          "expectancyR": -0.165
+        }
+      },
+      "minWinRate": 30.91,
+      "minExpectancyR": -0.165,
+      "avgWinRate": 36.61,
+      "avgExpectancyR": -0.012,
+      "robustScore": 34.119
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 48,
+      "stopFactor": 0.75,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 19,
+          "losses": 30,
+          "unresolved": 7,
+          "winRate": 38.78,
+          "expectancyR": 0.124
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "winRate": 27.27,
+          "expectancyR": -0.209
+        }
+      },
+      "minWinRate": 27.27,
+      "minExpectancyR": -0.209,
+      "avgWinRate": 33.02,
+      "avgExpectancyR": -0.042,
+      "robustScore": 30.015
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.5,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 23,
+          "losses": 28,
+          "unresolved": 5,
+          "winRate": 45.1,
+          "expectancyR": 0.127
+        },
+        "DEV_05AUG": {
+          "wins": 19,
+          "losses": 36,
+          "unresolved": 1,
+          "winRate": 34.55,
+          "expectancyR": -0.136
+        }
+      },
+      "minWinRate": 34.55,
+      "minExpectancyR": -0.136,
+      "avgWinRate": 39.83,
+      "avgExpectancyR": -0.005,
+      "robustScore": 37.955
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.7,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "expectancyR": 0.142
+        },
+        "DEV_05AUG": {
+          "wins": 17,
+          "losses": 38,
+          "unresolved": 1,
+          "winRate": 30.91,
+          "expectancyR": -0.165
+        }
+      },
+      "minWinRate": 30.91,
+      "minExpectancyR": -0.165,
+      "avgWinRate": 36.61,
+      "avgExpectancyR": -0.012,
+      "robustScore": 34.119
+    },
+    {
+      "policy": "adaptive_mom_reversal",
+      "lookback": 48,
+      "stopFactor": 0.95,
+      "rr": 1.9,
+      "breadth": {
+        "DEV_12AUG": 0.321,
+        "DEV_05AUG": 0.304
+      },
+      "perSample": {
+        "DEV_12AUG": {
+          "wins": 19,
+          "losses": 30,
+          "unresolved": 7,
+          "winRate": 38.78,
+          "expectancyR": 0.124
+        },
+        "DEV_05AUG": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "winRate": 27.27,
+          "expectancyR": -0.209
+        }
+      },
+      "minWinRate": 27.27,
+      "minExpectancyR": -0.209,
+      "avgWinRate": 33.02,
+      "avgExpectancyR": -0.042,
+      "robustScore": 30.015
+    }
+  ]
+}
