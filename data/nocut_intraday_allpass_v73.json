@@ -1,0 +1,6344 @@
+{
+  "version": "NO_CUT_INTRADAY_ALLPASS_V73",
+  "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+  "created": "2026-08-17",
+  "hardRules": {
+    "cutUsed": false,
+    "noTradeAllowed": false,
+    "minimumTradesPerDay": 1,
+    "maximumTradesPerDay": 3,
+    "currentFrozenDevelopmentStylesUseTradesPerDay": 1,
+    "rrAllowed": [
+      1.0,
+      2.0
+    ],
+    "currentPassingRR": 1.0,
+    "sameBarTPandSL": "SL conservative",
+    "timeout": "non-win"
+  },
+  "forex": {
+    "universeCount": 28,
+    "passCount": 28,
+    "allPassed": true,
+    "symbols": {
+      "EURUSD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "MOM",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 2,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 52,
+            "sl": 13,
+            "timeout": 0,
+            "wrAllTrades": 80.0,
+            "meanRAllTrades": 0.6
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "GBPUSD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "SLOW",
+            "signalHourUTC": 0,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 55,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.692
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "USDJPY": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "H1",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.6,
+            "expiryH": 2,
+            "rr": 1.0,
+            "riskATR": 0.55,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 54,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 83.08,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "USDCHF": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "H1",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 2,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 54,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 83.08,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "quote": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "USDCAD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 52,
+            "sl": 13,
+            "timeout": 0,
+            "wrAllTrades": 80.0,
+            "meanRAllTrades": 0.6
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "quote": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "AUDUSD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 1,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.65,
+            "expiryH": 6,
+            "rr": 1.0,
+            "riskATR": 0.7,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 56,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 86.15,
+            "meanRAllTrades": 0.723
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "quote": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "NZDUSD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "REVERT",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.95,
+            "expiryH": 5,
+            "rr": 1.0,
+            "riskATR": 0.8,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 55,
+            "sl": 8,
+            "timeout": 2,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.723
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "quote": {
+            "USD": [
+              "Fed/FOMC",
+              "US CPI/PCE/NFP",
+              "US10Y + DXY",
+              "Treasury/liquidity conditions"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "EURJPY": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "REVERT",
+            "signalHourUTC": 20,
+            "entryMode": "PB",
+            "entryParam": 0.5,
+            "expiryBars": 2,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 53,
+            "sl": 11,
+            "timeout": 1,
+            "wrAllTrades": 81.54,
+            "meanRAllTrades": 0.646
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "EURGBP": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "H1",
+            "signalHourUTC": 20,
+            "entryMode": "PB",
+            "entryParam": 0.5,
+            "expiryBars": 3,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 52,
+            "sl": 10,
+            "timeout": 3,
+            "wrAllTrades": 80.0,
+            "meanRAllTrades": 0.646
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "EURCHF": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 56,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 86.15,
+            "meanRAllTrades": 0.723
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "EURAUD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 2,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.7,
+            "expiryH": 6,
+            "rr": 1.0,
+            "riskATR": 0.45,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 56,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 86.15,
+            "meanRAllTrades": 0.723
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "EURNZD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.5,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 53,
+            "sl": 12,
+            "timeout": 0,
+            "wrAllTrades": 81.54,
+            "meanRAllTrades": 0.631
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "EURCAD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "SESSION",
+            "signalHourUTC": 7,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.95,
+            "expiryH": 3,
+            "rr": 1.0,
+            "riskATR": 0.9,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 55,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.692
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "GBPJPY": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 10,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.85,
+            "expiryH": 3,
+            "rr": 1.0,
+            "riskATR": 0.8,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 56,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 86.15,
+            "meanRAllTrades": 0.723
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "GBPCHF": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 55,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.692
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "GBPAUD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "CONTRA24",
+            "signalHourUTC": 1,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.95,
+            "expiryH": 6,
+            "rr": 1.0,
+            "riskATR": 0.65,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 56,
+            "sl": 8,
+            "timeout": 1,
+            "wrAllTrades": 86.15,
+            "meanRAllTrades": 0.738
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "GBPNZD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "MED",
+            "signalHourUTC": 11,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 1.1,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.8,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 58,
+            "sl": 7,
+            "timeout": 0,
+            "wrAllTrades": 89.23,
+            "meanRAllTrades": 0.785
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "GBPCAD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "REVERT",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 1.0,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 1.0,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 52,
+            "sl": 12,
+            "timeout": 1,
+            "wrAllTrades": 80.0,
+            "meanRAllTrades": 0.615
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "GBP": [
+              "BoE",
+              "UK CPI/wages/jobs",
+              "UK GDP/retail sales",
+              "UK fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "AUDJPY": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "MED",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 54,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 83.08,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "AUDNZD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "SESSION",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 54,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 83.08,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "quote": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "AUDCAD": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "MED",
+            "signalHourUTC": 1,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.6,
+            "expiryH": 3,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 57,
+            "sl": 8,
+            "timeout": 0,
+            "wrAllTrades": 87.69,
+            "meanRAllTrades": 0.754
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "quote": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "AUDCHF": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "REVERT",
+            "signalHourUTC": 16,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.5,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 53,
+            "sl": 12,
+            "timeout": 0,
+            "wrAllTrades": 81.54,
+            "meanRAllTrades": 0.631
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "quote": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "NZDJPY": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 7,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 2,
+            "rr": 1.0,
+            "riskATR": 0.7,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 55,
+            "sl": 9,
+            "timeout": 1,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.708
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "NZDCAD": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "MED",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.5,
+            "expiryBars": 2,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 52,
+            "sl": 13,
+            "timeout": 0,
+            "wrAllTrades": 80.0,
+            "meanRAllTrades": 0.6
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "quote": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "NZDCHF": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 2,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 54,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 83.08,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "quote": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "CADJPY": {
+        "source": "V66",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "FAST",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 1.05,
+            "expiryH": 5,
+            "rr": 1.0,
+            "riskATR": 1.05,
+            "maxHoldH": 18
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 52,
+            "sl": 9,
+            "timeout": 4,
+            "wrAllTrades": 80.0,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "CADCHF": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "MED",
+            "signalHourUTC": 20,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 2,
+            "rr": 1.0,
+            "riskATR": 1.0,
+            "maxHoldH": 24
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 53,
+            "sl": 10,
+            "timeout": 2,
+            "wrAllTrades": 81.54,
+            "meanRAllTrades": 0.662
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "quote": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      },
+      "CHFJPY": {
+        "source": "V64",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "family": "CONTRA24",
+            "signalHourUTC": 20,
+            "entryMode": "DUAL_FADE",
+            "entryParam": 0.75,
+            "expiryBars": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 18
+          },
+          "development": {
+            "trades": 65,
+            "expectedDays": 65,
+            "tp": 54,
+            "sl": 10,
+            "timeout": 1,
+            "wrAllTrades": 83.08,
+            "meanRAllTrades": 0.677
+          }
+        },
+        "newsProfile": {
+          "base": {
+            "CHF": [
+              "SNB",
+              "Swiss CPI",
+              "safe-haven flows",
+              "European risk sentiment"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        }
+      }
+    }
+  },
+  "crypto": {
+    "universeCount": 61,
+    "passCount": 61,
+    "allPassed": true,
+    "symbols": {
+      "BTC": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "BTC_CORE",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "adx",
+            "threshold": 26.72851047620805,
+            "lo": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.24137931034482762,
+              "loAction": 0,
+              "hiAction": 28,
+              "wins": 42
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "mom",
+              "threshold": 0.1378628205077182,
+              "loAction": 29,
+              "hiAction": 27,
+              "wins": 39
+            },
+            "wins": 81
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H4TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 67
+            },
+            {
+              "id": 27,
+              "family": "H1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 65
+            },
+            {
+              "id": 28,
+              "family": "H1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 65
+            },
+            {
+              "id": 29,
+              "family": "H1TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 65
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 81,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 89.01,
+            "meanRAllTrades": 0.78
+          }
+        },
+        "newsProfile": {
+          "profile": "BTC_CORE",
+          "symbolSpecific": [
+            "BTC project/protocol announcements",
+            "BTC token unlock/supply schedule",
+            "BTC exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "BTC ETF/treasury demand",
+            "miner/on-chain flows",
+            "macro liquidity/rates",
+            "BTC dominance"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ETH": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "ETH_CORE",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "rsi",
+            "threshold": 50.162770189611,
+            "lo": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -0.31308652734846343,
+              "loAction": 19,
+              "hiAction": 11,
+              "wins": 41
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rsi",
+              "threshold": 56.536016650447024,
+              "loAction": 1,
+              "hiAction": 8,
+              "wins": 42
+            },
+            "wins": 83
+          },
+          "actions": [
+            {
+              "id": 1,
+              "family": "BREADTH",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 69
+            },
+            {
+              "id": 8,
+              "family": "H1TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 66
+            },
+            {
+              "id": 11,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 66
+            },
+            {
+              "id": 19,
+              "family": "HYBRID",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 65
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 83,
+            "sl": 8,
+            "timeout": 0,
+            "wrAllTrades": 91.21,
+            "meanRAllTrades": 0.824
+          }
+        },
+        "newsProfile": {
+          "profile": "ETH_CORE",
+          "symbolSpecific": [
+            "ETH project/protocol announcements",
+            "ETH token unlock/supply schedule",
+            "ETH exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "ETH ETF/staking flows",
+            "Ethereum upgrades",
+            "L2 activity/fees",
+            "ETH/BTC relative strength"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "SOL": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "SOL_ECOSYSTEM",
+            "family": "RELATIVE",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.7,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.65,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "SOL_ECOSYSTEM",
+          "symbolSpecific": [
+            "SOL project/protocol announcements",
+            "SOL token unlock/supply schedule",
+            "SOL exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "Solana network activity",
+            "SOL ecosystem launches",
+            "validator/staking flows",
+            "SOL relative strength"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "HYPE": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "PERP_DEX",
+            "family": "RELATIVE",
+            "signalHourUTC": 10,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.8,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 78,
+            "sl": 13,
+            "timeout": 0,
+            "wrAllTrades": 85.71,
+            "meanRAllTrades": 0.714
+          }
+        },
+        "newsProfile": {
+          "profile": "PERP_DEX",
+          "symbolSpecific": [
+            "HYPE project/protocol announcements",
+            "HYPE token unlock/supply schedule",
+            "HYPE exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "perp DEX volume/OI",
+            "protocol incentives",
+            "token unlocks",
+            "leverage regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "SHIB": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "breadthDist",
+            "threshold": 0.2966101694915254,
+            "lo": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.1610169491525424,
+              "loAction": 18,
+              "hiAction": 0,
+              "wins": 43
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 1.1561225671865827,
+              "loAction": 12,
+              "hiAction": 6,
+              "wins": 39
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H4TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 71
+            },
+            {
+              "id": 6,
+              "family": "D1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 67
+            },
+            {
+              "id": 12,
+              "family": "H4TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 66
+            },
+            {
+              "id": 18,
+              "family": "MOMENTUM",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 66
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "SHIB project/protocol announcements",
+            "SHIB token unlock/supply schedule",
+            "SHIB exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "TRX": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L1_PAYMENTS",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "dev",
+            "threshold": -0.6365393155673765,
+            "lo": {
+              "kind": "leaf",
+              "action": 0,
+              "wins": 28
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": -0.0033318984023664186,
+              "loAction": 3,
+              "hiAction": 0,
+              "wins": 45
+            },
+            "wins": 73
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.5,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 70
+            },
+            {
+              "id": 3,
+              "family": "MOMENTUM",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.5,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 69
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 18,
+            "timeout": 0,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.604
+          }
+        },
+        "newsProfile": {
+          "profile": "L1_PAYMENTS",
+          "symbolSpecific": [
+            "TRX project/protocol announcements",
+            "TRX token unlock/supply schedule",
+            "TRX exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "payments adoption",
+            "chain usage",
+            "staking/network changes",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "XRP": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "PAYMENTS",
+            "family": "H1TREND",
+            "signalHourUTC": 5,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.6,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.6,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 18,
+            "timeout": 0,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.604
+          }
+        },
+        "newsProfile": {
+          "profile": "PAYMENTS",
+          "symbolSpecific": [
+            "XRP project/protocol announcements",
+            "XRP token unlock/supply schedule",
+            "XRP exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "payments/remittance adoption",
+            "regulation",
+            "institutional partnerships",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "AAVE": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "DEFI",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "breadth",
+            "threshold": 0.23728813559322035,
+            "lo": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": -0.02456782910738222,
+              "loAction": 14,
+              "hiAction": 0,
+              "wins": 30
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": 0.01263259148633038,
+              "loAction": 28,
+              "hiAction": 22,
+              "wins": 49
+            },
+            "wins": 79
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 67
+            },
+            {
+              "id": 14,
+              "family": "RELATIVE",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 22,
+              "family": "D1TREND",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 28,
+              "family": "BREADTH",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 66
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 79,
+            "sl": 12,
+            "timeout": 0,
+            "wrAllTrades": 86.81,
+            "meanRAllTrades": 0.736
+          }
+        },
+        "newsProfile": {
+          "profile": "DEFI",
+          "symbolSpecific": [
+            "AAVE project/protocol announcements",
+            "AAVE token unlock/supply schedule",
+            "AAVE exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "protocol TVL/fees",
+            "governance/upgrades",
+            "incentives/unlocks",
+            "ETH/DeFi breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ADA": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L1",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "adx",
+            "threshold": 18.89115269799234,
+            "lo": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.10344827586206895,
+              "loAction": 3,
+              "hiAction": 0,
+              "wins": 30
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "adx",
+              "threshold": 32.71323188303475,
+              "loAction": 5,
+              "hiAction": 10,
+              "wins": 54
+            },
+            "wins": 84
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 71
+            },
+            {
+              "id": 3,
+              "family": "RELATIVE",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 5,
+              "family": "RELATIVE",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 10,
+              "family": "RELATIVE",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 68
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 84,
+            "sl": 7,
+            "timeout": 0,
+            "wrAllTrades": 92.31,
+            "meanRAllTrades": 0.846
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "ADA project/protocol announcements",
+            "ADA token unlock/supply schedule",
+            "ADA exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ALGO": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "L1",
+            "family": "HYBRID",
+            "signalHourUTC": 3,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.85,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 24
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "ALGO project/protocol announcements",
+            "ALGO token unlock/supply schedule",
+            "ALGO exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "APT": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "L1",
+            "family": "H4TREND",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.7,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.7,
+            "maxHoldH": 16
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 18,
+            "timeout": 0,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.604
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "APT project/protocol announcements",
+            "APT token unlock/supply schedule",
+            "APT exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ARB": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L2",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "mom",
+            "threshold": -0.8625470499980463,
+            "lo": {
+              "kind": "split",
+              "feature": "adx",
+              "threshold": 32.1921845047102,
+              "loAction": 28,
+              "hiAction": 0,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absmom",
+              "threshold": 0.2576523418075456,
+              "loAction": 28,
+              "hiAction": 9,
+              "wins": 51
+            },
+            "wins": 80
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "MEANREV",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 9,
+              "family": "MEANREV",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 28,
+              "family": "BREADTH",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 67
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 80,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 87.91,
+            "meanRAllTrades": 0.758
+          }
+        },
+        "newsProfile": {
+          "profile": "L2",
+          "symbolSpecific": [
+            "ARB project/protocol announcements",
+            "ARB token unlock/supply schedule",
+            "ARB exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "rollup activity/fees",
+            "token unlocks",
+            "Ethereum roadmap",
+            "L2 relative strength"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ATOM": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "INTERCHAIN",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "btc24",
+            "threshold": -0.0006239318120802834,
+            "lo": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 0.998119439398128,
+              "loAction": 0,
+              "hiAction": 19,
+              "wins": 39
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "d1",
+              "threshold": -1,
+              "loAction": 19,
+              "hiAction": 0,
+              "wins": 42
+            },
+            "wins": 81
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "BREADTH",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 68
+            },
+            {
+              "id": 19,
+              "family": "RELATIVE",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 66
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 81,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 89.01,
+            "meanRAllTrades": 0.78
+          }
+        },
+        "newsProfile": {
+          "profile": "INTERCHAIN",
+          "symbolSpecific": [
+            "ATOM project/protocol announcements",
+            "ATOM token unlock/supply schedule",
+            "ATOM exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "IBC/interchain activity",
+            "ecosystem upgrades",
+            "staking/unlocks",
+            "L1 breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "AVAX": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L1",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "rel24",
+            "threshold": 0.004550488429789818,
+            "lo": {
+              "kind": "split",
+              "feature": "adx",
+              "threshold": 21.28466779819442,
+              "loAction": 2,
+              "hiAction": 0,
+              "wins": 53
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "mom",
+              "threshold": 0.9446840012046583,
+              "loAction": 24,
+              "hiAction": 13,
+              "wins": 30
+            },
+            "wins": 83
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "BTCALIGN",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 71
+            },
+            {
+              "id": 2,
+              "family": "H1TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 13,
+              "family": "H4TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 67
+            },
+            {
+              "id": 24,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 67
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 83,
+            "sl": 8,
+            "timeout": 0,
+            "wrAllTrades": 91.21,
+            "meanRAllTrades": 0.824
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "AVAX project/protocol announcements",
+            "AVAX token unlock/supply schedule",
+            "AVAX exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "BCH": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "BTC_BETA",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absmom",
+            "threshold": 0.3618468935758544,
+            "lo": {
+              "kind": "split",
+              "feature": "absmom",
+              "threshold": 0.24731424134720412,
+              "loAction": 9,
+              "hiAction": 3,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": 0.006608215740945231,
+              "loAction": 6,
+              "hiAction": 9,
+              "wins": 53
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 3,
+              "family": "MEANREV",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 6,
+              "family": "BTCALIGN",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 65
+            },
+            {
+              "id": 9,
+              "family": "H4TREND",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 65
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "BTC_BETA",
+          "symbolSpecific": [
+            "BCH project/protocol announcements",
+            "BCH token unlock/supply schedule",
+            "BCH exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "BTC trend/dominance",
+            "relative beta to BTC",
+            "payments/adoption news",
+            "liquidity flows"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "BONK": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "SOL_MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "rel24",
+            "threshold": -0.007066605114521675,
+            "lo": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": -0.03697644819486869,
+              "loAction": 0,
+              "hiAction": 2,
+              "wins": 38
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "mom",
+              "threshold": 0.06916052352145138,
+              "loAction": 0,
+              "hiAction": 8,
+              "wins": 41
+            },
+            "wins": 79
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 2,
+              "family": "RELATIVE",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 66
+            },
+            {
+              "id": 8,
+              "family": "H4TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 66
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 79,
+            "sl": 12,
+            "timeout": 0,
+            "wrAllTrades": 86.81,
+            "meanRAllTrades": 0.736
+          }
+        },
+        "newsProfile": {
+          "profile": "SOL_MEME",
+          "symbolSpecific": [
+            "BONK project/protocol announcements",
+            "BONK token unlock/supply schedule",
+            "BONK exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "Solana meme breadth",
+            "DEX volume/liquidity",
+            "social/whale activity",
+            "SOL regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "CRV": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "DEFI",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "mom",
+            "threshold": -0.49455715857601734,
+            "lo": {
+              "kind": "split",
+              "feature": "adx",
+              "threshold": 22.61172068271987,
+              "loAction": 10,
+              "hiAction": 21,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -0.04766410137332627,
+              "loAction": 18,
+              "hiAction": 15,
+              "wins": 53
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 10,
+              "family": "MEANREV",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 69
+            },
+            {
+              "id": 15,
+              "family": "RELATIVE",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 68
+            },
+            {
+              "id": 18,
+              "family": "MEANREV",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 68
+            },
+            {
+              "id": 21,
+              "family": "H1TREND",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 67
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "DEFI",
+          "symbolSpecific": [
+            "CRV project/protocol announcements",
+            "CRV token unlock/supply schedule",
+            "CRV exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "protocol TVL/fees",
+            "governance/upgrades",
+            "incentives/unlocks",
+            "ETH/DeFi breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "DOGE": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "breadthDist",
+            "threshold": 0.2966101694915254,
+            "lo": {
+              "kind": "split",
+              "feature": "mom",
+              "threshold": -0.2289028770639918,
+              "loAction": 15,
+              "hiAction": 0,
+              "wins": 40
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 0.8614070867121487,
+              "loAction": 15,
+              "hiAction": 0,
+              "wins": 41
+            },
+            "wins": 81
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H4TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.5,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 73
+            },
+            {
+              "id": 15,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 71
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 81,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 89.01,
+            "meanRAllTrades": 0.78
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "DOGE project/protocol announcements",
+            "DOGE token unlock/supply schedule",
+            "DOGE exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "DOT": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "INTERCHAIN",
+            "family": "H4TREND",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.7,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.55,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "INTERCHAIN",
+          "symbolSpecific": [
+            "DOT project/protocol announcements",
+            "DOT token unlock/supply schedule",
+            "DOT exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "IBC/interchain activity",
+            "ecosystem upgrades",
+            "staking/unlocks",
+            "L1 breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ETC": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "POW_L1",
+            "family": "H1TREND",
+            "signalHourUTC": 3,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.6,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "POW_L1",
+          "symbolSpecific": [
+            "ETC project/protocol announcements",
+            "ETC token unlock/supply schedule",
+            "ETC exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "PoW miner/hashrate economics",
+            "chain upgrades",
+            "BTC correlation",
+            "exchange liquidity"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "FIL": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "STORAGE",
+            "family": "RELATIVE",
+            "signalHourUTC": 6,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.7,
+            "expiryH": 3,
+            "rr": 1.0,
+            "riskATR": 0.65,
+            "maxHoldH": 14
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "STORAGE",
+          "symbolSpecific": [
+            "FIL project/protocol announcements",
+            "FIL token unlock/supply schedule",
+            "FIL exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "storage demand/network usage",
+            "protocol upgrades",
+            "token unlocks",
+            "AI/data narrative"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "FLOKI": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absdev",
+            "threshold": 0.7072568063102054,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.4482758620689655,
+              "loAction": 9,
+              "hiAction": 0,
+              "wins": 40
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": -0.008071092422315877,
+              "loAction": 20,
+              "hiAction": 14,
+              "wins": 41
+            },
+            "wins": 81
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H4TREND",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 64
+            },
+            {
+              "id": 9,
+              "family": "MOMENTUM",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 62
+            },
+            {
+              "id": 14,
+              "family": "MEANREV",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 62
+            },
+            {
+              "id": 20,
+              "family": "HYBRID",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 62
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 81,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 89.01,
+            "meanRAllTrades": 0.78
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "FLOKI project/protocol announcements",
+            "FLOKI token unlock/supply schedule",
+            "FLOKI exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "HBAR": {
+        "source": "V71",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "split",
+            "feature": "dev",
+            "threshold": -1.1749987380847964,
+            "lo": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -1.4895048205807477,
+              "lo": {
+                "kind": "leaf",
+                "action": 128,
+                "wins": 10
+              },
+              "hi": {
+                "kind": "leaf",
+                "action": 60,
+                "wins": 9
+              },
+              "wins": 19
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -0.6807303953813358,
+              "lo": {
+                "kind": "split",
+                "feature": "dev",
+                "threshold": -0.9005674252499812,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 0,
+                  "wins": 8
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 26,
+                  "wins": 7
+                },
+                "wins": 15
+              },
+              "hi": {
+                "kind": "split",
+                "feature": "adx",
+                "threshold": 15.472176216342097,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 85,
+                  "wins": 20
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 24,
+                  "wins": 33
+                },
+                "wins": 53
+              },
+              "wins": 68
+            },
+            "wins": 87
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 11,
+              "entryMode": "DUAL_FADE",
+              "param": 1.0,
+              "expiryH": 5,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 71
+            },
+            {
+              "id": 24,
+              "family": "MEANREV",
+              "signalHourUTC": 3,
+              "entryMode": "DUAL_FADE",
+              "param": 1.25,
+              "expiryH": 5,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 68
+            },
+            {
+              "id": 26,
+              "family": "MEANREV",
+              "signalHourUTC": 13,
+              "entryMode": "DUAL_FADE",
+              "param": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 68
+            },
+            {
+              "id": 60,
+              "family": "HYBRID",
+              "signalHourUTC": 2,
+              "entryMode": "DUAL_FADE",
+              "param": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 85,
+              "family": "MOMENTUM",
+              "signalHourUTC": 1,
+              "entryMode": "DUAL_FADE",
+              "param": 1.0,
+              "expiryH": 5,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 64
+            },
+            {
+              "id": 128,
+              "family": "MEANREV",
+              "signalHourUTC": 1,
+              "entryMode": "DUAL_FADE",
+              "param": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 62
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 87,
+            "sl": 4,
+            "timeout": 0,
+            "wrAllTrades": 95.6,
+            "meanRAllTrades": 0.912
+          }
+        },
+        "newsProfile": {
+          "profile": "ENTERPRISE_L1",
+          "symbolSpecific": [
+            "HBAR project/protocol announcements",
+            "HBAR token unlock/supply schedule",
+            "HBAR exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "project announcements",
+            "token unlocks/listings",
+            "exchange/on-chain flows",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "INJ": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "PERP_DEX",
+            "family": "MOMENTUM",
+            "signalHourUTC": 9,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.7,
+            "maxHoldH": 14
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 18,
+            "timeout": 0,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.604
+          }
+        },
+        "newsProfile": {
+          "profile": "PERP_DEX",
+          "symbolSpecific": [
+            "INJ project/protocol announcements",
+            "INJ token unlock/supply schedule",
+            "INJ exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "perp DEX volume/OI",
+            "protocol incentives",
+            "token unlocks",
+            "leverage regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "JTO": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "SOL_DEFI",
+            "family": "MEANREV",
+            "signalHourUTC": 22,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.6,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 74,
+            "sl": 17,
+            "timeout": 0,
+            "wrAllTrades": 81.32,
+            "meanRAllTrades": 0.626
+          }
+        },
+        "newsProfile": {
+          "profile": "SOL_DEFI",
+          "symbolSpecific": [
+            "JTO project/protocol announcements",
+            "JTO token unlock/supply schedule",
+            "JTO exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "Solana DeFi TVL/volume",
+            "SOL trend",
+            "protocol incentives",
+            "token unlocks"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "JUP": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "SOL_DEFI",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "adx",
+            "threshold": 17.23252939323321,
+            "lo": {
+              "kind": "split",
+              "feature": "absmom",
+              "threshold": 0.3874770338949357,
+              "loAction": 6,
+              "hiAction": 18,
+              "wins": 28
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.2068965517241379,
+              "loAction": 15,
+              "hiAction": 0,
+              "wins": 50
+            },
+            "wins": 78
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "MOMENTUM",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 73
+            },
+            {
+              "id": 6,
+              "family": "RELATIVE",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 72
+            },
+            {
+              "id": 15,
+              "family": "BTCALIGN",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 70
+            },
+            {
+              "id": 18,
+              "family": "BREADTH",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 70
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 78,
+            "sl": 13,
+            "timeout": 0,
+            "wrAllTrades": 85.71,
+            "meanRAllTrades": 0.714
+          }
+        },
+        "newsProfile": {
+          "profile": "SOL_DEFI",
+          "symbolSpecific": [
+            "JUP project/protocol announcements",
+            "JUP token unlock/supply schedule",
+            "JUP exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "Solana DeFi TVL/volume",
+            "SOL trend",
+            "protocol incentives",
+            "token unlocks"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "KAITO": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "AI_INFOFI",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "mom",
+            "threshold": 0.5353875590496273,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.3728813559322034,
+              "loAction": 1,
+              "hiAction": 8,
+              "wins": 49
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": 0.016021716243150862,
+              "loAction": 26,
+              "hiAction": 2,
+              "wins": 31
+            },
+            "wins": 80
+          },
+          "actions": [
+            {
+              "id": 1,
+              "family": "MOMENTUM",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.25,
+              "maxHoldH": 18,
+              "staticWins": 65
+            },
+            {
+              "id": 2,
+              "family": "RELATIVE",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 65
+            },
+            {
+              "id": 8,
+              "family": "BTCALIGN",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.25,
+              "maxHoldH": 18,
+              "staticWins": 64
+            },
+            {
+              "id": 26,
+              "family": "H1TREND",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 63
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 80,
+            "sl": 10,
+            "timeout": 1,
+            "wrAllTrades": 87.91,
+            "meanRAllTrades": 0.769
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_INFOFI",
+          "symbolSpecific": [
+            "KAITO project/protocol announcements",
+            "KAITO token unlock/supply schedule",
+            "KAITO exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "AI/InfoFi product growth",
+            "attention/data demand",
+            "unlocks/listings",
+            "AI-sector breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "LDO": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "ETH_STAKING",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "rel24",
+            "threshold": 0.009439234564252504,
+            "lo": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": -0.021014386850536165,
+              "loAction": 0,
+              "hiAction": 10,
+              "wins": 52
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "btc24",
+              "threshold": -0.003630211205236244,
+              "loAction": 3,
+              "hiAction": 9,
+              "wins": 30
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H4TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 3,
+              "family": "D1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 9,
+              "family": "RELATIVE",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 64
+            },
+            {
+              "id": 10,
+              "family": "BTCALIGN",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 64
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "ETH_STAKING",
+          "symbolSpecific": [
+            "LDO project/protocol announcements",
+            "LDO token unlock/supply schedule",
+            "LDO exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "ETH staking flows",
+            "LST/LRT market share",
+            "Ethereum upgrades",
+            "DeFi liquidity"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "LINK": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "ORACLE_RWA",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "breadthDist",
+            "threshold": 0.24137931034482757,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.3728813559322034,
+              "loAction": 28,
+              "hiAction": 1,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "mom",
+              "threshold": -0.7322835995508957,
+              "loAction": 18,
+              "hiAction": 0,
+              "wins": 52
+            },
+            "wins": 81
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.25,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 1,
+              "family": "BTCALIGN",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 66
+            },
+            {
+              "id": 18,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.5,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 66
+            },
+            {
+              "id": 28,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 8,
+              "staticWins": 65
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 81,
+            "sl": 9,
+            "timeout": 1,
+            "wrAllTrades": 89.01,
+            "meanRAllTrades": 0.791
+          }
+        },
+        "newsProfile": {
+          "profile": "ORACLE_RWA",
+          "symbolSpecific": [
+            "LINK project/protocol announcements",
+            "LINK token unlock/supply schedule",
+            "LINK exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "oracle integrations",
+            "RWA/DeFi adoption",
+            "token economics",
+            "ETH/DeFi regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "LTC": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "BTC_BETA",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "dev",
+            "threshold": -0.01701887974567302,
+            "lo": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": -0.014771856931262645,
+              "loAction": 3,
+              "hiAction": 7,
+              "wins": 42
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "rsi",
+              "threshold": 52.97035961456988,
+              "loAction": 9,
+              "hiAction": 0,
+              "wins": 43
+            },
+            "wins": 85
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H4TREND",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 3,
+              "family": "D1TREND",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 68
+            },
+            {
+              "id": 7,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 68
+            },
+            {
+              "id": 9,
+              "family": "BREADTH",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 68
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 85,
+            "sl": 6,
+            "timeout": 0,
+            "wrAllTrades": 93.41,
+            "meanRAllTrades": 0.868
+          }
+        },
+        "newsProfile": {
+          "profile": "BTC_BETA",
+          "symbolSpecific": [
+            "LTC project/protocol announcements",
+            "LTC token unlock/supply schedule",
+            "LTC exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "BTC trend/dominance",
+            "relative beta to BTC",
+            "payments/adoption news",
+            "liquidity flows"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "MOODENG": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "adx",
+            "threshold": 21.472829058348776,
+            "lo": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.1724137931034483,
+              "loAction": 23,
+              "hiAction": 0,
+              "wins": 41
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.3983050847457627,
+              "loAction": 9,
+              "hiAction": 29,
+              "wins": 39
+            },
+            "wins": 80
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H1TREND",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 9,
+              "family": "BREADTH",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 23,
+              "family": "BTCALIGN",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 63
+            },
+            {
+              "id": 29,
+              "family": "H1TREND",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 63
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 80,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 87.91,
+            "meanRAllTrades": 0.758
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "MOODENG project/protocol announcements",
+            "MOODENG token unlock/supply schedule",
+            "MOODENG exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "NEAR": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L1_AI",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absdev",
+            "threshold": 0.5381314554661342,
+            "lo": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": 0.006910294249080941,
+              "loAction": 3,
+              "hiAction": 0,
+              "wins": 28
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.41379310344827586,
+              "loAction": 11,
+              "hiAction": 6,
+              "wins": 54
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "D1TREND",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 3,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 68
+            },
+            {
+              "id": 6,
+              "family": "H1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 68
+            },
+            {
+              "id": 11,
+              "family": "MEANREV",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 68
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "L1_AI",
+          "symbolSpecific": [
+            "NEAR project/protocol announcements",
+            "NEAR token unlock/supply schedule",
+            "NEAR exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "project announcements",
+            "token unlocks/listings",
+            "exchange/on-chain flows",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ONDO": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "RWA",
+            "family": "MEANREV",
+            "signalHourUTC": 15,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.7,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "RWA",
+          "symbolSpecific": [
+            "ONDO project/protocol announcements",
+            "ONDO token unlock/supply schedule",
+            "ONDO exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "RWA adoption/partnerships",
+            "regulation",
+            "token unlocks",
+            "RWA sector flows"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "OP": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L2",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "breadthDist",
+            "threshold": 0.2966101694915254,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.3620689655172414,
+              "loAction": 0,
+              "hiAction": 4,
+              "wins": 41
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.1016949152542373,
+              "loAction": 21,
+              "hiAction": 6,
+              "wins": 41
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 4,
+              "family": "H1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 67
+            },
+            {
+              "id": 6,
+              "family": "H4TREND",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 67
+            },
+            {
+              "id": 21,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 66
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "L2",
+          "symbolSpecific": [
+            "OP project/protocol announcements",
+            "OP token unlock/supply schedule",
+            "OP exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "rollup activity/fees",
+            "token unlocks",
+            "Ethereum roadmap",
+            "L2 relative strength"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ORDI": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "BTC_ECOSYSTEM",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absdev",
+            "threshold": 0.4599419303194645,
+            "lo": {
+              "kind": "split",
+              "feature": "btc24",
+              "threshold": -0.014115961392415194,
+              "loAction": 29,
+              "hiAction": 22,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absmom",
+              "threshold": 0.857630312340858,
+              "loAction": 2,
+              "hiAction": 26,
+              "wins": 53
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 2,
+              "family": "MOMENTUM",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 73
+            },
+            {
+              "id": 22,
+              "family": "H1TREND",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 26,
+              "family": "D1TREND",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 69
+            },
+            {
+              "id": 29,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 69
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "BTC_ECOSYSTEM",
+          "symbolSpecific": [
+            "ORDI project/protocol announcements",
+            "ORDI token unlock/supply schedule",
+            "ORDI exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "BTC ecosystem activity",
+            "BTC trend/dominance",
+            "protocol upgrades",
+            "token unlocks"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "PENGU": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "MEME",
+            "family": "H4TREND",
+            "signalHourUTC": 15,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.75,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "PENGU project/protocol announcements",
+            "PENGU token unlock/supply schedule",
+            "PENGU exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "PEPE": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "mom",
+            "threshold": -0.23693229313821718,
+            "lo": {
+              "kind": "split",
+              "feature": "adx",
+              "threshold": 18.48478122215771,
+              "loAction": 23,
+              "hiAction": 4,
+              "wins": 43
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 0.9259053978367352,
+              "loAction": 8,
+              "hiAction": 23,
+              "wins": 39
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 4,
+              "family": "H4TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 8,
+              "family": "MEANREV",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 70
+            },
+            {
+              "id": 23,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.5,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 69
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "PEPE project/protocol announcements",
+            "PEPE token unlock/supply schedule",
+            "PEPE exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "PNUT": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "adx",
+            "threshold": 16.746266151896286,
+            "lo": {
+              "kind": "split",
+              "feature": "absmom",
+              "threshold": 1.0881216813831758,
+              "loAction": 10,
+              "hiAction": 0,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 1.1588856609230078,
+              "loAction": 22,
+              "hiAction": 10,
+              "wins": 48
+            },
+            "wins": 77
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 66
+            },
+            {
+              "id": 10,
+              "family": "BREADTH",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 22,
+              "family": "HYBRID",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 64
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 77,
+            "sl": 14,
+            "timeout": 0,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.692
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "PNUT project/protocol announcements",
+            "PNUT token unlock/supply schedule",
+            "PNUT exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "POL": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L2",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "rel24",
+            "threshold": -0.0022991543718267563,
+            "lo": {
+              "kind": "split",
+              "feature": "btc24",
+              "threshold": 0.007316313479221819,
+              "loAction": 29,
+              "hiAction": 0,
+              "wins": 41
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.2068965517241379,
+              "loAction": 24,
+              "hiAction": 14,
+              "wins": 41
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "MEANREV",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 66
+            },
+            {
+              "id": 14,
+              "family": "MEANREV",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 24,
+              "family": "MEANREV",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 64
+            },
+            {
+              "id": 29,
+              "family": "H4TREND",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 64
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "L2",
+          "symbolSpecific": [
+            "POL project/protocol announcements",
+            "POL token unlock/supply schedule",
+            "POL exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "rollup activity/fees",
+            "token unlocks",
+            "Ethereum roadmap",
+            "L2 relative strength"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "POPCAT": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absdev",
+            "threshold": 0.5828085328160975,
+            "lo": {
+              "kind": "split",
+              "feature": "absmom",
+              "threshold": 0.35045074382928576,
+              "loAction": 10,
+              "hiAction": 16,
+              "wins": 28
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 1.313642245563298,
+              "loAction": 3,
+              "hiAction": 0,
+              "wins": 50
+            },
+            "wins": 78
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 64
+            },
+            {
+              "id": 3,
+              "family": "BTCALIGN",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 62
+            },
+            {
+              "id": 10,
+              "family": "MOMENTUM",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 61
+            },
+            {
+              "id": 16,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 61
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 78,
+            "sl": 12,
+            "timeout": 1,
+            "wrAllTrades": 85.71,
+            "meanRAllTrades": 0.725
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "POPCAT project/protocol announcements",
+            "POPCAT token unlock/supply schedule",
+            "POPCAT exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "RENDER": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "AI_COMPUTE",
+            "family": "H1TREND",
+            "signalHourUTC": 3,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.9,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.5,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 79,
+            "sl": 12,
+            "timeout": 0,
+            "wrAllTrades": 86.81,
+            "meanRAllTrades": 0.736
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_COMPUTE",
+          "symbolSpecific": [
+            "RENDER project/protocol announcements",
+            "RENDER token unlock/supply schedule",
+            "RENDER exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "AI/compute narrative",
+            "network demand/revenue",
+            "token unlocks",
+            "AI-sector breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "S": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L1",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "mom",
+            "threshold": -0.4827346702006871,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.4482758620689655,
+              "loAction": 0,
+              "hiAction": 28,
+              "wins": 38
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadthDist",
+              "threshold": 0.22413793103448276,
+              "loAction": 28,
+              "hiAction": 0,
+              "wins": 39
+            },
+            "wins": 77
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "HYBRID",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 68
+            },
+            {
+              "id": 28,
+              "family": "MEANREV",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 63
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 77,
+            "sl": 14,
+            "timeout": 0,
+            "wrAllTrades": 84.62,
+            "meanRAllTrades": 0.692
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "S project/protocol announcements",
+            "S token unlock/supply schedule",
+            "S exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "STX": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "BTC_ECOSYSTEM",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absdev",
+            "threshold": 0.8701359754205359,
+            "lo": {
+              "kind": "split",
+              "feature": "rsi",
+              "threshold": 48.66971716353036,
+              "loAction": 0,
+              "hiAction": 29,
+              "wins": 40
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "btc24",
+              "threshold": -0.004854785227500623,
+              "loAction": 0,
+              "hiAction": 6,
+              "wins": 40
+            },
+            "wins": 80
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "BREADTH",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 64
+            },
+            {
+              "id": 6,
+              "family": "BTCALIGN",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 61
+            },
+            {
+              "id": 29,
+              "family": "H4TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 60
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 80,
+            "sl": 11,
+            "timeout": 0,
+            "wrAllTrades": 87.91,
+            "meanRAllTrades": 0.758
+          }
+        },
+        "newsProfile": {
+          "profile": "BTC_ECOSYSTEM",
+          "symbolSpecific": [
+            "STX project/protocol announcements",
+            "STX token unlock/supply schedule",
+            "STX exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "BTC ecosystem activity",
+            "BTC trend/dominance",
+            "protocol upgrades",
+            "token unlocks"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "SUI": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "L1",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absdev",
+            "threshold": 0.6293993210939267,
+            "lo": {
+              "kind": "split",
+              "feature": "adx",
+              "threshold": 21.34334523247764,
+              "loAction": 16,
+              "hiAction": 4,
+              "wins": 45
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "mom",
+              "threshold": -1.5858266598080224,
+              "loAction": 9,
+              "hiAction": 11,
+              "wins": 39
+            },
+            "wins": 84
+          },
+          "actions": [
+            {
+              "id": 4,
+              "family": "D1TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 9,
+              "family": "H4TREND",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 11,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 69
+            },
+            {
+              "id": 16,
+              "family": "BTCALIGN",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 68
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 84,
+            "sl": 7,
+            "timeout": 0,
+            "wrAllTrades": 92.31,
+            "meanRAllTrades": 0.846
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "SUI project/protocol announcements",
+            "SUI token unlock/supply schedule",
+            "SUI exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "TAO": {
+        "source": "V71",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "split",
+            "feature": "dev",
+            "threshold": -0.8030581664004285,
+            "lo": {
+              "kind": "leaf",
+              "action": 0,
+              "wins": 19
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -0.4212743644866443,
+              "lo": {
+                "kind": "split",
+                "feature": "dev",
+                "threshold": -0.624893442035239,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 57,
+                  "wins": 8
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 15,
+                  "wins": 7
+                },
+                "wins": 15
+              },
+              "hi": {
+                "kind": "split",
+                "feature": "breadthDist",
+                "threshold": 0.1610169491525424,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 3,
+                  "wins": 20
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 116,
+                  "wins": 34
+                },
+                "wins": 54
+              },
+              "wins": 69
+            },
+            "wins": 88
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "H1TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "param": 0.75,
+              "expiryH": 5,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 24,
+              "staticWins": 73
+            },
+            {
+              "id": 3,
+              "family": "BTCALIGN",
+              "signalHourUTC": 13,
+              "entryMode": "DUAL_FADE",
+              "param": 1.0,
+              "expiryH": 5,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 24,
+              "staticWins": 72
+            },
+            {
+              "id": 15,
+              "family": "BTCALIGN",
+              "signalHourUTC": 10,
+              "entryMode": "DUAL_FADE",
+              "param": 0.75,
+              "expiryH": 5,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 72
+            },
+            {
+              "id": 57,
+              "family": "RELATIVE",
+              "signalHourUTC": 14,
+              "entryMode": "DUAL_FADE",
+              "param": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 70
+            },
+            {
+              "id": 116,
+              "family": "BTCALIGN",
+              "signalHourUTC": 3,
+              "entryMode": "DUAL_FADE",
+              "param": 0.5,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 66
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 88,
+            "sl": 3,
+            "timeout": 0,
+            "wrAllTrades": 96.7,
+            "meanRAllTrades": 0.934
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_COMPUTE",
+          "symbolSpecific": [
+            "TAO project/protocol announcements",
+            "TAO token unlock/supply schedule",
+            "TAO exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "AI/compute narrative",
+            "network demand/revenue",
+            "token unlocks",
+            "AI-sector breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "TIA": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "MODULAR",
+            "family": "MOMENTUM",
+            "signalHourUTC": 12,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.8,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "MODULAR",
+          "symbolSpecific": [
+            "TIA project/protocol announcements",
+            "TIA token unlock/supply schedule",
+            "TIA exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "data-availability adoption",
+            "ecosystem integrations",
+            "token unlocks",
+            "L1/L2 breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "TON": {
+        "source": "V72",
+        "timeframe": "4H",
+        "method": {
+          "status": "PASS",
+          "profile": "MESSAGING_L1",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "split",
+            "feature": "dev",
+            "threshold": -1.2143890955047298,
+            "lo": {
+              "kind": "split",
+              "feature": "rsi",
+              "threshold": 33.26802662840488,
+              "lo": {
+                "kind": "leaf",
+                "action": 38,
+                "wins": 10
+              },
+              "hi": {
+                "kind": "leaf",
+                "action": 100,
+                "wins": 9
+              },
+              "wins": 19
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -0.6522502556643162,
+              "lo": {
+                "kind": "split",
+                "feature": "mom",
+                "threshold": -0.9749005433443395,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 44,
+                  "wins": 8
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 67,
+                  "wins": 7
+                },
+                "wins": 15
+              },
+              "hi": {
+                "kind": "split",
+                "feature": "rsi",
+                "threshold": 52.16679660411014,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 97,
+                  "wins": 25
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 69,
+                  "wins": 24
+                },
+                "wins": 49
+              },
+              "wins": 64
+            },
+            "wins": 83
+          },
+          "actions": [
+            {
+              "id": 38,
+              "family": "MEANREV",
+              "signalHourUTC": 8,
+              "entryMode": "PB",
+              "param": 0.75,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldBars4H": 6,
+              "staticWins": 60
+            },
+            {
+              "id": 44,
+              "family": "MEANREV",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.65,
+              "maxHoldBars4H": 4,
+              "staticWins": 60
+            },
+            {
+              "id": 67,
+              "family": "H4TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 1,
+              "rr": 1.0,
+              "riskATR": 0.8,
+              "maxHoldBars4H": 6,
+              "staticWins": 59
+            },
+            {
+              "id": 69,
+              "family": "HYBRID",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.8,
+              "maxHoldBars4H": 6,
+              "staticWins": 59
+            },
+            {
+              "id": 97,
+              "family": "MOMENTUM",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.8,
+              "maxHoldBars4H": 6,
+              "staticWins": 56
+            },
+            {
+              "id": 100,
+              "family": "RELATIVE",
+              "signalHourUTC": 20,
+              "entryMode": "PB",
+              "param": 0.5,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldBars4H": 6,
+              "staticWins": 56
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 83,
+            "sl": 6,
+            "timeout": 2,
+            "wrAllTrades": 91.21,
+            "meanRAllTrades": 0.846
+          }
+        },
+        "newsProfile": {
+          "profile": "MESSAGING_L1",
+          "symbolSpecific": [
+            "TON project/protocol announcements",
+            "TON token unlock/supply schedule",
+            "TON exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "messaging ecosystem growth",
+            "chain usage",
+            "unlocks/listings",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "TRUMP": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "breadthDist",
+            "threshold": 0.2966101694915254,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.46551724137931033,
+              "loAction": 0,
+              "hiAction": 13,
+              "wins": 43
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 0.39692858457508323,
+              "loAction": 5,
+              "hiAction": 11,
+              "wins": 40
+            },
+            "wins": 83
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "MOMENTUM",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 67
+            },
+            {
+              "id": 5,
+              "family": "RELATIVE",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 18,
+              "staticWins": 66
+            },
+            {
+              "id": 11,
+              "family": "BTCALIGN",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 65
+            },
+            {
+              "id": 13,
+              "family": "BTCALIGN",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.5,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 12,
+              "staticWins": 65
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 83,
+            "sl": 8,
+            "timeout": 0,
+            "wrAllTrades": 91.21,
+            "meanRAllTrades": 0.824
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "TRUMP project/protocol announcements",
+            "TRUMP token unlock/supply schedule",
+            "TRUMP exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "UNI": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "DEFI",
+            "family": "BTCALIGN",
+            "signalHourUTC": 16,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 1.05,
+            "expiryH": 8,
+            "rr": 1.0,
+            "riskATR": 0.9,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 16,
+            "timeout": 2,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.626
+          }
+        },
+        "newsProfile": {
+          "profile": "DEFI",
+          "symbolSpecific": [
+            "UNI project/protocol announcements",
+            "UNI token unlock/supply schedule",
+            "UNI exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "protocol TVL/fees",
+            "governance/upgrades",
+            "incentives/unlocks",
+            "ETH/DeFi breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "WIF": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "SOL_MEME",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "rel24",
+            "threshold": -0.011996239106497348,
+            "lo": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -1.3721891448158423,
+              "loAction": 24,
+              "hiAction": 3,
+              "wins": 29
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.3620689655172414,
+              "loAction": 24,
+              "hiAction": 0,
+              "wins": 49
+            },
+            "wins": 78
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 71
+            },
+            {
+              "id": 3,
+              "family": "H1TREND",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 71
+            },
+            {
+              "id": 24,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 68
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 78,
+            "sl": 13,
+            "timeout": 0,
+            "wrAllTrades": 85.71,
+            "meanRAllTrades": 0.714
+          }
+        },
+        "newsProfile": {
+          "profile": "SOL_MEME",
+          "symbolSpecific": [
+            "WIF project/protocol announcements",
+            "WIF token unlock/supply schedule",
+            "WIF exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "Solana meme breadth",
+            "DEX volume/liquidity",
+            "social/whale activity",
+            "SOL regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "WLD": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "AI_IDENTITY",
+            "family": "D1TREND",
+            "signalHourUTC": 6,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.7,
+            "expiryH": 5,
+            "rr": 1.0,
+            "riskATR": 0.7,
+            "maxHoldH": 6
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 18,
+            "timeout": 0,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.604
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_IDENTITY",
+          "symbolSpecific": [
+            "WLD project/protocol announcements",
+            "WLD token unlock/supply schedule",
+            "WLD exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "project announcements",
+            "token unlocks/listings",
+            "exchange/on-chain flows",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "AIXBT": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "AI_INFOFI",
+            "family": "BTCALIGN",
+            "signalHourUTC": 3,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 1.05,
+            "expiryH": 6,
+            "rr": 1.0,
+            "riskATR": 0.8,
+            "maxHoldH": 8
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 17,
+            "timeout": 1,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.615
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_INFOFI",
+          "symbolSpecific": [
+            "AIXBT project/protocol announcements",
+            "AIXBT token unlock/supply schedule",
+            "AIXBT exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "AI/InfoFi product growth",
+            "attention/data demand",
+            "unlocks/listings",
+            "AI-sector breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ASTER": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "PERP_DEX",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "absmom",
+            "threshold": 0.8389378690765124,
+            "lo": {
+              "kind": "split",
+              "feature": "rel24",
+              "threshold": 0.0041007926441281265,
+              "loAction": 28,
+              "hiAction": 8,
+              "wins": 41
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "absdev",
+              "threshold": 0.714510685280795,
+              "loAction": 14,
+              "hiAction": 0,
+              "wins": 41
+            },
+            "wins": 82
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "MEANREV",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 67
+            },
+            {
+              "id": 8,
+              "family": "H4TREND",
+              "signalHourUTC": 16,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 65
+            },
+            {
+              "id": 14,
+              "family": "D1TREND",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 18,
+              "staticWins": 65
+            },
+            {
+              "id": 28,
+              "family": "BTCALIGN",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 12,
+              "staticWins": 64
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 82,
+            "sl": 9,
+            "timeout": 0,
+            "wrAllTrades": 90.11,
+            "meanRAllTrades": 0.802
+          }
+        },
+        "newsProfile": {
+          "profile": "PERP_DEX",
+          "symbolSpecific": [
+            "ASTER project/protocol announcements",
+            "ASTER token unlock/supply schedule",
+            "ASTER exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "perp DEX volume/OI",
+            "protocol incentives",
+            "token unlocks",
+            "leverage regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "FARTCOIN": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "MEME",
+            "family": "D1TREND",
+            "signalHourUTC": 8,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.9,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.65,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 74,
+            "sl": 17,
+            "timeout": 0,
+            "wrAllTrades": 81.32,
+            "meanRAllTrades": 0.626
+          }
+        },
+        "newsProfile": {
+          "profile": "MEME",
+          "symbolSpecific": [
+            "FARTCOIN project/protocol announcements",
+            "FARTCOIN token unlock/supply schedule",
+            "FARTCOIN exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "social attention velocity",
+            "whale/exchange flows",
+            "meme-sector breadth",
+            "listing/delisting catalysts"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "GRASS": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "AI_DATA",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "dev",
+            "threshold": -0.5052629999982253,
+            "lo": {
+              "kind": "split",
+              "feature": "breadth",
+              "threshold": 0.1864406779661017,
+              "loAction": 0,
+              "hiAction": 6,
+              "wins": 30
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": 0.42908651224239513,
+              "loAction": 6,
+              "hiAction": 27,
+              "wins": 51
+            },
+            "wins": 81
+          },
+          "actions": [
+            {
+              "id": 0,
+              "family": "RELATIVE",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 73
+            },
+            {
+              "id": 6,
+              "family": "RELATIVE",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 72
+            },
+            {
+              "id": 27,
+              "family": "MOMENTUM",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 1.0,
+              "maxHoldH": 12,
+              "staticWins": 71
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 81,
+            "sl": 10,
+            "timeout": 0,
+            "wrAllTrades": 89.01,
+            "meanRAllTrades": 0.78
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_DATA",
+          "symbolSpecific": [
+            "GRASS project/protocol announcements",
+            "GRASS token unlock/supply schedule",
+            "GRASS exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "AI data demand",
+            "network usage",
+            "unlocks/listings",
+            "AI-sector breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "IP": {
+        "source": "V72",
+        "timeframe": "4H",
+        "method": {
+          "status": "PASS",
+          "profile": "IP_RWA",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "split",
+            "feature": "dev",
+            "threshold": -1.1177150424100672,
+            "lo": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -2.0026136063443216,
+              "lo": {
+                "kind": "leaf",
+                "action": 5,
+                "wins": 10
+              },
+              "hi": {
+                "kind": "leaf",
+                "action": 15,
+                "wins": 8
+              },
+              "wins": 18
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "dev",
+              "threshold": -0.7683965805219513,
+              "lo": {
+                "kind": "split",
+                "feature": "dev",
+                "threshold": -0.983239973010197,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 49,
+                  "wins": 8
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 55,
+                  "wins": 6
+                },
+                "wins": 14
+              },
+              "hi": {
+                "kind": "split",
+                "feature": "btc24",
+                "threshold": 0.007103983823123817,
+                "lo": {
+                  "kind": "leaf",
+                  "action": 65,
+                  "wins": 28
+                },
+                "hi": {
+                  "kind": "leaf",
+                  "action": 1,
+                  "wins": 19
+                },
+                "wins": 47
+              },
+              "wins": 61
+            },
+            "wins": 79
+          },
+          "actions": [
+            {
+              "id": 1,
+              "family": "MOMENTUM",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.8,
+              "maxHoldBars4H": 5,
+              "staticWins": 61
+            },
+            {
+              "id": 5,
+              "family": "CONTRA24",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.8,
+              "maxHoldBars4H": 5,
+              "staticWins": 60
+            },
+            {
+              "id": 15,
+              "family": "BREADTH",
+              "signalHourUTC": 12,
+              "entryMode": "DUAL_FADE",
+              "param": 0.8,
+              "expiryBars4H": 1,
+              "rr": 1.0,
+              "riskATR": 0.65,
+              "maxHoldBars4H": 5,
+              "staticWins": 58
+            },
+            {
+              "id": 49,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "PB",
+              "param": 0.75,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldBars4H": 6,
+              "staticWins": 56
+            },
+            {
+              "id": 55,
+              "family": "CONTRA24",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "param": 0.5,
+              "expiryBars4H": 1,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldBars4H": 6,
+              "staticWins": 56
+            },
+            {
+              "id": 65,
+              "family": "BTCALIGN",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "param": 0.65,
+              "expiryBars4H": 2,
+              "rr": 1.0,
+              "riskATR": 0.65,
+              "maxHoldBars4H": 5,
+              "staticWins": 55
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 79,
+            "sl": 11,
+            "timeout": 1,
+            "wrAllTrades": 86.81,
+            "meanRAllTrades": 0.747
+          }
+        },
+        "newsProfile": {
+          "profile": "IP_RWA",
+          "symbolSpecific": [
+            "IP project/protocol announcements",
+            "IP token unlock/supply schedule",
+            "IP exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "IP/RWA partnerships",
+            "licensing/adoption",
+            "token unlocks",
+            "RWA flows"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "LIT": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "IDENTITY",
+            "family": "RELATIVE",
+            "signalHourUTC": 13,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.75,
+            "expiryH": 8,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 6
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "IDENTITY",
+          "symbolSpecific": [
+            "LIT project/protocol announcements",
+            "LIT token unlock/supply schedule",
+            "LIT exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "identity/adoption integrations",
+            "network activity",
+            "unlocks/listings",
+            "sector flows"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "PUMP": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "SOL_MEME",
+            "family": "BTCALIGN",
+            "signalHourUTC": 3,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.75,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 75,
+            "sl": 16,
+            "timeout": 0,
+            "wrAllTrades": 82.42,
+            "meanRAllTrades": 0.648
+          }
+        },
+        "newsProfile": {
+          "profile": "SOL_MEME",
+          "symbolSpecific": [
+            "PUMP project/protocol announcements",
+            "PUMP token unlock/supply schedule",
+            "PUMP exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "Solana meme breadth",
+            "DEX volume/liquidity",
+            "social/whale activity",
+            "SOL regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "VIRTUAL": {
+        "source": "V70",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "profile": "AI_AGENT",
+          "decisionHourUTC": 0,
+          "router": {
+            "kind": "root",
+            "feature": "adx",
+            "threshold": 18.09027399639158,
+            "lo": {
+              "kind": "split",
+              "feature": "d1",
+              "threshold": -1,
+              "loAction": 29,
+              "hiAction": 24,
+              "wins": 30
+            },
+            "hi": {
+              "kind": "split",
+              "feature": "d1",
+              "threshold": -1,
+              "loAction": 10,
+              "hiAction": 6,
+              "wins": 53
+            },
+            "wins": 83
+          },
+          "actions": [
+            {
+              "id": 6,
+              "family": "H4TREND",
+              "signalHourUTC": 20,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.25,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 10,
+              "family": "H4TREND",
+              "signalHourUTC": 4,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 4,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 65
+            },
+            {
+              "id": 24,
+              "family": "RELATIVE",
+              "signalHourUTC": 8,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 0.75,
+              "expiryH": 2,
+              "rr": 1.0,
+              "riskATR": 0.5,
+              "maxHoldH": 8,
+              "staticWins": 64
+            },
+            {
+              "id": 29,
+              "family": "H1TREND",
+              "signalHourUTC": 0,
+              "entryMode": "DUAL_FADE",
+              "offsetATR": 1.0,
+              "expiryH": 6,
+              "rr": 1.0,
+              "riskATR": 0.75,
+              "maxHoldH": 8,
+              "staticWins": 64
+            }
+          ],
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 83,
+            "sl": 8,
+            "timeout": 0,
+            "wrAllTrades": 91.21,
+            "meanRAllTrades": 0.824
+          }
+        },
+        "newsProfile": {
+          "profile": "AI_AGENT",
+          "symbolSpecific": [
+            "VIRTUAL project/protocol announcements",
+            "VIRTUAL token unlock/supply schedule",
+            "VIRTUAL exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "AI-agent adoption",
+            "ecosystem integrations",
+            "unlocks/listings",
+            "AI-sector breadth"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "XPL": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "L1",
+            "family": "RELATIVE",
+            "signalHourUTC": 5,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.75,
+            "expiryH": 6,
+            "rr": 1.0,
+            "riskATR": 0.6,
+            "maxHoldH": 6
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 76,
+            "sl": 14,
+            "timeout": 1,
+            "wrAllTrades": 83.52,
+            "meanRAllTrades": 0.681
+          }
+        },
+        "newsProfile": {
+          "profile": "L1",
+          "symbolSpecific": [
+            "XPL project/protocol announcements",
+            "XPL token unlock/supply schedule",
+            "XPL exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "chain upgrades/adoption",
+            "staking/validator flows",
+            "ecosystem TVL/activity",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      },
+      "ZEC": {
+        "source": "V69",
+        "timeframe": "H1",
+        "method": {
+          "status": "PASS",
+          "style": {
+            "profile": "PRIVACY",
+            "family": "RELATIVE",
+            "signalHourUTC": 12,
+            "entryMode": "DUAL_FADE",
+            "offsetATR": 0.8,
+            "expiryH": 4,
+            "rr": 1.0,
+            "riskATR": 0.75,
+            "maxHoldH": 12
+          },
+          "development": {
+            "trades": 91,
+            "expectedDays": 91,
+            "tp": 73,
+            "sl": 18,
+            "timeout": 0,
+            "wrAllTrades": 80.22,
+            "meanRAllTrades": 0.604
+          }
+        },
+        "newsProfile": {
+          "profile": "PRIVACY",
+          "symbolSpecific": [
+            "ZEC project/protocol announcements",
+            "ZEC token unlock/supply schedule",
+            "ZEC exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "privacy regulation",
+            "network adoption",
+            "exchange access",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        }
+      }
+    }
+  },
+  "integrity": {
+    "optimizationPeriod": "2026-05-01 through 2026-07-30 development rows",
+    "warning": "These all-pass maps were optimized on exposed development data. Freeze before any independent validation; do not describe development WR as future/live guarantee."
+  }
+}
