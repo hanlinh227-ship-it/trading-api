@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-17T00:33:43.221381+00:00",
+  "generatedAt": "2026-08-17T00:39:01.734189+00:00",
   "method": "V12 forced-market locked candidate: V6 direction engine; 8h (32xM15) structural invalidation SL with coin-profile ATR floor; dynamic RR by regime/confidence: range 1.45-1.75, transition 1.60-1.90, trend 1.80-2.10; no universal TP/SL prices; no WAIT/LIMIT; future hidden until decision.",
   "samples": {
     "OLD_REGRESSION_2026-08-13_12UTC": {
@@ -472,7 +472,7 @@
             "result": "UNRESOLVED",
             "mfe": 0.0024200000000000055,
             "mae": 0.0014099999999999946,
-            "candles": 1011
+            "candles": 1012
           }
         },
         {
@@ -700,7 +700,7 @@
             "result": "UNRESOLVED",
             "mfe": 0.0009800000000000086,
             "mae": 0.0004799999999999943,
-            "candles": 1011
+            "candles": 1012
           }
         },
         {
@@ -1004,7 +1004,7 @@
             "result": "UNRESOLVED",
             "mfe": 0.004799999999999999,
             "mae": 0.0013000000000000234,
-            "candles": 1011
+            "candles": 1012
           }
         },
         {
@@ -1194,7 +1194,7 @@
             "result": "TP",
             "mfe": 0.0014300000000000007,
             "mae": 0.0003199999999999939,
-            "candles": 1011
+            "candles": 1012
           }
         },
         {
@@ -1855,7 +1855,7 @@
             "result": "TP",
             "mfe": 0.018500000000000016,
             "mae": 0.007500000000000007,
-            "candles": 1011
+            "candles": 1012
           }
         },
         {
@@ -2169,7 +2169,2179 @@
             "result": "UNRESOLVED",
             "mfe": 8.879999999999995,
             "mae": 9.410000000000025,
-            "candles": 1011
+            "candles": 1012
+          }
+        }
+      ]
+    },
+    "FRESH_BLIND_2026-08-12_12UTC": {
+      "summary": {
+        "label": "FRESH_BLIND_2026-08-12_12UTC",
+        "cutoff": "2026-08-12T12:00:00Z",
+        "isTrueBlind": true,
+        "requested": 61,
+        "marketTrades": 56,
+        "dataErrors": 5,
+        "resolved": 53,
+        "wins": 16,
+        "losses": 37,
+        "unresolved": 3,
+        "winRateResolved": 30.19,
+        "avgPlannedRR": 1.68,
+        "expectancyR": -0.189
+      },
+      "tests": [
+        {
+          "symbol": "BTCUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -0.633,
+          "entry": 64236.3,
+          "sl": 64311.859539125006,
+          "tp": 64115.40473739999,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 64248.1,
+            "atrM15": 85.37801031074108
+          },
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -1.1960000000000002,
+            "ltfScore": 5.1211576678746,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.0,
+            "btcBias": 0.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.4993000699930018,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 63770.72062369444
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 123.19999999999709,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ETHUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 1.83,
+          "entry": 1915.72,
+          "sl": 1885.46,
+          "tp": 1964.136,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 1885.46,
+            "atrM15": 4.093892206247063
+          },
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 3.784,
+            "ltfScore": 5.216099976803364,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.579626062870775,
+            "btcBias": 0.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.8911261326046319,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1884.383094491642
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 9.289999999999964,
+            "mae": 30.600000000000136,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "SOLUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 3.369,
+          "entry": 76.84,
+          "sl": 75.95,
+          "tp": 78.26400000000001,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 75.95,
+            "atrM15": 0.1580011690145479
+          },
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 6.984,
+            "ltfScore": 4.264693991432839,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.09135065128498043,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.8,
+            "rangePositionH1": 0.8840000000000032,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 75.9215351339656
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.5099999999999909,
+            "mae": 1.0300000000000011,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "HYPEUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.573,
+          "entry": 55.805,
+          "sl": 54.441,
+          "tp": 57.987399999999994,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 54.441,
+            "atrM15": 0.16392283064653307
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 1.6159999999999997,
+            "ltfScore": 4.4716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.7684638023375112,
+            "btcBias": 0.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.8615641990798819,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 54.630426805668016
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 2.277000000000001,
+            "mae": 0.3130000000000024,
+            "candles": 574
+          }
+        },
+        {
+          "symbol": "SHIBUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.162,
+          "entry": 4.494e-06,
+          "sl": 4.526e-06,
+          "tp": 4.442799999999998e-06,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 4.526e-06,
+            "atrM15": 1.3476847392244412e-08
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -9.434000000000001,
+            "ltfScore": 4.193580040905591,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.42629643712284393,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.2659574468085081,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 4.478360446181952e-06
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 7.099999999999983e-08,
+            "mae": 2.800000000000041e-08,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TRXUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 8.767,
+          "entry": 0.337,
+          "sl": 0.33423,
+          "tp": 0.34281700000000004,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 0.33423,
+            "atrM15": 0.00039897277712494213
+          },
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": 13.408999999999999,
+            "ltfScore": 2.8657973906268537,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.11815090634207381,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.8,
+            "rangePositionH1": 0.897364771151184,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.33547453064970356
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0016999999999999793,
+            "mae": 0.003180000000000016,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "XRPUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.626,
+          "entry": 1.0226,
+          "sl": 1.0257,
+          "tp": 1.0176399999999999,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 1.0257,
+            "atrM15": 0.002042971943377818
+          },
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -9.679000000000002,
+            "ltfScore": 3.0161731141405723,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.07986141187363627,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7020316027088014,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.0112231934184681
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0012999999999998568,
+            "mae": 0.0034000000000000696,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.56,
+          "entry": 89.95,
+          "sl": 88.92,
+          "tp": 91.598,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 88.92,
+            "atrM15": 0.25959459733608053
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -3.104,
+            "ltfScore": 5.4650430987212095,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.5852617436326768,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.6774193548387101,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 88.48009271693122
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.4099999999999966,
+            "mae": 1.0700000000000074,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ADAUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.013,
+          "entry": 0.1858,
+          "sl": 0.188,
+          "tp": 0.18183999999999997,
+          "plannedRR": 1.8,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 0.188,
+            "atrM15": 0.000553264195599816
+          },
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": -3.8259999999999996,
+            "ltfScore": -3.0316,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.9450020522493308,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.15555555555555506,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.18618291254844915
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0040000000000000036,
+            "mae": 0.0006000000000000172,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ALGOUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -5.661,
+          "entry": 0.08115,
+          "sl": 0.08173,
+          "tp": 0.08013500000000001,
+          "plannedRR": 1.75,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.08173,
+            "atrM15": 0.00018825260754864326
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -9.459,
+            "ltfScore": -3.0953109989775833,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6790224997904626,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.4004474272930647,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.08095511594783052
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.0005899999999999933,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "APTUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -8.825,
+          "entry": 0.5706,
+          "sl": 0.5769,
+          "tp": 0.55737,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.5769,
+            "atrM15": 0.0014959274953019448
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -13.384,
+            "ltfScore": 0.06181778406793875,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.4362819266470361,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.14860681114551166,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.5760234627274876
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.016100000000000003,
+            "mae": 0.0040999999999999925,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ARBUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.103,
+          "entry": 0.07893,
+          "sl": 0.08033,
+          "tp": 0.07669000000000001,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.08033,
+            "atrM15": 0.0002518340470648615
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -7.6339999999999995,
+            "ltfScore": 2.0414538086775114,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.3244663104423537,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.37619047619047613,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.07923121943064852
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0022800000000000042,
+            "mae": 0.0005499999999999949,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ATOMUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.759,
+          "entry": 1.415,
+          "sl": 1.411,
+          "tp": 1.4214,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 1.411,
+            "atrM15": 0.0036403665057894966
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 4.771,
+            "ltfScore": -4.171276528966068,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.1263742369275453,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5416666666666682,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.4295212784746103
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0129999999999999,
+            "mae": 0.0030000000000001137,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "AVAXUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -4.875,
+          "entry": 6.311,
+          "sl": 6.3294853504255775,
+          "tp": 6.278650636755239,
+          "plannedRR": 1.75,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 6.315,
+            "atrM15": 0.018959333769823495
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -8.334,
+            "ltfScore": 1.1476624216264142,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.0503244441545379,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.4306722689075632,
+            "m15Sweep": -1,
+            "m5Sweep": -1,
+            "m15VWAP": 6.269779964266111
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.006000000000000227,
+            "mae": 0.24099999999999966,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "BCHUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.501,
+          "entry": 215.3,
+          "sl": 215.6826052530248,
+          "tp": 214.74522238311408,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 215.4,
+            "atrM15": 0.432322319802019
+          },
+          "model": {
+            "profile": "major",
+            "regime": "range",
+            "htfScore": 0.5960000000000001,
+            "ltfScore": 4.547986642208189,
+            "meanReversionScore": -2.67,
+            "relativeStrengthScore": -0.04201309605402992,
+            "btcBias": 0.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.7924528301886807,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 213.5771190333762
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.20000000000001705,
+            "mae": 0.799999999999983,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "BONKUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -8.234,
+          "entry": 2.263e-06,
+          "sl": 2.354e-06,
+          "tp": 2.071900000000001e-06,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 2.354e-06,
+            "atrM15": 1.1745844149718089e-08
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "trend",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -3.3734281164681974,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -2.183858984167326,
+            "btcBias": 0.0,
+            "chaseAdjustment": 1.8,
+            "rangePositionH1": 0.04166666666666799,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.306740606194132e-06
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 4.600000000000007e-08,
+            "mae": 1.0099999999999996e-07,
+            "candles": 574
+          }
+        },
+        {
+          "symbol": "CRVUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 8.447,
+          "entry": 0.2753,
+          "sl": 0.2603,
+          "tp": 0.3068,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.2603,
+            "atrM15": 0.0026688928887972953
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 13.408999999999999,
+            "ltfScore": -1.2515999999999998,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.069711455232516,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7622080679405522,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.27260133346169657
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.003500000000000003,
+            "mae": 0.015100000000000002,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "DOGEUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 7.199,
+          "entry": 0.07198,
+          "sl": 0.0714,
+          "tp": 0.073198,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 0.0714,
+            "atrM15": 0.00016790711068856586
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "trend",
+            "htfScore": 9.129,
+            "ltfScore": 4.1778163202364675,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.08419037363964099,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6898395721925143,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.0715049612691858
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.00025999999999999635,
+            "mae": 0.0005799999999999972,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "DOTUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.897,
+          "entry": 0.7914,
+          "sl": 0.796,
+          "tp": 0.7847299999999999,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.796,
+            "atrM15": 0.0017193554698841749
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -8.334,
+            "ltfScore": 2.528,
+            "meanReversionScore": -0.6,
+            "relativeStrengthScore": -0.5139655044653879,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.31735159817351605,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.7885413408622963
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0018000000000000238,
+            "mae": 0.006399999999999961,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ETCUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -2.592,
+          "entry": 6.469,
+          "sl": 6.488092826314017,
+          "tp": 6.438451477897574,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 6.479,
+            "atrM15": 0.019582385963094206
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -5.104,
+            "ltfScore": 4.7630656199848875,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.38218142450776815,
+            "btcBias": 0.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.7637795275590562,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 6.376974507206894
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.004999999999999893,
+            "mae": 0.021999999999999353,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "FILUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -2.724,
+          "entry": 0.7019,
+          "sl": 0.7098,
+          "tp": 0.690445,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.7098,
+            "atrM15": 0.0018053007115942747
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -9.393999999999998,
+            "ltfScore": -2.067050482179133,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.9705068461231381,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.46843853820597986,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.7037008836735896
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.011900000000000022,
+            "mae": 0.006199999999999983,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "FLOKIUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -8.398,
+          "entry": 2.055e-05,
+          "sl": 2.06e-05,
+          "tp": 2.0445000000000005e-05,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 2.06e-05,
+            "atrM15": 3.6912369180403024e-08
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "trend",
+            "htfScore": -11.934000000000001,
+            "ltfScore": 1.800399183371944,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.9366748971490146,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.05,
+            "rangePositionH1": 0.2560000000000003,
+            "m15Sweep": -1,
+            "m5Sweep": 0,
+            "m15VWAP": 2.0525744493528672e-05
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 1.999999999999981e-08,
+            "mae": 8.999999999999744e-08,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "HBARUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.665,
+          "entry": 0.06685,
+          "sl": 0.06696370602718206,
+          "tp": 0.06666807035650872,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.06686,
+            "atrM15": 0.00011662156634056688
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -9.158999999999999,
+            "ltfScore": 5.627999999999999,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.21703703308410205,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.34751773049645657,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.06653808270502493
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 9.000000000000674e-05,
+            "mae": 0.00012999999999999123,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "INJUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.56,
+          "entry": 4.592,
+          "sl": 4.574465191681994,
+          "tp": 4.620055693308809,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 4.58,
+            "atrM15": 0.01798441878769857
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -0.05399999999999938,
+            "ltfScore": -3.3579999999999997,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.621415151902871,
+            "btcBias": 0.0,
+            "chaseAdjustment": 1.05,
+            "rangePositionH1": 0.6755952380952376,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 4.5851078342462595
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.010000000000000675,
+            "mae": 0.019999999999999574,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "JTOUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 1.895,
+          "entry": 0.5601,
+          "sl": 0.5357,
+          "tp": 0.5991400000000002,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.5357,
+            "atrM15": 0.003955608453462088
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": 4.366,
+            "ltfScore": 2.8429574528173855,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.0770313912599474,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.6801909307875906,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.5517397464870403
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.03909999999999991,
+            "mae": 0.021400000000000086,
+            "candles": 861
+          }
+        },
+        {
+          "symbol": "JUPUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -10.483,
+          "entry": 0.1731,
+          "sl": 0.1764,
+          "tp": 0.16617,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.1764,
+            "atrM15": 0.0006396805002779269
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": -14.783999999999999,
+            "ltfScore": -2.3255405191573764,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.7597504859369195,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.22929936305732446,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.17476165673597077
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.007400000000000018,
+            "mae": 0.001700000000000007,
+            "candles": 574
+          }
+        },
+        {
+          "symbol": "KAITOUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -8.232,
+          "entry": 0.5004,
+          "sl": 0.6403,
+          "tp": 0.2066099999999999,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.087,
+            "structuralInvalidation": 0.6403,
+            "atrM15": 0.014572765363979268
+          },
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "trend",
+            "htfScore": -12.783999999999999,
+            "ltfScore": -4.223835928472732,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -3.5,
+            "btcBias": 0.0,
+            "chaseAdjustment": 1.8,
+            "rangePositionH1": 0.06098741529525627,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.542479399439344
+          },
+          "outcome": {
+            "result": "UNRESOLVED",
+            "mfe": 0.15999999999999998,
+            "mae": 0.0046000000000000485,
+            "candles": 1148
+          }
+        },
+        {
+          "symbol": "LDOUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.851,
+          "entry": 0.2934,
+          "sl": 0.2945842000369586,
+          "tp": 0.29150527994086617,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.2938,
+            "atrM15": 0.0012145641404704016
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -3.3339999999999996,
+            "ltfScore": 2.8054426847927894,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.4413422729404304,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.5906432748538009,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.2899062621688797
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.0018000000000000238,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "LINKUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 7.531,
+          "entry": 8.879,
+          "sl": 8.68,
+          "tp": 9.296899999999999,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 8.68,
+            "atrM15": 0.02951211021632803
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 12.803999999999998,
+            "ltfScore": 4.674937012168613,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.5590572386159987,
+            "btcBias": 0.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.9940652818991105,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 8.706010013768568
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.017000000000001236,
+            "mae": 0.2530000000000001,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "LTCUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 2.618,
+          "entry": 45.46,
+          "sl": 45.21,
+          "tp": 45.86,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.885,
+            "structuralInvalidation": 45.21,
+            "atrM15": 0.06876033200051078
+          },
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 2.6289999999999996,
+            "ltfScore": 4.0716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.4080641670686669,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7910447761194027,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 45.26129827267005
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.21999999999999886,
+            "mae": 0.3999999999999986,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.671,
+          "entry": 0.03702,
+          "sl": 0.03735,
+          "tp": 0.03649199999999999,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 0.03735,
+            "atrM15": 0.00015260838451301844
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -4.854,
+            "ltfScore": 2.2716000000000003,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.8128735330388603,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.23510971786833837,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.036992374013032334
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 4.999999999999449e-05,
+            "mae": 0.0003300000000000039,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "NEARUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.623,
+          "entry": 1.649,
+          "sl": 1.633,
+          "tp": 1.6746,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 1.633,
+            "atrM15": 0.007670194079161828
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 0.7359999999999998,
+            "ltfScore": 0.48801848483759985,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.0342978611848097,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7655172413793102,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.6141101631102577
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.01200000000000001,
+            "mae": 0.020000000000000018,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ONDOUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.039,
+          "entry": 0.3378,
+          "sl": 0.33907517132898446,
+          "tp": 0.3357597258736249,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.3387,
+            "atrM15": 0.001307868029727634
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -8.534,
+            "ltfScore": 4.238475889319313,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.23333598290877333,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.28695652173912994,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 0.33542211122943066
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.00040000000000001146,
+            "mae": 0.0020000000000000018,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "OPUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.7,
+          "entry": 0.09024,
+          "sl": 0.08974,
+          "tp": 0.090965,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.08974,
+            "atrM15": 0.00029104881404049595
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": 3.9810000000000008,
+            "ltfScore": -0.8547225228335366,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.0129789897084818,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.45833333333333437,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 0.0902278440816428
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0007699999999999929,
+            "mae": 0.0,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ORDIUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -2.902,
+          "entry": 3.434,
+          "sl": 3.49,
+          "tp": 3.3444000000000003,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.998,
+            "structuralInvalidation": 3.49,
+            "atrM15": 0.012826225277580346
+          },
+          "model": {
+            "profile": "alt",
+            "regime": "transition",
+            "htfScore": -6.579,
+            "ltfScore": 2.00154395241786,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6436287862565626,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.39378238341968935,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 3.4339640300496765
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.015000000000000124,
+            "mae": 0.06000000000000005,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "PENGUUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 1.048,
+          "entry": 0.006419,
+          "sl": 0.006321,
+          "tp": 0.006575800000000001,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 0.006321,
+            "atrM15": 2.3910777229559365e-05
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": 0.45399999999999996,
+            "ltfScore": 2.7812638438041586,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.8251132923167859,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3300589390962679,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 0.006408378755157297
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 7.499999999999955e-05,
+            "mae": 0.0001380000000000001,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "PEPEUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -0.876,
+          "entry": 2.842e-06,
+          "sl": 2.862e-06,
+          "tp": 2.8130000000000004e-06,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 2.862e-06,
+            "atrM15": 8.388752063399768e-09
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -5.246,
+            "ltfScore": 2.5259062447416745,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5128516239257985,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5407407407407406,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.8235967929364146e-06
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 2.0999999999999884e-08,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "PNUTUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -2.779,
+          "entry": 0.04064,
+          "sl": 0.04125,
+          "tp": 0.039664000000000005,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 0.04125,
+            "atrM15": 0.00014039925625944802
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -2.369,
+            "ltfScore": -4.495250573077215,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.8083142108296926,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.30337078651685523,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.040877159141450375
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0014400000000000038,
+            "mae": 0.0003799999999999984,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "POLUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.392,
+          "entry": 0.07542,
+          "sl": 0.07602,
+          "tp": 0.07446,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.07602,
+            "atrM15": 0.00013650928894167835
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -7.3340000000000005,
+            "ltfScore": 0.45345449698531004,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.26287497358199685,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.21549636803874164,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.07551707462338587
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.001229999999999995,
+            "mae": 0.0003100000000000047,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "POPCATUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "symbol": "RENDERUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.446,
+          "entry": 1.273,
+          "sl": 1.2762078292351822,
+          "tp": 1.267867473223708,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.05,
+            "structuralInvalidation": 1.273,
+            "atrM15": 0.0030550754620784363
+          },
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -8.783999999999999,
+            "ltfScore": 5.634100737375658,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.11542564548181256,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.6184210526315775,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.2566549241013898
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.0040000000000000036,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "SUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -4.225,
+          "entry": 0.0229,
+          "sl": 0.02326,
+          "tp": 0.02227,
+          "plannedRR": 1.75,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.02326,
+            "atrM15": 5.484906299958594e-05
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -6.329000000000001,
+            "ltfScore": -3.133650594583591,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.2197515359754085,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.07692307692307787,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.02302827139041917
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.0007699999999999999,
+            "mae": 0.00016000000000000042,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "STXUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -8.867,
+          "entry": 0.1244,
+          "sl": 0.1269,
+          "tp": 0.11914999999999996,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.1269,
+            "atrM15": 0.00044625938929684493
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -14.783999999999999,
+            "ltfScore": -4.2376687512150815,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -2.3587382745659546,
+            "btcBias": 0.0,
+            "chaseAdjustment": 2.25,
+            "rangePositionH1": 0.05434782608695657,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.1265721129102311
+          },
+          "outcome": {
+            "result": "UNRESOLVED",
+            "mfe": 0.0040999999999999925,
+            "mae": 0.0013999999999999985,
+            "candles": 1148
+          }
+        },
+        {
+          "symbol": "SUIUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 1.022,
+          "entry": 0.6926,
+          "sl": 0.6862,
+          "tp": 0.70188,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.6862,
+            "atrM15": 0.0016764935126318847
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": 2.7209999999999996,
+            "ltfScore": 5.17625383685478,
+            "meanReversionScore": -0.6,
+            "relativeStrengthScore": -0.3770081314676843,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.7389705882352943,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.687006425147771
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0049000000000000155,
+            "mae": 0.007800000000000029,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TAOUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "symbol": "TIAUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -9.824,
+          "entry": 0.3097,
+          "sl": 0.3117,
+          "tp": 0.3055,
+          "plannedRR": 2.1,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.3117,
+            "atrM15": 0.0009589528990613632
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -14.783999999999999,
+            "ltfScore": 3.240504734771307,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.361882340080689,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.05,
+            "rangePositionH1": 0.18888888888888847,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.310583708683314
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.004799999999999971,
+            "mae": 0.0019000000000000128,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "TONUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "symbol": "TRUMPUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.156,
+          "entry": 1.482,
+          "sl": 1.494,
+          "tp": 1.4646,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 1.494,
+            "atrM15": 0.0035947945457346746
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -4.019,
+            "ltfScore": 2.378723674884931,
+            "meanReversionScore": -0.6,
+            "relativeStrengthScore": -0.6775284282333072,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.2784810126582282,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.4860744215487107
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.018999999999999906,
+            "mae": 0.009000000000000119,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "UNIUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -6.697,
+          "entry": 3.546,
+          "sl": 3.8,
+          "tp": 3.0507,
+          "plannedRR": 1.95,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 3.8,
+            "atrM15": 0.028325211908936433
+          },
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": -10.009,
+            "ltfScore": -2.137735501139547,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -3.5,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.15979381443298957,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 3.6482387030158954
+          },
+          "outcome": {
+            "result": "UNRESOLVED",
+            "mfe": 0.3759999999999999,
+            "mae": 0.07100000000000017,
+            "candles": 1148
+          }
+        },
+        {
+          "symbol": "WIFUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.677,
+          "entry": 0.14,
+          "sl": 0.1406,
+          "tp": 0.13904000000000002,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 0.1406,
+            "atrM15": 0.0004352509560035072
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -8.954,
+            "ltfScore": 3.19,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.7408071273315686,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.37500000000000194,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.1396997792150363
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.0008999999999999841,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "WLDUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 0.56,
+          "entry": 0.3345,
+          "sl": 0.33287314236329585,
+          "tp": 0.33710297221872665,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.975,
+            "structuralInvalidation": 0.3337,
+            "atrM15": 0.00166857193508118
+          },
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 2.8810000000000002,
+            "ltfScore": -3.7509448918068995,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6807565604720067,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.41322314049586817,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.3369568516411268
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0008999999999999564,
+            "mae": 0.0017000000000000348,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "AIXBTUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -4.478,
+          "entry": 0.01769,
+          "sl": 0.01792,
+          "tp": 0.017287500000000004,
+          "plannedRR": 1.75,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.05,
+            "structuralInvalidation": 0.01792,
+            "atrM15": 6.527246636035704e-05
+          },
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -7.7090000000000005,
+            "ltfScore": -1.8256966098252194,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.2109993959087784,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.112359550561799,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.017804671278345324
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.0002599999999999998,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "ASTERUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -2.489,
+          "entry": 0.6039,
+          "sl": 0.6071,
+          "tp": 0.59926,
+          "plannedRR": 1.45,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.087,
+            "structuralInvalidation": 0.6071,
+            "atrM15": 0.0007343671917069637
+          },
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "range",
+            "htfScore": -6.893999999999999,
+            "ltfScore": -4.25171680125523,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5347219293334415,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.2846715328467154,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6042640533843545
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0032999999999999696,
+            "mae": 0.0031999999999999806,
+            "candles": 574
+          }
+        },
+        {
+          "symbol": "FARTCOINUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "symbol": "GRASSUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 2.28,
+          "entry": 0.315,
+          "sl": 0.3034,
+          "tp": 0.33356,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.05,
+            "structuralInvalidation": 0.3034,
+            "atrM15": 0.0020040684255739406
+          },
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": 2.9360000000000004,
+            "ltfScore": 3.558,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 2.313392310534683,
+            "btcBias": 0.0,
+            "chaseAdjustment": -0.8,
+            "rangePositionH1": 0.899653979238754,
+            "m15Sweep": 0,
+            "m5Sweep": 1,
+            "m15VWAP": 0.30679470597610026
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.00990000000000002,
+            "mae": 0.011699999999999988,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "IPUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "symbol": "LITUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -0.609,
+          "entry": 2.3095,
+          "sl": 2.3435,
+          "tp": 2.2550999999999997,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.087,
+            "structuralInvalidation": 2.3435,
+            "atrM15": 0.018174843291341013
+          },
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": 1.5040000000000004,
+            "ltfScore": -2.6348754107926387,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -3.3457932210837398,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.16622790522752906,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.393584381869978
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.03489999999999993,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "PUMPUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "BUY",
+          "score": 3.386,
+          "entry": 0.002686,
+          "sl": 0.002631,
+          "tp": 0.002774,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.125,
+            "structuralInvalidation": 0.002631,
+            "atrM15": 2.110549089763689e-05
+          },
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": 9.679000000000002,
+            "ltfScore": -3.1432708007659778,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.3622535461382501,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.17241379310344815,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.002720326357195842
+          },
+          "outcome": {
+            "result": "TP",
+            "mfe": 0.00011599999999999978,
+            "mae": 5.999999999999929e-06,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "VIRTUALUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -3.318,
+          "entry": 0.5484,
+          "sl": 0.5524,
+          "tp": 0.542,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.05,
+            "structuralInvalidation": 0.5524,
+            "atrM15": 0.002789592464113592
+          },
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -8.304000000000002,
+            "ltfScore": 4.231836792001764,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.22652148880935252,
+            "btcBias": 0.0,
+            "chaseAdjustment": -1.0,
+            "rangePositionH1": 0.5974955277280861,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.5347548277003087
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0,
+            "mae": 0.011600000000000055,
+            "candles": 287
+          }
+        },
+        {
+          "symbol": "XPLUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -5.171,
+          "entry": 0.07562,
+          "sl": 0.07772,
+          "tp": 0.07194500000000002,
+          "plannedRR": 1.75,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 1.087,
+            "structuralInvalidation": 0.07772,
+            "atrM15": 0.0003523161958280855
+          },
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": -8.149000000000001,
+            "ltfScore": -4.533537015331394,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -2.75136969728085,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.05457746478873318,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.07721168485015333
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.0025200000000000083,
+            "mae": 0.002249999999999988,
+            "candles": 861
+          }
+        },
+        {
+          "symbol": "ZECUSDT",
+          "cutoff": "2026-08-12T12:00:00Z",
+          "source": "OKX spot",
+          "blind": true,
+          "decision": "SELL",
+          "score": -1.634,
+          "entry": 490.86,
+          "sl": 493.34014373503504,
+          "tp": 486.891770023944,
+          "plannedRR": 1.6,
+          "barrier": {
+            "lookbackM15": 32,
+            "atrFloorMultiple": 0.998,
+            "structuralInvalidation": 492.85,
+            "atrM15": 2.486359634120311
+          },
+          "model": {
+            "profile": "alt",
+            "regime": "transition",
+            "htfScore": -1.516,
+            "ltfScore": 6.257999999999999,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.4561138171435375,
+            "btcBias": 0.0,
+            "chaseAdjustment": -3.85,
+            "rangePositionH1": 0.5674860853432288,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 480.04003575303193
+          },
+          "outcome": {
+            "result": "SL",
+            "mfe": 0.7300000000000182,
+            "mae": 4.060000000000002,
+            "candles": 287
           }
         }
       ]
