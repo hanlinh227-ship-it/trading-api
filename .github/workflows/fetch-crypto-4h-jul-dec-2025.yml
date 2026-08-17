@@ -1,0 +1,29 @@
+name: Fetch Crypto 4H Jul-Dec 2025
+on:
+  push:
+    paths:
+      - 'scripts/fetch_crypto_4h_jul_dec_2025.py'
+      - '.github/workflows/fetch-crypto-4h-jul-dec-2025.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch independent public 4H holdout
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/fetch_crypto_4h_jul_dec_2025.py
+      - name: Freeze snapshot
+        run: |
+          git config user.name 'crypto-holdout-bot'
+          git config user.email 'crypto-holdout-bot@users.noreply.github.com'
+          git add data/provider_snapshots/crypto_4h_jul_dec_2025.json
+          git commit -m 'Freeze independent 61-symbol Crypto 4H Jul-Dec 2025 snapshot' || exit 0
+          git pull --rebase origin main || true
+          git push origin HEAD:main
