@@ -1,0 +1,24 @@
+name: Offline Crypto Intraday NoCut V63
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_intraday_nocut_v63.py'
+      - '.github/workflows/offline-crypto-intraday-nocut-v63.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Run Crypto V63
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_intraday_nocut_v63.py
+      - run: cat data/offline_crypto_intraday_nocut_v63.json
