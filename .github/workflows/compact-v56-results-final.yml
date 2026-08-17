@@ -1,0 +1,20 @@
+name: Compact Completed V56 Results
+on:
+  push:
+    paths:
+      - '.github/workflows/compact-v56-results-final.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compact result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: '32026926958'
+        run: bash scripts/compact_status_from_run.sh
