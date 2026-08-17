@@ -1,114 +1,102 @@
 # MASTER TRADING STATE
 
-Updated: 2026-08-17 15:46 UTC+7
+Updated: 2026-08-17 16:00 UTC+7
 Purpose: canonical handoff/checkpoint for continuing the Trading project across new ChatGPT conversations.
 
 ## Cross-chat protocol
-Read this file first, then `CURRENT_HANDOFF.md`, then `CROSSMARKET_ROLLING_BLIND_V6.md`, `TRADE_MANAGEMENT_HOURLY_V1.md`, and the market-specific checkpoint. Do not reconstruct strategy state from memory when checkpoints exist. Never promote a method from one lucky/in-sample sample; never present stale prices as executable live prices.
+Read this file first, then `CURRENT_HANDOFF.md`, then `SEPARATE_MARKET_RESEARCH_V1.md`, `CROSSMARKET_ROLLING_BLIND_V6.md`, `TRADE_MANAGEMENT_HOURLY_V1.md`, and the relevant market checkpoint.
 
-## Universal rules
-- Regime/bias -> macro/news/calendar -> structure -> setup -> execution -> structural SL -> realistic TP -> rolling managed review.
-- Indicators must have distinct roles; avoid stacking.
-- News/macro/event risk matters before entry and while a trade is active.
-- Structure determines invalidation first; ATR is a buffer/normalizer.
-- Forced BUY/SELL on every symbol is a research stress test, not automatically a live rule.
-- Score direction separately from TP/SL.
-- Do not optimize win rate alone; expectancy and RR matter.
-- Separate `bias wrong` from `bias right but entry/barrier failed`.
-- Never shrink TP just to manufacture a high WR.
-- In-sample fitted results must never be presented as held-out validation.
-- CUT is excluded from displayed TP/SL WR by user convention, but CUT count/rate, CUT R and total managed expectancy must always be reported.
+## Mandatory separation
+**Forex and Crypto MUST NOT share one research/entry methodology.**
 
-## Rolling blind management — mandatory interpretation
-Every filled MARKET or LIMIT order is conceptually re-evaluated sequentially at H+1, H+2, H+3... using only information observable up to that review point. Decision = HOLD or CUT. This is a BACKTEST/RESEARCH mechanism, not a recurring automation.
+### Forex lineage
+Preserve F8/F7 only: cross-currency factor coherence, H1/H4 structure, session/impulse-vs-regime, minimal EMA20/50 + RSI14 + ATR14 + ADX14 roles, pair archetype/day common-factor risk, structural SL and realistic TP.
 
-Old committed datasets do not preserve full H+1/H+2 snapshots for every trade. Never fake hourly decisions from final outcome, MFE/MAE or later candles. Forex F8-style rows do preserve a genuine H+3 close plus `market.bars`, allowing a limited H+3 proxy. Crypto old rows do not support equivalent honest hourly replay.
+### Crypto lineage
+Preserve V24/Apr16 only: BTC + market breadth/regime, D1/H4/H1 + 6/24/72h momentum, M15/M5 path/anti-chase, fresh order flow when available, continuation-MARKET vs structural pullback-LIMIT vs NO TRADE, and per-symbol linked-driver profiles.
+Canonical symbol profile file: `docs/checkpoints/CRYPTO_SYMBOL_PROFILES_V1.md`.
 
-Canonical latest research checkpoint:
-`docs/checkpoints/CROSSMARKET_ROLLING_BLIND_V6.md`
+## Universal integrity rules
+- Never promote in-sample/lucky results as blind validation.
+- Do not shrink TP merely to inflate WR.
+- Structural invalidation determines SL first; ATR only buffers/normalizes.
+- CUT is excluded from displayed TP/SL WR by user convention, but CUT count/rate/R and total managed expectancy must still be reported.
+- Hourly HOLD/CUT is a BACKTEST mechanism: after fill, advance sequentially H+1/H+2/H+3... and use only observable information at that review time.
+- Old committed data lack full H+1/H+2 snapshots for most trades; never invent hourly decisions from final outcome/MFE/MAE.
+- Latest research rounds used **0 market-data provider credits**.
 
-## Requested promotion target
-A new managed method is promoted only with genuinely held-out/blind evidence showing:
+## Target
+Promote only if genuinely held-out/walk-forward evidence reaches all:
 - TP/SL WR >=80%;
 - average planned/effective RR 1.0–1.5;
-- positive total expectancy including CUT;
+- positive expectancy including CUT;
 - non-trivial sample;
-- management decisions based only on observable state.
+- no future information leakage.
 
 **Current status: target NOT achieved.**
 
-## Forex — broad research baseline
-Universe: all 28 liquid pairs from USD/EUR/GBP/JPY/CHF/CAD/AUD/NZD.
+# FOREX
+## Broad comparator — F8
+Four consecutive 5-day blocks / 560 forced signals:
+- MARKET 489 resolved, 248 TP /241 SL = 50.72% WR;
+- weighted expectancy ~+0.233R;
+- typical RR ~1.42–1.45.
+F8 remains the broad stress-test benchmark.
 
-Frozen F8 remains the broad comparator. Combined four consecutive 5-day validation blocks /560 forced signals:
-- MARKET: 489 resolved, 248 TP /241 SL, WR 50.72%, weighted expectancy ~+0.233R;
-- LIMIT: 403 resolved, 169 TP /234 SL, weighted expectancy ~+0.246R;
-- recommended: 487 resolved, 247 TP /240 SL, ~+0.237R.
-F8 typical RR evidence is ~1.42–1.45.
-
-## Forex — strongest selective-entry candidate from latest zero-credit round
-V5 fixed-rule research used first chronological half as development and froze one entry rule before the later validation half.
-
-Frozen V5 rule selected on May18–22:
-- BUY only;
-- score >=1;
-- ADX >=20;
-- impulseEvidence >=3;
-- H1 aligned with side;
-- group/mode unrestricted.
-
+## Strongest selective candidate — V7
+Forex V7 is fully separate from Crypto and continues F8/V5 logic.
 Development May18–22:
-- 31 trades, 23W/8L = 74.19% WR;
-- +0.794R;
-- avg requested-band RR 1.437.
+- 26 trades, 21W/5L = 80.77% WR;
+- +0.945R;
+- avg RR 1.425.
+Validation May25–29:
+- **29 trades, 18W/11L = 62.07% WR**;
+- **+0.502R**;
+- **avg RR 1.407**.
+V7 is the strongest selective Forex candidate currently found, but held-out validation is below 80%.
 
-Untouched validation May25–29:
-- 28 trades, 17W/11L = **60.71% WR**;
-- **+0.467R**;
-- avg RR **1.403**;
-- positive-day rate 75%.
+## Forex rejected/supporting variants
+- V5 validation: 60.71% WR / +0.467R / RR1.403. Superseded by V7 selective candidate.
+- V8 pair-prior: 52.94% / +0.275R / RR1.391. Rejected vs V7.
+- V9 nested pair walk-forward: 61.54% / +0.492R / RR1.417. Supporting evidence, slightly below V7.
+- V6 Top-K: 40% validation. Rejected.
+- V4.1 daily-changing threshold: 36%. Rejected.
 
-This is the strongest new selective-entry result in the latest round, but it does NOT replace F8 as the broad benchmark and does NOT meet 80%.
+# CRYPTO
+## Surviving base
+Do not overwrite these with weaker experiments:
+- V24 five-date validation: 42.75% WR, +0.132R, avg RR1.647; unstable by date.
+- Apr16 clean MARKET holdout: **51.92% WR, +0.350R**, 6h direction 80%, 24h direction 89.09%.
+- Fixed universal 0.35R LIMIT did not improve WR; execution value came from geometry/RR, not accuracy.
 
-H+3 management proxy frozen on development at -0.4R made zero CUTs in V5 development and validation, so V5 validation remained 60.71%. This does not disprove H+1/H+2 management; those snapshots are missing from old data.
+## Per-symbol requirement
+Every researched coin must have its own linked-driver profile. Examples:
+- ETH: BTC + ETH/BTC + staking/L2/ETF/protocol drivers;
+- SOL: BTC + SOL/ETH + Solana DEX/meme/stablecoin/network drivers;
+- LINK: DeFi/ETH + oracle/CCIP/RWA/staking;
+- PENGU/memes: meme breadth + ecosystem/social/DEX flow + BTC/SOL/ETH beta as applicable;
+- ONDO: RWA/Treasury-yield/institutional tokenization drivers;
+- TAO/RENDER/VIRTUAL etc.: AI-sector breadth plus project-specific network/usage drivers.
+Full 61-symbol map is in `CRYPTO_SYMBOL_PROFILES_V1.md`.
 
-## Rejected latest Forex variants
-- V4.1 day-by-day threshold re-selection: validation/forward selected 36.00% WR, -0.142R; rejected as unstable.
-- V6 confidence Top-5/day: development 60%, validation 40%, 0.000R at RR1.5; rejected.
+## Latest Crypto experiments
+- V28 family-profile weighting: 22.22% validation / -0.444R / RR1.5. Rejected.
+- V29 per-symbol conditional Bayesian profile: development 76%; validation **43.75% / +0.094R / RR1.5** on 16 trades. Research-only; below promotion sample and below Apr16 clean WR.
+- V30 chronological nested symbol walk-forward: 33.33% / -0.167R / RR1.5. Rejected vs V29.
+Therefore V24/Apr16 remains the canonical Crypto research base; symbol profiles are context layers, not yet a proven score replacement.
 
-## Crypto — current state
-Recovered old set: 640 resolved trades across 12 dates, 229W/411L = 35.78% WR. No stable selective gate has generalized.
-
-Latest fixed-rule V5 after conservative RR cap to 1.5:
-- development: 57 trades, 56.14% WR, +0.404R;
-- validation: 31 trades, **19.35% WR**, -0.516R; rejected.
-
-Latest V6 Top-K:
-- development: 48 trades, 75.00% WR, +0.875R;
-- validation: 48 trades, **37.50% WR**, -0.062R; rejected.
-
-Crypto therefore remains driven by current BTC + breadth/regime + D1/H4/H1 + momentum + M15/M5 path + genuinely fresh flow/news for live analysis. Static BUY/macro/symbol reputation and fixed confidence Top-K are not validated.
-
-## RR remap used in latest offline audit
-To compare old results with requested RR 1.0–1.5 without creating winners:
-- original RR <1.0 excluded;
-- original RR >1.5 capped to 1.5;
-- original TP above 1.5 remains TP at 1.5 because price had to cross 1.5R first;
-- original SL is never converted to TP without path evidence.
-This is conservative and cannot prove that all losses would still have been losses at the nearer target.
-
-## Practical live/research design
-### Forex entry
-Fresh exact price; current macro/news/calendar; F8 factor/archetype; H4/H1; M15; M5; structural SL; liquidity target; V5-style selective confidence may be used as an additional candidate filter, not as proven 80% logic.
-
-### Crypto entry
-Fresh exact price/coverage; BTC + breadth/regime; macro/risk + symbol news; D1/H4/H1; 6h/24h/72h momentum; M15/M5 anti-chase; structural SL; liquidity target; MARKET/LIMIT/NO TRADE.
-
-### After fill
-Sequential H+1/H+2/H+3... rolling review when the required observable snapshots are available. HOLD/CUT must never use future information.
+## Rejected Crypto logic — do not revive
+- generic indicator stacking;
+- V25 synchronized climax reversal;
+- V26 macro-always-owns-direction;
+- V27 assumption one completed M15 fixes bad state;
+- extreme breadth alone as reversal/no-trade;
+- universal fixed 0.35R LIMIT;
+- static BUY/macro gate;
+- static symbol reputation alone.
 
 ## Provider efficiency
-Latest V4/V5/V6 research used 0 market-data provider credits. Continue to reuse committed data before any new provider block is explicitly allowed.
+Reuse committed data. Do not fetch new history unless explicitly allowed later. No recurring automation is part of the current backtest research.
 
 ## Handoff phrase
-`Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, CROSSMARKET_ROLLING_BLIND_V6.md và TRADE_MANAGEMENT_HOURLY_V1.md trước. F8 là broad Forex baseline; V5 là selective-entry candidate 60.71% WR / RR1.403; mục tiêu 80% chưa đạt.`
+`Tiếp tục Trading từ GitHub checkpoint mới nhất. Đọc MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, SEPARATE_MARKET_RESEARCH_V1.md, TRADE_MANAGEMENT_HOURLY_V1.md và CRYPTO_SYMBOL_PROFILES_V1.md. Forex và Crypto là hai hệ hoàn toàn riêng. Forex selective tốt nhất hiện tại V7 = 62.07% WR / +0.502R / RR1.407. Crypto giữ V24/Apr16 làm base; Apr16 MARKET = 51.92% WR. Mục tiêu 80% chưa đạt.`
