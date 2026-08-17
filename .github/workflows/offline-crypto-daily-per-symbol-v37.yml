@@ -22,3 +22,5 @@ jobs:
           PYTHONPATH: '.'
           PYTHONUNBUFFERED: '1'
         run: python scripts/offline_crypto_daily_per_symbol_v37.py
+      - name: Print full per-symbol JSON
+        run: cat data/offline_crypto_daily_per_symbol_v37.json
