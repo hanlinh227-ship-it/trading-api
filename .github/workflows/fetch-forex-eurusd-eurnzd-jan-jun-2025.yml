@@ -1,0 +1,32 @@
+name: Fetch Forex EURUSD EURNZD Jan-Jun 2025
+on:
+  push:
+    paths:
+      - 'scripts/fetch_forex_eurusd_eurnzd_h1_jan_jun_2025.py'
+      - '.github/workflows/fetch-forex-eurusd-eurnzd-jan-jun-2025.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch two untouched pairs
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python scripts/fetch_forex_eurusd_eurnzd_h1_jan_jun_2025.py
+      - name: Freeze snapshot
+        run: |
+          git config user.name 'provider-snapshot-bot'
+          git config user.email 'provider-snapshot-bot@users.noreply.github.com'
+          git add data/provider_snapshots/forex_eurusd_eurnzd_h1_jan_jun_2025.json
+          git commit -m 'Freeze EURUSD EURNZD H1 Jan-Jun 2025 block' || exit 0
+          git pull --rebase origin main || true
+          git push origin HEAD:main
