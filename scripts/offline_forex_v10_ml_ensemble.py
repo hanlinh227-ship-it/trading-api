@@ -68,7 +68,7 @@ def make_model(kind):
     return ExtraTreesClassifier(n_estimators=450,max_depth=5,min_samples_leaf=6,class_weight='balanced',random_state=29,n_jobs=-1)
 
 def fit_predict(train,test,kind,days):
-    vec=DictVectorizer(sparse=True)
+    vec=DictVectorizer(sparse=False)
     X=vec.fit_transform([rowdict(r,days) for r in train]); y=[r['y'] for r in train]
     Xt=vec.transform([rowdict(r,days) for r in test])
     model=make_model(kind); model.fit(X,y)
@@ -139,7 +139,6 @@ def msm(rows):
 
 def main():
     rows=prep(extract_fx());sel,detail=outer_walk(rows); base=sm(rows)
-    # H+3 is only a coarse observable checkpoint in old Forex records; fixed threshold is diagnostic, not tuned on outer outcomes.
     managed=msm(h3_cut(sel,-.35))
     out={'version':'FOREX V10 ML ENSEMBLE INDEPENDENT','providerCreditsUsed':0,
       'method':'Forex-only nonlinear ensemble. Separate Forex factors/structure only; chronological nested model/config selection, no crypto features. BUY-only is a candidate branch, not forced. RR capped conservatively to 1.5.',
