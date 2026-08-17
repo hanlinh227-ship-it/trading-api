@@ -1,6 +1,6 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 12:36 UTC+7
+Updated: 2026-08-17 13:05 UTC+7
 
 Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint. Do not reconstruct strategy state from memory when checkpoints exist.
 
@@ -12,182 +12,92 @@ Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market c
 - Structure defines SL first; size/RR follows.
 
 ## Immediate active task
-Crypto / Breakout research and live-selection quality.
+Forex analysis quality and selective live execution.
 
-## Forced blind benchmark rule
-When explicitly stress-testing:
-- every Breakout-universe coin with valid historical data receives MARKET BUY or MARKET SELL;
-- no WAIT / NO TRADE unless the user explicitly asks to test the selective live gate;
-- entry, SL, TP freeze before future candles are opened;
-- do not tune on a timestamp then call it blind.
+Crypto research style is now considered frozen at the current practical framework. Do not restart rejected crypto V25/V26/V27 ideas or force every coin into a live trade. Detailed crypto state remains in `CRYPTO_BREAKOUT_STATE.md` and `CRYPTO_RESEARCH_ARCHIVE.md`.
 
-This forced rule is a stress test only. It is not considered a suitable live-trading rule.
+## Forex current conclusion
+Universe: 28 liquid pairs formed from USD/EUR/GBP/JPY/CHF/CAD/AUD/NZD.
 
-## Current conclusion: no validated all-market crypto engine
-V24 remains the diagnostic comparator only.
-Retained useful ingredients:
-- 6h/24h/72h momentum;
-- H4/H1 structure;
-- H4 EMA context;
-- BTC relative strength;
-- M15/M5 setup and anti-chase;
-- actual short-window taker flow when available;
-- market breadth context;
-- structure-based SL;
-- realistic dynamic RR.
+### F1 diagnostic
+Fully covered July evidence at RR 1.5:
+- forced all pairs: 140 signals, 136 resolved, 55 TP / 81 SL, 40.44% WR, +0.011R;
+- naive Top3 strongest-score MARKET: 4 TP / 11 SL, 26.67% WR, -0.333R;
+- Top3 fixed LIMIT: 13 fills, 2 TP / 11 SL, -0.451R.
+Conclusion: highest raw strength/trend score is not the best Forex entry; clustered/crowded currency exposure is dangerous.
 
-### V24 locked June validation
-- 278 trades, 262 resolved;
-- 112 TP / 150 SL;
-- 42.75% WR;
-- avg RR 1.647;
-- +0.132R expectancy;
-- extreme date instability from Jun30 7.27% / -0.807R to Jun24 83.33% / +1.228R.
-Conclusion: not robust enough for live/main promotion.
+### F2 anti-crowding quality gate
+Development = revealed July block only.
+Blind validation was locked before outcomes on Aug04, Aug05, Aug06, Aug10, Aug11 at 08:00 UTC.
 
-### V25 — rejected
-Whole-market climax reversal was tested on June development data.
-Jun30 became 0 TP / 56 SL. Do not revive synchronized whole-market reversal.
+F2 ingredients:
+- one cached M15 history per pair;
+- derive 6h/24h/72h cross-currency strength + H1/H4 locally;
+- require multi-horizon agreement, H4/H1 alignment and H1 EMA slope;
+- moderate RSI and M15 momentum, anti-chase and structural-risk gates;
+- penalize extreme score rather than automatically rewarding it;
+- no repeated currency factor across selected trades;
+- structural SL first;
+- up to 3 signals, but `NO TRADE` is valid.
 
-### V26 — rejected true-blind May
-Macro-always-owns-direction failed on untouched May:
-- 275 trades, 272 resolved;
-- 79 TP / 193 SL;
-- 29.04% WR;
-- avg RR 1.646;
-- -0.235R expectancy;
-- 4/5 dates negative.
-Conclusion: macro direction cannot be made absolute.
+Blind validation:
+- forced all 28 pairs at development-selected RR 2.1: 126 resolved, 38 TP / 88 SL, 30.16% WR, -0.065R;
+- selective MARKET: only 4 signals passed across 5 cutoffs, 3 TP / 1 SL, 75.0% WR, +1.325R at test RR 2.1;
+- selective LIMIT 0.25R: 3 fills, 2 TP / 1 SL, avg effective RR 3.133, +1.756R among resolved fills; one MARKET winner reached target before LIMIT filled;
+- sample size 4 is far too small to claim a stable 75% WR. F2 is a promising quality gate, not a fully validated profit engine.
 
-## V27 FINAL random blind — completed and rejected
-Locked cutoff: `2026-04-09T12:00:00Z`; MARKET entry after full M15 at `12:15 UTC`.
-V27 kept V24 direction/scoring and changed timing only.
-Result retained in `data/blind_backtest_v27_final.json`:
-- 55 tested of 61 research-universe coins;
-- 11 TP / 43 SL / 1 unresolved;
-- WR 20.37%;
-- avg RR 1.60R;
-- expectancy -0.470R;
-- direction 6h accuracy 21.82%;
-- direction 24h accuracy 25.45%;
-- price breadth 0.036;
-- historical taker-flow coverage 0%.
-Conclusion: simply waiting one M15 does not fix a bad market-state/directional sample.
+Critical date evidence:
+- Aug04 EURNZD SELL MARKET TP; LIMIT missed continuation.
+- Aug05 forced benchmark = 0 TP / 25 SL among resolved, while F2 selected ZERO trades.
+- Aug06 EURJPY BUY TP.
+- Aug10 GBPUSD BUY TP; LIMIT also TP.
+- Aug11 GBPAUD BUY SL.
 
-## Final MARKET vs LIMIT blind execution comparison — Apr16
-User then explicitly asked to compare MARKET and LIMIT on all Breakout research coins using the settled surviving framework.
-Before outcomes were inspected, repo search confirmed no prior `2026-04-16` cutoff reference. Rules were frozen before the run:
-- observation starts `2026-04-16T12:00:00Z`;
-- signal/entry decision after one complete M15 at `2026-04-16T12:15:00Z`;
-- scoring inputs rebuilt at signal time using the completed M15;
-- direction uses surviving V24/V22 architecture: 6h/24h/72h momentum, H4/H1 structure, H4 EMA, BTC relative strength, breadth, and final-5m taker flow if historically available;
-- MARKET enters immediately at observable +15m price;
-- LIMIT is fixed at a 0.35R pullback toward the same structural SL;
-- LIMIT expires after 6h;
-- LIMIT keeps the same absolute TP as MARKET, so a filled limit naturally has a higher effective RR;
-- if MARKET TP is hit before LIMIT fills, cancel LIMIT as `TARGET_BEFORE_FILL` rather than allowing a late fill.
+## Forex practical style from now on
+1. Build currency-level 6h/24h/72h strength across all 28 pairs.
+2. Check live macro/news regime for the two currencies.
+3. H4/H1 structure + slope decide tradable direction; raw extreme score is not enough.
+4. M15 determines setup/anti-chase and structural invalidation.
+5. M5 confirms actual execution trigger.
+6. Rank quality with correlation control; return 0–3 trades, never manufacture exactly 3.
+7. MARKET for clean continuation; LIMIT only for a structurally expected pullback with explicit expiry/cancel condition.
+8. Structure defines SL first.
+9. RR is dynamic: require roughly >=1.5R room and prefer ~1.8–2.1R only when real liquidity/structure supports it. Do not hard-code 2.1 universally.
+10. M1/latest is fetched only immediately before an executable entry.
 
-Result retained: `data/final_market_vs_limit_blind.json`.
-Historical-data coverage:
-- universe 61;
-- tested 55;
-- same 6 failures: POPCAT, TAO, TON, FARTCOIN, GRASS, IP;
-- historical taker-flow coverage 0% at this old timestamp.
+Retained Forex research evidence:
+- `scripts/blind_backtest_forex_f2.py`
+- `data/blind_backtest_forex_f2.json`
+- `docs/checkpoints/FOREX_STATE.md`
 
-Market context:
-- price breadth 0.964, strongly bullish cross-market state;
-- V24 regime classifier returned normal because old historical flow was unavailable.
-Important nuance: extreme breadth alone must NOT be treated as an automatic no-trade veto. April16 was extreme bullish breadth yet direction was strong; breadth must interact with structure/continuation/whipsaw quality.
+## Twelve Data efficiency
+Preferred research/live-scan architecture:
+- 28-pair universe: one M15 time-series per pair = 28 symbol credits;
+- derive H1/H4 and 6h/24h/72h strength locally;
+- fetch M5 only for up to 3 finalists;
+- fetch M1/latest only for up to 3 executable finalists;
+- target about 34 symbol credits for a full scan with three finalists, instead of multi-timeframe requests for every pair.
 
-### MARKET result
-- 55 trades;
-- 52 resolved;
-- 27 TP / 25 SL;
-- 3 unresolved;
-- WR resolved 51.92%;
-- expectancy +0.350R;
-- direction 6h accuracy 80.00%;
-- direction 24h accuracy 89.09%;
-- first 0.5R move favorable on 42 coins, adverse on 12, neither on 1.
-
-Critical barrier lesson:
-- around 20 of the 25 MARKET SL trades still finished in the predicted direction after 24h;
-- therefore many SLs were caused by adverse excursion / whipsaw before the later directional move, not simply wrong bias.
-This reinforces market-quality + barrier geometry + entry-path analysis.
-
-### LIMIT 0.35R result
-- 55 pending orders;
-- 42 filled = 76.36% fill rate;
-- 3 reached MARKET TP before LIMIT could fill;
-- 10 did not fill within 6h;
-- among 42 fills: 40 resolved, 19 TP / 21 SL, 2 unresolved;
-- WR among resolved fills 47.50%;
-- effective RR averaged 3.00R because the same structural SL and absolute TP were kept from a 0.35R better entry;
-- expectancy among resolved filled trades +0.900R.
-
-Interpretation:
-- LIMIT did NOT improve hit rate versus MARKET; filled-limit WR was lower (47.5% vs 51.92%).
-- LIMIT improved payoff geometry dramatically when filled: ~3R versus 1.6R base MARKET in this no-flow sample.
-- LIMIT missed 8 MARKET winners: ARB, MOODENG, OP, ORDI, TIA never pulled back 0.35R within 6h; KAITO, TRUMP, AIXBT hit MARKET TP before the LIMIT could fill.
-- LIMIT avoided 4 MARKET SL trades by never filling within 6h: FIL, JTO, WIF, XPL.
-- DOT was MARKET unresolved and LIMIT not filled.
-- Among filled orders there was no evidence that 0.35R pullback itself turns a MARKET loser into a winner when the same structural SL is retained; if price pulls through the limit and continues to the same SL, both executions lose.
-
-## Best practical crypto evaluation framework from now on
-For current/live requests:
-1. refresh exact symbol and verify Breakout support;
-2. evaluate BTC/market regime and breadth first;
-3. analyze D1/H4/H1 structure + 6h/24h/72h momentum;
-4. use M15/M5 for setup and anti-chase;
-5. use actual order flow only when fresh and genuinely available;
-6. calculate structural invalidation first;
-7. compare MARKET versus pullback execution when the setup allows it;
-8. require realistic liquidity room for TP/RR;
-9. allow `NO TRADE / CHAOS` when price path, volatility or two-sided whipsaw quality is poor;
-10. rank/select only the strongest few setups instead of forcing all coins.
-
-Execution lesson from Apr16:
-- MARKET is preferable when continuation is strong and waiting 0.35R would miss the move;
-- LIMIT is preferable only when a pullback is structurally expected and the improved RR compensates for missed fills;
-- do not blindly place the same 0.35R LIMIT on every signal;
-- the next meaningful improvement should distinguish **continuation MARKET setups** from **pullback LIMIT setups** before entry, rather than changing bias formulas again.
-
-## Rejected methods — do not return
-- generic indicator stacking;
-- tiny TP to manufacture high WR;
-- cosmetic RR increases without a better entry thesis;
-- V25 synchronized whole-market climax reversal;
-- V26 macro-always-owns-direction;
-- V27 assumption that simply waiting one full M15 fixes forced-MARKET performance;
-- treating extreme breadth alone as an automatic reversal or automatic no-trade rule.
-
-## Active crypto evidence to preserve
-- `scripts/blind_backtest_crypto.py`
-- `scripts/blind_backtest_crypto_v17.py`
-- `scripts/blind_backtest_crypto_v22.py`
-- `scripts/blind_backtest_crypto_v24.py`
-- `data/blind_backtest_v17.json`
-- `data/blind_backtest_v22.json`
-- `data/blind_backtest_v24.json`
-- `data/blind_backtest_v24_validation.json`
-- `data/blind_backtest_v26.json`
-- `data/blind_backtest_v27_final.json`
-- `data/final_market_vs_limit_blind.json`
-- `.github/workflows/blind-backtest-v24.yml`
-- `docs/checkpoints/CRYPTO_BREAKOUT_STATE.md`
-- `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`
-
-One-off MARKET-vs-LIMIT runner/workflow should be removed after this conclusion is checkpointed; Git history preserves exact code.
+## Crypto state — frozen, not deleted
+Keep the current selective crypto framework:
+- BTC/market regime and breadth first;
+- D1/H4/H1 + 6h/24h/72h momentum;
+- M15/M5 setup;
+- fresh order flow only when available;
+- structural SL;
+- MARKET vs LIMIT chosen by setup;
+- `NO TRADE / CHAOS` allowed;
+- no forced all-coin live engine.
 
 ## Other markets
-- Forex Top-3 remains PAUSED until explicitly re-enabled.
-- Metals use separate XAUUSD/XAGUSD workflow.
+- Metals remain separate XAUUSD/XAGUSD workflow.
 - Cash indices are never silently substituted with futures.
 - NQ/ES futures remain a separate MNQ/MES workflow.
 
 ## Infrastructure
 Repo: `hanlinh227-ship-it/trading-api`.
-Crypto live route: Binance -> OKX -> Bybit. Do not spend Twelve Data credits on crypto when direct exchange REST works.
+Crypto live route: Binance -> OKX -> Bybit.
+Forex/metals/cash indices: Twelve Data/Worker route subject to entitlement.
 
 ## New-chat instruction
 `Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan. Tiếp tục đúng trạng thái mới nhất, không quay lại phương pháp đã loại.`
