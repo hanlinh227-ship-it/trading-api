@@ -8,105 +8,118 @@ Read `MASTER_TRADING_STATE.md` first.
 
 1. **V73 = frozen no-CUT statistical prior.**
 2. **V74 = live-analysis / execution layer.**
-3. **Twelve Data Grow 55 direct strict client = primary supported non-crypto data path.**
+3. **Twelve Data Grow55 direct strict V3 = supported Forex / spot metals / supported spot commodity path.**
 4. **Crypto final data = exchange-native Binance / OKX / Bybit.**
-5. **Unsupported/ambiguous index or futures instruments = DATA_BLOCK, never proxy.**
+5. **Unsupported/ambiguous cash index or futures instrument = DATA_BLOCK, never proxy.**
 
-Do not rebuild/optimize V73 during live trading. Do not revive legacy research files from Git history unless explicitly requested.
+Do not rebuild or optimize V73 during live trading. Do not revive legacy research from Git history unless explicitly requested.
 
-## DATA INTEGRITY PATCH — 2026-08-17
+## MARKET-DATA PATCH — LOCKED 2026-08-17
 
-The previous Worker shorthand mapping was proven unsafe for cash indices:
-- `NAS100 -> NDX` returned an unrelated value near `19.4`;
-- `SPX` returned an unrelated value near `0.085`;
-- `N225` did not return a usable 5-timeframe dataset.
+The former Worker shorthand mapping was unsafe:
+- `NAS100 -> NDX` resolved to Nordex SE ADR in Frankfurt around 19.4;
+- `SPX` resolved to Stellar AfricaGold on TSXV around 0.085.
 
-Those values are rejected and must never be used as Nasdaq-100/S&P 500/Nikkei cash-index prices.
+Those were ticker collisions, not index prices. They are permanently rejected.
 
-Canonical direct Twelve Data client:
-- `scripts/twelvedata_market.py`
-- client version `V2-TWELVEDATA-DIRECT-STRICT`
-- uses the GitHub Actions secret `TWELVEDATA_API_KEY`;
-- uses explicit canonical symbol mappings;
-- calls Twelve Data directly instead of trusting the old Worker mapping;
-- uses `/quote` and `last_quote_at` for current aggregated price/time;
-- validates `/time_series` metadata (`symbol` + expected `type`) on every timeframe;
-- uses closed candles only for D1/H4/H1/M15/M5/M1 calculations;
-- never fabricates bid/ask/spread;
-- returns `DATA_BLOCK` for ambiguous/unsupported instruments.
+Canonical direct client:
+- `scripts/twelvedata_market.py`;
+- version `V3-TWELVEDATA-DIRECT-STRICT`;
+- GitHub secret `TWELVEDATA_API_KEY`;
+- no Cloudflare Worker in canonical runtime.
 
-Canonical single-symbol workflow:
-- `.github/workflows/fetch-market.yml`
+Strict rules:
+1. explicit canonical symbol mapping only;
+2. every `time_series` timeframe validates exact `meta.symbol` and expected `meta.type`;
+3. EMA/RSI/ATR and M5 confirmation use closed candles only;
+4. `/quote` proves identity and supplies `last_quote_at`;
+5. `/price` supplies latest aggregated value only after identity is proven;
+6. large `/price` vs validated quote drift blocks data;
+7. quote age >65 seconds => `DATA_BLOCK`;
+8. V74 Forex MARKET review remains stricter at <=30 seconds;
+9. Twelve Data broker bid/ask are not fabricated;
+10. cash index/futures aliases unsupported by current Grow55 are explicitly blocked.
 
-Crypto remains exchange-native through:
-- `scripts/fetch_crypto.py`
+## CANONICAL PATHS
 
-Canonical mapping/integrity registry:
-- `scripts/market_registry.py`
+### Single symbol
+Workflow: `.github/workflows/fetch-market.yml`
+Trigger: `request.json`
+Outputs: `data/status.json`, `data/latest.json`.
 
-Cross-market regression audit:
-- `.github/workflows/audit-market-data.yml`
-- `scripts/audit_market_data.py`
-- `data/market-data-audit.json`
+- Crypto -> `scripts/fetch_crypto.py`, exchange-native.
+- Supported non-crypto -> `scripts/twelvedata_market.py`, direct Twelve Data.
+- Unsupported/ambiguous index/futures -> `DATA_BLOCK` with no fake price.
 
-The redundant `fast-forex-v74-refresh.yml` workflow and `data/forex_fast_request.txt` trigger were removed to prevent conflicting data paths.
+### Forex universe
+Workflow: `.github/workflows/scan-forex.yml`
+Trigger: `scan-request.json`.
+
+Grow55 normal budget:
+- 28 H1 broad = 28 credits;
+- Top3 × D1/H4/M15/M5, H1 reused = 12;
+- Top3 × (`/quote` + `/price`) = 6;
+- total = **46/55**, reserve = **9**.
+
+### Crypto universe
+Workflow: `.github/workflows/live-crypto-v74-scan.yml`
+Trigger: `data/live_scan_request.txt`.
 
 ## CURRENT MARKET SUPPORT
 
 ### Forex
-Direct Twelve Data is supported when exact `Physical Currency` metadata matches.
-Current strict target for V74: verified quote timestamp age <=30s. Bid/ask may still be unavailable from Twelve Data, so executable broker spread is not invented.
+Supported through exact `AAA/BBB` mapping when provider type is `Physical Currency`. Current price uses validated `/price`; provider timestamp is `/quote.last_quote_at`.
 
 ### Crypto
-Exchange-native quote required. Target age <=10s plus real bid/ask and exact venue identity.
+Exchange-native quote required. Target age <=10s plus exact venue and real bid/ask.
 
-### Spot metals
-XAUUSD/XAGUSD are supported as Twelve Data `Precious Metal` instruments (`XAU/USD`, `XAG/USD`) when metadata/timestamp checks pass. Keep spot metals separate from GC/SI futures.
+### Spot metals / supported spot commodities
+Examples:
+- XAUUSD -> XAU/USD / `Precious Metal`;
+- XAGUSD -> XAG/USD / `Precious Metal`;
+- WTIUSD -> WTI/USD / `Energy Resource` only while freshness passes.
+
+Correct symbol with stale quote is still `DATA_BLOCK`. Spot is never substituted for futures.
 
 ### Cash indices
-Current Grow55/core endpoint diagnostics do **not** prove safe exact NAS100/US500/DAX/N225 cash-index data. Therefore these aliases are deliberately `DATA_BLOCK` in the strict Twelve client. Never use NQ/ES as a silent proxy.
+Current Grow55/core endpoints do not safely prove NAS100/NDX, US500/SPX, DAX/GDAXI or N225-family cash index data. These are deliberately `DATA_BLOCK`. Never proxy with NQ/ES, CFDs, ETFs or same-text securities.
 
 ### Futures
-Current Grow55 catalog/search did not expose exact provable CME/COMEX/NYMEX NQ/MNQ/ES/MES/GC/CL contracts. These are deliberately `DATA_BLOCK`. For MNQ/MES use an authoritative futures feed or the user's platform price until an exact futures feed is integrated.
+Current Grow55 catalog/search does not expose exact provable CME/COMEX/NYMEX NQ/MNQ/ES/MES/GC/SI/CL contracts. These are deliberately `DATA_BLOCK`. Use an authoritative futures feed or user platform price until such a feed is integrated.
 
 ## AUDIT EVIDENCE
 
-Initial audit run `32046515521` proved:
-- BTCUSDT / ETHUSDT / SOLUSDT exchange-native data valid;
-- EURUSD / GBPUSD / USDJPY Twelve Data mappings valid;
-- XAUUSD / XAGUSD symbol/price valid but old registry type label needed correction;
-- NAS100 / SPX mappings were wrong and caught by sanity rails;
-- N225 unusable;
-- NQ/MNQ/ES/MES correctly blocked instead of proxied.
+Permanent audit:
+- `.github/workflows/audit-market-data.yml`;
+- `scripts/audit_market_data.py`;
+- `data/market-data-audit.json`.
 
-Strict direct audit run `32046893468` then proved:
-- BTCUSDT, ETHUSDT, SOLUSDT PASS with sub-2s exchange timestamps and bid/ask;
-- EURUSD, GBPJPY PASS with direct Twelve Data `last_quote_at`, 5/5 frames;
-- XAUUSD PASS with `Precious Metal` metadata and direct timestamp;
-- NAS100/US500/DAX/N225 BLOCKED_AS_DESIGNED;
-- NQ/MNQ/ES/MES/GC/CL BLOCKED_AS_DESIGNED;
-- the only FAIL in that run was WTIUSD because its quote was ~38 minutes old, so it was correctly rejected as stale.
+Final strict V3 audit run **`32047340663` = SUCCESS**.
+Latest evidence:
+- 17 cases total;
+- 7 PASS;
+- 10 BLOCKED_AS_DESIGNED;
+- 0 FAIL.
 
-A final V3 audit removes WTI from the supported-live regression set and tests XAGUSD instead.
+PASS set includes exchange-native BTCUSDT/ETHUSDT/SOLUSDT and strict Twelve Data EURUSD/GBPJPY/XAUUSD/XAGUSD. BLOCKED set includes NAS100/US500/DAX/N225 and NQ/MNQ/ES/MES/GC/CL, proving no same-ticker or cash/futures proxy is returned.
 
 ## V73 FROZEN RESULT
 
 - Forex 28/28 PASS, minimum development WR 80.00%.
 - Crypto 61/61 PASS, minimum development WR 80.22%.
-- Forex H1; 59 Crypto H1; TON/IP dedicated 4H.
+- Forex H1; 59 Crypto H1; TON/IP 4H.
 - frozen maps: 1 trade/day, RR1:1.
-- classification: exposed development all-pass, not untouched OOS.
+- exposed development all-pass, not untouched OOS.
 
-Runtime source of truth:
+Runtime source:
 - `data/nocut_intraday_allpass_v73.json`
 - `scripts/nocut_intraday_method_v73.py`
 - `scripts/validate_nocut_v73.py`
 
 ## V74 LIVE RULES
 
-For every live setup:
 1. exact instrument/venue/contract;
-2. current timestamped price data and market state;
+2. current timestamped price and market state;
 3. current symbol-specific news/context;
 4. D1/H4 bias/liquidity;
 5. H1 structure;
@@ -130,14 +143,13 @@ For every live setup:
 
 - `fetch_crypto.py`
 - `twelvedata_market.py`
-- `market_registry.py`
 - `audit_market_data.py`
 - `nocut_intraday_method_v73.py`
 - `validate_nocut_v73.py`
 - `live_symbol_analysis_v74.py`
 
-Legacy research remains in Git history only.
+Legacy research and temporary diagnostics belong in Git history only.
 
 ## NEW CHAT INSTRUCTION
 
-`Continue Trading from MASTER_TRADING_STATE.md and CURRENT_HANDOFF.md. Use direct strict Twelve Data for supported Forex/metals, exchange-native crypto, and DATA_BLOCK unsupported/ambiguous cash indices or exact futures. Never trust shorthand ticker identity, never proxy cash/futures, never fabricate bid/ask, and never revive legacy research.`
+`Continue Trading from MASTER_TRADING_STATE.md and CURRENT_HANDOFF.md. Use V73 frozen + V74 live. Use direct strict Twelve Data V3 for supported Forex/spot metals, exchange-native crypto, and DATA_BLOCK unsupported/ambiguous cash indices or exact futures. Never trust shorthand ticker identity, never proxy cash/futures, never label stale data live, and never fabricate bid/ask.`
