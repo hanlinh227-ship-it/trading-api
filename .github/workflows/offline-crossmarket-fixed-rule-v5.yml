@@ -16,4 +16,6 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run zero-credit fixed-rule optimizer
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: python scripts/offline_crossmarket_fixed_rule_v5.py
