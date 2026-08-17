@@ -1,0 +1,22 @@
+name: Probe OKX Tradeflow
+on:
+  push:
+    paths:
+      - 'scripts/probe_okx_tradeflow.py'
+      - '.github/workflows/probe-okx-tradeflow.yml'
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/probe_okx_tradeflow.py
+      - run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/okx_tradeflow_probe.json
+          git commit -m "Probe OKX historical tradeflow" || exit 0
+          git pull --rebase origin main || true
+          git push || true
