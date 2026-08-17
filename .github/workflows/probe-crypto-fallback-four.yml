@@ -1,0 +1,30 @@
+name: Probe Crypto Fallback Four
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-crypto-fallback-four.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Gate MEXC KuCoin
+        run: |
+          set +e
+          for s in POPCAT TON FARTCOIN IP; do
+            echo "=== $s ==="
+            for u in \
+              "https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${s}_USDT" \
+              "https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=${s}_USDT&interval=4h&limit=2" \
+              "https://api.mexc.com/api/v3/ticker/price?symbol=${s}USDT" \
+              "https://api.mexc.com/api/v3/klines?symbol=${s}USDT&interval=4h&limit=2" \
+              "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${s}-USDT" \
+              "https://api.kucoin.com/api/v1/market/candles?type=4hour&symbol=${s}-USDT&limit=2"
+            do
+              echo "$u"
+              curl -L -sS --max-time 7 -o /tmp/x -w 'HTTP=%{http_code} SIZE=%{size_download}\n' "$u"
+              head -c 180 /tmp/x; echo
+            done
+          done
