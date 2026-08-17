@@ -1,0 +1,22 @@
+name: Free Data Precision Evolver V1
+on:
+  push:
+    paths:
+      - 'scripts/free_data_precision_evolver_v1.py'
+      - '.github/workflows/free-data-precision-evolver-v1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  evolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run all-symbol free-data precision evolver
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/free_data_precision_evolver_v1.py
