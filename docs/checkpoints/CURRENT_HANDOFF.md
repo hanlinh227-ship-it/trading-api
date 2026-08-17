@@ -2,7 +2,7 @@
 
 Updated: 2026-08-17 UTC+7
 
-Read `MASTER_TRADING_STATE.md` first, then `NO_CUT_INTRADAY_ALLPASS_V73.md`, then `LIVE_SYMBOL_ANALYSIS_V74.md`.
+Read `MASTER_TRADING_STATE.md` first, then `NO_CUT_INTRADAY_ALLPASS_V73.md`, then `LIVE_SYMBOL_ANALYSIS_V74.md`, then `TWELVEDATA_GROW55_DATA_POLICY.md`.
 
 # CURRENT STRUCTURE
 Two layers are now canonical and must not be conflated:
@@ -81,6 +81,28 @@ Before any signal:
 
 If exact symbol, fresh price, market-open state or executable spread cannot be verified, return `DATA_BLOCK`. This is a technical integrity failure, not discretionary NO TRADE; never fabricate a live price/order to satisfy the daily-trade rule.
 
+# TWELVE DATA GROW 55 — ACTIVE DATA POLICY
+The user upgraded the connected Twelve Data account to **Grow 55** on 2026-08-17.
+
+Canonical policy:
+- `docs/checkpoints/TWELVEDATA_GROW55_DATA_POLICY.md`
+
+Operational rules:
+- 55 API credits/minute, reset each minute, paid plan has no daily API limit;
+- Grow has only 8 trial WebSocket credits, so REST remains the main integration path;
+- maximize information per credit, not raw request count;
+- compute indicators locally from OHLC whenever possible;
+- Forex scanner now uses staged Grow 55 allocation instead of Basic-plan fixed waits;
+- normal Forex budget: ~28 broad scan + ~15 Top-3 D1/H4/H1/M15/M5 + ~3 Top-3 refresh = ~46 credits, with ~9-credit reserve;
+- `.github/workflows/scan-forex.yml` is upgraded accordingly;
+- routine `sleep 65` after every 7 Forex pairs is deprecated;
+- Crypto live execution remains exchange-native first (Binance/OKX/Bybit), with Twelve Data as enrichment/cross-check where useful;
+- futures/commodities may use Twelve Data only after exact contract/instrument verification;
+- cash indices must use actual cash-index instruments and must never silently proxy NQ/ES futures;
+- metals remain a separate structure-first module and spot/futures identity must not be conflated.
+
+More available quota does NOT relax freshness, symbol identity, venue identity, V74 M15/M5 confirmation or `DATA_BLOCK` rules.
+
 # NEWS / CONTEXT — USE V74, NOT V73 NEWS PROFILE
 The original V73 builder had profile-name mismatch that caused **28/61 Crypto symbols to fall back to generic `OTHER` drivers**. V73 results remain frozen, but its newsProfile is deprecated for live analysis.
 
@@ -106,4 +128,4 @@ May–Jul 2026 was used to develop/refine V73. V74's M15/M5 confirmation, transa
 V18/V40 are old CUT-based forced-daily research and are not active. V15/V36b are separate selective scanner research with untouched August evidence; only use them if the user explicitly switches back to a selective/NO-TRADE-capable mode.
 
 ## New-chat instruction
-`Current Trading structure = V73 frozen no-CUT forced-daily prior + V74 live-analysis layer. Read MASTER_TRADING_STATE.md, NO_CUT_INTRADAY_ALLPASS_V73.md and LIVE_SYMBOL_ANALYSIS_V74.md. V73: Forex28/28 PASS min80.00%, Crypto61/61 PASS min80.22%, exposed development only. For LIVE always use scripts/live_symbol_analysis_v74.py: exact fresh price, symbol-specific news/context, D1-H4-H1 bias, M15 location, M5 confirmed trigger, structural SL, RR1 default / RR2 only with clean room, 1–3 independent trades/day. V73 signal hour/DUAL_FADE must never be executed blindly.`
+`Current Trading structure = V73 frozen no-CUT forced-daily prior + V74 live-analysis layer + Twelve Data Grow55 data policy. Read MASTER_TRADING_STATE.md, NO_CUT_INTRADAY_ALLPASS_V73.md, LIVE_SYMBOL_ANALYSIS_V74.md and TWELVEDATA_GROW55_DATA_POLICY.md. V73: Forex28/28 PASS min80.00%, Crypto61/61 PASS min80.22%, exposed development only. For LIVE always use V74: exact fresh price, symbol-specific news/context, D1-H4-H1 bias, M15 location, M5 confirmed trigger, structural SL, RR1 default / RR2 only with clean room, 1–3 independent trades/day. Grow55: use staged market-data allocation, no routine Basic-plan sleep, exchange-native crypto execution quotes, verified exact futures/cash instruments, never stale/proxy data.`
