@@ -1,0 +1,23 @@
+name: Offline Crypto Daily Each Symbol V46 Rule Families
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_daily_each_symbol_v46_rulefamilies.py'
+      - '.github/workflows/offline-crypto-daily-each-symbol-v46-rulefamilies.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run independent deterministic per-coin rule families
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_daily_each_symbol_v46_rulefamilies.py
