@@ -1,20 +1,12 @@
-name: Scan Forex Market — Grow 55
+name: Scan Forex Market — V75 Fast Grow55
 
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "scan-request.json"
+    paths: ["scan-request.json"]
 
 permissions:
   contents: write
-
-# Direct Grow55 budget:
-# 28 H1 broad closed-candle calls                         = 28
-# Top3 x D1/H4/M15/M5, reusing broad H1                 = 12
-# Top3 x (/quote identity+timestamp + /price latest)     =  6
-# Total                                                   = 46 / 55
-# Reserve                                                 =  9
 
 concurrency:
   group: twelvedata-api
@@ -25,160 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      - name: Run strict 28-pair Grow55 scan
-        shell: bash
-        run: |
-          mkdir -p data
-          python3 <<'PY'
-          import concurrent.futures
-          import json
-          import sys
-          from datetime import datetime, timezone
-
-          sys.path.insert(0, "scripts")
-          import twelvedata_market as td
-
-          PAIRS = [
-              "EURUSD","GBPUSD","USDJPY","USDCHF","USDCAD","AUDUSD","NZDUSD",
-              "EURJPY","EURGBP","EURCHF","EURAUD","EURNZD","EURCAD","GBPJPY",
-              "GBPCHF","GBPAUD","GBPNZD","GBPCAD","AUDJPY","AUDNZD","AUDCAD",
-              "AUDCHF","NZDJPY","NZDCAD","NZDCHF","CADJPY","CADCHF","CHFJPY",
-          ]
-
-          def parallel(items, fn, workers):
-              out = {}
-              with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-                  jobs = {pool.submit(fn, item): item for item in items}
-                  for future in concurrent.futures.as_completed(jobs):
-                      item = jobs[future]
-                      try:
-                          out[item] = future.result()
-                      except Exception as exc:
-                          out[item] = {"status":"error","error":str(exc)}
-              return out
-
-          def broad_one(symbol):
-              resolved = td.resolve_symbol(symbol)
-              if resolved.get("status") != "ok":
-                  return {"status":"DATA_BLOCK","resolution":resolved}
-              frame = td.fetch_frame(resolved, "H1")
-              return {"status":frame.get("status"),"resolution":resolved,"frame":frame}
-
-          broad = parallel(PAIRS, broad_one, 8)
-          failures = {s:r for s,r in broad.items() if r.get("status") != "ok"}
-          if failures:
-              print(json.dumps(failures, ensure_ascii=False, indent=2))
-              raise SystemExit(f"Broad scan failed for {len(failures)} pair(s)")
-
-          ranking = []
-          for symbol in PAIRS:
-              frame = broad[symbol]["frame"]
-              s = frame.get("summary") or {}
-              close,e20,e50,e200,rsi,atr = (s.get(k) for k in ("close","ema20","ema50","ema200","rsi14","atr14"))
-              hi,lo = s.get("recent50High"),s.get("recent50Low")
-              if any(v is None for v in (close,e20,e50,rsi,atr)):
-                  raise SystemExit(f"Incomplete H1 summary: {symbol}")
-              direction,score = "NEUTRAL",0.0
-              if close > e20 > e50: direction,score = "BUY",3.0
-              elif close < e20 < e50: direction,score = "SELL",3.0
-              if e200 is not None:
-                  if direction == "BUY" and close > e200: score += 2
-                  if direction == "SELL" and close < e200: score += 2
-              if direction == "BUY": score += 2 if 52 <= rsi <= 68 else 1 if 68 < rsi <= 72 else 0
-              if direction == "SELL": score += 2 if 32 <= rsi <= 48 else 1 if 28 <= rsi < 32 else 0
-              if rsi >= 75 or rsi <= 25: score -= 3
-              if direction == "BUY" and hi not in (None,0) and abs(hi-close)/abs(hi) < .001: score -= 1
-              if direction == "SELL" and lo not in (None,0) and abs(close-lo)/abs(lo) < .001: score -= 1
-              target = 60 if direction == "BUY" else 40 if direction == "SELL" else 50
-              ranking.append({
-                  "symbol":symbol,"marketSymbol":broad[symbol]["resolution"]["marketSymbol"],
-                  "direction":direction,"broadScore":round(score,3),"momentumQuality":round(-abs(rsi-target),3),
-                  "close":close,"ema20":e20,"ema50":e50,"ema200":e200,"rsi14":rsi,"atr14":atr,
-                  "recent50High":hi,"recent50Low":lo,"provider":"Twelve Data",
-                  "h1ClosedCandleTime":(frame.get("latestCandle") or {}).get("datetime"),"broadFetchedAt":frame.get("fetchedAt"),
-              })
-
-          ranking.sort(key=lambda r:(r["broadScore"],r["momentumQuality"],r["atr14"]), reverse=True)
-          finalists = [r["symbol"] for r in ranking[:3]]
-
-          def deep_one(symbol):
-              resolved = broad[symbol]["resolution"]
-              frames = {"H1":broad[symbol]["frame"]}
-              for key in ("D1","H4","M15","M5"):
-                  frames[key] = td.fetch_frame(resolved,key)
-              quote = td.fetch_quote(resolved)  # /quote + /price internally
-              return {"resolution":resolved,"frames":frames,"quote":quote}
-
-          deep = parallel(finalists, deep_one, 3)
-          bad = {}
-          for symbol,row in deep.items():
-              bad_frames = [k for k,v in row.get("frames",{}).items() if v.get("status") != "ok"]
-              if bad_frames or row.get("quote",{}).get("status") != "ok":
-                  bad[symbol] = {"badFrames":bad_frames,"quoteStatus":row.get("quote",{}).get("status"),"quoteError":row.get("quote",{}).get("error")}
-          if bad:
-              print(json.dumps(bad,ensure_ascii=False,indent=2))
-              raise SystemExit("Finalist data failed strict identity/freshness validation")
-
-          def frame_dir(frame):
-              s=frame.get("summary") or {}; c,e20,e50=s.get("close"),s.get("ema20"),s.get("ema50")
-              if None in (c,e20,e50): return "NEUTRAL"
-              if c > e20 > e50: return "BUY"
-              if c < e20 < e50: return "SELL"
-              return "NEUTRAL"
-
-          broad_map={r["symbol"]:r for r in ranking}; candidates=[]
-          for symbol in finalists:
-              prior=broad_map[symbol]; row=deep[symbol]; frames=row["frames"]; quote=row["quote"]; direction=prior["direction"]
-              states={k:frame_dir(frames[k]) for k in ("D1","H4","H1","M15","M5")}
-              score=float(prior["broadScore"]); weights={"D1":1,"H4":2,"H1":2,"M15":2,"M5":2}
-              for tf,w in weights.items():
-                  if direction != "NEUTRAL":
-                      if states[tf] == direction: score += w
-                      elif states[tf] != "NEUTRAL": score -= w
-              m15r=(frames["M15"].get("summary") or {}).get("rsi14"); m5r=(frames["M5"].get("summary") or {}).get("rsi14")
-              if direction == "BUY":
-                  score += .5 if m15r is not None and 48 <= m15r <= 68 else 0
-                  score += .5 if m5r is not None and 50 <= m5r <= 70 else 0
-              elif direction == "SELL":
-                  score += .5 if m15r is not None and 32 <= m15r <= 52 else 0
-                  score += .5 if m5r is not None and 30 <= m5r <= 50 else 0
-              candidates.append({
-                  "symbol":symbol,"marketSymbol":row["resolution"]["marketSymbol"],"marketType":"forex",
-                  "directionPrior":direction,"broadScore":prior["broadScore"],"deepScore":round(score,3),"frameDirection":states,
-                  "currentPrice":quote.get("currentPrice"),"referenceQuoteClose":quote.get("referenceQuoteClose"),"priceType":quote.get("priceType"),
-                  "priceFetchedAt":quote.get("priceFetchedAt"),"currentPriceTime":quote.get("quoteTimestampISO"),"quoteAgeMs":quote.get("quoteAgeMs"),
-                  "quoteTimestampVerified":quote.get("quoteTimestampVerified"),"strictV74PriceFresh":quote.get("strictV74PriceFresh"),
-                  "bid":None,"ask":None,"spreadVerified":False,"marketEntryNeedsVenueConfirmation":True,
-                  "provider":"Twelve Data","closedCandlesOnly":True,"frames":frames,
-              })
-
-          candidates.sort(key=lambda r:r["deepScore"], reverse=True)
-          result={
-              "updatedAt":datetime.now(timezone.utc).isoformat(),"dataPolicy":"TWELVE_DATA_GROW55_DIRECT_STRICT_V74",
-              "clientVersion":td.VERSION,"creditBudget":{"apiCreditsPerMinute":55,"broadH1":28,"deepTop3AdditionalFrames":12,"quotePlusPriceTop3":6,"normalEstimatedTotal":46,"reserveEstimated":9},
-              "scanComplete":True,"pairsScanned":28,"broadTop10":ranking[:10],"deepCandidates":candidates,
-              "bestCandidateForV74Review":candidates[0]["symbol"] if candidates else None,
-              "priceIntegrity":{"source":"Twelve Data direct API","identityEndpoint":"/quote + time_series meta","latestPriceEndpoint":"/price","quoteTimeField":"last_quote_at","brokerBidAskProvided":False,"closedCandlesOnly":True,"hardStaleThresholdMs":td.HARD_STALE_MS},
-              "executionRule":"Ranking only. Before MARKET, V74 still requires current news/context, M15 location, M5 close-confirmed trigger and broker/venue spread confirmation.",
-          }
-          with open("data/forex-scan.json","w",encoding="utf-8") as f: json.dump(result,f,ensure_ascii=False,separators=(",",":"))
-          print(json.dumps({"pairsScanned":28,"finalists":finalists,"candidates":[{"symbol":r["symbol"],"direction":r["directionPrior"],"score":r["deepScore"],"price":r["currentPrice"],"time":r["currentPriceTime"],"ageMs":r["quoteAgeMs"],"fresh":r["strictV74PriceFresh"]} for r in candidates]},ensure_ascii=False,indent=2))
-          PY
-
-      - name: Commit Forex scan
-        shell: bash
+          fetch-depth: 1
+      - name: Run V75 fast 28-pair scan
+        run: python3 scripts/scan_forex_v75.py data
+      - name: Commit scan snapshots
         run: |
           git config user.name "market-data-bot"
           git config user.email "market-data-bot@users.noreply.github.com"
-          git add data/forex-scan.json
+          git add data/forex-scan.json data/forex-fast.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Update strict Grow55 Forex scan"
+          git commit -m "Update V75 fast Grow55 Forex scan"
           git pull --rebase origin main
           git push origin HEAD:main
