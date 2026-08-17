@@ -1,0 +1,260 @@
+{
+  "version": "V58_COMPACT",
+  "runId": 32027592460,
+  "passCount": 1,
+  "failCount": 7,
+  "passed": [
+    "INJ"
+  ],
+  "failed": [
+    "DOT",
+    "FLOKI",
+    "LDO",
+    "ONDO",
+    "POL",
+    "TAO",
+    "WLD"
+  ],
+  "results": {
+    "POL": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "POL",
+      "lockedLookback": 20,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 10,
+        "sl": 1,
+        "cut": 17,
+        "resolved": 11,
+        "wr": 90.91,
+        "cutRate": 60.71,
+        "meanR": 0.233
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 9,
+        "sl": 4,
+        "cut": 46,
+        "resolved": 13,
+        "wr": 69.23,
+        "cutRate": 77.97,
+        "meanR": -0.088
+      },
+      "status": "FAIL"
+    },
+    "ONDO": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "ONDO",
+      "lockedLookback": 20,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 7,
+        "sl": 5,
+        "cut": 16,
+        "resolved": 12,
+        "wr": 58.33,
+        "cutRate": 57.14,
+        "meanR": -0.001
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 11,
+        "sl": 4,
+        "cut": 44,
+        "resolved": 15,
+        "wr": 73.33,
+        "cutRate": 74.58,
+        "meanR": -0.041
+      },
+      "status": "FAIL"
+    },
+    "TAO": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "TAO",
+      "lockedLookback": 5,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 7,
+        "sl": 0,
+        "cut": 21,
+        "resolved": 7,
+        "wr": 100.0,
+        "cutRate": 75.0,
+        "meanR": 0.101
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 9,
+        "sl": 4,
+        "cut": 46,
+        "resolved": 13,
+        "wr": 69.23,
+        "cutRate": 77.97,
+        "meanR": -0.054
+      },
+      "status": "FAIL"
+    },
+    "INJ": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "INJ",
+      "lockedLookback": 7,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 8,
+        "sl": 2,
+        "cut": 18,
+        "resolved": 10,
+        "wr": 80.0,
+        "cutRate": 64.29,
+        "meanR": 0.104
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 12,
+        "sl": 3,
+        "cut": 44,
+        "resolved": 15,
+        "wr": 80.0,
+        "cutRate": 74.58,
+        "meanR": 0.008
+      },
+      "status": "PASS"
+    },
+    "FLOKI": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "FLOKI",
+      "lockedLookback": 15,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 7,
+        "sl": 1,
+        "cut": 20,
+        "resolved": 8,
+        "wr": 87.5,
+        "cutRate": 71.43,
+        "meanR": 0.102
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 14,
+        "sl": 5,
+        "cut": 40,
+        "resolved": 19,
+        "wr": 73.68,
+        "cutRate": 67.8,
+        "meanR": 0.043
+      },
+      "status": "FAIL"
+    },
+    "LDO": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "LDO",
+      "lockedLookback": 20,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 6,
+        "sl": 0,
+        "cut": 22,
+        "resolved": 6,
+        "wr": 100.0,
+        "cutRate": 78.57,
+        "meanR": 0.038
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 13,
+        "sl": 5,
+        "cut": 41,
+        "resolved": 18,
+        "wr": 72.22,
+        "cutRate": 69.49,
+        "meanR": 0.039
+      },
+      "status": "FAIL"
+    },
+    "DOT": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "DOT",
+      "lockedLookback": 7,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 7,
+        "sl": 3,
+        "cut": 18,
+        "resolved": 10,
+        "wr": 70.0,
+        "cutRate": 64.29,
+        "meanR": 0.014
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 12,
+        "sl": 5,
+        "cut": 42,
+        "resolved": 17,
+        "wr": 70.59,
+        "cutRate": 71.19,
+        "meanR": -0.027
+      },
+      "status": "FAIL"
+    },
+    "WLD": {
+      "version": "CRYPTO_V58_ONLINE_PROTECT_2MONTH",
+      "symbol": "WLD",
+      "lockedLookback": 15,
+      "developmentJan": {
+        "expectedDays": 31,
+        "tradedDays": 28,
+        "missing": 3,
+        "tp": 5,
+        "sl": 2,
+        "cut": 21,
+        "resolved": 7,
+        "wr": 71.43,
+        "cutRate": 75.0,
+        "meanR": -0.064
+      },
+      "finalFebMar": {
+        "expectedDays": 59,
+        "tradedDays": 59,
+        "missing": 0,
+        "tp": 14,
+        "sl": 4,
+        "cut": 41,
+        "resolved": 18,
+        "wr": 77.78,
+        "cutRate": 69.49,
+        "meanR": 0.049
+      },
+      "status": "FAIL"
+    }
+  }
+}
