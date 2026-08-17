@@ -1,0 +1,5084 @@
+{
+  "generatedAt": "2026-08-17T01:01:32.401714+00:00",
+  "policy": {
+    "stopFactor": 1.2,
+    "lookback": 40,
+    "rr": 1.5,
+    "hours": 96
+  },
+  "samples": {
+    "2026-08-07T12:00:00Z": {
+      "state": {
+        "breadth4h": 0.5892857142857143,
+        "breadth12h": 0.5714285714285714,
+        "dispersion4h": 0.008723317500646073,
+        "median4h": 0.003056442564022155,
+        "median12h": 0.002563587571349113
+      },
+      "trades": [
+        {
+          "symbol": "BTC",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.021560337075398,
+          "current": {
+            "result": "SL",
+            "bars": 912
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 2
+          },
+          "h1ret4": 0.01095798402945336,
+          "h1ret12": 0.010841684052122158,
+          "m15ret4": 0.0020418950635452404,
+          "m15ret12": 0.006524596101960212,
+          "rangePos": 0.8596042434730231,
+          "chase": -1.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ETH",
+          "profile": "major",
+          "regime": "range",
+          "v6Side": "BUY",
+          "v6Score": 2.133281414809159,
+          "current": {
+            "result": "SL",
+            "bars": 883
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 1
+          },
+          "h1ret4": 0.007306406509534957,
+          "h1ret12": 0.00641237730617128,
+          "m15ret4": 0.001814028135733281,
+          "m15ret12": 0.002936050619396724,
+          "rangePos": 0.8382393397524068,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "SOL",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.5869994687704827,
+          "current": {
+            "result": "SL",
+            "bars": 1
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 278
+          },
+          "h1ret4": 0.009459829997257918,
+          "h1ret12": 0.012792297111416717,
+          "m15ret4": 0.0014961915125135672,
+          "m15ret12": 0.005874316939890711,
+          "rangePos": 0.5161290322580642,
+          "chase": -1.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "HYPE",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.278519125415059,
+          "current": {
+            "result": "SL",
+            "bars": 56
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 21
+          },
+          "h1ret4": 0.023925939241416394,
+          "h1ret12": 0.013162341473826444,
+          "m15ret4": 0.0020935223954119397,
+          "m15ret12": 0.011255703303921782,
+          "rangePos": 0.6855326876513315,
+          "chase": -2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "SHIB",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -4.7093701918805575,
+          "current": {
+            "result": "SL",
+            "bars": 229
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 971
+          },
+          "h1ret4": 0.007161458333333481,
+          "h1ret12": -0.00960307298335461,
+          "m15ret4": 0.002375809935205364,
+          "m15ret12": 0.0058517555266579535,
+          "rangePos": 0.20734908136483038,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "TRX",
+          "profile": "major",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -1.5937167699479433,
+          "current": {
+            "result": "TP",
+            "bars": 58
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 719
+          },
+          "h1ret4": 0.0033942878111430375,
+          "h1ret12": 0.0029955677823627624,
+          "m15ret4": 0.003302247362788391,
+          "m15ret12": 0.002811650010696498,
+          "rangePos": 0.750778816199369,
+          "chase": -1.45,
+          "m15Sweep": -1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "XRP",
+          "profile": "major",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -8.68188170476774,
+          "current": {
+            "result": "SL",
+            "bars": 2
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 60
+          },
+          "h1ret4": 0.005055415127357632,
+          "h1ret12": -0.0012559173026759352,
+          "m15ret4": -0.000773245698820757,
+          "m15ret12": 0.002521334367727057,
+          "rangePos": 0.32185886402754127,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "AAVE",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -5.374338232246077,
+          "current": {
+            "result": "SL",
+            "bars": 316
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 6
+          },
+          "h1ret4": -0.006310195948189934,
+          "h1ret12": -0.0001113957892390216,
+          "m15ret4": -0.0013351134846461,
+          "m15ret12": -0.013301088270858408,
+          "rangePos": 0.4917355371900843,
+          "chase": 0.45,
+          "m15Sweep": 1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ADA",
+          "profile": "major",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 5.531522414080673,
+          "current": {
+            "result": "SL",
+            "bars": 24
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 31
+          },
+          "h1ret4": -0.0014873574615765772,
+          "h1ret12": 0.0009940357852882276,
+          "m15ret4": -0.005432098765432158,
+          "m15ret12": 0.00248880039820798,
+          "rangePos": 0.6031128404669255,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ALGO",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.1775834130465415,
+          "current": {
+            "result": "SL",
+            "bars": 178
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 557
+          },
+          "h1ret4": -0.005136795086543855,
+          "h1ret12": 0.019686391209797316,
+          "m15ret4": 0.0005615453728662345,
+          "m15ret12": -0.013071895424836555,
+          "rangePos": 0.5393518518518527,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "APT",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.655880377348434,
+          "current": {
+            "result": "SL",
+            "bars": 62
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": 0.007310438626317639,
+          "h1ret12": 0.002198917456021743,
+          "m15ret4": 0.006454900628503513,
+          "m15ret12": 0.006454900628503513,
+          "rangePos": 0.4698795180722903,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ARB",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.9832993199783555,
+          "current": {
+            "result": "SL",
+            "bars": 2
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 34
+          },
+          "h1ret4": 0.005007061240210664,
+          "h1ret12": -0.0008934269304403664,
+          "m15ret4": 0.007334963325183352,
+          "m15ret12": 0.006557798637006451,
+          "rangePos": 0.2915811088295698,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ATOM",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.038190507056477,
+          "current": {
+            "result": "SL",
+            "bars": 46
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 26
+          },
+          "h1ret4": -0.005177514792899518,
+          "h1ret12": -0.006646971935007517,
+          "m15ret4": -0.002965159377316562,
+          "m15ret12": -0.011756061719324085,
+          "rangePos": 0.24285714285714205,
+          "chase": 1.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "AVAX",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.6582836832046652,
+          "current": {
+            "result": "SL",
+            "bars": 2
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 63
+          },
+          "h1ret4": 0.007796663028223794,
+          "h1ret12": 0.003727286845783606,
+          "m15ret4": 0.002170879206078391,
+          "m15ret12": 0.00795383655645665,
+          "rangePos": 0.30517711171662154,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "BCH",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.579731447876976,
+          "current": {
+            "result": "SL",
+            "bars": 964
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 1
+          },
+          "h1ret4": 0.0069735006973501434,
+          "h1ret12": 0.017857142857142794,
+          "m15ret4": 0.004172461752433909,
+          "m15ret12": 0.006038086391082054,
+          "rangePos": 0.8805970149253718,
+          "chase": -2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "BONK",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -7.525417334038566,
+          "current": {
+            "result": "UNR",
+            "bars": 1148
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 12
+          },
+          "h1ret4": -0.017234625930278025,
+          "h1ret12": -0.10039440659734666,
+          "m15ret4": 0.009657947686116719,
+          "m15ret12": -0.012593467138921621,
+          "rangePos": 0.09359605911330023,
+          "chase": 1.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "CRV",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 5.640234260483196,
+          "current": {
+            "result": "SL",
+            "bars": 12
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 82
+          },
+          "h1ret4": -0.002777777777777768,
+          "h1ret12": 0.003260363297624691,
+          "m15ret4": 0.0018604651162790198,
+          "m15ret12": -0.001853568118628246,
+          "rangePos": 0.6719576719576729,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "DOGE",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.8294128425441731,
+          "current": {
+            "result": "SL",
+            "bars": 1
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 316
+          },
+          "h1ret4": 0.004184100418409997,
+          "h1ret12": 0.007381676074685206,
+          "m15ret4": 0.0018713113574202467,
+          "m15ret12": 0.0028818443804032867,
+          "rangePos": 0.5887445887445871,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "DOT",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.5401914557310787,
+          "current": {
+            "result": "TP",
+            "bars": 62
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 26
+          },
+          "h1ret4": -0.0002450379808871528,
+          "h1ret12": -0.006574141709276948,
+          "m15ret4": 0.0065375601332182676,
+          "m15ret12": 0.002580169553999312,
+          "rangePos": 0.14038876889848703,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ETC",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -5.118836142388015,
+          "current": {
+            "result": "TP",
+            "bars": 66
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 64
+          },
+          "h1ret4": -0.0030623181748582473,
+          "h1ret12": 0.0013841894801600585,
+          "m15ret4": 0.002000615574022868,
+          "m15ret12": -0.002145593869731788,
+          "rangePos": 0.6925795053003537,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "FIL",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.904029846644234,
+          "current": {
+            "result": "TP",
+            "bars": 62
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 60
+          },
+          "h1ret4": -0.0012927319735708265,
+          "h1ret12": -0.012638454984379432,
+          "m15ret4": 0.005786199913206946,
+          "m15ret12": 0.005059265683723613,
+          "rangePos": 0.277870216306157,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "FLOKI",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.2923582349633786,
+          "current": {
+            "result": "TP",
+            "bars": 316
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 320
+          },
+          "h1ret4": 0.00767386091127098,
+          "h1ret12": -0.008026440037771532,
+          "m15ret4": 0.0004761904761905189,
+          "m15ret12": 0.00382226469182978,
+          "rangePos": 0.5614035087719308,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "HBAR",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.6501382438470604,
+          "current": {
+            "result": "TP",
+            "bars": 34
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 44
+          },
+          "h1ret4": -0.0005833454863645171,
+          "h1ret12": 0.0039554644008201745,
+          "m15ret4": 0.0007301401869157509,
+          "m15ret12": -0.003344968004654003,
+          "rangePos": 0.2898550724637627,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "INJ",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -9.286611421586649,
+          "current": {
+            "result": "SL",
+            "bars": 6
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 276
+          },
+          "h1ret4": 0.007334963325183352,
+          "h1ret12": -0.0111280820423304,
+          "m15ret4": 0.00666370501999114,
+          "m15ret12": 0.00022070183182520964,
+          "rangePos": 0.19786096256684452,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "JTO",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.0904300487838543,
+          "current": {
+            "result": "TP",
+            "bars": 252
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 621
+          },
+          "h1ret4": 0.002016535591853108,
+          "h1ret12": 0.02580511973575561,
+          "m15ret4": -0.0028095524784266246,
+          "m15ret12": -0.005603362017210234,
+          "rangePos": 0.49818840579710216,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "JUP",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.6307873688172245,
+          "current": {
+            "result": "TP",
+            "bars": 133
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 145
+          },
+          "h1ret4": -0.007510729613734002,
+          "h1ret12": 0.023230088495575174,
+          "m15ret4": -0.0026954177897574594,
+          "m15ret12": -0.005910800644814529,
+          "rangePos": 0.495495495495496,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "KAITO",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.76685326972479,
+          "current": {
+            "result": "SL",
+            "bars": 36
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 27
+          },
+          "h1ret4": -0.00896559453098733,
+          "h1ret12": -0.02060028796101454,
+          "m15ret4": 0.005571980896065476,
+          "m15ret12": -0.0021439855563077925,
+          "rangePos": 0.11910994764397898,
+          "chase": 0.0,
+          "m15Sweep": 1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "LDO",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -7.29681280174888,
+          "current": {
+            "result": "SL",
+            "bars": 292
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 128
+          },
+          "h1ret4": 0.006273963053328835,
+          "h1ret12": -0.012316113581936294,
+          "m15ret4": 0.00662482566248257,
+          "m15ret12": 0.005572971090212375,
+          "rangePos": 0.21226415094339646,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "LINK",
+          "profile": "defi",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -0.56,
+          "current": {
+            "result": "SL",
+            "bars": 1
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 325
+          },
+          "h1ret4": 0.003663003663003872,
+          "h1ret12": 0.002928257686676483,
+          "m15ret4": 0.0017060687301975186,
+          "m15ret12": 0.00048685491723476915,
+          "rangePos": 0.5734265734265759,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "LTC",
+          "profile": "major",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 5.536227287273279,
+          "current": {
+            "result": "SL",
+            "bars": 91
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": 0.0030715225976305494,
+          "h1ret12": 0.005940594059405946,
+          "m15ret4": 0.00043763676148778075,
+          "m15ret12": -0.0024001745581496703,
+          "rangePos": 0.8099173553718977,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 1,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "MOODENG",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -6.070740884753197,
+          "current": {
+            "result": "SL",
+            "bars": 218
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 6
+          },
+          "h1ret4": -0.003325942350332678,
+          "h1ret12": -0.00909341416368159,
+          "m15ret4": 0.0019504040122597655,
+          "m15ret12": -0.008273579702151146,
+          "rangePos": 0.08955223880597005,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "NEAR",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -9.828173365604004,
+          "current": {
+            "result": "TP",
+            "bars": 39
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 39
+          },
+          "h1ret4": 0.0030413625304137604,
+          "h1ret12": -0.005428226779252032,
+          "m15ret4": -0.005428226779252032,
+          "m15ret12": 0.0006067961165048263,
+          "rangePos": 0.24545454545454495,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ONDO",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -6.482702440603332,
+          "current": {
+            "result": "TP",
+            "bars": 66
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 940
+          },
+          "h1ret4": 0.0071408169094544505,
+          "h1ret12": -0.01700585447449121,
+          "m15ret4": 0.0051311288483466555,
+          "m15ret12": 0.004558404558404616,
+          "rangePos": 0.19736842105263186,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "OP",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.0293164155630161,
+          "current": {
+            "result": "SL",
+            "bars": 34
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 26
+          },
+          "h1ret4": -0.005038629492778002,
+          "h1ret12": 0.030499826046619383,
+          "m15ret4": 0.0023688663282570577,
+          "m15ret12": 0.000562999662200081,
+          "rangePos": 0.8165137614678879,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ORDI",
+          "profile": "alt",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.8807956453959274,
+          "current": {
+            "result": "TP",
+            "bars": 34
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 26
+          },
+          "h1ret4": 0.003599280143971262,
+          "h1ret12": -0.010644589000591398,
+          "m15ret4": 0.007224563515954241,
+          "m15ret12": 0.006921456515197155,
+          "rangePos": 0.3645320197044344,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "PENGU",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.316089473156004,
+          "current": {
+            "result": "SL",
+            "bars": 164
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 34
+          },
+          "h1ret4": -0.0018208905810297438,
+          "h1ret12": 0.007014028056112176,
+          "m15ret4": -0.0003315649867374759,
+          "m15ret12": -0.004786268361115731,
+          "rangePos": 0.2478070175438584,
+          "chase": 0.0,
+          "m15Sweep": 1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "PEPE",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.92099167158337,
+          "current": {
+            "result": "SL",
+            "bars": 5
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 635
+          },
+          "h1ret4": 0.009985734664764712,
+          "h1ret12": 0.00818796724813109,
+          "m15ret4": 0.006396588486140775,
+          "m15ret12": 0.006754354781372207,
+          "rangePos": 0.4705882352941186,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "PNUT",
+          "profile": "meme",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -1.2728078859568819,
+          "current": {
+            "result": "TP",
+            "bars": 120
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 33
+          },
+          "h1ret4": -0.004844467108617967,
+          "h1ret12": 0.004891864057672501,
+          "m15ret4": 0.0023112480739599928,
+          "m15ret12": -0.003828483920367498,
+          "rangePos": 0.323529411764708,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "POL",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 6.035946964328438,
+          "current": {
+            "result": "UNR",
+            "bars": 1148
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 500
+          },
+          "h1ret4": 0.011460554371002019,
+          "h1ret12": 0.009845662586482007,
+          "m15ret4": -0.00406770764991482,
+          "m15ret12": 0.01579229122055681,
+          "rangePos": 0.6514084507042232,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "RENDER",
+          "profile": "ai_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -3.9482385332598344,
+          "current": {
+            "result": "TP",
+            "bars": 712
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": 0.0022590361445782303,
+          "h1ret12": -0.007457121551081247,
+          "m15ret4": 0.0,
+          "m15ret12": 0.0022590361445782303,
+          "rangePos": 0.38095238095238093,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "S",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.6481112973241663,
+          "current": {
+            "result": "TP",
+            "bars": 128
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 24
+          },
+          "h1ret4": 0.0018124150430449681,
+          "h1ret12": 0.009128251939753751,
+          "m15ret4": 0.008667883211678884,
+          "m15ret12": 0.006372325898953202,
+          "rangePos": 0.3684210526315821,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "STX",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -7.06142776739015,
+          "current": {
+            "result": "TP",
+            "bars": 66
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 12
+          },
+          "h1ret4": -0.0007651109410865553,
+          "h1ret12": 0.003072196620583556,
+          "m15ret4": 0.0015337423312884457,
+          "m15ret12": -0.0022918258212375475,
+          "rangePos": 0.29032258064516014,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "SUI",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -9.22701254571001,
+          "current": {
+            "result": "SL",
+            "bars": 6
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 26
+          },
+          "h1ret4": 0.0017809439002671734,
+          "h1ret12": 0.003568242640499708,
+          "m15ret4": 0.0011865915158706386,
+          "m15ret12": -0.0016269782576542324,
+          "rangePos": 0.2391304347826109,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "TIA",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -3.607837090426726,
+          "current": {
+            "result": "TP",
+            "bars": 1053
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": -0.0036231884057970065,
+          "h1ret12": -0.020190023752969077,
+          "m15ret4": 0.005178190679256955,
+          "m15ret12": -0.002116722104626434,
+          "rangePos": 0.3276836158192107,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "TRUMP",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.9915040751738236,
+          "current": {
+            "result": "SL",
+            "bars": 617
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 7
+          },
+          "h1ret4": -0.0013586956521739468,
+          "h1ret12": -0.00742741390952073,
+          "m15ret4": 0.000680735194009463,
+          "m15ret12": -0.0020366598778004397,
+          "rangePos": 0.4729729729729729,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "UNI",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 5.872121082920689,
+          "current": {
+            "result": "SL",
+            "bars": 126
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": 0.018877422602567417,
+          "h1ret12": 0.007968127490039834,
+          "m15ret4": 0.009476309226932766,
+          "m15ret12": 0.005714285714285561,
+          "rangePos": 0.39199999999999946,
+          "chase": 0.0,
+          "m15Sweep": -1,
+          "m5Sweep": -1,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "WIF",
+          "profile": "meme",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -3.2558470534138997,
+          "current": {
+            "result": "SL",
+            "bars": 6
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 6
+          },
+          "h1ret4": 0.0043290043290042934,
+          "h1ret12": -0.005714285714285894,
+          "m15ret4": 0.005780346820809301,
+          "m15ret12": 0.0028818443804032867,
+          "rangePos": 0.28888888888888764,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "WLD",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.6570898088113033,
+          "current": {
+            "result": "SL",
+            "bars": 6
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 752
+          },
+          "h1ret4": 0.029855753102985716,
+          "h1ret12": 0.012199142762940873,
+          "m15ret4": 0.010533245556286985,
+          "m15ret12": 0.01722995361166335,
+          "rangePos": 0.4350649350649341,
+          "chase": -1.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "AIXBT",
+          "profile": "ai_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -1.364351625338394,
+          "current": {
+            "result": "SL",
+            "bars": 6
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 6
+          },
+          "h1ret4": -0.0017142857142858903,
+          "h1ret12": -0.003990877993158559,
+          "m15ret4": 0.0028702640642936927,
+          "m15ret12": -0.0028538812785389167,
+          "rangePos": 0.36666666666666653,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ASTER",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -6.785355986054104,
+          "current": {
+            "result": "SL",
+            "bars": 309
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 315
+          },
+          "h1ret4": -0.0033167495854062867,
+          "h1ret12": 0.0014997500416598086,
+          "m15ret4": 0.004177109440267168,
+          "m15ret12": -0.001329345297440998,
+          "rangePos": 0.34126984126984045,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "GRASS",
+          "profile": "ai_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.2218941389670803,
+          "current": {
+            "result": "SL",
+            "bars": 23
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 2
+          },
+          "h1ret4": -0.0016650016650017196,
+          "h1ret12": -0.0033244680851063357,
+          "m15ret4": 0.0033467202141901353,
+          "m15ret12": -0.005638474295190599,
+          "rangePos": 0.0611353711790399,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "LIT",
+          "profile": "new_high_beta",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 8.549587673602922,
+          "current": {
+            "result": "TP",
+            "bars": 22
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": 0.014501356852103076,
+          "h1ret12": 0.005420851367819335,
+          "m15ret4": -0.0038304604879675352,
+          "m15ret12": 0.02016799556559934,
+          "rangePos": 0.880166435506241,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "PUMP",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.571792872317452,
+          "current": {
+            "result": "SL",
+            "bars": 118
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 422
+          },
+          "h1ret4": 0.02145359019264448,
+          "h1ret12": -0.02384937238493734,
+          "m15ret4": 0.007775377969762465,
+          "m15ret12": 0.024593763724198636,
+          "rangePos": 0.24260355029585798,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "VIRTUAL",
+          "profile": "ai_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -5.862178850897304,
+          "current": {
+            "result": "SL",
+            "bars": 243
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 245
+          },
+          "h1ret4": 0.006637961966271977,
+          "h1ret12": -0.011973939073780415,
+          "m15ret4": 0.0007133939718211302,
+          "m15ret12": 0.00285969615728332,
+          "rangePos": 0.24555160142348803,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "XPL",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.3204069643569776,
+          "current": {
+            "result": "SL",
+            "bars": 790
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 26
+          },
+          "h1ret4": -0.015671162491971757,
+          "h1ret12": 0.019829651317540664,
+          "m15ret4": 0.007626561472715343,
+          "m15ret12": -0.011990716864363038,
+          "rangePos": 0.583652618135377,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        },
+        {
+          "symbol": "ZEC",
+          "profile": "alt",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 7.116102762488021,
+          "current": {
+            "result": "SL",
+            "bars": 279
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 50
+          },
+          "h1ret4": 0.018791305040210204,
+          "h1ret12": 0.01830481496219649,
+          "m15ret4": 0.005856688023269552,
+          "m15ret12": 0.012462908011869445,
+          "rangePos": 0.6183431952662723,
+          "chase": -1.0,
+          "m15Sweep": -1,
+          "m5Sweep": -1,
+          "state": {
+            "breadth4h": 0.5892857142857143,
+            "breadth12h": 0.5714285714285714,
+            "dispersion4h": 0.008723317500646073,
+            "median4h": 0.003056442564022155,
+            "median12h": 0.002563587571349113
+          }
+        }
+      ]
+    },
+    "2026-08-08T12:00:00Z": {
+      "state": {
+        "breadth4h": 0.7321428571428571,
+        "breadth12h": 0.875,
+        "dispersion4h": 0.011795230519801391,
+        "median4h": 0.002433568424174637,
+        "median12h": 0.010538555208532863
+      },
+      "trades": [
+        {
+          "symbol": "BTC",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.877563703753336,
+          "current": {
+            "result": "TP",
+            "bars": 28
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 28
+          },
+          "h1ret4": 0.00011854013969259114,
+          "h1ret12": 0.0007409518381304991,
+          "m15ret4": -0.000732170269580168,
+          "m15ret12": -0.00032314851290127233,
+          "rangePos": 0.6553239986974919,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ETH",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 6.288396080141527,
+          "current": {
+            "result": "SL",
+            "bars": 182
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 28
+          },
+          "h1ret4": 0.0028926331838283748,
+          "h1ret12": 0.003484702833737474,
+          "m15ret4": -0.0001769828586895006,
+          "m15ret12": 0.0019770887238126367,
+          "rangePos": 0.5535365377100433,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "SOL",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.5650092568337448,
+          "current": {
+            "result": "UNR",
+            "bars": 1148
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 29
+          },
+          "h1ret4": 0.01056008555006005,
+          "h1ret12": 0.026058631921823894,
+          "m15ret4": 0.006791849780263481,
+          "m15ret12": 0.010695187165775444,
+          "rangePos": 0.9701492537313409,
+          "chase": -3.25,
+          "m15Sweep": -1,
+          "m5Sweep": -1,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "HYPE",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.2135526490077035,
+          "current": {
+            "result": "SL",
+            "bars": 36
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 414
+          },
+          "h1ret4": 0.002499218994064245,
+          "h1ret12": 0.00820565894767955,
+          "m15ret4": -0.005178984991885183,
+          "m15ret12": -0.0023408496552733693,
+          "rangePos": 0.3122540753232145,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "SHIB",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.45247811522239,
+          "current": {
+            "result": "TP",
+            "bars": 168
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 69
+          },
+          "h1ret4": -0.002139037433155022,
+          "h1ret12": 0.008212664793602942,
+          "m15ret4": -0.0010706638115631772,
+          "m15ret12": -0.0019255455712450242,
+          "rangePos": 0.5754189944134098,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "TRX",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.313248722459081,
+          "current": {
+            "result": "TP",
+            "bars": 554
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 160
+          },
+          "h1ret4": 0.004705163458600836,
+          "h1ret12": 0.003754464149446024,
+          "m15ret4": -0.0007900334244910212,
+          "m15ret12": 0.0035400390625,
+          "rangePos": 0.7408536585365973,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "XRP",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.636691282489333,
+          "current": {
+            "result": "SL",
+            "bars": 7
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 425
+          },
+          "h1ret4": 0.0031896385076359834,
+          "h1ret12": 0.016552399608227297,
+          "m15ret4": -0.0014431402732346665,
+          "m15ret12": 0.001737284045941534,
+          "rangePos": 0.6043689320388366,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "AAVE",
+          "profile": "defi",
+          "regime": "range",
+          "v6Side": "BUY",
+          "v6Score": 0.9119315206891363,
+          "current": {
+            "result": "TP",
+            "bars": 410
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 17
+          },
+          "h1ret4": 0.0014391674969556068,
+          "h1ret12": 0.00589347270098961,
+          "m15ret4": 0.0017718715393133522,
+          "m15ret12": 0.002437943262411313,
+          "rangePos": 0.7712609970674481,
+          "chase": 0.0,
+          "m15Sweep": -1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ADA",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.7343384447863093,
+          "current": {
+            "result": "TP",
+            "bars": 55
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 424
+          },
+          "h1ret4": -0.003996003996003972,
+          "h1ret12": -0.006972111553784965,
+          "m15ret4": -0.0034982508745627916,
+          "m15ret12": -0.0034982508745627916,
+          "rangePos": 0.42990654205607404,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ALGO",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.5758417623212932,
+          "current": {
+            "result": "TP",
+            "bars": 381
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 192
+          },
+          "h1ret4": -0.001832760595647298,
+          "h1ret12": -0.020238362941308874,
+          "m15ret4": -0.0019470850990722655,
+          "m15ret12": -0.00022946305644799825,
+          "rangePos": 0.10859728506787218,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "APT",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.7705361054154063,
+          "current": {
+            "result": "SL",
+            "bars": 895
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 31
+          },
+          "h1ret4": 0.01326616288832927,
+          "h1ret12": 0.04052422831522695,
+          "m15ret4": -0.0006624710168929848,
+          "m15ret12": 0.008018710324089628,
+          "rangePos": 0.9664429530201343,
+          "chase": -2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ARB",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.897924429031564,
+          "current": {
+            "result": "SL",
+            "bars": 31
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 132
+          },
+          "h1ret4": 0.011809523809523714,
+          "h1ret12": 0.0064418340280407715,
+          "m15ret4": 0.0010050251256281673,
+          "m15ret12": 0.01193802387604781,
+          "rangePos": 0.91860465116279,
+          "chase": -1.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ATOM",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 2.8110870187269166,
+          "current": {
+            "result": "UNR",
+            "bars": 1148
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 28
+          },
+          "h1ret4": 0.021152443471918136,
+          "h1ret12": 0.027146001467351466,
+          "m15ret4": 0.0014306151645206988,
+          "m15ret12": 0.013024602026049159,
+          "rangePos": 0.9863013698630122,
+          "chase": -2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "AVAX",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.345764622392475,
+          "current": {
+            "result": "SL",
+            "bars": 120
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 96
+          },
+          "h1ret4": 0.005062126092958863,
+          "h1ret12": 0.018498367791077275,
+          "m15ret4": 0.003522744677592282,
+          "m15ret12": 0.0030618493570115923,
+          "rangePos": 0.8101265822784777,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "BCH",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.466639502886187,
+          "current": {
+            "result": "TP",
+            "bars": 35
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 30
+          },
+          "h1ret4": 0.0,
+          "h1ret12": 0.009315323707498768,
+          "m15ret4": 0.0,
+          "m15ret12": -0.0013824884792627001,
+          "rangePos": 0.8108108108108102,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "BONK",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -5.425044968891067,
+          "current": {
+            "result": "TP",
+            "bars": 431
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 275
+          },
+          "h1ret4": -0.005156683855612854,
+          "h1ret12": 0.011290322580645107,
+          "m15ret4": -0.006339144215530834,
+          "m15ret12": -0.005156683855612854,
+          "rangePos": 0.20985010706638135,
+          "chase": 0.45,
+          "m15Sweep": 1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "CRV",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 6.924176398309739,
+          "current": {
+            "result": "TP",
+            "bars": 328
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 12
+          },
+          "h1ret4": -0.0013345195729537185,
+          "h1ret12": 0.054485674025364084,
+          "m15ret4": -0.0075154730327144925,
+          "m15ret12": 0.006726457399103047,
+          "rangePos": 0.8749999999999996,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "DOGE",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.93342788557933,
+          "current": {
+            "result": "TP",
+            "bars": 33
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 28
+          },
+          "h1ret4": 0.002419584400797037,
+          "h1ret12": 0.011344055140724008,
+          "m15ret4": 0.0,
+          "m15ret12": 0.00028405056100000436,
+          "rangePos": 0.9201680672268928,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "DOT",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.1466028321713553,
+          "current": {
+            "result": "SL",
+            "bars": 20
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 211
+          },
+          "h1ret4": 0.0009766817238432424,
+          "h1ret12": 0.0017104459376908743,
+          "m15ret4": -0.00024387269845149717,
+          "m15ret12": 0.0024452867098667674,
+          "rangePos": 0.707692307692306,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ETC",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.8222378093417146,
+          "current": {
+            "result": "SL",
+            "bars": 59
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 35
+          },
+          "h1ret4": -0.00046047582501917983,
+          "h1ret12": 0.004163454124903598,
+          "m15ret4": -0.003824384274131898,
+          "m15ret12": -0.005345959981670978,
+          "rangePos": 0.6489795918367336,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "FIL",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.56,
+          "current": {
+            "result": "SL",
+            "bars": 905
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 417
+          },
+          "h1ret4": 0.015629440181869958,
+          "h1ret12": 0.04502923976608186,
+          "m15ret4": -0.006946373992775756,
+          "m15ret12": 0.010175240248728068,
+          "rangePos": 0.652110625909752,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 1,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "FLOKI",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.9607008260565775,
+          "current": {
+            "result": "TP",
+            "bars": 32
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 28
+          },
+          "h1ret4": 0.000473709142586598,
+          "h1ret12": 0.007153075822603716,
+          "m15ret4": 0.0,
+          "m15ret12": -0.0004732607666823041,
+          "rangePos": 0.6138613861386154,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "HBAR",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -1.0884957818181633,
+          "current": {
+            "result": "SL",
+            "bars": 14
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 50
+          },
+          "h1ret4": 0.0027789966359512697,
+          "h1ret12": 0.007346459006758677,
+          "m15ret4": -0.0007287567409999252,
+          "m15ret12": -0.0013109978150037671,
+          "rangePos": 0.5476190476190458,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "INJ",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -8.677495167683444,
+          "current": {
+            "result": "SL",
+            "bars": 958
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 44
+          },
+          "h1ret4": -0.019183582422484857,
+          "h1ret12": -0.025919361984935718,
+          "m15ret4": -0.01079865016872894,
+          "m15ret12": -0.020057945174949854,
+          "rangePos": 0.10461538461538425,
+          "chase": 2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "JTO",
+          "profile": "defi",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -3.4731730964007905,
+          "current": {
+            "result": "SL",
+            "bars": 17
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 17
+          },
+          "h1ret4": 0.0002056766762648099,
+          "h1ret12": -0.0057248006542628405,
+          "m15ret4": -0.002870617182694324,
+          "m15ret12": 0.0030940594059405413,
+          "rangePos": 0.4617486338797819,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "JUP",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.883566831900657,
+          "current": {
+            "result": "SL",
+            "bars": 24
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 110
+          },
+          "h1ret4": 0.0005479452054795164,
+          "h1ret12": 0.012195121951219523,
+          "m15ret4": -0.002730748225013624,
+          "m15ret12": -0.001094091903719785,
+          "rangePos": 0.36470588235294316,
+          "chase": 1.05,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "KAITO",
+          "profile": "new_high_beta",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -5.454794087839296,
+          "current": {
+            "result": "TP",
+            "bars": 1120
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 64
+          },
+          "h1ret4": -0.05094086021505384,
+          "h1ret12": -0.14131095707162844,
+          "m15ret4": -0.012861736334405238,
+          "m15ret12": -0.03260720646663928,
+          "rangePos": 0.004025044722718699,
+          "chase": 2.25,
+          "m15Sweep": 1,
+          "m5Sweep": 1,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "LDO",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.967492701111516,
+          "current": {
+            "result": "SL",
+            "bars": 4
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 4
+          },
+          "h1ret4": -0.004822597313124399,
+          "h1ret12": 0.009786787836420618,
+          "m15ret4": 0.0,
+          "m15ret12": -0.004136504653567852,
+          "rangePos": 0.3806451612903233,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "LINK",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.949078501607936,
+          "current": {
+            "result": "SL",
+            "bars": 430
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 30
+          },
+          "h1ret4": 0.008596682407071121,
+          "h1ret12": 0.017218219562828097,
+          "m15ret4": -0.0020366598778003286,
+          "m15ret12": 0.00798644724104558,
+          "rangePos": 0.8867187500000004,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "LTC",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.941425141918317,
+          "current": {
+            "result": "TP",
+            "bars": 31
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 30
+          },
+          "h1ret4": 0.0008783487044357052,
+          "h1ret12": 0.0006586169045006418,
+          "m15ret4": -0.0008768084173608193,
+          "m15ret12": 0.0,
+          "rangePos": 0.5242718446601927,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "MOODENG",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 4.068521276742913,
+          "current": {
+            "result": "TP",
+            "bars": 335
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 38
+          },
+          "h1ret4": 0.009380863039399445,
+          "h1ret12": 0.05460655278633442,
+          "m15ret4": -0.00528262017960901,
+          "m15ret12": 0.00829986613119127,
+          "rangePos": 0.8134328358208955,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "NEAR",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.13089261113794,
+          "current": {
+            "result": "TP",
+            "bars": 24
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 510
+          },
+          "h1ret4": 0.015094339622641506,
+          "h1ret12": 0.014456316781898293,
+          "m15ret4": 0.0,
+          "m15ret12": 0.008750000000000036,
+          "rangePos": 0.2857142857142862,
+          "chase": -1.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ONDO",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.806664066633529,
+          "current": {
+            "result": "SL",
+            "bars": 33
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 48
+          },
+          "h1ret4": -0.005636978579481422,
+          "h1ret12": 0.014084507042253502,
+          "m15ret4": -0.0031082226617688002,
+          "m15ret12": -0.001980198019801871,
+          "rangePos": 0.3183391003460205,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "OP",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.56,
+          "current": {
+            "result": "TP",
+            "bars": 648
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 6
+          },
+          "h1ret4": 0.02175915265945183,
+          "h1ret12": 0.03125726237508708,
+          "m15ret4": -0.0022484541877459963,
+          "m15ret12": 0.01906074176139616,
+          "rangePos": 0.7912844036697231,
+          "chase": -1.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ORDI",
+          "profile": "alt",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.947104401315587,
+          "current": {
+            "result": "UNR",
+            "bars": 1148
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 15
+          },
+          "h1ret4": 0.017619872905834777,
+          "h1ret12": 0.08300030740854591,
+          "m15ret4": 0.006859102600743183,
+          "m15ret12": 0.003417829678154405,
+          "rangePos": 0.8760563380281688,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "PENGU",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 2.896406620790575,
+          "current": {
+            "result": "TP",
+            "bars": 335
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 38
+          },
+          "h1ret4": 0.005000806581706874,
+          "h1ret12": 0.03660565723793696,
+          "m15ret4": 0.0011248593925758943,
+          "m15ret12": 0.006299466968179512,
+          "rangePos": 0.7805486284289286,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "PEPE",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.507716318317772,
+          "current": {
+            "result": "TP",
+            "bars": 351
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 30
+          },
+          "h1ret4": 0.002447552447552237,
+          "h1ret12": 0.01992173603699743,
+          "m15ret4": -0.0027826086956522778,
+          "m15ret12": -0.0003486750348675738,
+          "rangePos": 0.8686868686868672,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 1,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "PNUT",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.894947963739289,
+          "current": {
+            "result": "SL",
+            "bars": 28
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 31
+          },
+          "h1ret4": 0.006149116064565696,
+          "h1ret12": 0.02372262773722622,
+          "m15ret4": -0.0005090353779587664,
+          "m15ret12": 0.004347826086956497,
+          "rangePos": 0.8731343283582065,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "POL",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.8451504813121176,
+          "current": {
+            "result": "TP",
+            "bars": 105
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 47
+          },
+          "h1ret4": 0.0021242697822625445,
+          "h1ret12": 0.006400000000000183,
+          "m15ret4": -0.0015873015873014706,
+          "m15ret12": 0.0007955449482897059,
+          "rangePos": 0.5035211267605645,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "RENDER",
+          "profile": "ai_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.0766654141697174,
+          "current": {
+            "result": "SL",
+            "bars": 69
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 197
+          },
+          "h1ret4": 0.002271006813020504,
+          "h1ret12": 0.008377760853008454,
+          "m15ret4": -0.0022607385079125297,
+          "m15ret12": -0.0015082956259426794,
+          "rangePos": 0.39215686274509887,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "S",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.069765437581493,
+          "current": {
+            "result": "UNR",
+            "bars": 1148
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 2
+          },
+          "h1ret4": 0.03880866425992768,
+          "h1ret12": 0.060829493087557474,
+          "m15ret4": 0.007439824945295381,
+          "m15ret12": 0.028596961572832758,
+          "rangePos": 0.9928057553956837,
+          "chase": -2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "STX",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.964235454235735,
+          "current": {
+            "result": "SL",
+            "bars": 56
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 424
+          },
+          "h1ret4": 0.01685823754789273,
+          "h1ret12": 0.026295436968290842,
+          "m15ret4": -0.00300525920360617,
+          "m15ret12": 0.003023431594860293,
+          "rangePos": 0.8,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "SUI",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.8402572000913693,
+          "current": {
+            "result": "SL",
+            "bars": 896
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 30
+          },
+          "h1ret4": 0.008624470106709303,
+          "h1ret12": 0.026327532351628546,
+          "m15ret4": -0.0030342436064153544,
+          "m15ret12": -0.004903374675512051,
+          "rangePos": 0.7907692307692298,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "TIA",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.350519728406631,
+          "current": {
+            "result": "TP",
+            "bars": 417
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 276
+          },
+          "h1ret4": -0.0021263669501822013,
+          "h1ret12": 0.006742261722341603,
+          "m15ret4": -0.005148394912174337,
+          "m15ret12": -0.003337378640776656,
+          "rangePos": 0.26775956284153113,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "TRUMP",
+          "profile": "meme",
+          "regime": "range",
+          "v6Side": "BUY",
+          "v6Score": 0.7763608792328399,
+          "current": {
+            "result": "TP",
+            "bars": 332
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 33
+          },
+          "h1ret4": 0.0047361299052774974,
+          "h1ret12": 0.005416384563303955,
+          "m15ret4": 0.0013486176668915384,
+          "m15ret12": 0.008146639511201537,
+          "rangePos": 0.6756756756756777,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "UNI",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.7963499014704049,
+          "current": {
+            "result": "SL",
+            "bars": 323
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 9
+          },
+          "h1ret4": -0.0010020040080159776,
+          "h1ret12": 0.001255335174491501,
+          "m15ret4": -0.0010020040080159776,
+          "m15ret12": -0.002002002002001957,
+          "rangePos": 0.24528301886792503,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "WIF",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.3752484933973732,
+          "current": {
+            "result": "SL",
+            "bars": 896
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 35
+          },
+          "h1ret4": 0.0028169014084507005,
+          "h1ret12": 0.03488372093023262,
+          "m15ret4": 0.0014064697609001975,
+          "m15ret12": -0.00419580419580412,
+          "rangePos": 0.8591549295774645,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "WLD",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.850500997866916,
+          "current": {
+            "result": "SL",
+            "bars": 58
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 22
+          },
+          "h1ret4": 0.0009787928221860476,
+          "h1ret12": 0.00887865833607382,
+          "m15ret4": -0.0016270745200129832,
+          "m15ret12": 0.002614379084967311,
+          "rangePos": 0.7213114754098362,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "AIXBT",
+          "profile": "ai_high_beta",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.501047341868678,
+          "current": {
+            "result": "TP",
+            "bars": 32
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 260
+          },
+          "h1ret4": -0.012276785714285587,
+          "h1ret12": 0.01899827288428324,
+          "m15ret4": -0.006176305446378372,
+          "m15ret12": -0.03594771241830075,
+          "rangePos": 0.40495867768595134,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ASTER",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.2493837394995433,
+          "current": {
+            "result": "SL",
+            "bars": 7
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 7
+          },
+          "h1ret4": 0.0011653071416681815,
+          "h1ret12": 0.0011653071416681815,
+          "m15ret4": -0.0004985873358815951,
+          "m15ret12": 0.0009986684420772995,
+          "rangePos": 0.6619718309859213,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "GRASS",
+          "profile": "ai_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.5775727391941115,
+          "current": {
+            "result": "TP",
+            "bars": 12
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 14
+          },
+          "h1ret4": 0.011198945981554687,
+          "h1ret12": 0.034366576819407024,
+          "m15ret4": 0.002612671456564186,
+          "m15ret12": 0.0072178477690287846,
+          "rangePos": 0.6179775280898868,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "LIT",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 6.405811524362072,
+          "current": {
+            "result": "SL",
+            "bars": 37
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 11
+          },
+          "h1ret4": 0.016866744116001975,
+          "h1ret12": 0.026138682645130418,
+          "m15ret4": -0.00046523430891542983,
+          "m15ret12": 0.023206477031649353,
+          "rangePos": 0.5746452806909322,
+          "chase": -1.0,
+          "m15Sweep": -1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "PUMP",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.0739488090341034,
+          "current": {
+            "result": "TP",
+            "bars": 136
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 38
+          },
+          "h1ret4": 0.017067833698030555,
+          "h1ret12": 0.02559576345984138,
+          "m15ret4": 0.009556907037358897,
+          "m15ret12": 0.007368877329865686,
+          "rangePos": 0.44505494505494486,
+          "chase": -3.0500000000000003,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "VIRTUAL",
+          "profile": "ai_high_beta",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.5195555552310203,
+          "current": {
+            "result": "SL",
+            "bars": 245
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 279
+          },
+          "h1ret4": 0.003694581280788256,
+          "h1ret12": 0.018204533285739677,
+          "m15ret4": -0.0007006480994919961,
+          "m15ret12": -0.005577828133170648,
+          "rangePos": 0.5785714285714277,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "XPL",
+          "profile": "new_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.519964314565,
+          "current": {
+            "result": "SL",
+            "bars": 12
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 18
+          },
+          "h1ret4": 0.001321702352629961,
+          "h1ret12": -0.0005277044854883339,
+          "m15ret4": -0.0017130056660957793,
+          "m15ret12": 0.00118937491740434,
+          "rangePos": 0.40317919075144465,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        },
+        {
+          "symbol": "ZEC",
+          "profile": "alt",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.8096825262861744,
+          "current": {
+            "result": "TP",
+            "bars": 3
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 88
+          },
+          "h1ret4": -0.012169983350511338,
+          "h1ret12": -0.025650048875855314,
+          "m15ret4": -0.014085064292779448,
+          "m15ret12": -0.016555834007537906,
+          "rangePos": 0.3361433087460486,
+          "chase": 2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.7321428571428571,
+            "breadth12h": 0.875,
+            "dispersion4h": 0.011795230519801391,
+            "median4h": 0.002433568424174637,
+            "median12h": 0.010538555208532863
+          }
+        }
+      ]
+    },
+    "2026-08-09T12:00:00Z": {
+      "state": {
+        "breadth4h": 0.44642857142857145,
+        "breadth12h": 0.32142857142857145,
+        "dispersion4h": 0.009535710951233315,
+        "median4h": -0.0010784179067925836,
+        "median12h": -0.0019632490242496026
+      },
+      "trades": [
+        {
+          "symbol": "BTC",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 3.0652624804567674,
+          "current": {
+            "result": "TP",
+            "bars": 35
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 13
+          },
+          "h1ret4": 0.0019113291373564767,
+          "h1ret12": -0.00013855341003032873,
+          "m15ret4": -0.00012008184039269398,
+          "m15ret12": 0.0019360591400503502,
+          "rangePos": 0.4934392265193404,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ETH",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.00459506797185,
+          "current": {
+            "result": "TP",
+            "bars": 122
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 17
+          },
+          "h1ret4": 0.00011985409067216679,
+          "h1ret12": 0.0011267194207829068,
+          "m15ret4": -0.0005415905055018433,
+          "m15ret12": 0.0016230716239067355,
+          "rangePos": 0.36370757180156865,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "SOL",
+          "profile": "major",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 7.4408684213365,
+          "current": {
+            "result": "TP",
+            "bars": 122
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 15
+          },
+          "h1ret4": 0.0019643792561552242,
+          "h1ret12": 0.006578081831337901,
+          "m15ret4": 0.0015708862416548008,
+          "m15ret12": 0.0023581815799817996,
+          "rangePos": 0.914364640883981,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "HYPE",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -1.7149645275830943,
+          "current": {
+            "result": "SL",
+            "bars": 288
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 26
+          },
+          "h1ret4": -0.009304531854338438,
+          "h1ret12": -0.01534053818814829,
+          "m15ret4": -0.0046557665518,
+          "m15ret12": -0.0063859764688661835,
+          "rangePos": 0.24170882518268674,
+          "chase": 1.45,
+          "m15Sweep": 1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "SHIB",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.7941283004843225,
+          "current": {
+            "result": "SL",
+            "bars": 46
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 105
+          },
+          "h1ret4": 0.0010827197921177145,
+          "h1ret12": -0.00043243243243251683,
+          "m15ret4": 0.002819956616052055,
+          "m15ret12": 0.0008659883091577392,
+          "rangePos": 0.4100719424460409,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "TRX",
+          "profile": "major",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 8.63883229342568,
+          "current": {
+            "result": "TP",
+            "bars": 145
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 145
+          },
+          "h1ret4": 0.001335113484646211,
+          "h1ret12": 0.0027347310847767314,
+          "m15ret4": 0.0012743491716731281,
+          "m15ret12": 0.001152842667313747,
+          "rangePos": 0.8783382789317603,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "XRP",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -5.806849067387666,
+          "current": {
+            "result": "SL",
+            "bars": 35
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 57
+          },
+          "h1ret4": -0.0002892402622445278,
+          "h1ret12": -0.002597152751058207,
+          "m15ret4": 0.00019291984180580535,
+          "m15ret12": 0.003192724458204177,
+          "rangePos": 0.6675977653631284,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "AAVE",
+          "profile": "defi",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -0.56,
+          "current": {
+            "result": "SL",
+            "bars": 49
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 123
+          },
+          "h1ret4": -0.006539509536784727,
+          "h1ret12": -0.0012053473591935315,
+          "m15ret4": 0.002088830255057239,
+          "m15ret12": -0.0010958904109588108,
+          "rangePos": 0.6937500000000021,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ADA",
+          "profile": "major",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.2122691029743071,
+          "current": {
+            "result": "TP",
+            "bars": 404
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 35
+          },
+          "h1ret4": -0.0105686965274282,
+          "h1ret12": -0.014536340852130403,
+          "m15ret4": 0.0020387359836899765,
+          "m15ret12": -0.006066734074823055,
+          "rangePos": 0.11842105263157693,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ALGO",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.1123442200787883,
+          "current": {
+            "result": "TP",
+            "bars": 138
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 14
+          },
+          "h1ret4": -0.00933072226702003,
+          "h1ret12": -0.016355941896374238,
+          "m15ret4": -0.0010454175862469883,
+          "m15ret12": -0.006584267067113347,
+          "rangePos": 0.021739130434781706,
+          "chase": 1.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "APT",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.9096171256371904,
+          "current": {
+            "result": "TP",
+            "bars": 122
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 619
+          },
+          "h1ret4": -0.0036660556573904213,
+          "h1ret12": -0.009607420904422792,
+          "m15ret4": 0.004536290322580738,
+          "m15ret12": -0.0025025025025026126,
+          "rangePos": 0.5682926829268284,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ARB",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -9.130484508627358,
+          "current": {
+            "result": "SL",
+            "bars": 42
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 42
+          },
+          "h1ret4": -0.002827763496143887,
+          "h1ret12": -0.008942258559018978,
+          "m15ret4": -0.00038654812524163695,
+          "m15ret12": 0.00414185865907335,
+          "rangePos": 0.19078947368420954,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ATOM",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.56,
+          "current": {
+            "result": "TP",
+            "bars": 26
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 52
+          },
+          "h1ret4": -0.002178649237472685,
+          "h1ret12": -0.010086455331411948,
+          "m15ret4": -0.005068790731354023,
+          "m15ret12": -0.004347826086956386,
+          "rangePos": 0.5606060606060623,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "AVAX",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -6.350880626931274,
+          "current": {
+            "result": "SL",
+            "bars": 35
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 46
+          },
+          "h1ret4": -0.001079747030695577,
+          "h1ret12": -0.0007714858818083092,
+          "m15ret4": -0.0006172839506173311,
+          "m15ret12": 0.0,
+          "rangePos": 0.4894514767932473,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "BCH",
+          "profile": "major",
+          "regime": "range",
+          "v6Side": "BUY",
+          "v6Score": 3.0233605616465633,
+          "current": {
+            "result": "SL",
+            "bars": 138
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 12
+          },
+          "h1ret4": 0.005111524163568859,
+          "h1ret12": 0.0,
+          "m15ret4": -0.001845869866174299,
+          "m15ret12": 0.002781641168289495,
+          "rangePos": 0.4222222222222235,
+          "chase": 1.05,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "BONK",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -7.635521880703542,
+          "current": {
+            "result": "SL",
+            "bars": 67
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 12
+          },
+          "h1ret4": -0.007275666936135794,
+          "h1ret12": -0.010475423045930854,
+          "m15ret4": 0.0,
+          "m15ret12": -0.011670020120724378,
+          "rangePos": 0.2911392405063295,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "CRV",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 6.969822675700112,
+          "current": {
+            "result": "TP",
+            "bars": 361
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 39
+          },
+          "h1ret4": 0.04667547335975342,
+          "h1ret12": 0.04898499558693725,
+          "m15ret4": 0.023686477174849285,
+          "m15ret12": 0.045754509458864945,
+          "rangePos": 0.9964285714285709,
+          "chase": -2.25,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "DOGE",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.4610571637020486,
+          "current": {
+            "result": "SL",
+            "bars": 15
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 42
+          },
+          "h1ret4": 0.0002850627137971351,
+          "h1ret12": -0.003549623739883545,
+          "m15ret4": -0.00028490028490013586,
+          "m15ret12": 0.0009984310369419713,
+          "rangePos": 0.36111111111111327,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "DOT",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.91562079230453,
+          "current": {
+            "result": "SL",
+            "bars": 289
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 13
+          },
+          "h1ret4": -0.002838454893249409,
+          "h1ret12": -0.00907530046602889,
+          "m15ret4": 0.001984126984126977,
+          "m15ret12": -0.002838454893249409,
+          "rangePos": 0.251937984496126,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ETC",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -6.91498403047629,
+          "current": {
+            "result": "SL",
+            "bars": 5
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 15
+          },
+          "h1ret4": -0.0010770887828895903,
+          "h1ret12": -0.0032243205895899907,
+          "m15ret4": 0.0013882461823231385,
+          "m15ret12": -0.0003079765937787915,
+          "rangePos": 0.2885906040268466,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "FIL",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -1.3279852617514158,
+          "current": {
+            "result": "SL",
+            "bars": 122
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 113
+          },
+          "h1ret4": -0.00323533549022359,
+          "h1ret12": -0.0028145229383619297,
+          "m15ret4": -0.0005641748942171176,
+          "m15ret12": -0.003935901040202472,
+          "rangePos": 0.6783831282952548,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "FLOKI",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 2.5739380187174863,
+          "current": {
+            "result": "TP",
+            "bars": 46
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 5
+          },
+          "h1ret4": 0.0042613636363635354,
+          "h1ret12": 0.0028368794326241176,
+          "m15ret4": -0.00047125353440158335,
+          "m15ret12": 0.006166982922201081,
+          "rangePos": 0.6034482758620648,
+          "chase": -1.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "HBAR",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.5821678006476203,
+          "current": {
+            "result": "TP",
+            "bars": 573
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 45
+          },
+          "h1ret4": -0.009640287769784206,
+          "h1ret12": -0.002608317635125368,
+          "m15ret4": 0.0013092813500146239,
+          "m15ret12": -0.011489300588826579,
+          "rangePos": 0.5709342560553649,
+          "chase": 1.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "INJ",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -3.835806411453046,
+          "current": {
+            "result": "TP",
+            "bars": 82
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 130
+          },
+          "h1ret4": 0.0033753375337532976,
+          "h1ret12": 0.0097373188405796,
+          "m15ret4": 0.004053141184417797,
+          "m15ret12": 0.007455942159963813,
+          "rangePos": 0.4485981308411187,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "JTO",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -1.3794877646440336,
+          "current": {
+            "result": "SL",
+            "bars": 38
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 34
+          },
+          "h1ret4": -0.019744483159117254,
+          "h1ret12": -0.005889281507656108,
+          "m15ret4": 0.005559968228752821,
+          "m15ret12": -0.013250194855806807,
+          "rangePos": 0.6843657817109131,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "JUP",
+          "profile": "defi",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -0.56,
+          "current": {
+            "result": "SL",
+            "bars": 44
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 14
+          },
+          "h1ret4": -0.008086253369272267,
+          "h1ret12": -0.0010857763300760048,
+          "m15ret4": -0.005405405405405461,
+          "m15ret12": -0.0043290043290042934,
+          "rangePos": 0.5774647887323937,
+          "chase": 1.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "KAITO",
+          "profile": "new_high_beta",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -9.485862769825092,
+          "current": {
+            "result": "TP",
+            "bars": 49
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 31
+          },
+          "h1ret4": -0.016937191249117856,
+          "h1ret12": -0.041161894273127775,
+          "m15ret4": -0.009527872582480112,
+          "m15ret12": -0.007834757834757733,
+          "rangePos": 0.035299003322259395,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "LDO",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -8.473944994037149,
+          "current": {
+            "result": "TP",
+            "bars": 138
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 46
+          },
+          "h1ret4": -0.005524861878453247,
+          "h1ret12": -0.00586813945460829,
+          "m15ret4": 0.0027855153203342198,
+          "m15ret12": 0.004184100418409997,
+          "rangePos": 0.4201680672268904,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "LINK",
+          "profile": "defi",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.1002998714814414,
+          "current": {
+            "result": "TP",
+            "bars": 44
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 44
+          },
+          "h1ret4": -0.004438579654510666,
+          "h1ret12": -0.0008427642667950819,
+          "m15ret4": -0.0003613587087448744,
+          "m15ret12": -0.0024041351123934573,
+          "rangePos": 0.5860655737704878,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "LTC",
+          "profile": "major",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 6.914400519538706,
+          "current": {
+            "result": "SL",
+            "bars": 127
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 26
+          },
+          "h1ret4": 0.0021659085986571736,
+          "h1ret12": 0.005869565217391459,
+          "m15ret4": 0.0032523850823937828,
+          "m15ret12": 0.00021616947687008725,
+          "rangePos": 0.9245283018867942,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "MOODENG",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.690863755378593,
+          "current": {
+            "result": "TP",
+            "bars": 41
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 48
+          },
+          "h1ret4": -0.006524008350730748,
+          "h1ret12": -0.013730569948186555,
+          "m15ret4": -0.0013116474291711144,
+          "m15ret12": -0.008077123501823769,
+          "rangePos": 0.610849056603774,
+          "chase": 0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "NEAR",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -7.712745019675955,
+          "current": {
+            "result": "SL",
+            "bars": 40
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 15
+          },
+          "h1ret4": -0.007999999999999896,
+          "h1ret12": 0.0,
+          "m15ret4": 0.0006207324643079382,
+          "m15ret12": -0.003708281829419069,
+          "rangePos": 0.4358974358974371,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ONDO",
+          "profile": "defi",
+          "regime": "trend",
+          "v6Side": "SELL",
+          "v6Score": -5.756050221355126,
+          "current": {
+            "result": "SL",
+            "bars": 15
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 15
+          },
+          "h1ret4": 0.0005750431282345314,
+          "h1ret12": -0.011644419199091316,
+          "m15ret4": -0.00028727377190473913,
+          "m15ret12": -0.00028727377190473913,
+          "rangePos": 0.2549019607843114,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "OP",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -0.56,
+          "current": {
+            "result": "SL",
+            "bars": 94
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 15
+          },
+          "h1ret4": -0.0016989466530750175,
+          "h1ret12": -0.006537421100090146,
+          "m15ret4": 0.0005676013168349758,
+          "m15ret12": -0.004405286343612369,
+          "rangePos": 0.6270396270396262,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ORDI",
+          "profile": "alt",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -2.145823210544167,
+          "current": {
+            "result": "SL",
+            "bars": 60
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 59
+          },
+          "h1ret4": 0.005866823115282971,
+          "h1ret12": -0.0072379849449913936,
+          "m15ret4": 0.006457293806868103,
+          "m15ret12": 0.0008756567425567408,
+          "rangePos": 0.6112676056338018,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "PENGU",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 4.6461851281291615,
+          "current": {
+            "result": "TP",
+            "bars": 47
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 16
+          },
+          "h1ret4": -0.0014240506329114,
+          "h1ret12": 0.0,
+          "m15ret4": 0.0001584786053883125,
+          "m15ret12": -0.005515285219035659,
+          "rangePos": 0.7717391304347823,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": -1,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "PEPE",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 4.4097412755000605,
+          "current": {
+            "result": "TP",
+            "bars": 64
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 15
+          },
+          "h1ret4": -0.0013913043478260834,
+          "h1ret12": 0.006309148264984188,
+          "m15ret4": 0.0027942717429270125,
+          "m15ret12": -0.0010438413361167909,
+          "rangePos": 0.7669902912621382,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "PNUT",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 0.56,
+          "current": {
+            "result": "TP",
+            "bars": 12
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 12
+          },
+          "h1ret4": 0.001513240857503373,
+          "h1ret12": 0.0037917087967644925,
+          "m15ret4": 0.002271580010095864,
+          "m15ret12": -0.0012575452716296898,
+          "rangePos": 0.6764705882352942,
+          "chase": 0.0,
+          "m15Sweep": -1,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "POL",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 7.2420087632139545,
+          "current": {
+            "result": "TP",
+            "bars": 99
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 122
+          },
+          "h1ret4": -0.008111239860950192,
+          "h1ret12": 0.0096985583224114,
+          "m15ret4": 0.0006494349915573405,
+          "m15ret12": -0.009514013885317585,
+          "rangePos": 0.6638888888888886,
+          "chase": 1.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "RENDER",
+          "profile": "ai_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -6.125441083931345,
+          "current": {
+            "result": "TP",
+            "bars": 138
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 46
+          },
+          "h1ret4": 0.0015117157974300355,
+          "h1ret12": 0.0007552870090634656,
+          "m15ret4": -0.0007541478129714507,
+          "m15ret12": 0.0,
+          "rangePos": 0.5249999999999972,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "S",
+          "profile": "l1_l2",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 5.061960978915852,
+          "current": {
+            "result": "TP",
+            "bars": 31
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 10
+          },
+          "h1ret4": 0.006013745704467333,
+          "h1ret12": -0.008047437526471746,
+          "m15ret4": 0.003857693956279551,
+          "m15ret12": 0.0004271678769756093,
+          "rangePos": 0.7385892116182577,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "STX",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -7.63257959469373,
+          "current": {
+            "result": "SL",
+            "bars": 122
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 25
+          },
+          "h1ret4": -0.0007610350076102668,
+          "h1ret12": -0.009803921568627416,
+          "m15ret4": 0.0015255530129671957,
+          "m15ret12": 0.0,
+          "rangePos": 0.49056603773584745,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "SUI",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.0693979848778443,
+          "current": {
+            "result": "TP",
+            "bars": 35
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 15
+          },
+          "h1ret4": 0.00014438348252965305,
+          "h1ret12": 0.000577784197602238,
+          "m15ret4": 0.0017353579175705125,
+          "m15ret12": -0.00014434180138567232,
+          "rangePos": 0.6635514018691592,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "TIA",
+          "profile": "l1_l2",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -3.5910016924155155,
+          "current": {
+            "result": "SL",
+            "bars": 31
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 9
+          },
+          "h1ret4": -0.005794449527294909,
+          "h1ret12": -0.0064004876562023805,
+          "m15ret4": -0.0006131207847945852,
+          "m15ret12": -0.004884004884004867,
+          "rangePos": 0.29268292682927044,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "TRUMP",
+          "profile": "meme",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.013167459747293,
+          "current": {
+            "result": "SL",
+            "bars": 31
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 27
+          },
+          "h1ret4": -0.004716981132075415,
+          "h1ret12": -0.008059100067159153,
+          "m15ret4": 0.0006775067750677266,
+          "m15ret12": -0.0027008777852801646,
+          "rangePos": 0.4042553191489395,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "UNI",
+          "profile": "defi",
+          "regime": "range",
+          "v6Side": "BUY",
+          "v6Score": 0.56,
+          "current": {
+            "result": "TP",
+            "bars": 36
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 16
+          },
+          "h1ret4": 0.005802219979818446,
+          "h1ret12": -0.005735660847880242,
+          "m15ret4": 0.00025087807325641087,
+          "m15ret12": 0.0025144581342722017,
+          "rangePos": 0.34000000000000025,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "WIF",
+          "profile": "meme",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -0.5559790948632148,
+          "current": {
+            "result": "SL",
+            "bars": 47
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 14
+          },
+          "h1ret4": -0.007708479327259932,
+          "h1ret12": -0.0035186488388458947,
+          "m15ret4": -0.002114164904862492,
+          "m15ret12": -0.007012622720897643,
+          "rangePos": 0.6708860759493678,
+          "chase": 3.0500000000000003,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "WLD",
+          "profile": "l1_l2",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 1.16170961119063,
+          "current": {
+            "result": "TP",
+            "bars": 35
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 15
+          },
+          "h1ret4": 0.002913564260278445,
+          "h1ret12": 0.013411841674844549,
+          "m15ret4": -0.0009674298613349119,
+          "m15ret12": 0.007479674796748048,
+          "rangePos": 0.8125000000000007,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "AIXBT",
+          "profile": "ai_high_beta",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 6.982724853202933,
+          "current": {
+            "result": "TP",
+            "bars": 58
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 15
+          },
+          "h1ret4": 0.012700165654334405,
+          "h1ret12": 0.007692307692307665,
+          "m15ret4": -0.005962059620596372,
+          "m15ret12": 0.012700165654334405,
+          "rangePos": 0.837037037037036,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ASTER",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "SELL",
+          "v6Score": -4.5717937469900765,
+          "current": {
+            "result": "SL",
+            "bars": 3
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 73
+          },
+          "h1ret4": 0.0018299783729829322,
+          "h1ret12": -0.0031451746399603353,
+          "m15ret4": 0.002497086732145659,
+          "m15ret12": 0.002497086732145659,
+          "rangePos": 0.23999999999999894,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "GRASS",
+          "profile": "ai_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -4.003420613748071,
+          "current": {
+            "result": "TP",
+            "bars": 130
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 80
+          },
+          "h1ret4": -0.0019926934573231136,
+          "h1ret12": -0.001329345297440998,
+          "m15ret4": -0.0003326679973386648,
+          "m15ret12": -0.0003326679973386648,
+          "rangePos": 0.3543307086614179,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "LIT",
+          "profile": "new_high_beta",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 5.774098847919841,
+          "current": {
+            "result": "TP",
+            "bars": 458
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 35
+          },
+          "h1ret4": 0.013761867433150554,
+          "h1ret12": 0.01890921824389369,
+          "m15ret4": -0.005086122152412775,
+          "m15ret12": 0.000300803575265185,
+          "rangePos": 0.28671328671328566,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "PUMP",
+          "profile": "meme",
+          "regime": "trend",
+          "v6Side": "BUY",
+          "v6Score": 9.221879999999999,
+          "current": {
+            "result": "TP",
+            "bars": 14
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 7
+          },
+          "h1ret4": 0.014011208967173783,
+          "h1ret12": 0.051910299003322224,
+          "m15ret4": -0.00666666666666671,
+          "m15ret12": 0.008761449621664585,
+          "rangePos": 0.8656716417910449,
+          "chase": -0.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "VIRTUAL",
+          "profile": "ai_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -2.55105617282157,
+          "current": {
+            "result": "SL",
+            "bars": 289
+          },
+          "opposite": {
+            "result": "SL",
+            "bars": 1
+          },
+          "h1ret4": -0.006179378531073532,
+          "h1ret12": -0.011415525114155334,
+          "m15ret4": -0.0008874689385872658,
+          "m15ret12": -0.004421648390520061,
+          "rangePos": 0.3172043010752646,
+          "chase": 0.0,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "XPL",
+          "profile": "new_high_beta",
+          "regime": "range",
+          "v6Side": "SELL",
+          "v6Score": -0.56,
+          "current": {
+            "result": "SL",
+            "bars": 6
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 72
+          },
+          "h1ret4": 0.005768978628556409,
+          "h1ret12": 0.007353906762967988,
+          "m15ret4": 0.00405759162303676,
+          "m15ret12": 0.007883326763894472,
+          "rangePos": 0.702898550724637,
+          "chase": -0.45,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        },
+        {
+          "symbol": "ZEC",
+          "profile": "alt",
+          "regime": "transition",
+          "v6Side": "BUY",
+          "v6Score": 6.589206104575825,
+          "current": {
+            "result": "SL",
+            "bars": 152
+          },
+          "opposite": {
+            "result": "TP",
+            "bars": 70
+          },
+          "h1ret4": 0.022252559726962495,
+          "h1ret12": 0.03108033676921851,
+          "m15ret4": -0.0014668622482997273,
+          "m15ret12": 0.02217281928274728,
+          "rangePos": 0.7984871406959132,
+          "chase": -1.8,
+          "m15Sweep": 0,
+          "m5Sweep": 0,
+          "state": {
+            "breadth4h": 0.44642857142857145,
+            "breadth12h": 0.32142857142857145,
+            "dispersion4h": 0.009535710951233315,
+            "median4h": -0.0010784179067925836,
+            "median12h": -0.0019632490242496026
+          }
+        }
+      ]
+    }
+  }
+}
