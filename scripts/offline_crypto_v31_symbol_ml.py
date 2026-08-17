@@ -78,7 +78,7 @@ def make_model(kind):
     return ExtraTreesClassifier(n_estimators=500,max_depth=6,min_samples_leaf=8,class_weight='balanced',random_state=41,n_jobs=-1)
 
 def fit_predict(train,test,kind,days):
-    pr=priors(train);vec=DictVectorizer(sparse=True)
+    pr=priors(train);vec=DictVectorizer(sparse=False)
     X=vec.fit_transform([rowdict(r,days,pr) for r in train]);Xt=vec.transform([rowdict(r,days,pr) for r in test]);y=[r['y'] for r in train]
     m=make_model(kind);m.fit(X,y);return m.predict_proba(Xt)[:,1].tolist()
 
