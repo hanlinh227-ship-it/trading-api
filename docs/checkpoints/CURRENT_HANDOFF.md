@@ -1,6 +1,6 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 10:57 UTC+7
+Updated: 2026-08-17 11:19 UTC+7
 
 This is the immediate continuation state for the next ChatGPT conversation. Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint(s).
 
@@ -46,36 +46,62 @@ V24 retained the V22 core and added a market-level price/flow regime guard. Two 
 - 2026-07-02 12:00 UTC: 34 resolved, 24 TP / 10 SL = 70.59% resolved WR, 22 unresolved, avg planned RR 1.641, expectancy +0.865R.
 Important caveat: both V24 samples were classified `normal`, so they support the core but do NOT yet validate the new regime guard itself. Do not claim a proven 70%+ system yet.
 
+## Locked V24 validation now in progress
+V24-Core itself remains unchanged and frozen. A separate validation harness was added so Jul04/Jul02 cannot be used to tune the engine:
+- `scripts/blind_backtest_crypto_v24_validation.py`
+- `.github/workflows/blind-backtest-v24-validation.yml`
+- target result: `data/blind_backtest_v24_validation.json`
+
+Five cutoffs were locked before outcomes were inspected:
+- `BLIND_JUN30` = 2026-06-30 12:00 UTC
+- `BLIND_JUN27` = 2026-06-27 12:00 UTC
+- `BLIND_JUN24` = 2026-06-24 12:00 UTC
+- `BLIND_JUN21` = 2026-06-21 12:00 UTC
+- `BLIND_JUN18` = 2026-06-18 12:00 UTC
+
+These dates are outside the retained August/July development/blind sequence and were selected before seeing their outcomes. The validation script calls the existing `v24.run()` directly and changes no V24 scoring weights, regime thresholds, first-5m flow logic, structural SL logic or dynamic RR rules.
+
+GitHub Actions run at this handoff:
+- run id: `31993455685`
+- workflow: `Blind Crypto Backtest V24 Validation`
+- status at 2026-08-17 11:19 UTC+7: `in_progress`
+
+The validation output is designed to aggregate:
+- resolved/unresolved, TP/SL, WR, average planned RR and expectancy R;
+- flow coverage;
+- each sample’s price breadth, flow breadth/median and market regime;
+- performance by coin profile;
+- performance when microflow agrees/conflicts with macro direction.
+MFE/MAE are not currently emitted by V22/V24 evaluate(), so do not fabricate them.
+
 ## Exact crypto files at handoff
-Active dependency chain after cleanup:
+Active dependency chain after cleanup plus the temporary locked validation harness:
 - `scripts/blind_backtest_crypto.py`
 - `scripts/blind_backtest_crypto_v17.py`
 - `scripts/blind_backtest_crypto_v22.py`
 - `scripts/blind_backtest_crypto_v24.py`
+- `scripts/blind_backtest_crypto_v24_validation.py`
 - `data/blind_backtest_v17.json`
 - `data/blind_backtest_v22.json`
 - `data/blind_backtest_v24.json`
+- expected after current run: `data/blind_backtest_v24_validation.json`
 - `.github/workflows/blind-backtest-v24.yml`
+- `.github/workflows/blind-backtest-v24-validation.yml`
 - `docs/checkpoints/CRYPTO_BREAKOUT_STATE.md`
 - `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`
-Latest confirmed V24 result file generation timestamp: 2026-08-17T02:38:50.403710Z.
+Latest confirmed original V24 result file generation timestamp: 2026-08-17T02:38:50.403710Z.
 
 Historical rejected crypto workflows/scripts/results and the standalone OKX tradeflow probe were removed from the active tree after their conclusions were summarized. They remain recoverable from Git history if ever necessary. Do not recreate them unless a specific historical experiment must be reproduced.
 
-## Next correct crypto experiment
-Freeze V24-Core. Do NOT tune it using Jul04/Jul02 outcomes.
-Run the exact locked architecture on a batch of additional untouched dates, ideally 5–10 dates spanning materially different market conditions. Track at minimum:
-- resolved/unresolved count;
-- TP / SL;
-- win rate;
-- average planned RR;
-- expectancy in R;
-- flow coverage;
-- market breadth/flow regime;
-- performance by coin profile (major, L1/L2, DeFi, meme, AI/high-beta, new/high-beta);
-- whether microflow agreed/conflicted with macro direction;
-- MFE/MAE when available.
-Only promote V24 as a main engine if performance remains robust across multiple untouched dates, not because of one or two exceptional samples.
+## Next correct crypto step
+First inspect the current validation run/result. Do NOT alter V24 while the locked June batch is unresolved.
+When `data/blind_backtest_v24_validation.json` exists:
+1. evaluate aggregate WR, planned RR and expectancy across all five cutoffs;
+2. inspect each cutoff separately so one exceptional day cannot hide weak days;
+3. inspect performance by coin profile and microflow agreement/conflict;
+4. inspect whether any non-`normal` market regime occurred, because Jul04/Jul02 did not validate the regime guard;
+5. only then decide whether V24-Core deserves promotion, needs one more untouched batch, or should remain research-only.
+Do not tune on these June outcomes and then call the same June dates blind again.
 
 ## Forex state at handoff
 - Universe: USD/EUR/GBP/JPY/CHF/CAD/AUD/NZD and liquid crosses.
@@ -120,4 +146,4 @@ Repo: `hanlinh227-ship-it/trading-api`.
 Recommended first message from user:
 `Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan. Tiếp tục đúng trạng thái mới nhất, không quay lại phương pháp đã loại.`
 
-If the next request is about crypto research, immediately inspect `CRYPTO_BREAKOUT_STATE.md`, `CRYPTO_RESEARCH_ARCHIVE.md`, `scripts/blind_backtest_crypto_v24.py`, and `data/blind_backtest_v24.json` before changing the method.
+If the next request is about crypto research, immediately inspect `CRYPTO_BREAKOUT_STATE.md`, `CRYPTO_RESEARCH_ARCHIVE.md`, `scripts/blind_backtest_crypto_v24.py`, `scripts/blind_backtest_crypto_v24_validation.py`, `data/blind_backtest_v24.json`, and `data/blind_backtest_v24_validation.json` if it exists before changing the method.
