@@ -9,15 +9,15 @@ on:
 permissions:
   contents: write
 
-# Twelve Data Grow 55 policy:
-# - 55 API credits/minute, no daily limit.
-# - Broad scan: 28 pairs ~= 28 credits.
-# - Deep analysis: Top 3 x 5 timeframes ~= 15 credits.
-# - Final M1 refresh: Top 3 ~= 3 credits.
-# - Normal total ~= 46 credits, leaving ~= 9 credits for retries/overlap.
-# - No routine 65-second sleeps. Waiting is used only after exceptional failures.
+# Grow 55 budget per normal scan:
+# 28 x /scan (H1)                 ~= 28 credits
+# 3 x /analysis (5 TF each)       ~= 15 credits
+# 3 x /price (latest price)       ~=  3 credits
+# Normal total                    ~= 46 / 55 credits
+# Reserve                         ~=  9 credits
 #
-# Crypto continues to use exchange-native market data and does not spend this budget.
+# No routine Basic-plan sleep. Conditional wait only if exceptional
+# retries would exceed the 9-credit reserve.
 
 concurrency:
   group: twelvedata-api
@@ -25,7 +25,6 @@ concurrency:
 
 env:
   FOREX_WORKER: https://forex-chart-api.hanlinh227.workers.dev
-  FINALISTS: "3"
 
 jobs:
   forex-scan:
@@ -37,111 +36,89 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Initialize
+      - name: Run staged Grow 55 Forex scan
         shell: bash
         run: |
-          mkdir -p scan/broad scan/deep scan/refresh data
-
-      # =====================================================
-      # STAGE A — BROAD 28-PAIR SCAN
-      # One lightweight worker /scan call per pair.
-      # Calls are parallelized to reduce wall-clock latency.
-      # =====================================================
-      - name: Broad scan all 28 Forex pairs
-        shell: bash
-        run: |
+          mkdir -p data scan
           python3 <<'PY'
           import concurrent.futures
           import json
           import os
           import time
-          import urllib.error
           import urllib.request
+          from datetime import datetime, timezone
 
-          worker = os.environ["FOREX_WORKER"].rstrip("/")
-          pairs = [
+          WORKER = os.environ["FOREX_WORKER"].rstrip("/")
+          PAIRS = [
               "EURUSD","GBPUSD","USDJPY","USDCHF","USDCAD","AUDUSD","NZDUSD",
               "EURJPY","EURGBP","EURCHF","EURAUD","EURNZD","EURCAD","GBPJPY",
               "GBPCHF","GBPAUD","GBPNZD","GBPCAD","AUDJPY","AUDNZD","AUDCAD",
               "AUDCHF","NZDJPY","NZDCAD","NZDCHF","CADJPY","CADCHF","CHFJPY"
           ]
 
-          def fetch(symbol):
-              url = f"{worker}/scan/{symbol}"
+          def api(mode, symbol, timeout=35):
+              url = f"{WORKER}/{mode}/{symbol}"
+              req = urllib.request.Request(
+                  url,
+                  headers={"User-Agent": "trading-api-grow55/2.0"}
+              )
               try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "trading-api-grow55/1.0"})
-                  with urllib.request.urlopen(req, timeout=30) as response:
-                      raw = response.read().decode("utf-8")
-                      data = json.loads(raw)
-                      return symbol, data, None
+                  with urllib.request.urlopen(req, timeout=timeout) as response:
+                      return json.loads(response.read().decode("utf-8")), None
               except Exception as exc:
-                  return symbol, None, str(exc)
+                  return None, str(exc)
 
-          def run(symbols, workers=12):
-              results = {}
+          def parallel(mode, symbols, workers, timeout=35):
+              out = {}
               with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-                  futures = [pool.submit(fetch, symbol) for symbol in symbols]
+                  futures = {
+                      pool.submit(api, mode, symbol, timeout): symbol
+                      for symbol in symbols
+                  }
                   for future in concurrent.futures.as_completed(futures):
-                      symbol, data, error = future.result()
-                      results[symbol] = {"data": data, "error": error}
-                      if data is not None:
-                          with open(f"scan/broad/{symbol}.json", "w", encoding="utf-8") as f:
-                              json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-                      print(symbol, "OK" if data and data.get("status") == "ok" else f"FAIL {error or (data or {}).get('message')}")
-              return results
+                      symbol = futures[future]
+                      data, error = future.result()
+                      out[symbol] = {"data": data, "error": error}
+              return out
 
-          first = run(pairs)
+          def valid_status(data):
+              return data is not None and data.get("status") in ("ok", "partial")
+
+          # =================================================
+          # STAGE A: BROAD 28-PAIR H1 SCAN (~28 credits)
+          # =================================================
+          broad_raw = parallel("scan", PAIRS, workers=12, timeout=30)
           failed = [
-              symbol for symbol in pairs
-              if not first[symbol]["data"] or first[symbol]["data"].get("status") != "ok"
+              s for s in PAIRS
+              if not broad_raw[s]["data"] or broad_raw[s]["data"].get("status") != "ok"
           ]
 
-          # Normal budget is 46 credits. Up to 9 immediate retries still fits Grow 55.
-          # If failures exceed the reserve, wait for the next minute only then retry.
-          if failed:
-              print("Initial failures:", failed)
-              if len(failed) > 9:
-                  print("Failure count exceeds 9-credit reserve; waiting for quota reset.")
-                  time.sleep(61)
-              else:
-                  time.sleep(2)
+          for s in PAIRS:
+              row = broad_raw[s]
+              print("BROAD", s, "OK" if row["data"] and row["data"].get("status") == "ok" else f"FAIL {row['error']}")
 
-              second = run(failed, workers=min(6, len(failed)))
+          # Normal run leaves 9 credits. Retry within that reserve.
+          # If more than 9 failed, wait for the next minute only then retry.
+          if failed:
+              print("BROAD_INITIAL_FAILURES", failed)
+              time.sleep(61 if len(failed) > 9 else 2)
+              retried = parallel("scan", failed, workers=min(6, len(failed)), timeout=30)
+              for s in failed:
+                  broad_raw[s] = retried[s]
               failed = [
-                  symbol for symbol in failed
-                  if not second[symbol]["data"] or second[symbol]["data"].get("status") != "ok"
+                  s for s in failed
+                  if not broad_raw[s]["data"] or broad_raw[s]["data"].get("status") != "ok"
               ]
 
           if failed:
               raise SystemExit(f"Broad scan failed after retry: {failed}")
 
-          print("BROAD_SCAN_OK=28/28")
-          PY
-
-      # =====================================================
-      # BROAD RANKING — H1/scan summary
-      # This only narrows the universe. It is NOT an entry signal.
-      # =====================================================
-      - name: Rank broad scan and select Top 3
-        id: broad
-        shell: bash
-        run: |
-          python3 <<'PY'
-          import json
-          import os
-
-          pairs = [
-              "EURUSD","GBPUSD","USDJPY","USDCHF","USDCAD","AUDUSD","NZDUSD",
-              "EURJPY","EURGBP","EURCHF","EURAUD","EURNZD","EURCAD","GBPJPY",
-              "GBPCHF","GBPAUD","GBPNZD","GBPCAD","AUDJPY","AUDNZD","AUDCAD",
-              "AUDCHF","NZDJPY","NZDCAD","NZDCHF","CADJPY","CADCHF","CHFJPY"
-          ]
-
-          rankings = []
-          for symbol in pairs:
-              with open(f"scan/broad/{symbol}.json", "r", encoding="utf-8") as f:
-                  data = json.load(f)
-
+          # =================================================
+          # BROAD RANKING
+          # =================================================
+          ranking = []
+          for symbol in PAIRS:
+              data = broad_raw[symbol]["data"]
               s = data.get("summary") or {}
               close = s.get("close")
               e20 = s.get("ema20")
@@ -172,30 +149,22 @@ jobs:
                       score += 2
 
               if direction == "BUY":
-                  if 52 <= rsi <= 68:
-                      score += 2
-                  elif 68 < rsi <= 72:
-                      score += 1
+                  score += 2 if 52 <= rsi <= 68 else 1 if 68 < rsi <= 72 else 0
               elif direction == "SELL":
-                  if 32 <= rsi <= 48:
-                      score += 2
-                  elif 28 <= rsi < 32:
-                      score += 1
+                  score += 2 if 32 <= rsi <= 48 else 1 if 28 <= rsi < 32 else 0
 
               if rsi >= 75 or rsi <= 25:
                   score -= 3
 
-              if direction == "BUY" and hi not in (None, 0):
-                  if abs(hi - close) / abs(hi) < 0.001:
-                      score -= 1
-              if direction == "SELL" and lo not in (None, 0):
-                  if abs(close - lo) / abs(lo) < 0.001:
-                      score -= 1
+              if direction == "BUY" and hi not in (None, 0) and abs(hi - close) / abs(hi) < 0.001:
+                  score -= 1
+              if direction == "SELL" and lo not in (None, 0) and abs(close - lo) / abs(lo) < 0.001:
+                  score -= 1
 
-              momentum_target = 60 if direction == "BUY" else 40 if direction == "SELL" else 50
-              momentum_quality = -abs(rsi - momentum_target)
+              target_rsi = 60 if direction == "BUY" else 40 if direction == "SELL" else 50
+              momentum_quality = -abs(rsi - target_rsi)
 
-              rankings.append({
+              ranking.append({
                   "symbol": symbol,
                   "direction": direction,
                   "broadScore": round(score, 3),
@@ -212,153 +181,82 @@ jobs:
                   "generatedAt": data.get("generatedAt")
               })
 
-          rankings.sort(
+          ranking.sort(
               key=lambda x: (x["broadScore"], x["momentumQuality"], x["atr14"]),
               reverse=True
           )
 
-          finalist_count = int(os.environ.get("FINALISTS", "3"))
-          finalists = rankings[:finalist_count]
+          finalists = [item["symbol"] for item in ranking[:3]]
+          print("BROAD_FINALISTS", finalists)
 
-          result = {
-              "status": "ok",
-              "pairsRequested": 28,
-              "pairsRanked": len(rankings),
-              "topCandidates": rankings[:10],
-              "finalists": [item["symbol"] for item in finalists]
-          }
+          # =================================================
+          # STAGE B: D1/H4/H1/M15/M5 TOP 3 (~15 credits)
+          # =================================================
+          deep_raw = parallel("analysis", finalists, workers=3, timeout=45)
+          deep = {}
+          deep_failed = []
 
-          with open("scan/ranking.json", "w", encoding="utf-8") as f:
-              json.dump(result, f, ensure_ascii=False, indent=2)
+          for symbol in finalists:
+              data = deep_raw[symbol]["data"]
+              valid = (
+                  valid_status(data)
+                  and data.get("analysisReady") is True
+                  and data.get("successfulFrames") == 5
+                  and data.get("failedFrames", 0) == 0
+              )
+              if valid:
+                  deep[symbol] = data
+                  print("DEEP", symbol, "OK 5/5")
+              else:
+                  deep_failed.append({
+                      "symbol": symbol,
+                      "error": deep_raw[symbol]["error"],
+                      "data": data
+                  })
 
-          with open("scan/finalists.txt", "w", encoding="utf-8") as f:
-              for item in finalists:
-                  f.write(item["symbol"] + "\n")
+          if deep_failed:
+              print(json.dumps(deep_failed, ensure_ascii=False, indent=2))
+              raise SystemExit("Deep Top-3 analysis failed")
 
-          print(json.dumps(result, ensure_ascii=False, indent=2))
-          PY
+          # =================================================
+          # STAGE C: LATEST PRICE TOP 3 (~3 credits)
+          # /price is intentionally used instead of /refresh M1.
+          # =================================================
+          price_raw = parallel("price", finalists, workers=3, timeout=30)
+          prices = {}
+          price_failed = []
 
-      # =====================================================
-      # STAGE B — DEEP TOP-3 ANALYSIS
-      # D1 + H4 + H1 + M15 + M5 for each finalist.
-      # ~= 15 credits total.
-      # =====================================================
-      - name: Deep analyze Top 3 finalists
-        shell: bash
-        run: |
-          python3 <<'PY'
-          import concurrent.futures
-          import json
-          import os
-          import urllib.request
-
-          worker = os.environ["FOREX_WORKER"].rstrip("/")
-          with open("scan/finalists.txt", "r", encoding="utf-8") as f:
-              symbols = [line.strip() for line in f if line.strip()]
-
-          def fetch(symbol):
-              url = f"{worker}/analysis/{symbol}"
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "trading-api-grow55/1.0"})
-                  with urllib.request.urlopen(req, timeout=45) as response:
-                      return symbol, json.loads(response.read().decode("utf-8")), None
-              except Exception as exc:
-                  return symbol, None, str(exc)
-
-          failures = []
-          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-              futures = [pool.submit(fetch, symbol) for symbol in symbols]
-              for future in concurrent.futures.as_completed(futures):
-                  symbol, data, error = future.result()
-                  valid = (
-                      data is not None
-                      and data.get("status") in ("ok", "partial")
-                      and data.get("analysisReady") is True
-                      and data.get("successfulFrames") == 5
-                      and data.get("failedFrames", 0) == 0
-                  )
-                  if not valid:
-                      failures.append({"symbol": symbol, "error": error, "data": data})
-                      continue
-                  with open(f"scan/deep/{symbol}.json", "w", encoding="utf-8") as f:
-                      json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-                  print(symbol, "DEEP_OK 5/5")
-
-          if failures:
-              print(json.dumps(failures, ensure_ascii=False, indent=2))
-              raise SystemExit("Deep analysis failed")
-          PY
-
-      # =====================================================
-      # FINAL LIVE REFRESH — TOP 3
-      # M1/latest quote data for all finalists, not only Top 1.
-      # ~= 3 credits total.
-      # =====================================================
-      - name: Refresh Top 3 finalists
-        shell: bash
-        run: |
-          python3 <<'PY'
-          import concurrent.futures
-          import json
-          import os
-          import urllib.request
-
-          worker = os.environ["FOREX_WORKER"].rstrip("/")
-          with open("scan/finalists.txt", "r", encoding="utf-8") as f:
-              symbols = [line.strip() for line in f if line.strip()]
-
-          def fetch(symbol):
-              url = f"{worker}/refresh/{symbol}"
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "trading-api-grow55/1.0"})
-                  with urllib.request.urlopen(req, timeout=30) as response:
-                      return symbol, json.loads(response.read().decode("utf-8")), None
-              except Exception as exc:
-                  return symbol, None, str(exc)
-
-          failures = []
-          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-              futures = [pool.submit(fetch, symbol) for symbol in symbols]
-              for future in concurrent.futures.as_completed(futures):
-                  symbol, data, error = future.result()
-                  if not data or data.get("status") not in ("ok", "partial") or data.get("currentPrice") is None:
-                      failures.append({"symbol": symbol, "error": error, "data": data})
-                      continue
-                  with open(f"scan/refresh/{symbol}.json", "w", encoding="utf-8") as f:
-                      json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+          for symbol in finalists:
+              data = price_raw[symbol]["data"]
+              valid = (
+                  valid_status(data)
+                  and data.get("currentPrice") is not None
+                  and data.get("priceType") == "latest_price"
+                  and data.get("stale") is not True
+              )
+              if valid:
+                  prices[symbol] = data
                   print(
-                      symbol,
-                      "PRICE", data.get("currentPrice"),
-                      "BID", data.get("bid"),
-                      "ASK", data.get("ask"),
-                      "AGE", data.get("dataAgeSeconds"),
-                      "EXEC", data.get("executionReady")
+                      "LATEST_PRICE", symbol,
+                      data.get("currentPrice"),
+                      data.get("generatedAt"),
+                      data.get("priceType")
                   )
+              else:
+                  price_failed.append({
+                      "symbol": symbol,
+                      "error": price_raw[symbol]["error"],
+                      "data": data
+                  })
 
-          if failures:
-              print(json.dumps(failures, ensure_ascii=False, indent=2))
-              raise SystemExit("Final refresh failed")
-          PY
+          if price_failed:
+              print(json.dumps(price_failed, ensure_ascii=False, indent=2))
+              raise SystemExit("Latest-price refresh failed")
 
-      # =====================================================
-      # MULTI-TIMEFRAME FINAL RANKING
-      # This produces candidates for V74 review; it does NOT
-      # bypass the required M15 location + M5 confirmed trigger.
-      # =====================================================
-      - name: Build Grow 55 final result
-        shell: bash
-        run: |
-          python3 <<'PY'
-          import json
-          from datetime import datetime, timezone
-
-          with open("scan/ranking.json", "r", encoding="utf-8") as f:
-              broad = json.load(f)
-
-          broad_map = {item["symbol"]: item for item in broad.get("topCandidates", [])}
-          with open("scan/finalists.txt", "r", encoding="utf-8") as f:
-              symbols = [line.strip() for line in f if line.strip()]
-
+          # =================================================
+          # DEEP RANKING
+          # Candidate ranking only; V74 M15/M5 execution gate remains.
+          # =================================================
           def frame_direction(summary):
               if not summary:
                   return "NEUTRAL"
@@ -373,20 +271,27 @@ jobs:
                   return "SELL"
               return "NEUTRAL"
 
+          def parse_iso(value):
+              if not value:
+                  return None
+              try:
+                  return datetime.fromisoformat(value.replace("Z", "+00:00"))
+              except Exception:
+                  return None
+
+          broad_map = {item["symbol"]: item for item in ranking}
           candidates = []
-          for symbol in symbols:
-              with open(f"scan/deep/{symbol}.json", "r", encoding="utf-8") as f:
-                  analysis = json.load(f)
-              with open(f"scan/refresh/{symbol}.json", "r", encoding="utf-8") as f:
-                  refresh = json.load(f)
+          now = datetime.now(timezone.utc)
 
-              broad_item = broad_map.get(symbol, {})
-              direction = broad_item.get("direction", "NEUTRAL")
+          for symbol in finalists:
+              analysis = deep[symbol]
+              price = prices[symbol]
+              prior = broad_map[symbol]
+              direction = prior["direction"]
               frames = analysis.get("timeframes") or {}
-
-              frame_states = {}
-              deep_score = float(broad_item.get("broadScore", 0))
               weights = {"D1": 1.0, "H4": 2.0, "H1": 2.0, "M15": 2.0, "M5": 2.0}
+              frame_states = {}
+              score = float(prior["broadScore"])
 
               for tf, weight in weights.items():
                   summary = (frames.get(tf) or {}).get("summary") or {}
@@ -394,76 +299,75 @@ jobs:
                   frame_states[tf] = state
                   if direction != "NEUTRAL":
                       if state == direction:
-                          deep_score += weight
+                          score += weight
                       elif state not in ("NEUTRAL", direction):
-                          deep_score -= weight
+                          score -= weight
 
-              m5_summary = (frames.get("M5") or {}).get("summary") or {}
-              m15_summary = (frames.get("M15") or {}).get("summary") or {}
-              m5_rsi = m5_summary.get("rsi14")
-              m15_rsi = m15_summary.get("rsi14")
-
+              m15_rsi = ((frames.get("M15") or {}).get("summary") or {}).get("rsi14")
+              m5_rsi = ((frames.get("M5") or {}).get("summary") or {}).get("rsi14")
               if direction == "BUY":
-                  if m5_rsi is not None and 50 <= m5_rsi <= 70:
-                      deep_score += 0.5
-                  if m15_rsi is not None and 48 <= m15_rsi <= 68:
-                      deep_score += 0.5
+                  score += 0.5 if m15_rsi is not None and 48 <= m15_rsi <= 68 else 0
+                  score += 0.5 if m5_rsi is not None and 50 <= m5_rsi <= 70 else 0
               elif direction == "SELL":
-                  if m5_rsi is not None and 30 <= m5_rsi <= 50:
-                      deep_score += 0.5
-                  if m15_rsi is not None and 32 <= m15_rsi <= 52:
-                      deep_score += 0.5
+                  score += 0.5 if m15_rsi is not None and 32 <= m15_rsi <= 52 else 0
+                  score += 0.5 if m5_rsi is not None and 30 <= m5_rsi <= 50 else 0
 
-              age = refresh.get("dataAgeSeconds")
-              stale = refresh.get("stale")
-              market_closed = refresh.get("marketClosedPossible")
-              quote_valid = (
-                  refresh.get("currentPrice") is not None
-                  and stale is not True
-                  and market_closed is not True
-                  and age is not None
-                  and age <= 30
+              generated = parse_iso(price.get("generatedAt"))
+              fetch_age = (now - generated).total_seconds() if generated else None
+              fresh_latest_price = (
+                  price.get("priceType") == "latest_price"
+                  and price.get("stale") is not True
+                  and fetch_age is not None
+                  and 0 <= fetch_age <= 30
               )
 
+              # Twelve Data /price supplies a fresh aggregated latest price but
+              # not an executable broker bid/ask spread. Therefore this can
+              # validate live price freshness, not broker execution spread.
               candidates.append({
                   "symbol": symbol,
                   "directionPrior": direction,
-                  "broadScore": broad_item.get("broadScore"),
-                  "deepScore": round(deep_score, 3),
+                  "broadScore": prior["broadScore"],
+                  "deepScore": round(score, 3),
                   "frameDirection": frame_states,
-                  "currentPrice": refresh.get("currentPrice"),
-                  "currentPriceTime": refresh.get("currentPriceTime"),
-                  "bid": refresh.get("bid"),
-                  "ask": refresh.get("ask"),
-                  "spread": refresh.get("spread"),
-                  "dataAgeSeconds": age,
-                  "quoteAgeMs": refresh.get("quoteAgeMs"),
-                  "stale": stale,
-                  "executionReadyFromFeed": refresh.get("executionReady"),
-                  "quoteValidForV74": quote_valid,
+                  "currentPrice": price.get("currentPrice"),
+                  "priceType": price.get("priceType"),
+                  "priceGeneratedAt": price.get("generatedAt"),
+                  "priceFetchAgeSeconds": round(fetch_age, 3) if fetch_age is not None else None,
+                  "freshLatestPrice": fresh_latest_price,
+                  "provider": price.get("provider") or analysis.get("provider"),
+                  "marketSymbol": price.get("marketSymbol") or analysis.get("marketSymbol"),
+                  "marketType": price.get("marketType") or analysis.get("marketType"),
+                  "bid": price.get("bid"),
+                  "ask": price.get("ask"),
+                  "spreadVerified": price.get("bid") is not None and price.get("ask") is not None,
                   "analysis": analysis,
-                  "refresh": refresh
+                  "latestPrice": price
               })
 
-          candidates.sort(key=lambda item: item["deepScore"], reverse=True)
+          candidates.sort(key=lambda x: x["deepScore"], reverse=True)
 
           result = {
-              "updatedAt": datetime.now(timezone.utc).isoformat(),
+              "updatedAt": now.isoformat(),
               "dataPolicy": "TWELVE_DATA_GROW_55",
               "creditBudget": {
                   "apiCreditsPerMinute": 55,
                   "broadScanEstimated": 28,
                   "deepTop3Estimated": 15,
-                  "refreshTop3Estimated": 3,
+                  "latestPriceTop3Estimated": 3,
                   "normalEstimatedTotal": 46,
                   "reserveEstimated": 9
               },
-              "scanComplete": True,
-              "pairsScanned": 28,
-              "broadRanking": broad,
+              "scanComplete": len(ranking) == 28,
+              "pairsScanned": len(ranking),
+              "broadTop10": ranking[:10],
               "deepCandidates": candidates,
               "bestCandidateForV74Review": candidates[0]["symbol"] if candidates else None,
-              "executionRule": "Candidate only. V74 still requires fresh executable quote, symbol/news context, M15 location and M5 close-confirmed MSS/displacement/retest before MARKET."
+              "executionRule": (
+                  "Candidate only. Latest price is refreshed with Twelve Data /price. "
+                  "V74 still requires current news/context, M15 location, M5 close-confirmed "
+                  "MSS/displacement/retest and executable broker/venue spread before MARKET."
+              )
           }
 
           with open("data/forex-scan.json", "w", encoding="utf-8") as f:
@@ -475,17 +379,16 @@ jobs:
               "bestCandidateForV74Review": result["bestCandidateForV74Review"],
               "deepCandidates": [
                   {
-                      "symbol": item["symbol"],
-                      "direction": item["directionPrior"],
-                      "score": item["deepScore"],
-                      "frames": item["frameDirection"],
-                      "price": item["currentPrice"],
-                      "bid": item["bid"],
-                      "ask": item["ask"],
-                      "age": item["dataAgeSeconds"],
-                      "quoteValidForV74": item["quoteValidForV74"]
+                      "symbol": x["symbol"],
+                      "direction": x["directionPrior"],
+                      "score": x["deepScore"],
+                      "frames": x["frameDirection"],
+                      "price": x["currentPrice"],
+                      "priceGeneratedAt": x["priceGeneratedAt"],
+                      "freshLatestPrice": x["freshLatestPrice"],
+                      "spreadVerified": x["spreadVerified"]
                   }
-                  for item in candidates
+                  for x in candidates
               ]
           }, ensure_ascii=False, indent=2))
           PY
