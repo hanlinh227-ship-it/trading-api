@@ -1,0 +1,21 @@
+name: Offline Crossmarket TopK V6
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_crossmarket_topk_v6.py'
+      - '.github/workflows/offline-crossmarket-topk-v6.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run zero-credit Top-K optimizer
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_crossmarket_topk_v6.py
