@@ -1,0 +1,5232 @@
+{
+  "generatedAt": "2026-08-17T01:52:27.658581+00:00",
+  "method": "V20 walk-forward: select breadth-regime switch only on already-seen Jul30/Jul28/Jul26; then lock and test untouched Jul24/Jul22. Direction core = V17 short multi-horizon momentum/structure. Extreme market breadth may switch to contrarian only under selected policy. 48 M15 structural SL + .75 profile ATR floor; RR1.5/1.7/1.9 by alignment; no WAIT/LIMIT.",
+  "development": {
+    "chosen": {
+      "policy": "fade_alt",
+      "low": 0.05,
+      "high": 0.8,
+      "perDev": {
+        "DEV_JUL30": {
+          "wins": 13,
+          "losses": 38,
+          "unresolved": 5,
+          "winRate": 25.49,
+          "avgRR": 1.61,
+          "expectancyR": -0.343
+        },
+        "DEV_JUL28": {
+          "wins": 15,
+          "losses": 41,
+          "unresolved": 0,
+          "winRate": 26.79,
+          "avgRR": 1.518,
+          "expectancyR": -0.327
+        },
+        "DEV_JUL26": {
+          "wins": 25,
+          "losses": 31,
+          "unresolved": 0,
+          "winRate": 44.64,
+          "avgRR": 1.521,
+          "expectancyR": 0.123
+        }
+      },
+      "minWinRate": 25.49,
+      "minExpectancyR": -0.343,
+      "avgWinRate": 32.31,
+      "avgRR": 1.55,
+      "avgExpectancyR": -0.182,
+      "robustScore": 24.084
+    },
+    "top": [
+      {
+        "policy": "fade_alt",
+        "low": 0.05,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 15,
+            "losses": 41,
+            "unresolved": 0,
+            "winRate": 26.79,
+            "avgRR": 1.518,
+            "expectancyR": -0.327
+          },
+          "DEV_JUL26": {
+            "wins": 25,
+            "losses": 31,
+            "unresolved": 0,
+            "winRate": 44.64,
+            "avgRR": 1.521,
+            "expectancyR": 0.123
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.55,
+        "avgExpectancyR": -0.182,
+        "robustScore": 24.084
+      },
+      {
+        "policy": "fade_alt",
+        "low": 0.1,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 15,
+            "losses": 41,
+            "unresolved": 0,
+            "winRate": 26.79,
+            "avgRR": 1.518,
+            "expectancyR": -0.327
+          },
+          "DEV_JUL26": {
+            "wins": 25,
+            "losses": 31,
+            "unresolved": 0,
+            "winRate": 44.64,
+            "avgRR": 1.521,
+            "expectancyR": 0.123
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.55,
+        "avgExpectancyR": -0.182,
+        "robustScore": 24.084
+      },
+      {
+        "policy": "fade_alt",
+        "low": 0.15,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 15,
+            "losses": 41,
+            "unresolved": 0,
+            "winRate": 26.79,
+            "avgRR": 1.518,
+            "expectancyR": -0.327
+          },
+          "DEV_JUL26": {
+            "wins": 25,
+            "losses": 31,
+            "unresolved": 0,
+            "winRate": 44.64,
+            "avgRR": 1.521,
+            "expectancyR": 0.123
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.55,
+        "avgExpectancyR": -0.182,
+        "robustScore": 24.084
+      },
+      {
+        "policy": "fade_position",
+        "low": 0.05,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 17,
+            "losses": 39,
+            "unresolved": 0,
+            "winRate": 30.36,
+            "avgRR": 1.5,
+            "expectancyR": -0.241
+          },
+          "DEV_JUL26": {
+            "wins": 23,
+            "losses": 33,
+            "unresolved": 0,
+            "winRate": 41.07,
+            "avgRR": 1.529,
+            "expectancyR": 0.034
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.546,
+        "avgExpectancyR": -0.183,
+        "robustScore": 24.063
+      },
+      {
+        "policy": "fade_position",
+        "low": 0.1,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 17,
+            "losses": 39,
+            "unresolved": 0,
+            "winRate": 30.36,
+            "avgRR": 1.5,
+            "expectancyR": -0.241
+          },
+          "DEV_JUL26": {
+            "wins": 23,
+            "losses": 33,
+            "unresolved": 0,
+            "winRate": 41.07,
+            "avgRR": 1.529,
+            "expectancyR": 0.034
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.546,
+        "avgExpectancyR": -0.183,
+        "robustScore": 24.063
+      },
+      {
+        "policy": "fade_position",
+        "low": 0.15,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 17,
+            "losses": 39,
+            "unresolved": 0,
+            "winRate": 30.36,
+            "avgRR": 1.5,
+            "expectancyR": -0.241
+          },
+          "DEV_JUL26": {
+            "wins": 23,
+            "losses": 33,
+            "unresolved": 0,
+            "winRate": 41.07,
+            "avgRR": 1.529,
+            "expectancyR": 0.034
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.546,
+        "avgExpectancyR": -0.183,
+        "robustScore": 24.063
+      },
+      {
+        "policy": "fade_all",
+        "low": 0.05,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 18,
+            "losses": 38,
+            "unresolved": 0,
+            "winRate": 32.14,
+            "avgRR": 1.5,
+            "expectancyR": -0.196
+          },
+          "DEV_JUL26": {
+            "wins": 22,
+            "losses": 34,
+            "unresolved": 0,
+            "winRate": 39.29,
+            "avgRR": 1.521,
+            "expectancyR": -0.011
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.544,
+        "avgExpectancyR": -0.183,
+        "robustScore": 24.05
+      },
+      {
+        "policy": "fade_all",
+        "low": 0.1,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 18,
+            "losses": 38,
+            "unresolved": 0,
+            "winRate": 32.14,
+            "avgRR": 1.5,
+            "expectancyR": -0.196
+          },
+          "DEV_JUL26": {
+            "wins": 22,
+            "losses": 34,
+            "unresolved": 0,
+            "winRate": 39.29,
+            "avgRR": 1.521,
+            "expectancyR": -0.011
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.544,
+        "avgExpectancyR": -0.183,
+        "robustScore": 24.05
+      },
+      {
+        "policy": "fade_all",
+        "low": 0.15,
+        "high": 0.8,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 18,
+            "losses": 38,
+            "unresolved": 0,
+            "winRate": 32.14,
+            "avgRR": 1.5,
+            "expectancyR": -0.196
+          },
+          "DEV_JUL26": {
+            "wins": 22,
+            "losses": 34,
+            "unresolved": 0,
+            "winRate": 39.29,
+            "avgRR": 1.521,
+            "expectancyR": -0.011
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 32.31,
+        "avgRR": 1.544,
+        "avgExpectancyR": -0.183,
+        "robustScore": 24.05
+      },
+      {
+        "policy": "fade_weak",
+        "low": 0.05,
+        "high": 0.85,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 20,
+            "losses": 34,
+            "unresolved": 2,
+            "winRate": 37.04,
+            "avgRR": 1.644,
+            "expectancyR": -0.019
+          },
+          "DEV_JUL26": {
+            "wins": 15,
+            "losses": 38,
+            "unresolved": 3,
+            "winRate": 28.3,
+            "avgRR": 1.583,
+            "expectancyR": -0.285
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 30.28,
+        "avgRR": 1.612,
+        "avgExpectancyR": -0.216,
+        "robustScore": 24.02
+      },
+      {
+        "policy": "fade_weak",
+        "low": 0.05,
+        "high": 0.9,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 20,
+            "losses": 34,
+            "unresolved": 2,
+            "winRate": 37.04,
+            "avgRR": 1.644,
+            "expectancyR": -0.019
+          },
+          "DEV_JUL26": {
+            "wins": 15,
+            "losses": 38,
+            "unresolved": 3,
+            "winRate": 28.3,
+            "avgRR": 1.583,
+            "expectancyR": -0.285
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 30.28,
+        "avgRR": 1.612,
+        "avgExpectancyR": -0.216,
+        "robustScore": 24.02
+      },
+      {
+        "policy": "fade_weak",
+        "low": 0.1,
+        "high": 0.85,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 20,
+            "losses": 34,
+            "unresolved": 2,
+            "winRate": 37.04,
+            "avgRR": 1.644,
+            "expectancyR": -0.019
+          },
+          "DEV_JUL26": {
+            "wins": 15,
+            "losses": 38,
+            "unresolved": 3,
+            "winRate": 28.3,
+            "avgRR": 1.583,
+            "expectancyR": -0.285
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 30.28,
+        "avgRR": 1.612,
+        "avgExpectancyR": -0.216,
+        "robustScore": 24.02
+      },
+      {
+        "policy": "fade_weak",
+        "low": 0.1,
+        "high": 0.9,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 20,
+            "losses": 34,
+            "unresolved": 2,
+            "winRate": 37.04,
+            "avgRR": 1.644,
+            "expectancyR": -0.019
+          },
+          "DEV_JUL26": {
+            "wins": 15,
+            "losses": 38,
+            "unresolved": 3,
+            "winRate": 28.3,
+            "avgRR": 1.583,
+            "expectancyR": -0.285
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 30.28,
+        "avgRR": 1.612,
+        "avgExpectancyR": -0.216,
+        "robustScore": 24.02
+      },
+      {
+        "policy": "fade_weak",
+        "low": 0.15,
+        "high": 0.85,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 20,
+            "losses": 34,
+            "unresolved": 2,
+            "winRate": 37.04,
+            "avgRR": 1.644,
+            "expectancyR": -0.019
+          },
+          "DEV_JUL26": {
+            "wins": 15,
+            "losses": 38,
+            "unresolved": 3,
+            "winRate": 28.3,
+            "avgRR": 1.583,
+            "expectancyR": -0.285
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 30.28,
+        "avgRR": 1.612,
+        "avgExpectancyR": -0.216,
+        "robustScore": 24.02
+      },
+      {
+        "policy": "fade_weak",
+        "low": 0.15,
+        "high": 0.9,
+        "perDev": {
+          "DEV_JUL30": {
+            "wins": 13,
+            "losses": 38,
+            "unresolved": 5,
+            "winRate": 25.49,
+            "avgRR": 1.61,
+            "expectancyR": -0.343
+          },
+          "DEV_JUL28": {
+            "wins": 20,
+            "losses": 34,
+            "unresolved": 2,
+            "winRate": 37.04,
+            "avgRR": 1.644,
+            "expectancyR": -0.019
+          },
+          "DEV_JUL26": {
+            "wins": 15,
+            "losses": 38,
+            "unresolved": 3,
+            "winRate": 28.3,
+            "avgRR": 1.583,
+            "expectancyR": -0.285
+          }
+        },
+        "minWinRate": 25.49,
+        "minExpectancyR": -0.343,
+        "avgWinRate": 30.28,
+        "avgRR": 1.612,
+        "avgExpectancyR": -0.216,
+        "robustScore": 24.02
+      }
+    ]
+  },
+  "fresh": {
+    "BLIND_JUL24": {
+      "summary": {
+        "label": "BLIND_JUL24",
+        "cutoff": "2026-07-24T12:00:00Z",
+        "isTrueBlind": true,
+        "marketTrades": 56,
+        "resolved": 54,
+        "wins": 29,
+        "losses": 25,
+        "unresolved": 2,
+        "winRateResolved": 53.7,
+        "avgPlannedRR": 1.693,
+        "expectancyR": 0.446,
+        "breadth": 0.107,
+        "breadthFades": 0
+      },
+      "tests": [
+        {
+          "symbol": "BTCUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.703,
+          "entry": 65080.4,
+          "sl": 65800.0,
+          "tp": 64001.0,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -1.346,
+            "ltfScore": -2.4511373793862723,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.0,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.24926652476557787,
+            "m15Sweep": 1,
+            "m5Sweep": -1,
+            "m15VWAP": 65152.78840754334
+          },
+          "features": {
+            "r6": -0.003663519581382002,
+            "r24": -0.007245779905240335,
+            "r72": -0.019120107311338508,
+            "r7d": 0.02817023790904183,
+            "rs24": 0.0,
+            "rs7d": 0.0,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ETHUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.037,
+          "entry": 1883.85,
+          "sl": 1909.68,
+          "tp": 1845.1049999999996,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -0.6260000000000003,
+            "ltfScore": -2.2973126219229414,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.16192253358358943,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.249410800286914,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 1889.942748346111
+          },
+          "features": {
+            "r6": 0.0015364494726095579,
+            "r24": -0.02176283649052846,
+            "r72": -0.02687666590904403,
+            "r7d": 0.02423230829454992,
+            "rs24": -0.014517056585288124,
+            "rs7d": -0.0039379296144919085,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "SOLUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.613,
+          "entry": 75.2,
+          "sl": 76.44,
+          "tp": 73.09200000000001,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": -9.701,
+            "ltfScore": -4.215896535171011,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.8427136144997238,
+            "btcBias": -0.7,
+            "chaseAdjustment": 2.8,
+            "rangePositionH1": 0.05426356589147486,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 76.13337283924454
+          },
+          "features": {
+            "r6": -0.00778466816202672,
+            "r24": -0.0316765387586917,
+            "r72": -0.04044915146101824,
+            "r7d": 0.00440763990917592,
+            "rs24": -0.024430758853451362,
+            "rs7d": -0.02376259799986591,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "HYPEUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.39,
+          "entry": 58.576,
+          "sl": 59.059,
+          "tp": 57.754900000000006,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -7.654,
+            "ltfScore": 1.3316,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.6591318989975781,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.47635484984466686,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 58.72192154373344
+          },
+          "features": {
+            "r6": 0.0019842627437565152,
+            "r24": -0.012159131153346658,
+            "r72": -0.0683885743367898,
+            "r7d": -0.02941127736077276,
+            "rs24": -0.0049133512481063235,
+            "rs7d": -0.05758151526981459,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "SHIBUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.341,
+          "entry": 4.168e-06,
+          "sl": 4.197e-06,
+          "tp": 4.124499999999999e-06,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -9.158999999999999,
+            "ltfScore": 0.1822129721640788,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.16533881217352553,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.377777777777778,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 4.155875583296527e-06
+          },
+          "features": {
+            "r6": 0.0012010569300984208,
+            "r24": -0.013957889756328501,
+            "r72": -0.02480112306972404,
+            "r7d": 0.007736943907156624,
+            "rs24": -0.006712109851088166,
+            "rs7d": -0.020433294001885205,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "TRXUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 2.155,
+          "entry": 0.33156,
+          "sl": 0.32815,
+          "tp": 0.33667500000000006,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 8.524,
+            "ltfScore": 2.761595303271433,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.7259644160654055,
+            "btcBias": -0.7,
+            "chaseAdjustment": -0.8,
+            "rangePositionH1": 0.9510703363914392,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 0.3286501331075462
+          },
+          "features": {
+            "r6": 0.004970902036857572,
+            "r24": 0.012520613204666464,
+            "r72": 0.012366034624897049,
+            "r7d": 0.02726484074854385,
+            "rs24": 0.0197663931099068,
+            "rs7d": -0.0009053971604979782,
+            "st4": 0,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "XRPUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.563,
+          "entry": 1.1039,
+          "sl": 1.1215,
+          "tp": 1.0739800000000004,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -7.434,
+            "ltfScore": -4.183401255977786,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.493116718669131,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.0,
+            "rangePositionH1": 0.059649122807018826,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 1.1111305263955105
+          },
+          "features": {
+            "r6": -0.005495495495495439,
+            "r24": -0.025339925834363397,
+            "r72": -0.028599084829285415,
+            "r7d": 0.017606932153392485,
+            "rs24": -0.018094145929123062,
+            "rs7d": -0.010563305755649344,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 2.176,
+          "entry": 95.74,
+          "sl": 94.53,
+          "tp": 97.55499999999998,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": 6.949000000000001,
+            "ltfScore": -2.5194031559425807,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.3007605512538558,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.27252252252252124,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 96.00696917385956
+          },
+          "features": {
+            "r6": -0.00020885547201343613,
+            "r24": -0.008902691511387117,
+            "r72": 0.009809091867946318,
+            "r7d": 0.053824986241056694,
+            "rs24": -0.0016569116061467826,
+            "rs7d": 0.025654748332014865,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ADAUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.584,
+          "entry": 0.1663,
+          "sl": 0.1686,
+          "tp": 0.16239,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -6.776,
+            "ltfScore": -4.09910691764576,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.2622684554546315,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.0460526315789478,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.1691401346693605
+          },
+          "features": {
+            "r6": -0.002997601918465209,
+            "r24": -0.04589787722317851,
+            "r72": -0.04808242701774468,
+            "r7d": 0.03291925465838519,
+            "rs24": -0.03865209731793817,
+            "rs7d": 0.00474901674934336,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ALGOUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.659,
+          "entry": 0.08247,
+          "sl": 0.0836,
+          "tp": 0.08054900000000001,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -3.4816,
+            "meanReversionScore": 1.7000000000000002,
+            "relativeStrengthScore": -0.34059472751492237,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.45,
+            "rangePositionH1": 0.20474777448071116,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.08267747536089458
+          },
+          "features": {
+            "r6": -0.006026274557068834,
+            "r24": -0.0048268372149149474,
+            "r72": -0.02736171718363023,
+            "r7d": -0.010913888222595314,
+            "rs24": 0.0024189426903253874,
+            "rs7d": -0.03908412613163714,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "APTUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.757,
+          "entry": 0.6107,
+          "sl": 0.6283,
+          "tp": 0.5843,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -0.3089999999999997,
+            "ltfScore": -2.568,
+            "meanReversionScore": 1.1,
+            "relativeStrengthScore": -0.6148784848678157,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.0,
+            "rangePositionH1": 0.2629870129870134,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6175822875583982
+          },
+          "features": {
+            "r6": -0.017219182491148954,
+            "r24": -0.014205004035512503,
+            "r72": -0.0056984695538911945,
+            "r7d": 0.009588361712679738,
+            "rs24": -0.006959224130272168,
+            "rs7d": -0.01858187619636209,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ARBUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.415,
+          "entry": 0.08509,
+          "sl": 0.08695,
+          "tp": 0.081556,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -13.384,
+            "ltfScore": -3.575418228191188,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.0396042998346489,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.059945504087192916,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.08627772836066533
+          },
+          "features": {
+            "r6": -0.0037466338836201762,
+            "r24": -0.036244195265601964,
+            "r72": -0.057278971859073824,
+            "r7d": -0.04863595706618973,
+            "rs24": -0.02899841536036163,
+            "rs7d": -0.07680619497523156,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ATOMUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -7.888,
+          "entry": 1.394,
+          "sl": 1.431,
+          "tp": 1.3236999999999997,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -14.783999999999999,
+            "ltfScore": -4.759005722421032,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.4558078776333283,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.8,
+            "rangePositionH1": 0.055555555555554324,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.424081684385451
+          },
+          "features": {
+            "r6": -0.021067415730337102,
+            "r24": -0.04389574759945136,
+            "r72": -0.07252162341982704,
+            "r7d": -0.07004669779853245,
+            "rs24": -0.03664996769421103,
+            "rs7d": -0.09821693570757428,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "AVAXUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.056,
+          "entry": 6.258,
+          "sl": 6.318,
+          "tp": 6.156000000000001,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -2.490406727913389,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.8891285976211738,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.14345991561181373,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 6.327221492004336
+          },
+          "features": {
+            "r6": 0.0012799999999999478,
+            "r24": -0.04994686503719448,
+            "r72": -0.05738816086760057,
+            "r7d": -0.035747303543913755,
+            "rs24": -0.04270108513195414,
+            "rs7d": -0.06391754145295558,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "BCHUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -5.641,
+          "entry": 210.3,
+          "sl": 213.5,
+          "tp": 204.22000000000003,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -3.888,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.7112986133559906,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.13986013986014004,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 211.9683196136754
+          },
+          "features": {
+            "r6": -0.005203405865657484,
+            "r24": -0.02818853974121993,
+            "r72": -0.06616341030195372,
+            "r7d": -0.03752860411899306,
+            "rs24": -0.020942759835979596,
+            "rs7d": -0.06569884202803489,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "BONKUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -5.91,
+          "entry": 2.929e-06,
+          "sl": 2.991e-06,
+          "tp": 2.8112e-06,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -11.658999999999999,
+            "ltfScore": -2.461791391091069,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.5230036423747353,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.2128378378378368,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.935817083846119e-06
+          },
+          "features": {
+            "r6": -0.008463100880162555,
+            "r24": -0.018431635388740042,
+            "r72": -0.04468362687540772,
+            "r7d": -0.10837138508371391,
+            "rs24": -0.011185855483499707,
+            "rs7d": -0.13654162299275574,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "CRVUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.175,
+          "entry": 0.2043,
+          "sl": 0.2098,
+          "tp": 0.19385000000000005,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -12.283999999999999,
+            "ltfScore": -4.75347563752085,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.4162838683973233,
+            "btcBias": -0.7,
+            "chaseAdjustment": 2.25,
+            "rangePositionH1": 0.07272727272727318,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.2085129487474028
+          },
+          "features": {
+            "r6": -0.017316017316017285,
+            "r24": -0.03449905482041593,
+            "r72": -0.04710820895522383,
+            "r7d": -0.04219409282700415,
+            "rs24": -0.027253274915175596,
+            "rs7d": -0.07036433073604598,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "DOGEUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -5.017,
+          "entry": 0.06947,
+          "sl": 0.07019,
+          "tp": 0.068246,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "trend",
+            "htfScore": -12.033999999999999,
+            "ltfScore": -2.294938080087288,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5077729049764579,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.2105263157894734,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.06989570753095194
+          },
+          "features": {
+            "r6": 0.0036116729268997894,
+            "r24": -0.040337063130266526,
+            "r72": -0.05688297583491719,
+            "r7d": -0.035406831435712216,
+            "rs24": -0.03309128322502619,
+            "rs7d": -0.06357706934475404,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "DOTUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.114,
+          "entry": 0.8039,
+          "sl": 0.8201,
+          "tp": 0.7731199999999998,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -14.783999999999999,
+            "ltfScore": -3.5620795111704355,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.7615520360953543,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.0731707317073154,
+            "m15Sweep": 0,
+            "m5Sweep": -1,
+            "m15VWAP": 0.8125474445404018
+          },
+          "features": {
+            "r6": -0.008143121529919917,
+            "r24": -0.017837507635919403,
+            "r72": -0.06250728862973776,
+            "r7d": -0.057782466010314115,
+            "rs24": -0.010591727730679068,
+            "rs7d": -0.08595270391935594,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ETCUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -5.43,
+          "entry": 6.716,
+          "sl": 6.853,
+          "tp": 6.455700000000001,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -14.783999999999999,
+            "ltfScore": -3.4816,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.296063716459639,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.8,
+            "rangePositionH1": 0.15938303341902374,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 6.799059592757195
+          },
+          "features": {
+            "r6": -0.004004152454397225,
+            "r24": -0.03713261648745514,
+            "r72": -0.04912926518476557,
+            "r7d": -0.033530004317167905,
+            "rs24": -0.029886836582214804,
+            "rs7d": -0.061700242226209734,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "FILUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.399,
+          "entry": 0.7312,
+          "sl": 0.7387,
+          "tp": 0.7184499999999998,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -11.658999999999999,
+            "ltfScore": 2.4383930276348376,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.16741287320122478,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.1835205992509348,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.7298789027465167
+          },
+          "features": {
+            "r6": 0.0008212428141252115,
+            "r24": -0.007869742198100438,
+            "r72": -0.02467653728157937,
+            "r7d": -0.056272586473928854,
+            "rs24": -0.000623962292860103,
+            "rs7d": -0.08444282438297068,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "FLOKIUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.241,
+          "entry": 2.108e-05,
+          "sl": 2.144e-05,
+          "tp": 2.0468e-05,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -11.649000000000001,
+            "ltfScore": -4.993185015480368,
+            "meanReversionScore": 2.7,
+            "relativeStrengthScore": -0.6905886797936156,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.0,
+            "rangePositionH1": 0.17021276595744858,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.12280584162136e-05
+          },
+          "features": {
+            "r6": -0.007532956685499026,
+            "r24": -0.028123559243891205,
+            "r72": -0.024074074074074026,
+            "r7d": -0.02542764678687004,
+            "rs24": -0.02087777933865087,
+            "rs7d": -0.05359788469591187,
+            "st4": 0,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "HBARUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.53,
+          "entry": 0.07049,
+          "sl": 0.07031890549469082,
+          "tp": 0.07074664175796376,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -4.184,
+            "ltfScore": -3.921417676654521,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.853309617356206,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.45,
+            "rangePositionH1": 0.03147699757869041,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.0716808525126511
+          },
+          "features": {
+            "r6": -0.011083052749719435,
+            "r24": -0.03239533287577212,
+            "r72": 0.03070624360286578,
+            "r7d": 0.06706024825915846,
+            "rs24": -0.025149552970531786,
+            "rs7d": 0.03889001035011663,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "INJUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 3.046,
+          "entry": 5.349,
+          "sl": 5.176,
+          "tp": 5.6085,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": 12.724,
+            "ltfScore": 1.7789335067442908,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 2.179885191747073,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7162162162162176,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 5.303098897436774
+          },
+          "features": {
+            "r6": -0.010360777058279425,
+            "r24": 0.034022810748115306,
+            "r72": -0.007054018934471773,
+            "r7d": 0.08411025537089589,
+            "rs24": 0.04126859065335564,
+            "rs7d": 0.055940017461854064,
+            "st4": 0,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "JTOUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.712,
+          "entry": 0.6071,
+          "sl": 0.6405,
+          "tp": 0.5569999999999999,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -4.404,
+            "ltfScore": -3.5217947430199033,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.7585686718068994,
+            "btcBias": -0.7,
+            "chaseAdjustment": 2.25,
+            "rangePositionH1": 0.1438721136767317,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6335444361306817
+          },
+          "features": {
+            "r6": -0.039702625751344534,
+            "r24": -0.027862289831865672,
+            "r72": 0.00016474464579907533,
+            "r7d": 0.08701880035810206,
+            "rs24": -0.020616509926625337,
+            "rs7d": 0.05884856244906023,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "JUPUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -5.643,
+          "entry": 0.1878,
+          "sl": 0.1903,
+          "tp": 0.18305,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -3.98421944065105,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.42067381717907804,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.24999999999999925,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.18906211836701042
+          },
+          "features": {
+            "r6": -0.005296610169491567,
+            "r24": -0.03195876288659805,
+            "r72": -0.06287425149700598,
+            "r7d": -0.03245749613601234,
+            "rs24": -0.024712982981357712,
+            "rs7d": -0.06062773404505417,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "KAITOUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 1.563,
+          "entry": 1.0054,
+          "sl": 0.990748655121104,
+          "tp": 1.027377017318344,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": 8.783999999999999,
+            "ltfScore": -3.8514696020198307,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6863729461861667,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.31167192429022134,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.0543376179059307
+          },
+          "features": {
+            "r6": -0.018739020105406845,
+            "r24": -0.018259935553168627,
+            "r72": 0.020607044970053945,
+            "r7d": 0.12649859943977604,
+            "rs24": -0.011014155647928292,
+            "rs7d": 0.09832836153073421,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "LDOUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.931,
+          "entry": 0.3941,
+          "sl": 0.3871,
+          "tp": 0.4046,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": 8.789,
+            "ltfScore": -2.6716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.8269829026708075,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3333333333333333,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.39413336593401704
+          },
+          "features": {
+            "r6": -0.009550138225684734,
+            "r24": 0.008444216990788123,
+            "r72": -0.020626242544731554,
+            "r7d": 0.050933333333333275,
+            "rs24": 0.015689996896028457,
+            "rs7d": 0.022763095424291446,
+            "st4": 0,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "LINKUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.493,
+          "entry": 8.466,
+          "sl": 8.581,
+          "tp": 8.293499999999998,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": -0.4210000000000005,
+            "ltfScore": -2.232611333576787,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.2767850394409055,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.19726027397260038,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 8.492620783014132
+          },
+          "features": {
+            "r6": 0.002724150183583962,
+            "r24": -0.019912016670525667,
+            "r72": -0.02734375000000011,
+            "r7d": 0.031684133560809125,
+            "rs24": -0.012666236765285332,
+            "rs7d": 0.003513895651767296,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "LTCUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.524,
+          "entry": 46.35,
+          "sl": 47.42,
+          "tp": 44.531,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -4.276000000000001,
+            "ltfScore": -4.33863290219933,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6164744473289252,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.1589403973509949,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 46.762591390210694
+          },
+          "features": {
+            "r6": -0.007919520547945202,
+            "r24": -0.012569237324243643,
+            "r72": -0.02215189873417711,
+            "r7d": 0.04391891891891908,
+            "rs24": -0.005323457419003308,
+            "rs7d": 0.015748681009877252,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.492,
+          "entry": 0.03684,
+          "sl": 0.03722,
+          "tp": 0.03619399999999999,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -4.27,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.016770493659485908,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.18840579710144925,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.03700671465168917
+          },
+          "features": {
+            "r6": -0.00027137042062419514,
+            "r24": -0.02332979851537642,
+            "r72": -0.056835637480798784,
+            "r7d": -0.015762757146673745,
+            "rs24": -0.016084018610136086,
+            "rs7d": -0.043932995055715574,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "NEARUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.671,
+          "entry": 1.886,
+          "sl": 1.917,
+          "tp": 1.8332999999999997,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -7.618999999999999,
+            "ltfScore": -3.868875673242725,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.1652014480833519,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5303030303030286,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 1.8875390359139925
+          },
+          "features": {
+            "r6": -0.008412197686645695,
+            "r24": -0.0015881418740074649,
+            "r72": -0.056056056056056125,
+            "r7d": -0.01565762004175364,
+            "rs24": 0.00565763803123287,
+            "rs7d": -0.04382785795079547,
+            "st4": 0,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ONDOUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.914,
+          "entry": 0.3937,
+          "sl": 0.4071,
+          "tp": 0.37359999999999993,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": 1.1189999999999998,
+            "ltfScore": -3.126489579704033,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.113060606398688,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.08253968253968233,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.4010805595162451
+          },
+          "features": {
+            "r6": -0.02283445023579045,
+            "r24": -0.02501238236750869,
+            "r72": -0.018204488778054917,
+            "r7d": 0.03469119579500646,
+            "rs24": -0.017766602462268355,
+            "rs7d": 0.006520957885964629,
+            "st4": 0,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "OPUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.603,
+          "entry": 0.09301,
+          "sl": 0.0949,
+          "tp": 0.08941899999999998,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -12.033999999999999,
+            "ltfScore": -3.6351868339812143,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.17275800857424306,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.0,
+            "rangePositionH1": 0.15775034293552778,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.09377683326255781
+          },
+          "features": {
+            "r6": -0.012947044465669078,
+            "r24": -0.025869291998324218,
+            "r72": -0.04063950489943269,
+            "r7d": -0.047419090536665376,
+            "rs24": -0.018623512093083883,
+            "rs7d": -0.0755893284457072,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ORDIUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.586,
+          "entry": 3.59,
+          "sl": 3.655,
+          "tp": 3.4924999999999997,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "alt",
+            "regime": "range",
+            "htfScore": -2.346,
+            "ltfScore": -0.768,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.0553140895467541,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.4968944099378885,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 3.6007643740767064
+          },
+          "features": {
+            "r6": 0.002233389168062594,
+            "r24": -0.007190265486725744,
+            "r72": -0.0118359482521333,
+            "r7d": -0.016438356164383605,
+            "rs24": 5.55144185145906e-05,
+            "rs7d": -0.044608594073425434,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "PENGUUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.949,
+          "entry": 0.006054,
+          "sl": 0.006142,
+          "tp": 0.005886800000000001,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -2.3723971665761305,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5084320535049525,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.06970509383378026,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.006103769445784071
+          },
+          "features": {
+            "r6": -0.00900311016532973,
+            "r24": -0.025905068382944485,
+            "r72": -0.056568489948574,
+            "r7d": -0.00916530278232397,
+            "rs24": -0.01865928847770415,
+            "rs7d": -0.0373355406913658,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "PEPEUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.054,
+          "entry": 2.773e-06,
+          "sl": 2.818e-06,
+          "tp": 2.6965e-06,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -2.926,
+            "ltfScore": -2.568,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.49537948980068913,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.09248554913294765,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 2.7941735362657612e-06
+          },
+          "features": {
+            "r6": -0.0010806916426513435,
+            "r24": -0.025307557117750457,
+            "r72": -0.0526135975401435,
+            "r7d": 0.017241379310344973,
+            "rs24": -0.01806177721251012,
+            "rs7d": -0.010928858598696856,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "PNUTUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.629,
+          "entry": 0.0404,
+          "sl": 0.041,
+          "tp": 0.03937999999999999,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -12.033999999999999,
+            "ltfScore": -3.585625435447021,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.004910587809263678,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.16521739130434687,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.04055554194656222
+          },
+          "features": {
+            "r6": -0.0051711401132726875,
+            "r24": -0.013431013431013494,
+            "r72": -0.035108669691903516,
+            "r7d": -0.02791145332050049,
+            "rs24": -0.0061852335257731594,
+            "rs7d": -0.05608169122954232,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "POLUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.337,
+          "entry": 0.07805,
+          "sl": 0.07893,
+          "tp": 0.07655399999999998,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -6.959,
+            "ltfScore": -0.3956720535216144,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.9807608503605625,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.6341463414634138,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.0771882306671895
+          },
+          "features": {
+            "r6": 0.010748510748510798,
+            "r24": -0.0026833631484795006,
+            "r72": -0.03391508850105218,
+            "r7d": -0.08144050841473471,
+            "rs24": 0.004562416756760834,
+            "rs7d": -0.10961074632377654,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "RENDERUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.46,
+          "entry": 1.483,
+          "sl": 1.497,
+          "tp": 1.4592,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -12.033999999999999,
+            "ltfScore": -2.058198353156935,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.01214729050263097,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.26027397260274165,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 1.487196207391706
+          },
+          "features": {
+            "r6": -0.0060321715817693855,
+            "r24": -0.019179894179894075,
+            "r72": -0.04384268214055442,
+            "r7d": 0.004742547425474308,
+            "rs24": -0.01193411427465374,
+            "rs7d": -0.02342769048356752,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "SUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.102,
+          "entry": 0.02393,
+          "sl": 0.02424,
+          "tp": 0.023402999999999997,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -3.0496,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.20262836433811326,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.350993377483443,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.023973459385033837
+          },
+          "features": {
+            "r6": 0.0020938023450587373,
+            "r24": -0.007877280265339959,
+            "r72": -0.031957928802588964,
+            "r7d": -0.0641376613218615,
+            "rs24": -0.0006315003600996238,
+            "rs7d": -0.09230789923090332,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "STXUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -9.034,
+          "entry": 0.1455,
+          "sl": 0.1647,
+          "tp": 0.11285999999999996,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -13.684000000000001,
+            "ltfScore": -2.5025341718627487,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -3.5,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.11071428571428543,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.15168051362166157
+          },
+          "features": {
+            "r6": 0.005528680027643285,
+            "r24": -0.12665066026410565,
+            "r72": -0.13649851632047494,
+            "r7d": -0.12243667068757547,
+            "rs24": -0.11940488035886532,
+            "rs7d": -0.1506069085966173,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        },
+        {
+          "symbol": "SUIUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -5.983,
+          "entry": 0.7312,
+          "sl": 0.749,
+          "tp": 0.6973799999999999,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -10.184000000000001,
+            "ltfScore": -4.781407451544344,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.4833288047956605,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.8,
+            "rangePositionH1": 0.035856573705177607,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.7467479060313221
+          },
+          "features": {
+            "r6": -0.016013995424572713,
+            "r24": -0.04642670839853946,
+            "r72": -0.049525542701156944,
+            "r7d": -0.007196198234894924,
+            "rs24": -0.03918092849329913,
+            "rs7d": -0.03536643614393675,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "TIAUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.361,
+          "entry": 0.3479,
+          "sl": 0.3522,
+          "tp": 0.3397299999999999,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -2.2076000000000002,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.45851349019006227,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.13425925925925986,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.35041742148455357
+          },
+          "features": {
+            "r6": -0.004577968526466303,
+            "r24": -0.025490196078431393,
+            "r72": -0.05359085963003263,
+            "r7d": -0.0935383011985409,
+            "rs24": -0.018244416173191058,
+            "rs7d": -0.12170853910758272,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "TRUMPUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.233,
+          "entry": 1.595,
+          "sl": 1.613,
+          "tp": 1.568,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -4.0089999999999995,
+            "ltfScore": -1.969594033664511,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5784012950094319,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.20430107526881625,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 1.6226957070343664
+          },
+          "features": {
+            "r6": -0.006230529595015577,
+            "r24": -0.03039513677811556,
+            "r72": -0.001877346683354264,
+            "r7d": 0.037735849056603765,
+            "rs24": -0.023149356872875226,
+            "rs7d": 0.009565611147561937,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "UNIUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 4.061,
+          "entry": 3.832,
+          "sl": 3.723,
+          "tp": 4.0173,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 13.529,
+            "ltfScore": -1.182415195718351,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.9739095311696566,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6687116564417167,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 3.803879021897082
+          },
+          "features": {
+            "r6": -0.0005216484089723972,
+            "r24": 0.0010449320794148065,
+            "r72": 0.0390455531453362,
+            "r7d": 0.09267179925862545,
+            "rs24": 0.008290711984655141,
+            "rs7d": 0.06450156134958362,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "WIFUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -7.01,
+          "entry": 0.1439,
+          "sl": 0.1467,
+          "tp": 0.13858,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -13.408999999999999,
+            "ltfScore": -3.743959393438725,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.8246704724352538,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.16197183098591536,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.1454847947761853
+          },
+          "features": {
+            "r6": -0.0020804438280166426,
+            "r24": -0.05453350854139294,
+            "r72": -0.07101355713363466,
+            "r7d": -0.05577427821522318,
+            "rs24": -0.047287728636152604,
+            "rs7d": -0.08394451612426501,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "WLDUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.189,
+          "entry": 0.3761,
+          "sl": 0.3867,
+          "tp": 0.35808,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -12.929000000000002,
+            "ltfScore": -4.519824887580638,
+            "meanReversionScore": 2.7,
+            "relativeStrengthScore": -0.6947695944588439,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.16049382716049337,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.37998721642319694
+          },
+          "features": {
+            "r6": -0.01621763013340305,
+            "r24": -0.014671207754781257,
+            "r72": -0.021082769390942224,
+            "r7d": -0.015960230245944507,
+            "rs24": -0.007425427849540922,
+            "rs7d": -0.044130468154986335,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "AIXBTUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.975,
+          "entry": 0.01816,
+          "sl": 0.01863,
+          "tp": 0.017360999999999994,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -12.033999999999999,
+            "ltfScore": -4.134323987011153,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.011655734022120168,
+            "btcBias": -0.7,
+            "chaseAdjustment": 1.0,
+            "rangePositionH1": 0.2280701754385959,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.018306406975537922
+          },
+          "features": {
+            "r6": -0.01250679717237635,
+            "r24": -0.020496224379719652,
+            "r72": -0.047219307450157455,
+            "r7d": -0.023130715438407723,
+            "rs24": -0.013250444474479317,
+            "rs7d": -0.05130095334744955,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ASTERUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.304,
+          "entry": 0.6284,
+          "sl": 0.6172,
+          "tp": 0.6452,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": -0.6390000000000002,
+            "ltfScore": 3.766788469748819,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.7497752689052906,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.651162790697674,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6241306192100583
+          },
+          "features": {
+            "r6": 0.002872646026172765,
+            "r24": 0.005279155335146335,
+            "r72": -0.005223998733576152,
+            "r7d": 0.016828478964401317,
+            "rs24": 0.01252493524038667,
+            "rs7d": -0.011341758944640512,
+            "st4": 0,
+            "st1": 0,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        },
+        {
+          "symbol": "GRASSUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.404,
+          "entry": 0.3568,
+          "sl": 0.3636,
+          "tp": 0.34524000000000005,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -11.869,
+            "ltfScore": -2.1776,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.2920838093786893,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.18181818181818232,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.36086074853186423
+          },
+          "features": {
+            "r6": -0.009988901220865709,
+            "r24": -0.018971679956007792,
+            "r72": -0.03437077131258459,
+            "r7d": -0.01924134139637168,
+            "rs24": -0.011725900050767457,
+            "rs7d": -0.04741157930541351,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "LITUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.452,
+          "entry": 2.1289,
+          "sl": 2.17,
+          "tp": 2.0590299999999995,
+          "plannedRR": 1.7,
+          "breadth": 0.107,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": -9.536,
+            "ltfScore": 1.8613081495545312,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.4252144992760507,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.13451043338683674,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 2.1665207945297476
+          },
+          "features": {
+            "r6": 0.010441881437182499,
+            "r24": -0.04900384168676852,
+            "r72": -0.09339068222468272,
+            "r7d": -0.038220013553196264,
+            "rs24": -0.04175806178152819,
+            "rs7d": -0.06639025146223809,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "PUMPUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -4.007,
+          "entry": 0.001823,
+          "sl": 0.001856,
+          "tp": 0.0017735,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -3.3760000000000003,
+            "ltfScore": -3.4206702976409833,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.2240447036396307,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.10119047619047544,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.0018722934099622028
+          },
+          "features": {
+            "r6": 0.002750275027502802,
+            "r24": -0.06127703398558182,
+            "r72": -0.08986520219670491,
+            "r7d": 0.10351089588377715,
+            "rs24": -0.054031254080341484,
+            "rs7d": 0.07534065797473533,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "VIRTUALUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.307,
+          "entry": 0.6037,
+          "sl": 0.6162,
+          "tp": 0.5799500000000001,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -5.676,
+            "ltfScore": -2.249925796847021,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.9468167199246147,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.0526315789473693,
+            "m15Sweep": 1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6116758494052974
+          },
+          "features": {
+            "r6": -0.008865539320308535,
+            "r24": -0.024402068519715603,
+            "r72": -0.1011018463371054,
+            "r7d": -0.027545103092783463,
+            "rs24": -0.017156288614475268,
+            "rs7d": -0.05571534100182529,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "XPLUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 1.396,
+          "entry": 0.08558,
+          "sl": 0.08091,
+          "tp": 0.09258500000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.107,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": -1.024,
+            "ltfScore": 3.5261111358489967,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 2.7022060136705033,
+            "btcBias": -0.7,
+            "chaseAdjustment": -1.8,
+            "rangePositionH1": 0.9013840830449826,
+            "m15Sweep": -1,
+            "m5Sweep": -1,
+            "m15VWAP": 0.08333340447084016
+          },
+          "features": {
+            "r6": 0.0339494986106077,
+            "r24": 0.02786452077828483,
+            "r72": -0.007653061224489721,
+            "r7d": -0.006731662024141105,
+            "rs24": 0.035110300683525164,
+            "rs7d": -0.034901899933182934,
+            "st4": -1,
+            "st1": 1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ZECUSDT",
+          "cutoff": "2026-07-24T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.51,
+          "entry": 502.49,
+          "sl": 514.86,
+          "tp": 478.987,
+          "plannedRR": 1.9,
+          "breadth": 0.107,
+          "model": {
+            "profile": "alt",
+            "regime": "trend",
+            "htfScore": -6.6209999999999996,
+            "ltfScore": -3.0788575380734473,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6292081020659324,
+            "btcBias": -0.7,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.22259259259259226,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 508.99023069454415
+          },
+          "features": {
+            "r6": -0.012188169612140975,
+            "r24": -0.02932370042691279,
+            "r72": -0.07801691712078673,
+            "r7d": -0.0628158979428165,
+            "rs24": -0.022077920521672456,
+            "rs7d": -0.09098613585185833,
+            "st4": -1,
+            "st1": 0,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        }
+      ]
+    },
+    "BLIND_JUL22": {
+      "summary": {
+        "label": "BLIND_JUL22",
+        "cutoff": "2026-07-22T12:00:00Z",
+        "isTrueBlind": true,
+        "marketTrades": 56,
+        "resolved": 51,
+        "wins": 17,
+        "losses": 34,
+        "unresolved": 5,
+        "winRateResolved": 33.33,
+        "avgPlannedRR": 1.555,
+        "expectancyR": -0.143,
+        "breadth": 0.232,
+        "breadthFades": 0
+      },
+      "tests": [
+        {
+          "symbol": "BTCUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 1.126,
+          "entry": 66017.5,
+          "sl": 65695.7,
+          "tp": 66500.20000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 6.279,
+            "ltfScore": 0.6756124820707347,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.0,
+            "btcBias": 0.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6741510548816515,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 66444.68607567373
+          },
+          "features": {
+            "r6": 0.0005713870002637123,
+            "r24": -0.00499630740478374,
+            "r72": 0.024138439223412522,
+            "r7d": 0.019764280638882914,
+            "rs24": 0.0,
+            "rs7d": 0.0,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ETHUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 1.536,
+          "entry": 1927.36,
+          "sl": 1910.6,
+          "tp": 1952.5,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": 8.779,
+            "ltfScore": 0.027600000000000013,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.28163470005913016,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7401163957455341,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1927.7433103157832
+          },
+          "features": {
+            "r6": 0.004063431202983914,
+            "r24": -0.004401099241688633,
+            "r72": 0.0299522794192304,
+            "r7d": 0.02275971493311113,
+            "rs24": 0.0005952081630951067,
+            "rs7d": 0.0029954342942282164,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "SOLUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.46,
+          "entry": 77.57,
+          "sl": 77.0,
+          "tp": 78.42499999999998,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 5.599,
+            "ltfScore": 0.4276000000000001,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.06235071644338008,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5760517799352729,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 77.93670684983023
+          },
+          "features": {
+            "r6": 0.0018080847216839224,
+            "r24": -0.01020798775041487,
+            "r72": 0.019718680163007818,
+            "r7d": 0.0005159293176832946,
+            "rs24": -0.005211680345631131,
+            "rs7d": -0.01924835132119962,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "HYPEUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -7.906,
+          "entry": 58.694,
+          "sl": 61.304,
+          "tp": 53.73500000000001,
+          "plannedRR": 1.9,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -10.143999999999998,
+            "ltfScore": -3.2046396690173324,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -2.357621268777461,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.12143900657414157,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 60.19678490172886
+          },
+          "features": {
+            "r6": -0.007071322235755795,
+            "r24": -0.06651186462243142,
+            "r72": -0.03942523280362664,
+            "r7d": -0.14238957319656909,
+            "rs24": -0.061515557217647676,
+            "rs7d": -0.162153853835452,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        },
+        {
+          "symbol": "SHIBUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.347,
+          "entry": 4.246e-06,
+          "sl": 4.222e-06,
+          "tp": 4.281999999999999e-06,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": 0.07099999999999973,
+            "ltfScore": 0.16982587648319647,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.10995658708281786,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5616438356164343,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 4.264018867268523e-06
+          },
+          "features": {
+            "r6": 0.0028341993386868936,
+            "r24": -0.0065512400561535955,
+            "r72": 0.02337912750060256,
+            "r7d": -0.0028182245185532917,
+            "rs24": -0.0015549326513698558,
+            "rs7d": -0.022582505157436206,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "TRXUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 2.163,
+          "entry": 0.33013,
+          "sl": 0.3285,
+          "tp": 0.33257499999999995,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": 11.684000000000001,
+            "ltfScore": 3.3379939376832746,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.6394596728633828,
+            "btcBias": 1.0,
+            "chaseAdjustment": -0.8,
+            "rangePositionH1": 0.9075785582255077,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.3292311957138121
+          },
+          "features": {
+            "r6": 0.0035566634241244177,
+            "r24": 0.007999755732649216,
+            "r72": 0.008369223250557223,
+            "r7d": 0.00627914774285987,
+            "rs24": 0.012996063137432956,
+            "rs7d": -0.013485132896023044,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "XRPUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 2.159,
+          "entry": 1.1389,
+          "sl": 1.1289,
+          "tp": 1.1539000000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "trend",
+            "htfScore": 7.679,
+            "ltfScore": 2.066604381404677,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.304633090395392,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6717948717948712,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.1464478123120252
+          },
+          "features": {
+            "r6": 0.004764005293339313,
+            "r24": 0.0021999296022525705,
+            "r72": 0.03828972559029986,
+            "r7d": 0.02751714182605558,
+            "rs24": 0.00719623700703631,
+            "rs7d": 0.007752861187172666,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "AAVEUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 3.149,
+          "entry": 96.14,
+          "sl": 95.0,
+          "tp": 98.078,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 12.803999999999998,
+            "ltfScore": 3.3516000000000004,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.8929798578807513,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.788634097706879,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 95.77947069085727
+          },
+          "features": {
+            "r6": 0.00031214233690568527,
+            "r24": 0.014028056112224352,
+            "r72": 0.0761137228565032,
+            "r7d": -0.022967479674796842,
+            "rs24": 0.01902436351700809,
+            "rs7d": -0.042731760313679756,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ADAUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 2.891,
+          "entry": 0.1729,
+          "sl": 0.1704,
+          "tp": 0.17715,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": 6.554,
+            "ltfScore": 0.027600000000000013,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.038217468843830815,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7062499999999996,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.17393809448835723
+          },
+          "features": {
+            "r6": 0.008163265306122325,
+            "r24": -0.010303377218088161,
+            "r72": 0.047878787878787854,
+            "r7d": 0.04978749241044311,
+            "rs24": -0.005307069813304421,
+            "rs7d": 0.0300232117715602,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ALGOUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.278,
+          "entry": 0.08366,
+          "sl": 0.08465,
+          "tp": 0.082175,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -4.784000000000001,
+            "ltfScore": 1.3533837976298466,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.27312121407934153,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5277777777777766,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.08423848609697841
+          },
+          "features": {
+            "r6": -0.0003584657665193225,
+            "r24": -0.01332704328340617,
+            "r72": 0.01900121802679644,
+            "r7d": -0.01934122611651623,
+            "rs24": -0.00833073587862243,
+            "rs7d": -0.039105506755399144,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "APTUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.745,
+          "entry": 0.6044,
+          "sl": 0.6127,
+          "tp": 0.5919500000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -7.608999999999999,
+            "ltfScore": -3.0316,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.24481810191490316,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5939849624060157,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6093528796337147
+          },
+          "features": {
+            "r6": 0.0003310162197949218,
+            "r24": -0.0159557147508953,
+            "r72": 0.008173477898248516,
+            "r7d": -0.026417525773195782,
+            "rs24": -0.01095940734611156,
+            "rs7d": -0.046181806412078696,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ARBUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.244,
+          "entry": 0.08944,
+          "sl": 0.08877,
+          "tp": 0.09044500000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 7.149000000000001,
+            "ltfScore": -3.7516000000000003,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.46264070893211606,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3926829268292691,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.09003290643635614
+          },
+          "features": {
+            "r6": -0.014109347442680664,
+            "r24": -0.009084865942831866,
+            "r72": 0.00404131118096096,
+            "r7d": 0.003027924189749953,
+            "rs24": -0.004088558538048126,
+            "rs7d": -0.01673635644913296,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ATOMUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.577,
+          "entry": 1.467,
+          "sl": 1.492,
+          "tp": 1.4245000000000003,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": -11.264,
+            "ltfScore": -3.6173049916964706,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5619713341800114,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.08510638297872361,
+            "m15Sweep": -1,
+            "m5Sweep": 0,
+            "m15VWAP": 1.4806820475849891
+          },
+          "features": {
+            "r6": -0.0033967391304347005,
+            "r24": -0.02395209580838309,
+            "r72": -0.010121457489878471,
+            "r7d": -0.06797966963151203,
+            "rs24": -0.01895578840359935,
+            "rs7d": -0.08774395027039494,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "AVAXUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.742,
+          "entry": 6.517,
+          "sl": 6.615,
+          "tp": 6.370000000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -10.963999999999999,
+            "ltfScore": -1.7196684842967214,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.27980261246148164,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.23214285714285912,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 6.561970946921433
+          },
+          "features": {
+            "r6": 0.002461159821565806,
+            "r24": -0.01837626148516336,
+            "r72": 0.004779525131051621,
+            "r7d": -0.02293853073463259,
+            "rs24": -0.013379954080379619,
+            "rs7d": -0.042702811373515503,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "BCHUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.537,
+          "entry": 221.2,
+          "sl": 225.5,
+          "tp": 213.88999999999996,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -7.984,
+            "ltfScore": -1.9968560421725625,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.39142972275541865,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.547619047619046,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 224.01331760884563
+          },
+          "features": {
+            "r6": -0.003603603603603678,
+            "r24": -0.017761989342806372,
+            "r72": 0.017947537965945504,
+            "r7d": -0.060721868365180565,
+            "rs24": -0.012765681938022633,
+            "rs7d": -0.08048614900406348,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "BONKUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.462,
+          "entry": 3.082e-06,
+          "sl": 3.105956942801607e-06,
+          "tp": 3.0460645857975896e-06,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": 0.9160000000000004,
+            "ltfScore": 4.4716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.5851622572697255,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3692810457516339,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 3.0540226692076208e-06
+          },
+          "features": {
+            "r6": 0.02392026578073092,
+            "r24": 0.005218525766470972,
+            "r72": 0.048299319727891143,
+            "r7d": -0.17571543193367212,
+            "rs24": 0.010214833171254711,
+            "rs7d": -0.19547971257255503,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "CRVUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.013,
+          "entry": 0.216,
+          "sl": 0.2121,
+          "tp": 0.22185,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "range",
+            "htfScore": 6.614,
+            "ltfScore": 4.138939426729709,
+            "meanReversionScore": -1.7000000000000002,
+            "relativeStrengthScore": 0.8762718836890948,
+            "btcBias": 1.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.47560975609756023,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.2145634707320587
+          },
+          "features": {
+            "r6": 0.011709601873536313,
+            "r24": 0.00746268656716409,
+            "r72": 0.02031176192725548,
+            "r7d": -0.02218198279764605,
+            "rs24": 0.01245899397194783,
+            "rs7d": -0.04194626343652896,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "DOGEUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.465,
+          "entry": 0.07266,
+          "sl": 0.07389,
+          "tp": 0.07081500000000002,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -8.284,
+            "ltfScore": 0.4276000000000001,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.2408814645607782,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.4810126582278496,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.07307522580113603
+          },
+          "features": {
+            "r6": 0.0022068965517243466,
+            "r24": -0.01357588922074393,
+            "r72": 0.0017923617813320192,
+            "r7d": -0.01638012725057536,
+            "rs24": -0.008579581815960191,
+            "rs7d": -0.036144407889458274,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "DOTUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.701,
+          "entry": 0.8385,
+          "sl": 0.8585,
+          "tp": 0.8085,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -6.608999999999999,
+            "ltfScore": -4.4716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.4300752697198673,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.4991652754590986,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.8505950269811042
+          },
+          "features": {
+            "r6": -0.006398862424457863,
+            "r24": -0.02215743440233242,
+            "r72": 0.009997590941941636,
+            "r7d": -0.016306898169873296,
+            "rs24": -0.01716112699754868,
+            "rs7d": -0.03607117880875621,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ETCUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.669,
+          "entry": 6.95,
+          "sl": 7.036,
+          "tp": 6.8210000000000015,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -7.984,
+            "ltfScore": -3.7516000000000003,
+            "meanReversionScore": 0.6,
+            "relativeStrengthScore": -0.15447408989601952,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.5312500000000008,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 6.995214233891204
+          },
+          "features": {
+            "r6": -0.0012932892656990491,
+            "r24": -0.01599886733682565,
+            "r72": 0.0039000433338147733,
+            "r7d": -0.013764722576983024,
+            "rs24": -0.011002559932041911,
+            "rs7d": -0.03352900321586594,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "FILUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 2.367,
+          "entry": 0.7687,
+          "sl": 0.7644,
+          "tp": 0.7751500000000002,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 3.4210000000000003,
+            "ltfScore": -1.9836799418876354,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.8937946589974755,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7835616438356173,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.7670929716226228
+          },
+          "features": {
+            "r6": 0.0020857776039631126,
+            "r24": 0.02534347072162202,
+            "r72": 0.05359100877192979,
+            "r7d": -0.02806928815273735,
+            "rs24": 0.03033977812640576,
+            "rs7d": -0.04783356879162026,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "FLOKIUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.647,
+          "entry": 2.151e-05,
+          "sl": 2.155112147472318e-05,
+          "tp": 2.1448317787915227e-05,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -0.45899999999999963,
+            "ltfScore": 4.59,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.5695812833946357,
+            "btcBias": 1.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.7246376811594198,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.1386701795177003e-05
+          },
+          "features": {
+            "r6": 0.013188883655204986,
+            "r24": -0.004166666666666652,
+            "r72": 0.017502365184484336,
+            "r7d": -0.03887399463806973,
+            "rs24": 0.0008296407381170878,
+            "rs7d": -0.058638275276952645,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "HBARUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 6.77,
+          "entry": 0.07138,
+          "sl": 0.06946,
+          "tp": 0.07502800000000001,
+          "plannedRR": 1.9,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "trend",
+            "htfScore": 7.9959999999999996,
+            "ltfScore": 3.4877727199755015,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 2.37310315846041,
+            "btcBias": 1.0,
+            "chaseAdjustment": -0.8,
+            "rangePositionH1": 0.9121951219512198,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.06970976521762426
+          },
+          "features": {
+            "r6": 0.023222477064220204,
+            "r24": 0.04371984208217561,
+            "r72": 0.07016491754122955,
+            "r7d": 0.05716824644549767,
+            "rs24": 0.04871614948695935,
+            "rs7d": 0.03740396580661476,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        },
+        {
+          "symbol": "INJUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.672,
+          "entry": 5.229,
+          "sl": 5.429,
+          "tp": 4.929,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 4.718999999999999,
+            "ltfScore": -3.434925402846748,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.7385616084021929,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.18380062305296016,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 5.29914476615686
+          },
+          "features": {
+            "r6": -0.015254237288135464,
+            "r24": -0.029329868201225073,
+            "r72": 0.03442136498516324,
+            "r7d": 0.03503562945368177,
+            "rs24": -0.024333560796441334,
+            "rs7d": 0.015271348814798857,
+            "st4": 0,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "JTOUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 4.565,
+          "entry": 0.6287,
+          "sl": 0.6221,
+          "tp": 0.6399200000000002,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": 6.0009999999999994,
+            "ltfScore": -0.7015999999999999,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.1689679943655285,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6842105263157903,
+            "m15Sweep": 0,
+            "m5Sweep": 1,
+            "m15VWAP": 0.6280290449139057
+          },
+          "features": {
+            "r6": -0.009297195083517229,
+            "r24": 0.03574958813838558,
+            "r72": 0.15718755751886615,
+            "r7d": 0.01435947079703137,
+            "rs24": 0.04074589554316932,
+            "rs7d": -0.005404809841851543,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "JUPUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.542,
+          "entry": 0.1946,
+          "sl": 0.2018,
+          "tp": 0.18235999999999997,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "range",
+            "htfScore": -10.724,
+            "ltfScore": -4.529999999999999,
+            "meanReversionScore": 4.0,
+            "relativeStrengthScore": -1.2303316257100128,
+            "btcBias": 1.0,
+            "chaseAdjustment": 1.45,
+            "rangePositionH1": 0.19101123595505656,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.19797330805896798
+          },
+          "features": {
+            "r6": -0.0071428571428572285,
+            "r24": -0.02894211576846306,
+            "r72": 0.02098635886673672,
+            "r7d": -0.0662188099808062,
+            "rs24": -0.023945808363679322,
+            "rs7d": -0.08598309061968912,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        },
+        {
+          "symbol": "KAITOUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 3.019,
+          "entry": 0.9722,
+          "sl": 0.9101,
+          "tp": 1.0653499999999998,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "trend",
+            "htfScore": 11.658999999999999,
+            "ltfScore": 0.35414206086450706,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.7263924597855786,
+            "btcBias": 1.0,
+            "chaseAdjustment": -0.45,
+            "rangePositionH1": 0.5442594215600346,
+            "m15Sweep": -1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.9686276806810127
+          },
+          "features": {
+            "r6": -0.004811137270959165,
+            "r24": -0.013095117246979981,
+            "r72": 0.00913431596429315,
+            "r7d": 0.20202769535113752,
+            "rs24": -0.008098809842196242,
+            "rs7d": 0.1822634147122546,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "LDOUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 6.375,
+          "entry": 0.3961,
+          "sl": 0.3852,
+          "tp": 0.41463000000000005,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 12.529,
+            "ltfScore": 3.5064186065142873,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.0665395852955095,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7830687830687834,
+            "m15Sweep": -1,
+            "m5Sweep": 0,
+            "m15VWAP": 0.3947717921076633
+          },
+          "features": {
+            "r6": 0.013821346301510218,
+            "r24": -0.015656063618290195,
+            "r72": 0.11357885858869832,
+            "r7d": 0.20799024092711194,
+            "rs24": -0.010659756213506455,
+            "rs7d": 0.18822596028822902,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "LINKUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 1.841,
+          "entry": 8.642,
+          "sl": 8.574,
+          "tp": 8.744,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "transition",
+            "htfScore": 7.654,
+            "ltfScore": 1.554630051501948,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.2167393799744599,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.733041575492341,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 8.669937194844456
+          },
+          "features": {
+            "r6": 0.0009265693768820693,
+            "r24": -0.007123161764706065,
+            "r72": 0.034103147062342964,
+            "r7d": 0.0257566765578634,
+            "rs24": -0.0021268543599223255,
+            "rs7d": 0.0059923959189804865,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "LTCUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.749,
+          "entry": 46.56,
+          "sl": 47.04,
+          "tp": 45.84,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "major",
+            "regime": "transition",
+            "htfScore": -2.036,
+            "ltfScore": 1.248999571928636,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.1904812433199221,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.1160220994475146,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 47.08081338109115
+          },
+          "features": {
+            "r6": 0.002799913848804625,
+            "r24": -0.017721518987341645,
+            "r72": -0.008939974457215727,
+            "r7d": 0.025324818321955656,
+            "rs24": -0.012725211582557905,
+            "rs7d": 0.0055605376830727415,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.746,
+          "entry": 0.03812,
+          "sl": 0.03871,
+          "tp": 0.037235000000000004,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -12.244,
+            "ltfScore": 1.3350947145495686,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.4578897013524297,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.19526627218935097,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.03873130899012898
+          },
+          "features": {
+            "r6": 0.00395048722675817,
+            "r24": -0.02406554019457241,
+            "r72": 0.004744333157617353,
+            "r7d": -0.02406554019457241,
+            "rs24": -0.01906923278978867,
+            "rs7d": -0.043829820833455324,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "NEARUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -6.684,
+          "entry": 1.888,
+          "sl": 1.953,
+          "tp": 1.7644999999999995,
+          "plannedRR": 1.9,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -10.744,
+            "ltfScore": -2.6076,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.6643259486319373,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.1065989847715731,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.9315343547141952
+          },
+          "features": {
+            "r6": -0.010482180293501009,
+            "r24": -0.055055055055055147,
+            "r72": -0.01768990634755463,
+            "r7d": -0.09187109187109199,
+            "rs24": -0.05005874765027141,
+            "rs7d": -0.1116353725099749,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        },
+        {
+          "symbol": "ONDOUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 8.963,
+          "entry": 0.4104,
+          "sl": 0.395,
+          "tp": 0.43965999999999994,
+          "plannedRR": 1.9,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 13.684000000000001,
+            "ltfScore": 3.6716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.7738326437381935,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.8962264150943391,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.40422471332527604
+          },
+          "features": {
+            "r6": 0.030637870416875934,
+            "r24": 0.02344139650872812,
+            "r72": 0.16260623229461757,
+            "r7d": 0.2698019801980198,
+            "rs24": 0.028437703913511858,
+            "rs7d": 0.2500376995591369,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "OPUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.152,
+          "entry": 0.09684,
+          "sl": 0.09887,
+          "tp": 0.09379499999999999,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -4.409,
+            "ltfScore": 1.1715999999999998,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.13609850228725184,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7271505376344082,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.09723222600905201
+          },
+          "features": {
+            "r6": 0.0011371859815982877,
+            "r24": -0.0011346054667353833,
+            "r72": 0.02563016310103783,
+            "r7d": -0.0515181194906954,
+            "rs24": 0.0038617019380483564,
+            "rs7d": -0.07128240012957832,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ORDIUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.484,
+          "entry": 3.553,
+          "sl": 3.719,
+          "tp": 3.3040000000000003,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "alt",
+            "regime": "transition",
+            "htfScore": 0.8240000000000003,
+            "ltfScore": -5.187999999999999,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.1494411224938172,
+            "btcBias": 1.0,
+            "chaseAdjustment": 3.85,
+            "rangePositionH1": 0.26872246696035235,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 3.640787944640397
+          },
+          "features": {
+            "r6": -0.017965726920950775,
+            "r24": -0.022020368841178084,
+            "r72": -0.02228948816730869,
+            "r7d": 0.03737226277372274,
+            "rs24": -0.017024061436394344,
+            "rs7d": 0.017607982134839828,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "PENGUUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.138,
+          "entry": 0.006266,
+          "sl": 0.0062,
+          "tp": 0.006365,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -1.684,
+            "ltfScore": -3.7516000000000003,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.4027025412683738,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.2453531598513013,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.006330746232149468
+          },
+          "features": {
+            "r6": 0.0032020493115594295,
+            "r24": -0.02353124513012317,
+            "r72": 0.027213114754098378,
+            "r7d": 0.01985677083333326,
+            "rs24": -0.01853493772533943,
+            "rs7d": 9.249019445034534e-05,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "PEPEUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.258,
+          "entry": 2.846e-06,
+          "sl": 2.903e-06,
+          "tp": 2.7605e-06,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": -0.2759999999999998,
+            "ltfScore": -4.055501714538426,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.5697103256274816,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.10204081632652962,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.8822884776285886e-06
+          },
+          "features": {
+            "r6": 0.0,
+            "r24": -0.027673385719166443,
+            "r72": 0.004943502824858781,
+            "r7d": 0.02521613832853009,
+            "rs24": -0.022677078314382704,
+            "rs7d": 0.005451857689647177,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "PNUTUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.311,
+          "entry": 0.04146,
+          "sl": 0.04199,
+          "tp": 0.04066499999999999,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -6.909,
+            "ltfScore": 0.027600000000000013,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.045177901632020845,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.45161290322580516,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.0416419864527538
+          },
+          "features": {
+            "r6": -0.0014450867052023808,
+            "r24": -0.00979221399570096,
+            "r72": 0.010726474890297322,
+            "r7d": -0.03894297635605004,
+            "rs24": -0.0047959065909172205,
+            "rs7d": -0.058707256994932955,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "POLUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.559,
+          "entry": 0.07913,
+          "sl": 0.0802,
+          "tp": 0.07731100000000003,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": -7.116,
+            "ltfScore": -3.670444604480976,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.42732003640721494,
+            "btcBias": 1.0,
+            "chaseAdjustment": 1.8,
+            "rangePositionH1": 0.06271777003484312,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.08003996334088707
+          },
+          "features": {
+            "r6": -0.007276376866139689,
+            "r24": -0.020547097413046056,
+            "r72": -0.025732578182713572,
+            "r7d": -0.05256226053639834,
+            "rs24": -0.015550790008262316,
+            "rs7d": -0.07232654117528126,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "RENDERUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.644,
+          "entry": 1.513,
+          "sl": 1.537,
+          "tp": 1.4769999999999999,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": -4.784000000000001,
+            "ltfScore": 0.4515999999999999,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6604540911273427,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3624999999999986,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.5308891293518343
+          },
+          "features": {
+            "r6": 0.004648074369189903,
+            "r24": -0.024500322372662864,
+            "r72": 0.020917678812415685,
+            "r7d": -0.01304631441617743,
+            "rs24": -0.019504014967879124,
+            "rs7d": -0.03281059505506034,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "SUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 1.499,
+          "entry": 0.02488,
+          "sl": 0.0241,
+          "tp": 0.026049999999999997,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 2.2210000000000005,
+            "ltfScore": 5.604702920560641,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.161795697165593,
+            "btcBias": 1.0,
+            "chaseAdjustment": -2.25,
+            "rangePositionH1": 0.6451612903225804,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.024616688491825547
+          },
+          "features": {
+            "r6": 0.023026315789473673,
+            "r24": 0.006472491909385036,
+            "r72": 0.032793690327936886,
+            "r7d": -0.02698474775127102,
+            "rs24": 0.011468799314168776,
+            "rs7d": -0.046749028390153935,
+            "st4": 1,
+            "st1": 0,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "STXUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.513,
+          "entry": 0.1673,
+          "sl": 0.165,
+          "tp": 0.17075,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": 1.0910000000000002,
+            "ltfScore": 1.5716,
+            "meanReversionScore": -1.1,
+            "relativeStrengthScore": 0.23831626120802918,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6666666666666666,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.16775673126819937
+          },
+          "features": {
+            "r6": 0.010265700483091722,
+            "r24": -0.0071216617210683175,
+            "r72": 0.02199144777031159,
+            "r7d": -0.011813349084465408,
+            "rs24": -0.002125354316284578,
+            "rs7d": -0.03157762972334832,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "SUIUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.298,
+          "entry": 0.7603,
+          "sl": 0.7528,
+          "tp": 0.77155,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 4.324000000000001,
+            "ltfScore": -2.0316,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.41168586881629166,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.41503267973856045,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.7635136094396812
+          },
+          "features": {
+            "r6": -0.00013150973172015856,
+            "r24": -0.011698947094761492,
+            "r72": 0.013598186908412302,
+            "r7d": 0.007687210072895967,
+            "rs24": -0.006702639689977752,
+            "rs7d": -0.012077070565986947,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "TIAUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.362,
+          "entry": 0.3624,
+          "sl": 0.3689,
+          "tp": 0.35265,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "range",
+            "htfScore": -8.889,
+            "ltfScore": -2.485522001994636,
+            "meanReversionScore": 0.6,
+            "relativeStrengthScore": -0.2910867463234723,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.43209876543209935,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.364310707488375
+          },
+          "features": {
+            "r6": 0.005828476269775118,
+            "r24": -0.014145810663764968,
+            "r72": 0.018549747048903775,
+            "r7d": -0.13919239904988123,
+            "rs24": -0.009149503258981229,
+            "rs7d": -0.15895667968876415,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "TRUMPUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 0.376,
+          "entry": 1.603,
+          "sl": 1.581,
+          "tp": 1.6360000000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -0.4189999999999994,
+            "ltfScore": 3.6716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.7674708219854565,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7213114754098348,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 1.5997799562310597
+          },
+          "features": {
+            "r6": 0.0100819155639571,
+            "r24": 0.0031289111389236623,
+            "r72": -0.022560975609756007,
+            "r7d": 0.023627075351213334,
+            "rs24": 0.008125218543707402,
+            "rs7d": 0.0038627947123304196,
+            "st4": 0,
+            "st1": 0,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "UNIUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 5.751,
+          "entry": 3.784,
+          "sl": 3.657,
+          "tp": 4.0253,
+          "plannedRR": 1.9,
+          "breadth": 0.232,
+          "model": {
+            "profile": "defi",
+            "regime": "trend",
+            "htfScore": 12.803999999999998,
+            "ltfScore": 5.053695271014808,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.6372901079411473,
+            "btcBias": 1.0,
+            "chaseAdjustment": -2.8,
+            "rangePositionH1": 0.9560117302052782,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 3.711330534860731
+          },
+          "features": {
+            "r6": 0.02714440825190012,
+            "r24": 0.026030368763557465,
+            "r72": 0.07561114269471281,
+            "r7d": 0.05111111111111111,
+            "rs24": 0.031026676168341205,
+            "rs7d": 0.03134683047222819,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "WIFUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -3.067,
+          "entry": 0.1513,
+          "sl": 0.1541,
+          "tp": 0.14654,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "range",
+            "htfScore": -11.649000000000001,
+            "ltfScore": -4.118101284408365,
+            "meanReversionScore": 1.7000000000000002,
+            "relativeStrengthScore": -0.3250192314311584,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.23076923076923078,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.15268403431800154
+          },
+          "features": {
+            "r6": -0.008519003931848124,
+            "r24": -0.02324080051646238,
+            "r72": -0.012402088772845987,
+            "r7d": -0.011757021554539726,
+            "rs24": -0.01824449311167864,
+            "rs7d": -0.03152130219342264,
+            "st4": 0,
+            "st1": 0,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "WLDUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.673,
+          "entry": 0.3807,
+          "sl": 0.3848,
+          "tp": 0.37455,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "l1_l2",
+            "regime": "transition",
+            "htfScore": 0.5410000000000004,
+            "ltfScore": 0.9875663870354522,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.5960754433770465,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.7279999999999991,
+            "m15Sweep": 0,
+            "m5Sweep": 1,
+            "m15VWAP": 0.37962607454040637
+          },
+          "features": {
+            "r6": 0.01330849081714125,
+            "r24": -0.009109838625715794,
+            "r72": 0.02256244963738907,
+            "r7d": -0.08331326751745727,
+            "rs24": -0.004113531220932054,
+            "rs7d": -0.10307754815634018,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "AIXBTUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -0.558,
+          "entry": 0.0188,
+          "sl": 0.01924,
+          "tp": 0.018140000000000003,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "range",
+            "htfScore": -0.10899999999999999,
+            "ltfScore": 1.737782787878198,
+            "meanReversionScore": -1.7000000000000002,
+            "relativeStrengthScore": -0.431314072044382,
+            "btcBias": 1.0,
+            "chaseAdjustment": -1.45,
+            "rangePositionH1": 0.366666666666668,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.019042794847500925
+          },
+          "features": {
+            "r6": 0.002666666666666817,
+            "r24": -0.01364113326337879,
+            "r72": 0.030701754385964897,
+            "r7d": -0.011566771819137678,
+            "rs24": -0.008644825858595051,
+            "rs7d": -0.03133105245802059,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "TP"
+          }
+        },
+        {
+          "symbol": "ASTERUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -1.322,
+          "entry": 0.6245,
+          "sl": 0.6299,
+          "tp": 0.6164000000000001,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": -8.109,
+            "ltfScore": 1.5716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.041368267131334235,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.3758389261744993,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6250109321640355
+          },
+          "features": {
+            "r6": 0.001603849238171584,
+            "r24": -0.011397815418711432,
+            "r72": 0.006122120186885738,
+            "r7d": -0.017309205350117818,
+            "rs24": -0.0064015080139276925,
+            "rs7d": -0.03707348598900073,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "GRASSUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 4.181,
+          "entry": 0.3807,
+          "sl": 0.3709,
+          "tp": 0.39735999999999994,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "transition",
+            "htfScore": 4.0360000000000005,
+            "ltfScore": -0.2406544185371623,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 1.9922393519618642,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.45,
+            "rangePositionH1": 0.6481481481481473,
+            "m15Sweep": 0,
+            "m5Sweep": 1,
+            "m15VWAP": 0.37795347123246603
+          },
+          "features": {
+            "r6": 0.010618529333687343,
+            "r24": 0.03031123139377523,
+            "r72": 0.0745131244707875,
+            "r7d": -0.018055197317513594,
+            "rs24": 0.03530753879855897,
+            "rs7d": -0.03781947795639651,
+            "st4": 1,
+            "st1": 1,
+            "emaBias": 0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "LITUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.516,
+          "entry": 2.2759,
+          "sl": 2.3811,
+          "tp": 2.1181,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "transition",
+            "htfScore": -0.6609999999999998,
+            "ltfScore": -2.1007353605845096,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -1.3460820743985202,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.4613084112149538,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 2.311426005376736
+          },
+          "features": {
+            "r6": 0.026567433468651203,
+            "r24": -0.030789540924963776,
+            "r72": 0.02935323383084576,
+            "r7d": -0.1235751694393099,
+            "rs24": -0.025793233520180037,
+            "rs7d": -0.14333945007819282,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "PUMPUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 4.004,
+          "entry": 0.001969,
+          "sl": 0.001935,
+          "tp": 0.0020199999999999992,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "meme",
+            "regime": "transition",
+            "htfScore": 6.803999999999999,
+            "ltfScore": -3.3516000000000004,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.6095828686061555,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.25730994152046627,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.0019965533964890927
+          },
+          "features": {
+            "r6": -0.02331349206349209,
+            "r24": -0.016974538192710997,
+            "r72": 0.19405700424499672,
+            "r7d": 0.2102028272894898,
+            "rs24": -0.011978230787927258,
+            "rs7d": 0.1904385466506069,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "VIRTUALUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "BUY",
+          "fadeBreadth": false,
+          "score": 3.942,
+          "entry": 0.6583,
+          "sl": 0.6444,
+          "tp": 0.68193,
+          "plannedRR": 1.7,
+          "breadth": 0.232,
+          "model": {
+            "profile": "ai_high_beta",
+            "regime": "trend",
+            "htfScore": 8.779,
+            "ltfScore": 2.9716,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -0.13697301109433457,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.6440677966101691,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.6617695755298157
+          },
+          "features": {
+            "r6": 0.01809464893287971,
+            "r24": -0.019803454437164913,
+            "r72": 0.08273026315789478,
+            "r7d": 0.08006562756357671,
+            "rs24": -0.014807147032381174,
+            "rs7d": 0.0603013469246938,
+            "st4": 1,
+            "st1": -1,
+            "emaBias": 1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "XPLUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -2.742,
+          "entry": 0.08447,
+          "sl": 0.08532,
+          "tp": 0.08319500000000002,
+          "plannedRR": 1.5,
+          "breadth": 0.232,
+          "model": {
+            "profile": "new_high_beta",
+            "regime": "range",
+            "htfScore": -6.468999999999999,
+            "ltfScore": 2.5276,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": 0.4294623538817155,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.0,
+            "rangePositionH1": 0.5026833631484808,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 0.08423653289666704
+          },
+          "features": {
+            "r6": 0.026366950182260096,
+            "r24": -0.02052411873840443,
+            "r72": 0.030498963035256788,
+            "r7d": -0.10205166365472518,
+            "rs24": -0.015527811333620689,
+            "rs7d": -0.12181594429360809,
+            "st4": 0,
+            "st1": -1,
+            "emaBias": -1.5
+          },
+          "outcome": {
+            "result": "SL"
+          }
+        },
+        {
+          "symbol": "ZECUSDT",
+          "cutoff": "2026-07-22T12:00:00Z",
+          "blind": true,
+          "decision": "SELL",
+          "fadeBreadth": false,
+          "score": -8.69,
+          "entry": 513.42,
+          "sl": 538.36,
+          "tp": 466.0339999999999,
+          "plannedRR": 1.9,
+          "breadth": 0.232,
+          "model": {
+            "profile": "alt",
+            "regime": "transition",
+            "htfScore": -2.4960000000000004,
+            "ltfScore": -3.772264665126546,
+            "meanReversionScore": 0.0,
+            "relativeStrengthScore": -2.1777295330875113,
+            "btcBias": 1.0,
+            "chaseAdjustment": 0.8,
+            "rangePositionH1": 0.05413469735720302,
+            "m15Sweep": 0,
+            "m5Sweep": 0,
+            "m15VWAP": 529.1520474551171
+          },
+          "features": {
+            "r6": -0.0091859971438496,
+            "r24": -0.05796223922496846,
+            "r72": -0.07621720824786793,
+            "r7d": -0.10832074193716457,
+            "rs24": -0.05296593182018472,
+            "rs7d": -0.12808502257604748,
+            "st4": -1,
+            "st1": -1,
+            "emaBias": -0.5
+          },
+          "outcome": {
+            "result": "UNR"
+          }
+        }
+      ]
+    }
+  }
+}
