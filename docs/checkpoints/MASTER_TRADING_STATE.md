@@ -78,9 +78,12 @@ Jul27/28, 56 forced signals:
 Conclusion: genuine bias failure; LONGHORIZON/economic-target changes did not solve it.
 
 #### F6 rotation — unexercised
-May11–15, same 140-signal baseline vs F6:
-- predeclared rotation gate never triggered; overrides=0;
-- F6 therefore equaled baseline: MARKET 33 TP / 88 SL, -0.208R; direction12 55%, direction24 52.86%.
+May11–15, same 140-signal baseline vs F6. Final retained JSON is canonical:
+- rotation gate never triggered; overrides=0, so F6 == baseline;
+- MARKET 35 TP / 73 SL from 108 resolved, WR 32.41%, avg RR 2.413, expectancy -0.084R;
+- LIMIT 30 TP / 72 SL from 102 resolved, avg effective RR 3.105, expectancy -0.016R;
+- direction12 55.00%, direction24 52.86%;
+- 28/73 SL later became correct at 24h.
 Do not loosen thresholds on May and call the same block blind.
 
 #### Parallel dual-horizon — negative aggregate
