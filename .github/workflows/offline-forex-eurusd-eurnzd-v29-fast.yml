@@ -1,0 +1,25 @@
+name: Offline Forex EURUSD EURNZD V29 Fast
+on:
+  push:
+    paths:
+      - 'scripts/offline_forex_eurusd_eurnzd_v29_fast.py'
+      - '.github/workflows/offline-forex-eurusd-eurnzd-v29-fast.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        pair: [EURUSD,EURNZD]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run pair-specific fast search
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+          TARGET_PAIR: ${{ matrix.pair }}
+        run: python scripts/offline_forex_eurusd_eurnzd_v29_fast.py
