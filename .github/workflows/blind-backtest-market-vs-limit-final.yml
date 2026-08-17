@@ -1,0 +1,24 @@
+name: Blind Crypto Market vs Limit Final
+on:
+  push:
+    paths:
+      - 'scripts/blind_backtest_crypto_market_vs_limit_final.py'
+      - '.github/workflows/blind-backtest-market-vs-limit-final.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run final market-vs-limit blind test
+        run: python scripts/blind_backtest_crypto_market_vs_limit_final.py
+      - name: Commit result
+        run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/blind_backtest_market_vs_limit_final.json
+          git commit -m "Run final market vs limit crypto blind test" || exit 0
+          git pull --rebase origin main || true
+          git push || true
