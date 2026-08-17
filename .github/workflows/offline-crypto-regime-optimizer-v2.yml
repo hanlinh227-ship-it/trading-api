@@ -1,0 +1,19 @@
+name: Offline Crypto Regime Optimizer V2
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_crypto_regime_optimizer_v2.py'
+      - '.github/workflows/offline-crypto-regime-optimizer-v2.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run zero-credit crypto V2
+        run: python scripts/offline_crypto_regime_optimizer_v2.py
