@@ -85,10 +85,14 @@ Jul27 was especially diagnostic: 6 TP / 22 SL; direction24 only 17.86%; all 22 S
 ### F6 rotation comparator — NOT EXERCISED
 Hypothesis: when the 6h currency-strength vector sharply opposes the 24h/72h vector, temporarily prioritize short-horizon rotation for pairs whose own 6h strength has turned.
 
-Untouched May11–15 block, same 140 signals baseline vs F6:
+Final retained JSON for the untouched May11–15 block:
 - rotation gate never became active; overrides = 0;
-- therefore F6 result equaled baseline exactly: MARKET 33 TP / 88 SL from 121 resolved, WR 27.27%, -0.208R; direction12 55%, direction24 52.86%.
-Conclusion: do not call F6 win/loss and do not loosen thresholds on the same May block. Hypothesis was not exercised.
+- F6 therefore equals the baseline exactly;
+- MARKET: 108 resolved, 35 TP / 73 SL, 31 timeout + 1 ambiguous; WR 32.41%; avg RR 2.413; expectancy -0.084R;
+- LIMIT: 125 fills, 30 TP / 72 SL among 102 resolved; WR 29.41%; avg effective RR 3.105; expectancy -0.016R;
+- direction 6h/12h/24h = 50.71% / 55.00% / 52.86%;
+- 28/73 SL later became correct at 24h.
+Conclusion: do not call F6 win/loss and do not loosen thresholds on the same May block. The target state never triggered.
 
 ### Parallel dual-horizon experiment — negative aggregate
 Another repo experiment on Jun24/Jun30/Jul02/Jul07/Jul10:
