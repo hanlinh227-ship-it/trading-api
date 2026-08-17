@@ -15,6 +15,7 @@ Purpose: canonical handoff/checkpoint for continuing the Trading project across 
 - `docs/checkpoints/CRYPTO_BREAKOUT_STATE.md`
 - `docs/checkpoints/METALS_STATE.md`
 - `docs/checkpoints/CASH_INDICES_STATE.md`
+- `docs/checkpoints/FUTURES_NQ_ES_STATE.md` — separate, only when futures are explicitly requested.
 - `docs/checkpoints/DATA_INFRA_STATE.md`
 
 ## 3. Universal analysis rules
@@ -50,6 +51,11 @@ Purpose: canonical handoff/checkpoint for continuing the Trading project across 
 ### Cash indices
 - Only cash indices by default: Nasdaq-100, S&P 500, Dow, Nikkei 225, DAX, plus other supported cash indices.
 - Current Twelve Data Basic entitlement may block some index symbols such as NDX; never fake a cash-index price using futures.
+
+### Futures NQ/ES
+- Separate system, only when explicitly requested.
+- Execution preference: MNQ/MES micros; structural SL first, then size contracts to approximately USD 500 maximum risk and roughly USD 1,500 target when structure supports ~1:3.
+- User/platform realtime MNQ/MES price takes priority at final execution when supplied.
 
 ## 6. Live execution quality gate
 Before issuing a current MARKET entry:
