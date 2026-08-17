@@ -1,0 +1,1129 @@
+{
+  "generatedAt": "2026-08-17T07:51:22.571671+00:00",
+  "version": "FOREX F11 day-conflict MID_FACTOR comparator",
+  "integrity": {
+    "developmentBeforeValidation": true,
+    "validationDatesRepoSearchedAbsentBeforeCreation": true,
+    "all28PairsForced": true,
+    "sameHoldoutF8VsF11": true,
+    "holdoutUnusedForThresholdSelection": true,
+    "noNewIndicator": true
+  },
+  "hypothesis": "On dates where frozen F8 short-horizon direction conflicts broadly with a coherent 6h/12h cross-currency state, selectively override only conflicting pairs with a MID_FACTOR 6h/12h direction. All other pairs keep frozen F8.",
+  "developmentDates": [
+    "2026-04-27T08:00:00Z",
+    "2026-04-28T08:00:00Z",
+    "2026-04-29T08:00:00Z",
+    "2026-04-30T08:00:00Z",
+    "2026-05-01T08:00:00Z",
+    "2026-05-04T08:00:00Z",
+    "2026-05-05T08:00:00Z",
+    "2026-05-06T08:00:00Z",
+    "2026-05-07T08:00:00Z",
+    "2026-05-08T08:00:00Z",
+    "2026-05-11T08:00:00Z",
+    "2026-05-12T08:00:00Z",
+    "2026-05-13T08:00:00Z",
+    "2026-05-14T08:00:00Z",
+    "2026-05-15T08:00:00Z",
+    "2026-05-18T08:00:00Z",
+    "2026-05-19T08:00:00Z",
+    "2026-05-20T08:00:00Z",
+    "2026-05-21T08:00:00Z",
+    "2026-05-22T08:00:00Z",
+    "2026-05-25T08:00:00Z",
+    "2026-05-26T08:00:00Z",
+    "2026-05-27T08:00:00Z",
+    "2026-05-28T08:00:00Z",
+    "2026-05-29T08:00:00Z",
+    "2026-06-01T08:00:00Z",
+    "2026-06-02T08:00:00Z",
+    "2026-06-03T08:00:00Z",
+    "2026-06-04T08:00:00Z",
+    "2026-06-05T08:00:00Z"
+  ],
+  "validationDates": [
+    "2026-06-08T08:00:00Z",
+    "2026-06-09T08:00:00Z",
+    "2026-06-10T08:00:00Z",
+    "2026-06-11T08:00:00Z",
+    "2026-06-12T08:00:00Z"
+  ],
+  "developmentSelection": {
+    "f8Score": 0.11253,
+    "thresholdGrid": {
+      "0.55": {
+        "score": 0.11253,
+        "overrides": 0,
+        "summary": {
+          "market": {
+            "signals": 700,
+            "resolved": 615,
+            "wins": 309,
+            "losses": 306,
+            "winRateResolved": 50.24,
+            "expectancyR": 0.217,
+            "timeouts": 82,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 700,
+            "resolved": 509,
+            "wins": 210,
+            "losses": 299,
+            "winRateResolved": 41.26,
+            "expectancyR": 0.218,
+            "timeouts": 72,
+            "noFill": 45,
+            "targetBeforeFill": 71
+          },
+          "recommended": {
+            "signals": 700,
+            "resolved": 614,
+            "wins": 308,
+            "losses": 306,
+            "winRateResolved": 50.16,
+            "expectancyR": 0.217,
+            "timeouts": 82,
+            "noFill": 1,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 700,
+            "correct": 402,
+            "accuracy": 57.43
+          },
+          "direction3": {
+            "n": 700,
+            "correct": 403,
+            "accuracy": 57.57
+          },
+          "direction6": {
+            "n": 700,
+            "correct": 392,
+            "accuracy": 56.0
+          },
+          "direction12": {
+            "n": 700,
+            "correct": 393,
+            "accuracy": 56.14
+          },
+          "direction24": {
+            "n": 700,
+            "correct": 376,
+            "accuracy": 53.71
+          },
+          "diagnostics": {
+            "marketSL": 306,
+            "slBiasWrong": 215,
+            "slButChosenDirectionCorrect": 91,
+            "slBut24hCorrect": 130,
+            "avgSLMfeR": 0.485
+          }
+        },
+        "daysActive": 0
+      },
+      "0.65": {
+        "score": 0.11253,
+        "overrides": 0,
+        "summary": {
+          "market": {
+            "signals": 700,
+            "resolved": 615,
+            "wins": 309,
+            "losses": 306,
+            "winRateResolved": 50.24,
+            "expectancyR": 0.217,
+            "timeouts": 82,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 700,
+            "resolved": 509,
+            "wins": 210,
+            "losses": 299,
+            "winRateResolved": 41.26,
+            "expectancyR": 0.218,
+            "timeouts": 72,
+            "noFill": 45,
+            "targetBeforeFill": 71
+          },
+          "recommended": {
+            "signals": 700,
+            "resolved": 614,
+            "wins": 308,
+            "losses": 306,
+            "winRateResolved": 50.16,
+            "expectancyR": 0.217,
+            "timeouts": 82,
+            "noFill": 1,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 700,
+            "correct": 402,
+            "accuracy": 57.43
+          },
+          "direction3": {
+            "n": 700,
+            "correct": 403,
+            "accuracy": 57.57
+          },
+          "direction6": {
+            "n": 700,
+            "correct": 392,
+            "accuracy": 56.0
+          },
+          "direction12": {
+            "n": 700,
+            "correct": 393,
+            "accuracy": 56.14
+          },
+          "direction24": {
+            "n": 700,
+            "correct": 376,
+            "accuracy": 53.71
+          },
+          "diagnostics": {
+            "marketSL": 306,
+            "slBiasWrong": 215,
+            "slButChosenDirectionCorrect": 91,
+            "slBut24hCorrect": 130,
+            "avgSLMfeR": 0.485
+          }
+        },
+        "daysActive": 0
+      },
+      "0.75": {
+        "score": 0.11253,
+        "overrides": 0,
+        "summary": {
+          "market": {
+            "signals": 700,
+            "resolved": 615,
+            "wins": 309,
+            "losses": 306,
+            "winRateResolved": 50.24,
+            "expectancyR": 0.217,
+            "timeouts": 82,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 700,
+            "resolved": 509,
+            "wins": 210,
+            "losses": 299,
+            "winRateResolved": 41.26,
+            "expectancyR": 0.218,
+            "timeouts": 72,
+            "noFill": 45,
+            "targetBeforeFill": 71
+          },
+          "recommended": {
+            "signals": 700,
+            "resolved": 614,
+            "wins": 308,
+            "losses": 306,
+            "winRateResolved": 50.16,
+            "expectancyR": 0.217,
+            "timeouts": 82,
+            "noFill": 1,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 700,
+            "correct": 402,
+            "accuracy": 57.43
+          },
+          "direction3": {
+            "n": 700,
+            "correct": 403,
+            "accuracy": 57.57
+          },
+          "direction6": {
+            "n": 700,
+            "correct": 392,
+            "accuracy": 56.0
+          },
+          "direction12": {
+            "n": 700,
+            "correct": 393,
+            "accuracy": 56.14
+          },
+          "direction24": {
+            "n": 700,
+            "correct": 376,
+            "accuracy": 53.71
+          },
+          "diagnostics": {
+            "marketSL": 306,
+            "slBiasWrong": 215,
+            "slButChosenDirectionCorrect": 91,
+            "slBut24hCorrect": 130,
+            "avgSLMfeR": 0.485
+          }
+        },
+        "daysActive": 0
+      }
+    },
+    "selectedThreshold": null
+  },
+  "blindValidation": {
+    "f8": {
+      "market": {
+        "signals": 140,
+        "resolved": 122,
+        "wins": 63,
+        "losses": 59,
+        "winRateResolved": 51.64,
+        "expectancyR": 0.251,
+        "timeouts": 17,
+        "noFill": 0,
+        "targetBeforeFill": 0
+      },
+      "limit": {
+        "signals": 140,
+        "resolved": 97,
+        "wins": 39,
+        "losses": 58,
+        "winRateResolved": 40.21,
+        "expectancyR": 0.199,
+        "timeouts": 13,
+        "noFill": 9,
+        "targetBeforeFill": 20
+      },
+      "recommended": {
+        "signals": 140,
+        "resolved": 121,
+        "wins": 63,
+        "losses": 58,
+        "winRateResolved": 52.07,
+        "expectancyR": 0.267,
+        "timeouts": 17,
+        "noFill": 1,
+        "targetBeforeFill": 0
+      },
+      "chosenDirection": {
+        "n": 140,
+        "correct": 89,
+        "accuracy": 63.57
+      },
+      "direction3": {
+        "n": 140,
+        "correct": 91,
+        "accuracy": 65.0
+      },
+      "direction6": {
+        "n": 140,
+        "correct": 76,
+        "accuracy": 54.29
+      },
+      "direction12": {
+        "n": 140,
+        "correct": 69,
+        "accuracy": 49.29
+      },
+      "direction24": {
+        "n": 140,
+        "correct": 73,
+        "accuracy": 52.14
+      },
+      "diagnostics": {
+        "marketSL": 59,
+        "slBiasWrong": 40,
+        "slButChosenDirectionCorrect": 19,
+        "slBut24hCorrect": 21,
+        "avgSLMfeR": 0.446
+      }
+    },
+    "f11": {
+      "market": {
+        "signals": 140,
+        "resolved": 122,
+        "wins": 63,
+        "losses": 59,
+        "winRateResolved": 51.64,
+        "expectancyR": 0.251,
+        "timeouts": 17,
+        "noFill": 0,
+        "targetBeforeFill": 0
+      },
+      "limit": {
+        "signals": 140,
+        "resolved": 97,
+        "wins": 39,
+        "losses": 58,
+        "winRateResolved": 40.21,
+        "expectancyR": 0.199,
+        "timeouts": 13,
+        "noFill": 9,
+        "targetBeforeFill": 20
+      },
+      "recommended": {
+        "signals": 140,
+        "resolved": 121,
+        "wins": 63,
+        "losses": 58,
+        "winRateResolved": 52.07,
+        "expectancyR": 0.267,
+        "timeouts": 17,
+        "noFill": 1,
+        "targetBeforeFill": 0
+      },
+      "chosenDirection": {
+        "n": 140,
+        "correct": 89,
+        "accuracy": 63.57
+      },
+      "direction3": {
+        "n": 140,
+        "correct": 91,
+        "accuracy": 65.0
+      },
+      "direction6": {
+        "n": 140,
+        "correct": 76,
+        "accuracy": 54.29
+      },
+      "direction12": {
+        "n": 140,
+        "correct": 69,
+        "accuracy": 49.29
+      },
+      "direction24": {
+        "n": 140,
+        "correct": 73,
+        "accuracy": 52.14
+      },
+      "diagnostics": {
+        "marketSL": 59,
+        "slBiasWrong": 40,
+        "slButChosenDirectionCorrect": 19,
+        "slBut24hCorrect": 21,
+        "avgSLMfeR": 0.446
+      }
+    },
+    "f11Overrides": 0,
+    "byCutoff": {
+      "2026-06-08T08:00:00Z": {
+        "dayMeta": {
+          "conflictRatio": 0.0714,
+          "mediumCoherence": 0.8571,
+          "active": false,
+          "overrides": 0
+        },
+        "baseline": {
+          "market": {
+            "signals": 28,
+            "resolved": 26,
+            "wins": 17,
+            "losses": 9,
+            "winRateResolved": 65.38,
+            "expectancyR": 0.604,
+            "timeouts": 2,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 22,
+            "wins": 13,
+            "losses": 9,
+            "winRateResolved": 59.09,
+            "expectancyR": 0.752,
+            "timeouts": 2,
+            "noFill": 1,
+            "targetBeforeFill": 3
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 26,
+            "wins": 17,
+            "losses": 9,
+            "winRateResolved": 65.38,
+            "expectancyR": 0.604,
+            "timeouts": 2,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 22,
+            "accuracy": 78.57
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 22,
+            "accuracy": 78.57
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 13,
+            "accuracy": 46.43
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 14,
+            "accuracy": 50.0
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 15,
+            "accuracy": 53.57
+          },
+          "diagnostics": {
+            "marketSL": 9,
+            "slBiasWrong": 2,
+            "slButChosenDirectionCorrect": 7,
+            "slBut24hCorrect": 6,
+            "avgSLMfeR": 0.548
+          }
+        },
+        "f11": {
+          "market": {
+            "signals": 28,
+            "resolved": 26,
+            "wins": 17,
+            "losses": 9,
+            "winRateResolved": 65.38,
+            "expectancyR": 0.604,
+            "timeouts": 2,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 22,
+            "wins": 13,
+            "losses": 9,
+            "winRateResolved": 59.09,
+            "expectancyR": 0.752,
+            "timeouts": 2,
+            "noFill": 1,
+            "targetBeforeFill": 3
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 26,
+            "wins": 17,
+            "losses": 9,
+            "winRateResolved": 65.38,
+            "expectancyR": 0.604,
+            "timeouts": 2,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 22,
+            "accuracy": 78.57
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 22,
+            "accuracy": 78.57
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 13,
+            "accuracy": 46.43
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 14,
+            "accuracy": 50.0
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 15,
+            "accuracy": 53.57
+          },
+          "diagnostics": {
+            "marketSL": 9,
+            "slBiasWrong": 2,
+            "slButChosenDirectionCorrect": 7,
+            "slBut24hCorrect": 6,
+            "avgSLMfeR": 0.548
+          }
+        }
+      },
+      "2026-06-09T08:00:00Z": {
+        "dayMeta": {
+          "conflictRatio": 0.1786,
+          "mediumCoherence": 0.8214,
+          "active": false,
+          "overrides": 0
+        },
+        "baseline": {
+          "market": {
+            "signals": 28,
+            "resolved": 22,
+            "wins": 14,
+            "losses": 8,
+            "winRateResolved": 63.64,
+            "expectancyR": 0.613,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 18,
+            "wins": 10,
+            "losses": 8,
+            "winRateResolved": 55.56,
+            "expectancyR": 0.718,
+            "timeouts": 5,
+            "noFill": 1,
+            "targetBeforeFill": 3
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 22,
+            "wins": 14,
+            "losses": 8,
+            "winRateResolved": 63.64,
+            "expectancyR": 0.643,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 16,
+            "accuracy": 57.14
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 17,
+            "accuracy": 60.71
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 64.29
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 19,
+            "accuracy": 67.86
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 20,
+            "accuracy": 71.43
+          },
+          "diagnostics": {
+            "marketSL": 8,
+            "slBiasWrong": 6,
+            "slButChosenDirectionCorrect": 2,
+            "slBut24hCorrect": 5,
+            "avgSLMfeR": 0.494
+          }
+        },
+        "f11": {
+          "market": {
+            "signals": 28,
+            "resolved": 22,
+            "wins": 14,
+            "losses": 8,
+            "winRateResolved": 63.64,
+            "expectancyR": 0.613,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 18,
+            "wins": 10,
+            "losses": 8,
+            "winRateResolved": 55.56,
+            "expectancyR": 0.718,
+            "timeouts": 5,
+            "noFill": 1,
+            "targetBeforeFill": 3
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 22,
+            "wins": 14,
+            "losses": 8,
+            "winRateResolved": 63.64,
+            "expectancyR": 0.643,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 16,
+            "accuracy": 57.14
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 17,
+            "accuracy": 60.71
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 64.29
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 19,
+            "accuracy": 67.86
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 20,
+            "accuracy": 71.43
+          },
+          "diagnostics": {
+            "marketSL": 8,
+            "slBiasWrong": 6,
+            "slButChosenDirectionCorrect": 2,
+            "slBut24hCorrect": 5,
+            "avgSLMfeR": 0.494
+          }
+        }
+      },
+      "2026-06-10T08:00:00Z": {
+        "dayMeta": {
+          "conflictRatio": 0.1071,
+          "mediumCoherence": 0.8571,
+          "active": false,
+          "overrides": 0
+        },
+        "baseline": {
+          "market": {
+            "signals": 28,
+            "resolved": 25,
+            "wins": 14,
+            "losses": 11,
+            "winRateResolved": 56.0,
+            "expectancyR": 0.342,
+            "timeouts": 3,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 18,
+            "wins": 7,
+            "losses": 11,
+            "winRateResolved": 38.89,
+            "expectancyR": 0.192,
+            "timeouts": 1,
+            "noFill": 4,
+            "targetBeforeFill": 5
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 25,
+            "wins": 14,
+            "losses": 11,
+            "winRateResolved": 56.0,
+            "expectancyR": 0.342,
+            "timeouts": 3,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 20,
+            "accuracy": 71.43
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 20,
+            "accuracy": 71.43
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 14,
+            "accuracy": 50.0
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 17,
+            "accuracy": 60.71
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 16,
+            "accuracy": 57.14
+          },
+          "diagnostics": {
+            "marketSL": 11,
+            "slBiasWrong": 8,
+            "slButChosenDirectionCorrect": 3,
+            "slBut24hCorrect": 3,
+            "avgSLMfeR": 0.482
+          }
+        },
+        "f11": {
+          "market": {
+            "signals": 28,
+            "resolved": 25,
+            "wins": 14,
+            "losses": 11,
+            "winRateResolved": 56.0,
+            "expectancyR": 0.342,
+            "timeouts": 3,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 18,
+            "wins": 7,
+            "losses": 11,
+            "winRateResolved": 38.89,
+            "expectancyR": 0.192,
+            "timeouts": 1,
+            "noFill": 4,
+            "targetBeforeFill": 5
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 25,
+            "wins": 14,
+            "losses": 11,
+            "winRateResolved": 56.0,
+            "expectancyR": 0.342,
+            "timeouts": 3,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 20,
+            "accuracy": 71.43
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 20,
+            "accuracy": 71.43
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 14,
+            "accuracy": 50.0
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 17,
+            "accuracy": 60.71
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 16,
+            "accuracy": 57.14
+          },
+          "diagnostics": {
+            "marketSL": 11,
+            "slBiasWrong": 8,
+            "slButChosenDirectionCorrect": 3,
+            "slBut24hCorrect": 3,
+            "avgSLMfeR": 0.482
+          }
+        }
+      },
+      "2026-06-11T08:00:00Z": {
+        "dayMeta": {
+          "conflictRatio": 0.1429,
+          "mediumCoherence": 0.5714,
+          "active": false,
+          "overrides": 0
+        },
+        "baseline": {
+          "market": {
+            "signals": 28,
+            "resolved": 23,
+            "wins": 9,
+            "losses": 14,
+            "winRateResolved": 39.13,
+            "expectancyR": -0.1,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 16,
+            "wins": 2,
+            "losses": 14,
+            "winRateResolved": 12.5,
+            "expectancyR": -0.673,
+            "timeouts": 3,
+            "noFill": 2,
+            "targetBeforeFill": 7
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 23,
+            "wins": 9,
+            "losses": 14,
+            "winRateResolved": 39.13,
+            "expectancyR": -0.1,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 64.29
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 64.29
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 19,
+            "accuracy": 67.86
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 7,
+            "accuracy": 25.0
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 9,
+            "accuracy": 32.14
+          },
+          "diagnostics": {
+            "marketSL": 14,
+            "slBiasWrong": 10,
+            "slButChosenDirectionCorrect": 4,
+            "slBut24hCorrect": 4,
+            "avgSLMfeR": 0.346
+          }
+        },
+        "f11": {
+          "market": {
+            "signals": 28,
+            "resolved": 23,
+            "wins": 9,
+            "losses": 14,
+            "winRateResolved": 39.13,
+            "expectancyR": -0.1,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 16,
+            "wins": 2,
+            "losses": 14,
+            "winRateResolved": 12.5,
+            "expectancyR": -0.673,
+            "timeouts": 3,
+            "noFill": 2,
+            "targetBeforeFill": 7
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 23,
+            "wins": 9,
+            "losses": 14,
+            "winRateResolved": 39.13,
+            "expectancyR": -0.1,
+            "timeouts": 5,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 64.29
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 64.29
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 19,
+            "accuracy": 67.86
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 7,
+            "accuracy": 25.0
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 9,
+            "accuracy": 32.14
+          },
+          "diagnostics": {
+            "marketSL": 14,
+            "slBiasWrong": 10,
+            "slButChosenDirectionCorrect": 4,
+            "slBut24hCorrect": 4,
+            "avgSLMfeR": 0.346
+          }
+        }
+      },
+      "2026-06-12T08:00:00Z": {
+        "dayMeta": {
+          "conflictRatio": 0.1429,
+          "mediumCoherence": 0.6071,
+          "active": false,
+          "overrides": 0
+        },
+        "baseline": {
+          "market": {
+            "signals": 28,
+            "resolved": 26,
+            "wins": 9,
+            "losses": 17,
+            "winRateResolved": 34.62,
+            "expectancyR": -0.186,
+            "timeouts": 2,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 23,
+            "wins": 7,
+            "losses": 16,
+            "winRateResolved": 30.43,
+            "expectancyR": -0.124,
+            "timeouts": 2,
+            "noFill": 1,
+            "targetBeforeFill": 2
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 25,
+            "wins": 9,
+            "losses": 16,
+            "winRateResolved": 36.0,
+            "expectancyR": -0.154,
+            "timeouts": 2,
+            "noFill": 1,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 13,
+            "accuracy": 46.43
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 14,
+            "accuracy": 50.0
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 12,
+            "accuracy": 42.86
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 12,
+            "accuracy": 42.86
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 13,
+            "accuracy": 46.43
+          },
+          "diagnostics": {
+            "marketSL": 17,
+            "slBiasWrong": 14,
+            "slButChosenDirectionCorrect": 3,
+            "slBut24hCorrect": 3,
+            "avgSLMfeR": 0.427
+          }
+        },
+        "f11": {
+          "market": {
+            "signals": 28,
+            "resolved": 26,
+            "wins": 9,
+            "losses": 17,
+            "winRateResolved": 34.62,
+            "expectancyR": -0.186,
+            "timeouts": 2,
+            "noFill": 0,
+            "targetBeforeFill": 0
+          },
+          "limit": {
+            "signals": 28,
+            "resolved": 23,
+            "wins": 7,
+            "losses": 16,
+            "winRateResolved": 30.43,
+            "expectancyR": -0.124,
+            "timeouts": 2,
+            "noFill": 1,
+            "targetBeforeFill": 2
+          },
+          "recommended": {
+            "signals": 28,
+            "resolved": 25,
+            "wins": 9,
+            "losses": 16,
+            "winRateResolved": 36.0,
+            "expectancyR": -0.154,
+            "timeouts": 2,
+            "noFill": 1,
+            "targetBeforeFill": 0
+          },
+          "chosenDirection": {
+            "n": 28,
+            "correct": 13,
+            "accuracy": 46.43
+          },
+          "direction3": {
+            "n": 28,
+            "correct": 14,
+            "accuracy": 50.0
+          },
+          "direction6": {
+            "n": 28,
+            "correct": 12,
+            "accuracy": 42.86
+          },
+          "direction12": {
+            "n": 28,
+            "correct": 12,
+            "accuracy": 42.86
+          },
+          "direction24": {
+            "n": 28,
+            "correct": 13,
+            "accuracy": 46.43
+          },
+          "diagnostics": {
+            "marketSL": 17,
+            "slBiasWrong": 14,
+            "slButChosenDirectionCorrect": 3,
+            "slBut24hCorrect": 3,
+            "avgSLMfeR": 0.427
+          }
+        }
+      }
+    }
+  },
+  "dataPlan": {
+    "provider": "Twelve Data",
+    "intervalFetched": "15min",
+    "creditsExpected": 28,
+    "rawCommitted": false
+  }
+}
