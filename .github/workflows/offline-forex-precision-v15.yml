@@ -1,0 +1,24 @@
+name: Offline Forex Precision V15
+on:
+  push:
+    paths:
+      - 'data/provider_snapshots/forex_h1_feb_jul_2026.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ML dependency
+        run: pip install -q numpy scikit-learn
+      - name: Run offline V15 across all 28 Forex pairs
+        env:
+          PYTHONUNBUFFERED: '1'
+          PYTHONPATH: '.'
+        run: python scripts/offline_forex_precision_evolver_v15.py
