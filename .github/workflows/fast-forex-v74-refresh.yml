@@ -1,0 +1,34 @@
+name: Fast Forex V74 Refresh
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "data/forex_fast_request.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refresh requested Forex symbol
+        shell: bash
+        run: |
+          SYMBOL=$(tr -d '[:space:]' < data/forex_fast_request.txt)
+          echo "SYMBOL=$SYMBOL"
+          curl --silent --show-error --location --fail \
+            "https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL" \
+            -o refresh.json
+          echo "FAST_FOREX_REFRESH_JSON_START"
+          cat refresh.json
+          echo
+          echo "FAST_FOREX_REFRESH_JSON_END"
