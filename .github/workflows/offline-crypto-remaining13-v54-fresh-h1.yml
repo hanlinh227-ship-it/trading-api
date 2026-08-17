@@ -1,0 +1,26 @@
+name: Offline Crypto Remaining13 V54 Fresh H1
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_remaining13_v54_fresh_h1.py'
+      - '.github/workflows/offline-crypto-remaining13-v54-fresh-h1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  symbol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      max-parallel: 7
+      matrix:
+        symbol: [AAVE,AVAX,DOT,FLOKI,INJ,LDO,LIT,ONDO,POL,S,TAO,WLD,XPL]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Optimize January then validate February/March
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+          TARGET_SYMBOL: ${{ matrix.symbol }}
+        run: python scripts/offline_crypto_remaining13_v54_fresh_h1.py
