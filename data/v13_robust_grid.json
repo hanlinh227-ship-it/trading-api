@@ -1,0 +1,5013 @@
+{
+  "generatedAt": "2026-08-17T00:43:48.995742+00:00",
+  "cutoffs": [
+    "2026-08-13T12:00:00Z",
+    "2026-08-12T12:00:00Z"
+  ],
+  "topRobustWin": [
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 41.51,
+      "avgWin": 43.2,
+      "minExp": 0.038,
+      "avgExp": 0.08,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.122
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 22,
+          "losses": 31,
+          "unresolved": 3,
+          "win": 41.509,
+          "exp": 0.038
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 39.62,
+      "avgWin": 43.28,
+      "minExp": -0.009,
+      "avgExp": 0.082,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.173
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 32,
+          "unresolved": 3,
+          "win": 39.623,
+          "exp": -0.009
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 38.46,
+      "avgWin": 41.11,
+      "minExp": 0.038,
+      "avgExp": 0.11,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 27,
+          "unresolved": 8,
+          "win": 43.75,
+          "exp": 0.181
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.038
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 38.46,
+      "avgWin": 41.68,
+      "minExp": 0.0,
+      "avgExp": 0.084,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.167
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.0
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 37.25,
+      "avgWin": 38.84,
+      "minExp": 0.043,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 32,
+          "unresolved": 5,
+          "win": 37.255,
+          "exp": 0.043
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 37.04,
+      "avgWin": 42.52,
+      "minExp": -0.074,
+      "avgExp": 0.063,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.2
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 34,
+          "unresolved": 2,
+          "win": 37.037,
+          "exp": -0.074
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 36.54,
+      "avgWin": 40.14,
+      "minExp": -0.013,
+      "avgExp": 0.084,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 27,
+          "unresolved": 8,
+          "win": 43.75,
+          "exp": 0.181
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.013
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 36.54,
+      "avgWin": 40.72,
+      "minExp": -0.05,
+      "avgExp": 0.059,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.167
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.05
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 36.54,
+      "avgWin": 42.76,
+      "minExp": -0.087,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.087
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 36.0,
+      "avgWin": 36.48,
+      "minExp": 0.08,
+      "avgExp": 0.094,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 32,
+          "unresolved": 6,
+          "win": 36.0,
+          "exp": 0.08
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 35.85,
+      "avgWin": 42.41,
+      "minExp": -0.104,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 34,
+          "unresolved": 3,
+          "win": 35.849,
+          "exp": -0.104
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 35.85,
+      "avgWin": 42.41,
+      "minExp": -0.104,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 34,
+          "unresolved": 3,
+          "win": 35.849,
+          "exp": -0.104
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 35.29,
+      "avgWin": 37.86,
+      "minExp": -0.012,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 33,
+          "unresolved": 5,
+          "win": 35.294,
+          "exp": -0.012
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 35.19,
+      "avgWin": 41.59,
+      "minExp": -0.085,
+      "avgExp": 0.081,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 35,
+          "unresolved": 2,
+          "win": 35.185,
+          "exp": -0.085
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 35.19,
+      "avgWin": 43.59,
+      "minExp": -0.12,
+      "avgExp": 0.09,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 24,
+          "unresolved": 6,
+          "win": 52.0,
+          "exp": 0.3
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 35,
+          "unresolved": 2,
+          "win": 35.185,
+          "exp": -0.12
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 34.0,
+      "avgWin": 35.48,
+      "minExp": 0.02,
+      "avgExp": 0.064,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "win": 34.0,
+          "exp": 0.02
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 33.96,
+      "avgWin": 40.45,
+      "minExp": -0.083,
+      "avgExp": 0.092,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.267
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 35,
+          "unresolved": 3,
+          "win": 33.962,
+          "exp": -0.083
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 33.33,
+      "avgWin": 39.58,
+      "minExp": -0.1,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.237
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 34,
+          "unresolved": 5,
+          "win": 33.333,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 33.33,
+      "avgWin": 41.67,
+      "minExp": -0.133,
+      "avgExp": 0.083,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 25,
+          "unresolved": 6,
+          "win": 50.0,
+          "exp": 0.3
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 36,
+          "unresolved": 2,
+          "win": 33.333,
+          "exp": -0.133
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 33.33,
+      "avgWin": 41.16,
+      "minExp": -0.133,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.273
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 34,
+          "unresolved": 5,
+          "win": 33.333,
+          "exp": -0.133
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 1.5,
+      "minWin": 32.73,
+      "avgWin": 37.52,
+      "minExp": -0.182,
+      "avgExp": -0.062,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.058
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 37,
+          "unresolved": 1,
+          "win": 32.727,
+          "exp": -0.182
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 32.69,
+      "avgWin": 39.26,
+      "minExp": -0.085,
+      "avgExp": 0.099,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.283
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.085
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 32.69,
+      "avgWin": 40.3,
+      "minExp": -0.117,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 25,
+          "unresolved": 8,
+          "win": 47.917,
+          "exp": 0.294
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.117
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 32.69,
+      "avgWin": 40.3,
+      "minExp": -0.117,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 25,
+          "unresolved": 8,
+          "win": 47.917,
+          "exp": 0.294
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.117
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 32.69,
+      "avgWin": 40.84,
+      "minExp": -0.15,
+      "avgExp": 0.062,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.273
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.15
+        }
+      }
+    }
+  ],
+  "topRobustExpectancy": [
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 36.0,
+      "avgWin": 36.48,
+      "minExp": 0.08,
+      "avgExp": 0.094,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 32,
+          "unresolved": 6,
+          "win": 36.0,
+          "exp": 0.08
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 37.25,
+      "avgWin": 38.84,
+      "minExp": 0.043,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 32,
+          "unresolved": 5,
+          "win": 37.255,
+          "exp": 0.043
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 41.51,
+      "avgWin": 43.2,
+      "minExp": 0.038,
+      "avgExp": 0.08,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.122
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 22,
+          "losses": 31,
+          "unresolved": 3,
+          "win": 41.509,
+          "exp": 0.038
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 38.46,
+      "avgWin": 41.11,
+      "minExp": 0.038,
+      "avgExp": 0.11,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 27,
+          "unresolved": 8,
+          "win": 43.75,
+          "exp": 0.181
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.038
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 34.0,
+      "avgWin": 35.48,
+      "minExp": 0.02,
+      "avgExp": 0.064,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "win": 34.0,
+          "exp": 0.02
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 38.46,
+      "avgWin": 41.68,
+      "minExp": 0.0,
+      "avgExp": 0.084,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.167
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.0
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 39.62,
+      "avgWin": 43.28,
+      "minExp": -0.009,
+      "avgExp": 0.082,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.173
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 32,
+          "unresolved": 3,
+          "win": 39.623,
+          "exp": -0.009
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 35.29,
+      "avgWin": 37.86,
+      "minExp": -0.012,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 33,
+          "unresolved": 5,
+          "win": 35.294,
+          "exp": -0.012
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 36.54,
+      "avgWin": 40.14,
+      "minExp": -0.013,
+      "avgExp": 0.084,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 27,
+          "unresolved": 8,
+          "win": 43.75,
+          "exp": 0.181
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.013
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 36.54,
+      "avgWin": 40.72,
+      "minExp": -0.05,
+      "avgExp": 0.059,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.167
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.05
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 31.37,
+      "avgWin": 35.9,
+      "minExp": -0.059,
+      "avgExp": 0.077,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.213
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 35,
+          "unresolved": 5,
+          "win": 31.373,
+          "exp": -0.059
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 37.04,
+      "avgWin": 42.52,
+      "minExp": -0.074,
+      "avgExp": 0.063,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.2
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 34,
+          "unresolved": 2,
+          "win": 37.037,
+          "exp": -0.074
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 33.96,
+      "avgWin": 40.45,
+      "minExp": -0.083,
+      "avgExp": 0.092,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.267
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 35,
+          "unresolved": 3,
+          "win": 33.962,
+          "exp": -0.083
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 35.19,
+      "avgWin": 41.59,
+      "minExp": -0.085,
+      "avgExp": 0.081,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 35,
+          "unresolved": 2,
+          "win": 35.185,
+          "exp": -0.085
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 32.69,
+      "avgWin": 39.26,
+      "minExp": -0.085,
+      "avgExp": 0.099,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.283
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.085
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 36.54,
+      "avgWin": 42.76,
+      "minExp": -0.087,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.087
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 33.33,
+      "avgWin": 39.58,
+      "minExp": -0.1,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.237
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 34,
+          "unresolved": 5,
+          "win": 33.333,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 30.0,
+      "avgWin": 35.65,
+      "minExp": -0.1,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 27,
+          "unresolved": 10,
+          "win": 41.304,
+          "exp": 0.239
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 35,
+          "unresolved": 6,
+          "win": 30.0,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 30.0,
+      "avgWin": 35.65,
+      "minExp": -0.1,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 27,
+          "unresolved": 10,
+          "win": 41.304,
+          "exp": 0.239
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 35,
+          "unresolved": 6,
+          "win": 30.0,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 30.0,
+      "avgWin": 33.48,
+      "minExp": -0.1,
+      "avgExp": 0.004,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 35,
+          "unresolved": 6,
+          "win": 30.0,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 35.85,
+      "avgWin": 42.41,
+      "minExp": -0.104,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 34,
+          "unresolved": 3,
+          "win": 35.849,
+          "exp": -0.104
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 35.85,
+      "avgWin": 42.41,
+      "minExp": -0.104,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 34,
+          "unresolved": 3,
+          "win": 35.849,
+          "exp": -0.104
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 32.69,
+      "avgWin": 40.3,
+      "minExp": -0.117,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 25,
+          "unresolved": 8,
+          "win": 47.917,
+          "exp": 0.294
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.117
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 32.69,
+      "avgWin": 40.3,
+      "minExp": -0.117,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 25,
+          "unresolved": 8,
+          "win": 47.917,
+          "exp": 0.294
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.117
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 29.41,
+      "avgWin": 34.92,
+      "minExp": -0.118,
+      "avgExp": 0.048,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.213
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "win": 29.412,
+          "exp": -0.118
+        }
+      }
+    }
+  ],
+  "grid": [
+    {
+      "stopFactor": 0.65,
+      "lookback": 12,
+      "rr": 1.4,
+      "minWin": 25.0,
+      "avgWin": 34.82,
+      "minExp": -0.4,
+      "avgExp": -0.164,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 31,
+          "unresolved": 0,
+          "win": 44.643,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "win": 25.0,
+          "exp": -0.4
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 12,
+      "rr": 1.5,
+      "minWin": 21.43,
+      "avgWin": 33.04,
+      "minExp": -0.464,
+      "avgExp": -0.174,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 31,
+          "unresolved": 0,
+          "win": 44.643,
+          "exp": 0.116
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "win": 21.429,
+          "exp": -0.464
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 12,
+      "rr": 1.6,
+      "minWin": 19.64,
+      "avgWin": 31.25,
+      "minExp": -0.489,
+      "avgExp": -0.187,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 32,
+          "unresolved": 0,
+          "win": 42.857,
+          "exp": 0.114
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.489
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 12,
+      "rr": 1.7,
+      "minWin": 19.64,
+      "avgWin": 29.46,
+      "minExp": -0.47,
+      "avgExp": -0.204,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 34,
+          "unresolved": 0,
+          "win": 39.286,
+          "exp": 0.061
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.47
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 12,
+      "rr": 1.8,
+      "minWin": 19.64,
+      "avgWin": 29.46,
+      "minExp": -0.45,
+      "avgExp": -0.175,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 34,
+          "unresolved": 0,
+          "win": 39.286,
+          "exp": 0.1
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.45
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 12,
+      "rr": 2.0,
+      "minWin": 17.86,
+      "avgWin": 26.79,
+      "minExp": -0.464,
+      "avgExp": -0.196,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 46,
+          "unresolved": 0,
+          "win": 17.857,
+          "exp": -0.464
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 20,
+      "rr": 1.4,
+      "minWin": 25.45,
+      "avgWin": 38.2,
+      "minExp": -0.389,
+      "avgExp": -0.083,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 26,
+          "unresolved": 3,
+          "win": 50.943,
+          "exp": 0.223
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 41,
+          "unresolved": 1,
+          "win": 25.455,
+          "exp": -0.389
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 20,
+      "rr": 1.5,
+      "minWin": 21.82,
+      "avgWin": 35.91,
+      "minExp": -0.455,
+      "avgExp": -0.102,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 26,
+          "unresolved": 4,
+          "win": 50.0,
+          "exp": 0.25
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 43,
+          "unresolved": 1,
+          "win": 21.818,
+          "exp": -0.455
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 20,
+      "rr": 1.6,
+      "minWin": 18.18,
+      "avgWin": 34.09,
+      "minExp": -0.527,
+      "avgExp": -0.114,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 26,
+          "unresolved": 4,
+          "win": 50.0,
+          "exp": 0.3
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 45,
+          "unresolved": 1,
+          "win": 18.182,
+          "exp": -0.527
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 20,
+      "rr": 1.7,
+      "minWin": 18.18,
+      "avgWin": 32.17,
+      "minExp": -0.509,
+      "avgExp": -0.131,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 28,
+          "unresolved": 4,
+          "win": 46.154,
+          "exp": 0.246
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 45,
+          "unresolved": 1,
+          "win": 18.182,
+          "exp": -0.509
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 20,
+      "rr": 1.8,
+      "minWin": 16.67,
+      "avgWin": 31.41,
+      "minExp": -0.533,
+      "avgExp": -0.121,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 28,
+          "unresolved": 4,
+          "win": 46.154,
+          "exp": 0.292
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 9,
+          "losses": 45,
+          "unresolved": 2,
+          "win": 16.667,
+          "exp": -0.533
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 20,
+      "rr": 2.0,
+      "minWin": 15.09,
+      "avgWin": 28.7,
+      "minExp": -0.547,
+      "avgExp": -0.139,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.269
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 8,
+          "losses": 45,
+          "unresolved": 3,
+          "win": 15.094,
+          "exp": -0.547
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 24,
+      "rr": 1.4,
+      "minWin": 29.09,
+      "avgWin": 40.02,
+      "minExp": -0.302,
+      "avgExp": -0.04,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 26,
+          "unresolved": 3,
+          "win": 50.943,
+          "exp": 0.223
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 39,
+          "unresolved": 1,
+          "win": 29.091,
+          "exp": -0.302
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 24,
+      "rr": 1.5,
+      "minWin": 27.27,
+      "avgWin": 38.64,
+      "minExp": -0.318,
+      "avgExp": -0.034,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 26,
+          "unresolved": 4,
+          "win": 50.0,
+          "exp": 0.25
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "win": 27.273,
+          "exp": -0.318
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 24,
+      "rr": 1.6,
+      "minWin": 22.22,
+      "avgWin": 36.11,
+      "minExp": -0.422,
+      "avgExp": -0.061,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 26,
+          "unresolved": 4,
+          "win": 50.0,
+          "exp": 0.3
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 42,
+          "unresolved": 2,
+          "win": 22.222,
+          "exp": -0.422
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 24,
+      "rr": 1.7,
+      "minWin": 20.37,
+      "avgWin": 32.3,
+      "minExp": -0.45,
+      "avgExp": -0.128,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.194
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 43,
+          "unresolved": 2,
+          "win": 20.37,
+          "exp": -0.45
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 24,
+      "rr": 1.8,
+      "minWin": 18.87,
+      "avgWin": 31.55,
+      "minExp": -0.472,
+      "avgExp": -0.117,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.238
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 43,
+          "unresolved": 3,
+          "win": 18.868,
+          "exp": -0.472
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 24,
+      "rr": 2.0,
+      "minWin": 17.31,
+      "avgWin": 29.81,
+      "minExp": -0.481,
+      "avgExp": -0.106,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.269
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 9,
+          "losses": 43,
+          "unresolved": 4,
+          "win": 17.308,
+          "exp": -0.481
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 32,
+      "rr": 1.4,
+      "minWin": 32.73,
+      "avgWin": 43.81,
+      "minExp": -0.215,
+      "avgExp": 0.052,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 28,
+          "losses": 23,
+          "unresolved": 5,
+          "win": 54.902,
+          "exp": 0.318
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 37,
+          "unresolved": 1,
+          "win": 32.727,
+          "exp": -0.215
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 31.48,
+      "avgWin": 42.74,
+      "minExp": -0.213,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 23,
+          "unresolved": 6,
+          "win": 54.0,
+          "exp": 0.35
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 37,
+          "unresolved": 2,
+          "win": 31.481,
+          "exp": -0.213
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 29.63,
+      "avgWin": 41.81,
+      "minExp": -0.23,
+      "avgExp": 0.087,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 23,
+          "unresolved": 6,
+          "win": 54.0,
+          "exp": 0.404
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 38,
+          "unresolved": 2,
+          "win": 29.63,
+          "exp": -0.23
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 28.3,
+      "avgWin": 39.66,
+      "minExp": -0.236,
+      "avgExp": 0.071,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 24,
+          "unresolved": 7,
+          "win": 51.02,
+          "exp": 0.378
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 38,
+          "unresolved": 3,
+          "win": 28.302,
+          "exp": -0.236
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 26.92,
+      "avgWin": 38.46,
+      "minExp": -0.246,
+      "avgExp": 0.077,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 24,
+          "unresolved": 8,
+          "win": 50.0,
+          "exp": 0.4
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "win": 26.923,
+          "exp": -0.246
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 25.49,
+      "avgWin": 35.09,
+      "minExp": -0.235,
+      "avgExp": 0.053,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 26,
+          "unresolved": 9,
+          "win": 44.681,
+          "exp": 0.34
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 38,
+          "unresolved": 5,
+          "win": 25.49,
+          "exp": -0.235
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.4,
+      "minWin": 38.89,
+      "avgWin": 45.44,
+      "minExp": -0.067,
+      "avgExp": 0.091,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 24,
+          "unresolved": 6,
+          "win": 52.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 33,
+          "unresolved": 2,
+          "win": 38.889,
+          "exp": -0.067
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 35.85,
+      "avgWin": 42.41,
+      "minExp": -0.104,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 34,
+          "unresolved": 3,
+          "win": 35.849,
+          "exp": -0.104
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 32.69,
+      "avgWin": 40.84,
+      "minExp": -0.15,
+      "avgExp": 0.062,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.273
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.15
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 32.69,
+      "avgWin": 40.3,
+      "minExp": -0.117,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 25,
+          "unresolved": 8,
+          "win": 47.917,
+          "exp": 0.294
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.117
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 31.37,
+      "avgWin": 38.03,
+      "minExp": -0.122,
+      "avgExp": 0.065,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 26,
+          "unresolved": 9,
+          "win": 44.681,
+          "exp": 0.251
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 35,
+          "unresolved": 5,
+          "win": 31.373,
+          "exp": -0.122
+        }
+      }
+    },
+    {
+      "stopFactor": 0.65,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 30.0,
+      "avgWin": 35.65,
+      "minExp": -0.1,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 27,
+          "unresolved": 10,
+          "win": 41.304,
+          "exp": 0.239
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 35,
+          "unresolved": 6,
+          "win": 30.0,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 12,
+      "rr": 1.4,
+      "minWin": 23.21,
+      "avgWin": 33.93,
+      "minExp": -0.443,
+      "avgExp": -0.186,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 31,
+          "unresolved": 0,
+          "win": 44.643,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 43,
+          "unresolved": 0,
+          "win": 23.214,
+          "exp": -0.443
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 12,
+      "rr": 1.5,
+      "minWin": 19.64,
+      "avgWin": 31.25,
+      "minExp": -0.509,
+      "avgExp": -0.219,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 32,
+          "unresolved": 0,
+          "win": 42.857,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.509
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 12,
+      "rr": 1.6,
+      "minWin": 19.64,
+      "avgWin": 30.36,
+      "minExp": -0.489,
+      "avgExp": -0.211,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 33,
+          "unresolved": 0,
+          "win": 41.071,
+          "exp": 0.068
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.489
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 12,
+      "rr": 1.7,
+      "minWin": 19.64,
+      "avgWin": 29.46,
+      "minExp": -0.47,
+      "avgExp": -0.204,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 34,
+          "unresolved": 0,
+          "win": 39.286,
+          "exp": 0.061
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.47
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 12,
+      "rr": 1.8,
+      "minWin": 19.64,
+      "avgWin": 29.46,
+      "minExp": -0.45,
+      "avgExp": -0.175,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 34,
+          "unresolved": 0,
+          "win": 39.286,
+          "exp": 0.1
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.45
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 12,
+      "rr": 2.0,
+      "minWin": 17.86,
+      "avgWin": 26.79,
+      "minExp": -0.464,
+      "avgExp": -0.196,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 46,
+          "unresolved": 0,
+          "win": 17.857,
+          "exp": -0.464
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 20,
+      "rr": 1.4,
+      "minWin": 23.64,
+      "avgWin": 37.29,
+      "minExp": -0.433,
+      "avgExp": -0.105,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 26,
+          "unresolved": 3,
+          "win": 50.943,
+          "exp": 0.223
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 42,
+          "unresolved": 1,
+          "win": 23.636,
+          "exp": -0.433
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 20,
+      "rr": 1.5,
+      "minWin": 20.0,
+      "avgWin": 34.04,
+      "minExp": -0.5,
+      "avgExp": -0.149,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.202
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 44,
+          "unresolved": 1,
+          "win": 20.0,
+          "exp": -0.5
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 20,
+      "rr": 1.6,
+      "minWin": 18.18,
+      "avgWin": 33.13,
+      "minExp": -0.527,
+      "avgExp": -0.139,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.25
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 45,
+          "unresolved": 1,
+          "win": 18.182,
+          "exp": -0.527
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 20,
+      "rr": 1.7,
+      "minWin": 18.18,
+      "avgWin": 32.17,
+      "minExp": -0.509,
+      "avgExp": -0.131,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 28,
+          "unresolved": 4,
+          "win": 46.154,
+          "exp": 0.246
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 45,
+          "unresolved": 1,
+          "win": 18.182,
+          "exp": -0.509
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 20,
+      "rr": 1.8,
+      "minWin": 16.67,
+      "avgWin": 31.41,
+      "minExp": -0.533,
+      "avgExp": -0.121,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 28,
+          "unresolved": 4,
+          "win": 46.154,
+          "exp": 0.292
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 9,
+          "losses": 45,
+          "unresolved": 2,
+          "win": 16.667,
+          "exp": -0.533
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 20,
+      "rr": 2.0,
+      "minWin": 15.09,
+      "avgWin": 28.7,
+      "minExp": -0.547,
+      "avgExp": -0.139,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.269
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 8,
+          "losses": 45,
+          "unresolved": 3,
+          "win": 15.094,
+          "exp": -0.547
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 24,
+      "rr": 1.4,
+      "minWin": 27.27,
+      "avgWin": 39.11,
+      "minExp": -0.345,
+      "avgExp": -0.061,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 26,
+          "unresolved": 3,
+          "win": 50.943,
+          "exp": 0.223
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "win": 27.273,
+          "exp": -0.345
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 24,
+      "rr": 1.5,
+      "minWin": 25.45,
+      "avgWin": 36.77,
+      "minExp": -0.364,
+      "avgExp": -0.081,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.202
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 41,
+          "unresolved": 1,
+          "win": 25.455,
+          "exp": -0.364
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 24,
+      "rr": 1.6,
+      "minWin": 22.22,
+      "avgWin": 35.15,
+      "minExp": -0.422,
+      "avgExp": -0.086,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.25
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 42,
+          "unresolved": 2,
+          "win": 22.222,
+          "exp": -0.422
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 24,
+      "rr": 1.7,
+      "minWin": 20.37,
+      "avgWin": 32.3,
+      "minExp": -0.45,
+      "avgExp": -0.128,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.194
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 43,
+          "unresolved": 2,
+          "win": 20.37,
+          "exp": -0.45
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 24,
+      "rr": 1.8,
+      "minWin": 18.87,
+      "avgWin": 31.55,
+      "minExp": -0.472,
+      "avgExp": -0.117,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.238
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 43,
+          "unresolved": 3,
+          "win": 18.868,
+          "exp": -0.472
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 24,
+      "rr": 2.0,
+      "minWin": 17.31,
+      "avgWin": 29.81,
+      "minExp": -0.481,
+      "avgExp": -0.106,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.269
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 9,
+          "losses": 43,
+          "unresolved": 4,
+          "win": 17.308,
+          "exp": -0.481
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 32,
+      "rr": 1.4,
+      "minWin": 32.73,
+      "avgWin": 43.81,
+      "minExp": -0.215,
+      "avgExp": 0.052,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 28,
+          "losses": 23,
+          "unresolved": 5,
+          "win": 54.902,
+          "exp": 0.318
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 37,
+          "unresolved": 1,
+          "win": 32.727,
+          "exp": -0.215
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 31.48,
+      "avgWin": 42.74,
+      "minExp": -0.213,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 23,
+          "unresolved": 6,
+          "win": 54.0,
+          "exp": 0.35
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 37,
+          "unresolved": 2,
+          "win": 31.481,
+          "exp": -0.213
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 29.63,
+      "avgWin": 41.81,
+      "minExp": -0.23,
+      "avgExp": 0.087,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 23,
+          "unresolved": 6,
+          "win": 54.0,
+          "exp": 0.404
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 38,
+          "unresolved": 2,
+          "win": 29.63,
+          "exp": -0.23
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 28.3,
+      "avgWin": 39.66,
+      "minExp": -0.236,
+      "avgExp": 0.071,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 24,
+          "unresolved": 7,
+          "win": 51.02,
+          "exp": 0.378
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 38,
+          "unresolved": 3,
+          "win": 28.302,
+          "exp": -0.236
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 26.92,
+      "avgWin": 38.46,
+      "minExp": -0.246,
+      "avgExp": 0.077,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 24,
+          "unresolved": 8,
+          "win": 50.0,
+          "exp": 0.4
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "win": 26.923,
+          "exp": -0.246
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 25.49,
+      "avgWin": 35.09,
+      "minExp": -0.235,
+      "avgExp": 0.053,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 26,
+          "unresolved": 9,
+          "win": 44.681,
+          "exp": 0.34
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 38,
+          "unresolved": 5,
+          "win": 25.49,
+          "exp": -0.235
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.4,
+      "minWin": 38.89,
+      "avgWin": 45.44,
+      "minExp": -0.067,
+      "avgExp": 0.091,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 24,
+          "unresolved": 6,
+          "win": 52.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 33,
+          "unresolved": 2,
+          "win": 38.889,
+          "exp": -0.067
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 35.85,
+      "avgWin": 42.41,
+      "minExp": -0.104,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 34,
+          "unresolved": 3,
+          "win": 35.849,
+          "exp": -0.104
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 32.69,
+      "avgWin": 40.84,
+      "minExp": -0.15,
+      "avgExp": 0.062,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.273
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.15
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 32.69,
+      "avgWin": 40.3,
+      "minExp": -0.117,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 25,
+          "unresolved": 8,
+          "win": 47.917,
+          "exp": 0.294
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.117
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 31.37,
+      "avgWin": 38.03,
+      "minExp": -0.122,
+      "avgExp": 0.065,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 26,
+          "unresolved": 9,
+          "win": 44.681,
+          "exp": 0.251
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 35,
+          "unresolved": 5,
+          "win": 31.373,
+          "exp": -0.122
+        }
+      }
+    },
+    {
+      "stopFactor": 0.75,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 30.0,
+      "avgWin": 35.65,
+      "minExp": -0.1,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 27,
+          "unresolved": 10,
+          "win": 41.304,
+          "exp": 0.239
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 35,
+          "unresolved": 6,
+          "win": 30.0,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 12,
+      "rr": 1.4,
+      "minWin": 25.45,
+      "avgWin": 35.05,
+      "minExp": -0.389,
+      "avgExp": -0.159,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 31,
+          "unresolved": 0,
+          "win": 44.643,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 41,
+          "unresolved": 1,
+          "win": 25.455,
+          "exp": -0.389
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 12,
+      "rr": 1.5,
+      "minWin": 21.82,
+      "avgWin": 32.34,
+      "minExp": -0.455,
+      "avgExp": -0.192,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 32,
+          "unresolved": 0,
+          "win": 42.857,
+          "exp": 0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 43,
+          "unresolved": 1,
+          "win": 21.818,
+          "exp": -0.455
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 12,
+      "rr": 1.6,
+      "minWin": 21.82,
+      "avgWin": 31.44,
+      "minExp": -0.433,
+      "avgExp": -0.182,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 33,
+          "unresolved": 0,
+          "win": 41.071,
+          "exp": 0.068
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 43,
+          "unresolved": 1,
+          "win": 21.818,
+          "exp": -0.433
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 12,
+      "rr": 1.7,
+      "minWin": 21.82,
+      "avgWin": 29.66,
+      "minExp": -0.411,
+      "avgExp": -0.199,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "win": 37.5,
+          "exp": 0.012
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 43,
+          "unresolved": 1,
+          "win": 21.818,
+          "exp": -0.411
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 12,
+      "rr": 1.8,
+      "minWin": 21.43,
+      "avgWin": 28.57,
+      "minExp": -0.4,
+      "avgExp": -0.2,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": 0.0
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "win": 21.429,
+          "exp": -0.4
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 12,
+      "rr": 2.0,
+      "minWin": 19.64,
+      "avgWin": 25.89,
+      "minExp": -0.411,
+      "avgExp": -0.223,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "win": 32.143,
+          "exp": -0.036
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.411
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 20,
+      "rr": 1.4,
+      "minWin": 25.93,
+      "avgWin": 38.43,
+      "minExp": -0.378,
+      "avgExp": -0.078,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 26,
+          "unresolved": 3,
+          "win": 50.943,
+          "exp": 0.223
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 40,
+          "unresolved": 2,
+          "win": 25.926,
+          "exp": -0.378
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 20,
+      "rr": 1.5,
+      "minWin": 22.22,
+      "avgWin": 35.15,
+      "minExp": -0.444,
+      "avgExp": -0.121,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.202
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 42,
+          "unresolved": 2,
+          "win": 22.222,
+          "exp": -0.444
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 20,
+      "rr": 1.6,
+      "minWin": 20.37,
+      "avgWin": 34.22,
+      "minExp": -0.47,
+      "avgExp": -0.11,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.25
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 43,
+          "unresolved": 2,
+          "win": 20.37,
+          "exp": -0.47
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 20,
+      "rr": 1.7,
+      "minWin": 20.37,
+      "avgWin": 32.3,
+      "minExp": -0.45,
+      "avgExp": -0.128,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.194
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 43,
+          "unresolved": 2,
+          "win": 20.37,
+          "exp": -0.45
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 20,
+      "rr": 1.8,
+      "minWin": 18.52,
+      "avgWin": 30.41,
+      "minExp": -0.481,
+      "avgExp": -0.148,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.185
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 44,
+          "unresolved": 2,
+          "win": 18.519,
+          "exp": -0.481
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 20,
+      "rr": 2.0,
+      "minWin": 16.98,
+      "avgWin": 27.72,
+      "minExp": -0.491,
+      "avgExp": -0.168,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 9,
+          "losses": 44,
+          "unresolved": 3,
+          "win": 16.981,
+          "exp": -0.491
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 24,
+      "rr": 1.4,
+      "minWin": 29.63,
+      "avgWin": 40.29,
+      "minExp": -0.289,
+      "avgExp": -0.033,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 26,
+          "unresolved": 3,
+          "win": 50.943,
+          "exp": 0.223
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 38,
+          "unresolved": 2,
+          "win": 29.63,
+          "exp": -0.289
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 24,
+      "rr": 1.5,
+      "minWin": 27.78,
+      "avgWin": 37.93,
+      "minExp": -0.306,
+      "avgExp": -0.052,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.202
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 39,
+          "unresolved": 2,
+          "win": 27.778,
+          "exp": -0.306
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 24,
+      "rr": 1.6,
+      "minWin": 24.53,
+      "avgWin": 36.3,
+      "minExp": -0.362,
+      "avgExp": -0.056,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 27,
+          "unresolved": 4,
+          "win": 48.077,
+          "exp": 0.25
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 40,
+          "unresolved": 3,
+          "win": 24.528,
+          "exp": -0.362
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 24,
+      "rr": 1.7,
+      "minWin": 22.64,
+      "avgWin": 32.47,
+      "minExp": -0.389,
+      "avgExp": -0.123,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.142
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 41,
+          "unresolved": 3,
+          "win": 22.642,
+          "exp": -0.389
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 24,
+      "rr": 1.8,
+      "minWin": 20.75,
+      "avgWin": 30.57,
+      "minExp": -0.419,
+      "avgExp": -0.144,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "win": 40.385,
+          "exp": 0.131
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 42,
+          "unresolved": 3,
+          "win": 20.755,
+          "exp": -0.419
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 24,
+      "rr": 2.0,
+      "minWin": 19.23,
+      "avgWin": 28.85,
+      "minExp": -0.423,
+      "avgExp": -0.135,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 42,
+          "unresolved": 4,
+          "win": 19.231,
+          "exp": -0.423
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 32,
+      "rr": 1.4,
+      "minWin": 33.33,
+      "avgWin": 44.12,
+      "minExp": -0.2,
+      "avgExp": 0.059,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 28,
+          "losses": 23,
+          "unresolved": 5,
+          "win": 54.902,
+          "exp": 0.318
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 36,
+          "unresolved": 2,
+          "win": 33.333,
+          "exp": -0.2
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 32.08,
+      "avgWin": 43.04,
+      "minExp": -0.198,
+      "avgExp": 0.076,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 23,
+          "unresolved": 6,
+          "win": 54.0,
+          "exp": 0.35
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 36,
+          "unresolved": 3,
+          "win": 32.075,
+          "exp": -0.198
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 30.19,
+      "avgWin": 42.09,
+      "minExp": -0.215,
+      "avgExp": 0.094,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 27,
+          "losses": 23,
+          "unresolved": 6,
+          "win": 54.0,
+          "exp": 0.404
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 37,
+          "unresolved": 3,
+          "win": 30.189,
+          "exp": -0.215
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 28.85,
+      "avgWin": 38.91,
+      "minExp": -0.221,
+      "avgExp": 0.051,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.322
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 37,
+          "unresolved": 4,
+          "win": 28.846,
+          "exp": -0.221
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 26.92,
+      "avgWin": 36.38,
+      "minExp": -0.246,
+      "avgExp": 0.019,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.283
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 38,
+          "unresolved": 4,
+          "win": 26.923,
+          "exp": -0.246
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 25.49,
+      "avgWin": 32.96,
+      "minExp": -0.235,
+      "avgExp": -0.011,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.213
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 38,
+          "unresolved": 5,
+          "win": 25.49,
+          "exp": -0.235
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.4,
+      "minWin": 39.62,
+      "avgWin": 45.81,
+      "minExp": -0.049,
+      "avgExp": 0.099,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 24,
+          "unresolved": 6,
+          "win": 52.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 32,
+          "unresolved": 3,
+          "win": 39.623,
+          "exp": -0.049
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 36.54,
+      "avgWin": 42.76,
+      "minExp": -0.087,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.087
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 33.33,
+      "avgWin": 41.16,
+      "minExp": -0.133,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 25,
+          "unresolved": 7,
+          "win": 48.98,
+          "exp": 0.273
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 34,
+          "unresolved": 5,
+          "win": 33.333,
+          "exp": -0.133
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 33.33,
+      "avgWin": 39.58,
+      "minExp": -0.1,
+      "avgExp": 0.069,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.237
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 34,
+          "unresolved": 5,
+          "win": 33.333,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 31.37,
+      "avgWin": 35.9,
+      "minExp": -0.122,
+      "avgExp": 0.005,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 35,
+          "unresolved": 5,
+          "win": 31.373,
+          "exp": -0.122
+        }
+      }
+    },
+    {
+      "stopFactor": 0.9,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 30.0,
+      "avgWin": 33.48,
+      "minExp": -0.1,
+      "avgExp": 0.004,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 35,
+          "unresolved": 6,
+          "win": 30.0,
+          "exp": -0.1
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 12,
+      "rr": 1.4,
+      "minWin": 28.57,
+      "avgWin": 35.71,
+      "minExp": -0.314,
+      "avgExp": -0.143,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 32,
+          "unresolved": 0,
+          "win": 42.857,
+          "exp": 0.029
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 40,
+          "unresolved": 0,
+          "win": 28.571,
+          "exp": -0.314
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 12,
+      "rr": 1.5,
+      "minWin": 25.0,
+      "avgWin": 33.04,
+      "minExp": -0.375,
+      "avgExp": -0.174,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 33,
+          "unresolved": 0,
+          "win": 41.071,
+          "exp": 0.027
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "win": 25.0,
+          "exp": -0.375
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 12,
+      "rr": 1.6,
+      "minWin": 25.0,
+      "avgWin": 31.25,
+      "minExp": -0.35,
+      "avgExp": -0.187,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "win": 37.5,
+          "exp": -0.025
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "win": 25.0,
+          "exp": -0.35
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 12,
+      "rr": 1.7,
+      "minWin": 25.0,
+      "avgWin": 30.36,
+      "minExp": -0.325,
+      "avgExp": -0.18,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": -0.036
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "win": 25.0,
+          "exp": -0.325
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 12,
+      "rr": 1.8,
+      "minWin": 23.21,
+      "avgWin": 29.46,
+      "minExp": -0.35,
+      "avgExp": -0.175,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": 0.0
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 43,
+          "unresolved": 0,
+          "win": 23.214,
+          "exp": -0.35
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 12,
+      "rr": 2.0,
+      "minWin": 17.86,
+      "avgWin": 25.0,
+      "minExp": -0.464,
+      "avgExp": -0.25,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "win": 32.143,
+          "exp": -0.036
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 46,
+          "unresolved": 0,
+          "win": 17.857,
+          "exp": -0.464
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 20,
+      "rr": 1.4,
+      "minWin": 29.09,
+      "avgWin": 39.07,
+      "minExp": -0.302,
+      "avgExp": -0.062,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 27,
+          "unresolved": 3,
+          "win": 49.057,
+          "exp": 0.177
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 39,
+          "unresolved": 1,
+          "win": 29.091,
+          "exp": -0.302
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 20,
+      "rr": 1.5,
+      "minWin": 25.45,
+      "avgWin": 35.8,
+      "minExp": -0.364,
+      "avgExp": -0.105,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 28,
+          "unresolved": 4,
+          "win": 46.154,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 41,
+          "unresolved": 1,
+          "win": 25.455,
+          "exp": -0.364
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 20,
+      "rr": 1.6,
+      "minWin": 23.64,
+      "avgWin": 33.93,
+      "minExp": -0.385,
+      "avgExp": -0.118,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.15
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 42,
+          "unresolved": 1,
+          "win": 23.636,
+          "exp": -0.385
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 20,
+      "rr": 1.7,
+      "minWin": 23.64,
+      "avgWin": 32.97,
+      "minExp": -0.362,
+      "avgExp": -0.11,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.142
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 42,
+          "unresolved": 1,
+          "win": 23.636,
+          "exp": -0.362
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 20,
+      "rr": 1.8,
+      "minWin": 22.22,
+      "avgWin": 32.26,
+      "minExp": -0.378,
+      "avgExp": -0.097,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.185
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 42,
+          "unresolved": 2,
+          "win": 22.222,
+          "exp": -0.378
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 20,
+      "rr": 2.0,
+      "minWin": 18.87,
+      "avgWin": 28.66,
+      "minExp": -0.434,
+      "avgExp": -0.14,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 10,
+          "losses": 43,
+          "unresolved": 3,
+          "win": 18.868,
+          "exp": -0.434
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 24,
+      "rr": 1.4,
+      "minWin": 32.73,
+      "avgWin": 40.89,
+      "minExp": -0.215,
+      "avgExp": -0.019,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 27,
+          "unresolved": 3,
+          "win": 49.057,
+          "exp": 0.177
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 37,
+          "unresolved": 1,
+          "win": 32.727,
+          "exp": -0.215
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 24,
+      "rr": 1.5,
+      "minWin": 30.91,
+      "avgWin": 38.53,
+      "minExp": -0.227,
+      "avgExp": -0.037,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 28,
+          "unresolved": 4,
+          "win": 46.154,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 38,
+          "unresolved": 1,
+          "win": 30.909,
+          "exp": -0.227
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 24,
+      "rr": 1.6,
+      "minWin": 27.78,
+      "avgWin": 36.0,
+      "minExp": -0.278,
+      "avgExp": -0.064,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "win": 44.231,
+          "exp": 0.15
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 39,
+          "unresolved": 2,
+          "win": 27.778,
+          "exp": -0.278
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 24,
+      "rr": 1.7,
+      "minWin": 25.93,
+      "avgWin": 33.16,
+      "minExp": -0.3,
+      "avgExp": -0.105,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "win": 40.385,
+          "exp": 0.09
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 40,
+          "unresolved": 2,
+          "win": 25.926,
+          "exp": -0.3
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 24,
+      "rr": 1.8,
+      "minWin": 24.53,
+      "avgWin": 32.46,
+      "minExp": -0.313,
+      "avgExp": -0.091,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "win": 40.385,
+          "exp": 0.131
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 40,
+          "unresolved": 3,
+          "win": 24.528,
+          "exp": -0.313
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 24,
+      "rr": 2.0,
+      "minWin": 21.15,
+      "avgWin": 29.81,
+      "minExp": -0.365,
+      "avgExp": -0.106,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 41,
+          "unresolved": 4,
+          "win": 21.154,
+          "exp": -0.365
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.4,
+      "minWin": 36.36,
+      "avgWin": 45.63,
+      "minExp": -0.127,
+      "avgExp": 0.095,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 28,
+          "losses": 23,
+          "unresolved": 5,
+          "win": 54.902,
+          "exp": 0.318
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 35,
+          "unresolved": 1,
+          "win": 36.364,
+          "exp": -0.127
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 35.19,
+      "avgWin": 43.59,
+      "minExp": -0.12,
+      "avgExp": 0.09,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 24,
+          "unresolved": 6,
+          "win": 52.0,
+          "exp": 0.3
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 35,
+          "unresolved": 2,
+          "win": 35.185,
+          "exp": -0.12
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 33.33,
+      "avgWin": 41.67,
+      "minExp": -0.133,
+      "avgExp": 0.083,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 25,
+          "losses": 25,
+          "unresolved": 6,
+          "win": 50.0,
+          "exp": 0.3
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 36,
+          "unresolved": 2,
+          "win": 33.333,
+          "exp": -0.133
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 32.08,
+      "avgWin": 39.51,
+      "minExp": -0.134,
+      "avgExp": 0.067,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.267
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 36,
+          "unresolved": 3,
+          "win": 32.075,
+          "exp": -0.134
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 30.77,
+      "avgWin": 38.3,
+      "minExp": -0.138,
+      "avgExp": 0.072,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.283
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 36,
+          "unresolved": 4,
+          "win": 30.769,
+          "exp": -0.138
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 29.41,
+      "avgWin": 34.92,
+      "minExp": -0.118,
+      "avgExp": 0.048,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.213
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "win": 29.412,
+          "exp": -0.118
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.4,
+      "minWin": 42.59,
+      "avgWin": 47.3,
+      "minExp": 0.022,
+      "avgExp": 0.135,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 24,
+          "unresolved": 6,
+          "win": 52.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 23,
+          "losses": 31,
+          "unresolved": 2,
+          "win": 42.593,
+          "exp": 0.022
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 39.62,
+      "avgWin": 43.28,
+      "minExp": -0.009,
+      "avgExp": 0.082,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.173
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 32,
+          "unresolved": 3,
+          "win": 39.623,
+          "exp": -0.009
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 36.54,
+      "avgWin": 40.72,
+      "minExp": -0.05,
+      "avgExp": 0.059,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.167
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.05
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 36.54,
+      "avgWin": 40.14,
+      "minExp": -0.013,
+      "avgExp": 0.084,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 27,
+          "unresolved": 8,
+          "win": 43.75,
+          "exp": 0.181
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 33,
+          "unresolved": 4,
+          "win": 36.538,
+          "exp": -0.013
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 35.29,
+      "avgWin": 37.86,
+      "minExp": -0.012,
+      "avgExp": 0.06,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 33,
+          "unresolved": 5,
+          "win": 35.294,
+          "exp": -0.012
+        }
+      }
+    },
+    {
+      "stopFactor": 1.05,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 34.0,
+      "avgWin": 35.48,
+      "minExp": 0.02,
+      "avgExp": 0.064,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "win": 34.0,
+          "exp": 0.02
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 12,
+      "rr": 1.4,
+      "minWin": 30.36,
+      "avgWin": 34.82,
+      "minExp": -0.271,
+      "avgExp": -0.164,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 34,
+          "unresolved": 0,
+          "win": 39.286,
+          "exp": -0.057
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 39,
+          "unresolved": 0,
+          "win": 30.357,
+          "exp": -0.271
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 12,
+      "rr": 1.5,
+      "minWin": 26.79,
+      "avgWin": 32.14,
+      "minExp": -0.33,
+      "avgExp": -0.196,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "win": 37.5,
+          "exp": -0.062
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 41,
+          "unresolved": 0,
+          "win": 26.786,
+          "exp": -0.33
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 12,
+      "rr": 1.6,
+      "minWin": 25.0,
+      "avgWin": 30.36,
+      "minExp": -0.35,
+      "avgExp": -0.211,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": -0.071
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 42,
+          "unresolved": 0,
+          "win": 25.0,
+          "exp": -0.35
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 12,
+      "rr": 1.7,
+      "minWin": 21.43,
+      "avgWin": 28.57,
+      "minExp": -0.421,
+      "avgExp": -0.229,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": -0.036
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "win": 21.429,
+          "exp": -0.421
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 12,
+      "rr": 1.8,
+      "minWin": 21.43,
+      "avgWin": 28.57,
+      "minExp": -0.4,
+      "avgExp": -0.2,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "win": 35.714,
+          "exp": 0.0
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 44,
+          "unresolved": 0,
+          "win": 21.429,
+          "exp": -0.4
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 12,
+      "rr": 2.0,
+      "minWin": 19.64,
+      "avgWin": 25.89,
+      "minExp": -0.411,
+      "avgExp": -0.223,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "win": 32.143,
+          "exp": -0.036
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 45,
+          "unresolved": 0,
+          "win": 19.643,
+          "exp": -0.411
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 20,
+      "rr": 1.4,
+      "minWin": 30.91,
+      "avgWin": 38.1,
+      "minExp": -0.258,
+      "avgExp": -0.086,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 29,
+          "unresolved": 3,
+          "win": 45.283,
+          "exp": 0.087
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 38,
+          "unresolved": 1,
+          "win": 30.909,
+          "exp": -0.258
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 20,
+      "rr": 1.5,
+      "minWin": 27.27,
+      "avgWin": 34.79,
+      "minExp": -0.318,
+      "avgExp": -0.13,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.058
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 15,
+          "losses": 40,
+          "unresolved": 1,
+          "win": 27.273,
+          "exp": -0.318
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 20,
+      "rr": 1.6,
+      "minWin": 25.45,
+      "avgWin": 33.88,
+      "minExp": -0.338,
+      "avgExp": -0.119,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.1
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 41,
+          "unresolved": 1,
+          "win": 25.455,
+          "exp": -0.338
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 20,
+      "rr": 1.7,
+      "minWin": 23.64,
+      "avgWin": 32.97,
+      "minExp": -0.362,
+      "avgExp": -0.11,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.142
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 42,
+          "unresolved": 1,
+          "win": 23.636,
+          "exp": -0.362
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 20,
+      "rr": 1.8,
+      "minWin": 22.22,
+      "avgWin": 32.26,
+      "minExp": -0.378,
+      "avgExp": -0.097,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.185
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 42,
+          "unresolved": 2,
+          "win": 22.222,
+          "exp": -0.378
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 20,
+      "rr": 2.0,
+      "minWin": 20.75,
+      "avgWin": 29.61,
+      "minExp": -0.377,
+      "avgExp": -0.112,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 11,
+          "losses": 42,
+          "unresolved": 3,
+          "win": 20.755,
+          "exp": -0.377
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 1.4,
+      "minWin": 34.55,
+      "avgWin": 39.91,
+      "minExp": -0.171,
+      "avgExp": -0.042,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 29,
+          "unresolved": 3,
+          "win": 45.283,
+          "exp": 0.087
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 36,
+          "unresolved": 1,
+          "win": 34.545,
+          "exp": -0.171
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 1.5,
+      "minWin": 32.73,
+      "avgWin": 37.52,
+      "minExp": -0.182,
+      "avgExp": -0.062,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.058
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 37,
+          "unresolved": 1,
+          "win": 32.727,
+          "exp": -0.182
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 1.6,
+      "minWin": 29.63,
+      "avgWin": 35.97,
+      "minExp": -0.23,
+      "avgExp": -0.065,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "win": 42.308,
+          "exp": 0.1
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 38,
+          "unresolved": 2,
+          "win": 29.63,
+          "exp": -0.23
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 1.7,
+      "minWin": 25.93,
+      "avgWin": 33.16,
+      "minExp": -0.3,
+      "avgExp": -0.105,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "win": 40.385,
+          "exp": 0.09
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 14,
+          "losses": 40,
+          "unresolved": 2,
+          "win": 25.926,
+          "exp": -0.3
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 1.8,
+      "minWin": 24.53,
+      "avgWin": 32.46,
+      "minExp": -0.313,
+      "avgExp": -0.091,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 31,
+          "unresolved": 4,
+          "win": 40.385,
+          "exp": 0.131
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 13,
+          "losses": 40,
+          "unresolved": 3,
+          "win": 24.528,
+          "exp": -0.313
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 24,
+      "rr": 2.0,
+      "minWin": 23.08,
+      "avgWin": 30.77,
+      "minExp": -0.308,
+      "avgExp": -0.077,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.154
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 12,
+          "losses": 40,
+          "unresolved": 4,
+          "win": 23.077,
+          "exp": -0.308
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.4,
+      "minWin": 38.18,
+      "avgWin": 44.58,
+      "minExp": -0.084,
+      "avgExp": 0.07,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 26,
+          "losses": 25,
+          "unresolved": 5,
+          "win": 50.98,
+          "exp": 0.224
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 21,
+          "losses": 34,
+          "unresolved": 1,
+          "win": 38.182,
+          "exp": -0.084
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.5,
+      "minWin": 37.04,
+      "avgWin": 42.52,
+      "minExp": -0.074,
+      "avgExp": 0.063,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.2
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 34,
+          "unresolved": 2,
+          "win": 37.037,
+          "exp": -0.074
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.6,
+      "minWin": 35.19,
+      "avgWin": 41.59,
+      "minExp": -0.085,
+      "avgExp": 0.081,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.248
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 35,
+          "unresolved": 2,
+          "win": 35.185,
+          "exp": -0.085
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.7,
+      "minWin": 33.96,
+      "avgWin": 40.45,
+      "minExp": -0.083,
+      "avgExp": 0.092,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 23,
+          "losses": 26,
+          "unresolved": 7,
+          "win": 46.939,
+          "exp": 0.267
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 35,
+          "unresolved": 3,
+          "win": 33.962,
+          "exp": -0.083
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 1.8,
+      "minWin": 32.69,
+      "avgWin": 39.26,
+      "minExp": -0.085,
+      "avgExp": 0.099,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 26,
+          "unresolved": 8,
+          "win": 45.833,
+          "exp": 0.283
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 17,
+          "losses": 35,
+          "unresolved": 4,
+          "win": 32.692,
+          "exp": -0.085
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 32,
+      "rr": 2.0,
+      "minWin": 31.37,
+      "avgWin": 35.9,
+      "minExp": -0.059,
+      "avgExp": 0.077,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.213
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 16,
+          "losses": 35,
+          "unresolved": 5,
+          "win": 31.373,
+          "exp": -0.059
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.4,
+      "minWin": 44.44,
+      "avgWin": 46.22,
+      "minExp": 0.067,
+      "avgExp": 0.109,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 24,
+          "losses": 26,
+          "unresolved": 6,
+          "win": 48.0,
+          "exp": 0.152
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 24,
+          "losses": 30,
+          "unresolved": 2,
+          "win": 44.444,
+          "exp": 0.067
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.5,
+      "minWin": 41.51,
+      "avgWin": 43.2,
+      "minExp": 0.038,
+      "avgExp": 0.08,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.122
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 22,
+          "losses": 31,
+          "unresolved": 3,
+          "win": 41.509,
+          "exp": 0.038
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.6,
+      "minWin": 38.46,
+      "avgWin": 41.68,
+      "minExp": 0.0,
+      "avgExp": 0.084,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 22,
+          "losses": 27,
+          "unresolved": 7,
+          "win": 44.898,
+          "exp": 0.167
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.0
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.7,
+      "minWin": 38.46,
+      "avgWin": 41.11,
+      "minExp": 0.038,
+      "avgExp": 0.11,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 21,
+          "losses": 27,
+          "unresolved": 8,
+          "win": 43.75,
+          "exp": 0.181
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 20,
+          "losses": 32,
+          "unresolved": 4,
+          "win": 38.462,
+          "exp": 0.038
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 1.8,
+      "minWin": 37.25,
+      "avgWin": 38.84,
+      "minExp": 0.043,
+      "avgExp": 0.088,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 19,
+          "losses": 28,
+          "unresolved": 9,
+          "win": 40.426,
+          "exp": 0.132
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 19,
+          "losses": 32,
+          "unresolved": 5,
+          "win": 37.255,
+          "exp": 0.043
+        }
+      }
+    },
+    {
+      "stopFactor": 1.2,
+      "lookback": 40,
+      "rr": 2.0,
+      "minWin": 36.0,
+      "avgWin": 36.48,
+      "minExp": 0.08,
+      "avgExp": 0.094,
+      "samples": {
+        "2026-08-13T12:00:00Z": {
+          "wins": 17,
+          "losses": 29,
+          "unresolved": 10,
+          "win": 36.957,
+          "exp": 0.109
+        },
+        "2026-08-12T12:00:00Z": {
+          "wins": 18,
+          "losses": 32,
+          "unresolved": 6,
+          "win": 36.0,
+          "exp": 0.08
+        }
+      }
+    }
+  ]
+}
