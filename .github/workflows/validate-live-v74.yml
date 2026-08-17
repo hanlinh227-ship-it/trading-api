@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - uses: actions/setup-python@v5
         with:
@@ -33,8 +35,11 @@ jobs:
           test -f scripts/nocut_intraday_method_v73.py
           test -f data/nocut_intraday_allpass_v73.json
           test -f scripts/fetch_crypto.py
+          test -f scripts/twelvedata_market.py
+          test -f scripts/scan_forex_v75.py
+          test -f scripts/scan_crypto_v75.py
           test ! -f scripts/build_nocut_allpass_v73.py
-          echo "V74 dependency chain is present and legacy optimizer build path is absent."
+          echo "V74/V75 dependency chain is present and legacy optimizer build path is absent."
 
       - name: Validate all 89 live playbooks
         env:
@@ -53,10 +58,8 @@ jobs:
           python scripts/live_symbol_analysis_v74.py WLD > /tmp/wld-v74.json
           python scripts/live_symbol_analysis_v74.py S > /tmp/s-v74.json
           python scripts/live_symbol_analysis_v74.py XPL > /tmp/xpl-v74.json
-
           python - <<'PY'
           import json
-
           for p in ('eurusd','btc','lit','hbar','wld','s','xpl'):
               d = json.load(open('/tmp/' + p + '-v74.json'))
               assert d['version'] == 'LIVE_SYMBOL_ANALYSIS_V74'
