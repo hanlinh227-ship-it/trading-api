@@ -1,0 +1,19 @@
+name: Offline Crypto H1 Daily Each Symbol V47
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_h1_daily_each_symbol_v47.py'
+      - '.github/workflows/offline-crypto-h1-daily-each-symbol-v47.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run genuine H1 per-coin daily management
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_h1_daily_each_symbol_v47.py
