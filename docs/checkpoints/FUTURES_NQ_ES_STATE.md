@@ -2,26 +2,43 @@
 
 Updated: 2026-08-17 UTC+7
 
-## Scope and instrument separation
-This checkpoint is only for CME equity-index futures.
+## SCOPE
+
+This checkpoint is only for exact CME equity-index futures.
 
 - MNQ = Micro E-mini Nasdaq-100 Futures.
 - MES = Micro E-mini S&P 500 Futures.
 - NQ/ES may be analyzed as reference contracts.
-- User execution preference for this system is MNQ/MES.
+- execution preference: MNQ/MES.
 
-Never use NDX/NAS100/SPX/US500 cash prices as a silent substitute for NQ/ES/MNQ/MES futures, and never report a cash quote as a futures quote.
+Never use NDX/NAS100/SPX/US500 cash prices as a silent substitute for NQ/ES/MNQ/MES futures.
 
-## Data-source hierarchy
-1. Exact current MNQ/MES/NQ/ES price supplied by the user's trading platform immediately before execution.
-2. A verified authoritative futures feed with exact contract/front-month identity, exchange and timestamp.
-3. Twelve Data Grow 55 only when the exact futures instrument/contract mapping is explicitly verified.
+## CURRENT TWELVE DATA GROW55 STATUS
 
-Twelve Data can be useful for broader futures/commodity context, but an ambiguous symbol, continuous contract or cash proxy is not sufficient for MARKET execution.
+Strict direct catalog/search diagnostics on 2026-08-17 did **not** expose exact provable CME contracts for:
+- NQ
+- MNQ
+- ES
+- MES
 
-If exact contract/feed identity cannot be verified, return `DATA_BLOCK` for a claimed live MARKET price rather than substitute another instrument.
+The same policy also blocks GC/CL in the direct Twelve client when an exact COMEX/NYMEX contract cannot be proven.
 
-## Core method
+Therefore `scripts/twelvedata_market.py` intentionally returns:
+- `status=DATA_BLOCK`
+- reason `TWELVE_DATA_FUTURES_NOT_AVAILABLE`
+
+This is correct behavior. A same-text security, cash index, spot commodity or ambiguous continuous contract must never be reported as the requested futures quote.
+
+## DATA-SOURCE HIERARCHY
+
+1. Exact current MNQ/MES/NQ/ES price from the user's trading platform immediately before execution.
+2. A verified authoritative futures feed with exact contract/front-month identity, CME venue and timestamp.
+3. Twelve Data only if a future plan/catalog version exposes the exact contract and the integration validates it explicitly.
+
+Until then, Twelve Data may contribute macro/spot context but **not** a claimed live NQ/MNQ/ES/MES execution price.
+
+## CORE METHOD
+
 Integrated ICT / futures workflow:
 - HTF draw on liquidity;
 - liquidity sweeps;
@@ -33,43 +50,44 @@ Integrated ICT / futures workflow:
 - Silver Bullet / macro windows / NDOG / NWOG where relevant;
 - VWAP;
 - Volume Profile;
-- order flow when a reliable feed is available;
+- order flow when a reliable futures feed exists;
 - economic calendar/news gate.
 
-## Analysis order
+## ANALYSIS ORDER
+
 1. Resolve exact contract and market state.
 2. Compare NQ/ES or MNQ/MES HTF structure and SMT.
-3. D1/H4 draw-on-liquidity and regime.
+3. D1/H4 draw-on-liquidity/regime.
 4. H1 intraday structure.
 5. M15 setup/location.
 6. M5 trigger/confirmation.
-7. Refresh exact execution price from the preferred futures source.
+7. Refresh exact execution price from the authoritative futures source.
 8. Define structural SL.
 9. Calculate MNQ/MES contract count from dollar risk.
-10. Set TP from structure/liquidity; never manufacture a target solely to force RR.
+10. Set TP from structure/liquidity.
 
-## Risk framework
-Current user framework for this micro-futures system:
+## RISK FRAMEWORK
+
 - intended maximum total SL approximately USD 500 per trade;
 - target profit approximately USD 1,500 when structure genuinely allows it;
 - target RR approximately 1:3.
 
-Critical rule: **structural SL first, position size second**. Never move the stop closer merely to force the dollar/RR target.
+**Structural SL first, position size second.** Never move the stop solely to force the dollar/RR target.
 
-## Session and news context
-European-session opportunities and later US-session opportunities may both be considered. Resolve session times in Vietnam time and account for US daylight-saving changes.
+## SESSION / NEWS
 
-Always check major US macro events relevant to NQ/ES, especially Fed/FOMC, CPI/PCE, NFP/jobs, Treasury yields, major risk shocks and material mega-cap/tech context for Nasdaq.
+Consider European and US sessions as appropriate. Always refresh major US macro risk: Fed/FOMC, CPI/PCE, jobs/NFP, Treasury yields, geopolitical shocks and material mega-cap/tech context for Nasdaq.
 
-## Output standard
-For a final futures setup report:
-- exact symbol/contract;
-- MARKET / LIMIT / DATA_BLOCK as applicable;
+## OUTPUT STANDARD
+
+A final futures setup must show:
+- exact contract;
+- MARKET / LIMIT / DATA_BLOCK;
 - exact current/reference price + source + timestamp semantics;
 - structural SL;
-- MNQ/MES contract count from dollar risk;
-- TP levels and estimated USD P/L;
+- MNQ/MES contract count;
+- TP and estimated USD P/L;
 - ICT/SMT/VWAP/VP reasoning;
 - high-impact news/session risk.
 
-Normally choose the single stronger MNQ/MES setup rather than forcing both.
+Normally choose the stronger MNQ/MES setup rather than force both.
