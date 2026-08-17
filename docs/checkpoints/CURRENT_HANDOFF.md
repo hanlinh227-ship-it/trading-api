@@ -1,6 +1,6 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 14:15 UTC+7
+Updated: 2026-08-17 14:18 UTC+7
 
 Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint. Do not reconstruct strategy state from memory when checkpoints exist.
 
@@ -12,7 +12,7 @@ Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market c
 - Avoid redundant indicators.
 
 ## Immediate active task
-Forex method development using **forced blind testing across all 28 pairs**. No Top-3 selection in the research benchmark: every valid pair receives BUY or SELL. Judge the method using direction 6h/12h/24h + TP/SL + expectancy/RR, and separate bias failure from entry/barrier failure.
+Forex method development using forced blind testing across all 28 pairs. No Top-3 selection in the research benchmark: every valid pair receives BUY or SELL. Judge the method using direction 6h/12h/24h + TP/SL + expectancy/RR, and separate bias failure from entry/barrier failure.
 
 Crypto practical framework remains frozen separately.
 
@@ -22,7 +22,7 @@ Crypto practical framework remains frozen separately.
 - ATR14: volatility/SL normalization;
 - ADX14: regime/trend-vs-chop;
 - 6h/24h/72h cross-currency strength.
-Historical research fetches one M15 series per pair and derives H1/H4 locally.
+Historical research fetches one Twelve Data M15 series per pair and derives H1/H4 locally.
 
 ## Latest evidence
 ### F4 — near break-even LIMIT, but not robust
@@ -41,10 +41,14 @@ Jul27/28 forced 56:
 This is true bias failure, not mainly tight SL. Do not promote LONGHORIZON/economic-target F5.
 
 ### F6 rotation — hypothesis not exercised
-May11–15 same-block baseline vs F6, 140 each:
+May11–15 same-block baseline vs F6, 140 each. Final retained JSON is the source of truth:
 - rotation overrides = 0 because the predeclared gate never triggered;
-- therefore F6 == baseline: MARKET 33 TP / 88 SL, -0.208R; direction12 55%, direction24 52.86%.
-Do not loosen thresholds on May and call it blind.
+- F6 therefore equals baseline exactly;
+- MARKET 35 TP / 73 SL from 108 resolved, WR 32.41%, avg RR 2.413, expectancy -0.084R;
+- LIMIT 30 TP / 72 SL from 102 resolved, avg effective RR 3.105, expectancy -0.016R;
+- direction12 55.00%, direction24 52.86%;
+- 28/73 SL later became correct at 24h.
+Do not loosen F6 thresholds on May and call the same block blind.
 
 ### Parallel dual-horizon — negative aggregate
 Jun24/Jun30/Jul02/Jul07/Jul10:
@@ -71,12 +75,12 @@ F7:
 - 35/102 SL later correct at 24h; 67/102 remained wrong direction.
 
 Interpretation:
-- F7 improves payoff expectancy materially versus the exact same baseline, especially LIMIT (-0.241R -> -0.054R), but it does NOT materially improve directional hit rate and remains negative.
+- F7 improves payoff expectancy materially versus the exact same baseline, especially LIMIT (-0.241R -> -0.054R), but does NOT materially improve directional hit rate and remains negative.
 - Keep five-vote consensus only as a candidate component, not a validated engine.
 - Date instability remains extreme: Apr23 F7 MARKET +0.766R / LIMIT +1.062R, while Apr24 MARKET -0.848R / LIMIT -0.815R.
 
 ## Next meaningful research hypothesis
-Do NOT add indicators. The next step should be a **market-day/common-factor regime layer**:
+Do NOT add indicators. The next step should be a market-day/common-factor regime layer:
 1. measure common USD/risk/carry factor across the 8-currency network;
 2. measure cross-sectional breadth/dispersion;
 3. identify synchronized trend vs rotation/chop;
@@ -88,8 +92,8 @@ Do not tune on any revealed F4/F5/F6/F7 date and then call it blind again.
 
 ## Twelve Data efficiency
 - one M15 history per 28 pairs ≈ 28 symbol credits per full block;
-- H1/H4/EMA/RSI/ATR/ADX/strength computed locally;
-- reuse data for multiple model comparators;
+- H1/H4/EMA/RSI/ATR/ADX/strength derived locally;
+- model revisions on the same block reuse cached local data;
 - workflows share `twelvedata-api` concurrency and use cooldown to avoid HTTP 429.
 
 ## Active Forex files
