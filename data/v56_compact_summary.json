@@ -1,5 +1,5 @@
 {
-  "version": "V56_COMPACT",
+  "version": "V56_COMPACT_HISTORY",
   "runId": 32026926958,
   "passCount": 3,
   "failCount": 8,
@@ -21,7 +21,53 @@
   "results": {
     "DOT": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "RELETH",
+            12,
+            1.0,
+            1.0,
+            3,
+            0.75,
+            2,
+            1,
+            0.15,
+            0.0
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 12,
+            "sl": 0,
+            "cut": 16,
+            "resolved": 12,
+            "wr": 100.0,
+            "cutRate": 57.14,
+            "meanR": 0.38
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 9,
+            "sl": 5,
+            "cut": 17,
+            "resolved": 14,
+            "wr": 64.29,
+            "cutRate": 54.84,
+            "meanR": 0.074
+          },
+          "pass": false
+        }
+      ]
     },
     "XPL": {
       "status": "PASS",
@@ -64,7 +110,53 @@
           "meanR": 0.128
         },
         "pass": true
-      }
+      },
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "HYBRID",
+            8,
+            1.0,
+            0.75,
+            3,
+            0.75,
+            2,
+            1,
+            0.15,
+            0.0
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 9,
+            "sl": 0,
+            "cut": 19,
+            "resolved": 9,
+            "wr": 100.0,
+            "cutRate": 67.86,
+            "meanR": 0.33
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 5,
+            "sl": 1,
+            "cut": 25,
+            "resolved": 6,
+            "wr": 83.33,
+            "cutRate": 80.65,
+            "meanR": 0.128
+          },
+          "pass": true
+        }
+      ]
     },
     "LIT": {
       "status": "PASS",
@@ -107,23 +199,253 @@
           "meanR": 0.124
         },
         "pass": true
-      }
+      },
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "RELBTC",
+            12,
+            1.0,
+            1.25,
+            3,
+            0.75,
+            2,
+            1,
+            0.05,
+            0.1
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 10,
+            "sl": 0,
+            "cut": 18,
+            "resolved": 10,
+            "wr": 100.0,
+            "cutRate": 64.29,
+            "meanR": 0.333
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 6,
+            "sl": 1,
+            "cut": 24,
+            "resolved": 7,
+            "wr": 85.71,
+            "cutRate": 77.42,
+            "meanR": 0.124
+          },
+          "pass": true
+        }
+      ]
     },
     "POL": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "OWN_H1",
+            8,
+            1.0,
+            1.0,
+            3,
+            0.75,
+            2,
+            2,
+            0.0,
+            0.1
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 11,
+            "sl": 0,
+            "cut": 17,
+            "resolved": 11,
+            "wr": 100.0,
+            "cutRate": 60.71,
+            "meanR": 0.285
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 7,
+            "sl": 9,
+            "cut": 15,
+            "resolved": 16,
+            "wr": 43.75,
+            "cutRate": 48.39,
+            "meanR": -0.168
+          },
+          "pass": false
+        }
+      ]
     },
     "INJ": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "MEANREV",
+            20,
+            1.0,
+            1.0,
+            6,
+            0.75,
+            2,
+            2,
+            0.0,
+            0.1
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 16,
+            "sl": 0,
+            "cut": 12,
+            "resolved": 16,
+            "wr": 100.0,
+            "cutRate": 42.86,
+            "meanR": 0.502
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 11,
+            "sl": 4,
+            "cut": 16,
+            "resolved": 15,
+            "wr": 73.33,
+            "cutRate": 51.61,
+            "meanR": 0.111
+          },
+          "pass": false
+        }
+      ]
     },
     "TAO": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "RELBTC",
+            16,
+            1.0,
+            0.75,
+            3,
+            0.75,
+            2,
+            2,
+            0.0,
+            0.1
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 17,
+            "sl": 0,
+            "cut": 11,
+            "resolved": 17,
+            "wr": 100.0,
+            "cutRate": 39.29,
+            "meanR": 0.515
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 9,
+            "sl": 6,
+            "cut": 16,
+            "resolved": 15,
+            "wr": 60.0,
+            "cutRate": 51.61,
+            "meanR": -0.025
+          },
+          "pass": false
+        }
+      ]
     },
     "FLOKI": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "RELETH",
+            4,
+            1.0,
+            0.75,
+            3,
+            0.75,
+            2,
+            1,
+            -0.1,
+            0.2
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 12,
+            "sl": 0,
+            "cut": 16,
+            "resolved": 12,
+            "wr": 100.0,
+            "cutRate": 57.14,
+            "meanR": 0.385
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 10,
+            "sl": 4,
+            "cut": 17,
+            "resolved": 14,
+            "wr": 71.43,
+            "cutRate": 54.84,
+            "meanR": 0.138
+          },
+          "pass": false
+        }
+      ]
     },
     "S": {
       "status": "PASS",
@@ -166,19 +488,203 @@
           "meanR": 0.26
         },
         "pass": true
-      }
+      },
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "OWN_H4",
+            16,
+            1.0,
+            1.0,
+            3,
+            0.75,
+            2,
+            2,
+            -0.15,
+            0.2
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 17,
+            "sl": 0,
+            "cut": 11,
+            "resolved": 17,
+            "wr": 100.0,
+            "cutRate": 39.29,
+            "meanR": 0.509
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 16,
+            "sl": 3,
+            "cut": 12,
+            "resolved": 19,
+            "wr": 84.21,
+            "cutRate": 38.71,
+            "meanR": 0.26
+          },
+          "pass": true
+        }
+      ]
     },
     "ONDO": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "OWN_H1",
+            4,
+            1.0,
+            0.75,
+            3,
+            0.75,
+            2,
+            1,
+            0.15,
+            0.0
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 11,
+            "sl": 0,
+            "cut": 17,
+            "resolved": 11,
+            "wr": 100.0,
+            "cutRate": 60.71,
+            "meanR": 0.375
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 5,
+            "sl": 2,
+            "cut": 24,
+            "resolved": 7,
+            "wr": 71.43,
+            "cutRate": 77.42,
+            "meanR": 0.096
+          },
+          "pass": false
+        }
+      ]
     },
     "WLD": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "MOM",
+            4,
+            1.0,
+            0.75,
+            3,
+            0.75,
+            2,
+            2,
+            -0.15,
+            0.2
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 15,
+            "sl": 0,
+            "cut": 13,
+            "resolved": 15,
+            "wr": 100.0,
+            "cutRate": 46.43,
+            "meanR": 0.451
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 13,
+            "sl": 7,
+            "cut": 11,
+            "resolved": 20,
+            "wr": 65.0,
+            "cutRate": 35.48,
+            "meanR": 0.086
+          },
+          "pass": false
+        }
+      ]
     },
     "LDO": {
       "status": "FAIL",
-      "frozen": null
+      "frozen": null,
+      "history": [
+        {
+          "stage": "JAN_FEB",
+          "status": "SKIP_NOT_FULL_MONTH"
+        },
+        {
+          "stage": "FEB_MAR",
+          "params": [
+            "MOM",
+            16,
+            1.0,
+            1.25,
+            3,
+            0.5,
+            2,
+            2,
+            -0.15,
+            0.2
+          ],
+          "development": {
+            "expectedDays": 28,
+            "tradedDays": 28,
+            "missing": 0,
+            "tp": 12,
+            "sl": 0,
+            "cut": 16,
+            "resolved": 12,
+            "wr": 100.0,
+            "cutRate": 57.14,
+            "meanR": 0.308
+          },
+          "final": {
+            "expectedDays": 31,
+            "tradedDays": 31,
+            "missing": 0,
+            "tp": 7,
+            "sl": 3,
+            "cut": 21,
+            "resolved": 10,
+            "wr": 70.0,
+            "cutRate": 67.74,
+            "meanR": -0.007
+          },
+          "pass": false
+        }
+      ]
     }
   }
 }
