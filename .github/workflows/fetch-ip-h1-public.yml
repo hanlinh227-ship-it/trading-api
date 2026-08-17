@@ -1,0 +1,27 @@
+name: Fetch IP H1 Public
+on:
+  push:
+    paths:
+      - '.github/workflows/fetch-ip-h1-public.yml'
+  workflow_dispatch:
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch public IP H1 history
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/fetch_ip_h1_public_2026.py
+      - name: Commit snapshot
+        run: |
+          git config user.name "history-data-bot"
+          git config user.email "history-data-bot@users.noreply.github.com"
+          git add data/provider_snapshots/ip_h1_jan_jul_2026_public.json
+          git diff --cached --quiet || git commit -m "Save IP public H1 history"
+          git push
