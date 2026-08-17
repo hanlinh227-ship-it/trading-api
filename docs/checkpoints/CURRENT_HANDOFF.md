@@ -1,6 +1,6 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 10:47 UTC+7
+Updated: 2026-08-17 10:57 UTC+7
 
 This is the immediate continuation state for the next ChatGPT conversation. Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint(s).
 
@@ -47,12 +47,20 @@ V24 retained the V22 core and added a market-level price/flow regime guard. Two 
 Important caveat: both V24 samples were classified `normal`, so they support the core but do NOT yet validate the new regime guard itself. Do not claim a proven 70%+ system yet.
 
 ## Exact crypto files at handoff
-- `scripts/blind_backtest_crypto_v24.py`
-- `data/blind_backtest_v24.json`
+Active dependency chain after cleanup:
+- `scripts/blind_backtest_crypto.py`
+- `scripts/blind_backtest_crypto_v17.py`
 - `scripts/blind_backtest_crypto_v22.py`
+- `scripts/blind_backtest_crypto_v24.py`
+- `data/blind_backtest_v17.json`
 - `data/blind_backtest_v22.json`
+- `data/blind_backtest_v24.json`
+- `.github/workflows/blind-backtest-v24.yml`
 - `docs/checkpoints/CRYPTO_BREAKOUT_STATE.md`
+- `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`
 Latest confirmed V24 result file generation timestamp: 2026-08-17T02:38:50.403710Z.
+
+Historical rejected crypto workflows/scripts/results and the standalone OKX tradeflow probe were removed from the active tree after their conclusions were summarized. They remain recoverable from Git history if ever necessary. Do not recreate them unless a specific historical experiment must be reproduced.
 
 ## Next correct crypto experiment
 Freeze V24-Core. Do NOT tune it using Jul04/Jul02 outcomes.
@@ -105,10 +113,11 @@ Repo: `hanlinh227-ship-it/trading-api`.
 - `data/latest.json` = fuller/raw output.
 - Crypto direct REST route: Binance -> OKX -> Bybit, with OKX currently the reliable source in recent work.
 - Twelve Data mainly serves Forex/metals/cash indices, subject to plan entitlement; do not spend its credits on crypto when exchange REST works.
+- Research retention rule: keep current engine/dependency chain + key validation results + summaries; remove concluded one-off probes/grids/rejected raw outputs from the active tree.
 - See `DATA_INFRA_STATE.md`.
 
 ## New-chat instruction
 Recommended first message from user:
 `Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan. Tiếp tục đúng trạng thái mới nhất, không quay lại phương pháp đã loại.`
 
-If the next request is about crypto research, immediately inspect `CRYPTO_BREAKOUT_STATE.md`, `scripts/blind_backtest_crypto_v24.py`, and `data/blind_backtest_v24.json` before changing the method.
+If the next request is about crypto research, immediately inspect `CRYPTO_BREAKOUT_STATE.md`, `CRYPTO_RESEARCH_ARCHIVE.md`, `scripts/blind_backtest_crypto_v24.py`, and `data/blind_backtest_v24.json` before changing the method.
