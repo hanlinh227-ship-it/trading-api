@@ -20,13 +20,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Refresh requested Forex symbol
+      - name: Refresh requested Forex symbol with latest price
         shell: bash
         run: |
           SYMBOL=$(tr -d '[:space:]' < data/forex_fast_request.txt)
           echo "SYMBOL=$SYMBOL"
           curl --silent --show-error --location --fail \
-            "https://forex-chart-api.hanlinh227.workers.dev/refresh/$SYMBOL" \
+            "https://forex-chart-api.hanlinh227.workers.dev/price/$SYMBOL" \
             -o refresh.json
           echo "FAST_FOREX_REFRESH_JSON_START"
           cat refresh.json
