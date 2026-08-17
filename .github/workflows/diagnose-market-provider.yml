@@ -23,86 +23,45 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Final exact-symbol probes
+      - name: Probe canonical DAX forms
         shell: bash
         run: |
           mkdir -p data
           python3 <<'PY'
           import json, os, urllib.parse, urllib.request, urllib.error
           from datetime import datetime, timezone
-
-          key = os.environ.get("TD_KEY") or ""
-          if not key:
-              raise SystemExit("TWELVEDATA_API_KEY secret is missing")
-          HEADERS = {"Authorization": f"apikey {key}", "User-Agent": "trading-api-diagnostic/3.0"}
-
-          def get(endpoint, params=None, timeout=40):
-              qs = urllib.parse.urlencode(params or {})
-              url = f"https://api.twelvedata.com/{endpoint}" + (f"?{qs}" if qs else "")
-              req = urllib.request.Request(url, headers=HEADERS)
+          key=os.environ["TD_KEY"]
+          headers={"Authorization":f"apikey {key}","User-Agent":"trading-api-diagnostic/4.0"}
+          def get(endpoint,params):
+              url="https://api.twelvedata.com/"+endpoint+"?"+urllib.parse.urlencode(params)
+              req=urllib.request.Request(url,headers=headers)
               try:
-                  with urllib.request.urlopen(req, timeout=timeout) as r:
-                      return {"ok": True, "httpStatus": r.status, "body": json.loads(r.read().decode())}
+                  with urllib.request.urlopen(req,timeout=30) as r:return {"ok":True,"httpStatus":r.status,"body":json.loads(r.read().decode())}
               except urllib.error.HTTPError as e:
-                  raw = e.read().decode(errors="replace")
-                  try: body = json.loads(raw)
-                  except Exception: body = {"raw": raw[:2000]}
-                  return {"ok": False, "httpStatus": e.code, "body": body}
-              except Exception as e:
-                  return {"ok": False, "httpStatus": None, "error": str(e)}
-
-          catalogs = {
-              "indices_us": get("indices", {"country":"United States","outputsize":5000,"show_plan":"true"}),
-              "indices_germany": get("indices", {"country":"Germany","outputsize":5000,"show_plan":"true"}),
-              "commodities": get("commodities", {"outputsize":5000}),
+                  raw=e.read().decode(errors="replace")
+                  try: body=json.loads(raw)
+                  except Exception: body={"raw":raw[:1500]}
+                  return {"ok":False,"httpStatus":e.code,"body":body}
+          forms={
+              "plain":{"symbol":"GDAXI"},
+              "exchange":{"symbol":"GDAXI","exchange":"XETR"},
+              "mic":{"symbol":"GDAXI","mic_code":"XETR"},
+              "both":{"symbol":"GDAXI","exchange":"XETR","mic_code":"XETR"},
+              "colon":{"symbol":"GDAXI:XETR"},
           }
-
-          us_rows = (catalogs["indices_us"].get("body") or {}).get("data") or []
-          de_rows = (catalogs["indices_germany"].get("body") or {}).get("data") or []
-          commodities = (catalogs["commodities"].get("body") or {}).get("data") or []
-
-          def pick(rows, words):
-              out=[]
-              for r in rows:
-                  s=f"{r.get('symbol','')} {r.get('name','')} {r.get('instrument_name','')}".lower()
-                  if any(w.lower() in s for w in words): out.append(r)
-              return out
-
-          relevant = {
-              "us": pick(us_rows, ["nasdaq", "s&p 500", "s&p 100", "dow jones", "russell"]),
-              "germany": pick(de_rows, ["dax"]),
-              "commodities": commodities,
-          }
-
-          probes = {}
-          series_symbols = ["GDAXI","N225","NDX","SPX","EUR/USD","XAU/USD","WTI/USD"]
-          for sym in series_symbols:
-              probes[f"ts:{sym}"] = get("time_series", {"symbol":sym,"interval":"1min","outputsize":3,"timezone":"UTC"})
-              probes[f"quote:{sym}"] = get("quote", {"symbol":sym,"timezone":"UTC"})
-
-          # Search likely CME/futures names rather than trusting shorthand tickers.
-          for q in ["E-mini Nasdaq-100", "Micro E-mini Nasdaq-100", "E-mini S&P 500", "Micro E-mini S&P 500", "Gold Futures", "Crude Oil Futures"]:
-              probes[f"search:{q}"] = get("symbol_search", {"symbol":q,"outputsize":30,"show_plan":"true"})
-
-          out = {
-              "generatedAt": datetime.now(timezone.utc).isoformat(),
-              "catalogCounts": {"indicesUS":len(us_rows),"indicesGermany":len(de_rows),"commodities":len(commodities)},
-              "relevantCatalog": relevant,
-              "probes": probes,
-          }
-          with open("data/market-provider-diagnostics.json","w",encoding="utf-8") as f:
-              json.dump(out,f,ensure_ascii=False,indent=2)
-          print(json.dumps({"catalogCounts":out["catalogCounts"],"us":relevant["us"][:30],"germany":relevant["germany"][:20],"commodities":commodities},ensure_ascii=False,indent=2))
+          out={"generatedAt":datetime.now(timezone.utc).isoformat(),"tests":{}}
+          for name,p in forms.items():
+              out["tests"]["ts:"+name]=get("time_series",{**p,"interval":"1min","outputsize":3,"timezone":"UTC"})
+              out["tests"]["quote:"+name]=get("quote",{**p,"timezone":"UTC"})
+          with open("data/market-provider-diagnostics.json","w",encoding="utf-8") as f:json.dump(out,f,ensure_ascii=False,indent=2)
+          print(json.dumps(out,ensure_ascii=False,indent=2))
           PY
-
       - name: Commit diagnostics
         shell: bash
         run: |
           git config user.name "market-data-bot"
           git config user.email "market-data-bot@users.noreply.github.com"
           git add data/market-provider-diagnostics.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Finalize exact Twelve Data symbol diagnostics"
+          git commit -m "Record canonical DAX request diagnostics" || exit 0
           git pull --rebase origin main
           git push origin HEAD:main
