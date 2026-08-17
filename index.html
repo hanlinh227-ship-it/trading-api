@@ -3,46 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trading Market API</title>
+  <title>Trading API — V74</title>
 </head>
-
 <body>
-  <h1>Trading Market API</h1>
+  <h1>Trading API — Current Architecture</h1>
+  <p>V73 frozen statistical prior + V74 live-analysis layer + Twelve Data Grow 55 market-data policy.</p>
 
-  <p>Cloudflare Worker market-data gateway.</p>
-
-  <h2>Forex</h2>
+  <h2>Live market-data endpoints</h2>
   <ul>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/EURUSD">EURUSD</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/GBPUSD">GBPUSD</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/USDJPY">USDJPY</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/USDCHF">USDCHF</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/USDCAD">USDCAD</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/AUDUSD">AUDUSD</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/NZDUSD">NZDUSD</a></li>
+    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/EURUSD">EURUSD full analysis</a></li>
+    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/price/EURUSD">EURUSD latest aggregated price</a></li>
+    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/XAUUSD">XAUUSD full analysis</a></li>
+    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/NDX">NDX cash-index analysis</a></li>
   </ul>
 
-  <h2>Metals</h2>
+  <h2>Data policy</h2>
   <ul>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/XAUUSD">XAUUSD</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/XAGUSD">XAGUSD</a></li>
+    <li>Forex and supported non-crypto instruments: Twelve Data Grow 55 through the Cloudflare Worker.</li>
+    <li>Crypto execution data: exchange-native Binance / OKX / Bybit routes in GitHub Actions.</li>
+    <li>Cash indices, futures and spot metals are separate instruments and are never silently substituted for each other.</li>
+    <li>A freshly fetched aggregated price is not automatically an executable broker quote.</li>
+    <li>Bid/ask, spread and quote timestamp are reported only when actually verified.</li>
   </ul>
 
-  <h2>Crypto</h2>
-  <ul>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/BTCUSD">BTCUSD</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/ETHUSD">ETHUSD</a></li>
-  </ul>
-
-  <h2>Indices</h2>
-  <ul>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/SPX">S&P 500</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/NDX">NASDAQ 100</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/DJI">Dow Jones</a></li>
-  </ul>
-
-  <hr>
-
-  <p>Data source: Twelve Data</p>
+  <h2>Integrity</h2>
+  <p>V73 development results are historical development evidence, not a live win-rate guarantee. V74 requires current context, structure and execution validation before MARKET decisions.</p>
 </body>
 </html>
