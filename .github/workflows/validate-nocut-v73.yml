@@ -24,3 +24,24 @@ jobs:
         env:
           PYTHONUNBUFFERED: '1'
         run: python scripts/validate_nocut_v73.py
+      - name: Smoke-test canonical reader and routers
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: |
+          python scripts/nocut_intraday_method_v73.py EURUSD > /tmp/eurusd-v73.json
+          python scripts/nocut_intraday_method_v73.py SOL > /tmp/sol-v73.json
+          python - <<'PY'
+          from scripts.nocut_intraday_method_v73 import load_config,get_symbol,choose_action
+          cfg=load_config()
+          features={
+            'dev':0.0,'absdev':0.0,'mom':0.0,'absmom':0.0,'rel24':0.0,'btc24':0.0,
+            'breadth':0.5,'breadthDist':0.0,'adx':20.0,'rsi':50.0,'ret24':0.0,'ret72':0.0,
+            'h1':1.0,'h4':1.0,'d1':1.0,'weekday':1.0
+          }
+          for sym in ('BTC','HBAR','TAO','TON','IP'):
+              _,_,entry=get_symbol(sym,cfg)
+              action=choose_action(entry,features)
+              assert action is not None, sym
+              print(sym,action)
+          PY
