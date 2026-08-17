@@ -66,8 +66,8 @@ def supported_td_audit(symbol):
     if status.get("quoteTimestampVerified") is not True:
         errors.append("QUOTE_TIMESTAMP_NOT_VERIFIED")
     age=status.get("quoteAgeMs")
-    # Twelve REST quote updates can be minute-granular. <=90s proves the live
-    # feed is updating; V74's stricter <=30s flag is reported separately.
+    # Audit tolerance proves the feed is updating. V74's stricter <=30s flag
+    # remains separately visible in strictV74PriceFresh.
     if age is None or age > 90000:
         errors.append(f"QUOTE_TOO_OLD_FOR_AUDIT:{age}")
     if status.get("currentPrice") is None:
@@ -102,22 +102,23 @@ def expected_block_audit(symbol, expected_type):
 def main():
     rows=[]
 
-    # Exchange-native crypto: venue quote + bid/ask + exact timestamp.
+    # Exchange-native crypto: exact venue quote + bid/ask + timestamp.
     for symbol in ("BTCUSDT","ETHUSDT","SOLUSDT"):
         rows.append(crypto_audit(symbol))
 
-    # Supported Grow55 direct Twelve Data instruments. 4 x (5 TF + M1 + quote)
-    # ~= 28 credits, comfortably below 55/min.
-    for symbol in ("EURUSD","GBPJPY","XAUUSD","WTIUSD"):
+    # Supported direct Twelve Data instruments. These exercise two Forex pairs
+    # plus both spot metals and all five analysis timeframes + M1 + /quote.
+    for symbol in ("EURUSD","GBPJPY","XAUUSD","XAGUSD"):
         rows.append(supported_td_audit(symbol))
 
-    # Cash indices: current Grow55 diagnostics proved these cannot be safely
-    # fetched through Twelve core endpoints. Correct behavior is DATA_BLOCK.
+    # Current Grow55 diagnostics prove exact cash indices are not safe through
+    # the available core endpoints. Correct behavior is an explicit DATA_BLOCK,
+    # never a same-text ticker such as the bad NDX=19.4/SPX=0.085 mappings.
     for symbol in ("NAS100","US500","DAX","N225"):
         rows.append(expected_block_audit(symbol,"index"))
 
-    # Financial futures are not exposed as exact CME/COMEX/NYMEX contracts in
-    # the current Grow55 catalog/search. Correct behavior is DATA_BLOCK.
+    # Exact financial futures are not exposed as provable CME/COMEX/NYMEX
+    # contracts in the current catalog. Proxy substitution is forbidden.
     for symbol in ("NQ","MNQ","ES","MES","GC","CL"):
         rows.append(expected_block_audit(symbol,"future"))
 
@@ -126,7 +127,7 @@ def main():
     blocked=[r for r in rows if r["status"]=="BLOCKED_AS_DESIGNED"]
     output={
         "generatedAt":now_iso(),
-        "policy":"STRICT_DIRECT_MARKET_DATA_AUDIT_V2",
+        "policy":"STRICT_DIRECT_MARKET_DATA_AUDIT_V3",
         "twelveDataClientVersion":td.VERSION,
         "summary":{"total":len(rows),"pass":len(passed),"blockedAsDesigned":len(blocked),"fail":len(fail)},
         "rows":rows,
