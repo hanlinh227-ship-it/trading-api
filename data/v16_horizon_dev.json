@@ -1,0 +1,584 @@
+{
+  "generatedAt": "2026-08-17T01:28:54.657891+00:00",
+  "method": "V16 development: compare short 6h-72h momentum with 1w/2w horizons suggested by crypto momentum literature; structure+EMA+BTC relative strength; structural 48xM15 stop; RR1.5 or confidence1.7.",
+  "top": [
+    {
+      "policy": "short",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.588,
+          "expectancyR": 0.156
+        },
+        "AUG05": {
+          "wins": 24,
+          "losses": 31,
+          "unresolved": 1,
+          "winRate": 43.64,
+          "avgRR": 1.584,
+          "expectancyR": 0.116
+        },
+        "AUG03": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "winRate": 34.0,
+          "avgRR": 1.58,
+          "expectancyR": -0.118
+        }
+      },
+      "minWinRate": 34.0,
+      "minExpectancyR": -0.118,
+      "avgWinRate": 40.62,
+      "avgRR": 1.584,
+      "avgExpectancyR": 0.051,
+      "robustScore": 37.136
+    },
+    {
+      "policy": "short",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.5,
+          "expectancyR": 0.106
+        },
+        "AUG05": {
+          "wins": 24,
+          "losses": 31,
+          "unresolved": 1,
+          "winRate": 43.64,
+          "avgRR": 1.5,
+          "expectancyR": 0.091
+        },
+        "AUG03": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "winRate": 34.0,
+          "avgRR": 1.5,
+          "expectancyR": -0.15
+        }
+      },
+      "minWinRate": 34.0,
+      "minExpectancyR": -0.15,
+      "avgWinRate": 40.62,
+      "avgRR": 1.5,
+      "avgExpectancyR": 0.016,
+      "robustScore": 36.309
+    },
+    {
+      "policy": "mid",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.604,
+          "expectancyR": 0.148
+        },
+        "AUG05": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "winRate": 35.71,
+          "avgRR": 1.575,
+          "expectancyR": -0.086
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.596,
+          "expectancyR": -0.176
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.176,
+      "avgWinRate": 37.31,
+      "avgRR": 1.592,
+      "avgExpectancyR": -0.038,
+      "robustScore": 33.872
+    },
+    {
+      "policy": "blend",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.588,
+          "expectancyR": 0.096
+        },
+        "AUG05": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "winRate": 35.71,
+          "avgRR": 1.575,
+          "expectancyR": -0.086
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.616,
+          "expectancyR": -0.172
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.172,
+      "avgWinRate": 36.67,
+      "avgRR": 1.593,
+      "avgExpectancyR": -0.054,
+      "robustScore": 33.813
+    },
+    {
+      "policy": "mid",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.5,
+          "expectancyR": 0.106
+        },
+        "AUG05": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "winRate": 37.5,
+          "avgRR": 1.5,
+          "expectancyR": -0.062
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.5,
+          "expectancyR": -0.2
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.2,
+      "avgWinRate": 37.91,
+      "avgRR": 1.5,
+      "avgExpectancyR": -0.052,
+      "robustScore": 33.235
+    },
+    {
+      "policy": "blend",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.5,
+          "expectancyR": 0.058
+        },
+        "AUG05": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "winRate": 37.5,
+          "avgRR": 1.5,
+          "expectancyR": -0.062
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.5,
+          "expectancyR": -0.2
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.2,
+      "avgWinRate": 37.27,
+      "avgRR": 1.5,
+      "avgExpectancyR": -0.068,
+      "robustScore": 33.123
+    },
+    {
+      "policy": "weekly",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.585,
+          "expectancyR": 0.088
+        },
+        "AUG05": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "winRate": 32.14,
+          "avgRR": 1.579,
+          "expectancyR": -0.175
+        },
+        "AUG03": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "winRate": 29.41,
+          "avgRR": 1.602,
+          "expectancyR": -0.245
+        }
+      },
+      "minWinRate": 29.41,
+      "minExpectancyR": -0.245,
+      "avgWinRate": 34.62,
+      "avgRR": 1.589,
+      "avgExpectancyR": -0.111,
+      "robustScore": 29.955
+    },
+    {
+      "policy": "weekly",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.5,
+          "expectancyR": 0.058
+        },
+        "AUG05": {
+          "wins": 19,
+          "losses": 37,
+          "unresolved": 0,
+          "winRate": 33.93,
+          "avgRR": 1.5,
+          "expectancyR": -0.152
+        },
+        "AUG03": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "winRate": 29.41,
+          "avgRR": 1.5,
+          "expectancyR": -0.265
+        }
+      },
+      "minWinRate": 29.41,
+      "minExpectancyR": -0.265,
+      "avgWinRate": 35.22,
+      "avgRR": 1.5,
+      "avgExpectancyR": -0.12,
+      "robustScore": 29.393
+    }
+  ],
+  "grid": [
+    {
+      "policy": "short",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.5,
+          "expectancyR": 0.106
+        },
+        "AUG05": {
+          "wins": 24,
+          "losses": 31,
+          "unresolved": 1,
+          "winRate": 43.64,
+          "avgRR": 1.5,
+          "expectancyR": 0.091
+        },
+        "AUG03": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "winRate": 34.0,
+          "avgRR": 1.5,
+          "expectancyR": -0.15
+        }
+      },
+      "minWinRate": 34.0,
+      "minExpectancyR": -0.15,
+      "avgWinRate": 40.62,
+      "avgRR": 1.5,
+      "avgExpectancyR": 0.016,
+      "robustScore": 36.309
+    },
+    {
+      "policy": "short",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.588,
+          "expectancyR": 0.156
+        },
+        "AUG05": {
+          "wins": 24,
+          "losses": 31,
+          "unresolved": 1,
+          "winRate": 43.64,
+          "avgRR": 1.584,
+          "expectancyR": 0.116
+        },
+        "AUG03": {
+          "wins": 17,
+          "losses": 33,
+          "unresolved": 6,
+          "winRate": 34.0,
+          "avgRR": 1.58,
+          "expectancyR": -0.118
+        }
+      },
+      "minWinRate": 34.0,
+      "minExpectancyR": -0.118,
+      "avgWinRate": 40.62,
+      "avgRR": 1.584,
+      "avgExpectancyR": 0.051,
+      "robustScore": 37.136
+    },
+    {
+      "policy": "mid",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.5,
+          "expectancyR": 0.106
+        },
+        "AUG05": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "winRate": 37.5,
+          "avgRR": 1.5,
+          "expectancyR": -0.062
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.5,
+          "expectancyR": -0.2
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.2,
+      "avgWinRate": 37.91,
+      "avgRR": 1.5,
+      "avgExpectancyR": -0.052,
+      "robustScore": 33.235
+    },
+    {
+      "policy": "mid",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 23,
+          "losses": 29,
+          "unresolved": 4,
+          "winRate": 44.23,
+          "avgRR": 1.604,
+          "expectancyR": 0.148
+        },
+        "AUG05": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "winRate": 35.71,
+          "avgRR": 1.575,
+          "expectancyR": -0.086
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.596,
+          "expectancyR": -0.176
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.176,
+      "avgWinRate": 37.31,
+      "avgRR": 1.592,
+      "avgExpectancyR": -0.038,
+      "robustScore": 33.872
+    },
+    {
+      "policy": "weekly",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.5,
+          "expectancyR": 0.058
+        },
+        "AUG05": {
+          "wins": 19,
+          "losses": 37,
+          "unresolved": 0,
+          "winRate": 33.93,
+          "avgRR": 1.5,
+          "expectancyR": -0.152
+        },
+        "AUG03": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "winRate": 29.41,
+          "avgRR": 1.5,
+          "expectancyR": -0.265
+        }
+      },
+      "minWinRate": 29.41,
+      "minExpectancyR": -0.265,
+      "avgWinRate": 35.22,
+      "avgRR": 1.5,
+      "avgExpectancyR": -0.12,
+      "robustScore": 29.393
+    },
+    {
+      "policy": "weekly",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.585,
+          "expectancyR": 0.088
+        },
+        "AUG05": {
+          "wins": 18,
+          "losses": 38,
+          "unresolved": 0,
+          "winRate": 32.14,
+          "avgRR": 1.579,
+          "expectancyR": -0.175
+        },
+        "AUG03": {
+          "wins": 15,
+          "losses": 36,
+          "unresolved": 5,
+          "winRate": 29.41,
+          "avgRR": 1.602,
+          "expectancyR": -0.245
+        }
+      },
+      "minWinRate": 29.41,
+      "minExpectancyR": -0.245,
+      "avgWinRate": 34.62,
+      "avgRR": 1.589,
+      "avgExpectancyR": -0.111,
+      "robustScore": 29.955
+    },
+    {
+      "policy": "blend",
+      "rrMode": "static15",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.5,
+          "expectancyR": 0.058
+        },
+        "AUG05": {
+          "wins": 21,
+          "losses": 35,
+          "unresolved": 0,
+          "winRate": 37.5,
+          "avgRR": 1.5,
+          "expectancyR": -0.062
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.5,
+          "expectancyR": -0.2
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.2,
+      "avgWinRate": 37.27,
+      "avgRR": 1.5,
+      "avgExpectancyR": -0.068,
+      "robustScore": 33.123
+    },
+    {
+      "policy": "blend",
+      "rrMode": "confidence17",
+      "perSample": {
+        "AUG12": {
+          "wins": 22,
+          "losses": 30,
+          "unresolved": 4,
+          "winRate": 42.31,
+          "avgRR": 1.588,
+          "expectancyR": 0.096
+        },
+        "AUG05": {
+          "wins": 20,
+          "losses": 36,
+          "unresolved": 0,
+          "winRate": 35.71,
+          "avgRR": 1.575,
+          "expectancyR": -0.086
+        },
+        "AUG03": {
+          "wins": 16,
+          "losses": 34,
+          "unresolved": 6,
+          "winRate": 32.0,
+          "avgRR": 1.616,
+          "expectancyR": -0.172
+        }
+      },
+      "minWinRate": 32.0,
+      "minExpectancyR": -0.172,
+      "avgWinRate": 36.67,
+      "avgRR": 1.593,
+      "avgExpectancyR": -0.054,
+      "robustScore": 33.813
+    }
+  ]
+}
