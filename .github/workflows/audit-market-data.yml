@@ -1,0 +1,42 @@
+name: Audit Market Data — Canonical
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "data/market_audit_request.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run cross-market audit
+        shell: bash
+        run: |
+          python3 scripts/audit_market_data.py
+
+      - name: Commit audit evidence
+        shell: bash
+        run: |
+          git config user.name "market-data-bot"
+          git config user.email "market-data-bot@users.noreply.github.com"
+          git add data/market-data-audit.json
+          if git diff --cached --quiet; then
+            echo "No audit changes."
+            exit 0
+          fi
+          git commit -m "Update canonical cross-market data audit"
+          git pull --rebase origin main
+          git push origin HEAD:main
