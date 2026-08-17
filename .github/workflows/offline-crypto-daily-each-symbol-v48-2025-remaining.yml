@@ -1,0 +1,24 @@
+name: Offline Crypto Daily Each Symbol V48 2025 Remaining
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_daily_each_symbol_v48_2025_remaining.py'
+      - '.github/workflows/offline-crypto-daily-each-symbol-v48-2025-remaining.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Run independent prior-month to next-month tests
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_daily_each_symbol_v48_2025_remaining.py
