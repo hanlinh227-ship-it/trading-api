@@ -1,0 +1,21 @@
+name: Offline Forex V13 Sequential Management
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_forex_v13_sequential_management.py'
+      - '.github/workflows/offline-forex-v13-sequential-management.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Forex V13 zero-credit sequential management
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_forex_v13_sequential_management.py
