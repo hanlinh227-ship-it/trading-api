@@ -7,10 +7,11 @@ Build a repeatable Forex method for the 28 liquid pairs formed from USD/EUR/GBP/
 
 ## Current operating state
 - Forex research is ACTIVE.
-- Current user-requested research mode: every valid pair must receive BUY or SELL at each blind cutoff; no Top-3 ranking requirement.
-- Research must separately score direction at 6h/12h/24h and TP/SL outcome so bias errors are not confused with entry/barrier errors.
-- Live execution still requires fresh exact price, macro/news context and structure; a forced blind research trade does not imply a live trade should always be taken.
-- Avoid excessive indicators; each indicator must have a distinct role.
+- Current research benchmark: every valid pair receives BUY or SELL at each blind cutoff; no Top-3 selection.
+- Score direction separately at 6h/12h/24h and actual TP/SL so bias failure is not confused with entry/barrier failure.
+- Once a blind block is revealed it becomes development data forever.
+- Do not optimize only WR. Judge direction accuracy + expectancy + RR together.
+- Live execution still requires fresh exact price, macro/news context, structure and event checks.
 
 ## Universe — 28 pairs
 EURUSD, GBPUSD, USDJPY, USDCHF, USDCAD, AUDUSD, NZDUSD,
@@ -19,20 +20,20 @@ GBPCHF, GBPAUD, GBPNZD, GBPCAD, AUDJPY, AUDNZD, AUDCAD,
 AUDCHF, NZDJPY, NZDCAD, NZDCHF, CADJPY, CADCHF, CHFJPY.
 
 ## Minimal technical stack
-Use only:
+Keep only:
 - EMA20/50: trend, value/pullback location, H1/H4 slope/alignment;
 - RSI14: momentum/exhaustion only;
-- ATR14: volatility, structural-SL buffer, normalization;
-- ADX14: trend-vs-chop regime, never a directional signal;
-- 6h/24h/72h cross-currency strength from the full 28-pair network.
+- ATR14: volatility and structural-SL normalization;
+- ADX14: trend-vs-chop regime, never standalone direction;
+- 6h/24h/72h cross-currency strength across the full 28-pair network.
 
-M15 is the single historical provider interval for research. H1/H4 and the indicators above are derived locally. Raw historical dumps are not committed.
+Research fetches one M15 Twelve Data series per pair and derives H1/H4 + indicators locally. Do not add MACD/Stochastic/Bollinger unless a future hypothesis proves a unique role.
 
 ## Currency-specific live driver profiles
-These are live context gates and should not be reconstructed historically with hindsight unless a proper point-in-time dataset is connected.
+Do not reconstruct these historically with hindsight unless proper point-in-time data is connected.
 - USD: Fed/rate expectations, PCE/CPI, labour/NFP, US yields.
 - EUR: ECB/rate path, HICP/core, wages/services, energy/growth.
-- GBP: BoE/rate path, CPI/services, wages, UK growth/activity.
+- GBP: BoE/rate path, CPI/services, wages, UK activity.
 - JPY: BoJ, wages/core CPI, JGB yields, carry and MOF intervention risk.
 - CHF: SNB, Swiss inflation, risk-off and SNB FX intervention risk.
 - CAD: BoC, CPI/jobs, oil and US trade/growth.
@@ -42,104 +43,131 @@ These are live context gates and should not be reconstructed historically with h
 ## Research progression
 
 ### F1 — rejected naive strongest-score selection
-July fully covered block at RR1.5:
-- forced: 55 TP / 81 SL from 136 resolved, 40.44%, +0.011R;
+- forced July RR1.5: 55 TP / 81 SL from 136 resolved, 40.44%, +0.011R;
 - naive Top3 MARKET: 4 TP / 11 SL, -0.333R;
-- fixed Top3 LIMIT: 2 TP / 11 SL among 13 fills, -0.451R.
-Conclusion: raw strongest trend/score is not the best Forex entry.
+- fixed Top3 LIMIT: 2 TP / 11 SL, -0.451R.
+Conclusion: strongest raw trend score is not the best entry.
 
-### F2 — promising but tiny selective sample
+### F2 — promising but too small
 Blind Aug04/05/06/10/11:
-- forced RR2.1: 38 TP / 88 SL from 126 resolved, -0.065R;
-- selective MARKET: 4 signals, 3 TP / 1 SL, 75% WR, +1.325R;
-- selective LIMIT: 3 fills, 2 TP / 1 SL, avg effective RR 3.133, +1.756R.
+- forced RR2.1: 38 TP / 88 SL, -0.065R;
+- selective MARKET: 3 TP / 1 SL, +1.325R;
+- selective LIMIT: 2 TP / 1 SL, avg effective RR 3.133, +1.756R.
 Four selective trades are far too few to claim stable 75%.
 
-### F3 — currency-profile + ADX selective holdout
-Blind cutoffs: Jul31, Aug03, Aug07, Aug12, Aug14 at 08:00 UTC.
-Baseline RR1.8:
-- forced: 140 signals, 128 resolved, 44 TP / 84 SL, 34.38% WR, -0.037R;
-- selective MARKET: 1 TP / 1 SL + 1 timeout, +0.400R;
-- selective LIMIT: 1 TP / 1 SL + 1 timeout, avg effective RR 3.445, +0.899R.
-Conclusion: F3 did not confirm F2's apparent 75% WR. LIMIT improved payoff geometry but not hit rate.
+### F3 — failed to confirm F2
+Blind Jul31/Aug03/Aug07/Aug12/Aug14:
+- forced RR1.8: 44 TP / 84 SL from 128 resolved, 34.38%, -0.037R;
+- selective MARKET: 1 TP / 1 SL + timeout, +0.400R;
+- selective LIMIT: 1 TP / 1 SL + timeout, avg effective RR 3.445, +0.899R.
 
 ### F4 — pair-adaptive forced blind + dynamic barriers
-User then changed the research objective: do not choose Top 3; blind-trade every symbol to judge the method itself. F4 implements that request.
+Blind Jul17/20/21/22/24, 140 forced signals.
+- MARKET: 49 TP / 73 SL, 18 timeout; WR 40.16%; avg RR 2.055; median 1.698; expectancy -0.081R.
+- LIMIT: 126 fills, 40 TP / 70 SL among 110 resolved; WR 36.36%; avg effective RR 2.699; expectancy -0.018R.
+- direction 6h/12h/24h = 52.14% / 53.57% / 53.57%.
+Conclusion: modest directional edge only. LIMIT nearly break-even but cannot cure wrong bias.
 
-Integrity:
-- exact validation cutoff strings were searched before F4 creation and absent from the repo;
-- validation: Jul17, Jul20, Jul21, Jul22, Jul24 2026 at 08:00 UTC;
-- every valid pair receives BUY or SELL;
-- decision uses only data available at/before cutoff;
-- TP/SL are NOT fixed RR;
-- MARKET and adaptive pullback LIMIT are both evaluated;
-- direction is scored independently at 6h/12h/24h.
+Important F4 lesson: high TP rate can be fake progress when TP is too close. AUDUSD had 75% MARKET WR but 0% direction12h and median RR ~0.436R; EURAUD had 100% WR with median RR ~0.578R. Never optimize WR alone.
 
-Pair adaptation:
-- each pair may choose one of only three predeclared low-complexity models from development-only evidence: `BALANCED`, `STRUCTURE`, `REGIME`;
-- model-switching is regularized; the pair stays BALANCED unless another model has a material development advantage;
-- result: most pairs remained BALANCED; only EURNZD and GBPJPY selected REGIME, while GBPCHF selected STRUCTURE. This is evidence that the available development sample did not justify aggressive pair-specific model proliferation.
+### F5 — REJECTED: long-horizon + economic target
+Blind Jul27/28, 56 forced signals. F5 retained minimal indicators, added LONGHORIZON candidate, deeper swing SL under strong agreement and rejected tiny TP in favor of next viable liquidity/ADR target.
 
-Dynamic barriers:
-- SL = recent M15 structural swing plus ATR buffer, with volatility floor/cap;
-- TP = prior 24h/72h directional liquidity when realistic, otherwise trailing realized daily-range projection;
-- no universal 1.8R/2.1R target;
-- LIMIT = modest pullback toward M15 value/EMA with five-hour expiry and same absolute structural SL/TP.
+Result:
+- MARKET: 55 resolved, 12 TP / 43 SL, 1 timeout; WR 21.82%; avg RR 1.985; median 2.065; expectancy -0.383R.
+- LIMIT: 53 fills, 10 TP / 42 SL among 52 resolved; WR 19.23%; avg effective RR 2.552; expectancy -0.362R.
+- direction 6h/12h/24h = 28.57% / 32.14% / 32.14%.
+- 43 SL: only 7 were later correct at 24h; 36 were also wrong direction24.
+Conclusion: genuine bias failure, not mainly SL geometry. F5 is rejected as a solution.
 
-F4 blind aggregate — 5 cutoffs x 28 pairs = 140 signals:
-- MARKET: 122 resolved, 49 TP / 73 SL, 18 timeout;
-- MARKET resolved WR 40.16%; avg planned RR 2.055; median RR 1.698; expectancy -0.081R;
-- LIMIT: 126/140 fills = 90.0%; 110 resolved fills, 40 TP / 70 SL; 6 no-fill; 8 target-before-fill; 16 filled timeouts;
-- LIMIT resolved WR 36.36%; avg effective RR 2.699; expectancy -0.018R;
-- direction 6h: 73/140 = 52.14%;
-- direction 12h: 75/140 = 53.57%;
-- direction 24h: 75/140 = 53.57%.
+Jul27 was especially diagnostic: 6 TP / 22 SL; direction24 only 17.86%; all 22 SL were also wrong at 24h.
 
-Interpretation of F4:
-- pair-adaptive direction produced only a modest >50% directional edge and is NOT strong enough yet;
-- dynamic TP/SL increased MARKET hit rate versus the F3 forced fixed-RR block on a different sample, but expectancy remained negative, so higher WR alone is not progress;
-- LIMIT moved expectancy close to break-even (-0.018R) by improving payoff geometry, but its hit rate was lower; LIMIT is not a cure for bad bias;
-- the main weakness is still pair-level bias for several symbols, while a second weakness is barrier geometry/path dependence.
+### F6 rotation comparator — NOT EXERCISED
+Hypothesis: when the 6h currency-strength vector sharply opposes the 24h/72h vector, temporarily prioritize short-horizon rotation for pairs whose own 6h strength has turned.
 
-Important pair diagnostics from the five F4 blind dates:
-- GBPUSD: direction12/24 = 80%/80%, MARKET WR 50%, +0.421R;
-- USDJPY: direction12/24 = 80%/80%, MARKET WR 75%, +0.967R;
-- GBPAUD: direction12/24 = 100%/100%, MARKET WR 75%, +0.973R;
-- AUDCAD: direction12/24 = 100%/80%, MARKET WR 50%, +0.102R;
-- weak bias examples: GBPJPY direction12/24 = 0%/0%; EURUSD 40%/40%; USDCAD 40%/40%; GBPCHF 40%/40%; CADJPY 40%/40%.
+Untouched May11–15 block, same 140 signals baseline vs F6:
+- rotation gate never became active; overrides = 0;
+- therefore F6 result equaled baseline exactly: MARKET 33 TP / 88 SL from 121 resolved, WR 27.27%, -0.208R; direction12 55%, direction24 52.86%.
+Conclusion: do not call F6 win/loss and do not loosen thresholds on the same May block. Hypothesis was not exercised.
 
-Do not overinterpret pair WR from only five cutoffs. Also do not reward artificial high WR created by tiny payoff targets: AUDUSD showed MARKET WR 75% but direction12h 0% and median planned RR only ~0.436R; EURAUD had 100% MARKET WR with median RR ~0.578R. These are examples of why direction + expectancy + RR must be reviewed together.
+### Parallel dual-horizon experiment — negative aggregate
+Another repo experiment on Jun24/Jun30/Jul02/Jul07/Jul10:
+- MARKET 44 TP / 70 SL from 114 resolved, WR 38.60%, expectancy -0.119R;
+- LIMIT 20 TP / 65 SL from 85 resolved, expectancy -0.254R;
+- selected direction accuracy 51.43%; 3h direction 57.14%; 24h 47.86%.
+Some individual pairs looked good, but aggregate remained negative; do not cherry-pick pair winners.
 
-Retained F4 evidence:
-- `scripts/blind_backtest_forex_f4.py`
-- `data/blind_backtest_forex_f4.json`
-- `.github/workflows/blind-backtest-forex-f4.yml`
+### F7 — five-vote consensus comparator, PARTIAL improvement only
+Unseen historical holdout Apr20–24. Important nuance: timestamps were absent from repo before creation, but this is not pure chronological walk-forward because the current baseline itself was developed using later 2026 data. It is still a valid same-block comparator between baseline and F7.
 
-## Current research direction after F4
-Do NOT add more overlapping indicators. The next improvements should target the diagnosed failure source:
-1. pair-level directional reliability first;
-2. distinguish strong-consensus trend from conflicted/mixed-horizon state;
-3. improve weak-pair logic (especially GBPJPY, EURUSD, USDCAD, GBPCHF/CADJPY) without tuning on the same F4 dates and calling them blind;
-4. prevent low-RR targets from manufacturing pretty WR; compare expectancy and direction, not WR alone;
-5. identify `SL but direction24 correct` separately from `SL and direction24 wrong` to decide whether to adjust entry/barrier or bias;
-6. MARKET vs LIMIT remains a secondary execution decision after direction quality.
+F7 direction = majority vote across five distinct views:
+1. 6h cross-currency strength;
+2. 24h strength;
+3. 72h strength;
+4. H4 trend;
+5. H1 trend.
+Barriers/execution unchanged from F5. All 28 pairs forced; baseline and F7 evaluated on identical 140 signals.
+
+Baseline on same Apr20–24 block:
+- MARKET: 27 TP / 100 SL from 127 resolved; WR 21.26%; avg RR 2.536; expectancy -0.258R.
+- LIMIT: 22 TP / 100 SL from 122 resolved; avg effective RR 3.191; expectancy -0.241R.
+- direction12 = 41.43%; direction24 = 50.00%; avg signed 24h move = -0.420 ATR.
+
+F7:
+- 13/140 direction overrides;
+- MARKET: 27 TP / 102 SL from 129 resolved; WR 20.93%; avg RR 2.661; expectancy -0.150R.
+- LIMIT: 136 fills, 23 TP / 102 SL from 125 resolved; WR 18.40%; avg effective RR 3.383; expectancy -0.054R.
+- direction12 = 42.14%; direction24 = 50.71%; avg signed 24h move improved to +0.059 ATR.
+- 102 SL: 35 later correct at 24h, 67 still wrong direction24.
+
+Interpretation:
+- F7 materially improved expectancy vs the same baseline, especially LIMIT (-0.241R -> -0.054R), and improved average signed 24h move from negative to slightly positive;
+- classification accuracy barely improved (~+0.7 percentage point) and MARKET WR slightly worsened;
+- F7 is NOT a winning/validated engine; treat consensus voting only as a candidate component.
+- regime/date instability is still huge: Apr23 F7 MARKET +0.766R and LIMIT +1.062R, while Apr24 MARKET -0.848R and LIMIT -0.815R.
+
+Critical path lesson from F7:
+- Apr20/21 had many SLs whose 24h direction later became correct, so barrier/entry mattered substantially;
+- Apr22/24 failures were mostly true bias failures;
+- one universal barrier or one universal direction tweak cannot solve both states.
+
+## Current research direction after F7
+Do NOT add more indicators and do NOT keep creating cosmetic versions.
+The next genuine hypothesis should target **market-day/common-factor regime quality** before pair direction:
+1. measure common USD/risk/carry factor and cross-sectional currency dispersion/breadth;
+2. distinguish synchronized factor trend from rotation/chop;
+3. when the common factor is strong, pair direction should respect it; when dispersion is high, pair-specific relative strength may dominate;
+4. keep every pair forced BUY/SELL in the benchmark, but let the day-regime variable alter direction/barrier logic rather than simply skip bad days;
+5. continue splitting SL into `bias wrong` versus `direction later right`;
+6. compare any new method with the current baseline on the SAME untouched block;
+7. once a block is revealed, never tune on it and call it blind again.
+
+F7 is the best recent **candidate component** because it improved payoff expectancy on the same block, but no forced all-pair Forex method is validated profitable yet.
 
 ## Practical live framework
-Even though forced all-pair trading is the current research benchmark, live analysis still follows:
-1. 6h/24h/72h currency strength;
-2. currency-specific macro/news context;
+Forced all-pair trading remains research only. Live analysis should still use:
+1. currency-specific macro/news context;
+2. 6h/24h/72h currency strength and common-factor regime;
 3. H4/H1 structure + EMA slope;
-4. ADX regime, RSI exhaustion, ATR volatility only in their defined roles;
+4. ADX regime, RSI exhaustion, ATR volatility only in distinct roles;
 5. M15 setup and structural invalidation;
 6. M5 execution trigger;
-7. exact M1/latest refresh before executable price;
+7. exact M1/latest refresh before executable entry;
 8. MARKET for clean continuation; LIMIT only for an expected structural pullback with cancellation/expiry.
 
 ## Twelve Data efficiency
-- one M15 series per pair = 28 symbol credits per full historical block;
-- derive H1/H4, EMA/RSI/ATR/ADX and cross-currency strength locally;
-- changing models/barriers on the same downloaded block must reuse local data rather than generate extra provider calls where possible;
-- live deep fetches should be staged only when needed.
+- one M15 series per pair = ~28 symbol credits per historical block;
+- derive H1/H4, EMA/RSI/ATR/ADX and currency strength locally;
+- model variants on the same block must reuse local data;
+- use a cooldown before a new workflow because another run can consume the rolling per-minute quota;
+- a previous F5 attempt hit HTTP 429 before data fetch; only quota cooldown was changed, never the frozen test rules.
+
+## Active evidence
+- `scripts/blind_backtest_forex_f4.py`, `data/blind_backtest_forex_f4.json`
+- `scripts/blind_backtest_forex_f5.py`, `data/blind_backtest_forex_f5.json`
+- `scripts/blind_backtest_forex_f6.py`, `data/blind_backtest_forex_f6.json`
+- `data/blind_backtest_forex_f6_dual_horizon.json`
+- `scripts/blind_backtest_forex_f7.py`, `data/blind_backtest_forex_f7.json`
 
 ## Cross-chat rule
 At a new chat, read `MASTER_TRADING_STATE.md`, `CURRENT_HANDOFF.md`, this file, then live pipeline status before issuing Forex entries.
