@@ -1,0 +1,26 @@
+name: Offline Crypto Remaining8 V57 Online
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_remaining8_v57_online.py'
+      - '.github/workflows/offline-crypto-remaining8-v57-online.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  symbol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        symbol: [DOT,FLOKI,INJ,LDO,ONDO,POL,TAO,WLD]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run online per-coin adaptive experts
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+          TARGET_SYMBOL: ${{ matrix.symbol }}
+        run: python scripts/offline_crypto_remaining8_v57_online.py
