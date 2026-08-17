@@ -1,17 +1,18 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 14:30 UTC+7
+Updated: 2026-08-17 14:55 UTC+7
 
 Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint. Do not reconstruct strategy state from memory when checkpoints exist.
 
 ## Immediate active task
-Forex method development. Research benchmark still forces BUY/SELL on all 28 pairs; no Top-3 selection. Current strongest baseline is **F8 factor-coherence + session + pair-archetype**, now positive on two consecutive chronological holdouts without retuning between them.
+Forex method development. Research benchmark forces BUY/SELL on all 28 pairs; no Top-3/NO-TRADE in benchmark. **F8 factor-coherence + session + pair-archetype is the frozen research baseline**, now positive across four consecutive chronological 5-day validation blocks without changing the engine.
 
-## F8 status — promoted research baseline candidate
-Minimal indicators remain EMA20/50, RSI14, ATR14, ADX14. The improvement came from non-indicator state and pair-specific archetypes, not more indicators:
+## F8 frozen architecture
+Minimal indicators: EMA20/50, RSI14, ATR14, ADX14.
+Main edge comes from:
 - 3h/6h/12h/24h/72h currency-factor coherence;
 - cross-sectional dispersion/rank separation;
-- 8h session position/breakout/sweep;
+- 8h session location/breakout/sweep;
 - five pair archetypes;
 - horizon-matched SL/TP/expiry.
 
@@ -22,79 +23,92 @@ Frozen archetype models:
 - COMMODITY_CROSS -> FACTOR_FAST
 - MIXED_CROSS -> FACTOR_BAL
 
-### Holdout 1 — May18–22
-140 forced signals:
-- MARKET: 58 TP /69 SL from 127 resolved, WR 45.67%, **+0.111R** expectancy;
-- LIMIT: 35 TP /66 SL from 101 resolved, **+0.030R**;
-- direction 6h 67.14%, 12h 66.43%, 24h 61.43%;
-- avg RR 1.448.
+## Four consecutive frozen F8 blocks
+### May18–22
+MARKET 58 TP /69 SL, +0.111R. LIMIT +0.030R.
+### May25–29
+MARKET 61 TP /50 SL, +0.338R. LIMIT +0.435R. Recommended +0.333R.
+### Jun01–05
+MARKET 66 TP /63 SL, +0.247R. LIMIT +0.325R. Recommended +0.252R.
+### Jun08–12
+F11 development gate selected no change (`selectedThreshold=null`), so this is another frozen-F8 holdout.
+MARKET 63 TP /59 SL, +0.251R. LIMIT +0.199R. Recommended +0.267R.
 
-### Holdout 2 — May25–29, no retuning after holdout1
-140 forced signals:
-- MARKET: 61 TP /50 SL from 111 resolved, WR **54.95%**, **+0.338R**;
-- LIMIT: 45 TP /48 SL from 93 resolved, **+0.435R**;
-- recommended: 60 TP /50 SL from 110 resolved, **+0.333R**;
-- chosen-direction accuracy 68.57%; 3h 71.43%;
-- avg RR 1.447.
-
-### Combined F8 evidence — 10 chronological holdout days / 280 forced signals
+## Combined frozen-F8 evidence
+20 trading days / 560 forced signals.
 MARKET:
-- 238 resolved;
-- 119 TP /119 SL = 50.00% WR;
-- weighted expectancy ~**+0.217R**.
+- 489 resolved;
+- 248 TP /241 SL;
+- WR **50.72%**;
+- weighted expectancy ~**+0.233R**.
+
 LIMIT:
-- 194 resolved;
-- 80 TP /114 SL = 41.24% WR;
-- weighted expectancy ~**+0.224R**.
+- 403 resolved;
+- 169 TP /234 SL;
+- WR 41.94%;
+- weighted expectancy ~**+0.246R**.
+
 Recommended execution:
-- 237 resolved;
-- 118 TP /119 SL = 49.79% WR;
-- weighted expectancy ~**+0.214R**.
+- 487 resolved;
+- 247 TP /240 SL;
+- WR 50.72%;
+- weighted expectancy ~**+0.237R**.
 
-Combined direction:
-- chosen horizon 60.36%;
-- 3h 61.79%;
-- 6h 60.36%;
-- 12h 60.00%;
-- 24h 57.50%.
+Combined direction across 560 signals:
+- chosen 58.57%;
+- 3h 59.64%;
+- 6h 55.36%;
+- 12h 55.54%;
+- 24h 53.21%.
 
-This is the strongest evidence so far, but F8 is still a research baseline candidate, not guaranteed and not an instruction to live-trade all 28 pairs.
+F8 is the strongest Forex evidence so far, but forced-all-pair success remains research evidence, not a mandate to trade every pair live.
 
-## Group diagnosis
-Holdout2:
-- COMMODITY_CROSS: +0.679R MARKET, 66.67% WR, dir24 86.67%.
-- MIXED_CROSS: +0.474R.
-- JPY_CROSS: +0.394R.
-- EUROPE_CROSS: +0.420R after a weak holdout1; do not change it yet.
-- USD_MAJOR remains weakest/most consistent improvement target: holdout1 -0.131R, holdout2 +0.006R MARKET. LIMIT improved USD_MAJOR holdout2 to +0.229R, suggesting execution also matters, but do not globally force LIMIT.
+## Latest rejected/no-change improvements
+- F9 three-horizon: positive but inferior to F8 on same May25–29 block.
+- F10 USD_MID: development improvement did not clear the predeclared selection margin, so F8 stayed unchanged; USD_MAJOR then performed +0.399R on Jun01–05.
+- F10 leave-one-pair-out factor network: MARKET +0.239R vs F8 +0.247R on same Jun01–05; direction unchanged. Self-inclusion is not the issue.
+- F11 day-conflict MID_FACTOR: thresholds 0.55/0.65/0.75 activated zero development days, therefore no model change; do not lower thresholds on revealed data.
 
-## Next legitimate improvement
-Freeze all successful F8 groups. Improve **USD_MAJOR only** with one interpretable USD-specific component, then compare modified engine vs frozen F8 on the same untouched June holdout while still forcing all 28 pairs.
+## Main remaining weakness
+**Catastrophic common-factor/date regime failure** rather than one consistently bad pair group.
+Example Jun04:
+- 5 TP /22 SL;
+- MARKET -0.565R;
+- direction12/24 21.43%;
+- 19/22 SL were true bias-wrong.
+F8 still kept Jun01–05 positive overall, but reducing this tail-day failure is the next meaningful research target.
 
-Already repo-searched and absent before any new test: June 1–5, 2026 at 08:00 UTC are available candidate holdout timestamps. Do not reveal or use them before the modification is frozen.
+## Next research rule
+Freeze F8. Any new common-factor/day-regime hypothesis must:
+1. be defined using revealed data only;
+2. be locked before a new untouched block;
+3. compare modified method vs frozen F8 on the SAME 28-pair block;
+4. keep all 28 pairs forced in benchmark;
+5. add no redundant indicators;
+6. be rejected if it does not materially beat F8.
 
-## Research principles
-- Do not add indicators just to improve fit.
-- Do not tune on May18–29 and re-label those days blind.
-- Do not optimize WR with tiny targets.
-- Keep direction and TP/SL diagnostics separate.
-- MARKET vs LIMIT is setup-dependent. F8 holdout1 favored MARKET; holdout2 LIMIT had higher expectancy on filled/resolved trades but only 2 trades were actually LIMIT-eligible by the frozen classifier.
+## Live Forex rule
+Forced benchmark does not imply live forced trading. Live entry still requires:
+- fresh exact pair price;
+- currency-specific macro/news context;
+- F8 factor/archetype state;
+- H4/H1 structure;
+- M15 setup;
+- M5 trigger;
+- structural SL and realistic horizon/liquidity target;
+- setup-dependent MARKET vs LIMIT.
 
 ## Twelve Data efficiency
-- one M15 history per 28 pairs ≈28 symbol credits/block;
-- H1/H4/features derived locally;
-- model comparisons reuse downloaded data;
-- workflows share `twelvedata-api` concurrency + cooldown.
+One M15 history per 28 pairs ≈28 symbol credits/block; H1/H4/features derived locally. Reuse data for model comparisons; workflows share quota concurrency + cooldown.
 
 ## Active Forex files
 - `scripts/blind_backtest_forex_f8.py`
 - `data/blind_backtest_forex_f8.json`
-- `scripts/blind_backtest_forex_f8_holdout2.py`
 - `data/blind_backtest_forex_f8_holdout2.json`
+- `data/blind_backtest_forex_f10_loo.json`
+- `data/blind_backtest_forex_f10_usd_mid.json`
+- `data/blind_backtest_forex_f11_day_conflict.json`
 - `docs/checkpoints/FOREX_STATE.md`
 
-## Other markets
-Crypto practical framework remains frozen. Metals, cash indices and NQ/ES futures remain separate systems.
-
 ## New-chat instruction
-`Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan. Tiếp tục đúng trạng thái mới nhất, không quay lại phương pháp đã loại.`
+`Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan.`
