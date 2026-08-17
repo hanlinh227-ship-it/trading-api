@@ -48,10 +48,12 @@ Purpose: canonical handoff/checkpoint for continuing the Trading project across 
 ### Crypto / Breakout
 - Direct exchange data through GitHub runner is preferred over Twelve Data for crypto.
 - Exchange route: Binance -> OKX -> Bybit; OKX has been the reliable source in recent tests.
-- Surviving research family: short-horizon momentum + H4/H1 structure + BTC-relative strength + actual taker order-flow confirmation + market breadth/regime; structural M15 SL and dynamic RR.
-- V24-Core produced exceptional Jul04/Jul02 samples, but a locked five-date June validation exposed major instability: 42.75% resolved WR, avg planned RR 1.647 and +0.132R aggregate expectancy, with individual dates ranging from 7.27% WR / -0.807R to 83.33% / +1.228R.
-- Therefore V24-Core is **not promoted as a final/main live engine**. It remains a diagnostic baseline. Its first locked `distribution_reversal` sample was negative, so its regime guard is not validated.
-- Immediate research direction: diagnose Jun30/Jun27 directional failures, create only a minimal theory-driven successor if justified, then freeze it and test on a completely untouched block such as May 2026. Do not reuse June as blind evidence after diagnosis.
+- Surviving research family remains short-horizon momentum + H4/H1 structure + BTC-relative strength + taker-flow/market-breadth context + structural SL/dynamic RR, but **no version is validated as the main/live engine**.
+- V24-Core produced exceptional Jul04/Jul02 samples, then locked June validation showed 42.75% resolved WR, avg RR 1.647 and +0.132R with extreme date instability; V24 remains diagnostic only.
+- V25 development showed that globally reversing direction during a synchronized breadth/flow climax is wrong; Jun30 became 0 TP / 56 SL and the rule was rejected.
+- V26 locked true-blind May test isolated the macro-anchor hypothesis and failed decisively: 275 trades, 272 resolved, 79 TP / 193 SL, 29.04% WR, avg RR 1.646, expectancy -0.235R; four of five May dates were negative. Therefore “macro always owns direction” is rejected as a general solution.
+- Jun30 barrier comparison showed 46 symbols hit SL in both V24 SELL and V25 BUY, indicating a market-quality/timing/barrier failure rather than a simple directional error.
+- Current next research direction is **market-quality + entry timing + barrier geometry**, not another direction flip or generic indicator stack. Extreme breadth is a risk marker to investigate, not a finalized threshold. Live `CHAOS/NO TRADE` logic, if developed, must remain separate from forced-MARKET stress testing.
 
 ### Metals
 - XAUUSD/XAGUSD are separate from crypto/index logic.
