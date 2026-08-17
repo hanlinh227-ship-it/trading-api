@@ -1,0 +1,22 @@
+name: Offline Crypto V31 Symbol ML
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/offline_crypto_v31_symbol_ml.py'
+      - '.github/workflows/offline-crypto-v31-symbol-ml.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q scikit-learn
+      - name: Run Crypto V31 zero-credit symbol walk-forward
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python scripts/offline_crypto_v31_symbol_ml.py
