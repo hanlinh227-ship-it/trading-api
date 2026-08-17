@@ -1,107 +1,127 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 11:27 UTC+7
+Updated: 2026-08-17 11:47 UTC+7
 
-Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint(s). Do not reconstruct strategy state from memory when these files exist.
+Read `MASTER_TRADING_STATE.md` first, then this file, then the relevant market checkpoint(s). Do not reconstruct strategy state from memory when checkpoints exist.
 
 ## User operating preferences
-- Respond in Vietnamese unless the user asks for another language.
-- For trading code changes, when a file is modified and the user needs to copy it, provide the full updated file rather than only a patch/snippet.
-- Do not call a stale/web proxy price “live”. Current entry/hold/cut decisions require an exact fresh symbol refresh through the active data route or a user-provided platform price when that is the designated execution source.
+- Respond in Vietnamese unless another language is requested.
+- For trading code edits where the user needs to copy the result, provide the full updated file, not only a diff/snippet.
+- Never call a stale/web proxy price executable/live. Refresh the exact requested symbol through the active feed immediately before current entry/hold/cut decisions.
 - Keep cash indices separate from NQ/ES futures.
-- Structure defines SL first; size/RR comes after.
+- Structure defines SL first; position size/RR follows.
 
-## Immediate active research task
-Active task: Crypto / Breakout method development.
-Goal: improve both win rate and RR without violating strict blind-test integrity.
+## Immediate active task
+Crypto / Breakout method research. Goal: improve win rate and RR while preserving strict blind-test integrity.
 
-Forced blind-test rules remain:
-- every valid Breakout-universe coin receives MARKET BUY or MARKET SELL;
-- no WAIT / NO TRADE / LIMIT;
+Forced blind rules:
+- every valid Breakout-universe coin gets MARKET BUY or MARKET SELL;
+- no WAIT / NO TRADE / LIMIT in the stress test;
 - decision, entry, SL and TP are frozen before future candles are revealed;
 - SL/TP are coin/setup-specific and structure/volatility-aware;
-- never optimize on a timestamp and then call that same timestamp true blind.
+- never tune on a timestamp and then call the same timestamp true blind.
 
-## V24-Core status — validation completed
-V24-Core architecture remains:
-1. 6h / 24h / 72h momentum;
-2. H4/H1 structure;
-3. H4 EMA context;
-4. BTC relative strength;
-5. M15 location / anti-chase;
-6. first 5 minutes after quarter-hour;
-7. actual OKX taker BUY/SELL imbalance;
-8. market price breadth + flow breadth/median regime context;
-9. structural M15/H1 SL + ATR/profile floor;
-10. dynamic RR roughly 1.6R–2.0R.
+## V24-Core — retained diagnostic baseline, not live engine
+V24-Core = 6h/24h/72h momentum + H4/H1 structure + H4 EMA + BTC relative strength + M15 location/anti-chase + first-5m OKX taker flow + market breadth/flow regime context + structural SL + dynamic ~1.6R–1.95R.
 
-Initial locked evidence had been unusually strong:
+Initial unseen samples were exceptionally strong:
 - Jul04: 41 TP / 15 SL = 73.21% WR, avg RR 1.679, +0.956R.
-- Jul02: 24 TP / 10 SL among resolved = 70.59% WR, avg RR 1.641, +0.865R, with 22 unresolved.
-Both were `normal` regime.
+- Jul02: 24 TP / 10 SL among resolved = 70.59%, avg RR 1.641, +0.865R, 22 unresolved.
 
-A separate locked validation harness then ran the exact unchanged V24 engine on five previously uninspected June dates. GitHub Actions run `31993455685` completed successfully and committed `data/blind_backtest_v24_validation.json`.
+Locked five-date June validation on the unchanged V24 engine disproved stable generalization:
+- aggregate: 278 trades, 262 resolved, 112 TP / 150 SL, 42.75% resolved WR, avg RR 1.647, +0.132R;
+- Jun30: 7.27% WR / -0.807R;
+- Jun27: 33.33% / -0.126R (`distribution_reversal`);
+- Jun24: 83.33% / +1.228R;
+- Jun21: 50.91% / +0.338R;
+- Jun18: 38.64% / +0.018R.
+Result: `data/blind_backtest_v24_validation.json`.
 
-### Five-date June aggregate
-- 278 trades;
-- 262 resolved;
-- 112 TP / 150 SL;
-- 16 unresolved;
-- 42.75% resolved WR;
-- average planned RR 1.647;
-- expectancy +0.132R;
-- flow coverage 62.2%.
+## Row-level V24 failure diagnosis — completed
+Jun30:
+- 51/56 V24 decisions were SELL;
+- BUY 0/5; SELL 4 TP / 46 SL among resolved;
+- every profile was poor; internal `trend` = 0/13 and `transition` = 4/37;
+- macro/flow agreement still only 8% WR;
+- |score| >=4 = 1 TP / 23 SL;
+- therefore this was not a low-confidence or isolated-profile failure.
 
-### Per-date result
-- Jun30: 55 resolved, 4 TP / 51 SL = 7.27% WR, avg RR 1.687, expectancy -0.807R, `normal`, price breadth 0.214, flow breadth 0.317, flow median -0.374.
-- Jun27: 54 resolved, 18 TP / 36 SL = 33.33% WR, avg RR 1.632, expectancy -0.126R, `distribution_reversal`, price breadth 0.946, flow breadth 0.400, flow median -0.105.
-- Jun24: 54 resolved, 45 TP / 9 SL = 83.33% WR, avg RR 1.668, expectancy +1.228R, `normal`.
-- Jun21: 55 resolved, 28 TP / 27 SL = 50.91% WR, avg RR 1.622, expectancy +0.338R, `normal`.
-- Jun18: 44 resolved, 17 TP / 27 SL = 38.64% WR, 11 unresolved, avg RR 1.623, expectancy +0.018R, `normal`.
+Jun27:
+- macro/flow agreement = 46.15% WR / +0.231R;
+- macro/flow conflict = 21.43% / -0.443R;
+- V24 regime logic changed raw side on only 3 trades and all 3 lost.
+This supports treating microflow as confirmation rather than allowing it/regime context to own direction.
 
-### Diagnostic aggregates
-By flow relation:
-- macro/micro agree: 44.87% WR, avg RR 1.759, expectancy +0.235R;
-- macro/micro conflict: 38.55% WR, avg RR 1.600, expectancy +0.002R;
-- flow unavailable: 45.0% WR, expectancy +0.170R.
+## V25 development — rejected
+V25 hypothesis was tested only on already-revealed June development dates:
+- macro anchors direction;
+- flow confirms confidence/RR;
+- synchronized extreme same-direction price breadth + OFI was treated as a `sell_climax`/`buy_climax` allowed to reverse the whole market.
 
-By profile:
-- major: 50.0% WR, +0.321R;
-- meme: 55.1%, +0.456R;
-- alt: 60.0%, +0.600R on only 10 resolved;
-- L1/L2: 41.11%, +0.091R;
-- new/high-beta: 44.44%, +0.200R;
-- AI/high-beta: 33.33%, -0.133R;
-- DeFi: 23.08%, -0.395R.
+June development result:
+- aggregate 278 trades, 263 resolved, 111 TP / 152 SL;
+- 42.21% WR, avg RR 1.624, +0.114R — worse than V24 June +0.132R.
+- Jun30 `sell_climax`: 0 TP / 56 SL = -1.0R.
+- Jun27 improved to 38.89% / +0.019R.
+- Jun24/Jun21/Jun18 stayed close to V24.
 
-## Decision after validation
-**Do not promote V24-Core as a main/final/live engine.**
-The June batch shows a small positive aggregate edge but unacceptable date-to-date instability. The Jul04/Jul02 70%+ results do not generalize reliably.
+Conclusion: **reject the synchronized-climax direction reversal.** Do not carry it into future versions.
 
-The V24 regime guard is also not validated: its first locked `distribution_reversal` sample (Jun27) remained negative at -0.126R.
+### Direct V24-vs-V25 barrier comparison
+Jun30, among 51 symbols whose side changed from V24 to V25:
+- 46 were SL in BOTH directions;
+- 0 changed from V24-SL to V25-TP;
+- 4 changed from V24-TP to V25-SL;
+- 1 changed from V24-unresolved to V25-SL.
+The other 5 stayed BUY and also remained SL.
+Therefore Jun30 is primarily a **barrier/market-quality/whipsaw failure**, not a simple wrong-direction failure. Do not try to fix it by blindly reversing bias.
 
-Do not discard actual taker flow. It still adds information, especially when aligned with macro direction, but it is not enough by itself to solve the directional regime failure.
+Jun27, among 5 symbols whose side changed:
+- 3 changed from V24-SL to V25-TP;
+- 2 remained SL;
+- 0 changed from TP to SL.
+This is the strongest current evidence for keeping the macro-anchor concept while discarding climax reversal.
 
-Do not repair this by:
-- raising/lowering RR cosmetically;
-- generic indicator stacking;
-- moving V24 regime thresholds just to fit Jun30/Jun27;
-- filtering bad June profiles and then reusing June as blind evidence.
+## V26 — locked TRUE-BLIND May test now in progress
+May had no `2026-05-*` cutoff references in the repository search before V26 was created.
+V26 changes exactly one conceptual rule from V24:
+- BUY/SELL direction = sign of the macro momentum/structure score;
+- microflow and V24 market-regime transform remain confidence/RR context only and may not independently flip direction;
+- V24 RR ladder and V22 structural SL remain;
+- rejected V25 climax-reversal rule is NOT included.
 
-The five June dates are now **development/diagnostic data**, never again unseen validation data for a successor.
+Locked untouched cutoffs:
+- `BLIND_MAY30` = 2026-05-30 12:00 UTC
+- `BLIND_MAY27` = 2026-05-27 12:00 UTC
+- `BLIND_MAY24` = 2026-05-24 12:00 UTC
+- `BLIND_MAY21` = 2026-05-21 12:00 UTC
+- `BLIND_MAY18` = 2026-05-18 12:00 UTC
 
-## Immediate next correct experiment
-Before V25, diagnose Jun30 and Jun27 at row level from `data/blind_backtest_v24_validation.json`:
-- side and outcome distribution;
-- macro/micro agreement vs conflict;
-- coin profiles and internal trend/transition regimes concentrating losses;
-- score-confidence buckets;
-- flow availability/OFI direction;
-- whether the failure represents trend continuation, exhaustion/capitulation, or incorrect reversal handling.
+Files:
+- `scripts/blind_backtest_crypto_v26.py`
+- `.github/workflows/blind-backtest-v26.yml`
+- expected result: `data/blind_backtest_v26.json`
 
-From that diagnosis, formulate the smallest theory-driven V25 change. Freeze it before opening outcomes on the next true-blind block. Prefer untouched May 2026 dates for V25 validation.
+GitHub Actions:
+- workflow: `Blind Crypto Backtest V26`
+- run id: `31995597625`
+- status at this checkpoint: queued/in progress; do not alter V26 before the locked May result completes.
 
-## Exact crypto files to preserve
+## Decision rule after V26 result
+Do not promote based on aggregate alone. Compare:
+1. aggregate WR / avg RR / expectancy versus V24 June and earlier evidence;
+2. all five May dates separately to detect one-day domination;
+3. unresolved count;
+4. regime-by-regime behavior;
+5. whether macro anchoring helps without introducing new catastrophic dates.
+
+If V26 is not materially more stable, reject it and keep V24 only as diagnostic baseline. Do not tune V26 on May and reuse May as blind evidence.
+
+## Important live-vs-stress distinction
+Jun30 strongly suggests a live engine should eventually have a `CHAOS / NO TRADE` quality gate when market conditions make both sides structurally poor. However, the forced-MARKET research stress test must still issue BUY/SELL and must not use NO TRADE to inflate statistics. Any live chaos gate must be built/tested separately with only pre-entry information.
+
+## Crypto files currently relevant
+Core/retained:
 - `scripts/blind_backtest_crypto.py`
 - `scripts/blind_backtest_crypto_v17.py`
 - `scripts/blind_backtest_crypto_v22.py`
@@ -111,43 +131,21 @@ From that diagnosis, formulate the smallest theory-driven V25 change. Freeze it 
 - `data/blind_backtest_v24.json`
 - `data/blind_backtest_v24_validation.json`
 - `.github/workflows/blind-backtest-v24.yml`
-- `docs/checkpoints/CRYPTO_BREAKOUT_STATE.md`
-- `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`
 
-The completed five-date validation harness/workflow are one-off research artifacts and should be removed from the active tree after their conclusions are checkpointed; Git history preserves them.
+Temporary/research artifacts currently present until V26 conclusion is fully checkpointed:
+- rejected V25 script/workflow/result and V24-vs-V25 comparison diagnostic;
+- V26 script/workflow and eventual result.
+After conclusions are recorded, remove concluded one-off/rejected artifacts according to retention policy; keep key evidence needed for the surviving lineage.
 
-## Other market states
-### Forex
-- USD/EUR/GBP/JPY/CHF/CAD/AUD/NZD and liquid crosses.
-- Hourly Top-3 concept remains PAUSED until explicitly re-enabled.
-- Twelve Data D1/H4/H1/M15/M5 + M1/latest refresh.
-- See `FOREX_STATE.md`.
+## Other markets
+- Forex Top-3 remains PAUSED until explicitly re-enabled; see `FOREX_STATE.md`.
+- Metals: XAUUSD/XAGUSD separate workflow; see `METALS_STATE.md`.
+- Cash indices are cash, never silently replaced by NQ/ES futures; see `CASH_INDICES_STATE.md`.
+- NQ/ES futures are separate and use MNQ/MES execution preference with structural SL first; see `FUTURES_NQ_ES_STATE.md`.
 
-### Metals
-- XAUUSD/XAGUSD: H4/H1 bias, M15 setup, M5 trigger, M1 final timing only.
-- Include DXY, US yields/Fed and major US macro/geopolitical context when relevant.
-- See `METALS_STATE.md`.
-
-### Cash indices
-- Default index requests mean CASH indices, not futures.
-- Never substitute NQ futures for unavailable NDX cash prices.
-- See `CASH_INDICES_STATE.md`.
-
-### NQ/ES futures
-- Separate system only when explicitly requested.
-- MNQ/MES execution; structural SL first, then contracts sized to approximately <= USD 500 risk; approximately USD 1,500 target only when structure supports ~1:3.
-- User/platform realtime price takes priority when supplied.
-- See `FUTURES_NQ_ES_STATE.md`.
-
-## Data / infrastructure
+## Infrastructure
 Repo: `hanlinh227-ship-it/trading-api`.
-- `request.json` increments id to trigger symbol refresh.
-- `.github/workflows/fetch-market.yml` = main data workflow.
-- `data/status.json` = validated current output; `data/latest.json` = fuller/raw output.
-- Crypto direct REST route: Binance -> OKX -> Bybit; OKX has been reliable in recent research.
-- Do not spend Twelve Data credits on crypto when exchange REST works.
+Crypto route: Binance -> OKX -> Bybit, with OKX reliable in recent research. Do not spend Twelve Data credits on crypto when direct exchange REST works.
 
 ## New-chat instruction
 `Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan. Tiếp tục đúng trạng thái mới nhất, không quay lại phương pháp đã loại.`
-
-For crypto research specifically, inspect `CRYPTO_BREAKOUT_STATE.md`, `CRYPTO_RESEARCH_ARCHIVE.md`, `scripts/blind_backtest_crypto_v24.py`, `data/blind_backtest_v24.json`, and `data/blind_backtest_v24_validation.json` before changing the method.
