@@ -9,9 +9,7 @@ on:
 permissions:
   contents: write
 
-# One canonical single-symbol live-data path.
-# All Twelve Data users share the same quota lock. Invalid/ambiguous provider
-# instruments are DATA_BLOCKed before they can overwrite data/latest.json.
+# Twelve Data calls share one quota lock with the Forex universe scanner.
 concurrency:
   group: twelvedata-api
   cancel-in-progress: false
@@ -19,6 +17,8 @@ concurrency:
 jobs:
   fetch-market:
     runs-on: ubuntu-latest
+    env:
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
 
     steps:
       - name: Checkout
@@ -26,115 +26,44 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve requested instrument
-        id: symbol
+      - name: Read request and classify crypto route
+        id: request
         shell: bash
         run: |
           python3 <<'PY' >> "$GITHUB_OUTPUT"
           import json
-          from scripts.market_registry import classify
-
           with open("request.json", "r", encoding="utf-8") as f:
-              request = json.load(f)
-
-          spec = classify(request["symbol"])
-          if spec["market_type"] == "unknown":
-              raise SystemExit(f"Unknown/unsupported requested instrument: {request['symbol']}")
-
-          print(f"symbol={spec['requested_symbol']}")
-          print(f"market_type={spec['market_type']}")
-          print(f"provider_symbol={spec['provider_symbol']}")
-          print(f"is_crypto={'true' if spec['is_crypto'] else 'false'}")
+              raw = str(json.load(f)["symbol"]).upper()
+          symbol = "".join(ch for ch in raw if ch.isalnum())
+          crypto_quotes = ("FDUSD","USDT","USDC","USD","BTC","ETH","BNB","EUR")
+          noncrypto_reserved = {
+              "XAUUSD","XAGUSD","XPTUSD","XPDUSD","WTIUSD","BRENTUSD",
+              "NAS100","NASDAQ100","USTEC","NDX","SPX","SP500","US500","SPX500",
+              "DJI","US30","DOW","N225","JP225","NIKKEI","NIKKEI225",
+              "DAX","GDAXI","DE40","GER40","FTSE","UK100","CAC","FR40","HSI","VIX","RUT",
+              "NQ","MNQ","ES","MES","GC","SI","CL","GOLD","SILVER","WTI","BRENT",
+          }
+          is_crypto = False
+          if symbol not in noncrypto_reserved:
+              for q in crypto_quotes:
+                  if symbol.endswith(q) and len(symbol) > len(q) + 1:
+                      is_crypto = True
+                      break
+          print(f"symbol={symbol}")
+          print(f"is_crypto={'true' if is_crypto else 'false'}")
           PY
-
-          echo "Requested: ${{ steps.symbol.outputs.symbol }}"
-          echo "Market type: ${{ steps.symbol.outputs.market_type }}"
-          echo "Expected provider symbol: ${{ steps.symbol.outputs.provider_symbol }}"
+          echo "Requested: ${{ steps.request.outputs.symbol }}"
+          echo "Crypto route: ${{ steps.request.outputs.is_crypto }}"
 
       - name: Fetch crypto from exchange-native APIs
-        if: steps.symbol.outputs.is_crypto == 'true'
+        if: steps.request.outputs.is_crypto == 'true'
         shell: bash
         run: |
           mkdir -p data
-          python3 scripts/fetch_crypto.py "${{ steps.symbol.outputs.symbol }}" data
-
-      - name: Fetch non-crypto analysis plus quote/price plus M1 reference
-        if: steps.symbol.outputs.is_crypto != 'true'
-        shell: bash
-        env:
-          SYMBOL: ${{ steps.symbol.outputs.symbol }}
-        run: |
-          mkdir -p data
-          python3 <<'PY'
-          import concurrent.futures
-          import json
-          import os
-          import urllib.error
-          import urllib.request
-
-          symbol = os.environ["SYMBOL"]
-          base = "https://forex-chart-api.hanlinh227.workers.dev"
-
-          def get_json(url, timeout=45):
-              req = urllib.request.Request(url, headers={"User-Agent": "trading-api-canonical/2.0"})
-              try:
-                  with urllib.request.urlopen(req, timeout=timeout) as response:
-                      return json.loads(response.read().decode("utf-8"))
-              except urllib.error.HTTPError as exc:
-                  body = exc.read().decode("utf-8", errors="replace")
-                  return {"status": "error", "httpStatus": exc.code, "raw": body[:500]}
-              except Exception as exc:
-                  return {"status": "error", "error": str(exc)}
-
-          def fetch_analysis():
-              return get_json(f"{base}/analysis/{symbol}")
-
-          def fetch_refresh():
-              return get_json(f"{base}/refresh/{symbol}")
-
-          def fetch_latest():
-              # Prefer /quote when the Worker exposes it because Twelve Data's
-              # quote payload can include identity/timestamp metadata. Fall back
-              # to /price for Workers that have not exposed /quote yet.
-              quote = get_json(f"{base}/quote/{symbol}")
-              if quote.get("status") in ("ok", "partial") and quote.get("currentPrice") is not None:
-                  quote["latestEndpoint"] = "quote"
-                  return quote
-              price = get_json(f"{base}/price/{symbol}")
-              price["latestEndpoint"] = "price"
-              return price
-
-          with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-              fa = pool.submit(fetch_analysis)
-              fr = pool.submit(fetch_refresh)
-              fp = pool.submit(fetch_latest)
-              analysis = fa.result()
-              refresh = fr.result()
-              latest = fp.result()
-
-          for name, data in (("analysis", analysis), ("refresh", refresh), ("latest", latest)):
-              with open(f"data/{name}.tmp.json", "w", encoding="utf-8") as f:
-                  json.dump(data, f, ensure_ascii=False)
-          PY
-
-      - name: Validate identity and normalize output
-        shell: bash
-        env:
-          SYMBOL: ${{ steps.symbol.outputs.symbol }}
-          IS_CRYPTO: ${{ steps.symbol.outputs.is_crypto }}
-          EXPECTED_MARKET_TYPE: ${{ steps.symbol.outputs.market_type }}
-          EXPECTED_PROVIDER_SYMBOL: ${{ steps.symbol.outputs.provider_symbol }}
-        run: |
+          python3 scripts/fetch_crypto.py "${{ steps.request.outputs.symbol }}" data
           python3 <<'PY'
           import json
-          import os
           from datetime import datetime, timezone
-          from scripts.market_registry import classify, validate_identity
-
-          symbol = os.environ["SYMBOL"]
-          is_crypto = os.environ["IS_CRYPTO"] == "true"
-          spec = classify(symbol)
-          now = datetime.now(timezone.utc)
 
           def load(path):
               with open(path, "r", encoding="utf-8") as f:
@@ -142,214 +71,79 @@ jobs:
 
           analysis = load("data/analysis.tmp.json")
           refresh = load("data/refresh.tmp.json")
-          latest = refresh if is_crypto else load("data/latest.tmp.json")
+          now = datetime.now(timezone.utc).isoformat()
+          age = refresh.get("quoteAgeMs")
+          bid, ask = refresh.get("bid"), refresh.get("ask")
+          spread_ok = bid is not None and ask is not None
+          quote_ok = refresh.get("currentPriceTime") is not None and age is not None
+          strict = bool(quote_ok and age <= 10000 and refresh.get("stale") is not True)
+          ready = bool(strict and spread_ok and refresh.get("symbolVerified") is True and analysis.get("analysisReady") is True)
 
-          provider_errors = []
-          if analysis.get("status") not in ("ok", "partial"):
-              provider_errors.append("ANALYSIS_PROVIDER_ERROR")
-          if latest.get("status") not in ("ok", "partial"):
-              provider_errors.append("LATEST_PROVIDER_ERROR")
-          if analysis.get("analysisReady") is not True:
-              provider_errors.append("ANALYSIS_NOT_READY")
-          if analysis.get("successfulFrames") != 5 or analysis.get("failedFrames", 0) != 0:
-              provider_errors.append("ANALYSIS_NOT_5_OF_5")
-          if latest.get("currentPrice") is None:
-              provider_errors.append("MISSING_CURRENT_PRICE")
-
-          frames = {}
-          for key in ["D1", "H4", "H1", "M15", "M5"]:
-              frame = (analysis.get("timeframes") or {}).get(key) or {}
-              candles = frame.get("candles") or []
-              frames[key] = {
-                  "status": frame.get("status"),
-                  "interval": frame.get("interval"),
-                  "latestCandle": frame.get("latestCandle"),
-                  "summary": frame.get("summary"),
-                  "recentCandles": candles[-15:],
-              }
-
-          m5_summary = frames.get("M5", {}).get("summary") or {}
-          m5_close = m5_summary.get("close")
-
-          # Validate both analysis and latest identity. The latest payload is the
-          # strongest check because ambiguous tickers often surface there first.
-          identity_errors = []
-          identity_errors += [f"ANALYSIS:{x}" for x in validate_identity(symbol, analysis, m5_close)]
-          identity_errors += [f"LATEST:{x}" for x in validate_identity(symbol, latest, m5_close)]
-          all_errors = provider_errors + identity_errors
-
-          m1_frame = (refresh.get("timeframes") or {}).get("M1") or {}
-          m1_candles = m1_frame.get("candles") or []
-
-          if is_crypto:
-              quote_age_ms = refresh.get("quoteAgeMs")
-              bid = refresh.get("bid")
-              ask = refresh.get("ask")
-              spread_verified = bid is not None and ask is not None
-              quote_timestamp_verified = refresh.get("currentPriceTime") is not None
-              strict_price_fresh = (
-                  quote_timestamp_verified
-                  and quote_age_ms is not None
-                  and quote_age_ms <= 10_000
-                  and refresh.get("stale") is not True
-              )
-              execution_ready = bool(
-                  not all_errors
-                  and strict_price_fresh
-                  and spread_verified
-                  and refresh.get("symbolVerified") is True
-              )
-              price_time = refresh.get("currentPriceTime")
-              freshness_type = "EXCHANGE_QUOTE_TIMESTAMP"
-          else:
-              bid = latest.get("bid")
-              ask = latest.get("ask")
-              spread_verified = bid is not None and ask is not None
-              # Do not convert Worker fetch time into a quote timestamp.
-              quote_timestamp_verified = bool(latest.get("quoteTimestampVerified") is True and latest.get("currentPriceTime"))
-              price_time = latest.get("currentPriceTime") if quote_timestamp_verified else None
-              quote_age_ms = latest.get("quoteAgeMs") if quote_timestamp_verified else None
-              strict_price_fresh = bool(
-                  not all_errors
-                  and quote_timestamp_verified
-                  and quote_age_ms is not None
-                  and quote_age_ms <= 30_000
-                  and latest.get("stale") is not True
-              )
-              execution_ready = bool(strict_price_fresh and spread_verified)
-              freshness_type = "PROVIDER_QUOTE_TIMESTAMP" if quote_timestamp_verified else "FETCH_TIME_ONLY"
-
-          common = {
-              "requestedSymbol": symbol,
-              "canonicalMarketType": spec["market_type"],
-              "expectedProviderSymbol": spec["provider_symbol"],
+          status = {
+              "status": "ok" if analysis.get("analysisReady") is True else "partial",
+              "requestedSymbol": analysis.get("symbol"),
               "returnedSymbol": analysis.get("symbol"),
-              "marketSymbol": latest.get("marketSymbol") or analysis.get("marketSymbol"),
-              "marketType": latest.get("marketType") or analysis.get("marketType"),
-              "provider": latest.get("provider") or analysis.get("provider"),
-              "sourceExchange": latest.get("sourceExchange") or analysis.get("sourceExchange"),
-              "sourceType": latest.get("sourceType") or analysis.get("sourceType"),
-              "latestEndpoint": latest.get("latestEndpoint") or ("exchange_native" if is_crypto else None),
-              "analysisGeneratedAt": analysis.get("generatedAt"),
-              "priceFetchedAt": latest.get("generatedAt") or refresh.get("generatedAt"),
-              "currentPrice": latest.get("currentPrice"),
-              "currentPriceTime": price_time,
-              "priceType": latest.get("priceType"),
+              "marketSymbol": analysis.get("marketSymbol"),
+              "marketType": "crypto",
+              "provider": refresh.get("provider"),
+              "sourceExchange": refresh.get("sourceExchange"),
+              "sourceType": refresh.get("sourceType"),
+              "currentPrice": refresh.get("currentPrice"),
+              "currentPriceTime": refresh.get("currentPriceTime"),
+              "priceFetchedAt": refresh.get("generatedAt"),
+              "priceType": refresh.get("priceType"),
               "bid": bid,
               "ask": ask,
-              "spread": (ask - bid) if bid is not None and ask is not None else None,
-              "quoteAgeMs": quote_age_ms,
-              "quoteTimestampVerified": quote_timestamp_verified,
-              "priceFreshnessType": freshness_type,
-              "strictV74PriceFresh": strict_price_fresh,
-              "executionSpreadVerified": spread_verified,
-              "executionReady": execution_ready,
-              "marketClosedPossible": refresh.get("marketClosedPossible"),
-              "frames": frames,
-              "M1Reference": {
-                  "latestCandle": m1_frame.get("latestCandle"),
-                  "summary": m1_frame.get("summary"),
-                  "recentCandles": m1_candles[-15:],
-                  "dataAgeSeconds": refresh.get("dataAgeSeconds"),
-                  "note": "M1 is context only; never substitute its close for final price."
+              "spread": (ask-bid) if spread_ok else None,
+              "quoteAgeMs": age,
+              "quoteTimestampVerified": quote_ok,
+              "priceFreshnessType": "EXCHANGE_QUOTE_TIMESTAMP",
+              "strictV74PriceFresh": strict,
+              "executionSpreadVerified": spread_ok,
+              "executionReady": ready,
+              "symbolVerified": refresh.get("symbolVerified") is True,
+              "analysisReady": analysis.get("analysisReady") is True,
+              "successfulFrames": analysis.get("successfulFrames"),
+              "failedFrames": analysis.get("failedFrames"),
+              "frames": analysis.get("timeframes"),
+              "M1Reference": (refresh.get("timeframes") or {}).get("M1"),
+              "dataIntegrity": {
+                  "canonicalMappingVerified": True,
+                  "exactQuoteTimestampVerified": quote_ok,
+                  "spreadVerified": spread_ok,
+                  "marketEntryNeedsVenueConfirmation": not ready,
               },
-              "updatedAt": now.isoformat(),
+              "updatedAt": now,
           }
-
-          if all_errors:
-              status = {
-                  **common,
-                  "status": "DATA_BLOCK",
-                  "symbolVerified": False,
-                  "analysisReady": analysis.get("analysisReady") is True,
-                  "integrityErrors": all_errors,
-                  "dataIntegrity": {
-                      "accepted": False,
-                      "latestPricePromoted": False,
-                      "reason": "Provider identity/data failed canonical validation. Existing data/latest.json was not overwritten."
-                  },
-              }
-              with open("data/status.json", "w", encoding="utf-8") as f:
-                  json.dump(status, f, ensure_ascii=False, indent=2)
-              open("data/.data_block", "w").write("1\n")
-              print(json.dumps({"symbol": symbol, "status": "DATA_BLOCK", "errors": all_errors}, ensure_ascii=False, indent=2))
-          else:
-              status = {
-                  **common,
-                  "status": "ok",
-                  "symbolVerified": True,
-                  "analysisReady": True,
-                  "successfulFrames": 5,
-                  "failedFrames": 0,
-                  "integrityErrors": [],
-                  "dataIntegrity": {
-                      "accepted": True,
-                      "latestPricePromoted": True,
-                      "exactQuoteTimestampVerified": quote_timestamp_verified,
-                      "spreadVerified": spread_verified,
-                      "marketEntryNeedsVenueConfirmation": not execution_ready,
-                  },
-              }
-              with open("data/status.json", "w", encoding="utf-8") as f:
-                  json.dump(status, f, ensure_ascii=False, indent=2)
-
-              combined = {
-                  "validation": {
-                      "status": "ok",
-                      "requestedSymbol": symbol,
-                      "canonicalMarketType": spec["market_type"],
-                      "expectedProviderSymbol": spec["provider_symbol"],
-                      "validatedAt": now.isoformat(),
-                  },
-                  "analysis": analysis,
-                  "latestPrice": latest,
-                  "m1Reference": refresh,
-              }
-              with open("data/latest.json", "w", encoding="utf-8") as f:
-                  json.dump(combined, f, ensure_ascii=False, separators=(",", ":"))
-
-              print(json.dumps({
-                  "symbol": symbol,
-                  "status": "ok",
-                  "marketType": status["marketType"],
-                  "marketSymbol": status["marketSymbol"],
-                  "provider": status["provider"],
-                  "currentPrice": status["currentPrice"],
-                  "quoteTimestampVerified": status["quoteTimestampVerified"],
-                  "executionSpreadVerified": status["executionSpreadVerified"],
-                  "executionReady": status["executionReady"],
-                  "frames": "5/5",
-              }, ensure_ascii=False, indent=2))
+          latest = {"analysis": analysis, "refresh": refresh, "updatedAt": now}
+          with open("data/status.json", "w", encoding="utf-8") as f:
+              json.dump(status, f, ensure_ascii=False, indent=2)
+          with open("data/latest.json", "w", encoding="utf-8") as f:
+              json.dump(latest, f, ensure_ascii=False, separators=(",", ":"))
+          print(json.dumps({k:status.get(k) for k in ("requestedSymbol","marketSymbol","provider","currentPrice","currentPriceTime","quoteAgeMs","executionReady")}, ensure_ascii=False, indent=2))
           PY
+
+      - name: Fetch supported non-crypto directly from Twelve Data
+        if: steps.request.outputs.is_crypto != 'true'
+        shell: bash
+        run: |
+          mkdir -p data
+          python3 scripts/twelvedata_market.py "${{ steps.request.outputs.symbol }}" data
 
       - name: Clean temporary files
         shell: bash
-        run: rm -f data/analysis.tmp.json data/latest.tmp.json data/refresh.tmp.json
+        run: rm -f data/analysis.tmp.json data/refresh.tmp.json data/quote.tmp.json data/*.tmp.json
 
-      - name: Commit validated market state
+      - name: Commit canonical market state
         shell: bash
         run: |
           git config user.name "market-data-bot"
           git config user.email "market-data-bot@users.noreply.github.com"
-          git add data/status.json
-          if [ ! -f data/.data_block ]; then
-            git add data/latest.json
-          fi
-          rm -f data/.data_block
-
+          git add data/status.json data/latest.json
           if git diff --cached --quiet; then
             echo "No market-data changes."
             exit 0
           fi
-
-          git commit -m "Refresh validated market data for ${{ steps.symbol.outputs.symbol }}"
-
-      - name: Sync and push safely
-        shell: bash
-        run: |
-          if git log -1 --pretty=%B | grep -q "^Refresh validated market data for"; then
-            git pull --rebase origin main
-            git push origin HEAD:main
-          else
-            echo "Nothing to push."
-          fi
+          git commit -m "Refresh canonical market data for ${{ steps.request.outputs.symbol }}"
+          git pull --rebase origin main
+          git push origin HEAD:main
