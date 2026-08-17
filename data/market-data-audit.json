@@ -1,0 +1,274 @@
+{
+  "generatedAt": "2026-08-17T16:39:29.922164+00:00",
+  "policy": "CANONICAL_INSTRUMENT_IDENTITY_AUDIT",
+  "summary": {
+    "total": 15,
+    "pass": 6,
+    "blockedAsDesigned": 4,
+    "fail": 5
+  },
+  "rows": [
+    {
+      "symbol": "BTCUSDT",
+      "status": "PASS",
+      "marketType": "crypto",
+      "provider": "OKX",
+      "marketSymbol": "BTC/USDT",
+      "currentPrice": 64147.8,
+      "currentPriceTime": "2026-08-17T16:38:16.365000Z",
+      "quoteAgeMs": 1448,
+      "bid": 64147.8,
+      "ask": 64147.9,
+      "analysisFrames": "5/5",
+      "errors": []
+    },
+    {
+      "symbol": "ETHUSDT",
+      "status": "PASS",
+      "marketType": "crypto",
+      "provider": "OKX",
+      "marketSymbol": "ETH/USDT",
+      "currentPrice": 1909.97,
+      "currentPriceTime": "2026-08-17T16:38:18.863000Z",
+      "quoteAgeMs": 908,
+      "bid": 1909.97,
+      "ask": 1909.98,
+      "analysisFrames": "5/5",
+      "errors": []
+    },
+    {
+      "symbol": "SOLUSDT",
+      "status": "PASS",
+      "marketType": "crypto",
+      "provider": "OKX",
+      "marketSymbol": "SOL/USDT",
+      "currentPrice": 76.11,
+      "currentPriceTime": "2026-08-17T16:38:21.347000Z",
+      "quoteAgeMs": 440,
+      "bid": 76.1,
+      "ask": 76.11,
+      "analysisFrames": "5/5",
+      "errors": []
+    },
+    {
+      "symbol": "EURUSD",
+      "status": "PASS",
+      "marketTypeExpected": "forex",
+      "providerSymbolExpected": "EUR/USD",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "forex",
+      "marketSymbolReturned": "EUR/USD",
+      "currentPrice": 1.15899,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": []
+    },
+    {
+      "symbol": "GBPUSD",
+      "status": "PASS",
+      "marketTypeExpected": "forex",
+      "providerSymbolExpected": "GBP/USD",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "forex",
+      "marketSymbolReturned": "GBP/USD",
+      "currentPrice": 1.35626,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": []
+    },
+    {
+      "symbol": "USDJPY",
+      "status": "PASS",
+      "marketTypeExpected": "forex",
+      "providerSymbolExpected": "USD/JPY",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "forex",
+      "marketSymbolReturned": "USD/JPY",
+      "currentPrice": 159.36836,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": []
+    },
+    {
+      "symbol": "XAUUSD",
+      "status": "FAIL",
+      "marketTypeExpected": "commodity",
+      "providerSymbolExpected": "XAU/USD",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "metal",
+      "marketSymbolReturned": "XAU/USD",
+      "currentPrice": 4425.56205,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": [
+        "ANALYSIS:MARKET_TYPE_MISMATCH:metal!= commodity",
+        "LATEST:MARKET_TYPE_MISMATCH:metal!= commodity"
+      ]
+    },
+    {
+      "symbol": "XAGUSD",
+      "status": "FAIL",
+      "marketTypeExpected": "commodity",
+      "providerSymbolExpected": "XAG/USD",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "metal",
+      "marketSymbolReturned": "XAG/USD",
+      "currentPrice": 66.3086,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": [
+        "ANALYSIS:MARKET_TYPE_MISMATCH:metal!= commodity",
+        "LATEST:MARKET_TYPE_MISMATCH:metal!= commodity"
+      ]
+    },
+    {
+      "symbol": "NAS100",
+      "status": "FAIL",
+      "marketTypeExpected": "index",
+      "providerSymbolExpected": "NDX",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "index",
+      "marketSymbolReturned": "NDX",
+      "currentPrice": 19.4,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": [
+        "ANALYSIS:PRICE_BELOW_SANITY_RANGE:19.4<1000",
+        "LATEST:PRICE_BELOW_SANITY_RANGE:19.4<1000"
+      ]
+    },
+    {
+      "symbol": "SPX",
+      "status": "FAIL",
+      "marketTypeExpected": "index",
+      "providerSymbolExpected": "SPX",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "index",
+      "marketSymbolReturned": "SPX",
+      "currentPrice": 0.085000001,
+      "latestEndpoint": "price",
+      "analysisFrames": "5/5",
+      "errors": [
+        "ANALYSIS:PRICE_BELOW_SANITY_RANGE:0.085000001<500",
+        "LATEST:PRICE_BELOW_SANITY_RANGE:0.085000001<500"
+      ]
+    },
+    {
+      "symbol": "N225",
+      "status": "FAIL",
+      "marketTypeExpected": "index",
+      "providerSymbolExpected": "N225",
+      "provider": "Twelve Data",
+      "marketTypeReturned": "index",
+      "marketSymbolReturned": "N225",
+      "currentPrice": null,
+      "latestEndpoint": "price",
+      "analysisFrames": "0/5",
+      "errors": [
+        "ANALYSIS_NOT_5_OF_5",
+        "LATEST_PROVIDER_ERROR",
+        "ANALYSIS:INVALID_CURRENT_PRICE",
+        "LATEST:MARKET_TYPE_MISMATCH:missing!= index",
+        "LATEST:PROVIDER_SYMBOL_MISMATCH:missing!= N225",
+        "LATEST:INVALID_CURRENT_PRICE"
+      ]
+    },
+    {
+      "symbol": "NQ",
+      "status": "BLOCKED_AS_DESIGNED",
+      "marketTypeExpected": "futures",
+      "providerSymbolExpected": "NQ",
+      "provider": null,
+      "marketTypeReturned": null,
+      "marketSymbolReturned": null,
+      "currentPrice": null,
+      "latestEndpoint": "price",
+      "analysisFrames": "None/5",
+      "errors": [
+        "ANALYSIS_PROVIDER_ERROR",
+        "ANALYSIS_NOT_5_OF_5",
+        "LATEST_PROVIDER_ERROR",
+        "ANALYSIS:MARKET_TYPE_MISMATCH:missing!= futures",
+        "ANALYSIS:PROVIDER_SYMBOL_MISMATCH:missing!= NQ",
+        "ANALYSIS:INVALID_CURRENT_PRICE",
+        "LATEST:MARKET_TYPE_MISMATCH:missing!= futures",
+        "LATEST:PROVIDER_SYMBOL_MISMATCH:missing!= NQ",
+        "LATEST:INVALID_CURRENT_PRICE"
+      ]
+    },
+    {
+      "symbol": "MNQ",
+      "status": "BLOCKED_AS_DESIGNED",
+      "marketTypeExpected": "futures",
+      "providerSymbolExpected": "MNQ",
+      "provider": null,
+      "marketTypeReturned": null,
+      "marketSymbolReturned": null,
+      "currentPrice": null,
+      "latestEndpoint": "price",
+      "analysisFrames": "None/5",
+      "errors": [
+        "ANALYSIS_PROVIDER_ERROR",
+        "ANALYSIS_NOT_5_OF_5",
+        "LATEST_PROVIDER_ERROR",
+        "ANALYSIS:MARKET_TYPE_MISMATCH:missing!= futures",
+        "ANALYSIS:PROVIDER_SYMBOL_MISMATCH:missing!= MNQ",
+        "ANALYSIS:INVALID_CURRENT_PRICE",
+        "LATEST:MARKET_TYPE_MISMATCH:missing!= futures",
+        "LATEST:PROVIDER_SYMBOL_MISMATCH:missing!= MNQ",
+        "LATEST:INVALID_CURRENT_PRICE"
+      ]
+    },
+    {
+      "symbol": "ES",
+      "status": "BLOCKED_AS_DESIGNED",
+      "marketTypeExpected": "futures",
+      "providerSymbolExpected": "ES",
+      "provider": null,
+      "marketTypeReturned": null,
+      "marketSymbolReturned": null,
+      "currentPrice": null,
+      "latestEndpoint": "price",
+      "analysisFrames": "None/5",
+      "errors": [
+        "ANALYSIS_PROVIDER_ERROR",
+        "ANALYSIS_NOT_5_OF_5",
+        "LATEST_PROVIDER_ERROR",
+        "ANALYSIS:MARKET_TYPE_MISMATCH:missing!= futures",
+        "ANALYSIS:PROVIDER_SYMBOL_MISMATCH:missing!= ES",
+        "ANALYSIS:INVALID_CURRENT_PRICE",
+        "LATEST:MARKET_TYPE_MISMATCH:missing!= futures",
+        "LATEST:PROVIDER_SYMBOL_MISMATCH:missing!= ES",
+        "LATEST:INVALID_CURRENT_PRICE"
+      ]
+    },
+    {
+      "symbol": "MES",
+      "status": "BLOCKED_AS_DESIGNED",
+      "marketTypeExpected": "futures",
+      "providerSymbolExpected": "MES",
+      "provider": null,
+      "marketTypeReturned": null,
+      "marketSymbolReturned": null,
+      "currentPrice": null,
+      "latestEndpoint": "price",
+      "analysisFrames": "None/5",
+      "errors": [
+        "ANALYSIS_PROVIDER_ERROR",
+        "ANALYSIS_NOT_5_OF_5",
+        "LATEST_PROVIDER_ERROR",
+        "ANALYSIS:MARKET_TYPE_MISMATCH:missing!= futures",
+        "ANALYSIS:PROVIDER_SYMBOL_MISMATCH:missing!= MES",
+        "ANALYSIS:INVALID_CURRENT_PRICE",
+        "LATEST:MARKET_TYPE_MISMATCH:missing!= futures",
+        "LATEST:PROVIDER_SYMBOL_MISMATCH:missing!= MES",
+        "LATEST:INVALID_CURRENT_PRICE"
+      ]
+    }
+  ],
+  "interpretation": {
+    "PASS": "Provider returned the requested canonical instrument and passed sanity checks.",
+    "BLOCKED_AS_DESIGNED": "Exact futures identity was not proven; refusing a proxy is correct behavior.",
+    "FAIL": "Provider returned an ambiguous/wrong instrument or incomplete data and needs mapping/provider repair."
+  }
+}
