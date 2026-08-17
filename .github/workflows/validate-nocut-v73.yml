@@ -1,4 +1,5 @@
 name: Validate NoCut V73
+
 on:
   push:
     paths:
@@ -7,23 +8,39 @@ on:
       - 'scripts/validate_nocut_v73.py'
       - '.github/workflows/validate-nocut-v73.yml'
   workflow_dispatch:
+
 concurrency:
   group: validate-nocut-v73
   cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Verify frozen runtime is self-contained
+        shell: bash
+        run: |
+          test -f data/nocut_intraday_allpass_v73.json
+          test -f scripts/nocut_intraday_method_v73.py
+          test -f scripts/validate_nocut_v73.py
+          test ! -f scripts/build_nocut_allpass_v73.py
+          test ! -f .github/workflows/build-nocut-allpass-v73.yml
+          echo "V73 frozen runtime is self-contained; rebuild machinery is absent from active tree."
+
       - name: Validate hard gates
         env:
           PYTHONUNBUFFERED: '1'
         run: python scripts/validate_nocut_v73.py
+
       - name: Smoke-test canonical reader and routers
         env:
           PYTHONPATH: .
@@ -32,16 +49,19 @@ jobs:
           python scripts/nocut_intraday_method_v73.py EURUSD > /tmp/eurusd-v73.json
           python scripts/nocut_intraday_method_v73.py SOL > /tmp/sol-v73.json
           python - <<'PY'
-          from scripts.nocut_intraday_method_v73 import load_config,get_symbol,choose_action
-          cfg=load_config()
-          features={
-            'dev':0.0,'absdev':0.0,'mom':0.0,'absmom':0.0,'rel24':0.0,'btc24':0.0,
-            'breadth':0.5,'breadthDist':0.0,'adx':20.0,'rsi':50.0,'ret24':0.0,'ret72':0.0,
-            'h1':1.0,'h4':1.0,'d1':1.0,'weekday':1.0
+          from scripts.nocut_intraday_method_v73 import load_config, get_symbol, choose_action
+
+          cfg = load_config()
+          features = {
+              'dev':0.0,'absdev':0.0,'mom':0.0,'absmom':0.0,
+              'rel24':0.0,'btc24':0.0,'breadth':0.5,'breadthDist':0.0,
+              'adx':20.0,'rsi':50.0,'ret24':0.0,'ret72':0.0,
+              'h1':1.0,'h4':1.0,'d1':1.0,'weekday':1.0,
           }
+
           for sym in ('BTC','HBAR','TAO','TON','IP'):
-              _,_,entry=get_symbol(sym,cfg)
-              action=choose_action(entry,features)
+              _, _, entry = get_symbol(sym, cfg)
+              action = choose_action(entry, features)
               assert action is not None, sym
-              print(sym,action)
+              print(sym, action)
           PY
