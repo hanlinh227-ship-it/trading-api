@@ -1,0 +1,22 @@
+name: Blind Crypto Backtest V14R
+on:
+  push:
+    paths:
+      - 'scripts/blind_backtest_crypto_v14r.py'
+      - '.github/workflows/blind-backtest-v14r.yml'
+  workflow_dispatch:
+jobs:
+  blind:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/blind_backtest_crypto_v14r.py
+      - run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/blind_backtest_v14r.json
+          git commit -m "Run V14R fresh blind" || exit 0
+          git pull --rebase origin main || true
+          git push || true
