@@ -1,0 +1,25 @@
+name: Offline Forex Per Symbol V16
+on:
+  push:
+    paths:
+      - 'scripts/offline_forex_per_symbol_v16.py'
+      - '.github/workflows/offline-forex-per-symbol-v16.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -q numpy scikit-learn
+      - name: Run independent 28-pair research
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_forex_per_symbol_v16.py
