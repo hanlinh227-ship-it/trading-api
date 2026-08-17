@@ -3,30 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trading API — V74</title>
+  <title>Trading API — V73/V74/V75/V76</title>
 </head>
 <body>
   <h1>Trading API — Current Architecture</h1>
-  <p>V73 frozen statistical prior + V74 live-analysis layer + Twelve Data Grow 55 market-data policy.</p>
+  <p>V73 frozen statistical prior + V74 live authority + V75 Fast Data + V76 R2 locked Forex entry research.</p>
 
-  <h2>Live market-data endpoints</h2>
+  <h2>Live data</h2>
   <ul>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/EURUSD">EURUSD full analysis</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/price/EURUSD">EURUSD latest aggregated price</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/XAUUSD">XAUUSD full analysis</a></li>
-    <li><a href="https://forex-chart-api.hanlinh227.workers.dev/analysis/NDX">NDX cash-index analysis</a></li>
+    <li>Single symbol: GitHub Actions canonical V75 fetch → <code>data/decision.json</code>.</li>
+    <li>Forex universe: V75 28-pair scan → <code>data/forex-fast.json</code>.</li>
+    <li>Crypto universe: exchange-native V75 scan → <code>data/crypto-fast.json</code>.</li>
+    <li>Supported Forex/metals use direct strict Twelve Data from GitHub Actions.</li>
+    <li>Crypto execution quotes use exact exchange-native instrument, timestamp and bid/ask.</li>
   </ul>
 
-  <h2>Data policy</h2>
+  <h2>V76 R2</h2>
   <ul>
-    <li>Forex and supported non-crypto instruments: Twelve Data Grow 55 through the Cloudflare Worker.</li>
-    <li>Crypto execution data: exchange-native Binance / OKX / Bybit routes in GitHub Actions.</li>
-    <li>Cash indices, futures and spot metals are separate instruments and are never silently substituted for each other.</li>
-    <li>A freshly fetched aggregated price is not automatically an executable broker quote.</li>
-    <li>Bid/ask, spread and quote timestamp are reported only when actually verified.</li>
+    <li>28 Forex pairs, 30,000 M5 bars per pair, 72 mechanical entry variants.</li>
+    <li>Chronological DEV / VALIDATION / untouched OOS protocol.</li>
+    <li>Retained archetypes: none.</li>
+    <li>Live-promoted symbols: 0/28.</li>
+    <li>All current V76 R2 methods are research-only and cannot authorize a live order.</li>
   </ul>
 
   <h2>Integrity</h2>
-  <p>V73 development results are historical development evidence, not a live win-rate guarantee. V74 requires current context, structure and execution validation before MARKET decisions.</p>
+  <ul>
+    <li>The former shorthand Cloudflare Worker is deprecated and is not a canonical live-data route.</li>
+    <li>Cash indices, futures and spot instruments are never silently substituted.</li>
+    <li>NAS100/US500/DAX/N225-family cash indices remain DATA_BLOCK in the current Grow55 integration.</li>
+    <li>Exact NQ/MNQ/ES/MES/GC/SI/CL futures remain DATA_BLOCK until an authoritative exact-contract feed is integrated.</li>
+    <li>Aggregated/reference price is not automatically an executable broker quote.</li>
+    <li>Bid/ask, spread and timestamps are reported only when actually verified.</li>
+  </ul>
+
+  <h2>Research interpretation</h2>
+  <p>V73 development results are historical development evidence, not a live win-rate guarantee. V76 R2 also produced no live-promoted Forex entry method. V74 still requires current context, M15 location, strict M5 confirmation, news and final execution validation before MARKET decisions.</p>
 </body>
 </html>
