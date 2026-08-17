@@ -1,80 +1,65 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-17 15:46 UTC+7
+Updated: 2026-08-17 16:00 UTC+7
 
-Read `MASTER_TRADING_STATE.md`, then `CROSSMARKET_ROLLING_BLIND_V6.md`, `TRADE_MANAGEMENT_HOURLY_V1.md`, then the relevant market checkpoint.
+Read `MASTER_TRADING_STATE.md`, then `SEPARATE_MARKET_RESEARCH_V1.md`, `CROSSMARKET_ROLLING_BLIND_V6.md`, `TRADE_MANAGEMENT_HOURLY_V1.md`, and `CRYPTO_SYMBOL_PROFILES_V1.md`.
 
-## Immediate active task
-Improve BOTH Forex and Crypto entry quality toward TP/SL WR >=80% with average RR 1.0–1.5, using blind/held-out evidence and rolling HOLD/CUT management after fill. Latest V4/V5/V6 research used **0 market-data provider credits**.
+## Immediate task
+Continue improving Forex and Crypto separately toward TP/SL WR >=80% with average RR 1.0–1.5 using only honest held-out/walk-forward evidence. Current work uses **0 new market-data provider credits**.
 
-Hourly review means a BACKTEST mechanism: once MARKET fills or LIMIT fills, advance historical time sequentially H+1/H+2/H+3... and decide HOLD/CUT using only data observable up to that review. No recurring automation is part of this research.
+## Mandatory architecture
+- Forex and Crypto MUST NOT share one analysis method.
+- Forex continues F8/V7 cross-currency factor/session/structure logic only.
+- Crypto continues V24/Apr16 BTC+breadth+HTF+M15/M5 logic only, plus per-symbol linked-driver profiles.
+- Every Crypto symbol has its own profile/context in `CRYPTO_SYMBOL_PROFILES_V1.md`; do not treat all coins as interchangeable.
 
-## Current result — target NOT reached
-Do not claim 80% has been achieved.
+## Forex current best
+Broad benchmark: F8 = 20-day/560 forced signals, MARKET 50.72% WR, positive expectancy, RR around 1.42–1.45.
 
-### Forex broad benchmark
-F8 remains frozen broad benchmark: four consecutive 5-day blocks /560 forced signals; MARKET 489 resolved, 248 TP /241 SL = 50.72% WR, weighted expectancy ~+0.233R. Typical RR ~1.42–1.45.
+Selective candidate: **V7**.
+Development May18–22: 26 trades, 80.77% WR, +0.945R, RR1.425.
+Held-out validation May25–29: **29 trades, 18W/11L = 62.07% WR, +0.502R, RR1.407**.
+This supersedes V5 selective candidate but does NOT meet 80% validation.
 
-### Forex strongest selective-entry candidate
-V5 fixed-rule, frozen on May18–22 and validated unchanged on May25–29.
-Rule: BUY only, score >=1, ADX >=20, impulseEvidence >=3, H1 aligned; group/mode unrestricted.
+Rejected/supporting:
+- V8 pair prior 52.94% -> reject.
+- V9 nested pair walk-forward 61.54% / +0.492R / RR1.417 -> supporting, below V7.
 
-Development:
-- 31 trades;
-- 23W /8L = 74.19% WR;
-- +0.794R;
-- avg RR 1.437.
+## Crypto current best evidence
+Canonical base remains V24/Apr16, not the newer weaker profile experiments.
+- V24 validation: 42.75% WR, +0.132R, avg RR1.647, unstable across dates.
+- Apr16 clean MARKET holdout: **51.92% WR, +0.350R**, direction 80% at 6h and 89.09% at 24h.
 
-Untouched validation:
-- 28 trades;
-- **17W /11L = 60.71% WR**;
-- **+0.467R**;
-- **avg RR 1.403**;
-- positive-day rate 75%.
+Per-symbol research:
+- V28 family-profile validation 22.22% -> reject.
+- V29 per-symbol conditional: development 76%; validation **43.75% / +0.094R / RR1.5 on 16 trades** -> research-only.
+- V30 nested symbol walk-forward 33.33% / -0.167R -> reject.
 
-This is the strongest new legitimate selective-entry improvement, but F8 remains the broad benchmark and V5 is NOT an 80% method.
+Therefore keep V24/Apr16 structure and use symbol profiles as linked-driver context, not as a proven replacement score.
 
-H+3 proxy rule (-0.4R) made zero CUTs in development and validation, so it did not improve V5. Exact H+1/H+2 management remains untestable from old data because those snapshots were not committed.
-
-### Rejected Forex latest variants
-- V4.1 daily changing threshold rule: 36.00% WR, -0.142R on forward-selected sample.
-- V6 frozen confidence Top-5/day: development 60%, validation 40%; rejected.
-
-## Crypto status
-Recovered 640 old trades /12 dates, 35.78% baseline WR. Static/selective rules still fail to generalize.
-
-V5 frozen rule validation:
-- 31 trades;
-- 6W /25L = **19.35% WR**;
-- -0.516R;
-- RR 1.5.
-Rejected.
-
-V6 frozen Top-8/day validation:
-- 48 trades;
-- 18W /30L = **37.50% WR**;
-- -0.062R;
-- RR 1.5.
-Rejected.
-
-Crypto live/research entry must continue to prioritize current BTC + breadth/regime + HTF structure + M15/M5 path + genuinely fresh flow/news rather than static symbol/macro reputation.
-
-## Rolling-management data limitation
-Old committed Forex/Crypto JSONs do not preserve full H+1/H+2 price + indicator + point-in-time news/calendar snapshots for every trade. Do not invent these snapshots or derive CUTs from final MFE/MAE/outcomes. Forex F8-style rows support only a limited genuine H+3 close checkpoint proxy.
+## Hourly managed-position interpretation
+After MARKET/LIMIT fill, backtest should advance H+1/H+2/H+3... sequentially and decide HOLD/CUT using only information observable then. This is NOT an automation. CUT is separate from TP/SL WR, but CUT count/rate/R and total managed expectancy must be tracked.
+Old committed data lack full H+1/H+2 snapshots for most trades; do not fabricate hourly cuts from future outcome/MFE/MAE.
 
 ## Promotion rule
-Only report success when genuinely held-out managed evidence reaches all:
+Only say success when held-out/walk-forward evidence simultaneously has:
 1. TP/SL WR >=80%;
-2. average planned/effective RR 1.0–1.5;
+2. RR 1.0–1.5;
 3. positive expectancy including CUT;
 4. non-trivial sample;
-5. HOLD/CUT decisions based only on observable review-time state.
+5. no future leakage.
 
-## Latest research files/runs
-- `docs/checkpoints/CROSSMARKET_ROLLING_BLIND_V6.md`
-- `scripts/offline_crossmarket_rolling_blind_v4.py` — run `32011504773`
-- `scripts/offline_crossmarket_fixed_rule_v5.py` — successful run `32011669871`
-- `scripts/offline_crossmarket_topk_v6.py` — run `32011803613`
+**Current status: NOT YET ACHIEVED.**
+
+## Latest files
+- `docs/checkpoints/SEPARATE_MARKET_RESEARCH_V1.md`
+- `docs/checkpoints/CRYPTO_SYMBOL_PROFILES_V1.md`
+- `scripts/offline_forex_v7_separate.py`
+- `scripts/offline_forex_v8_pair_prior.py`
+- `scripts/offline_forex_v9_nested_pair.py`
+- `scripts/offline_crypto_v28_separate.py`
+- `scripts/offline_crypto_v29_symbol_conditional.py`
+- `scripts/offline_crypto_v30_nested_symbol.py`
 
 ## New-chat instruction
-`Tiếp tục dự án Trading từ GitHub checkpoint mới nhất. Đọc MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, CROSSMARKET_ROLLING_BLIND_V6.md và TRADE_MANAGEMENT_HOURLY_V1.md. F8 là broad Forex baseline; V5 selective-entry đang tốt nhất với 60.71% WR / +0.467R / RR1.403; Crypto chưa có gate ổn định; không được nói 80% đã đạt.`
+`Tiếp tục Trading từ GitHub checkpoint mới nhất. Forex và Crypto phải nghiên cứu riêng. Forex selective best = V7 62.07% / +0.502R / RR1.407. Crypto giữ V24/Apr16 base; Apr16 MARKET 51.92%. Đọc CRYPTO_SYMBOL_PROFILES_V1.md để phân tích từng coin theo driver riêng. Mục tiêu 80% chưa đạt; không được giả vờ đã đạt.`
