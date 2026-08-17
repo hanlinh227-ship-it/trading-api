@@ -1,0 +1,23 @@
+name: Blind Crypto Backtest V27 Final
+on:
+  push:
+    paths:
+      - 'scripts/blind_backtest_crypto_v27_final.py'
+      - '.github/workflows/blind-backtest-v27-final.yml'
+  workflow_dispatch:
+jobs:
+  v27-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/blind_backtest_crypto_v27_final.py
+      - run: |
+          git config user.name "blind-backtest-bot"
+          git config user.email "blind-backtest-bot@users.noreply.github.com"
+          git add data/blind_backtest_v27_final.json
+          git commit -m "Run V27 final random April blind test" || exit 0
+          git pull --rebase origin main || true
+          git push || true
