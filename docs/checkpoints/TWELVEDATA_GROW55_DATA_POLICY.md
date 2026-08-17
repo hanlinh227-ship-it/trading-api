@@ -2,53 +2,31 @@
 
 Updated: 2026-08-18 UTC+7
 
-Supplements V74/V75. V73 remains frozen.
+V73 remains frozen. V74 is the live decision layer; V75 is the fast-data layer; V76 research is isolated from live latency.
 
-## Canonical live path
+## Live path
+Supported non-crypto uses direct Twelve Data REST via `scripts/twelvedata_market.py` (`V4-TWELVEDATA-FAST-STRICT`). The old shorthand Cloudflare Worker is deprecated.
 
-Supported non-crypto uses direct Twelve Data REST from GitHub Actions through `scripts/twelvedata_market.py`, version `V4-TWELVEDATA-FAST-STRICT`. The old shorthand Cloudflare Worker is deprecated for canonical decisions.
+Hard rules: exact canonical identity; exact `meta.symbol` + `meta.type`; closed candles for indicators/structure; `/quote.last_quote_at` is provider time; `/price` only after identity proof; quote >65s = `DATA_BLOCK`; V74 Forex MARKET target <=30s when true timestamp exists; never fabricate broker bid/ask/spread; never substitute cash/futures/spot.
 
-Hard rules:
-1. explicit canonical identity only;
-2. every timeframe validates exact `meta.symbol` + `meta.type`;
-3. indicators/structure use closed candles only;
-4. `/quote.last_quote_at` = provider time;
-5. `/price` accepted only after identity proof;
-6. provider time, fetch time and aggregated price are distinct;
-7. quote >65s => `DATA_BLOCK`;
-8. V74 Forex MARKET target <=30s when true timestamp exists;
-9. no fabricated broker bid/ask/spread;
-10. cash index/futures/spot are never interchangeable.
-
-## V75 live speed
-
-D1/H4/H1/M15/M5 single-symbol calls are parallelized. Full indicator history is processed in memory; compact tails are stored. Preferred artifacts are `data/decision.json` and `data/forex-fast.json`.
-
-28-pair live scan budget remains about 46/55 credits: 28 H1 broad + 12 deep-frame credits + 6 quote/price credits, leaving 9 reserve.
+V75 single-symbol D1/H4/H1/M15/M5 calls are parallelized. Preferred fast artifacts are `data/decision.json` and `data/forex-fast.json`. The 28-pair live scan remains about 46/55 credits, leaving 9 reserve.
 
 ## V76 research history
+Canonical entrypoint: `scripts/run_v76_entry_research.py`.
+Objective setup primitives: `scripts/research_v76_entry_forex.py`.
+R2 evaluator: `scripts/evaluate_v76_entry_forex.py`.
+Historical fetcher: `scripts/fetch_v76_history.py`.
 
-Research is separate from live V75 latency.
+Observed API guard: `batch symbol count × outputsize <= 100000`. Final R2 splits 28 Forex pairs into four parallel groups of seven and requests 5,000 M5 points per symbol, so each HTTP batch is `7 × 5000 = 35000`. A complete M5 chunk still consumes 28 symbol credits; chunks are separated by the quota window. Six chunks target about 30,000 M5 bars per pair. M15/H1/H4 are resampled locally; D1 is fetched separately. Raw history is not committed.
 
-Canonical runner: `scripts/run_v76_entry_research.py`.
-Core definitions: `scripts/research_v76_entry_forex.py`.
-
-Observed API guard: `batch symbol count × outputsize <= 100000`. The canonical 28-pair M5 research request therefore uses outputsize 3500 (`28 × 3500 = 98000`) per chunk. M15/H1/H4 are resampled locally from M5; D1 is fetched separately. Raw history is not committed, only compact research evidence and locked methods.
+The primitive file is not the canonical full runner; active research uses `run_v76_entry_research.py`.
 
 ## Market rules
-
-Forex: exact `AAA/BBB`, expected type `Physical Currency`. `currentPrice` is validated `/price`; `currentPriceTime` is `/quote.last_quote_at`; broker spread still requires venue confirmation.
-
-Crypto: execution data remains exchange-native with exact token/venue/timestamp and real bid/ask; target quote age <=10s.
-
-Spot metals/energy: exact mappings such as XAU/USD, XAG/USD, WTI/USD, XBR/USD only when identity/freshness pass. Never substitute GC/SI/CL futures.
-
-Cash indices: NAS100/NDX, US500/SPX, DAX and N225-family remain `DATA_BLOCK` in current Grow55 integration because exact cash identity is not safely provable.
-
-Futures: exact CME/COMEX/NYMEX NQ/MNQ/ES/MES/GC/SI/CL remain `DATA_BLOCK` until an authoritative exact-contract feed exists.
-
-## Audit / failure rule
+Forex: exact `AAA/BBB`, expected `Physical Currency`; broker spread still requires venue confirmation.
+Crypto: exchange-native token/venue/timestamp + real bid/ask, target age <=10s.
+Spot metals/energy: exact mapping/freshness only; never substitute futures.
+Cash indices NAS100/US500/DAX/N225 families remain `DATA_BLOCK` in current Grow55 integration.
+Exact NQ/MNQ/ES/MES/GC/SI/CL futures remain `DATA_BLOCK` until an authoritative exact-contract feed exists.
 
 Permanent audit: `.github/workflows/audit-market-data.yml`, `scripts/audit_market_data.py`, `data/market-data-audit.json`.
-
-If identity, contract, timestamp freshness or required execution fields cannot be verified, return `DATA_BLOCK`/require venue confirmation. Never label stale, ambiguous or proxied data live.
+If identity, contract, freshness or execution fields cannot be verified, return `DATA_BLOCK`/require venue confirmation.
