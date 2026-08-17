@@ -1,0 +1,976 @@
+{
+  "generatedAt": "2026-08-17T00:47:51.281791+00:00",
+  "source": "data/blind_backtest_v12.json",
+  "samples": {
+    "OLD_REGRESSION_2026-08-13_12UTC": {
+      "summary": {
+        "label": "OLD_REGRESSION_2026-08-13_12UTC",
+        "cutoff": "2026-08-13T12:00:00Z",
+        "isTrueBlind": false,
+        "requested": 61,
+        "marketTrades": 56,
+        "dataErrors": 5,
+        "resolved": 50,
+        "wins": 27,
+        "losses": 23,
+        "unresolved": 6,
+        "winRateResolved": 54.0,
+        "avgPlannedRR": 1.772,
+        "expectancyR": 0.496
+      },
+      "byRegime": {
+        "transition": {
+          "n": 28,
+          "tp": 15,
+          "sl": 11,
+          "unresolved": 2,
+          "winRate": 57.69,
+          "avgRR": 1.658,
+          "expectancyR": 0.517
+        },
+        "range": {
+          "n": 6,
+          "tp": 1,
+          "sl": 4,
+          "unresolved": 1,
+          "winRate": 20.0,
+          "avgRR": 1.45,
+          "expectancyR": -0.51
+        },
+        "trend": {
+          "n": 22,
+          "tp": 11,
+          "sl": 8,
+          "unresolved": 3,
+          "winRate": 57.89,
+          "avgRR": 2.013,
+          "expectancyR": 0.732
+        }
+      },
+      "byProfile": {
+        "major": {
+          "n": 8,
+          "tp": 6,
+          "sl": 0,
+          "unresolved": 2,
+          "winRate": 100.0,
+          "avgRR": 1.667,
+          "expectancyR": 1.667
+        },
+        "l1_l2": {
+          "n": 19,
+          "tp": 9,
+          "sl": 9,
+          "unresolved": 1,
+          "winRate": 50.0,
+          "avgRR": 1.861,
+          "expectancyR": 0.414
+        },
+        "meme": {
+          "n": 11,
+          "tp": 5,
+          "sl": 5,
+          "unresolved": 1,
+          "winRate": 50.0,
+          "avgRR": 1.83,
+          "expectancyR": 0.465
+        },
+        "defi": {
+          "n": 8,
+          "tp": 4,
+          "sl": 3,
+          "unresolved": 1,
+          "winRate": 57.14,
+          "avgRR": 1.671,
+          "expectancyR": 0.557
+        },
+        "new_high_beta": {
+          "n": 4,
+          "tp": 0,
+          "sl": 4,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.775,
+          "expectancyR": -1.0
+        },
+        "alt": {
+          "n": 2,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 1,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "ai_high_beta": {
+          "n": 4,
+          "tp": 3,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 75.0,
+          "avgRR": 1.638,
+          "expectancyR": 0.95
+        }
+      },
+      "bySide": {
+        "SELL": {
+          "n": 39,
+          "tp": 15,
+          "sl": 18,
+          "unresolved": 6,
+          "winRate": 45.45,
+          "avgRR": 1.821,
+          "expectancyR": 0.283
+        },
+        "BUY": {
+          "n": 17,
+          "tp": 12,
+          "sl": 5,
+          "unresolved": 0,
+          "winRate": 70.59,
+          "avgRR": 1.676,
+          "expectancyR": 0.909
+        }
+      },
+      "byScoreBucket": {
+        "3-5": {
+          "n": 14,
+          "tp": 6,
+          "sl": 7,
+          "unresolved": 1,
+          "winRate": 46.15,
+          "avgRR": 1.685,
+          "expectancyR": 0.238
+        },
+        "1-3": {
+          "n": 12,
+          "tp": 9,
+          "sl": 2,
+          "unresolved": 1,
+          "winRate": 81.82,
+          "avgRR": 1.591,
+          "expectancyR": 1.145
+        },
+        "0-1": {
+          "n": 7,
+          "tp": 2,
+          "sl": 4,
+          "unresolved": 1,
+          "winRate": 33.33,
+          "avgRR": 1.525,
+          "expectancyR": -0.158
+        },
+        "5-7": {
+          "n": 10,
+          "tp": 5,
+          "sl": 4,
+          "unresolved": 1,
+          "winRate": 55.56,
+          "avgRR": 1.906,
+          "expectancyR": 0.617
+        },
+        "7+": {
+          "n": 13,
+          "tp": 5,
+          "sl": 6,
+          "unresolved": 2,
+          "winRate": 45.45,
+          "avgRR": 2.082,
+          "expectancyR": 0.409
+        }
+      },
+      "byRangePosition": {
+        "0-.2": {
+          "n": 12,
+          "tp": 7,
+          "sl": 3,
+          "unresolved": 2,
+          "winRate": 70.0,
+          "avgRR": 1.835,
+          "expectancyR": 0.955
+        },
+        ".2-.4": {
+          "n": 18,
+          "tp": 7,
+          "sl": 8,
+          "unresolved": 3,
+          "winRate": 46.67,
+          "avgRR": 1.857,
+          "expectancyR": 0.317
+        },
+        ".8-1": {
+          "n": 5,
+          "tp": 4,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 80.0,
+          "avgRR": 1.81,
+          "expectancyR": 1.22
+        },
+        ".4-.6": {
+          "n": 11,
+          "tp": 5,
+          "sl": 6,
+          "unresolved": 0,
+          "winRate": 45.45,
+          "avgRR": 1.673,
+          "expectancyR": 0.209
+        },
+        ".6-.8": {
+          "n": 10,
+          "tp": 4,
+          "sl": 5,
+          "unresolved": 1,
+          "winRate": 44.44,
+          "avgRR": 1.661,
+          "expectancyR": 0.233
+        }
+      },
+      "byChase": {
+        "1.2+": {
+          "n": 27,
+          "tp": 14,
+          "sl": 10,
+          "unresolved": 3,
+          "winRate": 58.33,
+          "avgRR": 1.767,
+          "expectancyR": 0.623
+        },
+        "<.5": {
+          "n": 20,
+          "tp": 8,
+          "sl": 10,
+          "unresolved": 2,
+          "winRate": 44.44,
+          "avgRR": 1.733,
+          "expectancyR": 0.222
+        },
+        ".5-1.2": {
+          "n": 9,
+          "tp": 5,
+          "sl": 3,
+          "unresolved": 1,
+          "winRate": 62.5,
+          "avgRR": 1.875,
+          "expectancyR": 0.731
+        }
+      },
+      "byRegimeSide": {
+        "transition_SELL": {
+          "n": 19,
+          "tp": 8,
+          "sl": 9,
+          "unresolved": 2,
+          "winRate": 47.06,
+          "avgRR": 1.688,
+          "expectancyR": 0.25
+        },
+        "range_SELL": {
+          "n": 3,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 1,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "range_BUY": {
+          "n": 3,
+          "tp": 1,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 33.33,
+          "avgRR": 1.45,
+          "expectancyR": -0.183
+        },
+        "trend_BUY": {
+          "n": 5,
+          "tp": 4,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 80.0,
+          "avgRR": 1.95,
+          "expectancyR": 1.36
+        },
+        "transition_BUY": {
+          "n": 9,
+          "tp": 7,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 77.78,
+          "avgRR": 1.6,
+          "expectancyR": 1.022
+        },
+        "trend_SELL": {
+          "n": 17,
+          "tp": 7,
+          "sl": 7,
+          "unresolved": 3,
+          "winRate": 50.0,
+          "avgRR": 2.036,
+          "expectancyR": 0.507
+        }
+      },
+      "byProfileRegime": {
+        "major_transition": {
+          "n": 3,
+          "tp": 3,
+          "sl": 0,
+          "unresolved": 0,
+          "winRate": 100.0,
+          "avgRR": 1.6,
+          "expectancyR": 1.6
+        },
+        "major_range": {
+          "n": 2,
+          "tp": 1,
+          "sl": 0,
+          "unresolved": 1,
+          "winRate": 100.0,
+          "avgRR": 1.45,
+          "expectancyR": 1.45
+        },
+        "l1_l2_trend": {
+          "n": 11,
+          "tp": 5,
+          "sl": 5,
+          "unresolved": 1,
+          "winRate": 50.0,
+          "avgRR": 2.025,
+          "expectancyR": 0.49
+        },
+        "meme_transition": {
+          "n": 7,
+          "tp": 2,
+          "sl": 4,
+          "unresolved": 1,
+          "winRate": 33.33,
+          "avgRR": 1.675,
+          "expectancyR": -0.108
+        },
+        "major_trend": {
+          "n": 3,
+          "tp": 2,
+          "sl": 0,
+          "unresolved": 1,
+          "winRate": 100.0,
+          "avgRR": 1.875,
+          "expectancyR": 1.875
+        },
+        "defi_transition": {
+          "n": 5,
+          "tp": 3,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 60.0,
+          "avgRR": 1.66,
+          "expectancyR": 0.59
+        },
+        "l1_l2_transition": {
+          "n": 7,
+          "tp": 4,
+          "sl": 3,
+          "unresolved": 0,
+          "winRate": 57.14,
+          "avgRR": 1.686,
+          "expectancyR": 0.507
+        },
+        "defi_trend": {
+          "n": 2,
+          "tp": 1,
+          "sl": 0,
+          "unresolved": 1,
+          "winRate": 100.0,
+          "avgRR": 1.95,
+          "expectancyR": 1.95
+        },
+        "new_high_beta_trend": {
+          "n": 2,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 2.025,
+          "expectancyR": -1.0
+        },
+        "defi_range": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "alt_range": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "meme_trend": {
+          "n": 4,
+          "tp": 3,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 75.0,
+          "avgRR": 2.062,
+          "expectancyR": 1.325
+        },
+        "ai_high_beta_transition": {
+          "n": 4,
+          "tp": 3,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 75.0,
+          "avgRR": 1.638,
+          "expectancyR": 0.95
+        },
+        "l1_l2_range": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "new_high_beta_range": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "new_high_beta_transition": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.6,
+          "expectancyR": -1.0
+        },
+        "alt_transition": {
+          "n": 1,
+          "tp": 0,
+          "sl": 0,
+          "unresolved": 1,
+          "winRate": null,
+          "avgRR": null,
+          "expectancyR": null
+        }
+      },
+      "bySweep15": {
+        "0": {
+          "n": 47,
+          "tp": 23,
+          "sl": 19,
+          "unresolved": 5,
+          "winRate": 54.76,
+          "avgRR": 1.792,
+          "expectancyR": 0.533
+        },
+        "1": {
+          "n": 8,
+          "tp": 4,
+          "sl": 3,
+          "unresolved": 1,
+          "winRate": 57.14,
+          "avgRR": 1.7,
+          "expectancyR": 0.486
+        },
+        "-1": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        }
+      }
+    },
+    "FRESH_BLIND_2026-08-12_12UTC": {
+      "summary": {
+        "label": "FRESH_BLIND_2026-08-12_12UTC",
+        "cutoff": "2026-08-12T12:00:00Z",
+        "isTrueBlind": true,
+        "requested": 61,
+        "marketTrades": 56,
+        "dataErrors": 5,
+        "resolved": 53,
+        "wins": 16,
+        "losses": 37,
+        "unresolved": 3,
+        "winRateResolved": 30.19,
+        "avgPlannedRR": 1.68,
+        "expectancyR": -0.189
+      },
+      "byRegime": {
+        "transition": {
+          "n": 35,
+          "tp": 9,
+          "sl": 26,
+          "unresolved": 0,
+          "winRate": 25.71,
+          "avgRR": 1.621,
+          "expectancyR": -0.327
+        },
+        "trend": {
+          "n": 13,
+          "tp": 4,
+          "sl": 6,
+          "unresolved": 3,
+          "winRate": 40.0,
+          "avgRR": 2.07,
+          "expectancyR": 0.21
+        },
+        "range": {
+          "n": 8,
+          "tp": 3,
+          "sl": 5,
+          "unresolved": 0,
+          "winRate": 37.5,
+          "avgRR": 1.45,
+          "expectancyR": -0.081
+        }
+      },
+      "byProfile": {
+        "major": {
+          "n": 8,
+          "tp": 1,
+          "sl": 7,
+          "unresolved": 0,
+          "winRate": 12.5,
+          "avgRR": 1.669,
+          "expectancyR": -0.65
+        },
+        "l1_l2": {
+          "n": 19,
+          "tp": 9,
+          "sl": 9,
+          "unresolved": 1,
+          "winRate": 50.0,
+          "avgRR": 1.647,
+          "expectancyR": 0.347
+        },
+        "meme": {
+          "n": 11,
+          "tp": 4,
+          "sl": 7,
+          "unresolved": 0,
+          "winRate": 36.36,
+          "avgRR": 1.709,
+          "expectancyR": -0.068
+        },
+        "defi": {
+          "n": 8,
+          "tp": 2,
+          "sl": 5,
+          "unresolved": 1,
+          "winRate": 28.57,
+          "avgRR": 1.814,
+          "expectancyR": -0.186
+        },
+        "new_high_beta": {
+          "n": 4,
+          "tp": 0,
+          "sl": 3,
+          "unresolved": 1,
+          "winRate": 0.0,
+          "avgRR": 1.6,
+          "expectancyR": -1.0
+        },
+        "alt": {
+          "n": 2,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.6,
+          "expectancyR": -1.0
+        },
+        "ai_high_beta": {
+          "n": 4,
+          "tp": 0,
+          "sl": 4,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.638,
+          "expectancyR": -1.0
+        }
+      },
+      "bySide": {
+        "SELL": {
+          "n": 37,
+          "tp": 11,
+          "sl": 23,
+          "unresolved": 3,
+          "winRate": 32.35,
+          "avgRR": 1.675,
+          "expectancyR": -0.113
+        },
+        "BUY": {
+          "n": 19,
+          "tp": 5,
+          "sl": 14,
+          "unresolved": 0,
+          "winRate": 26.32,
+          "avgRR": 1.689,
+          "expectancyR": -0.324
+        }
+      },
+      "byScoreBucket": {
+        "0-1": {
+          "n": 10,
+          "tp": 3,
+          "sl": 7,
+          "unresolved": 0,
+          "winRate": 30.0,
+          "avgRR": 1.57,
+          "expectancyR": -0.235
+        },
+        "1-3": {
+          "n": 17,
+          "tp": 4,
+          "sl": 13,
+          "unresolved": 0,
+          "winRate": 23.53,
+          "avgRR": 1.547,
+          "expectancyR": -0.406
+        },
+        "3-5": {
+          "n": 15,
+          "tp": 6,
+          "sl": 9,
+          "unresolved": 0,
+          "winRate": 40.0,
+          "avgRR": 1.643,
+          "expectancyR": 0.063
+        },
+        "7+": {
+          "n": 11,
+          "tp": 3,
+          "sl": 6,
+          "unresolved": 2,
+          "winRate": 33.33,
+          "avgRR": 2.1,
+          "expectancyR": 0.033
+        },
+        "5-7": {
+          "n": 3,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 1,
+          "winRate": 0.0,
+          "avgRR": 1.75,
+          "expectancyR": -1.0
+        }
+      },
+      "byRangePosition": {
+        ".4-.6": {
+          "n": 11,
+          "tp": 3,
+          "sl": 8,
+          "unresolved": 0,
+          "winRate": 27.27,
+          "avgRR": 1.586,
+          "expectancyR": -0.318
+        },
+        ".8-1": {
+          "n": 6,
+          "tp": 1,
+          "sl": 5,
+          "unresolved": 0,
+          "winRate": 16.67,
+          "avgRR": 1.767,
+          "expectancyR": -0.567
+        },
+        ".2-.4": {
+          "n": 15,
+          "tp": 6,
+          "sl": 9,
+          "unresolved": 0,
+          "winRate": 40.0,
+          "avgRR": 1.637,
+          "expectancyR": 0.063
+        },
+        ".6-.8": {
+          "n": 12,
+          "tp": 1,
+          "sl": 11,
+          "unresolved": 0,
+          "winRate": 8.33,
+          "avgRR": 1.658,
+          "expectancyR": -0.783
+        },
+        "0-.2": {
+          "n": 12,
+          "tp": 5,
+          "sl": 4,
+          "unresolved": 3,
+          "winRate": 55.56,
+          "avgRR": 1.839,
+          "expectancyR": 0.594
+        }
+      },
+      "byChase": {
+        "1.2+": {
+          "n": 16,
+          "tp": 2,
+          "sl": 12,
+          "unresolved": 2,
+          "winRate": 14.29,
+          "avgRR": 1.671,
+          "expectancyR": -0.629
+        },
+        "<.5": {
+          "n": 32,
+          "tp": 13,
+          "sl": 19,
+          "unresolved": 0,
+          "winRate": 40.62,
+          "avgRR": 1.65,
+          "expectancyR": 0.084
+        },
+        ".5-1.2": {
+          "n": 8,
+          "tp": 1,
+          "sl": 6,
+          "unresolved": 1,
+          "winRate": 14.29,
+          "avgRR": 1.836,
+          "expectancyR": -0.557
+        }
+      },
+      "byRegimeSide": {
+        "transition_SELL": {
+          "n": 22,
+          "tp": 5,
+          "sl": 17,
+          "unresolved": 0,
+          "winRate": 22.73,
+          "avgRR": 1.634,
+          "expectancyR": -0.402
+        },
+        "transition_BUY": {
+          "n": 13,
+          "tp": 4,
+          "sl": 9,
+          "unresolved": 0,
+          "winRate": 30.77,
+          "avgRR": 1.6,
+          "expectancyR": -0.2
+        },
+        "trend_BUY": {
+          "n": 4,
+          "tp": 0,
+          "sl": 4,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 2.1,
+          "expectancyR": -1.0
+        },
+        "trend_SELL": {
+          "n": 9,
+          "tp": 4,
+          "sl": 2,
+          "unresolved": 3,
+          "winRate": 66.67,
+          "avgRR": 2.05,
+          "expectancyR": 1.017
+        },
+        "range_SELL": {
+          "n": 6,
+          "tp": 2,
+          "sl": 4,
+          "unresolved": 0,
+          "winRate": 33.33,
+          "avgRR": 1.45,
+          "expectancyR": -0.183
+        },
+        "range_BUY": {
+          "n": 2,
+          "tp": 1,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 50.0,
+          "avgRR": 1.45,
+          "expectancyR": 0.225
+        }
+      },
+      "byProfileRegime": {
+        "major_transition": {
+          "n": 5,
+          "tp": 0,
+          "sl": 5,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.6,
+          "expectancyR": -1.0
+        },
+        "l1_l2_transition": {
+          "n": 12,
+          "tp": 5,
+          "sl": 7,
+          "unresolved": 0,
+          "winRate": 41.67,
+          "avgRR": 1.638,
+          "expectancyR": 0.096
+        },
+        "meme_transition": {
+          "n": 6,
+          "tp": 3,
+          "sl": 3,
+          "unresolved": 0,
+          "winRate": 50.0,
+          "avgRR": 1.6,
+          "expectancyR": 0.3
+        },
+        "major_trend": {
+          "n": 2,
+          "tp": 1,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 50.0,
+          "avgRR": 1.95,
+          "expectancyR": 0.4
+        },
+        "defi_transition": {
+          "n": 4,
+          "tp": 1,
+          "sl": 3,
+          "unresolved": 0,
+          "winRate": 25.0,
+          "avgRR": 1.6,
+          "expectancyR": -0.35
+        },
+        "l1_l2_trend": {
+          "n": 3,
+          "tp": 2,
+          "sl": 0,
+          "unresolved": 1,
+          "winRate": 100.0,
+          "avgRR": 2.1,
+          "expectancyR": 2.1
+        },
+        "major_range": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "meme_trend": {
+          "n": 3,
+          "tp": 0,
+          "sl": 3,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 2.1,
+          "expectancyR": -1.0
+        },
+        "defi_trend": {
+          "n": 4,
+          "tp": 1,
+          "sl": 2,
+          "unresolved": 1,
+          "winRate": 33.33,
+          "avgRR": 2.1,
+          "expectancyR": 0.033
+        },
+        "l1_l2_range": {
+          "n": 4,
+          "tp": 2,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 50.0,
+          "avgRR": 1.45,
+          "expectancyR": 0.225
+        },
+        "new_high_beta_trend": {
+          "n": 1,
+          "tp": 0,
+          "sl": 0,
+          "unresolved": 1,
+          "winRate": null,
+          "avgRR": null,
+          "expectancyR": null
+        },
+        "alt_transition": {
+          "n": 2,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.6,
+          "expectancyR": -1.0
+        },
+        "meme_range": {
+          "n": 2,
+          "tp": 1,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 50.0,
+          "avgRR": 1.45,
+          "expectancyR": 0.225
+        },
+        "ai_high_beta_transition": {
+          "n": 4,
+          "tp": 0,
+          "sl": 4,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.638,
+          "expectancyR": -1.0
+        },
+        "new_high_beta_range": {
+          "n": 1,
+          "tp": 0,
+          "sl": 1,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.45,
+          "expectancyR": -1.0
+        },
+        "new_high_beta_transition": {
+          "n": 2,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.675,
+          "expectancyR": -1.0
+        }
+      },
+      "bySweep15": {
+        "0": {
+          "n": 54,
+          "tp": 16,
+          "sl": 35,
+          "unresolved": 3,
+          "winRate": 31.37,
+          "avgRR": 1.671,
+          "expectancyR": -0.157
+        },
+        "-1": {
+          "n": 2,
+          "tp": 0,
+          "sl": 2,
+          "unresolved": 0,
+          "winRate": 0.0,
+          "avgRR": 1.925,
+          "expectancyR": -1.0
+        }
+      }
+    }
+  }
+}
