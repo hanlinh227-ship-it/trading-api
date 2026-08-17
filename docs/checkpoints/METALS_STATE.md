@@ -2,76 +2,84 @@
 
 Updated: 2026-08-17 UTC+7
 
-## Scope and identity
-Primary discretionary metal symbols:
-- XAUUSD = spot gold versus USD;
+## SCOPE / IDENTITY
+
+- XAUUSD = spot gold versus USD.
 - XAGUSD = spot silver versus USD.
+- XAUUSD is not GC futures.
+- XAGUSD is not SI futures.
 
-Keep spot metals separate from futures:
-- XAUUSD is not automatically GC futures;
-- XAGUSD is not automatically SI futures.
+Never substitute COMEX futures, ETFs or broker CFDs for the requested spot instrument silently.
 
-Never silently substitute COMEX futures, ETFs or broker CFDs for the requested spot instrument.
+## DATA POLICY — GROW55 DIRECT STRICT V3
 
-## Data policy — Grow 55
-Twelve Data Grow 55 is the primary aggregated path for supported spot/commodity analysis through the Worker.
+Canonical client: `scripts/twelvedata_market.py`.
 
-For a deep symbol review the current single-symbol pipeline retrieves:
-- D1/H4/H1/M15/M5 analysis;
-- latest `/price`;
-- M1 recent-candle reference.
+Verified mappings:
+- `XAUUSD -> XAU/USD`, expected type `Precious Metal`;
+- `XAGUSD -> XAG/USD`, expected type `Precious Metal`.
 
-The latest `/price` is an aggregated reference. Worker fetch time is not treated as a verified broker quote-tick timestamp, and bid/ask/spread must not be invented when the feed does not provide them.
+The current single-symbol path:
+1. validates exact Twelve Data metadata on D1/H4/H1/M15/M5/M1;
+2. excludes unfinished candles from indicator/trigger calculations;
+3. uses `/quote` to verify identity and `last_quote_at`;
+4. uses `/price` for the latest aggregated price only after identity is proven;
+5. rejects quote age >65 seconds as `DATA_BLOCK`;
+6. keeps V74 strict MARKET freshness target <=30 seconds;
+7. leaves bid/ask/spread unverified when Twelve Data does not supply broker execution fields.
 
-If strict MARKET execution requires exact broker spread/timestamp, obtain platform/venue confirmation or return `DATA_BLOCK`.
+The old Cloudflare Worker is not part of the canonical metals runtime.
 
-## Timeframe workflow
+## TIMEFRAME WORKFLOW
+
 - D1/H4: macro regime, major structure/liquidity and premium/discount.
 - H1: intraday bias and structural leg.
-- M15: setup construction and key intraday location.
-- M5: trigger/confirmation.
-- M1: recent timing/reference only.
+- M15: setup construction and key location.
+- M5: close-confirmed trigger/confirmation.
+- M1: recent reference only; never a substitute for exact execution quote.
 
-## Technical toolkit
-Use structure first, indicators second:
-- support/resistance and swing structure;
+## TECHNICAL TOOLKIT
+
+Structure first, indicators second:
+- swing structure / S/R;
 - liquidity sweeps;
 - displacement / MSS;
-- FVG / imbalance and breakout-retest/reclaim;
-- EMA20/50/200 for trend/pullback context;
-- RSI14 for momentum/exhaustion;
-- ATR14 for volatility and SL floor;
-- VWAP when reliable intraday data exists;
-- Volume Profile / POC / VAH / VAL when a reliable volume source exists.
+- FVG / imbalance / breakout-retest;
+- EMA20/50/200;
+- RSI14;
+- ATR14;
+- VWAP / Volume Profile only when reliable data exists.
 
-## Gold-specific context
-For XAUUSD always consider:
+## GOLD CONTEXT
+
+For XAUUSD consider:
 - DXY;
-- US Treasury yields, especially US10Y and real-yield direction when available;
+- US Treasury yields / real yields when available;
 - Fed/rate expectations;
-- US CPI/PCE/NFP/jobs/retail/growth;
+- CPI/PCE/NFP/jobs/growth;
 - geopolitical safe-haven demand;
-- major risk-on/risk-off shifts.
+- broad risk sentiment.
 
-Do not infer direction from one macro variable alone; require price-structure confirmation.
+## SILVER CONTEXT
 
-## Silver-specific context
-XAGUSD shares precious-metal drivers with gold but has stronger industrial/cyclical sensitivity and often higher volatility. Use structure/ATR appropriate to silver rather than copying gold distances. Gold/silver relative behavior is context, not a standalone signal.
+XAGUSD shares precious-metal drivers but has stronger industrial/cyclical sensitivity and typically higher volatility. Do not copy gold point distances mechanically.
 
-## MARKET setup standard
-A strong setup normally requires:
-1. exact spot instrument identity;
-2. D1/H4/H1 bias not materially conflicting;
-3. meaningful M15 location rather than an extended chase;
-4. M5 sweep/reclaim, rejection, breakout-retest or displacement-pullback confirmation;
-5. no unresolved top-tier event directly invalidating timing;
-6. final current price refresh;
-7. venue/platform execution confirmation when exact spread/timestamp is required.
+## MARKET SETUP STANDARD
+
+A strong setup requires:
+1. exact spot identity;
+2. fresh provider timestamp;
+3. D1/H4/H1 alignment or a clearly defined counter-trend structure;
+4. meaningful M15 location;
+5. M5 close-confirmed trigger;
+6. current macro/news context;
+7. final execution-venue spread confirmation when MARKET precision matters.
 
 ## SL / TP
-- structural invalidation defines SL;
-- ATR is only a minimum volatility buffer;
-- TP targets meaningful liquidity/SR/VAH-VAL/POC or another defensible structural objective;
-- calculate RR only after SL and target are structurally defined.
 
-For prop-firm trading, firm-specific daily/max-drawdown constraints override generic sizing guidance.
+- structural invalidation defines SL;
+- ATR is a volatility floor only;
+- TP follows defensible liquidity / structure;
+- RR is calculated after structural SL and target are defined.
+
+For prop-firm trading, firm-specific drawdown/risk rules override generic sizing guidance.
