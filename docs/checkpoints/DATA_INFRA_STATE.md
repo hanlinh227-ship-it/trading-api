@@ -9,7 +9,7 @@ Repo: `hanlinh227-ship-it/trading-api`
 - `scripts/fetch_crypto.py`: direct crypto exchange fetcher.
 - `data/status.json`: validated current output.
 - `data/latest.json`: raw/full output.
-- Blind-test research scripts/results: `scripts/blind_backtest_crypto_v*.py`, `data/blind_backtest_v*.json`.
+- Active crypto blind-test lineage: `scripts/blind_backtest_crypto.py`, `scripts/blind_backtest_crypto_v17.py`, `scripts/blind_backtest_crypto_v22.py`, `scripts/blind_backtest_crypto_v24.py` plus key V17/V22/V24 result files.
 
 ## Cloudflare / Twelve Data
 Cloudflare Worker: `forex-chart-api`.
@@ -56,14 +56,32 @@ NASDAQ-100 cash `NDX` has returned a Twelve Data message that the symbol require
 - Keep development/regression samples distinct from untouched validation samples.
 - Do not cherry-pick only winning dates.
 
-## Current crypto research files to inspect
-The research has progressed through many versions. Before continuing, inspect the highest version script/result present in the repo and the canonical `CRYPTO_BREAKOUT_STATE.md`; do not assume the numerically newest version is automatically superior.
+## Repository retention / cleanup policy
+The active Git tree should remain lean. Keep:
+- live pipeline/workflow/config files;
+- active strategy engine and only the code dependency chain required to reproduce it;
+- key validation result files that support the current method;
+- canonical checkpoints and compact research archives;
+- reusable non-crypto calibration/backtest infrastructure that is still relevant to Forex/metals/indices.
+
+Remove from the active tree after conclusions are checkpointed:
+- rejected strategy-version scripts that are no longer dependencies;
+- one-off diagnostic/grid/probe workflows;
+- large raw probe dumps that can be regenerated from providers;
+- duplicate/obsolete method docs superseded by canonical checkpoints;
+- old rejected-version result JSONs once their conclusions are summarized.
+
+Do NOT delete a file solely because it is old if it is still imported by the active engine or is part of the live Forex/metals/index infrastructure. Git history retains old commits, so active-tree cleanup mainly prevents future clutter; a destructive history rewrite is unnecessary unless repository history eventually becomes genuinely large.
+
+## Current crypto cleanup status
+On 2026-08-17 the repo was pruned so the current crypto lineage keeps base + V17 + V22 + V24 code and key results, while retired V8–V23 artifacts that were not dependencies and one-off diagnostics/probes were removed from the active tree after being summarized in `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`.
 
 ## Cross-chat protocol
 New chat should first read:
 1. `docs/checkpoints/MASTER_TRADING_STATE.md`
-2. relevant market checkpoint
-3. this file
-4. current `data/status.json` or latest backtest result as required.
+2. `docs/checkpoints/CURRENT_HANDOFF.md`
+3. relevant market checkpoint
+4. this file
+5. current `data/status.json` or latest retained backtest result as required.
 
 If pipeline health is uncertain, verify the current workflow run rather than relying on an old successful run.
