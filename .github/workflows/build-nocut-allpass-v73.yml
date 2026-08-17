@@ -40,6 +40,7 @@ jobs:
         run: |
           git config user.name "trading-checkpoint-bot"
           git config user.email "trading-checkpoint-bot@users.noreply.github.com"
+          git pull --rebase origin main
           git add data/nocut_intraday_allpass_v73.json docs/checkpoints/NO_CUT_INTRADAY_ALLPASS_V73.md
           git diff --cached --quiet || git commit -m "Save no-cut intraday all-pass V73 checkpoint"
-          git push
+          git push origin main
