@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier
 import scripts.offline_forex_precision_evolver_v15 as b
-import scripts.offline_forex_daily_per_symbol_v18 as old
+import scripts.offline_forex_daily_per_symbol_v17 as old
 
 OUT='data/offline_forex_intraday_nocut_v62.json'
 TARGET=80.0
