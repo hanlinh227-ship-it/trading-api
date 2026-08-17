@@ -4,123 +4,138 @@ Updated: 2026-08-17 UTC+7
 Status: CURRENT live-analysis / execution playbook layered on frozen V73
 
 ## Purpose
-V73 remains the frozen exposed-development backtest prior. V74 converts that prior into a live decision process for all 28 Forex pairs + 61 Crypto symbols without re-optimizing V73.
+V73 remains the frozen exposed-development statistical prior. V74 converts that prior into a live decision process for all 28 Forex pairs + 61 Crypto symbols without re-optimizing V73.
 
 Canonical implementation:
 - `scripts/live_symbol_analysis_v74.py`
 - validation workflow: `.github/workflows/validate-live-v74.yml`
 - first successful validation run: `32037184726`
 
-## Why V74 was needed
-V73 proved the requested development gate, but it was not yet a complete live-analysis method. In particular:
-- `signalHourUTC` could be misread as an automatic entry time;
-- `DUAL_FADE` could be misread as permission to place both sides blindly;
-- live D1/H4/H1 -> M15/M5 confirmation was not encoded;
-- transaction-cost/freshness gates were not encoded;
-- trade #2/#3 rules were not encoded;
-- 28/61 Crypto symbols could fall back to generic `OTHER` news drivers because V73 profile names did not match the original driver table;
-- LIT was labeled with legacy `IDENTITY` context instead of current Lighter/perp-DEX context.
+## Why V74 exists
+V73 is not a standalone live-entry engine. V74 prevents these errors:
+- treating `signalHourUTC` as an automatic order time;
+- treating `DUAL_FADE` as permission to place both sides;
+- omitting D1/H4/H1 -> M15/M5 confirmation;
+- omitting current symbol-specific news/context;
+- ignoring price freshness and execution costs;
+- confusing historical development WR with live expectancy;
+- using old crypto identity/profile mappings in live analysis.
 
-V74 fixes those live-layer issues while preserving V73's frozen statistical methods/results.
+## Mandatory live-analysis order
+1. Resolve exact instrument / venue / contract.
+2. Refresh current market data and identify what the timestamp actually represents.
+3. Reject mismatched/stale/unverifiable execution data as `DATA_BLOCK`.
+4. Refresh current symbol-specific news/context.
+5. Establish D1/H4 draw-on-liquidity, trend/regime and premium/discount.
+6. Read H1 structure and only point-in-time observable router features.
+7. Load the frozen V73 action without optimizing it from today's outcome.
+8. Treat V73 `signalHourUTC` as a preferred observation anchor only.
+9. Require M15 tradable location: sweep, breakout-retest, FVG/imbalance retest or clean reclaim.
+10. Require M5 close-confirmed MSS/displacement + retest for strict execution.
+11. Put structural invalidation/SL first; ATR is only a volatility floor.
+12. Default RR1. Promote to RR2 only with >=2.2R clean room after estimated costs, HTF alignment and no major opposing level before 2R.
+13. Refresh final execution data immediately before MARKET.
+14. Record setup/context/timestamp/spread/slippage/outcome for unchanged forward validation.
 
-## V74 analysis order — EVERY live symbol
-1. Verify exact instrument/venue, current bid/ask/price and timestamp.
-2. Reject stale/mismatched data as `DATA_BLOCK`; never pretend stale data is live.
-3. Refresh point-in-time symbol-specific news/context.
-4. Establish D1/H4 draw-on-liquidity, trend/regime and premium/discount.
-5. Read H1 structure and only observable router features.
-6. Load the frozen V73 symbol action. Never optimize it with today's outcome.
-7. Treat V73 `signalHourUTC` as a preferred observation anchor, not an automatic order.
-8. Require M15 tradable location: sweep, breakout-retest, FVG/imbalance retest or clean reclaim.
-9. Require M5 close-confirmed MSS/displacement + retest for execution.
-10. Put structural invalidation/SL first; ATR is only a volatility floor.
-11. RR defaults to 1:1. Promote to 1:2 only when >=2.2R clean room remains after estimated costs, HTF alignment exists and no major opposing level is before 2R.
-12. Record setup, news/context, price timestamp, spread/slippage and TP/SL/TIMEOUT for forward validation.
+## V73 interpretation
+- V73 family = setup-archetype prior, not a standalone signal.
+- V73 entryMode = historical geometry prior, not automatic execution.
+- `DUAL_FADE` = two-sided historical geometry; live execution activates only the side confirmed by current bias + trigger.
+- observable routers must use only data available at the decision timestamp.
 
-## V73 geometry interpretation in live
-- V73 family = setup archetype prior, not a standalone signal.
-- V73 entryMode = geometry prior, not automatic execution.
-- `DUAL_FADE` = two-sided historical geometry. In live, activate ONLY the side confirmed by D1/H4/H1 bias and M15/M5 trigger. Never place both sides blindly.
-- Regime routers may only use point-in-time observable features. No future bars/news.
+## Current data architecture
 
-## Forex — per-pair live context
+### Forex / supported non-crypto
+Twelve Data Grow 55 is the primary aggregated market-data path through the Cloudflare Worker.
+
+For a deep symbol review the current pipeline can retrieve:
+- D1/H4/H1/M15/M5 OHLC and locally derived indicators;
+- latest Twelve Data `/price`;
+- M1 recent-candle reference.
+
+**Important:** a freshly fetched `/price` value is not automatically an executable broker quote. In this integration:
+- Worker `generatedAt` is fetch time;
+- it is not treated as a verified broker quote-tick timestamp;
+- bid/ask must not be invented;
+- spread must not be invented.
+
+Therefore Forex target quote age <=30 seconds applies only when a true quote/venue timestamp is available. If broker/venue spread or timestamp is required and unavailable, obtain platform confirmation or return `DATA_BLOCK` for MARKET execution.
+
+### Crypto
+Exchange-native REST is primary for execution precision:
+- Binance;
+- OKX;
+- Bybit fallback where appropriate.
+
+Require exact token/instrument/venue, exchange timestamp, bid/ask and spread when available. Strict V74 target quote age <=10 seconds.
+
+Twelve Data may be used as enrichment/cross-check, not as a replacement for exchange-specific execution data when venue precision matters.
+
+## Forex context
 Every pair compares both currency legs independently.
 
-USD: Fed/FOMC, CPI/PCE/labor, Treasury yields + DXY, global USD liquidity/risk.
-EUR: ECB, Eurozone CPI/PMI, Germany growth/industry, EU fiscal/political risk.
-GBP: BoE, CPI/wages/jobs, GDP/retail, gilt/fiscal risk.
-JPY: BoJ, MoF intervention, CPI/wages, JGB yields/global risk.
-CHF: SNB, CPI, safe-haven flows, European risk.
-CAD: BoC, CPI/jobs/GDP, WTI, US-Canada rate/growth differential.
-AUD: RBA, CPI/jobs, China data, iron ore/global risk.
-NZD: RBNZ, CPI/jobs, China growth, dairy/commodity/global risk.
+- USD: Fed/FOMC, CPI/PCE/labor, Treasury yields/DXY, global USD liquidity/risk.
+- EUR: ECB, Eurozone CPI/PMI, Germany growth/industry, EU fiscal/political risk.
+- GBP: BoE, CPI/wages/jobs, GDP/retail, gilt/fiscal risk.
+- JPY: BoJ, MoF intervention, CPI/wages, JGB yields/global risk.
+- CHF: SNB, CPI, safe-haven flows, European risk.
+- CAD: BoC, CPI/jobs/GDP, WTI, US-Canada rate/growth differential.
+- AUD: RBA, CPI/jobs, China data, iron ore/global risk.
+- NZD: RBNZ, CPI/jobs, China growth, dairy/commodity/global risk.
 
-Session preference is pair-specific: Asia for JPY/AUD/NZD exposure, London for EUR/GBP/CHF, New York for USD/CAD, with London-New York overlap emphasized for USD crosses.
+Session preference remains pair-specific. Around top-tier scheduled releases, do not blindly enter immediately before the event; re-evaluate after the event and require confirmed structure/retest.
 
-High-impact scheduled event rule: do not blindly enter immediately before a top-tier release. Re-score after the event and wait for the first confirmed M5 structure/retest. This delays execution; it does not secretly convert a valid market day into discretionary NO TRADE.
+## Crypto context
+All 61 symbols use current explicit identities and covered live driver profiles; no live `OTHER` fallback.
 
-## Crypto — corrected per-symbol context
-All 61 symbols have an explicit current identity and one of 35 covered live driver profiles. There is no `OTHER` fallback in V74.
+Important mappings include:
+- LIT = Lighter / Lighter Infrastructure Token, PERP_DEX;
+- S = Sonic native token after FTM -> S migration;
+- ASTER = Aster perp-DEX;
+- XPL = Plasma stablecoin-focused Layer 1;
+- HBAR = Hedera enterprise/public-network context;
+- NEAR = NEAR chain-abstraction/AI ecosystem;
+- WLD = World/World ID/World Chain + distribution/regulatory context.
 
-Important identity corrections/audits:
-- LIT = Lighter / Lighter Infrastructure Token; profile = PERP_DEX, not legacy Litentry identity.
-- S = Sonic native token after Fantom -> Sonic migration.
-- ASTER = Aster perp-DEX ecosystem.
-- XPL = Plasma stablecoin-focused Layer 1.
-- HBAR = Hedera enterprise/public-network context.
-- NEAR = NEAR chain + chain-abstraction/AI ecosystem context.
-- WLD = World/World ID/World Chain + token-distribution/regulatory context.
-
-Every Crypto playbook combines:
-- project/protocol official announcements;
-- token unlock/supply/staking/buyback changes when relevant;
-- fresh spot/perp volume, OI/funding, exchange and on-chain/whale flows;
+Every crypto review combines, when relevant:
+- official project/protocol announcements;
+- unlock/supply/staking/buyback changes;
+- spot/perp volume, OI/funding and exchange/on-chain flows;
 - symbol/BTC relative strength;
-- BTC dominance/breadth and broad crypto regime;
-- sector-specific drivers (DeFi, L1, L2, meme, AI, RWA, perp-DEX, stablecoin L1, etc.).
+- BTC dominance/breadth and broad risk regime;
+- sector-specific drivers.
 
-News is confirmation/routing context. If a catalyst has already displaced price >1 ATR, wait for a pullback/retest instead of chasing.
+If a catalyst has already displaced price materially, avoid chasing and wait for a structurally valid pullback/retest.
 
-## Freshness / execution gates
-Forex:
-- current quote target age <=30 seconds;
-- exact pair + venue/source verified;
-- market must be open;
-- bid/ask and estimated costs required.
+## Execution integrity
+For MARKET execution distinguish:
+1. latest aggregated/reference price;
+2. true market quote timestamp;
+3. executable venue bid/ask spread.
 
-Crypto:
-- current quote target age <=10 seconds;
-- exact token/instrument + venue verified;
-- bid/ask and estimated costs required.
+Do not merge these concepts.
 
-Both:
-- stale price forbidden;
+Requirements when available/applicable:
+- exact symbol/instrument/venue;
+- market open state;
+- verified quote timestamp;
+- bid/ask/spread;
 - estimated round-trip spread/slippage target <=0.10R;
-- if exact symbol/fresh price/executable spread cannot be verified, return `DATA_BLOCK` rather than fabricate a trade. `DATA_BLOCK` is a technical integrity failure, not discretionary NO TRADE.
+- crypto quote age target <=10s;
+- Forex quote age target <=30s when true quote timestamp exists.
+
+If required execution fields cannot be verified, return `DATA_BLOCK` rather than fabricate a live order. `DATA_BLOCK` is a technical integrity failure, not a discretionary trading opinion.
 
 ## 1–3 trades/day rule
 - Trade #1: strongest confirmed setup in the preferred active window.
-- Trade #2: only after #1 is closed or risk neutralized AND a new independent liquidity event/structure occurs.
+- Trade #2: only after #1 is closed or risk-neutral and a new independent liquidity/structure event occurs.
 - Trade #3: only in a later independent session/regime with A-grade confirmation; never revenge/averaging.
-- After two losses, do not force a third recovery trade; the daily minimum is already satisfied.
-- If no A-grade setup has triggered by the final liquid window, V74 defines a mandatory fallback: frozen V73 prior + H1 close confirmation + M5 pullback/retest at 0.5x normal risk.
+- After two losses, do not force a third recovery trade.
+- If no A-grade setup has triggered by the final liquid window, V74 defines a mandatory fallback: frozen V73 prior + H1 close confirmation + M5 pullback/retest at 0.5x normal risk, **subject to data-integrity gates**.
 
-IMPORTANT: the fallback, trade #2/#3 logic, freshness/cost gates and M15/M5 confirmation are NEW V74 operational rules. They were not part of the V73 development WR and therefore need forward/OOS validation.
+The fallback, trade #2/#3 logic, freshness/cost gates and M15/M5 confirmation are V74 operational rules and were not part of V73's development WR.
 
 ## Assessment
-V74 is more logically suitable for live trading than directly executing V73 because it separates:
-- statistical prior,
-- live context,
-- price-structure confirmation,
-- execution quality,
-- risk geometry.
+V74 is the current live operating layer, but it is not yet statistically forward-proven. The historical >=80% V73 development result cannot be transferred as a live WR claim.
 
-However, V74 is NOT yet statistically proven live. The following still need validation before claiming the 80% development WR carries into live execution:
-1. unchanged forward/OOS results with V73+V74 frozen;
-2. real spread/slippage/fees;
-3. event-delay effect around macro/news;
-4. M15/M5 trigger hit-rate and missed-entry behavior;
-5. mandatory fallback performance;
-6. second/third trade performance by independent session.
-
-Do not retune an untouched validation sample after seeing its result. If a live rule fails, create a later version and preserve the failed evidence.
+Required evidence remains unchanged forward/OOS collection with real spread/slippage, event delays, M15/M5 trigger behavior, fallback behavior and independent later-session trades. If a live rule later changes, create a new version rather than rewriting V74 evidence retrospectively.
