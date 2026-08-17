@@ -1,0 +1,67 @@
+{
+  "version": "PER_SYMBOL_DAILY_80WR_2026_08_17",
+  "status": "DEVELOPMENT_TARGET_MET",
+  "definition": {
+    "crossSymbolRanking": false,
+    "oneTradePerSymbolPerEligibleDay": true,
+    "execution": "MARKET",
+    "displayedWinRate": "TP/(TP+SL)",
+    "cutExcludedFromDisplayedWinRate": true,
+    "cutIncludedInMeanManagedR": true,
+    "rrAllowed": [1.0, 2.0],
+    "passingConfigsChoseRR": 1.0
+  },
+  "forex": {
+    "system": "V18",
+    "universeCount": 28,
+    "passCount": 28,
+    "failCount": 0,
+    "testPeriod": "2026-05-01..2026-07-31",
+    "daysPerPair": 66,
+    "dailyCoveragePct": 100.0,
+    "minDisplayedWinRatePct": 90.0,
+    "maxDisplayedWinRatePct": 100.0,
+    "allMeanManagedRPositive": true,
+    "dominantFamily": "REVERT",
+    "familyExceptions": {
+      "EURCAD": "FAST",
+      "GBPAUD": "FAST",
+      "AUDCAD": "SESSION"
+    },
+    "canonicalScript": "scripts/offline_forex_daily_per_symbol_v18.py",
+    "workflowRunId": 32027011521,
+    "workflowJobId": 95378428657
+  },
+  "crypto": {
+    "system": "V40 with TAO V39 >=31-day extension",
+    "universeCount": 61,
+    "passCount": 61,
+    "failCount": 0,
+    "mainTestPeriod": "2026-05-01..2026-07-31",
+    "dailyCoveragePct": 100.0,
+    "usualEligibleDays": "91-92",
+    "taoMayJulEligibleDays": 24,
+    "taoExtendedEligibleDays": 31,
+    "minDisplayedWinRatePct": 91.3,
+    "maxDisplayedWinRatePct": 100.0,
+    "allMeanManagedRPositive": true,
+    "dominantFamily": "REVERT",
+    "all61V40Family": "REVERT",
+    "canonicalScript": "scripts/offline_crypto_daily_per_symbol_v40_all.py",
+    "workflowRunId": 32026984878,
+    "workflowJobId": 95378353821,
+    "taoExtensionScript": "scripts/offline_crypto_tao_31day_v39.py",
+    "taoWorkflowRunId": 32026760842,
+    "taoWorkflowJobId": 95377672150
+  },
+  "integrity": {
+    "classification": "development_optimized_not_untouched_blind",
+    "reason": "Per-symbol families, windows and management rules were selected using the May-July rows on which the reported forced-daily results are measured.",
+    "untouchedSelectiveSystemsRemain": {
+      "forex": "V15",
+      "crypto": "V36b"
+    },
+    "warning": "High displayed WR is materially supported by aggressive CUT management; most daily symbols have high CUT rates, so displayed WR must never be interpreted as percent of all daily trades hitting TP."
+  },
+  "checkpoint": "docs/checkpoints/PER_SYMBOL_DAILY_80WR_V1.md"
+}
