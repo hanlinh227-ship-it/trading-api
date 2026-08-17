@@ -1,0 +1,27 @@
+name: Offline Crypto H1 Hour Refine V68
+on:
+  push:
+    paths:
+      - '.github/workflows/offline-crypto-h1-hour-refine-v68.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -q numpy scikit-learn
+      - name: Recreate V65 base
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_h1_nocut_geometry_v65.py
+      - name: Refine all H1 signal hours
+        env:
+          PYTHONPATH: .
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_crypto_h1_hour_refine_v68.py
