@@ -16,27 +16,26 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    env:
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run cross-market audit
+      - name: Run strict cross-market audit
         shell: bash
-        run: |
-          python3 scripts/audit_market_data.py
+        run: python3 scripts/audit_market_data.py
 
       - name: Commit audit evidence
+        if: always()
         shell: bash
         run: |
           git config user.name "market-data-bot"
           git config user.email "market-data-bot@users.noreply.github.com"
           git add data/market-data-audit.json
-          if git diff --cached --quiet; then
-            echo "No audit changes."
-            exit 0
-          fi
-          git commit -m "Update canonical cross-market data audit"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update strict cross-market data audit"
           git pull --rebase origin main
           git push origin HEAD:main
