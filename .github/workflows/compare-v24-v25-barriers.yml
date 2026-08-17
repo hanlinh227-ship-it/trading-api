@@ -1,0 +1,14 @@
+name: Compare V24 V25 Barriers
+on:
+  push:
+    paths:
+      - 'scripts/compare_v24_v25_barriers.py'
+      - '.github/workflows/compare-v24-v25-barriers.yml'
+  workflow_dispatch:
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/compare_v24_v25_barriers.py
