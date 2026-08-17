@@ -1,0 +1,20 @@
+name: Probe TON IP H1 Sources
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/probe-ton-ip-h1.yml'
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Probe public spot H1 sources
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/probe_ton_ip_h1_sources.py
