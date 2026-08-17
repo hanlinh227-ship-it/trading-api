@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'data/provider_snapshots/forex_h1_feb_jul_2026.json'
+      - 'scripts/offline_forex_precision_evolver_v15.py'
+      - '.github/workflows/offline-forex-precision-v15.yml'
   workflow_dispatch:
 permissions:
   contents: read
