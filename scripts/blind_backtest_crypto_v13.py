@@ -3,9 +3,6 @@ import json, os, sys
 from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 import blind_backtest_crypto as v6
-
-# Locked AFTER development on 2026-08-13 12:00 and 2026-08-12 12:00 only.
-# This cutoff was not used to select the policy/barriers below.
 LABEL='FRESH_BLIND_2026-08-05_12UTC'
 CUTOFF='2026-08-05T12:00:00Z'
 HOURS=96
@@ -15,15 +12,11 @@ STOP_FACTOR=.95
 def choose_side(base_side, model):
     rg=model['regime']; pos=model.get('rangePositionH1',.5); htf=model.get('htfScore',0); ltf=model.get('ltfScore',0)
     htf_side='BUY' if htf>=0 else 'SELL'; ltf_side='BUY' if ltf>=0 else 'SELL'
-    # V13: HTF-first. Trend always follows HTF. Range fades range location.
-    # Transition follows HTF unless HTF is weak, then M15/M5 execution decides.
     if rg=='trend': return htf_side
     if rg=='range': return 'SELL' if pos>=.55 else 'BUY'
     return htf_side if abs(htf)>=2.5 else ltf_side
 
 def planned_rr(model, score):
-    # Raise RR without making every market regime chase the same target.
-    # Trend gets 1.70R; transition/range stay at robust 1.50R.
     return 1.70 if model['regime']=='trend' else 1.50
 
 def future(source,sym,cut):
@@ -31,17 +24,14 @@ def future(source,sym,cut):
     if source.startswith('Bybit'):return v6.bybit_future(sym,cut,end)
     out=[];cur=cut
     while cur<end:
-        nxt=min(end,cur+24*3600000)
-        out.extend([x for x in v6.okx_future_page(f'{sym}-USDT',cur,nxt) if cur<=x['ts']<nxt]);cur=nxt
+        nxt=min(end,cur+24*3600000);out.extend([x for x in v6.okx_future_page(f'{sym}-USDT',cur,nxt) if cur<=x['ts']<nxt]);cur=nxt
     return sorted(out,key=lambda x:x['ts'])
 
 def evaluate(side,en,sl,tp,cs):
     mfe=mae=0.0
     for i,x in enumerate(cs,1):
-        if side=='BUY':
-            mfe=max(mfe,x['high']-en);mae=max(mae,en-x['low']);hs=x['low']<=sl;ht=x['high']>=tp
-        else:
-            mfe=max(mfe,en-x['low']);mae=max(mae,x['high']-en);hs=x['high']>=sl;ht=x['low']<=tp
+        if side=='BUY':mfe=max(mfe,x['high']-en);mae=max(mae,en-x['low']);hs=x['low']<=sl;ht=x['high']>=tp
+        else:mfe=max(mfe,en-x['low']);mae=max(mae,x['high']-en);hs=x['high']>=sl;ht=x['low']<=tp
         if hs and ht:return {'result':'AMBIGUOUS','mfe':mfe,'mae':mae,'candles':i}
         if hs:return {'result':'SL','mfe':mfe,'mae':mae,'candles':i}
         if ht:return {'result':'TP','mfe':mfe,'mae':mae,'candles':i}
@@ -67,3 +57,4 @@ def main():
     with open('data/blind_backtest_v13.json','w') as f:json.dump(payload,f,indent=2)
     print(json.dumps(summary,indent=2))
 if __name__=='__main__':main()
+# trigger-v2
