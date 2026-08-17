@@ -1,0 +1,26 @@
+name: Offline Crypto H1 Remaining V52 Rules Matrix
+on:
+  push:
+    paths:
+      - 'scripts/offline_crypto_h1_remaining_v52_rules_matrix.py'
+      - '.github/workflows/offline-crypto-h1-remaining-v52-rules-matrix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  symbol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      max-parallel: 9
+      matrix:
+        symbol: [AAVE,ARB,AVAX,DOT,FLOKI,GRASS,INJ,LDO,LINK,LIT,ONDO,POL,S,SUI,TAO,WIF,WLD,XPL]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic H1 family search
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+          TARGET_SYMBOL: ${{ matrix.symbol }}
+        run: python scripts/offline_crypto_h1_remaining_v52_rules_matrix.py
