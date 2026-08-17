@@ -3,159 +3,95 @@
 Updated: 2026-08-17 (UTC+7)
 Purpose: canonical handoff/checkpoint for continuing the Trading project across new ChatGPT conversations.
 
-## 1. Cross-chat protocol
-- At the start of a new Trading chat, read this file first, then `docs/checkpoints/CURRENT_HANDOFF.md`, then the market-specific checkpoint(s).
-- Do not reconstruct strategy state from memory when checkpoints exist.
-- When a material rule, API path, symbol universe, risk rule, or validation conclusion changes, update the relevant market checkpoint, CURRENT_HANDOFF, then this master file when high-level state changes.
-- Never promote a method because of one unusually strong backtest; keep sample size/regime diversity explicit.
-- Never present stale/web proxy prices as executable live prices. Refresh exact symbol through the active feed immediately before current-price/entry/hold/cut decisions.
+## Cross-chat protocol
+Read this file first, then `CURRENT_HANDOFF.md`, then the market-specific checkpoint. Do not reconstruct strategy state from memory when checkpoints exist. Never promote a method from one lucky sample; never present stale prices as executable live prices.
 
-## 2. Canonical checkpoint files
-- `docs/checkpoints/CURRENT_HANDOFF.md`
-- `docs/checkpoints/FOREX_STATE.md`
-- `docs/checkpoints/CRYPTO_BREAKOUT_STATE.md`
-- `docs/checkpoints/METALS_STATE.md`
-- `docs/checkpoints/CASH_INDICES_STATE.md`
-- `docs/checkpoints/FUTURES_NQ_ES_STATE.md`
-- `docs/checkpoints/DATA_INFRA_STATE.md`
-
-## 3. Universal trading/research rules
-- Separate market context from execution timing.
-- Multi-timeframe sequence: regime/bias -> structure -> setup -> LTF trigger -> structural SL -> realistic TP/liquidity target.
-- Indicators must have distinct roles; avoid redundant stacking.
-- News/macro/event risk must be checked when relevant.
-- Structure determines invalidation first; ATR/volatility is buffer/floor.
-- Position sizing follows SL and allowed risk.
+## Universal rules
+- Regime/bias -> structure -> setup -> execution -> structural SL -> realistic TP.
+- Indicators must have distinct roles; avoid stacking.
+- News/macro/event risk matters for live trades.
+- Structure determines invalidation first; ATR is a buffer/normalizer.
 - Forced BUY/SELL on every symbol is a research stress test, not automatically a live rule.
-- Direction accuracy and TP/SL outcome should be evaluated separately.
-- Do not optimize WR alone; expectancy and RR matter.
+- Score direction separately from TP/SL.
+- Do not optimize win rate alone; expectancy and RR matter.
 
-## 4. Market separation
-- Cash indices are NOT futures. NAS100/USTEC means Nasdaq-100 cash unless futures are explicitly requested.
-- Futures NQ/ES/MNQ/MES are separate instruments.
-- Crypto Breakout availability must be verified; exchange availability alone is insufficient.
-- Forex uses a separate cross-currency framework; do not import crypto BTC breadth/order-flow logic into Forex.
+## Market separation
+Cash indices are not NQ/ES futures. Crypto has its own BTC/market-quality framework. Forex uses cross-currency factor/archetype logic. Metals remain separate.
 
-## 5. Current high-level status
-
-### Forex — active forced-blind method research
+## Forex — current high-level state
 Universe: 28 liquid pairs formed from USD/EUR/GBP/JPY/CHF/CAD/AUD/NZD.
 
-Current research benchmark:
-- no Top-3 selection;
-- every valid pair gets BUY or SELL at each blind cutoff;
-- score direction 6h/12h/24h plus TP/SL outcome;
-- TP/SL may be dynamic rather than fixed RR;
+Research benchmark:
+- all valid pairs forced BUY/SELL at each blind cutoff;
+- no Top-3/NO-TRADE in benchmark;
+- direction checked at chosen/3h/6h/12h/24h;
+- TP/SL dynamic/horizon-matched;
 - revealed blind blocks become development data forever.
 
-Minimal stack:
-- EMA20/50 = trend/value/slope;
-- RSI14 = momentum/exhaustion;
-- ATR14 = volatility/SL normalization;
-- ADX14 = regime/trend-vs-chop;
-- 6h/24h/72h cross-currency strength.
+Minimal indicators:
+- EMA20/50;
+- RSI14;
+- ATR14;
+- ADX14.
 
-Currency-specific live macro profiles remain required: USD Fed/PCE-CPI/labour/yields; EUR ECB/HICP/wages-services/energy-growth; GBP BoE/CPI-services/wages/growth; JPY BoJ/JGB/carry/MOF intervention; CHF SNB/inflation/risk-off/intervention; CAD BoC/jobs-CPI/oil/US trade-growth; AUD RBA/inflation/labour/China-commodities-risk; NZD RBNZ/CPI/spare-capacity/dairy-global rates.
+Main non-indicator state:
+- 3/6/12/24/72h cross-currency factor coherence;
+- cross-sectional dispersion/rank separation;
+- 8h session breakout/sweep/location;
+- pair archetype;
+- bias-vs-barrier diagnostics.
 
-#### F1-F3 compressed
-- F1 naive strongest-score Top3 rejected.
-- F2 selective four-trade sample looked strong but was too small.
-- F3 new holdout failed to confirm F2; forced RR1.8 = 44 TP / 84 SL from 128 resolved, -0.037R.
+### Rejected/diagnostic lineage
+F1 strongest-score selection rejected. F2 sample too small. F3 failed to confirm F2. F4 near break-even but not robust. F5 true bias failure and rejected. F6 rotation gate was not exercised. F7 five-vote consensus improved expectancy but remained negative. See `FOREX_STATE.md` for exact metrics.
 
-#### F4 pair-adaptive forced blind
-Jul17/20/21/22/24, 140 signals:
-- MARKET 49 TP / 73 SL, expectancy -0.081R, avg RR 2.055;
-- LIMIT 40 TP / 70 SL, expectancy -0.018R, avg effective RR 2.699;
-- direction12/24 53.57%/53.57%.
-Conclusion: modest directional edge, LIMIT nearly break-even but not robust.
+### F8 — strongest current research baseline candidate
+F8 uses strict walk-forward development Apr27–May15 and five frozen pair archetypes:
+- USD_MAJOR -> FACTOR_BAL
+- JPY_CROSS -> SESSION_SWEEP
+- EUROPE_CROSS -> FACTOR_BAL
+- COMMODITY_CROSS -> FACTOR_FAST
+- MIXED_CROSS -> FACTOR_BAL
 
-#### F5 — rejected
-Jul27/28, 56 forced signals:
-- MARKET 12 TP / 43 SL, WR 21.82%, -0.383R;
-- LIMIT 10 TP / 42 SL, -0.362R;
-- direction12/24 32.14%/32.14%;
-- 36/43 SL were also wrong at 24h.
-Conclusion: genuine bias failure; LONGHORIZON/economic-target changes did not solve it.
+Holdout1 May18–22, 140 forced signals:
+- MARKET 58 TP /69 SL from 127 resolved, WR45.67%, **+0.111R**;
+- LIMIT **+0.030R**;
+- direction6/12/24 = 67.14% /66.43% /61.43%;
+- avg RR 1.448.
 
-#### F6 rotation — unexercised
-May11–15, same 140-signal baseline vs F6. Final retained JSON is canonical:
-- rotation gate never triggered; overrides=0, so F6 == baseline;
-- MARKET 35 TP / 73 SL from 108 resolved, WR 32.41%, avg RR 2.413, expectancy -0.084R;
-- LIMIT 30 TP / 72 SL from 102 resolved, avg effective RR 3.105, expectancy -0.016R;
-- direction12 55.00%, direction24 52.86%;
-- 28/73 SL later became correct at 24h.
-Do not loosen thresholds on May and call the same block blind.
+F8 was then frozen completely. Holdout2 May25–29, another 140 forced signals:
+- MARKET 61 TP /50 SL from 111 resolved, WR54.95%, **+0.338R**;
+- LIMIT 45 TP /48 SL from 93 resolved, **+0.435R**;
+- recommended 60 TP /50 SL, **+0.333R**;
+- chosen direction 68.57%, 3h 71.43%; avg RR1.447.
 
-#### Parallel dual-horizon — negative aggregate
-Jun24/Jun30/Jul02/Jul07/Jul10:
-- MARKET 44 TP / 70 SL from 114 resolved, -0.119R;
-- LIMIT 20 TP / 65 SL, -0.254R;
-- aggregate direction ~51%.
-Do not cherry-pick individual pair winners.
+Combined 10 chronological holdout days / 280 forced signals:
+- MARKET: 238 resolved, **119 TP /119 SL = 50.00% WR**, weighted expectancy ~**+0.217R**;
+- LIMIT: 194 resolved, 80 TP /114 SL, weighted expectancy ~**+0.224R**;
+- recommended: 237 resolved, 118 TP /119 SL, weighted expectancy ~**+0.214R**;
+- combined chosen-direction 60.36%, 3h61.79%, 6h60.36%, 12h60.00%, 24h57.50%.
 
-#### F7 five-vote consensus — partial improvement only
-Unseen historical Apr20–24 comparator; same 140 signals baseline vs F7. Not pure chronological walk-forward because the baseline was developed using later 2026 data.
+This is the first Forex method with positive expectancy across two consecutive chronological frozen holdouts. Promote F8 to **research baseline candidate**, not to guaranteed live auto-trading.
 
-F7 majority vote sources: 6h/24h/72h cross-currency strength + H4 trend + H1 trend. Barriers unchanged.
+Group evidence:
+- COMMODITY_CROSS remained strong in both holdouts; holdout2 +0.679R.
+- MIXED_CROSS holdout2 +0.474R.
+- JPY_CROSS holdout2 +0.394R.
+- EUROPE_CROSS recovered to +0.420R after weak holdout1; do not modify it yet.
+- USD_MAJOR remains the clearest weakness: holdout1 -0.131R, holdout2 +0.006R MARKET. This is the next focused research target.
 
-Baseline same block:
-- MARKET 27 TP / 100 SL, expectancy -0.258R;
-- LIMIT 22 TP / 100 SL, expectancy -0.241R;
-- direction12 41.43%, direction24 50.00%, avg signed 24h move -0.420 ATR.
+Next step: freeze successful F8 groups, change only USD_MAJOR with one interpretable USD-specific component, and compare modified engine vs frozen F8 on the same untouched full 28-pair June holdout. June1–5 08:00 UTC were repo-searched absent before any such test.
 
-F7:
-- 13 direction overrides;
-- MARKET 27 TP / 102 SL, WR 20.93%, avg RR 2.661, expectancy -0.150R;
-- LIMIT 23 TP / 102 SL, avg effective RR 3.383, expectancy -0.054R;
-- direction12 42.14%, direction24 50.71%, avg signed 24h move +0.059 ATR;
-- 35/102 SL later correct at 24h; 67 remained wrong direction24.
+## Forex live context
+Forced-all-pair research success is not a mandate to trade all pairs live. Live analysis still requires fresh exact price, currency-specific macro/news context, F8 factor/archetype state, H4/H1 structure, M15 setup, M5 trigger, M1/latest execution refresh, structural SL and setup-dependent MARKET/LIMIT.
 
-Conclusion:
-- F7 improves expectancy materially vs the exact same baseline, especially LIMIT, but directional accuracy barely improves and the method remains negative;
-- F7 consensus is a candidate component only, NOT a validated winning engine;
-- regime instability remains extreme: Apr23 positive, Apr24 catastrophic.
+## Twelve Data efficiency
+One M15 series per 28 pairs ≈28 symbol credits/block; derive H1/H4/features locally and reuse data. Workflows share quota concurrency + cooldown.
 
-### Next Forex research direction
-Do NOT add more indicators. The next genuine hypothesis should be a market-day/common-factor regime layer:
-- common USD/risk/carry factor;
-- cross-sectional breadth/dispersion;
-- synchronized trend vs rotation/chop;
-- still force every pair BUY/SELL in benchmark, but let regime alter directional weights/barriers;
-- compare new method and baseline on the same untouched block;
-- keep separating bias failure vs later-correct path/barrier failure.
+## Crypto / Breakout
+Practical style remains frozen/selective; direct exchange route Binance -> OKX -> Bybit preferred. No validated forced all-coin live engine.
 
-### Crypto / Breakout — practical style frozen
-- Direct exchange data through GitHub runner preferred over Twelve Data.
-- Route: Binance -> OKX -> Bybit.
-- No validated forced all-market crypto engine.
-- V24 diagnostic; V25/V26/V27 rejected as documented.
-- Live framework remains selective: BTC/market-quality first, D1/H4/H1 + short momentum, M15/M5, fresh order flow only when available, structural SL, realistic RR, MARKET-vs-LIMIT by setup, explicit NO TRADE/CHAOS.
+## Metals / cash indices / futures
+Remain separate workflows. Never substitute cash index with futures. MNQ/MES final execution uses fresh platform price when supplied.
 
-### Metals
-Separate XAUUSD/XAGUSD workflow: H4/H1 bias; M15/M5 setup; M1 final timing/price refresh; DXY/US yields/Fed/high-impact news context.
-
-### Cash indices
-Cash indices only by default. Never substitute futures when entitlement blocks a cash-index symbol.
-
-### Futures NQ/ES
-Separate system, only when explicitly requested. Prefer MNQ/MES micros; structural SL first, then size to roughly USD 500 max risk and ~USD 1,500 target when ~1:3 structure supports it.
-
-## 6. Twelve Data efficiency
-- one M15 series for each of 28 pairs ≈ 28 symbol credits per historical block;
-- derive H1/H4, EMA/RSI/ATR/ADX and strength locally;
-- reuse cached data for model comparators;
-- workflows share `twelvedata-api` concurrency and cooldown to avoid HTTP 429.
-
-## 7. Live execution quality gate
-Before a current MARKET entry:
-1. exact symbol refreshed now;
-2. requested symbol == returned symbol;
-3. timestamp/source freshness validated;
-4. relevant context/timeframes available;
-5. no stale/execution-ready failure;
-6. structure and invalidation identified;
-7. relevant news/event risk checked;
-8. Entry/SL/TP/RR calculated from refreshed price.
-
-## 8. Handoff phrase
+## Handoff phrase
 `Tiếp tục toàn bộ dự án Trading từ checkpoint GitHub mới nhất. Đọc docs/checkpoints/MASTER_TRADING_STATE.md và docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó đọc checkpoint thị trường liên quan. Tiếp tục đúng trạng thái mới nhất, không quay lại phương pháp đã loại.`
