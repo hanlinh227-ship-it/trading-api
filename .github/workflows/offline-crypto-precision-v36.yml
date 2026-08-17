@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'data/provider_snapshots/crypto_4h_feb_jul_2026.json'
+      - 'scripts/offline_crypto_precision_evolver_v36.py'
+      - '.github/workflows/offline-crypto-precision-v36.yml'
   workflow_dispatch:
 permissions:
   contents: read
