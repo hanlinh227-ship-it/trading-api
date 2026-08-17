@@ -1,0 +1,20 @@
+name: Offline Forex EURUSD V32 Protective Dev
+on:
+  push:
+    paths:
+      - 'scripts/offline_forex_eurusd_v32_protective_dev.py'
+      - '.github/workflows/offline-forex-eurusd-v32-protective-dev.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Search EURUSD H1 protective candidate
+        env:
+          PYTHONPATH: '.'
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/offline_forex_eurusd_v32_protective_dev.py
