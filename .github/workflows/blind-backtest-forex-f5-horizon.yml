@@ -22,9 +22,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Cool down Twelve Data quota
+        run: sleep 70
       - name: Run Forex F5 horizon blind test
         env:
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           test -n "$TWELVEDATA_API_KEY" || (echo "TWELVEDATA_API_KEY missing" && exit 1)
           python scripts/blind_backtest_forex_f5_horizon.py
