@@ -2,93 +2,138 @@
 
 Updated: 2026-08-17 UTC+7
 
-This policy is active for all future live market analysis in the Trading project. It supplements V74 and does not change or optimize the frozen V73 backtest prior.
+This policy is active for current live Trading analysis. It supplements V74 and does not alter the frozen V73 statistical prior.
 
 ## PLAN CAPACITY
 
 Current Twelve Data plan: **Grow 55**.
 
-Operational assumptions:
+Operational assumptions used by the repository:
 - 55 API credits per minute;
-- API quota resets each minute;
-- paid plans have no daily API limit;
-- 8 trial WebSocket credits on Grow;
-- full WebSocket access is a Pro-level capability;
-- standard `/time_series` usage is 1 API credit per symbol;
-- batch requests reduce request overhead but credits still follow the requested work.
+- quota resets every minute;
+- paid plan has no daily API cap in the current provider policy;
+- REST is the primary integration path for this plan;
+- compute EMA/RSI/ATR and derived features locally from fetched OHLC whenever possible.
 
-Do not design the live system around WebSocket while the account remains Grow 55. Use REST efficiently and preserve a small execution-refresh reserve.
+Provider pricing/entitlement can change; verify current provider documentation before relying on plan limits in the future.
 
 ## CORE PRINCIPLE
 
-**Maximize information per credit, not credits burned.**
+**Maximize decision-quality information per credit, not credits burned.**
 
-Use a staged pipeline:
-1. broad universe scan;
-2. rank candidates;
+Pipeline:
+1. broad scan;
+2. local ranking;
 3. deep multi-timeframe analysis only on finalists;
-4. refresh latest executable data immediately before any MARKET decision.
+4. final latest-price refresh;
+5. venue/broker confirmation when executable spread or exact quote timestamp is required.
 
-Compute EMA/RSI/ATR and derived features locally from OHLC whenever possible rather than spending separate indicator endpoint credits.
+## FOREX — 28 PAIRS
 
-## FOREX
+Canonical workflow: `.github/workflows/scan-forex.yml`.
 
-Universe: 28 crosses formed from USD, EUR, GBP, JPY, CHF, CAD, AUD and NZD.
-
-Grow 55 normal scan budget:
-- 28 broad scan calls: ~28 credits;
-- Top 3 deep analysis, D1/H4/H1/M15/M5: ~15 credits;
-- Top 3 final refresh: ~3 credits;
+Normal Grow 55 allocation:
+- 28 broad scans: ~28 credits;
+- Top 3 deep D1/H4/H1/M15/M5 analyses: ~15 credits;
+- Top 3 `/price` refreshes: ~3 credits;
 - normal estimated total: ~46 credits;
-- reserve: ~9 credits for retries/live overlap.
+- reserve: ~9 credits.
 
-The old Basic-plan fixed `sleep 65` after every group is deprecated. Only wait for quota reset after exceptional failures that would exceed the reserve.
+The old Basic-plan pattern of fixed `sleep 65` after each seven-pair group is deprecated. Waiting is used only after exceptional failures when an immediate retry would exceed the remaining minute budget.
 
-Final Forex MARKET decision still follows V74: exact pair, fresh quote <=30s, bid/ask/spread when available, both-currency macro/news, D1/H4/H1 structure, M15 location, M5 close-confirmed MSS/displacement + retest, structural SL, RR 1:1 default and 1:2 only with clean room.
+### Forex final-price rule
+Use Twelve Data `/price` as the latest aggregated price reference.
+
+Do **not** infer information that `/price` does not provide:
+- Worker `generatedAt` is our fetch time, not a broker quote-tick timestamp;
+- do not fabricate bid/ask;
+- do not fabricate spread;
+- do not label a price MARKET-ready solely because `/price` was fetched moments ago.
+
+For a strict MARKET order, verify broker/venue timestamp and executable spread when those fields materially affect entry integrity. V74 target quote age is <=30 seconds when a true quote timestamp exists.
+
+M1 `/refresh` may be used as recent-candle/reference context, but its candle close is not substituted for the final `/price` value.
+
+## SINGLE-SYMBOL NON-CRYPTO
+
+Canonical workflow: `.github/workflows/fetch-market.yml`.
+
+For a requested Forex/metals/index/supported non-crypto symbol the workflow fetches in parallel:
+- full D1/H4/H1/M15/M5 analysis;
+- latest `/price`;
+- M1 reference/context.
+
+This uses the same `twelvedata-api` concurrency lock as the Forex universe scan so the two paths cannot unintentionally collide inside the 55-credit minute budget.
 
 ## CRYPTO
 
-For live execution price, exchange-native data remains primary. Use Binance / OKX / Bybit as appropriate and verify token, quote currency, instrument type, venue, bid/ask and timestamp. Target freshness <=10s.
+For final execution precision, exchange-native data remains primary:
+- Binance;
+- OKX;
+- Bybit fallback where appropriate.
 
-Twelve Data is an enrichment/cross-check source for crypto history, additional OHLC and multi-market context when useful. Never replace an exchange-specific execution quote with an aggregated quote when venue precision matters.
+Requirements:
+- verify exact token identity;
+- verify quote currency/instrument type;
+- verify venue;
+- use exchange bid/ask and exchange timestamp when available;
+- V74 target quote age <=10 seconds.
+
+Twelve Data may enrich or cross-check crypto history and broader market context when useful, but an aggregated quote must not replace an exchange-specific execution quote when venue precision matters.
 
 ## FUTURES / COMMODITIES
 
-Grow includes commodities market data. Use Twelve Data when the exact requested futures/commodity instrument is available and verified.
+Twelve Data may be used only after exact instrument identity is verified.
 
-Before use, resolve exact symbol/contract or continuous-contract identity, exchange mapping, timestamp and market state. Never substitute cash index and futures instruments for each other.
+Before relying on the value, resolve:
+- futures versus cash/spot;
+- contract/front-month/continuous identity;
+- exchange/venue mapping;
+- market state;
+- timestamp semantics.
 
-For MNQ/MES keep the dedicated Futures workflow: compare both contracts, structural SL first, then micro-contract sizing. User risk framework remains approximately $500 SL / $1,500 TP unless changed.
+For the NQ/ES system:
+- execution preference is MNQ/MES;
+- compare Nasdaq and S&P structure/SMT as needed;
+- structural SL first, then contract sizing;
+- if Twelve Data/Worker cannot prove the exact CME contract/feed, use a more authoritative futures feed or the user's platform price.
 
-If the exact CME contract/feed cannot be verified with Twelve Data, use a more authoritative futures source rather than a proxy.
+Never proxy NDX/SPX cash as NQ/ES futures.
 
 ## CASH INDICES
 
-Cash indices remain separate from futures. Use actual cash-index data only after symbol identity is verified. Never silently proxy NAS100/US500 cash with NQ/ES futures.
+Cash indices remain separate from futures.
 
-Use D1/H4/H1 structure, M15 location, M5 trigger, current cash price/timestamp, session state and index-specific news/macro context.
+Examples:
+- NAS100/USTEC/NASDAQ100 -> NDX cash;
+- US500/SP500/SPX500 -> SPX cash;
+- US30/DOW -> DJI cash;
+- JP225/NIKKEI -> N225 cash.
+
+Only use a cash value after symbol mapping and provider entitlement are verified. Never silently substitute a futures/CFD value.
 
 ## METALS
 
-XAUUSD/XAGUSD remain in the structure-first metals module. Grow commodity data may enrich spot/commodity history and current data when identity is verified. Do not conflate spot gold with COMEX futures.
+- XAUUSD/XAGUSD spot remain separate from GC/SI futures.
+- use structure-first analysis;
+- incorporate DXY, Treasury yields/rates, inflation/labor data and geopolitical risk as relevant;
+- exact instrument identity is required before calling a value live.
 
 ## NEWS / CONTEXT
 
-Twelve Data is a market-data source, not the sole news source. Every live analysis also refreshes relevant current context: central banks, macro releases, yields/rates/DXY, commodity drivers, regulatory/project-specific crypto news, geopolitical risk and session/exchange state.
+Twelve Data is a market-data source, not the sole news source.
+
+Every live analysis also refreshes relevant current context, including as applicable:
+- central banks and rates;
+- CPI/PCE/jobs/growth;
+- Treasury yields/DXY;
+- commodity drivers;
+- geopolitical risk;
+- official crypto project/regulatory catalysts;
+- exchange/session state.
 
 ## DATA INTEGRITY
 
-If exact symbol, venue/contract, timestamp, market state or sufficiently fresh executable price cannot be verified, return `DATA_BLOCK`. Never label stale/cached data as live.
+If exact symbol/venue/contract, market state, required quote freshness or executable spread cannot be verified, return `DATA_BLOCK` rather than fabricate a MARKET-ready order.
 
-## CURRENT IMPLEMENTATION
-
-Canonical Forex workflow: `.github/workflows/scan-forex.yml`
-
-Grow 55 implementation:
-- Stage A: parallel broad scan of 28 pairs;
-- Stage B: D1/H4/H1/M15/M5 deep analysis of Top 3;
-- Stage C: refresh all Top 3 before final V74 review;
-- routine Basic-plan 65-second waits removed;
-- conditional quota-reset wait retained only for exceptional failure counts.
-
-This workflow produces candidates for V74 review. It never bypasses required M15/M5 execution confirmation.
+A current aggregated price, a true quote timestamp and an executable bid/ask spread are three different things and must remain separate in all outputs.
