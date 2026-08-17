@@ -4,7 +4,7 @@ import json,time,urllib.parse,urllib.request
 from datetime import datetime,timezone
 from pathlib import Path
 START=int(datetime(2026,1,1,tzinfo=timezone.utc).timestamp()*1000);END=int(datetime(2026,8,1,tzinfo=timezone.utc).timestamp()*1000)-1
-OUT='data/provider_snapshots/ton_ip_h1_jan_jul_2026_binance.json';SYMS=('TON','IP')
+OUT='data/provider_snapshots/tao_ton_ip_h1_jan_jul_2026_binance.json';SYMS=('TAO','TON','IP')
 def get(url):
  req=urllib.request.Request(url,headers={'User-Agent':'trading-api-history/1.0','Accept':'application/json'})
  with urllib.request.urlopen(req,timeout=30) as r:return json.loads(r.read().decode())
@@ -27,6 +27,6 @@ def main():
   except Exception as e:r=[];diag[s]={'error':str(e)}
   data[s]=r
   if r:diag[s]={'bars':len(r),'first':r[0][0],'last':r[-1][0]}
- doc={'version':'TON_IP_H1_JAN_JUL_2026_BINANCE_V1','provider':'Binance public market data','interval':'1h','data':data,'diagnostics':diag,'fetchedAt':datetime.now(timezone.utc).isoformat()};Path(OUT).parent.mkdir(parents=True,exist_ok=True);json.dump(doc,open(OUT,'w'),separators=(',',':'));print(json.dumps(diag,indent=2),flush=True)
- if not any(data.values()):raise RuntimeError('No TON/IP public H1 data returned')
+ doc={'version':'TAO_TON_IP_H1_JAN_JUL_2026_BINANCE_V2','provider':'Binance public market data','interval':'1h','data':data,'diagnostics':diag,'fetchedAt':datetime.now(timezone.utc).isoformat()};Path(OUT).parent.mkdir(parents=True,exist_ok=True);json.dump(doc,open(OUT,'w'),separators=(',',':'));print(json.dumps(diag,indent=2),flush=True)
+ if not any(data.values()):raise RuntimeError('No public H1 data returned')
 if __name__=='__main__':main()
