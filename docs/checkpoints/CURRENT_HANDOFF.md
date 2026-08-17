@@ -2,110 +2,124 @@
 
 Updated: 2026-08-18 UTC+7
 
-Read `MASTER_TRADING_STATE.md` first.
+Read `MASTER_TRADING_STATE.md` first, then `ENTRY_EXECUTION_V76.md`.
 
 ## CURRENT MODE
 
 - **V73** = frozen no-CUT statistical prior. Never rebuild/optimize during live use.
-- **V74** = live-analysis / execution rules. These rules remain unchanged.
-- **V75 Fast Data** = current speed layer. It only improves collection/ranking/read latency.
-- **Forex / spot metals** = Twelve Data Grow55 direct strict V4.
-- **Crypto** = exchange-native; exact venue/bid/ask/timestamp required.
+- **V74** = live-analysis / execution authority.
+- **V75 Fast Data** = current collection/ranking/read-speed layer.
+- **V76 R2** = locked Forex entry research with a **negative live-promotion result**: no retained archetype, 0/28 promoted.
+- Forex / spot metals = Twelve Data Grow55 direct strict V4.
+- Crypto = exchange-native; exact venue/bid/ask/timestamp required.
 - Unsupported/ambiguous cash index or exact futures = `DATA_BLOCK`, never proxy.
 
-## FAST READ ORDER
-
-Use the smallest artifact first:
+## FAST LIVE READ ORDER
 
 1. single symbol → `data/decision.json`;
 2. Forex universe → `data/forex-fast.json`;
 3. Crypto universe → `data/crypto-fast.json`;
-4. open `status.json`, `latest.json` or full scan detail only when needed.
+4. open detailed status/latest/scan files only when needed.
+
+V76 research is not in this latency path.
+
+## V76 R2 — FINAL LOCKED RESULT
+
+Research run `32053656572` = SUCCESS.
+
+Protocol:
+- 28 Forex pairs;
+- 30,000 M5 bars per pair, roughly 2026-05-05 → 2026-08-17;
+- six objective setup families A–F;
+- CLOSE/RETEST/LIMIT_FVG × STRUCTURE/STRUCTURE_ATR × RR1/RR2 = 72 variants;
+- chronological 60% DEV / 20% VALIDATION / 20% untouched OOS;
+- DEV ranks, VALIDATION gates, OOS only promotes/rejects;
+- same-bar TP+SL=SL;
+- conservative LIMIT_FVG fill-bar scoring;
+- fixed historical cost 0.05R;
+- no fabricated historical news-event labels.
+
+Final:
+- `retainedArchetypes = []`;
+- `promotedSymbols = []`;
+- all 28 symbols = `RESEARCH_ONLY`;
+- 18 selected-best research candidates use `C_SWEEP_FVG`;
+- 10 use `D_BREAK_RETEST_CONT`;
+- A/B/E/F are fully rejected in this R2 hypothesis set;
+- C/D are only research candidates, **not live-approved methods**.
+
+Canonical evidence:
+- `data/v76_entry_research.json`;
+- `data/v76_entry_methods.json`;
+- `data/v76_entry_summary.json`;
+- `data/v76_pair_table.md`.
+
+Post-R2 validator `32055039365` = SUCCESS and confirms `V76-ENTRY-METHODS-R2`, 28 pairs, retained=[], conservative scoring and V73 frozen.
+
+### Live implication
+
+**V76 R2 currently authorizes no Forex order.**
+
+`scripts/entry_v76.py` accepts only `V76-ENTRY-METHODS-R2`; R1/pilot is blocked, and every current R2 method returns `NO_ENTRY / METHOD_NOT_OOS_PROMOTED` because `liveEligible=false`.
+
+Do not loosen gates or retune thresholds after reading R2 OOS. Any new filters/hypotheses must become a separately versioned research generation with a new untouched OOS window.
+
+Current Forex live entry therefore remains V74 using V75 data and current news/execution confirmation.
 
 ## SINGLE SYMBOL V75
 
 Workflow: `.github/workflows/fetch-market.yml`.
 
-Non-crypto engine: `scripts/twelvedata_market.py`, version `V4-TWELVEDATA-FAST-STRICT`.
-
-- D1/H4/H1/M15/M5 fetch in parallel;
-- M1 disabled by default;
-- full 220-candle history still used in RAM for EMA200/RSI/ATR;
-- only compact candle tails are stored;
-- `/quote` proves identity/timestamp, then `/price` gives latest aggregated price;
+Non-crypto engine: `scripts/twelvedata_market.py`, `V4-TWELVEDATA-FAST-STRICT`.
+- D1/H4/H1/M15/M5 in parallel;
 - closed candles only;
-- quote >65s => DATA_BLOCK; V74 Forex review target <=30s;
+- full indicator history in RAM, compact tails stored;
+- `/quote` proves identity/timestamp before `/price`;
+- quote >65s => DATA_BLOCK;
+- V74 Forex review target <=30s;
 - Twelve Data broker bid/ask are never fabricated.
 
-USDJPY benchmark run `32049389246`: actual Twelve Data 5-TF + quote/price section completed in about **0.38s** once the runner was ready.
-
-Crypto engine: `scripts/fetch_crypto.py`, version `V2-CRYPTO-FAST-STRICT`.
-
-- 5 TF fetch in parallel;
-- no mandatory M1;
-- final ticker refresh after TF analysis;
-- strict quote target <=10s;
+Crypto engine: `scripts/fetch_crypto.py`.
+- exact exchange symbol;
+- five TF in parallel;
+- final ticker refresh;
+- target quote age <=10s;
 - real exchange bid/ask required.
-
-BTCUSDT benchmark run `32050032469` = SUCCESS: OKX, 5/5 frames, quote age **241ms**, data stage about **1.27s**.
 
 ## FOREX UNIVERSE V75
 
-Workflow: `.github/workflows/scan-forex.yml`.
-Engine: `scripts/scan_forex_v75.py`.
-Outputs: `data/forex-scan.json`, `data/forex-fast.json`.
+Workflow `scan-forex.yml`, engine `scan_forex_v75.py`, outputs `forex-fast.json` + deeper `forex-scan.json`.
 
-Pipeline: `28 H1 broad → Top3 D1/H4/M15/M5 + quote/price`, all independent calls parallelized.
+Pipeline: 28 H1 broad → Top3 D1/H4/M15/M5 + quote/price. Grow55 budget ≈46/55, reserve 9.
 
-Grow55 budget remains **46/55 credits**, reserve 9.
-
-Benchmark run `32049900306` = SUCCESS: **28 pairs + Top3 deep data in 0.643s**.
+Benchmark `32049900306`: data portion 0.643s once runner active.
 
 ## CRYPTO UNIVERSE V75
 
-Workflow: `.github/workflows/live-crypto-v75-scan.yml`.
-Engine: `scripts/scan_crypto_v75.py`.
-Output: `data/crypto-fast.json`.
+Workflow `live-crypto-v75-scan.yml`, engine `scan_crypto_v75.py`, output `crypto-fast.json`.
 
-Pipeline:
-`61 V74 identities → exact OKX USDT availability → all available H1 → Top12 M15/M5 → Top5 D1/H4 → live bid/ask/timestamp`.
+Pipeline: 61 V74 identities → exact OKX USDT availability → all available H1 → Top12 M15/M5 → Top5 D1/H4 → live bid/ask/timestamp.
 
-429 handling uses lower concurrency + backoff/retry.
+Benchmark `32050388431`: 57 exact available instruments, 57/57 analyzed, 0 errors, 5.427s data portion.
 
-Benchmark run `32050388431` = SUCCESS:
-- 61 identities requested;
-- 57 exact OKX USDT instruments available;
-- **57/57 broad analyzed = 100% coverage**;
-- errors = 0;
-- data section = **5.427s**.
+Missing identities are never remapped to another token.
 
-Missing symbols are never remapped to another token.
+## DATA INTEGRITY LOCK
 
-## INTEGRITY LOCK
-
-Former Worker shorthand mapping is permanently deprecated. It previously allowed ticker collisions such as NAS100/NDX resolving to an unrelated ~19.4 security and SPX resolving to another unrelated ticker.
+The old shorthand Worker is permanently deprecated.
 
 Rules:
-1. exact canonical identity required;
-2. Twelve Data timeframes validate `meta.symbol` + `meta.type`;
-3. indicators/structure use closed candles only;
-4. `/quote.last_quote_at` is provider time;
-5. `/price` only after identity proof;
-6. no fabricated spread;
-7. cash / futures / spot are never interchangeable.
+1. exact canonical identity;
+2. exact provider symbol/type metadata;
+3. closed candles for technical calculations;
+4. provider timestamp != fetch time;
+5. aggregated/reference price != executable quote;
+6. no fabricated bid/ask/spread;
+7. cash/futures/spot never interchangeable.
 
-Cash NAS100/US500/DAX/N225 family and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DATA_BLOCK` in the current Grow55 integration until an authoritative exact feed is integrated.
+Cash NAS100/US500/DAX/N225-family and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DATA_BLOCK` in current Grow55 integration until authoritative exact feeds exist.
 
-## VALIDATION
-
-Post-V75 audit run `32050497678` = **SUCCESS**: 17 cases, 7 PASS, 10 BLOCKED_AS_DESIGNED, 0 FAIL.
-
-V73 validator run `32050638267` = **SUCCESS**.
-V74 validator run `32050656054` = **SUCCESS**.
-
-V73 historical development all-pass claims remain unchanged and are not guaranteed live/OOS win rates.
-
-## V74 EXECUTION RULES — UNCHANGED
+## V74 EXECUTION RULES — STILL AUTHORITATIVE
 
 1. exact instrument/venue/contract;
 2. fresh price + market state;
@@ -119,20 +133,49 @@ V73 historical development all-pass claims remain unchanged and are not guarante
 10. RR1 default; RR2 only with >=2.2R clean room after costs;
 11. final execution-venue quote/spread before MARKET.
 
-V75 `m5TriggerPrefilter` is only a fast filter, not a replacement for strict V74 confirmation.
+V75 `m5TriggerPrefilter` is only a fast filter. V76 R2 negative research does not remove V74's discretionary evidence stack and does not authorize weaker mechanical entries.
 
-## ACTIVE RUNTIME
+## VALIDATION / RUNS
 
-Workflows: `fetch-market.yml`, `scan-forex.yml`, `live-crypto-v75-scan.yml`, `audit-market-data.yml`, `validate-nocut-v73.yml`, `validate-live-v74.yml`.
+- Market-data audit `32050497678`: SUCCESS, 7 PASS / 10 BLOCKED_AS_DESIGNED / 0 FAIL.
+- V73 validator `32050638267`: SUCCESS.
+- V74 validator `32050656054`: SUCCESS.
+- V76 R2 research `32053656572`: SUCCESS.
+- V76 compact summary/table `32054967541`: SUCCESS.
+- V76 post-R2 validator `32055039365`: SUCCESS.
 
-Scripts: `twelvedata_market.py`, `fetch_crypto.py`, `scan_forex_v75.py`, `scan_crypto_v75.py`, `audit_market_data.py`, `nocut_intraday_method_v73.py`, `validate_nocut_v73.py`, `live_symbol_analysis_v74.py`.
+## ACTIVE WORKFLOWS
+
+Live/validation:
+- `fetch-market.yml`
+- `scan-forex.yml`
+- `live-crypto-v75-scan.yml`
+- `audit-market-data.yml`
+- `validate-nocut-v73.yml`
+- `validate-live-v74.yml`
+
+Isolated V76:
+- `research-v76-entry.yml`
+- `validate-entry-v76.yml`
+- `summarize-v76.yml`
+
+## ACTIVE V76 SCRIPTS
+
+- `research_v76_entry_forex.py`
+- `evaluate_v76_entry_forex.py`
+- `fetch_v76_history.py`
+- `run_v76_entry_research.py`
+- `entry_v76.py`
+- `summarize_v76.py`
 
 Legacy research/diagnostics stay in Git history only.
 
-## REMAINING LATENCY
+## NEXT RESEARCH DIRECTION
 
-The data engines are now very fast. The main remaining user-facing delay is **GitHub Actions runner provisioning + checkout + commit**. Removing that requires a persistent live service/edge cache; more micro-optimization inside the API calls will not remove runner startup latency.
+Do not retune V76 R2 from its OOS. The useful next step is forward observation/logging of C/D plus better historical execution-cost and timestamped macro-event data. A materially new hypothesis set should be a new research version (e.g. V77) with pre-registered rules and a new untouched OOS window.
+
+Do not begin Crypto entry optimization merely to compensate for the negative Forex result. Crypto can be researched separately only with the same anti-overfit discipline when explicitly chosen as the next project stage.
 
 ## NEW CHAT INSTRUCTION
 
-`Continue Trading with V73 frozen + V74 execution rules + V75 Fast Data. Read decision.json / forex-fast.json / crypto-fast.json first. Never trust shorthand ticker identity, never proxy cash/futures, never label stale data live, and never fabricate bid/ask.`
+`Continue Trading from MASTER_TRADING_STATE.md + CURRENT_HANDOFF.md + ENTRY_EXECUTION_V76.md. Current state = V73 frozen prior + V74 live authority + V75 Fast Data + V76 R2 locked research-only. V76 R2 retained no archetype and promoted 0/28 Forex symbols, so it cannot authorize live entries. Do not retune R2 from OOS. Read decision.json / forex-fast.json / crypto-fast.json first; verify exact instrument, fresh timestamped data, current news/context, D1/H4/H1, M15 location, strict M5 trigger, structural SL and final execution-venue spread. Never proxy cash/futures or fabricate bid/ask.`
