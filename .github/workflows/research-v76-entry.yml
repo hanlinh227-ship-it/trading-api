@@ -1,0 +1,32 @@
+name: Research V76 Forex Entry
+on:
+  workflow_dispatch:
+  push:
+    paths: ['data/v76_research_request.txt','scripts/research_v76_entry_forex.py']
+permissions:
+  contents: write
+concurrency:
+  group: twelvedata-v76-research
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+      V76_CHUNKS: '3'
+      V76_QUOTA_PAUSE: '62'
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 1}
+      - run: python3 scripts/research_v76_entry_forex.py --self-test
+      - run: python3 scripts/research_v76_entry_forex.py data
+      - name: Commit research
+        run: |
+          git config user.name market-data-bot
+          git config user.email market-data-bot@users.noreply.github.com
+          git add data/v76_entry_research.json data/v76_entry_methods.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Update V76 Forex entry research'
+          git pull --rebase origin main
+          git push origin HEAD:main
