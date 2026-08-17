@@ -23,6 +23,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cool down Twelve Data quota
+        run: sleep 70
+
       - name: Run Forex F5 blind test
         env:
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
