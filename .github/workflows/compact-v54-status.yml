@@ -1,0 +1,20 @@
+name: Compact Crypto V54 Status
+on:
+  push:
+    paths:
+      - '.github/workflows/compact-v54-status.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract V54 final statuses
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: '32026465095'
+        run: bash scripts/compact_status_from_run.sh
