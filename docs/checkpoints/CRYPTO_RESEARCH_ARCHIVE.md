@@ -4,71 +4,109 @@ Updated: 2026-08-17
 Purpose: preserve conclusions from retired crypto research artifacts while keeping the active repository tree lean.
 
 ## Retention policy
-Active tree keeps only code/results required to reproduce or extend the current V24-Core lineage:
-- `scripts/blind_backtest_crypto.py` — base utilities/data loader and earlier V6-style core dependency.
-- `scripts/blind_backtest_crypto_v17.py` — short-horizon momentum/structure core dependency.
-- `scripts/blind_backtest_crypto_v22.py` — actual OKX taker-flow extension dependency.
-- `scripts/blind_backtest_crypto_v24.py` — current V24-Core diagnostic research engine.
-- `data/blind_backtest_v17.json`, `data/blind_backtest_v22.json`, `data/blind_backtest_v24.json`, `data/blind_backtest_v24_validation.json` — key evidence/results.
-- `.github/workflows/blind-backtest-v24.yml` — retained V24 runner.
+Active tree keeps only code/results required to reproduce or extend the surviving V24-Core diagnostic lineage plus selected key validation evidence:
+- `scripts/blind_backtest_crypto.py`
+- `scripts/blind_backtest_crypto_v17.py`
+- `scripts/blind_backtest_crypto_v22.py`
+- `scripts/blind_backtest_crypto_v24.py`
+- `data/blind_backtest_v17.json`
+- `data/blind_backtest_v22.json`
+- `data/blind_backtest_v24.json`
+- `data/blind_backtest_v24_validation.json`
+- `data/blind_backtest_v26.json` temporarily as decisive negative true-blind evidence / diagnostic source
+- `.github/workflows/blind-backtest-v24.yml`
 
-Retired one-off workflows, diagnostics, raw probe outputs and rejected-version result files are removed from the current tree after their conclusions are checkpointed. Git history still preserves old commits if forensic recovery is ever needed.
+Retired one-off workflows, diagnostics and rejected-version scripts/results are removed after their conclusions are checkpointed. Git history preserves exact historical artifacts.
 
 ## Research history retained as conclusions
 - V3: forced-MARKET baseline around 37.5% win at ~1.5R; slightly negative expectancy.
-- V4: increased complexity/indicator stacking materially worsened performance; rejected.
-- V5/V6: regime-first simplification recovered performance; V6 achieved positive expectancy on some old/new samples and became a useful baseline.
-- V7: pushed win rate above 50% on a sample by moving TP too close; average RR around 0.76R and expectancy negative; rejected because higher win rate alone was misleading.
-- V8/V9: attempts to restore RR / add breadth did not robustly improve results; rejected.
-- V10–V14 family: barrier grids, diagnostics, direction/robustness searches and time-series-momentum experiments informed later simplification, but did not become the final architecture.
-- V15: historical funding/OI derivatives experiments had effectively unusable coverage in the current pipeline; derivatives must not be credited as an active edge until reliable historical coverage exists.
-- V16: development comparison favored short 6h/24h/72h momentum over longer weekly horizons.
-- V17: true-blind sample achieved roughly 43.4% win at ~1.5R with positive expectancy; became the surviving short-horizon price/structure core.
-- V18–V21: higher-RR, regime, reversal/fade and per-coin persistence variants were unstable across dates; not promoted.
-- OKX public taker-trade probe validated that historical trade-side data can be collected and converted into order-flow imbalance; the standalone probe script/workflow/raw JSON became redundant after V22 integrated the capability.
-- V22: first-5m actual taker flow improved the same price-core baseline on two blind dates (Jul12 and Jul10), though overall expectancy remained around/slightly below zero. This remains evidence that microflow adds information.
-- V23: raising RR without fixing direction did not improve expectancy; rejected.
-- V24 initial evidence: kept V22 core and added market price-breadth + flow-breadth/regime context. Jul04 = 41 TP / 15 SL, 73.21% win, avg RR 1.679, +0.956R. Jul02 = 24 TP / 10 SL among 34 resolved, 70.59% resolved win, avg RR 1.641, +0.865R. Both were `normal`, so they did not validate the regime guard.
+- V4: indicator stacking materially worsened performance; rejected.
+- V5/V6: regime-first simplification recovered performance; useful baseline lineage.
+- V7: >50% WR was achieved by making TP too close; avg RR ~0.76R and expectancy negative; rejected.
+- V8/V9: RR/breadth attempts did not robustly improve results; rejected.
+- V10–V14: barrier grids, robustness searches and time-series momentum experiments informed later simplification but were not promoted.
+- V15: historical derivatives/funding/OI coverage was effectively unusable in the current pipeline; do not credit it as an active edge.
+- V16/V17: development favored 6h/24h/72h momentum; V17 one true-blind sample ~43.4% WR at 1.5R with positive expectancy.
+- V18–V21: higher-RR/regime/fade/persistence variants unstable; rejected.
+- OKX public taker-trade probe proved usable historical trade-side data could be collected.
+- V22: first-5m taker flow improved the same price-core baseline on Jul12/Jul10 but aggregate expectancy remained around/slightly below zero; flow adds information but is not universally decisive.
+- V23: raising RR without fixing direction failed; rejected.
 
-## V24 locked June validation — concluded
-A separate harness froze the exact V24 engine and ran five previously uninspected June 2026 cutoffs without changing scoring weights, regime thresholds, first-5m flow logic, structural SL or RR.
+## V24 — retained diagnostic baseline
+Initial untouched evidence:
+- Jul04: 41 TP / 15 SL, 73.21% WR, avg RR 1.679, +0.956R.
+- Jul02: 24 TP / 10 SL among 34 resolved, 70.59% WR, avg RR 1.641, +0.865R, 22 unresolved.
+Both were `normal`, so the regime guard itself was not validated.
 
-Aggregate across Jun30/27/24/21/18:
-- 278 trades, 262 resolved;
-- 112 TP / 150 SL;
-- 42.75% resolved win rate;
-- average planned RR 1.647;
-- expectancy +0.132R;
-- flow coverage 62.2%.
+Locked June validation on unchanged V24:
+- 278 trades, 262 resolved, 112 TP / 150 SL;
+- 42.75% WR, avg RR 1.647, +0.132R;
+- Jun30 7.27% / -0.807R;
+- Jun27 33.33% / -0.126R;
+- Jun24 83.33% / +1.228R;
+- Jun21 50.91% / +0.338R;
+- Jun18 38.64% / +0.018R.
+Conclusion: V24 is not robust enough to promote; keep only as diagnostic baseline.
 
-Per-date results:
-- Jun30: 4 TP / 51 SL among 55 resolved = 7.27% WR, -0.807R expectancy, `normal` regime.
-- Jun27: 18 TP / 36 SL among 54 resolved = 33.33% WR, -0.126R, `distribution_reversal`.
-- Jun24: 45 TP / 9 SL = 83.33% WR, +1.228R, `normal`.
-- Jun21: 28 TP / 27 SL = 50.91% WR, +0.338R, `normal`.
-- Jun18: 17 TP / 27 SL among 44 resolved = 38.64% WR, +0.018R, `normal`, 11 unresolved.
+June row-level lessons:
+- Jun30 was systemic: 51/56 decisions SELL, SELL 4 TP / 46 SL, BUY 0/5; high-confidence score buckets and macro/flow agreement were still poor.
+- Direct V24-vs-V25 barrier comparison changed 51 Jun30 sides; 46 symbols hit SL in BOTH directions, zero V24-SL became V25-TP, and four V24 winners became V25 losers. This is strong evidence of market-quality/timing/barrier failure rather than a simple wrong-direction problem.
+- Jun27 flow agreement outperformed conflict and the few V24 regime-driven flips all lost, which motivated testing macro anchoring cleanly.
 
-Important lessons:
-- The exceptional Jul04/Jul02 results do not generalize consistently. V24 is not promoted as a final/main engine.
-- The first locked non-normal `distribution_reversal` sample (Jun27) was negative, so the V24 regime guard is not validated as a reliable protective edge.
-- Microflow remains informative but incremental: macro/micro agreement produced 44.87% WR and +0.235R expectancy at avg 1.759R, versus conflict at 38.55% WR and essentially flat +0.002R at 1.6R.
-- Profile dispersion was large: majors/memes were positive, while DeFi and AI/high-beta were negative. These are diagnostic observations, not permission to retrofit filters and reuse June as blind evidence.
-- Jun30 is the critical failure sample: V24 classified it `normal` despite price breadth 0.214, flow breadth 0.317 and median OFI -0.374, then suffered 51 SL from 55 resolved trades. Diagnose this failure before designing V25; do not simply move thresholds to fit it.
+## V25 development — rejected
+V25 development used already-revealed June dates. It anchored direction to macro and added a synchronized same-direction extreme breadth + OFI whole-market climax reversal rule.
+Result:
+- 278 trades, 263 resolved, 111 TP / 152 SL;
+- 42.21% WR, avg RR 1.624, +0.114R;
+- Jun30 `sell_climax`: 0 TP / 56 SL = -1R;
+- Jun27 improved to 38.89% / +0.019R.
+Conclusion: **whole-market climax reversal is rejected.** The macro-anchor component required independent true-blind testing.
 
-## Current direction after V24 validation
-V24-Core remains a **diagnostic baseline**, not a validated live engine:
-6h/24h/72h momentum + H4/H1 structure + H4 EMA context + BTC relative strength + M15 location/anti-chase + first-5m OKX taker OFI + market breadth/flow context + structural SL + dynamic RR roughly 1.6–2.0 when justified.
+## V26 locked true-blind May — rejected
+Before V26 creation, repository search found no `2026-05-*` cutoff references. V26 made one clean conceptual change from V24: BUY/SELL side always followed the macro momentum/structure score; flow/regime context could alter confidence/RR but could not flip side. The V25 climax reversal was excluded.
 
-The June dates are now development/diagnostic data. Next correct research sequence:
-1. diagnose Jun30 and Jun27 row-level directional failures;
-2. formulate a minimal theory-driven V25 change without cosmetic RR manipulation or generic indicator stacking;
-3. freeze V25 before seeing outcomes on a completely untouched block, preferably May 2026;
-4. promote only if multiple unseen dates show materially better robustness, not merely a stronger aggregate driven by one exceptional day.
+Locked May result:
+- 275 trades, 272 resolved;
+- 79 TP / 193 SL;
+- 29.04% WR;
+- avg RR 1.646;
+- expectancy -0.235R;
+- only 3 unresolved.
+Per date:
+- May30 32.73% / -0.145R;
+- May27 25.93% / -0.311R;
+- May24 21.82% / -0.429R (`distribution_reversal`);
+- May21 43.64% / +0.163R;
+- May18 20.75% / -0.460R.
+Four of five dates were negative. **Macro-always-owns-direction is rejected.** The apparent Jun27 development benefit did not generalize.
 
-## Cleanup rule going forward
-For each new research generation:
-1. keep the current engine and only the dependency chain needed to reproduce it;
-2. keep key validation result files, not every temporary grid/probe/raw dump;
-3. summarize rejected versions and lessons here or in `CRYPTO_BREAKOUT_STATE.md`;
-4. delete one-off workflow files once the experiment is concluded;
-5. never delete live data pipeline files (`fetch-market.yml`, `fetch_crypto.py`, `request.json`, `data/status.json`, `data/latest.json`) during research cleanup.
+May diagnostics:
+- breadth <=0.10: 23.36% WR / -0.385R;
+- breadth 0.30–0.70: 43.64% / +0.163R;
+- breadth 0.70–0.90: 32.73% / -0.145R;
+- breadth >=0.90: 21.82% / -0.429R.
+Treat extreme breadth only as a risk marker; there are too few date-level samples to lock thresholds.
+- flow aligned with the macro side: 24.64% / -0.320R;
+- flow conflict/neutral: 39.66% / +0.031R;
+- flow unavailable: 26.90% / -0.301R.
+Thus the June observation that flow agreement was better is not universal.
+- overall median SL arrival: ~39 M5 candles; median TP arrival: ~70. May24/May18 median SL arrival was ~23/~21.5 candles. Together with Jun30 two-sided SL behavior, this shifts research away from another bias rule toward market quality, timing and barrier geometry.
+
+## Current direction after V26
+Rejected and must not be revived without genuinely new evidence:
+- generic indicator stacking;
+- tiny-TP win-rate inflation;
+- cosmetic RR increases;
+- V25 whole-market climax reversal;
+- V26 macro-always-owns-direction.
+
+Retain V24-Core only as a diagnostic comparator. Next research should use already-revealed June + May as development data to investigate **pre-entry market quality, entry timing and barrier survival**, without optimizing exact thresholds on those dates. A minimal successor should then be frozen and tested on a completely untouched block, preferably April 2026.
+
+A separate live `CHAOS / NO TRADE` gate is a legitimate future research question because forced-MARKET stress can expose states where both sides are poor. It must never be used inside the forced-MARKET benchmark to inflate results.
+
+## Cleanup rule
+1. Keep the surviving comparator/dependency chain and key evidence.
+2. Summarize rejected hypotheses here.
+3. Remove concluded one-off scripts/workflows/results from active tree when no longer needed.
+4. Git history is the forensic archive.
+5. Never delete live data-pipeline files (`fetch-market.yml`, `fetch_crypto.py`, `request.json`, `data/status.json`, `data/latest.json`).
