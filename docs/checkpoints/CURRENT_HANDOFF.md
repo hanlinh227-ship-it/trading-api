@@ -2,79 +2,55 @@
 
 Updated: 2026-08-17 UTC+7
 
-Read `MASTER_TRADING_STATE.md` first, then `PER_SYMBOL_DAILY_80WR_V1.md` and `data/per_symbol_daily_80wr_summary_2026-08-17.json`.
+Read `MASTER_TRADING_STATE.md` first, then `NO_CUT_INTRADAY_ALLPASS_V73.md`, then `data/nocut_intraday_allpass_v73.json`.
 
-# Latest user-required mode — FORCED-DAILY PER SYMBOL
-The newest target is NOT cross-universe Top1.
+# CURRENT USER-REQUIRED MODE — NO-CUT FORCED-DAILY V73
+Rules are locked:
+- no CUT;
+- no NO TRADE day;
+- 1–3 trades per Forex pair / Crypto symbol per day;
+- frozen passing development maps currently use exactly 1/day;
+- RR only 1:1 or 1:2; current passing methods use RR1:1;
+- per-symbol WR must be >=80%;
+- TIMEOUT is non-win;
+- same-bar TP+SL = SL;
+- every symbol must have its own analysis/entry method and its own news/context profile.
 
-Rules:
-- no cross-symbol ranking;
-- every Forex pair must take one MARKET trade on every tested trading weekday;
-- every Crypto coin must take one MARKET trade on every eligible calendar day after enough history/indicators exist;
-- each symbol chooses its own best intraday setup only;
-- per-symbol displayed WR = TP/(TP+SL) must be >=80%;
-- CUT is separate from displayed WR but remains a real daily trade and must be included economically;
-- RR allowed 1:1 or1:2.
+# Completed development target
+## Forex
+- **28/28 PASS**.
+- Minimum individual WR: **80.00%**.
+- H1 methods.
+- V64 base + V66 targeted refinement for 11 original V64 failures.
 
-# Latest completed result
-## Forex V18
-- `scripts/offline_forex_daily_per_symbol_v18.py`
-- run `32027011521`, job `95378428657`
-- May-Jul2026 =66 weekdays per pair
-- **28/28 PASS**
-- every pair coverage **66/66 =100%**
-- individual WR range **90%-100%**
-- every pair mean managed R positive
-- passing configurations all use RR1:1
-- most pairs use REVERT; EURCAD/GBPAUD use FAST; AUDCAD uses SESSION
-- method parameters differ by pair: time window, allowed direction, ATR floor, swing lookback and CUT rule.
+## Crypto
+- **61/61 PASS**.
+- Minimum individual WR: **80.22%**.
+- 59 symbols use H1.
+- HBAR and full-history TAO use V71 special H1 routers.
+- TON and IP use V72 dedicated 4H routers.
+- HBAR 95.60%; TAO 96.70%; TON 91.21%; IP 86.81%.
 
-Examples:
-- EURUSD REVERT / EU_US / SELL / RR1 / ATR2.0 / swing12h / CUT H+1 at0R -> 16TP/0SL/50CUT, WR100%, +0.106R
-- GBPUSD REVERT / ASIA / BUY / RR1 / ATR1.5 / swing4h / CUT H+1 at0R ->21TP/0SL/45CUT, WR100%, +0.131R
-- USDJPY REVERT / NY / BUY / RR1 / ATR1.0 / swing12h / EMA CUT H+1 <=-0.2R ->27TP/3SL/36CUT, WR90%, +0.363R
-- EURCAD FAST / LONDON / SELL / RR1 / ATR1.5 / swing12h / CUT H+1 at0R ->19TP/0SL/47CUT, WR100%, +0.113R
-- AUDCAD SESSION / ASIA / BOTH / RR1 / ATR2.0 / swing4h / EMA CUT H+1 <=-0.2R ->19TP/0SL/47CUT, WR100%, +0.036R
+# Canonical state
+- `data/nocut_intraday_allpass_v73.json` — exact method/router/action/stat/news profile for all 89 instruments.
+- `scripts/nocut_intraday_method_v73.py` — operational method reader/router.
+- `scripts/validate_nocut_v73.py` — strict hard-gate validator.
+- `.github/workflows/validate-nocut-v73.yml` — validation gate.
+- `.github/workflows/build-nocut-allpass-v73.yml` — deterministic canonical rebuild from final component engines.
+- successful canonical build run: `32032071403`.
 
-## Crypto V40
-- `scripts/offline_crypto_daily_per_symbol_v40_all.py`
-- run `32026984878`, job `95378353821`
-- **61/61 PASS**
-- 100% daily coverage on every eligible day
-- most coins have91-92 eligible May-Jul days
-- individual V40 WR range **91.30%-100%**
-- every coin mean managed R positive
-- all passing V40 configs use RR1:1
-- all61 selected REVERT/anti-chase family in the focused forced-daily search, but each coin has its own window/direction/ATR/CUT settings.
+# News/context behavior
+Forex: analyze both currencies separately with their own central-bank, inflation/jobs/growth, yield/DXY/commodity/risk drivers.
+Crypto: analyze the specific token's project/protocol, unlock/supply, exchange/on-chain/whale flow and sector/profile drivers plus BTC regime.
 
-Examples:
-- BTC REVERT / ALL / SELL / RR1 / ATR1.5 / swing3x4H / CUT after1x4H at+0.25R threshold ->27TP/0SL/65CUT, WR100%, +0.336R
-- ETH REVERT / MID / BUY / RR1 / ATR1.5 / swing3x4H / CUT after1x4H at+0.25R ->22TP/1SL/69CUT, WR95.65%, +0.282R
-- SOL REVERT / ALL / SELL / RR1 / ATR1.5 / swing3x4H / CUT after1x4H at+0.25R ->31TP/2SL/59CUT, WR93.94%, +0.349R
-- JTO REVERT / ALL / BUY / RR1 / ATR0.75 / swing3x4H / CUT after1x4H at+0.50R ->41TP/2SL/49CUT, WR95.35%, +0.441R
-- LINK REVERT / MID / BOTH / RR1 / ATR1.0 / swing3x4H / CUT after1x4H at+0.50R ->35TP/2SL/55CUT, WR94.59%, +0.453R
-- ASTER REVERT / MID / BUY / RR1 / ATR1.5 / swing3x4H / CUT after1x4H at+0.25R ->21TP/2SL/69CUT, WR91.30%, +0.249R
+In forced-daily V73, point-in-time news is a **router/confirmation input**, not a hidden NO-TRADE veto.
 
-TAO needed extra history because May-Jul had only24 eligible days:
-- `scripts/offline_crypto_tao_31day_v39.py`
-- run `32026760842`, job `95377672150`
--31/31 eligible days traded
--21TP/0SL/10CUT
--WR100%, +0.729R/day, RR1:1.
+# Critical integrity caveat
+**V73 is DEVELOPMENT-OPTIMIZED / EXPOSED ALL-PASS, not untouched blind/OOS validation.**
+May–Jul 2026 was used to develop/refine the maps. The exact V73 state must now be frozen and tested unchanged on independent data before it can be called robust or live-proven.
 
-# Critical caveat
-The latest forced-daily result is **DEVELOPMENT-OPTIMIZED, NOT UNTOUCHED BLIND VALIDATION**.
-V18/V40 selected family/timing/management using May-Jul and report results on May-Jul. Do not call these numbers independent out-of-sample proof.
-
-Also, CUT rates are very high for many symbols (~50%-79%). Therefore displayed WR >=80% does NOT mean >=80% of all daily trades hit TP. A large fraction are cut early. Always report CUT rate and mean managed R.
-
-# Selective validated mode still exists
-If the goal switches back to high-integrity selective signals rather than mandatory daily signals:
-- Forex V15: untouched Aug03-07 5TP/0SL, RR1:1.
-- Crypto V36b: untouched Aug01-07 4TP/1SL/2CUT, TP/SL WR80%, RR1:1.
-
-# Next valid research step
-If asked to verify the forced-daily method rather than merely optimize it, freeze the exact V18/V40 per-symbol maps and run them unchanged on a new untouched month. Do not retune that month before reporting validation.
+# Legacy
+V18/V40 are old CUT-based forced-daily research and are no longer the active method. V15/V36b are separate selective scanner research with untouched August evidence; only use them if the user explicitly switches back to selective/NO-TRADE-capable mode.
 
 ## New-chat instruction
-`Forced-daily mode mới nhất: không Top-K chéo symbol. Forex V18 28/28 PASS, mỗi pair 66/66 weekday có MARKET trade, WR riêng90-100%, RR1:1. Crypto V40 61/61 PASS, mỗi coin trade100% eligible days, WR riêng91.3-100%, RR1:1; TAO có V39 31/31 ngày. Đây là development-optimized May-Jul, chưa phải untouched blind. CUT rate cao50-79% và phải tính kinh tế riêng. Đọc PER_SYMBOL_DAILY_80WR_V1.md.`
+`Current forced-daily Trading method = V73. Read MASTER_TRADING_STATE.md + NO_CUT_INTRADAY_ALLPASS_V73.md. No CUT, no NO TRADE, 1–3 lệnh/symbol/ngày (frozen development maps hiện dùng 1), RR only1:1/1:2 (current RR1), Forex28/28 PASS min80.00%, Crypto61/61 PASS min80.22%. Each symbol has its own method + news/context. Exact state is data/nocut_intraday_allpass_v73.json. Treat all pass numbers as exposed development, not untouched OOS.`
