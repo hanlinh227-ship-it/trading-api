@@ -3,7 +3,7 @@
 Updated: 2026-08-17 (UTC+7)
 
 ## Scope
-Crypto trading research and live MARKET-entry evaluation for the Breakout-supported universe. Exchange availability alone does not prove Breakout support; verify exact live coverage when it matters.
+Crypto trading research and live entry evaluation for the Breakout-supported universe. Exchange availability alone does not prove Breakout support; verify exact live coverage when it matters.
 
 ## Data architecture
 - Prefer direct exchange REST for crypto rather than Twelve Data.
@@ -30,9 +30,7 @@ Do not return to redundant indicator stacking. Useful research ingredients remai
 These are ingredients, not a validated all-market engine.
 
 ## Forced-MARKET stress test
-When explicitly requested, every symbol with valid historical data receives BUY or SELL with entry/SL/TP frozen before future candles are revealed. No WAIT/NO TRADE/LIMIT.
-
-This is a research stress condition only. It is no longer the preferred live rule.
+When explicitly requested, every symbol with valid historical data receives BUY or SELL with entry/SL/TP frozen before future candles are revealed. This is a research stress condition only, not the preferred live rule.
 
 ## Key evidence
 ### V24
@@ -57,33 +55,72 @@ Macro-always-owns-direction failed:
 - 4/5 dates negative.
 
 ### V27 FINAL random blind — rejected
-Random cutoff selected before outcomes: `2026-04-09T12:00:00Z`. Entry delayed until `12:15 UTC` after one completed M15 observation.
-
+Cutoff `2026-04-09T12:00:00Z`, entry `12:15 UTC` after one completed M15.
 Result (`data/blind_backtest_v27_final.json`):
-- universe 61;
-- 55 symbols had valid historical frames;
-- 6 historical-data failures: POPCAT, TAO, TON, FARTCOIN, GRASS, IP;
-- 54 resolved;
-- 11 TP / 43 SL;
-- 1 unresolved;
+- 55 tested of 61;
+- 11 TP / 43 SL / 1 unresolved;
 - WR 20.37%;
-- avg RR 1.60;
 - expectancy -0.470R;
-- 6h directional accuracy 21.82%;
-- 24h directional accuracy 25.45%.
+- 6h direction accuracy 21.82%;
+- 24h direction accuracy 25.45%;
+- price breadth 0.036;
+- historical taker-flow coverage 0%.
+Conclusion: waiting one completed M15 does not fix a bad market-state/directional sample.
 
-Pre-entry price breadth was 0.036, an extreme bearish market state. Historical OKX taker-flow coverage at this April cutoff was 0%, so the sample effectively tested the retained price/structure family without usable microflow.
+### Final MARKET vs LIMIT blind comparison — Apr16
+User explicitly requested an all-universe execution comparison using the surviving framework. Repo search confirmed `2026-04-16` had not been used before the rules/date were locked.
 
-TP symbols: BTC BUY, SOL SELL, HYPE BUY, TRX BUY, ARB BUY, ATOM BUY, BCH SELL, BONK SELL, FLOKI BUY, NEAR BUY, WLD BUY. KAITO SELL was unresolved.
+Frozen setup:
+- observation starts `2026-04-16T12:00:00Z`;
+- signal evaluated after one completed M15 at `12:15 UTC`;
+- direction uses surviving V24/V22 architecture;
+- MARKET enters at +15m observable price;
+- LIMIT waits for a 0.35R pullback toward the same structural SL;
+- LIMIT expires after 6h;
+- LIMIT keeps the same absolute TP as MARKET;
+- if TP is reached before LIMIT fills, cancel the pending order instead of allowing a late fill.
+
+Result (`data/final_market_vs_limit_blind.json`):
+- universe 61; tested 55;
+- same 6 historical-data failures: POPCAT, TAO, TON, FARTCOIN, GRASS, IP;
+- price breadth 0.964;
+- historical taker-flow coverage 0%.
+
+MARKET:
+- 52 resolved;
+- 27 TP / 25 SL;
+- 3 unresolved;
+- WR 51.92%;
+- expectancy +0.350R;
+- 6h direction accuracy 80.00%;
+- 24h direction accuracy 89.09%;
+- first 0.5R move favorable on 42 coins, adverse on 12, neither on 1.
+
+LIMIT 0.35R:
+- 42/55 filled = 76.36%;
+- 3 hit MARKET TP before limit fill;
+- 10 did not fill within 6h;
+- among fills: 19 TP / 21 SL / 2 unresolved;
+- WR among resolved fills 47.50%;
+- avg effective RR 3.00R;
+- expectancy among resolved filled trades +0.900R.
+
+Execution interpretation:
+- LIMIT did not improve win rate; its value came from improved entry geometry and much larger effective RR.
+- LIMIT missed 8 MARKET winners: ARB, MOODENG, OP, ORDI, TIA did not pull back 0.35R within 6h; KAITO, TRUMP, AIXBT reached MARKET TP before the pending order could fill.
+- LIMIT avoided 4 MARKET losses by not filling: FIL, JTO, WIF, XPL.
+- DOT was MARKET unresolved and LIMIT not filled.
+- About 20/25 MARKET SL trades still finished in the predicted direction after 24h. Many losses were therefore adverse-excursion/barrier problems rather than simply wrong direction.
+- A fixed 0.35R LIMIT with the same SL cannot magically turn a filled MARKET loser into a winner if price continues through the same invalidation. The next meaningful live distinction is continuation-MARKET versus structurally expected pullback-LIMIT before entry.
 
 ## Final interpretation
-Do not cherry-pick another date because V27 failed.
-Evidence across June, May and the final random April sample says:
-- forcing a position on every coin is not robust;
+Evidence across June, May and both April samples says:
+- forcing a position on every coin is not robust across market states;
 - bias ownership alone does not solve the problem;
 - simply waiting one completed M15 does not solve it;
-- extreme breadth repeatedly acts as a market-quality warning;
-- actual flow is useful only when genuinely available/fresh and cannot be assumed to rescue every regime.
+- extreme breadth alone is NOT an automatic reversal or no-trade signal: Apr09 extreme bearish breadth failed badly, Apr16 extreme bullish breadth produced very strong 24h directional accuracy;
+- breadth must be combined with structure, continuation quality and adverse-excursion risk;
+- entry path and barrier geometry are now as important as direction.
 
 ## Preferred live framework now
 For current/live crypto requests:
@@ -92,20 +129,20 @@ For current/live crypto requests:
 3. analyze D1/H4/H1 structure and 6h/24h/72h momentum;
 4. use M15/M5 for setup, trigger and anti-chase;
 5. use actual order flow only when fresh/available;
-6. define structural SL first;
-7. require realistic TP/liquidity room;
-8. permit `NO TRADE / CHAOS` when market quality is poor;
+6. define structural invalidation first;
+7. classify execution as continuation-MARKET, pullback-LIMIT, or NO TRADE/CHAOS;
+8. require realistic TP/liquidity room;
 9. rank only the strongest few setups instead of forcing every coin.
-
-This selective framework is preferred over further forced-all-market version churn unless the user explicitly requests more research.
 
 ## Rejected methods — do not return
 - generic/redundant indicator stacking;
 - tiny TP used to inflate WR;
-- cosmetic RR changes;
+- cosmetic RR changes without a better entry thesis;
 - V25 synchronized whole-market climax reversal;
 - V26 macro-always-owns-direction;
-- V27 assumption that a completed M15 observation alone fixes forced-market performance.
+- V27 assumption that a completed M15 observation alone fixes forced-market performance;
+- treating extreme breadth alone as an automatic reversal or automatic no-trade rule;
+- blindly placing the same 0.35R LIMIT on every setup.
 
 ## Evidence/files to preserve
 - `scripts/blind_backtest_crypto.py`
@@ -118,7 +155,8 @@ This selective framework is preferred over further forced-all-market version chu
 - `data/blind_backtest_v24_validation.json`
 - `data/blind_backtest_v26.json`
 - `data/blind_backtest_v27_final.json`
+- `data/final_market_vs_limit_blind.json`
 - `.github/workflows/blind-backtest-v24.yml`
 - `docs/checkpoints/CRYPTO_RESEARCH_ARCHIVE.md`
 
-Rejected one-off V25/V26/V27 runners should be removed from the active tree after conclusions are checkpointed; Git history preserves exact code.
+One-off research runners/workflows should be removed from the active tree after conclusions are checkpointed; Git history preserves exact code.
