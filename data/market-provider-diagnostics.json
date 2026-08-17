@@ -1,2525 +1,541 @@
 {
-  "generatedAt": "2026-08-17T16:28:37.006852+00:00",
-  "workerBase": "https://forex-chart-api.hanlinh227.workers.dev",
-  "worker": {
-    "analysis/EURUSD": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "EURUSD",
-      "marketSymbol": "EUR/USD",
-      "marketType": "forex",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 1.15904,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:28.198Z",
-      "currentPriceTime": "2026-08-17 16:25:00",
-      "latestCandle": {
-        "datetime": "2026-08-17 16:25:00",
-        "open": 1.15904,
-        "high": 1.15906,
-        "low": 1.15894,
-        "close": 1.15904,
-        "volume": null
-      },
-      "error": null,
-      "rawBody": null
+  "generatedAt": "2026-08-17T16:31:32.519159+00:00",
+  "indicesEndpoint": {
+    "httpStatus": 200,
+    "ok": true,
+    "count": 1264
+  },
+  "commoditiesEndpoint": {
+    "httpStatus": 200,
+    "ok": true,
+    "count": 32
+  },
+  "instrumentTypes": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "result": [
+        "Agricultural Product",
+        "American Depositary Receipt",
+        "Bond",
+        "Bond Fund",
+        "Closed-end Fund",
+        "Common Stock",
+        "Depositary Receipt",
+        "Digital Currency",
+        "Energy Resource",
+        "ETF",
+        "Exchange-Traded Note",
+        "Global Depositary Receipt",
+        "Index",
+        "Industrial Metal",
+        "Limited Partnership",
+        "Livestock",
+        "Mutual Fund",
+        "Physical Currency",
+        "Precious Metal",
+        "Preferred Stock",
+        "REIT",
+        "Right",
+        "Structured Product",
+        "Trust",
+        "Unit",
+        "Warrant"
+      ],
+      "status": "ok"
+    }
+  },
+  "indexMatches": [
+    {
+      "symbol": "GDAXI",
+      "name": "DAX PERFORMANCE-INDEX",
+      "country": "Germany",
+      "currency": "EUR",
+      "exchange": "XETR",
+      "mic_code": "XETR",
+      "access": {
+        "global": "Grow",
+        "plan": "Grow",
+        "plan_business": "Venture"
+      }
     },
-    "price/EURUSD": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "EURUSD",
-      "marketSymbol": "EUR/USD",
-      "marketType": "forex",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 1.15896,
-      "priceType": "latest_price",
-      "generatedAt": "2026-08-17T16:28:28.477Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
+    {
+      "symbol": "MDAXI",
+      "name": "MDAX PERFORMANCE-INDEX",
+      "country": "Germany",
+      "currency": "EUR",
+      "exchange": "XETR",
+      "mic_code": "XETR",
+      "access": {
+        "global": "Grow",
+        "plan": "Grow",
+        "plan_business": "Venture"
+      }
     },
-    "refresh/EURUSD": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "EURUSD",
-      "marketSymbol": "EUR/USD",
-      "marketType": "forex",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 1.15904,
-      "priceType": "latest_M1_close",
-      "generatedAt": "2026-08-17T16:28:28.600Z",
-      "currentPriceTime": "2026-08-17 16:27:00",
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/XAUUSD": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "XAUUSD",
-      "marketSymbol": "XAU/USD",
-      "marketType": "metal",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 4424.01449,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:28.962Z",
-      "currentPriceTime": "2026-08-17 16:25:00",
-      "latestCandle": {
-        "datetime": "2026-08-17 16:25:00",
-        "open": 4426.35716,
-        "high": 4426.35716,
-        "low": 4423.82026,
-        "close": 4424.01449,
-        "volume": null
-      },
-      "error": null,
-      "rawBody": null
-    },
-    "price/XAUUSD": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "XAUUSD",
-      "marketSymbol": "XAU/USD",
-      "marketType": "metal",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 4423.99575,
-      "priceType": "latest_price",
-      "generatedAt": "2026-08-17T16:28:29.207Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/NAS100": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "NAS100",
-      "marketSymbol": "NDX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 19.4,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:29.608Z",
-      "currentPriceTime": "2026-08-14 06:00:00",
-      "latestCandle": {
-        "datetime": "2026-08-14 06:00:00",
-        "open": 19.4,
-        "high": 19.4,
-        "low": 19.4,
-        "close": 19.4,
-        "volume": 0
-      },
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/NDX": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "NDX",
-      "marketSymbol": "NDX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 19.4,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:30.037Z",
-      "currentPriceTime": "2026-08-14 06:00:00",
-      "latestCandle": {
-        "datetime": "2026-08-14 06:00:00",
-        "open": 19.4,
-        "high": 19.4,
-        "low": 19.4,
-        "close": 19.4,
-        "volume": 0
-      },
-      "error": null,
-      "rawBody": null
-    },
-    "price/NAS100": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "NAS100",
-      "marketSymbol": "NDX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 19.4,
-      "priceType": "latest_price",
-      "generatedAt": "2026-08-17T16:28:30.329Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
-    },
-    "price/NDX": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "NDX",
-      "marketSymbol": "NDX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 19.4,
-      "priceType": "latest_price",
-      "generatedAt": "2026-08-17T16:28:30.543Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/SPX": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "SPX",
-      "marketSymbol": "SPX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 0.085000001,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:31.120Z",
-      "currentPriceTime": "2026-08-14 17:20:00",
-      "latestCandle": {
-        "datetime": "2026-08-14 17:20:00",
-        "open": 0.085000001,
-        "high": 0.085000001,
-        "low": 0.085000001,
-        "close": 0.085000001,
-        "volume": 8000
-      },
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/US500": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "US500",
-      "marketSymbol": "SPX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 0.085000001,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:32.335Z",
-      "currentPriceTime": "2026-08-14 17:20:00",
-      "latestCandle": {
-        "datetime": "2026-08-14 17:20:00",
-        "open": 0.085000001,
-        "high": 0.085000001,
-        "low": 0.085000001,
-        "close": 0.085000001,
-        "volume": 8000
-      },
-      "error": null,
-      "rawBody": null
-    },
-    "price/SPX": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "ok",
-      "symbol": "SPX",
-      "marketSymbol": "SPX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 0.085000001,
-      "priceType": "latest_price",
-      "generatedAt": "2026-08-17T16:28:32.484Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/N225": {
-      "httpStatus": 200,
-      "ok": true,
-      "status": "partial",
+    {
       "symbol": "N225",
-      "marketSymbol": "N225",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": null,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:33.152Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
+      "name": "Nikkei 225",
+      "country": "Japan",
+      "currency": "JPY",
+      "exchange": "JPX",
+      "mic_code": "XJPX",
+      "access": {
+        "global": "Pro",
+        "plan": "Pro",
+        "plan_business": "Venture"
+      }
     },
-    "analysis/NIKKEI225": {
+    {
+      "symbol": "SDAXI",
+      "name": "SDAX PERFORMANCEINDEX",
+      "country": "Germany",
+      "currency": "EUR",
+      "exchange": "XETR",
+      "mic_code": "XETR",
+      "access": {
+        "global": "Grow",
+        "plan": "Grow",
+        "plan_business": "Venture"
+      }
+    },
+    {
+      "symbol": "SPTR5HPP Index",
+      "name": "S&P 500 Household & Personal Products Total Return Index",
+      "country": "Switzerland",
+      "currency": "CHF",
+      "exchange": "SIX",
+      "mic_code": "XSWX",
+      "access": {
+        "global": "Pro",
+        "plan": "Pro",
+        "plan_business": "Venture"
+      }
+    },
+    {
+      "symbol": "TECDAX",
+      "name": "TECDAX TR",
+      "country": "Germany",
+      "currency": "EUR",
+      "exchange": "XETR",
+      "mic_code": "XETR",
+      "access": {
+        "global": "Grow",
+        "plan": "Grow",
+        "plan_business": "Venture"
+      }
+    }
+  ],
+  "commodityMatches": [
+    {
+      "symbol": "WTI/USD",
+      "name": "Crude Oil WTI Spot",
+      "category": "Energy Resource",
+      "description": ""
+    }
+  ],
+  "explicitTests": {
+    "time_series:NDX_plain": {
       "httpStatus": 200,
       "ok": true,
-      "status": "partial",
-      "symbol": "NIKKEI225",
-      "marketSymbol": "N225",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": null,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:33.449Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
+      "body": {
+        "meta": {
+          "symbol": "NDX",
+          "interval": "1min",
+          "currency": "EUR",
+          "exchange_timezone": "Europe/Berlin",
+          "exchange": "FSX",
+          "mic_code": "XFRA",
+          "type": "American Depositary Receipt"
+        },
+        "values": [
+          {
+            "datetime": "2026-08-14 06:00:00",
+            "open": "19.40000",
+            "high": "19.40000",
+            "low": "19.40000",
+            "close": "19.40000",
+            "volume": "0"
+          },
+          {
+            "datetime": "2026-08-13 06:03:00",
+            "open": "20",
+            "high": "20",
+            "low": "20",
+            "close": "20",
+            "volume": "0"
+          },
+          {
+            "datetime": "2026-08-13 06:00:00",
+            "open": "20",
+            "high": "20",
+            "low": "20",
+            "close": "20",
+            "volume": "0"
+          }
+        ],
+        "status": "ok"
+      }
     },
-    "analysis/DAX": {
+    "price:NDX_plain": {
       "httpStatus": 200,
       "ok": true,
-      "status": "ok",
-      "symbol": "DAX",
-      "marketSymbol": "DAX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": 47.38,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:33.908Z",
-      "currentPriceTime": "2026-08-17 13:30:00",
-      "latestCandle": {
-        "datetime": "2026-08-17 13:30:00",
-        "open": 47.38,
-        "high": 47.38,
-        "low": 47.38,
-        "close": 47.38,
-        "volume": 1
-      },
-      "error": null,
-      "rawBody": null
+      "body": {
+        "price": "19.40000"
+      }
     },
-    "analysis/DE40": {
+    "time_series:NDX_type_index": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "price:NDX_type_index": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "time_series:NDX_nasdaq_index": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "price:NDX_nasdaq_index": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "time_series:NDX_colon_nasdaq": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "price:NDX_colon_nasdaq": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "time_series:SPX_plain": {
       "httpStatus": 200,
       "ok": true,
-      "status": "partial",
-      "symbol": "DE40",
-      "marketSymbol": "DAX",
-      "marketType": "index",
-      "provider": "Twelve Data",
-      "sourceType": "aggregated_api",
-      "currentPrice": null,
-      "priceType": "latest_M5_close",
-      "generatedAt": "2026-08-17T16:28:34.287Z",
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": null,
-      "rawBody": null
-    },
-    "analysis/NQ": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "NQ",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only.",
-      "rawBody": {
-        "status": "error",
-        "error": "FUTURES_NOT_SUPPORTED",
-        "symbol": "NQ",
-        "message": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only."
+      "body": {
+        "meta": {
+          "symbol": "SPX",
+          "interval": "1min",
+          "currency": "CAD",
+          "exchange_timezone": "America/Toronto",
+          "exchange": "TSXV",
+          "mic_code": "XTSX",
+          "type": "Common Stock"
+        },
+        "values": [
+          {
+            "datetime": "2026-08-14 17:23:00",
+            "open": "0.085000001",
+            "high": "0.085000001",
+            "low": "0.085000001",
+            "close": "0.085000001",
+            "volume": "8000"
+          },
+          {
+            "datetime": "2026-08-14 16:28:00",
+            "open": "0.085000001",
+            "high": "0.085000001",
+            "low": "0.085000001",
+            "close": "0.085000001",
+            "volume": "0"
+          },
+          {
+            "datetime": "2026-08-13 13:59:00",
+            "open": "0.085000001",
+            "high": "0.085000001",
+            "low": "0.085000001",
+            "close": "0.085000001",
+            "volume": "0"
+          }
+        ],
+        "status": "ok"
       }
     },
-    "analysis/MNQ": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "MNQ",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only.",
-      "rawBody": {
-        "status": "error",
-        "error": "FUTURES_NOT_SUPPORTED",
-        "symbol": "MNQ",
-        "message": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only."
+    "price:SPX_plain": {
+      "httpStatus": 200,
+      "ok": true,
+      "body": {
+        "price": "0.085000001"
       }
     },
-    "analysis/ES": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "ES",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only.",
-      "rawBody": {
-        "status": "error",
-        "error": "FUTURES_NOT_SUPPORTED",
-        "symbol": "ES",
-        "message": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only."
-      }
-    },
-    "analysis/MES": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "MES",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only.",
-      "rawBody": {
-        "status": "error",
-        "error": "FUTURES_NOT_SUPPORTED",
-        "symbol": "MES",
-        "message": "NQ/ES/MNQ/MES are futures. This Worker intentionally uses cash indices only."
-      }
-    },
-    "analysis/GC": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "GC",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "Could not classify symbol as cash index, metal, forex or crypto.",
-      "rawBody": {
-        "status": "error",
-        "error": "SYMBOL_NOT_SUPPORTED",
-        "symbol": "GC",
-        "message": "Could not classify symbol as cash index, metal, forex or crypto."
-      }
-    },
-    "analysis/SI": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "SI",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "Could not classify symbol as cash index, metal, forex or crypto.",
-      "rawBody": {
-        "status": "error",
-        "error": "SYMBOL_NOT_SUPPORTED",
-        "symbol": "SI",
-        "message": "Could not classify symbol as cash index, metal, forex or crypto."
-      }
-    },
-    "analysis/CL": {
-      "httpStatus": 400,
-      "ok": false,
-      "status": "error",
-      "symbol": "CL",
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "Could not classify symbol as cash index, metal, forex or crypto.",
-      "rawBody": {
-        "status": "error",
-        "error": "SYMBOL_NOT_SUPPORTED",
-        "symbol": "CL",
-        "message": "Could not classify symbol as cash index, metal, forex or crypto."
-      }
-    },
-    "symbol_search/NDX": {
+    "time_series:SPX_type_index": {
       "httpStatus": 404,
       "ok": false,
-      "status": "error",
-      "symbol": null,
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "INVALID_ROUTE",
-      "rawBody": {
-        "status": "error",
-        "error": "INVALID_ROUTE",
-        "allowed": [
-          "/analysis/EURUSD",
-          "/analysis/SUIUSDT",
-          "/refresh/SUIUSDT",
-          "/scan/SUIUSDT",
-          "/price/SUIUSDT",
-          "/resolve/SUIUSDT"
-        ]
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
       }
     },
-    "search/NDX": {
+    "price:SPX_type_index": {
       "httpStatus": 404,
       "ok": false,
-      "status": "error",
-      "symbol": null,
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "INVALID_ROUTE",
-      "rawBody": {
-        "status": "error",
-        "error": "INVALID_ROUTE",
-        "allowed": [
-          "/analysis/EURUSD",
-          "/analysis/SUIUSDT",
-          "/refresh/SUIUSDT",
-          "/scan/SUIUSDT",
-          "/price/SUIUSDT",
-          "/resolve/SUIUSDT"
-        ]
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
       }
     },
-    "quote/NDX": {
+    "time_series:N225_type_index": {
       "httpStatus": 404,
       "ok": false,
-      "status": "error",
-      "symbol": null,
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "INVALID_ROUTE",
-      "rawBody": {
-        "status": "error",
-        "error": "INVALID_ROUTE",
-        "allowed": [
-          "/analysis/EURUSD",
-          "/analysis/SUIUSDT",
-          "/refresh/SUIUSDT",
-          "/scan/SUIUSDT",
-          "/price/SUIUSDT",
-          "/resolve/SUIUSDT"
-        ]
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
       }
     },
-    "raw/NDX": {
+    "price:N225_type_index": {
       "httpStatus": 404,
       "ok": false,
-      "status": "error",
-      "symbol": null,
-      "marketSymbol": null,
-      "marketType": null,
-      "provider": null,
-      "sourceType": null,
-      "currentPrice": null,
-      "priceType": null,
-      "generatedAt": null,
-      "currentPriceTime": null,
-      "latestCandle": null,
-      "error": "INVALID_ROUTE",
-      "rawBody": {
-        "status": "error",
-        "error": "INVALID_ROUTE",
-        "allowed": [
-          "/analysis/EURUSD",
-          "/analysis/SUIUSDT",
-          "/refresh/SUIUSDT",
-          "/scan/SUIUSDT",
-          "/price/SUIUSDT",
-          "/resolve/SUIUSDT"
-        ]
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "time_series:DAX_type_index": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
+      }
+    },
+    "price:DAX_type_index": {
+      "httpStatus": 404,
+      "ok": false,
+      "body": {
+        "code": 404,
+        "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+        "status": "error"
       }
     }
   },
-  "directTwelveData": {
-    "secretAvailable": true,
-    "secretNameUsed": "TWELVEDATA_API_KEY",
-    "requests": {
-      "symbol_search:NDX": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "NDX",
-              "instrument_name": "Nordex SE - Unsponsored ADR",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "American Depositary Receipt",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX01",
-              "instrument_name": "ChinaAMC Nasdaq 100 ETF",
-              "exchange": "SET",
-              "mic_code": "XBKK",
-              "exchange_timezone": "Asia/Bangkok",
-              "instrument_type": "Depositary Receipt",
-              "country": "Thailand",
-              "currency": "THB",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "XETR",
-              "mic_code": "XETR",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "XSTU",
-              "mic_code": "XSTU",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "VSE",
-              "mic_code": "XWBO",
-              "exchange_timezone": "Europe/Vienna",
-              "instrument_type": "Common Stock",
-              "country": "Austria",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "XDUS",
-              "mic_code": "XDUS",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "XHAN",
-              "mic_code": "XHAN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1",
-              "instrument_name": "Nordex SE",
-              "exchange": "SIX",
-              "mic_code": "XSWX",
-              "exchange_timezone": "Europe/Zurich",
-              "instrument_type": "Common Stock",
-              "country": "Switzerland",
-              "currency": "CHF",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDX1D",
-              "instrument_name": "Nordex SE",
-              "exchange": "CBOE",
-              "mic_code": "BCXE",
-              "exchange_timezone": "Europe/London",
-              "instrument_type": "Common Stock",
-              "country": "United Kingdom",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDXH",
-              "instrument_name": "Amundi ETF NASDAQ-100 EUR Hedged Daily UCITS ETF",
-              "exchange": "Euronext",
-              "mic_code": "XPAR",
-              "exchange_timezone": "Europe/Paris",
-              "instrument_type": "ETF",
-              "country": "France",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDXH",
-              "instrument_name": "Amundi ETF NASDAQ-100 EUR Hedged Daily UCITS ETF",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "ETF",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDXHP",
-              "instrument_name": "Amundi ETF NASDAQ-100 EUR Hedged Daily UCITS ETF",
-              "exchange": "CBOE",
-              "mic_code": "BCXE",
-              "exchange_timezone": "Europe/London",
-              "instrument_type": "ETF",
-              "country": "United Kingdom",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDXEX",
-              "instrument_name": "iShares Nasdaq 100 UCITS ETF (DE)",
-              "exchange": "BSE",
-              "mic_code": "XBUD",
-              "exchange_timezone": "Europe/Budapest",
-              "instrument_type": "ETF",
-              "country": "Hungary",
-              "currency": "HUF",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NDXKX",
-              "instrument_name": "Shelton Capital Management Nasdaq-100 Index Fund Class K",
-              "exchange": "NASDAQ",
-              "mic_code": "XNAS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "449190",
-              "instrument_name": "Samsung Kodex NDX ETF",
-              "exchange": "KRX",
-              "mic_code": "XKRX",
-              "exchange_timezone": "Asia/Seoul",
-              "instrument_type": "ETF",
-              "country": "South Korea",
-              "currency": "KRW",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "ODTE",
-              "instrument_name": "VegaShares SPX NDX RTY Premium Income ETF",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "ETF",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MTF.F104",
-              "instrument_name": "MTF SAL Level NDX100X3 Mutual Fund",
-              "exchange": "TASE",
-              "mic_code": "XTAE",
-              "exchange_timezone": "Asia/Jerusalem",
-              "instrument_type": "ETF",
-              "country": "Israel",
-              "currency": "ILA",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            }
-          ],
-          "status": "ok"
+  "discoveredIndexTests": {
+    "GDAXI|XETR|XETR": {
+      "catalog": {
+        "symbol": "GDAXI",
+        "name": "DAX PERFORMANCE-INDEX",
+        "country": "Germany",
+        "currency": "EUR",
+        "exchange": "XETR",
+        "mic_code": "XETR",
+        "access": {
+          "global": "Grow",
+          "plan": "Grow",
+          "plan_business": "Venture"
         }
       },
-      "symbol_search:SPX": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "SPX",
-              "instrument_name": "Spirax Group plc",
-              "exchange": "LSE",
-              "mic_code": "XLON",
-              "exchange_timezone": "Europe/London",
-              "instrument_type": "Common Stock",
-              "country": "United Kingdom",
-              "currency": "GBp",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Space Exploration Technologies Corp.",
-              "exchange": "XETR",
-              "mic_code": "XETR",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Space Exploration Technologies Corp. Class A",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Amundi Core S&P 500 Swap UCITS ETF Acc",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "ETF",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Space Exploration Technologies Corp. Class A",
-              "exchange": "XSTU",
-              "mic_code": "XSTU",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Space Exploration Technologies Corp. Class A",
-              "exchange": "XHAN",
-              "mic_code": "XHAN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Space Exploration Technologies Corp. Class A",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Spenda Limited",
-              "exchange": "CXA",
-              "mic_code": "CXAC",
-              "exchange_timezone": "Australia/Sydney",
-              "instrument_type": "Common Stock",
-              "country": "Australia",
-              "currency": "AUD",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Stellar AfricaGold Inc.",
-              "exchange": "TSXV",
-              "mic_code": "XTSX",
-              "exchange_timezone": "America/Toronto",
-              "instrument_type": "Common Stock",
-              "country": "Canada",
-              "currency": "CAD",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Space Exploration Technologies Corp. Class A",
-              "exchange": "XDUS",
-              "mic_code": "XDUS",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Stellar AfricaGold Inc.",
-              "exchange": "NEO",
-              "mic_code": "NEOE",
-              "exchange_timezone": "America/Toronto",
-              "instrument_type": "Common Stock",
-              "country": "Canada",
-              "currency": "CAD",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX",
-              "instrument_name": "Spenda Ltd",
-              "exchange": "ASX",
-              "mic_code": "XASX",
-              "exchange_timezone": "Australia/Sydney",
-              "instrument_type": "Common Stock",
-              "country": "Australia",
-              "currency": "AUD",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPXL",
-              "instrument_name": "Direxion Daily S&P 500 Bull 3X Shares",
-              "exchange": "NYSE",
-              "mic_code": "ARCX",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "ETF",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "SPXL",
-              "instrument_name": "Direxion Daily S&P 500 Bull 3X Shares",
-              "exchange": "BCBA",
-              "mic_code": "XBUE",
-              "exchange_timezone": "America/Argentina/Buenos_Aires",
-              "instrument_type": "ETF",
-              "country": "Argentina",
-              "currency": "ARS",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPXP",
-              "instrument_name": "Invesco S&P 500 UCITS ETF Acc",
-              "exchange": "LSE",
-              "mic_code": "XLON",
-              "exchange_timezone": "Europe/London",
-              "instrument_type": "ETF",
-              "country": "United Kingdom",
-              "currency": "GBp",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPXS",
-              "instrument_name": "Direxion Daily S&P 500 Bear 3X Shares",
-              "exchange": "NYSE",
-              "mic_code": "ARCX",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "ETF",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "SPXU",
-              "instrument_name": "ProShares UltraPro Short S&P 500 Fund",
-              "exchange": "NYSE",
-              "mic_code": "ARCX",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "ETF",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "SPX0",
-              "instrument_name": "Space Exploration Technologies Corp. Canadian Depositary Receipt",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Depositary Receipt",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX3",
-              "instrument_name": "GraniteShares 3x Long SpaceX Daily ETP",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "ETF",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "SPX3L",
-              "instrument_name": "SG ETN Daily Long +3x S&P 500",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "ETF",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:NQ": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "NQ0",
-              "instrument_name": "Sasquatch Resources Corp.",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQ08",
-              "instrument_name": "Erste Group Bank AG",
-              "exchange": "VSE",
-              "mic_code": "XWBO",
-              "exchange_timezone": "Europe/Vienna",
-              "instrument_type": "Common Stock",
-              "country": "Austria",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQ9",
-              "instrument_name": "Nexity SA",
-              "exchange": "XSTU",
-              "mic_code": "XSTU",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQ9",
-              "instrument_name": "Nexity SA",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQ9",
-              "instrument_name": "Nexity SA",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQ9",
-              "instrument_name": "Nexity SA",
-              "exchange": "XDUS",
-              "mic_code": "XDUS",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQA",
-              "instrument_name": "NOTE AB (publ)",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQA",
-              "instrument_name": "NOTE AB (publ)",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQA",
-              "instrument_name": "NOTE AB (publ)",
-              "exchange": "XDUS",
-              "mic_code": "XDUS",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQC",
-              "instrument_name": "NQC",
-              "exchange": "TSXV",
-              "mic_code": "XTSX",
-              "exchange_timezone": "America/Toronto",
-              "instrument_type": "Common Stock",
-              "country": "Canada",
-              "currency": "CAD",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQC",
-              "instrument_name": "Nordique Critical Metals Inc.",
-              "exchange": "NEO",
-              "mic_code": "NEOE",
-              "exchange_timezone": "America/Toronto",
-              "instrument_type": "Common Stock",
-              "country": "Canada",
-              "currency": "CAD",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQCAX",
-              "instrument_name": "Nuveen Large Cap Value Opportunities Fund Class A",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "NQCCX",
-              "instrument_name": "Nuveen Large Cap Value Opportunities Fund Class C",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "NQCFX",
-              "instrument_name": "NorthQuest Capital Fund Inc.",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "NQCRX",
-              "instrument_name": "Nuveen Large Cap Value Opportunities Fund Class I",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "NQCZIXX",
-              "instrument_name": "NBC Canadian Banks (5% AR) Flex GIC, series 84F NL (877816A2)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "CAD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "NQG",
-              "instrument_name": "Monolithic Power Systems, Inc.",
-              "exchange": "XETR",
-              "mic_code": "XETR",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQG",
-              "instrument_name": "Monolithic Power Systems, Inc.",
-              "exchange": "XSTU",
-              "mic_code": "XSTU",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQG",
-              "instrument_name": "Monolithic Power Systems, Inc.",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "NQG",
-              "instrument_name": "Monolithic Power Systems, Inc.",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:MNQ": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "MNQFF",
-              "instrument_name": "Manulife Financial Corporation Perpetual Preferred Stock 4.65%",
-              "exchange": "OTC",
-              "mic_code": "PINX",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Preferred Stock",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:ES": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "ES",
-              "instrument_name": "Eversource Energy",
-              "exchange": "NYSE",
-              "mic_code": "XNYS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Common Stock",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "ES",
-              "instrument_name": "Eversource Energy",
-              "exchange": "VSE",
-              "mic_code": "XWBO",
-              "exchange_timezone": "Europe/Vienna",
-              "instrument_type": "Common Stock",
-              "country": "Austria",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "ES",
-              "instrument_name": "Eversource Energy",
-              "exchange": "BMV",
-              "mic_code": "XMEX",
-              "exchange_timezone": "America/Swift_Current",
-              "instrument_type": "Common Stock",
-              "country": "Mexico",
-              "currency": "MXN",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:MES": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "MES",
-              "instrument_name": "Mitsubishi Estate Co., Ltd.",
-              "exchange": "FSX",
-              "mic_code": "XFRA",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MES",
-              "instrument_name": "Mitsubishi Estate Co., Ltd.",
-              "exchange": "XSTU",
-              "mic_code": "XSTU",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MES",
-              "instrument_name": "Mitsubishi Estate Co., Ltd.",
-              "exchange": "XHAN",
-              "mic_code": "XHAN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MES",
-              "instrument_name": "Mitsubishi Estate Co., Ltd.",
-              "exchange": "XDUS",
-              "mic_code": "XDUS",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MES",
-              "instrument_name": "Mitsubishi Estate Co., Ltd.",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "Common Stock",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MES0",
-              "instrument_name": "Mitsubishi Estate Co., Ltd. ADR",
-              "exchange": "Munich",
-              "mic_code": "XMUN",
-              "exchange_timezone": "Europe/Berlin",
-              "instrument_type": "American Depositary Receipt",
-              "country": "Germany",
-              "currency": "EUR",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MESA",
-              "instrument_name": "Republic Airways Holdings Inc.",
-              "exchange": "NASDAQ",
-              "mic_code": "XNCM",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Common Stock",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESAX",
-              "instrument_name": "Mackenzie Cundill Canadian Security Fund Series G FE (238394A3)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "CAD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESC",
-              "instrument_name": "Lophos Holdings Inc.",
-              "exchange": "CSE",
-              "mic_code": "XCNQ",
-              "exchange_timezone": "America/Toronto",
-              "instrument_type": "Common Stock",
-              "country": "Canada",
-              "currency": "CAD",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MESCX",
-              "instrument_name": "Mackenzie Cundill Canadian Security Fund Series J FE (298668A2)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "CAD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESH",
-              "instrument_name": "Meshflow Acquisition Corp.",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Common Stock",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESHU",
-              "instrument_name": "Meshflow Acquisition Corp. Unit",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Unit",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESHW",
-              "instrument_name": "Meshflow Acquisition Corp.",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Warrant",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESHX",
-              "instrument_name": "AMG GW&K Municipal Enhanced SMA Shares",
-              "exchange": "NASDAQ",
-              "mic_code": "XNAS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESO",
-              "instrument_name": "Mesoblast Limited Sponsored ADR",
-              "exchange": "NASDAQ",
-              "mic_code": "XNGS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "American Depositary Receipt",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESOX",
-              "instrument_name": "Mackenzie Cundill Canadian Security Fund Series PWX U$ FE (367516A2)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESR",
-              "instrument_name": "UBS MSCI Europe Socially Responsible UCITS ETF EUR Acc",
-              "exchange": "LSE",
-              "mic_code": "XLON",
-              "exchange_timezone": "Europe/London",
-              "instrument_type": "ETF",
-              "country": "United Kingdom",
-              "currency": "GBp",
-              "access": {
-                "global": "Grow",
-                "plan": "Grow",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "MESBX",
-              "instrument_name": "Mackenzie Cundill Canadian Security Fund Series I FE (231855A2)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "CAD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESDX",
-              "instrument_name": "Mackenzie Cundill Canadian Security Fund Series O NL (235188A2)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "CAD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "MESFX",
-              "instrument_name": "Mackenzie Cundill Canadian Security Fund Series PW U$ FE (367526A2)",
-              "exchange": "NASDAQ",
-              "mic_code": "XNMS",
-              "exchange_timezone": "America/New_York",
-              "instrument_type": "Mutual Fund",
-              "country": "United States",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:XAU/USD": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "XAU/USD",
-              "instrument_name": "Gold Spot / US Dollar",
-              "exchange": "COMMODITY",
-              "mic_code": "COMMODITY",
-              "exchange_timezone": "Australia/Sydney",
-              "instrument_type": "Precious Metal",
-              "country": "",
-              "currency": "USD",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "F78167",
-              "instrument_name": "Vontobel Warrant on Gold Spot XAU/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78165",
-              "instrument_name": "Vontobel Call Warrant on Gold XAU/USD 2,600.00 USD 20/03/2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78166",
-              "instrument_name": "Vontobel Call Warrant on Gold (XAU/USD) 2600 USD Strike 20 March 2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78171",
-              "instrument_name": "Bank Vontobel AG Call Warrant on Gold (XAU/USD) 2,600 USD Strike, Maturity 20 Mar 2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78170",
-              "instrument_name": "Vontobel Call Warrant on Gold XAU/USD, Expiring March 2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78162",
-              "instrument_name": "Vontobel XAU/USD Warrant (F78162)",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78163",
-              "instrument_name": "Vontobel AG XAU/USD Call Warrant, expiry March 20, 2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78168",
-              "instrument_name": "Vontobel Call Warrant on Gold (XAU/USD), USD 2,600 Strike, Maturity March 20, 2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78156",
-              "instrument_name": "Bank Vontobel Call Warrant on Gold (XAU/USD) Strike 2,600 USD Maturity 20 March 2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:EUR/USD": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "EUR/USD",
-              "instrument_name": "Euro / US Dollar",
-              "exchange": "PHYSICAL CURRENCY",
-              "mic_code": "PHYSICAL_CURRENCY",
-              "exchange_timezone": "Australia/Sydney",
-              "instrument_type": "Physical Currency",
-              "country": "",
-              "currency": "",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "F90842",
-              "instrument_name": "Vontobel Call Warrant EUR/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F93636",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F99120",
-              "instrument_name": "Vontobel Warrant on EUR/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F78129",
-              "instrument_name": "Vontobel Call Warrant on EUR/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F97691",
-              "instrument_name": "Vontobel Call Warrant on EUR/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92565",
-              "instrument_name": "Vontobel Put Warrant on EUR/USD",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F86482",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD Strike 0.90 Maturity 20.03.2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92564",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD Strike 1.00 Maturity 19.06.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F93637",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD Strike 1.00 Maturity 19.06.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92576",
-              "instrument_name": "Bank Vontobel Call Warrant on EUR/USD Strike 1.01 Maturity 19.06.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92884",
-              "instrument_name": "Bank Vontobel Call Warrant on EUR/USD Strike 1.010 USD Maturity 19.06.2026 ISIN DE000VG26D04",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92545",
-              "instrument_name": "Bank Vontobel Call Warrant on EUR/USD Strike 1.010 Maturity 19.06.2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92539",
-              "instrument_name": "Bank Vontobel Call Warrant on EUR/USD Strike 1.010 Maturity 19.06.2026",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92547",
-              "instrument_name": "Bank Vontobel Call Warrant on EUR/USD Strike 1.010 Maturity 19.06.2026 ISIN DE000VG26D04",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F92561",
-              "instrument_name": "Bank Vontobel Call Warrant on EUR/USD Strike 1.07 Maturity 19.06.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F83628",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD Strike 1.18 Maturity 20.03.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F83629",
-              "instrument_name": "VONTOBEL PUT Warrant on EUR/USD Strike 1.18 Maturity 20.03.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F83695",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD Strike 1.18 Maturity 20.03.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            },
-            {
-              "symbol": "F83705",
-              "instrument_name": "Bank Vontobel Put Warrant on EUR/USD Strike 1.18 Maturity 20.03.26",
-              "exchange": "MTA",
-              "mic_code": "XMIL",
-              "exchange_timezone": "Europe/Rome",
-              "instrument_type": "Warrant",
-              "country": "Italy",
-              "currency": "EUR",
-              "access": {
-                "global": "Pro",
-                "plan": "Pro",
-                "plan_business": "Venture"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "symbol_search:BTC/USD": {
-        "httpStatus": 200,
-        "ok": true,
-        "body": {
-          "data": [
-            {
-              "symbol": "BTC/USD",
-              "instrument_name": "Bitcoin US Dollar",
-              "exchange": "Coinbase Pro",
-              "mic_code": "DIGITAL_CURRENCY",
-              "exchange_timezone": "UTC",
-              "instrument_type": "Digital Currency",
-              "country": "",
-              "currency": "",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "BTC/USD",
-              "instrument_name": "Bitcoin US Dollar",
-              "exchange": "Binance",
-              "mic_code": "DIGITAL_CURRENCY",
-              "exchange_timezone": "UTC",
-              "instrument_type": "Digital Currency",
-              "country": "",
-              "currency": "",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            },
-            {
-              "symbol": "BTC/USD",
-              "instrument_name": "Bitcoin US Dollar",
-              "exchange": "Bitfinex",
-              "mic_code": "DIGITAL_CURRENCY",
-              "exchange_timezone": "UTC",
-              "instrument_type": "Digital Currency",
-              "country": "",
-              "currency": "",
-              "access": {
-                "global": "Basic",
-                "plan": "Basic",
-                "plan_business": "Basic"
-              }
-            }
-          ],
-          "status": "ok"
-        }
-      },
-      "quote:NDX": {
-        "httpStatus": 429,
+      "timeSeries": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 57 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       },
-      "time_series:NDX": {
-        "httpStatus": 429,
+      "price": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 58 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+          "status": "error"
+        }
+      }
+    },
+    "MDAXI|XETR|XETR": {
+      "catalog": {
+        "symbol": "MDAXI",
+        "name": "MDAX PERFORMANCE-INDEX",
+        "country": "Germany",
+        "currency": "EUR",
+        "exchange": "XETR",
+        "mic_code": "XETR",
+        "access": {
+          "global": "Grow",
+          "plan": "Grow",
+          "plan_business": "Venture"
+        }
+      },
+      "timeSeries": {
+        "httpStatus": 404,
+        "ok": false,
+        "body": {
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       },
-      "quote:SPX": {
-        "httpStatus": 429,
+      "price": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 59 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+          "status": "error"
+        }
+      }
+    },
+    "N225|JPX|XJPX": {
+      "catalog": {
+        "symbol": "N225",
+        "name": "Nikkei 225",
+        "country": "Japan",
+        "currency": "JPY",
+        "exchange": "JPX",
+        "mic_code": "XJPX",
+        "access": {
+          "global": "Pro",
+          "plan": "Pro",
+          "plan_business": "Venture"
+        }
+      },
+      "timeSeries": {
+        "httpStatus": 404,
+        "ok": false,
+        "body": {
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       },
-      "time_series:SPX": {
-        "httpStatus": 429,
+      "price": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 60 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+          "status": "error"
+        }
+      }
+    },
+    "SDAXI|XETR|XETR": {
+      "catalog": {
+        "symbol": "SDAXI",
+        "name": "SDAX PERFORMANCEINDEX",
+        "country": "Germany",
+        "currency": "EUR",
+        "exchange": "XETR",
+        "mic_code": "XETR",
+        "access": {
+          "global": "Grow",
+          "plan": "Grow",
+          "plan_business": "Venture"
+        }
+      },
+      "timeSeries": {
+        "httpStatus": 404,
+        "ok": false,
+        "body": {
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       },
-      "quote:NQ": {
-        "httpStatus": 429,
+      "price": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 61 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+          "status": "error"
+        }
+      }
+    },
+    "SPTR5HPP Index|SIX|XSWX": {
+      "catalog": {
+        "symbol": "SPTR5HPP Index",
+        "name": "S&P 500 Household & Personal Products Total Return Index",
+        "country": "Switzerland",
+        "currency": "CHF",
+        "exchange": "SIX",
+        "mic_code": "XSWX",
+        "access": {
+          "global": "Pro",
+          "plan": "Pro",
+          "plan_business": "Venture"
+        }
+      },
+      "timeSeries": {
+        "httpStatus": 404,
+        "ok": false,
+        "body": {
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       },
-      "time_series:NQ": {
-        "httpStatus": 429,
+      "price": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 62 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
+          "status": "error"
+        }
+      }
+    },
+    "TECDAX|XETR|XETR": {
+      "catalog": {
+        "symbol": "TECDAX",
+        "name": "TECDAX TR",
+        "country": "Germany",
+        "currency": "EUR",
+        "exchange": "XETR",
+        "mic_code": "XETR",
+        "access": {
+          "global": "Grow",
+          "plan": "Grow",
+          "plan_business": "Venture"
+        }
+      },
+      "timeSeries": {
+        "httpStatus": 404,
+        "ok": false,
+        "body": {
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       },
-      "quote:ES": {
-        "httpStatus": 429,
+      "price": {
+        "httpStatus": 404,
         "ok": false,
         "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 63 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
-          "status": "error"
-        }
-      },
-      "time_series:ES": {
-        "httpStatus": 429,
-        "ok": false,
-        "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 64 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
-          "status": "error"
-        }
-      },
-      "quote:XAU/USD": {
-        "httpStatus": 429,
-        "ok": false,
-        "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 65 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
-          "status": "error"
-        }
-      },
-      "time_series:XAU/USD": {
-        "httpStatus": 429,
-        "ok": false,
-        "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 66 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
-          "status": "error"
-        }
-      },
-      "quote:EUR/USD": {
-        "httpStatus": 429,
-        "ok": false,
-        "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 67 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
-          "status": "error"
-        }
-      },
-      "time_series:EUR/USD": {
-        "httpStatus": 429,
-        "ok": false,
-        "body": {
-          "code": 429,
-          "message": "You have run out of API credits for the current minute. 68 API credits were used, with the current limit being 55. Wait for the next minute or consider switching to a higher tier plan at https://twelvedata.com/pricing",
+          "code": 404,
+          "message": "**symbol** or **figi** parameter is missing or invalid. Please provide a valid symbol according to API documentation: https://twelvedata.com/docs#reference-data",
           "status": "error"
         }
       }
