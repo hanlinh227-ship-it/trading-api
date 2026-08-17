@@ -1,0 +1,2454 @@
+{
+  "generatedAt": "2026-08-17T07:03:18.174478+00:00",
+  "version": "FOREX F6 cross-currency rotation blind comparator",
+  "integrity": {
+    "validationCutoffsRepoSearchedAbsentBeforeCreation": true,
+    "rulesFrozenBeforeReveal": true,
+    "allValidPairsForcedBuyOrSell": true,
+    "sameBlindDataForBaselineAndF6": true,
+    "noTop3": true
+  },
+  "method": {
+    "hypothesis": "F5 collapse may reflect broad FX factor rotation: when the 6h currency-strength vector is negatively correlated with the 24h/72h vector and the cross-sectional shift is material, short-horizon acceleration may deserve temporary priority for pairs whose own 6h strength opposes the long-horizon mix.",
+    "rotationGate": {
+      "corr6LongMax": -0.2,
+      "meanShiftMin": 0.45,
+      "pairTurnMinAbsD6": 0.25
+    },
+    "unchangedFromF5": [
+      "EMA20/50, RSI14, ATR14, ADX14 roles",
+      "F5 pair baseline models",
+      "structural/dynamic SL",
+      "economic liquidity/ADR TP",
+      "adaptive LIMIT geometry"
+    ]
+  },
+  "dataPlan": {
+    "provider": "Twelve Data",
+    "interval": "15min",
+    "pairs": 28,
+    "creditsExpected": 28,
+    "validationDates": [
+      "2026-05-11T08:00:00Z",
+      "2026-05-12T08:00:00Z",
+      "2026-05-13T08:00:00Z",
+      "2026-05-14T08:00:00Z",
+      "2026-05-15T08:00:00Z"
+    ],
+    "rawCommitted": false
+  },
+  "baselineF5OnSameHoldout": {
+    "market": {
+      "signals": 140,
+      "resolved": 108,
+      "wins": 35,
+      "losses": 73,
+      "timeouts": 31,
+      "ambiguous": 1,
+      "winRateResolved": 32.41,
+      "avgPlannedRR": 2.413,
+      "medianPlannedRR": 2.222,
+      "expectancyR": -0.084
+    },
+    "limit": {
+      "signals": 140,
+      "fills": 125,
+      "fillRate": 89.29,
+      "resolved": 102,
+      "wins": 30,
+      "losses": 72,
+      "noFill": 12,
+      "targetBeforeFill": 3,
+      "winRateResolved": 29.41,
+      "avgEffectiveRR": 3.105,
+      "expectancyR": -0.016
+    },
+    "direction6h": {
+      "tests": 140,
+      "correct": 71,
+      "accuracy": 50.71,
+      "avgMoveATR": -0.056
+    },
+    "direction12h": {
+      "tests": 140,
+      "correct": 77,
+      "accuracy": 55.0,
+      "avgMoveATR": 1.023
+    },
+    "direction24h": {
+      "tests": 140,
+      "correct": 74,
+      "accuracy": 52.86,
+      "avgMoveATR": 0.668
+    },
+    "path": {
+      "slCount": 73,
+      "slButDirection24Correct": 28,
+      "slAndDirection24Wrong": 45,
+      "pctSLWith24hDirectionCorrect": 38.36
+    },
+    "rotationOverrides": 0,
+    "byCutoff": {
+      "2026-05-11T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.7543561504322376,
+          "meanShift": 0.37329516991178063,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 24,
+          "wins": 5,
+          "losses": 19,
+          "timeouts": 4,
+          "ambiguous": 0,
+          "winRateResolved": 20.83,
+          "avgPlannedRR": 3.06,
+          "medianPlannedRR": 2.222,
+          "expectancyR": -0.406
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 28,
+          "fillRate": 100.0,
+          "resolved": 24,
+          "wins": 5,
+          "losses": 19,
+          "noFill": 0,
+          "targetBeforeFill": 0,
+          "winRateResolved": 20.83,
+          "avgEffectiveRR": 3.834,
+          "expectancyR": -0.322
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 10,
+          "accuracy": 35.71,
+          "avgMoveATR": -0.925
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 15,
+          "accuracy": 53.57,
+          "avgMoveATR": 1.21
+        },
+        "path": {
+          "slCount": 19,
+          "slButDirection24Correct": 11,
+          "slAndDirection24Wrong": 8,
+          "pctSLWith24hDirectionCorrect": 57.89
+        }
+      },
+      "2026-05-12T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.8369891141504385,
+          "meanShift": 0.3133954332209625,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 25,
+          "wins": 8,
+          "losses": 17,
+          "timeouts": 3,
+          "ambiguous": 0,
+          "winRateResolved": 32.0,
+          "avgPlannedRR": 1.889,
+          "medianPlannedRR": 2.035,
+          "expectancyR": -0.076
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 27,
+          "fillRate": 96.43,
+          "resolved": 25,
+          "wins": 8,
+          "losses": 17,
+          "noFill": 1,
+          "targetBeforeFill": 0,
+          "winRateResolved": 32.0,
+          "avgEffectiveRR": 2.419,
+          "expectancyR": 0.095
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 11,
+          "accuracy": 39.29,
+          "avgMoveATR": -1.222
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 9,
+          "accuracy": 32.14,
+          "avgMoveATR": -2.17
+        },
+        "path": {
+          "slCount": 17,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 15,
+          "pctSLWith24hDirectionCorrect": 11.76
+        }
+      },
+      "2026-05-13T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.4969404883289891,
+          "meanShift": 0.6081664899140248,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 19,
+          "wins": 7,
+          "losses": 12,
+          "timeouts": 9,
+          "ambiguous": 0,
+          "winRateResolved": 36.84,
+          "avgPlannedRR": 2.23,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.155
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 25,
+          "fillRate": 89.29,
+          "resolved": 18,
+          "wins": 6,
+          "losses": 12,
+          "noFill": 3,
+          "targetBeforeFill": 0,
+          "winRateResolved": 33.33,
+          "avgEffectiveRR": 2.775,
+          "expectancyR": 0.2
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 13,
+          "accuracy": 46.43,
+          "avgMoveATR": 0.77
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 13,
+          "accuracy": 46.43,
+          "avgMoveATR": 0.843
+        },
+        "path": {
+          "slCount": 12,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 9,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "2026-05-14T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.3822826427261164,
+          "meanShift": 0.6417015428266827,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 27,
+          "wins": 10,
+          "losses": 17,
+          "timeouts": 0,
+          "ambiguous": 1,
+          "winRateResolved": 37.04,
+          "avgPlannedRR": 2.615,
+          "medianPlannedRR": 2.463,
+          "expectancyR": -0.063
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 28,
+          "fillRate": 100.0,
+          "resolved": 27,
+          "wins": 10,
+          "losses": 17,
+          "noFill": 0,
+          "targetBeforeFill": 0,
+          "winRateResolved": 37.04,
+          "avgEffectiveRR": 3.316,
+          "expectancyR": 0.101
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 19,
+          "accuracy": 67.86,
+          "avgMoveATR": 4.381
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 14,
+          "accuracy": 50.0,
+          "avgMoveATR": 1.382
+        },
+        "path": {
+          "slCount": 17,
+          "slButDirection24Correct": 6,
+          "slAndDirection24Wrong": 11,
+          "pctSLWith24hDirectionCorrect": 35.29
+        }
+      },
+      "2026-05-15T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.6266120296431369,
+          "meanShift": 0.5224422953967126,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 13,
+          "wins": 5,
+          "losses": 8,
+          "timeouts": 15,
+          "ambiguous": 0,
+          "winRateResolved": 38.46,
+          "avgPlannedRR": 2.077,
+          "medianPlannedRR": 1.742,
+          "expectancyR": 0.101
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 17,
+          "fillRate": 60.71,
+          "resolved": 8,
+          "wins": 1,
+          "losses": 7,
+          "noFill": 8,
+          "targetBeforeFill": 3,
+          "winRateResolved": 12.5,
+          "avgEffectiveRR": 3.098,
+          "expectancyR": -0.328
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 24,
+          "accuracy": 85.71,
+          "avgMoveATR": 2.113
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 23,
+          "accuracy": 82.14,
+          "avgMoveATR": 2.073
+        },
+        "path": {
+          "slCount": 8,
+          "slButDirection24Correct": 6,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 75.0
+        }
+      }
+    },
+    "byPair": {
+      "EURUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 2.797,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.753
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 2.094
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 6.378
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "GBPUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.668,
+          "medianPlannedRR": 1.511,
+          "expectancyR": 0.015
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 3.249
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 8.241
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "USDJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.738,
+          "medianPlannedRR": 2.727,
+          "expectancyR": 0.074
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 3.674
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 5.751
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "USDCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 1.209,
+          "medianPlannedRR": 1.045,
+          "expectancyR": 0.337
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 1.818
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 5.328
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "USDCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 1.801,
+          "medianPlannedRR": 1.741,
+          "expectancyR": 0.43
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 0.337
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 1.082
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "AUDUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 0,
+          "losses": 4,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 3.971,
+          "medianPlannedRR": 3.96,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -2.861
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -3.499
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "NZDUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 1.412,
+          "medianPlannedRR": 1.06,
+          "expectancyR": -0.349
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.656
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 6.007
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "EURJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.475,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.074
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.05
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -2.118
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURGBP": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 0,
+          "losses": 5,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 1.913,
+          "medianPlannedRR": 1.76,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 1.966
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 3.707
+        },
+        "path": {
+          "slCount": 5,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 60.0
+        }
+      },
+      "EURCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 1,
+          "losses": 3,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 25.0,
+          "avgPlannedRR": 2.179,
+          "medianPlannedRR": 2.072,
+          "expectancyR": 0.004
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.076
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.984
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURAUD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.743,
+          "medianPlannedRR": 2.188,
+          "expectancyR": 0.443
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 0.028
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -3.578
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURNZD": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 2,
+          "losses": 3,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 40.0,
+          "avgPlannedRR": 1.505,
+          "medianPlannedRR": 1.394,
+          "expectancyR": -0.107
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.829
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -3.173
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 0,
+          "losses": 4,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 4.004,
+          "medianPlannedRR": 4.013,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.428
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.302
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "GBPJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 1,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.162,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.074
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 3.622
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 1.593
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "GBPCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 2.373,
+          "medianPlannedRR": 1.488,
+          "expectancyR": -0.542
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 2.986
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 5.309
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "GBPAUD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.14,
+          "medianPlannedRR": 2.137,
+          "expectancyR": 0.564
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 3.316
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 3.715
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "GBPNZD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.201,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.052
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 1.745
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -4.729
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "GBPCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 2.901,
+          "medianPlannedRR": 2.463,
+          "expectancyR": -0.356
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 3.558
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 7.358
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 75.0
+        }
+      },
+      "AUDJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.9,
+          "medianPlannedRR": 2.709,
+          "expectancyR": 0.236
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 1.286
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -2.311
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "AUDNZD": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 2.237,
+          "medianPlannedRR": 1.549,
+          "expectancyR": -0.356
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": -0.073
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": -2.915
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "AUDCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 0,
+          "losses": 3,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 2.586,
+          "medianPlannedRR": 3.17,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.994
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": -2.226
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 33.33
+        }
+      },
+      "AUDCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 2.428,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.781
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 2.664
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.202
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "NZDJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 4.315,
+          "medianPlannedRR": 3.228,
+          "expectancyR": 1.117
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.525
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -4.295
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "NZDCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 1.626,
+          "medianPlannedRR": 1.133,
+          "expectancyR": 0.066
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -1.011
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -4.702
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "NZDCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 1.729,
+          "medianPlannedRR": 1.742,
+          "expectancyR": -0.617
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.423
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -5.478
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "CADJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.767,
+          "medianPlannedRR": 2.719,
+          "expectancyR": 0.908
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": -0.393
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 0.851
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "CADCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 2,
+          "losses": 3,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 40.0,
+          "avgPlannedRR": 2.249,
+          "medianPlannedRR": 2.411,
+          "expectancyR": 0.327
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 1.464
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 3.46
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "CHFJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 0,
+          "losses": 4,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 2.207,
+          "medianPlannedRR": 2.116,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 0.751
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -0.577
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      }
+    }
+  },
+  "f6RotationOnSameHoldout": {
+    "market": {
+      "signals": 140,
+      "resolved": 108,
+      "wins": 35,
+      "losses": 73,
+      "timeouts": 31,
+      "ambiguous": 1,
+      "winRateResolved": 32.41,
+      "avgPlannedRR": 2.413,
+      "medianPlannedRR": 2.222,
+      "expectancyR": -0.084
+    },
+    "limit": {
+      "signals": 140,
+      "fills": 125,
+      "fillRate": 89.29,
+      "resolved": 102,
+      "wins": 30,
+      "losses": 72,
+      "noFill": 12,
+      "targetBeforeFill": 3,
+      "winRateResolved": 29.41,
+      "avgEffectiveRR": 3.105,
+      "expectancyR": -0.016
+    },
+    "direction6h": {
+      "tests": 140,
+      "correct": 71,
+      "accuracy": 50.71,
+      "avgMoveATR": -0.056
+    },
+    "direction12h": {
+      "tests": 140,
+      "correct": 77,
+      "accuracy": 55.0,
+      "avgMoveATR": 1.023
+    },
+    "direction24h": {
+      "tests": 140,
+      "correct": 74,
+      "accuracy": 52.86,
+      "avgMoveATR": 0.668
+    },
+    "path": {
+      "slCount": 73,
+      "slButDirection24Correct": 28,
+      "slAndDirection24Wrong": 45,
+      "pctSLWith24hDirectionCorrect": 38.36
+    },
+    "rotationOverrides": 0,
+    "byCutoff": {
+      "2026-05-11T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.7543561504322376,
+          "meanShift": 0.37329516991178063,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 24,
+          "wins": 5,
+          "losses": 19,
+          "timeouts": 4,
+          "ambiguous": 0,
+          "winRateResolved": 20.83,
+          "avgPlannedRR": 3.06,
+          "medianPlannedRR": 2.222,
+          "expectancyR": -0.406
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 28,
+          "fillRate": 100.0,
+          "resolved": 24,
+          "wins": 5,
+          "losses": 19,
+          "noFill": 0,
+          "targetBeforeFill": 0,
+          "winRateResolved": 20.83,
+          "avgEffectiveRR": 3.834,
+          "expectancyR": -0.322
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 10,
+          "accuracy": 35.71,
+          "avgMoveATR": -0.925
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 15,
+          "accuracy": 53.57,
+          "avgMoveATR": 1.21
+        },
+        "path": {
+          "slCount": 19,
+          "slButDirection24Correct": 11,
+          "slAndDirection24Wrong": 8,
+          "pctSLWith24hDirectionCorrect": 57.89
+        }
+      },
+      "2026-05-12T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.8369891141504385,
+          "meanShift": 0.3133954332209625,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 25,
+          "wins": 8,
+          "losses": 17,
+          "timeouts": 3,
+          "ambiguous": 0,
+          "winRateResolved": 32.0,
+          "avgPlannedRR": 1.889,
+          "medianPlannedRR": 2.035,
+          "expectancyR": -0.076
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 27,
+          "fillRate": 96.43,
+          "resolved": 25,
+          "wins": 8,
+          "losses": 17,
+          "noFill": 1,
+          "targetBeforeFill": 0,
+          "winRateResolved": 32.0,
+          "avgEffectiveRR": 2.419,
+          "expectancyR": 0.095
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 11,
+          "accuracy": 39.29,
+          "avgMoveATR": -1.222
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 9,
+          "accuracy": 32.14,
+          "avgMoveATR": -2.17
+        },
+        "path": {
+          "slCount": 17,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 15,
+          "pctSLWith24hDirectionCorrect": 11.76
+        }
+      },
+      "2026-05-13T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.4969404883289891,
+          "meanShift": 0.6081664899140248,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 19,
+          "wins": 7,
+          "losses": 12,
+          "timeouts": 9,
+          "ambiguous": 0,
+          "winRateResolved": 36.84,
+          "avgPlannedRR": 2.23,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.155
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 25,
+          "fillRate": 89.29,
+          "resolved": 18,
+          "wins": 6,
+          "losses": 12,
+          "noFill": 3,
+          "targetBeforeFill": 0,
+          "winRateResolved": 33.33,
+          "avgEffectiveRR": 2.775,
+          "expectancyR": 0.2
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 13,
+          "accuracy": 46.43,
+          "avgMoveATR": 0.77
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 13,
+          "accuracy": 46.43,
+          "avgMoveATR": 0.843
+        },
+        "path": {
+          "slCount": 12,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 9,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "2026-05-14T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.3822826427261164,
+          "meanShift": 0.6417015428266827,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 27,
+          "wins": 10,
+          "losses": 17,
+          "timeouts": 0,
+          "ambiguous": 1,
+          "winRateResolved": 37.04,
+          "avgPlannedRR": 2.615,
+          "medianPlannedRR": 2.463,
+          "expectancyR": -0.063
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 28,
+          "fillRate": 100.0,
+          "resolved": 27,
+          "wins": 10,
+          "losses": 17,
+          "noFill": 0,
+          "targetBeforeFill": 0,
+          "winRateResolved": 37.04,
+          "avgEffectiveRR": 3.316,
+          "expectancyR": 0.101
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 19,
+          "accuracy": 67.86,
+          "avgMoveATR": 4.381
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 14,
+          "accuracy": 50.0,
+          "avgMoveATR": 1.382
+        },
+        "path": {
+          "slCount": 17,
+          "slButDirection24Correct": 6,
+          "slAndDirection24Wrong": 11,
+          "pctSLWith24hDirectionCorrect": 35.29
+        }
+      },
+      "2026-05-15T08:00:00Z": {
+        "rotationState": {
+          "corr6Long": 0.6266120296431369,
+          "meanShift": 0.5224422953967126,
+          "active": false
+        },
+        "rotationOverrides": 0,
+        "market": {
+          "signals": 28,
+          "resolved": 13,
+          "wins": 5,
+          "losses": 8,
+          "timeouts": 15,
+          "ambiguous": 0,
+          "winRateResolved": 38.46,
+          "avgPlannedRR": 2.077,
+          "medianPlannedRR": 1.742,
+          "expectancyR": 0.101
+        },
+        "limit": {
+          "signals": 28,
+          "fills": 17,
+          "fillRate": 60.71,
+          "resolved": 8,
+          "wins": 1,
+          "losses": 7,
+          "noFill": 8,
+          "targetBeforeFill": 3,
+          "winRateResolved": 12.5,
+          "avgEffectiveRR": 3.098,
+          "expectancyR": -0.328
+        },
+        "direction12h": {
+          "tests": 28,
+          "correct": 24,
+          "accuracy": 85.71,
+          "avgMoveATR": 2.113
+        },
+        "direction24h": {
+          "tests": 28,
+          "correct": 23,
+          "accuracy": 82.14,
+          "avgMoveATR": 2.073
+        },
+        "path": {
+          "slCount": 8,
+          "slButDirection24Correct": 6,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 75.0
+        }
+      }
+    },
+    "byPair": {
+      "EURUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 2.797,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.753
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 2.094
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 6.378
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "GBPUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.668,
+          "medianPlannedRR": 1.511,
+          "expectancyR": 0.015
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 3.249
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 8.241
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "USDJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.738,
+          "medianPlannedRR": 2.727,
+          "expectancyR": 0.074
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 3.674
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 5.751
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "USDCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 1.209,
+          "medianPlannedRR": 1.045,
+          "expectancyR": 0.337
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 1.818
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 5.328
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "USDCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 1.801,
+          "medianPlannedRR": 1.741,
+          "expectancyR": 0.43
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 0.337
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 1.082
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "AUDUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 0,
+          "losses": 4,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 3.971,
+          "medianPlannedRR": 3.96,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -2.861
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -3.499
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "NZDUSD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 1.412,
+          "medianPlannedRR": 1.06,
+          "expectancyR": -0.349
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.656
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 6.007
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "EURJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.475,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.074
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.05
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -2.118
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURGBP": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 0,
+          "losses": 5,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 1.913,
+          "medianPlannedRR": 1.76,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 1.966
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 3.707
+        },
+        "path": {
+          "slCount": 5,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 60.0
+        }
+      },
+      "EURCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 1,
+          "losses": 3,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 25.0,
+          "avgPlannedRR": 2.179,
+          "medianPlannedRR": 2.072,
+          "expectancyR": 0.004
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.076
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.984
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURAUD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.743,
+          "medianPlannedRR": 2.188,
+          "expectancyR": 0.443
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 0.028
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -3.578
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURNZD": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 2,
+          "losses": 3,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 40.0,
+          "avgPlannedRR": 1.505,
+          "medianPlannedRR": 1.394,
+          "expectancyR": -0.107
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.829
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -3.173
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "EURCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 0,
+          "losses": 4,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 4.004,
+          "medianPlannedRR": 4.013,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.428
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.302
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "GBPJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 1,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.162,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.074
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 3.622
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 1.593
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "GBPCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 2.373,
+          "medianPlannedRR": 1.488,
+          "expectancyR": -0.542
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 2.986
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 5.309
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "GBPAUD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.14,
+          "medianPlannedRR": 2.137,
+          "expectancyR": 0.564
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 3.316
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 3.715
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "GBPNZD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.201,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.052
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 1.745
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -4.729
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "GBPCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 2.901,
+          "medianPlannedRR": 2.463,
+          "expectancyR": -0.356
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 3.558
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 7.358
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 75.0
+        }
+      },
+      "AUDJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 1,
+          "losses": 2,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 33.33,
+          "avgPlannedRR": 2.9,
+          "medianPlannedRR": 2.709,
+          "expectancyR": 0.236
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 1.286
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -2.311
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "AUDNZD": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 2.237,
+          "medianPlannedRR": 1.549,
+          "expectancyR": -0.356
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": -0.073
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": -2.915
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 2,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "AUDCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 0,
+          "losses": 3,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 2.586,
+          "medianPlannedRR": 3.17,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.994
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": -2.226
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 33.33
+        }
+      },
+      "AUDCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 2.428,
+          "medianPlannedRR": 2.222,
+          "expectancyR": 0.781
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 2.664
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": 0.202
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "NZDJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 3,
+          "wins": 2,
+          "losses": 1,
+          "timeouts": 2,
+          "ambiguous": 0,
+          "winRateResolved": 66.67,
+          "avgPlannedRR": 4.315,
+          "medianPlannedRR": 3.228,
+          "expectancyR": 1.117
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.525
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -4.295
+        },
+        "path": {
+          "slCount": 1,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "NZDCAD": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 1.626,
+          "medianPlannedRR": 1.133,
+          "expectancyR": 0.066
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -1.011
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -4.702
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 0,
+          "slAndDirection24Wrong": 2,
+          "pctSLWith24hDirectionCorrect": 0.0
+        }
+      },
+      "NZDCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 1,
+          "losses": 4,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 20.0,
+          "avgPlannedRR": 1.729,
+          "medianPlannedRR": 1.742,
+          "expectancyR": -0.617
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 2,
+          "accuracy": 40.0,
+          "avgMoveATR": -0.423
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -5.478
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      },
+      "CADJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 2,
+          "losses": 2,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 50.0,
+          "avgPlannedRR": 2.767,
+          "medianPlannedRR": 2.719,
+          "expectancyR": 0.908
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": -0.393
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 0.851
+        },
+        "path": {
+          "slCount": 2,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 1,
+          "pctSLWith24hDirectionCorrect": 50.0
+        }
+      },
+      "CADCHF": {
+        "market": {
+          "signals": 5,
+          "resolved": 5,
+          "wins": 2,
+          "losses": 3,
+          "timeouts": 0,
+          "ambiguous": 0,
+          "winRateResolved": 40.0,
+          "avgPlannedRR": 2.249,
+          "medianPlannedRR": 2.411,
+          "expectancyR": 0.327
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 4,
+          "accuracy": 80.0,
+          "avgMoveATR": 1.464
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 5,
+          "accuracy": 100.0,
+          "avgMoveATR": 3.46
+        },
+        "path": {
+          "slCount": 3,
+          "slButDirection24Correct": 3,
+          "slAndDirection24Wrong": 0,
+          "pctSLWith24hDirectionCorrect": 100.0
+        }
+      },
+      "CHFJPY": {
+        "market": {
+          "signals": 5,
+          "resolved": 4,
+          "wins": 0,
+          "losses": 4,
+          "timeouts": 1,
+          "ambiguous": 0,
+          "winRateResolved": 0.0,
+          "avgPlannedRR": 2.207,
+          "medianPlannedRR": 2.116,
+          "expectancyR": -1
+        },
+        "dir12": {
+          "tests": 5,
+          "correct": 3,
+          "accuracy": 60.0,
+          "avgMoveATR": 0.751
+        },
+        "dir24": {
+          "tests": 5,
+          "correct": 1,
+          "accuracy": 20.0,
+          "avgMoveATR": -0.577
+        },
+        "path": {
+          "slCount": 4,
+          "slButDirection24Correct": 1,
+          "slAndDirection24Wrong": 3,
+          "pctSLWith24hDirectionCorrect": 25.0
+        }
+      }
+    }
+  }
+}
