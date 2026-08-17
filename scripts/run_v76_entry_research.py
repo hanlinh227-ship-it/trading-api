@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quota-safe canonical runner for V76 Forex entry research."""
+"""Canonical V76 Forex entry-research runner."""
 import json
 import os
 import sys
@@ -7,23 +7,21 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import research_v76_entry_forex as base
 import evaluate_v76_entry_forex as ev
-
-OUTPUTSIZE = 3500  # 28 symbols * 3500 = 98,000 <= observed Twelve Data 100,000 batch-page cap.
+import fetch_v76_history as histfetch
 
 
 def main(out_dir="data"):
-    chunks=int(os.getenv("V76_CHUNKS","10"))
+    chunks=int(os.getenv("V76_CHUNKS","6"))
     pause=int(os.getenv("V76_QUOTA_PAUSE","62"))
-    hist,daily,fetchlog=base.fetch_history(chunks,OUTPUTSIZE,pause)
+    hist,daily,fetchlog=histfetch.fetch_history(chunks,pause)
     results={s:ev.research_pair(s,hist[s],daily[s]) for s in base.PAIRS}
     stats,retained,fallback=ev.global_archetypes(results)
     methods,counts=ev.lock_methods(results,retained,fallback)
     pairs={s:{"bars":x["bars"],"from":x["from"],"to":x["to"],"signalCount":x["signalCount"],"selected":methods[s],"top5Dev":x["top5Dev"]} for s,x in results.items()}
-    generated=base.iso(base.utcnow())
-    protocol=ev.protocol_summary()
+    generated=base.iso(base.utcnow());protocol=ev.protocol_summary()
     research={
         "version":"V76-ENTRY-RESEARCH-R2","generatedAt":generated,"scope":"FOREX_28",
-        "history":{"source":"Twelve Data exact Physical Currency","baseInterval":"5min","chunks":chunks,"maxPointsPerChunk":OUTPUTSIZE,"batchPageProduct":28*OUTPUTSIZE,"resampledLocally":["15min","1h","4h"],"dailyFetchedSeparately":True,"rawHistoryCommitted":False,"fetchLog":fetchlog},
+        "history":{"source":"Twelve Data exact Physical Currency","baseInterval":"5min","chunks":chunks,"pointsPerSymbolPerChunk":histfetch.M5_OUTPUTSIZE,"batchGroupSize":histfetch.GROUP_SIZE,"batchPageProduct":histfetch.GROUP_SIZE*histfetch.M5_OUTPUTSIZE,"resampledLocally":["15min","1h","4h"],"dailyFetchedSeparately":True,"rawHistoryCommitted":False,"fetchLog":fetchlog},
         "protocol":protocol,"setups":base.SETUP_DEFS,"archetypeValidation":stats,
         "retainedArchetypes":retained,"fallbackResearchArchetypes":fallback if not retained else [],
         "pairResults":pairs,
@@ -44,8 +42,8 @@ def main(out_dir="data"):
     }
     os.makedirs(out_dir,exist_ok=True)
     for name,obj in (("v76_entry_research.json",research),("v76_entry_methods.json",methodfile)):
-        with open(os.path.join(out_dir,name),"w",encoding="utf-8") as f:json.dump(obj,f,ensure_ascii=False,separators=(",",":"))
-    print(json.dumps({"version":research["version"],"evaluator":ev.VERSION,"retained":retained,"fallback":fallback if not retained else [],"counts":counts,"barsMin":min(len(hist[s]) for s in base.PAIRS),"barsMax":max(len(hist[s]) for s in base.PAIRS),"outputsize":OUTPUTSIZE,"chunks":chunks},ensure_ascii=False))
+        with open(os.path.join(out_dir,name),"w",encoding="utf-8") as f:json.dump(obj,f,ensure_ascii=False,indent=2)
+    print(json.dumps({"version":research["version"],"evaluator":ev.VERSION,"retained":retained,"fallback":fallback if not retained else [],"counts":counts,"barsMin":min(len(hist[s]) for s in base.PAIRS),"barsMax":max(len(hist[s]) for s in base.PAIRS),"chunks":chunks,"pointsPerChunk":histfetch.M5_OUTPUTSIZE},ensure_ascii=False))
     return 0
 
 if __name__=="__main__":raise SystemExit(main(sys.argv[1] if len(sys.argv)>1 else "data"))
