@@ -1,0 +1,23 @@
+name: Validate NoCut V73
+on:
+  push:
+    paths:
+      - 'data/nocut_intraday_allpass_v73.json'
+      - 'scripts/nocut_intraday_method_v73.py'
+      - 'scripts/validate_nocut_v73.py'
+      - '.github/workflows/validate-nocut-v73.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate hard gates
+        env:
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/validate_nocut_v73.py
