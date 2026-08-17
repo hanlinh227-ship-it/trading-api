@@ -2,12 +2,9 @@ name: Summarize V76 Results
 on:
   workflow_dispatch:
   push:
-    paths: ['data/v76_entry_methods.json','.github/workflows/summarize-v76.yml']
+    paths: ['data/v76_entry_methods.json','.github/workflows/summarize-v76.yml','scripts/summarize_v76.py']
 permissions:
   contents: write
-concurrency:
-  group: summarize-v76
-  cancel-in-progress: true
 jobs:
   summarize:
     runs-on: ubuntu-latest
@@ -18,7 +15,7 @@ jobs:
       - run: |
           git config user.name market-data-bot
           git config user.email market-data-bot@users.noreply.github.com
-          git add data/v76_entry_summary.json
+          git add data/v76_entry_summary.json data/v76_pair_table.md
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Update compact V76 entry summary'
           git pull --rebase origin main
