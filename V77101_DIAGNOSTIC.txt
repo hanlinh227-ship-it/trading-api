@@ -1,0 +1,11 @@
+GENERATOR_EXIT=0
+Applied V77.10.1 Hub polish + direct symbol analysis
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.10.1=YES
+singleAnalysisText=YES
+/coin BTC=YES
+Entry tham khảo=YES
+deepRequested:Math.min=YES
+adaptiveTriggerPolicy=YES
+runSymbol=YES

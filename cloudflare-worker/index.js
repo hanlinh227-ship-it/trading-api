@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.10.0",
-  service: "Trading V77.10.0 Adaptive Symbol Intelligence Hub",
+  version: "V77.10.1",
+  service: "Trading V77.10.1 Adaptive Entry Intelligence Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -443,7 +443,7 @@ async function runGroup(group,env){
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)analyses.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else analyses.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
     }
     const books=await getBooks(env),newItems=fillBooks(group,books,analyses);await saveBooks(env,books);
-    const out={ok:true,version:CONFIG.version,group,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:CONFIG.maxCandidates,deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
+    const out={ok:true,version:CONFIG.version,group,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
     await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));return out;
   }finally{await releaseLock(env);}
 }
@@ -468,12 +468,24 @@ function hubKeyboard(books){
 }
 function groupTitle(g){return g==="forex"?"💱 FOREX":g==="crypto"?"🪙 CRYPTO":"🥇 METAL";}
 function fmtPx(v){const n=Number(v);if(!Number.isFinite(n))return "—";if(Math.abs(n)>=1000)return n.toFixed(2);if(Math.abs(n)>=10)return n.toFixed(4);if(Math.abs(n)>=1)return n.toFixed(5);return n.toPrecision(6);}
-function reasonText(r){return ({HTF_METHOD_ALIGNMENT_REQUIRED:"Chờ phương pháp riêng + HTF đồng thuận",HTF_ALIGNMENT_REQUIRED:"Chờ D1/H4/H1 đồng thuận",M15_LOCATION_REQUIRED:"Chờ giá vào vùng M15 đẹp",M5_MSS_DISPLACEMENT_RETEST_REQUIRED:"Chờ trigger M5",STRUCTURAL_SL_REQUIRED:"Chưa có SL cấu trúc",CLEAN_TARGET_REQUIRED:"Chưa có mục tiêu thanh khoản đủ tốt",NEWS_CONTEXT_REQUIRED:"Chờ tin/context",EXECUTION_QUOTE_REQUIRED:"Chờ bid/ask thực",FINAL_QUOTE_REQUIRED:"Chờ giá execution",FINAL_QUOTE_STALE:"Giá execution cũ",EXECUTION_COST_TOO_HIGH:"Spread/chi phí cao",TIMEFRAME_DATA_REQUIRED:"Thiếu timeframe",ANALYSIS_DATA_UNAVAILABLE:"Thiếu dữ liệu"})[r]||"Chờ thêm xác nhận";}
+function reasonText(r){return ({HTF_METHOD_ALIGNMENT_REQUIRED:"Chờ phương pháp riêng + HTF đồng thuận",HTF_ALIGNMENT_REQUIRED:"Chờ D1/H4/H1 đồng thuận",M15_LOCATION_REQUIRED:"Chờ giá vào vùng M15 đẹp",M5_MSS_DISPLACEMENT_RETEST_REQUIRED:"Chờ trigger M5 phù hợp profile",STRUCTURAL_SL_REQUIRED:"Chưa có SL cấu trúc",CLEAN_TARGET_REQUIRED:"Chưa có mục tiêu thanh khoản đủ tốt",NEWS_CONTEXT_REQUIRED:"Chờ tin/context",EXECUTION_QUOTE_REQUIRED:"Chờ bid/ask thực",FINAL_QUOTE_REQUIRED:"Chờ giá execution",FINAL_QUOTE_STALE:"Giá execution cũ",EXECUTION_COST_TOO_HIGH:"Spread/chi phí cao",TIMEFRAME_DATA_REQUIRED:"Thiếu timeframe",ANALYSIS_DATA_UNAVAILABLE:"Thiếu dữ liệu"})[r]||"Chờ thêm xác nhận";}
 function stageText(a){if(a.status==="MARKET")return "🟢 MARKET";if(a.status==="LIMIT")return "🟡 LIMIT";if(a.reason==="NEWS_CONTEXT_REQUIRED")return "🟠 ARMED";if(a.reason==="EXECUTION_QUOTE_REQUIRED"||a.reason==="FINAL_QUOTE_REQUIRED")return "🔵 READY";if(a.reason==="M5_MSS_DISPLACEMENT_RETEST_REQUIRED")return "🟣 SETUP";return "⚪ WATCH";}
 function posLine(p){return `${p.symbol} ${sideText(p.side)} • E ${fmtPx(p.entry)} • SL ${fmtPx(p.sl)} • TP ${fmtPx(p.tp)}`;}
-function watchLine(w){let x=`${w.symbol} ${sideText(w.side)} • ${reasonText(w.reason)}`;if(Number.isFinite(w.score))x+=` • ${w.score}/100`;if(w.planned)x+=`
-   ↳ E~${fmtPx(w.planned.entry)} • SL~${fmtPx(w.planned.sl)} • TP~${fmtPx(w.planned.tp2||w.planned.tp1)} • RR~${Number(w.planned.targetRR||0).toFixed(2)}`;if(w.method?.profile)x+=`
-   ↳ ${w.method.profile}`;return x;}
+function watchLine(w){let x=`${w.symbol} ${sideText(w.side)} • ${reasonText(w.reason)}`;if(Number.isFinite(w.score))x+=` • ${w.score}/100`;if(w.planned){const tag=w.planned.indicative?"Tham khảo":"Kế hoạch";x+=`
+   ↳ ${tag}: E~${fmtPx(w.planned.entry)} • SL~${fmtPx(w.planned.sl)} • TP~${fmtPx(w.planned.tp2||w.planned.tp1)} • RR~${Number(w.planned.targetRR||0).toFixed(2)}`;if(w.planned.entryStyle)x+=`
+   ↳ Entry style: ${w.planned.entryStyle}`;}if(w.method?.profile)x+=`
+   ↳ Method: ${w.method.profile}`;return x;}
+function singleAnalysisText(a){
+  if(!a)return "⛔ Không có kết quả phân tích.";
+  if(a.ok===false)return `⛔ ${a.symbol||"SYMBOL"} • ${reasonText(a.reason)}\n${a.error?"Chi tiết: "+a.error:""}`;
+  const L=[`🔎 ${a.symbol} • ${stageText(a)}${Number.isFinite(a.score)?" • "+a.score+"/100":""}`,`Hướng: ${sideText(a.side)}`];
+  if(a.method?.profile)L.push(`Method: ${a.method.profile}`);
+  if(a.entryPolicy?.profile)L.push(`Profile engine: ${a.entryPolicy.profile}`);
+  if(a.status==="MARKET"||a.status==="LIMIT"){L.push("",`✅ LỆNH EXECUTABLE ${a.status}`,`Entry ${fmtPx(a.entry)} • SL ${fmtPx(a.sl)}`,`TP1 ${fmtPx(a.tp1)} • TP2 ${fmtPx(a.tp2)} • RR ${Number(a.targetRR||0).toFixed(2)}`);}
+  else if(a.planned){const tag=a.planned.indicative?"📐 ENTRY THAM KHẢO — chưa phải lệnh":"🎯 KẾ HOẠCH ENTRY";L.push("",tag,`E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)}`,`TP1~${fmtPx(a.planned.tp1)} • TP2~${fmtPx(a.planned.tp2)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`);if(a.planned.entryStyle)L.push(`Style: ${a.planned.entryStyle}`);}
+  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);if(a.source)L.push(`Data: ${a.source}`);
+  return L.join("\n");
+}
 function summary(group,books,run=null){
   const b=books[group],L=[groupTitle(group),"",`🟢 MARKET ${b.marketActive.length}/${CONFIG.maxMarketActive}`];
   if(b.marketActive.length)b.marketActive.forEach((p,i)=>L.push(`${i+1}. ${posLine(p)}`));else L.push("Trống");
@@ -494,7 +506,7 @@ async function runHub(env){
   const top=Object.entries(runs).flatMap(([group,r])=>(r.analyses||[]).map(a=>({...a,group}))).sort((a,b)=>hubRank(b)-hubRank(a)).slice(0,7);
   return {ok:true,version:CONFIG.version,runs,top};
 }
-function hubSummary(h){const L=[`🧭 TRADING HUB ${CONFIG.version}`,"","🔥 TOP SETUPS"];if(!h.top.length)L.push("Không có setup đạt chuẩn lúc này.");h.top.slice(0,5).forEach((a,i)=>{let line=`${i+1}. ${a.symbol} ${sideText(a.side)} • ${stageText(a)} • ${Number(a.score)||0}/100`;if(a.method?.profile||a.method?.families?.length)line+=`\n   ↳ Method: ${a.method?.profile||a.method?.families?.[0]}`;if(a.planned)line+=`\n   ↳ E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)} • TP~${fmtPx(a.planned.tp2||a.planned.tp1)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`;line+=`\n   ↳ ${a.status==="WATCH"?reasonText(a.reason):"Đủ gate execution"}`;L.push(line);});L.push("","Điểm Hub = độ hoàn thiện setup, KHÔNG phải xác suất thắng.");for(const g of ["forex","crypto","metal"]){const r=h.runs[g];L.push(`${groupTitle(g)} • ${r.status==="RATE_BUDGET_WAIT"?"đợi quota":`${r.broadOk}/${r.requested} • deep ${r.deepOk}/${r.deepRequested}`}`);}return L.join("\n");}
+function hubSummary(h){const L=[`🧭 TRADING HUB ${CONFIG.version}`,"","🔥 TOP SETUPS"];if(!h.top.length)L.push("Không có setup đạt chuẩn lúc này.");h.top.slice(0,5).forEach((a,i)=>{let line=`${i+1}. ${a.symbol} ${sideText(a.side)} • ${stageText(a)} • ${Number(a.score)||0}/100`;if(a.method?.profile||a.method?.families?.length)line+=`\n   ↳ Method: ${a.method?.profile||a.method?.families?.[0]}`;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+=`\n   ↳ ${tag}: E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)} • TP~${fmtPx(a.planned.tp2||a.planned.tp1)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`;if(a.planned.entryStyle)line+=`\n   ↳ ${a.planned.entryStyle}`;}line+=`\n   ↳ ${a.status==="WATCH"?reasonText(a.reason):"Đủ gate execution"}`;L.push(line);});L.push("","Điểm Hub = độ hoàn thiện setup, KHÔNG phải xác suất thắng.");for(const g of ["forex","crypto","metal"]){const r=h.runs[g];L.push(`${groupTitle(g)} • ${r.status==="RATE_BUDGET_WAIT"?"đợi quota":`${r.broadOk}/${r.requested} • deep ${r.deepOk}/${r.deepRequested}`}`);}return L.join("\n");}
 async function sendHub(env,chatId){await sendText(env,"⏳ HUB đang quét Crypto + Forex + Metal...",chatId);const h=await runHub(env),books=await getBooks(env);return sendText(env,hubSummary(h),chatId,hubKeyboard(books));}
 function booksSummary(books){const L=["📚 BOOKS"];for(const g of ["forex","crypto","metal"]){const b=books[g];L.push(`${groupTitle(g)} • M ${b.marketActive.length} • L ${b.limitActive.length} • Pending ${b.limitPending.length} • Watch ${b.watch.length}`);}return L.join("\n");}
 
@@ -519,22 +531,21 @@ async function handleTelegram(req,env){
   else if(cb?.startsWith("news:")){
     const [,group,symbol]=cb.split(":");if(GROUPS[group]?.includes(norm(symbol))){
       await setNewsClearance(symbol,env);await sendText(env,`✅ Tin/context OK cho ${norm(symbol)} trong ${Math.round(CONFIG.newsClearanceTtlSec/60)} phút. Đang kiểm tra lại...`,chatId);
-      let a;if(group==="crypto"){try{const b=await cryptoDeepBundle(symbol);a=await deepAnalyze(symbol,env,b.candles,b.quote,b.source);}catch(e){a={ok:false,status:"DATA_BLOCK",symbol:norm(symbol),reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)};}}else a=await deepAnalyze(symbol,env);
+      const a=await runSymbol(symbol,env);
       const books=await getBooks(env);fillBooks(group,books,[a]);await saveBooks(env,books);await sendText(env,summary(group,books,{requested:1,broadOk:1,deepRequested:1,deepOk:a.ok===false?0:1,newCount:["MARKET","LIMIT"].includes(a.status)?1:0,analyses:[a]}),chatId,groupKeyboard(group,books));
     }
-  }else if(cb==="books")await sendText(env,booksSummary(await getBooks(env)),chatId,baseKeyboard());
-  else if(cb==="status"||text==="/status")await sendText(env,`⚙️ SYSTEM STATUS
-Version: ${CONFIG.version}
-KV: ${env.TRADING_STATE?"ONLINE":"MISSING"}
-Twelve Data: ${env.TWELVE_DATA_API_KEY?"CONFIGURED":"MISSING"}
-Telegram: CONNECTED
-Hub: UNIFIED
-Crypto deep: exact exchange-native 5TF + bid/ask
-Forex/Metal: Twelve Data analysis; broker execution quote required
-News gate: STRICT
-V73: FROZEN PRIOR
-V76 R2: RESEARCH ONLY`,chatId,baseKeyboard());
-  else await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB hoặc thị trường:`,chatId,baseKeyboard());
+  }else {
+    const cm=text.trim().match(/^\/(?:coin|analyze)\s+([A-Za-z0-9]+)$/i);
+    if(cm){
+      let symbol=norm(cm[1]);if(CRYPTO_BASE.includes(symbol))symbol=symbol+"USDT";
+      await sendText(env,`⏳ Đang phân tích ${symbol} theo profile riêng...`,chatId);
+      const a=await runSymbol(symbol,env),type=marketType(symbol);
+      if(type!=="unknown"){const books=await getBooks(env);const added=fillBooks(type,books,[a]);if(added.length||a.status==="WATCH")await saveBooks(env,books);}
+      await sendText(env,singleAnalysisText(a),chatId,baseKeyboard());
+    }else if(cb==="books")await sendText(env,booksSummary(await getBooks(env)),chatId,baseKeyboard());
+    else if(cb==="status"||text==="/status")await sendText(env,`⚙️ SYSTEM STATUS\nVersion: ${CONFIG.version}\nKV: ${env.TRADING_STATE?"ONLINE":"MISSING"}\nTwelve Data: ${env.TWELVE_DATA_API_KEY?"CONFIGURED":"MISSING"}\nTelegram: CONNECTED\nHub: ADAPTIVE\nCrypto: 61 symbol • exact 5TF + bid/ask\nLệnh: chỉ executable khi đủ gate\nGõ /coin BTC hoặc /analyze KAITOUSDT để phân tích riêng\nNews gate: STRICT\nV73: FROZEN PRIOR`,chatId,baseKeyboard());
+    else await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB/thị trường hoặc gõ /coin BTC để phân tích riêng.`,chatId,baseKeyboard());
+  }
   return json({ok:true});
 }
 
@@ -548,7 +559,7 @@ export default {
       if(p==="/hub")return json(await runHub(env));
       if(p==="/telegram/setup-webhook")return json(await setupWebhook(req,env));
       if(p==="/telegram/webhook-info")return json(await telegram(env,"getWebhookInfo",{}));
-      if(p==="/telegram/menu"){await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB hoặc thị trường:`,env.TELEGRAM_CHAT_ID,baseKeyboard());return json({ok:true});}
+      if(p==="/telegram/menu"){await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB/thị trường hoặc gõ /coin BTC:`,env.TELEGRAM_CHAT_ID,baseKeyboard());return json({ok:true});}
       if(p==="/telegram/webhook"&&req.method==="POST")return handleTelegram(req,env);
       if(p==="/books")return json(await getBooks(env));
       return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal","/analyze?symbol=BTCUSDT","/telegram/setup-webhook","/telegram/webhook-info","/telegram/menu","/books"]});
