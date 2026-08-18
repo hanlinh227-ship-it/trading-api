@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.14.1",
-  service: "Trading V77.14.1 Futures Actionable Entry Hub",
+  version: "V77.14.2",
+  service: "Trading V77.14.2 Actionable Geometry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -403,11 +403,20 @@ function adaptiveTriggerPolicy(intel,M5,trig,side,context={}){
   return {pass:false,pending:false,mode,level:trig?.level??null};
 }
 function indicativePlan(side,M5,M15,H1,H4,D1,locPolicy,prior){
-  if(!M5?.ready||!M15?.ready)return null;let e=Number(locPolicy?.level);if(!Number.isFinite(e))e=Number(M15.ema20);
-  if(!Number.isFinite(e)||!Number.isFinite(M15.atr14)||Math.abs(e-M15.close)>M15.atr14*1.35)return null;
-  const p=buildTradePlan(side,e,M5,M15,H1,H4,D1,true,prior);if(!p||p.invalid)return null;
-  return {entry:p.entry,sl:p.sl,tp1:p.tp1,tp2:p.tp2,targetRR:p.targetRR,tp1RR:p.tp1RR,tp2RR:p.tp2RR,roomR:p.roomR,mode:"INDICATIVE_LIMIT",targetSource:p.targetSource,indicative:true};
+  if(!M5?.ready||!M15?.ready||!["LONG","SHORT"].includes(side))return null;let e=Number(locPolicy?.level);if(!Number.isFinite(e))e=Number(M15.ema20);
+  const atr=Number(M15.atr14);if(!Number.isFinite(e)||!Number.isFinite(atr)||atr<=0)return null;const dist=Math.abs(e-M15.close)/atr,correct=side==="LONG"?e<M15.close:e>M15.close;if(!correct||dist<.05||dist>.90)return null;
+  const p=buildTradePlan(side,e,M5,M15,H1,H4,D1,true,prior);if(!p||p.invalid)return null;const g=limitGeometry(side,M15.close,e,M5,M15,p);if(!g.pass)return null;
+  return {entry:p.entry,sl:p.sl,tp1:p.tp1,tp2:p.tp2,targetRR:p.targetRR,tp1RR:p.tp1RR,tp2RR:p.tp2RR,roomR:p.roomR,mode:"INDICATIVE_LIMIT",targetSource:p.targetSource,indicative:true,geometry:g,entryStyle:"STRUCTURAL_PULLBACK_ZONE"};
 }
+function conditionalPlanFromRoute(intel,M5,M15,H1,H4,D1,prior){
+  if(!M5?.ready||!M15?.ready)return null;const route=intel?.route||{},side=["LONG","SHORT"].includes(intel?.side)?intel.side:(["LONG","SHORT"].includes(route.trendSide)?route.trendSide:(["LONG","SHORT"].includes(route.ctxSide)?route.ctxSide:"NEUTRAL"));
+  if(side==="NEUTRAL"||Number(intel?.methodFit||0)<55)return null;const e=Number(M15.ema20);if(!Number.isFinite(e)||!Number.isFinite(M15.atr14)||M15.atr14<=0)return null;
+  const dist=Math.abs(e-M15.close)/M15.atr14,correct=side==="LONG"?e<M15.close:e>M15.close;if(!correct||dist<.08||dist>.85)return null;
+  const p=buildTradePlan(side,e,M5,M15,H1,H4,D1,true,prior);if(!p||p.invalid)return null;const q=rrQuality(p,intel),g=limitGeometry(side,M15.close,e,M5,M15,p);if(!q.pass||!g.pass)return null;
+  return {side,entry:p.entry,sl:p.sl,tp1:p.tp1,tp2:p.tp2,targetRR:p.targetRR,tp1RR:p.tp1RR,tp2RR:p.tp2RR,roomR:p.roomR,mode:"INDICATIVE_LIMIT",targetSource:p.targetSource,indicative:true,conditional:true,entryStyle:"CONDITIONAL_HTF_PULLBACK",minQualityRR:q.minRR,rrQualityPass:true,geometry:g};
+}
+function actionableRank(a){let x=Number(a?.score)||0;if(a?.status==="MARKET")x+=1000;else if(a?.status==="LIMIT")x+=900;else if(a?.planned?.mode==="MARKET")x+=500;else if(a?.planned?.mode==="LIMIT"||a?.planned?.mode==="INDICATIVE_LIMIT")x+=420;else if(a?.setupReady)x+=150;return x;}
+
 function watch(symbol,type,side,reason,extra={}){return {ok:true,status:"WATCH",action:"WATCH",symbol,market:type,side,reason,canonicalStage:reason,engine:CONFIG.version,...extra};}
 async function getNewsClearance(symbol,env){
   const s=norm(symbol),key=CONFIG.keys.newsPrefix+s;
@@ -443,7 +452,7 @@ async function deepAnalyze(symbol,env,candles=null,reference=null,source=null,co
   const [m5c,m15c]=candles||[],[M5,M15,H1,H4,D1]=(candles||[]).map(tf);if(!M5||[M5,M15,H1,H4,D1].some(x=>!x?.ready))return watch(s,type,"NEUTRAL","TIMEFRAME_DATA_REQUIRED",{source,score:5,canonical:{v73Prior:prior}});
   const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=intel.route?.votes||directionalVotes(D1,H4,H1),side=intel.side,htf=!!intel.htfPass;
   const base={source,method:intel,knowledge:knowledge?{canonicalSymbol:knowledge.canonicalSymbol,allowedModes:knowledge.allowedModes,riskATR:knowledge.riskATR,newsProfile:knowledge.newsProfile,calibration:knowledge.calibration}:null,context,canonical:{v73Prior:prior},score:setupScore({methodFit:intel.methodFit,htf,htfVotes:Math.max(votes.bull,votes.bear),contextScore:context.score??5})};
-  if(side==="NEUTRAL"||!htf)return watch(s,type,side,"HTF_METHOD_ALIGNMENT_REQUIRED",base);
+  if(side==="NEUTRAL"||!htf){const cp=conditionalPlanFromRoute(intel,M5,M15,H1,H4,D1,prior);return watch(s,type,cp?.side||side,"HTF_METHOD_ALIGNMENT_REQUIRED",{...base,planned:cp,entryPolicy:cp?{profile:profileMode(intel),conditional:true}:undefined});}
   const loc=m15Location(m15c,M15,side),locPolicy=adaptiveLocationPolicy(intel,M15,loc,side,context);base.score=setupScore({methodFit:intel.methodFit,htf:true,location:locPolicy.pass,contextScore:context.score??5});
   if(!locPolicy.pass){const planned=indicativePlan(side,M5,M15,H1,H4,D1,locPolicy,prior);return watch(s,type,side,"M15_LOCATION_REQUIRED",{...base,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy},canonical:{...base.canonical,m15Location:loc}});}
   const trig=m5Trigger(m5c,M5,side),trigPolicy=adaptiveTriggerPolicy(intel,M5,trig,side,context),pendingRetest=!!trigPolicy.pending;base.score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:trigPolicy.pass&&!pendingRetest,pending:pendingRetest,contextScore:context.score??5});
@@ -455,7 +464,7 @@ async function deepAnalyze(symbol,env,candles=null,reference=null,source=null,co
   const news=await getNewsClearance(s,env);if(!news)return watch(s,type,side,"NEWS_CONTEXT_REQUIRED",{...base,score,setupReady:true,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:false}}});
   const newsSoft=!!news.soft;score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:!pendingRetest,pending:pendingRetest,plan:true,contextScore:context.score??5,news:!newsSoft});
   if(pendingRetest){const lg=limitGeometry(side,M5.close,preview.entry,M5,M15,preview);if(!lg.pass)return watch(s,type,side,"LIMIT_GEOMETRY_REQUIRED",{...base,score,setupReady:true,planned:{...planned,geometry:lg},entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:true,soft:newsSoft,source:news.source},limitGeometry:lg}});}
-  if(type!=="crypto")return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned:{...planned,planType:plannedModeLabel(planned)},entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},source:source||(type==="future"?"Massive Futures analysis":"Twelve Data analysis"),canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:true,soft:newsSoft,source:news.source}}});
+  if(type!=="crypto"){if(!pendingRetest){const mg=marketGeometry(side,M5.close,M5,trigPolicy);if(!mg.pass)return watch(s,type,side,"MARKET_GEOMETRY_REQUIRED",{...base,score,setupReady:true,planned:{...planned,marketGeometry:mg,planType:"MARKET_PLAN"},entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},source:source||(type==="future"?"Massive Futures analysis":"Twelve Data analysis"),canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:true,soft:newsSoft,source:news.source},marketGeometry:mg}});planned.marketGeometry=mg;}return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned:{...planned,planType:plannedModeLabel(planned)},entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},source:source||(type==="future"?"Massive Futures analysis":"Twelve Data analysis"),canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:true,soft:newsSoft,source:news.source}}});}
   try{if(!reference||reference.analysisOnly)reference=await cryptoExecutionQuote(s);}catch(e){return watch(s,type,side,"FINAL_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,error:e?.message||String(e)});}if(!reference.fresh)return watch(s,type,side,"FINAL_QUOTE_STALE",{...base,score,setupReady:true,planned,quote:reference});if(!reference.executionVerified)return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,quote:reference});
   if(!pendingRetest){const mg=marketGeometry(side,reference.price,M5,trigPolicy);if(!mg.pass)return watch(s,type,side,"MARKET_GEOMETRY_REQUIRED",{...base,score,setupReady:true,planned:{...planned,marketGeometry:mg},quote:reference,canonical:{...base.canonical,marketGeometry:mg}});}
   const entry=pendingRetest?Number(trigPolicy.level):reference.price,plan=buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior);if(!plan||plan.invalid)return watch(s,type,side,plan?.invalid||"STRUCTURAL_SL_REQUIRED",{...base,score,setupReady:true,planned,quote:reference});
@@ -493,7 +502,7 @@ async function broadScan(group,env){
   const symbols=GROUPS[group],rows=[],errors=[];
   if(group==="crypto"){const bulk=await cryptoBroadMap(symbols,env),btc=bulk.get("BTCUSDT")?.percentChange??0;for(const sym of symbols){const q=bulk.get(sym);if(q?.price){const rel=(q.percentChange??0)-btc;rows.push({symbol:sym,quote:q,strength:broadRank(q),context:{relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel))}});}else errors.push({symbol:sym,reason:"EXACT_SPOT_UNAVAILABLE"});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map:null};}
   let h1Map=new Map();try{h1Map=await tdBatchCandles(symbols,"1h",env,60);}catch(e){return {requested:symbols.length,rows,errors:symbols.map(symbol=>({symbol,reason:"H1_BATCH_UNAVAILABLE",error:e?.message||String(e)})),h1Map};}const fx=group==="forex"?forexStrengthMap(h1Map):{};let metalMoves={};if(group==="metal")for(const sym of symbols)metalMoves[sym]=changeFromCandles(h1Map.get(sym)||[]);
-  for(const sym of symbols){const T=tf(h1Map.get(sym)||[]);if(!T.ready){errors.push({symbol:sym,reason:"H1_UNAVAILABLE"});continue;}let context={score:5};if(group==="forex"){const base=sym.slice(0,3),quote=sym.slice(3),d=(fx[base]||0)-(fx[quote]||0);context={baseStrength:fx[base]||0,quoteStrength:fx[quote]||0,strengthDiff:d,score:Math.min(10,5+Math.abs(d)*4)};}else{const other=sym==="XAUUSD"?"XAGUSD":"XAUUSD",rel=(metalMoves[sym]||0)-(metalMoves[other]||0);context={relativeStrength:rel,benchmark:other,score:Math.min(10,5+Math.abs(rel)*3)};}rows.push({symbol:sym,quote:{source:"Twelve Data H1",price:T.close,fresh:true},strength:Math.abs((T.close-(T.ema20??T.close))/(T.atr14||1)),context});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map};
+  for(const sym of symbols){const T=tf(h1Map.get(sym)||[]);if(!T.ready){errors.push({symbol:sym,reason:"H1_UNAVAILABLE"});continue;}let context={score:5};if(group==="forex"){const base=sym.slice(0,3),quote=sym.slice(3),d=(fx[base]||0)-(fx[quote]||0);context={baseStrength:fx[base]||0,quoteStrength:fx[quote]||0,strengthDiff:d,score:Math.min(10,5+Math.abs(d)*4)};}else{const other=sym==="XAUUSD"?"XAGUSD":"XAUUSD",rel=(metalMoves[sym]||0)-(metalMoves[other]||0);context={relativeStrength:rel,benchmark:other,score:Math.min(10,5+Math.abs(rel)*3)};}const raw=Math.abs((T.close-(T.ema20??T.close))/(T.atr14||1)),prior=v73Prior(sym,group),discoveryScore=raw*2+Number(context.score||5)*.35+sessionFit(prior)*.5;rows.push({symbol:sym,quote:{source:"Twelve Data H1",price:T.close,fresh:true},strength:discoveryScore,rawStrength:raw,context});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map};
 }
 async function prepareNonCryptoDeep(symbols,h1Map,env){
   const extra=["5min","15min","4h","1day"],maps=await Promise.all(extra.map(i=>tdBatchCandles(symbols,i,env,CONFIG.candleOutputSize))),out=new Map();
@@ -550,7 +559,7 @@ async function runGroup(group,env){
         const dc=await cryptoDerivativesContext(c.symbol),a=await deepAnalyze(c.symbol,env,b.candles,b.quote,b.source,{...(c.context||{}),...dc});valid.push(a);
         await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));if(valid.length>=CONFIG.cryptoDeepTarget)break;
       }
-      valid.sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));analyses.push(...valid.slice(0,CONFIG.maxCandidates));
+      valid.sort((a,b)=>actionableRank(b)-actionableRank(a));analyses.push(...valid.slice(0,CONFIG.maxCandidates));
     }else{
       const candidates=entryRows.slice(0,CONFIG.maxCandidates);let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)analyses.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else analyses.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
