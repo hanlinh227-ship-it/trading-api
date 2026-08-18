@@ -1,4 +1,4 @@
-name: Verify Live V77.9.1
+name: Verify Live V77.9.2 Full Hub
 
 on:
   push:
@@ -19,32 +19,51 @@ jobs:
         with:
           fetch-depth: 0
       - name: Wait for Cloudflare Git deploy
-        run: sleep 40
-      - name: Verify live status and crypto
+        run: sleep 45
+      - name: Verify all live surfaces
         shell: bash
         run: |
           set +e
           BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
           : > V779_LIVE_CHECK.txt
           echo "CHECKED_AT=$(date -u +%FT%TZ)" >> V779_LIVE_CHECK.txt
+
           curl -fsS --max-time 30 "$BASE/status" -o /tmp/status.json
-          echo '--- STATUS ---' >> V779_LIVE_CHECK.txt
+          curl -fsS --max-time 110 "$BASE/run-now?group=crypto" -o /tmp/crypto.json
+          sleep 2
+          curl -fsS --max-time 70 "$BASE/run-now?group=forex" -o /tmp/forex.json
+          sleep 2
+          curl -fsS --max-time 70 "$BASE/run-now?group=metal" -o /tmp/metal.json
+          curl -fsS --max-time 30 "$BASE/books" -o /tmp/books.json
+
           node - <<'NODE' >> V779_LIVE_CHECK.txt 2>&1
-          const fs=require('fs');try{const p=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));for(const [k,v] of Object.entries({STATUS_VERSION:p.version,STATUS_OK:p.ok===true?'YES':'NO',KV_OK:p.kv===true?'YES':'NO',TD_OK:p.twelveData===true?'YES':'NO',TG_OK:p.telegram===true?'YES':'NO',HUB_OK:p.hub?.enabled===true?'YES':'NO'}))console.log(k+'='+v)}catch(e){console.log('STATUS_PARSE_ERROR='+e.message)}
+          const fs=require('fs');
+          const read=f=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch(e){return {parseError:e.message}}};
+          const s=read('/tmp/status.json'),c=read('/tmp/crypto.json'),f=read('/tmp/forex.json'),m=read('/tmp/metal.json'),b=read('/tmp/books.json');
+          console.log('--- STATUS ---');
+          console.log('STATUS_VERSION='+s.version);console.log('STATUS_OK='+(s.ok===true?'YES':'NO'));console.log('KV_OK='+(s.kv===true?'YES':'NO'));console.log('TD_OK='+(s.twelveData===true?'YES':'NO'));console.log('TG_OK='+(s.telegram===true?'YES':'NO'));console.log('HUB_OK='+(s.hub?.enabled===true?'YES':'NO'));
+          for(const [name,p] of [['CRYPTO',c],['FOREX',f],['METAL',m]]){console.log('--- '+name+' ---');console.log(name+'_VERSION='+(p.version||'-'));console.log(name+'_OK='+(p.ok===true?'YES':'NO'));console.log(name+'_STATUS='+(p.status||'-'));console.log(name+'_REQUESTED='+(p.requested??'-'));console.log(name+'_BROAD='+(p.broadOk??'-'));console.log(name+'_DEEP='+(p.deepOk??'-')+'/'+(p.deepRequested??'-'));console.log(name+'_ELAPSED='+(p.elapsedMs??'-'));console.log(name+'_ERROR_COUNT='+(p.diagnostics?.broadErrors||[]).length);console.log(name+'_ANALYSES='+(p.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')).join('|'));}
+          console.log('--- BOOKS ---');
+          console.log('FOREX_EXEC='+(b.forex?.marketActive?.length||0)+'/'+(b.forex?.limitActive?.length||0)+'/'+(b.forex?.limitPending?.length||0));
+          console.log('METAL_EXEC='+(b.metal?.marketActive?.length||0)+'/'+(b.metal?.limitActive?.length||0)+'/'+(b.metal?.limitPending?.length||0));
+          console.log('CRYPTO_EXEC='+(b.crypto?.marketActive?.length||0)+'/'+(b.crypto?.limitActive?.length||0)+'/'+(b.crypto?.limitPending?.length||0));
           NODE
-          for i in 1 2; do
-            echo "--- CRYPTO ATTEMPT $i ---" >> V779_LIVE_CHECK.txt
-            curl -fsS --max-time 90 "$BASE/run-now?group=crypto" -o "/tmp/crypto$i.json"
-            sleep 7
-          done
+
+          # Give Twelve Data a fresh minute before testing the combined Hub.
+          sleep 65
+          curl -fsS --max-time 150 "$BASE/hub" -o /tmp/hub.json
+          curl -fsS --max-time 30 "$BASE/telegram/menu" -o /tmp/menu.json
           node - <<'NODE' >> V779_LIVE_CHECK.txt 2>&1
-          const fs=require('fs');for(const [i,f] of [[1,'/tmp/crypto1.json'],[2,'/tmp/crypto2.json']])try{const p=JSON.parse(fs.readFileSync(f,'utf8'));console.log(`C${i}_OK=${p.ok===true?'YES':'NO'}`);console.log(`C${i}_STATUS=${p.status||'-'}`);console.log(`C${i}_VERSION=${p.version||'-'}`);console.log(`C${i}_REQUESTED=${p.requested??'-'}`);console.log(`C${i}_BROAD=${p.broadOk??'-'}`);console.log(`C${i}_DEEP=${p.deepOk??'-'}/${p.deepRequested??'-'}`);console.log(`C${i}_ELAPSED=${p.elapsedMs??'-'}`);console.log(`C${i}_ERROR_COUNT=${(p.diagnostics?.broadErrors||[]).length}`);console.log(`C${i}_ERRORS=${(p.diagnostics?.broadErrors||[]).slice(0,12).map(e=>e.symbol+':'+e.reason).join('|')}`);console.log(`C${i}_ANALYSES=${(p.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')).join('|')}`)}catch(e){console.log(`C${i}_PARSE_ERROR=${e.message}`)}
+          const fs=require('fs');const read=f=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch(e){return {parseError:e.message}}};const h=read('/tmp/hub.json'),menu=read('/tmp/menu.json');
+          console.log('--- HUB ---');console.log('HUB_VERSION='+(h.version||'-'));console.log('HUB_OK='+(h.ok===true?'YES':'NO'));console.log('HUB_TOP_COUNT='+(h.top?.length||0));console.log('HUB_TOP='+(h.top||[]).slice(0,5).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')).join('|'));for(const g of ['crypto','forex','metal']){const r=h.runs?.[g]||{};console.log('HUB_'+g.toUpperCase()+'='+(r.status||'OK')+':'+(r.broadOk??'-')+'/'+(r.requested??'-')+':'+(r.deepOk??'-')+'/'+(r.deepRequested??'-'));}
+          console.log('TELEGRAM_MENU_OK='+(menu.ok===true?'YES':'NO'));
           NODE
-          if grep -q 'STATUS_VERSION=V77.9.1' V779_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V779_LIVE_CHECK.txt && grep -q 'TG_OK=YES' V779_LIVE_CHECK.txt && (grep -Eq 'C1_BROAD=([3-6][0-9])' V779_LIVE_CHECK.txt || grep -Eq 'C2_BROAD=([3-6][0-9])' V779_LIVE_CHECK.txt); then echo 'LIVE_VERDICT=PASS'; else echo 'LIVE_VERDICT=FAIL'; fi >> V779_LIVE_CHECK.txt
+
+          if grep -q 'STATUS_VERSION=V77.9.2' V779_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V779_LIVE_CHECK.txt && grep -q 'TG_OK=YES' V779_LIVE_CHECK.txt && grep -Eq 'CRYPTO_BROAD=([4-6][0-9])' V779_LIVE_CHECK.txt && grep -q 'CRYPTO_DEEP=3/3' V779_LIVE_CHECK.txt && grep -q 'FOREX_REQUESTED=28' V779_LIVE_CHECK.txt && grep -q 'METAL_REQUESTED=2' V779_LIVE_CHECK.txt && grep -q 'FOREX_EXEC=0/0/0' V779_LIVE_CHECK.txt && grep -q 'METAL_EXEC=0/0/0' V779_LIVE_CHECK.txt && grep -q 'HUB_VERSION=V77.9.2' V779_LIVE_CHECK.txt && grep -q 'HUB_OK=YES' V779_LIVE_CHECK.txt && grep -q 'TELEGRAM_MENU_OK=YES' V779_LIVE_CHECK.txt; then echo 'FULL_LIVE_VERDICT=PASS'; else echo 'FULL_LIVE_VERDICT=FAIL'; fi >> V779_LIVE_CHECK.txt
       - name: Commit live verification
         run: |
           git config user.name 'trading-runtime-bot'
           git config user.email 'trading-runtime-bot@users.noreply.github.com'
           git add V779_LIVE_CHECK.txt
-          git commit -m 'Report V77.9.1 live production verification' || exit 0
+          git commit -m 'Report V77.9.2 full live hub verification' || exit 0
           git push origin main
