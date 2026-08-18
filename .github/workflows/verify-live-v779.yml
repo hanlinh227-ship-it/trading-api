@@ -1,0 +1,77 @@
+name: Verify Live V77.9
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-live-v779.yml'
+      - 'cloudflare-worker/index.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wait for Cloudflare Git deploy
+        run: sleep 45
+      - name: Verify live endpoints
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          : > V779_LIVE_CHECK.txt
+          echo "CHECKED_AT=$(date -u +%FT%TZ)" >> V779_LIVE_CHECK.txt
+          echo '--- STATUS ---' >> V779_LIVE_CHECK.txt
+          curl -fsS --max-time 30 "$BASE/status" -o /tmp/status.json
+          STATUS_CURL=$?
+          cat /tmp/status.json >> V779_LIVE_CHECK.txt 2>/dev/null || true
+          echo >> V779_LIVE_CHECK.txt
+          echo "STATUS_CURL_EXIT=$STATUS_CURL" >> V779_LIVE_CHECK.txt
+          node - <<'NODE' >> V779_LIVE_CHECK.txt 2>&1
+          const fs=require('fs');
+          try{
+            const p=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));
+            console.log('STATUS_VERSION='+p.version);
+            console.log('STATUS_OK='+(p.ok===true?'YES':'NO'));
+            console.log('KV_OK='+(p.kv===true?'YES':'NO'));
+            console.log('TD_OK='+(p.twelveData===true?'YES':'NO'));
+            console.log('TG_OK='+(p.telegram===true?'YES':'NO'));
+            console.log('HUB_OK='+(p.hub?.enabled===true?'YES':'NO'));
+          }catch(e){console.log('STATUS_PARSE_ERROR='+e.message)}
+          NODE
+          echo '--- CRYPTO SMOKE ---' >> V779_LIVE_CHECK.txt
+          curl -fsS --max-time 60 "$BASE/run-now?group=crypto" -o /tmp/crypto.json
+          CRYPTO_CURL=$?
+          echo "CRYPTO_CURL_EXIT=$CRYPTO_CURL" >> V779_LIVE_CHECK.txt
+          node - <<'NODE' >> V779_LIVE_CHECK.txt 2>&1
+          const fs=require('fs');
+          try{
+            const p=JSON.parse(fs.readFileSync('/tmp/crypto.json','utf8'));
+            console.log('CRYPTO_VERSION='+p.version);
+            console.log('CRYPTO_OK='+(p.ok===true?'YES':'NO'));
+            console.log('CRYPTO_REQUESTED='+p.requested);
+            console.log('CRYPTO_BROAD_OK='+p.broadOk);
+            console.log('CRYPTO_DEEP='+p.deepOk+'/'+p.deepRequested);
+            console.log('CRYPTO_NEW='+p.newCount);
+            console.log('CRYPTO_ANALYSES='+(p.analyses||[]).map(a=>`${a.symbol}:${a.status}:${a.score??'-'}:${a.reason??'-'}`).join('|'));
+          }catch(e){console.log('CRYPTO_PARSE_ERROR='+e.message)}
+          NODE
+          if grep -q 'STATUS_VERSION=V77.9.0' V779_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V779_LIVE_CHECK.txt && grep -q 'KV_OK=YES' V779_LIVE_CHECK.txt && grep -q 'TG_OK=YES' V779_LIVE_CHECK.txt && grep -q 'CRYPTO_VERSION=V77.9.0' V779_LIVE_CHECK.txt && grep -q 'CRYPTO_OK=YES' V779_LIVE_CHECK.txt; then
+            echo 'LIVE_VERDICT=PASS' >> V779_LIVE_CHECK.txt
+          else
+            echo 'LIVE_VERDICT=FAIL' >> V779_LIVE_CHECK.txt
+          fi
+          exit 0
+      - name: Commit live verification
+        run: |
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add V779_LIVE_CHECK.txt
+          git commit -m 'Report V77.9 live production verification' || exit 0
+          git push origin main
