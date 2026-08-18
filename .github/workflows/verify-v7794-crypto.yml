@@ -1,0 +1,40 @@
+name: Verify V77.9.4 Crypto First Press
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-v7794-crypto.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Wait deploy
+        run: sleep 40
+      - name: Test status and first crypto scan
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          : > V7794_LIVE_CHECK.txt
+          curl -sS --max-time 30 "$BASE/status" -o /tmp/s.json
+          curl -sS --max-time 120 "$BASE/run-now?group=crypto" -o /tmp/c.json
+          node - <<'NODE' >> V7794_LIVE_CHECK.txt 2>&1
+          const fs=require('fs'),read=f=>{try{return JSON.parse(fs.readFileSync(f,'utf8'))}catch(e){return {parseError:e.message}}};const s=read('/tmp/s.json'),p=read('/tmp/c.json');
+          console.log('STATUS_VERSION='+(s.version||'-'));console.log('STATUS_OK='+(s.ok===true?'YES':'NO'));console.log('TG_OK='+(s.telegram===true?'YES':'NO'));console.log('CRYPTO_VERSION='+(p.version||'-'));console.log('CRYPTO_OK='+(p.ok===true?'YES':'NO'));console.log('CRYPTO_REQUESTED='+(p.requested??'-'));console.log('CRYPTO_BROAD='+(p.broadOk??'-'));console.log('CRYPTO_DEEP='+(p.deepOk??'-')+'/'+(p.deepRequested??'-'));console.log('CRYPTO_ERRORS='+(p.diagnostics?.broadErrors||[]).length);console.log('CRYPTO_ANALYSES='+(p.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')+':'+(a.source??'-')).join('|'));
+          NODE
+          if grep -q 'STATUS_VERSION=V77.9.4' V7794_LIVE_CHECK.txt && grep -Eq 'CRYPTO_BROAD=([5-6][0-9])' V7794_LIVE_CHECK.txt && grep -q 'CRYPTO_DEEP=3/3' V7794_LIVE_CHECK.txt; then echo 'VERDICT=PASS'; else echo 'VERDICT=FAIL'; fi >> V7794_LIVE_CHECK.txt
+      - name: Commit report
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V7794_LIVE_CHECK.txt
+          git commit -m 'Report V77.9.4 first-press crypto verification' || exit 0
+          git push origin main
