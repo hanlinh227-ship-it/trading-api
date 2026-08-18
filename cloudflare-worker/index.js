@@ -2,8 +2,8 @@ import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "j
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.13.0",
-  service: "Trading V77.13.0 Calibrated Adaptive Entry Hub",
+  version: "V77.13.1",
+  service: "Trading V77.13.1 Calibrated Adaptive Entry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -485,8 +485,10 @@ async function runGroup(group,env){
     const budget=await ensureTdBudget(group,env);
     if(!budget.ok){const out={ok:true,version:CONFIG.version,status:"RATE_BUDGET_WAIT",group,scanId,scannedAt,requested:GROUPS[group].length,broadOk:0,fresh:0,deepRequested:0,deepOk:0,newCount:0,analyses:[],retryAfterSec:budget.retryAfterSec,diagnostics:{broadErrors:[],tdCreditsLeft:budget.left,tdCreditsRequired:budget.required},elapsedMs:Date.now()-started};await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot(group,out,env);return out;}
     const broad=await broadScan(group,env),analyses=[];let deepAttempted=0,skippedUnavailable=[];
+    const existingBooks=await getBooks(env),liveSymbols=new Set([...(existingBooks[group]?.marketActive||[]),...(existingBooks[group]?.limitActive||[]),...(existingBooks[group]?.limitPending||[])].map(x=>canonicalUserSymbol(x.symbol)));
+    const entryRows=broad.rows.filter(x=>!liveSymbols.has(canonicalUserSymbol(x.symbol)));
     if(group==="crypto"){
-      const shortlist=broad.rows.slice(0,CONFIG.deepShortlist),valid=[];
+      const shortlist=entryRows.slice(0,CONFIG.deepShortlist),valid=[];
       for(const c of shortlist){
         if(Date.now()-started>CONFIG.scanDeadlineMs-2500)break;deepAttempted++;let b;
         try{b=await cryptoDeepBundle(c.symbol,{preferAnalysis:!!c.quote?.analysisOnly,preferredBroadSource:c.quote?.source});}catch(e){skippedUnavailable.push({symbol:c.symbol,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)});await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));continue;}
@@ -495,11 +497,11 @@ async function runGroup(group,env){
       }
       valid.sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));analyses.push(...valid.slice(0,CONFIG.maxCandidates));
     }else{
-      const candidates=broad.rows.slice(0,CONFIG.maxCandidates);let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}
+      const candidates=entryRows.slice(0,CONFIG.maxCandidates);let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)analyses.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else analyses.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
     }
-    const books=await getBooks(env),newItems=fillBooks(group,books,analyses);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);
-    const out={ok:true,version:CONFIG.version,group,scanId,scannedAt,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
+    const books=existingBooks,newItems=fillBooks(group,books,analyses);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);
+    const out={ok:true,version:CONFIG.version,group,scanId,scannedAt,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,liveSymbolsSkipped:[...liveSymbols],tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
     await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot(group,out,env);return out;
   }finally{await releaseLock(env);}
 }

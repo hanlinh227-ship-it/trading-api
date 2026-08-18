@@ -1,6 +1,6 @@
 {
-  "version": "SYMBOL_KNOWLEDGE_V1",
-  "generatedAt": "2026-08-18T05:30:52.337Z",
+  "version": "SYMBOL_KNOWLEDGE_V2",
+  "generatedAt": "2026-08-18T05:48:37.758Z",
   "sourceV73": "NO_CUT_INTRADAY_ALLPASS_V73",
   "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
   "policy": {
@@ -4827,30 +4827,49 @@
       "canonicalSymbol": "XAUUSD",
       "legacyPriorKey": null,
       "aliases": [
-        "XAUUSD"
+        "XAUUSD",
+        "GOLD"
       ],
       "assetClass": "metal",
-      "source": "RUNTIME_ADAPTIVE",
+      "source": "RUNTIME_KNOWLEDGE",
       "timeframe": "MULTI_TF",
-      "priorClassification": "NO_V73_SYMBOL_PRIOR",
-      "priorStatus": null,
+      "priorClassification": "NO_V73_METAL_PRIOR",
+      "priorStatus": "KNOWLEDGE_ONLY",
       "families": [
-        "METAL_STRUCTURE",
-        "RELATIVE_METAL"
+        "MACRO",
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE"
       ],
       "allowedModes": [
         "TREND",
         "MEAN_REVERSION",
         "RELATIVE"
       ],
-      "entryMode": "DYNAMIC_ROUTER",
-      "signalHourUTC": null,
+      "entryMode": "DYNAMIC_REGIME",
       "riskATR": null,
       "priorRR": null,
-      "newsProfile": null,
+      "contextRequirements": {
+        "primary": [
+          "DXY / USD regime",
+          "US Treasury yields / real-yield proxy",
+          "Fed policy expectations",
+          "US CPI/PCE/NFP",
+          "geopolitical/safe-haven risk"
+        ],
+        "secondary": [
+          "XAG relative strength",
+          "session/liquidity",
+          "central-bank/gold demand context"
+        ],
+        "liveRule": "Context can alter direction/quality but cannot replace price structure, freshness or execution authority."
+      },
       "calibration": {
-        "status": "UNCALIBRATED",
-        "reason": "Requires dedicated metal walk-forward/OOS calibration"
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "Metal runtime knowledge has not yet passed untouched OOS/walk-forward calibration",
+        "sampleSize": 0,
+        "developmentWinRatePct": null,
+        "developmentMeanR": null
       },
       "productionPolicy": {
         "hubScoreIsWinProbability": false,
@@ -4864,30 +4883,49 @@
       "canonicalSymbol": "XAGUSD",
       "legacyPriorKey": null,
       "aliases": [
-        "XAGUSD"
+        "XAGUSD",
+        "SILVER"
       ],
       "assetClass": "metal",
-      "source": "RUNTIME_ADAPTIVE",
+      "source": "RUNTIME_KNOWLEDGE",
       "timeframe": "MULTI_TF",
-      "priorClassification": "NO_V73_SYMBOL_PRIOR",
-      "priorStatus": null,
+      "priorClassification": "NO_V73_METAL_PRIOR",
+      "priorStatus": "KNOWLEDGE_ONLY",
       "families": [
-        "METAL_STRUCTURE",
-        "RELATIVE_METAL"
+        "MACRO",
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE",
+        "INDUSTRIAL"
       ],
       "allowedModes": [
         "TREND",
         "MEAN_REVERSION",
         "RELATIVE"
       ],
-      "entryMode": "DYNAMIC_ROUTER",
-      "signalHourUTC": null,
+      "entryMode": "DYNAMIC_REGIME",
       "riskATR": null,
       "priorRR": null,
-      "newsProfile": null,
+      "contextRequirements": {
+        "primary": [
+          "DXY / USD regime",
+          "US Treasury yields / Fed expectations",
+          "XAU relative strength",
+          "industrial/risk sentiment"
+        ],
+        "secondary": [
+          "copper/industrial-cycle context when available",
+          "session/liquidity",
+          "US macro releases"
+        ],
+        "liveRule": "Context can alter direction/quality but cannot replace price structure, freshness or execution authority."
+      },
       "calibration": {
-        "status": "UNCALIBRATED",
-        "reason": "Requires dedicated metal walk-forward/OOS calibration"
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "Metal runtime knowledge has not yet passed untouched OOS/walk-forward calibration",
+        "sampleSize": 0,
+        "developmentWinRatePct": null,
+        "developmentMeanR": null
       },
       "productionPolicy": {
         "hubScoreIsWinProbability": false,
