@@ -1,0 +1,11 @@
+GENERATOR_EXIT=0
+Applied V77.16.4 context cache and mirror safeguards
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.16.4=YES
+contextPrefix=YES
+saveMarketContext=YES
+loadMarketContext=YES
+cached 28-pair strength=YES
+FUTURE_RISK_LIMIT_REQUIRED=YES
+Context-Cached Stable Quality Hub=YES
