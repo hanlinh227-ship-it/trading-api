@@ -1,6 +1,20 @@
 GENERATOR_EXIT=0
-Applied V77.15.5 action-first entry routing
-MIGRATION_EXIT=0
+/home/runner/work/trading-api/trading-api/scripts/apply_v77155_action_first.js:4
+if(!s.includes('version: "V77.15.4"'))throw new Error('Expected V77.15.4');
+                                      ^
+
+Error: Expected V77.15.4
+    at Object.<anonymous> (/home/runner/work/trading-api/trading-api/scripts/apply_v77155_action_first.js:4:45)
+    at Module._compile (node:internal/modules/cjs/loader:1781:14)
+    at Object..js (node:internal/modules/cjs/loader:1913:10)
+    at Module.load (node:internal/modules/cjs/loader:1505:32)
+    at Function._load (node:internal/modules/cjs/loader:1309:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.23.2
+MIGRATION_EXIT=1
 WORKER_SYNTAX_EXIT=0
 V77.15.5=YES
 structuralFallbackLimit=YES
