@@ -1,0 +1,44 @@
+name: Validate Cloudflare V77
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/**'
+      - 'data/nocut_intraday_allpass_v73.json'
+      - '.github/workflows/validate-cloudflare-v77.yml'
+  pull_request:
+    paths:
+      - 'cloudflare-worker/**'
+      - 'data/nocut_intraday_allpass_v73.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check Worker
+        run: node --check cloudflare-worker/index.js
+      - name: Verify canonical locks
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const src = fs.readFileSync('cloudflare-worker/index.js','utf8');
+          const v73 = JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
+          const must = [
+            'V77.7.0',
+            'EXECUTION_QUOTE_REQUIRED',
+            'M15_LOCATION_REQUIRED',
+            'M5_MSS_DISPLACEMENT_RETEST_REQUIRED',
+            'rr2RoomRequired: 2.2',
+            'maxExecutionCostR: 0.10',
+            'v775:books'
+          ];
+          for (const token of must) if (!src.includes(token)) throw new Error(`missing canonical token: ${token}`);
+          if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
+          if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
+          console.log('V77.7 canonical validation PASS');
+          NODE
