@@ -1,0 +1,41 @@
+name: Verify Now V77.13
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-now-v77130.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Immediate live checks
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          : > V77130_NOW_LIVE.txt
+          for spec in 's:/status' 'o1:/orders' 'c:/run-now?group=crypto' 'f:/run-now?group=forex' 'm:/run-now?group=metal' 'k:/knowledge?symbol=KAITOUSDT' 'sh:/shadow' 'o2:/orders'; do name="${spec%%:*}"; path="${spec#*:}"; curl -fsS --max-time 120 "$BASE$path" -o "/tmp/$name.json"; echo "$name CURL=$?" >> V77130_NOW_LIVE.txt; sleep 2; done
+          node - <<'NODE' >> V77130_NOW_LIVE.txt 2>&1
+          const fs=require('fs');const r=n=>{try{return JSON.parse(fs.readFileSync('/tmp/'+n+'.json'))}catch(e){return {e:e.message}}};const s=r('s'),c=r('c'),f=r('f'),m=r('m'),k=r('k'),sh=r('sh'),o1=r('o1'),o2=r('o2');
+          const cnt=o=>['forex','crypto','metal'].map(g=>{const x=o[g]||{};return g+':'+(x.marketActive||[]).length+'/'+(x.limitActive||[]).length+'/'+(x.limitPending||[]).length+'/w'+(x.watch||[]).length}).join('|');
+          console.log('VERSION='+(s.version||'-'));console.log('STATUS_OK='+(s.ok===true?'YES':'NO'));
+          console.log('CRYPTO='+(c.broadOk??'-')+'/'+(c.requested??'-')+' deep='+(c.deepOk??'-')+'/'+(c.deepRequested??'-'));
+          console.log('CRYPTO_RESULTS='+(c.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':rr='+(a.planned?.targetRR??a.targetRR??'-')+':min='+(a.planned?.minQualityRR??'-')).join('|'));
+          console.log('FOREX='+(f.broadOk??'-')+'/'+(f.requested??'-')+' deep='+(f.deepOk??'-')+'/'+(f.deepRequested??'-'));
+          console.log('METAL='+(m.broadOk??'-')+'/'+(m.requested??'-')+' deep='+(m.deepOk??'-')+'/'+(m.deepRequested??'-'));
+          console.log('KNOWLEDGE='+(k.ok===true?'YES':'NO')+':'+(k.knowledge?.calibration?.status||'-')+':'+((k.knowledge?.allowedModes||[]).join('/')));
+          console.log('SHADOW_COUNT='+((sh.rows||[]).length));console.log('ORDERS1='+cnt(o1));console.log('ORDERS2='+cnt(o2));console.log('PRESERVED='+(cnt(o1)===cnt(o2)?'YES':'NO'));console.log('WATCH_ZERO='+(['forex','crypto','metal'].every(g=>(o2[g]?.watch||[]).length===0)?'YES':'NO'));
+          const pass=s.version==='V77.13.0'&&s.ok===true&&c.deepOk===3&&f.broadOk===28&&f.deepOk===3&&m.broadOk===2&&m.deepOk===2&&k.ok===true&&cnt(o1)===cnt(o2)&&['forex','crypto','metal'].every(g=>(o2[g]?.watch||[]).length===0);
+          console.log('VERDICT='+(pass?'PASS':'FAIL'));
+          NODE
+      - name: Commit report
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77130_NOW_LIVE.txt
+          git commit -m 'Report immediate V77.13 verification' || exit 0
+          git push origin main
