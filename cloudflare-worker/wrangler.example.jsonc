@@ -4,6 +4,13 @@
   "main": "index.js",
   "compatibility_date": "2026-08-18",
   "keep_vars": true,
+  "secrets": {
+    "required": [
+      "TWELVE_DATA_API_KEY",
+      "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_CHAT_ID"
+    ]
+  },
   "kv_namespaces": [
     {
       "binding": "TRADING_STATE",
