@@ -31,6 +31,7 @@ jobs:
           const fs=require('fs');
           const read=p=>fs.readFileSync(p,'utf8');
           const index=read('cloudflare-worker/index.js');
+          const hub=read('cloudflare-worker/hub-v77171.js');
           const engine=read('cloudflare-worker/engine-v77168.js');
           const scanner=read('cloudflare-worker/hyro-scanner.js');
           const runtime=read('cloudflare-worker/hyro-runtime.js');
@@ -41,11 +42,14 @@ jobs:
           const review=read('cloudflare-worker/hyro-position-review.js');
           const release=read('cloudflare-worker/release-notifier.js');
           const health=read('cloudflare-worker/system-health.js');
+          const claude=read('cloudflare-worker/claude-reviewer.js');
+          const claudeTg=read('cloudflare-worker/claude-telegram.js');
           const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
           for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.9','v771816:signal:auto_notify:','autoScanSignalGroup'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
-          for(const x of ['V77.18.19','Single PROP Recovery','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','/release'])if(!index.includes(x))throw new Error('Single PROP index lock missing: '+x);
-          if(index.includes('hyro-multi-ui.js')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram'))throw new Error('Multi-account runtime must be removed');
+          for(const x of ['V77.18.20','Claude Reviewer Integration','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','runClaudeAutoReview','/claude/status','/claude/review/run'])if(!index.includes(x))throw new Error('V77.18.20 index lock missing: '+x);
+          if(index.includes('hyro-multi-ui.js')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram')||index.includes('hyroMultiStatus'))throw new Error('Multi-account runtime must be removed');
+          if(!hub.includes('🧠 Claude Reviewer')||!hub.includes('V77.18.20'))throw new Error('Hub Claude/version lock missing');
           for(const x of ['PER_SYMBOL_STRATEGY_REGISTRY','NEAR_MARKET_PLAN','fundingRate'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
           for(const x of ['enrichHyroPlans','evaluateHyroPortfolio','recordHyroEntry','microScore(x)>=.54'])if(!runtime.includes(x))throw new Error('Runtime lock missing: '+x);
           for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro context missing: '+x);
@@ -55,11 +59,13 @@ jobs:
           if(!exec.includes('hyroDynamicRiskView')||!exec.includes('activeSymbols.size>=3'))throw new Error('Dynamic risk / 3-slot lock missing');
           if(!exec.includes('Math.max(0,...[num(a.totalEquity)'))throw new Error('Robust positive equity fallback missing');
           if(!manager.includes('v771811:hyro:manage:'))throw new Error('Position manager state lock missing');
-          for(const x of ['v771817:health:last','v775:books','v7712:scan:','getHyroTelemetry','TELEGRAM_API_FAIL','shouldRunFullHealth'])if(!health.includes(x))throw new Error('Single-account Health Guardian lock missing: '+x);
+          for(const x of ['v771817:health:last','v775:books','v7712:scan:','getHyroTelemetry','TELEGRAM_API_FAIL','shouldRunFullHealth','ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Guardian lock missing: '+x);
           if(health.includes('TK2')||health.includes('HYRO_B_BYBIT_API_KEY')||health.includes('hyroHubSnapshot'))throw new Error('TK2 health remnants present');
+          for(const x of ['REVIEW-ONLY','runClaudeReview','runClaudeAutoReview','DAILY_LIMIT','COOLDOWN','claude-sonnet-4-20250514','trade:false','deploy:false','v771820:claude:last'])if(!claude.includes(x))throw new Error('Claude reviewer lock missing: '+x);
+          for(const x of ['claude:status','claude:review','ChatGPT PRIMARY'])if(!claudeTg.includes(x))throw new Error('Claude Telegram lock missing: '+x);
           if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV/vars deployment lock missing');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('Canonical V77.18.19 single PROP recovery validation PASS');
+          console.log('Canonical V77.18.20 Claude reviewer validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
