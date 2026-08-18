@@ -1,16 +1,16 @@
-PATCH version: "V77.16.9" OK
-PATCH service: "Trading V77.16.9 Balanced  OK
-PATCH if(mode==="TREND"&&intel.methodFit>= OK
-PATCH if(mode==="RELATIVE"&&intel.methodFi OK
-PATCH if(mode==="TREND"&&intel.methodFit>= OK
-PATCH if(mode==="RELATIVE"&&intel.methodFi OK
-PATCH if(side==="NEUTRAL"||Number(intel?.m OK
-PATCH if(Number(intel?.methodFit||0)<44)re OK
-PATCH if(type==="future")x=Math.max(x,1.50 OK
-PATCH else if(type==="forex")x=Math.max(x, OK
-PATCH return {pass:chase<=.65&&notExtreme OK
-SILENCE OVERNIGHT_30M_SYSTEM_REVIEW OK
-SILENCE DAILY_SYSTEM_TUNING_REVIEW OK
+PATCH version: "V77.16.10" ALREADY
+PATCH service: "Trading V77.16.10 Balanced ALREADY
+PATCH if(mode==="TREND"&&intel.methodFit>= ALREADY
+PATCH if(mode==="RELATIVE"&&intel.methodFi ALREADY
+PATCH if(mode==="TREND"&&intel.methodFit>= ALREADY
+PATCH if(mode==="RELATIVE"&&intel.methodFi ALREADY
+PATCH if(side==="NEUTRAL"||Number(intel?.m ALREADY
+PATCH if(Number(intel?.methodFit||0)<42)re ALREADY
+PATCH if(type==="future")x=Math.max(x,1.45 ALREADY
+PATCH else if(type==="forex")x=Math.max(x, ALREADY
+PATCH return {pass:chase<=.70&&notExtreme ALREADY
+SILENCE OVERNIGHT_30M_SYSTEM_REVIEW ALREADY
+SILENCE DAILY_SYSTEM_TUNING_REVIEW ALREADY
 PATTERN_OK True
 ENGINE_NODE=0
 CLAUDE_NODE=0
