@@ -1,0 +1,38 @@
+name: Verify V77.18.19 Final Once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-v771819-final-once.yml'
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify and persist result
+        shell: bash
+        run: |
+          set +e
+          R=docs/checkpoints/V771819_BUILD_VERIFY.txt
+          : > "$R"
+          echo "HEAD $(git rev-parse HEAD)" >> "$R"
+          for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f" >> "$R" 2>&1 || echo "NODE_FAIL $f" >> "$R"; done
+          grep -q 'V77.18.19' cloudflare-worker/index.js; echo "VERSION_RC=$?" >> "$R"
+          grep -q 'hyro-multi-ui' cloudflare-worker/index.js; echo "MULTI_IMPORT_PRESENT_RC=$? (expected 1)" >> "$R"
+          grep -q 'TK2' cloudflare-worker/system-health.js; echo "TK2_HEALTH_PRESENT_RC=$? (expected 1)" >> "$R"
+          cd cloudflare-worker
+          npm install >> ../$R 2>&1; echo "NPM_RC=$?" >> ../$R
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler >> ../$R 2>&1; echo "PREP_RC=$?" >> ../$R
+          npx wrangler deploy --dry-run >> ../$R 2>&1; echo "WRANGLER_RC=$?" >> ../$R
+          cd ..
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add "$R"
+          git commit -m "Report V77.18.19 final build verification" || true
+          git push || true
+          exit 0
