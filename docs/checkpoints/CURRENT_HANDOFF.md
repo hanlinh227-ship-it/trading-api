@@ -5,141 +5,123 @@ Updated: 2026-08-19 UTC+7
 ## READ FIRST
 1. `V77180_AUTO_READY_CONSOLIDATED.md`
 2. `MASTER_TRADING_STATE.md`
-3. `V771820_CLAUDE_REVIEWER.md`
-4. `V771819_SINGLE_PROP_RECOVERY.md`
-5. `V771818_RELEASE_POSITION_REVIEW.md`
-6. `V771817_AUTONOMOUS_HEALTH_GUARDIAN.md`
-7. `V771816_BALANCED_ENTRY_ALL_MARKETS.md`
-8. `V771814_PROP_PORTFOLIO_GUARD.md`
-9. `V771813_MICROSTRUCTURE_AUDIT.md`
-10. `V771811_PROP_PER_SYMBOL_MANAGEMENT.md`
-11. `ENTRY_EXECUTION_V76.md` and relevant market checkpoints.
+3. `V771822_SAFE_RISK_BALANCED_DISCOVERY.md`
+4. `V771820_CLAUDE_REVIEWER.md`
+5. `V771819_SINGLE_PROP_RECOVERY.md`
+6. `V771818_RELEASE_POSITION_REVIEW.md`
+7. `V771817_AUTONOMOUS_HEALTH_GUARDIAN.md`
+8. `V771816_BALANCED_ENTRY_ALL_MARKETS.md`
+9. `V771814_PROP_PORTFOLIO_GUARD.md`
+10. `V771813_MICROSTRUCTURE_AUDIT.md`
+11. `V771811_PROP_PER_SYMBOL_MANAGEMENT.md`
+12. `ENTRY_EXECUTION_V76.md` and relevant market checkpoints.
 
 ## CURRENT CANONICAL
-**Canonical source is V77.18.20 — ChatGPT Primary + Claude Reviewer.** Production entrypoint is `cloudflare-worker/index.js`. Signal core remains `engine-v77168.js` / V77.16.9.
+**Canonical source is V77.18.22 — Safe Daily Risk + Balanced Discovery.** Production entrypoint is `cloudflare-worker/index.js`. Signal core remains `engine-v77168.js` / V77.16.9 until its large-file soft-gate patch is separately validated.
 
-PROP remains SINGLE ACCOUNT ONLY. The previous TK2/multi-account runtime and Telegram UI stay removed.
+PROP remains SINGLE ACCOUNT ONLY. Never restore TK2/multi-account unless explicitly redesigned later.
+
+## HYRO RISK V77.18.22
+New internal policy activates only at `2026-08-19T00:00:00Z` = 07:00 Vietnam, matching the next UTC trading-day boundary. Before that timestamp legacy risk remains so the current day is not changed mid-cycle.
+
+After activation:
+- A-tier base risk 0.45% current equity before defense scaling.
+- single worst-loss cap 0.55% equity.
+- combined open-risk cap 0.90% equity.
+- internal daily hard stop 1.60% equity.
+- internal daily profit lock ~1.20% day-start equity.
+- new-entry risk scale falls to 75% around 0.4% DD, 50% around 0.8%, 30% around 1.2%; after +0.8% daily P/L scale is capped near 55%.
+- Structural SL remains authoritative. Reduce USD risk using position size, not artificially short stops.
+
+## TP MANAGEMENT AFTER RESET
+- TP1 capped near 0.85R, approximately 45% reduction.
+- TP2 capped near 1.60R, approximately 35% reduction.
+- runner approximately 20%, TP3 capped near 2.45R.
+- BE after TP1 and trailing after TP2 remain.
+- HOLD/TIGHTEN/CUT review remains around every 5 minutes.
 
 ## AI GOVERNANCE
-- ChatGPT is PRIMARY engineer/decision maker.
-- Claude is REVIEW-ONLY.
-- Claude cannot place trades, close positions, deploy code, alter secrets, or override hard risk controls.
-- Claude output is advisory PASS/WARN/FAIL + findings/tuning/must-fix.
-- `ANTHROPIC_API_KEY` exists only as a Cloudflare Secret; never commit it to GitHub.
-- Default Claude API model: `claude-sonnet-5`.
+- ChatGPT is PRIMARY engineer/decision maker in interactive engineering sessions.
+- Claude is REVIEW-ONLY and advisory.
+- Claude cannot trade, close/cancel positions, deploy, change secrets, override hard risk, or mutate trading state.
+- `ANTHROPIC_API_KEY` lives only in Cloudflare Secret.
+- Default model: `claude-sonnet-5`.
 
-## CLAUDE REVIEW AUTOMATION
-Automatic triggers:
-1. First cron after each new active Worker version: one `RELEASE_REVIEW`.
-2. New Health Guardian ERROR signature: one `HEALTH_INCIDENT_REVIEW`.
-3. No new trigger: no Anthropic API call.
-4. Telegram `🧠 Claude Reviewer → 🔎 Review ngay` runs `MANUAL_HUB_REVIEW`.
+## CLAUDE AUTOMATION
+Normal triggers: release final review, new Health incident, daily system tuning and manual review.
+Temporary overnight window ends at 2026-08-19 00:00 UTC / 07:00 Vietnam:
+- Worker may run `OVERNIGHT_30M_SYSTEM_REVIEW` around every 30 minutes.
+- temporary default budget up to 16 reviews/day and ~25m cooldown when no explicit environment override exists.
+- overnight review default max output is reduced to ~950 tokens to control API spend.
+- after the window, normal defaults return to 4 reviews/day, ~45m cooldown and normal final-review behavior.
 
-Default usage controls:
-- 4 reviews/day (`CLAUDE_REVIEW_DAILY_LIMIT` optional override, bounded 1–20).
-- 45m automatic cooldown (`CLAUDE_REVIEW_COOLDOWN_MIN`, bounded 5–720).
-- max output 1200 tokens (`ANTHROPIC_REVIEW_MAX_TOKENS`, bounded 400–2000).
-- optional model override: `ANTHROPIC_REVIEW_MODEL`.
+Reviewer inspects truncated public code for Signal engine, HUB, Health, Hyro scanner/runtime/execution/microstructure/portfolio/position manager/review plus sanitized runtime state. It must identify conflicts first, then HUB simplification and market-specific entry improvements without weakening hard news/freshness/execution/risk gates.
 
-Claude receives only public GitHub commit/diff + truncated critical public source + sanitized System Health. Secret values/env values are never included in its prompt.
+Reviewer state remains isolated under `v771821:claude:*` plus temporary `v771822:claude:overnight`.
 
-Reviewer state is isolated:
-- `v771820:claude:last`
-- `v771820:claude:budget`
-- `v771820:claude:release`
-- `v771820:claude:error_sig`
+## HUB V77.18.22
+Main layout is simplified:
+- Signal / PROP
+- Personal / Symbol
+- Orders / System
+- AI Review
 
-Routes:
-- `/claude/status`
-- `/claude/review/latest`
-- `/claude/review/run`
+Callbacks are preserved, so this is UI cleanup without state migration.
 
-## HUB
-Main Trading Hub adds `🧠 Claude Reviewer`.
-Reviewer submenu:
-- `🧠 Trạng thái`
-- `🔎 Review ngay`
-- `⬅️ Menu`
-
-Status explicitly states ChatGPT PRIMARY and Claude has no trade / close / deploy permission.
-
-## ROOT-CAUSE FIXES RETAINED FROM V77.18.19
+## ROOT-CAUSE FIXES RETAINED
 1. Challenge always goes through `propEnv()` and forces Bybit DEMO.
 2. Equity/wallet/available use robust positive fallback; aggregate zero cannot mask a positive USDT balance.
 3. Position probing remains independent from wallet parsing.
 4. Health Guardian has no TK2 / `HYRO_B_*` checks.
-5. Stale undefined `hyroMultiStatus` routes/fields were removed from `index.js` during V77.18.20 integration.
+5. PROP live positions remain independent from release/version state.
 
 ## SINGLE PROP TELEGRAM
-Menu:
+PROP menu keeps:
 - Tổng quan / Vị thế
 - Risk / Kết nối
 - Quét / Đánh giá
 - Auto
-- DEMO Order/Cycle when applicable
+- DEMO Order/Cycle where applicable
 - Cấu hình / Menu
-
-No TK1/TK2 labels and no `2 tài khoản` button.
-
-## RELEASE VERSION ANNOUNCEMENT
-Telegram sends one compact release message after a new production runtime starts. `/release` exposes version/name/state. V77.18.20 release name: `Claude Reviewer Integration`.
-
-## PROP POSITION REVIEW
-`🧭 Đánh giá` and automatic review remain active roughly every 5 minutes.
-- HOLD: keep.
-- TIGHTEN: warn/manage more defensively; existing TP/BE/trailing manager remains stop authority.
-- CUT: reduce-only market close only under strong multi-factor deterioration, minimum hold ~8m, and only when AUTO execution is allowed.
-- Inputs remain per-symbol strategy family + initial-R P/L + holding time + funding + OI/long-short/orderbook/spread.
-- `HYRO_POSITION_REEVAL_AUTO_CUT=false` disables automatic CUT without disabling review.
 
 ## STATE SAFETY
 Never reset `TRADING_STATE`.
 Signal LIVE ORDERS `v775:books` remains unchanged.
-PROP legacy execution/runtime/idempotency/notification/position-manager/portfolio/review state remains canonical and unchanged.
-Claude owns only `v771820:claude:*` reviewer state.
-No order/position is closed or cancelled because of Claude review or V77.18.20 deployment.
+PROP execution/runtime/idempotency/notification/position-manager/portfolio/review state remains continuous.
+No release may close or cancel a live position solely because the code version changed.
 
 ## SIGNAL
-Signal V77.16.9 remains unchanged: Crypto auto-scan ~5m, Forex hourly, Metals hourly, Futures ~15m. Non-crypto remains MARKET/LIMIT PLAN until a real broker execution authority exists. Hard freshness/news/structural/execution-authority gates remain active.
+Signal V77.16.9 continues to auto-scan Crypto ~5m, Forex hourly, Metals hourly, Futures ~15m. Non-crypto remains MARKET/LIMIT PLAN until a real broker execution authority exists. Hard freshness/news/structural/execution-authority/futures-risk gates remain mandatory.
+
+A planned soft-gate tuning exists for better Forex/Metal/Futures discovery, but DO NOT claim V77.16.10 until the large engine file patch lands and validates. Do not increase Twelve Data deep-scan breadth without validating quota accounting.
 
 ## PROP CORE
-One Hyro account only. Each coin keeps its own stable strategy/profile. A tier quality unchanged; B tier remains reduced-risk. Funding, microstructure, dynamic equity, 3-slot diversified portfolio guard, native SL/TP and TP1/TP2/runner management remain mandatory.
+One Hyro account only. Each coin keeps its own strategy/profile. Funding, OI, long-short ratio, orderbook, spread, dynamic equity, 3-slot diversified portfolio guard, native SL/TP and partial management remain mandatory.
 
 ## HEALTH GUARDIAN
-`system-health.js` audits one PROP account only. Lightweight checks each cron tick; full probe at most once per 5 minutes. It also verifies whether `ANTHROPIC_API_KEY` is configured, but does NOT call Anthropic merely for health checks.
+`system-health.js` audits one PROP account only. Lightweight checks each cron tick; full probe at most once per ~5 minutes. Claude failures remain fail-isolated from Signal/PROP execution.
 
-## BUILD VERIFICATION V77.18.20
-Post-Sonnet-5 correction final verification:
-- V77.18.20: PASS
-- no `hyroMultiStatus`: PASS
-- Claude runtime wiring: PASS
-- HUB Claude button: PASS
-- Health Claude secret check: PASS
-- `claude-sonnet-5`: PASS
-- no non-default sampling parameter: PASS
-- npm: PASS / 0 vulnerabilities
-- prepare Wrangler: PASS
-- Wrangler dry-run: PASS
-- `TRADING_STATE` binding preserved
+## BUILD / VALIDATOR
+Canonical validator now locks:
+- V77.18.22 runtime/HUB.
+- single PROP / no TK2.
+- positive equity fallback.
+- new risk activation, risk-scale and caps.
+- new TP activation and management.
+- Claude 30-minute temporary review plus review-only permissions.
+- `TRADING_STATE` + `keep_vars` deployment contract.
 
-See `V771820_BUILD_VERIFY.txt`.
+A one-shot `verify-v771822-once.yml` writes `V771822_BUILD_VERIFY.txt` when GitHub Actions executes. Do not claim Wrangler PASS until that report exists and says `WRANGLER_RC=0`.
 
 ## CLOUDFLARE CONTRACT
 - Source: GitHub.
 - Worker: `trading-v77-scanner`.
 - KV binding: existing `TRADING_STATE` namespace.
 - `keep_vars: true`.
-- Cron every minute; modules decide internal cadence.
+- Cron every minute; internal modules decide cadence.
 
 ## PRODUCTION ACTIVATION GATE
-Do NOT claim V77.18.20 production-active until Cloudflare newest deployment is green and receives production traffic.
-After production activation:
-1. release banner reports `V77.18.20 — Claude Reviewer Integration`;
-2. first cron performs the real Anthropic connectivity/model self-test;
-3. Telegram should receive Claude PASS/WARN/FAIL, or a bounded Claude ERROR if the API/account/model is unavailable;
-4. Claude error must not affect Signal/PROP execution runtime;
-5. `🧠 Claude Reviewer` status must show API CONNECTED when `ANTHROPIC_API_KEY` is bound;
-6. single PROP, Health Guardian, Signal/LIVE ORDER state remain continuous.
+Do NOT claim V77.18.22 production-active until Cloudflare newest deployment is green and receives production traffic. After activation verify release banner, PROP telemetry/positions, risk policy label, Claude status and Signal/LIVE ORDER continuity.
 
 ## NEW CHAT PROMPT
-`Tiếp tục Trading từ GitHub mới nhất. Đọc CURRENT_HANDOFF.md trước. Canonical V77.18.20 ChatGPT Primary + Claude Reviewer. ChatGPT là PRIMARY; Claude REVIEW-ONLY với default claude-sonnet-5, release/health/manual triggers, daily usage cap/cooldown, không có quyền trade/close/deploy. PROP chỉ 1 Hyro account; Challenge dùng DEMO qua propEnv; không khôi phục TK2/multi-account. Giữ Health Guardian, HOLD/TIGHTEN/CUT 5m, per-symbol strategy, funding/microstructure, dynamic equity, TP1/TP2/runner, portfolio guard và toàn bộ TRADING_STATE/LIVE ORDERS.`
+`Tiếp tục Trading từ GitHub mới nhất. Đọc CURRENT_HANDOFF.md trước. Canonical V77.18.22 Safe Daily Risk + Balanced Discovery. PROP chỉ 1 Hyro account. Risk/TP policy mới chỉ kích hoạt sau 2026-08-19 00:00 UTC / 07:00 VN; giảm USD risk bằng sizing, không siết structural SL. Claude REVIEW-ONLY, có temporary overnight 30m review đến reset rồi trở lại budget bình thường. Giữ Health Guardian, HOLD/TIGHTEN/CUT, funding/microstructure, portfolio guard, TRADING_STATE/v775:books. Signal core vẫn V77.16.9 cho tới khi soft-gate patch riêng được validate.`
