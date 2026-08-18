@@ -1,0 +1,24 @@
+name: Debug TON V77.11
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/debug-ton-v77110.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Fetch TON diagnostic
+        run: |
+          curl -sS --max-time 100 'https://trading-v77-scanner.hanlinh227.workers.dev/analyze?symbol=TONUSDT' > TON_V77110_DEBUG.json || true
+      - name: Commit
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add TON_V77110_DEBUG.json
+          git commit -m 'Report TON V77.11 deep diagnostic' || exit 0
+          git push origin main
