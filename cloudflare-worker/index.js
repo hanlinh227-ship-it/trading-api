@@ -1,9 +1,10 @@
 import signalHub from "./hub-v77171.js";
 import {getHyroProfile,getHyroControl,setHyroPaused,getHyroTelemetry,getHyroDiagnostics,reconcileHyro,cancelHyroPending,hyroExecutionConfig} from "./hyro-execution.js";
 import {runHyroAutoCycle,getHyroRuntime} from "./hyro-runtime.js";
+import {runHyroDemoExecutionTest,getHyroDemoTestState} from "./hyro-demo-test.js";
 
-const VERSION="V77.18.3";
-const SERVICE="Trading V77.18.3 Independent Signal-Prop-Personal Runtime";
+const VERSION="V77.18.4";
+const SERVICE="Trading V77.18.4 Independent Signal-Prop-Personal Runtime";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 const money=v=>{const x=Number(v||0),sign=x>0?"+":"";return sign+"$"+x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});};
 const cash=v=>"$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -19,7 +20,7 @@ function verify(req,env){return !env.TELEGRAM_WEBHOOK_SECRET||req.headers.get("x
 function phaseName(p){return p?.phase==="FUNDED"?"FUNDED":"CHALLENGE";}
 function programName(p){return p?.program==="TWO_STEP"?"Two-Step":"One-Step";}
 function ddName(p){return p?.drawdownType==="SWING_STATIC"?"Swing / Static":"Standard / Trailing";}
-function propKeyboard(paused=false){return {inline_keyboard:[[{text:"📊 TỔNG QUAN TÀI KHOẢN",callback_data:"prop:dashboard"}],[{text:"📈 VỊ THẾ ĐANG CHẠY",callback_data:"prop:positions"},{text:"🛡️ RISK / DD",callback_data:"prop:risklive"}],[{text:"🔌 KẾT NỐI",callback_data:"prop:connectlive"}],[{text:paused?"▶️ TIẾP TỤC AUTO":"⛔ NGỪNG AUTO",callback_data:paused?"prop:resume":"prop:pause"}],[{text:"⚙️ ĐỔI CẤU HÌNH",callback_data:"prop:setup"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
+function propKeyboard(paused=false){return {inline_keyboard:[[{text:"📊 TỔNG QUAN TÀI KHOẢN",callback_data:"prop:dashboard"}],[{text:"📈 VỊ THẾ ĐANG CHẠY",callback_data:"prop:positions"},{text:"🛡️ RISK / DD",callback_data:"prop:risklive"}],[{text:"🔌 KẾT NỐI",callback_data:"prop:connectlive"}],[{text:"🧪 TEST ORDER DEMO",callback_data:"prop:demotest"}],[{text:paused?"▶️ TIẾP TỤC AUTO":"⛔ NGỪNG AUTO",callback_data:paused?"prop:resume":"prop:pause"}],[{text:"⚙️ ĐỔI CẤU HÌNH",callback_data:"prop:setup"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
 function posLine(p,i){const icon=(p.unrealisedPnl||0)>=0?"🟢":"🔴",side=p.side==="Buy"?"BUY":"SELL";return `${i+1}. ${icon} ${p.symbol} ${side}\n   Entry ${p.avgPrice} → Mark ${p.markPrice}\n   P/L ${money(p.unrealisedPnl)} | Size ${p.size}\n   SL ${p.stopLoss||"—"} | TP ${p.takeProfit||"—"}`;}
 
 async function dashboard(env){
@@ -55,18 +56,23 @@ function endpointLine(x){
 }
 
 async function connectText(env){
-  const p=await getHyroProfile(env),c=await getHyroControl(env),cfg=hyroExecutionConfig(env),t=await getHyroTelemetry(env),rt=await getHyroRuntime(env);
+  const p=await getHyroProfile(env),c=await getHyroControl(env),cfg=hyroExecutionConfig(env),t=await getHyroTelemetry(env),rt=await getHyroRuntime(env),dt=await getHyroDemoTestState(env);
   const ep=t.diagnostics?.endpoints||[];
   const runtimeState=rt?.reason||(rt?.executed?"ACTIVE":rt?"IDLE":"—");
   const runtimeAt=rt?.startedAt||rt?.at||null;
-  return {text:["🔌 HYROTRADER CONNECTION","",`Profile: ${p?phaseName(p)+" • "+programName(p)+" • "+ddName(p):"CHƯA CẤU HÌNH"}`,`Mode: ${cfg.mode}`,`Credentials: ${cfg.credentialsReady?"OK":"MISSING"}`,`Fresh telemetry: ${t.connected?"CONNECTED":"NOT CONNECTED"}`,`Auto execution secret: ${cfg.autoExecutionRequested?"ON":"OFF"}`,`Manual pause: ${c.manualPaused?"ON":"OFF"}`,"",...ep.map(endpointLine),"",`Last auto cycle: ${runtimeState}${runtimeAt?` (${ago(runtimeAt)})`:""}`,rt?.error?`Cycle error: ${String(rt.error).slice(0,180)}`:null,"","Nếu một endpoint telemetry FAIL, execution tự chặn. Không hiển thị candidate/lệnh auto trên Telegram."].filter(Boolean).join("\n"),kb:propKeyboard(c.manualPaused)};
+  return {text:["🔌 HYROTRADER CONNECTION","",`Profile: ${p?phaseName(p)+" • "+programName(p)+" • "+ddName(p):"CHƯA CẤU HÌNH"}`,`Mode: ${cfg.mode}`,`Credentials: ${cfg.credentialsReady?"OK":"MISSING"}`,`Fresh telemetry: ${t.connected?"CONNECTED":"NOT CONNECTED"}`,`Auto execution secret: ${cfg.autoExecutionRequested?"ON":"OFF"}`,`Manual pause: ${c.manualPaused?"ON":"OFF"}`,"",...ep.map(endpointLine),"",`Last auto cycle: ${runtimeState}${runtimeAt?` (${ago(runtimeAt)})`:""}`,rt?.error?`Cycle error: ${String(rt.error).slice(0,180)}`:null,dt?`Last DEMO test: ${dt.ok?"PASS":"FAIL"}${dt.finishedAt?` (${ago(dt.finishedAt)})`:""}`:null,"","Nếu một endpoint telemetry FAIL, execution tự chặn. Không hiển thị candidate/lệnh auto trên Telegram."].filter(Boolean).join("\n"),kb:propKeyboard(c.manualPaused)};
+}
+
+function demoTestText(r){
+  if(!r?.ok)return ["🧪 HYRO DEMO ORDER TEST","","❌ TEST FAIL",`Mode: ${r?.mode||"—"}`,`Lỗi: ${r?.error||"UNKNOWN"}`,r?.retCode!=null?`Bybit retCode: ${r.retCode}`:null,"","Không có lệnh LIVE nào được phép bởi test này."].filter(Boolean).join("\n");
+  return ["🧪 HYRO DEMO ORDER TEST","","✅ CREATE ORDER: PASS","✅ VERIFY ORDER: PASS",`Native SL/TP: ${r.nativeSlTpVerified?"✅ VERIFIED":"⚠️ NOT VERIFIED"}`,`Cancel: ${r.cancelled?"✅ PASS":"❌ FAIL"}`,"",`Symbol: ${r.symbol}`,`Qty: ${r.qty}`,`Limit: ${r.limitPrice}`,`SL: ${r.stopLoss}`,`TP: ${r.takeProfit}`,`Order status trước hủy: ${r.orderStatusBeforeCancel||"—"}`,`Elapsed: ${r.elapsedMs}ms`,"","Đây là order thật trên Bybit DEMO, không phải LIVE."].join("\n");
 }
 
 async function handlePropTelegram(req,env){
   if(!verify(req,env))return json({ok:false,error:"invalid telegram secret"},403);
   let u;try{u=await req.clone().json();}catch{return null;}
   const cb=u?.callback_query?.data;
-  if(!["prop","prop:hyro","prop:dashboard","prop:positions","prop:risklive","prop:connectlive","prop:pause","prop:resume"].includes(cb))return null;
+  if(!["prop","prop:hyro","prop:dashboard","prop:positions","prop:risklive","prop:connectlive","prop:demotest","prop:pause","prop:resume"].includes(cb))return null;
   if(u?.callback_query?.id)tg(env,"answerCallbackQuery",{callback_query_id:u.callback_query.id}).catch(()=>{});
   const chatId=u?.callback_query?.message?.chat?.id??env.TELEGRAM_CHAT_ID;
   if(cb==="prop:pause"){
@@ -80,6 +86,12 @@ async function handlePropTelegram(req,env){
     await send(env,chatId,"▶️ HYRO AUTO ĐÃ CHO PHÉP HOẠT ĐỘNG\n\nChỉ thực sự gửi order nếu API connected + HYRO_AUTO_EXECUTION=true + toàn bộ telemetry + Risk Firewall PASS.",propKeyboard(c.manualPaused));
     return json({ok:true,version:VERSION,manualPaused:false});
   }
+  if(cb==="prop:demotest"){
+    const r=await runHyroDemoExecutionTest(env);
+    const c=await getHyroControl(env);
+    await send(env,chatId,demoTestText(r),propKeyboard(c.manualPaused));
+    return json({ok:r.ok,version:VERSION,demoTest:true,result:r});
+  }
   let x;
   if(cb==="prop:positions")x=await positionsText(env);
   else if(cb==="prop:risklive")x=await riskText(env);
@@ -91,8 +103,8 @@ async function handlePropTelegram(req,env){
 
 async function patchedStatus(req,env){
   const r=await signalHub.fetch(req,env);let p;try{p=await r.clone().json();}catch{return r;}
-  const cfg=hyroExecutionConfig(env),control=await getHyroControl(env),runtime=await getHyroRuntime(env);
-  return json({...p,version:VERSION,service:SERVICE,architecture:{signal:"INDEPENDENT_TELEGRAM_SIGNAL_ONLY",prop:"INDEPENDENT_HYRO_SILENT_AUTO_ACCOUNT_DASHBOARD",personal:"INDEPENDENT_RESERVED_RUNTIME"},hyro:{...cfg,manualPaused:control.manualPaused,silentTelegram:true,lastRuntime:runtime?{ok:runtime.ok,executed:runtime.executed,reason:runtime.reason,error:runtime.error||null,at:runtime.startedAt||runtime.at}:null}},r.status);
+  const cfg=hyroExecutionConfig(env),control=await getHyroControl(env),runtime=await getHyroRuntime(env),demoTest=await getHyroDemoTestState(env);
+  return json({...p,version:VERSION,service:SERVICE,architecture:{signal:"INDEPENDENT_TELEGRAM_SIGNAL_ONLY",prop:"INDEPENDENT_HYRO_SILENT_AUTO_ACCOUNT_DASHBOARD",personal:"INDEPENDENT_RESERVED_RUNTIME"},hyro:{...cfg,manualPaused:control.manualPaused,silentTelegram:true,lastRuntime:runtime?{ok:runtime.ok,executed:runtime.executed,reason:runtime.reason,error:runtime.error||null,at:runtime.startedAt||runtime.at}:null,lastDemoTest:demoTest?{ok:demoTest.ok,error:demoTest.error||null,at:demoTest.finishedAt}:null}},r.status);
 }
 
 export default {
@@ -103,6 +115,7 @@ export default {
     if(path==="/prop/hyro/diagnostics")return json(await getHyroDiagnostics(env));
     if(path==="/prop/hyro/reconcile")return json(await reconcileHyro(env));
     if(path==="/prop/hyro/runtime")return json({ok:true,version:VERSION,runtime:await getHyroRuntime(env)});
+    if(path==="/prop/hyro/demo-test-state")return json({ok:true,version:VERSION,state:await getHyroDemoTestState(env)});
     if(path==="/telegram/webhook"&&req.method==="POST"){
       const handled=await handlePropTelegram(req,env);
       if(handled)return handled;
