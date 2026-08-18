@@ -1,43 +1,14 @@
-name: Apply V77.15 Actionable Multi-Market Hub
+name: RETIRED V77.15 Actionable Multi-Market Hub
 
+# Superseded by V77.15.1 canonical consolidation.
+# Kept only as historical trace; it must not mutate production again.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/apply_v77150_actionable_hub.js'
-      - '.github/workflows/apply-v77150-actionable-hub.yml'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  migrate:
+  retired:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - name: Apply and diagnose
-        shell: bash
-        run: |
-          set +e
-          : > V77150_DIAGNOSTIC.txt
-          node --check scripts/apply_v77150_actionable_hub.js >> V77150_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77150_DIAGNOSTIC.txt
-          node scripts/apply_v77150_actionable_hub.js >> V77150_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77150_DIAGNOSTIC.txt
-          node --check cloudflare-worker/index.js >> V77150_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77150_DIAGNOSTIC.txt
-          for t in 'V77.15.0' 'future:emptyGroup' 'MARKET_PLAN' 'LIMIT_PLAN' 'conditionalPullbackPlan' 'refinedLimitPlan' 'deepNonCryptoCandidates' 'actionPriority' 'FUTURES'; do
-            if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77150_DIAGNOSTIC.txt; else echo "$t=NO" >> V77150_DIAGNOSTIC.txt; fi
-          done
-          if grep -q 'async function acquireLock(async function' cloudflare-worker/index.js || grep -q 'function groupTitle(function groupTitle' cloudflare-worker/index.js; then echo 'MARKER_DUPLICATION=YES' >> V77150_DIAGNOSTIC.txt; else echo 'MARKER_DUPLICATION=NO' >> V77150_DIAGNOSTIC.txt; fi
+      - run: |
+          echo "RETIRED: use V77.15.1+ canonical workflow."
           exit 0
-      - name: Commit canonical Worker on pass
-        shell: bash
-        run: |
-          git config user.name trading-runtime-bot
-          git config user.email trading-runtime-bot@users.noreply.github.com
-          git add V77150_DIAGNOSTIC.txt
-          if grep -q 'GENERATOR_EXIT=0' V77150_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77150_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77150_DIAGNOSTIC.txt && grep -q 'MARKER_DUPLICATION=NO' V77150_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
-          git commit -m 'Promote V77.15 actionable multi-market entry hub' || exit 0
-          git push origin main
