@@ -27,6 +27,8 @@ jobs:
           grep -q 'runClaudeAutoReview' cloudflare-worker/index.js; echo "CLAUDE_WIRE_RC=$?" >> "$R"
           grep -q 'Claude Reviewer' cloudflare-worker/hub-v77171.js; echo "HUB_CLAUDE_RC=$?" >> "$R"
           grep -q 'ANTHROPIC_API_KEY' cloudflare-worker/system-health.js; echo "HEALTH_CLAUDE_RC=$?" >> "$R"
+          grep -q 'claude-sonnet-5' cloudflare-worker/claude-reviewer.js; echo "CLAUDE_MODEL_RC=$?" >> "$R"
+          grep -q 'temperature' cloudflare-worker/claude-reviewer.js; echo "NONDEFAULT_SAMPLING_RC=$? (expected 1)" >> "$R"
           cd cloudflare-worker
           npm install >> ../$R 2>&1; echo "NPM_RC=$?" >> ../$R
           TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler >> ../$R 2>&1; echo "PREP_RC=$?" >> ../$R
