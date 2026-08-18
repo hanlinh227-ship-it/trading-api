@@ -1,0 +1,37 @@
+name: Apply V77.15.2 Plan Metrics
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77152_plan_metrics.js'
+      - '.github/workflows/apply-v77152-plan-metrics.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply and diagnose
+        shell: bash
+        run: |
+          set +e
+          : > V77152_DIAGNOSTIC.txt
+          node --check scripts/apply_v77152_plan_metrics.js >> V77152_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77152_DIAGNOSTIC.txt
+          node scripts/apply_v77152_plan_metrics.js >> V77152_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77152_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77152_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77152_DIAGNOSTIC.txt
+          for t in 'V77.15.2' 'futureSizing' 'planMetricText' 'Micro sizing' 'Geometry:' 'currentPrice:M15.close' 'currentPrice:M5.close'; do if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77152_DIAGNOSTIC.txt; else echo "$t=NO" >> V77152_DIAGNOSTIC.txt; fi; done
+          exit 0
+      - name: Promote
+        shell: bash
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77152_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77152_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77152_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77152_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote V77.15.2 plan geometry and Futures sizing metrics' || exit 0
+          git push origin main
