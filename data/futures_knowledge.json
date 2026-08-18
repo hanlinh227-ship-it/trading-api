@@ -1,0 +1,73 @@
+{
+  "version": "FUTURES_KNOWLEDGE_V1",
+  "classification": "DESIGNED PRIOR; MUST BE FORWARD-CALIBRATED",
+  "policy": {
+    "executionRequiresFreshAuthority": true,
+    "massiveDelayedDataAnalysisOnly": true,
+    "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+    "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+    "hubScoreIsWinProbability": false
+  },
+  "symbols": {
+    "NQ": {
+      "canonicalSymbol": "NQ",
+      "assetClass": "future",
+      "productCode": "NQ",
+      "executionAlias": "MNQ",
+      "benchmark": "ES",
+      "profile": "NASDAQ_INDEX_FUTURE",
+      "families": ["H4TREND", "H1TREND", "MOMENTUM", "RELATIVE", "SMT", "MEANREV"],
+      "allowedModes": ["TREND", "RELATIVE", "MEAN_REVERSION"],
+      "riskATR": 0.7,
+      "tickSize": 0.25,
+      "pointValue": 20,
+      "drivers": ["US rates", "US10Y", "Fed expectations", "mega-cap technology", "risk appetite", "NQ-ES relative strength", "US macro releases"],
+      "calibration": {"status": "PRIOR_ONLY_UNCALIBRATED"}
+    },
+    "MNQ": {
+      "canonicalSymbol": "MNQ",
+      "assetClass": "future",
+      "productCode": "MNQ",
+      "analysisLeader": "NQ",
+      "benchmark": "MES",
+      "profile": "MICRO_NASDAQ_INDEX_FUTURE",
+      "families": ["H4TREND", "H1TREND", "MOMENTUM", "RELATIVE", "SMT", "MEANREV"],
+      "allowedModes": ["TREND", "RELATIVE", "MEAN_REVERSION"],
+      "riskATR": 0.7,
+      "tickSize": 0.25,
+      "pointValue": 2,
+      "drivers": ["NQ structure", "ES/MES SMT", "US rates", "Fed expectations", "mega-cap technology", "risk appetite"],
+      "calibration": {"status": "PRIOR_ONLY_UNCALIBRATED"}
+    },
+    "ES": {
+      "canonicalSymbol": "ES",
+      "assetClass": "future",
+      "productCode": "ES",
+      "executionAlias": "MES",
+      "benchmark": "NQ",
+      "profile": "SP500_INDEX_FUTURE",
+      "families": ["H4TREND", "H1TREND", "MOMENTUM", "RELATIVE", "SMT", "MEANREV"],
+      "allowedModes": ["TREND", "RELATIVE", "MEAN_REVERSION"],
+      "riskATR": 0.65,
+      "tickSize": 0.25,
+      "pointValue": 50,
+      "drivers": ["US rates", "Fed expectations", "broad US equities", "market breadth", "NQ-ES relative strength", "US macro releases"],
+      "calibration": {"status": "PRIOR_ONLY_UNCALIBRATED"}
+    },
+    "MES": {
+      "canonicalSymbol": "MES",
+      "assetClass": "future",
+      "productCode": "MES",
+      "analysisLeader": "ES",
+      "benchmark": "MNQ",
+      "profile": "MICRO_SP500_INDEX_FUTURE",
+      "families": ["H4TREND", "H1TREND", "MOMENTUM", "RELATIVE", "SMT", "MEANREV"],
+      "allowedModes": ["TREND", "RELATIVE", "MEAN_REVERSION"],
+      "riskATR": 0.65,
+      "tickSize": 0.25,
+      "pointValue": 5,
+      "drivers": ["ES structure", "NQ/MNQ SMT", "US rates", "Fed expectations", "market breadth", "risk appetite"],
+      "calibration": {"status": "PRIOR_ONLY_UNCALIBRATED"}
+    }
+  }
+}
