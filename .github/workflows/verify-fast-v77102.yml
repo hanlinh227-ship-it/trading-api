@@ -1,0 +1,51 @@
+name: Verify Fast V77.10.2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-fast-v77102.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast live verification
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          : > V77102_FAST_LIVE.txt
+          curl -fsS --max-time 30 "$BASE/status" -o /tmp/status.json
+          echo "STATUS_CURL=$?" >> V77102_FAST_LIVE.txt
+          curl -fsS --max-time 90 "$BASE/run-now?group=crypto" -o /tmp/crypto.json
+          echo "CRYPTO_CURL=$?" >> V77102_FAST_LIVE.txt
+          sleep 2
+          curl -fsS --max-time 70 "$BASE/analyze?symbol=BTCUSDT" -o /tmp/btc.json
+          echo "BTC_CURL=$?" >> V77102_FAST_LIVE.txt
+          sleep 2
+          curl -fsS --max-time 70 "$BASE/analyze?symbol=KAITOUSDT" -o /tmp/kaito.json
+          echo "KAITO_CURL=$?" >> V77102_FAST_LIVE.txt
+          node - <<'NODE' >> V77102_FAST_LIVE.txt 2>&1
+          const fs=require('fs');const R=n=>{try{return JSON.parse(fs.readFileSync('/tmp/'+n+'.json','utf8'))}catch(e){return {parseError:e.message}}};
+          const s=R('status'),c=R('crypto'),b=R('btc'),k=R('kaito');
+          console.log('VERSION='+(s.version||'-'));console.log('STATUS_OK='+(s.ok===true?'YES':'NO'));
+          console.log('CRYPTO='+(c.broadOk??'-')+'/'+(c.requested??'-')+' deep='+(c.deepOk??'-')+'/'+(c.deepRequested??'-')+' attempted='+(c.diagnostics?.deepAttempted??'-')+' skipped='+(c.diagnostics?.skippedUnavailable?.length??0));
+          console.log('CRYPTO_ANALYSES='+(c.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')+':'+(a.source||'-')+':planned='+(a.planned?1:0)).join('|'));
+          for(const [n,a] of [['BTC',b],['KAITO',k]]){console.log(n+'_OK='+(a.ok===true?'YES':'NO'));console.log(n+'_STATUS='+(a.status||'-'));console.log(n+'_REASON='+(a.reason||'-'));console.log(n+'_SCORE='+(a.score??'-'));console.log(n+'_SOURCE='+(a.source||'-'));console.log(n+'_PLANNED='+(a.planned?1:0));console.log(n+'_INDICATIVE='+(a.planned?.indicative?1:0));}
+          NODE
+          if grep -q '^VERSION=V77.10.2$' V77102_FAST_LIVE.txt && grep -q 'STATUS_OK=YES' V77102_FAST_LIVE.txt && grep -Eq 'CRYPTO=(5[5-9]|6[0-1])/61 deep=3/3' V77102_FAST_LIVE.txt && grep -q 'BTC_OK=YES' V77102_FAST_LIVE.txt && grep -q 'KAITO_OK=YES' V77102_FAST_LIVE.txt; then echo 'VERDICT=PASS' >> V77102_FAST_LIVE.txt; else echo 'VERDICT=FAIL' >> V77102_FAST_LIVE.txt; fi
+      - name: Commit report
+        run: |
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add V77102_FAST_LIVE.txt
+          git commit -m 'Report fast V77.10.2 live verification' || exit 0
+          git push origin main
