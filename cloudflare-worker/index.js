@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.9.3",
-  service: "Trading V77.9.3 Adaptive Symbol Intelligence Hub",
+  version: "V77.9.4",
+  service: "Trading V77.9.4 Adaptive Symbol Intelligence Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -194,20 +194,29 @@ async function cryptoExecutionQuote(symbol){
   const errors=[];for(const fn of [bybitQuote,okxQuote,binanceQuote]){try{return await fn(symbol);}catch(e){errors.push(e?.message||String(e));}}
   throw new Error(`exact venue unavailable: ${errors.join(" | ")}`);
 }
+async function kucoinAllTickers(){
+  const r=await fetchTimeout("https://api.kucoin.com/api/v1/market/allTickers"),p=await r.json().catch(()=>null);if(!r.ok||p?.code!=="200000"||!Array.isArray(p?.data?.ticker))throw new Error("KuCoin bulk unavailable");return p.data.ticker;
+}
+async function gateAllTickers(){
+  const r=await fetchTimeout("https://api.gateio.ws/api/v4/spot/tickers",{headers:{Accept:"application/json"}}),p=await r.json().catch(()=>null);if(!r.ok||!Array.isArray(p))throw new Error("Gate bulk unavailable");return p;
+}
 async function cryptoBulk(){
   if(memory.cryptoBulk&&Date.now()-memory.cryptoBulkAt<5000)return memory.cryptoBulk;
-  const [bb,ox,bn]=await Promise.allSettled([
+  const [bb,ox,bn,kc,gt]=await Promise.allSettled([
     bybit("/v5/market/tickers",{category:"spot"}),
     okx("/api/v5/market/tickers",{instType:"SPOT"}),
-    (async()=>{for(const host of ["https://data-api.binance.vision","https://api.binance.com"]){try{const r=await fetchTimeout(`${host}/api/v3/ticker/24hr`);if(!r.ok)throw new Error(String(r.status));return await r.json();}catch{}}return [];})()
+    (async()=>{for(const host of ["https://data-api.binance.vision","https://api.binance.com"]){try{const r=await fetchTimeout(host+"/api/v3/ticker/24hr");if(!r.ok)throw new Error(String(r.status));return await r.json();}catch{}}return [];})(),
+    kucoinAllTickers(),gateAllTickers()
   ]);
   const map=new Map();
-  if(bb.status==="fulfilled")for(const r of bb.value?.result?.list||[]){const s=norm(r.symbol);if(CRYPTO.includes(s))map.set(s,{source:"Bybit Spot",price:num(r.lastPrice),open:num(r.prevPrice24h),high:num(r.highPrice24h),low:num(r.lowPrice24h),percentChange:num(r.price24hPcnt)!==null?num(r.price24hPcnt)*100:null,fresh:true});}
-  if(ox.status==="fulfilled")for(const r of ox.value?.data||[]){const s=norm(r.instId);if(CRYPTO.includes(s)&&!map.has(s)){const price=num(r.last),open=num(r.open24h);map.set(s,{source:"OKX Spot",price,open,high:num(r.high24h),low:num(r.low24h),percentChange:price&&open?((price-open)/open)*100:null,fresh:true});}}
-  if(bn.status==="fulfilled"&&Array.isArray(bn.value))for(const r of bn.value){const s=norm(r.symbol);if(CRYPTO.includes(s)&&!map.has(s))map.set(s,{source:"Binance Spot",price:num(r.lastPrice),open:num(r.openPrice),high:num(r.highPrice),low:num(r.lowPrice),percentChange:num(r.priceChangePercent),fresh:true});}
+  if(bb.status==="fulfilled")for(const r of bb.value?.result?.list||[]){const sym=norm(r.symbol);if(CRYPTO.includes(sym))map.set(sym,{source:"Bybit Spot",price:num(r.lastPrice),open:num(r.prevPrice24h),high:num(r.highPrice24h),low:num(r.lowPrice24h),percentChange:num(r.price24hPcnt)!==null?num(r.price24hPcnt)*100:null,fresh:true});}
+  if(ox.status==="fulfilled")for(const r of ox.value?.data||[]){const sym=norm(r.instId);if(CRYPTO.includes(sym)&&!map.has(sym)){const price=num(r.last),open=num(r.open24h);map.set(sym,{source:"OKX Spot",price,open,high:num(r.high24h),low:num(r.low24h),percentChange:price&&open?((price-open)/open)*100:null,fresh:true});}}
+  if(bn.status==="fulfilled"&&Array.isArray(bn.value))for(const r of bn.value){const sym=norm(r.symbol);if(CRYPTO.includes(sym)&&!map.has(sym))map.set(sym,{source:"Binance Spot",price:num(r.lastPrice),open:num(r.openPrice),high:num(r.highPrice),low:num(r.lowPrice),percentChange:num(r.priceChangePercent),fresh:true});}
+  if(kc.status==="fulfilled")for(const r of kc.value){const sym=norm(r.symbol);if(!CRYPTO.includes(sym)||map.has(sym))continue;const price=num(r.last),chg=num(r.changeRate),open=price&&chg!==null&&1+chg!==0?price/(1+chg):null;map.set(sym,{source:"KuCoin Spot Broad",price,open,high:num(r.high),low:num(r.low),percentChange:chg!==null?chg*100:null,fresh:true,analysisOnly:true});}
+  if(gt.status==="fulfilled")for(const r of gt.value){const sym=norm(r.currency_pair);if(!CRYPTO.includes(sym)||map.has(sym))continue;const price=num(r.last),pct=num(r.change_percentage);const open=price&&pct!==null&&1+pct/100!==0?price/(1+pct/100):null;map.set(sym,{source:"Gate Spot Broad",price,open,high:num(r.high_24h),low:num(r.low_24h),percentChange:pct,fresh:true,analysisOnly:true});}
+  for(const [k,v] of [...map])if(!v?.price||v.price<=0)map.delete(k);
   memory.cryptoBulk=map;memory.cryptoBulkAt=Date.now();return map;
 }
-
 function ema(values,n){if(values.length<n)return null;const k=2/(n+1);let e=values.slice(0,n).reduce((a,b)=>a+b,0)/n;for(const v of values.slice(n))e=v*k+e*(1-k);return e;}
 function atr(c,n=14){if(c.length<n+1)return null;const tr=[];for(let i=1;i<c.length;i++)tr.push(Math.max(c[i].high-c[i].low,Math.abs(c[i].high-c[i-1].close),Math.abs(c[i].low-c[i-1].close)));return tr.slice(-n).reduce((a,b)=>a+b,0)/n;}
 function rsi(vals,n=14){if(vals.length<n+1)return null;let g=0,l=0;for(let i=vals.length-n;i<vals.length;i++){const d=vals[i]-vals[i-1];if(d>0)g+=d;else l-=d;}if(l===0)return 100;const rs=(g/n)/(l/n);return 100-100/(1+rs);}
