@@ -1,0 +1,36 @@
+name: Apply V77.16 Quality Action Router
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77160_quality_action_router.js'
+      - '.github/workflows/apply-v77160-quality-action-router.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply and validate
+        shell: bash
+        run: |
+          set +e
+          : > V77160_DIAGNOSTIC.txt
+          node --check scripts/apply_v77160_quality_action_router.js >> V77160_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77160_DIAGNOSTIC.txt
+          node scripts/apply_v77160_quality_action_router.js >> V77160_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77160_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77160_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77160_DIAGNOSTIC.txt
+          for t in 'V77.16.0' 'cryptoDeepMax: 8' 'cryptoActionTarget: 2' 'selectCryptoDiverse' 'minimumQualityRR' 'leaderContext' 'Quality-Action Router Hub'; do if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77160_DIAGNOSTIC.txt; else echo "$t=NO" >> V77160_DIAGNOSTIC.txt; fi; done
+      - name: Promote only on clean syntax
+        shell: bash
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77160_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77160_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77160_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77160_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote V77.16 quality-action router' || exit 0
+          git push origin main
