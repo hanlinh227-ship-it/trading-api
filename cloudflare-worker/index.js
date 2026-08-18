@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.14.0",
-  service: "Trading V77.14.0 Futures Actionable Entry Hub",
+  version: "V77.14.1",
+  service: "Trading V77.14.1 Futures Actionable Entry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -157,7 +157,8 @@ async function futureBundle(symbol,env,suffix=null){
   return {symbol:s,ticker,suffix:sf,candles:[m5,m15,h1,h4,d1],quote:{source:"Massive Futures closed bars",providerSymbol:ticker,price:last?.close??null,providerTimestamp:last?.timestamp??null,quoteAgeSec:age,fresh:age!==null&&age<=CONFIG.futureAnalysisMaxAgeSec,executionVerified:false,analysisOnly:true},source:"Massive Futures"};
 }
 function recentMove(c,n=12){if(!Array.isArray(c)||c.length<n+1)return 0;const a=c.at(-(n+1))?.close,b=c.at(-1)?.close;return a?((b-a)/a)*100:0;}
-function futurePairContext(nq,es,which){const nqMove=recentMove(nq.candles[2]),esMove=recentMove(es.candles[2]),rel=nqMove-esMove,isNq=which==="NQ"||which==="MNQ",x=isNq?rel:-rel;return {relativeStrength:x,benchmark:isNq?"ES":"NQ",nqMovePct:nqMove,esMovePct:esMove,smtDivergence:Math.sign(nqMove)!==Math.sign(esMove)&&Math.abs(rel)>.12,score:Math.min(10,5+Math.abs(x)*8)};}
+function futureSwingState(c){if(!Array.isArray(c)||c.length<30)return {newHigh:false,newLow:false};const last=c.at(-1),prior=c.slice(-21,-1),ph=Math.max(...prior.map(x=>x.high)),pl=Math.min(...prior.map(x=>x.low));return {newHigh:last.high>ph,newLow:last.low<pl,priorHigh:ph,priorLow:pl,lastHigh:last.high,lastLow:last.low};}
+function futurePairContext(nq,es,which){const nqMove=recentMove(nq.candles[2]),esMove=recentMove(es.candles[2]),rel=nqMove-esMove,isNq=which==="NQ"||which==="MNQ",x=isNq?rel:-rel,ns=futureSwingState(nq.candles[2]),ss=futureSwingState(es.candles[2]);let smtSignal="NONE";if(ns.newHigh&&!ss.newHigh)smtSignal=isNq?"BEARISH":"BULLISH";else if(es&&ss.newHigh&&!ns.newHigh)smtSignal=isNq?"BULLISH":"BEARISH";else if(ns.newLow&&!ss.newLow)smtSignal=isNq?"BULLISH":"BEARISH";else if(ss.newLow&&!ns.newLow)smtSignal=isNq?"BEARISH":"BULLISH";const smtDivergence=smtSignal!=="NONE";return {relativeStrength:x,benchmark:isNq?"ES":"NQ",nqMovePct:nqMove,esMovePct:esMove,smtDivergence,smtSignal,smtSwing:{NQ:ns,ES:ss},score:Math.min(10,5+Math.abs(x)*8+(smtDivergence?1.5:0))};}
 function mirrorFutureAnalysis(a,target){if(!a)return null;const k=symbolKnowledge(target);return {...a,symbol:target,market:"future",source:(a.source||"Massive Futures")+" • leader mirror",knowledge:k?{canonicalSymbol:k.canonicalSymbol,allowedModes:k.allowedModes,riskATR:k.riskATR,calibration:k.calibration}:a.knowledge,executionLeader:a.symbol,basisReference:true};}
 async function runFutureSymbol(symbol,env){const s=norm(symbol),suffix=await futureContractSuffix(env),b=await futureBundle(s,env,suffix);return deepAnalyze(s,env,b.candles,b.quote,b.source,{score:6,benchmark:FUTURES_KNOWLEDGE?.symbols?.[s]?.benchmark||null});}
 async function runFutureGroup(env){
@@ -370,7 +371,7 @@ function methodAssessment(symbol,type,T,context={}){
   if(type==="forex"&&Number.isFinite(context.strengthDiff))why.push("currency-strength context");
   if(type==="crypto"){if(Number.isFinite(context.relativeStrength))why.push("BTC-relative context");if(Number.isFinite(context.fundingRate)){if(Math.abs(context.fundingRate)>.0015)fit-=6;why.push("derivatives context");}}
   if(type==="metal"&&Number.isFinite(context.relativeStrength))why.push("metal-relative context");
-  if(type==="future"){if(Number.isFinite(context.relativeStrength))why.push("NQ-ES relative/SMT context");if(context.smtDivergence)fit+=4;}
+  if(type==="future"){if(Number.isFinite(context.relativeStrength))why.push("NQ-ES relative context");if(context.smtDivergence){why.push("H1 SMT "+context.smtSignal);if((context.smtSignal==="BULLISH"&&route.side==="LONG")||(context.smtSignal==="BEARISH"&&route.side==="SHORT"))fit+=7;else fit-=3;}}
   fit=Math.max(0,Math.min(100,Math.round(fit)));
   return {side:route.side,methodFit:fit,activeMode:mode,allowedModes:route.allowed,routeScores:route.scores,htfPass:route.htfPass,route,profile:prior.profile||prior.family||"GENERIC",families:prior.families||[],sessionFit:Math.round(sessionFit(prior)*100),why,drivers:prior.newsProfile?.profileDrivers||prior.newsProfile?.symbolSpecific||[]};
 }
@@ -501,7 +502,7 @@ async function prepareNonCryptoDeep(symbols,h1Map,env){
 }
 
 function emptyGroup(){return {marketActive:[],limitActive:[],limitPending:[],watch:[]};}
-function emptyBooks(){return {forex:emptyGroup(),crypto:emptyGroup(),metal:emptyGroup(),updatedAt:Date.now()};}
+function emptyBooks(){return {forex:emptyGroup(),crypto:emptyGroup(),metal:emptyGroup(),future:emptyGroup(),updatedAt:Date.now()};}
 function validExecutablePosition(p,group){
   if(!p||typeof p!=="object"||!GROUPS[group]?.includes(canonicalUserSymbol(p.symbol)))return false;
   if(!["LONG","SHORT"].includes(p.side))return false;
