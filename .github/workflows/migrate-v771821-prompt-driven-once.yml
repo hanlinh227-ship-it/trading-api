@@ -14,68 +14,34 @@ jobs:
         with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - name: Patch prompt-driven autonomous review
+      - name: Patch canonical version and docs
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          p=Path('cloudflare-worker/claude-reviewer.js')
-          s=p.read_text()
-          s=s.replace('const ERROR_SIG_KEY="v771820:claude:error_sig";','const ERROR_SIG_KEY="v771820:claude:error_sig";\nconst DAILY_AUDIT_KEY="v771821:claude:daily_system_audit";')
-          old='''const CRITICAL_FILES=[\n  "cloudflare-worker/index.js",\n  "cloudflare-worker/hub-v77171.js",\n  "cloudflare-worker/system-health.js",\n  "cloudflare-worker/hyro-runtime.js",\n  "cloudflare-worker/hyro-execution.js",\n  "cloudflare-worker/hyro-position-review.js"\n];'''
-          new='''const CRITICAL_FILES=[\n  "cloudflare-worker/index.js",\n  "cloudflare-worker/hub-v77171.js",\n  "cloudflare-worker/system-health.js",\n  "cloudflare-worker/engine-v77168.js",\n  "cloudflare-worker/hyro-scanner.js",\n  "cloudflare-worker/hyro-runtime.js",\n  "cloudflare-worker/hyro-execution.js",\n  "cloudflare-worker/hyro-market-context.js",\n  "cloudflare-worker/hyro-portfolio-guard.js",\n  "cloudflare-worker/hyro-position-manager.js",\n  "cloudflare-worker/hyro-position-review.js",\n  "cloudflare-worker/release-notifier.js"\n];'''
-          assert old in s
-          s=s.replace(old,new,1)
-          s=s.replace('for(const path of CRITICAL_FILES){try{const text=await fetchText(RAW_BASE+path);files.push({path,content:clampText(text,2800)});}', 'for(const path of CRITICAL_FILES){try{const text=await fetchText(RAW_BASE+path);files.push({path,content:clampText(text,2200)});}',1)
-          a=s.index('function reviewerPrompt(')
-          b=s.index('async function budgetCheck',a)
-          repl='''function reviewerPrompt({version,kind,github,health}){\n  const system=`You are Claude, an independent FINAL REVIEWER for a production multi-market trading system. ChatGPT is the PRIMARY engineer, operator and final decision maker. You are REVIEW-ONLY and ADVISORY. Never deploy, mutate production state, change secrets, place/cancel/close trades, or override risk controls.\n\nReview in this order:\n1) CODE/CONFIG CONFLICTS: unreachable branches, duplicate gates, stale version references, import/export mistakes, KV/state collisions, conflicting thresholds, race/restart/deploy continuity problems.\n2) HUB/TELEGRAM UX: redundant buttons, confusing labels, missing critical status, messages that are too long, controls that can cause accidental actions. Suggest a simpler hierarchy.\n3) ENTRY QUALITY AND FREQUENCY: inspect Crypto, Forex, Metals and Futures separately. Detect over-filtering, duplicated filters and paths that make valid entries practically unreachable. Suggest market-specific methods instead of forcing one method across symbols. Preserve hard news/freshness/execution-authority/risk gates. Never recommend entering merely to increase frequency.\n4) PROP: review per-symbol crypto strategy families, funding, OI, long-short ratio, orderbook, spread, portfolio diversification, dynamic equity sizing, native SL/TP, partial TP, BE/trailing and HOLD/TIGHTEN/CUT.\n5) SYSTEM OPTIMIZATION: identify the smallest high-value changes. Separate MUST_FIX from optional tuning. Every tuning suggestion must state expected benefit and risk.\n\nOutput ONLY valid compact JSON with keys: verdict (PASS|WARN|FAIL), confidence (0-100), summary, findings (array severity,area,issue,evidence,recommendation), tuning (array of objects with priority,area,current_problem,proposed_change,expected_effect,risk), must_fix (array).`;\n  const payload={version,kind,repo:REPO,github,health};\n  return {system,user:`Final-review this snapshot after ChatGPT engineering work. Find conflicts first, then HUB simplification and better market-specific entry discovery without weakening hard safety gates. Do not expose or request secrets.\\n${JSON.stringify(payload)}`};\n}\n'''
-          s=s[:a]+repl+s[b:]
-          old='''  const h=safeHealth(health||await kvGet(env,HEALTH_KEY,null));if(h?.errors>0){const sig=String(h.signature||"ERROR"),old=await kvGet(env,ERROR_SIG_KEY,null);if(old?.signature!==sig){const r=await runClaudeReview(env,{version,kind:"HEALTH_INCIDENT_REVIEW",force:false,notify:true,health:h});if(r.ok&&!r.skipped)await kvPut(env,ERROR_SIG_KEY,{signature:sig,at:now()},604800);return r;}}\n  return {ok:true,skipped:true,reason:"NO_TRIGGER"};'''
-          new='''  const h=safeHealth(health||await kvGet(env,HEALTH_KEY,null));if(h?.errors>0){const sig=String(h.signature||"ERROR"),old=await kvGet(env,ERROR_SIG_KEY,null);if(old?.signature!==sig){const r=await runClaudeReview(env,{version,kind:"HEALTH_INCIDENT_REVIEW",force:false,notify:true,health:h});if(r.ok&&!r.skipped)await kvPut(env,ERROR_SIG_KEY,{signature:sig,at:now()},604800);return r;}}\n  const daily=await kvGet(env,DAILY_AUDIT_KEY,null),dailyHours=Math.max(12,Math.min(72,num(env.CLAUDE_SYSTEM_AUDIT_HOURS,24)));\n  if(!daily?.at||now()-Number(daily.at)>=dailyHours*3600000){const r=await runClaudeReview(env,{version,kind:"DAILY_SYSTEM_TUNING_REVIEW",force:false,notify:true,health:h});if(r.ok&&!r.skipped)await kvPut(env,DAILY_AUDIT_KEY,{at:now(),version,verdict:r.review?.verdict||null},2592000);return r;}\n  return {ok:true,skipped:true,reason:"NO_TRIGGER"};'''
-          assert old in s
-          s=s.replace(old,new,1)
-          s=s.replace('const [last,budget,release]=await Promise.all([kvGet(env,STATE_KEY,null),kvGet(env,BUDGET_KEY,null),kvGet(env,RELEASE_KEY,null)]);return {configured:', 'const [last,budget,release,dailyAudit]=await Promise.all([kvGet(env,STATE_KEY,null),kvGet(env,BUDGET_KEY,null),kvGet(env,RELEASE_KEY,null),kvGet(env,DAILY_AUDIT_KEY,null)]);return {configured:',1)
-          s=s.replace('last,budget,release,permissions:', 'last,budget,release,dailyAudit,automation:{releaseReview:true,incidentReview:true,dailySystemAuditHours:Math.max(12,Math.min(72,num(env.CLAUDE_SYSTEM_AUDIT_HOURS,24)))},permissions:',1)
-          p.write_text(s)
-
-          p=Path('cloudflare-worker/index.js')
-          s=p.read_text()
+          p=Path('cloudflare-worker/index.js'); s=p.read_text()
           s=s.replace('const VERSION="V77.18.20",SERVICE="Trading V77.18.20 ChatGPT Primary + Claude Reviewer";','const VERSION="V77.18.21",SERVICE="Trading V77.18.21 Prompt-Driven Autonomous Orchestration";',1)
           s=s.replace('const RELEASE_NAME="Claude Reviewer Integration";','const RELEASE_NAME="Prompt-Driven Autonomous Orchestration";',1)
           s=s.replace('["ChatGPT là PRIMARY; Claude chỉ REVIEW","Claude tự review mỗi release và incident mới","Usage cap + cooldown; không có quyền trade/deploy"]','["Bạn chỉ cần nêu mục tiêu; ChatGPT xử lý GitHub/build/checkpoint","Claude final-review release + incident + audit định kỳ","Claude chỉ advisory; không trade/deploy; state/risk giữ nguyên"]',1)
           p.write_text(s)
-
-          p=Path('cloudflare-worker/hub-v77171.js')
-          s=p.read_text().replace('const VERSION="V77.18.20";','const VERSION="V77.18.21";',1).replace('const SERVICE="Trading V77.18.20 ChatGPT Primary + Claude Reviewer Hub";','const SERVICE="Trading V77.18.21 Prompt-Driven Autonomous Hub";',1)
+          p=Path('cloudflare-worker/hub-v77171.js'); s=p.read_text()
+          s=s.replace('const VERSION="V77.18.20";','const VERSION="V77.18.21";',1).replace('const SERVICE="Trading V77.18.20 ChatGPT Primary + Claude Reviewer Hub";','const SERVICE="Trading V77.18.21 Prompt-Driven Autonomous Hub";',1)
           p.write_text(s)
-
-          p=Path('.github/workflows/validate-cloudflare-v77.yml')
-          s=p.read_text()
+          p=Path('.github/workflows/validate-cloudflare-v77.yml'); s=p.read_text()
           s=s.replace("['V77.18.20','Claude Reviewer Integration'","['V77.18.21','Prompt-Driven Autonomous Orchestration'",1)
           s=s.replace("throw new Error('V77.18.20 index lock missing: '+x)","throw new Error('V77.18.21 index lock missing: '+x)",1)
           s=s.replace("hub.includes('V77.18.20')","hub.includes('V77.18.21')",1)
-          s=s.replace("'v771820:claude:last']","'v771820:claude:last','DAILY_SYSTEM_TUNING_REVIEW','DAILY_AUDIT_KEY','engine-v77168.js','hyro-scanner.js']",1)
+          s=s.replace("'v771820:claude:last']","'v771821:claude:last','DAILY_SYSTEM_TUNING_REVIEW','DAILY_AUDIT_KEY','engine-v77168.js','hyro-scanner.js']",1)
           s=s.replace("Canonical V77.18.20 Claude reviewer validation PASS","Canonical V77.18.21 prompt-driven autonomous validation PASS",1)
           p.write_text(s)
-
-          p=Path('docs/checkpoints/CURRENT_HANDOFF.md')
-          s=p.read_text()
+          p=Path('docs/checkpoints/CURRENT_HANDOFF.md'); s=p.read_text()
           s=s.replace('3. `V771820_CLAUDE_REVIEWER.md`','3. `V771821_PROMPT_DRIVEN_AUTONOMY.md`\n4. `V771820_CLAUDE_REVIEWER.md`',1)
-          s=s.replace('4. `V771819_SINGLE_PROP_RECOVERY.md`','5. `V771819_SINGLE_PROP_RECOVERY.md`',1)
-          s=s.replace('5. `V771818_RELEASE_POSITION_REVIEW.md`','6. `V771818_RELEASE_POSITION_REVIEW.md`',1)
-          s=s.replace('6. `V771817_AUTONOMOUS_HEALTH_GUARDIAN.md`','7. `V771817_AUTONOMOUS_HEALTH_GUARDIAN.md`',1)
           s=s.replace('**Canonical source is V77.18.20 — ChatGPT Primary + Claude Reviewer.**','**Canonical source is V77.18.21 — Prompt-Driven Autonomous Orchestration.**',1)
-          s=s.replace('3. No new trigger: no Anthropic API call.\n4. Telegram', '3. Every ~24h: one `DAILY_SYSTEM_TUNING_REVIEW` covering code conflicts, HUB and market-specific entry discovery.\n4. No trigger: no Anthropic API call.\n5. Telegram',1)
-          s=s.replace('Claude receives only public GitHub commit/diff + truncated critical public source + sanitized System Health.','Claude receives only public GitHub commit/diff + truncated critical public source for engine/scanner/HUB/PROP/risk/management + sanitized System Health.',1)
-          s=s.replace('V77.18.20 deployment.','V77.18.21 deployment.',1)
-          s=s.replace('V77.18.20 production-active','V77.18.21 production-active',1)
-          s=s.replace('V77.18.20 — Claude Reviewer Integration','V77.18.21 — Prompt-Driven Autonomous Orchestration',1)
-          s=s.replace('Canonical V77.18.20 ChatGPT Primary + Claude Reviewer.','Canonical V77.18.21 Prompt-Driven Autonomous Orchestration.',1)
+          s=s.replace('3. No new trigger: no Anthropic API call.\n4. Telegram','3. Every ~24h: one `DAILY_SYSTEM_TUNING_REVIEW` for conflicts, HUB and market-specific entry discovery.\n4. No new trigger: no Anthropic API call.\n5. Telegram',1)
+          s=s.replace('Claude receives only public GitHub commit/diff + truncated critical public source + sanitized System Health.','Claude receives only public GitHub commit/diff + truncated engine/scanner/HUB/PROP/risk/management source + sanitized System Health/runtime summary.',1)
+          s=s.replace('V77.18.20 deployment.','V77.18.21 deployment.',1).replace('V77.18.20 production-active','V77.18.21 production-active',1).replace('V77.18.20 — Claude Reviewer Integration','V77.18.21 — Prompt-Driven Autonomous Orchestration',1).replace('Canonical V77.18.20 ChatGPT Primary + Claude Reviewer.','Canonical V77.18.21 Prompt-Driven Autonomous Orchestration.',1)
           p.write_text(s)
-
-          Path('docs/checkpoints/V771821_PROMPT_DRIVEN_AUTONOMY.md').write_text('''# V77.18.21 — PROMPT-DRIVEN AUTONOMOUS ORCHESTRATION\n\n## Operating contract\nUser only needs to state the goal/prompt. ChatGPT is PRIMARY and handles repository audit, implementation, validation, build dry-run, checkpoint/version updates and final reporting using available tools. Do not ask the user to perform technical steps that can be completed through connected tools.\n\n## Claude role\nClaude remains REVIEW-ONLY. It performs final independent review after releases, on new Health incidents, and about once every 24h for system tuning. It reviews engine/scanner/HUB/PROP/risk/position management for conflicts, unreachable entry paths and market-specific method quality. Advice never auto-mutates production. ChatGPT evaluates and applies only justified suggestions in a later engineering action.\n\n## Safety\nNever reset TRADING_STATE or LIVE ORDERS. Claude has no trade/close/deploy/secret authority. Hard risk, news, freshness and execution-authority gates cannot be weakened solely to create more trades.\n\n## Automation\nRelease review: automatic once/version. Incident review: automatic once/new error signature. Daily system tuning review: automatic roughly every 24h subject to usage budget/cooldown. Manual review remains available.\n''')
+          Path('docs/checkpoints/V771821_PROMPT_DRIVEN_AUTONOMY.md').write_text('''# V77.18.21 — PROMPT-DRIVEN AUTONOMOUS ORCHESTRATION\n\nUser only needs to state the goal/prompt. ChatGPT is PRIMARY and handles connected-tool audit, implementation, validation, Wrangler dry-run, version/checkpoint updates and reporting. Do not ask the user for technical steps that available connected tools can perform.\n\nClaude is FINAL REVIEWER only. It reviews release changes, new health incidents, and a roughly daily system-tuning snapshot. Review context includes Signal engine, HUB, Hyro scanner/runtime/execution, microstructure, portfolio guard, position manager and HOLD/TIGHTEN/CUT. It searches for code/config conflicts, unreachable entry paths, over-filtering and market-specific entry improvements.\n\nClaude advice never mutates production automatically. ChatGPT remains the only engineering decision maker. Claude has no trade, close, deploy, secret or risk-override authority. Never reset TRADING_STATE or LIVE ORDERS. Hard risk/news/freshness/execution-authority gates cannot be weakened merely to create more trades.\n''')
           PY
       - name: Syntax and canonical checks
         run: |
@@ -98,6 +64,6 @@ jobs:
         run: |
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
-          git add cloudflare-worker/claude-reviewer.js cloudflare-worker/index.js cloudflare-worker/hub-v77171.js .github/workflows/validate-cloudflare-v77.yml docs/checkpoints/CURRENT_HANDOFF.md docs/checkpoints/V771821_PROMPT_DRIVEN_AUTONOMY.md
+          git add cloudflare-worker/index.js cloudflare-worker/hub-v77171.js .github/workflows/validate-cloudflare-v77.yml docs/checkpoints/CURRENT_HANDOFF.md docs/checkpoints/V771821_PROMPT_DRIVEN_AUTONOMY.md
           git commit -m "V77.18.21 prompt-driven autonomous orchestration" || true
           git push
