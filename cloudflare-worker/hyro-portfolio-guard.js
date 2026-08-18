@@ -33,4 +33,12 @@ export async function evaluateHyroPortfolio(env,plan,telemetry,{ignoreSpacing=fa
   return {ok:true,cluster,maxSlots:MAX_SLOTS,sameDirection:sameDir,diversityBonus,items};
 }
 export function portfolioQuality(plan,guard){const tier=plan?.tier==="A"?3:plan?.tier==="B"?2:1,micro=Number(plan?.context?.microstructure?.score??.5),rr=Number(plan?.rr||0),turn=Math.log10(Math.max(1,Number(plan?.context?.turnover24h||1)));return tier*100+micro*30+Math.min(rr,4)*10+turn+(guard?.diversityBonus||0)*25;}
+export function rankHyroCandidates(plans=[],telemetry=null){
+  return [...plans].sort((a,b)=>{
+    const ga={diversityBonus:telemetry&&existingItems(telemetry).every(x=>hyroCluster(x.symbol)!==hyroCluster(a?.symbol))?.08:0};
+    const gb={diversityBonus:telemetry&&existingItems(telemetry).every(x=>hyroCluster(x.symbol)!==hyroCluster(b?.symbol))?.08:0};
+    return portfolioQuality(b,gb)-portfolioQuality(a,ga);
+  });
+}
+export async function recordHyroEntry(env,plan){return markHyroPortfolioEntry(env,plan);}
 export const HYRO_PORTFOLIO_POLICY={maxSlots:MAX_SLOTS,maxSameDirection:MAX_SAME_DIRECTION,entrySpacingMs:ENTRY_SPACING_MS};
