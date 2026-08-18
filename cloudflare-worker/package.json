@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "check": "node --check index.js",
-    "deploy": "wrangler deploy",
-    "preview": "wrangler versions upload"
+    "prepare:wrangler": "node prepare-wrangler.mjs",
+    "deploy": "npm run prepare:wrangler && wrangler deploy",
+    "preview": "npm run prepare:wrangler && wrangler versions upload"
   },
   "devDependencies": {
     "wrangler": "^4.102.0"
