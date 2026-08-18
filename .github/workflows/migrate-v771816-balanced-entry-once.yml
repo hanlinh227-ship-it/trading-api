@@ -1,0 +1,79 @@
+name: Migrate V77.18.16 Balanced Entry Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-v771816-balanced-entry-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Balance Signal and PROP entry gates
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # SIGNAL: preserve hard gates, relax stacked soft gates and increase non-crypto deep coverage.
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
+          reps=[
+            ('deepNonCryptoCandidates: 3,','deepNonCryptoCandidates: 6,'),
+            ('else if(type==="future")x=Math.max(x,1.50);','else if(type==="future")x=Math.max(x,1.40);'),
+            ('else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.25:1.45);','else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.20:1.32);'),
+            ('else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.15:1.30);','else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.12:1.22);'),
+            ('dist>=.05&&dist<=.90','dist>=.05&&dist<=1.05'),
+            ('chase<=.48&&notExtreme','chase<=.65&&notExtreme'),
+            ('r<=78:r>=22','r<=80:r>=20'),
+            ('Number(intel?.methodFit||0)<48','Number(intel?.methodFit||0)<44'),
+            ('intel.methodFit>=55&&nearEma&&continuation','intel.methodFit>=50&&nearEma&&continuation'),
+            ('intel.methodFit>=52&&Number(context.score||0)>=7&&nearEma&&continuation','intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation'),
+            ('intel.methodFit>=68&&nearEma&&(M15.bullishBreak||M15.bearishBreak||M15.bullishReclaim||M15.bearishReclaim)','intel.methodFit>=60&&nearEma&&(M15.bullishBreak||M15.bearishBreak||M15.bullishReclaim||M15.bearishReclaim||sideTrendMatch(M15,side))'),
+            ('trend&&r>=51&&r<=76&&M5.close>=M5.ema20','trend&&r>=50&&r<=78&&M5.close>=M5.ema20'),
+            ('trend&&r<=49&&r>=24&&M5.close<=M5.ema20','trend&&r<=50&&r>=22&&M5.close<=M5.ema20'),
+            ('intel.methodFit>=58&&impulse&&(structuralImpulse||Math.abs(r-50)>=5||intel.methodFit>=82)','intel.methodFit>=52&&impulse&&(structuralImpulse||Math.abs(r-50)>=4||intel.methodFit>=76)'),
+            ('intel.methodFit>=56&&Number(context.score||0)>=7&&impulse&&(structuralImpulse||intel.methodFit>=82)','intel.methodFit>=52&&Number(context.score||0)>=6&&impulse&&(structuralImpulse||intel.methodFit>=76)'),
+            ('intel.methodFit>=70&&impulse&&structuralImpulse','intel.methodFit>=62&&impulse&&(structuralImpulse||intel.methodFit>=78)')
+          ]
+          applied=0
+          for a,b in reps:
+            if a in s:
+              s=s.replace(a,b,1); applied+=1
+          if applied < 12: raise SystemExit(f'Signal migration incomplete: {applied}/15 replacements')
+          # Tag without changing KV/state contracts.
+          s=s.replace('version: "V77.16.8",','version: "V77.16.9",',1)
+          s=s.replace('service: "Trading V77.16.8 Role Navigation Hub",','service: "Trading V77.16.9 Balanced Entry Signal Engine",',1)
+          p.write_text(s)
+
+          # PROP: keep A unchanged; only make B more usable at reduced risk.
+          p=Path('cloudflare-worker/hyro-scanner.js')
+          s=p.read_text()
+          s=s.replace('const nearRR=Math.max(1.5,p.minRR-.25);if(!fund.block&&nearTrigger&&dist<=p.dist*1.25&&btcAgree&&effectiveRR>=nearRR)return {...common,status:"NEAR_MARKET_PLAN",action:"MARKET_PLAN",tier:"B",riskMultiplier:.5,rr:effectiveRR,reason:`${p.family}_NEAR_MARKET_B`};',
+                      'const nearRR=Math.max(1.4,p.minRR-.35);if(!fund.block&&nearTrigger&&dist<=p.dist*1.35&&btcAgree&&effectiveRR>=nearRR)return {...common,status:"NEAR_MARKET_PLAN",action:"MARKET_PLAN",tier:"B",riskMultiplier:.45,rr:effectiveRR,reason:`${p.family}_NEAR_MARKET_B`};',1)
+          s=s.replace('Math.max(1.5,p.minRR-.1)','Math.max(1.4,p.minRR-.2)',1)
+          p.write_text(s)
+          PY
+      - name: Syntax gate
+        run: |
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/hyro-scanner.js
+          node --check cloudflare-worker/hyro-runtime.js
+          node --check cloudflare-worker/index.js
+      - name: Commit migration
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hyro-scanner.js
+          git diff --cached --quiet && exit 0
+          git commit -m "V77.18.16 balance Signal and PROP entry frequency"
+          git push
