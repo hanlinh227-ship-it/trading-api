@@ -8,7 +8,7 @@ Updated: 2026-08-18 UTC+7
 3. `ENTRY_EXECUTION_V76.md` and relevant market checkpoints when needed.
 
 ## CURRENT CANONICAL
-**V77.18.9 source is the latest canonical runtime**. Production entrypoint remains `cloudflare-worker/index.js`.
+**V77.18.10 source is the latest canonical runtime**. Production entrypoint remains `cloudflare-worker/index.js`.
 Cloudflare is deployment only; never maintain a second hand-edited Worker copy.
 
 Latest Hyro commits:
@@ -16,8 +16,10 @@ Latest Hyro commits:
 - `5acb1303` — hardened Hyro auto-cycle state and explicit fail-closed reasons.
 - `de91e842` — environment-aware controls/status.
 - `f7f3cfb6` / `b751c943` — zero-equity fail-closed and P/L display protection.
-- `7e6c264e` — V77.18.8: Hyro CHALLENGE profile is forced to Bybit DEMO execution environment; FUNDED may use configured LIVE/subaccount mode later.
+- `7e6c264e` — V77.18.8: Hyro CHALLENGE profile forced to Bybit DEMO execution environment; FUNDED may use configured LIVE/subaccount mode later.
 - `87f7e589` — V77.18.9: durable PROP execution notifications for actual submitted orders and actual position closures, with KV dedup/snapshot state.
+- `849bfc48` — quick MARKET-only cycle support in `hyro-runtime.js`.
+- `4fe83372` — V77.18.10: Telegram `🔎 QUÉT NHANH MARKET` plus automatic Hyro telemetry refresh/reconnect on requests and scheduled cycles.
 
 ## NON-NEGOTIABLE RUNTIME SEPARATION
 ### SIGNAL
@@ -28,12 +30,12 @@ Latest Hyro commits:
 ### PROP / HYROTRADER
 - Independent auto-trading runtime using `hyro-scanner.js` + `hyro-execution.js` + `hyro-runtime.js`.
 - Does NOT consume SIGNAL Telegram entries/candidates.
-- Telegram MUST NOT announce scanner candidates.
-- NEW user requirement: Telegram MAY notify **actual PROP execution events only**:
-  - when an order is really submitted: short `PROP - HyroTrader` notice with symbol, BUY/SELL, SL price + estimated USD risk, TP price + estimated USD reward;
-  - when a previously open PROP position closes and closed-PnL count confirms closure: short `TP DONE` / `SL HIT` style notice with actual P/L delta;
-  - if multiple PROP positions close inside the same polling interval, send one aggregate close summary rather than invent per-trade P/L allocation.
-- Actual account positions/PnL/runtime status remain viewable.
+- Regular AUTO remains independent and may use MARKET_PLAN or LIMIT_PLAN.
+- Telegram MUST NOT announce scanner candidates during normal AUTO.
+- Manual `🔎 QUÉT NHANH MARKET` runs one immediate MARKET-only full cycle. If a MARKET passes all telemetry/risk/RR/execution gates it may submit immediately; otherwise Telegram reports the reason without exposing candidate stream.
+- Telegram may notify actual PROP execution events only:
+  - actual submitted order: short `PROP - HyroTrader` notice with symbol, BUY/SELL, SL price + estimated USD risk, TP price + estimated USD reward;
+  - actual closure confirmed by position disappearance + closed-PnL delta: short `TP DONE` / `SL HIT` style notice with actual P/L delta.
 
 ### PERSONAL
 - Independent reserved runtime. No routing from SIGNAL or PROP.
@@ -41,7 +43,7 @@ Latest Hyro commits:
 ## HYRO SUPPORT / PERMISSION STATE
 Hyro Support directly confirmed to user by email:
 - Existing Hyro-connected API key must not be modified/deleted until reconnect becomes available near expiry.
-- A private trading bot must use a **separate API key** from the key HyroTrader uses.
+- A private trading bot must use a separate API key from the key HyroTrader uses.
 - Custom bot is permitted during Challenge and Funded stages if it trades only the user's own strategy and complies with rules.
 - Copy trading, account mirroring, external signal services, coordinated multi-account trading, HFT and latency arbitrage remain prohibited.
 
@@ -51,44 +53,42 @@ Hyro Support directly confirmed to user by email:
 - 5K USDT.
 - Futures / Bybit.
 - Standard / Trailing.
-- Hyro dashboard reference balance shown: $5,000.
+- Challenge uses Bybit Demo Trading account/API.
 
 ## CRITICAL ENVIRONMENT RULE — CHALLENGE = BYBIT DEMO
-Current Hyro Challenge uses the Bybit Demo account/API environment.
-Therefore:
 - CHALLENGE uses `HYRO_BYBIT_API_KEY` + `HYRO_BYBIT_API_SECRET`.
 - CHALLENGE endpoint is `api-demo.bybit.com`.
 - Production LIVE wallet/key is not the Challenge balance.
-- V77.18.8+ enforces this by profile routing inside `index.js`; CHALLENGE is forced to effective DEMO mode even if raw Cloudflare `HYRO_BYBIT_MODE=LIVE` remains set.
-- FUNDED/subaccount routing is separate and may use `HYRO_BYBIT_LIVE_API_KEY` + `HYRO_BYBIT_LIVE_API_SECRET` when appropriate.
+- V77.18.8+ profile routing forces effective DEMO mode when `phase=CHALLENGE`, even if raw Cloudflare `HYRO_BYBIT_MODE=LIVE` remains set.
+- FUNDED/subaccount routing may use `HYRO_BYBIT_LIVE_API_KEY` + `HYRO_BYBIT_LIVE_API_SECRET` later.
 
-## BYBIT / CLOUDFLARE CREDENTIAL ROUTING
-Challenge / Demo credentials:
-- `HYRO_BYBIT_API_KEY`
-- `HYRO_BYBIT_API_SECRET`
-- endpoint: `api-demo.bybit.com`
+## AUTO RECONNECT / REFRESH — V77.18.10
+Hyro API does not require a persistent socket session for these REST calls. “Reconnect” means fresh authenticated telemetry probes are run automatically.
+- Every Worker scheduled PROP cycle refreshes telemetry before auto scanning.
+- Every Worker request schedules a background PROP telemetry refresh.
+- After a code deploy/update, the next cron (maximum about one minute) refreshes Challenge telemetry automatically even if user does not press `KẾT NỐI`.
+- Any Telegram/API request after deploy also triggers background refresh immediately.
+- `KẾT NỐI` is now a status/diagnostic action, not a required activation step.
+- Connection panel displays `Auto reconnect: ON (cron + request refresh)`.
 
-Future Live/Funded credentials:
-- `HYRO_BYBIT_LIVE_API_KEY`
-- `HYRO_BYBIT_LIVE_API_SECRET`
-- endpoint: `api.bybit.com`
+## QUICK MARKET SCAN — V77.18.10
+Telegram PROP has button `🔎 QUÉT NHANH MARKET`.
+When pressed:
+1. use effective environment by profile (CHALLENGE => DEMO);
+2. refresh account telemetry;
+3. enforce equity > 0, manual pause, auto-execution secret, daily target/hard-stop, active-slot and combined-risk gates;
+4. run Hyro broad/deep scanner immediately;
+5. accept **MARKET_PLAN only** for quick scan; LIMIT plans are ignored in this manual quick cycle;
+6. sort eligible MARKET candidates by available scanner score when present;
+7. execute the best candidate that also passes execution gate, native SL/TP and idempotency;
+8. if none passes, return a short reason such as `NO_MARKET_CANDIDATE`, `CANDIDATES_BLOCKED`, `EXECUTION_REJECTED`, etc.;
+9. if submitted, normal durable `PROP - HyroTrader` execution notification is also emitted.
 
-Raw selector may remain `HYRO_BYBIT_MODE=DEMO|LIVE`, but effective routing overrides it for profile `phase=CHALLENGE` and forces DEMO.
-
-Auto selector:
-- `HYRO_AUTO_EXECUTION=true|false`
-
-## EXECUTION EVIDENCE
-Controlled Bybit DEMO tests already passed:
-- real pending order create
-- order verification
-- native SL/TP verification
-- cancel verification
-- full-cycle DEMO market fill / position visibility / close support
+Regular AUTO cron remains unchanged in purpose and can still evaluate both MARKET_PLAN and LIMIT_PLAN.
 
 ## HYRO AUTO EXECUTION
 Scheduled Worker cron remains every minute (`* * * * *`).
-Each PROP cycle is independent from SIGNAL and follows:
+Each regular PROP cycle follows:
 1. profile exists
 2. effective environment selected by profile (CHALLENGE => DEMO)
 3. fresh telemetry connected
@@ -103,7 +103,7 @@ Each PROP cycle is independent from SIGNAL and follows:
 12. Bybit native order is submitted with native SL/TP
 13. idempotency state prevents duplicate intent
 14. after successful submit, Telegram sends one deduplicated execution notice
-15. polling snapshots monitor actual position disappearance + closed-PnL count/net change to send one deduplicated close notice
+15. polling snapshots monitor actual closure for TP/SL/P&L notice
 
 ## PROP EXECUTION NOTIFICATION FORMAT
 Entry example:
@@ -122,7 +122,7 @@ or
 `❌ SL HIT XRPUSDT`
 `P/L: -$54.73`
 
-The SL/TP USD shown on entry is an estimate from `|entry-level| * qty` before fees/slippage. The close P/L is based on actual account closed-net delta for the confirmed closure interval.
+SL/TP USD on entry is estimated from `|entry-level| * qty` before fees/slippage. Close P/L uses actual account closed-net delta for the confirmed interval.
 
 ## STATE CONTINUITY — NEVER DELETE/RESET
 - KV binding remains `TRADING_STATE`; preserve existing namespace ID.
@@ -135,7 +135,9 @@ The SL/TP USD shown on entry is an estimate from `|entry-level| * qty` before fe
 - Notification dedup keys: `v7718:hyro:notify:*`
 - Notification position/PnL snapshot: `v7718:hyro:notify:snapshot`
 - Deploy/update must be non-destructive; do not recreate/clear `TRADING_STATE`.
-- Source deploys must use the same KV binding and keep vars/secrets. Updating code must never clear Signal LIVE ORDERS, PROP execution/idempotency state, or PERSONAL state.
+- Source deploys must use the same KV binding and keep vars/secrets.
+- Updating code must never clear Signal LIVE ORDERS, PROP execution/idempotency/notification state, or PERSONAL state.
+- Quick scan reuses the same execution idempotency/risk gates, so it must not bypass or duplicate an existing order intent.
 
 ## REPOSITORY/CLOUDFLARE CONTRACT
 - Do not restore legacy `apply-v*.yml` or `scripts/apply_v*.js` chains.
@@ -144,12 +146,13 @@ The SL/TP USD shown on entry is an estimate from `|entry-level| * qty` before fe
 - Never recreate/clear state during deploy.
 
 ## IMMEDIATE NEXT STEP
-Cloudflare must deploy/promote source containing commit `87f7e589` to 100% traffic. After deployment:
-1. Challenge remains effective DEMO and uses the Challenge Bybit Demo API.
-2. No candidate messages are sent from PROP.
-3. The next actual PROP order submission sends the compact `PROP - HyroTrader` entry notice.
-4. When an actually open PROP position later closes and closed-PnL confirms it, send the compact TP/SL/P&L notice.
-5. Existing Signal/LIVE ORDERS, PROP state/idempotency, and PERSONAL state must remain intact through deployment.
+Cloudflare must deploy/promote source containing commit `4fe83372` (and runtime commit `849bfc48`) to 100% traffic. After deployment:
+1. Challenge remains effective DEMO.
+2. Telegram PROP menu shows `🔎 QUÉT NHANH MARKET`.
+3. `KẾT NỐI` shows `Auto reconnect: ON (cron + request refresh)`.
+4. User can press Quick Scan for an immediate MARKET-only cycle; no need to wait for cron.
+5. Regular AUTO continues every minute.
+6. Existing Signal/LIVE ORDERS, PROP state/idempotency/notification state and PERSONAL state remain intact through deployment.
 
 ## FROZEN/HISTORICAL KNOWLEDGE STILL ACTIVE
 - V73 statistical prior remains frozen; do not rebuild/retune from live outcomes.
@@ -158,4 +161,4 @@ Cloudflare must deploy/promote source containing commit `87f7e589` to 100% traff
 - Existing market-specific Signal knowledge and durable LIVE ORDERS behavior remain active unless explicitly superseded.
 
 ## NEW CHAT PROMPT
-`Tiếp tục toàn bộ dự án Trading từ GitHub mới nhất. BẮT BUỘC đọc docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó V77180_AUTO_READY_CONSOLIDATED.md và MASTER_TRADING_STATE.md. Canonical hiện là V77.18.9. SIGNAL, PROP/Hyro và PERSONAL hoàn toàn độc lập. Hyro hiện là CHALLENGE One-Step 5K Bybit Standard/Trailing; Challenge phải dùng Bybit Demo Trading với HYRO_BYBIT_API_KEY/SECRET. PROP không phát candidate nhưng từ V77.18.9 được phép gửi thông báo ngắn khi lệnh thật được submit và khi vị thế thật đóng: PROP - HyroTrader + symbol/side/SL/TP USD, sau đó TP DONE hoặc SL HIT + P/L thật. Notification dùng KV dedup/snapshot riêng. Bảo toàn toàn bộ KV/LIVE ORDERS/state Signal, PROP và PERSONAL qua mọi deploy; không reset namespace hay quay lại workflow/phương pháp đã loại.`
+`Tiếp tục toàn bộ dự án Trading từ GitHub mới nhất. BẮT BUỘC đọc docs/checkpoints/CURRENT_HANDOFF.md trước, sau đó V77180_AUTO_READY_CONSOLIDATED.md và MASTER_TRADING_STATE.md. Canonical hiện là V77.18.10. SIGNAL, PROP/Hyro và PERSONAL hoàn toàn độc lập. Hyro CHALLENGE One-Step 5K Standard/Trailing dùng Bybit Demo Trading với HYRO_BYBIT_API_KEY/SECRET; FUNDED mới dùng LIVE credentials khi phù hợp. PROP AUTO mỗi phút vẫn quét MARKET/LIMIT. Telegram có nút 🔎 QUÉT NHANH MARKET chạy ngay một full MARKET-only cycle và có thể submit nếu toàn bộ gate pass. Hyro telemetry tự refresh/reconnect sau deploy qua cron + request refresh; KẾT NỐI chỉ là status/diagnostic, không phải bước kích hoạt. PROP chỉ notify actual submit và actual close TP/SL/P&L. Bảo toàn toàn bộ KV/LIVE ORDERS/state Signal, PROP và PERSONAL qua mọi deploy; không reset namespace hay quay lại workflow/phương pháp đã loại.`
