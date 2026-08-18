@@ -1,0 +1,61 @@
+name: Apply V77.10 Adaptive Entry
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77100_adaptive_entry_freedom.js'
+      - '.github/workflows/apply-v77100-adaptive-entry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migration and diagnostics
+        shell: bash
+        run: |
+          set +e
+          : > V77100_DIAGNOSTIC.txt
+          echo "HEAD=$(git rev-parse HEAD)" >> V77100_DIAGNOSTIC.txt
+          node --check scripts/apply_v77100_adaptive_entry_freedom.js >> V77100_DIAGNOSTIC.txt 2>&1
+          echo "GENERATOR_EXIT=$?" >> V77100_DIAGNOSTIC.txt
+          node scripts/apply_v77100_adaptive_entry_freedom.js >> V77100_DIAGNOSTIC.txt 2>&1
+          echo "MIGRATION_EXIT=$?" >> V77100_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77100_DIAGNOSTIC.txt 2>&1
+          echo "WORKER_SYNTAX_EXIT=$?" >> V77100_DIAGNOSTIC.txt
+          for t in 'V77.10.0' profileMode adaptiveLocationPolicy adaptiveTriggerPolicy indicativePlan deepShortlist cryptoDeepTarget skippedUnavailable runSymbol STRUCTURE_LIQUIDITY validExecutablePosition; do
+            if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77100_DIAGNOSTIC.txt; else echo "$t=NO" >> V77100_DIAGNOSTIC.txt; fi
+          done
+          exit 0
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install
+      - name: Generate test Wrangler config
+        working-directory: cloudflare-worker
+        env:
+          TRADING_KV_NAMESPACE_ID: 00000000000000000000000000000000
+        run: npm run prepare:wrangler
+      - name: Wrangler dry run
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy --dry-run
+      - name: Commit diagnostic and canonical Worker if valid
+        shell: bash
+        run: |
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add V77100_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77100_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77100_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77100_DIAGNOSTIC.txt && grep -q 'V77.10.0=YES' V77100_DIAGNOSTIC.txt; then
+            git add cloudflare-worker/index.js
+          fi
+          git commit -m 'Apply V77.10 adaptive entry intelligence' || exit 0
+          git push origin main
