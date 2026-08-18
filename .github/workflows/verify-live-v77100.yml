@@ -1,4 +1,4 @@
-name: Verify Live V77.10
+name: Verify Live V77.10.1
 
 on:
   push:
@@ -25,28 +25,28 @@ jobs:
         run: |
           set +e
           BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
-          : > V77100_LIVE_CHECK.txt
-          echo "CHECKED_AT=$(date -u +%FT%TZ)" >> V77100_LIVE_CHECK.txt
-          for spec in 'status:/status' 'crypto:/run-now?group=crypto' 'btc:/analyze?symbol=BTCUSDT' 'forex:/run-now?group=forex' 'metal:/run-now?group=metal' 'books:/books'; do
-            name="${spec%%:*}"; path="${spec#*:}"; curl -fsS --max-time 90 "$BASE$path" -o "/tmp/$name.json"; echo "$name CURL_EXIT=$?" >> V77100_LIVE_CHECK.txt; sleep 3;
+          : > V77101_LIVE_CHECK.txt
+          echo "CHECKED_AT=$(date -u +%FT%TZ)" >> V77101_LIVE_CHECK.txt
+          for spec in 'status:/status' 'crypto:/run-now?group=crypto' 'btc:/analyze?symbol=BTCUSDT' 'forex:/run-now?group=forex' 'metal:/run-now?group=metal' 'webhook:/telegram/webhook-info' 'books:/books'; do
+            name="${spec%%:*}"; path="${spec#*:}"; curl -fsS --max-time 90 "$BASE$path" -o "/tmp/$name.json"; echo "$name CURL_EXIT=$?" >> V77101_LIVE_CHECK.txt; sleep 3;
           done
-          node - <<'NODE' >> V77100_LIVE_CHECK.txt 2>&1
+          node - <<'NODE' >> V77101_LIVE_CHECK.txt 2>&1
           const fs=require('fs');
           const read=n=>{try{return JSON.parse(fs.readFileSync('/tmp/'+n+'.json','utf8'))}catch(e){return {parseError:e.message}}};
-          const s=read('status'),c=read('crypto'),b=read('btc'),f=read('forex'),m=read('metal'),books=read('books');
+          const s=read('status'),c=read('crypto'),b=read('btc'),f=read('forex'),m=read('metal'),w=read('webhook'),books=read('books');
           console.log('STATUS_VERSION='+(s.version||'-'));console.log('STATUS_OK='+(s.ok===true?'YES':'NO'));console.log('KV_OK='+(s.kv===true?'YES':'NO'));console.log('TG_OK='+(s.telegram===true?'YES':'NO'));
-          console.log('CRYPTO_OK='+(c.ok===true?'YES':'NO'));console.log('CRYPTO_VERSION='+(c.version||'-'));console.log('CRYPTO_BROAD='+(c.broadOk??'-')+'/'+(c.requested??'-'));console.log('CRYPTO_DEEP='+(c.deepOk??'-')+'/'+(c.deepRequested??'-'));console.log('CRYPTO_DEEP_ATTEMPTED='+(c.diagnostics?.deepAttempted??'-'));console.log('CRYPTO_SKIPPED='+(c.diagnostics?.skippedUnavailable?.length??0));console.log('CRYPTO_ANALYSES='+(c.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')+':planned='+(a.planned?1:0)+':policy='+(a.entryPolicy?.profile||'-')).join('|'));
+          console.log('CRYPTO_OK='+(c.ok===true?'YES':'NO'));console.log('CRYPTO_VERSION='+(c.version||'-'));console.log('CRYPTO_BROAD='+(c.broadOk??'-')+'/'+(c.requested??'-'));console.log('CRYPTO_DEEP='+(c.deepOk??'-')+'/'+(c.deepRequested??'-'));console.log('CRYPTO_DEEP_ATTEMPTED='+(c.diagnostics?.deepAttempted??'-'));console.log('CRYPTO_SKIPPED='+(c.diagnostics?.skippedUnavailable?.length??0));console.log('CRYPTO_ANALYSES='+(c.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')+':planned='+(a.planned?1:0)+':indicative='+(a.planned?.indicative?1:0)+':policy='+(a.entryPolicy?.profile||'-')).join('|'));
           console.log('BTC_ANALYZE_OK='+(b.ok===true?'YES':'NO'));console.log('BTC_ANALYZE_STATUS='+(b.status||'-'));console.log('BTC_ANALYZE_SCORE='+(b.score??'-'));console.log('BTC_ANALYZE_REASON='+(b.reason||'-'));console.log('BTC_ANALYZE_PLANNED='+(b.planned?1:0));console.log('BTC_ENTRY_PROFILE='+(b.entryPolicy?.profile||b.method?.profile||'-'));
-          console.log('FOREX_OK='+(f.ok===true?'YES':'NO'));console.log('FOREX_BROAD='+(f.broadOk??'-')+'/'+(f.requested??'-'));console.log('FOREX_DEEP='+(f.deepOk??'-')+'/'+(f.deepRequested??'-'));console.log('FOREX_ANALYSES='+(f.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')+':planned='+(a.planned?1:0)).join('|'));
-          console.log('METAL_OK='+(m.ok===true?'YES':'NO'));console.log('METAL_BROAD='+(m.broadOk??'-')+'/'+(m.requested??'-'));console.log('METAL_DEEP='+(m.deepOk??'-')+'/'+(m.deepRequested??'-'));console.log('METAL_ANALYSES='+(m.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')+':planned='+(a.planned?1:0)).join('|'));
+          console.log('FOREX_OK='+(f.ok===true?'YES':'NO'));console.log('FOREX_BROAD='+(f.broadOk??'-')+'/'+(f.requested??'-'));console.log('FOREX_DEEP='+(f.deepOk??'-')+'/'+(f.deepRequested??'-'));
+          console.log('METAL_OK='+(m.ok===true?'YES':'NO'));console.log('METAL_BROAD='+(m.broadOk??'-')+'/'+(m.requested??'-'));console.log('METAL_DEEP='+(m.deepOk??'-')+'/'+(m.deepRequested??'-'));
+          console.log('WEBHOOK_OK='+(w.ok===true?'YES':'NO'));console.log('WEBHOOK_URL='+(w.result?.url||'-'));console.log('WEBHOOK_PENDING='+(w.result?.pending_update_count??'-'));
           for(const g of ['forex','metal','crypto']){const x=books[g]||{};console.log('BOOK_'+g.toUpperCase()+'_EXEC='+((x.marketActive||[]).length)+'/'+((x.limitActive||[]).length)+'/'+((x.limitPending||[]).length)+':WATCH='+((x.watch||[]).length));}
           NODE
-          if grep -q 'STATUS_VERSION=V77.10.0' V77100_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V77100_LIVE_CHECK.txt && grep -Eq 'CRYPTO_BROAD=(5[5-9]|6[0-1])/61' V77100_LIVE_CHECK.txt && grep -q 'CRYPTO_DEEP=3/3' V77100_LIVE_CHECK.txt && grep -q 'BTC_ANALYZE_OK=YES' V77100_LIVE_CHECK.txt && grep -q 'FOREX_BROAD=28/28' V77100_LIVE_CHECK.txt && grep -q 'METAL_BROAD=2/2' V77100_LIVE_CHECK.txt; then echo 'LIVE_VERDICT=PASS' >> V77100_LIVE_CHECK.txt; else echo 'LIVE_VERDICT=FAIL' >> V77100_LIVE_CHECK.txt; fi
+          if grep -q 'STATUS_VERSION=V77.10.1' V77101_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V77101_LIVE_CHECK.txt && grep -Eq 'CRYPTO_BROAD=(5[5-9]|6[0-1])/61' V77101_LIVE_CHECK.txt && grep -q 'CRYPTO_DEEP=3/3' V77101_LIVE_CHECK.txt && grep -q 'BTC_ANALYZE_OK=YES' V77101_LIVE_CHECK.txt && grep -q 'FOREX_BROAD=28/28' V77101_LIVE_CHECK.txt && grep -q 'FOREX_DEEP=3/3' V77101_LIVE_CHECK.txt && grep -q 'METAL_BROAD=2/2' V77101_LIVE_CHECK.txt && grep -q 'METAL_DEEP=2/2' V77101_LIVE_CHECK.txt && grep -q 'WEBHOOK_OK=YES' V77101_LIVE_CHECK.txt; then echo 'LIVE_VERDICT=PASS' >> V77101_LIVE_CHECK.txt; else echo 'LIVE_VERDICT=FAIL' >> V77101_LIVE_CHECK.txt; fi
       - name: Commit live report
         run: |
           git config user.name 'trading-runtime-bot'
           git config user.email 'trading-runtime-bot@users.noreply.github.com'
-          git add V77100_LIVE_CHECK.txt
-          git commit -m 'Report V77.10 live adaptive-entry verification' || exit 0
+          git add V77101_LIVE_CHECK.txt
+          git commit -m 'Report V77.10.1 live Hub verification' || exit 0
           git push origin main
-# retrigger V77.10 live verification
