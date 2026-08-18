@@ -59,3 +59,4 @@ jobs:
           fi
           git commit -m 'Apply V77.10 adaptive entry intelligence' || exit 0
           git push origin main
+# retrigger 2026-08-18 V77.10
