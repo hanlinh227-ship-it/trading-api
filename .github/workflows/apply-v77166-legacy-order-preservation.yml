@@ -1,0 +1,35 @@
+name: Apply V77.16.6 Legacy Order Preservation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77166_legacy_order_preservation.js'
+      - '.github/workflows/apply-v77166-legacy-order-preservation.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply
+        shell: bash
+        run: |
+          set +e
+          : > V77166_DIAGNOSTIC.txt
+          node scripts/apply_v77166_legacy_order_preservation.js >> V77166_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77166_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77166_DIAGNOSTIC.txt 2>&1; echo "SYNTAX_EXIT=$?" >> V77166_DIAGNOSTIC.txt
+          grep -q 'version: "V77.16.6"' cloudflare-worker/index.js; echo "VERSION_OK=$?" >> V77166_DIAGNOSTIC.txt
+          grep -q 'LEGACY_PRESERVED' cloudflare-worker/index.js; echo "LEGACY_BACKFILL=$?" >> V77166_DIAGNOSTIC.txt
+      - name: Commit
+        shell: bash
+        run: |
+          if ! grep -q 'MIGRATION_EXIT=0' V77166_DIAGNOSTIC.txt || ! grep -q 'SYNTAX_EXIT=0' V77166_DIAGNOSTIC.txt; then cat V77166_DIAGNOSTIC.txt; exit 1; fi
+          git config user.name trading-runtime-bot; git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/index.js V77166_DIAGNOSTIC.txt
+          git commit -m 'Promote V77.16.6 legacy order preservation' || exit 0
+          git push origin main
