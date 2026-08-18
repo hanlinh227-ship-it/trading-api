@@ -97,17 +97,20 @@ Use:
 
 - repository: `hanlinh227-ship-it/trading-api`
 - production branch: `main`
-- root directory: `cloudflare-worker`
-- deploy command: `npx wrangler deploy`
+- root directory / Path: `cloudflare-worker`
+- build command: empty
+- deploy command: `npm run deploy`
 
-Before enabling automatic deploys:
+In **Advanced settings**, add one encrypted build variable:
 
-1. Copy `wrangler.example.jsonc` to `wrangler.jsonc`.
-2. Replace `REPLACE_WITH_EXISTING_TRADING_V77_STATE_NAMESPACE_ID` with the ID of the existing `TRADING_V77_STATE` namespace.
-3. Keep Worker name exactly `trading-v77-scanner`.
-4. Keep secret values in Cloudflare, never GitHub.
+- variable name: `TRADING_KV_NAMESPACE_ID`
+- variable value: the ID of the existing `TRADING_V77_STATE` namespace
 
-Cloudflare treats Wrangler configuration as deployment source-of-truth. Never deploy the template with the placeholder KV ID; automatic provisioning could create a different namespace.
+`prepare-wrangler.mjs` validates that build variable and generates `wrangler.jsonc` only inside the Cloudflare build workspace immediately before deploy. The account-specific KV ID is therefore not committed to GitHub, and automatic KV provisioning is not used.
+
+Keep Worker name exactly `trading-v77-scanner`. Keep runtime secrets in Cloudflare Worker Settings, never in GitHub or build logs.
+
+Cloudflare treats Wrangler configuration as deployment source-of-truth. The generated config explicitly binds `TRADING_STATE` to the existing namespace, preserves dashboard variables with `keep_vars`, and keeps the one-minute lifecycle Cron.
 
 ## Post-deploy validation
 
