@@ -689,6 +689,16 @@ async function lifecycle(env){
 }
 async function notifyNewCryptoOrders(run,env){for(const p of run?.newItems||[]){const pending=p.status==="PENDING",title=pending?"🟡 AUTO SCAN • LIMIT MỚI ĐANG CHỜ":"🟢 AUTO SCAN • MARKET MỚI ĐANG CHẠY";await sendText(env,title+"\n"+p.symbol+" "+sideText(p.side)+"\nEntry: "+p.entry+" • SL: "+p.sl+" • TP: "+p.tp+"\nNguồn: "+orderSourceText(p.discoveredBy)+"\nLệnh đã lưu vào LIVE ORDERS.").catch(()=>{});}}
 async function autoScanCrypto(env){const run=await runGroup("crypto",env,"AUTO_CRON");await notifyNewCryptoOrders(run,env);return run;}
+async function notifySignalPlans(group,run,env){
+  const plans=(run?.analyses||[]).filter(a=>a?.planned&&["MARKET_PLAN","LIMIT_PLAN"].includes(a.status)).sort((a,b)=>actionableRank(b)-actionableRank(a)).slice(0,2);
+  for(const a of plans){
+    const mode=a.status==="MARKET_PLAN"?"MARKET":"LIMIT",entry=Number(a.planned?.entry),sig=[group,a.symbol,a.side,mode,Number.isFinite(entry)?entry.toPrecision(6):"na"].join(":");
+    const key="v771816:signal:auto_notify:"+sig;let seen=null;try{seen=await env.TRADING_STATE?.get(key);}catch{}if(seen)continue;
+    const rr=Number(a.planned?.targetRR||0).toFixed(2),txt=["📡 SIGNAL • "+group.toUpperCase(),a.symbol+" "+sideText(a.side)+" • "+mode,"E "+fmtPx(a.planned.entry)+" | SL "+fmtPx(a.planned.sl)+" | TP "+fmtPx(a.planned.tp2||a.planned.tp1)+" | RR "+rr,a.method?.profile?"Method: "+a.method.profile:null].filter(Boolean).join("\n");
+    await sendText(env,txt).catch(()=>{});try{await env.TRADING_STATE?.put(key,String(Date.now()),{expirationTtl:1800});}catch{}
+  }
+}
+async function autoScanSignalGroup(group,env){const run=await runGroup(group,env,"AUTO_CRON");await notifySignalPlans(group,run,env);return run;}
 async function setupWebhook(req,env){const u=new URL(req.url),url=`${u.origin}/telegram/webhook`,payload={url,allowed_updates:["message","callback_query"]};if(env.TELEGRAM_WEBHOOK_SECRET)payload.secret_token=env.TELEGRAM_WEBHOOK_SECRET;return telegram(env,"setWebhook",payload);}
 function verifyTelegram(req,env){return !env.TELEGRAM_WEBHOOK_SECRET||req.headers.get("x-telegram-bot-api-secret-token")===env.TELEGRAM_WEBHOOK_SECRET;}
 async function handleTelegram(req,env){
@@ -751,5 +761,5 @@ export default {
       return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|future","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NQ|MNQ|ES|MES","/knowledge?symbol=NQ","/telegram/menu","/books","/order-history"]});
     }catch(e){console.error("HTTP",e);return json({ok:false,version:CONFIG.version,error:e?.message||String(e)},500);}
   },
-  async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const minute=Math.floor(Number(_controller?.scheduledTime||Date.now())/60000);if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);})().catch(e=>console.error("CRON",e)));}
+  async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const t=new Date(Number(_controller?.scheduledTime||Date.now())),minute=t.getUTCMinutes();if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);if(minute===2)await autoScanSignalGroup("forex",env);if(minute===12)await autoScanSignalGroup("metal",env);if(minute%15===7)await autoScanSignalGroup("future",env);})().catch(e=>console.error("CRON",e)));}
 };
