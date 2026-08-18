@@ -1,12 +1,16 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "trading-v77-scanner",
-  "main": "src/index.js",
+  "main": "index.js",
   "compatibility_date": "2026-08-18",
+  "keep_vars": true,
   "kv_namespaces": [
     {
       "binding": "TRADING_STATE",
       "id": "REPLACE_WITH_EXISTING_TRADING_V77_STATE_NAMESPACE_ID"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": ["* * * * *"]
+  }
 }
