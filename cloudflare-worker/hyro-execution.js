@@ -12,30 +12,250 @@ const utcDayStart=()=>Date.parse(utcDay()+"T00:00:00.000Z");
 const roundDown=(v,step)=>step>0?Math.floor((v+1e-12)/step)*step:v;
 const decimals=step=>{const s=String(step);return s.includes(".")?s.split(".")[1].length:0;};
 const fmt=(v,step)=>roundDown(v,step).toFixed(decimals(step));
+
 async function kvGet(env,key,fallback=null){try{return await env.TRADING_STATE?.get(key,"json")??fallback;}catch{return fallback;}}
 async function kvPut(env,key,value,ttl){if(!env.TRADING_STATE)return;await env.TRADING_STATE.put(key,JSON.stringify(value),ttl?{expirationTtl:ttl}:undefined);}
 function mode(env){return String(env.HYRO_BYBIT_MODE||"DEMO").toUpperCase()==="LIVE"?"LIVE":"DEMO";}
 function baseUrl(env){return mode(env)==="LIVE"?"https://api.bybit.com":"https://api-demo.bybit.com";}
 function credentialsReady(env){return !!(env.HYRO_BYBIT_API_KEY&&env.HYRO_BYBIT_API_SECRET);}
-async function hmacHex(secret,text){const key=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=await crypto.subtle.sign("HMAC",key,enc.encode(text));return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,"0")).join("");}
-async function publicBybit(path,params={}){const q=new URLSearchParams(params),r=await fetch(`https://api.bybit.com${path}${q.size?"?"+q:""}`),p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`Bybit public HTTP ${r.status}`);return p;}
-async function signedBybit(env,method,path,paramsOrBody={}){if(!credentialsReady(env))throw new Error("HYRO_BYBIT_API_KEY/SECRET missing");const ts=String(Date.now()),apiKey=env.HYRO_BYBIT_API_KEY,upper=method.toUpperCase();let url=baseUrl(env)+path,body="",payload="";if(upper==="GET"){const q=new URLSearchParams();for(const [k,v] of Object.entries(paramsOrBody||{}))if(v!==undefined&&v!==null&&v!=="")q.set(k,String(v));payload=q.toString();if(payload)url+="?"+payload;}else{body=JSON.stringify(paramsOrBody||{});payload=body;}const sign=await hmacHex(env.HYRO_BYBIT_API_SECRET,ts+apiKey+RECV_WINDOW+payload),r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sign,"Content-Type":"application/json"},body:upper==="GET"?undefined:body}),p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`Bybit private HTTP ${r.status}`);return p;}
-async function instrument(symbol){const p=await publicBybit("/v5/market/instruments-info",{category:"linear",symbol});const x=p?.result?.list?.[0];if(!x)throw new Error(`Instrument ${symbol} unavailable`);return x;}
+
+async function hmacHex(secret,text){
+  const key=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("HMAC",key,enc.encode(text));
+  return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+async function publicBybit(path,params={}){
+  const q=new URLSearchParams(params);
+  const r=await fetch(`https://api.bybit.com${path}${q.size?"?"+q:""}`);
+  const p=await r.json().catch(()=>null);
+  if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`Bybit public HTTP ${r.status}`);
+  return p;
+}
+
+function bybitError(path,status,p){
+  const retCode=num(p?.retCode);
+  const retMsg=String(p?.retMsg||`Bybit private HTTP ${status}`);
+  const e=new Error(`${path}: ${retMsg}${retCode!=null?` [${retCode}]`:""}`);
+  e.bybit={path,httpStatus:status,retCode,retMsg};
+  return e;
+}
+
+async function signedBybit(env,method,path,paramsOrBody={}){
+  if(!credentialsReady(env))throw new Error("HYRO_BYBIT_API_KEY/SECRET missing");
+  const ts=String(Date.now()),apiKey=env.HYRO_BYBIT_API_KEY,upper=method.toUpperCase();
+  let url=baseUrl(env)+path,body="",payload="";
+  if(upper==="GET"){
+    const q=new URLSearchParams();
+    for(const [k,v] of Object.entries(paramsOrBody||{}))if(v!==undefined&&v!==null&&v!=="")q.set(k,String(v));
+    payload=q.toString();
+    if(payload)url+="?"+payload;
+  }else{
+    body=JSON.stringify(paramsOrBody||{});
+    payload=body;
+  }
+  const sign=await hmacHex(env.HYRO_BYBIT_API_SECRET,ts+apiKey+RECV_WINDOW+payload);
+  const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sign,"Content-Type":"application/json"},body:upper==="GET"?undefined:body});
+  const p=await r.json().catch(()=>null);
+  if(!r.ok||Number(p?.retCode)!==0)throw bybitError(path,r.status,p);
+  return p;
+}
+
+async function instrument(symbol){
+  const p=await publicBybit("/v5/market/instruments-info",{category:"linear",symbol});
+  const x=p?.result?.list?.[0];
+  if(!x)throw new Error(`Instrument ${symbol} unavailable`);
+  return x;
+}
+
 export async function getHyroProfile(env){return kvGet(env,PROFILE_KEY,null);}
 export async function getHyroControl(env){return kvGet(env,CONTROL_KEY,{manualPaused:false});}
-export async function setHyroPaused(env,paused,source="TELEGRAM_MANUAL"){const c={manualPaused:!!paused,updatedAt:Date.now(),source};await kvPut(env,CONTROL_KEY,c);return c;}
-function positionView(p){const size=num(p.size)||0,avg=num(p.avgPrice)||0,mark=num(p.markPrice)||0,side=String(p.side||""),upl=num(p.unrealisedPnl)??(side==="Buy"?(mark-avg)*size:(avg-mark)*size),sl=num(p.stopLoss),tp=num(p.takeProfit);return {symbol:p.symbol,side,size,avgPrice:avg,markPrice:mark,unrealisedPnl:upl,stopLoss:sl,takeProfit:tp,positionValue:num(p.positionValue)||Math.abs(mark*size),leverage:num(p.leverage)};}
-function openRisk(positions){let total=0;for(const p of positions||[]){if(!p.stopLoss||!p.avgPrice||!p.size)continue;const adverse=p.side==="Buy"?p.avgPrice-p.stopLoss:p.stopLoss-p.avgPrice;if(adverse>0)total+=adverse*p.size;}return total;}
-function closedStats(list){let grossProfit=0,grossLoss=0,netRealized=0,closedTrades=0;for(const x of list||[]){const pnl=num(x.closedPnl)??0;netRealized+=pnl;closedTrades++;if(pnl>=0)grossProfit+=pnl;else grossLoss+=Math.abs(pnl);}return {grossProfit,grossLoss,netRealized,closedTrades};}
-export async function getHyroTelemetry(env){if(!credentialsReady(env))return {ok:false,connected:false,mode:mode(env),reason:"CREDENTIALS_MISSING"};try{const now=Date.now(),[wallet,positions,orders,closed]=await Promise.all([signedBybit(env,"GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),signedBybit(env,"GET","/v5/position/list",{category:"linear",settleCoin:"USDT"}),signedBybit(env,"GET","/v5/order/realtime",{category:"linear",settleCoin:"USDT",limit:50}),signedBybit(env,"GET","/v5/position/closed-pnl",{category:"linear",startTime:utcDayStart(),endTime:now,limit:100})]);const a=wallet?.result?.list?.[0]||{},coin=(a.coin||[]).find(x=>x.coin==="USDT")||{},equity=num(a.totalEquity)??num(coin.equity)??num(coin.walletBalance)??0,walletBalance=num(a.totalWalletBalance)??num(coin.walletBalance)??0,available=num(a.totalAvailableBalance)??num(coin.availableToWithdraw)??0,pos=(positions?.result?.list||[]).filter(x=>(num(x.size)||0)>0).map(positionView),openOrders=(orders?.result?.list||[]).filter(x=>!["Filled","Cancelled","Rejected","Deactivated"].includes(String(x.orderStatus))),realized=closedStats(closed?.result?.list||[]);const dayKey=DAY_PREFIX+utcDay(),old=await kvGet(env,dayKey,null),dayStart=old?.dayStartEquity??equity,peak=Math.max(num(old?.peakEquity)??equity,equity),day={date:utcDay(),dayStartEquity:dayStart,peakEquity:peak,currentEquity:equity,drawdownFromPeak:Math.max(0,peak-equity),pnlFromDayStart:equity-dayStart,...realized,updatedAt:now};await kvPut(env,dayKey,day,172800);const totalUnrealised=pos.reduce((s,p)=>s+(p.unrealisedPnl||0),0),positionNotionalUsd=pos.reduce((s,p)=>s+Math.abs(p.positionValue||0),0),estimatedMarginUsd=pos.reduce((s,p)=>s+(p.leverage>0?Math.abs(p.positionValue||0)/p.leverage:0),0),out={ok:true,connected:true,mode:mode(env),equity,walletBalance,available,positions:pos,openOrders,day,totalUnrealised,openRiskUsd:openRisk(pos),positionNotionalUsd,estimatedMarginUsd,closedProfitUsd:realized.grossProfit,closedLossUsd:realized.grossLoss,closedNetPnlUsd:realized.netRealized,closedTradeCount:realized.closedTrades,serverTime:wallet?.time||now};await kvPut(env,EXEC_STATE_KEY,{connected:true,mode:mode(env),lastTelemetryAt:now,equity,positions:pos.length,openOrders:openOrders.length,day,closedNetPnlUsd:realized.netRealized});return out;}catch(e){await kvPut(env,EXEC_STATE_KEY,{connected:false,mode:mode(env),lastError:String(e?.message||e),lastTelemetryAt:Date.now()});return {ok:false,connected:false,mode:mode(env),reason:"TELEMETRY_ERROR",error:String(e?.message||e)};}}
+export async function setHyroPaused(env,paused,source="TELEGRAM_MANUAL"){
+  const c={manualPaused:!!paused,updatedAt:Date.now(),source};
+  await kvPut(env,CONTROL_KEY,c);
+  return c;
+}
+
+function positionView(p){
+  const size=num(p.size)||0,avg=num(p.avgPrice)||0,mark=num(p.markPrice)||0,side=String(p.side||"");
+  const upl=num(p.unrealisedPnl)??(side==="Buy"?(mark-avg)*size:(avg-mark)*size),sl=num(p.stopLoss),tp=num(p.takeProfit);
+  return {symbol:p.symbol,side,size,avgPrice:avg,markPrice:mark,unrealisedPnl:upl,stopLoss:sl,takeProfit:tp,positionValue:num(p.positionValue)||Math.abs(mark*size),leverage:num(p.leverage)};
+}
+
+function openRisk(positions){
+  let total=0;
+  for(const p of positions||[]){
+    if(!p.stopLoss||!p.avgPrice||!p.size)continue;
+    const adverse=p.side==="Buy"?p.avgPrice-p.stopLoss:p.stopLoss-p.avgPrice;
+    if(adverse>0)total+=adverse*p.size;
+  }
+  return total;
+}
+
+function closedStats(list){
+  let grossProfit=0,grossLoss=0,netRealized=0,closedTrades=0;
+  for(const x of list||[]){
+    const pnl=num(x.closedPnl)??0;
+    netRealized+=pnl;closedTrades++;
+    if(pnl>=0)grossProfit+=pnl;else grossLoss+=Math.abs(pnl);
+  }
+  return {grossProfit,grossLoss,netRealized,closedTrades};
+}
+
+function probeError(e,path){
+  const b=e?.bybit||{};
+  return {ok:false,path:b.path||path,httpStatus:b.httpStatus??null,retCode:b.retCode??null,retMsg:b.retMsg||String(e?.message||e)};
+}
+
+async function probe(env,name,path,params){
+  const startedAt=Date.now();
+  try{
+    const data=await signedBybit(env,"GET",path,params);
+    return {name,ok:true,path,elapsedMs:Date.now()-startedAt,data};
+  }catch(e){
+    return {name,...probeError(e,path),elapsedMs:Date.now()-startedAt};
+  }
+}
+
+async function collectTelemetry(env){
+  const now=Date.now();
+  if(!credentialsReady(env))return {now,ok:false,reason:"CREDENTIALS_MISSING",probes:[]};
+  const specs=[
+    ["wallet","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}],
+    ["positions","/v5/position/list",{category:"linear",settleCoin:"USDT"}],
+    ["orders","/v5/order/realtime",{category:"linear",settleCoin:"USDT",limit:50}],
+    ["closedPnl","/v5/position/closed-pnl",{category:"linear",startTime:utcDayStart(),endTime:now,limit:100}]
+  ];
+  const probes=await Promise.all(specs.map(([name,path,params])=>probe(env,name,path,params)));
+  const failed=probes.filter(x=>!x.ok);
+  return {now,ok:failed.length===0,reason:failed.length?"TELEMETRY_ERROR":null,probes,failed};
+}
+
+function diagnosticView(c){
+  return {
+    ok:c.ok,
+    connected:c.ok,
+    mode:null,
+    reason:c.reason,
+    checkedAt:c.now,
+    endpoints:(c.probes||[]).map(x=>({name:x.name,ok:x.ok,path:x.path,elapsedMs:x.elapsedMs,httpStatus:x.httpStatus??null,retCode:x.retCode??null,retMsg:x.retMsg??null}))
+  };
+}
+
+export async function getHyroDiagnostics(env){
+  const c=await collectTelemetry(env);
+  return {...diagnosticView(c),mode:mode(env),credentialsReady:credentialsReady(env)};
+}
+
+export async function getHyroTelemetry(env){
+  const c=await collectTelemetry(env);
+  if(!c.ok){
+    const diagnostics={...diagnosticView(c),mode:mode(env),credentialsReady:credentialsReady(env)};
+    await kvPut(env,EXEC_STATE_KEY,{connected:false,mode:mode(env),lastError:c.reason,lastTelemetryAt:c.now,diagnostics});
+    return {ok:false,connected:false,mode:mode(env),reason:c.reason||"TELEMETRY_ERROR",diagnostics};
+  }
+  try{
+    const wallet=c.probes.find(x=>x.name==="wallet")?.data;
+    const positions=c.probes.find(x=>x.name==="positions")?.data;
+    const orders=c.probes.find(x=>x.name==="orders")?.data;
+    const closed=c.probes.find(x=>x.name==="closedPnl")?.data;
+    const a=wallet?.result?.list?.[0]||{},coin=(a.coin||[]).find(x=>x.coin==="USDT")||{};
+    const equity=num(a.totalEquity)??num(coin.equity)??num(coin.walletBalance)??0;
+    const walletBalance=num(a.totalWalletBalance)??num(coin.walletBalance)??0;
+    const available=num(a.totalAvailableBalance)??num(coin.availableToWithdraw)??0;
+    const pos=(positions?.result?.list||[]).filter(x=>(num(x.size)||0)>0).map(positionView);
+    const openOrders=(orders?.result?.list||[]).filter(x=>!["Filled","Cancelled","Rejected","Deactivated"].includes(String(x.orderStatus)));
+    const realized=closedStats(closed?.result?.list||[]);
+    const dayKey=DAY_PREFIX+utcDay(),old=await kvGet(env,dayKey,null),dayStart=old?.dayStartEquity??equity,peak=Math.max(num(old?.peakEquity)??equity,equity);
+    const day={date:utcDay(),dayStartEquity:dayStart,peakEquity:peak,currentEquity:equity,drawdownFromPeak:Math.max(0,peak-equity),pnlFromDayStart:equity-dayStart,...realized,updatedAt:c.now};
+    await kvPut(env,dayKey,day,172800);
+    const totalUnrealised=pos.reduce((s,p)=>s+(p.unrealisedPnl||0),0);
+    const positionNotionalUsd=pos.reduce((s,p)=>s+Math.abs(p.positionValue||0),0);
+    const estimatedMarginUsd=pos.reduce((s,p)=>s+(p.leverage>0?Math.abs(p.positionValue||0)/p.leverage:0),0);
+    const diagnostics={...diagnosticView(c),mode:mode(env),credentialsReady:true};
+    const out={ok:true,connected:true,mode:mode(env),equity,walletBalance,available,positions:pos,openOrders,day,totalUnrealised,openRiskUsd:openRisk(pos),positionNotionalUsd,estimatedMarginUsd,closedProfitUsd:realized.grossProfit,closedLossUsd:realized.grossLoss,closedNetPnlUsd:realized.netRealized,closedTradeCount:realized.closedTrades,serverTime:wallet?.time||c.now,diagnostics};
+    await kvPut(env,EXEC_STATE_KEY,{connected:true,mode:mode(env),lastTelemetryAt:c.now,equity,positions:pos.length,openOrders:openOrders.length,day,closedNetPnlUsd:realized.netRealized,diagnostics});
+    return out;
+  }catch(e){
+    const diagnostics={ok:false,connected:false,mode:mode(env),reason:"TELEMETRY_PARSE_ERROR",checkedAt:c.now,endpoints:diagnosticView(c).endpoints,parseError:String(e?.message||e)};
+    await kvPut(env,EXEC_STATE_KEY,{connected:false,mode:mode(env),lastError:"TELEMETRY_PARSE_ERROR",lastTelemetryAt:c.now,diagnostics});
+    return {ok:false,connected:false,mode:mode(env),reason:"TELEMETRY_PARSE_ERROR",diagnostics};
+  }
+}
+
 function sideOf(plan){const s=String(plan?.side||"").toUpperCase();return s==="BUY"?"Buy":s==="SELL"?"Sell":null;}
 function entryOf(plan){return num(plan?.entry)??num(plan?.planned?.entry);}
 function slOf(plan){return num(plan?.sl)??num(plan?.planned?.sl);}
 function tpOf(plan){return num(plan?.tp2)??num(plan?.tp)??num(plan?.planned?.tp2)??num(plan?.planned?.tp1)??num(plan?.planned?.tp);}
-export async function evaluateHyroGate(env,plan,telemetry=null){const profile=await getHyroProfile(env),control=await getHyroControl(env),t=telemetry||await getHyroTelemetry(env);if(!profile)return {ok:false,reason:"PROFILE_NOT_CONFIGURED"};if(control?.manualPaused)return {ok:false,reason:"MANUAL_PAUSED"};if(!t?.connected)return {ok:false,reason:t?.reason||"ACCOUNT_NOT_CONNECTED"};if(String(env.HYRO_AUTO_EXECUTION||"false").toLowerCase()!=="true")return {ok:false,reason:"AUTO_EXECUTION_DISABLED"};const accountSize=Number(profile.accountSize)||0,targetUsd=accountSize*.05;if((num(t.day?.pnlFromDayStart)||0)>=targetUsd)return {ok:false,reason:"DAILY_PROFIT_TARGET_REACHED",targetUsd};const i=profile.internal||{},dd=num(t.day?.drawdownFromPeak)||0;if(i.dailyHardStopUsd!=null&&dd>=Number(i.dailyHardStopUsd))return {ok:false,reason:"DAILY_HARD_STOP",dd};const activeSymbols=new Set([...(t.positions||[]).map(p=>p.symbol),...(t.openOrders||[]).map(o=>o.symbol)]);if(activeSymbols.size>=2)return {ok:false,reason:"MAX_ACTIVE_SLOTS_REACHED"};const symbol=String(plan.symbol||"").toUpperCase();if(activeSymbols.has(symbol))return {ok:false,reason:"SYMBOL_ALREADY_ACTIVE"};if(i.maxCombinedOpenRiskUsd!=null&&t.openRiskUsd>=Number(i.maxCombinedOpenRiskUsd))return {ok:false,reason:"OPEN_RISK_CAP_REACHED",openRiskUsd:t.openRiskUsd};const side=sideOf(plan),entry=entryOf(plan),sl=slOf(plan),tp=tpOf(plan);if(!side||!entry||!sl||!tp)return {ok:false,reason:"PLAN_INCOMPLETE"};const riskPerUnit=Math.abs(entry-sl),rewardPerUnit=Math.abs(tp-entry),rr=riskPerUnit>0?rewardPerUnit/riskPerUnit:0;if(!(riskPerUnit>0))return {ok:false,reason:"INVALID_STOP"};if(rr<1.5)return {ok:false,reason:"RR_BELOW_HYRO_MIN",rr};const capSingle=Number(i.maxSingleWorstLossUsd)||accountSize*.02,riskBudget=Math.min(Number(i.aPlusRiskUsd)||accountSize*.011,capSingle);if(!(riskBudget>0))return {ok:false,reason:"RISK_BUDGET_UNAVAILABLE"};if(i.maxCombinedOpenRiskUsd!=null&&t.openRiskUsd+riskBudget>Number(i.maxCombinedOpenRiskUsd))return {ok:false,reason:"COMBINED_RISK_WOULD_EXCEED_CAP"};if(profile.phase==="FUNDED"&&profile.funded?.internalNotionalCapUsd!=null&&t.positionNotionalUsd>=Number(profile.funded.internalNotionalCapUsd))return {ok:false,reason:"FUNDED_NOTIONAL_CAP_REACHED"};if(profile.phase==="FUNDED"&&profile.funded?.internalMarginCapUsd!=null&&t.estimatedMarginUsd>=Number(profile.funded.internalMarginCapUsd))return {ok:false,reason:"FUNDED_MARGIN_CAP_REACHED"};return {ok:true,profile,control,telemetry:t,symbol,side,entry,sl,tp,rr,riskBudget,targetUsd};}
-async function normalizedOrder(env,plan,gate){const ins=await instrument(gate.symbol),qtyStep=num(ins?.lotSizeFilter?.qtyStep)||0.001,minQty=num(ins?.lotSizeFilter?.minOrderQty)||qtyStep,minNotional=num(ins?.lotSizeFilter?.minNotionalValue)||5,tick=num(ins?.priceFilter?.tickSize)||0.0001,riskPerUnit=Math.abs(gate.entry-gate.sl),rawQty=gate.riskBudget/riskPerUnit,accountCap=gate.profile?.funded?.internalNotionalCapUsd??Number(gate.profile.accountSize)*1.8,remainingNotional=Math.max(0,accountCap-(gate.telemetry.positionNotionalUsd||0)),maxQtyByNotional=remainingNotional/gate.entry,q=roundDown(Math.min(rawQty,maxQtyByNotional),qtyStep);if(q<minQty||q*gate.entry<minNotional)throw new Error("ORDER_BELOW_MINIMUM_OR_RISK_TOO_SMALL");const action=String(plan.action||plan.status||"").toUpperCase(),orderType=action.includes("LIMIT")?"Limit":"Market";return {category:"linear",symbol:gate.symbol,side:gate.side,orderType,qty:fmt(q,qtyStep),price:orderType==="Limit"?fmt(gate.entry,tick):undefined,timeInForce:orderType==="Limit"?"GTC":"IOC",positionIdx:0,reduceOnly:false,closeOnTrigger:false,takeProfit:fmt(gate.tp,tick),stopLoss:fmt(gate.sl,tick),tpTriggerBy:"MarkPrice",slTriggerBy:"MarkPrice",tpslMode:"Full"};}
-async function appendHistory(env,event){const h=await kvGet(env,EXEC_HISTORY_KEY,[]);await kvPut(env,EXEC_HISTORY_KEY,[event,...(Array.isArray(h)?h:[])].slice(0,500));}
-export async function executeHyroPlan(env,plan){const t=await getHyroTelemetry(env),gate=await evaluateHyroGate(env,plan,t);if(!gate.ok)return {ok:false,executed:false,gate};const key=String(plan.setupId||plan.id||`${gate.symbol}:${gate.side}:${gate.entry}`),idKey=IDEMPOTENCY_PREFIX+key,existing=await kvGet(env,idKey,null);if(existing)return {ok:true,executed:false,idempotent:true,existing};const order=await normalizedOrder(env,plan,gate),orderLinkId=`hyro-${Date.now().toString(36)}-${crypto.randomUUID().slice(0,8)}`,resp=await signedBybit(env,"POST","/v5/order/create",{...order,orderLinkId}),record={id:key,orderLinkId,orderId:resp?.result?.orderId||null,symbol:order.symbol,side:order.side,orderType:order.orderType,qty:order.qty,entry:gate.entry,sl:gate.sl,tp:gate.tp,rr:gate.rr,riskBudget:gate.riskBudget,mode:mode(env),createdAt:Date.now(),status:"SUBMITTED"};await kvPut(env,idKey,record,604800);await appendHistory(env,{type:"SUBMIT",...record});return {ok:true,executed:true,order:record,silentTelegram:true};}
-export async function cancelHyroPending(env){if(!credentialsReady(env))return {ok:false,reason:"CREDENTIALS_MISSING"};const r=await signedBybit(env,"POST","/v5/order/cancel-all",{category:"linear",settleCoin:"USDT"});await appendHistory(env,{type:"CANCEL_ALL_PENDING",at:Date.now(),mode:mode(env)});return {ok:true,response:r};}
-export async function reconcileHyro(env){const t=await getHyroTelemetry(env);if(!t.connected)return t;const h=await kvGet(env,EXEC_HISTORY_KEY,[]);return {...t,history:Array.isArray(h)?h.slice(0,50):[]};}
-export function hyroExecutionConfig(env){return {mode:mode(env),credentialsReady:credentialsReady(env),autoExecutionRequested:String(env.HYRO_AUTO_EXECUTION||"false").toLowerCase()==="true",silentTelegram:true,independentFromSignal:true,requiredSecrets:["HYRO_BYBIT_API_KEY","HYRO_BYBIT_API_SECRET"],optionalVars:["HYRO_BYBIT_MODE=DEMO|LIVE","HYRO_AUTO_EXECUTION=true|false"]};}
+
+export async function evaluateHyroGate(env,plan,telemetry=null){
+  const profile=await getHyroProfile(env),control=await getHyroControl(env),t=telemetry||await getHyroTelemetry(env);
+  if(!profile)return {ok:false,reason:"PROFILE_NOT_CONFIGURED"};
+  if(control?.manualPaused)return {ok:false,reason:"MANUAL_PAUSED"};
+  if(!t?.connected)return {ok:false,reason:t?.reason||"ACCOUNT_NOT_CONNECTED",diagnostics:t?.diagnostics||null};
+  if(String(env.HYRO_AUTO_EXECUTION||"false").toLowerCase()!=="true")return {ok:false,reason:"AUTO_EXECUTION_DISABLED"};
+  const accountSize=Number(profile.accountSize)||0,targetUsd=accountSize*.05;
+  if((num(t.day?.pnlFromDayStart)||0)>=targetUsd)return {ok:false,reason:"DAILY_PROFIT_TARGET_REACHED",targetUsd};
+  const i=profile.internal||{},dd=num(t.day?.drawdownFromPeak)||0;
+  if(i.dailyHardStopUsd!=null&&dd>=Number(i.dailyHardStopUsd))return {ok:false,reason:"DAILY_HARD_STOP",dd};
+  const activeSymbols=new Set([...(t.positions||[]).map(p=>p.symbol),...(t.openOrders||[]).map(o=>o.symbol)]);
+  if(activeSymbols.size>=2)return {ok:false,reason:"MAX_ACTIVE_SLOTS_REACHED"};
+  const symbol=String(plan.symbol||"").toUpperCase();
+  if(activeSymbols.has(symbol))return {ok:false,reason:"SYMBOL_ALREADY_ACTIVE"};
+  if(i.maxCombinedOpenRiskUsd!=null&&t.openRiskUsd>=Number(i.maxCombinedOpenRiskUsd))return {ok:false,reason:"OPEN_RISK_CAP_REACHED",openRiskUsd:t.openRiskUsd};
+  const side=sideOf(plan),entry=entryOf(plan),sl=slOf(plan),tp=tpOf(plan);
+  if(!side||!entry||!sl||!tp)return {ok:false,reason:"PLAN_INCOMPLETE"};
+  const riskPerUnit=Math.abs(entry-sl),rewardPerUnit=Math.abs(tp-entry),rr=riskPerUnit>0?rewardPerUnit/riskPerUnit:0;
+  if(!(riskPerUnit>0))return {ok:false,reason:"INVALID_STOP"};
+  if(rr<1.5)return {ok:false,reason:"RR_BELOW_HYRO_MIN",rr};
+  const capSingle=Number(i.maxSingleWorstLossUsd)||accountSize*.02,riskBudget=Math.min(Number(i.aPlusRiskUsd)||accountSize*.011,capSingle);
+  if(!(riskBudget>0))return {ok:false,reason:"RISK_BUDGET_UNAVAILABLE"};
+  if(i.maxCombinedOpenRiskUsd!=null&&t.openRiskUsd+riskBudget>Number(i.maxCombinedOpenRiskUsd))return {ok:false,reason:"COMBINED_RISK_WOULD_EXCEED_CAP"};
+  if(profile.phase==="FUNDED"&&profile.funded?.internalNotionalCapUsd!=null&&t.positionNotionalUsd>=Number(profile.funded.internalNotionalCapUsd))return {ok:false,reason:"FUNDED_NOTIONAL_CAP_REACHED"};
+  if(profile.phase==="FUNDED"&&profile.funded?.internalMarginCapUsd!=null&&t.estimatedMarginUsd>=Number(profile.funded.internalMarginCapUsd))return {ok:false,reason:"FUNDED_MARGIN_CAP_REACHED"};
+  return {ok:true,profile,control,telemetry:t,symbol,side,entry,sl,tp,rr,riskBudget,targetUsd};
+}
+
+async function normalizedOrder(env,plan,gate){
+  const ins=await instrument(gate.symbol),qtyStep=num(ins?.lotSizeFilter?.qtyStep)||0.001,minQty=num(ins?.lotSizeFilter?.minOrderQty)||qtyStep,minNotional=num(ins?.lotSizeFilter?.minNotionalValue)||5,tick=num(ins?.priceFilter?.tickSize)||0.0001;
+  const riskPerUnit=Math.abs(gate.entry-gate.sl),rawQty=gate.riskBudget/riskPerUnit,accountCap=gate.profile?.funded?.internalNotionalCapUsd??Number(gate.profile.accountSize)*1.8,remainingNotional=Math.max(0,accountCap-(gate.telemetry.positionNotionalUsd||0)),maxQtyByNotional=remainingNotional/gate.entry,q=roundDown(Math.min(rawQty,maxQtyByNotional),qtyStep);
+  if(q<minQty||q*gate.entry<minNotional)throw new Error("ORDER_BELOW_MINIMUM_OR_RISK_TOO_SMALL");
+  const action=String(plan.action||plan.status||"").toUpperCase(),orderType=action.includes("LIMIT")?"Limit":"Market";
+  return {category:"linear",symbol:gate.symbol,side:gate.side,orderType,qty:fmt(q,qtyStep),price:orderType==="Limit"?fmt(gate.entry,tick):undefined,timeInForce:orderType==="Limit"?"GTC":"IOC",positionIdx:0,reduceOnly:false,closeOnTrigger:false,takeProfit:fmt(gate.tp,tick),stopLoss:fmt(gate.sl,tick),tpTriggerBy:"MarkPrice",slTriggerBy:"MarkPrice",tpslMode:"Full"};
+}
+
+async function appendHistory(env,event){
+  const h=await kvGet(env,EXEC_HISTORY_KEY,[]);
+  await kvPut(env,EXEC_HISTORY_KEY,[event,...(Array.isArray(h)?h:[])].slice(0,500));
+}
+
+export async function executeHyroPlan(env,plan){
+  const t=await getHyroTelemetry(env),gate=await evaluateHyroGate(env,plan,t);
+  if(!gate.ok)return {ok:false,executed:false,gate};
+  const key=String(plan.setupId||plan.id||`${gate.symbol}:${gate.side}:${gate.entry}`),idKey=IDEMPOTENCY_PREFIX+key,existing=await kvGet(env,idKey,null);
+  if(existing)return {ok:true,executed:false,idempotent:true,existing};
+  const order=await normalizedOrder(env,plan,gate),orderLinkId=`hyro-${Date.now().toString(36)}-${crypto.randomUUID().slice(0,8)}`;
+  const resp=await signedBybit(env,"POST","/v5/order/create",{...order,orderLinkId});
+  const record={id:key,orderLinkId,orderId:resp?.result?.orderId||null,symbol:order.symbol,side:order.side,orderType:order.orderType,qty:order.qty,entry:gate.entry,sl:gate.sl,tp:gate.tp,rr:gate.rr,riskBudget:gate.riskBudget,mode:mode(env),createdAt:Date.now(),status:"SUBMITTED"};
+  await kvPut(env,idKey,record,604800);
+  await appendHistory(env,{type:"SUBMIT",...record});
+  return {ok:true,executed:true,order:record,silentTelegram:true};
+}
+
+export async function cancelHyroPending(env){
+  if(!credentialsReady(env))return {ok:false,reason:"CREDENTIALS_MISSING"};
+  const r=await signedBybit(env,"POST","/v5/order/cancel-all",{category:"linear",settleCoin:"USDT"});
+  await appendHistory(env,{type:"CANCEL_ALL_PENDING",at:Date.now(),mode:mode(env)});
+  return {ok:true,response:r};
+}
+
+export async function reconcileHyro(env){
+  const t=await getHyroTelemetry(env);
+  if(!t.connected)return t;
+  const h=await kvGet(env,EXEC_HISTORY_KEY,[]);
+  return {...t,history:Array.isArray(h)?h.slice(0,50):[]};
+}
+
+export function hyroExecutionConfig(env){
+  return {mode:mode(env),credentialsReady:credentialsReady(env),autoExecutionRequested:String(env.HYRO_AUTO_EXECUTION||"false").toLowerCase()==="true",silentTelegram:true,independentFromSignal:true,requiredSecrets:["HYRO_BYBIT_API_KEY","HYRO_BYBIT_API_SECRET"],optionalVars:["HYRO_BYBIT_MODE=DEMO|LIVE","HYRO_AUTO_EXECUTION=true|false"]};
+}
