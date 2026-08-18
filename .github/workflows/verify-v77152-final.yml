@@ -1,0 +1,106 @@
+name: Verify V77.15.2 Final Integrated Production
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/index.js'
+      - '.github/workflows/verify-v77152-final.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Canonical build check
+        shell: bash
+        run: |
+          set +e
+          : > V77152_FINAL_CHECK.txt
+          node --check cloudflare-worker/index.js >> V77152_FINAL_CHECK.txt 2>&1; echo "SYNTAX_EXIT=$?" >> V77152_FINAL_CHECK.txt
+          cd cloudflare-worker
+          npm install >> ../V77152_FINAL_CHECK.txt 2>&1; echo "NPM_EXIT=$?" >> ../V77152_FINAL_CHECK.txt
+          npm run prepare:wrangler >> ../V77152_FINAL_CHECK.txt 2>&1; echo "PREPARE_EXIT=$?" >> ../V77152_FINAL_CHECK.txt
+          npx wrangler deploy --dry-run >> ../V77152_FINAL_CHECK.txt 2>&1; echo "WRANGLER_EXIT=$?" >> ../V77152_FINAL_CHECK.txt
+          cd ..
+      - name: Wait deploy and provider minute reset
+        run: sleep 70
+      - name: Integrated Hub check
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          curl -fsS --max-time 20 "$BASE/status" -o /tmp/status.json; echo "STATUS_CURL=$?" >> V77152_FINAL_CHECK.txt
+          curl -fsS --max-time 150 "$BASE/hub" -o /tmp/hub.json; echo "HUB_CURL=$?" >> V77152_FINAL_CHECK.txt
+          curl -fsS --max-time 20 "$BASE/orders" -o /tmp/orders.json; echo "ORDERS_CURL=$?" >> V77152_FINAL_CHECK.txt
+          curl -fsS --max-time 20 "$BASE/telegram/menu" -o /tmp/menu.json; echo "MENU_CURL=$?" >> V77152_FINAL_CHECK.txt
+          python - <<'PY' >> V77152_FINAL_CHECK.txt
+          import json, math
+          def l(p):
+            try:
+              with open(p) as f:return json.load(f)
+            except:return {}
+          s,h,o,m=map(l,['/tmp/status.json','/tmp/hub.json','/tmp/orders.json','/tmp/menu.json'])
+          print('VERSION='+str(s.get('version')))
+          print('STATUS_OK='+('YES' if s.get('ok') else 'NO'))
+          print('MASSIVE='+str(s.get('massive')))
+          print('HUB_ORDER='+','.join((s.get('hub') or {}).get('order') or []))
+          actionable=execs=plans=0
+          geometry_bad=[]
+          runs=h.get('runs') or {}
+          for g in ['crypto','forex','metal','future']:
+            r=runs.get(g) or {}; arr=[]
+            for a in r.get('analyses') or []:
+              st=a.get('status'); p=a.get('planned') or {}; mode=p.get('mode'); geom=p.get('geometry') or p.get('marketGeometry') or {}
+              if st in ('MARKET','LIMIT'): execs+=1; actionable+=1
+              if st in ('MARKET_PLAN','LIMIT_PLAN') or p: plans+=1; actionable+=1
+              da=geom.get('distanceATR')
+              if st=='LIMIT_PLAN' and da is not None and not (0.05 <= float(da) <= 0.90): geometry_bad.append(str(a.get('symbol'))+':'+str(da))
+              arr.append(str(a.get('symbol'))+':'+str(st)+':'+str(a.get('reason'))+':'+str(mode)+':RR='+str(p.get('targetRR'))+':distATR='+str(da)+':conf='+str(p.get('confluence')))
+            print(g.upper()+'='+str(r.get('status'))+':'+str(r.get('broadOk'))+'/'+str(r.get('requested'))+':deep='+str(r.get('deepOk'))+'/'+str(r.get('deepRequested')))
+            print(g.upper()+'_RESULTS='+'|'.join(arr))
+          print('ACTIONABLE_TOTAL='+str(actionable)+' PLANS='+str(plans)+' EXEC='+str(execs))
+          print('GEOMETRY_BAD='+'|'.join(geometry_bad))
+          print('TOP='+'|'.join(str(a.get('symbol'))+':'+str(a.get('status'))+':'+str((a.get('planned') or {}).get('targetRR')) for a in h.get('top') or []))
+          print('DURABLE_WATCH_ZERO='+('YES' if all(len(((o.get(g) or {}).get('watch') or []))==0 for g in ['forex','crypto','metal','future']) else 'NO'))
+          print('TELEGRAM_MENU_OK='+str(m.get('ok')))
+          hub_pass=(len(runs)==4 and all((runs.get(g) or {}).get('status') not in ('RATE_BUDGET_WAIT','BUSY','DATA_BLOCK') for g in ['crypto','forex','metal','future']) and actionable>0 and not geometry_bad)
+          print('HUB_VERDICT='+('PASS' if hub_pass else 'FAIL'))
+          PY
+      - name: Wait before direct-symbol parity checks
+        run: sleep 70
+      - name: Direct-symbol checks
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          curl -fsS --max-time 60 "$BASE/analyze?symbol=BTCUSDT" -o /tmp/btc.json; echo "BTC_CURL=$?" >> V77152_FINAL_CHECK.txt
+          curl -fsS --max-time 70 "$BASE/analyze?symbol=EURUSD" -o /tmp/eur.json; echo "EUR_CURL=$?" >> V77152_FINAL_CHECK.txt
+          curl -fsS --max-time 45 "$BASE/analyze?symbol=XAUUSD" -o /tmp/xau.json; echo "XAU_CURL=$?" >> V77152_FINAL_CHECK.txt
+          curl -fsS --max-time 60 "$BASE/analyze?symbol=NQ" -o /tmp/nq.json; echo "NQ_CURL=$?" >> V77152_FINAL_CHECK.txt
+          python - <<'PY' >> V77152_FINAL_CHECK.txt
+          import json
+          def l(p):
+            try:
+              with open(p) as f:return json.load(f)
+            except:return {}
+          good=True
+          for name,p in [('BTC','/tmp/btc.json'),('EURUSD','/tmp/eur.json'),('XAUUSD','/tmp/xau.json'),('NQ','/tmp/nq.json')]:
+            a=l(p); plan=a.get('planned') or {}; ctx=a.get('context') or {}; q=a.get('quote') or a.get('analysisQuote') or {}
+            print(name+'='+str(a.get('ok'))+':'+str(a.get('status'))+':'+str(a.get('reason'))+':source='+str(a.get('source'))+':benchmark='+str(ctx.get('benchmark'))+':SMT='+str(ctx.get('smtSignal'))+':plan='+str(plan.get('mode'))+':RR='+str(plan.get('targetRR'))+':price='+str(q.get('price')))
+            if a.get('ok') is False: good=False
+          print('DIRECT_VERDICT='+('PASS' if good else 'FAIL'))
+          PY
+      - name: Final verdict and commit report
+        shell: bash
+        run: |
+          if grep -q 'SYNTAX_EXIT=0' V77152_FINAL_CHECK.txt && grep -q 'WRANGLER_EXIT=0' V77152_FINAL_CHECK.txt && grep -q 'VERSION=V77.15.2' V77152_FINAL_CHECK.txt && grep -q 'HUB_VERDICT=PASS' V77152_FINAL_CHECK.txt && grep -q 'DIRECT_VERDICT=PASS' V77152_FINAL_CHECK.txt && grep -q 'DURABLE_WATCH_ZERO=YES' V77152_FINAL_CHECK.txt; then echo 'FINAL_VERDICT=PASS' >> V77152_FINAL_CHECK.txt; else echo 'FINAL_VERDICT=FAIL' >> V77152_FINAL_CHECK.txt; fi
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77152_FINAL_CHECK.txt
+          git commit -m 'Report V77.15.2 final integrated production verification' || exit 0
+          git push origin main
