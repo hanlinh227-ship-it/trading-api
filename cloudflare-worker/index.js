@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.4",
-  service: "Trading V77.16.4 Context-Cached Stable Quality Hub",
+  version: "V77.16.5",
+  service: "Trading V77.16.5 Live-Order Reconciled Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -21,6 +21,7 @@ const CONFIG = {
   cryptoDeepMax: 8,
   cryptoActionTarget: 2,
   cryptoDeepCooldownMs: 220,
+  autoCryptoScanMinutes: 5,
   maxMarketActive: 3,
   maxLimitActive: 3,
   maxPendingLimit: 3,
@@ -560,9 +561,12 @@ async function saveScanSnapshot(group,run,env){try{await env.TRADING_STATE.put(C
 async function getScanSnapshot(group,env){try{return await env.TRADING_STATE.get(CONFIG.keys.scanPrefix+group,"json");}catch{return null;}}
 async function appendOrderHistory(env,event){try{const old=await env.TRADING_STATE.get(CONFIG.keys.orderHistory,"json"),rows=Array.isArray(old?.rows)?old.rows:[];rows.unshift({...event,recordedAt:Date.now(),engine:CONFIG.version});await env.TRADING_STATE.put(CONFIG.keys.orderHistory,JSON.stringify({rows:rows.slice(0,250),updatedAt:Date.now()}));}catch{}}
 function sideText(x){return x==="LONG"?"BUY":x==="SHORT"?"SELL":"NEUTRAL";}
+function orderSourceText(x){return x==="AUTO_CRON"?"AUTO SCAN":x==="HUB_MANUAL"?"HUB MANUAL":x==="GROUP_MANUAL"?"NÚT THỊ TRƯỜNG":x==="SYMBOL_MANUAL"?"SYMBOL MANUAL":x==="COMMAND_MANUAL"?"LỆNH CHAT":x==="NEWS_MANUAL"?"NEWS CONFIRM":x==="API_RUN_NOW"?"API RUN-NOW":x==="API_HUB"?"API HUB":String(x||"SCAN");}
 function duplicate(book,sym){return [...book.marketActive,...book.limitActive,...book.limitPending].some(x=>x.symbol===sym);}
-function toPos(sig){return {id:sig.symbol+"-"+Date.now(),symbol:sig.symbol,side:sig.side,entry:sig.entry,sl:sig.sl,tp:sig.targetRR===2?sig.tp2:sig.tp1,tp1:sig.tp1,tp2:sig.tp2,targetRR:sig.targetRR,origin:sig.action,status:"ACTIVE",openedAt:Date.now(),engineOpened:sig.engine,engine:sig.engine,source:sig.quote?.source,executionVerified:true,executionAuthority:sig.quote?.source||"CANONICAL_CRYPTO"};}
-function fillBooks(group,books,analyses){const b=books[group],newItems=[];for(const a of analyses){if(group!=="crypto")continue;if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a);b.marketActive.push(p);newItems.push(p);}if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}}b.watch=[];return newItems;}
+function toPos(sig,discoveredBy="SCAN"){const tp=Number.isFinite(Number(sig.tp2))?sig.tp2:sig.tp1;return {id:sig.symbol+"-"+Date.now(),symbol:sig.symbol,side:sig.side,entry:sig.entry,sl:sig.sl,tp,tp1:sig.tp1,tp2:sig.tp2,targetRR:sig.targetRR,origin:sig.action,discoveredBy,status:"ACTIVE",openedAt:Date.now(),createdAt:Date.now(),engineOpened:sig.engine,engine:sig.engine,source:sig.quote?.source,executionVerified:true,executionAuthority:sig.quote?.source||"CANONICAL_CRYPTO"};}
+function fillBooks(group,books,analyses,trigger="SCAN"){const b=books[group],newItems=[];for(const a of analyses){if(group!=="crypto")continue;if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a,trigger);b.marketActive.push(p);newItems.push(p);}if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a,trigger),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}}b.watch=[];return newItems;}
+function livePositionLine(p){const kind=p.status==="PENDING"?"LIMIT CHỜ":p.origin==="LIMIT"?"LIMIT KHỚP":"MARKET";return kind+" • "+posLine(p)+" • nguồn "+orderSourceText(p.discoveredBy);}
+function allLivePositions(books){const out=[];for(const g of ["crypto","forex","metal","future"]){const b=books?.[g];if(!b)continue;for(const p of b.marketActive||[])out.push({group:g,...p});for(const p of b.limitActive||[])out.push({group:g,...p});}return out;}
 function freshWatchFromRun(run){return (run?.analyses||[]).filter(x=>x?.status==="WATCH").sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0)).slice(0,CONFIG.maxWatch);}
 async function recordShadowSetup(group,a,scanId,env){
   if(!a||!["WATCH","MARKET_PLAN","LIMIT_PLAN"].includes(a.status)||!a.planned||!["LONG","SHORT"].includes(a.side))return;
@@ -575,7 +579,7 @@ async function recordShadowSetup(group,a,scanId,env){
 async function getShadowSetups(env,symbol=null){try{const v=await env.TRADING_STATE.get(CONFIG.keys.shadowSetups,"json");const rows=Array.isArray(v?.rows)?v.rows:[];return symbol?rows.filter(x=>x.symbol===canonicalUserSymbol(symbol)):rows;}catch{return [];}}
 async function acquireLock(env){const k=CONFIG.keys.runLock;try{const old=await env.TRADING_STATE.get(k);if(old&&Date.now()-Number(old)<CONFIG.runLockTtlSec*1000)return false;await env.TRADING_STATE.put(k,String(Date.now()),{expirationTtl:CONFIG.runLockTtlSec});return true;}catch{return true;}}
 async function releaseLock(env){try{await env.TRADING_STATE.delete(CONFIG.keys.runLock);}catch{}}
-async function runGroup(group,env){
+async function runGroup(group,env,trigger="API_RUN_NOW"){
   if(group==="future")return runFutureGroup(env);
   if(!GROUPS[group])throw new Error("invalid group");if(!(await acquireLock(env)))return {ok:false,status:"BUSY",group,version:CONFIG.version,scanId:group+"-busy-"+Date.now(),scannedAt:new Date().toISOString(),analyses:[]};
   const started=Date.now(),scanId=group+"-"+started+"-"+Math.random().toString(36).slice(2,8),scannedAt=new Date(started).toISOString();
@@ -599,8 +603,8 @@ async function runGroup(group,env){
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)tmp.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else tmp.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
       tmp.sort((a,b)=>actionableRank(b)-actionableRank(a));analyses.push(...tmp.slice(0,CONFIG.maxCandidates));
     }
-    const books=existingBooks,newItems=fillBooks(group,books,analyses);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);
-    const out={ok:true,version:CONFIG.version,group,scanId,scannedAt,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,liveSymbolsSkipped:[...liveSymbols],tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
+    const books=existingBooks,newItems=fillBooks(group,books,analyses,trigger);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);
+    const out={ok:true,version:CONFIG.version,group,scanId,scannedAt,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,newItems,scanTrigger:trigger,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,liveSymbolsSkipped:[...liveSymbols],tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
     await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot(group,out,env);return out;
   }finally{await releaseLock(env);}
 }
@@ -651,31 +655,34 @@ function freshPlanFromRun(run,kind){return (run?.analyses||[]).filter(a=>a?.plan
 function summary(group,books,run=null){
   const b=books[group],marketPlans=freshPlanFromRun(run,"market"),limitPlans=freshPlanFromRun(run,"limit"),watch=(run?.analyses||[]).filter(a=>a?.status==="WATCH"&&!a.planned).sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0)).slice(0,CONFIG.maxWatch),L=[groupTitle(group)];
   if(run?.scannedAt)L.push("🕒 Quét mới: "+run.scannedAt);
-  L.push("","🟢 MARKET ĐANG CHẠY "+b.marketActive.length+"/"+CONFIG.maxMarketActive);if(b.marketActive.length)b.marketActive.forEach((p,i)=>L.push((i+1)+". "+posLine(p)));else L.push("Trống");
+  L.push("","🟢 MARKET ĐANG CHẠY "+b.marketActive.length+"/"+CONFIG.maxMarketActive);if(b.marketActive.length)b.marketActive.forEach((p,i)=>L.push((i+1)+". "+livePositionLine(p)));else L.push("Trống");
+  L.push("","🔵 LIMIT ĐÃ KHỚP / ĐANG CHẠY "+b.limitActive.length+"/"+CONFIG.maxLimitActive);if(b.limitActive.length)b.limitActive.forEach((p,i)=>L.push((i+1)+". "+livePositionLine(p)));else L.push("Trống");
   L.push("","🎯 MARKET PLAN "+marketPlans.length);if(marketPlans.length)marketPlans.slice(0,3).forEach((a,i)=>L.push((i+1)+". "+watchLine(a)));else L.push("Trống");
   L.push("","📐 LIMIT PLAN "+limitPlans.length);if(limitPlans.length)limitPlans.slice(0,3).forEach((a,i)=>L.push((i+1)+". "+watchLine(a)));else L.push("Trống");
-  L.push("","🟡 LIMIT ĐANG CHỜ "+b.limitPending.length+"/"+CONFIG.maxPendingLimit);if(b.limitPending.length)b.limitPending.forEach((p,i)=>L.push((i+1)+". "+posLine(p)));else L.push("Trống");
+  L.push("","🟡 LIMIT ĐANG CHỜ "+b.limitPending.length+"/"+CONFIG.maxPendingLimit);if(b.limitPending.length)b.limitPending.forEach((p,i)=>L.push((i+1)+". "+livePositionLine(p)));else L.push("Trống");
   L.push("","👀 WATCH THUẦN "+watch.length);if(watch.length)watch.forEach((a,i)=>L.push((i+1)+". "+watchLine(a)));else L.push("Trống");
   if(run?.status==="RATE_BUDGET_WAIT"){L.push("⏱ Không dùng setup cũ. Chờ quota ~"+(run.retryAfterSec??60)+"s.");return L.join("\n");}
   if(run?.status==="BUSY"){L.push("⏳ Một lượt quét khác đang chạy. Không hiển thị setup cũ.");return L.join("\n");}
   if(run)L.push("🔍 Coverage "+run.broadOk+"/"+run.requested+" • Deep "+run.deepOk+"/"+run.deepRequested+" • Lệnh executable mới "+run.newCount,"🆔 Scan "+run.scanId);return L.join("\n");
 }
-async function sendGroup(group,env,chatId){await sendText(env,"⏳ Đang quét MỚI "+group.toUpperCase()+"...",chatId);const run=await runGroup(group,env),books=await getBooks(env);return sendText(env,summary(group,books,run),chatId,groupKeyboard(group,run));}
+async function sendGroup(group,env,chatId){await sendText(env,"⏳ Đang quét MỚI "+group.toUpperCase()+"...",chatId);const run=await runGroup(group,env,"GROUP_MANUAL"),books=await getBooks(env);return sendText(env,summary(group,books,run),chatId,groupKeyboard(group,run));}
 function hubRank(a){return actionableRank(a);}
-async function runHub(env){const t=Date.now(),runs={};for(const g of ["crypto","forex","metal","future"])runs[g]=await runGroup(g,env);const top=Object.entries(runs).flatMap(([group,r])=>(r.analyses||[]).map(a=>({...a,group,scanId:r.scanId,scannedAt:r.scannedAt}))).sort((a,b)=>hubRank(b)-hubRank(a)).slice(0,7);return {ok:true,version:CONFIG.version,hubScanId:"hub-"+t+"-"+Math.random().toString(36).slice(2,8),scannedAt:new Date(t).toISOString(),runs,top};}
-function hubSummary(h){const L=["🧭 TRADING HUB "+CONFIG.version,"🕒 QUÉT MỚI: "+h.scannedAt,"🆔 "+h.hubScanId,"","🔥 TOP SETUPS CỦA LẦN QUÉT NÀY"];if(!h.top.length)L.push("Không có setup mới đạt chuẩn lúc này.");h.top.slice(0,5).forEach((a,i)=>{let line=(i+1)+". "+a.symbol+" "+sideText(a.side)+" • "+stageText(a)+" • "+(Number(a.score)||0)+"/100";if(a.method?.profile||a.method?.families?.length)line+="\n   ↳ Profile: "+(a.method?.profile||a.method?.families?.[0]);if(a.method?.activeMode)line+="\n   ↳ Route: "+a.method.activeMode;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+="\n   ↳ "+tag+": E~"+fmtPx(a.planned.entry)+" • SL~"+fmtPx(a.planned.sl)+" • TP~"+fmtPx(a.planned.tp2||a.planned.tp1)+" • RR~"+Number(a.planned.targetRR||0).toFixed(2);}line+="\n   ↳ "+(a.status==="MARKET"||a.status==="LIMIT"?"Đủ gate execution":a.status==="MARKET_PLAN"||a.status==="LIMIT_PLAN"?"Kế hoạch kỹ thuật hợp lệ — chờ execution authority":reasonText(a.reason));L.push(line);});L.push("","Điểm Hub = độ hoàn thiện setup, KHÔNG phải xác suất thắng.");for(const g of ["forex","crypto","metal","future"]){const r=h.runs[g];L.push(groupTitle(g)+" • "+(r.status==="RATE_BUDGET_WAIT"?"đợi quota — không dùng setup cũ":r.status==="BUSY"?"BUSY — không dùng setup cũ":r.broadOk+"/"+r.requested+" • deep "+r.deepOk+"/"+r.deepRequested));}return L.join("\n");}
-async function sendHub(env,chatId){await sendText(env,"⏳ HUB đang QUÉT MỚI Crypto + Forex + Metal + Futures...",chatId);const h=await runHub(env);return sendText(env,hubSummary(h),chatId,hubKeyboard(h));}
-function booksSummary(books){const L=["📚 LIVE ORDERS — LƯU BỀN QUA UPDATE BOT"];for(const g of ["forex","crypto","metal","future"]){const b=books[g];L.push(groupTitle(g)+" • MARKET "+b.marketActive.length+" • LIMIT ACTIVE "+b.limitActive.length+" • LIMIT CHỜ "+b.limitPending.length);}L.push("WATCH/SETUP không nằm trong Books; mỗi lần bấm Hub sẽ quét mới.");return L.join("\n");}
+async function runHub(env,trigger="API_HUB"){const t=Date.now(),runs={};for(const g of ["crypto","forex","metal","future"])runs[g]=await runGroup(g,env,trigger);const top=Object.entries(runs).flatMap(([group,r])=>(r.analyses||[]).map(a=>({...a,group,scanId:r.scanId,scannedAt:r.scannedAt}))).sort((a,b)=>hubRank(b)-hubRank(a)).slice(0,7);const books=await getBooks(env);return {ok:true,version:CONFIG.version,books,hubScanId:"hub-"+t+"-"+Math.random().toString(36).slice(2,8),scannedAt:new Date(t).toISOString(),runs,top};}
+function hubSummary(h){const live=allLivePositions(h.books),L=["🧭 TRADING HUB "+CONFIG.version,"🕒 QUÉT MỚI: "+h.scannedAt,"🆔 "+h.hubScanId,"","📚 LIVE POSITIONS "+live.length];if(live.length)live.forEach((p,i)=>L.push((i+1)+". "+groupTitle(p.group)+" • "+livePositionLine(p)));else L.push("Trống");L.push("","🔥 TOP SETUPS MỚI CỦA LẦN QUÉT NÀY");if(!h.top.length)L.push("Không có setup mới đạt chuẩn lúc này.");h.top.slice(0,5).forEach((a,i)=>{let line=(i+1)+". "+a.symbol+" "+sideText(a.side)+" • "+stageText(a)+" • "+(Number(a.score)||0)+"/100";if(a.method?.profile||a.method?.families?.length)line+="\n   ↳ Profile: "+(a.method?.profile||a.method?.families?.[0]);if(a.method?.activeMode)line+="\n   ↳ Route: "+a.method.activeMode;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+="\n   ↳ "+tag+": E~"+fmtPx(a.planned.entry)+" • SL~"+fmtPx(a.planned.sl)+" • TP~"+fmtPx(a.planned.tp2||a.planned.tp1)+" • RR~"+Number(a.planned.targetRR||0).toFixed(2);}line+="\n   ↳ "+(a.status==="MARKET"||a.status==="LIMIT"?"Đủ gate execution":a.status==="MARKET_PLAN"||a.status==="LIMIT_PLAN"?"Kế hoạch kỹ thuật hợp lệ — chờ execution authority":reasonText(a.reason));L.push(line);});L.push("","Điểm Hub = độ hoàn thiện setup, KHÔNG phải xác suất thắng.");for(const g of ["forex","crypto","metal","future"]){const r=h.runs[g];L.push(groupTitle(g)+" • "+(r.status==="RATE_BUDGET_WAIT"?"đợi quota — không dùng setup cũ":r.status==="BUSY"?"BUSY — không dùng setup cũ":r.broadOk+"/"+r.requested+" • deep "+r.deepOk+"/"+r.deepRequested));}return L.join("\n");}
+async function sendHub(env,chatId){await sendText(env,"⏳ HUB đang QUÉT MỚI Crypto + Forex + Metal + Futures...",chatId);const h=await runHub(env,"HUB_MANUAL");return sendText(env,hubSummary(h),chatId,hubKeyboard(h));}
+function booksSummary(books){const L=["📚 LIVE ORDERS — LƯU BỀN QUA UPDATE BOT"];for(const g of ["forex","crypto","metal","future"]){const b=books[g];L.push("",groupTitle(g)+" • MARKET "+b.marketActive.length+" • LIMIT ACTIVE "+b.limitActive.length+" • LIMIT CHỜ "+b.limitPending.length);for(const p of b.marketActive)L.push("• "+livePositionLine(p));for(const p of b.limitActive)L.push("• "+livePositionLine(p));for(const p of b.limitPending)L.push("• "+livePositionLine(p));}L.push("","WATCH/SETUP không nằm trong Books; Hub quét setup mới nhưng LIVE positions luôn được hiển thị riêng.");return L.join("\n");}
 async function lifecycle(env){
   const books=await getBooks(env),b=books.crypto;let changed=false,pending=[];
   for(const p of b.limitPending){
     if(p.expiresAt&&Date.now()>p.expiresAt){changed=true;await appendOrderHistory(env,{event:"LIMIT_EXPIRED",group:"crypto",position:p});continue;}
-    try{const q=await cryptoExecutionQuote(p.symbol),px=q.price,fill=p.side==="LONG"?px<=p.entry:px>=p.entry;if(fill&&b.limitActive.length<CONFIG.maxLimitActive){p.status="ACTIVE";p.openedAt=Date.now();b.limitActive.push(p);changed=true;await appendOrderHistory(env,{event:"LIMIT_FILLED",group:"crypto",position:p,price:px});await sendText(env,"🔵 LIMIT ĐÃ KHỚP\n"+p.symbol+" "+sideText(p.side)+"\nEntry: "+p.entry).catch(()=>{});}else pending.push(p);}catch{pending.push(p);}
+    try{const q=await cryptoExecutionQuote(p.symbol),px=q.price,fill=p.side==="LONG"?px<=p.entry:px>=p.entry;if(fill&&b.limitActive.length<CONFIG.maxLimitActive){p.status="ACTIVE";p.openedAt=Date.now();b.limitActive.push(p);changed=true;await appendOrderHistory(env,{event:"LIMIT_FILLED",group:"crypto",position:p,price:px});await sendText(env,"🔵 LIMIT ĐÃ KHỚP — ĐANG CHẠY\n"+p.symbol+" "+sideText(p.side)+"\nEntry: "+p.entry+" • SL: "+p.sl+" • TP: "+p.tp+"\nNguồn lệnh: "+orderSourceText(p.discoveredBy)+"\nLệnh đã chuyển LIMIT CHỜ → LIMIT ACTIVE và sẽ tiếp tục xuất hiện trong HUB/Crypto.").catch(()=>{});}else pending.push(p);}catch{pending.push(p);}
   }
   b.limitPending=pending;
-  for(const key of ["marketActive","limitActive"]){const keep=[];for(const p of b[key]){try{const q=await cryptoExecutionQuote(p.symbol),px=q.price,hitTP=p.side==="LONG"?px>=p.tp:px<=p.tp,hitSL=p.side==="LONG"?px<=p.sl:px>=p.sl;if(hitTP||hitSL){changed=true;await appendOrderHistory(env,{event:hitTP?"TP":"SL",group:"crypto",position:p,closePrice:px});await sendText(env,(hitTP?"✅ TAKE PROFIT":"❌ STOP LOSS")+"\n"+p.symbol+" "+sideText(p.side)+"\n"+(hitTP?"TP":"SL")+": "+px).catch(()=>{});}else keep.push(p);}catch{keep.push(p);}}b[key]=keep;}
+  for(const key of ["marketActive","limitActive"]){const keep=[];for(const p of b[key]){try{const q=await cryptoExecutionQuote(p.symbol),px=q.price,hitTP=p.side==="LONG"?px>=p.tp:px<=p.tp,hitSL=p.side==="LONG"?px<=p.sl:px>=p.sl;if(hitTP||hitSL){changed=true;await appendOrderHistory(env,{event:hitTP?"TP":"SL",group:"crypto",position:p,closePrice:px});await sendText(env,(hitTP?"✅ TAKE PROFIT":"❌ STOP LOSS")+"\n"+p.symbol+" "+sideText(p.side)+"\n"+(hitTP?"TP":"SL")+": "+px+"\nNguồn lệnh: "+orderSourceText(p.discoveredBy)).catch(()=>{});}else keep.push(p);}catch{keep.push(p);}}b[key]=keep;}
   if(changed)await saveBooks(env,books);
 }
+async function notifyNewCryptoOrders(run,env){for(const p of run?.newItems||[]){const pending=p.status==="PENDING",title=pending?"🟡 AUTO SCAN • LIMIT MỚI ĐANG CHỜ":"🟢 AUTO SCAN • MARKET MỚI ĐANG CHẠY";await sendText(env,title+"\n"+p.symbol+" "+sideText(p.side)+"\nEntry: "+p.entry+" • SL: "+p.sl+" • TP: "+p.tp+"\nNguồn: "+orderSourceText(p.discoveredBy)+"\nLệnh đã lưu vào LIVE ORDERS.").catch(()=>{});}}
+async function autoScanCrypto(env){const run=await runGroup("crypto",env,"AUTO_CRON");await notifyNewCryptoOrders(run,env);return run;}
 async function setupWebhook(req,env){const u=new URL(req.url),url=`${u.origin}/telegram/webhook`,payload={url,allowed_updates:["message","callback_query"]};if(env.TELEGRAM_WEBHOOK_SECRET)payload.secret_token=env.TELEGRAM_WEBHOOK_SECRET;return telegram(env,"setWebhook",payload);}
 function verifyTelegram(req,env){return !env.TELEGRAM_WEBHOOK_SECRET||req.headers.get("x-telegram-bot-api-secret-token")===env.TELEGRAM_WEBHOOK_SECRET;}
 async function handleTelegram(req,env){
@@ -686,14 +693,14 @@ async function handleTelegram(req,env){
   else if(cb==="symbols")await sendText(env,"🔎 Chọn thị trường để tìm từng symbol:",chatId,symbolMarketKeyboard());
   else if(cb?.startsWith("symmarket:")){const g=cb.split(":")[1];await sendText(env,"🔎 "+groupTitle(g)+" • chọn symbol",chatId,symbolPageKeyboard(g,0));}
   else if(cb?.startsWith("sympage:")){const [,g,p]=cb.split(":");await sendText(env,"🔎 "+groupTitle(g)+" • chọn symbol",chatId,symbolPageKeyboard(g,Number(p)));}
-  else if(cb?.startsWith("sym:")){const [,g,raw]=cb.split(":");let symbol=canonicalUserSymbol(raw);await sendText(env,"⏳ Quét MỚI "+symbol+"...",chatId);const a=await runSymbol(symbol,env);await sendText(env,singleAnalysisText(a),chatId,symbolPageKeyboard(g,Math.floor(Math.max(0,symbolListFor(g).indexOf(symbol))/12)));}
+  else if(cb?.startsWith("sym:")){const [,g,raw]=cb.split(":");let symbol=canonicalUserSymbol(raw);await sendText(env,"⏳ Quét MỚI "+symbol+"...",chatId);const a=await runSymbol(symbol,env),books=await getBooks(env),added=fillBooks(g,books,[a],"SYMBOL_MANUAL");if(added.length)await saveBooks(env,books);let msg=singleAnalysisText(a);if(added.length)msg+="\n\n✅ Đã ghi lệnh vào LIVE ORDERS • nguồn SYMBOL MANUAL";await sendText(env,msg,chatId,symbolPageKeyboard(g,Math.floor(Math.max(0,symbolListFor(g).indexOf(symbol))/12)));}
   else if(cb==="noop"){}
   else if(cb?.startsWith("scan:"))await sendGroup(cb.split(":")[1],env,chatId);
   else if(cb?.startsWith("news:")){
     const [,group,symbol]=cb.split(":");if(GROUPS[group]?.includes(norm(symbol))){
       await setNewsClearance(symbol,env);await sendText(env,`✅ Tin/context OK cho ${norm(symbol)} trong ${Math.round(CONFIG.newsClearanceTtlSec/60)} phút. Đang kiểm tra lại...`,chatId);
       const a=await runSymbol(symbol,env);
-      const books=await getBooks(env);fillBooks(group,books,[a]);await saveBooks(env,books);await sendText(env,summary(group,books,{requested:1,broadOk:1,deepRequested:1,deepOk:a.ok===false?0:1,newCount:["MARKET","LIMIT"].includes(a.status)?1:0,analyses:[a]}),chatId,groupKeyboard(group,books));
+      const books=await getBooks(env);fillBooks(group,books,[a],"NEWS_MANUAL");await saveBooks(env,books);await sendText(env,summary(group,books,{requested:1,broadOk:1,deepRequested:1,deepOk:a.ok===false?0:1,newCount:["MARKET","LIMIT"].includes(a.status)?1:0,analyses:[a]}),chatId,groupKeyboard(group,books));
     }
   }else {
     const cm=text.trim().match(/^\/(?:coin|analyze|forex|metal|future)\s+([A-Za-z0-9]+)$/i);
@@ -701,7 +708,7 @@ async function handleTelegram(req,env){
       let symbol=canonicalUserSymbol(cm[1]);if(!symbol.endsWith("USDT")&&CRYPTO_BASE.includes(symbol))symbol=symbol+"USDT";
       await sendText(env,`⏳ Đang phân tích ${symbol} theo profile riêng...`,chatId);
       const a=await runSymbol(symbol,env),type=marketType(symbol);
-      if(type!=="unknown"){const books=await getBooks(env);const added=fillBooks(type,books,[a]);if(added.length||a.status==="WATCH")await saveBooks(env,books);}
+      if(type!=="unknown"){const books=await getBooks(env);const added=fillBooks(type,books,[a],"COMMAND_MANUAL");if(added.length||a.status==="WATCH")await saveBooks(env,books);}
       await sendText(env,singleAnalysisText(a),chatId,baseKeyboard());
     }else if(cb==="books")await sendText(env,booksSummary(await getBooks(env)),chatId,baseKeyboard());
     else if(cb==="status"||text==="/status")await sendText(env,`⚙️ SYSTEM STATUS\nVersion: ${CONFIG.version}\nKV: ${env.TRADING_STATE?"ONLINE":"MISSING"}\nTwelve Data: ${env.TWELVE_DATA_API_KEY?"CONFIGURED":"MISSING"}\nMassive Futures: ${env.MASSIVE_API_KEY?"CONFIGURED":"MISSING"}\nTelegram: CONNECTED\nHub: ADAPTIVE + FRESH SCAN\nCrypto: 61 symbol\nForex: 28 pairs\nMetal: XAU/XAG\nFutures: NQ/MNQ/ES/MES\nMARKET/LIMIT EXEC chỉ khi execution authority thật; MARKET PLAN/LIMIT PLAN luôn tách rõ.\nNews gate: ${env.NEWS_GATE_URL?"EXTERNAL STRICT":"SOFT UNVERIFIED"}`,chatId,baseKeyboard());
@@ -715,9 +722,9 @@ export default {
     try{
       const u=new URL(req.url),p=u.pathname.replace(/\/$/,"")||"/";
       if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,massive:!!env.MASSIVE_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",future:"Massive Futures NQ/ES analysis; delayed/basic data remains analysis-only"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","future"]}});
-      if(p==="/run-now"){const g=u.searchParams.get("group");return json(await runGroup(g,env));}
+      if(p==="/run-now"){const g=u.searchParams.get("group");return json(await runGroup(g,env,"API_RUN_NOW"));}
       if(p==="/analyze"){const symbol=u.searchParams.get("symbol");return json(await runSymbol(symbol,env));}
-      if(p==="/hub")return json(await runHub(env));
+      if(p==="/hub")return json(await runHub(env,"API_HUB"));
       if(p==="/telegram/setup-webhook")return json(await setupWebhook(req,env));
       if(p==="/telegram/webhook-info")return json(await telegram(env,"getWebhookInfo",{}));
       if(p==="/telegram/menu"){await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nMỗi lần bấm = quét mới. Chọn HUB/thị trường hoặc 🔎 TỪNG SYMBOL.`,env.TELEGRAM_CHAT_ID,baseKeyboard());return json({ok:true});}
@@ -729,5 +736,5 @@ export default {
       return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|future","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NQ|MNQ|ES|MES","/knowledge?symbol=NQ","/telegram/menu","/books"]});
     }catch(e){console.error("HTTP",e);return json({ok:false,version:CONFIG.version,error:e?.message||String(e)},500);}
   },
-  async scheduled(_controller,env,ctx){ctx.waitUntil(lifecycle(env).catch(e=>console.error("CRON",e)));}
+  async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const minute=Math.floor(Number(_controller?.scheduledTime||Date.now())/60000);if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);})().catch(e=>console.error("CRON",e)));}
 };
