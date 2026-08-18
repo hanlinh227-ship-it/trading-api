@@ -1,0 +1,14 @@
+GENERATOR_EXIT=0
+Applied V77.15.1 canonical consolidation
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.15.1=YES
+deepNonCryptoCandidates: 3=YES
+forex"?40=YES
+unifiedTdHubBudgetMax: 50=YES
+planSignal=YES
+refinedLimitPlan=YES
+conditionalPlanFromRoute=YES
+runFutureGroup=YES
+symbolPageKeyboard=YES
+Twelve Data direct + 28-pair strength=YES

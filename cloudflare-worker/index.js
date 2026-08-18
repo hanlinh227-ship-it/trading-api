@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.14.3",
-  service: "Trading V77.14.3 Context-Parity Actionable Hub",
+  version: "V77.15.1",
+  service: "Trading V77.15.1 Consolidated Actionable Multi-Market Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -15,7 +15,7 @@ const CONFIG = {
   scanDeadlineMs: 42000,
   candleOutputSize: 120,
   maxCandidates: 3,
-  deepNonCryptoCandidates: 5,
+  deepNonCryptoCandidates: 3,
   deepShortlist: 12,
   cryptoDeepTarget: 5,
   cryptoDeepCooldownMs: 220,
@@ -30,6 +30,7 @@ const CONFIG = {
   maxExecutionCostR: 0.10,
   pendingLimitExpiryMinutes: 90,
   actionablePlanMaxAtr: 1.15,
+  unifiedTdHubBudgetMax: 50,
   runLockTtlSec: 55,
   newsClearanceTtlSec: 1800,
   keys: {
@@ -94,7 +95,7 @@ async function tdQuotaStatus(env){
   if(left===null&&r.status===429)left=0;if(left!==null)memory.tdCreditsLeft=left;
   return {left,status:r.status};
 }
-function tdPlannedCost(group){return group==="forex"?48:group==="metal"?10:0;}
+function tdPlannedCost(group){return group==="forex"?40:group==="metal"?10:0;}
 function tdRetryAfterSec(){return Math.max(3,62-(Math.floor(Date.now()/1000)%60));}
 async function ensureTdBudget(group,env){
   const required=tdPlannedCost(group);
