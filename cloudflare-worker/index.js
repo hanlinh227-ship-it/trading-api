@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.7",
-  service: "Trading V77.16.7 Durable Order Archive Hub",
+  version: "V77.16.8",
+  service: "Trading V77.16.8 Role Navigation Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -623,10 +623,13 @@ async function runSymbol(symbol,env){
 async function telegram(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const r=await fetchTimeout(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
 function telegramSafeText(text){const x=String(text??"");return x.length<=3900?x:x.slice(0,3860)+"\n… đã rút gọn";}
 async function sendText(env,text,chatId=env.TELEGRAM_CHAT_ID,reply_markup){return telegram(env,"sendMessage",{chat_id:chatId,text:telegramSafeText(text),reply_markup,disable_web_page_preview:true});}
-function baseKeyboard(){return {inline_keyboard:[[{text:"🧭 HUB TOP SETUPS",callback_data:"hub"}],[{text:"💱 FOREX",callback_data:"scan:forex"},{text:"🪙 CRYPTO",callback_data:"scan:crypto"}],[{text:"🥇 METAL",callback_data:"scan:metal"},{text:"📈 FUTURES",callback_data:"scan:future"}],[{text:"🔎 TỪNG SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"books"}]]};}
-function symbolMarketKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"symmarket:forex"},{text:"🪙 Crypto",callback_data:"symmarket:crypto"}],[{text:"🥇 Metal",callback_data:"symmarket:metal"},{text:"📈 Futures",callback_data:"symmarket:future"}],[{text:"⬅️ HUB",callback_data:"hub"}]]};}
+function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"👤 CÁ NHÂN",callback_data:"personal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"books"}]]};}
+function signalKeyboard(){return {inline_keyboard:[[{text:"🧭 QUÉT TẤT CẢ / TOP SETUPS",callback_data:"hub"}],[{text:"💱 FOREX",callback_data:"scan:forex"},{text:"🪙 CRYPTO",callback_data:"scan:crypto"}],[{text:"🥇 METAL",callback_data:"scan:metal"},{text:"📈 FUTURES",callback_data:"scan:future"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
+function propKeyboard(){return {inline_keyboard:[[{text:"🟣 HYROTRADER",callback_data:"prop:hyro"},{text:"🔵 BREAKOUT",callback_data:"prop:breakout"}],[{text:"📚 LỆNH PROP",callback_data:"prop:orders"},{text:"🛡️ RISK PROP",callback_data:"prop:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
+function personalKeyboard(){return {inline_keyboard:[[{text:"🖥️ MT5 CÁ NHÂN",callback_data:"personal:mt5"}],[{text:"📚 LỆNH CÁ NHÂN",callback_data:"personal:orders"},{text:"🛡️ RISK CÁ NHÂN",callback_data:"personal:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
+function symbolMarketKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"symmarket:forex"},{text:"🪙 Crypto",callback_data:"symmarket:crypto"}],[{text:"🥇 Metal",callback_data:"symmarket:metal"},{text:"📈 Futures",callback_data:"symmarket:future"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
 function symbolListFor(group){return group==="future"?FUTURE_SYMBOLS:(GROUPS[group]||[]);}
-function symbolPageKeyboard(group,page=0){const all=symbolListFor(group),size=12,pages=Math.max(1,Math.ceil(all.length/size)),p=Math.max(0,Math.min(pages-1,Number(page)||0)),slice=all.slice(p*size,p*size+size),rows=[];for(let i=0;i<slice.length;i+=2)rows.push(slice.slice(i,i+2).map(sym=>({text:sym,callback_data:"sym:"+group+":"+sym})));const nav=[];if(p>0)nav.push({text:"⬅️",callback_data:"sympage:"+group+":"+(p-1)});nav.push({text:(p+1)+"/"+pages,callback_data:"noop"});if(p<pages-1)nav.push({text:"➡️",callback_data:"sympage:"+group+":"+(p+1)});rows.push(nav);rows.push([{text:"↩️ Chọn thị trường",callback_data:"symbols"},{text:"🧭 HUB",callback_data:"hub"}]);return {inline_keyboard:rows};}
+function symbolPageKeyboard(group,page=0){const all=symbolListFor(group),size=12,pages=Math.max(1,Math.ceil(all.length/size)),p=Math.max(0,Math.min(pages-1,Number(page)||0)),slice=all.slice(p*size,p*size+size),rows=[];for(let i=0;i<slice.length;i+=2)rows.push(slice.slice(i,i+2).map(sym=>({text:sym,callback_data:"sym:"+group+":"+sym})));const nav=[];if(p>0)nav.push({text:"⬅️",callback_data:"sympage:"+group+":"+(p-1)});nav.push({text:(p+1)+"/"+pages,callback_data:"noop"});if(p<pages-1)nav.push({text:"➡️",callback_data:"sympage:"+group+":"+(p+1)});rows.push(nav);rows.push([{text:"↩️ Chọn thị trường",callback_data:"symbols"},{text:"📡 SIGNAL",callback_data:"signal"}]);return {inline_keyboard:rows};}
 function groupKeyboard(group,run){const rows=baseKeyboard().inline_keyboard,pending=freshWatchFromRun(run).filter(w=>w.reason==="NEWS_CONTEXT_REQUIRED").slice(0,3);if(pending.length)rows.unshift(pending.map(w=>({text:"✅ Tin OK "+w.symbol,callback_data:"news:"+group+":"+w.symbol})));return {inline_keyboard:rows};}
 function hubKeyboard(h){const rows=baseKeyboard().inline_keyboard,p=[];for(const [g,r] of Object.entries(h?.runs||{}))for(const w of freshWatchFromRun(r))if(w.reason==="NEWS_CONTEXT_REQUIRED"&&p.length<3)p.push({text:"✅ Tin OK "+w.symbol,callback_data:"news:"+g+":"+w.symbol});if(p.length)rows.unshift(p);return {inline_keyboard:rows};}
 function groupTitle(g){return g==="forex"?"💱 FOREX":g==="crypto"?"🪙 CRYPTO":g==="future"?"📈 FUTURES":"🥇 METAL";}
@@ -692,7 +695,15 @@ async function handleTelegram(req,env){
   if(!verifyTelegram(req,env))return json({ok:false,error:"invalid telegram secret"},403);
   const u=await req.json(),chatId=u?.callback_query?.message?.chat?.id??u?.message?.chat?.id??env.TELEGRAM_CHAT_ID,cb=u?.callback_query?.data,text=String(u?.message?.text||"");
   if(u?.callback_query?.id)telegram(env,"answerCallbackQuery",{callback_query_id:u.callback_query.id}).catch(()=>{});
-  if(cb==="hub"||text==="/hub")await sendHub(env,chatId);
+  if(cb==="menu"||text==="/start"||text==="/menu")await sendText(env,"🏠 TRADING HUB\n\nChọn khu vực:",chatId,baseKeyboard());
+  else if(cb==="signal")await sendText(env,"📡 SIGNAL\n\nMỗi lần bấm quét sẽ lấy dữ liệu thị trường mới. Chọn toàn thị trường hoặc từng thị trường:",chatId,signalKeyboard());
+  else if(cb==="prop")await sendText(env,"🏦 PROP\n\nTheo dõi các tài khoản quỹ được tích hợp. Kết nối execution sẽ được bật riêng cho từng quỹ sau khi xác nhận API/rule.",chatId,propKeyboard());
+  else if(cb==="prop:hyro")await sendText(env,"🟣 HYROTRADER\n\nTrạng thái: CHƯA KẾT NỐI TÀI KHOẢN/API.\nSignal engine vẫn hoạt động độc lập; chưa tự gửi lệnh vào quỹ.",chatId,propKeyboard());
+  else if(cb==="prop:breakout")await sendText(env,"🔵 BREAKOUT\n\nTrạng thái: CHƯA KẾT NỐI TÀI KHOẢN/API.\nChưa bật auto-execution cho tới khi quyền bot/API được xác nhận.",chatId,propKeyboard());
+  else if(cb==="prop:orders"||cb==="prop:risk")await sendText(env,"🏦 PROP\n\nChưa có tài khoản prop được kết nối nên chưa có position/risk telemetry riêng.",chatId,propKeyboard());
+  else if(cb==="personal")await sendText(env,"👤 CÁ NHÂN\n\nTheo dõi tài khoản cá nhân đã tích hợp. MT5 Bridge sẽ cung cấp equity, positions, broker bid/ask và execution khi được kết nối.",chatId,personalKeyboard());
+  else if(cb?.startsWith("personal:"))await sendText(env,"👤 MT5 CÁ NHÂN\n\nTrạng thái: CHƯA KẾT NỐI MT5 BRIDGE.\nKhi kết nối, khu vực này sẽ hiển thị Equity • Daily P/L • Live Positions • Pending • Risk.",chatId,personalKeyboard());
+  else if(cb==="hub"||text==="/hub")await sendHub(env,chatId);
   else if(cb==="symbols")await sendText(env,"🔎 Chọn thị trường để tìm từng symbol:",chatId,symbolMarketKeyboard());
   else if(cb?.startsWith("symmarket:")){const g=cb.split(":")[1];await sendText(env,"🔎 "+groupTitle(g)+" • chọn symbol",chatId,symbolPageKeyboard(g,0));}
   else if(cb?.startsWith("sympage:")){const [,g,p]=cb.split(":");await sendText(env,"🔎 "+groupTitle(g)+" • chọn symbol",chatId,symbolPageKeyboard(g,Number(p)));}
