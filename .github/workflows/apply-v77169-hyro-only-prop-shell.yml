@@ -1,39 +1,87 @@
 name: Apply V77.16.9 Hyro-Only Prop Shell
+
 on:
   push:
-    branches: [main]
-    paths:
-      - 'scripts/apply_v77169_hyro_only_prop_shell.js'
-      - '.github/workflows/apply-v77169-hyro-only-prop-shell.yml'
+    branches:
+      - main
   workflow_dispatch:
+
 permissions:
   contents: write
+
+concurrency:
+  group: v77169-hyro-only-prop-shell
+  cancel-in-progress: false
+
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - name: Apply migration
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply migration and validate source
         shell: bash
         run: |
           set +e
           : > V77169_DIAGNOSTIC.txt
-          node scripts/apply_v77169_hyro_only_prop_shell.js >> V77169_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77169_DIAGNOSTIC.txt
-          node --check cloudflare-worker/index.js >> V77169_DIAGNOSTIC.txt 2>&1; echo "SYNTAX_EXIT=$?" >> V77169_DIAGNOSTIC.txt
-          grep -q 'version: "V77.16.9"' cloudflare-worker/index.js; echo "VERSION_OK=$?" >> V77169_DIAGNOSTIC.txt
-          grep -q 'HYROTRADER • TỔNG QUAN' cloudflare-worker/index.js; echo "HYRO_OVERVIEW_OK=$?" >> V77169_DIAGNOSTIC.txt
-          grep -q 'KẾT NỐI HYRO' cloudflare-worker/index.js; echo "HYRO_CONNECT_OK=$?" >> V77169_DIAGNOSTIC.txt
-          if grep -q 'BREAKOUT' cloudflare-worker/index.js; then echo "BREAKOUT_REMOVED=1" >> V77169_DIAGNOSTIC.txt; else echo "BREAKOUT_REMOVED=0" >> V77169_DIAGNOSTIC.txt; fi
-      - name: Commit promotion
+          echo "RUN_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> V77169_DIAGNOSTIC.txt
+          echo "HEAD_SHA=$(git rev-parse HEAD)" >> V77169_DIAGNOSTIC.txt
+
+          if grep -q 'version: "V77.16.9"' cloudflare-worker/index.js; then
+            echo "ALREADY_V77169=YES" >> V77169_DIAGNOSTIC.txt
+            MIGRATION_EXIT=0
+          else
+            node scripts/apply_v77169_hyro_only_prop_shell.js >> V77169_DIAGNOSTIC.txt 2>&1
+            MIGRATION_EXIT=$?
+          fi
+          echo "MIGRATION_EXIT=$MIGRATION_EXIT" >> V77169_DIAGNOSTIC.txt
+
+          node --check cloudflare-worker/index.js >> V77169_DIAGNOSTIC.txt 2>&1
+          echo "SYNTAX_EXIT=$?" >> V77169_DIAGNOSTIC.txt
+
+          grep -q 'version: "V77.16.9"' cloudflare-worker/index.js
+          echo "VERSION_OK=$?" >> V77169_DIAGNOSTIC.txt
+          grep -q 'HYROTRADER • TỔNG QUAN' cloudflare-worker/index.js
+          echo "HYRO_OVERVIEW_OK=$?" >> V77169_DIAGNOSTIC.txt
+          grep -q 'KẾT NỐI HYRO' cloudflare-worker/index.js
+          echo "HYRO_CONNECT_OK=$?" >> V77169_DIAGNOSTIC.txt
+
+          if grep -q 'BREAKOUT' cloudflare-worker/index.js; then
+            echo "BREAKOUT_REMOVED=1" >> V77169_DIAGNOSTIC.txt
+          else
+            echo "BREAKOUT_REMOVED=0" >> V77169_DIAGNOSTIC.txt
+          fi
+
+          cat V77169_DIAGNOSTIC.txt
+
+          if ! grep -q 'MIGRATION_EXIT=0' V77169_DIAGNOSTIC.txt || \
+             ! grep -q 'SYNTAX_EXIT=0' V77169_DIAGNOSTIC.txt || \
+             ! grep -q 'VERSION_OK=0' V77169_DIAGNOSTIC.txt || \
+             ! grep -q 'HYRO_OVERVIEW_OK=0' V77169_DIAGNOSTIC.txt || \
+             ! grep -q 'HYRO_CONNECT_OK=0' V77169_DIAGNOSTIC.txt || \
+             ! grep -q 'BREAKOUT_REMOVED=0' V77169_DIAGNOSTIC.txt; then
+            exit 1
+          fi
+
+      - name: Commit canonical promotion
         shell: bash
         run: |
-          if ! grep -q 'MIGRATION_EXIT=0' V77169_DIAGNOSTIC.txt || ! grep -q 'SYNTAX_EXIT=0' V77169_DIAGNOSTIC.txt || ! grep -q 'BREAKOUT_REMOVED=0' V77169_DIAGNOSTIC.txt; then cat V77169_DIAGNOSTIC.txt; exit 1; fi
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
           git add cloudflare-worker/index.js V77169_DIAGNOSTIC.txt
-          git commit -m 'Promote V77.16.9 Hyro-only prop shell' || exit 0
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+            exit 0
+          fi
+          git commit -m 'Promote V77.16.9 Hyro-only prop shell'
+          git pull --rebase origin main
           git push origin main
-# retrigger
