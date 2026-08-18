@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.9.2",
-  service: "Trading V77.9.2 Adaptive Symbol Intelligence Hub",
+  version: "V77.9.3",
+  service: "Trading V77.9.3 Adaptive Symbol Intelligence Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -29,6 +29,7 @@ const CONFIG = {
     lastRun: "v775:last_run",
     runLock: "v775:run_lock",
     newsPrefix: "v779:news_clear:",
+    cryptoBroadCache: "v779:crypto_broad_cache",
   },
 };
 
@@ -311,24 +312,24 @@ async function quotePool(symbols,fn,concurrency=6){
   async function worker(){while(state.i<list.length){const idx=state.i++,sym=list[idx];try{const q=await fn(sym);if(q?.price&&q.fresh!==false)out.set(sym,q);}catch{}await new Promise(r=>setTimeout(r,35));}}
   await Promise.all(Array.from({length:Math.min(concurrency,list.length||1)},()=>worker()));return out;
 }
-async function cryptoBroadMap(symbols){
+async function loadCryptoBroadCache(env,maxAgeMs=120000){
+  const out=new Map();try{const p=await env.TRADING_STATE?.get(CONFIG.keys.cryptoBroadCache,"json");for(const row of p?.rows||[]){if(!row?.symbol||!row?.quote||!Number.isFinite(Number(row.cachedAt)))continue;if(Date.now()-Number(row.cachedAt)>maxAgeMs)continue;out.set(norm(row.symbol),{...row.quote,broadCached:true,broadCachedAt:Number(row.cachedAt)});}}catch{}return out;
+}
+async function saveCryptoBroadCache(env,map){
+  try{const rows=[];for(const [symbol,quote] of map){if(!CRYPTO.includes(norm(symbol))||!quote?.price)continue;rows.push({symbol:norm(symbol),quote,cachedAt:Number(quote.broadCachedAt)||Date.now()});}await env.TRADING_STATE?.put(CONFIG.keys.cryptoBroadCache,JSON.stringify({savedAt:Date.now(),rows}),{expirationTtl:300});}catch{}
+}
+async function cryptoBroadMap(symbols,env){
   let map=await cryptoBulk().catch(()=>new Map());
-  if(map.size>=Math.min(45,symbols.length))return map;
   const providers=[bybitQuote,okxQuote,binanceQuote];
-  for(let pass=0;pass<2&&map.size<Math.min(55,symbols.length);pass++){
-    if(pass>0)await new Promise(r=>setTimeout(r,900));
-    for(const fn of providers){
-      const missing=symbols.filter(x=>!map.has(x));if(!missing.length)break;
-      let alive=false;try{const q=await fn('BTCUSDT');alive=!!q?.price;if(alive)map.set('BTCUSDT',q);}catch{}
-      if(!alive)continue;
-      const exact=await quotePool(missing,fn,pass===0?4:3);for(const [k,v] of exact)map.set(k,v);
-      if(map.size>=Math.min(55,symbols.length))break;
-      await new Promise(r=>setTimeout(r,220));
+  if(map.size<Math.min(55,symbols.length)){
+    for(let pass=0;pass<2&&map.size<Math.min(55,symbols.length);pass++){
+      if(pass>0)await new Promise(r=>setTimeout(r,850));
+      for(const fn of providers){const missing=symbols.filter(x=>!map.has(x));if(!missing.length)break;let alive=false;try{const q=await fn('BTCUSDT');alive=!!q?.price;if(alive)map.set('BTCUSDT',q);}catch{}if(!alive)continue;const exact=await quotePool(missing,fn,pass===0?4:3);for(const [k,v] of exact)map.set(k,v);if(map.size>=Math.min(55,symbols.length))break;await new Promise(r=>setTimeout(r,180));}
     }
   }
-  memory.cryptoBulk=map;memory.cryptoBulkAt=Date.now();
-  if(map.size)await new Promise(r=>setTimeout(r,650));
-  return map;
+  for(const [k,q] of map)if(!q.broadCachedAt)map.set(k,{...q,broadCachedAt:Date.now()});
+  const cached=await loadCryptoBroadCache(env);for(const [k,q] of cached)if(!map.has(k))map.set(k,q);
+  memory.cryptoBulk=map;memory.cryptoBulkAt=Date.now();await saveCryptoBroadCache(env,map);if(map.size)await new Promise(r=>setTimeout(r,600));return map;
 }
 function changeFromCandles(c){if(!Array.isArray(c)||c.length<2)return 0;const a=c.at(-2)?.close,b=c.at(-1)?.close;return a?((b-a)/a)*100:0;}
 function forexStrengthMap(h1Map){const sum={},cnt={};for(const [sym,c] of h1Map.entries()){if(!Array.isArray(c)||c.length<2)continue;const ch=changeFromCandles(c),base=sym.slice(0,3),quote=sym.slice(3);sum[base]=(sum[base]||0)+ch;cnt[base]=(cnt[base]||0)+1;sum[quote]=(sum[quote]||0)-ch;cnt[quote]=(cnt[quote]||0)+1;}const out={};for(const k of Object.keys(sum))out[k]=sum[k]/Math.max(1,cnt[k]);return out;}
@@ -336,7 +337,7 @@ async function cryptoDerivativesContext(symbol){try{const p=await bybit("/v5/mar
 function broadRank(q){if(!q?.price)return 0;let x=0;if(q.open)x+=Math.abs((q.price-q.open)/q.open)*100;if(Number.isFinite(q.percentChange))x+=Math.abs(q.percentChange);return x;}
 async function broadScan(group,env){
   const symbols=GROUPS[group],rows=[],errors=[];
-  if(group==="crypto"){const bulk=await cryptoBroadMap(symbols),btc=bulk.get("BTCUSDT")?.percentChange??0;for(const sym of symbols){const q=bulk.get(sym);if(q?.price){const rel=(q.percentChange??0)-btc;rows.push({symbol:sym,quote:q,strength:broadRank(q),context:{relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel))}});}else errors.push({symbol:sym,reason:"EXACT_SPOT_UNAVAILABLE"});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map:null};}
+  if(group==="crypto"){const bulk=await cryptoBroadMap(symbols,env),btc=bulk.get("BTCUSDT")?.percentChange??0;for(const sym of symbols){const q=bulk.get(sym);if(q?.price){const rel=(q.percentChange??0)-btc;rows.push({symbol:sym,quote:q,strength:broadRank(q),context:{relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel))}});}else errors.push({symbol:sym,reason:"EXACT_SPOT_UNAVAILABLE"});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map:null};}
   let h1Map=new Map();try{h1Map=await tdBatchCandles(symbols,"1h",env,60);}catch(e){return {requested:symbols.length,rows,errors:symbols.map(symbol=>({symbol,reason:"H1_BATCH_UNAVAILABLE",error:e?.message||String(e)})),h1Map};}const fx=group==="forex"?forexStrengthMap(h1Map):{};let metalMoves={};if(group==="metal")for(const sym of symbols)metalMoves[sym]=changeFromCandles(h1Map.get(sym)||[]);
   for(const sym of symbols){const T=tf(h1Map.get(sym)||[]);if(!T.ready){errors.push({symbol:sym,reason:"H1_UNAVAILABLE"});continue;}let context={score:5};if(group==="forex"){const base=sym.slice(0,3),quote=sym.slice(3),d=(fx[base]||0)-(fx[quote]||0);context={baseStrength:fx[base]||0,quoteStrength:fx[quote]||0,strengthDiff:d,score:Math.min(10,5+Math.abs(d)*4)};}else{const other=sym==="XAUUSD"?"XAGUSD":"XAUUSD",rel=(metalMoves[sym]||0)-(metalMoves[other]||0);context={relativeStrength:rel,benchmark:other,score:Math.min(10,5+Math.abs(rel)*3)};}rows.push({symbol:sym,quote:{source:"Twelve Data H1",price:T.close,fresh:true},strength:Math.abs((T.close-(T.ema20??T.close))/(T.atr14||1)),context});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map};
 }
