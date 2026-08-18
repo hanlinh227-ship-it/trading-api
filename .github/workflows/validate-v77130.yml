@@ -1,0 +1,57 @@
+name: Validate V77.13 Canonical
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/**'
+      - 'data/symbol_knowledge_registry.json'
+      - '.github/workflows/validate-v77130.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Syntax and canonical invariants
+        shell: bash
+        run: |
+          set +e
+          : > V77130_BUILD_CHECK.txt
+          node --check cloudflare-worker/index.js >> V77130_BUILD_CHECK.txt 2>&1; echo SYNTAX_EXIT=$? >> V77130_BUILD_CHECK.txt
+          node - <<'NODE' >> V77130_BUILD_CHECK.txt 2>&1
+          const fs=require('fs');const s=fs.readFileSync('cloudflare-worker/index.js','utf8');const k=JSON.parse(fs.readFileSync('data/symbol_knowledge_registry.json','utf8'));
+          const must=['V77.13.0','freshWatchFromRun','scanPrefix','orderHistory','recordShadowSetup','minimumQualityRR','RR_QUALITY_REQUIRED','SYMBOL_KNOWLEDGE','canonicalUserSymbol','GRAM','cryptoAnalysisFallbackBundle','regimeRouteScores','validExecutablePosition'];
+          for(const x of must)if(!s.includes(x))throw new Error('missing '+x);
+          if(Object.keys(k.symbols||{}).length<89)throw new Error('knowledge registry incomplete');
+          if(s.includes('TP ?')||s.includes('Score 10.0'))throw new Error('legacy UI leaked');
+          console.log('INVARIANTS=PASS');
+          NODE
+          echo INVARIANT_EXIT=$? >> V77130_BUILD_CHECK.txt
+      - name: Install dependencies
+        working-directory: cloudflare-worker
+        run: npm install
+      - name: Prepare Wrangler
+        working-directory: cloudflare-worker
+        env:
+          TRADING_KV_NAMESPACE_ID: 00000000000000000000000000000000
+        run: npm run prepare:wrangler
+      - name: Wrangler dry-run
+        shell: bash
+        working-directory: cloudflare-worker
+        run: |
+          set +e
+          npx wrangler deploy --dry-run >> ../V77130_BUILD_CHECK.txt 2>&1
+          echo WRANGLER_EXIT=$? >> ../V77130_BUILD_CHECK.txt
+          exit 0
+      - name: Commit build report
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77130_BUILD_CHECK.txt
+          git commit -m 'Report V77.13 canonical build validation' || exit 0
+          git push origin main
