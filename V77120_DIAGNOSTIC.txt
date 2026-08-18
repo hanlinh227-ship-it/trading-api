@@ -1,36 +1,21 @@
-/home/runner/work/trading-api/trading-api/scripts/apply_v77120_fresh_scan_persistent_orders.js:53
-  const b=books[group],watch=freshWatchFromRun(run),L=[groupTitle(group),run?.scannedAt?`🕒 Quét mới: ${run.scannedAt}`:"",`🟢 MARKET ĐANG CHẠY ${b.marketActive.length}/${CONFIG.maxMarketActive}`];
-                                                                                         ^
+GENERATOR_EXIT=0
+Applied V77.12.0 fresh-scan persistent-order architecture
+MIGRATION_EXIT=0
+/home/runner/work/trading-api/trading-api/cloudflare-worker/index.js:464
+async function acquireLock(async function acquireLock(env){const k=CONFIG.keys.runLock;try{const old=await env.TRADING_STATE.get(k);if(old&&Date.now()-Number(old)<CONFIG.runLockTtlSec*1000)return false;await env.TRADING_STATE.put(k,String(Date.now()),{expirationTtl:CONFIG.runLockTtlSec});return true;}catch{return true;}}
+                                 ^^^^^^^^
 
-SyntaxError: Invalid or unexpected token
-    at wrapSafe (node:internal/modules/cjs/loader:1713:18)
-    at checkSyntax (node:internal/main/check_syntax:78:3)
-
-Node.js v22.23.2
-GENERATOR_EXIT=1
-/home/runner/work/trading-api/trading-api/scripts/apply_v77120_fresh_scan_persistent_orders.js:53
-  const b=books[group],watch=freshWatchFromRun(run),L=[groupTitle(group),run?.scannedAt?`🕒 Quét mới: ${run.scannedAt}`:"",`🟢 MARKET ĐANG CHẠY ${b.marketActive.length}/${CONFIG.maxMarketActive}`];
-                                                                                         ^
-
-SyntaxError: Invalid or unexpected token
-    at wrapSafe (node:internal/modules/cjs/loader:1713:18)
-    at Module._compile (node:internal/modules/cjs/loader:1755:20)
-    at Object..js (node:internal/modules/cjs/loader:1913:10)
-    at Module.load (node:internal/modules/cjs/loader:1505:32)
-    at Function._load (node:internal/modules/cjs/loader:1309:12)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
-    at node:internal/main/run_main_module:36:49
+SyntaxError: Unexpected token 'function'
+    at checkSyntax (node:internal/main/check_syntax:74:5)
 
 Node.js v22.23.2
-MIGRATION_EXIT=1
-WORKER_SYNTAX_EXIT=0
-V77.12.0=NO
-scanPrefix=NO
-orderHistory=NO
-freshWatchFromRun=NO
-saveScanSnapshot=NO
-TOP SETUPS CỦA LẦN QUÉT NÀY=NO
-LIVE ORDERS — LƯU BỀN QUA UPDATE BOT=NO
-/latest-scan=NO
-appendOrderHistory=NO
+WORKER_SYNTAX_EXIT=1
+V77.12.0=YES
+scanPrefix=YES
+orderHistory=YES
+freshWatchFromRun=YES
+saveScanSnapshot=YES
+TOP SETUPS CỦA LẦN QUÉT NÀY=YES
+LIVE ORDERS — LƯU BỀN QUA UPDATE BOT=YES
+/latest-scan=YES
+appendOrderHistory=YES
