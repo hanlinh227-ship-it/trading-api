@@ -1,5 +1,5 @@
 const API_URL="https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL="claude-sonnet-4-20250514";
+const DEFAULT_MODEL="claude-sonnet-5";
 const STATE_KEY="v771820:claude:last";
 const BUDGET_KEY="v771820:claude:budget";
 const RELEASE_KEY="v771820:claude:release";
@@ -59,7 +59,7 @@ async function saveBudget(env,b,usage={}){const next={...b,day:dayKey(),count:nu
 async function callClaude(env,{version,kind,github,health}){
   if(!env.ANTHROPIC_API_KEY)throw new Error("ANTHROPIC_API_KEY missing");
   const model=String(env.ANTHROPIC_REVIEW_MODEL||DEFAULT_MODEL),maxTokens=Math.max(400,Math.min(2000,num(env.ANTHROPIC_REVIEW_MAX_TOKENS,1200))),p=reviewerPrompt({version,kind,github,health});
-  const r=await fetch(API_URL,{method:"POST",headers:{"content-type":"application/json","x-api-key":env.ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"},body:JSON.stringify({model,max_tokens:maxTokens,temperature:0,system:p.system,messages:[{role:"user",content:p.user}]})});
+  const r=await fetch(API_URL,{method:"POST",headers:{"content-type":"application/json","x-api-key":env.ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"},body:JSON.stringify({model,max_tokens:maxTokens,system:p.system,messages:[{role:"user",content:p.user}]})});
   const body=await r.json().catch(()=>null);if(!r.ok)throw new Error(`Anthropic ${r.status}: ${body?.error?.message||"request failed"}`);
   const text=(body?.content||[]).filter(x=>x?.type==="text").map(x=>x.text).join("\n");return {model,id:body?.id||null,stopReason:body?.stop_reason||null,usage:body?.usage||{},review:normalizeReview(parseClaudeJson(text))};
 }
