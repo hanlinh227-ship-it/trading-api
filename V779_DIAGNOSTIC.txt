@@ -1,25 +1,12 @@
-HEAD=c2a6fefb9736d85cc8f22a4fde8969260c8f5d0a
-/home/runner/work/trading-api/trading-api/scripts/apply_v7790_adaptive_symbol_hub.js:112
-function posLine(p){return `${p.symbol} ${sideText(p.side)} • E ${fmtPx(p.entry)} • SL ${fmtPx(p.sl)} • TP ${fmtPx(p.tp)}`;}
-                            ^
-
-SyntaxError: Unexpected identifier '$'
-    at wrapSafe (node:internal/modules/cjs/loader:1713:18)
-    at Module._compile (node:internal/modules/cjs/loader:1755:20)
-    at Object..js (node:internal/modules/cjs/loader:1913:10)
-    at Module.load (node:internal/modules/cjs/loader:1505:32)
-    at Function._load (node:internal/modules/cjs/loader:1309:12)
-    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
-    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
-    at node:internal/main/run_main_module:36:49
-
-Node.js v22.23.2
-MIGRATION_EXIT=1
+HEAD=11f55d009aa7d213579633af0c71279605904560
+GENERATOR_SYNTAX_EXIT=0
+Applied V77.9.0 Adaptive Symbol Intelligence Hub
+MIGRATION_EXIT=0
 SYNTAX_EXIT=0
-V77.8.0
-methodAssessment=NO
-setupScore=NO
-forexStrengthMap=NO
-cryptoDerivativesContext=NO
-STRUCTURE_LIQUIDITY=NO
-validExecutablePosition=NO
+V77.9.0
+methodAssessment=YES
+setupScore=YES
+forexStrengthMap=YES
+cryptoDerivativesContext=YES
+STRUCTURE_LIQUIDITY=YES
+validExecutablePosition=YES
