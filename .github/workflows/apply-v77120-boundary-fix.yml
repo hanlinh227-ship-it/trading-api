@@ -1,0 +1,53 @@
+name: Apply V77.12 Boundary Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-v77120-boundary-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Fix migration boundaries
+        shell: bash
+        run: |
+          python - <<'PY'
+          p='scripts/apply_v77120_fresh_scan_persistent_orders.js'
+          s=open(p,encoding='utf-8').read()
+          s=s.replace("replaceRange('function emptyGroup(){','async function acquireLock(',stateBlock+'async function acquireLock(','persistent order state');","replaceRange('function emptyGroup(){','async function acquireLock(',stateBlock,'persistent order state');")
+          s=s.replace("replaceRange('function groupKeyboard(','function groupTitle(',keyboardBlock+'function groupTitle(','fresh keyboards');","replaceRange('function groupKeyboard(','function groupTitle(',keyboardBlock,'fresh keyboards');")
+          s=s.replace("replaceRange('function summary(group,books,run=null){','async function lifecycle(env){',uiBlock+'async function lifecycle(env){','fresh UI');","replaceRange('function summary(group,books,run=null){','async function lifecycle(env){',uiBlock,'fresh UI');")
+          open(p,'w',encoding='utf-8').write(s)
+          PY
+      - name: Apply and verify
+        shell: bash
+        run: |
+          set +e
+          : > V77120_DIAGNOSTIC.txt
+          node --check scripts/apply_v77120_fresh_scan_persistent_orders.js >> V77120_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77120_DIAGNOSTIC.txt
+          node scripts/apply_v77120_fresh_scan_persistent_orders.js >> V77120_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77120_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77120_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77120_DIAGNOSTIC.txt
+          for t in 'V77.12.0' scanPrefix orderHistory freshWatchFromRun saveScanSnapshot 'TOP SETUPS CỦA LẦN QUÉT NÀY' 'LIVE ORDERS — LƯU BỀN QUA UPDATE BOT' '/latest-scan' appendOrderHistory; do
+            if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77120_DIAGNOSTIC.txt; else echo "$t=NO" >> V77120_DIAGNOSTIC.txt; fi
+          done
+          if grep -q 'async function acquireLock(async function' cloudflare-worker/index.js || grep -q 'function groupTitle(function' cloudflare-worker/index.js || grep -q 'async function lifecycle(env){async function' cloudflare-worker/index.js; then echo 'MARKER_DUPLICATION=YES' >> V77120_DIAGNOSTIC.txt; else echo 'MARKER_DUPLICATION=NO' >> V77120_DIAGNOSTIC.txt; fi
+          exit 0
+      - name: Commit on pass
+        shell: bash
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77120_DIAGNOSTIC.txt scripts/apply_v77120_fresh_scan_persistent_orders.js
+          if grep -q 'GENERATOR_EXIT=0' V77120_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77120_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77120_DIAGNOSTIC.txt && grep -q 'MARKER_DUPLICATION=NO' V77120_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote corrected V77.12 fresh scan persistent orders' || exit 0
+          git push origin main
