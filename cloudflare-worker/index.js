@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.9.1",
-  service: "Trading V77.9.1 Adaptive Symbol Intelligence Hub",
+  version: "V77.9.2",
+  service: "Trading V77.9.2 Adaptive Symbol Intelligence Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -313,16 +313,22 @@ async function quotePool(symbols,fn,concurrency=6){
 }
 async function cryptoBroadMap(symbols){
   let map=await cryptoBulk().catch(()=>new Map());
-  if(map.size>=Math.min(20,symbols.length))return map;
+  if(map.size>=Math.min(45,symbols.length))return map;
   const providers=[bybitQuote,okxQuote,binanceQuote];
-  for(const fn of providers){
-    const missing=symbols.filter(x=>!map.has(x));if(!missing.length)break;
-    let alive=false;try{const q=await fn('BTCUSDT');alive=!!q?.price;if(alive)map.set('BTCUSDT',q);}catch{}
-    if(!alive)continue;
-    const exact=await quotePool(missing,fn,6);for(const [k,v] of exact)map.set(k,v);
-    if(map.size>=symbols.length)break;
+  for(let pass=0;pass<2&&map.size<Math.min(55,symbols.length);pass++){
+    if(pass>0)await new Promise(r=>setTimeout(r,900));
+    for(const fn of providers){
+      const missing=symbols.filter(x=>!map.has(x));if(!missing.length)break;
+      let alive=false;try{const q=await fn('BTCUSDT');alive=!!q?.price;if(alive)map.set('BTCUSDT',q);}catch{}
+      if(!alive)continue;
+      const exact=await quotePool(missing,fn,pass===0?4:3);for(const [k,v] of exact)map.set(k,v);
+      if(map.size>=Math.min(55,symbols.length))break;
+      await new Promise(r=>setTimeout(r,220));
+    }
   }
-  memory.cryptoBulk=map;memory.cryptoBulkAt=Date.now();return map;
+  memory.cryptoBulk=map;memory.cryptoBulkAt=Date.now();
+  if(map.size)await new Promise(r=>setTimeout(r,650));
+  return map;
 }
 function changeFromCandles(c){if(!Array.isArray(c)||c.length<2)return 0;const a=c.at(-2)?.close,b=c.at(-1)?.close;return a?((b-a)/a)*100:0;}
 function forexStrengthMap(h1Map){const sum={},cnt={};for(const [sym,c] of h1Map.entries()){if(!Array.isArray(c)||c.length<2)continue;const ch=changeFromCandles(c),base=sym.slice(0,3),quote=sym.slice(3);sum[base]=(sum[base]||0)+ch;cnt[base]=(cnt[base]||0)+1;sum[quote]=(sum[quote]||0)-ch;cnt[quote]=(cnt[quote]||0)+1;}const out={};for(const k of Object.keys(sum))out[k]=sum[k]/Math.max(1,cnt[k]);return out;}
