@@ -5,11 +5,12 @@ Purpose: single canonical state for the Trading project.
 
 ## Read order
 1. `CURRENT_HANDOFF.md`
-2. `ENTRY_EXECUTION_V76.md`
-3. `NO_CUT_INTRADAY_ALLPASS_V73.md`
-4. `LIVE_SYMBOL_ANALYSIS_V74.md`
-5. `TWELVEDATA_GROW55_DATA_POLICY.md`
-6. relevant market checkpoint.
+2. `UNIFIED_RUNTIME_V77_7.md`
+3. `ENTRY_EXECUTION_V76.md`
+4. `NO_CUT_INTRADAY_ALLPASS_V73.md`
+5. `LIVE_SYMBOL_ANALYSIS_V74.md`
+6. `TWELVEDATA_GROW55_DATA_POLICY.md`
+7. relevant market checkpoint.
 
 # CURRENT ARCHITECTURE
 
@@ -99,6 +100,35 @@ Canonical V76 files:
 
 Historical high-impact macro-event windows were not fabricated because the canonical research feed lacks a complete timestamped historical macro calendar. Current V74 news/context refresh remains mandatory live. Historical transaction cost is modeled as fixed 0.05R because historical broker bid/ask is unavailable.
 
+## V77.7.0 — unified production runtime
+
+V77.7.0 is the single GitHub-owned Cloudflare/Twelve Data/Telegram production shell. It does **not** replace V74 authority, rewrite V73, or promote V76.
+
+Canonical production source:
+- `cloudflare-worker/index.js`
+- `cloudflare-worker/package.json`
+- `cloudflare-worker/wrangler.example.jsonc`
+- `.github/workflows/validate-cloudflare-v77.yml`
+- `docs/checkpoints/UNIFIED_RUNTIME_V77_7.md`
+
+Target topology:
+
+`GitHub main -> Cloudflare Workers Builds -> trading-v77-scanner -> Twelve Data / exact crypto venues -> TRADING_V77_STATE KV -> Telegram`
+
+Runtime rules:
+- broad ranking is discovery only;
+- Twelve Data batch requests reduce Cloudflare HTTP subrequests but do not reduce Twelve Data credits per symbol;
+- Forex: 28 H1 broad symbols in one batch + Top3 five-timeframe deep batches;
+- Crypto: 61 exact identities via exchange bulk discovery + 30 rotating Twelve Data H1 symbols in one batch + Top3 five-timeframe deep batches;
+- Metal: XAUUSD/XAGUSD share H1/deep batches;
+- strict news/context gate: technical-ready setups stop at `NEWS_CONTEXT_REQUIRED` until a 30-minute Telegram clearance or a genuine `NEWS_GATE_URL` service clears the symbol;
+- Forex/Metal Twelve Data reference price does not authorize executable MARKET/LIMIT without real broker bid/ask;
+- Crypto MARKET/LIMIT requires news clearance + fresh exact Bybit/OKX/Binance bid/ask + estimated spread <=0.10R;
+- RR1 default; RR2 only with >=2.2R clean room;
+- existing KV state remains `TRADING_STATE -> TRADING_V77_STATE` and books key remains `v775:books`.
+
+Normal Telegram output shows books, coverage and canonical WATCH stage only. Raw provider errors stay in `/run-now` diagnostics and Worker logs.
+
 # MARKET DATA INTEGRITY
 
 The old Cloudflare shorthand Worker is not canonical runtime. Same-text ticker collisions are rejected.
@@ -114,9 +144,9 @@ Rules:
 8. cash index, futures and spot are never interchangeable.
 
 Current routing:
-- Forex: direct strict Twelve Data Grow55 exact `AAA/BBB` mapping;
-- Crypto: exchange-native Binance/OKX/Bybit; OKX exact USDT spot for universe scan;
-- spot metals/energy: exact Twelve Data identity when supported/fresh;
+- Forex: direct strict Twelve Data Grow55 exact `AAA/BBB` mapping for analysis/reference; broker execution quote still required before new executable order;
+- Crypto: Twelve Data standardized analysis + exact exchange-native Bybit/OKX/Binance execution;
+- spot metals/energy: exact Twelve Data identity for analysis/reference; broker execution quote still required before new executable order;
 - NAS100/US500/DAX/N225-family cash indices: `DATA_BLOCK` in current Grow55 integration;
 - exact NQ/MNQ/ES/MES/GC/SI/CL futures: `DATA_BLOCK` until an authoritative exact-contract feed exists.
 
@@ -128,32 +158,41 @@ Current routing:
 - V76 final R2 research `32053656572`: SUCCESS.
 - V76 compact summary `32054967541`: SUCCESS.
 - V76 post-R2 validator `32055039365`: SUCCESS; validates methods R2, 28 pairs, retained=[], conservative intrabar scoring and V73 frozen.
+- V77.7.0 local `node --check` on the final Worker source: PASS. GitHub workflow `.github/workflows/validate-cloudflare-v77.yml` is the repository guard for syntax/canonical locks; do not claim a GitHub Actions run passed unless the run itself is verified.
 
 # ACTIVE REPOSITORY
 
-Live workflows:
+Live/validation workflows:
 - `fetch-market.yml`
 - `scan-forex.yml`
 - `live-crypto-v75-scan.yml`
 - `audit-market-data.yml`
 - `validate-nocut-v73.yml`
 - `validate-live-v74.yml`
+- `validate-cloudflare-v77.yml`
 
 Isolated V76 workflows:
 - `research-v76-entry.yml`
 - `validate-entry-v76.yml`
 - `summarize-v76.yml`
 
+Production Cloudflare source:
+- `cloudflare-worker/index.js`
+
 Legacy optimizers, old blind tests, one-off diagnostics and obsolete live-data paths remain in Git history only.
 
 # CURRENT LIVE ENTRY RULE
 
-Because V76 R2 promoted 0/28, current Forex live decisions continue under V74 using V75 data. V76 R2 is evidence that the tested A–F mechanical entry families were not robust enough under the locked validation/OOS gates; it is not permission to weaken those gates.
+Because V76 R2 promoted 0/28, V76 cannot authorize live Forex entries. Current production decisions follow V74 evidence through the V77.7.0 unified runtime.
 
 DATA_BLOCK always overrides forced-trade research logic.
+
+Forex/Metal: without a real broker/venue bid/ask feed, no new executable MARKET/LIMIT may be created from Twelve Data reference data alone.
+
+Crypto: MARKET/LIMIT requires the complete canonical technical stack, current news/context clearance, structural risk/room, and a fresh exact venue bid/ask confirmation.
 
 NQ/ES Futures: no backtest/live proxy from cash indices. Use exact authoritative futures data only; compare MNQ/MES and choose the stronger setup when such data is available. Structural SL first, then contract count; user framework roughly max SL $500 / target $1,500 when structure supports it.
 
 ## Handoff phrase
 
-`Continue Trading with V73 frozen + V74 live authority + V75 Fast Data + V76 R2 locked research-only. V76 R2 retained no archetype and promoted 0/28 Forex symbols; do not retune R2 from OOS and do not let it authorize live orders. Read decision.json / forex-fast.json / crypto-fast.json first. Verify exact instrument, fresh timestamped data, current news/context, D1-H4-H1, M15 location, strict M5 trigger, structural SL and final execution-venue spread. Never proxy cash/futures and never label stale data live.`
+`Continue Trading with V73 frozen + V74 live authority + V75 data integrity + V76 R2 locked research-only + V77.7.0 unified GitHub/Cloudflare/Twelve Data/Telegram runtime. GitHub cloudflare-worker/index.js is the only production source. Twelve Data batch maximizes Grow55 while controlling Cloudflare subrequests. Require current news/context, D1-H4-H1, V73 prior where applicable, M15 location, strict M5 MSS/displacement/retest, structural SL, clean room and final execution quote. Forex/Metal Twelve Data reference price never authorizes executable MARKET/LIMIT without broker bid/ask. Crypto requires news clearance plus exact Bybit/OKX/Binance quote. Never proxy cash/futures, fabricate spread, bypass the news gate or restore legacy V77 scoring authority.`
