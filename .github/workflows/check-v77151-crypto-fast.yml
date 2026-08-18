@@ -1,4 +1,4 @@
-name: Fast V77.15.1 Crypto Check
+name: Fast Actionable Crypto Check
 on:
   push:
     branches: [main]
