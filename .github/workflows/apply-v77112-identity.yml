@@ -1,0 +1,36 @@
+name: Apply V77.11.2 Identity Consistency
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77112_identity_consistency.js'
+      - '.github/workflows/apply-v77112-identity.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply and diagnose
+        shell: bash
+        run: |
+          set +e
+          : > V77112_DIAGNOSTIC.txt
+          node --check scripts/apply_v77112_identity_consistency.js >> V77112_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77112_DIAGNOSTIC.txt
+          node scripts/apply_v77112_identity_consistency.js >> V77112_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77112_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77112_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77112_DIAGNOSTIC.txt
+          for t in 'V77.11.2' 'const s=canonicalUserSymbol(symbol),type=marketType(s);' '"GRAM"' v73CryptoPriorKey regimeRouteScores; do if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77112_DIAGNOSTIC.txt; else echo "$t=NO" >> V77112_DIAGNOSTIC.txt; fi; done
+          exit 0
+      - name: Commit on pass
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77112_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77112_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77112_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77112_DIAGNOSTIC.txt && grep -q 'V77.11.2=YES' V77112_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote V77.11.2 symbol identity consistency' || exit 0
+          git push origin main
