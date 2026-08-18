@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.15.5",
-  service: "Trading V77.15.5 Action-First Entry Hub",
+  version: "V77.16.0",
+  service: "Trading V77.16.0 Quality-Action Router Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -18,6 +18,8 @@ const CONFIG = {
   deepNonCryptoCandidates: 3,
   deepShortlist: 12,
   cryptoDeepTarget: 5,
+  cryptoDeepMax: 8,
+  cryptoActionTarget: 2,
   cryptoDeepCooldownMs: 220,
   maxMarketActive: 3,
   maxLimitActive: 3,
@@ -162,15 +164,15 @@ async function futureBundle(symbol,env,suffix=null){
 function recentMove(c,n=12){if(!Array.isArray(c)||c.length<n+1)return 0;const a=c.at(-(n+1))?.close,b=c.at(-1)?.close;return a?((b-a)/a)*100:0;}
 function futureSwingState(c){if(!Array.isArray(c)||c.length<30)return {newHigh:false,newLow:false};const last=c.at(-1),prior=c.slice(-21,-1),ph=Math.max(...prior.map(x=>x.high)),pl=Math.min(...prior.map(x=>x.low));return {newHigh:last.high>ph,newLow:last.low<pl,priorHigh:ph,priorLow:pl,lastHigh:last.high,lastLow:last.low};}
 function futurePairContext(nq,es,which){const nqMove=recentMove(nq.candles[2]),esMove=recentMove(es.candles[2]),rel=nqMove-esMove,isNq=which==="NQ"||which==="MNQ",x=isNq?rel:-rel,ns=futureSwingState(nq.candles[2]),ss=futureSwingState(es.candles[2]);let smtSignal="NONE";if(ns.newHigh&&!ss.newHigh)smtSignal=isNq?"BEARISH":"BULLISH";else if(es&&ss.newHigh&&!ns.newHigh)smtSignal=isNq?"BULLISH":"BEARISH";else if(ns.newLow&&!ss.newLow)smtSignal=isNq?"BULLISH":"BEARISH";else if(ss.newLow&&!ns.newLow)smtSignal=isNq?"BEARISH":"BULLISH";const smtDivergence=smtSignal!=="NONE";return {relativeStrength:x,benchmark:isNq?"ES":"NQ",nqMovePct:nqMove,esMovePct:esMove,smtDivergence,smtSignal,smtSwing:{NQ:ns,ES:ss},score:Math.min(10,5+Math.abs(x)*8+(smtDivergence?1.5:0))};}
-function mirrorFutureAnalysis(a,target){if(!a)return null;const k=symbolKnowledge(target);return {...a,symbol:target,market:"future",source:(a.source||"Massive Futures")+" • leader mirror",knowledge:k?{canonicalSymbol:k.canonicalSymbol,allowedModes:k.allowedModes,riskATR:k.riskATR,calibration:k.calibration}:a.knowledge,executionLeader:a.symbol,basisReference:true};}
+function mirrorFutureAnalysis(a,target){if(!a)return null;const k=symbolKnowledge(target),out={...a,symbol:target,market:"future",source:(a.source||"Massive Futures")+" • leader mirror",knowledge:k?{canonicalSymbol:k.canonicalSymbol,allowedModes:k.allowedModes,riskATR:k.riskATR,calibration:k.calibration}:a.knowledge,executionLeader:a.symbol,basisReference:true};const fs=futureSizing(target,out.planned||out);if(fs)out.microSizing=fs;return out;}
 async function runFutureSymbol(symbol,env){const s=norm(symbol),suffix=await futureContractSuffix(env),peer=s==="NQ"?"ES":s==="ES"?"NQ":s==="MNQ"?"MES":"MNQ";const rs=await Promise.allSettled([futureBundle(s,env,suffix),futureBundle(peer,env,suffix)]);if(rs[0].status!=="fulfilled")throw rs[0].reason;const b=rs[0].value,other=rs[1].status==="fulfilled"?rs[1].value:null;let context={score:6,benchmark:peer};if(other){const n=(s==="NQ"||s==="MNQ")?b:other,e=(s==="ES"||s==="MES")?b:other;context=futurePairContext(n,e,s);}return deepAnalyze(s,env,b.candles,b.quote,b.source,context);}
 async function runFutureGroup(env){
   if(!(await acquireLock(env)))return {ok:false,status:"BUSY",group:"future",version:CONFIG.version,scanId:"future-busy-"+Date.now(),scannedAt:new Date().toISOString(),analyses:[]};
   const started=Date.now(),scanId="future-"+started+"-"+Math.random().toString(36).slice(2,8),scannedAt=new Date(started).toISOString();try{
     if(!env.MASSIVE_API_KEY){const out={ok:true,version:CONFIG.version,status:"DATA_BLOCK",group:"future",scanId,scannedAt,requested:4,broadOk:0,deepRequested:4,deepOk:0,newCount:0,analyses:[],diagnostics:{error:"MASSIVE_API_KEY missing"},elapsedMs:Date.now()-started};await saveScanSnapshot("future",out,env);return out;}
     const suffix=await futureContractSuffix(env);let nq=null,es=null,errors=[];const rs=await Promise.allSettled([futureBundle("NQ",env,suffix),futureBundle("ES",env,suffix)]);if(rs[0].status==="fulfilled")nq=rs[0].value;else errors.push({symbol:"NQ",error:String(rs[0].reason?.message||rs[0].reason)});if(rs[1].status==="fulfilled")es=rs[1].value;else errors.push({symbol:"ES",error:String(rs[1].reason?.message||rs[1].reason)});
-    const analyses=[];if(nq){const a=await deepAnalyze("NQ",env,nq.candles,nq.quote,nq.source,es?futurePairContext(nq,es,"NQ"):{score:5});analyses.push(a,mirrorFutureAnalysis(a,"MNQ"));}if(es){const a=await deepAnalyze("ES",env,es.candles,es.quote,es.source,nq?futurePairContext(nq,es,"ES"):{score:5});analyses.push(a,mirrorFutureAnalysis(a,"MES"));}
-    const books=await getBooks(env),liveSet=new Set([...(books.future?.marketActive||[]),...(books.future?.limitActive||[]),...(books.future?.limitPending||[])].map(x=>canonicalUserSymbol(x.symbol))),usable=analyses.filter(Boolean).filter(a=>!liveSet.has(canonicalUserSymbol(a.symbol))).sort((a,b)=>actionableRank(b)-actionableRank(a));for(const a of usable)await recordShadowSetup("future",a,scanId,env);const out={ok:true,version:CONFIG.version,group:"future",scanId,scannedAt,requested:4,broadOk:(nq?2:0)+(es?2:0),fresh:usable.length,deepRequested:Math.max(0,4-liveSet.size),deepOk:usable.filter(a=>a&&a.ok!==false).length,newCount:0,analyses:usable,diagnostics:{frontSuffix:suffix,frontContracts:{NQ:nq?.ticker||null,ES:es?.ticker||null,MNQ:nq?"MNQ"+suffix:null,MES:es?"MES"+suffix:null},errors,liveSymbolsSkipped:[...liveSet]},elapsedMs:Date.now()-started};await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot("future",out,env);return out;
+    const analyses=[],leaders={};if(nq){const a=await deepAnalyze("NQ",env,nq.candles,nq.quote,nq.source,es?futurePairContext(nq,es,"NQ"):{score:5});leaders.NQ=a;analyses.push(mirrorFutureAnalysis(a,"MNQ"));}if(es){const a=await deepAnalyze("ES",env,es.candles,es.quote,es.source,nq?futurePairContext(nq,es,"ES"):{score:5});leaders.ES=a;analyses.push(mirrorFutureAnalysis(a,"MES"));}
+    const books=await getBooks(env),liveSet=new Set([...(books.future?.marketActive||[]),...(books.future?.limitActive||[]),...(books.future?.limitPending||[])].map(x=>canonicalUserSymbol(x.symbol))),usable=analyses.filter(Boolean).filter(a=>!liveSet.has(canonicalUserSymbol(a.symbol))).sort((a,b)=>actionableRank(b)-actionableRank(a));for(const a of usable)await recordShadowSetup("future",a,scanId,env);const leaderContext=Object.fromEntries(Object.entries(leaders).map(([k,a])=>[k,{status:a?.status,side:a?.side,score:a?.score,reason:a?.reason,targetRR:a?.planned?.targetRR??a?.targetRR??null}]));const out={ok:true,version:CONFIG.version,group:"future",scanId,scannedAt,requested:4,broadOk:(nq?2:0)+(es?2:0),fresh:usable.length,deepRequested:Math.max(0,2-liveSet.size),deepOk:usable.filter(a=>a&&a.ok!==false).length,newCount:0,analyses:usable,diagnostics:{frontSuffix:suffix,frontContracts:{NQ:nq?.ticker||null,ES:es?.ticker||null,MNQ:nq?"MNQ"+suffix:null,MES:es?"MES"+suffix:null},leaderContext,errors,liveSymbolsSkipped:[...liveSet]},elapsedMs:Date.now()-started};await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot("future",out,env);return out;
   }finally{await releaseLock(env);}
 }
 
@@ -376,7 +378,7 @@ function methodAssessment(symbol,type,T,context={}){
   if(type==="metal"&&Number.isFinite(context.relativeStrength))why.push("metal-relative context");
   if(type==="future"){if(Number.isFinite(context.relativeStrength))why.push("NQ-ES relative context");if(context.smtDivergence){why.push("H1 SMT "+context.smtSignal);if((context.smtSignal==="BULLISH"&&route.side==="LONG")||(context.smtSignal==="BEARISH"&&route.side==="SHORT"))fit+=7;else fit-=3;}}
   fit=Math.max(0,Math.min(100,Math.round(fit)));
-  return {side:route.side,methodFit:fit,activeMode:mode,allowedModes:route.allowed,routeScores:route.scores,htfPass:route.htfPass,route,profile:prior.profile||prior.family||"GENERIC",families:prior.families||[],sessionFit:Math.round(sessionFit(prior)*100),why,drivers:prior.newsProfile?.profileDrivers||prior.newsProfile?.symbolSpecific||[]};
+  return {symbol:norm(symbol),type,side:route.side,methodFit:fit,activeMode:mode,allowedModes:route.allowed,routeScores:route.scores,htfPass:route.htfPass,route,profile:prior.profile||prior.family||"GENERIC",families:prior.families||[],sessionFit:Math.round(sessionFit(prior)*100),why,drivers:prior.newsProfile?.profileDrivers||prior.newsProfile?.symbolSpecific||[]};
 }
 function setupScore(parts={}){let x=0;x+=Math.min(25,(parts.methodFit||0)*.25);x+=parts.htf?20:Math.min(12,(parts.htfVotes||0)*4);x+=parts.location?15:0;x+=parts.trigger?15:parts.pending?8:0;x+=parts.plan?10:0;x+=Math.min(10,Math.max(0,parts.contextScore??5));x+=parts.news?3:0;x+=parts.execution?2:0;return Math.max(0,Math.min(100,Math.round(x)));}
 function profileMode(intel){return intel?.activeMode||intel?.allowedModes?.[0]||"GENERIC";}
@@ -384,7 +386,7 @@ function sideTrendMatch(T,side){return side==="LONG"?T?.trend==="BULLISH":side==
 function adaptiveLocationPolicy(intel,M15,loc,side,context={}){
   const mode=profileMode(intel);if(loc?.valid)return {pass:true,mode:"STRUCTURAL_LOCATION",soft:false,level:loc.level};
   if(!M15?.ready||!Number.isFinite(M15.atr14)||M15.atr14<=0)return {pass:false,mode,soft:false};
-  const nearEma=Number.isFinite(M15.ema20)&&Math.abs(M15.close-M15.ema20)<=M15.atr14*.80;
+  const strong=Number(intel?.methodFit||0)>=80&&Number(context.score||0)>=7,nearEma=Number.isFinite(M15.ema20)&&Math.abs(M15.close-M15.ema20)<=M15.atr14*(strong?1.0:.80);
   const continuation=side==="LONG"?(M15.bullishBreak||M15.bullishReclaim||sideTrendMatch(M15,side)):(M15.bearishBreak||M15.bearishReclaim||sideTrendMatch(M15,side));
   if(mode==="MEAN_REVERSION")return {pass:false,mode,soft:false};
   if(mode==="TREND"&&intel.methodFit>=55&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};
@@ -400,8 +402,8 @@ function adaptiveTriggerPolicy(intel,M5,trig,side,context={}){
   const impulse=side==="LONG"?trend&&r>=51&&r<=76&&M5.close>=M5.ema20:trend&&r<=49&&r>=24&&M5.close<=M5.ema20;
   const structuralImpulse=side==="LONG"?(M5.bullishBreak||M5.bullishReclaim):(M5.bearishBreak||M5.bearishReclaim);
   if(mode==="MEAN_REVERSION")return {pass:false,pending:false,mode};
-  if(mode==="TREND"&&intel.methodFit>=60&&impulse&&(structuralImpulse||Math.abs(r-50)>=5))return {pass:true,pending:false,mode:"M5_MOMENTUM_CONTINUATION",level:M5.close,soft:true};
-  if(mode==="RELATIVE"&&intel.methodFit>=58&&Number(context.score||0)>=7&&impulse&&structuralImpulse)return {pass:true,pending:false,mode:"M5_RELATIVE_BREAK",level:M5.close,soft:true};
+  if(mode==="TREND"&&intel.methodFit>=58&&impulse&&(structuralImpulse||Math.abs(r-50)>=5||intel.methodFit>=82))return {pass:true,pending:false,mode:"M5_MOMENTUM_CONTINUATION",level:M5.close,soft:true};
+  if(mode==="RELATIVE"&&intel.methodFit>=56&&Number(context.score||0)>=7&&impulse&&(structuralImpulse||intel.methodFit>=82))return {pass:true,pending:false,mode:"M5_RELATIVE_BREAK",level:M5.close,soft:true};
   if(mode==="GENERIC"&&intel.methodFit>=70&&impulse&&structuralImpulse)return {pass:true,pending:false,mode:"M5_QUALITY_BREAK",level:M5.close,soft:true};
   return {pass:false,pending:false,mode,level:trig?.level??null};
 }
@@ -418,7 +420,7 @@ function conditionalPlanFromRoute(intel,M5,M15,H1,H4,D1,prior){
   const p=buildTradePlan(side,e,M5,M15,H1,H4,D1,true,prior);if(!p||p.invalid)return null;const q=rrQuality(p,intel),g=limitGeometry(side,M15.close,e,M5,M15,p);if(!q.pass||!g.pass)return null;
   return {side,entry:p.entry,sl:p.sl,tp1:p.tp1,tp2:p.tp2,targetRR:p.targetRR,tp1RR:p.tp1RR,tp2RR:p.tp2RR,roomR:p.roomR,mode:"INDICATIVE_LIMIT",targetSource:p.targetSource,indicative:true,conditional:true,currentPrice:M15.close,entryStyle:"CONDITIONAL_HTF_PULLBACK",minQualityRR:q.minRR,rrQualityPass:true,geometry:g};
 }
-function actionableRank(a){let x=Number(a?.score)||0;if(a?.status==="MARKET")x+=1000;else if(a?.status==="LIMIT")x+=900;else if(a?.status==="MARKET_PLAN")x+=700;else if(a?.status==="LIMIT_PLAN")x+=650;else if(a?.planned?.mode==="MARKET")x+=500;else if(a?.planned?.mode==="LIMIT"||a?.planned?.mode==="INDICATIVE_LIMIT")x+=420;else if(a?.setupReady)x+=150;return x;}
+function actionableRank(a){let x=Number(a?.score)||0;if(a?.status==="MARKET")x+=1000;else if(a?.status==="LIMIT")x+=900;else if(a?.status==="MARKET_PLAN")x+=700;else if(a?.status==="LIMIT_PLAN")x+=650;else if(a?.planned?.mode==="MARKET")x+=500;else if(a?.planned?.mode==="LIMIT"||a?.planned?.mode==="INDICATIVE_LIMIT")x+=420;else if(a?.setupReady)x+=150;const p=a?.planned||a,rr=Number(p?.targetRR),g=p?.geometry||p?.marketGeometry||{};if(Number.isFinite(rr))x+=Math.min(80,rr*22);if(Number.isFinite(g.distanceATR))x+=Math.max(0,24-Math.abs(g.distanceATR-.30)*30);if(Number.isFinite(p?.confluence))x+=Math.min(20,Number(p.confluence)*5);if(a?.market==="future"&&["MNQ","MES"].includes(norm(a?.symbol))){const fs=futureSizing(a.symbol,p);if(fs&&!fs.tradable)x-=500;}if(a?.contextOnly)x-=600;return x;}
 
 function watch(symbol,type,side,reason,extra={}){return {ok:true,status:"WATCH",action:"WATCH",symbol,market:type,side,reason,canonicalStage:reason,engine:CONFIG.version,...extra};}
 async function getNewsClearance(symbol,env){
@@ -443,7 +445,7 @@ function buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior={}){
   const tp1=valid[0],tp2=valid.find(x=>x.rr>=Math.max(1.4,tp1.rr+.35)&&x.rr<=3.2)||null,best=tp2||tp1;return {entry,sl,risk,roomR:best.rr,targetRR:Number(best.rr.toFixed(2)),tp1:tp1.price,tp1RR:Number(tp1.rr.toFixed(2)),tp2:(tp2||tp1).price,tp2RR:Number((tp2||tp1).rr.toFixed(2)),mode:pendingRetest?"LIMIT":"MARKET",targetSource:"STRUCTURE_LIQUIDITY",targetTier:tp2?"PRIMARY_PLUS_EXTENSION":"PRIMARY_ONLY"};
 }
 function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return FUTURES_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}
-function minimumQualityRR(intel){const mode=profileMode(intel);let x=mode==="MEAN_REVERSION"?1.0:mode==="TREND"?1.2:mode==="RELATIVE"?1.15:1.25;if(Number(intel?.methodFit)>=85)x-=.1;return Math.max(1,Number(x.toFixed(2)));}
+function minimumQualityRR(intel){const mode=profileMode(intel),type=intel?.type||"unknown";let x=mode==="MEAN_REVERSION"?1.10:mode==="TREND"?1.30:mode==="RELATIVE"?1.25:1.30;if(type==="future")x=Math.max(x,mode==="MEAN_REVERSION"?1.25:1.50);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.25:1.45);else if(type==="crypto")x=Math.max(x,mode==="MEAN_REVERSION"?1.15:1.35);else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.15:1.30);if(Number(intel?.methodFit)>=90)x-=.05;return Math.max(1.1,Number(x.toFixed(2)));}
 function rrQuality(plan,intel){const min=minimumQualityRR(intel),rr=Number(plan?.targetRR);return {pass:Number.isFinite(rr)&&rr>=min,minRR:min,targetRR:rr};}
 function limitGeometry(side,current,entry,M5,M15,plan){const atr=Number(M15?.atr14)||Number(M5?.atr14)||0;if(!atr||!Number.isFinite(current)||!Number.isFinite(entry))return {pass:false,reason:"NO_ATR"};const dist=Math.abs(current-entry)/atr,correct=side==="LONG"?entry<current:entry>current,notInvalid=side==="LONG"?entry>Number(plan?.sl):entry<Number(plan?.sl);return {pass:correct&&notInvalid&&dist>=.05&&dist<=.90,distanceATR:Number(dist.toFixed(2)),correctSide:correct,notInvalid};}
 function marketGeometry(side,current,M5,trigPolicy){const atr=Number(M5?.atr14)||0,ref=Number(trigPolicy?.level);if(!atr||!Number.isFinite(current))return {pass:false,chaseATR:null};const chase=Number.isFinite(ref)?Math.abs(current-ref)/atr:0,r=Number(M5?.rsi14??50),notExtreme=side==="LONG"?r<=78:r>=22;return {pass:chase<=.48&&notExtreme,chaseATR:Number(chase.toFixed(2)),rsi:r,notExtreme};}
@@ -520,11 +522,12 @@ function changeFromCandles(c){if(!Array.isArray(c)||c.length<2)return 0;const a=
 function forexStrengthMap(h1Map){const sum={},cnt={};for(const [sym,c] of h1Map.entries()){if(!Array.isArray(c)||c.length<2)continue;const ch=changeFromCandles(c),base=sym.slice(0,3),quote=sym.slice(3);sum[base]=(sum[base]||0)+ch;cnt[base]=(cnt[base]||0)+1;sum[quote]=(sum[quote]||0)-ch;cnt[quote]=(cnt[quote]||0)+1;}const out={};for(const k of Object.keys(sum))out[k]=sum[k]/Math.max(1,cnt[k]);return out;}
 async function cryptoDerivativesContext(symbol){try{const p=await bybit("/v5/market/tickers",{category:"linear",symbol:norm(symbol)}),r=p?.result?.list?.[0];if(!r||norm(r.symbol)!==norm(symbol))return {};return {fundingRate:num(r.fundingRate),openInterest:num(r.openInterest),turnover24h:num(r.turnover24h)};}catch{return {};}}
 function broadRank(q){if(!q?.price)return 0;let x=0;if(q.open)x+=Math.abs((q.price-q.open)/q.open)*100;if(Number.isFinite(q.percentChange))x+=Math.abs(q.percentChange);return x;}
+function selectCryptoDiverse(rows,limit=12){const out=[],seen=new Set(),add=x=>{if(x&&!seen.has(x.symbol)&&out.length<limit){seen.add(x.symbol);out.push(x);}};const idx=[0,1,2,4,7,10,14,18,24,30];for(const i of idx)add(rows[i]);const rel=[...rows].sort((a,b)=>Math.abs(Number(b.context?.relativeStrength)||0)-Math.abs(Number(a.context?.relativeStrength)||0));for(const x of rel)add(x);for(const x of rows)add(x);return out;}
 async function broadScan(group,env){
   const symbols=GROUPS[group],rows=[],errors=[];
   if(group==="crypto"){const bulk=await cryptoBroadMap(symbols,env),btc=bulk.get("BTCUSDT")?.percentChange??0;for(const sym of symbols){const q=bulk.get(sym);if(q?.price){const rel=(q.percentChange??0)-btc;rows.push({symbol:sym,quote:q,strength:broadRank(q),context:{relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel))}});}else errors.push({symbol:sym,reason:"EXACT_SPOT_UNAVAILABLE"});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map:null};}
   let h1Map=new Map();try{h1Map=await tdBatchCandles(symbols,"1h",env,60);}catch(e){return {requested:symbols.length,rows,errors:symbols.map(symbol=>({symbol,reason:"H1_BATCH_UNAVAILABLE",error:e?.message||String(e)})),h1Map};}const fx=group==="forex"?forexStrengthMap(h1Map):{};let metalMoves={};if(group==="metal")for(const sym of symbols)metalMoves[sym]=changeFromCandles(h1Map.get(sym)||[]);
-  for(const sym of symbols){const T=tf(h1Map.get(sym)||[]);if(!T.ready){errors.push({symbol:sym,reason:"H1_UNAVAILABLE"});continue;}let context={score:5};if(group==="forex"){const base=sym.slice(0,3),quote=sym.slice(3),d=(fx[base]||0)-(fx[quote]||0);context={baseStrength:fx[base]||0,quoteStrength:fx[quote]||0,strengthDiff:d,score:Math.min(10,5+Math.abs(d)*4)};}else{const other=sym==="XAUUSD"?"XAGUSD":"XAUUSD",rel=(metalMoves[sym]||0)-(metalMoves[other]||0);context={relativeStrength:rel,benchmark:other,score:Math.min(10,5+Math.abs(rel)*3)};}const raw=Math.abs((T.close-(T.ema20??T.close))/(T.atr14||1)),prior=v73Prior(sym,group),discoveryScore=raw*2+Number(context.score||5)*.35+sessionFit(prior)*.5;rows.push({symbol:sym,quote:{source:"Twelve Data H1",price:T.close,fresh:true},strength:discoveryScore,rawStrength:raw,context});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map};
+  for(const sym of symbols){const T=tf(h1Map.get(sym)||[]);if(!T.ready){errors.push({symbol:sym,reason:"H1_UNAVAILABLE"});continue;}let context={score:5};if(group==="forex"){const base=sym.slice(0,3),quote=sym.slice(3),d=(fx[base]||0)-(fx[quote]||0);context={baseStrength:fx[base]||0,quoteStrength:fx[quote]||0,strengthDiff:d,score:Math.min(10,5+Math.abs(d)*4)};}else{const other=sym==="XAUUSD"?"XAGUSD":"XAUUSD",rel=(metalMoves[sym]||0)-(metalMoves[other]||0);context={relativeStrength:rel,benchmark:other,score:Math.min(10,5+Math.abs(rel)*3)};}const raw=Math.abs((T.close-(T.ema20??T.close))/(T.atr14||1)),prior=v73Prior(sym,group),sweet=Math.max(0,1-Math.abs(raw-.45)/.90),discoveryScore=sweet*2.4+Number(context.score||5)*.45+sessionFit(prior)*.55+Math.min(raw,1.2)*.10;rows.push({symbol:sym,quote:{source:"Twelve Data H1",price:T.close,fresh:true},strength:discoveryScore,rawStrength:raw,context});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map};
 }
 function selectForexDiverse(rows,limit){const pool=[...(rows||[])],picked=[],used=new Set();while(pool.length&&picked.length<limit){let idx=-1;for(let i=0;i<pool.length;i++){const s=norm(pool[i].symbol),b=s.slice(0,3),q=s.slice(3),overlap=(used.has(b)?1:0)+(used.has(q)?1:0);if(overlap===0){idx=i;break;}if(idx<0&&overlap===1)idx=i;}if(idx<0)idx=0;const r=pool.splice(idx,1)[0],s=norm(r.symbol);picked.push(r);used.add(s.slice(0,3));used.add(s.slice(3));}return picked;}
 async function prepareNonCryptoDeep(symbols,h1Map,env){
@@ -575,12 +578,12 @@ async function runGroup(group,env){
     const existingBooks=await getBooks(env),liveSymbols=new Set([...(existingBooks[group]?.marketActive||[]),...(existingBooks[group]?.limitActive||[]),...(existingBooks[group]?.limitPending||[])].map(x=>canonicalUserSymbol(x.symbol)));
     const entryRows=broad.rows.filter(x=>!liveSymbols.has(canonicalUserSymbol(x.symbol)));
     if(group==="crypto"){
-      const shortlist=entryRows.slice(0,CONFIG.deepShortlist),valid=[];
+      const shortlist=selectCryptoDiverse(entryRows,CONFIG.deepShortlist),valid=[];
       for(const c of shortlist){
         if(Date.now()-started>CONFIG.scanDeadlineMs-2500)break;deepAttempted++;let b;
         try{b=await cryptoDeepBundle(c.symbol,{preferAnalysis:!!c.quote?.analysisOnly,preferredBroadSource:c.quote?.source});}catch(e){skippedUnavailable.push({symbol:c.symbol,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)});await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));continue;}
         const dc=await cryptoDerivativesContext(c.symbol),a=await deepAnalyze(c.symbol,env,b.candles,b.quote,b.source,{...(c.context||{}),...dc});valid.push(a);
-        await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));if(valid.length>=CONFIG.cryptoDeepTarget)break;
+        await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));const ac=valid.filter(x=>["MARKET","LIMIT","MARKET_PLAN","LIMIT_PLAN"].includes(x?.status)).length;if(valid.length>=CONFIG.cryptoDeepTarget&&ac>=CONFIG.cryptoActionTarget)break;if(valid.length>=CONFIG.cryptoDeepMax)break;
       }
       valid.sort((a,b)=>actionableRank(b)-actionableRank(a));analyses.push(...valid.slice(0,CONFIG.maxCandidates));
     }else{
