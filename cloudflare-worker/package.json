@@ -1,0 +1,13 @@
+{
+  "name": "trading-v77-scanner",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check index.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler versions upload"
+  },
+  "devDependencies": {
+    "wrangler": "^4.102.0"
+  }
+}
