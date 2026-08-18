@@ -1,0 +1,59 @@
+name: Migrate V77.18.17 Health Finalize Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-v771817-health-finalize-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Clean duplicate health routes and lock validator
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/index.js'); s=p.read_text()
+          route='if(path==="/health")return json({ok:true,version:VERSION,health:await getSystemHealth(env)});if(path==="/health/run")return json(await runSystemHealthAudit(env,{version:VERSION,full:true,notify:false}));'
+          while route+route in s:s=s.replace(route+route,route)
+          if s.count('if(path==="/health")')!=1 or s.count('if(path==="/health/run")')!=1:raise SystemExit('health route count invalid')
+          p.write_text(s)
+
+          p=Path('.github/workflows/validate-cloudflare-v77.yml'); s=p.read_text()
+          needle="const manager=fs.readFileSync('cloudflare-worker/hyro-position-manager.js','utf8');"
+          add=needle+"\n          const health=fs.readFileSync('cloudflare-worker/system-health.js','utf8');"
+          if "system-health.js" not in s:s=s.replace(needle,add,1)
+          old="for(const x of ['V77.18.16','handleHyroMultiTelegram','runHyroMultiCron'])if(!index.includes(x))throw new Error('Dual-account index lock missing: '+x);"
+          new="for(const x of ['V77.18.17','handleHyroMultiTelegram','runHyroMultiCron','runSystemHealthAudit','/health/run'])if(!index.includes(x))throw new Error('Health canonical index lock missing: '+x);"
+          if old in s:s=s.replace(old,new,1)
+          elif "'V77.18.17'" not in s:raise SystemExit('validator version marker missing')
+          marker="if(!manager.includes('v771811:hyro:manage:'))throw new Error('Position manager state lock missing');"
+          hcheck=marker+"\n          for(const x of ['v771817:health:last','v775:books','v7712:scan:','hyroHubSnapshot','TELEGRAM_API_FAIL'])if(!health.includes(x))throw new Error('Health guardian lock missing: '+x);"
+          if 'Health guardian lock missing' not in s:s=s.replace(marker,hcheck,1)
+          s=s.replace("Canonical modular V77.18.16 balanced-entry validation PASS","Canonical modular V77.18.17 health-guardian validation PASS")
+          p.write_text(s)
+          PY
+      - name: Syntax gate
+        run: |
+          node --check cloudflare-worker/index.js
+          node --check cloudflare-worker/system-health.js
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/hyro-runtime.js
+      - name: Commit finalize
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/index.js .github/workflows/validate-cloudflare-v77.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "V77.18.17 finalize autonomous health guardian"
+          git push
