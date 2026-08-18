@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.5",
-  service: "Trading V77.16.5 Live-Order Reconciled Hub",
+  version: "V77.16.6",
+  service: "Trading V77.16.6 Legacy-Preserved Live Order Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -554,14 +554,15 @@ function validExecutablePosition(p,group){
   if(group==="crypto")return true;
   return p.executionVerified===true||!!p.brokerTicket||p.executionAuthority==="MT5";
 }
-function normalizeBooks(v){const b=emptyBooks();if(!v||typeof v!=="object")return b;for(const g of Object.keys(GROUPS)){const src=v?.[g]||{};b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxMarketActive):[];b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxLimitActive):[];b[g].limitPending=Array.isArray(src.limitPending)?src.limitPending.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxPendingLimit):[];b[g].watch=[];}b.updatedAt=v.updatedAt||Date.now();return b;}
+function preserveLegacyOrder(p,status){return {...p,status:p.status||status,discoveredBy:p.discoveredBy||"LEGACY_PRESERVED",engineOpened:p.engineOpened||p.engine||"LEGACY",createdAt:p.createdAt||p.openedAt||Date.now()};}
+function normalizeBooks(v){const b=emptyBooks();if(!v||typeof v!=="object")return b;for(const g of Object.keys(GROUPS)){const src=v?.[g]||{};b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")).slice(0,CONFIG.maxMarketActive):[];b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")).slice(0,CONFIG.maxLimitActive):[];b[g].limitPending=Array.isArray(src.limitPending)?src.limitPending.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"PENDING")).slice(0,CONFIG.maxPendingLimit):[];b[g].watch=[];}b.updatedAt=v.updatedAt||Date.now();return b;}
 async function getBooks(env){try{return normalizeBooks(await env.TRADING_STATE.get(CONFIG.keys.books,"json"));}catch{return emptyBooks();}}
 async function saveBooks(env,b){b.updatedAt=Date.now();for(const g of Object.keys(GROUPS))b[g].watch=[];await env.TRADING_STATE.put(CONFIG.keys.books,JSON.stringify(b));}
 async function saveScanSnapshot(group,run,env){try{await env.TRADING_STATE.put(CONFIG.keys.scanPrefix+group,JSON.stringify(run),{expirationTtl:900});}catch{}}
 async function getScanSnapshot(group,env){try{return await env.TRADING_STATE.get(CONFIG.keys.scanPrefix+group,"json");}catch{return null;}}
 async function appendOrderHistory(env,event){try{const old=await env.TRADING_STATE.get(CONFIG.keys.orderHistory,"json"),rows=Array.isArray(old?.rows)?old.rows:[];rows.unshift({...event,recordedAt:Date.now(),engine:CONFIG.version});await env.TRADING_STATE.put(CONFIG.keys.orderHistory,JSON.stringify({rows:rows.slice(0,250),updatedAt:Date.now()}));}catch{}}
 function sideText(x){return x==="LONG"?"BUY":x==="SHORT"?"SELL":"NEUTRAL";}
-function orderSourceText(x){return x==="AUTO_CRON"?"AUTO SCAN":x==="HUB_MANUAL"?"HUB MANUAL":x==="GROUP_MANUAL"?"NÚT THỊ TRƯỜNG":x==="SYMBOL_MANUAL"?"SYMBOL MANUAL":x==="COMMAND_MANUAL"?"LỆNH CHAT":x==="NEWS_MANUAL"?"NEWS CONFIRM":x==="API_RUN_NOW"?"API RUN-NOW":x==="API_HUB"?"API HUB":String(x||"SCAN");}
+function orderSourceText(x){return x==="AUTO_CRON"?"AUTO SCAN":x==="HUB_MANUAL"?"HUB MANUAL":x==="GROUP_MANUAL"?"NÚT THỊ TRƯỜNG":x==="SYMBOL_MANUAL"?"SYMBOL MANUAL":x==="COMMAND_MANUAL"?"LỆNH CHAT":x==="NEWS_MANUAL"?"NEWS CONFIRM":x==="API_RUN_NOW"?"API RUN-NOW":x==="API_HUB"?"API HUB":x==="LEGACY_PRESERVED"?"LỆNH CŨ ĐƯỢC GIỮ LẠI":String(x||"SCAN");}
 function duplicate(book,sym){return [...book.marketActive,...book.limitActive,...book.limitPending].some(x=>x.symbol===sym);}
 function toPos(sig,discoveredBy="SCAN"){const tp=Number.isFinite(Number(sig.tp2))?sig.tp2:sig.tp1;return {id:sig.symbol+"-"+Date.now(),symbol:sig.symbol,side:sig.side,entry:sig.entry,sl:sig.sl,tp,tp1:sig.tp1,tp2:sig.tp2,targetRR:sig.targetRR,origin:sig.action,discoveredBy,status:"ACTIVE",openedAt:Date.now(),createdAt:Date.now(),engineOpened:sig.engine,engine:sig.engine,source:sig.quote?.source,executionVerified:true,executionAuthority:sig.quote?.source||"CANONICAL_CRYPTO"};}
 function fillBooks(group,books,analyses,trigger="SCAN"){const b=books[group],newItems=[];for(const a of analyses){if(group!=="crypto")continue;if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a,trigger);b.marketActive.push(p);newItems.push(p);}if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a,trigger),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}}b.watch=[];return newItems;}
