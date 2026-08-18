@@ -1,0 +1,44 @@
+name: Check V77.15.5 Action Live
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/check-v77155-action-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Crypto and Futures
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'; : > V77155_ACTION_LIVE.txt
+          curl -fsS --max-time 70 "$BASE/run-now?group=crypto" -o /tmp/c.json; echo "CRYPTO_CURL=$?" >> V77155_ACTION_LIVE.txt
+          curl -fsS --max-time 60 "$BASE/run-now?group=future" -o /tmp/u.json; echo "FUTURE_CURL=$?" >> V77155_ACTION_LIVE.txt
+      - name: Align Twelve Data minute
+        shell: bash
+        run: |
+          S=$(date -u +%S); WAIT=$((65-10#$S)); if [ "$WAIT" -lt 5 ]; then WAIT=$((WAIT+60)); fi; sleep "$WAIT"
+      - name: Forex and Metal
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          curl -fsS --max-time 55 "$BASE/run-now?group=forex" -o /tmp/f.json; echo "FOREX_CURL=$?" >> V77155_ACTION_LIVE.txt
+          sleep 2
+          curl -fsS --max-time 45 "$BASE/run-now?group=metal" -o /tmp/m.json; echo "METAL_CURL=$?" >> V77155_ACTION_LIVE.txt
+          node <<'NODE' >> V77155_ACTION_LIVE.txt
+          const fs=require('fs');const j=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
+          const runs={CRYPTO:j('/tmp/c.json'),FUTURE:j('/tmp/u.json'),FOREX:j('/tmp/f.json'),METAL:j('/tmp/m.json')};let actions=0,watch=0;
+          for(const [name,r] of Object.entries(runs)){const arr=r.analyses||[],n=x=>arr.filter(a=>a.status===x).length;actions+=n('MARKET')+n('LIMIT')+n('MARKET_PLAN')+n('LIMIT_PLAN');watch+=n('WATCH');console.log(name+'_VERSION='+(r.version||'-'));console.log(name+'='+(r.broadOk??'-')+'/'+(r.requested??'-')+' deep='+(r.deepOk??'-')+'/'+(r.deepRequested??'-')+' M='+n('MARKET')+' L='+n('LIMIT')+' MP='+n('MARKET_PLAN')+' LP='+n('LIMIT_PLAN')+' W='+n('WATCH'));console.log(name+'_RESULTS='+arr.map(a=>{const p=a.planned||{},g=p.geometry||p.marketGeometry||{};return a.symbol+':'+a.status+':'+(a.reason||'-')+':'+(p.entryStyle||'-')+':E='+(a.entry??p.entry??'-')+':RR='+(a.targetRR??p.targetRR??'-')+':ATR='+(g.distanceATR??g.chaseATR??'-')}).join('|'));}
+          console.log('ACTIONABLE_TOTAL='+actions);console.log('WATCH_TOTAL='+watch);console.log('VERDICT='+(Object.values(runs).every(r=>r.version==='V77.15.5'&&r.ok!==false)&&actions>0?'PASS':'FAIL'));
+          NODE
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name trading-runtime-bot; git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77155_ACTION_LIVE.txt; git commit -m 'Report V77.15.5 action-first live check' || exit 0; git push origin main
