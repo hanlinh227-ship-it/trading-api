@@ -1,8 +1,0 @@
-const fs=require('fs');
-const p='cloudflare-worker/index.js';let s=fs.readFileSync(p,'utf8');
-function must(a,b,l){if(!s.includes(a))throw new Error('Missing '+l);s=s.replace(a,b);}
-s=s.replaceAll('V77.15.3','V77.15.4');s=s.replace('Trading V77.15.4 Structural Limit Rescue Hub','Trading V77.15.4 Diversified Actionable Hub');
-const helper='function selectForexDiverse(rows,limit){const pool=[...(rows||[])],picked=[],used=new Set();while(pool.length&&picked.length<limit){let idx=-1;for(let i=0;i<pool.length;i++){const s=norm(pool[i].symbol),b=s.slice(0,3),q=s.slice(3),overlap=(used.has(b)?1:0)+(used.has(q)?1:0);if(overlap===0){idx=i;break;}if(idx<0&&overlap===1)idx=i;}if(idx<0)idx=0;const r=pool.splice(idx,1)[0],s=norm(r.symbol);picked.push(r);used.add(s.slice(0,3));used.add(s.slice(3));}return picked;}\n';
-must('async function prepareNonCryptoDeep(symbols,h1Map,env){',helper+'async function prepareNonCryptoDeep(symbols,h1Map,env){','forex diversity helper');
-must('      const deepLimit=group==="forex"?CONFIG.deepNonCryptoCandidates:CONFIG.maxCandidates,candidates=entryRows.slice(0,deepLimit),tmp=[];let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}','      const deepLimit=group==="forex"?CONFIG.deepNonCryptoCandidates:CONFIG.maxCandidates,candidates=group==="forex"?selectForexDiverse(entryRows,deepLimit):entryRows.slice(0,deepLimit),tmp=[];let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}','use diverse forex candidates');
-fs.writeFileSync(p,s);console.log('Applied V77.15.4 diversified Forex candidate routing');
