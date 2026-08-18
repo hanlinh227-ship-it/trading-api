@@ -1,0 +1,10 @@
+GENERATOR_EXIT=0
+Applied V77.10.2 analysis-only deep fallback
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.10.2=YES
+kucoinCandles=YES
+gateCandles=YES
+cryptoAnalysisFallbackBundle=YES
+preferAnalysis:true=YES
+reference.analysisOnly=YES

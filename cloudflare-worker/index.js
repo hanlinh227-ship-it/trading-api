@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.10.1",
-  service: "Trading V77.10.1 Adaptive Entry Intelligence Hub",
+  version: "V77.10.2",
+  service: "Trading V77.10.2 Adaptive Entry Intelligence Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -178,20 +178,38 @@ async function binanceCandles(symbol,interval){
   }
   throw last||new Error("Binance candles unavailable");
 }
-async function cryptoDeepBundle(symbol){
-  const s=norm(symbol),venues=[
+function kucoinId(symbol){const x=norm(symbol);if(!x.endsWith("USDT"))throw new Error("not USDT");return x.slice(0,-4)+"-USDT";}
+function gateId(symbol){const x=norm(symbol);if(!x.endsWith("USDT"))throw new Error("not USDT");return x.slice(0,-4)+"_USDT";}
+function kucoinInterval(i){return {"5min":"5min","15min":"15min","1h":"1hour","4h":"4hour","1day":"1day"}[i];}
+function gateInterval(i){return {"5min":"5m","15min":"15m","1h":"1h","4h":"4h","1day":"1d"}[i];}
+async function kucoinCandles(symbol,interval){
+  const q=new URLSearchParams({symbol:kucoinId(symbol),type:kucoinInterval(interval)}),r=await fetchTimeout("https://api.kucoin.com/api/v1/market/candles?"+q),p=await r.json().catch(()=>null);
+  if(!r.ok||p?.code!=="200000"||!Array.isArray(p?.data))throw new Error("KuCoin candles unavailable");
+  return normalizeCandles(p.data.map(x=>({timestamp:Number(x[0]),open:x[1],close:x[2],high:x[3],low:x[4],volume:x[5]})),candleSec(interval));
+}
+async function gateCandles(symbol,interval){
+  const q=new URLSearchParams({currency_pair:gateId(symbol),interval:gateInterval(interval),limit:String(CONFIG.candleOutputSize)}),r=await fetchTimeout("https://api.gateio.ws/api/v4/spot/candlesticks?"+q,{headers:{Accept:"application/json"}}),p=await r.json().catch(()=>null);
+  if(!r.ok||!Array.isArray(p))throw new Error("Gate candles unavailable");
+  return normalizeCandles(p.filter(x=>String(x[7]??"true")!=="false").map(x=>({timestamp:Number(x[0]),open:x[5],high:x[3],low:x[4],close:x[2],volume:x[6]})),candleSec(interval));
+}
+async function analysisOnlyQuote(symbol,preferred){
+  const s=norm(symbol);try{const m=await cryptoBulk(),q=m.get(s);if(q?.price)return {...q,analysisOnly:true,executionVerified:false,fresh:true,source:q.source||preferred||"Broad Analysis"};}catch{}return {source:preferred||"Analysis-only",price:null,bid:null,ask:null,fresh:false,executionVerified:false,analysisOnly:true};
+}
+async function cryptoAnalysisFallbackBundle(symbol,preferred=null){
+  const s=norm(symbol),venues=preferred==="gate"?[{name:"Gate Spot Analysis",candles:gateCandles},{name:"KuCoin Spot Analysis",candles:kucoinCandles}]:[{name:"KuCoin Spot Analysis",candles:kucoinCandles},{name:"Gate Spot Analysis",candles:gateCandles}],errors=[];
+  for(const v of venues){try{const candles=await Promise.all(INTERVALS.map(i=>v.candles(s,i)));if(candles.some(c=>!Array.isArray(c)||c.length<55))throw new Error("insufficient closed candles");const quote=await analysisOnlyQuote(s,v.name);return {source:v.name,quote,candles,analysisOnly:true};}catch(e){errors.push(v.name+": "+(e?.message||String(e)));}}
+  throw new Error("No analysis-only deep bundle: "+errors.join(" | "));
+}
+async function cryptoDeepBundle(symbol,options={}){
+  const s=norm(symbol),preferAnalysis=!!options.preferAnalysis,canonical=[
     {name:"Bybit Spot",quote:bybitQuote,candles:bybitCandles},
     {name:"OKX Spot",quote:okxQuote,candles:okxCandles},
     {name:"Binance Spot",quote:binanceQuote,candles:binanceCandles},
   ],errors=[];
-  for(const v of venues){
-    try{
-      const [quote,...candles]=await Promise.all([v.quote(s),...INTERVALS.map(i=>v.candles(s,i))]);
-      if(candles.some(c=>!Array.isArray(c)||c.length<55))throw new Error("insufficient closed candles");
-      return {source:v.name,quote,candles};
-    }catch(e){errors.push(`${v.name}: ${e?.message||String(e)}`);}
-  }
-  throw new Error(`No exact exchange deep bundle: ${errors.join(" | ")}`);
+  if(preferAnalysis){try{return await cryptoAnalysisFallbackBundle(s,options.preferredBroadSource?.includes("Gate")?"gate":null);}catch(e){errors.push(e?.message||String(e));}}
+  for(const v of canonical){try{const [quote,...candles]=await Promise.all([v.quote(s),...INTERVALS.map(i=>v.candles(s,i))]);if(candles.some(c=>!Array.isArray(c)||c.length<55))throw new Error("insufficient closed candles");return {source:v.name,quote,candles,analysisOnly:false};}catch(e){errors.push(v.name+": "+(e?.message||String(e)));}}
+  if(!preferAnalysis){try{return await cryptoAnalysisFallbackBundle(s);}catch(e){errors.push(e?.message||String(e));}}
+  throw new Error("No exact/deep analysis bundle: "+errors.join(" | "));
 }
 async function cryptoExecutionQuote(symbol){
   const errors=[];for(const fn of [bybitQuote,okxQuote,binanceQuote]){try{return await fn(symbol);}catch(e){errors.push(e?.message||String(e));}}
@@ -358,7 +376,7 @@ async function deepAnalyze(symbol,env,candles=null,reference=null,source=null,co
   const news=await getNewsClearance(s,env);if(!news)return watch(s,type,side,"NEWS_CONTEXT_REQUIRED",{...base,score,setupReady:true,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:false}}});
   score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:!pendingRetest,pending:pendingRetest,plan:true,contextScore:context.score??5,news:true});
   if(type!=="crypto")return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},source:"Twelve Data analysis",canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:true}}});
-  try{if(!reference)reference=await cryptoExecutionQuote(s);}catch(e){return watch(s,type,side,"FINAL_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,error:e?.message||String(e)});}if(!reference.fresh)return watch(s,type,side,"FINAL_QUOTE_STALE",{...base,score,setupReady:true,planned,quote:reference});if(!reference.executionVerified)return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,quote:reference});
+  try{if(!reference||reference.analysisOnly)reference=await cryptoExecutionQuote(s);}catch(e){return watch(s,type,side,"FINAL_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,error:e?.message||String(e)});}if(!reference.fresh)return watch(s,type,side,"FINAL_QUOTE_STALE",{...base,score,setupReady:true,planned,quote:reference});if(!reference.executionVerified)return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,quote:reference});
   const entry=pendingRetest?Number(trigPolicy.level):reference.price,plan=buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior);if(!plan||plan.invalid)return watch(s,type,side,plan?.invalid||"STRUCTURAL_SL_REQUIRED",{...base,score,setupReady:true,planned,quote:reference});
   const spread=reference.ask-reference.bid,costR=spread/plan.risk;if(!Number.isFinite(costR)||costR>CONFIG.maxExecutionCostR)return watch(s,type,side,"EXECUTION_COST_TOO_HIGH",{...base,score,setupReady:true,planned,costR,quote:reference});
   score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:true,plan:true,contextScore:context.score??5,news:true,execution:true});
@@ -433,7 +451,7 @@ async function runGroup(group,env){
       const shortlist=broad.rows.slice(0,CONFIG.deepShortlist),valid=[];
       for(const c of shortlist){
         if(Date.now()-started>CONFIG.scanDeadlineMs-2500)break;deepAttempted++;let b;
-        try{b=await cryptoDeepBundle(c.symbol);}catch(e){skippedUnavailable.push({symbol:c.symbol,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)});await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));continue;}
+        try{b=await cryptoDeepBundle(c.symbol,{preferAnalysis:!!c.quote?.analysisOnly,preferredBroadSource:c.quote?.source});}catch(e){skippedUnavailable.push({symbol:c.symbol,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)});await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));continue;}
         const dc=await cryptoDerivativesContext(c.symbol),a=await deepAnalyze(c.symbol,env,b.candles,b.quote,b.source,{...(c.context||{}),...dc});valid.push(a);
         await new Promise(r=>setTimeout(r,CONFIG.cryptoDeepCooldownMs));if(valid.length>=CONFIG.cryptoDeepTarget)break;
       }
@@ -449,7 +467,7 @@ async function runGroup(group,env){
 }
 async function runSymbol(symbol,env){
   const s=norm(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};
-  if(type==="crypto"){let b;try{b=await cryptoDeepBundle(s);}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)};}let context={score:5};try{const btc= s==="BTCUSDT"?b.quote:await cryptoExecutionQuote("BTCUSDT");const rel=(b.quote.percentChange??0)-(btc.percentChange??0);context={relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel)),...(await cryptoDerivativesContext(s))};}catch{}return deepAnalyze(s,env,b.candles,b.quote,b.source,context);}
+  if(type==="crypto"){let b;try{b=await cryptoDeepBundle(s,{preferAnalysis:true});}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)};}let context={score:5};try{const bulk=await cryptoBulk(),sq=b.quote?.percentChange??bulk.get(s)?.percentChange??0,bq=s==="BTCUSDT"?sq:(bulk.get("BTCUSDT")?.percentChange??0),rel=sq-bq;context={relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel)),...(await cryptoDerivativesContext(s))};}catch{}return deepAnalyze(s,env,b.candles,b.quote,b.source,context);}
   const maps=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env,CONFIG.candleOutputSize)));const candles=maps.map(m=>m.get(s)||[]);return deepAnalyze(s,env,candles,null,"Twelve Data",{score:5});
 }
 async function telegram(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const r=await fetchTimeout(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
