@@ -48,7 +48,17 @@ jobs:
           if (src.includes('Score 10.0') || src.includes('Score 8.0')) throw new Error('legacy score UI leaked into canonical runtime');
           if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
           if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
-          const forex = (src.match(/"[A-Z]{6}"/g) || []).length;
           if (!src.includes('const FOREX') || !src.includes('const CRYPTO_BASE') || !src.includes('const METALS')) throw new Error('canonical universes missing');
           console.log('V77.7 canonical validation PASS');
           NODE
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install
+      - name: Generate build-time Wrangler config
+        working-directory: cloudflare-worker
+        env:
+          TRADING_KV_NAMESPACE_ID: 00000000000000000000000000000000
+        run: npm run prepare:wrangler
+      - name: Wrangler bundle dry-run
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy --dry-run
