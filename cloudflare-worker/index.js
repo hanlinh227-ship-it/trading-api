@@ -1,8 +1,9 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
+import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.12.0",
-  service: "Trading V77.12.0 Fresh Scan Persistent Order Hub",
+  version: "V77.13.0",
+  service: "Trading V77.13.0 Calibrated Adaptive Entry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -35,6 +36,7 @@ const CONFIG = {
     cryptoBroadCache: "v779:crypto_broad_cache",
     scanPrefix: "v7712:scan:",
     orderHistory: "v7712:order_history",
+    shadowSetups: "v7713:shadow_setups",
   },
 };
 
@@ -378,23 +380,27 @@ function targetCandidates(side,entry,M15,H1,H4,D1){
 function buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior={}){
   if(!Number.isFinite(M5.atr14)||M5.atr14<=0)return null;const atrFloor=Math.max(M5.atr14*.55,(Number(prior.riskATR)||.55)*M5.atr14*.7),structures=structuralCandidates(side,entry,M5,M15,H1,H4,D1),anchor=structures[0]??(side==="LONG"?entry-atrFloor:entry+atrFloor),buffer=M5.atr14*.12;
   const sl=side==="LONG"?Math.min(anchor-buffer,entry-atrFloor):Math.max(anchor+buffer,entry+atrFloor),risk=Math.abs(entry-sl);if(!Number.isFinite(risk)||risk<=0)return null;
-  const valid=targetCandidates(side,entry,M15,H1,H4,D1).map(v=>({price:v,rr:Math.abs(v-entry)/risk})).filter(x=>x.rr>=.85&&x.rr<=5);if(!valid.length)return {invalid:"CLEAN_TARGET_REQUIRED",risk,roomR:0};
-  const tp1=valid[0],tp2=valid.find(x=>x.rr>=Math.max(1.5,tp1.rr+.35))||valid.at(-1),best=tp2||tp1;return {entry,sl,risk,roomR:best.rr,targetRR:Number(best.rr.toFixed(2)),tp1:tp1.price,tp1RR:Number(tp1.rr.toFixed(2)),tp2:best.price,tp2RR:Number(best.rr.toFixed(2)),mode:pendingRetest?"LIMIT":"MARKET",targetSource:"STRUCTURE_LIQUIDITY"};
+  const valid=targetCandidates(side,entry,M15,H1,H4,D1).map(v=>({price:v,rr:Math.abs(v-entry)/risk})).filter(x=>x.rr>=.80&&x.rr<=4);if(!valid.length)return {invalid:"CLEAN_TARGET_REQUIRED",risk,roomR:0};
+  const tp1=valid[0],tp2=valid.find(x=>x.rr>=Math.max(1.4,tp1.rr+.35)&&x.rr<=3.2)||null,best=tp2||tp1;return {entry,sl,risk,roomR:best.rr,targetRR:Number(best.rr.toFixed(2)),tp1:tp1.price,tp1RR:Number(tp1.rr.toFixed(2)),tp2:(tp2||tp1).price,tp2RR:Number((tp2||tp1).rr.toFixed(2)),mode:pendingRetest?"LIMIT":"MARKET",targetSource:"STRUCTURE_LIQUIDITY",targetTier:tp2?"PRIMARY_PLUS_EXTENSION":"PRIMARY_ONLY"};
 }
+function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}
+function minimumQualityRR(intel){const mode=profileMode(intel);let x=mode==="MEAN_REVERSION"?1.0:mode==="TREND"?1.2:mode==="RELATIVE"?1.15:1.25;if(Number(intel?.methodFit)>=85)x-=.1;return Math.max(1,Number(x.toFixed(2)));}
+function rrQuality(plan,intel){const min=minimumQualityRR(intel),rr=Number(plan?.targetRR);return {pass:Number.isFinite(rr)&&rr>=min,minRR:min,targetRR:rr};}
 async function deepAnalyze(symbol,env,candles=null,reference=null,source=null,context={}){
-  const s=canonicalUserSymbol(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};const prior=v73Prior(s,type);
+  const s=canonicalUserSymbol(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};const prior=v73Prior(s,type),knowledge=symbolKnowledge(s);
   try{if(!candles){if(type==="crypto"){const b=await cryptoDeepBundle(s);candles=b.candles;reference=b.quote;source=b.source;}else candles=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env).then(m=>m.get(s)||[])));}}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"ANALYSIS_DATA_UNAVAILABLE",error:e?.message||String(e)};}
   const [m5c,m15c]=candles||[],[M5,M15,H1,H4,D1]=(candles||[]).map(tf);if(!M5||[M5,M15,H1,H4,D1].some(x=>!x?.ready))return watch(s,type,"NEUTRAL","TIMEFRAME_DATA_REQUIRED",{source,score:5,canonical:{v73Prior:prior}});
   const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=intel.route?.votes||directionalVotes(D1,H4,H1),side=intel.side,htf=!!intel.htfPass;
-  const base={source,method:intel,context,canonical:{v73Prior:prior},score:setupScore({methodFit:intel.methodFit,htf,htfVotes:Math.max(votes.bull,votes.bear),contextScore:context.score??5})};
+  const base={source,method:intel,knowledge:knowledge?{canonicalSymbol:knowledge.canonicalSymbol,allowedModes:knowledge.allowedModes,riskATR:knowledge.riskATR,newsProfile:knowledge.newsProfile,calibration:knowledge.calibration}:null,context,canonical:{v73Prior:prior},score:setupScore({methodFit:intel.methodFit,htf,htfVotes:Math.max(votes.bull,votes.bear),contextScore:context.score??5})};
   if(side==="NEUTRAL"||!htf)return watch(s,type,side,"HTF_METHOD_ALIGNMENT_REQUIRED",base);
   const loc=m15Location(m15c,M15,side),locPolicy=adaptiveLocationPolicy(intel,M15,loc,side,context);base.score=setupScore({methodFit:intel.methodFit,htf:true,location:locPolicy.pass,contextScore:context.score??5});
   if(!locPolicy.pass){const planned=indicativePlan(side,M5,M15,H1,H4,D1,locPolicy,prior);return watch(s,type,side,"M15_LOCATION_REQUIRED",{...base,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy},canonical:{...base.canonical,m15Location:loc}});}
   const trig=m5Trigger(m5c,M5,side),trigPolicy=adaptiveTriggerPolicy(intel,M5,trig,side,context),pendingRetest=!!trigPolicy.pending;base.score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:trigPolicy.pass&&!pendingRetest,pending:pendingRetest,contextScore:context.score??5});
   if(!trigPolicy.pass){const planned=indicativePlan(side,M5,M15,H1,H4,D1,locPolicy,prior);return watch(s,type,side,"M5_MSS_DISPLACEMENT_RETEST_REQUIRED",{...base,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},canonical:{...base.canonical,m15Location:loc,m5Trigger:trig}});}
   const previewEntry=pendingRetest?Number(trigPolicy.level):M5.close,preview=buildTradePlan(side,previewEntry,M5,M15,H1,H4,D1,pendingRetest,prior);if(!preview)return watch(s,type,side,"STRUCTURAL_SL_REQUIRED",base);if(preview.invalid)return watch(s,type,side,preview.invalid,{...base,roomR:preview.roomR});
-  const planned={entry:preview.entry,sl:preview.sl,tp1:preview.tp1,tp2:preview.tp2,targetRR:preview.targetRR,tp1RR:preview.tp1RR,tp2RR:preview.tp2RR,roomR:preview.roomR,mode:preview.mode,targetSource:preview.targetSource,entryStyle:trigPolicy.mode,adaptive:!!(locPolicy.soft||trigPolicy.soft)};
+  const quality=rrQuality(preview,intel),planned={entry:preview.entry,sl:preview.sl,tp1:preview.tp1,tp2:preview.tp2,targetRR:preview.targetRR,tp1RR:preview.tp1RR,tp2RR:preview.tp2RR,roomR:preview.roomR,mode:preview.mode,targetSource:preview.targetSource,targetTier:preview.targetTier,entryStyle:trigPolicy.mode,adaptive:!!(locPolicy.soft||trigPolicy.soft),minQualityRR:quality.minRR,rrQualityPass:quality.pass};
   let score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:!pendingRetest,pending:pendingRetest,plan:true,contextScore:context.score??5});
+  if(!quality.pass)return watch(s,type,side,"RR_QUALITY_REQUIRED",{...base,score,setupReady:true,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,rrQuality:quality}});
   const news=await getNewsClearance(s,env);if(!news)return watch(s,type,side,"NEWS_CONTEXT_REQUIRED",{...base,score,setupReady:true,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:false}}});
   score=setupScore({methodFit:intel.methodFit,htf:true,location:true,trigger:!pendingRetest,pending:pendingRetest,plan:true,contextScore:context.score??5,news:true});
   if(type!=="crypto")return watch(s,type,side,"EXECUTION_QUOTE_REQUIRED",{...base,score,setupReady:true,planned,entryPolicy:{profile:profileMode(intel),location:locPolicy,trigger:trigPolicy},source:"Twelve Data analysis",canonical:{...base.canonical,m15Location:loc,m5Trigger:trig,news:{cleared:true}}});
@@ -461,6 +467,15 @@ function duplicate(book,sym){return [...book.marketActive,...book.limitActive,..
 function toPos(sig){return {id:sig.symbol+"-"+Date.now(),symbol:sig.symbol,side:sig.side,entry:sig.entry,sl:sig.sl,tp:sig.targetRR===2?sig.tp2:sig.tp1,tp1:sig.tp1,tp2:sig.tp2,targetRR:sig.targetRR,origin:sig.action,status:"ACTIVE",openedAt:Date.now(),engineOpened:sig.engine,engine:sig.engine,source:sig.quote?.source,executionVerified:true,executionAuthority:sig.quote?.source||"CANONICAL_CRYPTO"};}
 function fillBooks(group,books,analyses){const b=books[group],newItems=[];for(const a of analyses){if(group!=="crypto")continue;if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a);b.marketActive.push(p);newItems.push(p);}if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}}b.watch=[];return newItems;}
 function freshWatchFromRun(run){return (run?.analyses||[]).filter(x=>x?.status==="WATCH").sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0)).slice(0,CONFIG.maxWatch);}
+async function recordShadowSetup(group,a,scanId,env){
+  if(!a||a.status!=="WATCH"||!a.planned||!["LONG","SHORT"].includes(a.side))return;
+  const rr=Number(a.planned.targetRR);if(!Number.isFinite(rr)||rr<1)return;
+  try{const old=await env.TRADING_STATE.get(CONFIG.keys.shadowSetups,"json"),rows=Array.isArray(old?.rows)?old.rows:[],mode=a.method?.activeMode||a.entryPolicy?.profile||"GENERIC",now=Date.now();
+    const duplicate=rows.some(x=>x.status==="OPEN"&&x.symbol===a.symbol&&x.mode===mode&&now-Number(x.createdAt)<30*60000);if(duplicate)return;
+    rows.unshift({id:a.symbol+"-"+now,symbol:a.symbol,group,side:a.side,mode,score:a.score??null,entry:a.planned.entry,sl:a.planned.sl,tp1:a.planned.tp1,tp2:a.planned.tp2,targetRR:a.planned.targetRR,minQualityRR:a.planned.minQualityRR??minimumQualityRR(a.method),reason:a.reason,source:a.source||null,scanId:scanId||null,createdAt:now,expiresAt:now+(group==="forex"?12:8)*3600000,status:"OPEN",calibrationStatus:a.knowledge?.calibration?.status||"UNVERIFIED"});
+    await env.TRADING_STATE.put(CONFIG.keys.shadowSetups,JSON.stringify({rows:rows.slice(0,500),updatedAt:now}));}catch{}
+}
+async function getShadowSetups(env,symbol=null){try{const v=await env.TRADING_STATE.get(CONFIG.keys.shadowSetups,"json");const rows=Array.isArray(v?.rows)?v.rows:[];return symbol?rows.filter(x=>x.symbol===canonicalUserSymbol(symbol)):rows;}catch{return [];}}
 async function acquireLock(env){const k=CONFIG.keys.runLock;try{const old=await env.TRADING_STATE.get(k);if(old&&Date.now()-Number(old)<CONFIG.runLockTtlSec*1000)return false;await env.TRADING_STATE.put(k,String(Date.now()),{expirationTtl:CONFIG.runLockTtlSec});return true;}catch{return true;}}
 async function releaseLock(env){try{await env.TRADING_STATE.delete(CONFIG.keys.runLock);}catch{}}
 async function runGroup(group,env){
@@ -483,7 +498,7 @@ async function runGroup(group,env){
       const candidates=broad.rows.slice(0,CONFIG.maxCandidates);let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)analyses.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else analyses.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
     }
-    const books=await getBooks(env),newItems=fillBooks(group,books,analyses);await saveBooks(env,books);
+    const books=await getBooks(env),newItems=fillBooks(group,books,analyses);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);
     const out={ok:true,version:CONFIG.version,group,scanId,scannedAt,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
     await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot(group,out,env);return out;
   }finally{await releaseLock(env);}
@@ -502,7 +517,7 @@ function groupKeyboard(group,run){const rows=baseKeyboard().inline_keyboard,pend
 function hubKeyboard(h){const rows=baseKeyboard().inline_keyboard,p=[];for(const [g,r] of Object.entries(h?.runs||{}))for(const w of freshWatchFromRun(r))if(w.reason==="NEWS_CONTEXT_REQUIRED"&&p.length<3)p.push({text:"✅ Tin OK "+w.symbol,callback_data:"news:"+g+":"+w.symbol});if(p.length)rows.unshift(p);return {inline_keyboard:rows};}
 function groupTitle(g){return g==="forex"?"💱 FOREX":g==="crypto"?"🪙 CRYPTO":"🥇 METAL";}
 function fmtPx(v){const n=Number(v);if(!Number.isFinite(n))return "—";if(Math.abs(n)>=1000)return n.toFixed(2);if(Math.abs(n)>=10)return n.toFixed(4);if(Math.abs(n)>=1)return n.toFixed(5);return n.toPrecision(6);}
-function reasonText(r){return ({HTF_METHOD_ALIGNMENT_REQUIRED:"Chờ phương pháp riêng + HTF đồng thuận",HTF_ALIGNMENT_REQUIRED:"Chờ D1/H4/H1 đồng thuận",M15_LOCATION_REQUIRED:"Chờ giá vào vùng M15 đẹp",M5_MSS_DISPLACEMENT_RETEST_REQUIRED:"Chờ trigger M5 phù hợp profile",STRUCTURAL_SL_REQUIRED:"Chưa có SL cấu trúc",CLEAN_TARGET_REQUIRED:"Chưa có mục tiêu thanh khoản đủ tốt",NEWS_CONTEXT_REQUIRED:"Chờ tin/context",EXECUTION_QUOTE_REQUIRED:"Chờ bid/ask thực",FINAL_QUOTE_REQUIRED:"Chờ giá execution",FINAL_QUOTE_STALE:"Giá execution cũ",EXECUTION_COST_TOO_HIGH:"Spread/chi phí cao",TIMEFRAME_DATA_REQUIRED:"Thiếu timeframe",ANALYSIS_DATA_UNAVAILABLE:"Thiếu dữ liệu"})[r]||"Chờ thêm xác nhận";}
+function reasonText(r){return ({HTF_METHOD_ALIGNMENT_REQUIRED:"Chờ phương pháp riêng + HTF đồng thuận",HTF_ALIGNMENT_REQUIRED:"Chờ D1/H4/H1 đồng thuận",M15_LOCATION_REQUIRED:"Chờ giá vào vùng M15 đẹp",M5_MSS_DISPLACEMENT_RETEST_REQUIRED:"Chờ trigger M5 phù hợp profile",STRUCTURAL_SL_REQUIRED:"Chưa có SL cấu trúc",CLEAN_TARGET_REQUIRED:"Chưa có mục tiêu thanh khoản đủ tốt",NEWS_CONTEXT_REQUIRED:"Chờ tin/context",EXECUTION_QUOTE_REQUIRED:"Chờ bid/ask thực",FINAL_QUOTE_REQUIRED:"Chờ giá execution",FINAL_QUOTE_STALE:"Giá execution cũ",EXECUTION_COST_TOO_HIGH:"Spread/chi phí cao",RR_QUALITY_REQUIRED:"RR cấu trúc chưa đủ tốt",TIMEFRAME_DATA_REQUIRED:"Thiếu timeframe",ANALYSIS_DATA_UNAVAILABLE:"Thiếu dữ liệu"})[r]||"Chờ thêm xác nhận";}
 function stageText(a){if(a.status==="MARKET")return "🟢 MARKET";if(a.status==="LIMIT")return "🟡 LIMIT";if(a.reason==="NEWS_CONTEXT_REQUIRED")return "🟠 ARMED";if(a.reason==="EXECUTION_QUOTE_REQUIRED"||a.reason==="FINAL_QUOTE_REQUIRED")return "🔵 READY";if(a.reason==="M5_MSS_DISPLACEMENT_RETEST_REQUIRED")return "🟣 SETUP";return "⚪ WATCH";}
 function posLine(p){return `${p.symbol} ${sideText(p.side)} • E ${fmtPx(p.entry)} • SL ${fmtPx(p.sl)} • TP ${fmtPx(p.tp)}`;}
 function watchLine(w){let x=`${w.symbol} ${sideText(w.side)} • ${reasonText(w.reason)}`;if(Number.isFinite(w.score))x+=` • ${w.score}/100`;if(w.planned){const tag=w.planned.indicative?"Tham khảo":"Kế hoạch";x+=`
@@ -513,7 +528,7 @@ function singleAnalysisText(a){
   if(!a)return "⛔ Không có kết quả phân tích.";
   if(a.ok===false)return `⛔ ${a.symbol||"SYMBOL"} • ${reasonText(a.reason)}\n${a.error?"Chi tiết: "+a.error:""}`;
   const L=[`🔎 ${a.symbol} • ${stageText(a)}${Number.isFinite(a.score)?" • "+a.score+"/100":""}`,`Hướng: ${sideText(a.side)}`];
-  if(a.method?.profile)L.push(`Profile: ${a.method.profile}`);if(a.method?.activeMode)L.push(`Active route: ${a.method.activeMode}${a.method.allowedModes?.length>1?" (allowed: "+a.method.allowedModes.join("/")+")":""}`);
+  if(a.method?.profile)L.push(`Profile: ${a.method.profile}`);if(a.method?.activeMode)L.push(`Active route: ${a.method.activeMode}${a.method.allowedModes?.length>1?" (allowed: "+a.method.allowedModes.join("/")+")":""}`);if(a.knowledge?.calibration?.status)L.push(`Calibration: ${a.knowledge.calibration.status}`);
   if(a.entryPolicy?.profile)L.push(`Profile engine: ${a.entryPolicy.profile}`);
   if(a.status==="MARKET"||a.status==="LIMIT"){L.push("",`✅ LỆNH EXECUTABLE ${a.status}`,`Entry ${fmtPx(a.entry)} • SL ${fmtPx(a.sl)}`,`TP1 ${fmtPx(a.tp1)} • TP2 ${fmtPx(a.tp2)} • RR ${Number(a.targetRR||0).toFixed(2)}`);}
   else if(a.planned){const tag=a.planned.indicative?"📐 ENTRY THAM KHẢO — chưa phải lệnh":"🎯 KẾ HOẠCH ENTRY";L.push("",tag,`E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)}`,`TP1~${fmtPx(a.planned.tp1)} • TP2~${fmtPx(a.planned.tp2)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`);if(a.planned.entryStyle)L.push(`Style: ${a.planned.entryStyle}`);}
@@ -590,6 +605,8 @@ export default {
       if(p==="/telegram/menu"){await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB/thị trường hoặc gõ /coin BTC:`,env.TELEGRAM_CHAT_ID,baseKeyboard());return json({ok:true});}
       if(p==="/telegram/webhook"&&req.method==="POST")return handleTelegram(req,env);
       if(p==="/books"||p==="/orders")return json(await getBooks(env));
+      if(p==="/knowledge"){const symbol=canonicalUserSymbol(u.searchParams.get("symbol"));return json({ok:true,symbol,knowledge:symbolKnowledge(symbol)});}
+      if(p==="/shadow"){const symbol=u.searchParams.get("symbol");return json({ok:true,rows:await getShadowSetups(env,symbol)});}
       if(p==="/latest-scan"){const g=u.searchParams.get("group");if(!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json({ok:true,group:g,snapshot:await getScanSnapshot(g,env)});}
       return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal","/analyze?symbol=BTCUSDT","/telegram/setup-webhook","/telegram/webhook-info","/telegram/menu","/books"]});
     }catch(e){console.error("HTTP",e);return json({ok:false,version:CONFIG.version,error:e?.message||String(e)},500);}

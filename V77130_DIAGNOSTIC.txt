@@ -1,0 +1,13 @@
+GENERATOR_EXIT=0
+Applied V77.13.0 calibration and RR quality layer
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.13.0=YES
+SYMBOL_KNOWLEDGE=YES
+minimumQualityRR=YES
+RR_QUALITY_REQUIRED=YES
+recordShadowSetup=YES
+shadowSetups=YES
+/knowledge=YES
+/shadow=YES
+targetTier=YES
