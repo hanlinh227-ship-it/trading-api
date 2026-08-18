@@ -9,6 +9,7 @@ const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0;};
 const cut=(s,n=1600)=>String(s||"").slice(0,n);
 async function kvGet(env,k,f=null){try{return await env.TRADING_STATE?.get(k,"json")??f;}catch{return f;}}
 async function kvPut(env,k,v,ttl=2592000){try{await env.TRADING_STATE?.put(k,JSON.stringify(v),{expirationTtl:ttl});}catch{}}
+async function tg(env,text){if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return;try{await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true})});}catch{}}
 async function ft(url){const c=new AbortController(),id=setTimeout(()=>c.abort(),6500);try{const r=await fetch(url,{headers:{"user-agent":"trading-dual-ai-v771823"},signal:c.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);return await r.text();}finally{clearTimeout(id);}}
 async function snapshot(env){const files=[];for(const path of FILES){try{files.push({path,content:cut(await ft(`https://raw.githubusercontent.com/${REPO}/main/${path}`),1600)});}catch(e){files.push({path,error:String(e?.message||e)});}}const [health,runtime,books,tuning]=await Promise.all([kvGet(env,"v771817:health:last",null),kvGet(env,"v7718:hyro:runtime",null),kvGet(env,"v775:books",null),getAdaptiveTuningState(env)]);return {files,health:health?{ok:health.ok,errors:health.errors,warnings:health.warnings,signature:health.signature,issues:(health.issues||[]).slice(0,10)}:null,runtime:runtime?{reason:runtime.reason,executed:runtime.executed,scanSummary:runtime.scanSummary,preview:(runtime.preview||[]).slice(0,5),dynamicRisk:runtime.dynamicRisk}:null,books:books?{groups:Object.keys(books),updatedAt:books.updatedAt}:null,tuning};}
 function parse(text){const raw=String(text||"").trim();try{return JSON.parse(raw);}catch{}const a=raw.indexOf("{"),b=raw.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(raw.slice(a,b+1));}catch{}}return {verdict:"WARN",summary:cut(raw,1200),findings:[],runtime_tuning:null};}
@@ -25,7 +26,9 @@ export async function ensureDualAiIntervention(env,{version="V77.18.23"}={}){
     const applied=review?.runtime_tuning?await applyAdaptiveTuning(env,review.runtime_tuning,{source:"CLAUDE_ONE_TIME_BOUNDED",reviewId:body?.id||null}):await getAdaptiveTuningState(env);
     const estimatedCostUsd=Number(((num(usage.input_tokens)*2+num(usage.output_tokens)*10)/1000000).toFixed(4));
     const out={completed:true,version,startedAt,finishedAt:now(),model:String(env.ANTHROPIC_REVIEW_MODEL||MODEL),messageId:body?.id||null,usage,estimatedCostUsd,verdict:String(review?.verdict||"WARN").toUpperCase(),confidence:num(review?.confidence),summary:cut(review?.summary,1600),findings:Array.isArray(review?.findings)?review.findings.slice(0,8):[],appliedTuning:applied?.values||applied,guardrails:{chatgptPrimary:true,softTuningOnly:true,trade:false,close:false,deploy:false,secrets:false,hardRiskImmutable:true}};
-    await kvPut(env,KEY,out);return out;
+    await kvPut(env,KEY,out);
+    await tg(env,["🧠 DUAL AI • HOÀN TẤT 1 LƯỢT",`Claude ${out.verdict} ${out.confidence||0}% | cost ~$${estimatedCostUsd.toFixed(4)}`,`Signal: ChatGPT V77.16.10 | PROP adaptive: ${out.appliedTuning?.hyro?"APPLIED":"DEFAULT"}`,"Hard risk/news/execution: giữ nguyên"].join("\n"));
+    return out;
   }catch(e){const out={completed:false,version,startedAt,finishedAt:now(),error:String(e?.message||e),guardrails:{trade:false,deploy:false}};await kvPut(env,KEY,out,86400);return out;}
 }
 export async function getDualAiInterventionState(env){return kvGet(env,KEY,null);}
