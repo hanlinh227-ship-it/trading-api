@@ -6,18 +6,25 @@ Worker name: `trading-v77-scanner`.
 
 ## Single-source architecture
 
-`GitHub main -> Cloudflare Worker -> Twelve Data / exact crypto venues -> KV -> Telegram`
+`GitHub main -> Cloudflare Worker -> Twelve Data / exact crypto venues -> TRADING_V77_STATE KV -> Telegram`
 
-GitHub is the canonical source. Do not maintain a separate hand-edited production logic in Cloudflare after Git Builds is connected.
+GitHub is the canonical source. After Git Builds is connected, do not maintain a separate hand-edited production logic in Cloudflare.
 
 ## Runtime configuration
 
-Cloudflare Secrets:
+Required Cloudflare Secrets:
 
 - `TWELVE_DATA_API_KEY`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
-- `TELEGRAM_WEBHOOK_SECRET` (recommended; V77.7.0 verifies Telegram's secret header when configured)
+
+Recommended:
+
+- `TELEGRAM_WEBHOOK_SECRET`
+
+Optional future automatic news service:
+
+- `NEWS_GATE_URL`
 
 Cloudflare KV binding:
 
@@ -29,32 +36,49 @@ Do not create a replacement KV namespace. V77.7.0 keeps the existing `v775:books
 ## Trading authority
 
 - V73 frozen JSON is imported directly from `data/nocut_intraday_allpass_v73.json` at build time.
-- V74 evidence order is implemented in the runtime gate: D1/H4/H1 alignment -> M15 tradable location -> M5 MSS/displacement/retest -> structural SL -> H1 room -> final execution-quality gate.
+- V74 evidence order is implemented in the runtime gate.
 - V76 R2 remains research-only and authorizes no order.
-- Broad scores rank candidates only; they cannot authorize MARKET/LIMIT.
+- Broad ranking is candidate discovery only; it cannot authorize MARKET/LIMIT.
+
+Canonical progression:
+
+`D1/H4/H1 -> V73 prior -> M15 location -> M5 MSS + displacement + retest -> current news/context -> structural risk/room -> final execution quote`
+
+RR1 is default. RR2 requires >=2.2R clean room. Estimated spread must be <=0.10R.
+
+### News/context
+
+Twelve Data does not provide the complete live macro/crypto news layer required by V74. V77.7.0 therefore never fabricates clearance.
+
+A setup that reaches this point becomes `WATCH / NEWS_CONTEXT_REQUIRED`. Telegram then exposes `✅ Tin OK <symbol>`. A manual clearance is valid for 30 minutes. If a real news service is connected later through `NEWS_GATE_URL`, this can be automated without changing the entry engine.
 
 ### Forex
 
-Twelve Data is the analysis/reference feed. V77.7.0 does **not** fabricate broker bid/ask. Without a broker/venue execution quote, a qualified Forex setup remains `WATCH / EXECUTION_QUOTE_REQUIRED` rather than a new MARKET order.
+Twelve Data is the analysis/reference feed. V77.7.0 does **not** fabricate broker bid/ask. Without a broker/venue execution quote, a qualified Forex setup remains `WATCH / EXECUTION_QUOTE_REQUIRED` rather than a new MARKET/LIMIT order.
 
 ### Crypto
 
-Twelve Data provides standardized analysis candles. Exact exchange execution confirmation uses Bybit, OKX, then Binance fallback. MARKET/LIMIT requires a fresh exact-venue bid/ask and estimated spread <= 0.10R.
+Twelve Data provides standardized analysis candles. Exact execution confirmation uses Bybit, OKX, then Binance fallback. MARKET/LIMIT requires current news clearance plus a fresh exact-venue bid/ask and estimated spread <=0.10R.
 
 ### Metal
 
-Twelve Data is the analysis/reference feed for XAUUSD/XAGUSD. As with Forex, new MARKET orders require an actual broker/venue execution quote; Twelve Data reference price alone does not authorize an executable order.
+Twelve Data is the analysis/reference feed for XAUUSD/XAGUSD. As with Forex, new executable orders require an actual broker/venue bid/ask quote; Twelve Data reference price alone does not authorize MARKET/LIMIT.
 
-## Universe and Twelve Data budget
+## Twelve Data / Cloudflare efficiency
 
-- Forex: all 28 pairs are broad-scanned on H1; Top3 receive D1/H4/H1/M15/M5 deep analysis. Approximate Twelve Data use is 43 credits per on-demand scan, inside Grow55 when no overlapping scan is running.
-- Crypto: 61 canonical identities are covered by exchange bulk discovery; 30 symbols per scan receive rotating Twelve Data H1 enrichment; Top3 receive five-timeframe Twelve Data analysis. This uses roughly 45 Twelve Data credits plus exchange-native requests.
-- Metal: XAUUSD and XAGUSD both receive full analysis.
+Twelve Data batch requests are used to maximize Grow55 while keeping Cloudflare subrequests low:
+
+- Forex: all 28 H1 symbols in one batch; Top3 deep analysis uses five timeframe batches. Credits remain about 43 per on-demand scan.
+- Crypto: 61 canonical identities use exchange bulk discovery; 30 rotating symbols receive one H1 Twelve Data batch; Top3 deep analysis uses five timeframe batches. Credits remain about 45 per scan.
+- Metal: both XAUUSD/XAGUSD share one H1 batch and five deep timeframe batches.
+- Batch requests reduce HTTP calls, not Twelve Data credits per symbol.
 - A shared KV run lock prevents simultaneous manual scans from competing for the same Grow55 minute budget.
 
 ## Telegram
 
-Telegram is the single user-facing control surface. Buttons trigger on-demand Forex/Crypto/Metal scans. Raw provider errors stay in `/run-now` diagnostics and Worker logs; normal Telegram messages show books, WATCH stages, coverage and results without dumping provider error strings.
+Telegram is the single user-facing control surface. Buttons trigger on-demand Forex/Crypto/Metal scans.
+
+Normal Telegram output shows books, coverage and canonical WATCH stages. Raw provider errors stay in `/run-now` diagnostics and Worker logs and are not dumped into normal Telegram messages.
 
 Webhook endpoints:
 
@@ -63,27 +87,36 @@ Webhook endpoints:
 - `/telegram/webhook`
 - `/telegram/menu`
 
-Cron is lifecycle-only; it handles TP/SL and pending LIMIT fills/expiry and never starts discovery scans.
+Cron is lifecycle-only: TP/SL plus pending LIMIT fill/expiry. Cron never starts discovery scans.
 
 ## Cloudflare Git integration
 
-Cloudflare supports connecting an existing Worker to GitHub under **Settings -> Builds**. Use repository `hanlinh227-ship-it/trading-api`, production branch `main`, and root directory `cloudflare-worker`.
+Connect the existing Worker under **Settings -> Builds**.
+
+Use:
+
+- repository: `hanlinh227-ship-it/trading-api`
+- production branch: `main`
+- root directory: `cloudflare-worker`
+- deploy command: `npx wrangler deploy`
 
 Before enabling automatic deploys:
 
 1. Copy `wrangler.example.jsonc` to `wrangler.jsonc`.
 2. Replace `REPLACE_WITH_EXISTING_TRADING_V77_STATE_NAMESPACE_ID` with the ID of the existing `TRADING_V77_STATE` namespace.
 3. Keep Worker name exactly `trading-v77-scanner`.
-4. Keep the four runtime secrets in Cloudflare, not GitHub.
-5. Build command can be empty; deploy command is `npx wrangler deploy`.
+4. Keep secret values in Cloudflare, never GitHub.
 
-Cloudflare treats Wrangler configuration as deployment source-of-truth. Never enable the template with the placeholder KV ID, because automatic provisioning could create a different namespace.
+Cloudflare treats Wrangler configuration as deployment source-of-truth. Never deploy the template with the placeholder KV ID; automatic provisioning could create a different namespace.
 
 ## Post-deploy validation
 
-- `/status` -> `V77.7.0`, V73 loaded, KV online.
-- `/run-now?group=forex` -> 28 requested; new executable Forex orders should not be created without a broker execution feed.
-- `/run-now?group=crypto` -> 61 requested; Top3 canonical deep gate.
+- `/status` -> `V77.7.0`, V73 loaded, KV online, strict news gate.
+- `/run-now?group=forex` -> 28 requested.
+- `/run-now?group=crypto` -> 61 requested.
 - `/run-now?group=metal` -> 2 requested.
 - `/telegram/setup-webhook` then `/telegram/webhook-info`.
-- Telegram FOREX / CRYPTO / METAL buttons all return a final message instead of remaining at `Đang quét...`.
+- Telegram FOREX / CRYPTO / METAL each finishes with a result message.
+- Qualified technical candidates must stop at `NEWS_CONTEXT_REQUIRED` until clearance.
+- Forex/Metal do not create new executable orders without broker bid/ask.
+- Crypto MARKET/LIMIT can only appear after news clearance and exact venue execution confirmation.
