@@ -1,0 +1,32 @@
+HEAD=8c69aedd4ae78f4c47adb4ec9f99976933244cd3
+VERSION_RC=0
+RISK_RC=0
+TP_RC=0
+CLAUDE_30M_RC=0
+HUB_RC=0
+
+added 38 packages, and audited 39 packages in 7s
+
+7 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+NPM_RC=0
+
+> prepare:wrangler
+> node prepare-wrangler.mjs
+
+Prepared wrangler.jsonc for existing TRADING_STATE namespace.
+PREP_RC=0
+
+ ⛅️ wrangler 4.124.0
+────────────────────
+Total Upload: 612.16 KiB / gzip: 92.66 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource          
+env.TRADING_STATE (00000000000000000000000000000000)      KV Namespace      
+
+--dry-run: exiting now.
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+WRANGLER_RC=0
