@@ -1,0 +1,67 @@
+Cloudflare build diagnostic 2026-08-18T16:07:22Z
+HEAD 0a48c781cca67cf9b9323986847b7fabdb00fec0
+
+== NODE CHECK ==
+-- cloudflare-worker/engine-v77168.js
+-- cloudflare-worker/hub-v77171.js
+-- cloudflare-worker/hyro-demo-test.js
+-- cloudflare-worker/hyro-execution.js
+-- cloudflare-worker/hyro-market-context.js
+-- cloudflare-worker/hyro-multi-account.js
+-- cloudflare-worker/hyro-multi-ui.js
+-- cloudflare-worker/hyro-portfolio-guard.js
+-- cloudflare-worker/hyro-position-manager.js
+-- cloudflare-worker/hyro-runtime.js
+-- cloudflare-worker/hyro-scanner.js
+-- cloudflare-worker/index.js
+-- cloudflare-worker/system-health.js
+-- cloudflare-worker/prepare-wrangler.mjs
+NODE_RC=0
+
+== NPM INSTALL ==
+
+added 38 packages, and audited 39 packages in 6s
+
+7 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+NPM_RC=0
+
+== PREPARE WRANGLER ==
+
+> prepare:wrangler
+> node prepare-wrangler.mjs
+
+Prepared wrangler.jsonc for existing TRADING_STATE namespace.
+PREP_RC=0
+
+== WRANGLER DRY RUN ==
+
+ ⛅️ wrangler 4.124.0
+────────────────────
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mBuild failed with 2 errors:[0m
+
+  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "hyro-portfolio-guard.js" for import "rankHyroCandidates"[0m
+  
+      hyro-runtime.js:5:30:
+  [37m      5 │ ...{evaluateHyroPortfolio,[32mrankHyroCandidates[37m,recordHyroEntry} from ...
+          ╵                           [32m~~~~~~~~~~~~~~~~~~[0m
+  
+  
+  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "hyro-portfolio-guard.js" for import "recordHyroEntry"[0m
+  
+      hyro-runtime.js:5:49:
+  [37m      5 │ ...folio,rankHyroCandidates,[32mrecordHyroEntry[37m} from "./hyro-portfolio...
+          ╵                             [32m~~~~~~~~~~~~~~~[0m
+  
+  
+
+
+🪵  Logs were written to "/home/runner/.config/.wrangler/logs/wrangler-2026-08-18_16-07-30_296.log"
+WRANGLER_RC=1
+
+RESULT node=0 npm=0 prepare=0 wrangler=1
