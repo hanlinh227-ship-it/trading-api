@@ -1,0 +1,36 @@
+SYNTAX_EXIT=0
+
+added 38 packages, and audited 39 packages in 5s
+
+7 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+NPM_EXIT=0
+
+> prepare:wrangler
+> node prepare-wrangler.mjs
+
+Prepared wrangler.jsonc for existing TRADING_STATE namespace.
+PREPARE_EXIT=0
+
+ ⛅️ wrangler 4.123.0
+────────────────────
+Total Upload: 413.56 KiB / gzip: 43.62 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource          
+env.TRADING_STATE (00000000000000000000000000000000)      KV Namespace      
+
+--dry-run: exiting now.
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+WRANGLER_EXIT=0
+FOREX_CURL=0
+METAL_CURL=0
+ORDERS_CURL=0
+FOREX=-:28/28:deep=3/3:left=14:need=40
+METAL=-:2/2:deep=2/2:left=3:need=10
+FOREX_ERRORS=0
+METAL_ERRORS=0
+WATCH_DURABLE_ZERO=YES
+MARKET_VERDICT=PASS
