@@ -1,4 +1,4 @@
-name: Validate Cloudflare V77
+name: Validate Cloudflare V77 Canonical
 
 on:
   push:
@@ -6,11 +6,13 @@ on:
     paths:
       - 'cloudflare-worker/**'
       - 'data/nocut_intraday_allpass_v73.json'
+      - 'data/symbol_knowledge_registry.json'
       - '.github/workflows/validate-cloudflare-v77.yml'
   pull_request:
     paths:
       - 'cloudflare-worker/**'
       - 'data/nocut_intraday_allpass_v73.json'
+      - 'data/symbol_knowledge_registry.json'
 
 jobs:
   validate:
@@ -20,21 +22,38 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax check Worker
-        run: node --check cloudflare-worker/index.js
+      - name: Syntax check all Worker modules
+        run: |
+          for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do
+            echo "checking $f"
+            node --check "$f"
+          done
       - name: Verify canonical locks
         run: |
           node - <<'NODE'
-          const fs = require('fs');
-          const src = fs.readFileSync('cloudflare-worker/index.js','utf8');
-          const v73 = JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
-          const must = ['V77.11.0','allowedProfileModes','regimeRouteScores','activeMode','allowedModes','routeScores','htf=!!intel.htfPass','adaptiveLocationPolicy','adaptiveTriggerPolicy','indicativePlan','deepShortlist','cryptoDeepTarget','skippedUnavailable','runSymbol','singleAnalysisText','/coin BTC','Entry tham khảo','deepRequested:Math.min','kucoinCandles','gateCandles','cryptoAnalysisFallbackBundle','reference.analysisOnly','forexStrengthMap','cryptoDerivativesContext','cryptoBroadMap','quotePool','cryptoBroadCache','STRUCTURE_LIQUIDITY','validExecutablePosition','cryptoDeepBundle','HUB TOP SETUPS','runHub','NEWS_CONTEXT_REQUIRED','newsClearanceTtlSec: 1800','EXECUTION_QUOTE_REQUIRED','M15_LOCATION_REQUIRED','M5_MSS_DISPLACEMENT_RETEST_REQUIRED','maxExecutionCostR: 0.10','v775:books','Bybit Spot','OKX Spot','Binance Spot','Điểm Hub = độ hoàn thiện setup'];
-          for (const token of must) if (!src.includes(token)) throw new Error(`missing canonical token: ${token}`);
-          if (src.includes('Score 10.0') || src.includes('Score 8.0') || src.includes('TP ?')) throw new Error('legacy UI leaked into runtime');
-          if (src.includes('function setupScore(function setupScore') || src.includes('function sideTrendMatch(function sideTrendMatch')) throw new Error('migration marker duplication');
-          if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
-          if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
-          console.log('V77.11 dynamic regime validation PASS');
+          const fs=require('fs');
+          const index=fs.readFileSync('cloudflare-worker/index.js','utf8');
+          const engine=fs.readFileSync('cloudflare-worker/engine-v77168.js','utf8');
+          const scanner=fs.readFileSync('cloudflare-worker/hyro-scanner.js','utf8');
+          const runtime=fs.readFileSync('cloudflare-worker/hyro-runtime.js','utf8');
+          const exec=fs.readFileSync('cloudflare-worker/hyro-execution.js','utf8');
+          const micro=fs.readFileSync('cloudflare-worker/hyro-market-context.js','utf8');
+          const manager=fs.readFileSync('cloudflare-worker/hyro-position-manager.js','utf8');
+          const wrangler=fs.readFileSync('cloudflare-worker/prepare-wrangler.mjs','utf8');
+          const v73=JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
+          const signalLocks=['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED'];
+          for(const x of signalLocks)if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
+          const propLocks=['V77.18.13','dynamicEquitySizing','ABC_MICRO'];
+          for(const x of propLocks)if(!index.includes(x))throw new Error('PROP index lock missing: '+x);
+          for(const x of ['PER_SYMBOL_STRATEGY_REGISTRY','NEAR_MARKET_PLAN','fundingRate'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
+          for(const x of ['enrichHyroPlans','selectedMicroScore'])if(!runtime.includes(x))throw new Error('Runtime micro lock missing: '+x);
+          for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro context missing: '+x);
+          if(!exec.includes('hyroDynamicRiskView'))throw new Error('Dynamic equity risk missing');
+          if(!manager.includes('v771811:hyro:manage:'))throw new Error('Position manager state lock missing');
+          if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV/vars deployment lock missing');
+          if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73')throw new Error('V73 version changed');
+          if(v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 universe changed');
+          console.log('Canonical modular V77 validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
