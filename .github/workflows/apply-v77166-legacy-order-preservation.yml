@@ -33,3 +33,4 @@ jobs:
           git add cloudflare-worker/index.js V77166_DIAGNOSTIC.txt
           git commit -m 'Promote V77.16.6 legacy order preservation' || exit 0
           git push origin main
+# retrigger: preserve live order state across scanner versions
