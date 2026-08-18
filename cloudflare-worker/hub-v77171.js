@@ -1,12 +1,12 @@
 import baseEngine from "./engine-v77168.js";
 
-const VERSION="V77.18.20";
-const SERVICE="Trading V77.18.20 ChatGPT Primary + Claude Reviewer Hub";
+const VERSION="V77.18.22";
+const SERVICE="Trading V77.18.22 Safe Risk + Balanced Discovery Hub";
 const HYRO_PROFILE_KEY="v7717:hyro:profile",HYRO_DRAFT_KEY="v77171:hyro:draft";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 async function telegram(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
 const sendText=(env,text,chatId,reply_markup)=>telegram(env,"sendMessage",{chat_id:chatId,text,reply_markup,disable_web_page_preview:true});
-function baseKeyboard(){return {inline_keyboard:[[{text:"📡 Signal",callback_data:"signal"},{text:"🏦 Prop",callback_data:"prop"}],[{text:"👤 Cá nhân",callback_data:"personal"},{text:"🔎 Symbol",callback_data:"symbols"}],[{text:"📊 Status",callback_data:"status"},{text:"📚 Orders",callback_data:"books"}],[{text:"🧠 Claude Reviewer",callback_data:"claude:status"}]]};}
+function baseKeyboard(){return {inline_keyboard:[[{text:"📡 Signal",callback_data:"signal"},{text:"🏦 PROP",callback_data:"prop"}],[{text:"👤 Personal",callback_data:"personal"},{text:"🔎 Symbol",callback_data:"symbols"}],[{text:"📚 Lệnh",callback_data:"books"},{text:"🩺 Hệ thống",callback_data:"status"}],[{text:"🧠 AI Review",callback_data:"claude:status"}]]};}
 function propKeyboard(configured=false){return {inline_keyboard:[[{text:configured?"📊 Hyro":"⚙️ Thiết lập",callback_data:configured?"prop:hyro":"prop:setup"},{text:"🛡 Risk",callback_data:"prop:risk"}],[{text:"📚 Lệnh",callback_data:"prop:orders"},{text:"🔌 API",callback_data:"prop:connect"}],[{text:"⚙️ Cấu hình",callback_data:"prop:setup"},{text:"⬅️ Menu",callback_data:"menu"}]]};}
 const phaseKeyboard=()=>({inline_keyboard:[[{text:"🎯 Challenge",callback_data:"prop:wiz:phase:CHALLENGE"},{text:"💰 Funded",callback_data:"prop:wiz:phase:FUNDED"}],[{text:"⬅️ Prop",callback_data:"prop"}]]});
 const drawdownKeyboard=()=>({inline_keyboard:[[{text:"📉 Standard / Trailing",callback_data:"prop:wiz:dd:STANDARD_TRAILING"},{text:"🛟 Swing / Static",callback_data:"prop:wiz:dd:SWING_STATIC"}],[{text:"⬅️ Phase",callback_data:"prop:setup"}]]});
