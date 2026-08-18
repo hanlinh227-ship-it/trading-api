@@ -1,0 +1,1 @@
+V77.18.0 cleanup intent: remove old apply-v*.yml auto-promotion workflows and scripts/apply_v*.js migrations only. Preserve audit/validation/research, all KV data, live order state, symbol knowledge, current engine modules, and cloudflare-worker/index.js canonical entrypoint.
