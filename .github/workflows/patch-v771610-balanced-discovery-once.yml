@@ -37,9 +37,7 @@ jobs:
           for old,new in pairs:
               if old not in s: raise SystemExit('missing anchor: '+old[:100])
               s=s.replace(old,new,1)
-          # Deliberately keep deepNonCryptoCandidates=6 to preserve Twelve Data budget assumptions.
           if 'deepNonCryptoCandidates: 6' not in s: raise SystemExit('deep candidate budget changed unexpectedly')
-          # Hard safety gates must remain present.
           for lock in ['NEWS_CONTEXT_REQUIRED','FINAL_QUOTE_STALE','EXECUTION_QUOTE_REQUIRED','FUTURE_RISK_LIMIT_REQUIRED','STRUCTURAL_SL_REQUIRED']:
               if lock not in s: raise SystemExit('hard gate missing: '+lock)
           p.write_text(s)
@@ -49,19 +47,9 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('.github/workflows/validate-cloudflare-v77.yml');s=p.read_text()
-          s=s.replace("'V77.16.9'","'V77.16.10'",1)
-          s=s.replace("for(const x of ['allowedProfileModes'","for(const x of ['allowedProfileModes'",1)
-          p.write_text(s)
-          p=Path('docs/checkpoints/V771822_SAFE_RISK_BALANCED_DISCOVERY.md');s=p.read_text()
-          s=s.replace('At this checkpoint the existing Signal core remains V77.16.9 until its large engine file receives a separately validated soft-gate patch. Do not falsely label the Signal core V77.16.10 before that patch lands. The intended tuning is limited to soft discovery gates; hard news, freshness, structural, execution-authority and futures-risk gates must remain.','Signal core is V77.16.10 Balanced Discovery. Only soft discovery thresholds were modestly relaxed. Forex deep breadth intentionally remains 6 to preserve Twelve Data budget assumptions. Hard news, freshness, structural, execution-authority and futures-risk gates remain mandatory.')
-          p.write_text(s)
-          p=Path('docs/checkpoints/CURRENT_HANDOFF.md');s=p.read_text()
-          s=s.replace('Signal core remains `engine-v77168.js` / V77.16.9 until its large-file soft-gate patch is separately validated.','Signal core is `engine-v77168.js` / V77.16.10 Balanced Discovery.')
-          s=s.replace('Signal V77.16.9 continues to auto-scan','Signal V77.16.10 continues to auto-scan')
-          s=s.replace('A planned soft-gate tuning exists for better Forex/Metal/Futures discovery, but DO NOT claim V77.16.10 until the large engine file patch lands and validates. Do not increase Twelve Data deep-scan breadth without validating quota accounting.','V77.16.10 modestly relaxes soft trend/relative location and trigger fit, conditional/fallback eligibility, per-market minimum RR and market chase geometry. Forex deep breadth remains 6 to avoid changing Twelve Data budget assumptions. Hard gates are unchanged.')
-          s=s.replace('Signal core vẫn V77.16.9 cho tới khi soft-gate patch riêng được validate.','Signal core V77.16.10 Balanced Discovery; hard gates giữ nguyên và Forex deep vẫn 6 để bảo toàn quota.')
-          p.write_text(s)
+          p=Path('.github/workflows/validate-cloudflare-v77.yml');s=p.read_text();s=s.replace("'V77.16.9'","'V77.16.10'",1);p.write_text(s)
+          p=Path('docs/checkpoints/V771822_SAFE_RISK_BALANCED_DISCOVERY.md');s=p.read_text();s=s.replace('At this checkpoint the existing Signal core remains V77.16.9 until its large engine file receives a separately validated soft-gate patch. Do not falsely label the Signal core V77.16.10 before that patch lands. The intended tuning is limited to soft discovery gates; hard news, freshness, structural, execution-authority and futures-risk gates must remain.','Signal core is V77.16.10 Balanced Discovery. Only soft discovery thresholds were modestly relaxed. Forex deep breadth intentionally remains 6 to preserve Twelve Data budget assumptions. Hard news, freshness, structural, execution-authority and futures-risk gates remain mandatory.');p.write_text(s)
+          p=Path('docs/checkpoints/CURRENT_HANDOFF.md');s=p.read_text();s=s.replace('Signal core remains `engine-v77168.js` / V77.16.9 until its large-file soft-gate patch is separately validated.','Signal core is `engine-v77168.js` / V77.16.10 Balanced Discovery.').replace('Signal V77.16.9 continues to auto-scan','Signal V77.16.10 continues to auto-scan').replace('A planned soft-gate tuning exists for better Forex/Metal/Futures discovery, but DO NOT claim V77.16.10 until the large engine file patch lands and validates. Do not increase Twelve Data deep-scan breadth without validating quota accounting.','V77.16.10 modestly relaxes soft trend/relative location and trigger fit, conditional/fallback eligibility, per-market minimum RR and market chase geometry. Forex deep breadth remains 6 to avoid changing Twelve Data budget assumptions. Hard gates are unchanged.').replace('Signal core vẫn V77.16.9 cho tới khi soft-gate patch riêng được validate.','Signal core V77.16.10 Balanced Discovery; hard gates giữ nguyên và Forex deep vẫn 6 để bảo toàn quota.');p.write_text(s)
           PY
       - name: Syntax and hard-lock verification
         run: |
@@ -87,3 +75,4 @@ jobs:
           git add cloudflare-worker/engine-v77168.js .github/workflows/validate-cloudflare-v77.yml docs/checkpoints/V771822_SAFE_RISK_BALANCED_DISCOVERY.md docs/checkpoints/CURRENT_HANDOFF.md
           git commit -m "V77.16.10 balanced discovery soft-gate tuning" || true
           git push
+# trigger-20260819-0056
