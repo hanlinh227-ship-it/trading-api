@@ -4,10 +4,12 @@ import {getHyroRuntime} from "./hyro-runtime.js";
 const HEALTH_KEY="v771817:health:last";
 const ALERT_KEY="v771817:health:alert_state";
 const LAST_FULL_KEY="v771817:health:last_full";
+const SCAN_MEMORY_KEY="v771824:health:scan_memory";
 const SCAN_PREFIX="v7712:scan:";
 const BOOKS_KEY="v775:books";
 const PROP_RUNTIME_KEY="v7718:hyro:runtime";
 const GROUPS=["crypto","forex","metal","future"];
+const WARNING_ALERT_COOLDOWN_MS=30*60*1000;
 const now=()=>Date.now();
 const ageMin=ts=>{const t=typeof ts==="number"?ts:Date.parse(ts||"");return Number.isFinite(t)?Math.max(0,(now()-t)/60000):null;};
 async function getJson(kv,key,fallback=null){try{return await kv?.get(key,"json")??fallback;}catch{return fallback;}}
@@ -21,27 +23,29 @@ function runtimeIssue(issues,rt){const age=ageMin(rt?.finishedAt||rt?.startedAt)
 async function propEnv(env){const p=await getHyroProfile(env);return p?.phase==="CHALLENGE"?new Proxy(env,{get(t,k){if(k==="HYRO_BYBIT_MODE")return "DEMO";return t[k];}}):env;}
 
 export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,notify=true}={}){
-  const startedAt=now(),issues=[],kv=env.TRADING_STATE;
+  const startedAt=now(),issues=[],kv=env.TRADING_STATE,scanMemory=await getJson(kv,SCAN_MEMORY_KEY,{groups:{}});scanMemory.groups=scanMemory.groups||{};
   if(!kv)add(issues,"ERROR","KV_MISSING","KV TRADING_STATE missing");
   else{
     const books=await getJson(kv,BOOKS_KEY,null);
     if(!books)add(issues,"WARN","BOOKS_UNREADABLE","Signal LIVE ORDERS state unreadable/missing");
     else add(issues,"OK","BOOKS_OK","Signal LIVE ORDERS state OK");
     for(const g of GROUPS){
-      const s=await getJson(kv,SCAN_PREFIX+g,null),age=ageMin(s?.scannedAt);
-      if(age==null)add(issues,"WARN",`SCAN_${g.toUpperCase()}_MISSING`,`${g.toUpperCase()} chưa có scan snapshot`);
-      else if(age>scanLimit(g)*2)add(issues,"ERROR",`SCAN_${g.toUpperCase()}_STALE`,`${g.toUpperCase()} scan stale ${age.toFixed(0)}m`,{ageMin:age});
-      else if(age>scanLimit(g))add(issues,"WARN",`SCAN_${g.toUpperCase()}_LATE`,`${g.toUpperCase()} scan chậm ${age.toFixed(0)}m`,{ageMin:age});
-      else add(issues,"OK",`SCAN_${g.toUpperCase()}_OK`,`${g.toUpperCase()} scan ${age.toFixed(0)}m`,{ageMin:age});
+      const s=await getJson(kv,SCAN_PREFIX+g,null);if(s?.scannedAt)scanMemory.groups[g]=s.scannedAt;
+      const last=s?.scannedAt||scanMemory.groups[g]||null,age=ageMin(last);
+      if(age==null)add(issues,"WARN",`SCAN_${g.toUpperCase()}_MISSING`,`${g.toUpperCase()} chưa từng có scan snapshot`);
+      else if(age>scanLimit(g)*2)add(issues,"ERROR",`SCAN_${g.toUpperCase()}_STALE`,`${g.toUpperCase()} scan stale ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
+      else if(age>scanLimit(g))add(issues,"WARN",`SCAN_${g.toUpperCase()}_LATE`,`${g.toUpperCase()} scan chậm ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
+      else add(issues,"OK",`SCAN_${g.toUpperCase()}_OK`,`${g.toUpperCase()} scan ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
     }
+    await putJson(kv,SCAN_MEMORY_KEY,{groups:scanMemory.groups,updatedAt:now()},604800);
     runtimeIssue(issues,await getJson(kv,PROP_RUNTIME_KEY,null));
   }
   if(!env.TELEGRAM_BOT_TOKEN)add(issues,"ERROR","TELEGRAM_TOKEN_MISSING","Telegram token missing");
   if(!env.TELEGRAM_CHAT_ID)add(issues,"ERROR","TELEGRAM_CHAT_MISSING","Telegram chat missing");
   if(!env.TWELVE_DATA_API_KEY)add(issues,"ERROR","TWELVE_MISSING","Twelve Data key missing");
   if(!env.MASSIVE_API_KEY)add(issues,"WARN","MASSIVE_MISSING","Massive Futures key missing");
-  if(!env.ANTHROPIC_API_KEY)add(issues,"WARN","CLAUDE_KEY_MISSING","Claude Reviewer API key missing");
-  else add(issues,"OK","CLAUDE_CONFIGURED","Claude Reviewer configured");
+  if(!env.ANTHROPIC_API_KEY)add(issues,"WARN","CLAUDE_KEY_MISSING","Claude Co-engineer API key missing");
+  else add(issues,"OK","CLAUDE_CONFIGURED","Claude Co-engineer configured");
 
   let account=null;
   if(full){
@@ -64,7 +68,8 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
 
   const errors=issues.filter(x=>x.level==="ERROR"),warns=issues.filter(x=>x.level==="WARN"),sig=signature(issues),prev=await getJson(kv,ALERT_KEY,null),t=account?.telemetry||{},out={ok:errors.length===0,version,startedAt,finishedAt:now(),full,errors:errors.length,warnings:warns.length,signature:sig,issues,account:account?{configured:account.configured,connected:!!t.connected,equity:Number(t.equity||0),positions:t.positions?.length||0,orders:t.openOrders?.length||0,autoRequested:!!account.autoRequested,paused:!!account.control?.manualPaused,runtimeReason:account.runtime?.reason||null,runtimeAt:account.runtime?.finishedAt||null}:null};
   await putJson(kv,HEALTH_KEY,out);if(full)await putJson(kv,LAST_FULL_KEY,{at:now(),version});
-  if(notify&&sig!==prev?.signature){const recovered=sig==="HEALTHY"&&prev?.signature&&prev.signature!=="HEALTHY",text=recovered?`✅ SYSTEM HEALTH • PHỤC HỒI\n${version}\nTất cả gate kiểm tra chính đã OK.`:[`🩺 SYSTEM HEALTH • ${errors.length?"CÓ LỖI":"CẢNH BÁO"}`,`${version} • Error ${errors.length} • Warn ${warns.length}`,compact([...errors,...warns].slice(0,8))].join("\n");await tg(env,text);await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);}
+  const changed=sig!==prev?.signature,recovered=sig==="HEALTHY"&&prev?.signature&&prev.signature!=="HEALTHY",errorNow=errors.length>0,errorWas=Number(prev?.errors||0)>0,warningCooldownOk=!prev?.at||now()-Number(prev.at)>=WARNING_ALERT_COOLDOWN_MS,shouldNotify=notify&&changed&&(errorNow||errorWas||recovered||warningCooldownOk);
+  if(shouldNotify){const text=recovered?`✅ SYSTEM HEALTH • PHỤC HỒI\n${version}\nTất cả gate kiểm tra chính đã OK.`:[`🩺 SYSTEM HEALTH • ${errors.length?"CÓ LỖI":"CẢNH BÁO"}`,`${version} • Error ${errors.length} • Warn ${warns.length}`,compact([...errors,...warns].slice(0,8))].join("\n");await tg(env,text);await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);}else if(changed&&!prev){await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);}
   return out;
 }
 export async function shouldRunFullHealth(env,intervalMs=5*60*1000){const x=await getJson(env.TRADING_STATE,LAST_FULL_KEY,null);return !x?.at||now()-Number(x.at)>=intervalMs;}
