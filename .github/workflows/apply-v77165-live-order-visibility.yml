@@ -2,7 +2,9 @@ name: Apply V77.16.5 Live Order Visibility
 on:
   push:
     branches: [main]
-    paths: ['scripts/apply_v77165_live_order_visibility.js']
+    paths:
+      - 'scripts/apply_v77165_live_order_visibility.js'
+      - '.github/workflows/apply-v77165-live-order-visibility.yml'
   workflow_dispatch:
 permissions:
   contents: write
