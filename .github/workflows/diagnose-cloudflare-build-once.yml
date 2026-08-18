@@ -49,4 +49,4 @@ jobs:
           git commit -m "Report latest Cloudflare build diagnostic" || true
           git push || true
           exit 0
-      # trigger: 2026-08-18T16:05Z
+      # trigger: after portfolio export fix
