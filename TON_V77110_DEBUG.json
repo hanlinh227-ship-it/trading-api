@@ -1,0 +1,7 @@
+{
+  "ok": false,
+  "status": "DATA_BLOCK",
+  "symbol": "TONUSDT",
+  "reason": "EXCHANGE_DEEP_UNAVAILABLE",
+  "error": "No exact/deep analysis bundle: No analysis-only deep bundle: KuCoin Spot Analysis: KuCoin candles unavailable | Gate Spot Analysis: Gate candles unavailable | Bybit Spot: Bybit 403 | OKX Spot: Too Many Requests | Binance Spot: Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error."
+}
