@@ -1,0 +1,91 @@
+name: Migrate V77.18.19 Single PROP Recovery Once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-v771819-single-prop-recovery-once.yml'
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Restore single PROP and robust telemetry
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          # 1) Robust equity parsing: zero account aggregate must not mask positive USDT equity.
+          p=Path('cloudflare-worker/hyro-execution.js'); s=p.read_text()
+          old='equity=num(a.totalEquity)??num(coin.equity)??num(coin.walletBalance)??0,walletBalance=num(a.totalWalletBalance)??num(coin.walletBalance)??0,available=num(a.totalAvailableBalance)??num(coin.availableToWithdraw)??0'
+          new='equity=Math.max(0,...[num(a.totalEquity),num(coin.equity),num(coin.walletBalance)].filter(x=>x!=null)),walletBalance=Math.max(0,...[num(a.totalWalletBalance),num(coin.walletBalance)].filter(x=>x!=null)),available=Math.max(0,...[num(a.totalAvailableBalance),num(coin.availableToWithdraw),num(coin.availableBalance)].filter(x=>x!=null))'
+          if old not in s:
+              raise SystemExit('equity parser marker missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          # 2) Return index to one canonical PROP account. Keep Challenge => DEMO propEnv.
+          p=Path('cloudflare-worker/index.js'); s=p.read_text()
+          s=s.replace('import {handleHyroMultiTelegram,runHyroMultiCron,hyroMultiStatus} from "./hyro-multi-ui.js";\n','')
+          if 'hyro-position-review.js' not in s:
+              s=s.replace('import {announceReleaseOnce,getReleaseState} from "./release-notifier.js";','import {announceReleaseOnce,getReleaseState} from "./release-notifier.js";\nimport {reviewHyroPositions} from "./hyro-position-review.js";')
+          s=s.replace('const VERSION="V77.18.18",SERVICE="Trading V77.18.18 Adaptive Position Review";','const VERSION="V77.18.19",SERVICE="Trading V77.18.19 Single PROP Recovery";')
+          s=s.replace('const RELEASE_NAME="Adaptive Position Review";','const RELEASE_NAME="Single PROP Recovery";')
+
+          # compact single-account keyboard: scan/review + auto.
+          oldrow='[{text:"🔎 Quét",callback_data:"prop:quickscan"},{text:paused?"▶ Auto":"⛔ Auto",callback_data:paused?"prop:resume":"prop:pause"}]];'
+          if oldrow in s:
+              s=s.replace(oldrow,'[{text:"🔎 Quét",callback_data:"prop:quickscan"},{text:"🧭 Đánh giá",callback_data:"prop:review"}],[{text:paused?"▶ Auto":"⛔ Auto",callback_data:paused?"prop:resume":"prop:pause"}]];',1)
+          else:
+              # exact current keyboard fragment before DEMO row
+              s=s.replace('[{text:"🔎 Quét",callback_data:"prop:quickscan"},{text:paused?"▶ Auto":"⛔ Auto",callback_data:paused?"prop:resume":"prop:pause"}]]','[{text:"🔎 Quét",callback_data:"prop:quickscan"},{text:"🧭 Đánh giá",callback_data:"prop:review"}],[{text:paused?"▶ Auto":"⛔ Auto",callback_data:paused?"prop:resume":"prop:pause"}]]',1)
+
+          s=s.replace('"prop:quickscan","prop:demotest"','"prop:quickscan","prop:review","prop:demotest"',1)
+          marker='if(cb==="prop:quickscan"){const cycle=await runHyroAutoCycle(env,{marketOnly:true});'
+          review='if(cb==="prop:review"){const r=await reviewHyroPositions(env,{force:true});const c=await getHyroControl(env);await send(env,chatId,["🧭 PROP • ĐÁNH GIÁ",r.count?`HOLD ${r.hold} | TIGHTEN ${r.tighten} | CUT ${r.cut}`:"Không có vị thế.",...(r.results||[]).map(x=>`${x.action==="HOLD"?"✅":x.action==="TIGHTEN"?"⚠️":"✂️"} ${x.symbol} ${x.action}${x.pnlR!=null?` | ${x.pnlR}R`:""}`).slice(0,5)].join("\\n"),propKeyboard(c.manualPaused,cfg.mode));return json({ok:r.ok,result:r});}'
+          if 'cb==="prop:review"' not in s:
+              if marker not in s: raise SystemExit('quickscan callback marker missing')
+              s=s.replace(marker,review+marker,1)
+
+          # Remove multi-account Telegram interception/status calls wherever present.
+          s=re.sub(r'const\s+multi\s*=\s*await\s+handleHyroMultiTelegram\(req,env\);\s*if\(multi\)return\s+multi;','',s)
+          s=re.sub(r'if\(path==="/hyro/multi/status"\)return\s+json\(await\s+hyroMultiStatus\(env\)\);','',s)
+
+          # Replace multi cron invocation with canonical single account cycle + review.
+          s=s.replace('ctx.waitUntil(runHyroMultiCron(env).catch(()=>{}));','ctx.waitUntil((async()=>{const pe=await propEnv(env);const cycle=await runHyroAutoCycle(pe);await notifyPropEntry(pe,cycle).catch(()=>{});await notifyPropClosures(pe).catch(()=>{});await reviewHyroPositions(pe).catch(()=>{});})().catch(()=>{}));')
+          s=s.replace('await runHyroMultiCron(env);','{const pe=await propEnv(env);const cycle=await runHyroAutoCycle(pe);await notifyPropEntry(pe,cycle).catch(()=>{});await notifyPropClosures(pe).catch(()=>{});await reviewHyroPositions(pe).catch(()=>{});}')
+
+          # Release details no longer mention dual accounts.
+          s=s.replace('"PROP đánh giá HOLD/TIGHTEN/CUT mỗi 5 phút","CUT chỉ khi nhiều tín hiệu xấu cùng xác nhận","Telegram tự hiện version + tên bản mới"','"PROP trở lại 1 tài khoản canonical","Sửa equity 0 và nhận diện vị thế Challenge","HOLD/TIGHTEN/CUT mỗi 5 phút"')
+          p.write_text(s)
+          PY
+
+      - name: Prove single-account canonical and bundle
+        shell: bash
+        run: |
+          set -e
+          ! grep -q 'hyro-multi-ui.js' cloudflare-worker/index.js
+          ! grep -q 'runHyroMultiCron' cloudflare-worker/index.js
+          grep -q 'V77.18.19' cloudflare-worker/index.js
+          grep -q 'prop:review' cloudflare-worker/index.js
+          grep -q 'Math.max(0,...\[num(a.totalEquity)' cloudflare-worker/hyro-execution.js
+          for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f"; done
+          cd cloudflare-worker
+          npm install
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler
+          npx wrangler deploy --dry-run
+
+      - name: Commit recovery
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/index.js cloudflare-worker/hyro-execution.js
+          git diff --cached --quiet && exit 0
+          git commit -m "V77.18.19 restore single PROP and robust Challenge telemetry"
+          git push
