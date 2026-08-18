@@ -1,0 +1,51 @@
+name: Diagnose and Apply V77.9
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-v779.yml'
+      - 'scripts/apply_v7790_adaptive_symbol_hub.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migration and capture diagnostics
+        shell: bash
+        run: |
+          set +e
+          : > V779_DIAGNOSTIC.txt
+          echo "HEAD=$(git rev-parse HEAD)" >> V779_DIAGNOSTIC.txt
+          node scripts/apply_v7790_adaptive_symbol_hub.js >> V779_DIAGNOSTIC.txt 2>&1
+          MIG=$?
+          echo "MIGRATION_EXIT=$MIG" >> V779_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V779_DIAGNOSTIC.txt 2>&1
+          SYN=$?
+          echo "SYNTAX_EXIT=$SYN" >> V779_DIAGNOSTIC.txt
+          grep -o 'V77\.[0-9]\.[0-9]' cloudflare-worker/index.js | head -1 >> V779_DIAGNOSTIC.txt || true
+          for t in methodAssessment setupScore forexStrengthMap cryptoDerivativesContext STRUCTURE_LIQUIDITY validExecutablePosition; do
+            if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V779_DIAGNOSTIC.txt; else echo "$t=NO" >> V779_DIAGNOSTIC.txt; fi
+          done
+          exit 0
+      - name: Commit diagnostic and canonical worker if valid
+        shell: bash
+        run: |
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add V779_DIAGNOSTIC.txt
+          if grep -q 'MIGRATION_EXIT=0' V779_DIAGNOSTIC.txt && grep -q 'SYNTAX_EXIT=0' V779_DIAGNOSTIC.txt; then
+            git add cloudflare-worker/index.js
+          fi
+          git commit -m 'Report V77.9 migration diagnostic' || exit 0
+          git push origin main
