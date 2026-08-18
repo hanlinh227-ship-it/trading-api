@@ -1,0 +1,11 @@
+GENERATOR_EXIT=0
+Applied robust V77.11.1 GRAM canonical migration
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.11.1=YES
+"GRAM"=YES
+v73CryptoPriorKey=YES
+canonicalUserSymbol=YES
+TON→GRAM canonical=YES
+regimeRouteScores=YES
+cryptoAnalysisFallbackBundle=YES

@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.11.0",
-  service: "Trading V77.11.0 Dynamic Regime Entry Hub",
+  version: "V77.11.1",
+  service: "Trading V77.11.1 Dynamic Regime Entry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -46,7 +46,7 @@ const CRYPTO_BASE = [
   "BTC","ETH","SOL","HYPE","SHIB","TRX","XRP","AAVE","ADA","ALGO","APT","ARB","ATOM","AVAX",
   "BCH","BONK","CRV","DOGE","DOT","ETC","FIL","FLOKI","HBAR","INJ","JTO","JUP","KAITO","LDO","LINK",
   "LTC","MOODENG","NEAR","ONDO","OP","ORDI","PENGU","PEPE","PNUT","POL","POPCAT","RENDER","S","STX",
-  "SUI","TAO","TIA","TON","TRUMP","UNI","WIF","WLD","AIXBT","ASTER","FARTCOIN","GRASS","IP","LIT",
+  "SUI","TAO","TIA","GRAM","TRUMP","UNI","WIF","WLD","AIXBT","ASTER","FARTCOIN","GRASS","IP","LIT",
   "PUMP","VIRTUAL","XPL","ZEC"
 ];
 const CRYPTO = CRYPTO_BASE.map(x => `${x}USDT`);
@@ -269,12 +269,13 @@ function m5Trigger(c,T,side){
   if(side==="LONG"){const m=ph!==null&&disp.close>ph,rt=ph!==null&&ret.low<=ph&&ret.close>ph&&ret.close>=ret.open;return {valid:m&&d&&rt,mss:m,displacement:d,retest:rt,level:ph};}
   const m=pl!==null&&disp.close<pl,rt=pl!==null&&ret.high>=pl&&ret.close<pl&&ret.close<=ret.open;return {valid:m&&d&&rt,mss:m,displacement:d,retest:rt,level:pl};
 }
+function v73CryptoPriorKey(symbol){const k=norm(symbol).replace(/USDT$/,"");return k==="GRAM"?"TON":k;}
 function v73Entry(symbol,type){
-  let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=norm(symbol).replace(/USDT$/,"");if(!key)return null;
+  let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=v73CryptoPriorKey(symbol);if(!key)return null;
   return V73_CONFIG?.[type]?.symbols?.[key]||null;
 }
 function v73Prior(symbol,type){
-  const e=v73Entry(symbol,type);let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=norm(symbol).replace(/USDT$/,"");
+  const e=v73Entry(symbol,type);let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=v73CryptoPriorKey(symbol);
   if(!key)return {applicable:false,available:false};if(!e)return {applicable:true,available:false,key};
   const m=e.method||{},st=m.style||{},actions=Array.isArray(m.actions)?m.actions:[];
   const families=[...new Set([st.family,m.profile,...actions.map(a=>a.family)].filter(Boolean))];
@@ -379,7 +380,7 @@ function buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior={}){
   const tp1=valid[0],tp2=valid.find(x=>x.rr>=Math.max(1.5,tp1.rr+.35))||valid.at(-1),best=tp2||tp1;return {entry,sl,risk,roomR:best.rr,targetRR:Number(best.rr.toFixed(2)),tp1:tp1.price,tp1RR:Number(tp1.rr.toFixed(2)),tp2:best.price,tp2RR:Number(best.rr.toFixed(2)),mode:pendingRetest?"LIMIT":"MARKET",targetSource:"STRUCTURE_LIQUIDITY"};
 }
 async function deepAnalyze(symbol,env,candles=null,reference=null,source=null,context={}){
-  const s=norm(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};const prior=v73Prior(s,type);
+  const s=canonicalUserSymbol(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};const prior=v73Prior(s,type);
   try{if(!candles){if(type==="crypto"){const b=await cryptoDeepBundle(s);candles=b.candles;reference=b.quote;source=b.source;}else candles=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env).then(m=>m.get(s)||[])));}}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"ANALYSIS_DATA_UNAVAILABLE",error:e?.message||String(e)};}
   const [m5c,m15c]=candles||[],[M5,M15,H1,H4,D1]=(candles||[]).map(tf);if(!M5||[M5,M15,H1,H4,D1].some(x=>!x?.ready))return watch(s,type,"NEUTRAL","TIMEFRAME_DATA_REQUIRED",{source,score:5,canonical:{v73Prior:prior}});
   const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=intel.route?.votes||directionalVotes(D1,H4,H1),side=intel.side,htf=!!intel.htfPass;
@@ -484,6 +485,7 @@ async function runGroup(group,env){
     await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));return out;
   }finally{await releaseLock(env);}
 }
+function canonicalUserSymbol(symbol){const x=norm(symbol);if(x==="TON"||x==="TONUSDT")return "GRAMUSDT";return x;}
 async function runSymbol(symbol,env){
   const s=norm(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};
   if(type==="crypto"){let b;try{b=await cryptoDeepBundle(s,{preferAnalysis:true});}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)};}let context={score:5};try{const bulk=await cryptoBulk(),sq=b.quote?.percentChange??bulk.get(s)?.percentChange??0,bq=s==="BTCUSDT"?sq:(bulk.get("BTCUSDT")?.percentChange??0),rel=sq-bq;context={relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel)),...(await cryptoDerivativesContext(s))};}catch{}return deepAnalyze(s,env,b.candles,b.quote,b.source,context);}
@@ -574,13 +576,13 @@ async function handleTelegram(req,env){
   }else {
     const cm=text.trim().match(/^\/(?:coin|analyze)\s+([A-Za-z0-9]+)$/i);
     if(cm){
-      let symbol=norm(cm[1]);if(CRYPTO_BASE.includes(symbol))symbol=symbol+"USDT";
+      let symbol=canonicalUserSymbol(cm[1]);if(!symbol.endsWith("USDT")&&CRYPTO_BASE.includes(symbol))symbol=symbol+"USDT";
       await sendText(env,`⏳ Đang phân tích ${symbol} theo profile riêng...`,chatId);
       const a=await runSymbol(symbol,env),type=marketType(symbol);
       if(type!=="unknown"){const books=await getBooks(env);const added=fillBooks(type,books,[a]);if(added.length||a.status==="WATCH")await saveBooks(env,books);}
       await sendText(env,singleAnalysisText(a),chatId,baseKeyboard());
     }else if(cb==="books")await sendText(env,booksSummary(await getBooks(env)),chatId,baseKeyboard());
-    else if(cb==="status"||text==="/status")await sendText(env,`⚙️ SYSTEM STATUS\nVersion: ${CONFIG.version}\nKV: ${env.TRADING_STATE?"ONLINE":"MISSING"}\nTwelve Data: ${env.TWELVE_DATA_API_KEY?"CONFIGURED":"MISSING"}\nTelegram: CONNECTED\nHub: ADAPTIVE\nCrypto: 61 symbol • exact 5TF + bid/ask\nLệnh: chỉ executable khi đủ gate\nGõ /coin BTC hoặc /analyze KAITOUSDT để phân tích riêng\nNews gate: STRICT\nV73: FROZEN PRIOR`,chatId,baseKeyboard());
+    else if(cb==="status"||text==="/status")await sendText(env,`⚙️ SYSTEM STATUS\nVersion: ${CONFIG.version}\nKV: ${env.TRADING_STATE?"ONLINE":"MISSING"}\nTwelve Data: ${env.TWELVE_DATA_API_KEY?"CONFIGURED":"MISSING"}\nTelegram: CONNECTED\nHub: ADAPTIVE\nCrypto: 61 symbol • exact 5TF + bid/ask • TON→GRAM canonical\nLệnh: chỉ executable khi đủ gate\nGõ /coin BTC hoặc /analyze KAITOUSDT để phân tích riêng\nNews gate: STRICT\nV73: FROZEN PRIOR`,chatId,baseKeyboard());
     else await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB/thị trường hoặc gõ /coin BTC để phân tích riêng.`,chatId,baseKeyboard());
   }
   return json({ok:true});
