@@ -72,7 +72,7 @@ jobs:
       - name: Generate build-time Wrangler config
         working-directory: cloudflare-worker
         env:
-          TRADING_KV_NAMESPACE_ID: 00000000000000000000000000000000
+          TRADING_KV_NAMESPACE_ID: '00000000000000000000000000000000'
         run: npm run prepare:wrangler
       - name: Wrangler bundle dry-run
         working-directory: cloudflare-worker
