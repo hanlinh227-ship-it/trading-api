@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.6",
-  service: "Trading V77.16.6 Legacy-Preserved Live Order Hub",
+  version: "V77.16.7",
+  service: "Trading V77.16.7 Durable Order Archive Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -555,8 +555,9 @@ function validExecutablePosition(p,group){
   return p.executionVerified===true||!!p.brokerTicket||p.executionAuthority==="MT5";
 }
 function preserveLegacyOrder(p,status){return {...p,status:p.status||status,discoveredBy:p.discoveredBy||"LEGACY_PRESERVED",engineOpened:p.engineOpened||p.engine||"LEGACY",createdAt:p.createdAt||p.openedAt||Date.now()};}
-function normalizeBooks(v){const b=emptyBooks();if(!v||typeof v!=="object")return b;for(const g of Object.keys(GROUPS)){const src=v?.[g]||{};b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")).slice(0,CONFIG.maxMarketActive):[];b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")).slice(0,CONFIG.maxLimitActive):[];b[g].limitPending=Array.isArray(src.limitPending)?src.limitPending.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"PENDING")).slice(0,CONFIG.maxPendingLimit):[];b[g].watch=[];}b.updatedAt=v.updatedAt||Date.now();return b;}
-async function getBooks(env){try{return normalizeBooks(await env.TRADING_STATE.get(CONFIG.keys.books,"json"));}catch{return emptyBooks();}}
+function normalizeBooks(v){const b=emptyBooks();if(!v||typeof v!=="object")return b;for(const g of Object.keys(GROUPS)){const src=v?.[g]||{};b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")):[];b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")):[];b[g].limitPending=Array.isArray(src.limitPending)?src.limitPending.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"PENDING")):[];b[g].watch=[];}b.updatedAt=v.updatedAt||Date.now();return b;}
+async function archiveLiveOrders(env,books){try{const old=await env.TRADING_STATE.get(CONFIG.keys.orderHistory,"json"),rows=Array.isArray(old?.rows)?old.rows:[],seen=new Set(rows.map(x=>String(x?.position?.id||"")+":"+String(x?.event||"")));let changed=false;for(const g of Object.keys(GROUPS)){const b=books[g]||{};for(const p of [...(b.marketActive||[]),...(b.limitActive||[]),...(b.limitPending||[])]){const k=String(p.id||"")+":LIVE_STATE_PRESERVED";if(!p.id||seen.has(k))continue;rows.push({event:"LIVE_STATE_PRESERVED",group:g,position:p,recordedAt:Date.now(),engine:CONFIG.version});seen.add(k);changed=true;}}if(changed)await env.TRADING_STATE.put(CONFIG.keys.orderHistory,JSON.stringify({rows:rows.slice(-1000),updatedAt:Date.now()}));}catch{}}
+async function getBooks(env){try{const b=normalizeBooks(await env.TRADING_STATE.get(CONFIG.keys.books,"json"));await archiveLiveOrders(env,b);return b;}catch{return emptyBooks();}}
 async function saveBooks(env,b){b.updatedAt=Date.now();for(const g of Object.keys(GROUPS))b[g].watch=[];await env.TRADING_STATE.put(CONFIG.keys.books,JSON.stringify(b));}
 async function saveScanSnapshot(group,run,env){try{await env.TRADING_STATE.put(CONFIG.keys.scanPrefix+group,JSON.stringify(run),{expirationTtl:900});}catch{}}
 async function getScanSnapshot(group,env){try{return await env.TRADING_STATE.get(CONFIG.keys.scanPrefix+group,"json");}catch{return null;}}
@@ -578,6 +579,7 @@ async function recordShadowSetup(group,a,scanId,env){
     await env.TRADING_STATE.put(CONFIG.keys.shadowSetups,JSON.stringify({rows:rows.slice(0,500),updatedAt:now}));}catch{}
 }
 async function getShadowSetups(env,symbol=null){try{const v=await env.TRADING_STATE.get(CONFIG.keys.shadowSetups,"json");const rows=Array.isArray(v?.rows)?v.rows:[];return symbol?rows.filter(x=>x.symbol===canonicalUserSymbol(symbol)):rows;}catch{return [];}}
+async function getOrderHistory(env){try{const v=await env.TRADING_STATE.get(CONFIG.keys.orderHistory,"json");return {rows:Array.isArray(v?.rows)?v.rows:[],updatedAt:v?.updatedAt||null};}catch{return {rows:[],updatedAt:null};}}
 async function acquireLock(env){const k=CONFIG.keys.runLock;try{const old=await env.TRADING_STATE.get(k);if(old&&Date.now()-Number(old)<CONFIG.runLockTtlSec*1000)return false;await env.TRADING_STATE.put(k,String(Date.now()),{expirationTtl:CONFIG.runLockTtlSec});return true;}catch{return true;}}
 async function releaseLock(env){try{await env.TRADING_STATE.delete(CONFIG.keys.runLock);}catch{}}
 async function runGroup(group,env,trigger="API_RUN_NOW"){
@@ -731,10 +733,11 @@ export default {
       if(p==="/telegram/menu"){await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nMỗi lần bấm = quét mới. Chọn HUB/thị trường hoặc 🔎 TỪNG SYMBOL.`,env.TELEGRAM_CHAT_ID,baseKeyboard());return json({ok:true});}
       if(p==="/telegram/webhook"&&req.method==="POST")return handleTelegram(req,env);
       if(p==="/books"||p==="/orders")return json(await getBooks(env));
+      if(p==="/order-history"||p==="/history")return json(await getOrderHistory(env));
       if(p==="/knowledge"){const symbol=canonicalUserSymbol(u.searchParams.get("symbol"));return json({ok:true,symbol,knowledge:symbolKnowledge(symbol)});}
       if(p==="/shadow"){const symbol=u.searchParams.get("symbol");return json({ok:true,rows:await getShadowSetups(env,symbol)});}
       if(p==="/latest-scan"){const g=u.searchParams.get("group");if(!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json({ok:true,group:g,snapshot:await getScanSnapshot(g,env)});}
-      return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|future","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NQ|MNQ|ES|MES","/knowledge?symbol=NQ","/telegram/menu","/books"]});
+      return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|future","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NQ|MNQ|ES|MES","/knowledge?symbol=NQ","/telegram/menu","/books","/order-history"]});
     }catch(e){console.error("HTTP",e);return json({ok:false,version:CONFIG.version,error:e?.message||String(e)},500);}
   },
   async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const minute=Math.floor(Number(_controller?.scheduledTime||Date.now())/60000);if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);})().catch(e=>console.error("CRON",e)));}
