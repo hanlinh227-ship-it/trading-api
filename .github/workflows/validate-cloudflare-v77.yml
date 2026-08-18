@@ -29,26 +29,11 @@ jobs:
           const src = fs.readFileSync('cloudflare-worker/index.js','utf8');
           const v73 = JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
           const must = [
-            'V77.9.0',
-            'methodAssessment',
-            'setupScore',
-            'forexStrengthMap',
-            'cryptoDerivativesContext',
-            'STRUCTURE_LIQUIDITY',
-            'validExecutablePosition',
-            'cryptoDeepBundle',
-            'HUB TOP SETUPS',
-            'runHub',
-            'NEWS_CONTEXT_REQUIRED',
-            'newsClearanceTtlSec: 1800',
-            'EXECUTION_QUOTE_REQUIRED',
-            'M15_LOCATION_REQUIRED',
-            'M5_MSS_DISPLACEMENT_RETEST_REQUIRED',
-            'maxExecutionCostR: 0.10',
-            'v775:books',
-            'Bybit Spot',
-            'OKX Spot',
-            'Binance Spot',
+            'V77.9.1','methodAssessment','setupScore','forexStrengthMap','cryptoDerivativesContext',
+            'cryptoBroadMap','quotePool','STRUCTURE_LIQUIDITY','validExecutablePosition','cryptoDeepBundle',
+            'HUB TOP SETUPS','runHub','NEWS_CONTEXT_REQUIRED','newsClearanceTtlSec: 1800',
+            'EXECUTION_QUOTE_REQUIRED','M15_LOCATION_REQUIRED','M5_MSS_DISPLACEMENT_RETEST_REQUIRED',
+            'maxExecutionCostR: 0.10','v775:books','Bybit Spot','OKX Spot','Binance Spot',
             'Điểm Hub = độ hoàn thiện setup'
           ];
           for (const token of must) if (!src.includes(token)) throw new Error(`missing canonical token: ${token}`);
@@ -56,7 +41,7 @@ jobs:
           if (src.includes('TP ?')) throw new Error('legacy incomplete TP UI leaked into canonical runtime');
           if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
           if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
-          console.log('V77.9 adaptive canonical validation PASS');
+          console.log('V77.9.1 adaptive canonical validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
