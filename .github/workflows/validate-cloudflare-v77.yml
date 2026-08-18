@@ -29,9 +29,11 @@ jobs:
           const src = fs.readFileSync('cloudflare-worker/index.js','utf8');
           const v73 = JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
           const must = [
-            'V77.7.0',
-            'tdBatchCandles',
-            'prepareDeepCandles',
+            'V77.8.0',
+            'cryptoDeepBundle',
+            'Exact exchange-native 5TF analysis',
+            'HUB TOP SETUPS',
+            'runHub',
             'NEWS_CONTEXT_REQUIRED',
             'newsClearanceTtlSec: 1800',
             'EXECUTION_QUOTE_REQUIRED',
@@ -49,7 +51,7 @@ jobs:
           if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
           if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
           if (!src.includes('const FOREX') || !src.includes('const CRYPTO_BASE') || !src.includes('const METALS')) throw new Error('canonical universes missing');
-          console.log('V77.7 canonical validation PASS');
+          console.log('V77.8 canonical validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
