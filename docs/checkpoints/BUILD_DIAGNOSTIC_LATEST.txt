@@ -1,5 +1,5 @@
-Cloudflare build diagnostic 2026-08-18T16:08:19Z
-HEAD fda9a839c91bb7b7226a0375d7c0d0a543b70d7a
+Cloudflare build diagnostic 2026-08-18T16:10:21Z
+HEAD 380180e6836d3732c2a4fe9985756402cf4c839f
 
 == NODE CHECK ==
 -- cloudflare-worker/engine-v77168.js
@@ -20,7 +20,7 @@ NODE_RC=0
 
 == NPM INSTALL ==
 
-added 38 packages, and audited 39 packages in 5s
+added 38 packages, and audited 39 packages in 9s
 
 7 packages are looking for funding
   run `npm fund` for details
@@ -40,28 +40,14 @@ PREP_RC=0
 
  ⛅️ wrangler 4.124.0
 ────────────────────
+Total Upload: 592.72 KiB / gzip: 86.87 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource          
+env.TRADING_STATE (00000000000000000000000000000000)      KV Namespace      
+
+--dry-run: exiting now.
 
 Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+WRANGLER_RC=0
 
-[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mBuild failed with 2 errors:[0m
-
-  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "hyro-portfolio-guard.js" for import "rankHyroCandidates"[0m
-  
-      hyro-runtime.js:5:30:
-  [37m      5 │ ...{evaluateHyroPortfolio,[32mrankHyroCandidates[37m,recordHyroEntry} from ...
-          ╵                           [32m~~~~~~~~~~~~~~~~~~[0m
-  
-  
-  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "hyro-portfolio-guard.js" for import "recordHyroEntry"[0m
-  
-      hyro-runtime.js:5:49:
-  [37m      5 │ ...folio,rankHyroCandidates,[32mrecordHyroEntry[37m} from "./hyro-portfolio...
-          ╵                             [32m~~~~~~~~~~~~~~~[0m
-  
-  
-
-
-🪵  Logs were written to "/home/runner/.config/.wrangler/logs/wrangler-2026-08-18_16-08-25_676.log"
-WRANGLER_RC=1
-
-RESULT node=0 npm=0 prepare=0 wrangler=1
+RESULT node=0 npm=0 prepare=0 wrangler=0
