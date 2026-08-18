@@ -23,8 +23,6 @@ function normalizeBooks(v){
   const b=emptyBooks();if(!v||typeof v!=="object")return b;
   for(const g of Object.keys(GROUPS)){
     const src=v?.[g]||{};
-    // V77.8+ never carries executable Forex/Metal positions without a broker execution feed.
-    // This also purges stale legacy entries that produced TP ? in Telegram.
     if(g==="crypto"){
       b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxMarketActive):[];
       b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxLimitActive):[];
@@ -96,3 +94,4 @@ mustReplace(
 
 fs.writeFileSync(path,s,'utf8');
 console.log('Applied V77.8.1 Telegram UI/data hardening.');
+// trigger 2026-08-18T10:39+07
