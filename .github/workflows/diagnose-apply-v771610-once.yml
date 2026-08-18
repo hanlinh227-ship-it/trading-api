@@ -1,0 +1,70 @@
+name: Diagnose Apply V77.16.10 Once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-apply-v771610-once.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply with diagnostics
+        shell: bash
+        run: |
+          set +e
+          R=docs/checkpoints/V771610_PATCH_VERIFY.txt
+          : > "$R"
+          python - <<'PY' >> "$R" 2>&1
+          from pathlib import Path
+          p=Path('cloudflare-worker/engine-v77168.js');s=p.read_text()
+          pairs=[
+            ('version','version: "V77.16.9"','version: "V77.16.10"'),
+            ('service','service: "Trading V77.16.9 Balanced Entry Signal Engine"','service: "Trading V77.16.10 Balanced Discovery Signal Engine"'),
+            ('locTrend','if(mode==="TREND"&&intel.methodFit>=50&&nearEma&&continuation)','if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation'),
+            ('locRelative','if(mode==="RELATIVE"&&intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation)','if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation'),
+            ('trigTrend','if(mode==="TREND"&&intel.methodFit>=52&&impulse','if(mode==="TREND"&&intel.methodFit>=50&&impulse'),
+            ('trigRelative','if(mode==="RELATIVE"&&intel.methodFit>=52&&Number(context.score||0)>=6&&impulse','if(mode==="RELATIVE"&&intel.methodFit>=50&&Number(context.score||0)>=6&&impulse'),
+            ('conditional','if(side==="NEUTRAL"||Number(intel?.methodFit||0)<55)return null;','if(side==="NEUTRAL"||Number(intel?.methodFit||0)<52)return null;'),
+            ('fallback','if(Number(intel?.methodFit||0)<44)return null;','if(Number(intel?.methodFit||0)<42)return null;'),
+            ('rrFutureMetal','if(type==="future")x=Math.max(x,1.50);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.20:1.32);','if(type==="future")x=Math.max(x,1.45);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:1.28);'),
+            ('rrForex','else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.12:1.22);','else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:1.20);'),
+            ('chase','return {pass:chase<=.65&&notExtreme','return {pass:chase<=.70&&notExtreme')
+          ]
+          changed=0
+          for name,old,new in pairs:
+              n=s.count(old);print(name,n)
+              if n:
+                  s=s.replace(old,new,1);changed+=1
+          print('changed',changed,'of',len(pairs))
+          print('deep6', 'deepNonCryptoCandidates: 6' in s)
+          p.write_text(s)
+          PY
+          node --check cloudflare-worker/engine-v77168.js >> "$R" 2>&1; NODE_RC=$?; echo "NODE_RC=$NODE_RC" >> "$R"
+          cd cloudflare-worker
+          npm install >> ../$R 2>&1; NPM_RC=$?; echo "NPM_RC=$NPM_RC" >> ../$R
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler >> ../$R 2>&1; PREP_RC=$?; echo "PREP_RC=$PREP_RC" >> ../$R
+          npx wrangler deploy --dry-run >> ../$R 2>&1; WR_RC=$?; echo "WRANGLER_RC=$WR_RC" >> ../$R
+          cd ..
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add "$R"
+          if [ "$NODE_RC" = "0" ] && [ "$WR_RC" = "0" ] && grep -q 'V77.16.10' cloudflare-worker/engine-v77168.js; then
+            python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/validate-cloudflare-v77.yml');s=p.read_text().replace("'V77.16.9'","'V77.16.10'",1);p.write_text(s)
+          p=Path('docs/checkpoints/V771822_SAFE_RISK_BALANCED_DISCOVERY.md');s=p.read_text().replace('At this checkpoint the existing Signal core remains V77.16.9 until its large engine file receives a separately validated soft-gate patch. Do not falsely label the Signal core V77.16.10 before that patch lands. The intended tuning is limited to soft discovery gates; hard news, freshness, structural, execution-authority and futures-risk gates must remain.','Signal core is V77.16.10 Balanced Discovery. Only soft discovery thresholds were modestly relaxed. Forex deep breadth remains 6 to preserve Twelve Data budget assumptions. Hard news, freshness, structural, execution-authority and futures-risk gates remain mandatory.');p.write_text(s)
+          p=Path('docs/checkpoints/CURRENT_HANDOFF.md');s=p.read_text().replace('Signal core remains `engine-v77168.js` / V77.16.9 until its large-file soft-gate patch is separately validated.','Signal core is `engine-v77168.js` / V77.16.10 Balanced Discovery.').replace('Signal V77.16.9 continues to auto-scan','Signal V77.16.10 continues to auto-scan').replace('A planned soft-gate tuning exists for better Forex/Metal/Futures discovery, but DO NOT claim V77.16.10 until the large engine file patch lands and validates. Do not increase Twelve Data deep-scan breadth without validating quota accounting.','V77.16.10 modestly relaxes soft location/trigger fit, conditional/fallback eligibility, per-market RR floors and chase geometry. Forex deep remains 6 so Twelve Data budget assumptions do not change. Hard gates remain.').replace('Signal core vẫn V77.16.9 cho tới khi soft-gate patch riêng được validate.','Signal core V77.16.10 Balanced Discovery; hard gates giữ nguyên và Forex deep vẫn 6.');p.write_text(s)
+          PY
+            git add cloudflare-worker/engine-v77168.js .github/workflows/validate-cloudflare-v77.yml docs/checkpoints/V771822_SAFE_RISK_BALANCED_DISCOVERY.md docs/checkpoints/CURRENT_HANDOFF.md
+            git commit -m "V77.16.10 balanced discovery verified patch" || true
+          else
+            git commit -m "Report V77.16.10 patch diagnostics" || true
+          fi
+          git push || true
+          exit 0
