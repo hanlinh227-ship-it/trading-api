@@ -32,6 +32,7 @@ jobs:
           const index=read('cloudflare-worker/index.js');
           const hub=read('cloudflare-worker/hub-v77171.js');
           const engine=read('cloudflare-worker/engine-v77168.js');
+          const scanner=read('cloudflare-worker/hyro-scanner.js');
           const runtime=read('cloudflare-worker/hyro-runtime.js');
           const exec=read('cloudflare-worker/hyro-execution.js');
           const micro=read('cloudflare-worker/hyro-market-context.js');
@@ -41,24 +42,29 @@ jobs:
           const health=read('cloudflare-worker/system-health.js');
           const adaptive=read('cloudflare-worker/adaptive-tuning.js');
           const dual=read('cloudflare-worker/dual-ai-intervention.js');
+          const arbiter=read('cloudflare-worker/ai-arbiter.js');
+          const claudeTg=read('cloudflare-worker/claude-telegram.js');
           const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
-          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
-          for(const x of ['V77.18.22','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','runClaudeAutoReview'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
+          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup','loadAdaptiveTuning'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
+          for(const x of ['V77.18.24','Dual AI Co-Engineer Arbiter','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','ensureDualAiIntervention','/dual-ai/status','/ai/status','AI_ADMIN_REQUIRED'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
           if(index.includes('hyroMultiStatus')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram'))throw new Error('Multi-account runtime present');
-          for(const x of ['ensureDualAiIntervention','loadAdaptiveTuning','adaptive?.hyro?.maxDeep','adaptive?.hyro?.minTurnover','bMicroMin','MAX_ACTIVE_SLOTS_REACHED'])if(!runtime.includes(x))throw new Error('Dual-AI runtime lock missing: '+x);
-          for(const x of ['v771823:adaptive:tuning','locationTrendFit','bMicroMin','hardNews:true','freshness:true','executionAuthority:true','structuralSL:true','hyroRiskUntouched:true','tradeAuthority:false'])if(!adaptive.includes(x))throw new Error('Adaptive guardrail missing: '+x);
-          for(const x of ['claude-sonnet-5','ONE_TIME','applyAdaptiveTuning','SOFT_TUNING_ONLY','trade:false','close:false','deploy:false','hardRiskImmutable:true','max_tokens:1800'])if(!dual.includes(x))throw new Error('Dual AI lock missing: '+x);
+          if(!hub.includes('🧠 AI Co-engineer')||!hub.includes('V77.18.24')||!hub.includes('V771822_SAFE_DAILY'))throw new Error('Hub/risk shell lock missing');
+          for(const x of ['NEAR_MARKET_PLAN','bDistMult','bMinRR','fundingRate'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
+          for(const x of ['ensureDualAiIntervention','loadAdaptiveTuning','adaptive?.hyro?.maxDeep','adaptive?.hyro?.minTurnover','tune:adaptive?.hyro','bMicroMin','MAX_ACTIVE_SLOTS_REACHED'])if(!runtime.includes(x))throw new Error('Adaptive runtime lock missing: '+x);
+          for(const x of ['v771824:adaptive:tuning','LEGACY_KEY','locationTrendFit','bMicroMin','hardNews:true','freshness:true','executionAuthority:true','structuralSL:true','hyroRiskUntouched:true','tradeAuthority:false','deployAuthority:false'])if(!adaptive.includes(x))throw new Error('Adaptive guardrail missing: '+x);
+          for(const x of ['v771824:dual_ai:intervention','CO-ENGINEER','acquireAiLease','recordAiProposal','source_proposals','trade:false','close:false','deploy:false','hardRiskImmutable:true','max_tokens:2000'])if(!dual.includes(x))throw new Error('Dual AI lock missing: '+x);
+          for(const x of ['CO_ENGINEER_ARBITRATED','singleWriter:true','CHATGPT','CLAUDE','proposeSource:true','softTuning:true','directTrade:false','directDeploy:false'])if(!arbiter.includes(x))throw new Error('AI arbiter lock missing: '+x);
+          if(!claudeTg.includes('DUAL AI • CO-ENGINEER')||!claudeTg.includes('Arbiter: 1 writer'))throw new Error('Claude Telegram governance missing');
           for(const x of ['RISK_V771822_ACTIVATES_AT','V771822_SAFE_DAILY','singlePct:.0055','aPct:.0045','combinedPct:.009','hardPct:.016','targetPct:.012'])if(!exec.includes(x))throw new Error('Risk lock missing: '+x);
           for(const x of ['TP_POLICY_V771822_AT','1.60','2.45'])if(!manager.includes(x))throw new Error('TP lock missing: '+x);
           for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro lock missing: '+x);
           for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio lock missing: '+x);
           for(const x of ['minimumCutHoldMinutes:8','reduceOnly:true','HYRO_POSITION_REEVAL_AUTO_CUT'])if(!review.includes(x))throw new Error('Position review lock missing: '+x);
           for(const x of ['ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Claude lock missing: '+x);
-          if(!hub.includes('🧠 AI Review')||!hub.includes('V77.18.22'))throw new Error('Hub lock missing');
           if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV deployment lock missing');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('Canonical V77.18.22 + bounded dual-AI intervention validation PASS');
+          console.log('Canonical V77.18.24 dual-AI co-engineer validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
