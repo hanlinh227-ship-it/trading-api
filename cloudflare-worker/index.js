@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.11.1",
-  service: "Trading V77.11.1 Dynamic Regime Entry Hub",
+  version: "V77.11.2",
+  service: "Trading V77.11.2 Dynamic Regime Entry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -487,7 +487,7 @@ async function runGroup(group,env){
 }
 function canonicalUserSymbol(symbol){const x=norm(symbol);if(x==="TON"||x==="TONUSDT")return "GRAMUSDT";return x;}
 async function runSymbol(symbol,env){
-  const s=norm(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};
+  const s=canonicalUserSymbol(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};
   if(type==="crypto"){let b;try{b=await cryptoDeepBundle(s,{preferAnalysis:true});}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"EXCHANGE_DEEP_UNAVAILABLE",error:e?.message||String(e)};}let context={score:5};try{const bulk=await cryptoBulk(),sq=b.quote?.percentChange??bulk.get(s)?.percentChange??0,bq=s==="BTCUSDT"?sq:(bulk.get("BTCUSDT")?.percentChange??0),rel=sq-bq;context={relativeStrength:rel,benchmark:"BTC",score:Math.min(10,5+Math.abs(rel)),...(await cryptoDerivativesContext(s))};}catch{}return deepAnalyze(s,env,b.candles,b.quote,b.source,context);}
   const maps=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env,CONFIG.candleOutputSize)));const candles=maps.map(m=>m.get(s)||[]);return deepAnalyze(s,env,candles,null,"Twelve Data",{score:5});
 }
