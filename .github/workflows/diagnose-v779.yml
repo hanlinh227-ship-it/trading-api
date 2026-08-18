@@ -21,12 +21,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Repair generator escaping in workspace
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/apply_v7790_adaptive_symbol_hub.js')
+          s=p.read_text()
+          marker='const uiBlock=`'
+          a=s.index(marker)+len(marker)
+          b=s.index("\n`;\nreplaceRange('function fmtPx('",a)
+          body=s[a:b]
+          body=body.replace('`','\\`').replace('${','\\${')
+          s=s[:a]+body+s[b:]
+          p.write_text(s)
+          PY
       - name: Apply migration and capture diagnostics
         shell: bash
         run: |
           set +e
           : > V779_DIAGNOSTIC.txt
           echo "HEAD=$(git rev-parse HEAD)" >> V779_DIAGNOSTIC.txt
+          node --check scripts/apply_v7790_adaptive_symbol_hub.js >> V779_DIAGNOSTIC.txt 2>&1
+          GEN=$?
+          echo "GENERATOR_SYNTAX_EXIT=$GEN" >> V779_DIAGNOSTIC.txt
           node scripts/apply_v7790_adaptive_symbol_hub.js >> V779_DIAGNOSTIC.txt 2>&1
           MIG=$?
           echo "MIGRATION_EXIT=$MIG" >> V779_DIAGNOSTIC.txt
@@ -44,7 +61,7 @@ jobs:
           git config user.name 'trading-runtime-bot'
           git config user.email 'trading-runtime-bot@users.noreply.github.com'
           git add V779_DIAGNOSTIC.txt
-          if grep -q 'MIGRATION_EXIT=0' V779_DIAGNOSTIC.txt && grep -q 'SYNTAX_EXIT=0' V779_DIAGNOSTIC.txt; then
+          if grep -q 'GENERATOR_SYNTAX_EXIT=0' V779_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V779_DIAGNOSTIC.txt && grep -q 'SYNTAX_EXIT=0' V779_DIAGNOSTIC.txt; then
             git add cloudflare-worker/index.js
           fi
           git commit -m 'Report V77.9 migration diagnostic' || exit 0
