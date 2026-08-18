@@ -1,0 +1,9 @@
+GENERATOR_EXIT=0
+Applied V77.15.5 action-first entry routing
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.15.5=YES
+structuralFallbackLimit=YES
+routeRescueSide=YES
+rescuePlan=YES
+Action-First Entry Hub=YES
