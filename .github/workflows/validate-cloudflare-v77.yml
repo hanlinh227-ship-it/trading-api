@@ -61,7 +61,7 @@ jobs:
           if(!manager.includes('v771811:hyro:manage:'))throw new Error('Position manager state lock missing');
           for(const x of ['v771817:health:last','v775:books','v7712:scan:','getHyroTelemetry','TELEGRAM_API_FAIL','shouldRunFullHealth','ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Guardian lock missing: '+x);
           if(health.includes('TK2')||health.includes('HYRO_B_BYBIT_API_KEY')||health.includes('hyroHubSnapshot'))throw new Error('TK2 health remnants present');
-          for(const x of ['REVIEW-ONLY','runClaudeReview','runClaudeAutoReview','DAILY_LIMIT','COOLDOWN','claude-sonnet-4-20250514','trade:false','deploy:false','v771820:claude:last'])if(!claude.includes(x))throw new Error('Claude reviewer lock missing: '+x);
+          for(const x of ['REVIEW-ONLY','runClaudeReview','runClaudeAutoReview','DAILY_LIMIT','COOLDOWN','claude-sonnet-5','trade:false','deploy:false','v771820:claude:last'])if(!claude.includes(x))throw new Error('Claude reviewer lock missing: '+x);
           for(const x of ['claude:status','claude:review','ChatGPT PRIMARY'])if(!claudeTg.includes(x))throw new Error('Claude Telegram lock missing: '+x);
           if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV/vars deployment lock missing');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
