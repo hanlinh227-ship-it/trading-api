@@ -44,11 +44,11 @@ jobs:
           const manager=fs.readFileSync('cloudflare-worker/hyro-position-manager.js','utf8');
           const wrangler=fs.readFileSync('cloudflare-worker/prepare-wrangler.mjs','utf8');
           const v73=JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
-          const signalLocks=['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED'];
+          const signalLocks=['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.9','v771816:signal:auto_notify:','autoScanSignalGroup'];
           for(const x of signalLocks)if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
-          for(const x of ['V77.18.15','handleHyroMultiTelegram','runHyroMultiCron'])if(!index.includes(x))throw new Error('Dual-account index lock missing: '+x);
+          for(const x of ['V77.18.16','handleHyroMultiTelegram','runHyroMultiCron'])if(!index.includes(x))throw new Error('Dual-account index lock missing: '+x);
           for(const x of ['PER_SYMBOL_STRATEGY_REGISTRY','NEAR_MARKET_PLAN','fundingRate'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
-          for(const x of ['enrichHyroPlans','evaluateHyroPortfolio','recordHyroEntry','excludedSignatures'])if(!runtime.includes(x))throw new Error('Runtime portfolio/mirror lock missing: '+x);
+          for(const x of ['enrichHyroPlans','evaluateHyroPortfolio','recordHyroEntry','excludedSignatures','microScore(x)>=.54'])if(!runtime.includes(x))throw new Error('Runtime balanced portfolio/mirror lock missing: '+x);
           for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro context missing: '+x);
           for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio guard missing: '+x);
           for(const x of ['B_PREFIX="v771815:hyro:B:"','HYRO_B_BYBIT_API_KEY','HYRO_B_AUTO_EXECUTION','antiMirrorBlocked','excludedSignatures'])if(!multi.includes(x))throw new Error('Multi-account isolation missing: '+x);
@@ -58,7 +58,7 @@ jobs:
           if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV/vars deployment lock missing');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73')throw new Error('V73 version changed');
           if(v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 universe changed');
-          console.log('Canonical modular V77.18.15 dual-account validation PASS');
+          console.log('Canonical modular V77.18.16 balanced-entry validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
