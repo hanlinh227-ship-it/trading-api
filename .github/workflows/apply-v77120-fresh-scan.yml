@@ -40,3 +40,4 @@ jobs:
           if grep -q 'GENERATOR_EXIT=0' V77120_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77120_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77120_DIAGNOSTIC.txt && grep -q 'V77.12.0=YES' V77120_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
           git commit -m 'Promote V77.12 fresh scan persistent order architecture' || exit 0
           git push origin main
+# retrigger after generator quoting fix
