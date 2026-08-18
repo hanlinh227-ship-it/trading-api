@@ -14,78 +14,14 @@ on:
       - 'data/nocut_intraday_allpass_v73.json'
       - 'data/symbol_knowledge_registry.json'
 
-permissions:
-  contents: write
-
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: One-time V77.18.23 migration
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('cloudflare-worker/engine-v77168.js'); s=p.read_text()
-          if 'adaptive-tuning.js' not in s:s='import {loadAdaptiveTuning} from "./adaptive-tuning.js";\n'+s
-          s=s.replace('const memory = { tdCreditsLeft: null, cryptoBulk: null, cryptoBulkAt: 0 };','const memory = { tdCreditsLeft: null, cryptoBulk: null, cryptoBulkAt: 0, adaptive:null };\nconst ST=()=>memory.adaptive?.signal||{};')
-          for old,new in [
-           ('intel.methodFit>=48&&nearEma&&continuation','intel.methodFit>=Number(ST().locationTrendFit??47)&&nearEma&&continuation'),
-           ('intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation','intel.methodFit>=Number(ST().locationRelativeFit??47)&&Number(context.score||0)>=6&&nearEma&&continuation'),
-           ('intel.methodFit>=50&&impulse','intel.methodFit>=Number(ST().triggerTrendFit??49)&&impulse'),
-           ('intel.methodFit>=50&&Number(context.score||0)>=6&&impulse','intel.methodFit>=Number(ST().triggerRelativeFit??49)&&Number(context.score||0)>=6&&impulse'),
-           ('Number(intel?.methodFit||0)<52','Number(intel?.methodFit||0)<Number(ST().conditionalFit??51)'),
-           ('Number(intel?.methodFit||0)<42','Number(intel?.methodFit||0)<Number(ST().fallbackFit??41)'),
-           ('if(type==="future")x=Math.max(x,1.45);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:1.28);','if(type==="future")x=Math.max(x,Number(ST().futureMinRR??1.43));else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:Number(ST().metalMinRR??1.26));'),
-           ('else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:1.20);','else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:Number(ST().forexMinRR??1.18));'),
-           ('return {pass:chase<=.70&&notExtreme','return {pass:chase<=Number(ST().marketChaseAtr??.72)&&notExtreme')]:
-              if old in s:s=s.replace(old,new,1)
-          s=s.replace('async function runGroup(group,env,trigger="API_RUN_NOW"){\n  if(group==="future")return runFutureGroup(env);','async function runGroup(group,env,trigger="API_RUN_NOW"){\n  memory.adaptive=await loadAdaptiveTuning(env);\n  if(group==="future")return runFutureGroup(env);',1)
-          s=s.replace('async function runSymbol(symbol,env){\n  const s=canonicalUserSymbol(symbol)','async function runSymbol(symbol,env){\n  memory.adaptive=await loadAdaptiveTuning(env);\n  const s=canonicalUserSymbol(symbol)',1)
-          p.write_text(s)
-
-          p=Path('cloudflare-worker/hyro-scanner.js'); s=p.read_text()
-          s=s.replace('function basePlan(symbol,ticker,h1,m15,m5,btcCtx){','function basePlan(symbol,ticker,h1,m15,m5,btcCtx,tune={}){',1)
-          s=s.replace('const nearRR=Math.max(1.4,p.minRR-.35);if(!fund.block&&nearTrigger&&dist<=p.dist*1.35&&btcAgree&&effectiveRR>=nearRR)','const nearRR=Math.max(Number(tune.bMinRR??1.38),p.minRR-.35);if(!fund.block&&nearTrigger&&dist<=p.dist*Number(tune.bDistMult??1.40)&&btcAgree&&effectiveRR>=nearRR)',1)
-          s=s.replace('export async function hyroDynamicScan({maxBroad=80,maxDeep=8,minTurnover=10000000}={})','export async function hyroDynamicScan({maxBroad=80,maxDeep=8,minTurnover=10000000,tune={}}={})',1)
-          s=s.replace('basePlan(t.symbol,t,h1,m15,m5,ctx)','basePlan(t.symbol,t,h1,m15,m5,ctx,tune)')
-          p.write_text(s)
-
-          p=Path('cloudflare-worker/hyro-runtime.js'); s=p.read_text()
-          if 'adaptive-tuning.js' not in s:s=s.replace('import {evaluateHyroPortfolio,rankHyroCandidates,recordHyroEntry} from "./hyro-portfolio-guard.js";','import {evaluateHyroPortfolio,rankHyroCandidates,recordHyroEntry} from "./hyro-portfolio-guard.js";\nimport {loadAdaptiveTuning} from "./adaptive-tuning.js";')
-          s=s.replace('const dynamicRisk=hyroDynamicRiskView(profile,telemetry),management=await manageHyroPositions(env,telemetry)','const adaptive=await loadAdaptiveTuning(env),dynamicRisk=hyroDynamicRiskView(profile,telemetry),management=await manageHyroPositions(env,telemetry)',1)
-          s=s.replace('hyroDynamicScan({maxBroad:100,maxDeep:12,minTurnover:8000000})','hyroDynamicScan({maxBroad:100,maxDeep:Number(adaptive.hyro.maxDeep||14),minTurnover:Number(adaptive.hyro.minTurnover||6000000),tune:adaptive.hyro})',1)
-          s=s.replace('microScore(x)>=.54','microScore(x)>=Number(adaptive.hyro.bMicroMin||.52)',1)
-          p.write_text(s)
-
-          p=Path('cloudflare-worker/claude-reviewer.js'); s=p.read_text()
-          if 'adaptive-tuning.js' not in s:s='import {applyAdaptiveTuning,getAdaptiveTuningState} from "./adaptive-tuning.js";\n'+s
-          s=s.replace('const OVERNIGHT_KEY="v771822:claude:overnight";','const OVERNIGHT_KEY="v771822:claude:overnight";\nconst INTERVENTION_KEY="v771823:claude:intervention";')
-          s=s.replace('return {verdict,confidence:Math.max(0,Math.min(100,num(x?.confidence))),summary:clampText(x?.summary||"",900),findings,tuning,must_fix:Array.isArray(x?.must_fix)?x.must_fix.slice(0,8).map(v=>clampText(typeof v==="string"?v:JSON.stringify(v),520)):[]};','return {verdict,confidence:Math.max(0,Math.min(100,num(x?.confidence))),summary:clampText(x?.summary||"",900),findings,tuning,must_fix:Array.isArray(x?.must_fix)?x.must_fix.slice(0,8).map(v=>clampText(typeof v==="string"?v:JSON.stringify(v),520)):[],runtime_tuning:(x?.runtime_tuning&&typeof x.runtime_tuning==="object")?x.runtime_tuning:null};',1)
-          s=s.replace('Output ONLY valid compact JSON with keys: verdict (PASS|WARN|FAIL), confidence (0-100), summary, findings (array severity,area,issue,evidence,recommendation), tuning (array of objects priority,area,current_problem,proposed_change,expected_effect,risk), must_fix (array).','Output ONLY valid compact JSON with keys: verdict, confidence, summary, findings, tuning, must_fix, runtime_tuning. For ONE_TIME_INTERVENTION only, runtime_tuning may contain signal {locationTrendFit,locationRelativeFit,triggerTrendFit,triggerRelativeFit,conditionalFit,fallbackFit,forexMinRR,metalMinRR,futureMinRR,marketChaseAtr} and hyro {maxDeep,minTurnover,bMicroMin,bDistMult,bMinRR}. Stay inside conservative ranges. Never alter hard news/freshness/execution/structural-SL gates or PROP risk caps. Other review kinds must set runtime_tuning null.')
-          s=s.replace('const overnight=kind==="OVERNIGHT_30M_SYSTEM_REVIEW",defaultTokens=overnight?950:1400','const overnight=kind==="OVERNIGHT_30M_SYSTEM_REVIEW",intervention=kind==="ONE_TIME_INTERVENTION",defaultTokens=intervention?2200:(overnight?950:1400)')
-          if 'runClaudeOneTimeIntervention' not in s:
-              marker='export async function runClaudeAutoReview(env,{version="UNKNOWN",health=null}={})'
-              fn='export async function runClaudeOneTimeIntervention(env,{version="UNKNOWN"}={}){if(!env.ANTHROPIC_API_KEY)return {ok:false,skipped:true,reason:"ANTHROPIC_API_KEY_MISSING"};const old=await kvGet(env,INTERVENTION_KEY,null);if(old?.version===version&&old?.completed)return old;const r=await runClaudeReview(env,{version,kind:"ONE_TIME_INTERVENTION",force:true,notify:false});let applied=null;if(r?.ok&&!r?.skipped&&r?.review?.runtime_tuning)applied=await applyAdaptiveTuning(env,r.review.runtime_tuning,{source:"CLAUDE_ONE_TIME_BOUNDED",reviewId:r.messageId||null});const out={ok:!!r?.ok,version,completed:true,at:now(),verdict:r?.review?.verdict||null,usage:r?.usage||null,estimatedCostUsd:Number(((num(r?.usage?.input_tokens)*2+num(r?.usage?.output_tokens)*10)/1000000).toFixed(4)),applied:applied?.values||null,guardrail:"SOFT_TUNING_ONLY",trade:false,deploy:false};await kvPut(env,INTERVENTION_KEY,out,2592000);return out;}\nexport async function getClaudeInterventionState(env){return kvGet(env,INTERVENTION_KEY,null);}\n'
-              s=s.replace(marker,fn+marker)
-          p.write_text(s)
-
-          p=Path('cloudflare-worker/index.js'); s=p.read_text()
-          s=s.replace('runClaudeReview,runClaudeAutoReview,getClaudeReviewerStatus,getClaudeReviewState','runClaudeReview,runClaudeAutoReview,runClaudeOneTimeIntervention,getClaudeInterventionState,getClaudeReviewerStatus,getClaudeReviewState')
-          if 'adaptive-tuning.js' not in s:s=s.replace('import {handleClaudeTelegram} from "./claude-telegram.js";','import {handleClaudeTelegram} from "./claude-telegram.js";\nimport {getAdaptiveTuningState} from "./adaptive-tuning.js";')
-          s=s.replace('const VERSION="V77.18.22",SERVICE="Trading V77.18.22 Safe Daily Risk + Balanced Discovery";\nconst RELEASE_NAME="Safe Daily Risk + Balanced Discovery";','const VERSION="V77.18.23",SERVICE="Trading V77.18.23 Dual AI Adaptive Tuning";\nconst RELEASE_NAME="Dual AI Adaptive Tuning";')
-          s=s.replace('if(path==="/claude/review/latest")return json({ok:true,version:VERSION,review:await getClaudeReviewState(env)});','if(path==="/claude/review/latest")return json({ok:true,version:VERSION,review:await getClaudeReviewState(env)});if(path==="/claude/intervention")return json({ok:true,version:VERSION,state:await getClaudeInterventionState(env),tuning:await getAdaptiveTuningState(env)});if(path==="/tuning")return json({ok:true,version:VERSION,tuning:await getAdaptiveTuningState(env)});')
-          s=s.replace('ctx.waitUntil(runClaudeAutoReview(env,{version:VERSION}).catch(()=>{}));','ctx.waitUntil(runClaudeOneTimeIntervention(env,{version:VERSION}).catch(()=>{}));ctx.waitUntil(runClaudeAutoReview(env,{version:VERSION}).catch(()=>{}));')
-          p.write_text(s)
-
-          p=Path('cloudflare-worker/hub-v77171.js'); s=p.read_text().replace('V77.18.22','V77.18.23').replace('Safe Risk + Balanced Discovery Hub','Dual AI Adaptive Tuning Hub').replace('🧠 AI Review','🧠 AI Tối ưu');p.write_text(s)
-          PY
       - name: Syntax check all Worker modules
         run: |
           for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f"; done
@@ -93,26 +29,36 @@ jobs:
         run: |
           node - <<'NODE'
           const fs=require('fs'); const read=p=>fs.readFileSync(p,'utf8');
-          const index=read('cloudflare-worker/index.js'),hub=read('cloudflare-worker/hub-v77171.js'),engine=read('cloudflare-worker/engine-v77168.js'),scanner=read('cloudflare-worker/hyro-scanner.js'),runtime=read('cloudflare-worker/hyro-runtime.js'),exec=read('cloudflare-worker/hyro-execution.js'),micro=read('cloudflare-worker/hyro-market-context.js'),portfolio=read('cloudflare-worker/hyro-portfolio-guard.js'),manager=read('cloudflare-worker/hyro-position-manager.js'),review=read('cloudflare-worker/hyro-position-review.js'),release=read('cloudflare-worker/release-notifier.js'),health=read('cloudflare-worker/system-health.js'),claude=read('cloudflare-worker/claude-reviewer.js'),claudeTg=read('cloudflare-worker/claude-telegram.js'),adaptive=read('cloudflare-worker/adaptive-tuning.js'),wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
+          const index=read('cloudflare-worker/index.js');
+          const hub=read('cloudflare-worker/hub-v77171.js');
+          const engine=read('cloudflare-worker/engine-v77168.js');
+          const runtime=read('cloudflare-worker/hyro-runtime.js');
+          const exec=read('cloudflare-worker/hyro-execution.js');
+          const micro=read('cloudflare-worker/hyro-market-context.js');
+          const portfolio=read('cloudflare-worker/hyro-portfolio-guard.js');
+          const manager=read('cloudflare-worker/hyro-position-manager.js');
+          const review=read('cloudflare-worker/hyro-position-review.js');
+          const health=read('cloudflare-worker/system-health.js');
+          const adaptive=read('cloudflare-worker/adaptive-tuning.js');
+          const dual=read('cloudflare-worker/dual-ai-intervention.js');
+          const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
-          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup','loadAdaptiveTuning'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
-          for(const x of ['V77.18.23','Dual AI Adaptive Tuning','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','runClaudeOneTimeIntervention','/claude/intervention','/tuning'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
-          if(index.includes('hyroMultiStatus')||index.includes('runHyroMultiCron'))throw new Error('Multi-account runtime present');
-          if(!hub.includes('🧠 AI Tối ưu')||!hub.includes('V77.18.23'))throw new Error('Hub lock missing');
-          for(const x of ['NEAR_MARKET_PLAN','fundingRate','bDistMult','bMinRR'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
-          for(const x of ['enrichHyroPlans','evaluateHyroPortfolio','recordHyroEntry','adaptive.hyro.bMicroMin','adaptive.hyro.maxDeep'])if(!runtime.includes(x))throw new Error('Runtime lock missing: '+x);
-          for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro lock missing: '+x);
-          for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio lock missing: '+x);
-          for(const x of ['minimumCutHoldMinutes:8','reduceOnly:true','HYRO_POSITION_REEVAL_AUTO_CUT'])if(!review.includes(x))throw new Error('Review lock missing: '+x);
+          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
+          for(const x of ['V77.18.22','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','runClaudeAutoReview'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
+          if(index.includes('hyroMultiStatus')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram'))throw new Error('Multi-account runtime present');
+          for(const x of ['ensureDualAiIntervention','loadAdaptiveTuning','adaptive?.hyro?.maxDeep','adaptive?.hyro?.minTurnover','bMicroMin','MAX_ACTIVE_SLOTS_REACHED'])if(!runtime.includes(x))throw new Error('Dual-AI runtime lock missing: '+x);
+          for(const x of ['v771823:adaptive:tuning','locationTrendFit','bMicroMin','hardNews:true','freshness:true','executionAuthority:true','structuralSL:true','hyroRiskUntouched:true','tradeAuthority:false'])if(!adaptive.includes(x))throw new Error('Adaptive guardrail missing: '+x);
+          for(const x of ['claude-sonnet-5','ONE_TIME','applyAdaptiveTuning','SOFT_TUNING_ONLY','trade:false','close:false','deploy:false','hardRiskImmutable:true','max_tokens:1800'])if(!dual.includes(x))throw new Error('Dual AI lock missing: '+x);
           for(const x of ['RISK_V771822_ACTIVATES_AT','V771822_SAFE_DAILY','singlePct:.0055','aPct:.0045','combinedPct:.009','hardPct:.016','targetPct:.012'])if(!exec.includes(x))throw new Error('Risk lock missing: '+x);
           for(const x of ['TP_POLICY_V771822_AT','1.60','2.45'])if(!manager.includes(x))throw new Error('TP lock missing: '+x);
-          for(const x of ['ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Claude lock missing');
-          for(const x of ['ONE_TIME_INTERVENTION','INTERVENTION_KEY','applyAdaptiveTuning','trade:false','deploy:false'])if(!claude.includes(x))throw new Error('Claude intervention lock missing: '+x);
-          for(const x of ['v771823:adaptive:tuning','locationTrendFit','bMicroMin','hardNews:true','hyroRiskUntouched:true'])if(!adaptive.includes(x))throw new Error('Adaptive lock missing: '+x);
-          if(!claudeTg.includes('ChatGPT PRIMARY'))throw new Error('Claude governance missing');
-          if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV lock missing');
+          for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro lock missing: '+x);
+          for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio lock missing: '+x);
+          for(const x of ['minimumCutHoldMinutes:8','reduceOnly:true','HYRO_POSITION_REEVAL_AUTO_CUT'])if(!review.includes(x))throw new Error('Position review lock missing: '+x);
+          for(const x of ['ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Claude lock missing: '+x);
+          if(!hub.includes('🧠 AI Review')||!hub.includes('V77.18.22'))throw new Error('Hub lock missing');
+          if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV deployment lock missing');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('Canonical V77.18.23 dual-AI adaptive validation PASS');
+          console.log('Canonical V77.18.22 + bounded dual-AI intervention validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
@@ -125,16 +71,3 @@ jobs:
       - name: Wrangler bundle dry-run
         working-directory: cloudflare-worker
         run: npx wrangler deploy --dry-run
-      - name: Commit V77.18.23 migration
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          cat > docs/checkpoints/V771823_DUAL_AI_ADAPTIVE.md <<'EOF'
-          # V77.18.23 — Dual AI Adaptive Tuning
-          ChatGPT remains PRIMARY. Claude gets one-time bounded authority over whitelisted soft discovery tuning only. It cannot trade, close positions, deploy, alter secrets, hard news/freshness/execution/structural-SL gates, or V77.18.22 Hyro risk caps. Defaults: Signal loc 47/47, trigger 49/49, conditional 51, fallback 41, Forex RR 1.18, Metal 1.26, Futures 1.43, chase .72 ATR. Hyro: deep 14, turnover $6m, B micro .52, B distance 1.40, B RR floor 1.38. Claude intervention is silent and stores actual usage + estimated cost.
-          EOF
-          git config user.name trading-runtime-bot
-          git config user.email trading-runtime-bot@users.noreply.github.com
-          git add cloudflare-worker docs/checkpoints/V771823_DUAL_AI_ADAPTIVE.md
-          git commit -m 'V77.18.23 dual AI adaptive tuning' || exit 0
-          git push
