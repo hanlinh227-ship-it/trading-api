@@ -1,8 +1,8 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.10.2",
-  service: "Trading V77.10.2 Adaptive Entry Intelligence Hub",
+  version: "V77.11.0",
+  service: "Trading V77.11.0 Dynamic Regime Entry Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -283,27 +283,46 @@ function v73Prior(symbol,type){
 }
 function directionalVotes(D1,H4,H1){const arr=[D1,H4,H1],bull=arr.filter(x=>x.trend==="BULLISH").length,bear=arr.filter(x=>x.trend==="BEARISH").length;return {bull,bear,side:bull>=2?"LONG":bear>=2?"SHORT":"NEUTRAL"};}
 function sessionFit(prior){if(!Number.isFinite(Number(prior?.signalHourUTC)))return .6;const h=new Date().getUTCHours(),d=Math.min((h-prior.signalHourUTC+24)%24,(prior.signalHourUTC-h+24)%24);return Math.max(.15,1-d/12);}
+function allowedProfileModes(prior){
+  const f=(prior?.families||[]).join('|').toUpperCase(),out=[];
+  if(/MEANREV|REVERT|CONTRA|FADE|SLOW|SESSION/.test(f))out.push("MEAN_REVERSION");
+  if(/BREADTH|RELATIVE|BTCALIGN|HYBRID|L2/.test(f))out.push("RELATIVE");
+  if(/TREND|MOM|MOMENTUM|FAST|H1TREND|H4TREND|D1TREND|BTC_CORE|H1|H4|D1/.test(f))out.push("TREND");
+  if(!out.length)out.push("GENERIC");return [...new Set(out)];
+}
+function sideFromTrendVotes(votes,H4,H1){if(votes.bull>=2)return "LONG";if(votes.bear>=2)return "SHORT";if(H4?.trend===H1?.trend&&H1?.trend!=="NEUTRAL")return H1.trend==="BULLISH"?"LONG":"SHORT";return "NEUTRAL";}
+function regimeRouteScores(prior,T,context={}){
+  const {M5,M15,H1,H4,D1}=T,v=directionalVotes(D1,H4,H1),allowed=allowedProfileModes(prior),baseSide=sideFromTrendVotes(v,H4,H1),r=Number(H1?.rsi14??50),m15r=Number(M15?.rsi14??50);
+  const trendStrength=Math.max(v.bull,v.bear)/3,trendSide=baseSide,momOK=trendSide==="LONG"?(r>=52&&H1.close>=H1.ema20):(trendSide==="SHORT"?(r<=48&&H1.close<=H1.ema20):false),hAlign=H4?.trend===H1?.trend&&H1?.trend!=="NEUTRAL";
+  const rel=Number(context.relativeStrength??context.strengthDiff),ctxMag=Number.isFinite(rel)?Math.min(1,Math.abs(rel)/2):0,ctxSide=Number.isFinite(rel)&&Math.abs(rel)>.05?(rel>0?"LONG":"SHORT"):"NEUTRAL";
+  const hAtr=Number(H1?.atr14)||1,emaDist=Number.isFinite(H1?.ema20)?Math.abs(H1.close-H1.ema20)/hAtr:0,ext=Math.min(1,Math.max(Math.abs(r-50)/22,Math.abs(m15r-50)/24,Math.min(1,emaDist/2)));
+  const longRev=H1?.bullishReclaim||M15?.bullishReclaim||M5?.bullishReclaim,shortRev=H1?.bearishReclaim||M15?.bearishReclaim||M5?.bearishReclaim;
+  let mrSide="NEUTRAL";if(r<=43||m15r<=40||longRev)mrSide="LONG";if(r>=57||m15r>=60||shortRev)mrSide="SHORT";if(longRev&&!shortRev)mrSide="LONG";if(shortRev&&!longRev)mrSide="SHORT";
+  const scores={};
+  if(allowed.includes("TREND"))scores.TREND=Math.round(34+30*trendStrength+(momOK?15:0)+(hAlign?10:0)+6*sessionFit(prior));
+  if(allowed.includes("RELATIVE")){const sideAgree=ctxSide!=="NEUTRAL"&&(trendSide===ctxSide||trendSide==="NEUTRAL");scores.RELATIVE=Math.round(34+30*ctxMag+(Number(context.score||0)>=7?10:0)+(sideAgree?12:0)+(hAlign?5:0));}
+  if(allowed.includes("MEAN_REVERSION")){const revEvidence=mrSide==="LONG"?longRev:mrSide==="SHORT"?shortRev:false;scores.MEAN_REVERSION=Math.round(30+32*ext+(revEvidence?18:0)+(emaDist>=.75?8:0)+5*sessionFit(prior));}
+  if(allowed.includes("GENERIC"))scores.GENERIC=Math.round(38+22*trendStrength+(hAlign?10:0)+10*ctxMag);
+  const activeMode=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0]?.[0]||allowed[0]||"GENERIC";
+  let side=activeMode==="MEAN_REVERSION"?mrSide:activeMode==="RELATIVE"?(ctxSide!=="NEUTRAL"?ctxSide:trendSide):trendSide;
+  if(activeMode==="RELATIVE"&&trendSide!=="NEUTRAL"&&ctxSide!=="NEUTRAL"&&trendSide!==ctxSide&&Math.abs(rel)<1)side=trendSide;
+  let htfPass=false;
+  if(activeMode==="TREND")htfPass=side!=="NEUTRAL"&&((side==="LONG"&&v.bull>=2)||(side==="SHORT"&&v.bear>=2)||hAlign);
+  else if(activeMode==="RELATIVE")htfPass=side!=="NEUTRAL"&&ctxMag>=.18&&((side==="LONG"?v.bull:v.bear)>=1||Number(context.score||0)>=8);
+  else if(activeMode==="MEAN_REVERSION")htfPass=side!=="NEUTRAL"&&ext>=.35&&(mrSide!=="NEUTRAL");
+  else htfPass=side!=="NEUTRAL"&&(Math.max(v.bull,v.bear)>=2||hAlign);
+  return {allowed,activeMode,scores,side,htfPass,votes:v,trendSide,ctxSide,ctxMag:Number(ctxMag.toFixed(3)),extension:Number(ext.toFixed(3)),emaDistATR:Number(emaDist.toFixed(3))};
+}
 function methodAssessment(symbol,type,T,context={}){
-  const {H1,H4,D1}=T,prior=v73Prior(symbol,type),votes=directionalVotes(D1,H4,H1),fam=(prior.families||[]).join('|').toUpperCase();let side=votes.side,fit=50,why=[];
-  const longMom=(H1.rsi14??50)>=52&&H1.close>(H1.ema20??H1.close),shortMom=(H1.rsi14??50)<=48&&H1.close<(H1.ema20??H1.close);
-  if(/MEANREV|REVERT|CONTRA|FADE/.test(fam)){const ext=Math.abs((H1.rsi14??50)-50)/50;fit=42+20*Math.min(1,ext)+8*sessionFit(prior);why.push('mean-reversion/fade');}
-  else if(/BREADTH|RELATIVE|BTCALIGN|HYBRID|L2/.test(fam)){fit=45+15*Math.min(1,Math.abs(Number(context.relativeStrength??context.strengthDiff??0))/2)+8*sessionFit(prior);why.push('relative/breadth');}
-  else if(/TREND|MOM|MOMENTUM|FAST/.test(fam)){fit=38+16*Math.max(votes.bull,votes.bear)/3+12*(side==="LONG"?longMom:side==="SHORT"?shortMom:false)+6*sessionFit(prior);why.push('trend/momentum');}
-  else {fit=45+15*Math.max(votes.bull,votes.bear)/3+5*sessionFit(prior);why.push('frozen profile');}
-  if(side==="NEUTRAL"&&H4.trend===H1.trend&&H1.trend!=="NEUTRAL")side=H1.trend==="BULLISH"?"LONG":"SHORT";
-  if(type==="forex"&&Number.isFinite(context.strengthDiff)){const c=context.strengthDiff>0?"LONG":context.strengthDiff<0?"SHORT":"NEUTRAL";if(c===side)fit+=12;else if(c!=="NEUTRAL"&&side!=="NEUTRAL")fit-=10;why.push('currency strength');}
-  if(type==="crypto"&&Number.isFinite(context.relativeStrength)){if((side==="LONG"&&context.relativeStrength>0)||(side==="SHORT"&&context.relativeStrength<0))fit+=10;else if(side!=="NEUTRAL")fit-=5;if(Number.isFinite(context.fundingRate)&&Math.abs(context.fundingRate)>.0015)fit-=6;why.push('BTC-relative/derivatives');}
-  if(type==="metal"&&Number.isFinite(context.relativeStrength)){if((side==="LONG"&&context.relativeStrength>0)||(side==="SHORT"&&context.relativeStrength<0))fit+=8;why.push('metal relative strength');}
-  fit=Math.max(0,Math.min(100,Math.round(fit)));return {side,methodFit:fit,profile:prior.profile||prior.family||"GENERIC",families:prior.families||[],sessionFit:Math.round(sessionFit(prior)*100),why,drivers:prior.newsProfile?.profileDrivers||prior.newsProfile?.symbolSpecific||[]};
+  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context),mode=route.activeMode;let fit=Number(route.scores[mode]||50),why=["dynamic regime: "+mode];
+  if(type==="forex"&&Number.isFinite(context.strengthDiff))why.push("currency-strength context");
+  if(type==="crypto"){if(Number.isFinite(context.relativeStrength))why.push("BTC-relative context");if(Number.isFinite(context.fundingRate)){if(Math.abs(context.fundingRate)>.0015)fit-=6;why.push("derivatives context");}}
+  if(type==="metal"&&Number.isFinite(context.relativeStrength))why.push("metal-relative context");
+  fit=Math.max(0,Math.min(100,Math.round(fit)));
+  return {side:route.side,methodFit:fit,activeMode:mode,allowedModes:route.allowed,routeScores:route.scores,htfPass:route.htfPass,route,profile:prior.profile||prior.family||"GENERIC",families:prior.families||[],sessionFit:Math.round(sessionFit(prior)*100),why,drivers:prior.newsProfile?.profileDrivers||prior.newsProfile?.symbolSpecific||[]};
 }
 function setupScore(parts={}){let x=0;x+=Math.min(25,(parts.methodFit||0)*.25);x+=parts.htf?20:Math.min(12,(parts.htfVotes||0)*4);x+=parts.location?15:0;x+=parts.trigger?15:parts.pending?8:0;x+=parts.plan?10:0;x+=Math.min(10,Math.max(0,parts.contextScore??5));x+=parts.news?3:0;x+=parts.execution?2:0;return Math.max(0,Math.min(100,Math.round(x)));}
-function profileMode(intel){
-  const f=(intel?.families||[]).join("|").toUpperCase();
-  if(/MEANREV|REVERT|CONTRA|FADE/.test(f))return "MEAN_REVERSION";
-  if(/BREADTH|RELATIVE|BTCALIGN|HYBRID|L2/.test(f))return "RELATIVE";
-  if(/TREND|MOM|MOMENTUM|FAST/.test(f))return "TREND";
-  return "GENERIC";
-}
+function profileMode(intel){return intel?.activeMode||intel?.allowedModes?.[0]||"GENERIC";}
 function sideTrendMatch(T,side){return side==="LONG"?T?.trend==="BULLISH":side==="SHORT"?T?.trend==="BEARISH":false;}
 function adaptiveLocationPolicy(intel,M15,loc,side,context={}){
   const mode=profileMode(intel);if(loc?.valid)return {pass:true,mode:"STRUCTURAL_LOCATION",soft:false,level:loc.level};
@@ -363,7 +382,7 @@ async function deepAnalyze(symbol,env,candles=null,reference=null,source=null,co
   const s=norm(symbol),type=marketType(s);if(type==="unknown")return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"UNSUPPORTED_SYMBOL"};const prior=v73Prior(s,type);
   try{if(!candles){if(type==="crypto"){const b=await cryptoDeepBundle(s);candles=b.candles;reference=b.quote;source=b.source;}else candles=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env).then(m=>m.get(s)||[])));}}catch(e){return {ok:false,status:"DATA_BLOCK",symbol:s,reason:"ANALYSIS_DATA_UNAVAILABLE",error:e?.message||String(e)};}
   const [m5c,m15c]=candles||[],[M5,M15,H1,H4,D1]=(candles||[]).map(tf);if(!M5||[M5,M15,H1,H4,D1].some(x=>!x?.ready))return watch(s,type,"NEUTRAL","TIMEFRAME_DATA_REQUIRED",{source,score:5,canonical:{v73Prior:prior}});
-  const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=directionalVotes(D1,H4,H1),side=intel.side,htf=side!=="NEUTRAL"&&((side==="LONG"&&votes.bull>=2)||(side==="SHORT"&&votes.bear>=2));
+  const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=intel.route?.votes||directionalVotes(D1,H4,H1),side=intel.side,htf=!!intel.htfPass;
   const base={source,method:intel,context,canonical:{v73Prior:prior},score:setupScore({methodFit:intel.methodFit,htf,htfVotes:Math.max(votes.bull,votes.bear),contextScore:context.score??5})};
   if(side==="NEUTRAL"||!htf)return watch(s,type,side,"HTF_METHOD_ALIGNMENT_REQUIRED",base);
   const loc=m15Location(m15c,M15,side),locPolicy=adaptiveLocationPolicy(intel,M15,loc,side,context);base.score=setupScore({methodFit:intel.methodFit,htf:true,location:locPolicy.pass,contextScore:context.score??5});
@@ -435,7 +454,7 @@ function fillBooks(group,books,analyses){
     if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a);b.marketActive.push(p);newItems.push(p);}
     if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}
   }
-  b.watch=analyses.filter(x=>x.status==="WATCH").sort((a,b)=>Number(b.setupReady)-Number(a.setupReady)).slice(0,CONFIG.maxWatch).map(x=>({symbol:x.symbol,side:x.side,reason:x.reason,canonicalStage:x.canonicalStage,setupReady:!!x.setupReady,planned:x.planned||null,source:x.source||null,score:x.score??null,method:x.method||null,context:x.context||null,updatedAt:Date.now(),engine:CONFIG.version}));
+  b.watch=analyses.filter(x=>x.status==="WATCH").sort((a,b)=>Number(b.setupReady)-Number(a.setupReady)).slice(0,CONFIG.maxWatch).map(x=>({symbol:x.symbol,side:x.side,reason:x.reason,canonicalStage:x.canonicalStage,setupReady:!!x.setupReady,planned:x.planned||null,source:x.source||null,score:x.score??null,method:x.method||null,context:x.context||null,entryPolicy:x.entryPolicy||null,updatedAt:Date.now(),engine:CONFIG.version}));
   return newItems;
 }
 async function acquireLock(env){const k=CONFIG.keys.runLock;try{const old=await env.TRADING_STATE.get(k);if(old&&Date.now()-Number(old)<CONFIG.runLockTtlSec*1000)return false;await env.TRADING_STATE.put(k,String(Date.now()),{expirationTtl:CONFIG.runLockTtlSec});return true;}catch{return true;}}
@@ -497,7 +516,7 @@ function singleAnalysisText(a){
   if(!a)return "⛔ Không có kết quả phân tích.";
   if(a.ok===false)return `⛔ ${a.symbol||"SYMBOL"} • ${reasonText(a.reason)}\n${a.error?"Chi tiết: "+a.error:""}`;
   const L=[`🔎 ${a.symbol} • ${stageText(a)}${Number.isFinite(a.score)?" • "+a.score+"/100":""}`,`Hướng: ${sideText(a.side)}`];
-  if(a.method?.profile)L.push(`Method: ${a.method.profile}`);
+  if(a.method?.profile)L.push(`Profile: ${a.method.profile}`);if(a.method?.activeMode)L.push(`Active route: ${a.method.activeMode}${a.method.allowedModes?.length>1?" (allowed: "+a.method.allowedModes.join("/")+")":""}`);
   if(a.entryPolicy?.profile)L.push(`Profile engine: ${a.entryPolicy.profile}`);
   if(a.status==="MARKET"||a.status==="LIMIT"){L.push("",`✅ LỆNH EXECUTABLE ${a.status}`,`Entry ${fmtPx(a.entry)} • SL ${fmtPx(a.sl)}`,`TP1 ${fmtPx(a.tp1)} • TP2 ${fmtPx(a.tp2)} • RR ${Number(a.targetRR||0).toFixed(2)}`);}
   else if(a.planned){const tag=a.planned.indicative?"📐 ENTRY THAM KHẢO — chưa phải lệnh":"🎯 KẾ HOẠCH ENTRY";L.push("",tag,`E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)}`,`TP1~${fmtPx(a.planned.tp1)} • TP2~${fmtPx(a.planned.tp2)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`);if(a.planned.entryStyle)L.push(`Style: ${a.planned.entryStyle}`);}
@@ -524,7 +543,7 @@ async function runHub(env){
   const top=Object.entries(runs).flatMap(([group,r])=>(r.analyses||[]).map(a=>({...a,group}))).sort((a,b)=>hubRank(b)-hubRank(a)).slice(0,7);
   return {ok:true,version:CONFIG.version,runs,top};
 }
-function hubSummary(h){const L=[`🧭 TRADING HUB ${CONFIG.version}`,"","🔥 TOP SETUPS"];if(!h.top.length)L.push("Không có setup đạt chuẩn lúc này.");h.top.slice(0,5).forEach((a,i)=>{let line=`${i+1}. ${a.symbol} ${sideText(a.side)} • ${stageText(a)} • ${Number(a.score)||0}/100`;if(a.method?.profile||a.method?.families?.length)line+=`\n   ↳ Method: ${a.method?.profile||a.method?.families?.[0]}`;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+=`\n   ↳ ${tag}: E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)} • TP~${fmtPx(a.planned.tp2||a.planned.tp1)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`;if(a.planned.entryStyle)line+=`\n   ↳ ${a.planned.entryStyle}`;}line+=`\n   ↳ ${a.status==="WATCH"?reasonText(a.reason):"Đủ gate execution"}`;L.push(line);});L.push("","Điểm Hub = độ hoàn thiện setup, KHÔNG phải xác suất thắng.");for(const g of ["forex","crypto","metal"]){const r=h.runs[g];L.push(`${groupTitle(g)} • ${r.status==="RATE_BUDGET_WAIT"?"đợi quota":`${r.broadOk}/${r.requested} • deep ${r.deepOk}/${r.deepRequested}`}`);}return L.join("\n");}
+function hubSummary(h){const L=[`🧭 TRADING HUB ${CONFIG.version}`,"","🔥 TOP SETUPS"];if(!h.top.length)L.push("Không có setup đạt chuẩn lúc này.");h.top.slice(0,5).forEach((a,i)=>{let line=`${i+1}. ${a.symbol} ${sideText(a.side)} • ${stageText(a)} • ${Number(a.score)||0}/100`;if(a.method?.profile||a.method?.families?.length)line+=`\n   ↳ Profile: ${a.method?.profile||a.method?.families?.[0]}`;if(a.method?.activeMode)line+=`\n   ↳ Route: ${a.method.activeMode}`;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+=`\n   ↳ ${tag}: E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)} • TP~${fmtPx(a.planned.tp2||a.planned.tp1)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`;if(a.planned.entryStyle)line+=`\n   ↳ ${a.planned.entryStyle}`;}line+=`\n   ↳ ${a.status==="WATCH"?reasonText(a.reason):"Đủ gate execution"}`;L.push(line);});L.push("","Điểm Hub = độ hoàn thiện setup, KHÔNG phải xác suất thắng.");for(const g of ["forex","crypto","metal"]){const r=h.runs[g];L.push(`${groupTitle(g)} • ${r.status==="RATE_BUDGET_WAIT"?"đợi quota":`${r.broadOk}/${r.requested} • deep ${r.deepOk}/${r.deepRequested}`}`);}return L.join("\n");}
 async function sendHub(env,chatId){await sendText(env,"⏳ HUB đang quét Crypto + Forex + Metal...",chatId);const h=await runHub(env),books=await getBooks(env);return sendText(env,hubSummary(h),chatId,hubKeyboard(books));}
 function booksSummary(books){const L=["📚 BOOKS"];for(const g of ["forex","crypto","metal"]){const b=books[g];L.push(`${groupTitle(g)} • M ${b.marketActive.length} • L ${b.limitActive.length} • Pending ${b.limitPending.length} • Watch ${b.watch.length}`);}return L.join("\n");}
 

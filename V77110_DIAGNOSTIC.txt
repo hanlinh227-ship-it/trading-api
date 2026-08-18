@@ -1,0 +1,14 @@
+GENERATOR_EXIT=0
+Applied V77.11.0 dynamic regime router
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.11.0=YES
+allowedProfileModes=YES
+regimeRouteScores=YES
+activeMode=YES
+allowedModes=YES
+routeScores=YES
+htf=!!intel.htfPass=YES
+adaptiveTriggerPolicy=YES
+cryptoAnalysisFallbackBundle=YES
+MARKER_DUPLICATION=NO
