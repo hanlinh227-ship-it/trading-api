@@ -1,0 +1,56 @@
+name: Apply V77.8.1 Telegram Hardening
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v7781_telegram_hardening.js'
+      - '.github/workflows/apply-v7781-telegram-hardening.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply Telegram hardening
+        run: node scripts/apply_v7781_telegram_hardening.js
+      - name: Syntax check Worker
+        run: node --check cloudflare-worker/index.js
+      - name: Verify V77.8.1 hardening
+        run: |
+          grep -q 'V77.8.1' cloudflare-worker/index.js
+          grep -q 'validExecutablePosition' cloudflare-worker/index.js
+          grep -q 'telegramSafeText' cloudflare-worker/index.js
+          grep -q 'Chờ D1/H4/H1 đồng thuận' cloudflare-worker/index.js
+          grep -q 'Forex/Metal chỉ có WATCH' cloudflare-worker/index.js
+          if grep -q 'TP ?' cloudflare-worker/index.js; then exit 1; fi
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm install
+      - name: Generate test Wrangler config
+        working-directory: cloudflare-worker
+        env:
+          TRADING_KV_NAMESPACE_ID: 00000000000000000000000000000000
+        run: npm run prepare:wrangler
+      - name: Wrangler bundle dry-run
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy --dry-run
+      - name: Commit canonical Worker
+        run: |
+          if git diff --quiet -- cloudflare-worker/index.js; then
+            echo 'No V77.8.1 changes required.'
+            exit 0
+          fi
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add cloudflare-worker/index.js
+          git commit -m 'Harden Telegram books and UI in V77.8.1'
+          git push origin main
