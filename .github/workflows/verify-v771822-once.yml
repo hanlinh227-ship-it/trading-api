@@ -1,0 +1,40 @@
+name: Verify V77.18.22 Once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-v771822-once.yml'
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify
+        shell: bash
+        run: |
+          set +e
+          R=docs/checkpoints/V771822_BUILD_VERIFY.txt
+          : > "$R"
+          echo "HEAD=$(git rev-parse HEAD)" >> "$R"
+          for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f" >> "$R" 2>&1 || echo "NODE_FAIL=$f" >> "$R"; done
+          grep -q 'V77.18.22' cloudflare-worker/index.js; echo "VERSION_RC=$?" >> "$R"
+          grep -q 'RISK_V771822_ACTIVATES_AT' cloudflare-worker/hyro-execution.js; echo "RISK_RC=$?" >> "$R"
+          grep -q 'TP_POLICY_V771822_AT' cloudflare-worker/hyro-position-manager.js; echo "TP_RC=$?" >> "$R"
+          grep -q 'OVERNIGHT_30M_SYSTEM_REVIEW' cloudflare-worker/claude-reviewer.js; echo "CLAUDE_30M_RC=$?" >> "$R"
+          grep -q '🧠 AI Review' cloudflare-worker/hub-v77171.js; echo "HUB_RC=$?" >> "$R"
+          cd cloudflare-worker
+          npm install >> ../$R 2>&1; echo "NPM_RC=$?" >> ../$R
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler >> ../$R 2>&1; echo "PREP_RC=$?" >> ../$R
+          npx wrangler deploy --dry-run >> ../$R 2>&1; echo "WRANGLER_RC=$?" >> ../$R
+          cd ..
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add "$R"
+          git commit -m "Report V77.18.22 final build verification" || true
+          git push || true
+          exit 0
