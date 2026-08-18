@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.15.3",
-  service: "Trading V77.15.3 Structural Limit Rescue Hub",
+  version: "V77.15.4",
+  service: "Trading V77.15.4 Diversified Actionable Hub",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -515,6 +515,7 @@ async function broadScan(group,env){
   let h1Map=new Map();try{h1Map=await tdBatchCandles(symbols,"1h",env,60);}catch(e){return {requested:symbols.length,rows,errors:symbols.map(symbol=>({symbol,reason:"H1_BATCH_UNAVAILABLE",error:e?.message||String(e)})),h1Map};}const fx=group==="forex"?forexStrengthMap(h1Map):{};let metalMoves={};if(group==="metal")for(const sym of symbols)metalMoves[sym]=changeFromCandles(h1Map.get(sym)||[]);
   for(const sym of symbols){const T=tf(h1Map.get(sym)||[]);if(!T.ready){errors.push({symbol:sym,reason:"H1_UNAVAILABLE"});continue;}let context={score:5};if(group==="forex"){const base=sym.slice(0,3),quote=sym.slice(3),d=(fx[base]||0)-(fx[quote]||0);context={baseStrength:fx[base]||0,quoteStrength:fx[quote]||0,strengthDiff:d,score:Math.min(10,5+Math.abs(d)*4)};}else{const other=sym==="XAUUSD"?"XAGUSD":"XAUUSD",rel=(metalMoves[sym]||0)-(metalMoves[other]||0);context={relativeStrength:rel,benchmark:other,score:Math.min(10,5+Math.abs(rel)*3)};}const raw=Math.abs((T.close-(T.ema20??T.close))/(T.atr14||1)),prior=v73Prior(sym,group),discoveryScore=raw*2+Number(context.score||5)*.35+sessionFit(prior)*.5;rows.push({symbol:sym,quote:{source:"Twelve Data H1",price:T.close,fresh:true},strength:discoveryScore,rawStrength:raw,context});}rows.sort((a,b)=>b.strength-a.strength);return {requested:symbols.length,rows,errors,h1Map};
 }
+function selectForexDiverse(rows,limit){const pool=[...(rows||[])],picked=[],used=new Set();while(pool.length&&picked.length<limit){let idx=-1;for(let i=0;i<pool.length;i++){const s=norm(pool[i].symbol),b=s.slice(0,3),q=s.slice(3),overlap=(used.has(b)?1:0)+(used.has(q)?1:0);if(overlap===0){idx=i;break;}if(idx<0&&overlap===1)idx=i;}if(idx<0)idx=0;const r=pool.splice(idx,1)[0],s=norm(r.symbol);picked.push(r);used.add(s.slice(0,3));used.add(s.slice(3));}return picked;}
 async function prepareNonCryptoDeep(symbols,h1Map,env){
   const extra=["5min","15min","4h","1day"],maps=await Promise.all(extra.map(i=>tdBatchCandles(symbols,i,env,CONFIG.candleOutputSize))),out=new Map();
   for(const s of symbols)out.set(s,[maps[0].get(s)||[],maps[1].get(s)||[],h1Map.get(s)||[],maps[2].get(s)||[],maps[3].get(s)||[]]);
@@ -572,7 +573,7 @@ async function runGroup(group,env){
       }
       valid.sort((a,b)=>actionableRank(b)-actionableRank(a));analyses.push(...valid.slice(0,CONFIG.maxCandidates));
     }else{
-      const deepLimit=group==="forex"?CONFIG.deepNonCryptoCandidates:CONFIG.maxCandidates,candidates=entryRows.slice(0,deepLimit),tmp=[];let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}
+      const deepLimit=group==="forex"?CONFIG.deepNonCryptoCandidates:CONFIG.maxCandidates,candidates=group==="forex"?selectForexDiverse(entryRows,deepLimit):entryRows.slice(0,deepLimit),tmp=[];let prepared=new Map();try{prepared=await prepareNonCryptoDeep(candidates.map(c=>c.symbol),broad.h1Map,env);}catch{}
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)tmp.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else tmp.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
       tmp.sort((a,b)=>actionableRank(b)-actionableRank(a));analyses.push(...tmp.slice(0,CONFIG.maxCandidates));
     }
