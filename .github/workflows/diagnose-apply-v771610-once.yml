@@ -26,8 +26,8 @@ jobs:
           pairs=[
             ('version','version: "V77.16.9"','version: "V77.16.10"'),
             ('service','service: "Trading V77.16.9 Balanced Entry Signal Engine"','service: "Trading V77.16.10 Balanced Discovery Signal Engine"'),
-            ('locTrend','if(mode==="TREND"&&intel.methodFit>=50&&nearEma&&continuation)','if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation'),
-            ('locRelative','if(mode==="RELATIVE"&&intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation)','if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation'),
+            ('locTrend','if(mode==="TREND"&&intel.methodFit>=50&&nearEma&&continuation)','if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation)'),
+            ('locRelative','if(mode==="RELATIVE"&&intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation)','if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation)'),
             ('trigTrend','if(mode==="TREND"&&intel.methodFit>=52&&impulse','if(mode==="TREND"&&intel.methodFit>=50&&impulse'),
             ('trigRelative','if(mode==="RELATIVE"&&intel.methodFit>=52&&Number(context.score||0)>=6&&impulse','if(mode==="RELATIVE"&&intel.methodFit>=50&&Number(context.score||0)>=6&&impulse'),
             ('conditional','if(side==="NEUTRAL"||Number(intel?.methodFit||0)<55)return null;','if(side==="NEUTRAL"||Number(intel?.methodFit||0)<52)return null;'),
@@ -68,3 +68,4 @@ jobs:
           fi
           git push || true
           exit 0
+# fixed-parentheses-20260819
