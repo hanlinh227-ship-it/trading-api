@@ -26,10 +26,8 @@ jobs:
               elif new not in s: raise SystemExit(f'Missing pattern {path}: {old[:100]}')
               p.write_text(s)
 
-          # Signal runtime tuning - only soft gates.
           p=Path('cloudflare-worker/engine-v77168.js'); s=p.read_text()
-          if 'adaptive-tuning.js' not in s:
-              s='import {loadAdaptiveTuning} from "./adaptive-tuning.js";\n'+s
+          if 'adaptive-tuning.js' not in s:s='import {loadAdaptiveTuning} from "./adaptive-tuning.js";\n'+s
           s=s.replace('const memory = { tdCreditsLeft: null, cryptoBulk: null, cryptoBulkAt: 0 };','const memory = { tdCreditsLeft: null, cryptoBulk: null, cryptoBulkAt: 0, adaptive:null };\nconst ST=()=>memory.adaptive?.signal||{};')
           pairs=[
            ('intel.methodFit>=48&&nearEma&&continuation','intel.methodFit>=Number(ST().locationTrendFit??47)&&nearEma&&continuation'),
@@ -48,7 +46,6 @@ jobs:
           s=s.replace('async function runSymbol(symbol,env){\n  const s=canonicalUserSymbol(symbol)','async function runSymbol(symbol,env){\n  memory.adaptive=await loadAdaptiveTuning(env);\n  const s=canonicalUserSymbol(symbol)',1)
           p.write_text(s)
 
-          # Hyro scanner/runtime bounded tuning.
           p=Path('cloudflare-worker/hyro-scanner.js'); s=p.read_text()
           s=s.replace('function basePlan(symbol,ticker,h1,m15,m5,btcCtx){','function basePlan(symbol,ticker,h1,m15,m5,btcCtx,tune={}){',1)
           s=s.replace('const nearRR=Math.max(1.4,p.minRR-.35);if(!fund.block&&nearTrigger&&dist<=p.dist*1.35&&btcAgree&&effectiveRR>=nearRR)','const nearRR=Math.max(Number(tune.bMinRR??1.38),p.minRR-.35);if(!fund.block&&nearTrigger&&dist<=p.dist*Number(tune.bDistMult??1.40)&&btcAgree&&effectiveRR>=nearRR)',1)
@@ -63,7 +60,6 @@ jobs:
           s=s.replace('microScore(x)>=.54','microScore(x)>=Number(adaptive.hyro.bMicroMin||.52)',1)
           p.write_text(s)
 
-          # Claude gets one-time bounded intervention authority over soft tuning only.
           p=Path('cloudflare-worker/claude-reviewer.js'); s=p.read_text()
           if 'adaptive-tuning.js' not in s:s='import {applyAdaptiveTuning,getAdaptiveTuningState} from "./adaptive-tuning.js";\n'+s
           s=s.replace('const OVERNIGHT_KEY="v771822:claude:overnight";','const OVERNIGHT_KEY="v771822:claude:overnight";\nconst INTERVENTION_KEY="v771823:claude:intervention";')
@@ -79,21 +75,16 @@ jobs:
           s=s.replace('permissions:{trade:false,closePosition:false,deploy:false,kvMutationExceptOwnReviewState:true,reviewOnly:true}};','intervention,adaptiveTuning:adaptive,permissions:{trade:false,closePosition:false,deploy:false,kvMutationExceptOwnReviewState:true,boundedSoftTuning:true,reviewOnly:true}};',1)
           p.write_text(s)
 
-          # Index/version + routes + first-cron intervention.
           p=Path('cloudflare-worker/index.js'); s=p.read_text()
           s=s.replace('runClaudeReview,runClaudeAutoReview,getClaudeReviewerStatus,getClaudeReviewState','runClaudeReview,runClaudeAutoReview,runClaudeOneTimeIntervention,getClaudeInterventionState,getClaudeReviewerStatus,getClaudeReviewState')
           if 'adaptive-tuning.js' not in s:s=s.replace('import {handleClaudeTelegram} from "./claude-telegram.js";','import {handleClaudeTelegram} from "./claude-telegram.js";\nimport {getAdaptiveTuningState} from "./adaptive-tuning.js";')
           s=s.replace('const VERSION="V77.18.22",SERVICE="Trading V77.18.22 Safe Daily Risk + Balanced Discovery";\nconst RELEASE_NAME="Safe Daily Risk + Balanced Discovery";','const VERSION="V77.18.23",SERVICE="Trading V77.18.23 Dual AI Adaptive Tuning";\nconst RELEASE_NAME="Dual AI Adaptive Tuning";')
           s=s.replace('if(path==="/claude/review/latest")return json({ok:true,version:VERSION,review:await getClaudeReviewState(env)});','if(path==="/claude/review/latest")return json({ok:true,version:VERSION,review:await getClaudeReviewState(env)});if(path==="/claude/intervention")return json({ok:true,version:VERSION,state:await getClaudeInterventionState(env),tuning:await getAdaptiveTuningState(env)});if(path==="/tuning")return json({ok:true,version:VERSION,tuning:await getAdaptiveTuningState(env)});')
           s=s.replace('ctx.waitUntil(runClaudeAutoReview(env,{version:VERSION}).catch(()=>{}));','ctx.waitUntil(runClaudeOneTimeIntervention(env,{version:VERSION}).catch(()=>{}));ctx.waitUntil(runClaudeAutoReview(env,{version:VERSION}).catch(()=>{}));')
-          s=s.replace('details:["Risk mới kích hoạt sau reset 00:00 UTC / 07:00 VN","SL cấu trúc giữ nguyên; giảm risk bằng size + daily defense","Claude audit 30m tới reset; Signal soft discovery cân bằng hơn"]','details:["ChatGPT PRIMARY + Claude one-time bounded intervention","Adaptive soft tuning cho Signal + PROP discovery; hard gates/risk giữ nguyên","Claude usage được giới hạn; routine review vẫn im lặng"]')
           p.write_text(s)
 
-          p=Path('cloudflare-worker/hub-v77171.js'); s=p.read_text().replace('V77.18.22','V77.18.23').replace('Safe Risk + Balanced Discovery Hub','Dual AI Adaptive Tuning Hub')
-          s=s.replace('🧠 AI Review','🧠 AI Tối ưu')
-          p.write_text(s)
+          p=Path('cloudflare-worker/hub-v77171.js'); s=p.read_text().replace('V77.18.22','V77.18.23').replace('Safe Risk + Balanced Discovery Hub','Dual AI Adaptive Tuning Hub').replace('🧠 AI Review','🧠 AI Tối ưu');p.write_text(s)
 
-          # Canonical validator.
           p=Path('.github/workflows/validate-cloudflare-v77.yml'); s=p.read_text()
           s=s.replace("'V77.16.9'","'V77.16.10'")
           s=s.replace("['V77.18.22','Safe Daily Risk + Balanced Discovery'","['V77.18.23','Dual AI Adaptive Tuning'")
@@ -102,7 +93,6 @@ jobs:
           s=s.replace("console.log('Canonical V77.18.22 safe-risk validation PASS');","const adaptive=read('cloudflare-worker/adaptive-tuning.js');for(const x of ['v771823:adaptive:tuning','locationTrendFit','bMicroMin','hardNews:true','hyroRiskUntouched:true'])if(!adaptive.includes(x))throw new Error('Adaptive tuning lock missing: '+x);for(const x of ['runClaudeOneTimeIntervention','ONE_TIME_INTERVENTION','boundedSoftTuning','INTERVENTION_KEY'])if(!claude.includes(x))throw new Error('Claude intervention lock missing: '+x);console.log('Canonical V77.18.23 dual-AI adaptive validation PASS');")
           p.write_text(s)
           PY
-
           for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f"; done
           cd cloudflare-worker
           npm install
@@ -111,12 +101,11 @@ jobs:
           cd ..
           cat > docs/checkpoints/V771823_DUAL_AI_ADAPTIVE.md <<'EOF'
           # V77.18.23 — Dual AI Adaptive Tuning
-          ChatGPT remains PRIMARY. Claude receives one-time bounded intervention authority after this release: it may change only whitelisted soft discovery knobs stored in v771823:adaptive:tuning. It cannot trade, close positions, deploy, alter secrets, hard news/freshness/execution/structural-SL gates, or Hyro risk caps.
-          Defaults deliberately improve discovery without loosening hard safety: Signal loc 47/47, trigger 49/49, conditional 51, fallback 41, Forex RR 1.18, Metal 1.26, Futures 1.43, chase .72 ATR. Hyro deep 14, turnover floor $6m, B micro .52, B distance 1.40, B RR floor 1.38. A-tier and V77.18.22 safe daily risk remain unchanged.
-          Claude ONE_TIME_INTERVENTION is silent, expected to cost only a small fraction of the ~$19 remaining credit; measured token usage and estimated cost are stored in intervention state. Routine 30m/daily reviews remain silent.
+          ChatGPT remains PRIMARY. Claude gets one-time bounded authority over whitelisted soft discovery tuning only. Hard news/freshness/execution/structural-SL gates and V77.18.22 Hyro risk caps are immutable. Default signal tuning: loc 47/47, trigger 49/49, conditional 51, fallback 41, Forex RR 1.18, Metal 1.26, Futures 1.43, chase .72 ATR. Hyro: deep 14, turnover $6m, B micro .52, B distance 1.40, B RR floor 1.38. Claude intervention is silent and stores actual token usage + estimated cost; routine reviews remain silent.
           EOF
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
           git add cloudflare-worker .github/workflows/validate-cloudflare-v77.yml docs/checkpoints/V771823_DUAL_AI_ADAPTIVE.md
           git commit -m 'V77.18.23 dual AI adaptive tuning' || true
           git push
+# trigger
