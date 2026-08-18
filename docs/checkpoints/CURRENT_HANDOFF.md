@@ -17,12 +17,12 @@ Updated: 2026-08-19 UTC+7
 12. `ENTRY_EXECUTION_V76.md` and relevant market checkpoints.
 
 ## CURRENT CANONICAL
-**Canonical source is V77.18.22 — Safe Daily Risk + Balanced Discovery.** Production entrypoint is `cloudflare-worker/index.js`. Signal core remains `engine-v77168.js` / V77.16.9 until its large-file soft-gate patch is separately validated.
+Production entrypoint remains **V77.18.22 — Safe Daily Risk + Balanced Discovery** in `cloudflare-worker/index.js` until a later explicit release bump. Signal core is **V77.16.10 — Balanced Discovery** in `engine-v77168.js`.
 
 PROP remains SINGLE ACCOUNT ONLY. Never restore TK2/multi-account unless explicitly redesigned later.
 
 ## HYRO RISK V77.18.22
-New internal policy activates only at `2026-08-19T00:00:00Z` = 07:00 Vietnam, matching the next UTC trading-day boundary. Before that timestamp legacy risk remains so the current day is not changed mid-cycle.
+New internal policy activates at `2026-08-19T00:00:00Z` = 07:00 Vietnam. Before that timestamp legacy risk remains so the current day is not changed mid-cycle.
 
 After activation:
 - A-tier base risk 0.45% current equity before defense scaling.
@@ -41,32 +41,43 @@ After activation:
 - HOLD/TIGHTEN/CUT review remains around every 5 minutes.
 
 ## AI GOVERNANCE
-- ChatGPT is PRIMARY engineer/decision maker in interactive engineering sessions.
-- Claude is REVIEW-ONLY and advisory.
-- Claude cannot trade, close/cancel positions, deploy, change secrets, override hard risk, or mutate trading state.
+- ChatGPT remains PRIMARY engineer/decision maker.
+- Normal Claude reviewer remains advisory/review-only.
+- User explicitly authorized ONE bounded Claude intervention cycle on 2026-08-19.
+- That one-time intervention may write only whitelisted soft discovery tuning through `adaptive-tuning.js`.
+- It cannot trade, close/cancel positions, deploy, alter secrets, disable hard news/freshness/execution/structural-SL gates, or change Hyro daily risk caps.
 - `ANTHROPIC_API_KEY` lives only in Cloudflare Secret.
 - Default model: `claude-sonnet-5`.
 
+## ONE-TIME DUAL AI INTERVENTION
+Modules:
+- `dual-ai-intervention.js`
+- `adaptive-tuning.js`
+
+State:
+- `v771823:dual_ai:intervention`
+- `v771823:adaptive:tuning`
+
+The first connected Hyro runtime cycle after the new source is active calls Claude once with a sanitized/truncated snapshot of critical Signal/HUB/PROP/Health code and runtime state. Claude returns a full-system review plus bounded soft tuning. Runtime applies only values clamped by `adaptive-tuning.js`; subsequent cycles reuse stored state and do not spend Claude again.
+
+Default bounded tuning before Claude override:
+- Signal advisory targets: location 47/47, trigger 49/49, conditional 51, fallback 41, Forex RR 1.18, Metal RR 1.26, Futures RR 1.43, chase 0.72 ATR.
+- Hyro runtime actually consumes: deep 14, turnover floor $6m, B micro floor 0.52.
+- B distance/RR tuning fields are stored for future scanner wiring but current scanner family logic remains authoritative unless explicitly changed.
+
+The one-time Claude request uses max output 1800 tokens and a curated/truncated snapshot to preserve the user's ~$19 API balance. Actual input/output usage and estimated cost are stored in intervention state. On successful completion Telegram sends exactly one compact `DUAL AI • HOÀN TẤT 1 LƯỢT` message; routine 30m/daily reviews remain silent.
+
 ## CLAUDE AUTOMATION
-Normal triggers: release final review, new Health incident, daily system tuning and manual review.
-Temporary overnight window ends at 2026-08-19 00:00 UTC / 07:00 Vietnam:
-- Worker may run `OVERNIGHT_30M_SYSTEM_REVIEW` around every 30 minutes.
-- temporary default budget up to 16 reviews/day and ~25m cooldown when no explicit environment override exists.
-- overnight review default max output is reduced to ~950 tokens to control API spend.
-- after the window, normal defaults return to 4 reviews/day, ~45m cooldown and normal final-review behavior.
+Normal triggers remain release review, new Health incident, daily system tuning and manual review. Routine overnight/daily reviews are silent and stored in KV/HUB. Release may notify once/version; a genuinely new Health incident may notify once/signature.
 
-Reviewer inspects truncated public code for Signal engine, HUB, Health, Hyro scanner/runtime/execution/microstructure/portfolio/position manager/review plus sanitized runtime state. It must identify conflicts first, then HUB simplification and market-specific entry improvements without weakening hard news/freshness/execution/risk gates.
-
-Reviewer state remains isolated under `v771821:claude:*` plus temporary `v771822:claude:overnight`.
-
-## HUB V77.18.22
-Main layout is simplified:
+## HUB
+Main layout remains compact:
 - Signal / PROP
 - Personal / Symbol
 - Orders / System
 - AI Review
 
-Callbacks are preserved, so this is UI cleanup without state migration.
+Callbacks are preserved; no state migration from UI changes.
 
 ## ROOT-CAUSE FIXES RETAINED
 1. Challenge always goes through `propEnv()` and forces Bybit DEMO.
@@ -75,43 +86,31 @@ Callbacks are preserved, so this is UI cleanup without state migration.
 4. Health Guardian has no TK2 / `HYRO_B_*` checks.
 5. PROP live positions remain independent from release/version state.
 
-## SINGLE PROP TELEGRAM
-PROP menu keeps:
-- Tổng quan / Vị thế
-- Risk / Kết nối
-- Quét / Đánh giá
-- Auto
-- DEMO Order/Cycle where applicable
-- Cấu hình / Menu
-
 ## STATE SAFETY
 Never reset `TRADING_STATE`.
 Signal LIVE ORDERS `v775:books` remains unchanged.
 PROP execution/runtime/idempotency/notification/position-manager/portfolio/review state remains continuous.
-No release may close or cancel a live position solely because the code version changed.
+Dual-AI state is isolated under `v771823:*`.
+No release or Claude review may close/cancel a live position solely because code/version/tuning changed.
 
 ## SIGNAL
-Signal V77.16.9 continues to auto-scan Crypto ~5m, Forex hourly, Metals hourly, Futures ~15m. Non-crypto remains MARKET/LIMIT PLAN until a real broker execution authority exists. Hard freshness/news/structural/execution-authority/futures-risk gates remain mandatory.
-
-A planned soft-gate tuning exists for better Forex/Metal/Futures discovery, but DO NOT claim V77.16.10 until the large engine file patch lands and validates. Do not increase Twelve Data deep-scan breadth without validating quota accounting.
+Signal **V77.16.10 Balanced Discovery** auto-scans Crypto ~5m, Forex hourly, Metals hourly, Futures ~15m. Non-crypto remains MARKET/LIMIT PLAN until real broker execution authority exists. Hard freshness/news/structural/execution-authority/futures-risk gates remain mandatory. Forex deep stays 6 to preserve Twelve Data budget assumptions.
 
 ## PROP CORE
-One Hyro account only. Each coin keeps its own strategy/profile. Funding, OI, long-short ratio, orderbook, spread, dynamic equity, 3-slot diversified portfolio guard, native SL/TP and partial management remain mandatory.
+One Hyro account only. Each coin keeps its own strategy/profile. Funding, OI, long-short ratio, orderbook, spread, dynamic equity, 3-slot diversified portfolio guard, native SL/TP and partial management remain mandatory. Dual-AI tuning can increase scan discovery breadth modestly but cannot bypass portfolio/risk/execution gates.
 
 ## HEALTH GUARDIAN
 `system-health.js` audits one PROP account only. Lightweight checks each cron tick; full probe at most once per ~5 minutes. Claude failures remain fail-isolated from Signal/PROP execution.
 
-## BUILD / VALIDATOR
-Canonical validator now locks:
-- V77.18.22 runtime/HUB.
-- single PROP / no TK2.
-- positive equity fallback.
-- new risk activation, risk-scale and caps.
-- new TP activation and management.
-- Claude 30-minute temporary review plus review-only permissions.
+## VALIDATOR
+Canonical validator checks:
+- Signal V77.16.10 hard gates and live-order state.
+- production entrypoint V77.18.22 until explicit release bump.
+- single PROP/no TK2.
+- V77.18.22 risk + TP caps.
+- microstructure/portfolio/HOLD-CUT locks.
+- bounded dual-AI state/guardrails.
 - `TRADING_STATE` + `keep_vars` deployment contract.
-
-A one-shot `verify-v771822-once.yml` writes `V771822_BUILD_VERIFY.txt` when GitHub Actions executes. Do not claim Wrangler PASS until that report exists and says `WRANGLER_RC=0`.
 
 ## CLOUDFLARE CONTRACT
 - Source: GitHub.
@@ -121,7 +120,7 @@ A one-shot `verify-v771822-once.yml` writes `V771822_BUILD_VERIFY.txt` when GitH
 - Cron every minute; internal modules decide cadence.
 
 ## PRODUCTION ACTIVATION GATE
-Do NOT claim V77.18.22 production-active until Cloudflare newest deployment is green and receives production traffic. After activation verify release banner, PROP telemetry/positions, risk policy label, Claude status and Signal/LIVE ORDER continuity.
+Do not claim the one-time Claude API intervention already ran until Cloudflare has deployed the source and the runtime stores `v771823:dual_ai:intervention.completed=true` or Telegram sends the single completion message. GitHub source alone proves the intervention is armed, not that Anthropic has already been billed.
 
 ## NEW CHAT PROMPT
-`Tiếp tục Trading từ GitHub mới nhất. Đọc CURRENT_HANDOFF.md trước. Canonical V77.18.22 Safe Daily Risk + Balanced Discovery. PROP chỉ 1 Hyro account. Risk/TP policy mới chỉ kích hoạt sau 2026-08-19 00:00 UTC / 07:00 VN; giảm USD risk bằng sizing, không siết structural SL. Claude REVIEW-ONLY, có temporary overnight 30m review đến reset rồi trở lại budget bình thường. Giữ Health Guardian, HOLD/TIGHTEN/CUT, funding/microstructure, portfolio guard, TRADING_STATE/v775:books. Signal core vẫn V77.16.9 cho tới khi soft-gate patch riêng được validate.`
+`Tiếp tục Trading từ GitHub mới nhất. Đọc CURRENT_HANDOFF.md trước. Production entrypoint V77.18.22 Safe Daily Risk; Signal V77.16.10 Balanced Discovery. PROP chỉ 1 Hyro account. Giữ risk/TP V77.18.22, Health Guardian, HOLD/TIGHTEN/CUT, funding/microstructure, portfolio guard, TRADING_STATE/v775:books. Một one-time bounded Claude intervention đã được user cho phép qua dual-ai-intervention.js + adaptive-tuning.js; chỉ soft discovery tuning, không trade/deploy/đổi hard risk. Routine Claude review im lặng.`
