@@ -1,14 +1,26 @@
 GENERATOR_EXIT=0
-Applied V77.15.1 canonical consolidation
-MIGRATION_EXIT=0
+/home/runner/work/trading-api/trading-api/scripts/apply_v77151_finalize.js:17
+for(const x of required)if(!s.includes(x))throw new Error('Missing prerequisite: '+x);
+                                          ^
+
+Error: Missing prerequisite: version: "V77.14.3"
+    at Object.<anonymous> (/home/runner/work/trading-api/trading-api/scripts/apply_v77151_finalize.js:17:49)
+    at Module._compile (node:internal/modules/cjs/loader:1781:14)
+    at Object..js (node:internal/modules/cjs/loader:1913:10)
+    at Module.load (node:internal/modules/cjs/loader:1505:32)
+    at Function._load (node:internal/modules/cjs/loader:1309:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.23.2
+MIGRATION_EXIT=1
 WORKER_SYNTAX_EXIT=0
 V77.15.1=YES
-deepNonCryptoCandidates: 3=YES
-forex"?40=YES
-unifiedTdHubBudgetMax: 50=YES
-planSignal=YES
-refinedLimitPlan=YES
-conditionalPlanFromRoute=YES
-runFutureGroup=YES
-symbolPageKeyboard=YES
-Twelve Data direct + 28-pair strength=YES
+function planSignal=YES
+function refinedLimitPlan=YES
+function conditionalPlanFromRoute=YES
+deepNonCryptoCandidates: 5=NO
+future:emptyGroup()=YES
+symmarket:=YES
+MASSIVE_API_KEY=YES
