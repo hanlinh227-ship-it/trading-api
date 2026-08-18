@@ -2,113 +2,107 @@
 
 Updated: 2026-08-18 UTC+7
 
-Read `MASTER_TRADING_STATE.md` first, then `ENTRY_EXECUTION_V76.md`.
+Read in this order:
+1. `MASTER_TRADING_STATE.md`
+2. `UNIFIED_RUNTIME_V77_7.md`
+3. `ENTRY_EXECUTION_V76.md`
+4. relevant market checkpoint.
 
 ## CURRENT MODE
 
 - **V73** = frozen no-CUT statistical prior. Never rebuild/optimize during live use.
 - **V74** = live-analysis / execution authority.
-- **V75 Fast Data** = current collection/ranking/read-speed layer.
-- **V76 R2** = locked Forex entry research with a **negative live-promotion result**: no retained archetype, 0/28 promoted.
-- Forex / spot metals = Twelve Data Grow55 direct strict V4.
-- Crypto = exchange-native; exact venue/bid/ask/timestamp required.
-- Unsupported/ambiguous cash index or exact futures = `DATA_BLOCK`, never proxy.
+- **V75 Fast Data** = canonical data-integrity / collection layer.
+- **V76 R2** = locked Forex entry research with negative live-promotion result: retained archetypes `[]`, promoted symbols `0/28`; research-only.
+- **V77.7.0** = unified GitHub-owned Cloudflare/Telegram production runtime shell implementing the V74 evidence stack over current data routing. It does not rewrite V73 or promote V76.
 
-## FAST LIVE READ ORDER
+## SINGLE PRODUCTION RUNTIME
 
-1. single symbol → `data/decision.json`;
-2. Forex universe → `data/forex-fast.json`;
-3. Crypto universe → `data/crypto-fast.json`;
-4. open detailed status/latest/scan files only when needed.
+Canonical production source:
 
-V76 research is not in this latency path.
+- `cloudflare-worker/index.js`
+- `cloudflare-worker/package.json`
+- `cloudflare-worker/wrangler.example.jsonc`
+- `.github/workflows/validate-cloudflare-v77.yml`
+- `docs/checkpoints/UNIFIED_RUNTIME_V77_7.md`
 
-## V76 R2 — FINAL LOCKED RESULT
+Target topology:
 
-Research run `32053656572` = SUCCESS.
+`GitHub main -> Cloudflare Workers Builds -> trading-v77-scanner -> Twelve Data / exact crypto venues -> TRADING_V77_STATE KV -> Telegram`
 
-Protocol:
+GitHub is the source of truth. After Git Builds is connected, do not hand-edit a different production logic in the Cloudflare editor.
+
+## V77.7.0 ENTRY AUTHORITY
+
+Broad ranking is discovery only. It cannot authorize a live order.
+
+Deep gate order:
+1. exact canonical symbol;
+2. closed candles;
+3. D1/H4/H1 alignment;
+4. frozen V73 prior loaded where applicable;
+5. M15 tradable location: liquidity sweep/reclaim, breakout-retest or clean reclaim;
+6. M5 MSS + >=0.50 ATR displacement + retest;
+7. structural SL first;
+8. H1 clean room >=1R;
+9. RR1 default; RR2 only when room >=2.2R;
+10. final execution quality; spread estimate <=0.10R.
+
+### Forex
+
+Twelve Data is analysis/reference data. It is not a fabricated broker bid/ask. Until a real broker/venue execution feed is connected, a qualified Forex setup remains `WATCH / EXECUTION_QUOTE_REQUIRED`; V77.7.0 does not create a new executable Forex MARKET/LIMIT from Twelve Data reference price alone.
+
+### Crypto
+
+Twelve Data supplies standardized analysis candles. Exact execution confirmation routes Bybit -> OKX -> Binance. New MARKET/LIMIT requires fresh exact venue bid/ask (target <=10s) and spread <=0.10R.
+
+### Metal
+
+XAUUSD/XAGUSD use Twelve Data analysis/reference data. New executable orders require a real broker/venue bid/ask feed; otherwise the setup remains WATCH.
+
+## DATA BUDGET
+
+Twelve Data Grow55 is budgeted deliberately:
+
+- Forex: 28 H1 broad + Top3 x 5TF deep ~=43 credits per on-demand scan.
+- Crypto: 61 exchange-bulk identities + 30 rotating Twelve Data H1 enrichment + Top3 x 5TF deep ~=45 Twelve Data credits.
+- Metal: both XAUUSD and XAGUSD analyzed.
+- Shared KV run lock prevents overlapping Telegram scans from competing for the same minute budget.
+
+Twelve Data provider timestamps are never replaced with fetch time. Closed candles are used for technical calculations. Twelve Data bid/ask is never fabricated.
+
+## STATE / TELEGRAM
+
+Existing state continuity is preserved:
+
+- KV binding `TRADING_STATE` -> existing namespace `TRADING_V77_STATE`;
+- book key remains `v775:books` so existing books remain readable during migration.
+
+Telegram is the only user-facing control surface:
+
+- FOREX / CRYPTO / METAL = on-demand discovery;
+- WATCH displays canonical stage/reason instead of legacy score;
+- raw provider failures remain in `/run-now` diagnostics and Worker logs, not normal Telegram messages;
+- Cron performs lifecycle only: TP/SL and pending LIMIT fill/expiry;
+- `TELEGRAM_WEBHOOK_SECRET` is supported and recommended.
+
+## V76 R2 — STILL LOCKED
+
+Research run `32053656572` remains the final V76 R2 result:
+
 - 28 Forex pairs;
-- 30,000 M5 bars per pair, roughly 2026-05-05 → 2026-08-17;
-- six objective setup families A–F;
-- CLOSE/RETEST/LIMIT_FVG × STRUCTURE/STRUCTURE_ATR × RR1/RR2 = 72 variants;
-- chronological 60% DEV / 20% VALIDATION / 20% untouched OOS;
-- DEV ranks, VALIDATION gates, OOS only promotes/rejects;
-- same-bar TP+SL=SL;
-- conservative LIMIT_FVG fill-bar scoring;
-- fixed historical cost 0.05R;
-- no fabricated historical news-event labels.
+- six objective families A–F;
+- 72 entry/stop/RR variants;
+- chronological DEV / validation / untouched OOS;
+- retained global archetypes: NONE;
+- promoted symbols: 0/28;
+- all 28 methods = `RESEARCH_ONLY`.
 
-Final:
-- `retainedArchetypes = []`;
-- `promotedSymbols = []`;
-- all 28 symbols = `RESEARCH_ONLY`;
-- 18 selected-best research candidates use `C_SWEEP_FVG`;
-- 10 use `D_BREAK_RETEST_CONT`;
-- A/B/E/F are fully rejected in this R2 hypothesis set;
-- C/D are only research candidates, **not live-approved methods**.
-
-Canonical evidence:
-- `data/v76_entry_research.json`;
-- `data/v76_entry_methods.json`;
-- `data/v76_entry_summary.json`;
-- `data/v76_pair_table.md`.
-
-Post-R2 validator `32055039365` = SUCCESS and confirms `V76-ENTRY-METHODS-R2`, 28 pairs, retained=[], conservative scoring and V73 frozen.
-
-### Live implication
-
-**V76 R2 currently authorizes no Forex order.**
-
-`scripts/entry_v76.py` accepts only `V76-ENTRY-METHODS-R2`; R1/pilot is blocked, and every current R2 method returns `NO_ENTRY / METHOD_NOT_OOS_PROMOTED` because `liveEligible=false`.
-
-Do not loosen gates or retune thresholds after reading R2 OOS. Any new filters/hypotheses must become a separately versioned research generation with a new untouched OOS window.
-
-Current Forex live entry therefore remains V74 using V75 data and current news/execution confirmation.
-
-## SINGLE SYMBOL V75
-
-Workflow: `.github/workflows/fetch-market.yml`.
-
-Non-crypto engine: `scripts/twelvedata_market.py`, `V4-TWELVEDATA-FAST-STRICT`.
-- D1/H4/H1/M15/M5 in parallel;
-- closed candles only;
-- full indicator history in RAM, compact tails stored;
-- `/quote` proves identity/timestamp before `/price`;
-- quote >65s => DATA_BLOCK;
-- V74 Forex review target <=30s;
-- Twelve Data broker bid/ask are never fabricated.
-
-Crypto engine: `scripts/fetch_crypto.py`.
-- exact exchange symbol;
-- five TF in parallel;
-- final ticker refresh;
-- target quote age <=10s;
-- real exchange bid/ask required.
-
-## FOREX UNIVERSE V75
-
-Workflow `scan-forex.yml`, engine `scan_forex_v75.py`, outputs `forex-fast.json` + deeper `forex-scan.json`.
-
-Pipeline: 28 H1 broad → Top3 D1/H4/M15/M5 + quote/price. Grow55 budget ≈46/55, reserve 9.
-
-Benchmark `32049900306`: data portion 0.643s once runner active.
-
-## CRYPTO UNIVERSE V75
-
-Workflow `live-crypto-v75-scan.yml`, engine `scan_crypto_v75.py`, output `crypto-fast.json`.
-
-Pipeline: 61 V74 identities → exact OKX USDT availability → all available H1 → Top12 M15/M5 → Top5 D1/H4 → live bid/ask/timestamp.
-
-Benchmark `32050388431`: 57 exact available instruments, 57/57 analyzed, 0 errors, 5.427s data portion.
-
-Missing identities are never remapped to another token.
+Do not retune V76 R2 from its OOS result and do not let it authorize live orders.
 
 ## DATA INTEGRITY LOCK
 
-The old shorthand Worker is permanently deprecated.
-
-Rules:
+Rules remain:
 1. exact canonical identity;
 2. exact provider symbol/type metadata;
 3. closed candles for technical calculations;
@@ -117,65 +111,32 @@ Rules:
 6. no fabricated bid/ask/spread;
 7. cash/futures/spot never interchangeable.
 
-Cash NAS100/US500/DAX/N225-family and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DATA_BLOCK` in current Grow55 integration until authoritative exact feeds exist.
+Cash NAS100/US500/DAX/N225-family and exact NQ/MNQ/ES/MES/GC/SI/CL remain `DATA_BLOCK` until authoritative exact feeds exist.
 
-## V74 EXECUTION RULES — STILL AUTHORITATIVE
+## CLOUDFLARE MIGRATION REQUIREMENT
 
-1. exact instrument/venue/contract;
-2. fresh price + market state;
-3. current news/context;
-4. D1/H4 bias/liquidity;
-5. H1 structure;
-6. V73 prior where applicable;
-7. M15 tradable location;
-8. strict M5 close-confirmed MSS/displacement + retest;
-9. structural SL first;
-10. RR1 default; RR2 only with >=2.2R clean room after costs;
-11. final execution-venue quote/spread before MARKET.
+Before Git Builds is activated, the existing `TRADING_V77_STATE` KV namespace ID must be copied into an active `cloudflare-worker/wrangler.jsonc` based on `wrangler.example.jsonc`. Do **not** deploy the placeholder or allow a new KV namespace to replace the existing state.
 
-V75 `m5TriggerPrefilter` is only a fast filter. V76 R2 negative research does not remove V74's discretionary evidence stack and does not authorize weaker mechanical entries.
+Cloudflare runtime secrets:
 
-## VALIDATION / RUNS
+- `TWELVE_DATA_API_KEY`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_WEBHOOK_SECRET` recommended
 
-- Market-data audit `32050497678`: SUCCESS, 7 PASS / 10 BLOCKED_AS_DESIGNED / 0 FAIL.
-- V73 validator `32050638267`: SUCCESS.
-- V74 validator `32050656054`: SUCCESS.
-- V76 R2 research `32053656572`: SUCCESS.
-- V76 compact summary/table `32054967541`: SUCCESS.
-- V76 post-R2 validator `32055039365`: SUCCESS.
+Worker name must remain exactly `trading-v77-scanner`.
 
-## ACTIVE WORKFLOWS
+## POST-DEPLOY VALIDATION
 
-Live/validation:
-- `fetch-market.yml`
-- `scan-forex.yml`
-- `live-crypto-v75-scan.yml`
-- `audit-market-data.yml`
-- `validate-nocut-v73.yml`
-- `validate-live-v74.yml`
-
-Isolated V76:
-- `research-v76-entry.yml`
-- `validate-entry-v76.yml`
-- `summarize-v76.yml`
-
-## ACTIVE V76 SCRIPTS
-
-- `research_v76_entry_forex.py`
-- `evaluate_v76_entry_forex.py`
-- `fetch_v76_history.py`
-- `run_v76_entry_research.py`
-- `entry_v76.py`
-- `summarize_v76.py`
-
-Legacy research/diagnostics stay in Git history only.
-
-## NEXT RESEARCH DIRECTION
-
-Do not retune V76 R2 from its OOS. The useful next step is forward observation/logging of C/D plus better historical execution-cost and timestamped macro-event data. A materially new hypothesis set should be a new research version (e.g. V77) with pre-registered rules and a new untouched OOS window.
-
-Do not begin Crypto entry optimization merely to compensate for the negative Forex result. Crypto can be researched separately only with the same anti-overfit discipline when explicitly chosen as the next project stage.
+1. `/status` reports V77.7.0, KV online and V73 loaded.
+2. Forex requests 28 symbols.
+3. Crypto requests 61 identities.
+4. Metal requests 2 symbols.
+5. `/telegram/setup-webhook` then `/telegram/webhook-info` succeeds.
+6. Telegram FOREX / CRYPTO / METAL each returns a final result.
+7. Forex/Metal create no new executable order without broker execution bid/ask.
+8. Crypto MARKET/LIMIT appears only after exact venue execution verification.
 
 ## NEW CHAT INSTRUCTION
 
-`Continue Trading from MASTER_TRADING_STATE.md + CURRENT_HANDOFF.md + ENTRY_EXECUTION_V76.md. Current state = V73 frozen prior + V74 live authority + V75 Fast Data + V76 R2 locked research-only. V76 R2 retained no archetype and promoted 0/28 Forex symbols, so it cannot authorize live entries. Do not retune R2 from OOS. Read decision.json / forex-fast.json / crypto-fast.json first; verify exact instrument, fresh timestamped data, current news/context, D1/H4/H1, M15 location, strict M5 trigger, structural SL and final execution-venue spread. Never proxy cash/futures or fabricate bid/ask.`
+`Continue Trading from MASTER_TRADING_STATE.md + UNIFIED_RUNTIME_V77_7.md + CURRENT_HANDOFF.md. Current state = V73 frozen prior + V74 live authority + V75 data integrity + V76 R2 locked research-only + V77.7.0 unified GitHub/Cloudflare/Telegram runtime. GitHub cloudflare-worker/index.js is the only production code source. Broad ranking is discovery only. Require D1/H4/H1, V73 prior where applicable, M15 location, strict M5 MSS/displacement/retest, structural SL, clean room and final execution quote. Twelve Data Forex/Metal reference prices do not authorize executable MARKET/LIMIT without broker bid/ask. Crypto execution requires exact Bybit/OKX/Binance quote. Never proxy cash/futures, fabricate spread, or restore legacy V77 scoring authority.`
