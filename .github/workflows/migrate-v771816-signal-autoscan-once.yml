@@ -1,0 +1,58 @@
+name: Migrate V77.18.16 Signal AutoScan Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-v771816-signal-autoscan-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Add balanced non-crypto auto scans and PROP B threshold
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
+          old='async function autoScanCrypto(env){const run=await runGroup("crypto",env,"AUTO_CRON");await notifyNewCryptoOrders(run,env);return run;}'
+          new='''async function autoScanCrypto(env){const run=await runGroup("crypto",env,"AUTO_CRON");await notifyNewCryptoOrders(run,env);return run;}\nasync function notifySignalPlans(group,run,env){\n  const plans=(run?.analyses||[]).filter(a=>a?.planned&&["MARKET_PLAN","LIMIT_PLAN"].includes(a.status)).sort((a,b)=>actionableRank(b)-actionableRank(a)).slice(0,2);\n  for(const a of plans){\n    const mode=a.status==="MARKET_PLAN"?"MARKET":"LIMIT",entry=Number(a.planned?.entry),sig=[group,a.symbol,a.side,mode,Number.isFinite(entry)?entry.toPrecision(6):"na"].join(":");\n    const key="v771816:signal:auto_notify:"+sig;let seen=null;try{seen=await env.TRADING_STATE?.get(key);}catch{}if(seen)continue;\n    const rr=Number(a.planned?.targetRR||0).toFixed(2),txt=["📡 SIGNAL • "+group.toUpperCase(),a.symbol+" "+sideText(a.side)+" • "+mode,"E "+fmtPx(a.planned.entry)+" | SL "+fmtPx(a.planned.sl)+" | TP "+fmtPx(a.planned.tp2||a.planned.tp1)+" | RR "+rr,a.method?.profile?"Method: "+a.method.profile:null].filter(Boolean).join("\\n");\n    await sendText(env,txt).catch(()=>{});try{await env.TRADING_STATE?.put(key,String(Date.now()),{expirationTtl:1800});}catch{}\n  }\n}\nasync function autoScanSignalGroup(group,env){const run=await runGroup(group,env,"AUTO_CRON");await notifySignalPlans(group,run,env);return run;}'''
+          if old not in s: raise SystemExit('autoScanCrypto marker missing')
+          s=s.replace(old,new,1)
+          old_sched='async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const minute=Math.floor(Number(_controller?.scheduledTime||Date.now())/60000);if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);})().catch(e=>console.error("CRON",e)));}'
+          new_sched='async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const t=new Date(Number(_controller?.scheduledTime||Date.now())),minute=t.getUTCMinutes();if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);if(minute===2)await autoScanSignalGroup("forex",env);if(minute===12)await autoScanSignalGroup("metal",env);if(minute%15===7)await autoScanSignalGroup("future",env);})().catch(e=>console.error("CRON",e)));}'
+          if old_sched not in s: raise SystemExit('scheduled marker missing')
+          s=s.replace(old_sched,new_sched,1)
+          p.write_text(s)
+
+          p=Path('cloudflare-worker/hyro-runtime.js')
+          s=p.read_text()
+          if 'microScore(x)>=.58' in s:s=s.replace('microScore(x)>=.58','microScore(x)>=.54',1)
+          elif 'microScore(x)>=.54' not in s:raise SystemExit('PROP B micro threshold marker missing')
+          p.write_text(s)
+          PY
+      - name: Syntax gate
+        run: |
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/hyro-runtime.js
+          node --check cloudflare-worker/hyro-scanner.js
+          node --check cloudflare-worker/index.js
+      - name: Commit migration
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hyro-runtime.js
+          git diff --cached --quiet && exit 0
+          git commit -m "V77.18.16 enable balanced Signal autoscan and practical PROP B"
+          git push
