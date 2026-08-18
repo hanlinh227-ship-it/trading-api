@@ -1,0 +1,36 @@
+name: Apply V77.16.7 Durable Order Archive
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77167_durable_order_archive.js'
+      - '.github/workflows/apply-v77167-durable-order-archive.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply
+        shell: bash
+        run: |
+          set +e
+          : > V77167_DIAGNOSTIC.txt
+          node scripts/apply_v77167_durable_order_archive.js >> V77167_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77167_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77167_DIAGNOSTIC.txt 2>&1; echo "SYNTAX_EXIT=$?" >> V77167_DIAGNOSTIC.txt
+          grep -q 'version: "V77.16.7"' cloudflare-worker/index.js; echo "VERSION_OK=$?" >> V77167_DIAGNOSTIC.txt
+          grep -q 'LIVE_STATE_PRESERVED' cloudflare-worker/index.js; echo "ARCHIVE_OK=$?" >> V77167_DIAGNOSTIC.txt
+          grep -q '/order-history' cloudflare-worker/index.js; echo "HISTORY_ENDPOINT_OK=$?" >> V77167_DIAGNOSTIC.txt
+      - name: Commit
+        shell: bash
+        run: |
+          if ! grep -q 'MIGRATION_EXIT=0' V77167_DIAGNOSTIC.txt || ! grep -q 'SYNTAX_EXIT=0' V77167_DIAGNOSTIC.txt; then cat V77167_DIAGNOSTIC.txt; exit 1; fi
+          git config user.name trading-runtime-bot; git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/index.js V77167_DIAGNOSTIC.txt
+          git commit -m 'Promote V77.16.7 durable order archive' || exit 0
+          git push origin main
