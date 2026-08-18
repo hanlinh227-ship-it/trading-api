@@ -1,4 +1,4 @@
-name: Fast Futures Massive Check
+name: Fast Futures Massive Production Check
 on:
   push:
     branches: [main]
