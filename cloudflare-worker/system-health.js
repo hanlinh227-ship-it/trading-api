@@ -40,6 +40,8 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
   if(!env.TELEGRAM_CHAT_ID)add(issues,"ERROR","TELEGRAM_CHAT_MISSING","Telegram chat missing");
   if(!env.TWELVE_DATA_API_KEY)add(issues,"ERROR","TWELVE_MISSING","Twelve Data key missing");
   if(!env.MASSIVE_API_KEY)add(issues,"WARN","MASSIVE_MISSING","Massive Futures key missing");
+  if(!env.ANTHROPIC_API_KEY)add(issues,"WARN","CLAUDE_KEY_MISSING","Claude Reviewer API key missing");
+  else add(issues,"OK","CLAUDE_CONFIGURED","Claude Reviewer configured");
 
   let account=null;
   if(full){
