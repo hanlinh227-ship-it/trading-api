@@ -3,8 +3,8 @@ import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { typ
 import FUTURES_KNOWLEDGE from "../data/futures_knowledge.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.9",
-  service: "Trading V77.16.9 Balanced Entry Signal Engine",
+  version: "V77.16.10",
+  service: "Trading V77.16.10 Balanced Discovery Signal Engine",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -395,8 +395,8 @@ function adaptiveLocationPolicy(intel,M15,loc,side,context={}){
   const strong=Number(intel?.methodFit||0)>=80&&Number(context.score||0)>=7,nearEma=Number.isFinite(M15.ema20)&&Math.abs(M15.close-M15.ema20)<=M15.atr14*(strong?1.0:.80);
   const continuation=side==="LONG"?(M15.bullishBreak||M15.bullishReclaim||sideTrendMatch(M15,side)):(M15.bearishBreak||M15.bearishReclaim||sideTrendMatch(M15,side));
   if(mode==="MEAN_REVERSION")return {pass:false,mode,soft:false};
-  if(mode==="TREND"&&intel.methodFit>=50&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};
-  if(mode==="RELATIVE"&&intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};
+  if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};
+  if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};
   if(mode==="GENERIC"&&intel.methodFit>=60&&nearEma&&(M15.bullishBreak||M15.bearishBreak||M15.bullishReclaim||M15.bearishReclaim||sideTrendMatch(M15,side)))return {pass:true,mode:"QUALITY_CONTINUATION_ZONE",soft:true,level:M15.ema20};
   return {pass:false,mode,soft:false,level:Number.isFinite(M15.ema20)?M15.ema20:null};
 }
@@ -408,8 +408,8 @@ function adaptiveTriggerPolicy(intel,M5,trig,side,context={}){
   const impulse=side==="LONG"?trend&&r>=50&&r<=78&&M5.close>=M5.ema20:trend&&r<=50&&r>=22&&M5.close<=M5.ema20;
   const structuralImpulse=side==="LONG"?(M5.bullishBreak||M5.bullishReclaim):(M5.bearishBreak||M5.bearishReclaim);
   if(mode==="MEAN_REVERSION")return {pass:false,pending:false,mode};
-  if(mode==="TREND"&&intel.methodFit>=52&&impulse&&(structuralImpulse||Math.abs(r-50)>=4||intel.methodFit>=76))return {pass:true,pending:false,mode:"M5_MOMENTUM_CONTINUATION",level:M5.close,soft:true};
-  if(mode==="RELATIVE"&&intel.methodFit>=52&&Number(context.score||0)>=6&&impulse&&(structuralImpulse||intel.methodFit>=76))return {pass:true,pending:false,mode:"M5_RELATIVE_BREAK",level:M5.close,soft:true};
+  if(mode==="TREND"&&intel.methodFit>=50&&impulse&&(structuralImpulse||Math.abs(r-50)>=4||intel.methodFit>=76))return {pass:true,pending:false,mode:"M5_MOMENTUM_CONTINUATION",level:M5.close,soft:true};
+  if(mode==="RELATIVE"&&intel.methodFit>=50&&Number(context.score||0)>=6&&impulse&&(structuralImpulse||intel.methodFit>=76))return {pass:true,pending:false,mode:"M5_RELATIVE_BREAK",level:M5.close,soft:true};
   if(mode==="GENERIC"&&intel.methodFit>=62&&impulse&&(structuralImpulse||intel.methodFit>=78))return {pass:true,pending:false,mode:"M5_QUALITY_BREAK",level:M5.close,soft:true};
   return {pass:false,pending:false,mode,level:trig?.level??null};
 }
@@ -421,7 +421,7 @@ function indicativePlan(side,M5,M15,H1,H4,D1,locPolicy,prior,intel=null){
 }
 function conditionalPlanFromRoute(intel,M5,M15,H1,H4,D1,prior){
   if(!M5?.ready||!M15?.ready)return null;const route=intel?.route||{},side=["LONG","SHORT"].includes(intel?.side)?intel.side:(["LONG","SHORT"].includes(route.trendSide)?route.trendSide:(["LONG","SHORT"].includes(route.ctxSide)?route.ctxSide:"NEUTRAL"));
-  if(side==="NEUTRAL"||Number(intel?.methodFit||0)<55)return null;const e=Number(M15.ema20);if(!Number.isFinite(e)||!Number.isFinite(M15.atr14)||M15.atr14<=0)return null;
+  if(side==="NEUTRAL"||Number(intel?.methodFit||0)<52)return null;const e=Number(M15.ema20);if(!Number.isFinite(e)||!Number.isFinite(M15.atr14)||M15.atr14<=0)return null;
   const dist=Math.abs(e-M15.close)/M15.atr14,correct=side==="LONG"?e<M15.close:e>M15.close;if(!correct||dist<.08||dist>.85)return null;
   const p=buildTradePlan(side,e,M5,M15,H1,H4,D1,true,prior);if(!p||p.invalid)return null;const q=rrQuality(p,intel),g=limitGeometry(side,M15.close,e,M5,M15,p);if(!q.pass||!g.pass)return null;
   return {side,entry:p.entry,sl:p.sl,tp1:p.tp1,tp2:p.tp2,targetRR:p.targetRR,tp1RR:p.tp1RR,tp2RR:p.tp2RR,roomR:p.roomR,mode:"INDICATIVE_LIMIT",targetSource:p.targetSource,indicative:true,conditional:true,currentPrice:M15.close,entryStyle:"CONDITIONAL_HTF_PULLBACK",minQualityRR:q.minRR,rrQualityPass:true,geometry:g};
@@ -451,10 +451,10 @@ function buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior={}){
   const tp1=valid[0],tp2=valid.find(x=>x.rr>=Math.max(1.4,tp1.rr+.35)&&x.rr<=3.2)||null,best=tp2||tp1;return {entry,sl,risk,roomR:best.rr,targetRR:Number(best.rr.toFixed(2)),tp1:tp1.price,tp1RR:Number(tp1.rr.toFixed(2)),tp2:(tp2||tp1).price,tp2RR:Number((tp2||tp1).rr.toFixed(2)),mode:pendingRetest?"LIMIT":"MARKET",targetSource:"STRUCTURE_LIQUIDITY",targetTier:tp2?"PRIMARY_PLUS_EXTENSION":"PRIMARY_ONLY"};
 }
 function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return FUTURES_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}
-function minimumQualityRR(intel){const mode=profileMode(intel),type=intel?.type||"unknown";let x=mode==="MEAN_REVERSION"?1.10:mode==="TREND"?1.30:mode==="RELATIVE"?1.25:1.30;if(type==="future")x=Math.max(x,1.50);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.20:1.32);else if(type==="crypto")x=Math.max(x,mode==="MEAN_REVERSION"?1.15:1.35);else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.12:1.22);if(Number(intel?.methodFit)>=90)x-=.05;return Math.max(1.1,Number(x.toFixed(2)));}
+function minimumQualityRR(intel){const mode=profileMode(intel),type=intel?.type||"unknown";let x=mode==="MEAN_REVERSION"?1.10:mode==="TREND"?1.30:mode==="RELATIVE"?1.25:1.30;if(type==="future")x=Math.max(x,1.45);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:1.28);else if(type==="crypto")x=Math.max(x,mode==="MEAN_REVERSION"?1.15:1.35);else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:1.20);if(Number(intel?.methodFit)>=90)x-=.05;return Math.max(1.1,Number(x.toFixed(2)));}
 function rrQuality(plan,intel){const min=minimumQualityRR(intel),rr=Number(plan?.targetRR);return {pass:Number.isFinite(rr)&&rr>=min,minRR:min,targetRR:rr};}
 function limitGeometry(side,current,entry,M5,M15,plan){const atr=Number(M15?.atr14)||Number(M5?.atr14)||0;if(!atr||!Number.isFinite(current)||!Number.isFinite(entry))return {pass:false,reason:"NO_ATR"};const dist=Math.abs(current-entry)/atr,correct=side==="LONG"?entry<current:entry>current,notInvalid=side==="LONG"?entry>Number(plan?.sl):entry<Number(plan?.sl);return {pass:correct&&notInvalid&&dist>=.05&&dist<=1.05,distanceATR:Number(dist.toFixed(2)),correctSide:correct,notInvalid};}
-function marketGeometry(side,current,M5,trigPolicy){const atr=Number(M5?.atr14)||0,ref=Number(trigPolicy?.level);if(!atr||!Number.isFinite(current))return {pass:false,chaseATR:null};const chase=Number.isFinite(ref)?Math.abs(current-ref)/atr:0,r=Number(M5?.rsi14??50),notExtreme=side==="LONG"?r<=80:r>=20;return {pass:chase<=.65&&notExtreme,chaseATR:Number(chase.toFixed(2)),rsi:r,notExtreme};}
+function marketGeometry(side,current,M5,trigPolicy){const atr=Number(M5?.atr14)||0,ref=Number(trigPolicy?.level);if(!atr||!Number.isFinite(current))return {pass:false,chaseATR:null};const chase=Number.isFinite(ref)?Math.abs(current-ref)/atr:0,r=Number(M5?.rsi14??50),notExtreme=side==="LONG"?r<=80:r>=20;return {pass:chase<=.70&&notExtreme,chaseATR:Number(chase.toFixed(2)),rsi:r,notExtreme};}
 function plannedModeLabel(p){return p?.mode==="MARKET"?"MARKET_PLAN":(p?.mode==="LIMIT"||p?.mode==="INDICATIVE_LIMIT")?"LIMIT_PLAN":"WATCH";}
 function planSignal(symbol,type,side,reason,planned,extra={}){const intel=extra?.method||null,q=rrQuality(planned,intel);if(planned&&Number.isFinite(Number(planned.targetRR))&&!q.pass)return watch(symbol,type,side,"RR_QUALITY_REQUIRED",{...extra,rejectedPlan:{entry:planned.entry,sl:planned.sl,tp1:planned.tp1,tp2:planned.tp2,targetRR:planned.targetRR,minQualityRR:q.minRR,entryStyle:planned.entryStyle||null},planned:null});if(type==="future"&&["MNQ","MES"].includes(norm(symbol))&&planned){const fs=futureSizing(symbol,planned);if(fs&&!fs.tradable)return watch(symbol,type,side,"FUTURE_RISK_LIMIT_REQUIRED",{...extra,microSizing:fs,rejectedPlan:{entry:planned.entry,sl:planned.sl,tp1:planned.tp1,tp2:planned.tp2,targetRR:planned.targetRR,entryStyle:planned.entryStyle||null,oneContractRiskUsd:fs.oneContractRiskUsd},planned:null});}const status=plannedModeLabel(planned);return {ok:true,status,action:status,symbol,market:type,side,reason,canonicalStage:reason,planned:{...planned,minQualityRR:planned?.minQualityRR??q.minRR,rrQualityPass:true,planType:status,executionVerified:false},executionReady:false,engine:CONFIG.version,...extra};}
 function refinedLimitPlan(side,current,M5,M15,H1,H4,D1,prior,intel,locPolicy,trigPolicy){
@@ -466,7 +466,7 @@ function planOrWatch(symbol,type,side,reason,planned,extra={}){if(planned){const
 function routeRescueSide(intel){const r=intel?.route||{};for(const x of [intel?.side,r.trendSide,r.ctxSide])if(["LONG","SHORT"].includes(x))return x;return "NEUTRAL";}
 function structuralFallbackLimit(side,current,M5,M15,H1,H4,D1,prior,intel){
   if(!["LONG","SHORT"].includes(side)||!M5?.ready||!M15?.ready||!Number.isFinite(current)||!Number.isFinite(M15.atr14)||M15.atr14<=0)return null;
-  if(Number(intel?.methodFit||0)<44)return null;const atr=Number(M15.atr14),mid=(Number.isFinite(M15.liquidityHigh20)&&Number.isFinite(M15.liquidityLow20))?(M15.liquidityHigh20+M15.liquidityLow20)/2:null;
+  if(Number(intel?.methodFit||0)<42)return null;const atr=Number(M15.atr14),mid=(Number.isFinite(M15.liquidityHigh20)&&Number.isFinite(M15.liquidityLow20))?(M15.liquidityHigh20+M15.liquidityLow20)/2:null;
   const raw=[M5.ema20,M15.ema20,H1?.ema20,mid,side==="LONG"?M5.liquidityLow20:M5.liquidityHigh20,side==="LONG"?M15.liquidityLow20:M15.liquidityHigh20,side==="LONG"?H1?.liquidityLow20:H1?.liquidityHigh20].filter(Number.isFinite);
   const cand=[...new Set(raw)].filter(e=>side==="LONG"?e<current:e>current).filter(e=>{const d=Math.abs(current-e)/atr;return d>=.05&&d<=.90;});let best=null;
   for(const e of cand){const plan=buildTradePlan(side,e,M5,M15,H1,H4,D1,true,prior);if(!plan||plan.invalid)continue;const q=rrQuality(plan,intel),g=limitGeometry(side,current,e,M5,M15,plan);if(!q.pass||!g.pass)continue;const conf=raw.filter(x=>Math.abs(x-e)<=atr*.12).length,rr=Number(plan.targetRR)||0,score=conf*28+Math.min(45,rr*13)-Math.abs(g.distanceATR-.35)*10;if(!best||score>best._score)best={...plan,mode:"LIMIT",indicative:true,conditional:true,currentPrice:current,entryStyle:"STRUCTURAL_FALLBACK_LIMIT",minQualityRR:q.minRR,rrQualityPass:true,geometry:g,confluence:conf,_score:score};}

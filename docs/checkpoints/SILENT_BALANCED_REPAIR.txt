@@ -1,0 +1,41 @@
+PATCH version: "V77.16.9" OK
+PATCH service: "Trading V77.16.9 Balanced  OK
+PATCH if(mode==="TREND"&&intel.methodFit>= OK
+PATCH if(mode==="RELATIVE"&&intel.methodFi OK
+PATCH if(mode==="TREND"&&intel.methodFit>= OK
+PATCH if(mode==="RELATIVE"&&intel.methodFi OK
+PATCH if(side==="NEUTRAL"||Number(intel?.m OK
+PATCH if(Number(intel?.methodFit||0)<44)re OK
+PATCH if(type==="future")x=Math.max(x,1.50 OK
+PATCH else if(type==="forex")x=Math.max(x, OK
+PATCH return {pass:chase<=.65&&notExtreme OK
+SILENCE OVERNIGHT_30M_SYSTEM_REVIEW OK
+SILENCE DAILY_SYSTEM_TUNING_REVIEW OK
+PATTERN_OK True
+ENGINE_NODE=0
+CLAUDE_NODE=0
+
+added 38 packages, and audited 39 packages in 7s
+
+7 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> prepare:wrangler
+> node prepare-wrangler.mjs
+
+Prepared wrangler.jsonc for existing TRADING_STATE namespace.
+
+ ⛅️ wrangler 4.124.0
+────────────────────
+Total Upload: 612.16 KiB / gzip: 92.67 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource          
+env.TRADING_STATE (00000000000000000000000000000000)      KV Namespace      
+
+--dry-run: exiting now.
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+WRANGLER=0
+FINAL=PASS
