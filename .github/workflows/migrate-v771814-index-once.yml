@@ -1,0 +1,43 @@
+name: Migrate V77.18.14 Index Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-v771814-index-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Update V77.18.14 presentation locks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/index.js')
+          s=p.read_text()
+          s=s.replace('const VERSION="V77.18.13",SERVICE="Trading V77.18.13 Per-Symbol Microstructure Runtime";','const VERSION="V77.18.14",SERVICE="Trading V77.18.14 Per-Symbol Portfolio Runtime";',1)
+          s=s.replace('MAX_ACTIVE_SLOTS_REACHED:"Đã đủ vị thế.",','PORTFOLIO_GUARD_BLOCKED:"Chờ phân tán danh mục.",MAX_ACTIVE_SLOTS_REACHED:"Đã đủ 3 slot.",',1)
+          s=s.replace('quickMarketScan:"ABC_MICRO",microstructure:["OPEN_INTEREST","LONG_SHORT_RATIO","ORDERBOOK","SPREAD"],autoReconnect:true','quickMarketScan:"ABC_MICRO_PORTFOLIO",microstructure:["OPEN_INTEREST","LONG_SHORT_RATIO","ORDERBOOK","SPREAD"],portfolioGuard:"3_SLOT_DIVERSIFIED",autoReconnect:true',1)
+          if 'V77.18.14' not in s or '3_SLOT_DIVERSIFIED' not in s: raise SystemExit('V77.18.14 markers not applied')
+          p.write_text(s)
+          PY
+      - name: Syntax gate
+        run: node --check cloudflare-worker/index.js
+      - name: Commit migration
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/index.js
+          git diff --cached --quiet && exit 0
+          git commit -m "V77.18.14 expose diversified portfolio guard"
+          git push
