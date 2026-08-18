@@ -1,0 +1,29 @@
+GENERATOR_EXIT=0
+/home/runner/work/trading-api/trading-api/scripts/apply_v77150_actionable_hub.js:4
+function mustReplace(from,to,label){if(!s.includes(from))throw new Error('Missing '+label);s=s.replace(from,to);}
+                                                         ^
+
+Error: Missing future durable books
+    at mustReplace (/home/runner/work/trading-api/trading-api/scripts/apply_v77150_actionable_hub.js:4:64)
+    at Object.<anonymous> (/home/runner/work/trading-api/trading-api/scripts/apply_v77150_actionable_hub.js:13:1)
+    at Module._compile (node:internal/modules/cjs/loader:1781:14)
+    at Object..js (node:internal/modules/cjs/loader:1913:10)
+    at Module.load (node:internal/modules/cjs/loader:1505:32)
+    at Function._load (node:internal/modules/cjs/loader:1309:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.23.2
+MIGRATION_EXIT=1
+WORKER_SYNTAX_EXIT=0
+V77.15.0=NO
+future:emptyGroup=YES
+MARKET_PLAN=YES
+LIMIT_PLAN=YES
+conditionalPullbackPlan=NO
+refinedLimitPlan=NO
+deepNonCryptoCandidates=NO
+actionPriority=NO
+FUTURES=YES
+MARKER_DUPLICATION=NO
