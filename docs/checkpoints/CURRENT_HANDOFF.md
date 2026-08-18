@@ -5,89 +5,92 @@ Updated: 2026-08-18 UTC+7
 ## READ FIRST
 1. `V77180_AUTO_READY_CONSOLIDATED.md`
 2. `MASTER_TRADING_STATE.md`
-3. `V771811_PROP_PER_SYMBOL_MANAGEMENT.md`
-4. `ENTRY_EXECUTION_V76.md` and relevant market checkpoints when needed.
+3. `V771813_MICROSTRUCTURE_AUDIT.md`
+4. `V771811_PROP_PER_SYMBOL_MANAGEMENT.md`
+5. `ENTRY_EXECUTION_V76.md` and relevant market checkpoints when needed.
 
 ## CURRENT CANONICAL
-**Canonical Hyro runtime is V77.18.12.** Production entrypoint remains `cloudflare-worker/index.js`. Cloudflare is deployment only; do not maintain a second hand-edited Worker copy.
+**Canonical source is V77.18.13.** Production entrypoint is `cloudflare-worker/index.js`; Signal core remains `engine-v77168.js`; PROP runtime is modular (`hyro-scanner.js`, `hyro-market-context.js`, `hyro-execution.js`, `hyro-runtime.js`, `hyro-position-manager.js`). Cloudflare is deployment only.
 
-Latest important commits:
-- `6b479cb9` — A/B/C per-symbol scan tiers.
-- `a2657003` — dynamic equity-based Hyro risk sizing/caps.
-- `b4f68ca4` — A/B quick scan + dynamic capital gates wired into runtime.
-- `082b668e` — compact Telegram PROP UI + dynamic capital/risk display.
+Important V77.18.13 commits:
+- `8d0e5995` — per-symbol Bybit microstructure module.
+- `c2b0bee3` — microstructure integrated into regular/quick Hyro cycles.
+- `f2f57917` — removed nominal account-size wizard conflict; dynamic-equity profile UI.
+- `3e92e875` — compact PROP Telegram runtime UI/notifications.
+- `bc5091c5` — modular canonical CI validator + Wrangler dry-run.
+- `add7ed88` — V77.18.13 audit checkpoint.
 
-## NON-NEGOTIABLE SEPARATION
-SIGNAL, PROP/Hyro and PERSONAL remain fully independent. Never route SIGNAL candidates/orders into PROP, never route PROP into PERSONAL, and never reset any existing LIVE ORDERS/state during deploy.
+## NON-NEGOTIABLE SEPARATION / STATE
+SIGNAL, PROP/Hyro and PERSONAL remain completely independent.
+Never route SIGNAL candidates/orders into PROP. Never route PROP into PERSONAL.
+Never reset `TRADING_STATE`, Signal LIVE ORDERS, PROP execution/idempotency/notification/position-manager state, or PERSONAL state.
 
 ## HYRO ENVIRONMENT
-Current account phase is CHALLENGE => force Bybit Demo Trading (`api-demo.bybit.com`) with `HYRO_BYBIT_API_KEY/SECRET`. FUNDED may use `HYRO_BYBIT_LIVE_API_KEY/SECRET` later. Auto reconnect remains request + cron based.
+Current phase: CHALLENGE => force Bybit Demo Trading and `HYRO_BYBIT_API_KEY/SECRET`. FUNDED may later use separate LIVE credentials. Auto telemetry refresh/reconnect remains cron + request based.
 
-## V77.18.12 — A/B/C QUICK SCAN
-PROP per-symbol strategies from V77.18.11 remain active.
+## PER-SYMBOL ENTRY — NO GENERIC RESTORE
+Every coin keeps a stable method/profile. Explicit major profiles and deterministic symbol-derived profiles remain active. Families include TREND_PULLBACK, BREAKOUT_RETEST, MOMENTUM_BREAKOUT, LIQUIDITY_RECLAIM, RANGE_BREAK, VOL_BREAK, TREND_CONTINUATION.
 
-Quick Scan now classifies deep-scan results:
-- **A / MARKET_PLAN**: full-quality setup, normal risk multiplier 1.0.
-- **B / NEAR_MARKET_PLAN**: near-market setup that still requires aligned HTF direction, valid structural SL, BTC context where required, acceptable funding and RR >= 1.5; execution risk multiplier is 0.5.
-- **C / LIMIT_PLAN or WATCH**: do not force MARKET. LIMIT may be used by regular AUTO; WATCH remains wait-only.
+Do not apply one identical scoring model to every family. Existing EMA/RSI/ATR/swing/funding/TP settings remain family/symbol specific.
 
-Quick Scan may execute A or B only. Regular AUTO remains more conservative and evaluates A MARKET + C LIMIT; it does not automatically use B near-market entries.
+## NEW V77.18.13 MICROSTRUCTURE
+For the top deep candidates, PROP additionally reads per-symbol Bybit public data:
+- 15m Open Interest history;
+- 15m Long/Short holder ratio;
+- orderbook depth/imbalance;
+- bid/ask spread.
 
-Funding block remains authoritative and cannot be bypassed by B tier.
+Weights depend on strategy family:
+- momentum / vol breakout => OI + orderbook heavier;
+- liquidity reclaim / range => orderbook + crowding heavier;
+- trend pullback / continuation => OI + spread heavier;
+- breakout retest => balanced confirmation.
+
+Microstructure is confirmation, not a universal replacement strategy. A can downgrade to B when micro is poor; very weak B becomes C/WATCH; strongly confirmed B may run up to 0.65 A risk. Missing public micro data is neutral rather than an automatic false-negative block, while account/risk/execution telemetry remains fail-closed.
+
+## A/B/C ENTRY POLICY
+- A: full-quality MARKET, normal dynamic A risk.
+- B: near-market, minimum RR/risk/funding/HTF rules still required. Quick Scan can execute B. Regular AUTO may execute B only when microstructure is strongly confirming.
+- C: LIMIT/WATCH; never force MARKET.
+
+Funding block remains authoritative.
 
 ## DYNAMIC CAPITAL / SCALE-UP
-Do not use `profile.accountSize` as the live capital authority for sizing.
+Current Bybit equity is the live capital authority. Bot automatically scales entry risk, single/combined caps, daily hard stop and applicable exposure caps with equity.
+`profile.accountSize` remains only as a legacy reference denominator so old risk ratios survive migration; it is not live capital authority.
+The Hyro configuration wizard no longer asks 5K/10K/25K/etc. New configuration is phase -> drawdown -> program. Scale-up is detected automatically from telemetry.
 
-Every telemetry cycle reads current Bybit account equity. `hyroDynamicRiskView(profile, telemetry)` derives current capital basis from live equity and scales internal risk controls automatically.
+## POSITION MANAGEMENT
+Still active:
+- TP1 about 40%; TP2 about 35%; runner about 25%;
+- SL -> BE after TP1;
+- SL -> TP1 + trailing after TP2;
+- structural initial SL/native protection;
+- state `v771811:hyro:manage:*` survives deploy.
 
-Legacy configured USD risk values are treated as ratios relative to the old configured account size, preserving the user's original risk proportions while allowing automatic scale-up/down:
-- A+ entry risk ratio
-- max single-loss ratio
-- combined open-risk ratio
-- daily hard-stop ratio
-- funded notional/margin ratios
+## TELEGRAM
+PROP is compact. Actual entry format is provider + symbol/side/tier/micro + SL/TP USD; actual close is concise profit/loss + real P/L. Dashboard, Risk, Connection and Quick Scan are compact.
 
-Risk A uses 100% of the dynamically scaled A-risk budget. Tier B uses 50% of that budget. If equity falls, budgets shrink automatically. If Hyro scales the account up, budgets/caps scale with the newly observed equity without manual account-size reconfiguration.
+Signal base/hub UI is compact. Legacy Signal engine notification text is being migrated presentation-only through a one-shot syntax-gated migration; do not change Signal analysis, Books or LIVE ORDER lifecycle logic for UI cleanup.
 
-Daily target uses 5% of the day's detected starting-equity basis so normal intraday profit does not continuously move the target upward.
+## REPOSITORY CLEANUP
+Removed proven obsolete debug/live-check/verification artifacts from V77.9–V77.10.2. Do not mass-delete old research/checkpoints merely due age; frozen knowledge and durable-order verification files may remain required.
 
-## TELEGRAM UI
-PROP buttons are compact two-per-row where practical:
-- Tổng quan | Vị thế
-- Risk | Kết nối
-- Quét nhanh | Auto
-- Demo only: Order | Cycle
-- Cấu hình | Menu
+Canonical validator has been corrected for the modular architecture. It validates all Worker JS/MJS syntax, Signal locks in the Signal engine, PROP locks in their modules, frozen V73, `TRADING_STATE`, `keep_vars`, then Wrangler bundle dry-run.
 
-Dashboard/Risk/Connection panels now display `Vốn tự nhận` from current equity and dynamic risk values instead of relying on the old nominal account-size label.
-
-Quick-scan result includes:
-- capital detected
-- broad/deep counts
-- A/B/C counts
-- up to three nearest setups with tier, symbol, side, RR and strategy
-
-## PER-SYMBOL / FUNDING / POSITION MANAGEMENT STILL ACTIVE
-Do not restore generic scanner. Each symbol keeps deterministic strategy profile/family. Funding-aware entry filter remains active. TP1/TP2/runner management remains 40% / 35% / 25%, SL -> BE after TP1, SL -> TP1 + trailing after TP2. Position manager state remains under `v771811:hyro:manage:*`.
-
-## STATE CONTINUITY — NEVER DELETE / RESET
-Preserve existing `TRADING_STATE` namespace and all current keys, including Signal LIVE ORDERS, PERSONAL state, Hyro profile/control/runtime/execution/day/idempotency/notification keys and `v771811:hyro:manage:*`.
-
-Deploys are additive/non-destructive only. Never recreate KV to fix display or sizing.
+## CLOUDFLARE CONTRACT
+- Source of truth: GitHub.
+- Same Worker: `trading-v77-scanner`.
+- Same KV binding/namespace: `TRADING_STATE`.
+- `keep_vars: true`; secrets/vars retained.
+- Cron every minute.
+- Cloudflare version history is deployment history, not a second source tree; do not delete KV to clean deployment history.
 
 ## DEPLOYMENT GATE
-Do not claim V77.18.12 active until Cloudflare build containing `082b668e` or newer is green at 100% traffic.
-
-After deploy verify:
-1. Telegram compact buttons render.
-2. Connection shows telemetry CONNECTED and `Vốn tự nhận` matching current Challenge equity.
-3. Risk screen shows dynamic A/B risk and caps.
-4. Quick Scan reports A/B/C counts and preview.
-5. Tier B order, if ever selected, records `riskMultiplier: 0.5` and lower USD risk than A.
-6. Existing Signal/PROP/PERSONAL state remains intact.
+Do NOT claim V77.18.13 production-active until validator/Cloudflare build is green and the newest version is at 100% traffic. Then verify Hyro telemetry/equity, Quick Scan, state continuity and no duplicate position-management orders.
 
 ## FROZEN RULES
-V73 statistical prior, V74 freshness/data authority, V76 rejected-method exclusions, V77.18.11 per-symbol strategy/funding/position-management and all prior separation/state-continuity rules remain active unless explicitly superseded above.
+V73 prior, V74 data freshness/authority, V76 rejected-method exclusions and all durable LIVE ORDERS/state rules remain active. Do not restore workflows/methods explicitly removed by canonical checkpoints.
 
 ## NEW CHAT PROMPT
-`Tiếp tục toàn bộ dự án Trading từ GitHub mới nhất. BẮT BUỘC đọc CURRENT_HANDOFF.md trước. Canonical Hyro là V77.18.12. PROP mỗi symbol có strategy riêng, funding-aware, TP1/TP2/runner + BE/trailing. Quick Scan dùng A/B/C: A full risk, B near-market 50% risk, C limit/watch; regular AUTO vẫn bảo thủ A MARKET + C LIMIT. Account sizing/risk tự lấy live equity, tự scale khi Hyro scale-up, không phụ thuộc accountSize cố định. Telegram PROP dùng nút compact. SIGNAL/PROP/PERSONAL độc lập và toàn bộ TRADING_STATE/LIVE ORDERS/state phải được bảo toàn qua deploy.`
+`Tiếp tục Trading từ GitHub mới nhất. BẮT BUỘC đọc CURRENT_HANDOFF.md trước, rồi V77180_AUTO_READY_CONSOLIDATED.md, MASTER_TRADING_STATE.md, V771813_MICROSTRUCTURE_AUDIT.md và V771811_PROP_PER_SYMBOL_MANAGEMENT.md. Canonical source V77.18.13. SIGNAL/PROP/PERSONAL độc lập. PROP mỗi symbol có strategy riêng + funding + family-weighted OI/long-short/orderbook/spread microstructure; A/B/C, dynamic equity sizing, partial TP/BE/trailing. Hyro Challenge dùng Bybit Demo; Funded dùng credentials riêng sau này. Bảo toàn toàn bộ TRADING_STATE/LIVE ORDERS/state qua deploy. Không quay lại generic scanner/workflow đã loại.`
