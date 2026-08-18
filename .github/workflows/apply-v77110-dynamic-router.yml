@@ -1,0 +1,48 @@
+name: Apply V77.11 Dynamic Regime Router
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77110_dynamic_regime_router.js'
+      - '.github/workflows/apply-v77110-dynamic-router.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply and diagnose
+        shell: bash
+        run: |
+          set +e
+          : > V77110_DIAGNOSTIC.txt
+          node --check scripts/apply_v77110_dynamic_regime_router.js >> V77110_DIAGNOSTIC.txt 2>&1
+          echo "GENERATOR_EXIT=$?" >> V77110_DIAGNOSTIC.txt
+          node scripts/apply_v77110_dynamic_regime_router.js >> V77110_DIAGNOSTIC.txt 2>&1
+          echo "MIGRATION_EXIT=$?" >> V77110_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77110_DIAGNOSTIC.txt 2>&1
+          echo "WORKER_SYNTAX_EXIT=$?" >> V77110_DIAGNOSTIC.txt
+          for t in 'V77.11.0' allowedProfileModes regimeRouteScores activeMode allowedModes routeScores 'htf=!!intel.htfPass' adaptiveTriggerPolicy cryptoAnalysisFallbackBundle; do
+            if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77110_DIAGNOSTIC.txt; else echo "$t=NO" >> V77110_DIAGNOSTIC.txt; fi
+          done
+          if grep -q 'function setupScore(function setupScore' cloudflare-worker/index.js || grep -q 'function sideTrendMatch(function sideTrendMatch' cloudflare-worker/index.js; then echo 'MARKER_DUPLICATION=YES' >> V77110_DIAGNOSTIC.txt; else echo 'MARKER_DUPLICATION=NO' >> V77110_DIAGNOSTIC.txt; fi
+          exit 0
+      - name: Commit canonical Worker on pass
+        shell: bash
+        run: |
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add V77110_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77110_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77110_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77110_DIAGNOSTIC.txt && grep -q 'V77.11.0=YES' V77110_DIAGNOSTIC.txt && grep -q 'MARKER_DUPLICATION=NO' V77110_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote V77.11 dynamic regime router' || exit 0
+          git push origin main
