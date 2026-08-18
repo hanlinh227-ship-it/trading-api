@@ -1,4 +1,4 @@
-name: Check V77.15.1 Forex Metal
+name: Check Current Actionable Forex Metal
 
 on:
   workflow_dispatch:
@@ -33,12 +33,12 @@ jobs:
           const fs=require('fs');const j=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};const f=j('/tmp/fx.json'),m=j('/tmp/met.json');
           const count=(r,s)=>(r.analyses||[]).filter(x=>x.status===s).length;const fmt=r=>'execM'+count(r,'MARKET')+',execL'+count(r,'LIMIT')+',planM'+count(r,'MARKET_PLAN')+',planL'+count(r,'LIMIT_PLAN')+',watch'+count(r,'WATCH');
           console.log('FX_VERSION='+(f.version||'-'));console.log('FOREX='+(f.broadOk??'-')+'/'+(f.requested??'-')+' deep='+(f.deepOk??'-')+'/'+(f.deepRequested??'-')+' '+fmt(f));
-          console.log('FOREX_RESULTS='+(f.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':rr='+(a.planned?.targetRR??a.targetRR??'-')).join('|'));
+          console.log('FOREX_RESULTS='+(f.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':rr='+(a.planned?.targetRR??a.targetRR??'-')+':dist='+(a.planned?.geometry?.distanceATR??'-')).join('|'));
           console.log('FOREX_TD_LEFT='+(f.diagnostics?.tdCreditsLeft??'-')+' PLANNED='+(f.diagnostics?.tdCreditsPlanned??'-'));
           console.log('METAL='+(m.broadOk??'-')+'/'+(m.requested??'-')+' deep='+(m.deepOk??'-')+'/'+(m.deepRequested??'-')+' '+fmt(m));
-          console.log('METAL_RESULTS='+(m.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':rr='+(a.planned?.targetRR??a.targetRR??'-')).join('|'));
+          console.log('METAL_RESULTS='+(m.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':rr='+(a.planned?.targetRR??a.targetRR??'-')+':dist='+(a.planned?.geometry?.distanceATR??'-')).join('|'));
           console.log('METAL_TD_LEFT='+(m.diagnostics?.tdCreditsLeft??'-')+' PLANNED='+(m.diagnostics?.tdCreditsPlanned??'-'));
-          const pass=f.version==='V77.15.1'&&f.broadOk===28&&f.deepOk===3&&m.broadOk===2&&m.deepOk===2;
+          const pass=/^V77\.15\./.test(f.version||'')&&f.broadOk===28&&f.deepOk===3&&m.broadOk===2&&m.deepOk===2;
           console.log('VERDICT='+(pass?'PASS':'FAIL'));
           NODE
       - name: Commit report
@@ -47,5 +47,5 @@ jobs:
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
           git add V77151_FOREX_METAL.txt
-          git commit -m 'Report V77.15.1 Forex Metal verification' || exit 0
+          git commit -m 'Report current actionable Forex Metal verification' || exit 0
           git push origin main
