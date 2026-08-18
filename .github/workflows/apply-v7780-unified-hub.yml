@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/apply_v7780_unified_hub.js'
+      - 'scripts/fix_v7780_migration.js'
       - '.github/workflows/apply-v7780-unified-hub.yml'
 
 permissions:
@@ -20,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Fix migration boundary handling
+        run: node scripts/fix_v7780_migration.js
       - name: Apply V77.8 migration
         run: node scripts/apply_v7780_unified_hub.js
       - name: Syntax check Worker
@@ -55,4 +58,4 @@ jobs:
           git commit -m 'Upgrade production runtime to V77.8.0 Unified Hub'
           git push origin main
 
-# trigger: 2026-08-18-v7780
+# trigger: 2026-08-18-v7780-fix1
