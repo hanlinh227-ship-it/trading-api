@@ -10,8 +10,9 @@ const RANGE={
 };
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null;};
 const clamp=(v,[lo,hi],fallback)=>{const n=num(v);return n==null?fallback:Math.max(lo,Math.min(hi,n));};
-function sanitize(proposed={}){const out=structuredClone(DEFAULT_TUNING);for(const group of ["signal","hyro"]){for(const [k,r] of Object.entries(RANGE[group])){out[group][k]=clamp(proposed?.[group]?.[k],r,DEFAULT_TUNING[group][k]);}}out.version="V77.18.23";return out;}
+function sanitize(proposed={}){const out=structuredClone(DEFAULT_TUNING);for(const group of ["signal","hyro"]){for(const [k,r] of Object.entries(RANGE[group]))out[group][k]=clamp(proposed?.[group]?.[k],r,DEFAULT_TUNING[group][k]);}out.version="V77.18.23";return out;}
 export async function loadAdaptiveTuning(env){try{const x=await env.TRADING_STATE?.get(KEY,"json");return x?.values?sanitize(x.values):structuredClone(DEFAULT_TUNING);}catch{return structuredClone(DEFAULT_TUNING);}}
 export async function applyAdaptiveTuning(env,proposed,{source="CHATGPT_PRIMARY",reviewId=null}={}){const values=sanitize(proposed),state={version:"V77.18.23",source,reviewId,values,updatedAt:Date.now(),guardrails:{hardNews:true,freshness:true,executionAuthority:true,structuralSL:true,hyroRiskUntouched:true,tradeAuthority:false}};if(env.TRADING_STATE)await env.TRADING_STATE.put(KEY,JSON.stringify(state));return state;}
 export async function getAdaptiveTuningState(env){try{return await env.TRADING_STATE?.get(KEY,"json")||{version:"V77.18.23",source:"DEFAULT",values:structuredClone(DEFAULT_TUNING),updatedAt:null};}catch{return {version:"V77.18.23",source:"DEFAULT",values:structuredClone(DEFAULT_TUNING),updatedAt:null};}}
 export const ADAPTIVE_TUNING_KEY=KEY;
+// Canonical migration trigger: worker source change, 2026-08-19.
