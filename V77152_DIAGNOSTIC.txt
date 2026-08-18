@@ -1,0 +1,11 @@
+GENERATOR_EXIT=0
+Applied V77.15.2 plan metrics and Futures sizing
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.15.2=YES
+futureSizing=YES
+planMetricText=YES
+Micro sizing=YES
+Geometry:=YES
+currentPrice:M15.close=YES
+currentPrice:M5.close=YES
