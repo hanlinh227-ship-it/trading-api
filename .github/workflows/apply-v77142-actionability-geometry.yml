@@ -1,0 +1,37 @@
+name: Apply V77.14.2 Actionable Geometry
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77142_actionability_geometry.js'
+      - '.github/workflows/apply-v77142-actionability-geometry.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply and diagnose
+        shell: bash
+        run: |
+          set +e
+          : > V77142_DIAGNOSTIC.txt
+          node --check scripts/apply_v77142_actionability_geometry.js >> V77142_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77142_DIAGNOSTIC.txt
+          node scripts/apply_v77142_actionability_geometry.js >> V77142_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77142_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77142_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77142_DIAGNOSTIC.txt
+          for t in 'V77.14.2' 'conditionalPlanFromRoute' 'CONDITIONAL_HTF_PULLBACK' 'actionableRank' 'dist>.90' 'MARKET_GEOMETRY_REQUIRED'; do if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77142_DIAGNOSTIC.txt; else echo "$t=NO" >> V77142_DIAGNOSTIC.txt; fi; done
+          exit 0
+      - name: Promote if pass
+        shell: bash
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77142_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77142_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77142_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77142_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote V77.14.2 actionable geometry and conditional plans' || exit 0
+          git push origin main
