@@ -1,0 +1,36 @@
+name: Apply V77.11.1 GRAM Fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply_v77111b_gram_ticker_fix.js'
+      - '.github/workflows/apply-v77111b-gram-fix.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Apply and diagnose
+        shell: bash
+        run: |
+          set +e
+          : > V77111B_DIAGNOSTIC.txt
+          node --check scripts/apply_v77111b_gram_ticker_fix.js >> V77111B_DIAGNOSTIC.txt 2>&1; echo "GENERATOR_EXIT=$?" >> V77111B_DIAGNOSTIC.txt
+          node scripts/apply_v77111b_gram_ticker_fix.js >> V77111B_DIAGNOSTIC.txt 2>&1; echo "MIGRATION_EXIT=$?" >> V77111B_DIAGNOSTIC.txt
+          node --check cloudflare-worker/index.js >> V77111B_DIAGNOSTIC.txt 2>&1; echo "WORKER_SYNTAX_EXIT=$?" >> V77111B_DIAGNOSTIC.txt
+          for t in 'V77.11.1' '"GRAM"' v73CryptoPriorKey canonicalUserSymbol 'TON→GRAM canonical' regimeRouteScores cryptoAnalysisFallbackBundle; do if grep -q "$t" cloudflare-worker/index.js; then echo "$t=YES" >> V77111B_DIAGNOSTIC.txt; else echo "$t=NO" >> V77111B_DIAGNOSTIC.txt; fi; done
+          exit 0
+      - name: Commit canonical Worker on pass
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77111B_DIAGNOSTIC.txt
+          if grep -q 'GENERATOR_EXIT=0' V77111B_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77111B_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77111B_DIAGNOSTIC.txt && grep -q 'V77.11.1=YES' V77111B_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
+          git commit -m 'Promote robust V77.11.1 GRAM canonical ticker' || exit 0
+          git push origin main
