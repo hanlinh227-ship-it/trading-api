@@ -4,7 +4,7 @@ import {runHyroAutoCycle,getHyroRuntime} from "./hyro-runtime.js";
 import {runHyroDemoExecutionTest,runHyroDemoFullCycleTest,getHyroDemoTestState} from "./hyro-demo-test.js";
 import {handleHyroMultiTelegram,runHyroMultiCron,hyroMultiStatus} from "./hyro-multi-ui.js";
 
-const VERSION="V77.18.15",SERVICE="Trading V77.18.15 Dual Hyro Account Runtime";
+const VERSION="V77.18.16",SERVICE="Trading V77.18.16 Balanced Entry Dual Hyro Runtime";
 const PROP_NOTIFY_PREFIX="v7718:hyro:notify:",PROP_NOTIFY_SNAPSHOT_KEY="v7718:hyro:notify:snapshot";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 const money=v=>{const x=Number(v||0),sign=x>0?"+":"";return sign+"$"+x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});},cash=v=>"$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
