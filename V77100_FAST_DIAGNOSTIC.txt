@@ -1,0 +1,14 @@
+HEAD=c2ced21679c65c52faa170542cb735181a5de240
+GENERATOR_EXIT=0
+Applied V77.10.0 adaptive entry freedom + resilient candidate routing
+MIGRATION_EXIT=0
+WORKER_SYNTAX_EXIT=0
+V77.10.0
+profileMode=YES
+adaptiveLocationPolicy=YES
+adaptiveTriggerPolicy=YES
+indicativePlan=YES
+deepShortlist=YES
+cryptoDeepTarget=YES
+skippedUnavailable=YES
+runSymbol=YES
