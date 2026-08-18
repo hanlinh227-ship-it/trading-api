@@ -46,11 +46,11 @@ jobs:
           const claudeTg=read('cloudflare-worker/claude-telegram.js');
           const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
-          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup','loadAdaptiveTuning'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
+          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
           for(const x of ['V77.18.24','Dual AI Co-Engineer Arbiter','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','ensureDualAiIntervention','/dual-ai/status','/ai/status','AI_ADMIN_REQUIRED'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
           if(index.includes('hyroMultiStatus')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram'))throw new Error('Multi-account runtime present');
           if(!hub.includes('🧠 AI Co-engineer')||!hub.includes('V77.18.24')||!hub.includes('V771822_SAFE_DAILY'))throw new Error('Hub/risk shell lock missing');
-          for(const x of ['NEAR_MARKET_PLAN','bDistMult','bMinRR','fundingRate'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
+          for(const x of ['NEAR_MARKET_PLAN','bDistMult','bMinRR','fundingRate','tp1Pct:.45','runnerPct:.20','tune={}'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
           for(const x of ['ensureDualAiIntervention','loadAdaptiveTuning','adaptive?.hyro?.maxDeep','adaptive?.hyro?.minTurnover','tune:adaptive?.hyro','bMicroMin','MAX_ACTIVE_SLOTS_REACHED'])if(!runtime.includes(x))throw new Error('Adaptive runtime lock missing: '+x);
           for(const x of ['v771824:adaptive:tuning','LEGACY_KEY','locationTrendFit','bMicroMin','hardNews:true','freshness:true','executionAuthority:true','structuralSL:true','hyroRiskUntouched:true','tradeAuthority:false','deployAuthority:false'])if(!adaptive.includes(x))throw new Error('Adaptive guardrail missing: '+x);
           for(const x of ['v771824:dual_ai:intervention','CO-ENGINEER','acquireAiLease','recordAiProposal','source_proposals','trade:false','close:false','deploy:false','hardRiskImmutable:true','max_tokens:2000'])if(!dual.includes(x))throw new Error('Dual AI lock missing: '+x);
