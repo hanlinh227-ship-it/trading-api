@@ -1,0 +1,4901 @@
+{
+  "version": "SYMBOL_KNOWLEDGE_V1",
+  "generatedAt": "2026-08-18T05:30:52.337Z",
+  "sourceV73": "NO_CUT_INTRADAY_ALLPASS_V73",
+  "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+  "policy": {
+    "noGuaranteedWinRate": true,
+    "optimize": "robust_expectancy_after_costs",
+    "requireWalkForwardBeforeCalibration": true
+  },
+  "symbols": {
+    "EURUSD": {
+      "canonicalSymbol": "EURUSD",
+      "legacyPriorKey": "EURUSD",
+      "aliases": [
+        "EURUSD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MOM"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 80,
+        "developmentMeanR": 0.6
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GBPUSD": {
+      "canonicalSymbol": "GBPUSD",
+      "legacyPriorKey": "GBPUSD",
+      "aliases": [
+        "GBPUSD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "SLOW"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.692
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "USDJPY": {
+      "canonicalSymbol": "USDJPY",
+      "legacyPriorKey": "USDJPY",
+      "aliases": [
+        "USDJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.55,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 83.08,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "USDCHF": {
+      "canonicalSymbol": "USDCHF",
+      "legacyPriorKey": "USDCHF",
+      "aliases": [
+        "USDCHF"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "quote": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 83.08,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "USDCAD": {
+      "canonicalSymbol": "USDCAD",
+      "legacyPriorKey": "USDCAD",
+      "aliases": [
+        "USDCAD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "quote": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 80,
+        "developmentMeanR": 0.6
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AUDUSD": {
+      "canonicalSymbol": "AUDUSD",
+      "legacyPriorKey": "AUDUSD",
+      "aliases": [
+        "AUDUSD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 1,
+      "riskATR": 0.7,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "quote": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 86.15,
+        "developmentMeanR": 0.723
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "NZDUSD": {
+      "canonicalSymbol": "NZDUSD",
+      "legacyPriorKey": "NZDUSD",
+      "aliases": [
+        "NZDUSD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "REVERT"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.8,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "quote": {
+          "USD": [
+            "Fed/FOMC",
+            "US CPI/PCE/NFP",
+            "US10Y + DXY",
+            "Treasury/liquidity conditions"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.723
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "EURJPY": {
+      "canonicalSymbol": "EURJPY",
+      "legacyPriorKey": "EURJPY",
+      "aliases": [
+        "EURJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "REVERT"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "PB",
+      "signalHourUTC": 20,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 81.54,
+        "developmentMeanR": 0.646
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "EURGBP": {
+      "canonicalSymbol": "EURGBP",
+      "legacyPriorKey": "EURGBP",
+      "aliases": [
+        "EURGBP"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "PB",
+      "signalHourUTC": 20,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 80,
+        "developmentMeanR": 0.646
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "EURCHF": {
+      "canonicalSymbol": "EURCHF",
+      "legacyPriorKey": "EURCHF",
+      "aliases": [
+        "EURCHF"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 86.15,
+        "developmentMeanR": 0.723
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "EURAUD": {
+      "canonicalSymbol": "EURAUD",
+      "legacyPriorKey": "EURAUD",
+      "aliases": [
+        "EURAUD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 2,
+      "riskATR": 0.45,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 86.15,
+        "developmentMeanR": 0.723
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "EURNZD": {
+      "canonicalSymbol": "EURNZD",
+      "legacyPriorKey": "EURNZD",
+      "aliases": [
+        "EURNZD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 81.54,
+        "developmentMeanR": 0.631
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "EURCAD": {
+      "canonicalSymbol": "EURCAD",
+      "legacyPriorKey": "EURCAD",
+      "aliases": [
+        "EURCAD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "SESSION"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 7,
+      "riskATR": 0.9,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "EUR": [
+            "ECB",
+            "Eurozone CPI/PMI",
+            "Germany growth/industrial data",
+            "EU fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.692
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GBPJPY": {
+      "canonicalSymbol": "GBPJPY",
+      "legacyPriorKey": "GBPJPY",
+      "aliases": [
+        "GBPJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 10,
+      "riskATR": 0.8,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 86.15,
+        "developmentMeanR": 0.723
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GBPCHF": {
+      "canonicalSymbol": "GBPCHF",
+      "legacyPriorKey": "GBPCHF",
+      "aliases": [
+        "GBPCHF"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.692
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GBPAUD": {
+      "canonicalSymbol": "GBPAUD",
+      "legacyPriorKey": "GBPAUD",
+      "aliases": [
+        "GBPAUD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "CONTRA24"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 1,
+      "riskATR": 0.65,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 86.15,
+        "developmentMeanR": 0.738
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GBPNZD": {
+      "canonicalSymbol": "GBPNZD",
+      "legacyPriorKey": "GBPNZD",
+      "aliases": [
+        "GBPNZD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MED"
+      ],
+      "allowedModes": [
+        "GENERIC"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 11,
+      "riskATR": 0.8,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 89.23,
+        "developmentMeanR": 0.785
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GBPCAD": {
+      "canonicalSymbol": "GBPCAD",
+      "legacyPriorKey": "GBPCAD",
+      "aliases": [
+        "GBPCAD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "REVERT"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 1,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "GBP": [
+            "BoE",
+            "UK CPI/wages/jobs",
+            "UK GDP/retail sales",
+            "UK fiscal/political risk"
+          ]
+        },
+        "quote": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 80,
+        "developmentMeanR": 0.615
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AUDJPY": {
+      "canonicalSymbol": "AUDJPY",
+      "legacyPriorKey": "AUDJPY",
+      "aliases": [
+        "AUDJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MED"
+      ],
+      "allowedModes": [
+        "GENERIC"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 83.08,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AUDNZD": {
+      "canonicalSymbol": "AUDNZD",
+      "legacyPriorKey": "AUDNZD",
+      "aliases": [
+        "AUDNZD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "SESSION"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "quote": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 83.08,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AUDCAD": {
+      "canonicalSymbol": "AUDCAD",
+      "legacyPriorKey": "AUDCAD",
+      "aliases": [
+        "AUDCAD"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MED"
+      ],
+      "allowedModes": [
+        "GENERIC"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 1,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "quote": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 87.69,
+        "developmentMeanR": 0.754
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AUDCHF": {
+      "canonicalSymbol": "AUDCHF",
+      "legacyPriorKey": "AUDCHF",
+      "aliases": [
+        "AUDCHF"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "REVERT"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 16,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "AUD": [
+            "RBA",
+            "Australia CPI/jobs",
+            "China PMIs/growth",
+            "iron ore + risk sentiment"
+          ]
+        },
+        "quote": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 81.54,
+        "developmentMeanR": 0.631
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "NZDJPY": {
+      "canonicalSymbol": "NZDJPY",
+      "legacyPriorKey": "NZDJPY",
+      "aliases": [
+        "NZDJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 7,
+      "riskATR": 0.7,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.708
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "NZDCAD": {
+      "canonicalSymbol": "NZDCAD",
+      "legacyPriorKey": "NZDCAD",
+      "aliases": [
+        "NZDCAD"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MED"
+      ],
+      "allowedModes": [
+        "GENERIC"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "quote": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 80,
+        "developmentMeanR": 0.6
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "NZDCHF": {
+      "canonicalSymbol": "NZDCHF",
+      "legacyPriorKey": "NZDCHF",
+      "aliases": [
+        "NZDCHF"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "NZD": [
+            "RBNZ",
+            "New Zealand CPI/jobs",
+            "China growth",
+            "dairy/commodity risk sentiment"
+          ]
+        },
+        "quote": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 83.08,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "CADJPY": {
+      "canonicalSymbol": "CADJPY",
+      "legacyPriorKey": "CADJPY",
+      "aliases": [
+        "CADJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V66",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "FAST"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 1.05,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 80,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "CADCHF": {
+      "canonicalSymbol": "CADCHF",
+      "legacyPriorKey": "CADCHF",
+      "aliases": [
+        "CADCHF"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MED"
+      ],
+      "allowedModes": [
+        "GENERIC"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 20,
+      "riskATR": 1,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "CAD": [
+            "BoC",
+            "Canada CPI/jobs/GDP",
+            "WTI crude oil",
+            "US-Canada growth differential"
+          ]
+        },
+        "quote": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 81.54,
+        "developmentMeanR": 0.662
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "CHFJPY": {
+      "canonicalSymbol": "CHFJPY",
+      "legacyPriorKey": "CHFJPY",
+      "aliases": [
+        "CHFJPY"
+      ],
+      "assetClass": "forex",
+      "source": "V64",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "CONTRA24"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 20,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "base": {
+          "CHF": [
+            "SNB",
+            "Swiss CPI",
+            "safe-haven flows",
+            "European risk sentiment"
+          ]
+        },
+        "quote": {
+          "JPY": [
+            "BoJ",
+            "MoF intervention risk",
+            "Japan/Tokyo CPI",
+            "JGB yields + global risk"
+          ]
+        },
+        "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 65,
+        "developmentWinRatePct": 83.08,
+        "developmentMeanR": 0.677
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "BTCUSDT": {
+      "canonicalSymbol": "BTCUSDT",
+      "legacyPriorKey": "BTC",
+      "aliases": [
+        "BTCUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTC_CORE",
+        "H4TREND",
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "BTC_CORE",
+        "symbolSpecific": [
+          "BTC project/protocol announcements",
+          "BTC token unlock/supply schedule",
+          "BTC exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "BTC ETF/treasury demand",
+          "miner/on-chain flows",
+          "macro liquidity/rates",
+          "BTC dominance"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 89.01,
+        "developmentMeanR": 0.78
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ETHUSDT": {
+      "canonicalSymbol": "ETHUSDT",
+      "legacyPriorKey": "ETH",
+      "aliases": [
+        "ETHUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "ETH_CORE",
+        "BREADTH",
+        "H1TREND",
+        "MOMENTUM",
+        "HYBRID"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "ETH_CORE",
+        "symbolSpecific": [
+          "ETH project/protocol announcements",
+          "ETH token unlock/supply schedule",
+          "ETH exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "ETH ETF/staking flows",
+          "Ethereum upgrades",
+          "L2 activity/fees",
+          "ETH/BTC relative strength"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 91.21,
+        "developmentMeanR": 0.824
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "SOLUSDT": {
+      "canonicalSymbol": "SOLUSDT",
+      "legacyPriorKey": "SOL",
+      "aliases": [
+        "SOLUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.65,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "SOL_ECOSYSTEM",
+        "symbolSpecific": [
+          "SOL project/protocol announcements",
+          "SOL token unlock/supply schedule",
+          "SOL exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "Solana network activity",
+          "SOL ecosystem launches",
+          "validator/staking flows",
+          "SOL relative strength"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "HYPEUSDT": {
+      "canonicalSymbol": "HYPEUSDT",
+      "legacyPriorKey": "HYPE",
+      "aliases": [
+        "HYPEUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 10,
+      "riskATR": 0.8,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "PERP_DEX",
+        "symbolSpecific": [
+          "HYPE project/protocol announcements",
+          "HYPE token unlock/supply schedule",
+          "HYPE exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "perp DEX volume/OI",
+          "protocol incentives",
+          "token unlocks",
+          "leverage regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 85.71,
+        "developmentMeanR": 0.714
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "SHIBUSDT": {
+      "canonicalSymbol": "SHIBUSDT",
+      "legacyPriorKey": "SHIB",
+      "aliases": [
+        "SHIBUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "H4TREND",
+        "D1TREND",
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.5,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "SHIB project/protocol announcements",
+          "SHIB token unlock/supply schedule",
+          "SHIB exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "TRXUSDT": {
+      "canonicalSymbol": "TRXUSDT",
+      "legacyPriorKey": "TRX",
+      "aliases": [
+        "TRXUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L1_PAYMENTS",
+        "RELATIVE",
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.5,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L1_PAYMENTS",
+        "symbolSpecific": [
+          "TRX project/protocol announcements",
+          "TRX token unlock/supply schedule",
+          "TRX exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "payments adoption",
+          "chain usage",
+          "staking/network changes",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.604
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "XRPUSDT": {
+      "canonicalSymbol": "XRPUSDT",
+      "legacyPriorKey": "XRP",
+      "aliases": [
+        "XRPUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 5,
+      "riskATR": 0.6,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "PAYMENTS",
+        "symbolSpecific": [
+          "XRP project/protocol announcements",
+          "XRP token unlock/supply schedule",
+          "XRP exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "payments/remittance adoption",
+          "regulation",
+          "institutional partnerships",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.604
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AAVEUSDT": {
+      "canonicalSymbol": "AAVEUSDT",
+      "legacyPriorKey": "AAVE",
+      "aliases": [
+        "AAVEUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "DEFI",
+        "RELATIVE",
+        "D1TREND",
+        "BREADTH"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "DEFI",
+        "symbolSpecific": [
+          "AAVE project/protocol announcements",
+          "AAVE token unlock/supply schedule",
+          "AAVE exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "protocol TVL/fees",
+          "governance/upgrades",
+          "incentives/unlocks",
+          "ETH/DeFi breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 86.81,
+        "developmentMeanR": 0.736
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ADAUSDT": {
+      "canonicalSymbol": "ADAUSDT",
+      "legacyPriorKey": "ADA",
+      "aliases": [
+        "ADAUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L1",
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "ADA project/protocol announcements",
+          "ADA token unlock/supply schedule",
+          "ADA exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 92.31,
+        "developmentMeanR": 0.846
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ALGOUSDT": {
+      "canonicalSymbol": "ALGOUSDT",
+      "legacyPriorKey": "ALGO",
+      "aliases": [
+        "ALGOUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "HYBRID"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 3,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "ALGO project/protocol announcements",
+          "ALGO token unlock/supply schedule",
+          "ALGO exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "APTUSDT": {
+      "canonicalSymbol": "APTUSDT",
+      "legacyPriorKey": "APT",
+      "aliases": [
+        "APTUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.7,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "APT project/protocol announcements",
+          "APT token unlock/supply schedule",
+          "APT exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.604
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ARBUSDT": {
+      "canonicalSymbol": "ARBUSDT",
+      "legacyPriorKey": "ARB",
+      "aliases": [
+        "ARBUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L2",
+        "MEANREV",
+        "BREADTH"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L2",
+        "symbolSpecific": [
+          "ARB project/protocol announcements",
+          "ARB token unlock/supply schedule",
+          "ARB exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "rollup activity/fees",
+          "token unlocks",
+          "Ethereum roadmap",
+          "L2 relative strength"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 87.91,
+        "developmentMeanR": 0.758
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ATOMUSDT": {
+      "canonicalSymbol": "ATOMUSDT",
+      "legacyPriorKey": "ATOM",
+      "aliases": [
+        "ATOMUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "INTERCHAIN",
+        "BREADTH",
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "INTERCHAIN",
+        "symbolSpecific": [
+          "ATOM project/protocol announcements",
+          "ATOM token unlock/supply schedule",
+          "ATOM exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "IBC/interchain activity",
+          "ecosystem upgrades",
+          "staking/unlocks",
+          "L1 breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 89.01,
+        "developmentMeanR": 0.78
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AVAXUSDT": {
+      "canonicalSymbol": "AVAXUSDT",
+      "legacyPriorKey": "AVAX",
+      "aliases": [
+        "AVAXUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L1",
+        "BTCALIGN",
+        "H1TREND",
+        "H4TREND",
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "AVAX project/protocol announcements",
+          "AVAX token unlock/supply schedule",
+          "AVAX exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 91.21,
+        "developmentMeanR": 0.824
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "BCHUSDT": {
+      "canonicalSymbol": "BCHUSDT",
+      "legacyPriorKey": "BCH",
+      "aliases": [
+        "BCHUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTC_BETA",
+        "MEANREV",
+        "BTCALIGN",
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION",
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "BTC_BETA",
+        "symbolSpecific": [
+          "BCH project/protocol announcements",
+          "BCH token unlock/supply schedule",
+          "BCH exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "BTC trend/dominance",
+          "relative beta to BTC",
+          "payments/adoption news",
+          "liquidity flows"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "BONKUSDT": {
+      "canonicalSymbol": "BONKUSDT",
+      "legacyPriorKey": "BONK",
+      "aliases": [
+        "BONKUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "SOL_MEME",
+        "RELATIVE",
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "SOL_MEME",
+        "symbolSpecific": [
+          "BONK project/protocol announcements",
+          "BONK token unlock/supply schedule",
+          "BONK exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "Solana meme breadth",
+          "DEX volume/liquidity",
+          "social/whale activity",
+          "SOL regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 86.81,
+        "developmentMeanR": 0.736
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "CRVUSDT": {
+      "canonicalSymbol": "CRVUSDT",
+      "legacyPriorKey": "CRV",
+      "aliases": [
+        "CRVUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "DEFI",
+        "MEANREV",
+        "RELATIVE",
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION",
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "DEFI",
+        "symbolSpecific": [
+          "CRV project/protocol announcements",
+          "CRV token unlock/supply schedule",
+          "CRV exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "protocol TVL/fees",
+          "governance/upgrades",
+          "incentives/unlocks",
+          "ETH/DeFi breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "DOGEUSDT": {
+      "canonicalSymbol": "DOGEUSDT",
+      "legacyPriorKey": "DOGE",
+      "aliases": [
+        "DOGEUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "H4TREND",
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.5,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "DOGE project/protocol announcements",
+          "DOGE token unlock/supply schedule",
+          "DOGE exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 89.01,
+        "developmentMeanR": 0.78
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "DOTUSDT": {
+      "canonicalSymbol": "DOTUSDT",
+      "legacyPriorKey": "DOT",
+      "aliases": [
+        "DOTUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.55,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "INTERCHAIN",
+        "symbolSpecific": [
+          "DOT project/protocol announcements",
+          "DOT token unlock/supply schedule",
+          "DOT exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "IBC/interchain activity",
+          "ecosystem upgrades",
+          "staking/unlocks",
+          "L1 breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ETCUSDT": {
+      "canonicalSymbol": "ETCUSDT",
+      "legacyPriorKey": "ETC",
+      "aliases": [
+        "ETCUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 3,
+      "riskATR": 0.6,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "POW_L1",
+        "symbolSpecific": [
+          "ETC project/protocol announcements",
+          "ETC token unlock/supply schedule",
+          "ETC exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "PoW miner/hashrate economics",
+          "chain upgrades",
+          "BTC correlation",
+          "exchange liquidity"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "FILUSDT": {
+      "canonicalSymbol": "FILUSDT",
+      "legacyPriorKey": "FIL",
+      "aliases": [
+        "FILUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 6,
+      "riskATR": 0.65,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "STORAGE",
+        "symbolSpecific": [
+          "FIL project/protocol announcements",
+          "FIL token unlock/supply schedule",
+          "FIL exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "storage demand/network usage",
+          "protocol upgrades",
+          "token unlocks",
+          "AI/data narrative"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "FLOKIUSDT": {
+      "canonicalSymbol": "FLOKIUSDT",
+      "legacyPriorKey": "FLOKI",
+      "aliases": [
+        "FLOKIUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "H4TREND",
+        "MOMENTUM",
+        "MEANREV",
+        "HYBRID"
+      ],
+      "allowedModes": [
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.5,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "FLOKI project/protocol announcements",
+          "FLOKI token unlock/supply schedule",
+          "FLOKI exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 89.01,
+        "developmentMeanR": 0.78
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "HBARUSDT": {
+      "canonicalSymbol": "HBARUSDT",
+      "legacyPriorKey": "HBAR",
+      "aliases": [
+        "HBARUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V71",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE",
+        "MEANREV",
+        "HYBRID",
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "MEAN_REVERSION",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "ENTERPRISE_L1",
+        "symbolSpecific": [
+          "HBAR project/protocol announcements",
+          "HBAR token unlock/supply schedule",
+          "HBAR exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "project announcements",
+          "token unlocks/listings",
+          "exchange/on-chain flows",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 95.6,
+        "developmentMeanR": 0.912
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "INJUSDT": {
+      "canonicalSymbol": "INJUSDT",
+      "legacyPriorKey": "INJ",
+      "aliases": [
+        "INJUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 9,
+      "riskATR": 0.7,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "PERP_DEX",
+        "symbolSpecific": [
+          "INJ project/protocol announcements",
+          "INJ token unlock/supply schedule",
+          "INJ exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "perp DEX volume/OI",
+          "protocol incentives",
+          "token unlocks",
+          "leverage regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.604
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "JTOUSDT": {
+      "canonicalSymbol": "JTOUSDT",
+      "legacyPriorKey": "JTO",
+      "aliases": [
+        "JTOUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEANREV"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 22,
+      "riskATR": 0.6,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "SOL_DEFI",
+        "symbolSpecific": [
+          "JTO project/protocol announcements",
+          "JTO token unlock/supply schedule",
+          "JTO exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "Solana DeFi TVL/volume",
+          "SOL trend",
+          "protocol incentives",
+          "token unlocks"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 81.32,
+        "developmentMeanR": 0.626
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "JUPUSDT": {
+      "canonicalSymbol": "JUPUSDT",
+      "legacyPriorKey": "JUP",
+      "aliases": [
+        "JUPUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "SOL_DEFI",
+        "MOMENTUM",
+        "RELATIVE",
+        "BTCALIGN",
+        "BREADTH"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "SOL_DEFI",
+        "symbolSpecific": [
+          "JUP project/protocol announcements",
+          "JUP token unlock/supply schedule",
+          "JUP exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "Solana DeFi TVL/volume",
+          "SOL trend",
+          "protocol incentives",
+          "token unlocks"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 85.71,
+        "developmentMeanR": 0.714
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "KAITOUSDT": {
+      "canonicalSymbol": "KAITOUSDT",
+      "legacyPriorKey": "KAITO",
+      "aliases": [
+        "KAITOUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "AI_INFOFI",
+        "MOMENTUM",
+        "RELATIVE",
+        "BTCALIGN",
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1.25,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "AI_INFOFI",
+        "symbolSpecific": [
+          "KAITO project/protocol announcements",
+          "KAITO token unlock/supply schedule",
+          "KAITO exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "AI/InfoFi product growth",
+          "attention/data demand",
+          "unlocks/listings",
+          "AI-sector breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 87.91,
+        "developmentMeanR": 0.769
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "LDOUSDT": {
+      "canonicalSymbol": "LDOUSDT",
+      "legacyPriorKey": "LDO",
+      "aliases": [
+        "LDOUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "ETH_STAKING",
+        "H4TREND",
+        "D1TREND",
+        "RELATIVE",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "ETH_STAKING",
+        "symbolSpecific": [
+          "LDO project/protocol announcements",
+          "LDO token unlock/supply schedule",
+          "LDO exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "ETH staking flows",
+          "LST/LRT market share",
+          "Ethereum upgrades",
+          "DeFi liquidity"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "LINKUSDT": {
+      "canonicalSymbol": "LINKUSDT",
+      "legacyPriorKey": "LINK",
+      "aliases": [
+        "LINKUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "ORACLE_RWA",
+        "MOMENTUM",
+        "BTCALIGN",
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1.25,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "ORACLE_RWA",
+        "symbolSpecific": [
+          "LINK project/protocol announcements",
+          "LINK token unlock/supply schedule",
+          "LINK exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "oracle integrations",
+          "RWA/DeFi adoption",
+          "token economics",
+          "ETH/DeFi regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 89.01,
+        "developmentMeanR": 0.791
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "LTCUSDT": {
+      "canonicalSymbol": "LTCUSDT",
+      "legacyPriorKey": "LTC",
+      "aliases": [
+        "LTCUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTC_BETA",
+        "H4TREND",
+        "D1TREND",
+        "MOMENTUM",
+        "BREADTH"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "BTC_BETA",
+        "symbolSpecific": [
+          "LTC project/protocol announcements",
+          "LTC token unlock/supply schedule",
+          "LTC exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "BTC trend/dominance",
+          "relative beta to BTC",
+          "payments/adoption news",
+          "liquidity flows"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 93.41,
+        "developmentMeanR": 0.868
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "MOODENGUSDT": {
+      "canonicalSymbol": "MOODENGUSDT",
+      "legacyPriorKey": "MOODENG",
+      "aliases": [
+        "MOODENGUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "H1TREND",
+        "BREADTH",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "MOODENG project/protocol announcements",
+          "MOODENG token unlock/supply schedule",
+          "MOODENG exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 87.91,
+        "developmentMeanR": 0.758
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "NEARUSDT": {
+      "canonicalSymbol": "NEARUSDT",
+      "legacyPriorKey": "NEAR",
+      "aliases": [
+        "NEARUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L1_AI",
+        "D1TREND",
+        "RELATIVE",
+        "H1TREND",
+        "MEANREV"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE",
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L1_AI",
+        "symbolSpecific": [
+          "NEAR project/protocol announcements",
+          "NEAR token unlock/supply schedule",
+          "NEAR exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "project announcements",
+          "token unlocks/listings",
+          "exchange/on-chain flows",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ONDOUSDT": {
+      "canonicalSymbol": "ONDOUSDT",
+      "legacyPriorKey": "ONDO",
+      "aliases": [
+        "ONDOUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEANREV"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 15,
+      "riskATR": 0.7,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "RWA",
+        "symbolSpecific": [
+          "ONDO project/protocol announcements",
+          "ONDO token unlock/supply schedule",
+          "ONDO exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "RWA adoption/partnerships",
+          "regulation",
+          "token unlocks",
+          "RWA sector flows"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "OPUSDT": {
+      "canonicalSymbol": "OPUSDT",
+      "legacyPriorKey": "OP",
+      "aliases": [
+        "OPUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L2",
+        "BTCALIGN",
+        "H1TREND",
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L2",
+        "symbolSpecific": [
+          "OP project/protocol announcements",
+          "OP token unlock/supply schedule",
+          "OP exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "rollup activity/fees",
+          "token unlocks",
+          "Ethereum roadmap",
+          "L2 relative strength"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ORDIUSDT": {
+      "canonicalSymbol": "ORDIUSDT",
+      "legacyPriorKey": "ORDI",
+      "aliases": [
+        "ORDIUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTC_ECOSYSTEM",
+        "MOMENTUM",
+        "H1TREND",
+        "D1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "BTC_ECOSYSTEM",
+        "symbolSpecific": [
+          "ORDI project/protocol announcements",
+          "ORDI token unlock/supply schedule",
+          "ORDI exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "BTC ecosystem activity",
+          "BTC trend/dominance",
+          "protocol upgrades",
+          "token unlocks"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "PENGUUSDT": {
+      "canonicalSymbol": "PENGUUSDT",
+      "legacyPriorKey": "PENGU",
+      "aliases": [
+        "PENGUUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 15,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "PENGU project/protocol announcements",
+          "PENGU token unlock/supply schedule",
+          "PENGU exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "PEPEUSDT": {
+      "canonicalSymbol": "PEPEUSDT",
+      "legacyPriorKey": "PEPE",
+      "aliases": [
+        "PEPEUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "H4TREND",
+        "MEANREV",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "PEPE project/protocol announcements",
+          "PEPE token unlock/supply schedule",
+          "PEPE exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "PNUTUSDT": {
+      "canonicalSymbol": "PNUTUSDT",
+      "legacyPriorKey": "PNUT",
+      "aliases": [
+        "PNUTUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "RELATIVE",
+        "BREADTH",
+        "HYBRID"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "PNUT project/protocol announcements",
+          "PNUT token unlock/supply schedule",
+          "PNUT exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.692
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "POLUSDT": {
+      "canonicalSymbol": "POLUSDT",
+      "legacyPriorKey": "POL",
+      "aliases": [
+        "POLUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L2",
+        "MEANREV",
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "MEAN_REVERSION",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L2",
+        "symbolSpecific": [
+          "POL project/protocol announcements",
+          "POL token unlock/supply schedule",
+          "POL exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "rollup activity/fees",
+          "token unlocks",
+          "Ethereum roadmap",
+          "L2 relative strength"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "POPCATUSDT": {
+      "canonicalSymbol": "POPCATUSDT",
+      "legacyPriorKey": "POPCAT",
+      "aliases": [
+        "POPCATUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "BTCALIGN",
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "POPCAT project/protocol announcements",
+          "POPCAT token unlock/supply schedule",
+          "POPCAT exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 85.71,
+        "developmentMeanR": 0.725
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "RENDERUSDT": {
+      "canonicalSymbol": "RENDERUSDT",
+      "legacyPriorKey": "RENDER",
+      "aliases": [
+        "RENDERUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 3,
+      "riskATR": 0.5,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "AI_COMPUTE",
+        "symbolSpecific": [
+          "RENDER project/protocol announcements",
+          "RENDER token unlock/supply schedule",
+          "RENDER exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "AI/compute narrative",
+          "network demand/revenue",
+          "token unlocks",
+          "AI-sector breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 86.81,
+        "developmentMeanR": 0.736
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "SUSDT": {
+      "canonicalSymbol": "SUSDT",
+      "legacyPriorKey": "S",
+      "aliases": [
+        "SUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L1",
+        "HYBRID",
+        "MEANREV"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "MEAN_REVERSION"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "S project/protocol announcements",
+          "S token unlock/supply schedule",
+          "S exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 84.62,
+        "developmentMeanR": 0.692
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "STXUSDT": {
+      "canonicalSymbol": "STXUSDT",
+      "legacyPriorKey": "STX",
+      "aliases": [
+        "STXUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTC_ECOSYSTEM",
+        "BREADTH",
+        "BTCALIGN",
+        "H4TREND"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "BTC_ECOSYSTEM",
+        "symbolSpecific": [
+          "STX project/protocol announcements",
+          "STX token unlock/supply schedule",
+          "STX exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "BTC ecosystem activity",
+          "BTC trend/dominance",
+          "protocol upgrades",
+          "token unlocks"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 87.91,
+        "developmentMeanR": 0.758
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "SUIUSDT": {
+      "canonicalSymbol": "SUIUSDT",
+      "legacyPriorKey": "SUI",
+      "aliases": [
+        "SUIUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "L1",
+        "D1TREND",
+        "H4TREND",
+        "MOMENTUM",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "SUI project/protocol announcements",
+          "SUI token unlock/supply schedule",
+          "SUI exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 92.31,
+        "developmentMeanR": 0.846
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "TAOUSDT": {
+      "canonicalSymbol": "TAOUSDT",
+      "legacyPriorKey": "TAO",
+      "aliases": [
+        "TAOUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V71",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "H1TREND",
+        "BTCALIGN",
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "AI_COMPUTE",
+        "symbolSpecific": [
+          "TAO project/protocol announcements",
+          "TAO token unlock/supply schedule",
+          "TAO exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "AI/compute narrative",
+          "network demand/revenue",
+          "token unlocks",
+          "AI-sector breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 96.7,
+        "developmentMeanR": 0.934
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "TIAUSDT": {
+      "canonicalSymbol": "TIAUSDT",
+      "legacyPriorKey": "TIA",
+      "aliases": [
+        "TIAUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 12,
+      "riskATR": 0.8,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "MODULAR",
+        "symbolSpecific": [
+          "TIA project/protocol announcements",
+          "TIA token unlock/supply schedule",
+          "TIA exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "data-availability adoption",
+          "ecosystem integrations",
+          "token unlocks",
+          "L1/L2 breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GRAMUSDT": {
+      "canonicalSymbol": "GRAMUSDT",
+      "legacyPriorKey": "TON",
+      "aliases": [
+        "TON",
+        "TONUSDT",
+        "GRAM",
+        "GRAMUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V72",
+      "timeframe": "4H",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MESSAGING_L1",
+        "MEANREV",
+        "H4TREND",
+        "HYBRID",
+        "MOMENTUM",
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION",
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MESSAGING_L1",
+        "symbolSpecific": [
+          "TON project/protocol announcements",
+          "TON token unlock/supply schedule",
+          "TON exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "messaging ecosystem growth",
+          "chain usage",
+          "unlocks/listings",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 91.21,
+        "developmentMeanR": 0.846
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "TRUMPUSDT": {
+      "canonicalSymbol": "TRUMPUSDT",
+      "legacyPriorKey": "TRUMP",
+      "aliases": [
+        "TRUMPUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "MEME",
+        "MOMENTUM",
+        "RELATIVE",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "TRUMP project/protocol announcements",
+          "TRUMP token unlock/supply schedule",
+          "TRUMP exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 91.21,
+        "developmentMeanR": 0.824
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "UNIUSDT": {
+      "canonicalSymbol": "UNIUSDT",
+      "legacyPriorKey": "UNI",
+      "aliases": [
+        "UNIUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 16,
+      "riskATR": 0.9,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "DEFI",
+        "symbolSpecific": [
+          "UNI project/protocol announcements",
+          "UNI token unlock/supply schedule",
+          "UNI exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "protocol TVL/fees",
+          "governance/upgrades",
+          "incentives/unlocks",
+          "ETH/DeFi breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.626
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "WIFUSDT": {
+      "canonicalSymbol": "WIFUSDT",
+      "legacyPriorKey": "WIF",
+      "aliases": [
+        "WIFUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "SOL_MEME",
+        "RELATIVE",
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "SOL_MEME",
+        "symbolSpecific": [
+          "WIF project/protocol announcements",
+          "WIF token unlock/supply schedule",
+          "WIF exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "Solana meme breadth",
+          "DEX volume/liquidity",
+          "social/whale activity",
+          "SOL regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 85.71,
+        "developmentMeanR": 0.714
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "WLDUSDT": {
+      "canonicalSymbol": "WLDUSDT",
+      "legacyPriorKey": "WLD",
+      "aliases": [
+        "WLDUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "D1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 6,
+      "riskATR": 0.7,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "AI_IDENTITY",
+        "symbolSpecific": [
+          "WLD project/protocol announcements",
+          "WLD token unlock/supply schedule",
+          "WLD exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "project announcements",
+          "token unlocks/listings",
+          "exchange/on-chain flows",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.604
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "AIXBTUSDT": {
+      "canonicalSymbol": "AIXBTUSDT",
+      "legacyPriorKey": "AIXBT",
+      "aliases": [
+        "AIXBTUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 3,
+      "riskATR": 0.8,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "AI_INFOFI",
+        "symbolSpecific": [
+          "AIXBT project/protocol announcements",
+          "AIXBT token unlock/supply schedule",
+          "AIXBT exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "AI/InfoFi product growth",
+          "attention/data demand",
+          "unlocks/listings",
+          "AI-sector breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.615
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ASTERUSDT": {
+      "canonicalSymbol": "ASTERUSDT",
+      "legacyPriorKey": "ASTER",
+      "aliases": [
+        "ASTERUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "PERP_DEX",
+        "MEANREV",
+        "H4TREND",
+        "D1TREND",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "MEAN_REVERSION",
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 1,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "PERP_DEX",
+        "symbolSpecific": [
+          "ASTER project/protocol announcements",
+          "ASTER token unlock/supply schedule",
+          "ASTER exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "perp DEX volume/OI",
+          "protocol incentives",
+          "token unlocks",
+          "leverage regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 90.11,
+        "developmentMeanR": 0.802
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "FARTCOINUSDT": {
+      "canonicalSymbol": "FARTCOINUSDT",
+      "legacyPriorKey": "FARTCOIN",
+      "aliases": [
+        "FARTCOINUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "D1TREND"
+      ],
+      "allowedModes": [
+        "TREND"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 8,
+      "riskATR": 0.65,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "MEME",
+        "symbolSpecific": [
+          "FARTCOIN project/protocol announcements",
+          "FARTCOIN token unlock/supply schedule",
+          "FARTCOIN exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "social attention velocity",
+          "whale/exchange flows",
+          "meme-sector breadth",
+          "listing/delisting catalysts"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 81.32,
+        "developmentMeanR": 0.626
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "GRASSUSDT": {
+      "canonicalSymbol": "GRASSUSDT",
+      "legacyPriorKey": "GRASS",
+      "aliases": [
+        "GRASSUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "AI_DATA",
+        "RELATIVE",
+        "MOMENTUM"
+      ],
+      "allowedModes": [
+        "RELATIVE",
+        "TREND"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "AI_DATA",
+        "symbolSpecific": [
+          "GRASS project/protocol announcements",
+          "GRASS token unlock/supply schedule",
+          "GRASS exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "AI data demand",
+          "network usage",
+          "unlocks/listings",
+          "AI-sector breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 89.01,
+        "developmentMeanR": 0.78
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "IPUSDT": {
+      "canonicalSymbol": "IPUSDT",
+      "legacyPriorKey": "IP",
+      "aliases": [
+        "IPUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V72",
+      "timeframe": "4H",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "IP_RWA",
+        "MOMENTUM",
+        "CONTRA24",
+        "BREADTH",
+        "RELATIVE",
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.8,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "IP_RWA",
+        "symbolSpecific": [
+          "IP project/protocol announcements",
+          "IP token unlock/supply schedule",
+          "IP exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "IP/RWA partnerships",
+          "licensing/adoption",
+          "token unlocks",
+          "RWA flows"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 86.81,
+        "developmentMeanR": 0.747
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "LITUSDT": {
+      "canonicalSymbol": "LITUSDT",
+      "legacyPriorKey": "LIT",
+      "aliases": [
+        "LITUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 13,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "IDENTITY",
+        "symbolSpecific": [
+          "LIT project/protocol announcements",
+          "LIT token unlock/supply schedule",
+          "LIT exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "identity/adoption integrations",
+          "network activity",
+          "unlocks/listings",
+          "sector flows"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "PUMPUSDT": {
+      "canonicalSymbol": "PUMPUSDT",
+      "legacyPriorKey": "PUMP",
+      "aliases": [
+        "PUMPUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "BTCALIGN"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 3,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "SOL_MEME",
+        "symbolSpecific": [
+          "PUMP project/protocol announcements",
+          "PUMP token unlock/supply schedule",
+          "PUMP exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "Solana meme breadth",
+          "DEX volume/liquidity",
+          "social/whale activity",
+          "SOL regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 82.42,
+        "developmentMeanR": 0.648
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "VIRTUALUSDT": {
+      "canonicalSymbol": "VIRTUALUSDT",
+      "legacyPriorKey": "VIRTUAL",
+      "aliases": [
+        "VIRTUALUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V70",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "AI_AGENT",
+        "H4TREND",
+        "RELATIVE",
+        "H1TREND"
+      ],
+      "allowedModes": [
+        "TREND",
+        "RELATIVE"
+      ],
+      "entryMode": "ROUTER",
+      "signalHourUTC": 0,
+      "riskATR": 0.75,
+      "priorRR": null,
+      "newsProfile": {
+        "profile": "AI_AGENT",
+        "symbolSpecific": [
+          "VIRTUAL project/protocol announcements",
+          "VIRTUAL token unlock/supply schedule",
+          "VIRTUAL exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "AI-agent adoption",
+          "ecosystem integrations",
+          "unlocks/listings",
+          "AI-sector breadth"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 91.21,
+        "developmentMeanR": 0.824
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "XPLUSDT": {
+      "canonicalSymbol": "XPLUSDT",
+      "legacyPriorKey": "XPL",
+      "aliases": [
+        "XPLUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 5,
+      "riskATR": 0.6,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "L1",
+        "symbolSpecific": [
+          "XPL project/protocol announcements",
+          "XPL token unlock/supply schedule",
+          "XPL exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "chain upgrades/adoption",
+          "staking/validator flows",
+          "ecosystem TVL/activity",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 83.52,
+        "developmentMeanR": 0.681
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "ZECUSDT": {
+      "canonicalSymbol": "ZECUSDT",
+      "legacyPriorKey": "ZEC",
+      "aliases": [
+        "ZECUSDT"
+      ],
+      "assetClass": "crypto",
+      "source": "V69",
+      "timeframe": "H1",
+      "priorClassification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS",
+      "priorStatus": "PASS",
+      "families": [
+        "RELATIVE"
+      ],
+      "allowedModes": [
+        "RELATIVE"
+      ],
+      "entryMode": "DUAL_FADE",
+      "signalHourUTC": 12,
+      "riskATR": 0.75,
+      "priorRR": 1,
+      "newsProfile": {
+        "profile": "PRIVACY",
+        "symbolSpecific": [
+          "ZEC project/protocol announcements",
+          "ZEC token unlock/supply schedule",
+          "ZEC exchange/on-chain/whale flows"
+        ],
+        "profileDrivers": [
+          "privacy regulation",
+          "network adoption",
+          "exchange access",
+          "BTC regime"
+        ],
+        "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+      },
+      "calibration": {
+        "status": "PRIOR_ONLY_UNCALIBRATED",
+        "reason": "V73 is exposed development prior, not untouched OOS proof",
+        "sampleSize": 91,
+        "developmentWinRatePct": 80.22,
+        "developmentMeanR": 0.604
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "XAUUSD": {
+      "canonicalSymbol": "XAUUSD",
+      "legacyPriorKey": null,
+      "aliases": [
+        "XAUUSD"
+      ],
+      "assetClass": "metal",
+      "source": "RUNTIME_ADAPTIVE",
+      "timeframe": "MULTI_TF",
+      "priorClassification": "NO_V73_SYMBOL_PRIOR",
+      "priorStatus": null,
+      "families": [
+        "METAL_STRUCTURE",
+        "RELATIVE_METAL"
+      ],
+      "allowedModes": [
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE"
+      ],
+      "entryMode": "DYNAMIC_ROUTER",
+      "signalHourUTC": null,
+      "riskATR": null,
+      "priorRR": null,
+      "newsProfile": null,
+      "calibration": {
+        "status": "UNCALIBRATED",
+        "reason": "Requires dedicated metal walk-forward/OOS calibration"
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    },
+    "XAGUSD": {
+      "canonicalSymbol": "XAGUSD",
+      "legacyPriorKey": null,
+      "aliases": [
+        "XAGUSD"
+      ],
+      "assetClass": "metal",
+      "source": "RUNTIME_ADAPTIVE",
+      "timeframe": "MULTI_TF",
+      "priorClassification": "NO_V73_SYMBOL_PRIOR",
+      "priorStatus": null,
+      "families": [
+        "METAL_STRUCTURE",
+        "RELATIVE_METAL"
+      ],
+      "allowedModes": [
+        "TREND",
+        "MEAN_REVERSION",
+        "RELATIVE"
+      ],
+      "entryMode": "DYNAMIC_ROUTER",
+      "signalHourUTC": null,
+      "riskATR": null,
+      "priorRR": null,
+      "newsProfile": null,
+      "calibration": {
+        "status": "UNCALIBRATED",
+        "reason": "Requires dedicated metal walk-forward/OOS calibration"
+      },
+      "productionPolicy": {
+        "hubScoreIsWinProbability": false,
+        "executionRequiresFreshAuthority": true,
+        "slPolicy": "STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR",
+        "tpPolicy": "FORWARD_STRUCTURE_LIQUIDITY",
+        "indicativePlanMayBeWatch": true
+      }
+    }
+  }
+}
