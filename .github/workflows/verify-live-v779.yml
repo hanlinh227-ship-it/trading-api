@@ -1,4 +1,4 @@
-name: Verify Live V77.9
+name: Verify Live V77.9.1
 
 on:
   push:
@@ -19,8 +19,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: Wait for Cloudflare Git deploy
-        run: sleep 35
-      - name: Verify live endpoints
+        run: sleep 40
+      - name: Verify live status and crypto
         shell: bash
         run: |
           set +e
@@ -32,20 +32,19 @@ jobs:
           node - <<'NODE' >> V779_LIVE_CHECK.txt 2>&1
           const fs=require('fs');try{const p=JSON.parse(fs.readFileSync('/tmp/status.json','utf8'));for(const [k,v] of Object.entries({STATUS_VERSION:p.version,STATUS_OK:p.ok===true?'YES':'NO',KV_OK:p.kv===true?'YES':'NO',TD_OK:p.twelveData===true?'YES':'NO',TG_OK:p.telegram===true?'YES':'NO',HUB_OK:p.hub?.enabled===true?'YES':'NO'}))console.log(k+'='+v)}catch(e){console.log('STATUS_PARSE_ERROR='+e.message)}
           NODE
-          echo '--- CRYPTO ATTEMPT 1 ---' >> V779_LIVE_CHECK.txt
-          curl -fsS --max-time 70 "$BASE/run-now?group=crypto" -o /tmp/crypto1.json
-          sleep 8
-          echo '--- CRYPTO ATTEMPT 2 ---' >> V779_LIVE_CHECK.txt
-          curl -fsS --max-time 70 "$BASE/run-now?group=crypto" -o /tmp/crypto2.json
+          for i in 1 2; do
+            echo "--- CRYPTO ATTEMPT $i ---" >> V779_LIVE_CHECK.txt
+            curl -fsS --max-time 90 "$BASE/run-now?group=crypto" -o "/tmp/crypto$i.json"
+            sleep 7
+          done
           node - <<'NODE' >> V779_LIVE_CHECK.txt 2>&1
-          const fs=require('fs');
-          for(const [i,f] of [[1,'/tmp/crypto1.json'],[2,'/tmp/crypto2.json']])try{const p=JSON.parse(fs.readFileSync(f,'utf8'));console.log(`C${i}_OK=${p.ok===true?'YES':'NO'}`);console.log(`C${i}_STATUS=${p.status||'-'}`);console.log(`C${i}_VERSION=${p.version||'-'}`);console.log(`C${i}_REQUESTED=${p.requested??'-'}`);console.log(`C${i}_BROAD=${p.broadOk??'-'}`);console.log(`C${i}_DEEP=${p.deepOk??'-'}/${p.deepRequested??'-'}`);console.log(`C${i}_ELAPSED=${p.elapsedMs??'-'}`);console.log(`C${i}_ERRORS=${(p.diagnostics?.broadErrors||[]).slice(0,12).map(e=>e.symbol+':'+e.reason).join('|')}`);console.log(`C${i}_ANALYSES=${(p.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')).join('|')}`)}catch(e){console.log(`C${i}_PARSE_ERROR=${e.message}`)}
+          const fs=require('fs');for(const [i,f] of [[1,'/tmp/crypto1.json'],[2,'/tmp/crypto2.json']])try{const p=JSON.parse(fs.readFileSync(f,'utf8'));console.log(`C${i}_OK=${p.ok===true?'YES':'NO'}`);console.log(`C${i}_STATUS=${p.status||'-'}`);console.log(`C${i}_VERSION=${p.version||'-'}`);console.log(`C${i}_REQUESTED=${p.requested??'-'}`);console.log(`C${i}_BROAD=${p.broadOk??'-'}`);console.log(`C${i}_DEEP=${p.deepOk??'-'}/${p.deepRequested??'-'}`);console.log(`C${i}_ELAPSED=${p.elapsedMs??'-'}`);console.log(`C${i}_ERROR_COUNT=${(p.diagnostics?.broadErrors||[]).length}`);console.log(`C${i}_ERRORS=${(p.diagnostics?.broadErrors||[]).slice(0,12).map(e=>e.symbol+':'+e.reason).join('|')}`);console.log(`C${i}_ANALYSES=${(p.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.score??'-')+':'+(a.reason??'-')).join('|')}`)}catch(e){console.log(`C${i}_PARSE_ERROR=${e.message}`)}
           NODE
-          if grep -q 'STATUS_VERSION=V77.9.0' V779_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V779_LIVE_CHECK.txt && grep -q 'TG_OK=YES' V779_LIVE_CHECK.txt && (grep -Eq 'C1_BROAD=([2-9][0-9]|1[0-9]|[1-9][0-9]{2,})' V779_LIVE_CHECK.txt || grep -Eq 'C2_BROAD=([2-9][0-9]|1[0-9]|[1-9][0-9]{2,})' V779_LIVE_CHECK.txt); then echo 'LIVE_VERDICT=PASS'; else echo 'LIVE_VERDICT=FAIL'; fi >> V779_LIVE_CHECK.txt
+          if grep -q 'STATUS_VERSION=V77.9.1' V779_LIVE_CHECK.txt && grep -q 'STATUS_OK=YES' V779_LIVE_CHECK.txt && grep -q 'TG_OK=YES' V779_LIVE_CHECK.txt && (grep -Eq 'C1_BROAD=([3-6][0-9])' V779_LIVE_CHECK.txt || grep -Eq 'C2_BROAD=([3-6][0-9])' V779_LIVE_CHECK.txt); then echo 'LIVE_VERDICT=PASS'; else echo 'LIVE_VERDICT=FAIL'; fi >> V779_LIVE_CHECK.txt
       - name: Commit live verification
         run: |
           git config user.name 'trading-runtime-bot'
           git config user.email 'trading-runtime-bot@users.noreply.github.com'
           git add V779_LIVE_CHECK.txt
-          git commit -m 'Report V77.9 live production verification' || exit 0
+          git commit -m 'Report V77.9.1 live production verification' || exit 0
           git push origin main
