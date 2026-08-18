@@ -45,3 +45,4 @@ jobs:
           if grep -q 'GENERATOR_EXIT=0' V77101_DIAGNOSTIC.txt && grep -q 'MIGRATION_EXIT=0' V77101_DIAGNOSTIC.txt && grep -q 'WORKER_SYNTAX_EXIT=0' V77101_DIAGNOSTIC.txt && grep -q 'V77.10.1=YES' V77101_DIAGNOSTIC.txt; then git add cloudflare-worker/index.js; fi
           git commit -m 'Promote V77.10.1 Hub polish' || exit 0
           git push origin main
+# retrigger V77.10.1
