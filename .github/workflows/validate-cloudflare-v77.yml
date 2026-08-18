@@ -28,12 +28,12 @@ jobs:
           const fs = require('fs');
           const src = fs.readFileSync('cloudflare-worker/index.js','utf8');
           const v73 = JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
-          const must = ['V77.10.1','methodAssessment','setupScore','profileMode','adaptiveLocationPolicy','adaptiveTriggerPolicy','indicativePlan','deepShortlist','cryptoDeepTarget','skippedUnavailable','runSymbol','singleAnalysisText','/coin BTC','Entry tham khảo','deepRequested:Math.min','forexStrengthMap','cryptoDerivativesContext','cryptoBroadMap','quotePool','cryptoBroadCache','STRUCTURE_LIQUIDITY','validExecutablePosition','cryptoDeepBundle','HUB TOP SETUPS','runHub','NEWS_CONTEXT_REQUIRED','newsClearanceTtlSec: 1800','EXECUTION_QUOTE_REQUIRED','M15_LOCATION_REQUIRED','M5_MSS_DISPLACEMENT_RETEST_REQUIRED','maxExecutionCostR: 0.10','v775:books','Bybit Spot','OKX Spot','Binance Spot','Điểm Hub = độ hoàn thiện setup'];
+          const must = ['V77.10.2','methodAssessment','setupScore','profileMode','adaptiveLocationPolicy','adaptiveTriggerPolicy','indicativePlan','deepShortlist','cryptoDeepTarget','skippedUnavailable','runSymbol','singleAnalysisText','/coin BTC','Entry tham khảo','deepRequested:Math.min','kucoinCandles','gateCandles','cryptoAnalysisFallbackBundle','reference.analysisOnly','forexStrengthMap','cryptoDerivativesContext','cryptoBroadMap','quotePool','cryptoBroadCache','STRUCTURE_LIQUIDITY','validExecutablePosition','cryptoDeepBundle','HUB TOP SETUPS','runHub','NEWS_CONTEXT_REQUIRED','newsClearanceTtlSec: 1800','EXECUTION_QUOTE_REQUIRED','M15_LOCATION_REQUIRED','M5_MSS_DISPLACEMENT_RETEST_REQUIRED','maxExecutionCostR: 0.10','v775:books','Bybit Spot','OKX Spot','Binance Spot','Điểm Hub = độ hoàn thiện setup'];
           for (const token of must) if (!src.includes(token)) throw new Error(`missing canonical token: ${token}`);
           if (src.includes('Score 10.0') || src.includes('Score 8.0') || src.includes('TP ?')) throw new Error('legacy UI leaked into runtime');
           if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
           if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
-          console.log('V77.10.1 adaptive Hub validation PASS');
+          console.log('V77.10.2 adaptive analysis-fallback validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
