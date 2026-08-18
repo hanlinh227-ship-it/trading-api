@@ -1,0 +1,11 @@
+const fs=require('fs');
+const p='cloudflare-worker/index.js';let s=fs.readFileSync(p,'utf8');
+function must(a,b,label){if(!s.includes(a))throw new Error('Missing '+label);s=s.replace(a,b);}
+if(!s.includes('version: "V77.16.5"'))throw new Error('Expected V77.16.5');
+s=s.replaceAll('V77.16.5','V77.16.6');
+s=s.replace('Trading V77.16.6 Live-Order Reconciled Hub','Trading V77.16.6 Legacy-Preserved Live Order Hub');
+const old=`function normalizeBooks(v){const b=emptyBooks();if(!v||typeof v!=="object")return b;for(const g of Object.keys(GROUPS)){const src=v?.[g]||{};b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxMarketActive):[];b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxLimitActive):[];b[g].limitPending=Array.isArray(src.limitPending)?src.limitPending.filter(p=>validExecutablePosition(p,g)).slice(0,CONFIG.maxPendingLimit):[];b[g].watch=[];}b.updatedAt=v.updatedAt||Date.now();return b;}`;
+const neu=`function preserveLegacyOrder(p,status){return {...p,status:p.status||status,discoveredBy:p.discoveredBy||"LEGACY_PRESERVED",engineOpened:p.engineOpened||p.engine||"LEGACY",createdAt:p.createdAt||p.openedAt||Date.now()};}\nfunction normalizeBooks(v){const b=emptyBooks();if(!v||typeof v!=="object")return b;for(const g of Object.keys(GROUPS)){const src=v?.[g]||{};b[g].marketActive=Array.isArray(src.marketActive)?src.marketActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")).slice(0,CONFIG.maxMarketActive):[];b[g].limitActive=Array.isArray(src.limitActive)?src.limitActive.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"ACTIVE")).slice(0,CONFIG.maxLimitActive):[];b[g].limitPending=Array.isArray(src.limitPending)?src.limitPending.filter(p=>validExecutablePosition(p,g)).map(p=>preserveLegacyOrder(p,"PENDING")).slice(0,CONFIG.maxPendingLimit):[];b[g].watch=[];}b.updatedAt=v.updatedAt||Date.now();return b;}`;
+must(old,neu,'normalizeBooks legacy preservation');
+s=s.replace('x==="API_HUB"?"API HUB":String(x||"SCAN")','x==="API_HUB"?"API HUB":x==="LEGACY_PRESERVED"?"LỆNH CŨ ĐƯỢC GIỮ LẠI":String(x||"SCAN")');
+fs.writeFileSync(p,s);console.log('Applied V77.16.6 legacy-order preservation');
