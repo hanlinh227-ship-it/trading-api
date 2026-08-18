@@ -1,0 +1,56 @@
+version 1
+service 1
+locTrend 1
+locRelative 1
+trigTrend 1
+trigRelative 1
+conditional 1
+fallback 1
+rrFutureMetal 1
+rrForex 1
+chase 1
+changed 11 of 11
+deep6 True
+/home/runner/work/trading-api/trading-api/cloudflare-worker/engine-v77168.js:398
+  if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuationreturn {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};
+                                                                      ^
+
+SyntaxError: Unexpected token '{'
+    at checkSyntax (node:internal/main/check_syntax:74:5)
+
+Node.js v22.23.2
+NODE_RC=1
+
+added 38 packages, and audited 39 packages in 5s
+
+7 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+NPM_RC=0
+
+> prepare:wrangler
+> node prepare-wrangler.mjs
+
+Prepared wrangler.jsonc for existing TRADING_STATE namespace.
+PREP_RC=0
+
+ ⛅️ wrangler 4.124.0
+────────────────────
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mBuild failed with 1 error:[0m
+
+  [31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mExpected ")" but found "{"[0m
+  
+      engine-v77168.js:398:70:
+  [37m      398 │ ...8&&nearEma&&continuationreturn [32m{[37mpass:true,mode:"TREND_CONTINUA...
+            │                                   [32m^[37m
+            ╵                                   [32m)[0m
+  
+  
+
+
+🪵  Logs were written to "/home/runner/.config/.wrangler/logs/wrangler-2026-08-18_17-58-48_012.log"
+WRANGLER_RC=1
