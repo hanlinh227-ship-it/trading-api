@@ -123,3 +123,5 @@ Cloudflare treats Wrangler configuration as deployment source-of-truth. The gene
 - Qualified technical candidates must stop at `NEWS_CONTEXT_REQUIRED` until clearance.
 - Forex/Metal do not create new executable orders without broker bid/ask.
 - Crypto MARKET/LIMIT can only appear after news clearance and exact venue execution confirmation.
+
+Git Builds connection initialized on 2026-08-18; this documentation-only commit intentionally triggers the first production build.
