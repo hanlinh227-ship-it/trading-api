@@ -38,7 +38,7 @@ function regimeRouteScores(prior,T,context={}){
   return {allowed,activeMode,scores,side,htfPass,votes:v,trendSide,ctxSide,ctxMag:Number(ctxMag.toFixed(3)),extension:Number(ext.toFixed(3)),emaDistATR:Number(emaDist.toFixed(3))};
 }
 function methodAssessment(symbol,type,T,context={}){
-  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context),mode=route.activeMode,{H1}=T;let fit=Number(route.scores[mode]||50),why=["dynamic regime: "+mode];
+  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context),mode=route.activeMode;let fit=Number(route.scores[mode]||50),why=["dynamic regime: "+mode];
   if(type==="forex"&&Number.isFinite(context.strengthDiff))why.push("currency-strength context");
   if(type==="crypto"){if(Number.isFinite(context.relativeStrength))why.push("BTC-relative context");if(Number.isFinite(context.fundingRate)){if(Math.abs(context.fundingRate)>.0015)fit-=6;why.push("derivatives context");}}
   if(type==="metal"&&Number.isFinite(context.relativeStrength))why.push("metal-relative context");
@@ -46,19 +46,15 @@ function methodAssessment(symbol,type,T,context={}){
   return {side:route.side,methodFit:fit,activeMode:mode,allowedModes:route.allowed,routeScores:route.scores,htfPass:route.htfPass,route,profile:prior.profile||prior.family||"GENERIC",families:prior.families||[],sessionFit:Math.round(sessionFit(prior)*100),why,drivers:prior.newsProfile?.profileDrivers||prior.newsProfile?.symbolSpecific||[]};
 }
 `;
-replaceRange('function methodAssessment(','function setupScore(',routerBlock+'function setupScore(','dynamic method router');
+replaceRange('function methodAssessment(','function setupScore(',routerBlock,'dynamic method router');
+replaceRange('function profileMode(','function sideTrendMatch(',`function profileMode(intel){return intel?.activeMode||intel?.allowedModes?.[0]||"GENERIC";}\n`,'profileMode active route');
 
-replaceRange('function profileMode(','function sideTrendMatch(',`function profileMode(intel){return intel?.activeMode||intel?.allowedModes?.[0]||"GENERIC";}\nfunction sideTrendMatch(`,'profileMode active route');
-
-// Replace deep HTF gate to honor the method-specific route instead of forcing 2/3 trend votes on every profile.
 const old='const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=directionalVotes(D1,H4,H1),side=intel.side,htf=side!=="NEUTRAL"&&((side==="LONG"&&votes.bull>=2)||(side==="SHORT"&&votes.bear>=2));';
 const neu='const intel=methodAssessment(s,type,{M5,M15,H1,H4,D1},context),votes=intel.route?.votes||directionalVotes(D1,H4,H1),side=intel.side,htf=!!intel.htfPass;';
 mustReplace(old,neu,'method-aware HTF gate');
 
-// Enrich Watch/Hub persistence with current active mode/route scores.
 mustReplace('method:x.method||null,context:x.context||null,updatedAt:Date.now(),engine:CONFIG.version','method:x.method||null,context:x.context||null,entryPolicy:x.entryPolicy||null,updatedAt:Date.now(),engine:CONFIG.version','persist entry policy');
 
-// Show active route in individual/Hub UI when present.
 s=s.replace('if(a.method?.profile)L.push(`Method: ${a.method.profile}`);','if(a.method?.profile)L.push(`Profile: ${a.method.profile}`);if(a.method?.activeMode)L.push(`Active route: ${a.method.activeMode}${a.method.allowedModes?.length>1?" (allowed: "+a.method.allowedModes.join("/")+")":""}`);');
 s=s.replace('if(a.method?.profile||a.method?.families?.length)line+=`\\n   ↳ Method: ${a.method?.profile||a.method?.families?.[0]}`;','if(a.method?.profile||a.method?.families?.length)line+=`\\n   ↳ Profile: ${a.method?.profile||a.method?.families?.[0]}`;if(a.method?.activeMode)line+=`\\n   ↳ Route: ${a.method.activeMode}`;');
 
