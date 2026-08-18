@@ -1,0 +1,45 @@
+name: Verify Fast V77.11 Router
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-fast-v77110-router.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wait for Cloudflare deploy
+        run: sleep 40
+      - name: Verify dynamic routes live
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          : > V77110_ROUTER_LIVE.txt
+          for spec in 'status:/status' 'crypto:/run-now?group=crypto' 'kaito:/analyze?symbol=KAITOUSDT' 'ton:/analyze?symbol=TONUSDT' 'eth:/analyze?symbol=ETHUSDT' 'btc:/analyze?symbol=BTCUSDT'; do
+            name="${spec%%:*}"; path="${spec#*:}"; curl -fsS --max-time 100 "$BASE$path" -o "/tmp/$name.json"; echo "$name CURL_EXIT=$?" >> V77110_ROUTER_LIVE.txt; sleep 3;
+          done
+          node - <<'NODE' >> V77110_ROUTER_LIVE.txt 2>&1
+          const fs=require('fs');const R=n=>{try{return JSON.parse(fs.readFileSync('/tmp/'+n+'.json','utf8'))}catch(e){return {parseError:e.message}}};
+          const s=R('status'),c=R('crypto');console.log('VERSION='+(s.version||'-'));console.log('STATUS_OK='+(s.ok===true?'YES':'NO'));
+          console.log('CRYPTO='+(c.broadOk??'-')+'/'+(c.requested??'-')+' deep='+(c.deepOk??'-')+'/'+(c.deepRequested??'-')+' attempted='+(c.diagnostics?.deepAttempted??'-')+' skipped='+(c.diagnostics?.skippedUnavailable?.length??0));
+          console.log('CRYPTO_ANALYSES='+(c.analyses||[]).map(a=>a.symbol+':'+a.status+':score='+(a.score??'-')+':route='+(a.method?.activeMode||'-')+':allowed='+(a.method?.allowedModes||[]).join('/')+':side='+(a.side||'-')+':reason='+(a.reason||'-')+':planned='+(a.planned?1:0)+':src='+(a.source||'-')).join('|'));
+          for(const n of ['kaito','ton','eth','btc']){const a=R(n),N=n.toUpperCase();console.log(N+'_OK='+(a.ok===true?'YES':'NO'));console.log(N+'_STATUS='+(a.status||'-'));console.log(N+'_SIDE='+(a.side||'-'));console.log(N+'_SCORE='+(a.score??'-'));console.log(N+'_ROUTE='+(a.method?.activeMode||'-'));console.log(N+'_ALLOWED='+(a.method?.allowedModes||[]).join('/'));console.log(N+'_ROUTE_SCORES='+JSON.stringify(a.method?.routeScores||{}));console.log(N+'_HTF_PASS='+(a.method?.htfPass===true?'YES':'NO'));console.log(N+'_REASON='+(a.reason||'-'));console.log(N+'_PLANNED='+(a.planned?1:0));console.log(N+'_INDICATIVE='+(a.planned?.indicative?1:0));console.log(N+'_SOURCE='+(a.source||'-'));}
+          NODE
+          if grep -q '^VERSION=V77.11.0$' V77110_ROUTER_LIVE.txt && grep -q 'STATUS_OK=YES' V77110_ROUTER_LIVE.txt && grep -Eq 'CRYPTO=(5[5-9]|6[0-1])/61 deep=3/3' V77110_ROUTER_LIVE.txt && grep -q 'KAITO_OK=YES' V77110_ROUTER_LIVE.txt && grep -q 'TON_OK=YES' V77110_ROUTER_LIVE.txt && grep -q 'ETH_OK=YES' V77110_ROUTER_LIVE.txt && grep -q 'BTC_OK=YES' V77110_ROUTER_LIVE.txt; then echo 'VERDICT=PASS' >> V77110_ROUTER_LIVE.txt; else echo 'VERDICT=FAIL' >> V77110_ROUTER_LIVE.txt; fi
+      - name: Commit report
+        run: |
+          git config user.name 'trading-runtime-bot'
+          git config user.email 'trading-runtime-bot@users.noreply.github.com'
+          git add V77110_ROUTER_LIVE.txt
+          git commit -m 'Report V77.11 dynamic router live verification' || exit 0
+          git push origin main
