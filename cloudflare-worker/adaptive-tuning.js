@@ -1,6 +1,6 @@
-const KEY="v771823:adaptive:tuning";
+const KEY="v771824:adaptive:tuning",LEGACY_KEY="v771823:adaptive:tuning";
 export const DEFAULT_TUNING={
-  version:"V77.18.23",
+  version:"V77.18.24",
   signal:{locationTrendFit:47,locationRelativeFit:47,triggerTrendFit:49,triggerRelativeFit:49,conditionalFit:51,fallbackFit:41,forexMinRR:1.18,metalMinRR:1.26,futureMinRR:1.43,marketChaseAtr:.72},
   hyro:{maxDeep:14,minTurnover:6000000,bMicroMin:.52,bDistMult:1.40,bMinRR:1.38}
 };
@@ -10,9 +10,9 @@ const RANGE={
 };
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null;};
 const clamp=(v,[lo,hi],fallback)=>{const n=num(v);return n==null?fallback:Math.max(lo,Math.min(hi,n));};
-function sanitize(proposed={}){const out=structuredClone(DEFAULT_TUNING);for(const group of ["signal","hyro"]){for(const [k,r] of Object.entries(RANGE[group]))out[group][k]=clamp(proposed?.[group]?.[k],r,DEFAULT_TUNING[group][k]);}out.version="V77.18.23";return out;}
-export async function loadAdaptiveTuning(env){try{const x=await env.TRADING_STATE?.get(KEY,"json");return x?.values?sanitize(x.values):structuredClone(DEFAULT_TUNING);}catch{return structuredClone(DEFAULT_TUNING);}}
-export async function applyAdaptiveTuning(env,proposed,{source="CHATGPT_PRIMARY",reviewId=null}={}){const values=sanitize(proposed),state={version:"V77.18.23",source,reviewId,values,updatedAt:Date.now(),guardrails:{hardNews:true,freshness:true,executionAuthority:true,structuralSL:true,hyroRiskUntouched:true,tradeAuthority:false}};if(env.TRADING_STATE)await env.TRADING_STATE.put(KEY,JSON.stringify(state));return state;}
-export async function getAdaptiveTuningState(env){try{return await env.TRADING_STATE?.get(KEY,"json")||{version:"V77.18.23",source:"DEFAULT",values:structuredClone(DEFAULT_TUNING),updatedAt:null};}catch{return {version:"V77.18.23",source:"DEFAULT",values:structuredClone(DEFAULT_TUNING),updatedAt:null};}}
+function sanitize(proposed={}){const out=structuredClone(DEFAULT_TUNING);for(const group of ["signal","hyro"]){for(const [k,r] of Object.entries(RANGE[group]))out[group][k]=clamp(proposed?.[group]?.[k],r,DEFAULT_TUNING[group][k]);}out.version="V77.18.24";return out;}
+async function readState(env){try{return await env.TRADING_STATE?.get(KEY,"json")||await env.TRADING_STATE?.get(LEGACY_KEY,"json")||null;}catch{return null;}}
+export async function loadAdaptiveTuning(env){const x=await readState(env);return x?.values?sanitize(x.values):structuredClone(DEFAULT_TUNING);}
+export async function applyAdaptiveTuning(env,proposed,{source="AI_ARBITER",reviewId=null}={}){const values=sanitize(proposed),state={version:"V77.18.24",source,reviewId,values,updatedAt:Date.now(),guardrails:{hardNews:true,freshness:true,executionAuthority:true,structuralSL:true,hyroRiskUntouched:true,tradeAuthority:false,deployAuthority:false}};if(env.TRADING_STATE)await env.TRADING_STATE.put(KEY,JSON.stringify(state));return state;}
+export async function getAdaptiveTuningState(env){const x=await readState(env);return x?{...x,values:sanitize(x.values||x),version:"V77.18.24"}:{version:"V77.18.24",source:"DEFAULT",values:structuredClone(DEFAULT_TUNING),updatedAt:null};}
 export const ADAPTIVE_TUNING_KEY=KEY;
-// Canonical migration trigger: worker source change, 2026-08-19.
