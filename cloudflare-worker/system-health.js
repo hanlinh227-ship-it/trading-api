@@ -1,12 +1,12 @@
-import {hyroHubSnapshot} from "./hyro-multi-account.js";
+import {getHyroProfile,getHyroTelemetry,getHyroControl,hyroDynamicRiskView} from "./hyro-execution.js";
+import {getHyroRuntime} from "./hyro-runtime.js";
 
 const HEALTH_KEY="v771817:health:last";
 const ALERT_KEY="v771817:health:alert_state";
 const LAST_FULL_KEY="v771817:health:last_full";
 const SCAN_PREFIX="v7712:scan:";
 const BOOKS_KEY="v775:books";
-const A_RUNTIME_KEY="v7718:hyro:runtime";
-const B_RUNTIME_KEY="v771815:hyro:B:v7718:hyro:runtime";
+const PROP_RUNTIME_KEY="v7718:hyro:runtime";
 const GROUPS=["crypto","forex","metal","future"];
 const now=()=>Date.now();
 const ageMin=ts=>{const t=typeof ts==="number"?ts:Date.parse(ts||"");return Number.isFinite(t)?Math.max(0,(now()-t)/60000):null;};
@@ -17,7 +17,8 @@ function add(arr,level,code,msg,extra={}){arr.push({level,code,msg,...extra});}
 function scanLimit(group){return group==="crypto"?12:group==="future"?35:95;}
 function compact(items){return items.map(x=>`${x.level==="ERROR"?"❌":x.level==="WARN"?"⚠️":"✅"} ${x.msg}`).join("\n");}
 function signature(items){return items.filter(x=>x.level!=="OK").map(x=>`${x.level}:${x.code}`).sort().join("|")||"HEALTHY";}
-function runtimeIssue(issues,label,id,rt){const age=ageMin(rt?.finishedAt||rt?.startedAt);if(!rt){add(issues,"WARN",`HYRO_${id}_RUNTIME_MISSING`,`${label} chưa có runtime state`);return;}if(age!=null&&age>4)add(issues,"WARN",`HYRO_${id}_RUNTIME_LATE`,`${label} runtime ${age.toFixed(1)}m`);else add(issues,"OK",`HYRO_${id}_RUNTIME_OK`,`${label} runtime ${age==null?"—":age.toFixed(1)+"m"}`);}
+function runtimeIssue(issues,rt){const age=ageMin(rt?.finishedAt||rt?.startedAt);if(!rt){add(issues,"WARN","HYRO_RUNTIME_MISSING","PROP chưa có runtime state");return;}if(age!=null&&age>4)add(issues,"WARN","HYRO_RUNTIME_LATE",`PROP runtime ${age.toFixed(1)}m`);else add(issues,"OK","HYRO_RUNTIME_OK",`PROP runtime ${age==null?"—":age.toFixed(1)+"m"}`);}
+async function propEnv(env){const p=await getHyroProfile(env);return p?.phase==="CHALLENGE"?new Proxy(env,{get(t,k){if(k==="HYRO_BYBIT_MODE")return "DEMO";return t[k];}}):env;}
 
 export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,notify=true}={}){
   const startedAt=now(),issues=[],kv=env.TRADING_STATE;
@@ -33,45 +34,36 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
       else if(age>scanLimit(g))add(issues,"WARN",`SCAN_${g.toUpperCase()}_LATE`,`${g.toUpperCase()} scan chậm ${age.toFixed(0)}m`,{ageMin:age});
       else add(issues,"OK",`SCAN_${g.toUpperCase()}_OK`,`${g.toUpperCase()} scan ${age.toFixed(0)}m`,{ageMin:age});
     }
-    runtimeIssue(issues,"TK1","A",await getJson(kv,A_RUNTIME_KEY,null));
-    if(env.HYRO_B_BYBIT_API_KEY)runtimeIssue(issues,"TK2","B",await getJson(kv,B_RUNTIME_KEY,null));
-    else add(issues,"WARN","HYRO_B_KEY_MISSING","TK2 chưa có API key");
+    runtimeIssue(issues,await getJson(kv,PROP_RUNTIME_KEY,null));
   }
   if(!env.TELEGRAM_BOT_TOKEN)add(issues,"ERROR","TELEGRAM_TOKEN_MISSING","Telegram token missing");
   if(!env.TELEGRAM_CHAT_ID)add(issues,"ERROR","TELEGRAM_CHAT_MISSING","Telegram chat missing");
   if(!env.TWELVE_DATA_API_KEY)add(issues,"ERROR","TWELVE_MISSING","Twelve Data key missing");
   if(!env.MASSIVE_API_KEY)add(issues,"WARN","MASSIVE_MISSING","Massive Futures key missing");
 
-  let accounts=[];
+  let account=null;
   if(full){
-    try{accounts=await hyroHubSnapshot(env);}catch{add(issues,"ERROR","HYRO_HUB_ERROR","Hyro hub snapshot lỗi");}
-    for(const a of accounts){
-      const label=a.label||a.id,configured=!!a.configured,t=a.telemetry||{};
-      if(!configured){add(issues,"WARN",`HYRO_${a.id}_UNCONFIGURED`,`${label} chưa cấu hình`);continue;}
-      if(a.id==="B"&&!env.HYRO_B_BYBIT_API_KEY)continue;
-      if(!t.connected)add(issues,"ERROR",`HYRO_${a.id}_OFF`,`${label} telemetry OFF: ${t.reason||"unknown"}`);
+    try{
+      const pe=await propEnv(env),profile=await getHyroProfile(pe),control=await getHyroControl(pe),telemetry=await getHyroTelemetry(pe),runtime=await getHyroRuntime(pe),dynamicRisk=profile&&telemetry?.connected?hyroDynamicRiskView(profile,telemetry):null;
+      account={configured:!!profile,profile,control,telemetry,runtime,dynamicRisk,autoRequested:String(pe.HYRO_AUTO_EXECUTION||"false").toLowerCase()==="true"};
+      if(!profile)add(issues,"WARN","HYRO_UNCONFIGURED","PROP chưa cấu hình");
+      else if(!telemetry?.connected)add(issues,"ERROR","HYRO_OFF",`PROP telemetry OFF: ${telemetry?.reason||"unknown"}`);
       else{
-        add(issues,"OK",`HYRO_${a.id}_CONNECTED`,`${label} connected • $${Number(t.equity||0).toFixed(2)}`);
-        const bad=(t.diagnostics?.endpoints||[]).filter(x=>!x.ok);if(bad.length)add(issues,"ERROR",`HYRO_${a.id}_ENDPOINT`,`${label} endpoint lỗi: ${bad.map(x=>x.name).join(",")}`);
-        if(a.autoRequested&&a.control?.manualPaused)add(issues,"WARN",`HYRO_${a.id}_PAUSED`,`${label} AUTO requested nhưng đang pause`);
-        if(Number(t.openRiskUsd||0)>Number(a.dynamicRisk?.maxCombinedOpenRiskUsd||Infinity))add(issues,"ERROR",`HYRO_${a.id}_RISK`,`${label} open risk vượt cap`);
+        const eq=Number(telemetry.equity||0),pos=telemetry.positions?.length||0;
+        if(eq<=0)add(issues,"WARN","HYRO_EQUITY_ZERO",`PROP equity chưa khả dụng • Pos ${pos}`);
+        else add(issues,"OK","HYRO_CONNECTED",`PROP connected • $${eq.toFixed(2)} • Pos ${pos}`);
+        const bad=(telemetry.diagnostics?.endpoints||[]).filter(x=>!x.ok);if(bad.length)add(issues,"ERROR","HYRO_ENDPOINT",`PROP endpoint lỗi: ${bad.map(x=>x.name).join(",")}`);
+        if(account.autoRequested&&control?.manualPaused)add(issues,"WARN","HYRO_PAUSED","PROP AUTO requested nhưng đang pause");
+        if(dynamicRisk&&Number(telemetry.openRiskUsd||0)>Number(dynamicRisk.maxCombinedOpenRiskUsd||Infinity))add(issues,"ERROR","HYRO_RISK","PROP open risk vượt cap");
       }
-    }
-    if(env.TELEGRAM_BOT_TOKEN){
-      try{const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`),p=await r.json();if(!p?.ok)add(issues,"ERROR","TELEGRAM_API_FAIL","Telegram API không phản hồi");else add(issues,"OK","TELEGRAM_API_OK","Telegram API OK");}catch{add(issues,"ERROR","TELEGRAM_API_FAIL","Telegram API không phản hồi");}
-    }
+    }catch(e){add(issues,"ERROR","HYRO_HEALTH_ERROR",`PROP health lỗi: ${String(e?.message||e)}`);}
+    if(env.TELEGRAM_BOT_TOKEN){try{const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/getMe`),p=await r.json();if(!p?.ok)add(issues,"ERROR","TELEGRAM_API_FAIL","Telegram API không phản hồi");else add(issues,"OK","TELEGRAM_API_OK","Telegram API OK");}catch{add(issues,"ERROR","TELEGRAM_API_FAIL","Telegram API không phản hồi");}}
   }
 
-  const errors=issues.filter(x=>x.level==="ERROR"),warns=issues.filter(x=>x.level==="WARN"),sig=signature(issues),prev=await getJson(kv,ALERT_KEY,null),out={ok:errors.length===0,version,startedAt,finishedAt:now(),full,errors:errors.length,warnings:warns.length,signature:sig,issues,accounts:accounts.map(a=>({id:a.id,label:a.label,configured:a.configured,connected:!!a.telemetry?.connected,equity:Number(a.telemetry?.equity||0),positions:a.telemetry?.positions?.length||0,orders:a.telemetry?.openOrders?.length||0,autoRequested:!!a.autoRequested,paused:!!a.control?.manualPaused,runtimeReason:a.runtime?.reason||null,runtimeAt:a.runtime?.finishedAt||null}))};
-  await putJson(kv,HEALTH_KEY,out);
-  if(full)await putJson(kv,LAST_FULL_KEY,{at:now(),version});
-  if(notify&&sig!==prev?.signature){
-    const recovered=sig==="HEALTHY"&&prev?.signature&&prev.signature!=="HEALTHY";
-    const text=recovered?`✅ SYSTEM HEALTH • PHỤC HỒI\n${version}\nTất cả gate kiểm tra chính đã OK.`:[`🩺 SYSTEM HEALTH • ${errors.length?"CÓ LỖI":"CẢNH BÁO"}`,`${version} • Error ${errors.length} • Warn ${warns.length}`,compact([...errors,...warns].slice(0,8))].join("\n");
-    await tg(env,text);await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);
-  }
+  const errors=issues.filter(x=>x.level==="ERROR"),warns=issues.filter(x=>x.level==="WARN"),sig=signature(issues),prev=await getJson(kv,ALERT_KEY,null),t=account?.telemetry||{},out={ok:errors.length===0,version,startedAt,finishedAt:now(),full,errors:errors.length,warnings:warns.length,signature:sig,issues,account:account?{configured:account.configured,connected:!!t.connected,equity:Number(t.equity||0),positions:t.positions?.length||0,orders:t.openOrders?.length||0,autoRequested:!!account.autoRequested,paused:!!account.control?.manualPaused,runtimeReason:account.runtime?.reason||null,runtimeAt:account.runtime?.finishedAt||null}:null};
+  await putJson(kv,HEALTH_KEY,out);if(full)await putJson(kv,LAST_FULL_KEY,{at:now(),version});
+  if(notify&&sig!==prev?.signature){const recovered=sig==="HEALTHY"&&prev?.signature&&prev.signature!=="HEALTHY",text=recovered?`✅ SYSTEM HEALTH • PHỤC HỒI\n${version}\nTất cả gate kiểm tra chính đã OK.`:[`🩺 SYSTEM HEALTH • ${errors.length?"CÓ LỖI":"CẢNH BÁO"}`,`${version} • Error ${errors.length} • Warn ${warns.length}`,compact([...errors,...warns].slice(0,8))].join("\n");await tg(env,text);await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);}
   return out;
 }
-
 export async function shouldRunFullHealth(env,intervalMs=5*60*1000){const x=await getJson(env.TRADING_STATE,LAST_FULL_KEY,null);return !x?.at||now()-Number(x.at)>=intervalMs;}
 export async function getSystemHealth(env){return getJson(env.TRADING_STATE,HEALTH_KEY,null);}
