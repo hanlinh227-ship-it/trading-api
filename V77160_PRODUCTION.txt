@@ -1,0 +1,55 @@
+SYNTAX_EXIT=0
+
+added 38 packages, and audited 39 packages in 9s
+
+7 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+NPM_EXIT=0
+
+> prepare:wrangler
+> node prepare-wrangler.mjs
+
+Prepared wrangler.jsonc for existing TRADING_STATE namespace.
+PREPARE_EXIT=0
+
+ ⛅️ wrangler 4.123.0
+────────────────────
+Total Upload: 455.32 KiB / gzip: 53.04 KiB
+Your Worker has access to the following bindings:
+Binding                                                   Resource          
+env.TRADING_STATE (00000000000000000000000000000000)      KV Namespace      
+
+--dry-run: exiting now.
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+WRANGLER_EXIT=0
+STATUS_CURL=0
+CRYPTO_CURL=0
+FUTURE_CURL=0
+FOREX_CURL=0
+METAL_CURL=0
+HUB_CURL=0
+ORDERS_CURL=0
+MENU_CURL=0
+VERSION=V77.16.0
+STATUS_OK=YES
+MASSIVE=YES
+CRYPTO=60/61 deep=3/3 attempts=5 M=0 L=0 MP=0 LP=2 W=1
+CRYPTO_RESULTS=KAITOUSDT:LIMIT_PLAN:M15_LOCATION_REQUIRED:RR=1.31:style=STRUCTURAL_FALLBACK_LIMIT:riskOK=-|SUIUSDT:LIMIT_PLAN:M5_MSS_DISPLACEMENT_RETEST_REQUIRED:RR=0.81:style=STRUCTURAL_PULLBACK_ZONE:riskOK=-|FILUSDT:WATCH:M5_MSS_DISPLACEMENT_RETEST_REQUIRED:RR=-:style=-:riskOK=-
+FUTURE=4/4 deep=2/2 attempts=- M=0 L=0 MP=0 LP=0 W=2
+FUTURE_RESULTS=MES:WATCH:M15_LOCATION_REQUIRED:RR=-:style=-:riskOK=-|MNQ:WATCH:M15_LOCATION_REQUIRED:RR=-:style=-:riskOK=-
+FOREX=28/28 deep=3/3 attempts=3 M=0 L=0 MP=0 LP=1 W=2
+FOREX_RESULTS=GBPCHF:LIMIT_PLAN:HTF_METHOD_ALIGNMENT_REQUIRED:RR=1.52:style=STRUCTURE_RETEST_LIMIT:riskOK=-|EURAUD:WATCH:M15_LOCATION_REQUIRED:RR=-:style=-:riskOK=-|USDCAD:WATCH:M15_LOCATION_REQUIRED:RR=-:style=-:riskOK=-
+METAL=2/2 deep=2/2 attempts=2 M=0 L=0 MP=0 LP=2 W=0
+METAL_RESULTS=XAGUSD:LIMIT_PLAN:HTF_METHOD_ALIGNMENT_REQUIRED:RR=3.24:style=STRUCTURE_RETEST_LIMIT:riskOK=-|XAUUSD:LIMIT_PLAN:M15_LOCATION_REQUIRED:RR=2.92:style=STRUCTURE_RETEST_LIMIT:riskOK=-
+ACTIONABLE=5 EXEC=0 WATCH=5
+BAD_RR=SUIUSDT:0.81
+BAD_FUTURE=
+FUTURE_MICRO_ONLY=YES
+HUB_TOP=OPUSDT:LIMIT_PLAN:3.21|JTOUSDT:LIMIT_PLAN:2.18|SUIUSDT:LIMIT_PLAN:0.81|MES:WATCH:-|MNQ:WATCH:-
+DURABLE_WATCH_ZERO=YES
+TELEGRAM_MENU_OK=YES
+LIVE_VERDICT=FAIL
+FINAL_VERDICT=FAIL
