@@ -30,15 +30,25 @@ jobs:
           const v73 = JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
           const must = [
             'V77.7.0',
+            'tdBatchCandles',
+            'prepareDeepCandles',
+            'NEWS_CONTEXT_REQUIRED',
+            'newsClearanceTtlSec: 1800',
             'EXECUTION_QUOTE_REQUIRED',
             'M15_LOCATION_REQUIRED',
             'M5_MSS_DISPLACEMENT_RETEST_REQUIRED',
             'rr2RoomRequired: 2.2',
             'maxExecutionCostR: 0.10',
-            'v775:books'
+            'v775:books',
+            'Bybit Spot',
+            'OKX Spot',
+            'Binance Spot'
           ];
           for (const token of must) if (!src.includes(token)) throw new Error(`missing canonical token: ${token}`);
+          if (src.includes('Score 10.0') || src.includes('Score 8.0')) throw new Error('legacy score UI leaked into canonical runtime');
           if (v73.version !== 'NO_CUT_INTRADAY_ALLPASS_V73') throw new Error('V73 version changed');
           if (v73.forex?.universeCount !== 28 || v73.crypto?.universeCount !== 61) throw new Error('V73 universe changed');
+          const forex = (src.match(/"[A-Z]{6}"/g) || []).length;
+          if (!src.includes('const FOREX') || !src.includes('const CRYPTO_BASE') || !src.includes('const METALS')) throw new Error('canonical universes missing');
           console.log('V77.7 canonical validation PASS');
           NODE
