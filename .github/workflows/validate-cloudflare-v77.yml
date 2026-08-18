@@ -42,25 +42,29 @@ jobs:
           const multi=fs.readFileSync('cloudflare-worker/hyro-multi-account.js','utf8');
           const multiUi=fs.readFileSync('cloudflare-worker/hyro-multi-ui.js','utf8');
           const manager=fs.readFileSync('cloudflare-worker/hyro-position-manager.js','utf8');
+          const review=fs.readFileSync('cloudflare-worker/hyro-position-review.js','utf8');
+          const release=fs.readFileSync('cloudflare-worker/release-notifier.js','utf8');
           const health=fs.readFileSync('cloudflare-worker/system-health.js','utf8');
           const wrangler=fs.readFileSync('cloudflare-worker/prepare-wrangler.mjs','utf8');
           const v73=JSON.parse(fs.readFileSync('data/nocut_intraday_allpass_v73.json','utf8'));
           const signalLocks=['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.9','v771816:signal:auto_notify:','autoScanSignalGroup'];
           for(const x of signalLocks)if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
-          for(const x of ['V77.18.17','handleHyroMultiTelegram','runHyroMultiCron','runSystemHealthAudit','/health/run'])if(!index.includes(x))throw new Error('Health canonical index lock missing: '+x);
+          for(const x of ['V77.18.18','Adaptive Position Review','handleHyroMultiTelegram','runHyroMultiCron','runSystemHealthAudit','announceReleaseOnce','/release'])if(!index.includes(x))throw new Error('V77.18.18 index lock missing: '+x);
           for(const x of ['PER_SYMBOL_STRATEGY_REGISTRY','NEAR_MARKET_PLAN','fundingRate'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
           for(const x of ['enrichHyroPlans','evaluateHyroPortfolio','recordHyroEntry','excludedSignatures','microScore(x)>=.54'])if(!runtime.includes(x))throw new Error('Runtime balanced portfolio/mirror lock missing: '+x);
           for(const x of ['/v5/market/open-interest','/v5/market/account-ratio','/v5/market/orderbook'])if(!micro.includes(x))throw new Error('Micro context missing: '+x);
           for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio guard missing: '+x);
           for(const x of ['B_PREFIX="v771815:hyro:B:"','HYRO_B_BYBIT_API_KEY','HYRO_B_AUTO_EXECUTION','antiMirrorBlocked','excludedSignatures'])if(!multi.includes(x))throw new Error('Multi-account isolation missing: '+x);
-          for(const x of ['PROP • HyroTrader x2','TK1','TK2','runHyroAccountCycle'])if(!multiUi.includes(x))throw new Error('Multi-account UI missing: '+x);
+          for(const x of ['PROP • HyroTrader x2','🧭 Đánh giá','reviewHyroPositions','TK1','TK2'])if(!multiUi.includes(x))throw new Error('Multi-account review UI missing: '+x);
+          for(const x of ['v771818:hyro:review:','INTERVAL_MS=5*60*1000','minimumCutHoldMinutes:8','reduceOnly:true','HYRO_POSITION_REEVAL_AUTO_CUT','strategy:prof.family'])if(!review.includes(x))throw new Error('Position review lock missing: '+x);
+          for(const x of ['v771818:release:last_announced','🆕 CẬP NHẬT BOT','Phiên bản:','Tên:'])if(!release.includes(x))throw new Error('Release notifier lock missing: '+x);
           if(!exec.includes('hyroDynamicRiskView')||!exec.includes('activeSymbols.size>=3'))throw new Error('Dynamic risk / 3-slot execution lock missing');
           if(!manager.includes('v771811:hyro:manage:'))throw new Error('Position manager state lock missing');
           for(const x of ['v771817:health:last','v775:books','v7712:scan:','hyroHubSnapshot','TELEGRAM_API_FAIL','shouldRunFullHealth'])if(!health.includes(x))throw new Error('Health guardian lock missing: '+x);
           if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV/vars deployment lock missing');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73')throw new Error('V73 version changed');
           if(v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 universe changed');
-          console.log('Canonical modular V77.18.17 health-guardian validation PASS');
+          console.log('Canonical V77.18.18 release + adaptive position review validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
