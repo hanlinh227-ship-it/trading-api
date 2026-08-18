@@ -3,6 +3,8 @@ import {getHyroControl,getHyroProfile,getHyroTelemetry,executeHyroPlan,cancelHyr
 import {manageHyroPositions} from "./hyro-position-manager.js";
 import {enrichHyroPlans} from "./hyro-market-context.js";
 import {evaluateHyroPortfolio,rankHyroCandidates,recordHyroEntry} from "./hyro-portfolio-guard.js";
+import {loadAdaptiveTuning} from "./adaptive-tuning.js";
+import {ensureDualAiIntervention} from "./dual-ai-intervention.js";
 
 const RUNTIME_KEY="v7718:hyro:runtime";
 async function put(env,v){if(env.TRADING_STATE)await env.TRADING_STATE.put(RUNTIME_KEY,JSON.stringify(v));}
@@ -20,25 +22,28 @@ export async function runHyroAutoCycle(env,opts={}){
     const telemetryView=telemetry?.connected?{equity:telemetry.equity,walletBalance:telemetry.walletBalance,available:telemetry.available,positions:telemetry.positions.length,openOrders:telemetry.openOrders.length}:null;
     if(!telemetry.connected)return done(env,base,{reason:telemetry.reason||"ACCOUNT_NOT_CONNECTED",telemetry:telemetryView,diagnostics:telemetry.diagnostics||null});
     if(!(Number(telemetry.equity)>0))return done(env,base,{reason:"ACCOUNT_EQUITY_ZERO_OR_UNAVAILABLE",telemetry:telemetryView,failClosed:true});
-    const dynamicRisk=hyroDynamicRiskView(profile,telemetry),management=await manageHyroPositions(env,telemetry).catch(e=>({ok:false,reason:String(e?.message||e),managed:[]}));
-    if(control.manualPaused){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"MANUAL_PAUSED",telemetry:telemetryView,dynamicRisk,management});}
-    if(!cfg.autoExecutionRequested)return done(env,base,{reason:"AUTO_EXECUTION_DISABLED",telemetry:telemetryView,dynamicRisk,management});
-    if((telemetry.day?.pnlFromDayStart||0)>=dynamicRisk.targetUsd){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"DAILY_PROFIT_TARGET_REACHED",targetUsd:dynamicRisk.targetUsd,telemetry:telemetryView,dynamicRisk,management});}
-    if((telemetry.day?.drawdownFromPeak||0)>=dynamicRisk.dailyHardStopUsd){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"DAILY_HARD_STOP",hardStopUsd:dynamicRisk.dailyHardStopUsd,telemetry:telemetryView,dynamicRisk,management});}
+    const intervention=await ensureDualAiIntervention(env,{version:"V77.18.23"}).catch(e=>({completed:false,error:String(e?.message||e)}));
+    const adaptive=await loadAdaptiveTuning(env),dynamicRisk=hyroDynamicRiskView(profile,telemetry),management=await manageHyroPositions(env,telemetry).catch(e=>({ok:false,reason:String(e?.message||e),managed:[]}));
+    if(control.manualPaused){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"MANUAL_PAUSED",telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});}
+    if(!cfg.autoExecutionRequested)return done(env,base,{reason:"AUTO_EXECUTION_DISABLED",telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});
+    if((telemetry.day?.pnlFromDayStart||0)>=dynamicRisk.targetUsd){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"DAILY_PROFIT_TARGET_REACHED",targetUsd:dynamicRisk.targetUsd,telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});}
+    if((telemetry.day?.drawdownFromPeak||0)>=dynamicRisk.dailyHardStopUsd){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"DAILY_HARD_STOP",hardStopUsd:dynamicRisk.dailyHardStopUsd,telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});}
     const active=new Set([...(telemetry.positions||[]).map(x=>x.symbol),...(telemetry.openOrders||[]).map(x=>x.symbol)]);
-    if(active.size>=3)return done(env,base,{reason:"MAX_ACTIVE_SLOTS_REACHED",telemetry:telemetryView,dynamicRisk,management});
-    const rawScan=await hyroDynamicScan({maxBroad:100,maxDeep:12,minTurnover:8000000}),enriched=await enrichHyroPlans(rawScan.results||[],{limit:6}),scan={...rawScan,results:enriched,tiers:enriched.reduce((a,x)=>(a[x.tier||"C"]=(a[x.tier||"C"]||0)+1,a),{})};
-    const allEligible=(scan.results||[]).filter(x=>{if(active.has(x.symbol)||excluded.has(sig(x)))return false;if(marketOnly)return ["MARKET_PLAN","NEAR_MARKET_PLAN"].includes(x.status);if(["MARKET_PLAN","LIMIT_PLAN"].includes(x.status))return true;return x.status==="NEAR_MARKET_PLAN"&&microScore(x)>=.54;});
+    if(active.size>=3)return done(env,base,{reason:"MAX_ACTIVE_SLOTS_REACHED",telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});
+    const rawScan=await hyroDynamicScan({maxBroad:100,maxDeep:Number(adaptive?.hyro?.maxDeep||14),minTurnover:Number(adaptive?.hyro?.minTurnover||6000000)}),enriched=await enrichHyroPlans(rawScan.results||[],{limit:6}),scan={...rawScan,results:enriched,tiers:enriched.reduce((a,x)=>(a[x.tier||"C"]=(a[x.tier||"C"]||0)+1,a),{})};
+    const bMicroMin=Number(adaptive?.hyro?.bMicroMin||.52);
+    const allEligible=(scan.results||[]).filter(x=>{if(active.has(x.symbol)||excluded.has(sig(x)))return false;if(marketOnly)return ["MARKET_PLAN","NEAR_MARKET_PLAN"].includes(x.status);if(["MARKET_PLAN","LIMIT_PLAN"].includes(x.status))return true;return x.status==="NEAR_MARKET_PLAN"&&microScore(x)>=bMicroMin;});
     const ranked=rankHyroCandidates(allEligible,telemetry),candidates=[];let portfolioBlocked=0,lastPortfolio=null;
     for(const x of ranked){const pg=await evaluateHyroPortfolio(env,x,telemetry);if(pg.ok)candidates.push(x);else{portfolioBlocked++;lastPortfolio=pg;}}
     const preview=(scan.results||[]).slice(0,3).map(x=>({symbol:x.symbol,status:x.status,tier:x.tier,side:x.side,rr:Number(x.rr||0),strategy:x.strategy,profile:x.profile,entry:x.entry,sl:x.sl,tp1:x.tp1,tp2:x.tp2,tp3:x.tp3??x.tp,riskMultiplier:x.riskMultiplier,microScore:microScore(x),openInterest:x.context?.microstructure?.openInterest||null,longShort:x.context?.microstructure?.longShort||null,orderbook:x.context?.microstructure?.orderbook||null,funding:x.context?.funding||null,reason:x.reason,antiMirrorBlocked:excluded.has(sig(x))}));
-    if(!candidates.length)return done(env,base,{reason:portfolioBlocked?"PORTFOLIO_GUARD_BLOCKED":marketOnly?"NO_ABC_MARKET_ENTRY":"NO_ELIGIBLE_CANDIDATE",candidateCount:0,portfolioBlocked,lastPortfolio,antiMirrorBlocked:excluded.size,scanSummary:{broadCount:scan.broadCount,deepCount:scan.deepCount,profile:scan.profile,tiers:scan.tiers,microstructure:true,portfolio:true},preview,telemetry:telemetryView,dynamicRisk,management});
+    const common={adaptive,dualAi:{completed:!!intervention?.completed,verdict:intervention?.verdict||null,costUsd:intervention?.estimatedCostUsd??null}};
+    if(!candidates.length)return done(env,base,{reason:portfolioBlocked?"PORTFOLIO_GUARD_BLOCKED":marketOnly?"NO_ABC_MARKET_ENTRY":"NO_ELIGIBLE_CANDIDATE",candidateCount:0,portfolioBlocked,lastPortfolio,antiMirrorBlocked:excluded.size,scanSummary:{broadCount:scan.broadCount,deepCount:scan.deepCount,profile:scan.profile,tiers:scan.tiers,microstructure:true,portfolio:true,bMicroMin},preview,telemetry:telemetryView,dynamicRisk,management,...common});
     let execution=null,lastGate=null,lastError=null,selected=null;
     for(const plan of candidates){
       try{const r=await executeHyroPlan(env,{...plan,setupId:`hyro-${marketOnly?"quick":"auto"}:${plan.tier||"X"}:${plan.symbol}:${plan.side}:${Math.round((plan.entry||0)*1e8)}`});if(r?.gate)lastGate=r.gate;if(r?.executed){execution=r;selected=plan;await recordHyroEntry(env,plan).catch(()=>{});break;}}catch(e){lastError=String(e?.message||e);}
     }
-    if(execution?.executed)return done(env,base,{reason:"ORDER_SUBMITTED",executed:true,execution:execution.order,candidateCount:candidates.length,selectedTier:selected?.tier||null,selectedMicroScore:microScore(selected),portfolioBlocked,antiMirrorBlocked:excluded.size,scanSummary:{broadCount:scan.broadCount,deepCount:scan.deepCount,profile:scan.profile,tiers:scan.tiers,microstructure:true,portfolio:true},preview,telemetry:telemetryView,dynamicRisk,management});
-    return done(env,base,{reason:lastError?"EXECUTION_REJECTED":"CANDIDATES_BLOCKED",lastError,lastGate,candidateCount:candidates.length,portfolioBlocked,antiMirrorBlocked:excluded.size,scanSummary:{broadCount:scan.broadCount,deepCount:scan.deepCount,profile:scan.profile,tiers:scan.tiers,microstructure:true,portfolio:true},preview,telemetry:telemetryView,dynamicRisk,management});
+    if(execution?.executed)return done(env,base,{reason:"ORDER_SUBMITTED",executed:true,execution:execution.order,candidateCount:candidates.length,selectedTier:selected?.tier||null,selectedMicroScore:microScore(selected),portfolioBlocked,antiMirrorBlocked:excluded.size,scanSummary:{broadCount:scan.broadCount,deepCount:scan.deepCount,profile:scan.profile,tiers:scan.tiers,microstructure:true,portfolio:true,bMicroMin},preview,telemetry:telemetryView,dynamicRisk,management,...common});
+    return done(env,base,{reason:lastError?"EXECUTION_REJECTED":"CANDIDATES_BLOCKED",lastError,lastGate,candidateCount:candidates.length,portfolioBlocked,antiMirrorBlocked:excluded.size,scanSummary:{broadCount:scan.broadCount,deepCount:scan.deepCount,profile:scan.profile,tiers:scan.tiers,microstructure:true,portfolio:true,bMicroMin},preview,telemetry:telemetryView,dynamicRisk,management,...common});
   }catch(e){return done(env,base,{ok:false,reason:"CYCLE_ERROR",error:String(e?.message||e),failClosed:true});}
 }
 
