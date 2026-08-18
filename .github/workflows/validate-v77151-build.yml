@@ -1,0 +1,44 @@
+name: Validate V77.15.1 Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/validate-v77151-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate Worker and Wrangler bundle
+        shell: bash
+        run: |
+          set +e
+          : > V77151_BUILD.txt
+          node --check cloudflare-worker/index.js >> V77151_BUILD.txt 2>&1; echo "SYNTAX_EXIT=$?" >> V77151_BUILD.txt
+          cd cloudflare-worker
+          npm install >> ../V77151_BUILD.txt 2>&1; echo "NPM_EXIT=$?" >> ../V77151_BUILD.txt
+          npm run prepare:wrangler >> ../V77151_BUILD.txt 2>&1; echo "PREPARE_EXIT=$?" >> ../V77151_BUILD.txt
+          npx wrangler deploy --dry-run >> ../V77151_BUILD.txt 2>&1; echo "WRANGLER_EXIT=$?" >> ../V77151_BUILD.txt
+          cd ..
+          grep -q 'version: "V77.15.1"' cloudflare-worker/index.js && echo 'VERSION=YES' >> V77151_BUILD.txt || echo 'VERSION=NO' >> V77151_BUILD.txt
+          grep -q 'function planSignal' cloudflare-worker/index.js && echo 'PLAN_SIGNAL=YES' >> V77151_BUILD.txt || echo 'PLAN_SIGNAL=NO' >> V77151_BUILD.txt
+          grep -q 'function refinedLimitPlan' cloudflare-worker/index.js && echo 'REFINED_LIMIT=YES' >> V77151_BUILD.txt || echo 'REFINED_LIMIT=NO' >> V77151_BUILD.txt
+          grep -q 'runFutureGroup' cloudflare-worker/index.js && echo 'FUTURES=YES' >> V77151_BUILD.txt || echo 'FUTURES=NO' >> V77151_BUILD.txt
+          grep -q 'symbolPageKeyboard' cloudflare-worker/index.js && echo 'SYMBOL_MENU=YES' >> V77151_BUILD.txt || echo 'SYMBOL_MENU=NO' >> V77151_BUILD.txt
+      - name: Commit report
+        shell: bash
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77151_BUILD.txt
+          git commit -m 'Report V77.15.1 build validation' || exit 0
+          git push origin main
