@@ -1,4 +1,5 @@
 name: Apply V77.15.2 Plan Metrics
+# retriggered after V77.15.1 canonical consolidation
 on:
   push:
     branches: [main]
