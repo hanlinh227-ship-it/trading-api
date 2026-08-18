@@ -1,0 +1,88 @@
+name: Fix V77.18.22 Silent Balanced Once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-v771822-silent-balanced-once.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Patch and verify
+        shell: bash
+        run: |
+          set -e
+          python - <<'PY'
+          from pathlib import Path
+
+          # Signal: only soft discovery gates. Keep hard safety gates and TD breadth unchanged.
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
+          pairs=[
+            ('version: "V77.16.9"','version: "V77.16.10"'),
+            ('service: "Trading V77.16.9 Balanced Entry Signal Engine"','service: "Trading V77.16.10 Balanced Discovery Signal Engine"'),
+            ('if(mode==="TREND"&&intel.methodFit>=50&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};','if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};'),
+            ('if(mode==="RELATIVE"&&intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};','if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};'),
+            ('if(mode==="TREND"&&intel.methodFit>=52&&impulse','if(mode==="TREND"&&intel.methodFit>=50&&impulse'),
+            ('if(mode==="RELATIVE"&&intel.methodFit>=52&&Number(context.score||0)>=6&&impulse','if(mode==="RELATIVE"&&intel.methodFit>=50&&Number(context.score||0)>=6&&impulse'),
+            ('if(side==="NEUTRAL"||Number(intel?.methodFit||0)<55)return null;','if(side==="NEUTRAL"||Number(intel?.methodFit||0)<52)return null;'),
+            ('if(Number(intel?.methodFit||0)<44)return null;','if(Number(intel?.methodFit||0)<42)return null;'),
+            ('if(type==="future")x=Math.max(x,1.50);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.20:1.32);','if(type==="future")x=Math.max(x,1.45);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:1.28);'),
+            ('else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.12:1.22);','else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:1.20);'),
+            ('return {pass:chase<=.65&&notExtreme','return {pass:chase<=.70&&notExtreme')
+          ]
+          for old,new in pairs:
+              if old in s:
+                  s=s.replace(old,new,1)
+              elif new not in s:
+                  raise SystemExit('Missing expected signal pattern: '+old[:120])
+          if 'deepNonCryptoCandidates: 6' not in s:
+              raise SystemExit('TD breadth unexpectedly changed')
+          for hard in ['NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','FINAL_QUOTE_STALE','STRUCTURAL_SL_REQUIRED','FUTURE_RISK_LIMIT_REQUIRED']:
+              if hard not in s: raise SystemExit('Hard gate missing: '+hard)
+          p.write_text(s)
+
+          # Claude: 30m/daily autonomous reviews are silent. Results remain in KV/HUB.
+          p=Path('cloudflare-worker/claude-reviewer.js')
+          s=p.read_text()
+          old='const r=await runClaudeReview(env,{version,kind:"OVERNIGHT_30M_SYSTEM_REVIEW",force:true,notify:true,health:h});'
+          new='const r=await runClaudeReview(env,{version,kind:"OVERNIGHT_30M_SYSTEM_REVIEW",force:true,notify:false,health:h});'
+          if old in s:s=s.replace(old,new,1)
+          elif new not in s:raise SystemExit('overnight review call missing')
+          old='const r=await runClaudeReview(env,{version,kind:"DAILY_SYSTEM_TUNING_REVIEW",force:false,notify:true,health:h});'
+          new='const r=await runClaudeReview(env,{version,kind:"DAILY_SYSTEM_TUNING_REVIEW",force:false,notify:false,health:h});'
+          if old in s:s=s.replace(old,new,1)
+          elif new not in s:raise SystemExit('daily review call missing')
+          p.write_text(s)
+
+          # Canonical validator/checkpoint.
+          p=Path('.github/workflows/validate-cloudflare-v77.yml')
+          s=p.read_text().replace("'V77.16.9'","'V77.16.10'")
+          s=s.replace("console.log('Canonical V77.18.20 Claude reviewer validation PASS');","console.log('Canonical V77.18.22 validation PASS');")
+          p.write_text(s)
+
+          p=Path('docs/checkpoints/CURRENT_HANDOFF.md')
+          s=p.read_text().replace('Signal core remains `engine-v77168.js` / V77.16.9 until its large-file soft-gate patch is separately validated.','Signal core is `engine-v77168.js` / V77.16.10 Balanced Discovery.').replace('Signal V77.16.9 continues to auto-scan','Signal V77.16.10 continues to auto-scan')
+          if 'Auto Claude 30m/daily reviews are silent' not in s:
+              s += '\n\n## NOTIFICATION POLICY\nAuto Claude 30m/daily reviews are silent and stored in KV/HUB. Release remains once-per-version; new Health incident may notify once. No repeated routine review spam.\n'
+          p.write_text(s)
+          PY
+
+          for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f"; done
+          cd cloudflare-worker
+          npm install
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler
+          npx wrangler deploy --dry-run
+          cd ..
+
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/claude-reviewer.js .github/workflows/validate-cloudflare-v77.yml docs/checkpoints/CURRENT_HANDOFF.md
+          git commit -m 'V77.18.22 fix balanced discovery and silence routine AI review' || true
+          git push
