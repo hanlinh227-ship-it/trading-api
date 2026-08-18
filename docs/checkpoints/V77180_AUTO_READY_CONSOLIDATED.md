@@ -1,4 +1,4 @@
-# V77.18.0 — CONSOLIDATED AUTO-READY STATE
+# V77.18.2 — CONSOLIDATED AUTO-READY STATE
 
 ## Canonical architecture
 - `cloudflare-worker/index.js` is the only production entrypoint.
@@ -21,35 +21,48 @@
 - Risk firewall always has priority over profit objective.
 - Internal daily hard stop remains below 3% account size.
 - Structural native SL, adaptive structure/liquidity TP, minimum planned RR 1.5.
-- Max 2 concurrent Hyro positions, no duplicate active symbol.
+- Maximum 2 active Hyro symbols total across filled positions + pending orders.
+- No duplicate active symbol.
 - Manual Pause blocks new Hyro entries and cancels pending orders, but monitoring and existing-position protection continue.
+- Reaching daily +5% or daily hard stop cancels remaining pending orders and blocks new entries.
 
 ## Hyro auto source
 - Auto PROP trades use `hyro-scanner.js` only, independent from SIGNAL.
 - Dynamic Bybit USDT perpetual universe; broad liquidity filter then H1/M15/M5 deep scan.
-- Existing symbol-specific knowledge remains in Signal engine; dynamic Hyro scanner uses a stricter generic fallback for additional Bybit symbols.
+- Auto execution does not consume Telegram SIGNAL entries.
+- Existing symbol-specific knowledge remains preserved in Signal engine; Hyro dynamic scanner is a separate stricter fallback for the prop account.
 
 ## Telegram PROP contract
 Telegram PROP is an ACCOUNT DASHBOARD, not an auto-signal feed.
-It may show:
+It shows only account/runtime state such as:
 - configured account/phase/program/drawdown type
-- balance/equity/available
-- daily P/L in USD
+- wallet/equity/available
+- equity P/L today in USD
+- gross realized profit today
+- gross realized loss today
+- net realized P/L today
+- current floating P/L
 - intraday peak and drawdown from peak
-- open positions and each unrealized P/L
-- total floating P/L, open-risk estimate, pending count
+- live positions and each position unrealized P/L
+- pending count and open-risk estimate
 - connection/auto/pause status
-It MUST NOT announce, push, or mirror Hyro auto-entry orders to Telegram.
+It MUST NOT announce, push, mirror, or expose Hyro auto-entry candidates/orders to Telegram.
 
 ## Execution safety defaults
 - `HYRO_BYBIT_MODE` defaults to `DEMO`.
 - `HYRO_AUTO_EXECUTION` defaults OFF.
 - Required Cloudflare secrets: `HYRO_BYBIT_API_KEY`, `HYRO_BYBIT_API_SECRET`.
-- Auto order requires: complete profile + API telemetry connected + not paused + auto secret true + daily target not reached + risk firewall pass + plan RR >= 1.5.
+- Auto order requires: complete profile + API telemetry connected + not paused + auto secret true + daily target not reached + daily hard stop not reached + active-slot/risk firewall pass + plan RR >= 1.5.
 - Execution uses idempotency KV and native Bybit SL/TP.
 
-## Cleanup rule
-Old auto-promotion migration workflows and `scripts/apply_v*.js` are superseded by this canonical state and should not remain active on main. Audit/validation/research files may remain if they do not rewrite canonical production code.
+## Cleanup completed
+- Legacy `.github/workflows/apply-v*.yml` auto-promotion workflows were removed from `main`.
+- Legacy `scripts/apply_v*.js` migration scripts were removed from `main`.
+- Audit/validation/research assets were preserved where they do not rewrite canonical production code.
+- All KV namespaces/state, LIVE ORDERS state, market data, symbol knowledge and current engine modules were preserved.
 
-## Cloudflare deployment note
-GitHub canonical is prepared. Cloudflare runtime must deploy `cloudflare-worker/index.js` with the same KV binding `TRADING_STATE`; do not delete or recreate the namespace during deployment.
+## Cloudflare deployment contract
+- Deploy only `cloudflare-worker/index.js` as canonical entrypoint.
+- Preserve existing `TRADING_STATE` KV namespace ID; never recreate or clear the namespace during deploy.
+- `prepare-wrangler.mjs` already requires the existing `TRADING_KV_NAMESPACE_ID`, keeps vars, and points `main` to `index.js`.
+- Cloudflare account deployment itself is not modified by GitHub connector; source is ready for deployment once the existing Cloudflare project pulls/deploys current main.
