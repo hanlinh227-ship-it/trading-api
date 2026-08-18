@@ -1,15 +1,7 @@
 GENERATOR_EXIT=0
 Applied V77.12.0 fresh-scan persistent-order architecture
 MIGRATION_EXIT=0
-/home/runner/work/trading-api/trading-api/cloudflare-worker/index.js:464
-async function acquireLock(async function acquireLock(env){const k=CONFIG.keys.runLock;try{const old=await env.TRADING_STATE.get(k);if(old&&Date.now()-Number(old)<CONFIG.runLockTtlSec*1000)return false;await env.TRADING_STATE.put(k,String(Date.now()),{expirationTtl:CONFIG.runLockTtlSec});return true;}catch{return true;}}
-                                 ^^^^^^^^
-
-SyntaxError: Unexpected token 'function'
-    at checkSyntax (node:internal/main/check_syntax:74:5)
-
-Node.js v22.23.2
-WORKER_SYNTAX_EXIT=1
+WORKER_SYNTAX_EXIT=0
 V77.12.0=YES
 scanPrefix=YES
 orderHistory=YES
@@ -19,3 +11,4 @@ TOP SETUPS CỦA LẦN QUÉT NÀY=YES
 LIVE ORDERS — LƯU BỀN QUA UPDATE BOT=YES
 /latest-scan=YES
 appendOrderHistory=YES
+MARKER_DUPLICATION=NO

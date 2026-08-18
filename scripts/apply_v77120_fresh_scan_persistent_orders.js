@@ -31,7 +31,7 @@ const stateBlock=[
 'function freshWatchFromRun(run){return (run?.analyses||[]).filter(x=>x?.status==="WATCH").sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0)).slice(0,CONFIG.maxWatch);}',
 ''
 ].join('\n');
-replaceRange('function emptyGroup(){','async function acquireLock(',stateBlock+'async function acquireLock(','persistent order state');
+replaceRange('function emptyGroup(){','async function acquireLock(',stateBlock,'persistent order state');
 
 mustReplace('if(!GROUPS[group])throw new Error("invalid group");if(!(await acquireLock(env)))return {ok:false,status:"BUSY",group};','if(!GROUPS[group])throw new Error("invalid group");if(!(await acquireLock(env)))return {ok:false,status:"BUSY",group,version:CONFIG.version,scanId:group+"-busy-"+Date.now(),scannedAt:new Date().toISOString(),analyses:[]};','busy response');
 mustReplace('const started=Date.now();\n  try{','const started=Date.now(),scanId=group+"-"+started+"-"+Math.random().toString(36).slice(2,8),scannedAt=new Date(started).toISOString();\n  try{','scan identity');
@@ -43,7 +43,7 @@ const keyboardBlock=[
 'function hubKeyboard(h){const rows=baseKeyboard().inline_keyboard,p=[];for(const [g,r] of Object.entries(h?.runs||{}))for(const w of freshWatchFromRun(r))if(w.reason==="NEWS_CONTEXT_REQUIRED"&&p.length<3)p.push({text:"✅ Tin OK "+w.symbol,callback_data:"news:"+g+":"+w.symbol});if(p.length)rows.unshift(p);return {inline_keyboard:rows};}',
 ''
 ].join('\n');
-replaceRange('function groupKeyboard(','function groupTitle(',keyboardBlock+'function groupTitle(','fresh keyboards');
+replaceRange('function groupKeyboard(','function groupTitle(',keyboardBlock,'fresh keyboards');
 
 const uiBlock=[
 'function summary(group,books,run=null){',
@@ -66,7 +66,7 @@ const uiBlock=[
 'function booksSummary(books){const L=["📚 LIVE ORDERS — LƯU BỀN QUA UPDATE BOT"];for(const g of ["forex","crypto","metal"]){const b=books[g];L.push(groupTitle(g)+" • MARKET "+b.marketActive.length+" • LIMIT ACTIVE "+b.limitActive.length+" • LIMIT CHỜ "+b.limitPending.length);}L.push("WATCH/SETUP không nằm trong Books; mỗi lần bấm Hub sẽ quét mới.");return L.join("\\n");}',
 ''
 ].join('\n');
-replaceRange('function summary(group,books,run=null){','async function lifecycle(env){',uiBlock+'async function lifecycle(env){','fresh UI');
+replaceRange('function summary(group,books,run=null){','async function lifecycle(env){',uiBlock,'fresh UI');
 
 mustReplace('if(p.expiresAt&&Date.now()>p.expiresAt){changed=true;continue;}','if(p.expiresAt&&Date.now()>p.expiresAt){changed=true;await appendOrderHistory(env,{event:"LIMIT_EXPIRED",group:"crypto",position:p});continue;}','expiry history');
 mustReplace('p.status="ACTIVE";p.openedAt=Date.now();b.limitActive.push(p);changed=true;await sendText(env,`🔵 LIMIT ĐÃ KHỚP\\n${p.symbol} ${sideText(p.side)}\\nEntry: ${p.entry}`).catch(()=>{});','p.status="ACTIVE";p.openedAt=Date.now();b.limitActive.push(p);changed=true;await appendOrderHistory(env,{event:"LIMIT_FILLED",group:"crypto",position:p,price:px});await sendText(env,"🔵 LIMIT ĐÃ KHỚP\\n"+p.symbol+" "+sideText(p.side)+"\\nEntry: "+p.entry).catch(()=>{});','fill history');
