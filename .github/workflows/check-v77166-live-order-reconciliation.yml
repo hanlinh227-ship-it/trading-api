@@ -1,0 +1,64 @@
+name: Check V77.16.6 Live Order Reconciliation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/check-v77166-live-order-reconciliation.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Build
+        shell: bash
+        run: |
+          set +e
+          : > V77166_LIVE_ORDER_CHECK.txt
+          node --check cloudflare-worker/index.js >> V77166_LIVE_ORDER_CHECK.txt 2>&1; echo "SYNTAX_EXIT=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          cd cloudflare-worker
+          npm install >> ../V77166_LIVE_ORDER_CHECK.txt 2>&1; echo "NPM_EXIT=$?" >> ../V77166_LIVE_ORDER_CHECK.txt
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler >> ../V77166_LIVE_ORDER_CHECK.txt 2>&1; echo "PREPARE_EXIT=$?" >> ../V77166_LIVE_ORDER_CHECK.txt
+          npx wrangler deploy --dry-run >> ../V77166_LIVE_ORDER_CHECK.txt 2>&1; echo "WRANGLER_EXIT=$?" >> ../V77166_LIVE_ORDER_CHECK.txt
+          cd ..
+      - name: Wait deploy
+        run: sleep 45
+      - name: Snapshot before and exercise scanner
+        shell: bash
+        run: |
+          set +e
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          curl -fsS --max-time 15 "$BASE/status" -o /tmp/status.json; echo "STATUS_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          curl -fsS --max-time 15 "$BASE/orders" -o /tmp/before.json; echo "ORDERS_BEFORE_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          curl -fsS --max-time 100 "$BASE/run-now?group=crypto" -o /tmp/crypto.json; echo "CRYPTO_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          curl -fsS --max-time 15 "$BASE/orders" -o /tmp/aftercrypto.json; echo "ORDERS_AFTER_CRYPTO_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          curl -fsS --max-time 180 "$BASE/hub" -o /tmp/hub.json; echo "HUB_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          curl -fsS --max-time 15 "$BASE/orders" -o /tmp/afterhub.json; echo "ORDERS_AFTER_HUB_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+          curl -fsS --max-time 15 "$BASE/telegram/menu" -o /tmp/menu.json; echo "MENU_CURL=$?" >> V77166_LIVE_ORDER_CHECK.txt
+      - name: Audit
+        shell: bash
+        run: |
+          node <<'NODE' >> V77166_LIVE_ORDER_CHECK.txt
+          const fs=require('fs'),j=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
+          const s=j('/tmp/status.json'),b0=j('/tmp/before.json'),b1=j('/tmp/aftercrypto.json'),b2=j('/tmp/afterhub.json'),c=j('/tmp/crypto.json'),h=j('/tmp/hub.json'),m=j('/tmp/menu.json');
+          const ids=b=>Object.values(b||{}).flatMap(g=>g&&typeof g==='object'?[...(g.marketActive||[]),...(g.limitActive||[]),...(g.limitPending||[])]:[]).map(x=>x.id).filter(Boolean);
+          const cryptoState=b=>({market:(b.crypto?.marketActive||[]).length,active:(b.crypto?.limitActive||[]).length,pending:(b.crypto?.limitPending||[]).length,activeRows:(b.crypto?.limitActive||[]).map(x=>x.symbol+':'+x.id+':'+(x.discoveredBy||'-'))});
+          const i0=ids(b0),i1=ids(b1),i2=ids(b2),missingAfterCrypto=i0.filter(x=>!i1.includes(x)),missingAfterHub=i1.filter(x=>!i2.includes(x));
+          const liveInHub=Object.values(h.books||{}).flatMap(g=>g&&typeof g==='object'?[...(g.marketActive||[]),...(g.limitActive||[])]:[]).length;
+          console.log('VERSION='+s.version);console.log('BEFORE='+JSON.stringify(cryptoState(b0)));console.log('AFTER_CRYPTO='+JSON.stringify(cryptoState(b1)));console.log('AFTER_HUB='+JSON.stringify(cryptoState(b2)));console.log('CRYPTO_SCAN_TRIGGER='+c.scanTrigger);console.log('HUB_BOOKS_PRESENT='+(h.books?'YES':'NO'));console.log('HUB_LIVE_COUNT='+liveInHub);console.log('MISSING_AFTER_CRYPTO='+missingAfterCrypto.join('|'));console.log('MISSING_AFTER_HUB='+missingAfterHub.join('|'));console.log('MENU_OK='+(m.ok===true?'YES':'NO'));
+          const legacyLabels=[...Object.values(b2||{}).flatMap(g=>g&&typeof g==='object'?[...(g.marketActive||[]),...(g.limitActive||[]),...(g.limitPending||[])]:[])].every(x=>!!x.discoveredBy);
+          console.log('ALL_ORDERS_HAVE_SOURCE='+(legacyLabels?'YES':'NO'));
+          const pass=s.version==='V77.16.6'&&c.scanTrigger==='API_RUN_NOW'&&!!h.books&&m.ok===true&&legacyLabels&&missingAfterCrypto.length===0&&missingAfterHub.length===0;
+          console.log('VERDICT='+(pass?'PASS':'FAIL'));
+          NODE
+      - name: Commit report
+        shell: bash
+        run: |
+          if grep -q 'SYNTAX_EXIT=0' V77166_LIVE_ORDER_CHECK.txt && grep -q 'WRANGLER_EXIT=0' V77166_LIVE_ORDER_CHECK.txt && grep -q 'VERDICT=PASS' V77166_LIVE_ORDER_CHECK.txt; then echo 'FINAL_VERDICT=PASS' >> V77166_LIVE_ORDER_CHECK.txt; else echo 'FINAL_VERDICT=FAIL' >> V77166_LIVE_ORDER_CHECK.txt; fi
+          git config user.name trading-runtime-bot; git config user.email trading-runtime-bot@users.noreply.github.com
+          git add V77166_LIVE_ORDER_CHECK.txt; git commit -m 'Report V77.16.6 live order reconciliation' || exit 0; git push origin main
