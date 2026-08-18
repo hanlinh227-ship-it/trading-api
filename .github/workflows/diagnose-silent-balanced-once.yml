@@ -1,0 +1,75 @@
+name: Diagnose Silent Balanced Repair Once
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-silent-balanced-once.yml'
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Repair and report
+        shell: bash
+        run: |
+          set +e
+          R=docs/checkpoints/SILENT_BALANCED_REPAIR.txt
+          : > "$R"
+          python - <<'PY' >> "$R" 2>&1
+          from pathlib import Path
+          p=Path('cloudflare-worker/engine-v77168.js');s=p.read_text()
+          pairs=[
+            ('version: "V77.16.9"','version: "V77.16.10"'),
+            ('service: "Trading V77.16.9 Balanced Entry Signal Engine"','service: "Trading V77.16.10 Balanced Discovery Signal Engine"'),
+            ('if(mode==="TREND"&&intel.methodFit>=50&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};','if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};'),
+            ('if(mode==="RELATIVE"&&intel.methodFit>=49&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};','if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};'),
+            ('if(mode==="TREND"&&intel.methodFit>=52&&impulse','if(mode==="TREND"&&intel.methodFit>=50&&impulse'),
+            ('if(mode==="RELATIVE"&&intel.methodFit>=52&&Number(context.score||0)>=6&&impulse','if(mode==="RELATIVE"&&intel.methodFit>=50&&Number(context.score||0)>=6&&impulse'),
+            ('if(side==="NEUTRAL"||Number(intel?.methodFit||0)<55)return null;','if(side==="NEUTRAL"||Number(intel?.methodFit||0)<52)return null;'),
+            ('if(Number(intel?.methodFit||0)<44)return null;','if(Number(intel?.methodFit||0)<42)return null;'),
+            ('if(type==="future")x=Math.max(x,1.50);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.20:1.32);','if(type==="future")x=Math.max(x,1.45);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:1.28);'),
+            ('else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.12:1.22);','else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:1.20);'),
+            ('return {pass:chase<=.65&&notExtreme','return {pass:chase<=.70&&notExtreme')]
+          ok=True
+          for old,new in pairs:
+              if old in s:s=s.replace(old,new,1);print('PATCH',old[:36],'OK')
+              elif new in s:print('PATCH',new[:36],'ALREADY')
+              else:print('PATCH',old[:36],'MISSING');ok=False
+          p.write_text(s)
+          p=Path('cloudflare-worker/claude-reviewer.js');c=p.read_text()
+          for kind in ['OVERNIGHT_30M_SYSTEM_REVIEW','DAILY_SYSTEM_TUNING_REVIEW']:
+              old=f'kind:"{kind}",force:'+('true' if kind.startswith('OVERNIGHT') else 'false')+',notify:true'
+              new=f'kind:"{kind}",force:'+('true' if kind.startswith('OVERNIGHT') else 'false')+',notify:false'
+              if old in c:c=c.replace(old,new,1);print('SILENCE',kind,'OK')
+              elif new in c:print('SILENCE',kind,'ALREADY')
+              else:print('SILENCE',kind,'MISSING');ok=False
+          p.write_text(c)
+          print('PATTERN_OK',ok)
+          PY
+          node --check cloudflare-worker/engine-v77168.js >> "$R" 2>&1; E=$?; echo ENGINE_NODE=$E >> "$R"
+          node --check cloudflare-worker/claude-reviewer.js >> "$R" 2>&1; C=$?; echo CLAUDE_NODE=$C >> "$R"
+          cd cloudflare-worker
+          npm install >> ../$R 2>&1
+          TRADING_KV_NAMESPACE_ID=00000000000000000000000000000000 npm run prepare:wrangler >> ../$R 2>&1
+          npx wrangler deploy --dry-run >> ../$R 2>&1; W=$?; echo WRANGLER=$W >> ../$R
+          cd ..
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add "$R"
+          if [ "$E" = 0 ] && [ "$C" = 0 ] && [ "$W" = 0 ] && grep -q 'PATTERN_OK True' "$R"; then
+            git add cloudflare-worker/engine-v77168.js cloudflare-worker/claude-reviewer.js
+            echo FINAL=PASS >> "$R"
+            git add "$R"
+            git commit -m 'Repair balanced discovery and silence routine AI reviews' || true
+          else
+            echo FINAL=FAIL >> "$R"
+            git add "$R"
+            git commit -m 'Report silent balanced repair diagnostics' || true
+          fi
+          git push || true
+          exit 0
