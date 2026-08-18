@@ -62,3 +62,4 @@ jobs:
           if grep -q 'SYNTAX_EXIT=0' V77166_LIVE_ORDER_CHECK.txt && grep -q 'WRANGLER_EXIT=0' V77166_LIVE_ORDER_CHECK.txt && grep -q 'VERDICT=PASS' V77166_LIVE_ORDER_CHECK.txt; then echo 'FINAL_VERDICT=PASS' >> V77166_LIVE_ORDER_CHECK.txt; else echo 'FINAL_VERDICT=FAIL' >> V77166_LIVE_ORDER_CHECK.txt; fi
           git config user.name trading-runtime-bot; git config user.email trading-runtime-bot@users.noreply.github.com
           git add V77166_LIVE_ORDER_CHECK.txt; git commit -m 'Report V77.16.6 live order reconciliation' || exit 0; git push origin main
+# retrigger live reconciliation verification
