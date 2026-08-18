@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - name: Check Futures production
+      - name: Check Futures production after structural limit rescue
         shell: bash
         run: |
           set +e
@@ -23,7 +23,7 @@ jobs:
           const fs=require('fs'),j=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};const s=j('/tmp/s.json'),f=j('/tmp/f.json');const n=x=>(f.analyses||[]).filter(a=>a.status===x).length;
           console.log('VERSION='+(s.version||'-'));console.log('MASSIVE='+(s.massive===true?'YES':'NO'));console.log('FUTURE_STATUS='+(f.status||'-'));console.log('FUTURE='+(f.broadOk??'-')+'/'+(f.requested??'-')+' deep='+(f.deepOk??'-')+'/'+(f.deepRequested??'-'));
           console.log('ACTIONS=MARKET:'+n('MARKET')+',LIMIT:'+n('LIMIT')+',MARKET_PLAN:'+n('MARKET_PLAN')+',LIMIT_PLAN:'+n('LIMIT_PLAN')+',WATCH:'+n('WATCH'));
-          console.log('RESULTS='+(f.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':E='+(a.entry??a.planned?.entry??'-')+':SL='+(a.sl??a.planned?.sl??'-')+':TP='+(a.tp2??a.planned?.tp2??a.tp1??a.planned?.tp1??'-')+':RR='+(a.targetRR??a.planned?.targetRR??'-')).join('|'));
+          console.log('RESULTS='+(f.analyses||[]).map(a=>a.symbol+':'+a.status+':'+(a.reason||'-')+':E='+(a.entry??a.planned?.entry??'-')+':SL='+(a.sl??a.planned?.sl??'-')+':TP='+(a.tp2??a.planned?.tp2??a.tp1??a.planned?.tp1??'-')+':RR='+(a.targetRR??a.planned?.targetRR??'-')+':DIST='+(a.planned?.geometry?.distanceATR??'-')).join('|'));
           console.log('CONTRACTS='+JSON.stringify(f.diagnostics?.frontContracts||{}));console.log('ERRORS='+JSON.stringify(f.diagnostics?.errors||[]));
           console.log('VERDICT='+((/^V77\.15\./.test(s.version||''))&&s.massive===true&&f.ok===true&&(f.deepOk||0)>=1?'PASS':'FAIL'));
           NODE
