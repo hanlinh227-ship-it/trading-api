@@ -1,5 +1,6 @@
 name: Compact Signal Notifications Once
 
+# One-shot presentation-only migration. Delete after successful formatter commit.
 on:
   push:
     branches: [main]
