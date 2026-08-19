@@ -1,0 +1,34 @@
+name: V77.18.36 Market Isolation Forex R4
+on:
+  push:
+    branches: [v771836-market-isolation-forex-r4]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v771836-market-isolation-forex-r4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply market isolation and Forex R4
+        run: python3 scripts/patch_v771836_market_isolation_forex.py
+      - name: Validate source bundle
+        run: |
+          cd cloudflare-worker
+          node validate-worker.mjs
+          npm install --no-audit --no-fund
+          TRADING_KV_NAMESPACE_ID=0123456789abcdef0123456789abcdef node prepare-wrangler.mjs
+          npx wrangler deploy --dry-run --outdir /tmp/v771836-dist
+      - name: Commit production source
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/dual-ai-intervention.js cloudflare-worker/index.js
+          git commit -m "V77.18.36 market-isolated Signal and Forex R4" || exit 0
+          git pull --rebase origin v771836-market-isolation-forex-r4
+          git push origin HEAD:v771836-market-isolation-forex-r4
