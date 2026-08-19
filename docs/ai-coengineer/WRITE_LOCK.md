@@ -1,15 +1,14 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-19
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-012 shared ATR indicator extraction
-RESULT: IMPLEMENTED at source commit `c60cfe8532fdd10b9eca1f7bbefe5024b1d3da70`. Shared `atrFromHLC` now backs engine-v77168.js and hyro-scanner.js; EMA/RSI intentionally remain local because their implementations diverge. Await independent Claude verification before V78-013 source work.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-013 shared Anthropic transport primitive — providers/anthropic-client.js + claude-reviewer.js + dual-ai-intervention.js only
+ACQUIRED: 2026-08-19
+PURPOSE: Extract only the proven-equivalent Anthropic Messages API HTTP transport + text extraction. Preserve DECISION-004 separation of max_tokens policy, prompts, budget/cooldown governance, lease arbiter, and review-schema parsing.
 
 Protocol:
-- Acquire a new lock before the next source write.
+- Verify claude-reviewer.js blob SHA = a1b63e5cf662922e6adaff6075a2fa8299026254 before write.
+- Verify dual-ai-intervention.js blob SHA = bcd17b9cce78f58428488a74cd58e8201001231f before write.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
