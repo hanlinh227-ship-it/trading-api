@@ -2,25 +2,40 @@ import {getHyroProfile,getHyroTelemetry,getHyroControl,hyroDynamicRiskView} from
 import {getHyroRuntime} from "./hyro-runtime.js";
 
 const HEALTH_KEY="v771817:health:last";
-const ALERT_KEY="v771817:health:alert_state";
+const ALERT_KEY="v771844:health:alert_state";
 const LAST_FULL_KEY="v771817:health:last_full";
-const SCAN_MEMORY_KEY="v771824:health:scan_memory";
+const SCAN_MEMORY_KEY="v771844:health:scan_memory";
 const SCAN_PREFIX="v7712:scan:";
 const BOOKS_KEY="v775:books";
 const PROP_RUNTIME_KEY="v7718:hyro:runtime";
-const GROUPS=["crypto","forex","metal","future"];
-const WARNING_ALERT_COOLDOWN_MS=30*60*1000;
+const GROUPS=["crypto","forex","metal","index"];
+const ERROR_REMINDER_MS=30*60*1000;
+const WARNING_REMINDER_MS=60*60*1000;
 const now=()=>Date.now();
 const ageMin=ts=>{const t=typeof ts==="number"?ts:Date.parse(ts||"");return Number.isFinite(t)?Math.max(0,(now()-t)/60000):null;};
 async function getJson(kv,key,fallback=null){try{return await kv?.get(key,"json")??fallback;}catch{return fallback;}}
 async function putJson(kv,key,v,ttl){try{if(kv)await kv.put(key,JSON.stringify(v),ttl?{expirationTtl:ttl}:undefined);}catch{}}
 async function tg(env,text){if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return false;try{const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true})});const p=await r.json().catch(()=>null);return !!p?.ok;}catch{return false;}}
 function add(arr,level,code,msg,extra={}){arr.push({level,code,msg,...extra});}
-function scanLimit(group){return group==="crypto"?12:group==="future"?35:95;}
+function scanLimit(group){return group==="crypto"?12:group==="index"?35:95;}
 function compact(items){return items.map(x=>`${x.level==="ERROR"?"❌":x.level==="WARN"?"⚠️":"✅"} ${x.msg}`).join("\n");}
 function signature(items){return items.filter(x=>x.level!=="OK").map(x=>`${x.level}:${x.code}`).sort().join("|")||"HEALTHY";}
+function issueCodes(items,level){return items.filter(x=>x.level===level).map(x=>x.code).sort();}
 function runtimeIssue(issues,rt){const age=ageMin(rt?.finishedAt||rt?.startedAt);if(!rt){add(issues,"WARN","HYRO_RUNTIME_MISSING","PROP chưa có runtime state");return;}if(age!=null&&age>4)add(issues,"WARN","HYRO_RUNTIME_LATE",`PROP runtime ${age.toFixed(1)}m`);else add(issues,"OK","HYRO_RUNTIME_OK",`PROP runtime ${age==null?"—":age.toFixed(1)+"m"}`);}
 async function propEnv(env){const p=await getHyroProfile(env);return p?.phase==="CHALLENGE"?new Proxy(env,{get(t,k){if(k==="HYRO_BYBIT_MODE")return "DEMO";return t[k];}}):env;}
+
+function shouldAlertFull(prev,{sig,errors,warns}){
+  if(!prev)return errors.length>0||warns.length>0;
+  const elapsed=now()-Number(prev.at||0),prevErr=new Set(prev.errorCodes||[]),prevWarn=new Set(prev.warningCodes||[]);
+  const newError=errors.some(x=>!prevErr.has(x.code));
+  const newWarning=warns.some(x=>!prevWarn.has(x.code));
+  const recovered=sig==="HEALTHY"&&prev.signature&&prev.signature!=="HEALTHY";
+  if(recovered||newError)return true;
+  if(errors.length>0&&elapsed>=ERROR_REMINDER_MS)return true;
+  if(errors.length===0&&warns.length>0&&newWarning&&elapsed>=5*60*1000)return true;
+  if(errors.length===0&&warns.length>0&&elapsed>=WARNING_REMINDER_MS)return true;
+  return false;
+}
 
 export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,notify=true}={}){
   const startedAt=now(),issues=[],kv=env.TRADING_STATE,scanMemory=await getJson(kv,SCAN_MEMORY_KEY,{groups:{}});scanMemory.groups=scanMemory.groups||{};
@@ -31,11 +46,11 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
     else add(issues,"OK","BOOKS_OK","Signal LIVE ORDERS state OK");
     for(const g of GROUPS){
       const s=await getJson(kv,SCAN_PREFIX+g,null);if(s?.scannedAt)scanMemory.groups[g]=s.scannedAt;
-      const last=s?.scannedAt||scanMemory.groups[g]||null,age=ageMin(last);
-      if(age==null)add(issues,"WARN",`SCAN_${g.toUpperCase()}_MISSING`,`${g.toUpperCase()} chưa từng có scan snapshot`);
-      else if(age>scanLimit(g)*2)add(issues,"ERROR",`SCAN_${g.toUpperCase()}_STALE`,`${g.toUpperCase()} scan stale ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
-      else if(age>scanLimit(g))add(issues,"WARN",`SCAN_${g.toUpperCase()}_LATE`,`${g.toUpperCase()} scan chậm ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
-      else add(issues,"OK",`SCAN_${g.toUpperCase()}_OK`,`${g.toUpperCase()} scan ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
+      const last=s?.scannedAt||scanMemory.groups[g]||null,age=ageMin(last),name=g==="index"?"INDEX":""+g.toUpperCase();
+      if(age==null)add(issues,"WARN",`SCAN_${g.toUpperCase()}_MISSING`,`${name} chưa từng có scan snapshot`);
+      else if(age>scanLimit(g)*2)add(issues,"ERROR",`SCAN_${g.toUpperCase()}_STALE`,`${name} scan stale ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
+      else if(age>scanLimit(g))add(issues,"WARN",`SCAN_${g.toUpperCase()}_LATE`,`${name} scan chậm ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
+      else add(issues,"OK",`SCAN_${g.toUpperCase()}_OK`,`${name} scan ${age.toFixed(0)}m`,{ageMin:age,lastSeen:last});
     }
     await putJson(kv,SCAN_MEMORY_KEY,{groups:scanMemory.groups,updatedAt:now()},604800);
     runtimeIssue(issues,await getJson(kv,PROP_RUNTIME_KEY,null));
@@ -52,8 +67,10 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
       const pe=await propEnv(env),profile=await getHyroProfile(pe),control=await getHyroControl(pe),telemetry=await getHyroTelemetry(pe),runtime=await getHyroRuntime(pe),dynamicRisk=profile&&telemetry?.connected?hyroDynamicRiskView(profile,telemetry):null;
       account={configured:!!profile,profile,control,telemetry,runtime,dynamicRisk,autoRequested:String(pe.HYRO_AUTO_EXECUTION||"false").toLowerCase()==="true"};
       if(!profile)add(issues,"WARN","HYRO_UNCONFIGURED","PROP chưa cấu hình");
-      else if(!telemetry?.connected)add(issues,"ERROR","HYRO_OFF",`PROP telemetry OFF: ${telemetry?.reason||"unknown"}`);
-      else{
+      else if(!telemetry?.connected){
+        const bad=(telemetry?.diagnostics?.endpoints||[]).filter(x=>!x.ok),detail=bad.length?` • ${bad.map(x=>x.name).join(",")}`:"";
+        add(issues,"ERROR","HYRO_OFF",`PROP telemetry OFF: ${telemetry?.reason||"unknown"}${detail}`);
+      }else{
         const eq=Number(telemetry.equity||0),pos=telemetry.positions?.length||0;
         if(eq<=0)add(issues,"WARN","HYRO_EQUITY_ZERO",`PROP equity chưa khả dụng • Pos ${pos}`);
         else add(issues,"OK","HYRO_CONNECTED",`PROP connected • $${eq.toFixed(2)} • Pos ${pos}`);
@@ -67,8 +84,13 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
 
   const errors=issues.filter(x=>x.level==="ERROR"),warns=issues.filter(x=>x.level==="WARN"),sig=signature(issues),prev=await getJson(kv,ALERT_KEY,null),t=account?.telemetry||{},out={ok:errors.length===0,version,startedAt,finishedAt:now(),full,errors:errors.length,warnings:warns.length,signature:sig,issues,account:account?{configured:account.configured,connected:!!t.connected,equity:Number(t.equity||0),positions:t.positions?.length||0,orders:t.openOrders?.length||0,autoRequested:!!account.autoRequested,paused:!!account.control?.manualPaused,runtimeReason:account.runtime?.reason||null,runtimeAt:account.runtime?.finishedAt||null}:null};
   await putJson(kv,HEALTH_KEY,out);if(full)await putJson(kv,LAST_FULL_KEY,{at:now(),version});
-  const changed=sig!==prev?.signature,recovered=sig==="HEALTHY"&&prev?.signature&&prev.signature!=="HEALTHY",errorNow=errors.length>0,errorWas=Number(prev?.errors||0)>0,warningCooldownOk=!prev?.at||now()-Number(prev.at)>=WARNING_ALERT_COOLDOWN_MS,shouldNotify=notify&&changed&&(errorNow||errorWas||recovered||warningCooldownOk);
-  if(shouldNotify){const text=recovered?`✅ SYSTEM HEALTH • PHỤC HỒI\n${version}\nTất cả gate kiểm tra chính đã OK.`:[`🩺 SYSTEM HEALTH • ${errors.length?"CÓ LỖI":"CẢNH BÁO"}`,`${version} • Error ${errors.length} • Warn ${warns.length}`,compact([...errors,...warns].slice(0,8))].join("\n");await tg(env,text);await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);}else if(changed&&!prev){await putJson(kv,ALERT_KEY,{signature:sig,at:now(),errors:errors.length,warnings:warns.length},604800);}
+
+  if(full){
+    const alertState={signature:sig,at:now(),errors:errors.length,warnings:warns.length,errorCodes:issueCodes(issues,"ERROR"),warningCodes:issueCodes(issues,"WARN")};
+    const recovered=sig==="HEALTHY"&&prev?.signature&&prev.signature!=="HEALTHY",shouldNotify=notify&&shouldAlertFull(prev,{sig,errors,warns});
+    if(shouldNotify){const text=recovered?`✅ SYSTEM HEALTH • PHỤC HỒI\n${version}\nTất cả gate kiểm tra chính đã OK.`:[`🩺 SYSTEM HEALTH • ${errors.length?"CÓ LỖI":"CẢNH BÁO"}`,`${version} • Error ${errors.length} • Warn ${warns.length}`,compact([...errors,...warns].slice(0,6)),"ℹ️ Lỗi lặp lại được gom, không gửi mỗi phút."].join("\n");await tg(env,text);}
+    await putJson(kv,ALERT_KEY,alertState,604800);
+  }
   return out;
 }
 export async function shouldRunFullHealth(env,intervalMs=5*60*1000){const x=await getJson(env.TRADING_STATE,LAST_FULL_KEY,null);return !x?.at||now()-Number(x.at)>=intervalMs;}
