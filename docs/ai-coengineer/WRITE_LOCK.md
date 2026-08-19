@@ -1,13 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: 59048ba25f8708a0c2ac4f3b9876c8abc9680219
-PURPOSE: V78-006 Claude WARN corrections resolved; V78-007 provider capability inventory implemented and ready for Claude review. V78-004 remains blocked only on exact Claude patch text. No Wave 1+ source change started.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-007 only — docs/ai-coengineer/V78_PROVIDER_CAPABILITY_INVENTORY.md; documentation-only provider inventory correction; no production source change.
+STARTED: 2026-08-19T20:33:00+07:00
+BASE_SHA: 401bfa0f264e8a39ef1712dd2d3f4e9d1e67f6be
+PURPOSE: Add Claude-confirmed six missing provider/capability rows and resolve V78-007. V78-004 remains separately blocked unless exact four-file patch text is retrievable. No Wave 1 source change is authorized under this lock.
 
 Protocol:
-- Before production source write, acquire exact scope.
-- Implementation-forward mode: safe, scoped issues should be implemented immediately.
-- Release after commit and handoff.
+- Before modifying production source, set `LOCKED: true`, owner and exact scope.
+- The other AI may review but must not write files in scope.
+- Re-read HEAD before every source write.
+- For explicitly scoped IMPLEMENTABLE issues, implementation-forward mode applies.
+- Release lock after commit and hand off review.
