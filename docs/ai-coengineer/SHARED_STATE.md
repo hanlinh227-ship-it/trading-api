@@ -18,35 +18,28 @@ Current reviewed component state:
 - Health fixes present through V77.18.45
 - `cloudflare-worker/hyro-execution.js`: V77.18.46 telemetry degradation repair, commit `1d6db32155c06d464f4da94746df73e110b9b294`
 
-Review state:
-- AI-001 Hyro optional `closedPnl` isolation: CLAUDE PASS 2026-08-19T11:40:00Z
-- wallet/positions/orders remain critical fail-closed
-- closedPnl-only failure keeps telemetry connected with degraded diagnostics
-- realized-PnL freshness is explicit; no fabricated realized profit/loss
-
-Deployment evidence:
-- Cloudflare Deployments UI showed `V77.18.46 isolate Hyro closedPnl telemetry degradation` in deployed version history.
-- Subsequent AI communication/shared-state commits were also deployed from `main`.
-- User requested no additional ad-hoc testing at this time.
-
 Roles:
-- ChatGPT: PRIMARY_ENGINEER / source writer when lock owner
-- Claude: REVIEWER / SECOND_ENGINEER; source write only when explicitly assigned
+- ChatGPT: PRIMARY_ENGINEER / PRIMARY_INTEGRATOR / CO-ARCHITECT
+- Claude: CO-ARCHITECT / REVIEWER / SECOND_ENGINEER
 
-Current open issue:
-- AI-002: checkpoint/docs lag current component state. Documentation synchronization remains separate from production source behavior.
+AI-003 V78 status:
+- Phase 1 blueprint persisted: `V78_CLAUDE_PHASE1_BLUEPRINT.md`.
+- Phase 2 reported by user to contain target HUB menu, DecisionEvidence schema, and V78-001..V78-091 backlog.
+- Exact Phase 2 body is not yet available in GitHub/current attachment; placeholder created at `V78_CLAUDE_PHASE2_BACKLOG.md` and must not be treated as the exact Claude backlog until Claude resends it.
+- Wave 0/Wave 1 provisional scoped planning is in `V78_IMPLEMENTATION_WAVE0_WAVE1.md`.
 
-Next owner: CHATGPT unless an explicit bus message reassigns ownership.
+Independent evidence verified:
+- `engine-v77168.js` Signal crypto path uses unsigned public GET market-data helpers; no `/v5/order/create` in that file.
+- Hyro is current real-capital execution authority; Binance20 remains NON_PRODUCTION.
+- V78-041 / DECISION-009: funding is not a substitute for news. Hyro executable new orders require a distinct hard-news/context gate under the active mandate; funding remains a separate carry/microstructure gate.
 
 Production/source status:
-- SOURCE REVIEW: PASS for V77.18.46 telemetry repair
-- CLOUDFLARE DEPLOYMENT: observed in Deployments UI
-- RUNTIME HEALTH CLAIM: do not elevate beyond available evidence; no extra testing requested
+- SOURCE REVIEW: PASS for V77.18.46 telemetry repair.
+- No V78 production behavior change has been authorized by current Wave 0/Wave 1 planning commits.
 
 Rules:
 - `main` source is authority over stale docs.
 - One writer at a time.
-- Read `WRITE_LOCK.md` before source writes.
 - Never reset `TRADING_STATE` or delete `v775:books`.
 - Never restore legacy Futures Signal or Hyro TK2.
 - Never commit secrets or bypass hard risk/freshness/structural-SL gates.
