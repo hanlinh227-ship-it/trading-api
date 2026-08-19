@@ -5,8 +5,10 @@ Branch: `main`
 
 Permanent coordination:
 - ChatGPT is the physical GitHub writer / primary implementer.
-- Claude is optimizer / co-architect / patch designer / independent verifier when available.
-- Claude API usage is currently PAUSED by explicit user instruction; do not make Anthropic network calls until the user explicitly re-enables them.
+- Claude.ai WEB remains a full co-engineer with full project authority to read, optimize, architect, audit, design exact patches, and modify source whenever its GitHub connection permits. It is NOT demoted to reviewer-only.
+- The production Anthropic/Claude API integration is PAUSED by explicit user instruction; do not make runtime Anthropic network calls until the user explicitly re-enables them.
+- This API pause applies ONLY to automated/runtime API usage. It does NOT restrict the user from using Claude.ai Web manually as a co-engineer.
+- If Claude.ai Web GitHub write access is still blocked by its integration-level 403, Claude should produce complete transfer-safe patches and ChatGPT will physically commit them. If that permission is later fixed, Claude.ai Web may write under the same WRITE_LOCK protocol.
 - One writer at a time via `/docs/ai-coengineer/WRITE_LOCK.md`.
 
 Current production component versions retained:
@@ -45,10 +47,11 @@ V78-013 — RESOLVED / IMPLEMENTED / VALIDATED
 - Final source migration: `fed3556b5a01504107f84da3fd43fad5f52db0e9`.
 - Validation: `docs/ai-coengineer/V78-013_VALIDATION.txt`.
 
-Claude API pause — ACTIVE
+Production Claude API pause — ACTIVE
 - Commit: `c61987415a3e53832a444466406df9ffe25951f9`.
-- `anthropicMessagesRequest()` now fail-closes before network fetch unless `CLAUDE_API_ENABLED=true`.
-- Default is disabled; no Claude API/token usage should occur while paused.
+- `anthropicMessagesRequest()` fail-closes before network fetch unless `CLAUDE_API_ENABLED=true`.
+- Default is disabled; no automated/runtime Claude API/token usage should occur while paused.
+- Claude.ai Web remains fully authorized by the user to continue co-engineering manually.
 
 V78-014 — RESOLVED / IMPLEMENTED / VALIDATED
 - Final migration: `0c3dc007433c3e9afae1990d07d23c149742500a`.
@@ -59,15 +62,15 @@ V78-014 — RESOLVED / IMPLEMENTED / VALIDATED
 
 V78-015 — IMPLEMENTED / VALIDATED
 - Source commit: `db2b48f5b96d36e411fbd2f93c0cc73e354fe213`.
-- Telegram Hub `••• Thêm` now exposes `📋 Evidence V78`.
-- Read-only Evidence screen shows Signal evidence count + LIVE/STALE/UNKNOWN distribution, recent gate blocks, latest Signal/Hyro evidence outcome, Hub/evidence revision, and current Claude API PAUSED/ENABLED state.
+- Telegram Hub `••• Thêm` exposes `📋 Evidence V78`.
+- Read-only Evidence screen shows Signal evidence count + LIVE/STALE/UNKNOWN distribution, recent gate blocks, latest Signal/Hyro evidence outcome, Hub/evidence revision, and current production Claude API PAUSED/ENABLED state.
 - No trading decision/KV write/threshold/execution change from the screen.
 - `verifyTelegram` remains untouched.
 - Validation: `docs/ai-coengineer/V78-015_VALIDATION.txt`.
 
 Claude resume handoff:
 - `docs/ai-coengineer/CLAUDE_RESUME_HANDOFF_2026-08-19.md`.
-- When Claude is available again, fresh-read GitHub and optimize the next ENTRY INTELLIGENCE FOUNDATION batch rather than returning to generic transport cleanup.
+- Claude.ai Web should fresh-read GitHub and continue optimizing the next ENTRY INTELLIGENCE FOUNDATION batch; production Claude API stays paused.
 
 Next engineering priority:
 - market-specific entry intelligence shadow layer for Forex / Crypto / Metals / Index Cash;
