@@ -28,6 +28,6 @@ jobs:
         run: |
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
-          git add cloudflare-worker/engine-v77168.js cloudflare-worker/dual-ai-intervention.js cloudflare-worker/index.js .github/workflows/validate-cloudflare-v77.yml
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/dual-ai-intervention.js cloudflare-worker/index.js
           git commit -m "V77.18.30 Forex Opportunity Routing R3" || exit 0
           git push origin HEAD:v771830-forex-opportunity-r3
