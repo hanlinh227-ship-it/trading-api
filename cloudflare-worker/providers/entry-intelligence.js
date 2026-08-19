@@ -51,6 +51,11 @@ function marketSpecific(a,market){
 
 function completeness(obj){const vals=Object.values(obj||{}),known=vals.filter(v=>v!=null&&v!=="UNKNOWN"&&v!=="MISSING").length;return {known,total:vals.length,ratio:vals.length?Number((known/vals.length).toFixed(3)):0};}
 function actionable(a){return ["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(String(a?.status||""))||["MARKET","LIMIT","INDICATIVE_LIMIT"].includes(String(a?.planned?.mode||""));}
+// Deliberately narrower than actionable(): checks ONLY the top-level status,
+// not a?.planned?.mode. This avoids a separate edge case where a WATCH
+// carries a *rejected* rescue plan whose mode could otherwise be misread
+// as actionable. Used exclusively to gate the reason-string hardblocks.
+function statusActionable(a){return ["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(String(a?.status||""));}
 
 function qualityView({q,p,coreComp,specificComp,hardBlocks,a}){
   let score=50;
@@ -70,9 +75,12 @@ export function buildEntryIntelligenceShadow(a,{runtimeVersion=null,scanId=null}
   const market=marketOf(a),q=quoteView(a),p=plannedView(a),regime=existingRegime(a),session=existingSession(a),location=existingLocation(a),trigger=existingTrigger(a),specific=marketSpecific(a,market),now=Date.now();
   const hardBlocks=[];
   if(a?.status==="DATA_BLOCK")hardBlocks.push(a?.reason||a?.error||"DATA_BLOCK");
-  if(a?.reason==="M15_LOCATION_REQUIRED")hardBlocks.push("M15_LOCATION_REQUIRED");
-  if(a?.reason==="M5_MSS_DISPLACEMENT_RETEST_REQUIRED")hardBlocks.push("M5_MSS_DISPLACEMENT_RETEST_REQUIRED");
-  if(a?.reason==="RR_QUALITY_REQUIRED")hardBlocks.push("RR_QUALITY_REQUIRED");
+  // V78-020 FIX: the three stage labels below can remain as the reason on
+  // successful rescue/indicative MARKET_PLAN or LIMIT_PLAN outcomes.
+  // Only block them when top-level status is not already actionable.
+  if(!statusActionable(a)&&a?.reason==="M15_LOCATION_REQUIRED")hardBlocks.push("M15_LOCATION_REQUIRED");
+  if(!statusActionable(a)&&a?.reason==="M5_MSS_DISPLACEMENT_RETEST_REQUIRED")hardBlocks.push("M5_MSS_DISPLACEMENT_RETEST_REQUIRED");
+  if(!statusActionable(a)&&a?.reason==="RR_QUALITY_REQUIRED")hardBlocks.push("RR_QUALITY_REQUIRED");
   if(q.freshness==="STALE")hardBlocks.push("QUOTE_STALE");
   if(q.freshness==="MISSING")hardBlocks.push("QUOTE_MISSING");
   if(actionable(a)&&p.entry==null)hardBlocks.push("ENTRY_MISSING");

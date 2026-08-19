@@ -100,3 +100,10 @@ V78-017 — IMPLEMENTED / VALIDATED
 - Shadow writes are isolated in try/catch after `runSymbol()` returns and do not mutate the returned decision object.
 - Hub visible UI revision is now `HUB-R11-ENTRY-INTEL-SHADOW` so deployment progress is visible.
 - Claude production API remains paused; Claude.ai Web remains a full co-engineer.
+
+V78-020 — CLAUDE OVER-BLOCK FIX + SAFE PROMOTION IMPLEMENTED
+- Corrected rescue-plan false hard-block: M15_LOCATION_REQUIRED, M5_MSS_DISPLACEMENT_RETEST_REQUIRED and RR_QUALITY_REQUIRED now block only when top-level status is not actionable.
+- Entry Intelligence now contributes a bounded secondary term to actionableRank.
+- Entry Intelligence promotion gate is applied only to non-crypto MARKET_SIGNAL admission. Crypto MARKET/LIMIT admission remains unchanged.
+- Primary single-symbol output now shows Entry Intelligence quality/admission evidence.
+- No Hyro execution/risk/freshness/SL/news/account behavior changed.

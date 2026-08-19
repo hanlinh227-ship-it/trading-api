@@ -1,0 +1,12 @@
+V78-020 CLAUDE FIX + SAFE PROMOTION
+provider node --check: PASS
+engine node --check: PASS
+statusActionable: 1 definition + 3 guarded stage-label checks
+actionableRank: additive bounded Entry Intelligence adjustment wired
+fillBooks: promotion gate applies ONLY to non-crypto MARKET_SIGNAL
+crypto MARKET/LIMIT admission: unchanged
+singleAnalysisText: additive quality/admission line only
+DATA_BLOCK / quote freshness / entry / SL / target protections retained
+Hyro execution authority: untouched
+TRADING_STATE / v775:books reset: not introduced
+Production Claude API: remains paused
