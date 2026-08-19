@@ -32,3 +32,4 @@ jobs:
           git commit -m "V77.18.37 price-first no-global actions" || exit 0
           git pull --rebase origin v771837-price-first-no-global
           git push origin HEAD:v771837-price-first-no-global
+# trigger
