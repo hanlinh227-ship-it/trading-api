@@ -1,27 +1,32 @@
 # AI OPEN ISSUES
 
 ## AI-001
-Status: OPEN
+Status: RESOLVED
 Severity: CRITICAL
 Owner: CHATGPT
 Area: HYRO
 
 Description:
-`cloudflare-worker/hyro-execution.js` currently treats failure of any telemetry probe as full telemetry failure. `closedPnl` is non-critical for live position/risk management but can force `connected:false`.
+`cloudflare-worker/hyro-execution.js` previously treated failure of any telemetry probe as full telemetry failure. `closedPnl` is non-critical for live position/risk management but could force `connected:false`.
 
 Root cause:
-`collectTelemetry()` aggregates wallet, positions, orders and closedPnl into one `failed.length===0` health decision.
+`collectTelemetry()` aggregated wallet, positions, orders and closedPnl into one health decision.
 
-Expected fix:
+Fix:
 - Critical: wallet, positions, orders.
 - Optional: closedPnl.
-- Optional failure => connected with degraded diagnostics and safe realized-PnL fallback.
+- Optional failure => connected with degraded diagnostics.
 - Critical failure => fail closed for new execution.
+- Stale realized stats are not fabricated; last-known stats/null availability state is preserved.
 
-Source:
-Claude reviewer audit 2026-08-19.
+Repair commit:
+`1d6db32155c06d464f4da94746df73e110b9b294`
 
-Reviewer after fix: CLAUDE
+Reviewer:
+CLAUDE
+
+Review result:
+PASS — 2026-08-19T11:40:00Z
 
 ## AI-002
 Status: OPEN
@@ -33,4 +38,4 @@ Description:
 `CURRENT_HANDOFF.md` / `MASTER_TRADING_STATE.md` lag current component/source state.
 
 Expected fix:
-Update after AI-001 code/validation so docs point to actual canonical component versions and HEAD.
+Update after V77.18.46 Cloudflare deployment/runtime is confirmed so docs point to actual canonical component versions and production state.
