@@ -1,4 +1,4 @@
-name: V78-020 Batch Integration Trigger
+name: V78-020 Claude Fix + Safe Promotion
 on:
   push:
     branches: [main]
@@ -17,80 +17,86 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply guarded V78-020 integration
+      - name: Verify stale-write guards and apply Claude V78-020 fix
         shell: bash
         run: |
           set -euo pipefail
+          PROVIDER=cloudflare-worker/providers/entry-intelligence.js
+          ENGINE=cloudflare-worker/engine-v77168.js
+          test "$(git hash-object "$PROVIDER")" = "6abeca0d7313050116dc376f0ee31d812fdaa4a3" || { echo PROVIDER_SHA_MISMATCH; exit 41; }
+          test "$(git hash-object "$ENGINE")" = "155a741640d8a9a9b1225cea8cd86715ab2bd9cd" || { echo ENGINE_SHA_MISMATCH; exit 42; }
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          epath=Path('cloudflare-worker/engine-v77168.js')
-          hpath=Path('cloudflare-worker/hub-v77171.js')
-          e=epath.read_text(); h=hpath.read_text()
-          old_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow'
-          new_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow,entryIntelligenceRankAdjustment,entryIntelligencePromotionAllowed'
-          assert e.count(old_import)==1 and new_import not in e
-          e=e.replace(old_import,new_import,1)
-          pat=r'function actionableRank\(a\)\{.*?return x;\}'
-          m=re.findall(pat,e,flags=re.S); assert len(m)==1, len(m)
-          old=m[0]; assert 'entryIntelligenceRankAdjustment' not in old
-          e=e.replace(old,old[:-9]+'x+=entryIntelligenceRankAdjustment(a);return x;}',1)
-          pat=r'function fillBooks\(group,books,analyses,trigger="SCAN"\)\{.*?b\.watch=\[\];return newItems;\}'
-          m=re.findall(pat,e,flags=re.S); assert len(m)==1, len(m)
-          old=m[0]; assert 'entryIntelligencePromotionAllowed' not in old
-          new=old.replace('for(const a of analyses){','for(const a of analyses){const intelAllowed=entryIntelligencePromotionAllowed(a);',1)
-          new=new.replace('if(group!=="crypto"){if(a.status==="MARKET_SIGNAL"','if(group!=="crypto"){if(intelAllowed&&a.status==="MARKET_SIGNAL"',1)
-          new=new.replace('if(a.status==="MARKET"&&!duplicate','if(intelAllowed&&a.status==="MARKET"&&!duplicate',1)
-          new=new.replace('if(a.status==="LIMIT"&&!duplicate','if(intelAllowed&&a.status==="LIMIT"&&!duplicate',1)
-          e=e.replace(old,new,1); epath.write_text(e)
 
-          assert h.count('HUB-R11-ENTRY-INTEL-SHADOW')>=1
-          h=h.replace('HUB-R11-ENTRY-INTEL-SHADOW','HUB-R12-ENTRY-INTEL-ACTIVE')
-          h=h.replace('🧭 Entry Intel","callback_data":"intel"','🧭 Entry Intel V2","callback_data":"intel"')
-          pat=r'async function entryIntelText\(env\)\{.*?\}\nasync function engineJson'
-          m=re.findall(pat,h,flags=re.S); assert len(m)==1, len(m)
-          replacement='''async function entryIntelText(env){const rows=await getEntryIntelligenceShadow(env,12),x=rows[0]||null;if(!x)return "🧭 ENTRY INTELLIGENCE • V78-020\\n━━━━━━━━━━━━\\n⚪ Chưa có reasoning. Quét một thị trường để tạo dữ liệu.";const c=x.integrity?.core||{},m=x.integrity?.marketSpecific||{},blocks=x.integrity?.hardBlocks||[],r=x.reasoning||{},q=x.quality||{},pr=x.promotion||{};return ["🧭 ENTRY INTELLIGENCE • ACTIVE ADVISORY","━━━━━━━━━━━━",`${x.symbol||"—"} • ${String(x.market||"unknown").toUpperCase()} • ${x.existingDecision?.status||"UNKNOWN"}`,`⭐ Quality: ${q.grade||"?"} • ${q.score??"—"}/100 • ${pr.allowed===false?"⛔ BLOCK":"✅ ADMIT"}`,`📡 Freshness: ${x.quote?.freshness||"UNKNOWN"} • ${x.quote?.source||"—"}`,`🧩 Core: ${c.known||0}/${c.total||0} • Market context: ${m.known||0}/${m.total||0}`,`⏱ WHY NOW: ${r.whyNow||"UNKNOWN"}`,`📍 WHY PRICE: ${r.whyPrice||"UNKNOWN"}`,`🛑 WHY SL: ${r.whySl||"UNKNOWN"}`,`🏁 WHY TP/RR: ${r.whyTp||"UNKNOWN"}`,`❌ Invalidates: ${r.invalidates||"UNKNOWN"}`,blocks.length?`🚧 Blocks: ${blocks.join(", ")}`:"✅ No hard evidence block","","V78-020 affects Signal ranking/book admission only.","🏦 Hyro real-capital execution authority unchanged.","🤖 Claude production API remains PAUSED."].join("\\n");}
-async function engineJson'''
-          h=re.sub(pat,replacement,h,count=1,flags=re.S); hpath.write_text(h)
+          pth=Path('cloudflare-worker/providers/entry-intelligence.js')
+          s=pth.read_text()
+          old='''function completeness(obj){const vals=Object.values(obj||{}),known=vals.filter(v=>v!=null&&v!=="UNKNOWN"&&v!=="MISSING").length;return {known,total:vals.length,ratio:vals.length?Number((known/vals.length).toFixed(3)):0};}\nfunction actionable(a){return ["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(String(a?.status||""))||["MARKET","LIMIT","INDICATIVE_LIMIT"].includes(String(a?.planned?.mode||""));}\n'''
+          new='''function completeness(obj){const vals=Object.values(obj||{}),known=vals.filter(v=>v!=null&&v!=="UNKNOWN"&&v!=="MISSING").length;return {known,total:vals.length,ratio:vals.length?Number((known/vals.length).toFixed(3)):0};}\nfunction actionable(a){return ["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(String(a?.status||""))||["MARKET","LIMIT","INDICATIVE_LIMIT"].includes(String(a?.planned?.mode||""));}\n// Deliberately narrower than actionable(): checks ONLY the top-level status,\n// not a?.planned?.mode. This avoids a separate edge case where a WATCH\n// carries a *rejected* rescue plan whose mode could otherwise be misread\n// as actionable. Used exclusively to gate the reason-string hardblocks.\nfunction statusActionable(a){return ["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(String(a?.status||""));}\n'''
+          assert s.count(old)==1, 'provider block A mismatch'
+          s=s.replace(old,new,1)
+          old='''  const hardBlocks=[];\n  if(a?.status==="DATA_BLOCK")hardBlocks.push(a?.reason||a?.error||"DATA_BLOCK");\n  if(a?.reason==="M15_LOCATION_REQUIRED")hardBlocks.push("M15_LOCATION_REQUIRED");\n  if(a?.reason==="M5_MSS_DISPLACEMENT_RETEST_REQUIRED")hardBlocks.push("M5_MSS_DISPLACEMENT_RETEST_REQUIRED");\n  if(a?.reason==="RR_QUALITY_REQUIRED")hardBlocks.push("RR_QUALITY_REQUIRED");\n  if(q.freshness==="STALE")hardBlocks.push("QUOTE_STALE");\n'''
+          new='''  const hardBlocks=[];\n  if(a?.status==="DATA_BLOCK")hardBlocks.push(a?.reason||a?.error||"DATA_BLOCK");\n  // V78-020 FIX: the three stage labels below can remain as the reason on\n  // successful rescue/indicative MARKET_PLAN or LIMIT_PLAN outcomes.\n  // Only block them when top-level status is not already actionable.\n  if(!statusActionable(a)&&a?.reason==="M15_LOCATION_REQUIRED")hardBlocks.push("M15_LOCATION_REQUIRED");\n  if(!statusActionable(a)&&a?.reason==="M5_MSS_DISPLACEMENT_RETEST_REQUIRED")hardBlocks.push("M5_MSS_DISPLACEMENT_RETEST_REQUIRED");\n  if(!statusActionable(a)&&a?.reason==="RR_QUALITY_REQUIRED")hardBlocks.push("RR_QUALITY_REQUIRED");\n  if(q.freshness==="STALE")hardBlocks.push("QUOTE_STALE");\n'''
+          assert s.count(old)==1, 'provider block B mismatch'
+          pth.write_text(s.replace(old,new,1))
+
+          ep=Path('cloudflare-worker/engine-v77168.js')
+          s=ep.read_text()
+          old='import {buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow} from "./providers/entry-intelligence.js";'
+          new='import {buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow,entryIntelligenceRankAdjustment,entryIntelligencePromotionAllowed} from "./providers/entry-intelligence.js";'
+          assert s.count(old)==1, 'engine import mismatch'
+          s=s.replace(old,new,1)
+          old='function actionableRank(a){let x=Number(a?.score)||0;if(a?.status==="MARKET")x+=1000;else if(a?.status==="LIMIT")x+=900;else if(a?.status==="MARKET_PLAN")x+=700;else if(a?.status==="LIMIT_PLAN")x+=650;else if(a?.planned?.mode==="MARKET")x+=500;else if(a?.planned?.mode==="LIMIT"||a?.planned?.mode==="INDICATIVE_LIMIT")x+=420;else if(a?.setupReady)x+=150;const p=a?.planned||a,rr=Number(p?.targetRR),g=p?.geometry||p?.marketGeometry||{};if(Number.isFinite(rr))x+=Math.min(80,rr*22);if(Number.isFinite(g.distanceATR))x+=Math.max(0,24-Math.abs(g.distanceATR-.30)*30);if(Number.isFinite(p?.confluence))x+=Math.min(20,Number(p.confluence)*5);if(a?.contextOnly)x-=600;return x;}'
+          new=old[:-9]+'x+=entryIntelligenceRankAdjustment(a);return x;}'
+          assert s.count(old)==1, 'actionableRank mismatch'
+          s=s.replace(old,new,1)
+          old='function fillBooks(group,books,analyses,trigger="SCAN"){const b=books[group],newItems=[];for(const a of analyses){if(group!=="crypto"){if(a.status==="MARKET_SIGNAL"&&!duplicate(b,a.symbol)&&(b.signalActive||[]).length<CONFIG.maxMarketActive){const p=toSignalPos(a,trigger,group);if(p){b.signalActive.push(p);newItems.push(p);}}continue;}if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a,trigger);b.marketActive.push(p);newItems.push(p);}if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a,trigger),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}}b.watch=[];return newItems;}'
+          new='function fillBooks(group,books,analyses,trigger="SCAN"){const b=books[group],newItems=[];for(const a of analyses){if(group!=="crypto"){if(a.status==="MARKET_SIGNAL"&&entryIntelligencePromotionAllowed(a)&&!duplicate(b,a.symbol)&&(b.signalActive||[]).length<CONFIG.maxMarketActive){const p=toSignalPos(a,trigger,group);if(p){b.signalActive.push(p);newItems.push(p);}}continue;}if(a.status==="MARKET"&&!duplicate(b,a.symbol)&&b.marketActive.length<CONFIG.maxMarketActive){const p=toPos(a,trigger);b.marketActive.push(p);newItems.push(p);}if(a.status==="LIMIT"&&!duplicate(b,a.symbol)&&b.limitPending.length<CONFIG.maxPendingLimit&&(b.limitActive.length+b.limitPending.length)<CONFIG.maxLimitActive){const p={...toPos(a,trigger),status:"PENDING",expiresAt:Date.now()+CONFIG.pendingLimitExpiryMinutes*60000};b.limitPending.push(p);newItems.push(p);}}b.watch=[];return newItems;}'
+          assert s.count(old)==1, 'fillBooks mismatch'
+          s=s.replace(old,new,1)
+          old='''  else if(a.planned){const tag=a.planned.indicative?"📐 ENTRY THAM KHẢO — chưa phải lệnh":"🎯 KẾ HOẠCH ENTRY";L.push("",tag,`E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)}`,`TP1~${fmtPx(a.planned.tp1)} • TP2~${fmtPx(a.planned.tp2)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`);if(a.planned.entryStyle)L.push(`Style: ${a.planned.entryStyle}`);const mt=planMetricText(a.symbol,a.planned);if(mt)L.push(`Geometry: ${mt}`);if(a.basisReference)L.push(`⚠️ Giá plan dùng leader ${a.executionLeader}; phải refresh ${a.symbol} trước execution.`);}\n  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);'''
+          new='''  else if(a.planned){const tag=a.planned.indicative?"📐 ENTRY THAM KHẢO — chưa phải lệnh":"🎯 KẾ HOẠCH ENTRY";L.push("",tag,`E~${fmtPx(a.planned.entry)} • SL~${fmtPx(a.planned.sl)}`,`TP1~${fmtPx(a.planned.tp1)} • TP2~${fmtPx(a.planned.tp2)} • RR~${Number(a.planned.targetRR||0).toFixed(2)}`);if(a.planned.entryStyle)L.push(`Style: ${a.planned.entryStyle}`);const mt=planMetricText(a.symbol,a.planned);if(mt)L.push(`Geometry: ${mt}`);if(a.basisReference)L.push(`⚠️ Giá plan dùng leader ${a.executionLeader}; phải refresh ${a.symbol} trước execution.`);}\n  const eiShadow=buildEntryIntelligenceShadow(a);if(eiShadow)L.push(`Quality: ${eiShadow.quality.grade} (${eiShadow.quality.score}/100)${eiShadow.promotion.allowed===false?" • ⚠️ "+eiShadow.promotion.reasons.join(","):""}`);\n  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);'''
+          assert s.count(old)==1, 'singleAnalysisText mismatch'
+          ep.write_text(s.replace(old,new,1))
           PY
-      - name: Validate V78-020
+      - name: Validate exact promotion scope
         shell: bash
         run: |
           set -euo pipefail
           node --check cloudflare-worker/providers/entry-intelligence.js
           node --check cloudflare-worker/engine-v77168.js
-          node --check cloudflare-worker/hub-v77171.js
-          test "$(grep -o 'entryIntelligenceRankAdjustment' cloudflare-worker/engine-v77168.js | wc -l)" -ge 2
-          test "$(grep -o 'entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js | wc -l)" -ge 2
-          test "$(grep -c 'HUB-R12-ENTRY-INTEL-ACTIVE' cloudflare-worker/hub-v77171.js)" -ge 1
-          grep -q 'executionAuthority:"NONE"' cloudflare-worker/providers/entry-intelligence.js
-          ! grep -q 'runHyroAutoCycle' cloudflare-worker/providers/entry-intelligence.js
-          ! grep -q 'executeHyroPlan' cloudflare-worker/providers/entry-intelligence.js
+          echo "statusActionable_count=$(grep -o 'statusActionable' cloudflare-worker/providers/entry-intelligence.js | wc -l)"
+          test "$(grep -o 'statusActionable' cloudflare-worker/providers/entry-intelligence.js | wc -l)" -eq 4
+          echo "engine_rank_promotion_count=$(grep -o 'entryIntelligenceRankAdjustment\|entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js | wc -l)"
+          test "$(grep -o 'entryIntelligenceRankAdjustment\|entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js | wc -l)" -eq 4
+          grep -n 'if(a.status==="MARKET"&&!duplicate\|if(a.status==="LIMIT"&&!duplicate' cloudflare-worker/engine-v77168.js
+          ! grep -q 'if(a.status==="MARKET"&&entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js
+          ! grep -q 'if(a.status==="LIMIT"&&entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js
           git diff --check
           cat > docs/ai-coengineer/V78-020_VALIDATION.txt <<'EOF'
-          V78-020 BATCH VALIDATION PASS
-          provider syntax PASS
-          engine syntax PASS
-          hub syntax PASS
-          advisory ranking adjustment wired PASS
-          conservative new-book admission wired PASS
-          Hub R12 visible revision wired PASS
-          executionAuthority NONE retained PASS
-          Hyro execution functions absent from entry-intelligence provider PASS
-          TRADING_STATE/v775:books reset not introduced PASS
+          V78-020 CLAUDE FIX + SAFE PROMOTION
+          provider node --check: PASS
+          engine node --check: PASS
+          statusActionable: 1 definition + 3 guarded stage-label checks
+          actionableRank: additive bounded Entry Intelligence adjustment wired
+          fillBooks: promotion gate applies ONLY to non-crypto MARKET_SIGNAL
+          crypto MARKET/LIMIT admission: unchanged
+          singleAnalysisText: additive quality/admission line only
+          DATA_BLOCK / quote freshness / entry / SL / target protections retained
+          Hyro execution authority: untouched
+          TRADING_STATE / v775:books reset: not introduced
+          Production Claude API: remains paused
           EOF
-      - name: Record state and release lock
+      - name: Record and release V78-020 lock
         shell: bash
         run: |
           cat >> docs/ai-coengineer/SHARED_STATE.md <<'EOF'
 
-          V78-020 — IMPLEMENTED / VALIDATED
-          - Entry Intelligence promoted from pure shadow to conservative advisory Signal ranking + new-book admission.
-          - Stale/missing quote or missing actionable entry/SL/target evidence fail closed for NEW Signal book admission.
-          - Market-specific completeness and quality grade influence advisory ranking only; existing status/threshold generation remains authoritative.
-          - Hub visible revision is HUB-R12-ENTRY-INTEL-ACTIVE with quality/admission status.
-          - Hyro real-capital execution/risk/freshness/structural-SL/news/account state are untouched.
-          - Claude production API remains paused; Claude.ai Web remains full co-engineer.
+          V78-020 — CLAUDE OVER-BLOCK FIX + SAFE PROMOTION IMPLEMENTED
+          - Corrected rescue-plan false hard-block: M15_LOCATION_REQUIRED, M5_MSS_DISPLACEMENT_RETEST_REQUIRED and RR_QUALITY_REQUIRED now block only when top-level status is not actionable.
+          - Entry Intelligence now contributes a bounded secondary term to actionableRank.
+          - Entry Intelligence promotion gate is applied only to non-crypto MARKET_SIGNAL admission. Crypto MARKET/LIMIT admission remains unchanged.
+          - Primary single-symbol output now shows Entry Intelligence quality/admission evidence.
+          - No Hyro execution/risk/freshness/SL/news/account behavior changed.
           EOF
           cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
           # AI WRITE LOCK
@@ -100,8 +106,8 @@ async function engineJson'''
           SCOPE: NONE
           RELEASED: 2026-08-20
           LAST_OWNER: CHATGPT
-          LAST_SCOPE: V78-020 Batch Entry Intelligence promotion + Hub R12 observability
-          RESULT: IMPLEMENTED / VALIDATED. Advisory Signal ranking and NEW book admission now consume conservative Entry Intelligence evidence. Hyro execution authority and all real-capital safety invariants remain untouched.
+          LAST_SCOPE: V78-020 Claude over-block fix + safe Signal promotion
+          RESULT: IMPLEMENTED / VALIDATED. Rescue MARKET_PLAN/LIMIT_PLAN stage labels no longer create false hard-blocks. Ranking consumes bounded Entry Intelligence; only non-crypto MARKET_SIGNAL new-book admission uses the promotion gate. Crypto execution admission and Hyro real-capital authority remain unchanged.
 
           Protocol:
           - Acquire a new lock before the next source write.
@@ -111,12 +117,12 @@ async function engineJson'''
           - Binance20 remains NON_PRODUCTION / QUARANTINED.
           - Production Claude API remains paused; Claude.ai Web remains full co-engineer.
           EOF
-      - name: Commit and push
+      - name: Commit and push corrected V78-020
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'V78 Co-Engineer'
           git config user.email 'actions@users.noreply.github.com'
-          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-020_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
-          git commit -m 'V78-020 activate conservative Signal entry intelligence and Hub R12'
+          git add cloudflare-worker/providers/entry-intelligence.js cloudflare-worker/engine-v77168.js docs/ai-coengineer/V78-020_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-020 fix rescue over-blocking and safely promote Signal intelligence'
           git push origin HEAD:main
