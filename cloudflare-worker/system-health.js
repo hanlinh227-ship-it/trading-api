@@ -43,7 +43,6 @@ export async function runSystemHealthAudit(env,{version="UNKNOWN",full=false,not
   if(!env.TELEGRAM_BOT_TOKEN)add(issues,"ERROR","TELEGRAM_TOKEN_MISSING","Telegram token missing");
   if(!env.TELEGRAM_CHAT_ID)add(issues,"ERROR","TELEGRAM_CHAT_MISSING","Telegram chat missing");
   if(!env.TWELVE_DATA_API_KEY)add(issues,"ERROR","TWELVE_MISSING","Twelve Data key missing");
-  if(!env.MASSIVE_API_KEY)add(issues,"WARN","MASSIVE_MISSING","Massive Futures key missing");
   if(!env.ANTHROPIC_API_KEY)add(issues,"WARN","CLAUDE_KEY_MISSING","Claude Co-engineer API key missing");
   else add(issues,"OK","CLAUDE_CONFIGURED","Claude Co-engineer configured");
 
