@@ -1,8 +1,10 @@
+import {atrFromHLC} from "./providers/indicators.js";
+
 const n=v=>{const x=Number(v);return Number.isFinite(x)?x:null;};
 async function bj(path,params={}){const q=new URLSearchParams(params),r=await fetch(`https://api.bybit.com${path}?${q}`),p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`Bybit HTTP ${r.status}`);return p;}
 function candles(p){return (p?.result?.list||[]).map(x=>({ts:Number(x[0]),o:Number(x[1]),h:Number(x[2]),l:Number(x[3]),c:Number(x[4]),v:Number(x[5]),turn:Number(x[6])})).filter(x=>[x.o,x.h,x.l,x.c].every(Number.isFinite)).sort((a,b)=>a.ts-b.ts).slice(0,-1);}
 function ema(a,len){if(!a.length)return null;const k=2/(len+1);let e=a[0];for(let i=1;i<a.length;i++)e=a[i]*k+e*(1-k);return e;}
-function atr(c,len=14){if(c.length<len+1)return null;const tr=[];for(let i=1;i<c.length;i++)tr.push(Math.max(c[i].h-c[i].l,Math.abs(c[i].h-c[i-1].c),Math.abs(c[i].l-c[i-1].c)));return tr.slice(-len).reduce((a,b)=>a+b,0)/len;}
+const atr=(c,len=14)=>atrFromHLC(c,len);
 function rsi(c,len=14){if(c.length<len+1)return 50;let g=0,l=0;for(let i=c.length-len;i<c.length;i++){const d=c[i].c-c[i-1].c;if(d>0)g+=d;else l-=d;}if(l===0)return 100;const rs=(g/len)/(l/len);return 100-100/(1+rs);}
 function swing(c,side,bars){const a=c.slice(-bars);return side==="BUY"?Math.min(...a.map(x=>x.l)):Math.max(...a.map(x=>x.h));}
 function targetSwing(c,side,bars){const a=c.slice(-bars);return side==="BUY"?Math.max(...a.map(x=>x.h)):Math.min(...a.map(x=>x.l));}

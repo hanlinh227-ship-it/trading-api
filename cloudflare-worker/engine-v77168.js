@@ -1,5 +1,6 @@
 import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "json" };
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
+import {atrFromHLC} from "./providers/indicators.js";
 
 const CONFIG = {
   version: "V77.16.20",
@@ -280,7 +281,7 @@ async function cryptoBulk(){
   memory.cryptoBulk=map;memory.cryptoBulkAt=Date.now();return map;
 }
 function ema(values,n){if(values.length<n)return null;const k=2/(n+1);let e=values.slice(0,n).reduce((a,b)=>a+b,0)/n;for(const v of values.slice(n))e=v*k+e*(1-k);return e;}
-function atr(c,n=14){if(c.length<n+1)return null;const tr=[];for(let i=1;i<c.length;i++)tr.push(Math.max(c[i].high-c[i].low,Math.abs(c[i].high-c[i-1].close),Math.abs(c[i].low-c[i-1].close)));return tr.slice(-n).reduce((a,b)=>a+b,0)/n;}
+const atr=(c,n=14)=>atrFromHLC(c,n);
 function rsi(vals,n=14){if(vals.length<n+1)return null;let g=0,l=0;for(let i=vals.length-n;i<vals.length;i++){const d=vals[i]-vals[i-1];if(d>0)g+=d;else l-=d;}if(l===0)return 100;const rs=(g/n)/(l/n);return 100-100/(1+rs);}
 const high=c=>c.length?Math.max(...c.map(x=>x.high)):null,low=c=>c.length?Math.min(...c.map(x=>x.low)):null;
 function tf(c){
