@@ -1,0 +1,4 @@
+V78-018
+HUB-R11-ENTRY-INTEL-SHADOW
+Expected source includes V78-014 DecisionEvidence, V78-015 Evidence Hub, V78-016 Entry Intelligence shadow, V78-017 manual observability.
+This file is deployment metadata only and is not imported by the Worker.
