@@ -22,9 +22,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax check all Worker modules
-        run: |
-          for f in cloudflare-worker/*.js cloudflare-worker/*.mjs; do node --check "$f"; done
+      - name: Full Worker preflight
+        working-directory: cloudflare-worker
+        run: node validate-worker.mjs
       - name: Verify canonical locks
         run: |
           node - <<'NODE'
@@ -45,6 +45,7 @@ jobs:
           const arbiter=read('cloudflare-worker/ai-arbiter.js');
           const claudeTg=read('cloudflare-worker/claude-telegram.js');
           const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
+          const pkg=JSON.parse(read('cloudflare-worker/package.json'));
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
           for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
           for(const x of ['V77.18.24','Dual AI Co-Engineer Arbiter','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','ensureDualAiIntervention','/dual-ai/status','/ai/status','AI_ADMIN_REQUIRED'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
@@ -62,9 +63,10 @@ jobs:
           for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio lock missing: '+x);
           for(const x of ['minimumCutHoldMinutes:8','reduceOnly:true','HYRO_POSITION_REEVAL_AUTO_CUT'])if(!review.includes(x))throw new Error('Position review lock missing: '+x);
           for(const x of ['ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Claude lock missing: '+x);
-          if(!wrangler.includes('keep_vars: true')||!wrangler.includes("binding: 'TRADING_STATE'"))throw new Error('KV deployment lock missing');
+          if(!/keep_vars\s*:\s*true/.test(wrangler)||!/binding\s*:\s*['"]TRADING_STATE['"]/.test(wrangler)||!wrangler.includes('TRADING_V77_STATE'))throw new Error('KV deployment lock missing');
+          if(pkg.devDependencies?.wrangler!=='4.124.0')throw new Error('Wrangler must be pinned');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('Canonical V77.18.24 dual-AI co-engineer validation PASS');
+          console.log('Canonical V77.18.24 build-hardened validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
