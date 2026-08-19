@@ -5,10 +5,11 @@ import {enrichHyroPlans} from "./hyro-market-context.js";
 import {evaluateHyroPortfolio,rankHyroCandidates,recordHyroEntry} from "./hyro-portfolio-guard.js";
 import {loadAdaptiveTuning} from "./adaptive-tuning.js";
 import {ensureDualAiIntervention} from "./dual-ai-intervention.js";
+import {buildHyroDecisionEvidence,recordHyroDecisionEvidence} from "./providers/decision-evidence.js";
 
 const RUNTIME_KEY="v7718:hyro:runtime";
 async function put(env,v){if(env.TRADING_STATE)await env.TRADING_STATE.put(RUNTIME_KEY,JSON.stringify(v));}
-async function done(env,base,extra={}){const out={...base,...extra,finishedAt:Date.now()};out.elapsedMs=out.finishedAt-base.startedAt;await put(env,out);return out;}
+async function done(env,base,extra={}){const out={...base,...extra,finishedAt:Date.now()};out.elapsedMs=out.finishedAt-base.startedAt;await put(env,out);try{await recordHyroDecisionEvidence(env,buildHyroDecisionEvidence(out,{runtimeVersion:null}));}catch{}return out;}
 const microScore=x=>Number(x?.context?.microstructure?.score??.5);
 const sig=x=>`${String(x?.symbol||"").toUpperCase()}:${String(x?.side||"").toUpperCase()}`;
 

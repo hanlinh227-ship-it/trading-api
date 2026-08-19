@@ -1,0 +1,21 @@
+$ node --check cloudflare-worker/providers/decision-evidence.js
+exit=0
+$ node --check cloudflare-worker/engine-v77168.js
+exit=0
+$ node --check cloudflare-worker/hyro-runtime.js
+exit=0
+$ grep signal evidence symbol references in engine
+3
+$ grep Hyro evidence symbol references in runtime
+2
+$ grep evidence key literals in provider
+2
+$ negative evidence-key check outside provider
+ZERO_MATCHES
+$ existing Signal book/shadow token counts
+8
+$ existing Hyro gate/execution token counts
+5
+$ git diff --check
+exit=0
+V78-014_VALIDATION_PASS
