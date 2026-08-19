@@ -11,8 +11,8 @@ import {ensureDualAiIntervention,getDualAiInterventionState} from "./dual-ai-int
 import {getAdaptiveTuningState} from "./adaptive-tuning.js";
 import {getAiGovernanceState} from "./ai-arbiter.js";
 
-const VERSION="V77.18.35",SERVICE="Trading V77.18.35 Verified Index Pricing";
-const RELEASE_NAME="Verified Index Pricing";
+const VERSION="V77.18.36",SERVICE="Trading V77.18.36 Market Isolation + Forex R4";
+const RELEASE_NAME="Market Isolation + Forex R4";
 const PROP_NOTIFY_PREFIX="v7718:hyro:notify:",PROP_NOTIFY_SNAPSHOT_KEY="v7718:hyro:notify:snapshot";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 const money=v=>{const x=Number(v||0),sign=x>0?"+":"";return sign+"$"+x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});},cash=v=>"$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
