@@ -1,3 +1,21 @@
+// ============================================================================
+// NON_PRODUCTION / QUARANTINED — see docs/ai-coengineer/DECISIONS.md DECISION-005
+//
+// This module is NOT part of current production execution authority. It is
+// not imported by cloudflare-worker/index.js, hub-v77171.js, or
+// engine-v77168.js and has no wired route, scheduled handler, or active
+// credential binding in the production Worker entrypoint chain.
+//
+// Do NOT delete this file. Do NOT wire it into a production path without an
+// explicit reviewed decision (V78-090) promoting it to a real
+// AccountAdapter/ExecutionVenue pilot per
+// docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md.
+//
+// Reference: docs/ai-coengineer/DECISIONS.md DECISION-005,
+//            docs/ai-coengineer/V78_KV_KEY_REGISTRY.md Section 12,
+//            docs/ai-coengineer/V78_EXECUTION_AUTHORITY_MAP.md Section 3.
+// ============================================================================
+
 import {binance20Config,BINANCE20_VERSION} from "./binance-futures20-config.js";
 import {binanceUsdm,symbolFilters,floorStep} from "./binance-usdm-client.js";
 const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0,last=a=>a[a.length-1],clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
