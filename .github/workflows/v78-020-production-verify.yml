@@ -95,33 +95,33 @@ jobs:
           set -euo pipefail
           { echo; echo '=== V78-020 PRODUCTION LIVE VERIFICATION ==='; cat /tmp/v78-live.json; } >> docs/ai-coengineer/V78-020_VALIDATION.txt
           cat >> docs/ai-coengineer/SHARED_STATE.md <<'EOF'
-
-V78-020 — PRODUCTION-VERIFIED
-- Current production deployment contains commit 47800df837101611db8b61e0a25b8fcbd8888f55 or a descendant.
-- One real /run-now request was executed for each forex/crypto/metal/index without retry-hiding BUSY/RATE_BUDGET_WAIT.
-- Immediately-prior /latest-scan snapshots were compared to the new results.
-- Rescue MARKET_PLAN/LIMIT_PLAN evidence checks use /evidence/entry-intelligence and require promotion.allowed=true when quote/entry/SL/target evidence is valid.
-- Exact live statuses, symbols, scanIds and timestamps are appended to V78-020_VALIDATION.txt.
-EOF
+          
+          V78-020 — PRODUCTION-VERIFIED
+          - Current production deployment contains commit 47800df837101611db8b61e0a25b8fcbd8888f55 or a descendant.
+          - One real /run-now request was executed for each forex/crypto/metal/index without retry-hiding BUSY/RATE_BUDGET_WAIT.
+          - Immediately-prior /latest-scan snapshots were compared to the new results.
+          - Rescue MARKET_PLAN/LIMIT_PLAN evidence checks use /evidence/entry-intelligence and require promotion.allowed=true when quote/entry/SL/target evidence is valid.
+          - Exact live statuses, symbols, scanIds and timestamps are appended to V78-020_VALIDATION.txt.
+          EOF
           cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
-# AI WRITE LOCK
-
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-20
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-020 production live verification
-RESULT: PRODUCTION-VERIFIED. Exact live evidence persisted in docs/ai-coengineer/V78-020_VALIDATION.txt.
-
-Protocol:
-- Acquire a new lock before the next source write.
-- Never reset TRADING_STATE or delete/reset v775:books.
-- Never weaken hard risk/freshness/structural-SL/news safeguards.
-- Never restore Futures/TK2.
-- Binance20 remains NON_PRODUCTION / QUARANTINED.
-- Production Claude API remains paused; Claude.ai Web remains full co-engineer.
-EOF
+          # AI WRITE LOCK
+          
+          LOCKED: false
+          OWNER: NONE
+          SCOPE: NONE
+          RELEASED: 2026-08-20
+          LAST_OWNER: CHATGPT
+          LAST_SCOPE: V78-020 production live verification
+          RESULT: PRODUCTION-VERIFIED. Exact live evidence persisted in docs/ai-coengineer/V78-020_VALIDATION.txt.
+          
+          Protocol:
+          - Acquire a new lock before the next source write.
+          - Never reset TRADING_STATE or delete/reset v775:books.
+          - Never weaken hard risk/freshness/structural-SL/news safeguards.
+          - Never restore Futures/TK2.
+          - Binance20 remains NON_PRODUCTION / QUARANTINED.
+          - Production Claude API remains paused; Claude.ai Web remains full co-engineer.
+          EOF
           git config user.name 'V78 Production Verifier'
           git config user.email 'actions@users.noreply.github.com'
           git add docs/ai-coengineer/V78-020_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
