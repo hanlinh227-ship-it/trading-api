@@ -1,12 +1,12 @@
 name: V77.18.33 Split Market Live
 on:
-  push:
-    branches: [v771833-split-live]
+  pull_request:
+    branches: [main]
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'v771833-split-live'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
