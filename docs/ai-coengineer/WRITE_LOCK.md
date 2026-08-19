@@ -1,15 +1,13 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-19
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-014 DecisionEvidence shadow-populate
-RESULT: IMPLEMENTED via guarded migration. Signal runGroup() and Hyro done() now append isolated V78-002 DecisionEvidence shadow records; /evidence/signal is additive read-only. No thresholds, gates, execution authority, risk, state continuity or existing response shapes intentionally changed.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-015 Hub Evidence/Runtime read-only status view + Claude API paused-state visibility
+ACQUIRED: 2026-08-19
+PURPOSE: Add a read-only Telegram Hub Evidence screen sourced only from V78-014 shadow DecisionEvidence, and visibly report Claude API paused/enabled state. No trading decision, risk, execution, threshold, state continuity, or existing callback semantics may change.
 
 Protocol:
-- Acquire a new lock before the next source write.
+- Guard hub-v77171.js pre-patch blob SHA = 1551e0fb868a258b0b4965cef12f72c542259408.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
