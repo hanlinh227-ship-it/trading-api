@@ -643,7 +643,8 @@ function watchLine(w){let x=`${w.symbol} ${sideText(w.side)} • ${reasonText(w.
    ↳ ${tag}: E~${fmtPx(w.planned.entry)} • SL~${fmtPx(w.planned.sl)} • TP~${fmtPx(w.planned.tp2||w.planned.tp1)} • RR~${Number(w.planned.targetRR||0).toFixed(2)}`;if(w.planned.entryStyle)x+=`
    ↳ Entry style: ${w.planned.entryStyle}`;const mt=planMetricText(w.symbol,w.planned);if(mt)x+=`
    ↳ Geometry: ${mt}`}if(w.method?.profile)x+=`
-   ↳ Method: ${w.method.profile}`;return x;}
+   ↳ Method: ${w.method.profile}`;const ei=buildEntryIntelligenceShadow(w);if(ei)x+=`
+   ↳ Quality: ${ei.quality.grade} (${ei.quality.score}/100)${ei.promotion.allowed===false?" • ⚠️ "+ei.promotion.reasons.join(","):""} • Fresh: ${ei.quote.freshness}`;return x;}
 function singleAnalysisText(a){
   if(!a)return "⛔ Không có kết quả phân tích.";
   if(a.ok===false)return `⛔ ${a.symbol||"SYMBOL"} • ${reasonText(a.reason)}\n${a.error?"Chi tiết: "+a.error:""}`;
