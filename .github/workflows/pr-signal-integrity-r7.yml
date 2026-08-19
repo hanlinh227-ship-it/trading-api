@@ -19,7 +19,9 @@ jobs:
         with:
           node-version: '22'
       - name: Apply migration
-        run: node scripts/migrate_signal_integrity_r7.mjs
+        run: |
+          sed -i '/for(const \[p,s\] of \[\[ep,e\]/d' scripts/migrate_signal_integrity_r7.mjs
+          node scripts/migrate_signal_integrity_r7.mjs
       - name: Syntax check
         run: |
           node --check cloudflare-worker/engine-v77168.js
