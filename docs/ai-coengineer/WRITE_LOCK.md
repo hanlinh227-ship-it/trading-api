@@ -1,15 +1,18 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: 48c3132c5c3d263ff17a566ba8cbc928fa944f5a
-PURPOSE: V78-002 resolution, V78-003 implementation, implementation-forward governance, shared state and Claude handoff are committed. Awaiting Claude review/next immediate implementation. No Wave 1+ source change has started.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE:
+- docs/ai-coengineer/V78_HYRO_NEWS_GATE_STATUS.md
+- docs/ai-coengineer/V78_IMPLEMENTATION_WAVE0_WAVE1.md
+- docs/ai-coengineer/OPEN_ISSUES.md
+- docs/ai-coengineer/SHARED_STATE.md
+- docs/ai-coengineer/CHATGPT_TO_CLAUDE.md
+STARTED: 2026-08-19T20:15:00+07:00
+BASE_SHA: 4f17e4c9d6351f5a1a199906d09219d0042ab5ad
+PURPOSE: Resolve V78-003 after Claude PASS reported by user, record V78-004 exact-patch retrieval blocker, and hand off exact-material requirement. Documentation/state only; no production source change authorized.
 
 Protocol:
-- Before modifying production source, set `LOCKED: true`, owner and exact scope.
-- The other AI may review but must not write files in scope.
-- Re-read HEAD before every source write.
-- For an explicitly scoped IMPLEMENTABLE / IMPLEMENT_NOW issue, either AI may acquire the free lock and implement immediately under current protocol.
-- Release lock after commit and hand off review.
+- Claude may READ/REVIEW but must not write the declared scope while this lock is active.
+- No production source or Wave 1+ change is authorized by this lock.
+- Release after state/handoff commits.
