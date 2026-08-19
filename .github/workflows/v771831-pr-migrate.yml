@@ -21,6 +21,7 @@ jobs:
           python3 scripts/patch_v771831_cleanup.py
           python3 scripts/patch_v771831_cleanup2.py
           python3 scripts/patch_v771831_cleanup3.py
+          python3 scripts/patch_v771831_cleanup4.py
       - name: Reject legacy Futures conflicts
         run: |
           grep -RniE 'FUTURE_SYMBOLS|FUTURE_SCAN|MASSIVE_API_KEY|Massive Futures|signal:scan:future|symmarket:future|futureMinRR|runFutureGroup|runFutureSymbol|futureSizing' cloudflare-worker || true
