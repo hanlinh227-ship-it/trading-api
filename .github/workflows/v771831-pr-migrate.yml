@@ -16,7 +16,9 @@ jobs:
         with:
           node-version: '22'
       - name: Apply Index Cash migration
-        run: python3 scripts/patch_v771831_index_cash.py
+        run: |
+          python3 scripts/patch_v771831_index_cash.py
+          python3 scripts/patch_v771831_cleanup.py
       - name: Reject legacy Futures conflicts
         run: |
           grep -RniE 'FUTURE_SYMBOLS|FUTURE_SCAN|MASSIVE_API_KEY|Massive Futures|signal:scan:future|symmarket:future|futureMinRR|runFutureGroup|runFutureSymbol|futureSizing' cloudflare-worker || true
@@ -32,6 +34,6 @@ jobs:
         run: |
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
-          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/index.js cloudflare-worker/adaptive-tuning.js cloudflare-worker/dual-ai-intervention.js
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/index.js cloudflare-worker/adaptive-tuning.js cloudflare-worker/dual-ai-intervention.js cloudflare-worker/system-health.js
           git commit -m "V77.18.31 Metal + Index Cash migration" || exit 0
           git push origin HEAD:v771831-index-cash-migration
