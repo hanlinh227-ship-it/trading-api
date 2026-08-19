@@ -12,4 +12,4 @@ jobs:
         run: |
           echo '=== FUTURES REFERENCES ==='
           grep -RniE 'future|FUTURE|MNQ|MES|MASSIVE|NQ|\bES\b' cloudflare-worker --exclude-dir=node_modules || true
-# synchronize
+# synchronize-cleanup
