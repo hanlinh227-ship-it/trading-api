@@ -1,13 +1,13 @@
 # V78-002 — DecisionEvidence Schema
 
-Status: IMPLEMENTED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
+Status: RESOLVED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
 Owner: CHATGPT
 Reviewer: CLAUDE
 
 ## Integrity note
-This document implements the V78-002 DecisionEvidence contract from the currently accepted V78 architecture requirements available to ChatGPT: every important trading decision must expose provider/source identity, timestamps, freshness, evidence, reasons and execution suitability without fabricating missing information.
+This document implements the V78-002 DecisionEvidence contract from the accepted V78 architecture requirements available to ChatGPT: every important trading decision must expose provider/source identity, timestamps, freshness, evidence, reasons and execution suitability without fabricating missing information.
 
-The complete verbatim Claude Phase 2 body is still not retrievable from the current GitHub bus/session context available to ChatGPT. Therefore this document is **not falsely attributed as a verbatim Claude paste**. Claude must compare this contract against its exact Phase 2 schema before any production source begins consuming it. Any field-level mismatch must be corrected in documentation first.
+Claude reviewed the initial schema and required one DecisionAction correction: preserve the Signal engine's plan/data-block vocabulary instead of collapsing it into generic MARKET/LIMIT/NO_TRADE. The canonical enum therefore includes `MARKET_PLAN`, `LIMIT_PLAN`, and `DATA_BLOCK` in addition to the previously documented actions. This aligns with `engine-v77168.js:plannedModeLabel` and DATA_BLOCK returns from the current analysis path (`deepAnalyze` / `runSymbol`).
 
 No runtime object is created by V78-002. No gate, score, execution path, KV key or order behavior changes.
 
@@ -54,6 +54,9 @@ type GateState = "PASS" | "BLOCK" | "DEGRADED" | "UNKNOWN" | "NOT_APPLICABLE";
 type DecisionAction =
   | "MARKET"
   | "LIMIT"
+  | "MARKET_PLAN"
+  | "LIMIT_PLAN"
+  | "DATA_BLOCK"
   | "WATCH"
   | "HOLD"
   | "TIGHTEN"
@@ -164,6 +167,12 @@ interface DecisionEvidence {
 }
 ```
 
+### 2.1 DecisionAction source-alignment rule
+Do not normalize away source-native lifecycle meaning when producing evidence. In particular:
+- `MARKET_PLAN` and `LIMIT_PLAN` are valid plan-level actions and are not proof that a broker/exchange order was submitted;
+- `DATA_BLOCK` is a valid data-integrity decision state and must remain distinguishable from strategy-level `NO_TRADE`;
+- advisory action labels never grant execution authority by themselves.
+
 ---
 
 ## 3. Required invariants
@@ -251,7 +260,7 @@ For current Signal crypto:
 - `execution.suitability = "ADVISORY_ONLY"` even when the analysis quote is fresh;
 - no occurrence of a public market-data call should be interpreted as order authorization.
 
-For advisory MARKET/LIMIT labels, `DecisionEvidence` must still preserve the distinction between recommendation style and actual broker/exchange execution.
+For advisory MARKET/LIMIT/MARKET_PLAN/LIMIT_PLAN labels, `DecisionEvidence` must preserve the distinction between recommendation style and actual broker/exchange execution. A `DATA_BLOCK` decision must expose the missing/stale/degraded evidence that caused the block.
 
 ---
 
@@ -325,7 +334,7 @@ Optional/degraded `closedPnl` telemetry must remain visible as degraded freshnes
 }
 ```
 
-The numeric/timestamp values above are intentionally not invented; the example uses null/zero placeholders only as schema illustration and is not trading evidence.
+The numeric/timestamp values above are intentionally not trading evidence; this is a schema illustration only.
 
 ---
 
@@ -350,6 +359,7 @@ No current production consumer is changed by this issue.
 - [x] Provider identity, provider symbol, timestamps, age and freshness are first-class fields.
 - [x] Missing/stale/degraded states remain explicit.
 - [x] Advisory suitability is separate from execution eligibility.
+- [x] `MARKET_PLAN`, `LIMIT_PLAN`, and `DATA_BLOCK` are preserved as first-class DecisionAction states.
 - [x] Hard gates remain inspectable and cannot be overridden by a score.
 - [x] Provider disagreement is explicit.
 - [x] Signal public-data analysis cannot imply execution authority.
@@ -357,5 +367,5 @@ No current production consumer is changed by this issue.
 - [x] Funding does not substitute for news evidence.
 - [x] No runtime behavior, risk, state key, order, Telegram route or provider call changed.
 
-## Reviewer request
-Claude should compare this document field-for-field against its exact Phase 2 `DecisionEvidence` schema. Return PASS/WARN/BLOCK and provide an exact replacement block for any schema difference before a future source/shadow implementation begins.
+## Resolution
+Claude's DecisionAction WARN/correction has been incorporated. V78-002 is RESOLVED as a documentation contract. Any later runtime/shadow adoption must be a separately scoped implementation issue and must preserve these semantics.
