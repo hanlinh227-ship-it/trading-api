@@ -1,0 +1,97 @@
+name: V78-013 Anthropic Transport Migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v78-013-anthropic-transport.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify stale-write guard and patch claude-reviewer
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='a1b63e5cf662922e6adaff6075a2fa8299026254'
+          actual="$(git hash-object cloudflare-worker/claude-reviewer.js)"
+          echo "claude-reviewer pre-patch SHA: $actual"
+          test "$actual" = "$expected"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/claude-reviewer.js')
+          s=p.read_text()
+          old_import='''import {telegramApiRequest} from "./providers/telegram-client.js";\n\nconst API_URL="https://api.anthropic.com/v1/messages";\nconst DEFAULT_MODEL="claude-sonnet-5";'''
+          new_import='''import {telegramApiRequest} from "./providers/telegram-client.js";\nimport {anthropicMessagesRequest,extractAnthropicText} from "./providers/anthropic-client.js";\n\nconst API_URL="https://api.anthropic.com/v1/messages";\nconst DEFAULT_MODEL="claude-sonnet-5";'''
+          old_call='''async function callClaude(env,{version,kind,github,health,runtime}){if(!env.ANTHROPIC_API_KEY)throw new Error("ANTHROPIC_API_KEY missing");const overnight=kind==="OVERNIGHT_30M_SYSTEM_REVIEW",defaultTokens=overnight?950:1400,model=String(env.ANTHROPIC_REVIEW_MODEL||DEFAULT_MODEL),maxTokens=Math.max(500,Math.min(2200,num(env.ANTHROPIC_REVIEW_MAX_TOKENS,defaultTokens))),p=reviewerPrompt({version,kind,github,health,runtime});const r=await fetch(API_URL,{method:"POST",headers:{"content-type":"application/json","x-api-key":env.ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"},body:JSON.stringify({model,max_tokens:maxTokens,system:p.system,messages:[{role:"user",content:p.user}]})});const body=await r.json().catch(()=>null);if(!r.ok)throw new Error(`Anthropic ${r.status}: ${body?.error?.message||"request failed"}`);const text=(body?.content||[]).filter(x=>x?.type==="text").map(x=>x.text).join("\\n");return {model,id:body?.id||null,stopReason:body?.stop_reason||null,usage:body?.usage||{},review:normalizeReview(parseClaudeJson(text))};}'''
+          new_call='''async function callClaude(env,{version,kind,github,health,runtime}){if(!env.ANTHROPIC_API_KEY)throw new Error("ANTHROPIC_API_KEY missing");const overnight=kind==="OVERNIGHT_30M_SYSTEM_REVIEW",defaultTokens=overnight?950:1400,model=String(env.ANTHROPIC_REVIEW_MODEL||DEFAULT_MODEL),maxTokens=Math.max(500,Math.min(2200,num(env.ANTHROPIC_REVIEW_MAX_TOKENS,defaultTokens))),p=reviewerPrompt({version,kind,github,health,runtime});const body=await anthropicMessagesRequest(env,{model,maxTokens,system:p.system,userContent:p.user});const text=extractAnthropicText(body);return {model,id:body?.id||null,stopReason:body?.stop_reason||null,usage:body?.usage||{},review:normalizeReview(parseClaudeJson(text))};}'''
+          assert s.count(old_import)==1, f'import guard count={s.count(old_import)}'
+          assert s.count(old_call)==1, f'callClaude guard count={s.count(old_call)}'
+          s=s.replace(old_import,new_import).replace(old_call,new_call)
+          p.write_text(s)
+          print('CLAUDE_REVIEWER_PATCH_APPLIED')
+          PY
+
+      - name: Validate V78-013 syntax and invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '$ node --check cloudflare-worker/providers/anthropic-client.js'
+          node --check cloudflare-worker/providers/anthropic-client.js
+          echo 'exit=0'
+          echo '$ node --check cloudflare-worker/claude-reviewer.js'
+          node --check cloudflare-worker/claude-reviewer.js
+          echo 'exit=0'
+          echo '$ node --check cloudflare-worker/dual-ai-intervention.js'
+          node --check cloudflare-worker/dual-ai-intervention.js
+          echo 'exit=0'
+
+          echo '$ grep -c "anthropicMessagesRequest\\|extractAnthropicText" callers'
+          grep -c 'anthropicMessagesRequest\|extractAnthropicText' cloudflare-worker/claude-reviewer.js cloudflare-worker/dual-ai-intervention.js
+
+          echo '$ raw Anthropic fetch in callers (expected zero matches)'
+          if grep -n 'fetch(API_URL\|fetch("https://api.anthropic.com' cloudflare-worker/claude-reviewer.js cloudflare-worker/dual-ai-intervention.js; then
+            echo 'ERROR: raw Anthropic fetch remains in caller'; exit 1
+          else
+            echo 'ZERO_MATCHES'
+          fi
+
+          echo '$ reviewer budget function counts'
+          grep -c 'budgetCheck\|saveBudget' cloudflare-worker/claude-reviewer.js
+          echo '$ dual AI lease function counts'
+          grep -c 'acquireAiLease\|releaseAiLease' cloudflare-worker/dual-ai-intervention.js
+          echo '$ reviewer parser counts'
+          grep -c 'normalizeReview\|parseClaudeJson' cloudflare-worker/claude-reviewer.js
+          echo '$ dual parser count'
+          grep -c 'function parse(' cloudflare-worker/dual-ai-intervention.js
+
+          echo '$ provider raw endpoint count'
+          grep -c 'https://api.anthropic.com/v1/messages' cloudflare-worker/providers/anthropic-client.js
+
+          echo '$ git diff --check'
+          git diff --check
+          echo 'V78-013_VALIDATION_PASS'
+
+      - name: Commit V78-013 and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/v78-013-anthropic-transport.yml
+          git add cloudflare-worker/claude-reviewer.js
+          git diff --cached --check
+          git commit -m 'V78-013 share Anthropic transport; preserve DECISION-004 boundaries'
+          git push origin HEAD:main
