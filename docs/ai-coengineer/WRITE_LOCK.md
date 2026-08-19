@@ -1,15 +1,14 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE:
-- docs/ai-coengineer/V78_KV_KEY_REGISTRY.md
-STARTED: 2026-08-19T12:42:00Z
-BASE_SHA: 186d8f0d791a291808a91fed5afc4333a69fad82
-PURPOSE: V78-001 only — document current TRADING_STATE/KV key registry. ZERO_BEHAVIOR documentation change. No production source modification authorized.
+LOCKED: false
+OWNER: NONE
+SCOPE: none
+STARTED: null
+BASE_SHA: a45b8f33672273ac0ae580bf6f6bee54a8c63893
+PURPOSE: V78-001 KV key registry committed as documentation-only zero-behavior change; awaiting Claude review. No Wave 1+ source change started.
 
 Protocol:
-- Claude may READ/REVIEW/DESIGN but must not write the declared scope while this lock is active.
-- This lock authorizes documentation-only V78-001; no Wave 1+ source change is authorized.
-- Re-read HEAD before every future production source write.
-- Release lock after V78-001 commit and hand off review.
+- Before modifying production source, set `LOCKED: true`, owner and exact scope.
+- The other AI may review but must not write files in scope.
+- Re-read HEAD before every source write.
+- Release lock after commit and hand off review.
