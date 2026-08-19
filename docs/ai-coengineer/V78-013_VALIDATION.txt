@@ -1,0 +1,22 @@
+$ node --check cloudflare-worker/providers/anthropic-client.js
+exit=0
+$ node --check cloudflare-worker/claude-reviewer.js
+exit=0
+$ node --check cloudflare-worker/dual-ai-intervention.js
+exit=0
+$ grep -c "anthropicMessagesRequest\|extractAnthropicText" cloudflare-worker/claude-reviewer.js cloudflare-worker/dual-ai-intervention.js
+cloudflare-worker/claude-reviewer.js:2
+cloudflare-worker/dual-ai-intervention.js:3
+$ grep raw Anthropic fetch in callers — expected ZERO_MATCHES
+ZERO_MATCHES
+$ grep -c "budgetCheck\|saveBudget" cloudflare-worker/claude-reviewer.js
+3
+$ grep -c "acquireAiLease\|releaseAiLease" cloudflare-worker/dual-ai-intervention.js
+3
+$ grep -c "normalizeReview\|parseClaudeJson" cloudflare-worker/claude-reviewer.js
+3
+$ grep -c "function parse(" cloudflare-worker/dual-ai-intervention.js
+1
+$ grep -c Anthropic endpoint cloudflare-worker/providers/anthropic-client.js
+1
+V78-013_VALIDATION_PASS
