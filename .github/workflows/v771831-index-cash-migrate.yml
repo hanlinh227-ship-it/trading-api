@@ -1,0 +1,41 @@
+name: V77.18.31 Index Cash Migration
+on:
+  push:
+    branches: [v771831-index-cash-migration]
+    paths:
+      - 'scripts/patch_v771831_index_cash.py'
+      - '.github/workflows/v771831-index-cash-migrate.yml'
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v771831-index-cash-migration
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migration
+        run: python3 scripts/patch_v771831_index_cash.py
+      - name: Inventory residual Futures conflicts
+        run: |
+          echo '=== residual targeted futures references ==='
+          grep -RniE 'FUTURE_SYMBOLS|FUTURE_SCAN|MASSIVE_API_KEY|Massive Futures|signal:scan:future|symmarket:future|futureMinRR|runFutureGroup|runFutureSymbol|futureSizing' cloudflare-worker || true
+          if grep -RqiE 'FUTURE_SYMBOLS|FUTURE_SCAN|MASSIVE_API_KEY|Massive Futures|signal:scan:future|symmarket:future|futureMinRR|runFutureGroup|runFutureSymbol|futureSizing' cloudflare-worker; then exit 1; fi
+      - name: Validate source and Wrangler
+        run: |
+          cd cloudflare-worker
+          node validate-worker.mjs
+          npm install --no-audit --no-fund
+          TRADING_KV_NAMESPACE_ID=0123456789abcdef0123456789abcdef node prepare-wrangler.mjs
+          npx wrangler deploy --dry-run --outdir /tmp/v771831-dist
+      - name: Commit production files only
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/index.js cloudflare-worker/adaptive-tuning.js cloudflare-worker/dual-ai-intervention.js .github/workflows/validate-cloudflare-v77.yml
+          git commit -m "V77.18.31 Metal + Index Cash migration" || exit 0
+          git push origin HEAD:v771831-index-cash-migration
