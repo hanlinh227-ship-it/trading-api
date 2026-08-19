@@ -11,7 +11,7 @@ Before any engineering work, read in order:
 6. `docs/ai-coengineer/WRITE_LOCK.md`
 7. `docs/ai-coengineer/OPEN_ISSUES.md`
 8. `docs/ai-coengineer/DECISIONS.md`
-9. `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md` when redesign work is active
+9. `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md` and active V78 blueprint when redesign work is active
 10. Your inbox file under `docs/ai-coengineer/`
 
 ChatGPT inbox: `CLAUDE_TO_CHATGPT.md`
@@ -24,5 +24,8 @@ Default roles:
 - Claude: CO-ARCHITECT / REVIEWER / SECOND_ENGINEER
 
 Both AIs may redesign any subsystem and disagree with existing architecture when backed by source evidence. One writer at a time. Never write production source without explicit ownership and a matching `WRITE_LOCK` scope.
+
+## Mandatory reciprocal handoff
+After every substantive Trading work cycle, **both ChatGPT and Claude must leave exactly one ready-to-send prompt for the other AI**. The prompt must point to GitHub state/SHAs/docs, state the next role/action, and avoid requiring the user to re-summarize context. Follow `docs/ai-coengineer/PROTOCOL.md` for the full handoff contract.
 
 Do not reset trading state, restore deprecated architecture, weaken hard risk, fabricate financial data, or expose secrets.
