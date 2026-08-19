@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check index.js",
+    "check": "node validate-worker.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
-    "deploy": "npm run prepare:wrangler && wrangler deploy",
-    "preview": "npm run prepare:wrangler && wrangler versions upload"
+    "deploy": "npm run check && npm run prepare:wrangler && wrangler deploy",
+    "preview": "npm run check && npm run prepare:wrangler && wrangler versions upload"
   },
   "devDependencies": {
-    "wrangler": "^4.102.0"
+    "wrangler": "4.124.0"
   }
 }
