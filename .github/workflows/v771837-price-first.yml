@@ -2,11 +2,13 @@ name: V77.18.37 Price First No Global
 on:
   push:
     branches: [v771837-price-first-no-global]
+  pull_request:
+    branches: [main]
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'v771837-price-first-no-global' || github.ref_name == 'v771837-price-first-no-global'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,4 +34,3 @@ jobs:
           git commit -m "V77.18.37 price-first no-global actions" || exit 0
           git pull --rebase origin v771837-price-first-no-global
           git push origin HEAD:v771837-price-first-no-global
-# trigger
