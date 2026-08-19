@@ -1,3 +1,4 @@
+# trigger: 2026-08-20 production verification
 name: V78-020 Production Live Verify
 
 on:
@@ -60,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, urllib.request, urllib.parse, datetime, pathlib, sys
+          import json, urllib.request, datetime, pathlib, sys, subprocess
           base='https://trading-v77-scanner.hanlinh227.workers.dev'
           groups=['forex','crypto','metal','index']
           def get(path):
@@ -69,72 +70,30 @@ jobs:
                   return json.loads(r.read().decode())
           status=get('/status')
           prior={g:get('/latest-scan?group='+g) for g in groups}
-          runs={}
-          for g in groups:
-              runs[g]=get('/run-now?group='+g)
+          runs={g:get('/run-now?group='+g) for g in groups}
           evidence=get('/evidence/entry-intelligence?limit=240')
           erows=evidence.get('rows') or []
-          report={
-            'verifiedAt':datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
-            'workerUrl':base,
-            'deployedGitHead':__import__('subprocess').check_output(['git','rev-parse','HEAD'],text=True).strip(),
-            'requiredAncestor':'47800df837101611db8b61e0a25b8fcbd8888f55',
-            'statusEndpoint':status,
-            'groups':{},
-            'productionVerified':True,
-            'failures':[]
-          }
-          actionable_plan={'MARKET_PLAN','LIMIT_PLAN'}
-          rescue_reasons={'M15_LOCATION_REQUIRED','M5_MSS_DISPLACEMENT_RETEST_REQUIRED','RR_QUALITY_REQUIRED'}
+          report={'verifiedAt':datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),'workerUrl':base,'deployedGitHead':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'requiredAncestor':'47800df837101611db8b61e0a25b8fcbd8888f55','statusEndpoint':status,'groups':{},'productionVerified':True,'failures':[]}
+          actionable_plan={'MARKET_PLAN','LIMIT_PLAN'}; rescue_reasons={'M15_LOCATION_REQUIRED','M5_MSS_DISPLACEMENT_RETEST_REQUIRED','RR_QUALITY_REQUIRED'}
           for g in groups:
-              oldwrap=prior[g] or {}; old=oldwrap.get('snapshot') or {}
-              new=runs[g] or {}
-              oldA=old.get('analyses') or []; newA=new.get('analyses') or []
+              old=(prior[g] or {}).get('snapshot') or {}; new=runs[g] or {}; oldA=old.get('analyses') or []; newA=new.get('analyses') or []
               oldplans=[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in oldA if a.get('status') in actionable_plan]
-              newrows=[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in newA]
-              new_syms={a.get('symbol') for a in newA}
-              absent=[x for x in oldplans if x['symbol'] not in new_syms]
-              legit_wait=new.get('status') in {'RATE_BUDGET_WAIT','BUSY'}
-              rescue_checks=[]
+              newrows=[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in newA]; new_syms={a.get('symbol') for a in newA}; absent=[x for x in oldplans if x['symbol'] not in new_syms]; legit_wait=new.get('status') in {'RATE_BUDGET_WAIT','BUSY'}; rescue_checks=[]
               for a in newA:
                   if a.get('status') not in actionable_plan or a.get('reason') not in rescue_reasons: continue
-                  p=a.get('planned') or a
-                  q=a.get('analysisQuote') or a.get('quote') or {}
-                  valid=bool(q.get('price')) and q.get('fresh') is not False and all(p.get(k) is not None for k in ['entry','sl']) and (p.get('tp2') is not None or p.get('tp1') is not None or p.get('targetRR') is not None)
-                  matched=None
-                  for e in erows:
-                      ed=e.get('existingDecision') or {}
-                      if e.get('symbol')==a.get('symbol') and ed.get('status')==a.get('status') and ed.get('reason')==a.get('reason'):
-                          matched=e; break
-                  allowed=(matched or {}).get('promotion',{}).get('allowed')
-                  rescue_checks.append({'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason'),'validEvidence':valid,'promotionAllowed':allowed,'evidenceCreatedAt':(matched or {}).get('createdAt')})
-                  if valid and allowed is not True:
-                      report['productionVerified']=False; report['failures'].append(f'{g}:{a.get("symbol")}:rescue promotion not allowed')
-              if absent and not legit_wait:
-                  report['productionVerified']=False
-                  report['failures'].append(f'{g}:prior actionable plans absent from new analyses: {absent}')
-              report['groups'][g]={
-                'prior':{'status':old.get('status'),'scanId':old.get('scanId'),'scannedAt':old.get('scannedAt'),'analyses':[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in oldA]},
-                'new':{'status':new.get('status'),'scanId':new.get('scanId'),'scannedAt':new.get('scannedAt'),'analyses':newrows},
-                'priorActionablePlans':oldplans,
-                'absentPriorActionablePlans':absent,
-                'legitimateWaitOrBusy':legit_wait,
-                'rescuePromotionChecks':rescue_checks
-              }
-          pathlib.Path('/tmp/v78-live.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
-          print(json.dumps(report,indent=2,ensure_ascii=False))
-          if not report['productionVerified']:
-              sys.exit(2)
+                  p=a.get('planned') or a; q=a.get('analysisQuote') or a.get('quote') or {}; valid=bool(q.get('price')) and q.get('fresh') is not False and all(p.get(k) is not None for k in ['entry','sl']) and (p.get('tp2') is not None or p.get('tp1') is not None or p.get('targetRR') is not None)
+                  matched=next((e for e in erows if e.get('symbol')==a.get('symbol') and (e.get('existingDecision') or {}).get('status')==a.get('status') and (e.get('existingDecision') or {}).get('reason')==a.get('reason')),None); allowed=(matched or {}).get('promotion',{}).get('allowed'); rescue_checks.append({'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason'),'validEvidence':valid,'promotionAllowed':allowed,'evidenceCreatedAt':(matched or {}).get('createdAt')})
+                  if valid and allowed is not True: report['productionVerified']=False; report['failures'].append(f'{g}:{a.get("symbol")}:rescue promotion not allowed')
+              if absent and not legit_wait: report['productionVerified']=False; report['failures'].append(f'{g}:prior actionable plans absent from new analyses: {absent}')
+              report['groups'][g]={'prior':{'status':old.get('status'),'scanId':old.get('scanId'),'scannedAt':old.get('scannedAt'),'analyses':[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in oldA]},'new':{'status':new.get('status'),'scanId':new.get('scanId'),'scannedAt':new.get('scannedAt'),'analyses':newrows},'priorActionablePlans':oldplans,'absentPriorActionablePlans':absent,'legitimateWaitOrBusy':legit_wait,'rescuePromotionChecks':rescue_checks}
+          pathlib.Path('/tmp/v78-live.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)); print(json.dumps(report,indent=2,ensure_ascii=False))
+          if not report['productionVerified']: sys.exit(2)
           PY
       - name: Persist exact live evidence and mark production verified
         shell: bash
         run: |
           set -euo pipefail
-          {
-            echo
-            echo '=== V78-020 PRODUCTION LIVE VERIFICATION ==='
-            cat /tmp/v78-live.json
-          } >> docs/ai-coengineer/V78-020_VALIDATION.txt
+          { echo; echo '=== V78-020 PRODUCTION LIVE VERIFICATION ==='; cat /tmp/v78-live.json; } >> docs/ai-coengineer/V78-020_VALIDATION.txt
           cat >> docs/ai-coengineer/SHARED_STATE.md <<'EOF'
 
 V78-020 — PRODUCTION-VERIFIED
