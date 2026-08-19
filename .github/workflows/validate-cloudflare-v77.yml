@@ -35,6 +35,7 @@ jobs:
           const hub=read('cloudflare-worker/hub-v77171.js');
           const engine=read('cloudflare-worker/engine-v77168.js');
           const dual=read('cloudflare-worker/dual-ai-intervention.js');
+          const claude=read('cloudflare-worker/claude-reviewer.js');
           const exec=read('cloudflare-worker/hyro-execution.js');
           const scanner=read('cloudflare-worker/hyro-scanner.js');
           const runtime=read('cloudflare-worker/hyro-runtime.js');
@@ -48,10 +49,11 @@ jobs:
           const pkg=JSON.parse(read('cloudflare-worker/package.json'));
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
           const locks=(src,list,label)=>{for(const x of list)if(!src.includes(x))throw new Error(label+' missing: '+x)};
-          locks(engine,['V77.16.19','Signal Live Sync R6','INDEX_CASH','NAS100','US30','US500','DEX','JP225','MASSIVE_INDEX_PROVIDER','I:NDX','I:DJI','I:SPX','I:DAX','I:N225','Twelve Data Native Index','INDEX_SANITY','validIndexPrice','type:"Index"','assertTdIndexIdentity','MARKET_SIGNAL','strengthNormalizedSigned','FX_SESSION_CONTINUATION_ZONE','FX_M5_SESSION_CONTINUATION','/symbols','analysisQuote','v775:books','signalActive','SIGNAL_ONLY','callback_data:"live:"+group','callback_data:"signal:scan:"+group','callback_data:"symbol:"+group+":"+symbol'],'Signal');
-          locks(index,['V77.18.38','Repair + Deploy Sync','HYRO • VỊ THẾ LIVE','ensureDualAiIntervention','dailyObjective:{challengePct:2,fundedStretchPct:5}'],'Index');
-          locks(hub,['V77.18.41','HUB-R9-SIGNAL-LIVE-SYNC','marketKeyboard','symbolPageKeyboard','symbolResultText','market:forex','market:crypto','market:metal','market:index','symbols:${g}:0','/books?group=','/symbols?group=','/analyze?symbol=','signalActive','MARKET SIGNAL','SIGNAL-ONLY'],'Hub');
-          locks(dual,['MARKET_BALANCE_R5_BUDGET','max_tokens:1400','fresh explicit analysis quote','MARKET-ISOLATED HUB'],'Dual AI');
+          locks(engine,['V77.16.20','Signal Integrity R7','INDEX_CASH','NAS100','US30','US500','DEX','JP225','MASSIVE_INDEX_PROVIDER','I:NDX','I:DJI','I:SPX','I:DAX','I:N225','Twelve Data Native Index','fresh:age!==null&&age<=900','MARKET_SIGNAL','v775:books','signalActive','SIGNAL_ONLY','toSignalPos','sig.planned?.tp1','sig.planned?.tp2','lifecycleSignalGroups','SIGNAL_EXPIRED','SIGNAL_TP','SIGNAL_SL','q?.fresh===false','liveStale','persistedSignals','run?.newItems','let sent=false','massive:!!env.MASSIVE_API_KEY','a?.status==="MARKET_SIGNAL")x+=800','getBooksLive(env,group)','SIGNAL TP • THEORETICAL','SIGNAL SL • THEORETICAL','callback_data:"live:"+group','callback_data:"signal:scan:"+group','callback_data:"symbol:"+group+":"+symbol'],'Signal');
+          locks(index,['V77.18.42','Signal Integrity + Claude Audit','HYRO • VỊ THẾ LIVE','ensureDualAiIntervention','dailyObjective:{challengePct:2,fundedStretchPct:5}'],'Index');
+          locks(hub,['V77.18.42','HUB-R10-SIGNAL-INTEGRITY','marketKeyboard','symbolPageKeyboard','symbolResultText','market:forex','market:crypto','market:metal','market:index','/books?group=','signalActive','MARKET SIGNAL','SIGNAL-ONLY','Quote stale','⚪ UNKNOWN'],'Hub');
+          locks(dual,['SIGNAL_LIVE_INTEGRITY_R1','lifecycleSignalGroups','toSignalPos','signalActive','MARKET_SIGNAL','max_tokens:1400','fresh explicit analysis quote','MARKET-ISOLATED HUB'],'Dual AI');
+          locks(claude,['focusText','signalActive','toSignalPos','lifecycleSignalGroups','notifySignalPlans','SIGNAL LIVE INTEGRITY','Index Cash','A notified MARKET_SIGNAL must remain in matching Live'],'Claude Reviewer');
           locks(exec,['RISK_V771822_ACTIVATES_AT','singlePct:.0055','aPct:.0045','combinedPct:.009','hardPct:.016'],'Risk');
           locks(scanner,['tp1Pct:.45','runnerPct:.20','fundingRate'],'Scanner');
           locks(runtime,['ensureDualAiIntervention','MAX_ACTIVE_SLOTS_REACHED'],'Runtime');
@@ -67,7 +69,7 @@ jobs:
           if(!/keep_vars\s*:\s*true/.test(wrangler)||!wrangler.includes('TRADING_STATE')||!wrangler.includes('TRADING_V77_STATE'))throw new Error('KV deployment lock missing');
           if(pkg.devDependencies?.wrangler!=='4.124.0')throw new Error('Wrangler must be pinned');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('V77.18.41 Signal Live Sync validation PASS');
+          console.log('V77.18.42 Signal Integrity R7 + Claude visibility validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
@@ -91,7 +93,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
       - name: Detect Cloudflare deployment capability
         id: cf
         shell: bash
@@ -106,20 +107,12 @@ jobs:
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then ready=false; missing="$missing CLOUDFLARE_ACCOUNT_ID"; fi
           echo "ready=$ready" >> "$GITHUB_OUTPUT"
           echo "missing=${missing# }" >> "$GITHUB_OUTPUT"
-          if [ "$ready" = true ]; then
-            echo "Cloudflare credentials detected. Direct Wrangler deploy enabled."
-          else
-            echo "::warning title=Cloudflare direct deploy skipped::Missing GitHub secret(s): ${missing# }. Validation remains PASS; configure these secrets once to enable automatic Wrangler deploy."
-          fi
-          if [ -z "$TRADING_KV_NAMESPACE_ID" ]; then
-            echo "TRADING_KV_NAMESPACE_ID not set; prepare-wrangler will attempt safe discovery of existing TRADING_V77_STATE when Cloudflare credentials are available."
-          fi
-
+          if [ "$ready" = true ]; then echo "Cloudflare credentials detected. Direct Wrangler deploy enabled."; else echo "::warning title=Cloudflare direct deploy skipped::Missing GitHub secret(s): ${missing# }. Validation remains PASS; configure these secrets once to enable automatic Wrangler deploy."; fi
+          if [ -z "$TRADING_KV_NAMESPACE_ID" ]; then echo "TRADING_KV_NAMESPACE_ID not set; prepare-wrangler will attempt safe discovery of existing TRADING_V77_STATE when Cloudflare credentials are available."; fi
       - name: Install pinned Wrangler
         if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
-
       - name: Prepare production Wrangler config
         if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
@@ -128,7 +121,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
         run: node prepare-wrangler.mjs
-
       - name: Deploy Worker to Cloudflare
         if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
@@ -136,7 +128,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy
-
       - name: Confirm Cloudflare deployment
         if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
@@ -144,7 +135,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deployments list | head -n 30
-
       - name: Deployment summary
         if: always()
         shell: bash
