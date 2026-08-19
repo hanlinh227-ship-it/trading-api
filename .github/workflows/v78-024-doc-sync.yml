@@ -28,7 +28,7 @@ jobs:
           grep -q '^LOCKED: true$' docs/ai-coengineer/WRITE_LOCK.md
           grep -q '^OWNER: CHATGPT$' docs/ai-coengineer/WRITE_LOCK.md
           grep -q '^SCOPE: V78-024 canonical docs sync + Hyro hardening blueprint$' docs/ai-coengineer/WRITE_LOCK.md
-      - name: Apply canonical doc sync
+      - name: Apply canonical doc sync idempotently
         run: node scripts/v78-024-doc-sync.mjs
       - name: Validate scope
         shell: bash
@@ -48,6 +48,10 @@ jobs:
           git config user.name 'V78-024 Docs Sync'
           git config user.email 'actions@users.noreply.github.com'
           git add docs/checkpoints/CURRENT_HANDOFF.md docs/checkpoints/MASTER_TRADING_STATE.md docs/ai-coengineer/OPEN_ISSUES.md docs/ai-coengineer/V78-024_VALIDATION.txt docs/ai-coengineer/WRITE_LOCK.md
+          if git diff --cached --quiet; then
+            echo 'No doc changes required'
+            exit 0
+          fi
           git commit -m 'V78-024 sync canonical state through Hub R13 and resolve AI-002'
           git pull --rebase origin main
           git push origin HEAD:main
