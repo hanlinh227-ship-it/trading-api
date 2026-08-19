@@ -18,7 +18,9 @@ jobs:
         with:
           node-version: '22'
       - name: Apply V77.18.37
-        run: python3 scripts/patch_v771837_price_first.py
+        run: |
+          python3 scripts/patch_v771837_fix.py
+          python3 scripts/patch_v771837_price_first.py
       - name: Validate source bundle
         run: |
           cd cloudflare-worker
