@@ -2,8 +2,8 @@ import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "j
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.14",
-  service: "Trading V77.16.14 Split Market Live",
+  version: "V77.16.15",
+  service: "Trading V77.16.15 Native Index Failover",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -106,6 +106,7 @@ async function tdQuotaStatus(env){
 function tdPlannedCost(group){return group==="forex"?40:group==="metal"?10:group==="index"?25:0;}
 function tdRetryAfterSec(){return Math.max(3,62-(Math.floor(Date.now()/1000)%60));}
 async function ensureTdBudget(group,env){
+  if(group==="index"&&env.MASSIVE_API_KEY)return {ok:true,required:0,left:memory.tdCreditsLeft,primary:"MASSIVE"};
   const required=tdPlannedCost(group);
   if(required===0)return {ok:true,required:0,left:memory.tdCreditsLeft};
   const q=await tdQuotaStatus(env);
@@ -123,24 +124,30 @@ function tdCandlesFromNode(node,interval){
   const n=node?.data?.values?node.data:node;if(!Array.isArray(n?.values))return null;
   return normalizeCandles(n.values.map(v=>({timestamp:parseTs(v.datetime),open:v.open,high:v.high,low:v.low,close:v.close,volume:v.volume})),candleSec(interval));
 }
+async function tdSingleIndexCandles(symbol,interval,env,outputsize=CONFIG.candleOutputSize){
+  const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,interval,outputsize:String(outputsize),order:"ASC",timezone:"UTC"},env),c=tdCandlesFromNode(p,interval);
+  if(!c?.length)throw new Error(`Twelve Data index candles unavailable ${s}/${ps}`);return c;
+}
 async function tdBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutputSize){
-  const requested=[...new Set(symbols.map(norm))];if(requested.length&&requested.every(x=>marketType(x)==="index")&&env.MASSIVE_API_KEY){const m=await massiveIndexBatchCandles(requested,interval,env,outputsize);if(m.size)return m;}const provider=requested.map(tdSymbol),out=new Map();if(!requested.length)return out;
-  const p=await tdFetch("time_series",{symbol:provider.join(","),interval,outputsize:String(outputsize),order:"ASC",timezone:"UTC"},env);
-  if(Array.isArray(p?.values)){const c=tdCandlesFromNode(p,interval);if(c)out.set(requested[0],c);return out;}
-  const lookup=new Map(provider.map((x,i)=>[norm(x),requested[i]]));
-  for(const [key,raw] of Object.entries(p||{})){
-    const node=raw?.data?.values?raw.data:raw,c=tdCandlesFromNode(raw,interval);if(!c)continue;
-    const canonical=lookup.get(norm(node?.meta?.symbol||key));if(canonical)out.set(canonical,c);
+  const requested=[...new Set(symbols.map(norm))],out=new Map();if(!requested.length)return out;
+  if(requested.every(x=>marketType(x)==="index")){
+    if(env.MASSIVE_API_KEY){const m=await massiveIndexBatchCandles(requested,interval,env,outputsize);for(const [k,v] of m)if(v?.length)out.set(k,v);}
+    const missing=requested.filter(s=>!out.has(s));
+    if(missing.length&&env.TWELVE_DATA_API_KEY){await Promise.all(missing.map(async s=>{try{const c=await tdSingleIndexCandles(s,interval,env,outputsize);if(c.length)out.set(s,c);}catch{}}));}
+    return out;
   }
-  return out;
+  const provider=requested.map(tdSymbol),p=await tdFetch("time_series",{symbol:provider.join(","),interval,outputsize:String(outputsize),order:"ASC",timezone:"UTC"},env);
+  if(Array.isArray(p?.values)){const c=tdCandlesFromNode(p,interval);if(c)out.set(requested[0],c);return out;}
+  const lookup=new Map(provider.map((x,i)=>[norm(x),requested[i]]));for(const [key,raw] of Object.entries(p||{})){const node=raw?.data?.values?raw.data:raw,c=tdCandlesFromNode(raw,interval);if(!c)continue;const canonical=lookup.get(norm(node?.meta?.symbol||key));if(canonical)out.set(canonical,c);}return out;
 }
 async function massiveIndexFetch(path,params,env){if(!env.MASSIVE_API_KEY)throw new Error("MASSIVE_API_KEY missing");const q=new URLSearchParams(params||{});q.set("apiKey",env.MASSIVE_API_KEY);const r=await fetchTimeout(`https://api.massive.com${path}?${q}`);const j=await r.json().catch(()=>null);if(!r.ok||!j||j.status==="ERROR")throw new Error(j?.error||j?.message||`Massive HTTP ${r.status}`);return j;}
 function massiveIndexRange(interval){const now=Date.now(),d={"5min":7,"15min":14,"1h":45,"4h":180,"1day":500}[interval]||45,m={"5min":[5,"minute"],"15min":[15,"minute"],"1h":[1,"hour"],"4h":[4,"hour"],"1day":[1,"day"]}[interval]||[1,"hour"];return {from:new Date(now-d*86400000).toISOString().slice(0,10),to:new Date(now).toISOString().slice(0,10),mult:m[0],span:m[1]};}
 async function massiveIndexCandles(symbol,interval,env,limit=CONFIG.candleOutputSize){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const r=massiveIndexRange(interval),j=await massiveIndexFetch(`/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/${r.mult}/${r.span}/${r.from}/${r.to}`,{adjusted:"true",sort:"asc",limit:String(Math.max(limit,120))},env);return normalizeCandles((j.results||[]).map(x=>({timestamp:Math.floor(Number(x.t)/1000),open:x.o,high:x.h,low:x.l,close:x.c,volume:null})),candleSec(interval));}
 async function massiveIndexBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutputSize){const out=new Map();await Promise.all(symbols.map(async sym=>{try{const c=await massiveIndexCandles(sym,interval,env,outputsize);if(c.length)out.set(norm(sym),c);}catch{}}));return out;}
-async function massiveIndexQuote(symbol,env){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const c=await massiveIndexCandles(s,"5min",env,30),last=c.at(-1);if(!last)throw new Error("Massive index quote unavailable");const age=Math.max(0,nowSec()-last.timestamp-300);return {source:"Massive Indices",requestedSymbol:s,providerSymbol:ticker,price:last.close,providerTimestamp:last.timestamp,quoteAgeSec:age,fresh:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
+async function massiveIndexQuote(symbol,env){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const j=await massiveIndexFetch("/v3/snapshot/indices",{ticker,limit:"10"},env),r=(j.results||[]).find(x=>x?.ticker===ticker&&!x?.error),price=num(r?.value);if(!(price>0))throw new Error(r?.message||r?.error||"Massive index snapshot unavailable");const ts=r?.last_updated?Math.floor(Number(r.last_updated)/1e9):null,age=ts?Math.max(0,nowSec()-ts):null;return {source:"Massive Indices Snapshot",requestedSymbol:s,providerSymbol:ticker,price,providerTimestamp:ts,quoteAgeSec:age,timeframe:r?.timeframe||null,marketStatus:r?.market_status||null,fresh:age==null?false:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
+async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s;try{const p=await tdFetch("price",{symbol:ps},env),price=num(p?.price);if(price>0)return {source:"Twelve Data Index Price",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:null,quoteAgeSec:null,fresh:true,bid:null,ask:null,executionVerified:false,analysisOnly:true};}catch{}const p=await tdFetch("quote",{symbol:ps},env),price=num(p.close)??num(p.price);if(!(price>0))throw new Error("TD index price invalid");const ts=parseTs(p.last_quote_at??p.timestamp??p.datetime),age=ts==null?null:Math.max(0,nowSec()-ts);return {source:"Twelve Data Index Quote",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:ts,quoteAgeSec:age,fresh:age==null?true:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
 async function tdQuote(symbol,env){
-  if(marketType(symbol)==="index"&&env.MASSIVE_API_KEY){try{return await massiveIndexQuote(symbol,env);}catch{}}
+  if(marketType(symbol)==="index"){if(env.MASSIVE_API_KEY){try{return await massiveIndexQuote(symbol,env);}catch{}}if(env.TWELVE_DATA_API_KEY)return tdIndexQuote(symbol,env);throw new Error("No native index provider configured");}
   const ps=tdSymbol(symbol),p=await tdFetch("quote",{symbol:ps},env),price=num(p.close)??num(p.price);
   if(!price||price<=0)throw new Error("TD price invalid");
   const ts=parseTs(p.last_quote_at??p.timestamp??p.datetime),age=ts==null?null:Math.max(0,nowSec()-ts);
@@ -722,7 +729,7 @@ export default {
   async fetch(req,env){
     try{
       const u=new URL(req.url),p=u.pathname.replace(/\/$/,"")||"/";
-      if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Twelve Data Index analysis; signal-only until broker execution authority exists"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
+      if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Massive native index snapshot/OHLC primary + Twelve Data native index per-symbol fallback"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
       if(p==="/run-now"){const g=u.searchParams.get("group");return json(await runGroup(g,env,"API_RUN_NOW"));}
       if(p==="/analyze"){const symbol=u.searchParams.get("symbol");return json(await runSymbol(symbol,env));}
       if(p==="/hub")return json(await runHub(env,"API_HUB"));
