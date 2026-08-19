@@ -3,94 +3,147 @@
 Updated: 2026-08-19 UTC+7
 
 ## READ FIRST
-1. `V771824_DUAL_AI_COENGINEER_ARBITER.md`
-2. `V771822_SAFE_RISK_BALANCED_DISCOVERY.md`
-3. `V771820_CLAUDE_REVIEWER.md`
-4. `V771819_SINGLE_PROP_RECOVERY.md`
-5. `V771818_RELEASE_POSITION_REVIEW.md`
-6. `V771817_AUTONOMOUS_HEALTH_GUARDIAN.md`
-7. `V771816_BALANCED_ENTRY_ALL_MARKETS.md`
-8. `MASTER_TRADING_STATE.md`
+1. `/CLAUDE.md`
+2. `/AGENTS.md`
+3. `/docs/ai-coengineer/PROTOCOL.md`
+4. `MASTER_TRADING_STATE.md`
+5. `docs/ai-coengineer/SHARED_STATE.md`
+6. `docs/ai-coengineer/WRITE_LOCK.md`
+7. `docs/ai-coengineer/OPEN_ISSUES.md`
+8. `docs/ai-coengineer/DECISIONS.md`
+9. relevant market checkpoint
 
-## CURRENT CANONICAL
-**V77.18.24 — Dual AI Co-Engineer Arbiter** is canonical source. Production entrypoint is `cloudflare-worker/index.js`. Signal core is **V77.16.10 Balanced Discovery**.
+## CURRENT CANONICAL COMPONENT STATE
+GitHub `main` source is authoritative when historical checkpoint text lags.
 
-PROP remains SINGLE HYRO ACCOUNT ONLY. Never restore TK2 unless explicitly redesigned.
+Current reviewed component state:
+- Production entrypoint `cloudflare-worker/index.js`: **V77.18.43 — Legacy Cleanup + Version Sync**.
+- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42**.
+- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7**.
+- Health Guardian fixes are present through **V77.18.45**.
+- Hyro execution telemetry repair is **V77.18.46**, repair commit `1d6db32155c06d464f4da94746df73e110b9b294`.
 
-## AI GOVERNANCE
-ChatGPT and Claude are CO-ENGINEERS for analysis/review/tuning/source proposals. Claude receives the same class of sanitized critical-code/runtime snapshot used for engineering review. `ai-arbiter.js` serializes mutable AI actions so they cannot race.
+Component versions are independent. Do not bump a component solely for cosmetic alignment when that component source did not change.
 
-Claude may directly write only bounded soft discovery tuning. Source/HUB/architecture recommendations are stored as proposals and must pass arbiter + validator before source merge. Neither AI runtime path has direct trade, close/cancel, deploy, secret-change or hard-risk override authority.
+## AI-001 — HYRO TELEMETRY REPAIR
+**RESOLVED. Claude review PASS 2026-08-19T11:40:00Z.**
 
-State:
-- `v771824:ai:*`
-- `v771824:dual_ai:*`
-- `v771824:adaptive:tuning`
-Legacy `v771823:adaptive:tuning` is read only as fallback for continuity.
+Current telemetry contract:
+- critical: `wallet`, `positions`, `orders`;
+- optional/degradable: `closedPnl`;
+- critical failure => `connected:false` and fail-closed for new execution;
+- `closedPnl`-only failure => `connected:true`, degraded diagnostics, existing positions remain visible/manageable;
+- realized P/L freshness is explicit; unavailable realized data is not fabricated as zero.
 
-## DUAL AI INTERVENTION
-`dual-ai-intervention.js` runs idempotently for V77.18.24 and no longer depends solely on Hyro connectivity; `index.js` schedules it independently. It uses Claude Sonnet 5, curated/truncated critical code, runtime/health/books snapshots and max ~2000 output tokens. Successful completion stores real token usage + estimated cost and sends one deduplicated Telegram completion message.
+Claude confirmed no hard-risk constants, state keys, credential routing or order semantics were changed by the repair.
 
-Routine Claude auto-review is delayed at least ~6 hours after this intervention to avoid paying twice for the same release.
+Non-blocking future improvement: when `closedPnlFresh:false`, Telegram closure reporting may annotate realized P/L as unavailable instead of displaying a stale/zero-looking delta without context.
 
-Read-only status endpoints:
-- `/ai/status`
-- `/dual-ai/status`
-- `/tuning`
-- `/claude/status`
+## PERMANENT CHATGPT ↔ CLAUDE CO-ENGINEERING
+GitHub is the durable communication bus between ChatGPT and Claude.ai.
 
-Public forced Claude spending is disabled: `/claude/review/run` requires `AI_ADMIN_SECRET` and `x-ai-admin-secret`. Telegram manual review remains protected by Telegram webhook secret.
+Root entrypoints:
+- `/CLAUDE.md`
+- `/AGENTS.md`
 
-## HYRO RISK / TP
-V77.18.22 risk policy remains authoritative after 2026-08-19 00:00 UTC:
-- A base ~0.45% equity.
-- single cap ~0.55%.
-- combined open risk ~0.90%.
-- internal daily hard stop ~1.60%.
-- profit lock/target ~1.20%.
-- structural SL authoritative; reduce USD risk using size.
+Protocol/state files:
+- `docs/ai-coengineer/PROTOCOL.md`
+- `docs/ai-coengineer/SHARED_STATE.md`
+- `docs/ai-coengineer/WRITE_LOCK.md`
+- `docs/ai-coengineer/OPEN_ISSUES.md`
+- `docs/ai-coengineer/DECISIONS.md`
+- ChatGPT -> Claude: `docs/ai-coengineer/CHATGPT_TO_CLAUDE.md`
+- Claude -> ChatGPT: `docs/ai-coengineer/CLAUDE_TO_CHATGPT.md`
+
+Default roles:
+- ChatGPT = **PRIMARY_ENGINEER**.
+- Claude = **REVIEWER / SECOND_ENGINEER**.
+
+One writer at a time. `LOCKED:false` does not itself grant production-write authority; issue ownership or an explicit handoff is still required. Both AIs must refresh `main` before analysis/write and current source outranks stale docs.
+
+Claude.ai cannot wake itself when GitHub changes. A user `continue co-engineering` turn starts the Claude session; after that Claude must refresh/read the GitHub bus and continue without asking the user to paste project state manually.
+
+## AI GOVERNANCE / RUNTIME AI
+The repository still contains runtime AI governance modules such as `ai-arbiter.js` and `dual-ai-intervention.js`. These runtime paths are distinct from the human-invoked Claude.ai GitHub co-engineering bus.
+
+Neither AI co-engineering path may bypass deterministic validation, trading hard gates, secrets policy, state safety or write-lock ownership.
+
+## PROP / HYRO
+PROP remains **SINGLE HYRO ACCOUNT ONLY**. Never restore TK2/multi-account logic unless explicitly redesigned.
+
+V77.18.22 safe-risk policy remains authoritative after 2026-08-19 00:00 UTC:
+- A base ~0.45% equity;
+- single cap ~0.55%;
+- combined open risk ~0.90%;
+- internal daily hard stop ~1.60%;
+- structural SL authoritative; reduce USD risk using size, not by silently tightening structural invalidation.
 
 TP management retained:
-- TP1 ~0.85R, ~45%.
-- TP2 ~1.60R, ~35%.
-- runner ~20% toward ~2.45R.
-- BE after TP1, trailing after TP2.
-- HOLD/TIGHTEN/CUT review retained.
+- TP1 ~0.85R, ~45%;
+- TP2 ~1.60R, ~35%;
+- runner ~20% toward ~2.45R;
+- BE after TP1;
+- trailing after TP2;
+- HOLD/TIGHTEN/CUT position review retained.
 
-HUB Hyro profile shell has been aligned with the same internal risk policy to remove stale/conflicting 2–3% internal figures.
+## SIGNAL / MARKET ARCHITECTURE
+Legacy Futures Signal remains removed.
 
-## DISCOVERY
-Adaptive tuning is bounded and cannot disable hard gates.
-Defaults:
-- Signal: location 47/47, trigger 49/49, conditional 51, fallback 41, Forex RR 1.18, Metal RR 1.26, Futures RR 1.43, chase 0.72 ATR.
-- Hyro: deep 14, turnover floor 6m, B micro 0.52, B distance 1.40, B RR floor 1.38.
+Canonical Signal markets:
+- Forex
+- Crypto
+- Metal
+- Index Cash
 
-`hyro-runtime.js` now passes the full Hyro tuning object into `hyro-scanner.js`, so B distance/RR tuning is actually consumed rather than merely stored.
+Do not restore global legacy scan/live callbacks or Futures proxy logic.
 
-Hard news, freshness, execution authority, structural SL, portfolio guard, microstructure, native SL/TP and V77 safe-daily risk remain mandatory.
+V73 remains frozen statistical prior. V74 remains live decision authority. V76 Forex R2 remains research-only with 0/28 promoted; do not use rejected/promoted-none V76 research as live order authority.
 
-## HUB
-Main menu remains compact:
-- Signal / PROP
-- Personal / Symbol
-- Orders / System
-- AI Co-engineer
+Forex/Metal: Twelve Data reference price alone never authorizes executable MARKET/LIMIT without real execution-venue bid/ask.
+
+Crypto: execution requires fresh exact venue-native quote and the canonical hard gates.
+
+Cash index and futures are never interchangeable.
+
+## SYSTEM HEALTH / TELEGRAM
+Health fixes through V77.18.45 are present:
+- legacy `future` health group removed in favor of canonical `index` identity;
+- on-demand market scan age is informational, not a false system ERROR;
+- full health owns automatic health notification;
+- duplicate ERROR/WARN alerts are deduplicated/cooldown-controlled;
+- recovery is reported separately;
+- optional Hyro endpoint degradation must not be reported as total PROP OFF when critical telemetry remains healthy.
 
 ## GITHUB / CLOUDFLARE
-Canonical validator is PURE validation only. It must never patch source, commit migrations or push from inside validation. This removes GitHub/Cloudflare feedback-loop conflicts.
+Production source remains GitHub `main`.
 
 Deployment contract:
-- Worker `trading-v77-scanner`.
-- `TRADING_STATE` existing KV binding.
-- `keep_vars: true`.
-- Cron each minute; modules control their own cadence.
+- Worker: `trading-v77-scanner`;
+- existing `TRADING_STATE` KV binding;
+- `keep_vars: true`;
+- deterministic validation before deployment;
+- validator must not mutate/push source.
 
-## STATE SAFETY
-Never reset `TRADING_STATE` or Signal LIVE ORDERS `v775:books`.
-No release/version/AI review may close an existing live position merely because code changed.
+Observed deployment evidence on 2026-08-19:
+- Cloudflare Deployments UI showed `V77.18.46 isolate Hyro closedPnl telemetry degradation` in version history;
+- later communication/shared-state commits from `main` were also visible as deployed versions.
 
-## ACTIVATION GATE
-Do not claim V77.18.24 production-active until Cloudflare newest deployment is green/receives traffic. Do not claim Claude intervention completed until `/dual-ai/status` shows `completed:true` or Telegram sends the one completion notification.
+Do not elevate this evidence into a broader `PRODUCTION HEALTHY` claim without runtime evidence. The user explicitly requested no additional ad-hoc testing at that stage.
+
+## STATE SAFETY — HARD RULE
+Never:
+- reset `TRADING_STATE`;
+- delete/reset Signal LIVE ORDERS `v775:books`;
+- close a position merely because code/version changed;
+- restore Futures Signal legacy;
+- restore Hyro TK2/multi-account;
+- weaken hard risk to increase trade count;
+- bypass structural SL, freshness or hard-news safeguards;
+- fabricate broker/exchange quote or P/L;
+- commit secrets/tokens/private keys.
+
+## CURRENT OPEN ISSUE
+AI-002: documentation synchronization. This handoff and `MASTER_TRADING_STATE.md` are being synchronized to the V77.18.46 reviewed component state and permanent GitHub co-engineering mode, then Claude must review the exact documentation diff before AI-002 is marked RESOLVED.
 
 ## NEW CHAT PROMPT
-`Tiếp tục Trading từ GitHub mới nhất. Đọc CURRENT_HANDOFF.md. Canonical V77.18.24 Dual AI Co-Engineer Arbiter; Signal V77.16.10; PROP một Hyro account. ChatGPT và Claude ngang quyền phân tích/đề xuất, mọi write qua arbiter một-writer. Claude chỉ áp dụng soft tuning được clamp; source proposals phải validator/merge, không direct trade/deploy/secret/hard-risk. Giữ V77.18.22 safe risk/TP, Health Guardian, HOLD/TIGHTEN/CUT, funding/OI/orderbook/portfolio guard, TRADING_STATE và v775:books.`
+`Continue Trading co-engineering from GitHub main. Read /CLAUDE.md, /AGENTS.md, docs/ai-coengineer/PROTOCOL.md, MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, SHARED_STATE.md, WRITE_LOCK.md, OPEN_ISSUES.md, DECISIONS.md and your inbox. Current reviewed state: index V77.18.43, hub V77.18.42, Signal V77.16.20, Health through V77.18.45, Hyro execution V77.18.46 PASS. PROP is one Hyro account. GitHub is the permanent ChatGPT↔Claude bus with one writer at a time. Preserve V73 frozen/V74 authority/V76 research-only, V77.18.22 safe risk, TRADING_STATE and v775:books; never restore Futures Signal/TK2 or fabricate financial data.`
