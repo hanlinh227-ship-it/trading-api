@@ -15,3 +15,11 @@ no rx+= residue: PASS
 exact x+=entryIntelligenceRankAdjustment(a): PASS
 crypto MARKET/LIMIT admission still untouched: PASS
 FINAL V78-020 STATIC VALIDATION: PASS
+
+=== PRODUCTION LIVE VERIFICATION ATTEMPT — PENDING ===
+- Prepared production verifier workflow: .github/workflows/v78-020-production-verify.yml
+- Workflow deploys current main, snapshots /latest-scan before each test, executes exactly one /run-now for forex/crypto/metal/index, checks /evidence/entry-intelligence, and persists exact scanIds/timestamps/symbols only on a clean pass.
+- GitHub App/API commits creating and re-triggering this workflow did not surface an executable Actions run through the available integration in this session.
+- No live HTTP result, scanId, symbol, status, timestamp, RATE_BUDGET_WAIT or BUSY value has been invented.
+- V78-020 is NOT marked PRODUCTION-VERIFIED by this record.
+- Current source/static validation remains PASS; production live verification remains pending an actual workflow execution or direct HTTP-capable session.
