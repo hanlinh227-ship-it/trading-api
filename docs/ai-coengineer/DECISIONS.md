@@ -42,3 +42,18 @@ HUB must not maintain an independent hardcoded Hyro risk shell. After source ver
 ## DECISION-008 — News gate semantics
 Decision:
 For advisory discovery/WATCH, missing external news service may be represented explicitly as `NEWS_UNVERIFIED`/degraded rather than fabricated clearance. For **new executable orders**, absence/failure of the required hard-news source must not be silently described as a hard-news pass. V78 design must make the policy explicit and fail closed wherever the active trading mandate requires hard-news clearance. Do not change production behavior until the scoped implementation/review phase.
+
+## DECISION-009 — V78-041 Hyro hard-news gate
+Decision:
+Hyro requires a distinct hard-news/context gate for new executable auto-trade orders. The existing `fundingView()` check in `hyro-scanner.js` is a funding/carry microstructure control, not an event/news-risk source, and is therefore insufficient as the hard-news gate by design.
+
+Policy:
+- Keep funding-rate settlement/adverse-funding checks as a separate execution-quality/carry gate.
+- Advisory discovery/WATCH may continue with explicit `NEWS_UNVERIFIED`/degraded state when no authoritative news source is available.
+- New executable Hyro orders must fail closed when the active policy requires hard-news clearance and authoritative news/context evidence is unavailable, stale, or failed.
+- Do not fabricate a news PASS from funding, OI, orderbook, price action, or absence of an external feed.
+- Production enforcement is a later separately scoped behavior-change issue; this decision alone changes no trading behavior.
+
+Evidence:
+- `hyro-scanner.js::fundingView()` only evaluates funding rate, next funding time, payer side, adverse rate, block near settlement and RR penalty.
+- `hyro-market-context.js` evaluates OI, long/short ratio, orderbook imbalance and spread; these are market context, not hard-news evidence.
