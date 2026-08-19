@@ -1,16 +1,16 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CLAUDE
-SCOPE: V78-011 only — create cloudflare-worker/providers/telegram-client.js and mechanically migrate Telegram raw POST+JSON transport in index.js, hub-v77171.js, claude-telegram.js, system-health.js, release-notifier.js, dual-ai-intervention.js, claude-reviewer.js. engine-v77168.js explicitly excluded; verifyTelegram/webhook-secret logic excluded.
-STARTED: 2026-08-19
-BASE_HEAD: ca78573708ad22a814e726f4cff2ec883fd357c6 bundle guard baseline; all seven current blob SHA guards independently matched before acquisition.
-PURPOSE: Apply Claude V78-011 transfer-safe bundle with zero intentional Telegram behavior change. V78-054 and V78-081 remain deferred/not started.
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-19
+LAST_OWNER: CLAUDE
+LAST_SCOPE: V78-011 Telegram transport migration — SAFE ABORT before consumer writes.
+PURPOSE: All seven stale-write guards matched the Claude bundle, but the current GitHub connector exposes whole-file replacement only and cannot apply atomic search/replace. A temporary shared helper creation was rolled back at commit `18f23c132065012034b8d955517d1d9c685f5045`; therefore V78-011 production source remains unchanged. No partial consumer migration remains. V78-054 and V78-081 remain deferred/not started.
 
 Protocol:
-- One writer only for this scope.
-- Abort if any guarded consumer SHA changes before its write.
-- No TRADING_STATE/v775:books reset.
-- No risk/freshness/structural-SL/news changes.
-- No Futures/TK2 restoration.
-- Release after V78-011 is committed and validated/reviewable.
+- Acquire a new lock before any subsequent co-engineering write.
+- Re-read HEAD and all seven blob guards before retrying V78-011.
+- Do not reset TRADING_STATE/v775:books.
+- Do not weaken risk/freshness/structural-SL/news safeguards.
+- Do not restore Futures/TK2.
