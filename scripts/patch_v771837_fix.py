@@ -1,0 +1,19 @@
+from pathlib import Path
+
+# Fix primary patch marker for current engine layout.
+p=Path('scripts/patch_v771837_price_first.py'); s=p.read_text().replace("end=s.index('async function quotePool(',start)","end=s.index('async function telegram(',start)"); p.write_text(s)
+
+# Applied after primary patch: eliminate shared/global callbacks in legacy engine notifications too.
+p=Path('cloudflare-worker/engine-v77168.js'); s=p.read_text()
+s=s.replace('function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"👤 CÁ NHÂN",callback_data:"personal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"live"}]]};}', 'function baseKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"market:forex"},{text:"🪙 Crypto",callback_data:"market:crypto"}],[{text:"🥇 Metal",callback_data:"market:metal"},{text:"📊 Index",callback_data:"market:index"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"📊 STATUS",callback_data:"status"}],[{text:"🏠 Hub",callback_data:"menu"}]]};}')
+s=s.replace('function signalKeyboard(){return {inline_keyboard:[[{text:"🧭 QUÉT TẤT CẢ / TOP SETUPS",callback_data:"hub"}],[{text:"💱 FOREX",callback_data:"scan:forex"},{text:"🪙 CRYPTO",callback_data:"scan:crypto"}],[{text:"🥇 METAL",callback_data:"scan:metal"},{text:"📊 INDEX CASH",callback_data:"scan:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}', 'function signalKeyboard(){return {inline_keyboard:[[{text:"💱 FOREX",callback_data:"market:forex"},{text:"🪙 CRYPTO",callback_data:"market:crypto"}],[{text:"🥇 METAL",callback_data:"market:metal"},{text:"📊 INDEX CASH",callback_data:"market:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}')
+s=s.replace('function symbolMarketKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"symmarket:forex"},{text:"🪙 Crypto",callback_data:"symmarket:crypto"}],[{text:"🥇 Metal",callback_data:"symmarket:metal"},{text:"📊 Index Cash",callback_data:"symmarket:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}', 'function symbolMarketKeyboard(){return signalKeyboard();}')
+s=s.replace('rows.push([{text:"↩️ Chọn thị trường",callback_data:"symbols"},{text:"📡 SIGNAL",callback_data:"signal"}]);', 'rows.push([{text:"↩️ "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"market:"+group},{text:"🏠 Hub",callback_data:"menu"}]);')
+old='function signalNotifyKeyboard(group,symbol=null){const rows=[];if(symbol)rows.push([{text:"🔎 "+symbol,callback_data:"sym:"+group+":"+symbol},{text:"📡 "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"scan:"+group}]);else rows.push([{text:"📡 Quét lại",callback_data:"scan:"+group},{text:"🔥 Top Setups",callback_data:"hub"}]);rows.push([{text:"📚 Live Orders",callback_data:"live"},{text:"🏠 Hub",callback_data:"menu"}]);return {inline_keyboard:rows};}'
+new='function signalNotifyKeyboard(group,symbol=null){const rows=[];if(symbol)rows.push([{text:"🔎 "+symbol,callback_data:"symbol:"+group+":"+symbol},{text:"📡 Quét "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"signal:scan:"+group}]);else rows.push([{text:"📡 Quét "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"signal:scan:"+group}]);rows.push([{text:"📚 Live "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"live:"+group},{text:"🏠 "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"market:"+group}]);return {inline_keyboard:rows};}'
+if old not in s: raise SystemExit('legacy signalNotifyKeyboard missing')
+s=s.replace(old,new)
+# Legacy shared scanner is never allowed to execute, even if an old Telegram button arrives.
+s=s.replace('else if(cb==="hub")', 'else if(cb==="hub"){await sendText(env,"♻️ Nút quét chung đã ngừng. Chọn đúng từng thị trường.",chatId,signalKeyboard());}\n  else if(false)')
+p.write_text(s)
+print('V771837_FIX_OK')
