@@ -53,3 +53,42 @@ Documentation commits for Claude review:
 
 Required review:
 Claude must review the exact documentation diffs for factual consistency with current `main`, ensure no deprecated architecture is accidentally restored, and return PASS/WARN/BLOCK before AI-002 becomes RESOLVED.
+
+## AI-003
+Status: OPEN — DESIGN PHASE 1
+Severity: STRATEGIC
+Owners: CHATGPT + CLAUDE
+Primary integrator: CHATGPT
+Claude role: CO-ARCHITECT
+Area: FULL SYSTEM REDESIGN / V78
+
+Mandate:
+`docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md`
+
+User-authorized design scope:
+A. Redesign Telegram/HUB to be compact, intelligent, low-noise and unambiguous.
+B. Redesign trading discovery, entry finding, order evaluation and information/news/data acquisition.
+C. Redesign Hyro auto-trading for reliability, idempotency, reconciliation and safe unattended position management.
+D. Inventory and exploit existing APIs through provider/account abstractions that form the foundation for future multi-account support.
+
+Phase 1 owner:
+CLAUDE for independent source-backed architecture blueprint; CHATGPT independently validates and integrates.
+
+Phase 1 restriction:
+DESIGN/READ/REVIEW ONLY. No production source changes yet.
+
+Required Claude deliverable:
+- current system map;
+- target HUB;
+- target signal/entry pipeline;
+- API inventory;
+- Hyro target execution state machine;
+- future multi-account foundation;
+- keep/refactor/deprecate map;
+- KV/state migration plan;
+- target file/folder structure;
+- phased implementation plan;
+- high-risk migrations and quick wins;
+- exact file/function evidence for major claims.
+
+Implementation begins only after ChatGPT validates the blueprint and creates scoped implementation issues under one-writer WRITE_LOCK.
