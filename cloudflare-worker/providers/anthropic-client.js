@@ -1,6 +1,9 @@
 // V78-013 — shared Anthropic Messages API transport primitive.
-// Extracted byte-identical HTTP-call+JSON-parse+text-extraction pattern
-// common to claude-reviewer.js and dual-ai-intervention.js.
+// V78-015 safety follow-up — Claude API is PAUSED by default.
+//
+// The user explicitly requested that no Claude/Anthropic API calls be made
+// for now. Therefore network access is fail-closed and requires an explicit
+// CLAUDE_API_ENABLED=true environment flag to resume later.
 //
 // Explicitly NOT unified (per DECISION-004 and verified real differences):
 //   - max_tokens policy: claude-reviewer.js clamps dynamically (500-2200,
@@ -11,16 +14,14 @@
 //   - budget/accounting: claude-reviewer.js has a daily-limit+cooldown
 //     budget system; dual-ai-intervention.js has none (uses a separate
 //     lease-based single-writer arbiter instead). Neither is touched here.
-//   - review-verdict schema parsing: claude-reviewer.js uses
-//     normalizeReview(parseClaudeJson(text)); dual-ai-intervention.js uses
-//     its own parse(text) with a different field schema. Each caller keeps
-//     its own parser; this module only extracts raw text from the response.
-//
-// This primitive only does: build request, fetch, parse JSON (never
-// throwing on parse failure — resolves to null), and throw a
-// caller-recognizable Error on non-2xx exactly as both callers already did.
+//   - review-verdict schema parsing remains caller-owned.
+
+export function isClaudeApiEnabled(env) {
+  return String(env?.CLAUDE_API_ENABLED || "").trim().toLowerCase() === "true";
+}
 
 export async function anthropicMessagesRequest(env, {model, maxTokens, system, userContent}) {
+  if (!isClaudeApiEnabled(env)) throw new Error("CLAUDE_API_DISABLED");
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
