@@ -3,6 +3,8 @@ name: V77.18.38 Repair Sync
 on:
   push:
     branches: [v771838-repair-deploy-sync]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,7 @@ jobs:
           grep -q 'marketEntryBalanced:true' cloudflare-worker/adaptive-tuning.js
           grep -q 'V77.18.38 Repair + Deploy Sync validation PASS' .github/workflows/validate-cloudflare-v77.yml
       - name: Commit repaired production source
+        if: github.event_name == 'push'
         run: |
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
