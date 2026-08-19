@@ -51,7 +51,7 @@ p.write_text(s)
 p=Path('.github/workflows/validate-cloudflare-v77.yml'); s=p.read_text()
 s=s.replace("'V77.16.10'","'V77.16.11'")
 s=s.replace("['V77.18.29','Live PnL + Unified UX'","['V77.18.30','Forex Opportunity Routing R3'")
-s=s.replace("'HUB-R4-LIVE-PNL'","'HUB-R4-LIVE-PNL'")
 s=s.replace("console.log('V77.18.29 Live PnL + Unified UX validation PASS');","console.log('V77.18.30 Forex Opportunity Routing R3 validation PASS');")
 p.write_text(s)
 print('PATCH_V771830_OK')
+# retrigger-2
