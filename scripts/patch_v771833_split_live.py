@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# V77.18.33 split live retry
 p=Path('cloudflare-worker/hub-v77171.js')
 s=p.read_text()
 s=s.replace('const VERSION="V77.18.31",UI_REV="HUB-R5-INDEX-CASH",SERVICE="Trading V77.18.31 • Metal + Index Cash UX";','const VERSION="V77.18.33",UI_REV="HUB-R6-SPLIT-LIVE",SERVICE="Trading V77.18.33 • Split Market Live UX";')
