@@ -2,10 +2,10 @@
 
 LOCKED: true
 OWNER: CHATGPT
-SCOPE: docs/ai-coengineer/V78_BASELINE_VALIDATION_MATRIX.md
-STARTED: 2026-08-19T20:33:00+07:00
-BASE_SHA: f236d6b9cf5bcc5058b89de2b76c192a2a599e4e
-PURPOSE: Apply Claude's three exact V78-006 WARN invariants: G-09 sanitize-only AI tuning writes, H-16 CHALLENGE forced-DEMO propEnv proxy, and CI canonical-lock co-maintenance. Documentation-only / zero behavior.
+SCOPE: docs/ai-coengineer/V78_PROVIDER_CAPABILITY_INVENTORY.md
+STARTED: 2026-08-19T20:36:00+07:00
+BASE_SHA: b9f4226961e29df0d0f1d9a23954a16f15221fc7
+PURPOSE: Implement V78-007 provider capability inventory, documentation-only / zero behavior. V78-006 is resolved. V78-004 remains blocked pending exact Claude patch text.
 
 Protocol:
 - Other AI may review but must not write this scope.
