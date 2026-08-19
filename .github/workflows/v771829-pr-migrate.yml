@@ -21,7 +21,7 @@ jobs:
         run: |
           cd cloudflare-worker
           node validate-worker.mjs
-          npm ci
+          npm install --no-audit --no-fund
           TRADING_KV_NAMESPACE_ID=0123456789abcdef0123456789abcdef node prepare-wrangler.mjs
           npx wrangler deploy --dry-run --outdir /tmp/v771829-dist
       - name: Commit validated source and cleanup migration files
