@@ -1,9 +1,23 @@
 # CLAUDE RESUME HANDOFF — 2026-08-19
 
 ## User directive
-Claude API usage is PAUSED. Do not call Anthropic/Claude API until the user explicitly re-enables it. ChatGPT remains the physical GitHub implementer. Claude should resume later as optimizer/auditor/patch designer from fresh GitHub HEAD, not by relying on stale chat context.
+The production Anthropic/Claude API integration is PAUSED. Do not call Anthropic/Claude API from the production runtime until the user explicitly re-enables it.
 
-## New production changes while Claude is unavailable
+This restriction applies ONLY to automated/runtime API usage.
+
+Claude.ai WEB remains a FULL CO-ENGINEER with full user authorization to:
+- read the entire repository;
+- audit and optimize architecture and trading logic;
+- design and modify source;
+- produce exact implementation patches/bundles;
+- independently verify ChatGPT commits;
+- write directly to GitHub when its connector permission allows it.
+
+Claude.ai Web is NOT reviewer-only. If its GitHub integration remains blocked by the previously observed integration-level 403, Claude must still act as an implementer by producing complete transfer-safe patches; ChatGPT will be the physical writer. If GitHub write permission is later fixed, Claude.ai Web may write directly under the same one-writer WRITE_LOCK protocol.
+
+ChatGPT remains the physical GitHub implementer while Claude's connector cannot write.
+
+## New production changes while Claude was unavailable
 
 ### V78-014 — RESOLVED / IMPLEMENTED
 Final migration commit: `0c3dc007433c3e9afae1990d07d23c149742500a`
@@ -16,24 +30,24 @@ Scope:
 - additive read-only `/evidence/signal` endpoint;
 - no gate/threshold/risk/execution-authority/output-shape change intended.
 
-### Claude/Anthropic API pause — ACTIVE
+### Production Claude/Anthropic API pause — ACTIVE
 Commit: `c61987415a3e53832a444466406df9ffe25951f9`
 
-`providers/anthropic-client.js` now fail-closes before network fetch unless:
+`providers/anthropic-client.js` fail-closes before network fetch unless:
 `CLAUDE_API_ENABLED=true`
 
-Default is disabled. `isClaudeApiEnabled(env)` is exported for observability. This was an explicit user instruction to prevent further Claude API/token usage for now.
+Default is disabled. `isClaudeApiEnabled(env)` is exported for observability. This prevents automated production Anthropic API/token usage. It does NOT restrict Claude.ai Web manual co-engineering.
 
 ### V78-015 — HUB EVIDENCE/RUNTIME STATUS — IMPLEMENTED
 Source commit: `db2b48f5b96d36e411fbd2f93c0cc73e354fe213`
 Validation: `docs/ai-coengineer/V78-015_VALIDATION.txt` = PASS.
 
 Visible Telegram Hub changes:
-- `••• Thêm` now includes `📋 Evidence V78`;
+- `••• Thêm` includes `📋 Evidence V78`;
 - new callback `evidence` is read-only;
 - screen reads only V78-014 DecisionEvidence;
 - shows Signal evidence sample count, LIVE/STALE/UNKNOWN distribution, gate-block count, latest Signal outcome, latest Hyro outcome, Hub/evidence revision;
-- visibly shows Claude API `PAUSED`/`ENABLED` from `isClaudeApiEnabled(env)`;
+- visibly shows production Claude API `PAUSED`/`ENABLED` from `isClaudeApiEnabled(env)`;
 - no trading decisions or KV writes from the Hub view;
 - `verifyTelegram` remains untouched.
 
@@ -46,10 +60,10 @@ Visible Telegram Hub changes:
 - Signal remains advisory-only; Hyro remains the current safety-gated real-capital execution authority.
 - No fabricated market/provider/test evidence and no secrets in source.
 
-## Next optimization target when Claude returns
+## Next optimization target when Claude.ai Web returns
 Do NOT spend the next round on another generic transport cleanup. The user now wants visible trading-quality progress.
 
-Recommended next batch: `V78 ENTRY INTELLIGENCE FOUNDATION` — optimization/design first, ChatGPT implementation second.
+Recommended next batch: `V78 ENTRY INTELLIGENCE FOUNDATION` — Claude.ai Web optimizes/designs, ChatGPT implements while Claude GitHub writes are unavailable.
 
 Claude should fresh-read at minimum:
 - `cloudflare-worker/engine-v77168.js`
@@ -103,7 +117,7 @@ Output classes remain explicit:
 `MARKET`, `LIMIT`, `WATCH`, `NO_TRADE`, `DATA_BLOCK` (and existing advisory MARKET_SIGNAL semantics where applicable).
 
 ## Preferred implementation structure
-Claude should propose small pure evaluators first, not a monolithic engine rewrite, for example:
+Claude.ai Web should propose small pure evaluators first, not a monolithic engine rewrite, for example:
 - market/instrument classifier;
 - regime evaluator;
 - location evaluator;
@@ -117,4 +131,4 @@ Keep existing production outputs compatible initially; shadow-compare new reason
 After entry-intelligence shadow comparison is stable, extend the Evidence screen to show compact `WHY NOW / BLOCK REASON / FRESHNESS / RR` for the latest top setups. Keep it read-only until the new reasoning is verified.
 
 ## Resume instruction
-When Claude has tokens again: refresh `main`, verify V78-014 and V78-015, confirm Claude API remains paused, then produce one transfer-safe implementation bundle for the entry-intelligence foundation. Do not call Anthropic from the production runtime during that work unless the user explicitly re-enables `CLAUDE_API_ENABLED=true`.
+When Claude.ai Web has tokens again: refresh `main`, verify V78-014 and V78-015, confirm production Claude API remains paused, then produce one transfer-safe implementation bundle for the entry-intelligence foundation. Claude.ai Web may fully optimize and modify the project within safety rules; only automated production Anthropic API calls remain disabled unless the user explicitly sets `CLAUDE_API_ENABLED=true`.
