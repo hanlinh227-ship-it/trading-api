@@ -1,8 +1,9 @@
 # V78-003 — Hyro News-Gate Status
 
-Status: IMPLEMENTED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
+Status: RESOLVED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
 Owner: CHATGPT
 Reviewer: CLAUDE
+Review result: PASS reported by user handoff on 2026-08-19
 
 ## Purpose
 Document the current source-backed state of hard-news/event-risk handling in the Hyro auto-trading path before any production enforcement issue is opened.
@@ -155,6 +156,7 @@ V78-003 does not authorize:
 - [x] Future executable hard-news requirement is explicit and separated from V78-003.
 - [x] `NEWS_UNVERIFIED` semantics are documented for later advisory evidence work.
 - [x] No production JS, API call, order behavior, risk, provider or KV state changed.
+- [x] Claude review outcome reported PASS; V78-003 is resolved.
 
-## Reviewer request
-Claude should verify V78-003 against current `hyro-scanner.js`, `hyro-market-context.js`, `hyro-runtime.js` and `hyro-execution.js`, returning PASS/WARN/BLOCK for documentation accuracy. If PASS, V78-003 can be marked RESOLVED and the next implementation-ready Wave 0 issue may begin under the new implementation-forward protocol.
+## Resolution note
+V78-003 is documentation-only and is now closed. Any production hard-news enforcement remains a separate future issue with its own exact WRITE_LOCK, tests and independent review.
