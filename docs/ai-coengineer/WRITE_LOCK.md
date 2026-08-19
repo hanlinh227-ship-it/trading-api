@@ -1,15 +1,12 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-19
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-017 manual Signal observability + Hub revision sync
-RESULT: IMPLEMENTED. Manual /analyze and Telegram single-symbol decisions now append isolated DecisionEvidence + Entry Intelligence shadow records after the existing decision is finalized. Returned decision objects and trade authority remain unchanged. Hub visible UI revision updated only.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-018 Cloudflare deployment sync + Telegram Hub production refresh
+ACQUIRED: 2026-08-19
+PURPOSE: Add deterministic GitHub->Cloudflare deployment workflow for cloudflare-worker changes and trigger a safe production refresh of the current V78 Hub/Entry Intelligence code. No trading logic, risk, execution authority, state continuity, or secrets are modified.
 
 Protocol:
-- Acquire a new lock before the next source write.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
