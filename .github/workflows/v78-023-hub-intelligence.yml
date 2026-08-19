@@ -1,0 +1,100 @@
+name: V78-023 Hub Intelligence Coverage R13
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v78-023-hub-intelligence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Guard V78-023 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^LOCKED: true$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -q '^OWNER: CHATGPT$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -q '^SCOPE: V78-023 consolidated Hub intelligence coverage + R13 visibility$' docs/ai-coengineer/WRITE_LOCK.md
+          test "$(git hash-object cloudflare-worker/hub-v77171.js)" = 'fd2b6b7a63bfa0ee1aae52f5a1e1497222ba1f0f'
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+
+      - name: Apply V78-023 source patch
+        run: node scripts/v78-023-apply.mjs
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/hub-v77171.js
+          grep -q 'HUB-R13-ENTRY-INTEL-COVERAGE' cloudflare-worker/hub-v77171.js
+          grep -q 'async function entryCoverageText' cloudflare-worker/hub-v77171.js
+          grep -q 'callback_data:"intel:coverage"' cloudflare-worker/hub-v77171.js
+          grep -q 'ACTIVE ADVISORY' cloudflare-worker/hub-v77171.js
+          grep -q 'executionAuthority:"NONE"' cloudflare-worker/hub-v77171.js
+          git diff --check
+          git diff -- cloudflare-worker/hub-v77171.js
+
+      - name: Commit V78-023 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'V78-023 Implementer'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/hub-v77171.js
+          git commit -m 'V78-023 Hub R13 Entry Intelligence coverage visibility'
+          git rev-parse HEAD > /tmp/v78023-source-sha
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Deploy Cloudflare production
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy 2>&1 | tee /tmp/v78023-deploy.log
+          grep 'Current Version ID:' /tmp/v78023-deploy.log | tail -1 | sed 's/.*Current Version ID: //' > /tmp/v78023-version-id
+          test -s /tmp/v78023-version-id
+
+      - name: Production smoke check
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 60 'https://trading-v77-scanner.hanlinh227.workers.dev/status' | tee /tmp/v78023-status.json
+          grep -q 'version' /tmp/v78023-status.json
+
+      - name: Persist validation and release lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main
+          export SOURCE_SHA="$(cat /tmp/v78023-source-sha)"
+          export VERSION_ID="$(cat /tmp/v78023-version-id)"
+          node scripts/v78-023-finalize.mjs
+          git add docs/ai-coengineer/V78-023_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-023 validate Hub R13 coverage and release lock'
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "final_commit=$(git rev-parse HEAD)"
