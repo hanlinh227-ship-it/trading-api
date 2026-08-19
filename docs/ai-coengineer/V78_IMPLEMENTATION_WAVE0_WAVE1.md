@@ -1,38 +1,53 @@
 # V78 IMPLEMENTATION — WAVE 0 / WAVE 1
 
-Status: OPEN — V78-001 IMPLEMENTED / OTHER EXACT PHASE-2 MAPPINGS PARTIALLY AVAILABLE
+Status: OPEN — V78-001 RESOLVED / V78-002 IMPLEMENTED DOCUMENTATION-ONLY / OTHER EXACT PHASE-2 MAPPINGS PARTIALLY AVAILABLE
 Owner: CHATGPT
 Reviewer: CLAUDE
 Production source authorization: NONE until each source issue receives an explicit WRITE_LOCK scope.
 
 ## Integrity constraint
-The complete Claude Phase 2 verbatim body is still not present in the GitHub bus or currently retrievable chat attachment. ChatGPT therefore must not invent the missing HUB menu, DecisionEvidence body, V78-002..V78-091 semantics, or acceptance criteria.
+The complete Claude Phase 2 verbatim body is still not present in the GitHub bus or otherwise retrievable by ChatGPT in the current session context. ChatGPT therefore must not invent or falsely attribute the missing HUB menu, Claude-exact DecisionEvidence body, V78-003..V78-091 semantics, or acceptance criteria.
 
 Confirmed exact facts supplied by the user in the current handoff:
 - `V78-001` = KV key registry, documentation-only, ZERO_BEHAVIOR.
+- `V78-002` = DecisionEvidence schema documentation, ZERO_BEHAVIOR.
 - mapping contains new IDs `V78-005`, `V78-006`, `V78-007`, `V78-014`.
 - `V78-011` scope is narrowed; `verifyTelegram` work is deferred to `V78-081`.
 
-Until Claude's exact body is accessible, these ID constraints are preserved without guessing which provisional item each unexpanded ID describes.
+Until Claude's complete exact body is accessible, these ID constraints are preserved without guessing unexpanded semantics.
 
 ## Wave 0 — Documentation, invariants, evidence baselines
 
-### V78-001 — KV/state registry baseline — IMPLEMENTED
+### V78-001 — KV/state registry baseline — RESOLVED
 Former provisional ID: `V78-W0-02`
 Class: ZERO_BEHAVIOR
 Scope: `docs/ai-coengineer/V78_KV_KEY_REGISTRY.md`
 Objective: canonical inventory of current `TRADING_STATE` key prefixes, owners, lifecycle, readers/writers, migration criticality and non-production state.
 Hard constraints: do not rename/delete keys; preserve `v775:books`; no runtime behavior change.
-Implementation commit: `a45b8f33672273ac0ae580bf6f6bee54a8c63893`
-Acceptance: registry covers current Signal, HUB, Hyro execution/runtime/management/review, health, release, AI/tuning and quarantined Binance20 state; high-safety keys are explicitly additive-only.
-Rollback: revert documentation commit.
-Reviewer: CLAUDE.
+Initial implementation commit: `a45b8f33672273ac0ae580bf6f6bee54a8c63893`
+Claude review result: WARN — missing `v771816:signal:auto_notify:{sig}` plus two Claude-reviewer TTL description inaccuracies.
+Correction commit: `b451a086336bb9a6e59dc84031a1866e46e591da`
+Resolved corrections:
+- added `v771816:signal:auto_notify:{sig}` from `engine-v77168.js:notifySignalPlans`, TTL 1800s;
+- corrected `v771821:claude:daily_system_audit` TTL to 2592000s;
+- corrected `v771822:claude:overnight` TTL to 172800s.
+Acceptance: no runtime behavior/state mutation; registry accuracy corrected.
+Rollback: documentation-only revert.
+
+### V78-002 — DecisionEvidence schema — IMPLEMENTED DOCUMENTATION ONLY
+Class: ZERO_BEHAVIOR
+Scope: `docs/ai-coengineer/V78_DECISION_EVIDENCE_SCHEMA.md`
+Objective: define the shared evidence contract for provider identity, timestamps, freshness, observations, hard gates, decision reason, data integrity and execution suitability without changing any current decision or execution path.
+Implementation commit: `0bbe2b0c0fccda112820cad1f8f65121ba0d8fce`
+Integrity condition: because Claude's verbatim Phase 2 schema body is not retrievable by ChatGPT, this implementation is explicitly not claimed as a verbatim Claude paste. Claude must compare field-for-field and provide exact corrections before future source/shadow adoption.
+Acceptance: schema documentation exists; no source consumer, KV key, risk gate, order or Telegram behavior changed.
+Rollback: documentation-only revert.
 
 ### W0-PENDING — Ingest exact Claude Phase 2 backlog
 Class: ZERO_BEHAVIOR
 Scope: `docs/ai-coengineer/V78_CLAUDE_PHASE2_BACKLOG.md`
-Objective: persist exact target HUB menu, exact DecisionEvidence schema and exact V78-001..V78-091 body from Claude chat.
-Dependency: none.
+Objective: persist exact target HUB menu, exact Claude DecisionEvidence schema body and exact V78-001..V78-091 body from Claude chat.
+Dependency: Claude exact body must actually be available to ChatGPT.
 Acceptance: no invented items; all Claude IDs and acceptance criteria preserved exactly.
 Rollback: documentation-only revert.
 
@@ -61,7 +76,7 @@ Exact V78 ID: PENDING CLAUDE BODY.
 
 ## Wave 1 — Low-risk shared primitives, one issue at a time
 
-The exact Claude Phase 2 mapping for these provisional Wave 1 concepts remains unavailable in retrievable source. Do not start source changes until the relevant exact V78 ID/scope is confirmed.
+No Wave 1 source change is authorized or started by V78-001/V78-002.
 
 ### Provisional — Shared Bybit signed-client extraction
 Class: ZERO_BEHAVIOR
@@ -84,12 +99,12 @@ Exact V78 ID: PENDING CLAUDE BODY except the V78-011/V78-081 constraint above.
 
 ### Provisional — DecisionEvidence shadow foundation
 Class: SHADOW
-Candidate scope: introduce the exact Claude-authored schema only after its body is ingested; populate/log alongside existing decisions without gating or replacing behavior.
-Dependency: exact Phase 2 ingest + validation baseline.
+Candidate scope: source implementation of the accepted V78-002 schema only after Claude field-level review; populate/log alongside existing decisions without gating or replacing behavior.
+Dependency: V78-002 reviewer PASS/correction + validation baseline.
 Risk: LOW if shadow-only.
 Validation: timestamp/provider/freshness/source identity, deterministic serialization, no decision changes.
 Rollback: remove shadow generation.
-Exact V78 ID: PENDING CLAUDE BODY.
+Exact V78 source-adoption ID: PENDING CLAUDE BODY.
 
 ### Provisional — Binance20 NON_PRODUCTION quarantine marker
 Class: ZERO_BEHAVIOR
@@ -112,6 +127,8 @@ Exact V78 ID: PENDING CLAUDE BODY.
 
 | ID | Confirmed constraint |
 |---|---|
+| `V78-001` | KV key registry; RESOLVED after Claude WARN corrections. |
+| `V78-002` | DecisionEvidence schema documentation; implemented zero-behavior, awaiting Claude field-level comparison. |
 | `V78-005` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
 | `V78-006` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
 | `V78-007` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
@@ -120,7 +137,7 @@ Exact V78 ID: PENDING CLAUDE BODY.
 | `V78-081` | `verifyTelegram` consolidation is deferred here. |
 
 ## One-writer execution rule
-Only ONE source issue may hold WRITE_LOCK at a time. V78-001 used a documentation-only lock and has been released. Completing V78-001 does not authorize any Wave 1 source issue.
+Only ONE source issue may hold WRITE_LOCK at a time. V78-001 and V78-002 are documentation-only issues. Completing them does not authorize any Wave 1 source issue.
 
 ## Explicitly deferred
 Do not start yet:
