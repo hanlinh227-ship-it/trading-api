@@ -48,8 +48,8 @@ jobs:
           const pkg=JSON.parse(read('cloudflare-worker/package.json'));
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
           const locks=(src,list,label)=>{for(const x of list)if(!src.includes(x))throw new Error(label+' missing: '+x)};
-          locks(engine,['V77.16.20','Signal Lifecycle Guard R7','INDEX_CASH','NAS100','US30','US500','DEX','JP225','MASSIVE_INDEX_PROVIDER','I:NDX','I:DJI','I:SPX','I:DAX','I:N225','Twelve Data Native Index','INDEX_SANITY','validIndexPrice','type:"Index"','assertTdIndexIdentity','MARKET_SIGNAL','strengthNormalizedSigned','FX_SESSION_CONTINUATION_ZONE','FX_M5_SESSION_CONTINUATION','/symbols','analysisQuote','v775:books','signalActive','SIGNAL_ONLY','lifecycleSignalBooks','SIGNAL_EXPIRED','SIGNAL_TP','SIGNAL_SL','callback_data:"live:"+group','callback_data:"signal:scan:"+group','callback_data:"symbol:"+group+":"+symbol'],'Signal');
-          locks(index,['V77.18.38','Repair + Deploy Sync','HYRO • VỊ THẾ LIVE','ensureDualAiIntervention','dailyObjective:{challengePct:2,fundedStretchPct:5}'],'Index');
+          locks(engine,['V77.16.20','Signal Lifecycle Guard R7','INDEX_CASH','NAS100','US30','US500','DEX','JP225','MASSIVE_INDEX_PROVIDER','I:NDX','I:DJI','I:SPX','I:DAX','I:N225','Twelve Data Native Index','INDEX_SANITY','validIndexPrice','type:"Index"','assertTdIndexIdentity','MARKET_SIGNAL','strengthNormalizedSigned','FX_SESSION_CONTINUATION_ZONE','FX_M5_SESSION_CONTINUATION','/symbols','analysisQuote','v775:books','signalActive','SIGNAL_ONLY','lifecycleSignalBooks','SIGNAL_EXPIRED','SIGNAL_TP','SIGNAL_SL','callback_data:"live:"+group','callback_data:"signal:scan:"+group','callback_data:"symbol:"+group+":"+symbol','Global scan đã tắt','Live đã tách riêng theo từng thị trường'],'Signal');
+          locks(index,['V77.18.43','Legacy Cleanup + Version Sync','HYRO • VỊ THẾ LIVE','ensureDualAiIntervention','dailyObjective:{challengePct:2,fundedStretchPct:5}'],'Index');
           locks(hub,['V77.18.42','HUB-R10-LIFECYCLE-GUARD','marketKeyboard','symbolPageKeyboard','symbolResultText','market:forex','market:crypto','market:metal','market:index','symbols:${g}:0','/books?group=','/symbols?group=','/analyze?symbol=','signalActive','MARKET SIGNAL','SIGNAL-ONLY'],'Hub');
           locks(dual,['BUG_HUNT_R6_STATE_LIFECYCLE','max_tokens:950','fresh explicit analysis quote','MARKET-ISOLATED HUB'],'Dual AI');
           locks(exec,['RISK_V771822_ACTIVATES_AT','singlePct:.0055','aPct:.0045','combinedPct:.009','hardPct:.016'],'Risk');
@@ -67,7 +67,7 @@ jobs:
           if(!/keep_vars\s*:\s*true/.test(wrangler)||!wrangler.includes('TRADING_STATE')||!wrangler.includes('TRADING_V77_STATE'))throw new Error('KV deployment lock missing');
           if(pkg.devDependencies?.wrangler!=='4.124.0')throw new Error('Wrangler must be pinned');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('V77.18.42 Signal Lifecycle Guard validation PASS');
+          console.log('V77.18.43 Legacy Cleanup validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
