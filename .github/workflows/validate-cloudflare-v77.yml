@@ -14,6 +14,7 @@ on:
       - 'data/nocut_intraday_allpass_v73.json'
       - 'data/symbol_knowledge_registry.json'
       - '.github/workflows/validate-cloudflare-v77.yml'
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -90,32 +91,70 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check Cloudflare credentials
+
+      - name: Detect Cloudflare deployment capability
+        id: cf
+        shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing GitHub secret CLOUDFLARE_API_TOKEN'; exit 1; }
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Missing GitHub secret CLOUDFLARE_ACCOUNT_ID'; exit 1; }
+          ready=true
+          missing=""
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then ready=false; missing="$missing CLOUDFLARE_API_TOKEN"; fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then ready=false; missing="$missing CLOUDFLARE_ACCOUNT_ID"; fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          echo "missing=${missing# }" >> "$GITHUB_OUTPUT"
+          if [ "$ready" = true ]; then
+            echo "Cloudflare credentials detected. Direct Wrangler deploy enabled."
+          else
+            echo "::warning title=Cloudflare direct deploy skipped::Missing GitHub secret(s): ${missing# }. Validation remains PASS; configure these secrets once to enable automatic Wrangler deploy."
+          fi
+          if [ -z "$TRADING_KV_NAMESPACE_ID" ]; then
+            echo "TRADING_KV_NAMESPACE_ID not set; prepare-wrangler will attempt safe discovery of existing TRADING_V77_STATE when Cloudflare credentials are available."
+          fi
+
       - name: Install pinned Wrangler
+        if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
+
       - name: Prepare production Wrangler config
+        if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
         run: node prepare-wrangler.mjs
+
       - name: Deploy Worker to Cloudflare
+        if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy
+
       - name: Confirm Cloudflare deployment
+        if: steps.cf.outputs.ready == 'true'
         working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deployments list | head -n 30
+
+      - name: Deployment summary
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.cf.outputs.ready }}" = "true" ]; then
+            echo "### Cloudflare deployment" >> "$GITHUB_STEP_SUMMARY"
+            echo "Wrangler deploy path was enabled and executed after validation." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Cloudflare deployment" >> "$GITHUB_STEP_SUMMARY"
+            echo "Direct Wrangler deploy was skipped because GitHub secrets are not configured." >> "$GITHUB_STEP_SUMMARY"
+            echo "Missing: ${{ steps.cf.outputs.missing }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Validation/build remains healthy. Add the missing repository/environment secrets once to enable direct deployment." >> "$GITHUB_STEP_SUMMARY"
+          fi
