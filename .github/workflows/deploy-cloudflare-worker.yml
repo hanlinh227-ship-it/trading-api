@@ -30,8 +30,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: cloudflare-worker/package-lock.json
 
       - name: Guard required deployment secrets
         shell: bash
@@ -42,8 +40,8 @@ jobs:
           test -n "${TRADING_KV_NAMESPACE_ID:-}" || { echo 'Missing TRADING_KV_NAMESPACE_ID'; exit 1; }
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] || { echo 'TRADING_KV_NAMESPACE_ID must be 32 hex chars'; exit 1; }
 
-      - name: Install pinned dependencies
-        run: npm ci
+      - name: Install pinned Wrangler
+        run: npm install --no-audit --no-fund
 
       - name: Worker preflight
         run: npm run check
