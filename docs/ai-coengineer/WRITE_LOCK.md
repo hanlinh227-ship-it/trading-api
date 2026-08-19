@@ -1,15 +1,12 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-20
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-022 Hub top-7 quality visibility
-RESULT: RESOLVED / DEPLOYED. Validation in docs/ai-coengineer/V78-022_VALIDATION.txt.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-023 consolidated Hub intelligence coverage + R13 visibility
+ACQUIRED: 2026-08-20
 
 Protocol:
-- Acquire a new lock before the next source write.
+- One writer at a time.
 - Never reset TRADING_STATE or delete/reset v775:books.
 - Never weaken hard risk/freshness/structural-SL/news safeguards.
 - Never restore Futures/TK2.
