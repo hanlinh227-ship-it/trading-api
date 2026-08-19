@@ -47,11 +47,13 @@ jobs:
           grep -q 'marketEntryBalanced:true' cloudflare-worker/adaptive-tuning.js
           grep -q 'V77.18.38 Repair + Deploy Sync validation PASS' .github/workflows/validate-cloudflare-v77.yml
       - name: Commit repaired production source
-        if: github.event_name == 'push'
         run: |
           git config user.name trading-runtime-bot
           git config user.email trading-runtime-bot@users.noreply.github.com
           git add cloudflare-worker/adaptive-tuning.js cloudflare-worker/engine-v77168.js cloudflare-worker/index.js cloudflare-worker/hub-v77171.js cloudflare-worker/dual-ai-intervention.js .github/workflows/validate-cloudflare-v77.yml
-          git diff --cached --quiet && exit 0
+          if git diff --cached --quiet; then
+            echo 'No production source changes to commit.'
+            exit 0
+          fi
           git commit -m 'V77.18.38 repair runtime, market balance and Claude budget'
           git push origin HEAD:v771838-repair-deploy-sync
