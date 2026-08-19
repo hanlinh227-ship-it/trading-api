@@ -2,8 +2,8 @@ import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "j
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.15",
-  service: "Trading V77.16.15 Native Index Failover",
+  version: "V77.16.16",
+  service: "Trading V77.16.16 Verified Index Pricing",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -65,6 +65,13 @@ const METALS = ["XAUUSD","XAGUSD"];
 const INDEX_CASH = ["NAS100","US30","US500","DEX","JP225"];
 const INDEX_PROVIDER = {NAS100:"NDX",US30:"DJI",US500:"SPX",DEX:"DAX",JP225:"N225"};
 const MASSIVE_INDEX_PROVIDER = {NAS100:"I:NDX",US30:"I:DJI",US500:"I:SPX",DEX:"I:DAX",JP225:"I:N225"};
+const INDEX_SANITY = {
+  NAS100:{min:1000,max:100000}, US30:{min:5000,max:100000}, US500:{min:500,max:20000},
+  DEX:{min:1000,max:100000}, JP225:{min:5000,max:100000}
+};
+function validIndexPrice(symbol,price){const r=INDEX_SANITY[norm(symbol)],x=Number(price);return !!r&&Number.isFinite(x)&&x>=r.min&&x<=r.max;}
+function tdIndexNode(raw){return raw?.data?.values?raw.data:raw;}
+function assertTdIndexIdentity(symbol,node){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,m=node?.meta||{},typ=String(m.type||"").toLowerCase(),got=norm(m.symbol||ps);if(typ&&!typ.includes("index"))throw new Error(`Twelve Data wrong instrument type ${s}: ${m.type}`);if(got&&got!==norm(ps))throw new Error(`Twelve Data wrong symbol ${s}: ${m.symbol}`);return m;}
 const INDEX_PRIORS = {
   NAS100:{profile:"INDEX_GROWTH_MOMENTUM",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.72,newsProfile:{profileDrivers:["Fed/FOMC","US CPI/PCE/NFP","US yields","US mega-cap technology"]}},
   US30:{profile:"INDEX_BLUECHIP_ROTATION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.68,newsProfile:{profileDrivers:["Fed/FOMC","US macro","industrial/financial rotation"]}},
@@ -125,8 +132,8 @@ function tdCandlesFromNode(node,interval){
   return normalizeCandles(n.values.map(v=>({timestamp:parseTs(v.datetime),open:v.open,high:v.high,low:v.low,close:v.close,volume:v.volume})),candleSec(interval));
 }
 async function tdSingleIndexCandles(symbol,interval,env,outputsize=CONFIG.candleOutputSize){
-  const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,interval,outputsize:String(outputsize),order:"ASC",timezone:"UTC"},env),c=tdCandlesFromNode(p,interval);
-  if(!c?.length)throw new Error(`Twelve Data index candles unavailable ${s}/${ps}`);return c;
+  const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval,outputsize:String(outputsize),order:"ASC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,interval);
+  if(!c?.length)throw new Error(`Twelve Data index candles unavailable ${s}/${ps}`);const last=c.at(-1);if(!validIndexPrice(s,last?.close))throw new Error(`Twelve Data implausible index price ${s}: ${last?.close}`);return c;
 }
 async function tdBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutputSize){
   const requested=[...new Set(symbols.map(norm))],out=new Map();if(!requested.length)return out;
@@ -142,10 +149,10 @@ async function tdBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutpu
 }
 async function massiveIndexFetch(path,params,env){if(!env.MASSIVE_API_KEY)throw new Error("MASSIVE_API_KEY missing");const q=new URLSearchParams(params||{});q.set("apiKey",env.MASSIVE_API_KEY);const r=await fetchTimeout(`https://api.massive.com${path}?${q}`);const j=await r.json().catch(()=>null);if(!r.ok||!j||j.status==="ERROR")throw new Error(j?.error||j?.message||`Massive HTTP ${r.status}`);return j;}
 function massiveIndexRange(interval){const now=Date.now(),d={"5min":7,"15min":14,"1h":45,"4h":180,"1day":500}[interval]||45,m={"5min":[5,"minute"],"15min":[15,"minute"],"1h":[1,"hour"],"4h":[4,"hour"],"1day":[1,"day"]}[interval]||[1,"hour"];return {from:new Date(now-d*86400000).toISOString().slice(0,10),to:new Date(now).toISOString().slice(0,10),mult:m[0],span:m[1]};}
-async function massiveIndexCandles(symbol,interval,env,limit=CONFIG.candleOutputSize){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const r=massiveIndexRange(interval),j=await massiveIndexFetch(`/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/${r.mult}/${r.span}/${r.from}/${r.to}`,{adjusted:"true",sort:"asc",limit:String(Math.max(limit,120))},env);return normalizeCandles((j.results||[]).map(x=>({timestamp:Math.floor(Number(x.t)/1000),open:x.o,high:x.h,low:x.l,close:x.c,volume:null})),candleSec(interval));}
+async function massiveIndexCandles(symbol,interval,env,limit=CONFIG.candleOutputSize){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const r=massiveIndexRange(interval),j=await massiveIndexFetch(`/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/${r.mult}/${r.span}/${r.from}/${r.to}`,{adjusted:"true",sort:"asc",limit:String(Math.max(limit,120))},env),c=normalizeCandles((j.results||[]).map(x=>({timestamp:Math.floor(Number(x.t)/1000),open:x.o,high:x.h,low:x.l,close:x.c,volume:null})),candleSec(interval));if(c.length&&!validIndexPrice(s,c.at(-1)?.close))throw new Error(`Massive implausible index price ${s}: ${c.at(-1)?.close}`);return c;}
 async function massiveIndexBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutputSize){const out=new Map();await Promise.all(symbols.map(async sym=>{try{const c=await massiveIndexCandles(sym,interval,env,outputsize);if(c.length)out.set(norm(sym),c);}catch{}}));return out;}
-async function massiveIndexQuote(symbol,env){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const j=await massiveIndexFetch("/v3/snapshot/indices",{ticker,limit:"10"},env),r=(j.results||[]).find(x=>x?.ticker===ticker&&!x?.error),price=num(r?.value);if(!(price>0))throw new Error(r?.message||r?.error||"Massive index snapshot unavailable");const ts=r?.last_updated?Math.floor(Number(r.last_updated)/1e9):null,age=ts?Math.max(0,nowSec()-ts):null;return {source:"Massive Indices Snapshot",requestedSymbol:s,providerSymbol:ticker,price,providerTimestamp:ts,quoteAgeSec:age,timeframe:r?.timeframe||null,marketStatus:r?.market_status||null,fresh:age==null?false:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
-async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s;try{const p=await tdFetch("price",{symbol:ps},env),price=num(p?.price);if(price>0)return {source:"Twelve Data Index Price",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:null,quoteAgeSec:null,fresh:true,bid:null,ask:null,executionVerified:false,analysisOnly:true};}catch{}const p=await tdFetch("quote",{symbol:ps},env),price=num(p.close)??num(p.price);if(!(price>0))throw new Error("TD index price invalid");const ts=parseTs(p.last_quote_at??p.timestamp??p.datetime),age=ts==null?null:Math.max(0,nowSec()-ts);return {source:"Twelve Data Index Quote",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:ts,quoteAgeSec:age,fresh:age==null?true:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
+async function massiveIndexQuote(symbol,env){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const j=await massiveIndexFetch("/v3/snapshot/indices",{ticker,limit:"10"},env),r=(j.results||[]).find(x=>x?.ticker===ticker&&!x?.error),price=num(r?.value);if(!(price>0)||!validIndexPrice(s,price))throw new Error(r?.message||r?.error||`Massive invalid index value ${s}: ${price}`);const ts=r?.last_updated?Math.floor(Number(r.last_updated)/1e9):null,age=ts?Math.max(0,nowSec()-ts):null;return {source:"Massive Indices Snapshot",requestedSymbol:s,providerSymbol:ticker,price,providerTimestamp:ts,quoteAgeSec:age,timeframe:r?.timeframe||null,marketStatus:r?.market_status||null,fresh:age==null?false:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
+async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null,fresh:true,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}
 async function tdQuote(symbol,env){
   if(marketType(symbol)==="index"){if(env.MASSIVE_API_KEY){try{return await massiveIndexQuote(symbol,env);}catch{}}if(env.TWELVE_DATA_API_KEY)return tdIndexQuote(symbol,env);throw new Error("No native index provider configured");}
   const ps=tdSymbol(symbol),p=await tdFetch("quote",{symbol:ps},env),price=num(p.close)??num(p.price);
@@ -729,7 +736,7 @@ export default {
   async fetch(req,env){
     try{
       const u=new URL(req.url),p=u.pathname.replace(/\/$/,"")||"/";
-      if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Massive native index snapshot/OHLC primary + Twelve Data native index per-symbol fallback"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
+      if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Verified native Index only: Massive I:ticker primary + Twelve Data type=Index fallback; sanity fail-closed"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
       if(p==="/run-now"){const g=u.searchParams.get("group");return json(await runGroup(g,env,"API_RUN_NOW"));}
       if(p==="/analyze"){const symbol=u.searchParams.get("symbol");return json(await runSymbol(symbol,env));}
       if(p==="/hub")return json(await runHub(env,"API_HUB"));
