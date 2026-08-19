@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'scripts/patch_signal_integrity_followup.mjs'
+      - 'scripts/finalize_signal_integrity_r7.mjs'
       - '.github/workflows/pr-signal-integrity-r7.yml'
 permissions:
   contents: write
@@ -18,18 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply follow-up patch idempotently
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('scripts/patch_signal_integrity_followup.mjs')
-          s=p.read_text()
-          old="const rep=(s,a,b,label)=>{if(!s.includes(a))throw new Error('missing '+label);return s.replace(a,b);};"
-          new="const rep=(s,a,b,label)=>{if(s.includes(b))return s;if(!s.includes(a))throw new Error('missing '+label);return s.replace(a,b);};"
-          if old in s: s=s.replace(old,new)
-          p.write_text(s)
-          PY
-          node scripts/patch_signal_integrity_followup.mjs
+      - name: Apply deterministic finalizer
+        run: node scripts/finalize_signal_integrity_r7.mjs
       - name: Syntax check
         run: |
           node --check cloudflare-worker/engine-v77168.js
@@ -37,11 +27,11 @@ jobs:
           node --check cloudflare-worker/index.js
           node --check cloudflare-worker/dual-ai-intervention.js
           node --check cloudflare-worker/claude-reviewer.js
-      - name: Commit runtime patch
+      - name: Commit finalized runtime
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/claude-reviewer.js
           if git diff --cached --quiet; then echo 'No runtime changes'; exit 0; fi
-          git commit -m 'V77.18.42 complete Signal Integrity + Claude reviewer follow-up'
+          git commit -m 'V77.18.42 finalize Signal Integrity + Claude visibility'
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
