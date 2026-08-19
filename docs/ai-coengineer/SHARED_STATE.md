@@ -114,3 +114,11 @@ V78-020 — PRODUCTION-VERIFIED
 - Immediately-prior /latest-scan snapshots were compared to the new results; candidate rotation is recorded but is not treated as promotion suppression because promotion occurs after analyses are produced.
 - Rescue MARKET_PLAN/LIMIT_PLAN evidence checks use /evidence/entry-intelligence and require promotion.allowed=true when quote/entry/SL/target evidence is valid.
 - Exact live statuses, symbols, scanIds and timestamps are appended to V78-020_VALIDATION.txt.
+
+
+V78-021 — RESOLVED / DEPLOYED
+- Source commit: 111d0618a505a9d65652e52283fb7f22e6bd7c0a.
+- Group-scan candidate rendering now adds Entry Intelligence quality grade/score, blocked-promotion reasons, and quote freshness through buildEntryIntelligenceShadow().
+- REQUIRED/QUALITY/OPTIONAL classification remains unchanged; visibility only.
+- Exact validation: docs/ai-coengineer/V78-021_VALIDATION.txt.
+- hubSummary() separate inline top-7 builder remains deferred as a separate follow-up.

@@ -1,0 +1,117 @@
+V78-021 HUB R12 QUALITY VISIBILITY
+sourceCommit: 111d0618a505a9d65652e52283fb7f22e6bd7c0a
+cloudflareVersionId: 64d2d19e-b344-4972-9051-cdb23848f0ac
+engine pre-patch blob guard: d612d081bb6550839f946e7ceef307badb92cda8 PASS
+node --check cloudflare-worker/engine-v77168.js: PASS
+watchLine definitions: 1 PASS
+watchLine Entry Intelligence render call: 1 PASS
+singleAnalysisText existing Entry Intelligence render call: 1 PASS
+protected summary/hubSummary/freshWatchFromRun/freshPlanFromRun definitions: 4 PASS
+source scope: exact additive watchLine rendering only; no decision/ranking/admission/KV/endpoint change
+REQUIRED/QUALITY/OPTIONAL taxonomy: unchanged
+
+=== PERSISTED ANALYSES FIELD-FOR-FIELD ACROSS DEPLOY BEFORE NEW SCANS ===
+{
+  "forex": {
+    "sameAnalysesFieldForField": true,
+    "preCount": 0,
+    "postCount": 0,
+    "preScanId": null,
+    "postDeployPreRunScanId": null
+  },
+  "crypto": {
+    "sameAnalysesFieldForField": true,
+    "preCount": 3,
+    "postCount": 3,
+    "preScanId": "crypto-1787179525712-9esiy5",
+    "postDeployPreRunScanId": "crypto-1787179525712-9esiy5"
+  },
+  "metal": {
+    "sameAnalysesFieldForField": true,
+    "preCount": 0,
+    "postCount": 0,
+    "preScanId": null,
+    "postDeployPreRunScanId": null
+  },
+  "index": {
+    "sameAnalysesFieldForField": true,
+    "preCount": 0,
+    "postCount": 0,
+    "preScanId": "index-1787179045368-c49z8i",
+    "postDeployPreRunScanId": "index-1787179045368-c49z8i"
+  }
+}
+
+=== ONE LIVE /run-now PER MARKET AFTER DEPLOY (NO RETRIES) ===
+{
+  "verifiedAt": "2026-08-19T22:50:25.834032Z",
+  "groups": {
+    "forex": {
+      "status": null,
+      "scanId": "forex-1787179806598-q8e5ce",
+      "scannedAt": "2026-08-19T22:50:06.598Z",
+      "analyses": [
+        {
+          "symbol": "NZDCAD",
+          "status": "LIMIT_PLAN",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "score": 40
+        },
+        {
+          "symbol": "EURJPY",
+          "status": "LIMIT_PLAN",
+          "reason": "M15_LOCATION_REQUIRED",
+          "score": 44
+        },
+        {
+          "symbol": "NZDJPY",
+          "status": "LIMIT_PLAN",
+          "reason": "RR_QUALITY_REQUIRED",
+          "score": 73
+        }
+      ]
+    },
+    "crypto": {
+      "status": null,
+      "scanId": "crypto-1787179814631-k9m1sh",
+      "scannedAt": "2026-08-19T22:50:14.631Z",
+      "analyses": [
+        {
+          "symbol": "INJUSDT",
+          "status": "LIMIT_PLAN",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "score": 40
+        },
+        {
+          "symbol": "FARTCOINUSDT",
+          "status": "LIMIT_PLAN",
+          "reason": "M15_LOCATION_REQUIRED",
+          "score": 49
+        },
+        {
+          "symbol": "HYPEUSDT",
+          "status": "WATCH",
+          "reason": "M15_LOCATION_REQUIRED",
+          "score": 53
+        }
+      ]
+    },
+    "metal": {
+      "status": "RATE_BUDGET_WAIT",
+      "scanId": "metal-1787179823214-6rrgpt",
+      "scannedAt": "2026-08-19T22:50:23.214Z",
+      "analyses": []
+    },
+    "index": {
+      "status": null,
+      "scanId": "index-1787179824159-ba7i45",
+      "scannedAt": "2026-08-19T22:50:24.159Z",
+      "analyses": []
+    }
+  }
+}
+
+Interpretation:
+- Persisted analyses arrays were field-for-field identical immediately before vs immediately after deployment, before any new scan mutated KV.
+- The four post-deploy /run-now calls are live smoke evidence; RATE_BUDGET_WAIT/BUSY/errors are recorded exactly and never retry-hidden.
+- This patch changes rendered group-scan text only and does not alter analysis objects, ranking, admission, Hyro authority, hard risk, freshness, structural SL, news safeguards, TRADING_STATE, or v775:books.
