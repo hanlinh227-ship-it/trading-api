@@ -1,9 +1,0 @@
-GENERATOR_EXIT=0
-Applied V77.14.1 Futures state + H1 SMT refinement
-MIGRATION_EXIT=0
-WORKER_SYNTAX_EXIT=0
-V77.14.1=YES
-future:emptyGroup=YES
-futureSwingState=YES
-smtSignal=YES
-H1 SMT=YES
