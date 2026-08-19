@@ -1,7 +1,0 @@
-GENERATOR_EXIT=0
-Applied V77.15.4 diversified Forex candidate routing
-MIGRATION_EXIT=0
-WORKER_SYNTAX_EXIT=0
-V77.15.4=YES
-selectForexDiverse=YES
-Diversified Actionable Hub=YES

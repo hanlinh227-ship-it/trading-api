@@ -1,5 +1,0 @@
-Applied V77.16.6 legacy-order preservation
-MIGRATION_EXIT=0
-SYNTAX_EXIT=0
-VERSION_OK=0
-LEGACY_BACKFILL=0

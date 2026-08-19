@@ -1,9 +1,0 @@
-GENERATOR_EXIT=0
-Applied V77.15.3 structural limit rescue
-MIGRATION_EXIT=0
-WORKER_SYNTAX_EXIT=0
-V77.15.3=YES
-refinedLimitPlan(side,M15.close=YES
-refinedLimitPlan(side,M5.close=YES
-RR_QUALITY_REQUIRED=YES
-Structural Limit Rescue=YES

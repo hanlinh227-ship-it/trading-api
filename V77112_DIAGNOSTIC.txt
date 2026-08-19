@@ -1,9 +1,0 @@
-GENERATOR_EXIT=0
-Applied V77.11.2 identity consistency
-MIGRATION_EXIT=0
-WORKER_SYNTAX_EXIT=0
-V77.11.2=YES
-const s=canonicalUserSymbol(symbol),type=marketType(s);=YES
-"GRAM"=YES
-v73CryptoPriorKey=YES
-regimeRouteScores=YES

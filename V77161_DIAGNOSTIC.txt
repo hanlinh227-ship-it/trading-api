@@ -1,8 +1,0 @@
-GENERATOR_EXIT=0
-Applied V77.16.1 plan invariants
-MIGRATION_EXIT=0
-WORKER_SYNTAX_EXIT=0
-V77.16.1=YES
-rejectedPlan=YES
-Plan-Invariant Quality Hub=YES
-indicativePlan(side,M5,M15,H1,H4,D1,locPolicy,prior,intel=YES

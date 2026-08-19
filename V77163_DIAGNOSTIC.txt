@@ -1,9 +1,0 @@
-GENERATOR_EXIT=0
-Applied V77.16.3 Futures direct stability
-MIGRATION_EXIT=0
-WORKER_SYNTAX_EXIT=0
-V77.16.3=YES
-recentFutureScanAnalysis=YES
-MASSIVE_RATE_OR_DATA_UNAVAILABLE=YES
-Stable Direct-Symbol Quality Hub=YES
-Math.max(x,1.50)=YES
