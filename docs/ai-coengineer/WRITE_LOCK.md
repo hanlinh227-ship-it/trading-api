@@ -1,11 +1,11 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: cloudflare-worker/hyro-execution.js
-STARTED: 2026-08-19T11:23:00Z
-BASE_SHA: f168a449d2012e4e6b018a02f5825cc4e1b5a277
-PURPOSE: AI-001 isolate optional closedPnl telemetry from critical wallet/positions/orders
+LOCKED: false
+OWNER: NONE
+SCOPE: none
+STARTED: null
+BASE_SHA: 1d6db32155c06d464f4da94746df73e110b9b294
+PURPOSE: AI-001 repair committed; awaiting Claude review
 
 Protocol:
 - Before modifying production source, set `LOCKED: true`, owner and scope.
