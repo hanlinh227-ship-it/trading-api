@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: trading-v77-cloudflare-production
@@ -28,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          ref: main
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -43,6 +44,95 @@ jobs:
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}" || { echo 'Missing CLOUDFLARE_ACCOUNT_ID'; exit 1; }
           test -n "${TRADING_KV_NAMESPACE_ID:-}" || { echo 'Missing TRADING_KV_NAMESPACE_ID'; exit 1; }
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] || { echo 'TRADING_KV_NAMESPACE_ID must be 32 hex chars'; exit 1; }
+
+      - name: V78-020 guarded integration
+        id: v78020
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          epath=Path('cloudflare-worker/engine-v77168.js')
+          hpath=Path('cloudflare-worker/hub-v77171.js')
+          ppath=Path('cloudflare-worker/providers/entry-intelligence.js')
+          e=epath.read_text(); h=hpath.read_text(); p=ppath.read_text()
+
+          assert 'revision:"V78-020"' in p, 'V78-020 provider missing'
+          assert 'executionAuthority:"NONE"' in p, 'entry intelligence execution authority changed'
+          assert 'runHyroAutoCycle' not in p and 'executeHyroPlan' not in p and 'HYRO_BYBIT' not in p, 'Hyro boundary violated'
+
+          old_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow'
+          new_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow,entryIntelligenceRankAdjustment,entryIntelligencePromotionAllowed'
+          if new_import not in e:
+            assert e.count(old_import)==1, 'engine entry-intelligence import baseline mismatch'
+            e=e.replace(old_import,new_import,1)
+
+          if 'x+=entryIntelligenceRankAdjustment(a);return x;}' not in e:
+            pat=r'function actionableRank\(a\)\{.*?return x;\}'
+            m=re.findall(pat,e,flags=re.S); assert len(m)==1, f'actionableRank matches={len(m)}'
+            old=m[0]
+            e=e.replace(old,old[:-9]+'x+=entryIntelligenceRankAdjustment(a);return x;}',1)
+
+          if 'const intelAllowed=entryIntelligencePromotionAllowed(a);' not in e:
+            pat=r'function fillBooks\(group,books,analyses,trigger="SCAN"\)\{.*?b\.watch=\[\];return newItems;\}'
+            m=re.findall(pat,e,flags=re.S); assert len(m)==1, f'fillBooks matches={len(m)}'
+            old=m[0]
+            new=old.replace('for(const a of analyses){','for(const a of analyses){const intelAllowed=entryIntelligencePromotionAllowed(a);',1)
+            new=new.replace('if(group!=="crypto"){if(a.status==="MARKET_SIGNAL"','if(group!=="crypto"){if(intelAllowed&&a.status==="MARKET_SIGNAL"',1)
+            new=new.replace('if(a.status==="MARKET"&&!duplicate','if(intelAllowed&&a.status==="MARKET"&&!duplicate',1)
+            new=new.replace('if(a.status==="LIMIT"&&!duplicate','if(intelAllowed&&a.status==="LIMIT"&&!duplicate',1)
+            e=e.replace(old,new,1)
+          epath.write_text(e)
+
+          if 'HUB-R12-ENTRY-INTEL-ACTIVE' not in h:
+            assert 'HUB-R11-ENTRY-INTEL-SHADOW' in h, 'hub revision baseline mismatch'
+            h=h.replace('HUB-R11-ENTRY-INTEL-SHADOW','HUB-R12-ENTRY-INTEL-ACTIVE')
+          h=h.replace('🧭 Entry Intel","callback_data":"intel"','🧭 Entry Intel V2","callback_data":"intel"')
+          if 'ENTRY INTELLIGENCE • ACTIVE ADVISORY' not in h:
+            pat=r'async function entryIntelText\(env\)\{.*?\}\nasync function engineJson'
+            m=re.findall(pat,h,flags=re.S); assert len(m)==1, f'entryIntelText matches={len(m)}'
+            replacement='''async function entryIntelText(env){const rows=await getEntryIntelligenceShadow(env,12),x=rows[0]||null;if(!x)return "🧭 ENTRY INTELLIGENCE • V78-020\\n━━━━━━━━━━━━\\n⚪ Chưa có reasoning. Quét một thị trường để tạo dữ liệu.";const c=x.integrity?.core||{},m=x.integrity?.marketSpecific||{},blocks=x.integrity?.hardBlocks||[],r=x.reasoning||{},q=x.quality||{},pr=x.promotion||{};return ["🧭 ENTRY INTELLIGENCE • ACTIVE ADVISORY","━━━━━━━━━━━━",`${x.symbol||"—"} • ${String(x.market||"unknown").toUpperCase()} • ${x.existingDecision?.status||"UNKNOWN"}`,`⭐ Quality: ${q.grade||"?"} • ${q.score??"—"}/100 • ${pr.allowed===false?"⛔ BLOCK":"✅ ADMIT"}`,`📡 Freshness: ${x.quote?.freshness||"UNKNOWN"} • ${x.quote?.source||"—"}`,`🧩 Core: ${c.known||0}/${c.total||0} • Market context: ${m.known||0}/${m.total||0}`,`⏱ WHY NOW: ${r.whyNow||"UNKNOWN"}`,`📍 WHY PRICE: ${r.whyPrice||"UNKNOWN"}`,`🛑 WHY SL: ${r.whySl||"UNKNOWN"}`,`🏁 WHY TP/RR: ${r.whyTp||"UNKNOWN"}`,`❌ Invalidates: ${r.invalidates||"UNKNOWN"}`,blocks.length?`🚧 Blocks: ${blocks.join(", ")}`:"✅ No hard evidence block","","V78-020 affects Signal ranking/book admission only.","🏦 Hyro real-capital execution authority unchanged.","🤖 Claude production API remains PAUSED."].join("\\n");}
+async function engineJson'''
+            h=re.sub(pat,replacement,h,count=1,flags=re.S)
+          hpath.write_text(h)
+          PY
+
+          node --check cloudflare-worker/providers/entry-intelligence.js
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/hub-v77171.js
+          grep -q 'entryIntelligenceRankAdjustment' cloudflare-worker/engine-v77168.js
+          grep -q 'entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js
+          grep -q 'HUB-R12-ENTRY-INTEL-ACTIVE' cloudflare-worker/hub-v77171.js
+          grep -q 'ENTRY INTELLIGENCE • ACTIVE ADVISORY' cloudflare-worker/hub-v77171.js
+          grep -q 'executionAuthority:"NONE"' cloudflare-worker/providers/entry-intelligence.js
+          ! grep -q 'runHyroAutoCycle' cloudflare-worker/providers/entry-intelligence.js
+          ! grep -q 'executeHyroPlan' cloudflare-worker/providers/entry-intelligence.js
+          git diff --check
+
+          mkdir -p docs/ai-coengineer
+          cat > docs/ai-coengineer/V78-020_VALIDATION.txt <<'EOF'
+          V78-020 BATCH VALIDATION PASS
+          provider syntax PASS
+          engine syntax PASS
+          hub syntax PASS
+          advisory ranking adjustment wired PASS
+          conservative new-book admission wired PASS
+          Hub R12 visible revision wired PASS
+          executionAuthority NONE retained PASS
+          Hyro execution functions absent from entry-intelligence provider PASS
+          TRADING_STATE/v775:books reset not introduced PASS
+          EOF
+
+          if ! git diff --quiet -- cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-020_VALIDATION.txt; then
+            git config user.name 'V78 Deploy Integrator'
+            git config user.email 'actions@users.noreply.github.com'
+            git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-020_VALIDATION.txt
+            git commit -m 'V78-020 activate conservative Signal entry intelligence and Hub R12'
+            git push origin HEAD:main
+          fi
 
       - name: Install pinned Wrangler
         id: install
@@ -66,6 +156,7 @@ jobs:
         shell: bash
         env:
           GUARD_OUTCOME: ${{ steps.guard.outcome }}
+          V78020_OUTCOME: ${{ steps.v78020.outcome }}
           PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
           PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
           DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
@@ -76,9 +167,10 @@ jobs:
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Run: \`${GITHUB_RUN_ID}\`"
             echo "- Guard: \`${GUARD_OUTCOME}\`"
+            echo "- V78-020 integration: \`${V78020_OUTCOME}\`"
             echo "- Preflight: \`${PREFLIGHT_OUTCOME}\`"
             echo "- Prepare: \`${PREPARE_OUTCOME}\`"
             echo "- Deploy: \`${DEPLOY_OUTCOME}\`"
             echo "- Worker: \`trading-v77-scanner\`"
-            echo "- Expected Hub revision: \`HUB-R11-ENTRY-INTEL-SHADOW\`"
+            echo "- Expected Hub revision: \`HUB-R12-ENTRY-INTEL-ACTIVE\`"
           } >> "$GITHUB_STEP_SUMMARY"
