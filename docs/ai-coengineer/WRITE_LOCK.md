@@ -1,12 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-019 Cloudflare deploy pipeline stabilization + fresh production rollout
-ACQUIRED: 2026-08-19
-PURPOSE: Fix post-deploy status reporting so a successful Cloudflare deployment cannot be marked failed by a non-fast-forward docs push; then trigger a fresh deployment from current main so Telegram Hub receives the latest V78 source.
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-19
+LAST_OWNER: CHATGPT
+LAST_SCOPE: V78-019 Cloudflare deploy pipeline stabilization + fresh production rollout
+RESULT: IMPLEMENTED. Cloudflare credentials are now accepted by GitHub Actions. Prior rerun passed secret guard, Worker preflight, existing-KV preparation and production wrangler deploy; only the old repo-status git push failed after deploy due non-fast-forward. Workflow was hardened at dce01c0473c9ed31313990635ec02a8b197cb9f7 to report status through GITHUB_STEP_SUMMARY instead of mutating main, use contents:read, and trigger a fresh rollout from current main. No trading logic, state, risk, execution authority or secrets were changed.
 
 Protocol:
+- Acquire a new lock before the next source write.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
