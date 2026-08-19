@@ -18,8 +18,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply follow-up patch
-        run: node scripts/patch_signal_integrity_followup.mjs
+      - name: Apply follow-up patch idempotently
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signal_integrity_followup.mjs')
+          s=p.read_text()
+          old="const rep=(s,a,b,label)=>{if(!s.includes(a))throw new Error('missing '+label);return s.replace(a,b);};"
+          new="const rep=(s,a,b,label)=>{if(s.includes(b))return s;if(!s.includes(a))throw new Error('missing '+label);return s.replace(a,b);};"
+          if old in s: s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          node scripts/patch_signal_integrity_followup.mjs
       - name: Syntax check
         run: |
           node --check cloudflare-worker/engine-v77168.js
