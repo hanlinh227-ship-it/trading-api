@@ -1,7 +1,7 @@
 import baseEngine from "./engine-v77168.js";
 import {loadHubUxTuning,getHubUxState} from "./hub-ux-tuning.js";
 
-const VERSION="V77.18.41",UI_REV="HUB-R9-SIGNAL-LIVE-SYNC",SERVICE="Trading V77.18.41 • Signal Live Sync";
+const VERSION="V77.18.42",UI_REV="HUB-R10-LIFECYCLE-GUARD",SERVICE="Trading V77.18.42 • Signal Lifecycle Guard";
 const HYRO_PROFILE_KEY="v7717:hyro:profile",HYRO_DRAFT_KEY="v77171:hyro:draft";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 async function telegram(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
