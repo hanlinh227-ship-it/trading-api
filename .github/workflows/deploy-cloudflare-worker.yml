@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: trading-v77-cloudflare-production
@@ -27,11 +27,14 @@ jobs:
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Guard required deployment secrets
+        id: guard
         shell: bash
         run: |
           set -euo pipefail
@@ -41,20 +44,50 @@ jobs:
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] || { echo 'TRADING_KV_NAMESPACE_ID must be 32 hex chars'; exit 1; }
 
       - name: Install pinned Wrangler
+        id: install
         run: npm install --no-audit --no-fund
 
       - name: Worker preflight
+        id: preflight
         run: npm run check
 
       - name: Prepare Wrangler using existing KV only
+        id: prepare
         run: npm run prepare:wrangler
 
       - name: Deploy production worker
+        id: deploy
         run: npx wrangler deploy
 
-      - name: Deployment summary
+      - name: Record deployment status
+        if: always()
+        working-directory: .
         shell: bash
+        env:
+          GUARD_OUTCOME: ${{ steps.guard.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
         run: |
-          echo "Cloudflare production deployment completed from commit ${GITHUB_SHA}."
-          echo "Worker: trading-v77-scanner"
-          echo "KV binding preserved: TRADING_STATE -> existing namespace"
+          set -euo pipefail
+          mkdir -p docs/ai-coengineer
+          cat > docs/ai-coengineer/CLOUDFLARE_DEPLOYMENT_STATUS.md <<EOF
+          # CLOUDFLARE DEPLOYMENT STATUS
+
+          Commit: \`${GITHUB_SHA}\`
+          Run: \`${GITHUB_RUN_ID}\`
+          Guard: \`${GUARD_OUTCOME}\`
+          Preflight: \`${PREFLIGHT_OUTCOME}\`
+          Prepare: \`${PREPARE_OUTCOME}\`
+          Deploy: \`${DEPLOY_OUTCOME}\`
+          Worker: \`trading-v77-scanner\`
+          Expected Hub revision: \`HUB-R11-ENTRY-INTEL-SHADOW\`
+          Updated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          EOF
+          git config user.name "V78 Deploy Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/ai-coengineer/CLOUDFLARE_DEPLOYMENT_STATUS.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Record Cloudflare deployment status for ${GITHUB_SHA}"
+            git push
+          fi
