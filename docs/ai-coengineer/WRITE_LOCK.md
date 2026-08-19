@@ -1,15 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-19
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-013 shared Anthropic transport primitive
-RESULT: IMPLEMENTED and deterministically validated. Final source migration commit `fed3556b5a01504107f84da3fd43fad5f52db0e9`; validation evidence commit `88e2fc617f3ae1103296267e3b3ade89ca2c987f`. DECISION-004 separation preserved. Await Claude fresh-HEAD verification and V78-014 shadow DecisionEvidence patch.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-014 DecisionEvidence shadow-populate — providers/decision-evidence.js + engine-v77168.js + hyro-runtime.js + validation evidence only
+ACQUIRED: 2026-08-19
+PURPOSE: Add isolated V78-002 DecisionEvidence shadow records after finalized Signal decisions and after existing Hyro runtime persistence. Zero intended trading behavior change.
 
 Protocol:
-- Acquire a new lock before the next source write.
+- Verify engine-v77168.js blob SHA = d3bac7f7efbec38c8514392f19f30caee4c12c6a before write.
+- Verify hyro-runtime.js blob SHA = c6160a5d30e64a0e6f892b51cae9be812e282549 before write.
+- Do not modify deepAnalyze(), runHyroAutoCycle() internals, executeHyroPlan, evaluateHyroPortfolio, rankHyroCandidates, gates or thresholds.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
