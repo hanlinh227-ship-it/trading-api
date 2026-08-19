@@ -1,13 +1,13 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: docs/ai-coengineer/V78_PROVIDER_CAPABILITY_INVENTORY.md
-STARTED: 2026-08-19T20:36:00+07:00
-BASE_SHA: b9f4226961e29df0d0f1d9a23954a16f15221fc7
-PURPOSE: Implement V78-007 provider capability inventory, documentation-only / zero behavior. V78-006 is resolved. V78-004 remains blocked pending exact Claude patch text.
+LOCKED: false
+OWNER: NONE
+SCOPE: none
+STARTED: null
+BASE_SHA: 59048ba25f8708a0c2ac4f3b9876c8abc9680219
+PURPOSE: V78-006 Claude WARN corrections resolved; V78-007 provider capability inventory implemented and ready for Claude review. V78-004 remains blocked only on exact Claude patch text. No Wave 1+ source change started.
 
 Protocol:
-- Other AI may review but must not write this scope.
-- No production source/state/risk change in this lock.
+- Before production source write, acquire exact scope.
+- Implementation-forward mode: safe, scoped issues should be implemented immediately.
 - Release after commit and handoff.
