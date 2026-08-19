@@ -1,17 +1,16 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-19
-LAST_OWNER: CHATGPT
-LAST_SCOPE: V78-019 Cloudflare deploy pipeline stabilization + fresh production rollout
-RESULT: IMPLEMENTED. Cloudflare credentials are now accepted by GitHub Actions. Prior rerun passed secret guard, Worker preflight, existing-KV preparation and production wrangler deploy; only the old repo-status git push failed after deploy due non-fast-forward. Workflow was hardened at dce01c0473c9ed31313990635ec02a8b197cb9f7 to report status through GITHUB_STEP_SUMMARY instead of mutating main, use contents:read, and trigger a fresh rollout from current main. No trading logic, state, risk, execution authority or secrets were changed.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-020 Batch Entry Intelligence promotion + Hub R12 observability
+ACQUIRED: 2026-08-19
+PURPOSE: Promote the already-shadowed V78 entry intelligence into conservative advisory Signal ranking/book admission only, while upgrading Hub visibility. Hyro real-capital execution authority, risk, freshness, structural SL, hard-news protections and KV continuity remain untouched.
 
 Protocol:
-- Acquire a new lock before the next source write.
-- Do not reset TRADING_STATE/v775:books.
-- Do not weaken risk/freshness/structural-SL/news safeguards.
-- Do not restore Futures/TK2.
+- One writer at a time.
+- Never reset TRADING_STATE or delete/reset v775:books.
+- Never weaken hard risk/freshness/structural-SL/news safeguards.
+- Never restore legacy Futures Signal or Hyro TK2.
 - Binance20 remains NON_PRODUCTION / QUARANTINED.
-- Claude production API remains paused; Claude.ai Web remains full co-engineer.
+- Production Claude API remains paused; Claude.ai Web remains full co-engineer.
+- V78-020 may affect advisory Signal ranking/new-book admission only; it must not grant or modify real-capital execution authority.
