@@ -1,6 +1,6 @@
 # V78-001 — TRADING_STATE / KV KEY REGISTRY
 
-Status: IMPLEMENTED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
+Status: RESOLVED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
 Owner: CHATGPT
 Reviewer: CLAUDE
 Recorded against production source at V78-001 implementation time.
@@ -24,18 +24,22 @@ This issue changes **no runtime behavior**. It does not rename, delete, copy, re
 
 Owner source: `cloudflare-worker/engine-v77168.js`
 
-| Key / prefix | Type | Primary owner | Purpose / lifecycle | Migration status |
-|---|---|---|---|---|
-| `v775:books` | singleton JSON | Signal engine | Canonical Signal live/advisory books. Protected durable state used for active/pending/watch lifecycle. | **PROTECTED — DO NOT RESET** |
-| `v775:history` | singleton/history JSON | Signal engine | Signal lifecycle history. | Preserve; migration not authorized |
-| `v775:last_run` | singleton JSON | Signal engine | Last scan/run metadata. | Preserve |
-| `v775:run_lock` | singleton lease/lock | Signal engine | Serializes scan/run work and prevents overlapping run execution. | Preserve until explicit lock redesign |
-| `v779:news_clear:{symbol}` | dynamic prefix | Signal engine | Per-symbol temporary news clearance state. | Preserve; V78 news semantics redesign pending |
-| `v779:crypto_broad_cache` | singleton cache | Signal engine | Crypto broad-discovery cache. | Cache; may later be replaced additively |
-| `v7712:scan:{group}` | dynamic prefix | Signal engine / Health reader | Latest per-market scan snapshots such as crypto/forex/metal/index. `system-health.js` reads this prefix for scan-memory/status. | Preserve |
-| `v7712:order_history` | singleton/history JSON | Signal engine | Signal order/advisory lifecycle history. | Preserve |
-| `v7713:shadow_setups` | singleton/shadow state | Signal engine | Shadow setup/evaluation state. | Preserve until explicit deprecation |
-| `v77164:context:{...}` | dynamic prefix | Signal engine | Cached/current context evidence by instrument/context scope. | Preserve; candidate for future `DecisionEvidence` linkage |
+| Key / prefix | Type | Primary owner | Purpose / lifecycle | TTL / lifecycle | Migration status |
+|---|---|---|---|---|---|
+| `v775:books` | singleton JSON | Signal engine | Canonical Signal live/advisory books. Protected durable state used for active/pending/watch lifecycle. | persistent | **PROTECTED — DO NOT RESET** |
+| `v775:history` | singleton/history JSON | Signal engine | Signal lifecycle history. | source-defined | Preserve; migration not authorized |
+| `v775:last_run` | singleton JSON | Signal engine | Last scan/run metadata. | source-defined | Preserve |
+| `v775:run_lock` | singleton lease/lock | Signal engine | Serializes scan/run work and prevents overlapping run execution. | source-defined lease | Preserve until explicit lock redesign |
+| `v779:news_clear:{symbol}` | dynamic prefix | Signal engine | Per-symbol temporary news clearance state. | source-defined temporary state | Preserve; V78 news semantics redesign pending |
+| `v779:crypto_broad_cache` | singleton cache | Signal engine | Crypto broad-discovery cache. | source-defined cache | Cache; may later be replaced additively |
+| `v7712:scan:{group}` | dynamic prefix | Signal engine / Health reader | Latest per-market scan snapshots such as crypto/forex/metal/index. `system-health.js` reads this prefix for scan-memory/status. | source-defined | Preserve |
+| `v7712:order_history` | singleton/history JSON | Signal engine | Signal order/advisory lifecycle history. | source-defined | Preserve |
+| `v7713:shadow_setups` | singleton/shadow state | Signal engine | Shadow setup/evaluation state. | source-defined | Preserve until explicit deprecation |
+| `v77164:context:{...}` | dynamic prefix | Signal engine | Cached/current context evidence by instrument/context scope. | source-defined | Preserve; candidate for future `DecisionEvidence` linkage |
+| `v771816:signal:auto_notify:{sig}` | dynamic dedupe prefix | Signal engine / `notifySignalPlans` | Dedupes automatic Signal-plan Telegram notifications by signal signature so the same plan is not repeatedly announced inside the suppression window. | **1800s** | Preserve until dedicated NotificationBus/dedupe migration |
+
+### Signal auto-notification dedupe
+`cloudflare-worker/engine-v77168.js:notifySignalPlans` writes `v771816:signal:auto_notify:{sig}` with an expiration TTL of **1800 seconds**. This is operational notification state, not cosmetic cache: removing it without replacement can reintroduce duplicate Telegram plan alerts.
 
 Notes:
 - Current Signal crypto market-data path is advisory/public-data; this registry entry does not grant execution authority.
@@ -166,8 +170,8 @@ Owner source: `cloudflare-worker/claude-reviewer.js`.
 | `v771821:claude:budget` | Daily review count/token/cooldown budget. | 172800s | Preserve |
 | `v771821:claude:release` | Tracks reviewed release/version to avoid duplicate release review. | 2592000s | Preserve |
 | `v771821:claude:error_sig` | Health incident signature already reviewed. | 604800s | Preserve |
-| `v771821:claude:daily_system_audit` | Daily system-audit cadence/result state. | source-defined | Preserve |
-| `v771822:claude:overnight` | Legacy/time-bounded overnight review cadence state. | source-defined | Preserve until explicit retirement |
+| `v771821:claude:daily_system_audit` | Daily system-audit cadence/result state. | **2592000s** | Preserve |
+| `v771822:claude:overnight` | Legacy/time-bounded overnight review cadence state. | **172800s** | Preserve until explicit retirement |
 | `v771817:health:last` | Cross-read, not Claude-owned. | — | See Health section |
 | `v775:books` | Cross-read snapshot, not Claude-owned. | — | Protected Signal state |
 | `v7718:hyro:runtime` | Cross-read snapshot, not Claude-owned. | — | See Hyro Runtime section |
@@ -222,7 +226,8 @@ Preserve through refactors; migrate additively when necessary:
 May later be replaced only with explicit cutover/parity plan:
 - broad cache
 - wizard draft
-- notification dedupe keys
+- Signal `v771816:signal:auto_notify:*` dedupe state
+- Hyro notification dedupe keys
 - scan-memory cache
 - temporary AI lease
 
@@ -262,6 +267,8 @@ No step above is authorized by this documentation issue.
 ## 15. V78-001 ACCEPTANCE CHECK
 
 - [x] Registry documents Signal, HUB, Hyro execution/runtime/management/review, health, release, tuning, AI governance, Claude reviewer, dual-AI and quarantined Binance20 state.
+- [x] Signal auto-notification dedupe key `v771816:signal:auto_notify:{sig}` is documented with TTL 1800s.
+- [x] Claude reviewer `daily_system_audit` TTL is documented as 2592000s and `overnight` TTL as 172800s.
 - [x] `v775:books` is explicitly protected.
 - [x] Hyro daily/idempotency/position-management state is marked high-safety/additive-only.
 - [x] Readers/writers/cross-reads are identified at subsystem level.
@@ -269,5 +276,10 @@ No step above is authorized by this documentation issue.
 - [x] No source behavior changed.
 - [x] No Wave 1+ source work is started.
 
-## Reviewer request
-Claude should independently search current `cloudflare-worker/` for KV string literals and report any missing production key/prefix, incorrect ownership, TTL mismatch, or key whose behavior/state criticality is understated. Reviewer should return PASS/WARN/BLOCK for **V78-001 documentation accuracy only**.
+## Claude WARN resolution
+Claude's V78-001 WARN is resolved by this documentation correction:
+1. added missing `v771816:signal:auto_notify:{sig}` / `notifySignalPlans` / TTL 1800s entry;
+2. corrected `v771821:claude:daily_system_audit` TTL to 2592000s;
+3. corrected `v771822:claude:overnight` TTL to 172800s.
+
+V78-001 is therefore marked **RESOLVED**, pending only optional reviewer acknowledgement; no production behavior changed.
