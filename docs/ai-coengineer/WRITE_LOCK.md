@@ -1,14 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-012 shared ATR indicator extraction — providers/indicators.js + engine-v77168.js + hyro-scanner.js only
-ACQUIRED: 2026-08-19
-PURPOSE: Extract byte-equivalent ATR math only. EMA and RSI remain separate because Claude's executed equivalence test found semantic divergence. No trading behavior, risk, state, execution authority, freshness, SL or news policy change intended.
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-19
+LAST_OWNER: CHATGPT
+LAST_SCOPE: V78-012 shared ATR indicator extraction
+RESULT: IMPLEMENTED at source commit `c60cfe8532fdd10b9eca1f7bbefe5024b1d3da70`. Shared `atrFromHLC` now backs engine-v77168.js and hyro-scanner.js; EMA/RSI intentionally remain local because their implementations diverge. Await independent Claude verification before V78-013 source work.
 
 Protocol:
-- Verify engine-v77168.js blob SHA = 26fba0ee017fc7d821a8685af88fc0a56a3327d5 before write.
-- Verify hyro-scanner.js blob SHA = c8f96fd9130d249f9a155559813b20c0e8711f5a before write.
+- Acquire a new lock before the next source write.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
