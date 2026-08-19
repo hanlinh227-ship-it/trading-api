@@ -1,7 +1,8 @@
 import {getHyroTelemetry} from "./hyro-execution.js";
 import {hyroStrategyProfile} from "./hyro-scanner.js";
+import {hmacHex} from "./providers/bybit-signed-client.js";
 
-const RECV_WINDOW="5000",enc=new TextEncoder(),PREFIX="v771811:hyro:manage:";
+const RECV_WINDOW="5000",PREFIX="v771811:hyro:manage:";
 const TP_POLICY_V771822_AT=Date.parse("2026-08-19T00:00:00.000Z"),tpPolicyActive=()=>Date.now()>=TP_POLICY_V771822_AT;
 const num=v=>{const x=Number(v);return Number.isFinite(x)?x:null;};
 async function kvGet(env,key,fallback=null){try{return await env.TRADING_STATE?.get(key,"json")??fallback;}catch{return fallback;}}
@@ -9,7 +10,6 @@ async function kvPut(env,key,value,ttl=604800){if(env.TRADING_STATE)await env.TR
 function mode(env){return String(env.HYRO_BYBIT_MODE||"DEMO").toUpperCase()==="LIVE"?"LIVE":"DEMO";}
 function baseUrl(env){return mode(env)==="LIVE"?"https://api.bybit.com":"https://api-demo.bybit.com";}
 function creds(env){return mode(env)==="LIVE"?{key:env.HYRO_BYBIT_LIVE_API_KEY,secret:env.HYRO_BYBIT_LIVE_API_SECRET}:{key:env.HYRO_BYBIT_API_KEY,secret:env.HYRO_BYBIT_API_SECRET};}
-async function hmacHex(secret,text){const key=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=await crypto.subtle.sign("HMAC",key,enc.encode(text));return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,"0")).join("");}
 async function signed(env,method,path,body={}){const c=creds(env);if(!(c.key&&c.secret))throw new Error("HYRO_MANAGER_CREDENTIALS_MISSING");const ts=String(Date.now()),payload=JSON.stringify(body),sign=await hmacHex(c.secret,ts+c.key+RECV_WINDOW+payload),r=await fetch(baseUrl(env)+path,{method,headers:{"X-BAPI-API-KEY":c.key,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sign,"Content-Type":"application/json"},body:payload}),p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(`${path}: ${p?.retMsg||r.status} [${p?.retCode??"HTTP"}]`);return p;}
 async function publicJson(path,params={}){const q=new URLSearchParams(params),r=await fetch(`https://api.bybit.com${path}?${q}`),p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`PUBLIC_${r.status}`);return p;}
 function decimals(step){const s=String(step);return s.includes(".")?s.split(".")[1].length:0;}
