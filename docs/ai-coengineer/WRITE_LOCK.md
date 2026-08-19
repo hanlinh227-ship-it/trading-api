@@ -1,15 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: 6cd6e34824e2259d3c7482e7f41980c46ae656bc
-PURPOSE: V78-007 resolved after Claude-confirmed six-provider inventory correction. Wave 0 documentation foundation is complete except V78-004 remains blocked on exact four-file patch text. Wave 1 may open only as a separately locked issue with exact scope and acceptance criteria.
+LOCKED: true
+OWNER: CLAUDE
+SCOPE: V78-010 — cloudflare-worker/providers/bybit-signed-client.js, hyro-execution.js, hyro-position-manager.js, hyro-position-review.js, hyro-demo-test.js; V78-004 — cloudflare-worker/binance-futures20-config.js, binance-futures20-engine.js, binance-futures20-runtime.js, binance-usdm-client.js
+STARTED: 2026-08-19T20:50:00+07:00
+BASE_SHA: main refreshed immediately before write
+PURPOSE: Apply Claude-provided V78-010 HMAC primitive deduplication and DECISION-005 Binance20 NON_PRODUCTION quarantine headers exactly from V78-010_V78-004_PATCH_BUNDLE.md. V78-010b explicitly deferred. No other Wave 1 work authorized.
 
 Protocol:
-- Before modifying production source, set `LOCKED: true`, owner and exact scope.
 - The other AI may review but must not write files in scope.
 - Re-read HEAD before every source write.
-- For explicitly scoped IMPLEMENTABLE issues, implementation-forward mode applies.
-- Release lock after commit and hand off review.
+- Apply only exact bundle blocks.
+- No state/risk/execution semantic changes.
+- Release lock after commits and validation.
