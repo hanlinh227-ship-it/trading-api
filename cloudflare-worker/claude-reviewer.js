@@ -33,13 +33,14 @@ async function kvGet(env,key,fallback=null){try{return await env.TRADING_STATE?.
 async function kvPut(env,key,value,ttl){try{if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(value),ttl?{expirationTtl:ttl}:undefined);}catch{}}
 function dayKey(){return new Date().toISOString().slice(0,10);}
 function clampText(s,max){s=String(s||"");return s.length>max?s.slice(0,max)+"\n...[truncated]":s;}
+function focusText(src,needles,radius=900){const s=String(src||""),chunks=[];for(const needle of needles){const at=s.indexOf(needle);if(at<0)continue;chunks.push(s.slice(Math.max(0,at-radius),Math.min(s.length,at+needle.length+radius)));}return clampText([...new Set(chunks)].join("\n---FOCUS---\n"),9000);}
 function safeHealth(h){
   if(!h||typeof h!=="object")return null;
   return {ok:!!h.ok,version:h.version||null,errors:num(h.errors),warnings:num(h.warnings),signature:h.signature||null,issues:(h.issues||[]).filter(x=>x?.level!=="OK").slice(0,12).map(x=>({level:x.level,code:x.code,msg:x.msg})),account:h.account?{configured:!!h.account.configured,connected:!!h.account.connected,equity:num(h.account.equity),positions:num(h.account.positions),orders:num(h.account.orders),autoRequested:!!h.account.autoRequested,paused:!!h.account.paused,runtimeReason:h.account.runtimeReason||null}:null};
 }
 async function safeRuntimeSnapshot(env){
   const [books,hyro]=await Promise.all([kvGet(env,"v775:books",null),kvGet(env,"v7718:hyro:runtime",null)]);
-  const bookView=books&&typeof books==="object"?{keys:Object.keys(books).slice(0,12),size:Array.isArray(books)?books.length:Object.keys(books).length}:null;
+  const bookView=books&&typeof books==="object"?Object.fromEntries(Object.entries(books).filter(([k])=>["forex","crypto","metal","index"].includes(k)).map(([g,b])=>[g,{marketActive:(b?.marketActive||[]).length,signalActive:(b?.signalActive||[]).length,limitActive:(b?.limitActive||[]).length,limitPending:(b?.limitPending||[]).length,signals:(b?.signalActive||[]).slice(0,3).map(p=>({symbol:p.symbol,side:p.side,entry:p.entry,sl:p.sl,tp:p.tp,expiresAt:p.expiresAt,source:p.source}))}])):null;
   const hyroView=hyro&&typeof hyro==="object"?{ok:hyro.ok,reason:hyro.reason,executed:!!hyro.executed,mode:hyro.mode,elapsedMs:num(hyro.elapsedMs),candidateCount:num(hyro.candidateCount),scanSummary:hyro.scanSummary||null,preview:(hyro.preview||[]).slice(0,3).map(x=>({symbol:x.symbol,status:x.status,tier:x.tier,side:x.side,rr:x.rr,strategy:x.strategy,microScore:x.microScore,reason:x.reason}))}:null;
   return {signalBooks:bookView,propRuntime:hyroView};
 }
@@ -48,7 +49,7 @@ async function fetchText(url,timeoutMs=6500){const c=new AbortController(),id=se
 async function githubContext(){
   let head=null,commit=null,files=[];
   try{const raw=await fetchText(`${GH_API}/commits/main`);const p=JSON.parse(raw);head=p?.sha||null;commit={sha:head,message:p?.commit?.message||null,date:p?.commit?.committer?.date||null,files:(p?.files||[]).slice(0,14).map(f=>({filename:f.filename,status:f.status,additions:f.additions,deletions:f.deletions,patch:clampText(f.patch||"",1500)}))};}catch{}
-  for(const path of CRITICAL_FILES){try{const text=await fetchText(RAW_BASE+path);files.push({path,content:clampText(text,2200)});}catch(e){files.push({path,error:String(e?.message||e)});}}
+  for(const path of CRITICAL_FILES){try{const text=await fetchText(RAW_BASE+path),needles=path.endsWith("engine-v77168.js")?["MARKET_SIGNAL","toSignalPos","fillBooks","getBooksLive","lifecycleSignalGroups","notifySignalPlans","signalNotifyKeyboard"]:path.endsWith("hub-v77171.js")?["booksText","MARKET SIGNAL","live:","signal:scan:"]:path.endsWith("index.js")?["ensureDualAiIntervention","scheduled(event","dual-ai/status"]:[];files.push({path,content:needles.length?focusText(text,needles):clampText(text,2200)});}catch(e){files.push({path,error:String(e?.message||e)});}}
   return {head,commit,files};
 }
 function parseClaudeJson(text){const raw=String(text||"").trim();try{return JSON.parse(raw);}catch{}const a=raw.indexOf("{");const b=raw.lastIndexOf("}");if(a>=0&&b>a){try{return JSON.parse(raw.slice(a,b+1));}catch{}}return {verdict:"WARN",confidence:0,summary:clampText(raw,1200),findings:[],tuning:[],must_fix:[]};}
@@ -59,12 +60,13 @@ function reviewerPrompt({version,kind,github,health,runtime}){
 Review in this order:
 1) CODE/CONFIG CONFLICTS: unreachable branches, duplicate gates, stale version references, import/export mistakes, KV/state collisions, conflicting thresholds, race/restart/deploy continuity problems.
 2) HUB/TELEGRAM UX: redundant buttons, confusing labels, missing critical status, messages that are too long, controls that can cause accidental actions. Suggest a simpler hierarchy.
-3) ENTRY QUALITY AND FREQUENCY: inspect Crypto, Forex, Metals and Futures separately. Detect over-filtering, duplicated filters and paths that make valid entries practically unreachable. Recommend market-specific methods instead of forcing one method across all symbols. Preserve hard news/freshness/execution-authority/risk gates. Never recommend entering merely to increase frequency.
-4) PROP: review per-symbol crypto strategy families, funding, OI, long-short ratio, orderbook, spread, portfolio diversification, dynamic equity sizing, native SL/TP, partial TP, BE/trailing and HOLD/TIGHTEN/CUT.
-5) SYSTEM OPTIMIZATION: identify the smallest high-value changes. Separate MUST_FIX from optional tuning. Every tuning suggestion must state expected benefit and risk.
+3) SIGNAL LIVE INTEGRITY: verify MARKET_SIGNAL schema, planned/top-level TP fallback, fillBooks persistence, normalizeBooks preservation, signalActive duplicate suppression, per-market Live refresh, stale quote handling, TP/SL/expiry lifecycle, history and Telegram callback routing. A notified MARKET_SIGNAL must remain in matching Live until explicit TP, SL or expiry; never silently disappear.
+4) ENTRY QUALITY AND FREQUENCY: inspect Crypto, Forex, Metals and Index Cash separately. Detect over-filtering, duplicated filters and paths that make valid entries practically unreachable. Recommend market-specific methods instead of forcing one method across all symbols. Preserve hard news/freshness/execution-authority/risk gates. Never recommend entering merely to increase frequency.
+5) PROP: review per-symbol crypto strategy families, funding, OI, long-short ratio, orderbook, spread, portfolio diversification, dynamic equity sizing, native SL/TP, partial TP, BE/trailing and HOLD/TIGHTEN/CUT.
+6) SYSTEM OPTIMIZATION: identify the smallest high-value changes. Separate MUST_FIX from optional tuning. Every tuning suggestion must state expected benefit and risk.
 
 Output ONLY valid compact JSON with keys: verdict (PASS|WARN|FAIL), confidence (0-100), summary, findings (array severity,area,issue,evidence,recommendation), tuning (array of objects priority,area,current_problem,proposed_change,expected_effect,risk), must_fix (array).`;
-  const payload={version,kind,repo:REPO,github,health,runtime};return {system,user:`Final-review this snapshot after ChatGPT engineering work. Find conflicts first, then HUB simplification and better market-specific entry discovery without weakening hard safety gates. Do not expose or request secrets.\n${JSON.stringify(payload)}`};
+  const payload={version,kind,repo:REPO,github,health,runtime};return {system,user:`Final-review this snapshot after ChatGPT engineering work. Find signal persistence/lifecycle conflicts first, then HUB simplification and better market-specific entry discovery without weakening hard safety gates. Do not expose or request secrets.\n${JSON.stringify(payload)}`};
 }
 async function budgetCheck(env,{force=false}={}){
   const overnight=now()<OVERNIGHT_REVIEW_UNTIL,dailyLimit=Math.max(1,Math.min(20,num(env.CLAUDE_REVIEW_DAILY_LIMIT,overnight?16:4))),cooldownMin=Math.max(5,Math.min(720,num(env.CLAUDE_REVIEW_COOLDOWN_MIN,overnight?25:45))),day=dayKey();

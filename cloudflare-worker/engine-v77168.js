@@ -688,12 +688,13 @@ async function lifecycle(env){
 async function notifyNewCryptoOrders(run,env){for(const p of run?.newItems||[]){const pending=p.status==="PENDING";await sendText(env,signalEventText(pending?"LIMIT_NEW":"MARKET_NEW",p,{group:"crypto"}),undefined,signalNotifyKeyboard("crypto",p.symbol)).catch(()=>{});}}
 async function autoScanCrypto(env){const run=await runGroup("crypto",env,"AUTO_CRON");await notifyNewCryptoOrders(run,env);return run;}
 async function notifySignalPlans(group,run,env){
-  const plans=(run?.analyses||[]).filter(a=>a?.planned&&["MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(a.status)).sort((a,b)=>actionableRank(b)-actionableRank(a)).slice(0,2);
+  const persistedSignals=new Set((run?.newItems||[]).filter(p=>p?.signalOnly&&p?.origin==="MARKET_SIGNAL").map(p=>canonicalUserSymbol(p.symbol)));
+  const plans=(run?.analyses||[]).filter(a=>a?.planned&&["MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"].includes(a.status)&&(a.status!=="MARKET_SIGNAL"||persistedSignals.has(canonicalUserSymbol(a.symbol)))).sort((a,b)=>actionableRank(b)-actionableRank(a)).slice(0,2);
   for(const a of plans){
     const mode=a.status==="MARKET_SIGNAL"||a.status==="MARKET_PLAN"?"MARKET":"LIMIT",entry=Number(a.planned?.entry),sig=[group,a.symbol,a.side,mode,Number.isFinite(entry)?entry.toPrecision(6):"na"].join(":");
     const key="v771816:signal:auto_notify:"+sig;let seen=null;try{seen=await env.TRADING_STATE?.get(key);}catch{}if(seen)continue;
     const rr=Number(a.planned?.targetRR||0).toFixed(2),marketNow=a.status==="MARKET_SIGNAL",txt=[marketNow?"⚡ MARKET SIGNAL • "+groupTitle(group):"📡 SIGNAL PLAN • "+groupTitle(group),"━━━━━━━━━━━━━━",(mode==="MARKET"?"🟢":"🟡")+" "+a.symbol+" • "+sideText(a.side)+" • "+mode,"🎯 Entry "+fmtPx(a.planned.entry),"🛡 SL "+fmtPx(a.planned.sl),"💰 TP1 "+fmtPx(a.planned.tp1)+" • TP2 "+fmtPx(a.planned.tp2||a.planned.tp1)+" • RR "+rr,"⭐ Score "+(Number(a.score)||0)+"/100"+(a.method?.profile?" • "+a.method.profile:""),marketNow?"ℹ️ SIGNAL-ONLY • giá phân tích fresh • không phải broker fill":"ℹ️ Plan kỹ thuật • chờ execution authority thật"].join("\n");
-    await sendText(env,txt,undefined,signalNotifyKeyboard(group,a.symbol)).catch(()=>{});try{await env.TRADING_STATE?.put(key,String(Date.now()),{expirationTtl:1800});}catch{}
+    let sent=false;try{await sendText(env,txt,undefined,signalNotifyKeyboard(group,a.symbol));sent=true;}catch{}if(sent)try{await env.TRADING_STATE?.put(key,String(Date.now()),{expirationTtl:1800});}catch{}
   }
 }
 async function autoScanSignalGroup(group,env){const run=await runGroup(group,env,"AUTO_CRON");await notifySignalPlans(group,run,env);return run;}
@@ -743,7 +744,7 @@ export default {
   async fetch(req,env){
     try{
       const u=new URL(req.url),p=u.pathname.replace(/\/$/,"")||"/";
-      if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Verified native Index only: Massive I:ticker primary + Twelve Data type=Index fallback; sanity fail-closed"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
+      if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,massive:!!env.MASSIVE_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Verified native Index only: Massive I:ticker primary + Twelve Data type=Index fallback; sanity fail-closed"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
       if(p==="/run-now"){const g=u.searchParams.get("group");return json(await runGroup(g,env,"API_RUN_NOW"));}
       if(p==="/analyze"){const symbol=u.searchParams.get("symbol");return json(await runSymbol(symbol,env));}
       if(p==="/symbols"){const g=u.searchParams.get("group");if(!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json({ok:true,group:g,symbols:GROUPS[g]});}
