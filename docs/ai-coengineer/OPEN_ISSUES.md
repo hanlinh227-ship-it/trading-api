@@ -9,53 +9,27 @@ Area: HYRO
 Description:
 `cloudflare-worker/hyro-execution.js` previously treated failure of any telemetry probe as full telemetry failure. `closedPnl` is non-critical for live position/risk management but could force `connected:false`.
 
-Root cause:
-`collectTelemetry()` aggregated wallet, positions, orders and closedPnl into one health decision.
-
-Fix:
-- Critical: wallet, positions, orders.
-- Optional: closedPnl.
-- Optional failure => connected with degraded diagnostics.
-- Critical failure => fail closed for new execution.
-- Stale realized stats are not fabricated; last-known stats/null availability state is preserved.
-
 Repair commit:
 `1d6db32155c06d464f4da94746df73e110b9b294`
 
-Reviewer:
-CLAUDE
-
-Review result:
-PASS — 2026-08-19T11:40:00Z
-
-Review persisted to bus:
-`docs/ai-coengineer/CLAUDE_TO_CHATGPT.md`
+Reviewer: CLAUDE
+Review result: PASS — 2026-08-19T11:40:00Z
 
 ## AI-002
-Status: OPEN — REVIEW REQUESTED
+Status: OPEN — REVIEW RESULT AVAILABLE IN CLAUDE CHAT / PERSISTENCE PENDING IF NEEDED
 Severity: HIGH
 Owner: CHATGPT
 Reviewer: CLAUDE
 Area: DOCS
 
-Description:
-`CURRENT_HANDOFF.md` / `MASTER_TRADING_STATE.md` lagged current component/source state and permanent AI co-engineering state.
-
-Fix applied:
-- `CURRENT_HANDOFF.md` synchronized to current reviewed component state: index V77.18.43, hub V77.18.42, Signal V77.16.20, Health through V77.18.45, Hyro execution V77.18.46 PASS.
-- `MASTER_TRADING_STATE.md` receives a current-source overlay preserving V73/V74/V76 invariants while recording V77.18.46 and permanent GitHub co-engineering.
-- Permanent roles/protocol documented: ChatGPT PRIMARY_ENGINEER, Claude REVIEWER/SECOND_ENGINEER, GitHub bus, one-writer lock.
-- Deployment evidence is recorded without claiming blanket runtime health.
-
-Documentation commits for Claude review:
+Documentation commits:
 - CURRENT_HANDOFF: `55651b19680da2ee1b63d9d980fde0ae131f0870`
 - MASTER_TRADING_STATE: `9b50647940e0542df8a98461b9dc70488e8adc7c`
 
-Required review:
-Claude must review the exact documentation diffs for factual consistency with current `main`, ensure no deprecated architecture is accidentally restored, and return PASS/WARN/BLOCK before AI-002 becomes RESOLVED.
+Claude reported PASS in chat, with one clarification request around legacy `profit lock/target ~1.20%` wording versus current dynamic target math. ChatGPT must resolve the wording/source evidence separately; no production-risk constant is changed by this issue.
 
 ## AI-003
-Status: OPEN — DESIGN PHASE 1
+Status: OPEN — PHASE 1 BLUEPRINT RECEIVED / CHATGPT INTEGRATION ACTIVE
 Severity: STRATEGIC
 Owners: CHATGPT + CLAUDE
 Primary integrator: CHATGPT
@@ -65,30 +39,22 @@ Area: FULL SYSTEM REDESIGN / V78
 Mandate:
 `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md`
 
-User-authorized design scope:
-A. Redesign Telegram/HUB to be compact, intelligent, low-noise and unambiguous.
-B. Redesign trading discovery, entry finding, order evaluation and information/news/data acquisition.
-C. Redesign Hyro auto-trading for reliability, idempotency, reconciliation and safe unattended position management.
-D. Inventory and exploit existing APIs through provider/account abstractions that form the foundation for future multi-account support.
+Claude Phase 1 blueprint persisted at:
+`docs/ai-coengineer/V78_CLAUDE_PHASE1_BLUEPRINT.md`
 
-Phase 1 owner:
-CLAUDE for independent source-backed architecture blueprint; CHATGPT independently validates and integrates.
+Phase 1 findings include:
+- overlapping Telegram routers/verification/dedupe;
+- duplicated Hyro risk/profile display logic;
+- Signal vs Hyro analysis-pipeline duplication;
+- provider/client duplication;
+- Hyro idempotency/reconciliation/cancel-scope/state-machine weaknesses;
+- lack of account/provider abstractions for future multi-account;
+- orphaned non-production Binance20 path;
+- AI runtime duplication requiring deliberate separation/shared primitives.
 
-Phase 1 restriction:
-DESIGN/READ/REVIEW ONLY. No production source changes yet.
+ChatGPT architecture decisions are recorded in `DECISIONS.md` (DECISION-004 through DECISION-008).
 
-Required Claude deliverable:
-- current system map;
-- target HUB;
-- target signal/entry pipeline;
-- API inventory;
-- Hyro target execution state machine;
-- future multi-account foundation;
-- keep/refactor/deprecate map;
-- KV/state migration plan;
-- target file/folder structure;
-- phased implementation plan;
-- high-risk migrations and quick wins;
-- exact file/function evidence for major claims.
+Next design step:
+Claude should review ChatGPT decisions, challenge them where source evidence disagrees, then produce a Phase 2 implementation decomposition with atomic issues ordered by risk. Phase 2 remains DESIGN ONLY until ChatGPT creates scoped write issues.
 
-Implementation begins only after ChatGPT validates the blueprint and creates scoped implementation issues under one-writer WRITE_LOCK.
+No production source write is authorized by AI-003 yet.
