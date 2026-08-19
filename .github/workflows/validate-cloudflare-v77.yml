@@ -13,6 +13,7 @@ on:
       - 'cloudflare-worker/**'
       - 'data/nocut_intraday_allpass_v73.json'
       - 'data/symbol_knowledge_registry.json'
+      - '.github/workflows/validate-cloudflare-v77.yml'
 
 jobs:
   validate:
@@ -49,10 +50,10 @@ jobs:
           const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
           const pkg=JSON.parse(read('cloudflare-worker/package.json'));
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
-          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
-          for(const x of ['V77.18.25','Hyro Method + Hub UX','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','ensureDualAiIntervention','/dual-ai/status','/ai/status','AI_ADMIN_REQUIRED','dailyObjective:{challengePct:2,fundedStretchPct:5}'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
+          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.10','v771816:signal:auto_notify:','autoScanSignalGroup','getBooksLive','pnlUsdEstimated','Refresh P/L'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
+          for(const x of ['V77.18.29','Live PnL + Unified UX','posPnlMovePct','HYRO • VỊ THẾ LIVE','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','ensureDualAiIntervention','/dual-ai/status','/ai/status','AI_ADMIN_REQUIRED','dailyObjective:{challengePct:2,fundedStretchPct:5}'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
           if(index.includes('hyroMultiStatus')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram'))throw new Error('Multi-account runtime present');
-          for(const x of ['HUB-R3-SIGNAL','signal:top','signal:scan:forex','🔥 TOP SETUPS','loadHubUxTuning','/hub/ux','V771822_SAFE_DAILY'])if(!hub.includes(x))throw new Error('Signal UX R3 lock missing: '+x);
+          for(const x of ['HUB-R4-LIVE-PNL','REALTIME P/L','pnlUsdEstimated','signal:top','signal:scan:forex','🔥 TOP SETUPS','loadHubUxTuning','/hub/ux','V771822_SAFE_DAILY'])if(!hub.includes(x))throw new Error('Hub R4 lock missing: '+x);
           for(const x of ['v771826:hub:ux','COMPACT','ACTION_FIRST','STATUS_FIRST','MINIMAL','notificationButtons'])if(!hubUx.includes(x))throw new Error('Hub tuning guardrail missing: '+x);
           for(const x of ['NEAR_MARKET_PLAN','bDistMult','bMinRR','fundingRate','tp1Pct:.45','runnerPct:.20','tune={}'])if(!scanner.includes(x))throw new Error('Scanner lock missing: '+x);
           for(const x of ['ensureDualAiIntervention','V77.18.25','loadAdaptiveTuning','adaptive?.hyro?.maxDeep','adaptive?.hyro?.minTurnover','tune:adaptive?.hyro','bMicroMin','MAX_ACTIVE_SLOTS_REACHED'])if(!runtime.includes(x))throw new Error('Adaptive runtime lock missing: '+x);
@@ -70,11 +71,11 @@ jobs:
           if(!/keep_vars\s*:\s*true/.test(wrangler)||!/binding\s*:\s*['"]TRADING_STATE['"]/.test(wrangler)||!wrangler.includes('TRADING_V77_STATE'))throw new Error('KV deployment lock missing');
           if(pkg.devDependencies?.wrangler!=='4.124.0')throw new Error('Wrangler must be pinned');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('V77.18.27 Signal UX R3 validation PASS');
+          console.log('V77.18.29 Live PnL + Unified UX validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
-        run: npm install
+        run: npm install --no-audit --no-fund
       - name: Generate build-time Wrangler config
         working-directory: cloudflare-worker
         env:
