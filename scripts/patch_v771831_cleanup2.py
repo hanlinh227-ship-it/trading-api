@@ -9,3 +9,4 @@ s=s.replace('FUTURE_RISK_LIMIT_REQUIRED:"SL cấu trúc vượt giới hạn ris
 s=s.replace('NQ/MNQ/ES/MES','NAS100/US30/US500/DEX/JP225')
 p.write_text(s)
 print('CLEANUP2',n1,n2)
+# trigger-final
