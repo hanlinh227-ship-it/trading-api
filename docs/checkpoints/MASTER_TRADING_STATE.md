@@ -1,7 +1,56 @@
 # MASTER TRADING STATE
 
-Updated: 2026-08-18 UTC+7
+Updated: 2026-08-19 UTC+7
 Purpose: single canonical state for the Trading project.
+
+## 2026-08-19 CURRENT SOURCE OVERLAY
+Current GitHub `main` source outranks older historical version labels below when they conflict.
+
+Reviewed component state:
+- `cloudflare-worker/index.js`: **V77.18.43 — Legacy Cleanup + Version Sync**.
+- `cloudflare-worker/hub-v77171.js`: **V77.18.42**.
+- `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7**.
+- System Health fixes present through **V77.18.45**.
+- `cloudflare-worker/hyro-execution.js`: **V77.18.46** telemetry-degradation repair, commit `1d6db32155c06d464f4da94746df73e110b9b294`, reviewed **PASS by Claude 2026-08-19T11:40:00Z**.
+
+V77.18.46 telemetry contract:
+- critical probes: wallet, positions, orders;
+- optional/degradable probe: closedPnl;
+- critical failure remains fail-closed for new execution;
+- closedPnl-only failure remains connected/degraded so existing positions stay visible/manageable;
+- realized P/L freshness is explicit and unavailable realized data is not fabricated as zero.
+
+Permanent AI co-engineering is active through GitHub:
+- `/CLAUDE.md`
+- `/AGENTS.md`
+- `docs/ai-coengineer/PROTOCOL.md`
+- `docs/ai-coengineer/SHARED_STATE.md`
+- `docs/ai-coengineer/WRITE_LOCK.md`
+- `docs/ai-coengineer/OPEN_ISSUES.md`
+- `docs/ai-coengineer/DECISIONS.md`
+- ChatGPT -> Claude: `docs/ai-coengineer/CHATGPT_TO_CLAUDE.md`
+- Claude -> ChatGPT: `docs/ai-coengineer/CLAUDE_TO_CHATGPT.md`
+
+Default AI roles:
+- ChatGPT = PRIMARY_ENGINEER.
+- Claude = REVIEWER / SECOND_ENGINEER.
+- One writer at a time; production writes require explicit issue/handoff ownership plus matching write-lock scope.
+
+Cloudflare deployment evidence observed 2026-08-19:
+- Deployments UI showed the V77.18.46 Hyro telemetry repair in version history;
+- later co-engineering/state commits from `main` also appeared in deployed version history.
+This is deployment evidence, not a blanket runtime-health guarantee. Do not claim `PRODUCTION HEALTHY` without runtime evidence.
+
+Architecture invariants remain:
+- V73 frozen statistical prior;
+- V74 live decision authority;
+- V76 Forex R2 research-only, 0/28 promoted;
+- canonical Signal markets are Forex, Crypto, Metal, Index Cash; legacy Futures Signal stays removed;
+- PROP is one Hyro account only; never restore TK2/multi-account without explicit redesign;
+- V77.18.22 safe-risk policy remains authoritative;
+- preserve `TRADING_STATE` and `v775:books`;
+- no release-driven forced close;
+- never fabricate financial state/quotes/P&L or bypass structural-SL/freshness/hard-news gates.
 
 ## Read order
 1. `CURRENT_HANDOFF.md`
@@ -102,7 +151,7 @@ Historical high-impact macro-event windows were not fabricated because the canon
 
 ## V77.7.0 — unified production runtime
 
-V77.7.0 is the single GitHub-owned Cloudflare/Twelve Data/Telegram production shell. It does **not** replace V74 authority, rewrite V73, or promote V76.
+V77.7.0 is the historical foundation of the single GitHub-owned Cloudflare/Twelve Data/Telegram production shell. Current component overlays above supersede its older component version label where source has advanced. It does **not** replace V74 authority, rewrite V73, or promote V76.
 
 Canonical production source:
 - `cloudflare-worker/index.js`
@@ -147,8 +196,8 @@ Current routing:
 - Forex: direct strict Twelve Data Grow55 exact `AAA/BBB` mapping for analysis/reference; broker execution quote still required before new executable order;
 - Crypto: Twelve Data standardized analysis + exact exchange-native Bybit/OKX/Binance execution;
 - spot metals/energy: exact Twelve Data identity for analysis/reference; broker execution quote still required before new executable order;
-- NAS100/US500/DAX/N225-family cash indices: `DATA_BLOCK` in current Grow55 integration;
-- exact NQ/MNQ/ES/MES/GC/SI/CL futures: `DATA_BLOCK` until an authoritative exact-contract feed exists.
+- NAS100/US500/DAX/N225-family cash indices: historical Grow55 integration may DATA_BLOCK unsupported identities; current Signal architecture remains Index Cash and exact provider identity is required;
+- exact NQ/MNQ/ES/MES/GC/SI/CL futures: no cash-index proxy; exact authoritative contract feed required for futures analysis/execution.
 
 # VALIDATION EVIDENCE
 
@@ -158,7 +207,8 @@ Current routing:
 - V76 final R2 research `32053656572`: SUCCESS.
 - V76 compact summary `32054967541`: SUCCESS.
 - V76 post-R2 validator `32055039365`: SUCCESS; validates methods R2, 28 pairs, retained=[], conservative intrabar scoring and V73 frozen.
-- V77.7.0 local `node --check` on the final Worker source: PASS. GitHub workflow `.github/workflows/validate-cloudflare-v77.yml` is the repository guard for syntax/canonical locks; do not claim a GitHub Actions run passed unless the run itself is verified.
+- Historical V77.7.0 local `node --check`: PASS. Current GitHub workflow `.github/workflows/validate-cloudflare-v77.yml` remains the deterministic repository guard; do not claim a particular workflow run passed unless that run is verified.
+- V77.18.46 code review: Claude PASS on repair commit `1d6db32155c06d464f4da94746df73e110b9b294`.
 
 # ACTIVE REPOSITORY
 
@@ -183,7 +233,7 @@ Legacy optimizers, old blind tests, one-off diagnostics and obsolete live-data p
 
 # CURRENT LIVE ENTRY RULE
 
-Because V76 R2 promoted 0/28, V76 cannot authorize live Forex entries. Current production decisions follow V74 evidence through the V77.7.0 unified runtime.
+Because V76 R2 promoted 0/28, V76 cannot authorize live Forex entries. Current production decisions follow V74 evidence through the current V77 component stack.
 
 DATA_BLOCK always overrides forced-trade research logic.
 
@@ -191,8 +241,10 @@ Forex/Metal: without a real broker/venue bid/ask feed, no new executable MARKET/
 
 Crypto: MARKET/LIMIT requires the complete canonical technical stack, current news/context clearance, structural risk/room, and a fresh exact venue bid/ask confirmation.
 
+Index Cash: use exact authoritative cash-index identity/data only. Never proxy a futures contract from a cash index or vice versa.
+
 NQ/ES Futures: no backtest/live proxy from cash indices. Use exact authoritative futures data only; compare MNQ/MES and choose the stronger setup when such data is available. Structural SL first, then contract count; user framework roughly max SL $500 / target $1,500 when structure supports it.
 
 ## Handoff phrase
 
-`Continue Trading with V73 frozen + V74 live authority + V75 data integrity + V76 R2 locked research-only + V77.7.0 unified GitHub/Cloudflare/Twelve Data/Telegram runtime. GitHub cloudflare-worker/index.js is the only production source. Twelve Data batch maximizes Grow55 while controlling Cloudflare subrequests. Require current news/context, D1-H4-H1, V73 prior where applicable, M15 location, strict M5 MSS/displacement/retest, structural SL, clean room and final execution quote. Forex/Metal Twelve Data reference price never authorizes executable MARKET/LIMIT without broker bid/ask. Crypto requires news clearance plus exact Bybit/OKX/Binance quote. Never proxy cash/futures, fabricate spread, bypass the news gate or restore legacy V77 scoring authority.`
+`Continue Trading co-engineering from GitHub main. Read CLAUDE.md, AGENTS.md, the AI co-engineering protocol/state/lock/issues/decisions/inbox, then CURRENT_HANDOFF and this MASTER state. Current reviewed components: index V77.18.43, hub V77.18.42, Signal V77.16.20, Health through V77.18.45, Hyro execution V77.18.46 PASS. Keep V73 frozen, V74 live authority, V76 R2 research-only, one Hyro account, V77.18.22 safe risk, TRADING_STATE and v775:books. Canonical Signal markets are Forex/Crypto/Metal/Index Cash; never restore Futures Signal/TK2, fabricate financial data, weaken hard gates or write outside explicit ownership/write-lock scope.`
