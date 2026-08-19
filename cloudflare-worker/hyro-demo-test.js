@@ -1,5 +1,6 @@
+import {hmacHex} from "./providers/bybit-signed-client.js";
+
 const RECV_WINDOW="5000";
-const enc=new TextEncoder();
 const TEST_STATE_KEY="v7718:hyro:demo_test:last";
 const num=v=>{const x=Number(v);return Number.isFinite(x)?x:null;};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -12,7 +13,6 @@ const roundUp=(v,step)=>step>0?Math.ceil((v-1e-12)/step)*step:v;
 const fmtDown=(v,step)=>roundDown(v,step).toFixed(decimals(step));
 const fmtUp=(v,step)=>roundUp(v,step).toFixed(decimals(step));
 async function kvPut(env,key,value){if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(value));}
-async function hmacHex(secret,text){const key=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=await crypto.subtle.sign("HMAC",key,enc.encode(text));return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,"0")).join("");}
 async function signedBybit(env,method,path,paramsOrBody={}){if(!credentialsReady(env))throw new Error("CREDENTIALS_MISSING");const ts=String(Date.now()),apiKey=env.HYRO_BYBIT_API_KEY,upper=method.toUpperCase();let url=baseUrl(env)+path,body="",payload="";if(upper==="GET"){const q=new URLSearchParams();for(const [k,v] of Object.entries(paramsOrBody||{}))if(v!==undefined&&v!==null&&v!=="")q.set(k,String(v));payload=q.toString();if(payload)url+="?"+payload;}else{body=JSON.stringify(paramsOrBody||{});payload=body;}const sign=await hmacHex(env.HYRO_BYBIT_API_SECRET,ts+apiKey+RECV_WINDOW+payload);const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sign,"Content-Type":"application/json"},body:upper==="GET"?undefined:body});const p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0){const e=new Error(`${path}: ${p?.retMsg||`HTTP ${r.status}`} [${p?.retCode??"?"}]`);e.retCode=p?.retCode;e.retMsg=p?.retMsg;throw e;}return p;}
 async function publicBybit(path,params={}){const q=new URLSearchParams(params),r=await fetch(`https://api.bybit.com${path}?${q}`),p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`PUBLIC_HTTP_${r.status}`);return p;}
 function activeOrders(list){return (list||[]).filter(x=>!["Filled","Cancelled","Rejected","Deactivated"].includes(String(x.orderStatus)));}
