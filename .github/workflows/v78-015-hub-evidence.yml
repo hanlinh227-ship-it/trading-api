@@ -1,0 +1,75 @@
+name: V78-015 Hub Evidence Status
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v78-015-hub-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard current Hub blob and apply V78-015
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object cloudflare-worker/hub-v77171.js)" = "1551e0fb868a258b0b4965cef12f72c542259408"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/hub-v77171.js')
+          s=p.read_text()
+          reps=[
+          ('import {telegramApiRequest} from "./providers/telegram-client.js";\n',
+           'import {telegramApiRequest} from "./providers/telegram-client.js";\nimport {getSignalDecisionEvidence,getHyroDecisionEvidence} from "./providers/decision-evidence.js";\nimport {isClaudeApiEnabled} from "./providers/anthropic-client.js";\n'),
+          ('const moreKeyboard=()=>({inline_keyboard:[[{text:"🩺 Hệ thống",callback_data:"status"},{text:"🧠 AI Co-engineer",callback_data:"claude:status"}],[{text:"⬅️ Hub",callback_data:"menu"}]]});',
+           'const moreKeyboard=()=>({inline_keyboard:[[{text:"🩺 Hệ thống",callback_data:"status"},{text:"📋 Evidence V78",callback_data:"evidence"}],[{text:"🧠 AI Co-engineer",callback_data:"claude:status"}],[{text:"⬅️ Hub",callback_data:"menu"}]]});'),
+          ('async function hubText(env){const style=await loadHubUxTuning(env),p=await getHyroProfile(env);return {text:[style.showVersion?`◈ TRADING HUB • ${VERSION}`:"◈ TRADING HUB",`UX ${UI_REV} • ${style.preset}`,"━━━━━━━━━━━━",p?`🏦 Hyro ${phaseName(p)} • ${programName(p)}`:"🏦 Hyro chưa cấu hình","","Chọn khu vực bạn muốn mở:"].join("\\n"),kb:mainKeyboard(style)};}\n',
+           'async function hubText(env){const style=await loadHubUxTuning(env),p=await getHyroProfile(env);return {text:[style.showVersion?`◈ TRADING HUB • ${VERSION}`:"◈ TRADING HUB",`UX ${UI_REV} • ${style.preset}`,"━━━━━━━━━━━━",p?`🏦 Hyro ${phaseName(p)} • ${programName(p)}`:"🏦 Hyro chưa cấu hình","","Chọn khu vực bạn muốn mở:"].join("\\n"),kb:mainKeyboard(style)};}\nasync function evidenceText(env){const [sig,hyro]=await Promise.all([getSignalDecisionEvidence(env,20),getHyroDecisionEvidence(env,20)]),latestSig=sig[0]||null,latestHyro=hyro[0]||null,live=sig.filter(x=>x?.dataIntegrity?.overallFreshness==="LIVE").length,stale=sig.filter(x=>x?.dataIntegrity?.overallFreshness==="STALE").length,missing=sig.filter(x=>["MISSING","UNKNOWN"].includes(x?.dataIntegrity?.overallFreshness)).length,blocked=sig.reduce((n,x)=>n+(x?.gates||[]).filter(g=>g?.state==="BLOCK").length,0),api=isClaudeApiEnabled(env)?"🟢 ENABLED":"⏸ PAUSED";return ["📋 V78 • EVIDENCE / RUNTIME","━━━━━━━━━━━━",`🧠 Claude API: ${api}`,`📡 Signal evidence: ${sig.length} • LIVE ${live} • STALE ${stale} • UNKNOWN ${missing}`,`🚧 Gate blocks (last ${sig.length}): ${blocked}`,latestSig?`🎯 Last Signal: ${latestSig.symbol} • ${latestSig.action} • ${latestSig.decision?.reason||"—"}`:"🎯 Last Signal: chưa có evidence",latestHyro?`🏦 Last Hyro: ${latestHyro.symbol} • ${latestHyro.action} • ${latestHyro.decision?.reason||"—"}`:"🏦 Last Hyro: chưa có evidence","","V78-014 shadow only • read-only • không thay quyết định giao dịch.",`Runtime Hub ${VERSION} • Evidence V78-002`].join("\\n");}\n'),
+          ('handled=["prop","prop:setup","prop:hyro","prop:orders","prop:risk","prop:connect","menu","hub:more","signal","status"].includes(cb)',
+           'handled=["prop","prop:setup","prop:hyro","prop:orders","prop:risk","prop:connect","menu","hub:more","signal","status","evidence"].includes(cb)'),
+          ('if(cb==="status"){const s=await engineJson("/status",req,env);',
+           'if(cb==="evidence"){await sendText(env,await evidenceText(env),chatId,{inline_keyboard:[[{text:"🔄 Refresh Evidence",callback_data:"evidence"},{text:"🩺 Hệ thống",callback_data:"status"}],[{text:"🏠 Hub",callback_data:"menu"}]]});return json({ok:true,view:"evidence",schemaVersion:"V78-002"});}if(cb==="status"){const s=await engineJson("/status",req,env);')
+          ]
+          for old,new in reps:
+              if s.count(old)!=1:
+                  raise SystemExit(f'guard failed for replacement count={s.count(old)}: {old[:120]}')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Validate V78-015
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/hub-v77171.js
+          grep -q 'callback_data:"evidence"' cloudflare-worker/hub-v77171.js
+          grep -q 'getSignalDecisionEvidence' cloudflare-worker/hub-v77171.js
+          grep -q 'getHyroDecisionEvidence' cloudflare-worker/hub-v77171.js
+          grep -q 'Claude API:' cloudflare-worker/hub-v77171.js
+          test "$(grep -c 'function verifyTelegram' cloudflare-worker/hub-v77171.js)" = "1"
+          git diff --check
+          printf '%s\n' \
+            '$ node --check cloudflare-worker/hub-v77171.js' 'exit=0' \
+            '$ evidence callback/import/status checks' 'PASS' \
+            '$ verifyTelegram preserved count' '1' \
+            '$ git diff --check' 'exit=0' \
+            'V78-015_VALIDATION_PASS' > docs/ai-coengineer/V78-015_VALIDATION.txt
+      - name: Commit V78-015
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-015_VALIDATION.txt
+          git commit -m 'V78-015 add read-only Hub Evidence runtime view; Claude API paused visibility'
+          git push
