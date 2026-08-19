@@ -1,5 +1,6 @@
 import {getHyroProfile,getHyroTelemetry,getHyroControl,hyroDynamicRiskView} from "./hyro-execution.js";
 import {getHyroRuntime} from "./hyro-runtime.js";
+import {telegramApiRequest} from "./providers/telegram-client.js";
 
 const HEALTH_KEY="v771817:health:last";
 const ALERT_KEY="v771845:health:alert_state";
@@ -15,7 +16,7 @@ const now=()=>Date.now();
 const ageMin=ts=>{const t=typeof ts==="number"?ts:Date.parse(ts||"");return Number.isFinite(t)?Math.max(0,(now()-t)/60000):null;};
 async function getJson(kv,key,fallback=null){try{return await kv?.get(key,"json")??fallback;}catch{return fallback;}}
 async function putJson(kv,key,v,ttl){try{if(kv)await kv.put(key,JSON.stringify(v),ttl?{expirationTtl:ttl}:undefined);}catch{}}
-async function tg(env,text){if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return false;try{const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true})});const p=await r.json().catch(()=>null);return !!p?.ok;}catch{return false;}}
+async function tg(env,text){if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return false;try{const p=await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});return !!p?.ok;}catch{return false;}}
 function add(arr,level,code,msg,extra={}){arr.push({level,code,msg,...extra});}
 function compact(items){return items.map(x=>`${x.level==="ERROR"?"❌":x.level==="WARN"?"⚠️":"✅"} ${x.msg}`).join("\n");}
 function signature(items){return items.filter(x=>x.level!=="OK").map(x=>`${x.level}:${x.code}`).sort().join("|")||"HEALTHY";}
