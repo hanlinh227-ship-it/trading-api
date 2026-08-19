@@ -26,11 +26,12 @@ jobs:
           node --check cloudflare-worker/hub-v77171.js
           node --check cloudflare-worker/index.js
           node --check cloudflare-worker/dual-ai-intervention.js
+          node --check cloudflare-worker/claude-reviewer.js
       - name: Commit runtime patch
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/claude-reviewer.js
           if git diff --cached --quiet; then echo 'No runtime changes'; exit 0; fi
-          git commit -m 'V77.18.42 complete Signal Integrity follow-up'
+          git commit -m 'V77.18.42 complete Signal Integrity + Claude reviewer follow-up'
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
