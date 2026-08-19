@@ -5,57 +5,64 @@ Branch: `main`
 
 Permanent AI coordination:
 - GitHub is the communication bus between ChatGPT and Claude.ai.
-- Root entrypoints: `/CLAUDE.md`, `/AGENTS.md`.
-- Protocol: `/docs/ai-coengineer/PROTOCOL.md`.
-- ChatGPT inbox: `/docs/ai-coengineer/CLAUDE_TO_CHATGPT.md`.
-- Claude inbox: `/docs/ai-coengineer/CHATGPT_TO_CLAUDE.md`.
+- ChatGPT is the physical GitHub writer / primary implementer while Claude's connector remains read-only 403.
+- Claude is the optimizer / co-architect / patch designer / independent verifier.
 - One writer at a time via `/docs/ai-coengineer/WRITE_LOCK.md`.
 
-Current reviewed production component state:
+Current production component versions retained:
 - `cloudflare-worker/index.js`: V77.18.43
 - `cloudflare-worker/hub-v77171.js`: V77.18.42
 - `cloudflare-worker/engine-v77168.js`: V77.16.20
-- Health fixes present through V77.18.45
-- `cloudflare-worker/hyro-execution.js`: V77.18.46 telemetry degradation repair retained; V78-010 later deduplicated only the HMAC primitive with no execution semantic change.
+- `cloudflare-worker/hyro-execution.js`: V77.18.46 telemetry-degradation repair retained.
 
-Roles / implementation authority:
-- ChatGPT: PRIMARY_ENGINEER / PRIMARY_INTEGRATOR / CO-ARCHITECT / IMPLEMENTER.
-- Claude: CO-ARCHITECT / REVIEWER / SECOND_ENGINEER / IMPLEMENTER.
-- Both AIs may implement a currently scoped IMPLEMENTABLE / IMPLEMENT_NOW issue by acquiring the free WRITE_LOCK, staying inside exact scope, committing, releasing lock and handing exact SHA to the other AI for independent review.
-- Claude connector 403/read-only, if still present, is an OAuth/integration limitation that repository policy cannot override; Claude must then return exact patch/change material for ChatGPT to apply immediately.
+V78 completed foundation:
+- V78-001 KV/state registry — RESOLVED.
+- V78-002 DecisionEvidence schema doc — RESOLVED.
+- V78-003 Hyro news-gate status — RESOLVED; funding is not hard-news clearance.
+- V78-004 Binance20 DECISION-005 quarantine — RESOLVED.
+- V78-005 execution authority map — RESOLVED.
+- V78-006 baseline validation matrix — RESOLVED.
+- V78-007 provider capability inventory — RESOLVED.
 
-AI-003 V78 status:
-- Wave 0 governance/baseline items V78-001 through V78-007 are resolved.
-- V78-004 DECISION-005 Binance20 NON_PRODUCTION quarantine is applied and independently reconfirmed: no production import in `index.js`, `hub-v77171.js`, or `engine-v77168.js`.
-- Full verbatim Phase 2 target HUB menu + V78-001..V78-091 body is still not retrievable by ChatGPT from current GitHub material; do not fabricate it.
+Wave 1 source progress:
 
-V78-010:
-- Status: RESOLVED / CLAUDE PASS.
-- Final source commit: `bf2fee88abbf11b850758e76f1bcac6453644ebf`.
-- Lock release / reviewed HEAD: `5dd75b7441a759dab72123a5ce6a8d5202abf7f6`.
-- Shared primitive: `cloudflare-worker/providers/bybit-signed-client.js:hmacHex`.
-- Four consumers import the shared primitive exactly once: `hyro-execution.js`, `hyro-position-manager.js`, `hyro-position-review.js`, `hyro-demo-test.js`.
-- Claude independently verified signer/public-call semantics, credentials, mode routing, GET/POST behavior, error shapes, endpoints and KV keys unchanged.
-- V78-010b signed-client semantic unification is explicitly DEFERRED / NOT STARTED.
+V78-010 — RESOLVED / CLAUDE PASS
+- Shared Bybit HMAC primitive: `providers/bybit-signed-client.js:hmacHex`.
+- Four Hyro consumers delegate only HMAC primitive.
+- Signer semantics/credentials/mode/error/GET-POST behavior unchanged.
+- V78-010b remains DEFERRED / NOT STARTED.
 
-Wave 1 next selection:
-- V78-011 narrowed Telegram transport is selected as the lowest-risk next candidate, SCOPING ONLY; no source implementation has begun.
-- Candidate starting point: `cloudflare-worker/index.js` transport helpers `tg(...)` and `send(...)`, plus only other production Telegram transports proven equivalent by fresh inventory.
-- Shared provider candidate: `cloudflare-worker/providers/telegram-client.js`, transport primitive only.
-- Presentation, keyboards, callbacks, commands, chat authorization, dedupe/KV, webhook verification and trading logic stay in their existing owners.
-- `verifyTelegram` / webhook-secret verification is explicitly OUT OF SCOPE and deferred to V78-081.
-- Before implementation: inventory all production Telegram calls, prove equivalence, define exact replacement blocks, acquire WRITE_LOCK, then syntax/search validation and independent review.
+V78-011 — RESOLVED / CLAUDE PASS
+- Shared Telegram transport: `providers/telegram-client.js`.
+- Seven proven-equivalent production consumers migrated.
+- `engine-v77168.js` Telegram timeout path untouched, deferred V78-054.
+- `verifyTelegram`/webhook-secret untouched, deferred V78-081.
+- Final migration commit in chain: `a27bd47c720476410a76ba78161ebc68b0a7aef2`.
 
-Independent evidence verified:
-- Signal crypto analysis path uses public unsigned market-data calls and is not current real-capital execution authority.
-- Hyro is current real-capital execution authority; Binance20 remains NON_PRODUCTION.
-- `hyro-scanner.js:fundingView` is funding/carry protection, not news.
-- `hyro-market-context.js` provides OI, long/short, orderbook and spread context, not authoritative hard-news clearance.
-- DECISION-009: funding cannot substitute for hard-news/event evidence; production enforcement remains a separately scoped future issue.
+V78-012 — RESOLVED / CLAUDE PASS
+- Shared ATR only: `providers/indicators.js:atrFromHLC`.
+- `engine-v77168.js` and `hyro-scanner.js` delegate ATR to shared primitive.
+- Source commit: `c60cfe8532fdd10b9eca1f7bbefe5024b1d3da70`.
+- EMA/RSI remain local because executed equivalence testing proved their current semantics differ.
 
-Rules:
-- `main` source is authority over stale docs.
-- One writer at a time.
+V78-013 — IMPLEMENTED / VALIDATED / AWAITING CLAUDE FRESH-HEAD REVIEW
+- Shared Anthropic transport: `providers/anthropic-client.js`.
+- API HTTP transport + JSON parse + text extraction shared between `claude-reviewer.js` and `dual-ai-intervention.js`.
+- Provider commit: `60d0e37f833b02e51ceee6c2a6c467ca3f76d9f8`.
+- Dual AI migration: `22a872e0ed9a945f68f97a505182a28b930a0738`.
+- Reviewer/final source migration: `fed3556b5a01504107f84da3fd43fad5f52db0e9`.
+- Deterministic validation evidence: `88e2fc617f3ae1103296267e3b3ade89ca2c987f` in `docs/ai-coengineer/V78-013_VALIDATION.txt`.
+- DECISION-004 separation preserved: reviewer dynamic max_tokens + budget/cooldown + rich parser remain independent from dual-ai fixed 950 tokens + lease arbiter + separate parser/prompt.
+
+Next:
+- V78-014 DecisionEvidence shadow-populate — NOT STARTED. Claude must fresh-read post-V78-013 HEAD, verify V78-013, then provide an implementation-ready shadow/observability-first patch.
+- User requested visible practical progress (especially Hub) in addition to architecture cleanup. After V78-014 scope is safe, prioritize a separately-scoped low-risk Hub-visible progress issue rather than hiding all V78 progress in internal refactors.
+
+Execution authority / safety:
+- Signal remains advisory and cannot place real-capital orders.
+- Hyro remains current safety-gated real-capital execution authority.
+- Binance20 remains NON_PRODUCTION / QUARANTINED.
 - Never reset `TRADING_STATE` or delete `v775:books`.
 - Never restore legacy Futures Signal or Hyro TK2.
-- Never commit secrets or bypass hard risk/freshness/structural-SL/hard-news safeguards.
+- Never weaken hard risk, freshness, structural-SL or hard-news safeguards.
+- Never fabricate market/provider/test evidence or expose secrets.
