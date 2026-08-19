@@ -28,7 +28,7 @@ jobs:
           grep -q '^LOCKED: true$' docs/ai-coengineer/WRITE_LOCK.md
           grep -q '^OWNER: CHATGPT$' docs/ai-coengineer/WRITE_LOCK.md
           grep -q '^SCOPE: V78-024 canonical docs sync + Hyro hardening blueprint$' docs/ai-coengineer/WRITE_LOCK.md
-      - name: Apply canonical doc sync idempotently
+      - name: Apply canonical doc sync robustly
         run: node scripts/v78-024-doc-sync.mjs
       - name: Validate scope
         shell: bash
