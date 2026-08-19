@@ -1,0 +1,206 @@
+name: V78-022 Apply Hub Top7 Quality Visibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v78-022-apply.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v78-022-apply
+  cancel-in-progress: false
+
+jobs:
+  apply-validate-deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+      WORKER_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Guard WRITE_LOCK and fresh engine blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^LOCKED: true$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -q '^OWNER: CHATGPT$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -q '^SCOPE: V78-022 Hub top-7 quality visibility$' docs/ai-coengineer/WRITE_LOCK.md
+          actual="$(git hash-object cloudflare-worker/engine-v77168.js)"
+          expected='58741958b9b8a646b54fe6b7b4045cacef8d843f'
+          echo "engine_blob=$actual"
+          test "$actual" = "$expected"
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+
+      - name: Capture one real pre-patch hub call
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, urllib.request, pathlib
+          base='https://trading-v77-scanner.hanlinh227.workers.dev'
+          req=urllib.request.Request(base+'/hub',headers={'User-Agent':'V78-022-prepatch/1.0'})
+          with urllib.request.urlopen(req,timeout=240) as r:
+              j=json.loads(r.read().decode())
+          pathlib.Path('/tmp/v78022-prehub.json').write_text(json.dumps(j,indent=2,ensure_ascii=False))
+          proj=[{'symbol':x.get('symbol'),'status':x.get('status'),'score':x.get('score'),'side':x.get('side')} for x in (j.get('top') or [])]
+          pathlib.Path('/tmp/v78022-pretop.json').write_text(json.dumps(proj,indent=2,ensure_ascii=False))
+          print(json.dumps({'hubScanId':j.get('hubScanId'),'scannedAt':j.get('scannedAt'),'top':proj},indent=2,ensure_ascii=False))
+          PY
+
+      - name: Apply Claude V78-022 exact hubSummary patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp cloudflare-worker/engine-v77168.js /tmp/v78022-engine-before.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
+          old='''h.top.slice(0,5).forEach((a,i)=>{let line=(i+1)+". "+a.symbol+" "+sideText(a.side)+" • "+stageText(a)+" • "+(Number(a.score)||0)+"/100";if(a.method?.profile||a.method?.families?.length)line+="\\n   ↳ Profile: "+(a.method?.profile||a.method?.families?.[0]);if(a.method?.activeMode)line+="\\n   ↳ Route: "+a.method.activeMode;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+="\\n   ↳ "+tag+": E~"+fmtPx(a.planned.entry)+" • SL~"+fmtPx(a.planned.sl)+" • TP~"+fmtPx(a.planned.tp2||a.planned.tp1)+" • RR~"+Number(a.planned.targetRR||0).toFixed(2);}line+="\\n   ↳ "+(a.status==="MARKET"||a.status==="LIMIT"?"Đủ gate execution":a.status==="MARKET_PLAN"||a.status==="LIMIT_PLAN"?"Kế hoạch kỹ thuật hợp lệ — chờ execution authority":reasonText(a.reason));L.push(line);});'''
+          new='''h.top.slice(0,5).forEach((a,i)=>{let line=(i+1)+". "+a.symbol+" "+sideText(a.side)+" • "+stageText(a)+" • "+(Number(a.score)||0)+"/100";if(a.method?.profile||a.method?.families?.length)line+="\\n   ↳ Profile: "+(a.method?.profile||a.method?.families?.[0]);if(a.method?.activeMode)line+="\\n   ↳ Route: "+a.method.activeMode;if(a.planned){const tag=a.planned.indicative?"Entry tham khảo":"Kế hoạch";line+="\\n   ↳ "+tag+": E~"+fmtPx(a.planned.entry)+" • SL~"+fmtPx(a.planned.sl)+" • TP~"+fmtPx(a.planned.tp2||a.planned.tp1)+" • RR~"+Number(a.planned.targetRR||0).toFixed(2);}line+="\\n   ↳ "+(a.status==="MARKET"||a.status==="LIMIT"?"Đủ gate execution":a.status==="MARKET_PLAN"||a.status==="LIMIT_PLAN"?"Kế hoạch kỹ thuật hợp lệ — chờ execution authority":reasonText(a.reason));const ei=buildEntryIntelligenceShadow(a);if(ei)line+="\\n   ↳ Quality: "+ei.quality.grade+" ("+ei.quality.score+"/100)"+(ei.promotion.allowed===false?" • ⚠️ "+ei.promotion.reasons.join(","):"")+" • Fresh: "+ei.quote.freshness;L.push(line);});'''
+          count=s.count(old)
+          print('old_block_count=',count)
+          if count != 1:
+              raise SystemExit('STALE_WRITE_GUARD: exact hubSummary OLD block count != 1')
+          p.write_text(s.replace(old,new,1))
+          PY
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/engine-v77168.js
+          echo "hubSummary_definitions=$(grep -c 'function hubSummary' cloudflare-worker/engine-v77168.js)"
+          test "$(grep -c 'function hubSummary' cloudflare-worker/engine-v77168.js)" -eq 1
+          echo 'Entry Intelligence render call sites:'
+          grep -n 'buildEntryIntelligenceShadow' cloudflare-worker/engine-v77168.js
+          test "$(grep -c 'const ei=buildEntryIntelligenceShadow' cloudflare-worker/engine-v77168.js)" -eq 2
+          test "$(grep -c 'const eiShadow=buildEntryIntelligenceShadow' cloudflare-worker/engine-v77168.js)" -eq 1
+          echo "hub_orchestration_functions=$(grep -Ec 'function hubKeyboard\(|async function runHub\(|async function sendHub\(' cloudflare-worker/engine-v77168.js)"
+          test "$(grep -Ec 'function hubKeyboard\(|async function runHub\(|async function sendHub\(' cloudflare-worker/engine-v77168.js)" -eq 3
+          grep -q '↳ Quality: "+ei.quality.grade+" ("+ei.quality.score+"/100)' cloudflare-worker/engine-v77168.js
+          git diff --check
+          echo '--- exact source diff ---'
+          git diff -- cloudflare-worker/engine-v77168.js | tee /tmp/v78022-source.diff
+          ! grep -E '^[+-].*(function hubRank|async function runHub|\.sort\(\(a,b\)=>hubRank|\.slice\(0,7\))' /tmp/v78022-source.diff
+
+      - name: Commit V78-022 source locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'V78-022 Implementer'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-022 surface Entry Intelligence quality in Hub top setups'
+          echo "source_commit=$(git rev-parse HEAD)" | tee /tmp/v78022-source-commit.txt
+
+      - name: Deploy patched source to Cloudflare production
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy 2>&1 | tee /tmp/v78022-deploy.log
+          grep -F "$WORKER_URL" /tmp/v78022-deploy.log
+
+      - name: Run one real post-patch hub call and compare top projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, urllib.request, pathlib, datetime
+          base='https://trading-v77-scanner.hanlinh227.workers.dev'
+          req=urllib.request.Request(base+'/hub',headers={'User-Agent':'V78-022-postpatch/1.0'})
+          with urllib.request.urlopen(req,timeout=240) as r:
+              j=json.loads(r.read().decode())
+          post=[{'symbol':x.get('symbol'),'status':x.get('status'),'score':x.get('score'),'side':x.get('side')} for x in (j.get('top') or [])]
+          pre=json.loads(pathlib.Path('/tmp/v78022-pretop.json').read_text())
+          report={
+            'verifiedAt':datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
+            'preHubScanId':json.loads(pathlib.Path('/tmp/v78022-prehub.json').read_text()).get('hubScanId'),
+            'postHubScanId':j.get('hubScanId'),
+            'postScannedAt':j.get('scannedAt'),
+            'preTop':pre,
+            'postTop':post,
+            'sameTopProjection':pre==post,
+            'interpretation':'Live /hub performs fresh scans, so pre/post top may rotate with market/provider state. Ranking non-regression is established by the source diff invariant: hubRank/runHub top construction is untouched; only hubSummary rendering changed.'
+          }
+          pathlib.Path('/tmp/v78022-live.json').write_text(json.dumps(report,indent=2,ensure_ascii=False))
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          PY
+
+      - name: Persist validation state and release lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="$(cut -d= -f2 /tmp/v78022-source-commit.txt)"
+          deploy_version="$(grep 'Current Version ID:' /tmp/v78022-deploy.log | tail -1 | sed 's/.*Current Version ID: //')"
+          python3 - "$source_commit" "$deploy_version" <<'PY'
+          import json, pathlib, sys
+          source_commit, deploy_version = sys.argv[1], sys.argv[2]
+          live = pathlib.Path('/tmp/v78022-live.json').read_text()
+          validation = f'''V78-022 HUB TOP-7 QUALITY VISIBILITY
+sourceCommit: {source_commit}
+cloudflareVersionId: {deploy_version}
+engine pre-patch blob guard: 58741958b9b8a646b54fe6b7b4045cacef8d843f PASS
+node --check cloudflare-worker/engine-v77168.js: PASS
+hubSummary definitions: 1 PASS
+Entry Intelligence render call sites: singleAnalysisText + watchLine + hubSummary PASS
+hubKeyboard/runHub/sendHub definitions: 3 PASS
+hubRank/runHub top construction: unchanged by exact diff guard PASS
+source scope: additive hubSummary top-rendering only; no decision/ranking/admission/KV/endpoint change
+REQUIRED/QUALITY/OPTIONAL taxonomy: unchanged
+
+=== ONE REAL PRE-PATCH /hub + ONE REAL POST-PATCH /hub (NO RETRIES) ===
+{live}
+
+Interpretation:
+- /hub itself performs fresh scans. Therefore a different pre/post top projection can be legitimate candidate rotation and is not treated as proof of ranking regression.
+- Zero ranking/admission behavior change is proven structurally: the only source diff is the additive buildEntryIntelligenceShadow(a) rendering line inside hubSummary(); hubRank(), runHub(), sort/slice selection, decisions, and analyses are untouched.
+- No Hyro authority, hard risk, freshness, structural SL, news safeguards, TRADING_STATE, v775:books, Binance20 quarantine, or production Claude API pause changed.
+'''
+          pathlib.Path('docs/ai-coengineer/V78-022_VALIDATION.txt').write_text(validation)
+          shared=pathlib.Path('docs/ai-coengineer/SHARED_STATE.md')
+          shared.write_text(shared.read_text()+f'''\n\nV78-022 — RESOLVED / DEPLOYED\n- Source commit: {source_commit}.\n- Cross-market Hub top-setups rendering now exposes Entry Intelligence quality grade/score, blocked-promotion reasons, and quote freshness.\n- hubRank/runHub top selection remains unchanged; visibility only.\n- Exact validation/live evidence: docs/ai-coengineer/V78-022_VALIDATION.txt.\n- This completes the three Signal candidate-rendering surfaces: singleAnalysisText, watchLine, hubSummary.\n''')
+          pathlib.Path('docs/ai-coengineer/WRITE_LOCK.md').write_text('''# AI WRITE LOCK
+
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-20
+LAST_OWNER: CHATGPT
+LAST_SCOPE: V78-022 Hub top-7 quality visibility
+RESULT: RESOLVED / DEPLOYED. Validation in docs/ai-coengineer/V78-022_VALIDATION.txt.
+
+Protocol:
+- Acquire a new lock before the next source write.
+- Never reset TRADING_STATE or delete/reset v775:books.
+- Never weaken hard risk/freshness/structural-SL/news safeguards.
+- Never restore Futures/TK2.
+- Binance20 remains NON_PRODUCTION / QUARANTINED.
+- Production Claude API remains paused; Claude.ai Web remains full co-engineer.
+''')
+          PY
+          git add docs/ai-coengineer/V78-022_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-022 validate production Hub top visibility and release lock'
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "final_commit=$(git rev-parse HEAD)"
