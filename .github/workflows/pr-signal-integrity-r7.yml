@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'scripts/migrate_signal_integrity_r7.mjs'
+      - 'scripts/patch_signal_integrity_followup.mjs'
       - '.github/workflows/pr-signal-integrity-r7.yml'
 permissions:
   contents: write
@@ -18,10 +18,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply migration
-        run: |
-          sed -i '/for(const \[p,s\] of \[\[ep,e\]/d' scripts/migrate_signal_integrity_r7.mjs
-          node scripts/migrate_signal_integrity_r7.mjs
+      - name: Apply follow-up patch
+        run: node scripts/patch_signal_integrity_followup.mjs
       - name: Syntax check
         run: |
           node --check cloudflare-worker/engine-v77168.js
@@ -32,7 +30,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js cloudflare-worker/index.js cloudflare-worker/dual-ai-intervention.js
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js
           if git diff --cached --quiet; then echo 'No runtime changes'; exit 0; fi
-          git commit -m 'V77.18.42 Signal Integrity R7 + Claude focused audit'
+          git commit -m 'V77.18.42 complete Signal Integrity follow-up'
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
