@@ -1,1 +1,21 @@
-name: placeholder
+name: PR Signal Integrity R7
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check Signal runtime
+        run: |
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/providers/entry-intelligence.js
