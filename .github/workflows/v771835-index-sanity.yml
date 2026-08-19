@@ -2,11 +2,13 @@ name: V77.18.35 Verified Index Pricing
 on:
   push:
     branches: [v771835-index-sanity]
+  pull_request:
+    branches: [main]
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'v771835-index-sanity' || github.ref_name == 'v771835-index-sanity'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,4 +35,3 @@ jobs:
           git add cloudflare-worker/engine-v77168.js cloudflare-worker/index.js cloudflare-worker/hub-v77171.js .github/workflows/validate-cloudflare-v77.yml
           git commit -m "V77.18.35 Verified native index pricing" || exit 0
           git push origin HEAD:v771835-index-sanity
-# trigger
