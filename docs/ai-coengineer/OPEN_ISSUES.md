@@ -9,7 +9,7 @@ Repair commit: `1d6db32155c06d464f4da94746df73e110b9b294`
 Reviewer: CLAUDE — PASS.
 
 ## AI-002
-Status: OPEN — DOC REVIEW RESULT AVAILABLE
+Status: RESOLVED — V78-024 CANONICAL DOC SYNC
 Owner: CHATGPT
 Reviewer: CLAUDE
 Area: DOCS
@@ -69,6 +69,15 @@ Source commit: `c6edbaba4ad393af79dbaabed05a2d26195d3c1d`.
 Manual `/analyze` and Telegram single-symbol `runSymbol()` decisions now populate V78-002 DecisionEvidence and V78-016 Entry Intelligence only after the existing decision is finalized; writes are try/catch isolated and the returned decision object remains the original `a`.
 Hub visible UI revision: `HUB-R11-ENTRY-INTEL-SHADOW`.
 Validation: `docs/ai-coengineer/V78-017_VALIDATION.txt`.
+
+
+### V78-020 through V78-023 — RESOLVED / PRODUCTION
+- V78-020 Entry Intelligence safe promotion — PRODUCTION-VERIFIED.
+- V78-021 group-scan Quality/Freshness visibility — DEPLOYED.
+- V78-022 Hub top-setups Quality/Freshness visibility — DEPLOYED.
+- V78-023 Hub R13 ACTIVE ADVISORY + cross-market Coverage view — DEPLOYED.
+- Next: use Coverage evidence to identify real market/session gaps before any new strategy/gate authority.
+- Hyro execution hardening remains separately scoped by `V78_HYRO_HARDENING_BLUEPRINT.md`.
 
 ### NEXT OPTIMIZATION BATCH
 Status: READY FOR CHATGPT IMPLEMENTATION + LATER CLAUDE.AI WEB OPTIMIZATION

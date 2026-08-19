@@ -1,7 +1,19 @@
 # MASTER TRADING STATE
 
-Updated: 2026-08-19 UTC+7
+Updated: 2026-08-20 UTC+7
 Purpose: single canonical state for the Trading project.
+
+## 2026-08-20 V78 PRODUCTION OVERLAY
+Current GitHub `main` remains authoritative. This overlay supersedes older Hub/Entry-Intelligence wording below when it conflicts.
+
+- V78-020 is PRODUCTION-VERIFIED: Entry Intelligence contributes bounded Signal advisory ranking and gates only non-crypto MARKET_SIGNAL admission; crypto MARKET/LIMIT admission remains unchanged. Rescue-plan over-blocking was corrected with statusActionable() protection.
+- Evidence taxonomy is fixed: REQUIRED can block; QUALITY can rank; OPTIONAL market-specific enrichment cannot independently block.
+- V78-021 deployed Quality/Freshness rendering to group-scan candidate views.
+- V78-022 deployed Quality/Freshness rendering to cross-market Hub top setups. Source `c41706b99b6357cc829b1a6ded0b7240bc428a27`; Cloudflare Version `c60f16a4-6a93-4ba3-aab3-a450b0188de0`.
+- V78-023 deployed Hub `HUB-R13-ENTRY-INTEL-COVERAGE`: Entry Intel UI now says ACTIVE ADVISORY, shows Quality/ADMIT-BLOCK/Freshness/WHY fields, and adds read-only Coverage for the last 60 Entry Intelligence rows by Forex/Crypto/Metal/Index. Source `fbabe727caeb771b29188169800a7d275936b5ff`; Cloudflare Version `e6171203-204b-494e-884e-ddc7803b8993`.
+- Entry Intelligence has execution authority NONE. Signal remains advisory. Hyro remains the sole real-capital execution path.
+- Production Claude API remains PAUSED; Claude.ai Web remains a full co-engineer under WRITE_LOCK.
+- Hyro real-capital hardening is separately designed in `docs/ai-coengineer/V78_HYRO_HARDENING_BLUEPRINT.md` and requires guarded review before source changes.
 
 ## 2026-08-19 CURRENT SOURCE OVERLAY
 Current GitHub `main` source outranks older historical version labels below when they conflict.

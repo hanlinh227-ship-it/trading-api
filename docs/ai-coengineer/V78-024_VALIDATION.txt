@@ -1,0 +1,9 @@
+V78-024 CANONICAL DOC SYNC + HYRO HARDENING BLUEPRINT
+validatedAt: 2026-08-19T23:58:57.760Z
+CURRENT_HANDOFF: synced through V78-023
+MASTER_TRADING_STATE: added 2026-08-20 V78 production overlay
+OPEN_ISSUES AI-002: RESOLVED
+Hyro hardening blueprint: created separately; no real-capital source behavior changed
+TRADING_STATE/v775:books: untouched
+Risk/freshness/structural-SL/news safeguards: unchanged
+Production Claude API: PAUSED

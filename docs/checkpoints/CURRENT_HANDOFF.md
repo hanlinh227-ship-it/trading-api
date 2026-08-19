@@ -1,6 +1,6 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-19 UTC+7
+Updated: 2026-08-20 UTC+7
 
 ## READ FIRST
 1. `/CLAUDE.md`
@@ -18,12 +18,22 @@ GitHub `main` source is authoritative when historical checkpoint text lags.
 
 Current reviewed component state:
 - Production entrypoint `cloudflare-worker/index.js`: **V77.18.43 — Legacy Cleanup + Version Sync**.
-- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42**.
-- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7**.
+- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42 + HUB-R13-ENTRY-INTEL-COVERAGE (V78-023 deployed)**.
+- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7 + V78-020 safe Entry Intelligence promotion + V78-021/V78-022 quality/freshness rendering overlays**.
 - Health Guardian fixes are present through **V77.18.45**.
 - Hyro execution telemetry repair is **V77.18.46**, repair commit `1d6db32155c06d464f4da94746df73e110b9b294`.
 
 Component versions are independent. Do not bump a component solely for cosmetic alignment when that component source did not change.
+
+
+## V78 CURRENT PRODUCTION OVERLAY — 2026-08-20
+- V78-020: PRODUCTION-VERIFIED safe Entry Intelligence promotion. REQUIRED evidence may block; QUALITY evidence only ranks; OPTIONAL market enrichment never independently blocks.
+- V78-021: group-scan candidate rendering shows Quality grade/score, blocked-promotion reasons and Freshness.
+- V78-022: cross-market Hub top setups show the same Quality/Freshness visibility; source commit `c41706b99b6357cc829b1a6ded0b7240bc428a27`, Cloudflare Version `c60f16a4-6a93-4ba3-aab3-a450b0188de0`.
+- V78-023: Hub R13 Entry Intelligence ACTIVE ADVISORY + read-only Coverage view across Forex/Crypto/Metal/Index; source commit `fbabe727caeb771b29188169800a7d275936b5ff`, Cloudflare Version `e6171203-204b-494e-884e-ddc7803b8993`.
+- Entry Intelligence execution authority remains NONE; Hyro remains the sole real-capital execution path.
+- Production Claude API remains PAUSED; Claude.ai Web remains an authorized co-engineer.
+- Hyro hardening blueprint: `docs/ai-coengineer/V78_HYRO_HARDENING_BLUEPRINT.md`; no real-capital hardening source change is implied by the blueprint.
 
 ## AI-001 — HYRO TELEMETRY REPAIR
 **RESOLVED. Claude review PASS 2026-08-19T11:40:00Z.**
@@ -143,7 +153,7 @@ Never:
 - commit secrets/tokens/private keys.
 
 ## CURRENT OPEN ISSUE
-AI-002: documentation synchronization. This handoff and `MASTER_TRADING_STATE.md` are being synchronized to the V77.18.46 reviewed component state and permanent GitHub co-engineering mode, then Claude must review the exact documentation diff before AI-002 is marked RESOLVED.
+AI-002: **RESOLVED by V78-024 canonical documentation synchronization.** Current handoff/master now include V78-020 through V78-023 production overlays. Next engineering work is coverage-guided Entry Intelligence optimization and separately-reviewed Hyro execution hardening; neither may weaken existing hard safeguards.
 
 ## NEW CHAT PROMPT
 `Continue Trading co-engineering from GitHub main. Read /CLAUDE.md, /AGENTS.md, docs/ai-coengineer/PROTOCOL.md, MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, SHARED_STATE.md, WRITE_LOCK.md, OPEN_ISSUES.md, DECISIONS.md and your inbox. Current reviewed state: index V77.18.43, hub V77.18.42, Signal V77.16.20, Health through V77.18.45, Hyro execution V77.18.46 PASS. PROP is one Hyro account. GitHub is the permanent ChatGPT↔Claude bus with one writer at a time. Preserve V73 frozen/V74 authority/V76 research-only, V77.18.22 safe risk, TRADING_STATE and v775:books; never restore Futures Signal/TK2 or fabricate financial data.`

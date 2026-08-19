@@ -1,12 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-024 canonical docs sync + Hyro hardening blueprint
-ACQUIRED: 2026-08-20
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-20
+LAST_OWNER: CHATGPT
+LAST_SCOPE: V78-024 canonical docs sync + Hyro hardening blueprint
+RESULT: RESOLVED. Validation in docs/ai-coengineer/V78-024_VALIDATION.txt.
 
 Protocol:
-- One writer at a time.
+- Acquire a new lock before the next source write.
 - Never reset TRADING_STATE or delete/reset v775:books.
 - Never weaken hard risk/freshness/structural-SL/news safeguards.
 - Never restore Futures/TK2.
