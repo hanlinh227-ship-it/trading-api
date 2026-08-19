@@ -1,3 +1,5 @@
+import {hmacHex} from "./providers/bybit-signed-client.js";
+
 const PROFILE_KEY="v7717:hyro:profile";
 const CONTROL_KEY="v77173:hyro:control";
 const EXEC_STATE_KEY="v7718:hyro:execution_state";
@@ -7,7 +9,6 @@ const IDEMPOTENCY_PREFIX="v7718:hyro:intent:";
 const RECV_WINDOW="5000";
 const RISK_V771822_ACTIVATES_AT=Date.parse("2026-08-19T00:00:00.000Z");
 const riskV771822Active=()=>Date.now()>=RISK_V771822_ACTIVATES_AT;
-const enc=new TextEncoder();
 const num=v=>{const x=Number(v);return Number.isFinite(x)?x:null;};
 const utcDay=()=>new Date().toISOString().slice(0,10);
 const utcDayStart=()=>Date.parse(utcDay()+"T00:00:00.000Z");
@@ -21,7 +22,6 @@ function baseUrl(env){return mode(env)==="LIVE"?"https://api.bybit.com":"https:/
 function credentialNames(env){return mode(env)==="LIVE"?{key:"HYRO_BYBIT_LIVE_API_KEY",secret:"HYRO_BYBIT_LIVE_API_SECRET"}:{key:"HYRO_BYBIT_API_KEY",secret:"HYRO_BYBIT_API_SECRET"};}
 function credentials(env){const n=credentialNames(env);return {names:n,apiKey:env[n.key],apiSecret:env[n.secret]};}
 function credentialsReady(env){const c=credentials(env);return !!(c.apiKey&&c.apiSecret);}
-async function hmacHex(secret,text){const key=await crypto.subtle.importKey("raw",enc.encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const sig=await crypto.subtle.sign("HMAC",key,enc.encode(text));return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,"0")).join("");}
 async function publicBybit(path,params={}){const q=new URLSearchParams(params);const r=await fetch(`https://api.bybit.com${path}${q.size?"?"+q:""}`);const p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw new Error(p?.retMsg||`Bybit public HTTP ${r.status}`);return p;}
 function bybitError(path,status,p){const retCode=num(p?.retCode);const retMsg=String(p?.retMsg||`Bybit private HTTP ${status}`);const e=new Error(`${path}: ${retMsg}${retCode!=null?` [${retCode}]`:""}`);e.bybit={path,httpStatus:status,retCode,retMsg};return e;}
 async function signedBybit(env,method,path,paramsOrBody={}){const c=credentials(env);if(!(c.apiKey&&c.apiSecret))throw new Error(`${c.names.key}/${c.names.secret} missing`);const ts=String(Date.now()),apiKey=c.apiKey,upper=method.toUpperCase();let url=baseUrl(env)+path,body="",payload="";if(upper==="GET"){const q=new URLSearchParams();for(const [k,v] of Object.entries(paramsOrBody||{}))if(v!==undefined&&v!==null&&v!=="")q.set(k,String(v));payload=q.toString();if(payload)url+="?"+payload;}else{body=JSON.stringify(paramsOrBody||{});payload=body;}const sign=await hmacHex(c.apiSecret,ts+apiKey+RECV_WINDOW+payload);const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sign,"Content-Type":"application/json"},body:upper==="GET"?undefined:body});const p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw bybitError(path,r.status,p);return p;}
