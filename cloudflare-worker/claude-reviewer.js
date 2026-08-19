@@ -1,3 +1,5 @@
+import {telegramApiRequest} from "./providers/telegram-client.js";
+
 const API_URL="https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL="claude-sonnet-5";
 const STATE_KEY="v771821:claude:last";
@@ -43,7 +45,7 @@ async function safeRuntimeSnapshot(env){
   const hyroView=hyro&&typeof hyro==="object"?{ok:hyro.ok,reason:hyro.reason,executed:!!hyro.executed,mode:hyro.mode,elapsedMs:num(hyro.elapsedMs),candidateCount:num(hyro.candidateCount),scanSummary:hyro.scanSummary||null,preview:(hyro.preview||[]).slice(0,3).map(x=>({symbol:x.symbol,status:x.status,tier:x.tier,side:x.side,rr:x.rr,strategy:x.strategy,microScore:x.microScore,reason:x.reason}))}:null;
   return {signalBooks:bookView,propRuntime:hyroView};
 }
-async function tg(env,text){if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return false;try{const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true})});const p=await r.json().catch(()=>null);return !!p?.ok;}catch{return false;}}
+async function tg(env,text){if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_CHAT_ID)return false;try{const p=await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});return !!p?.ok;}catch{return false;}}
 async function fetchText(url,timeoutMs=6500){const c=new AbortController(),id=setTimeout(()=>c.abort("timeout"),timeoutMs);try{const r=await fetch(url,{headers:{"user-agent":"trading-v77-claude-reviewer","accept":"text/plain,application/json"},signal:c.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);return await r.text();}finally{clearTimeout(id);}}
 async function githubContext(){
   let head=null,commit=null,files=[];
