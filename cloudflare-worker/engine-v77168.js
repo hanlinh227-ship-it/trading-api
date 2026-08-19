@@ -2,8 +2,8 @@ import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "j
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.12",
-  service: "Trading V77.16.12 Metal + Index Cash Routing R1",
+  version: "V77.16.13",
+  service: "Trading V77.16.13 Index Provider R2",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -64,6 +64,7 @@ const CRYPTO = CRYPTO_BASE.map(x => `${x}USDT`);
 const METALS = ["XAUUSD","XAGUSD"];
 const INDEX_CASH = ["NAS100","US30","US500","DEX","JP225"];
 const INDEX_PROVIDER = {NAS100:"NDX",US30:"DJI",US500:"SPX",DEX:"DAX",JP225:"N225"};
+const MASSIVE_INDEX_PROVIDER = {NAS100:"I:NDX",US30:"I:DJI",US500:"I:SPX",DEX:"I:DAX",JP225:"I:N225"};
 const INDEX_PRIORS = {
   NAS100:{profile:"INDEX_GROWTH_MOMENTUM",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.72,newsProfile:{profileDrivers:["Fed/FOMC","US CPI/PCE/NFP","US yields","US mega-cap technology"]}},
   US30:{profile:"INDEX_BLUECHIP_ROTATION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.68,newsProfile:{profileDrivers:["Fed/FOMC","US macro","industrial/financial rotation"]}},
@@ -123,7 +124,7 @@ function tdCandlesFromNode(node,interval){
   return normalizeCandles(n.values.map(v=>({timestamp:parseTs(v.datetime),open:v.open,high:v.high,low:v.low,close:v.close,volume:v.volume})),candleSec(interval));
 }
 async function tdBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutputSize){
-  const requested=[...new Set(symbols.map(norm))],provider=requested.map(tdSymbol),out=new Map();if(!requested.length)return out;
+  const requested=[...new Set(symbols.map(norm))];if(requested.length&&requested.every(x=>marketType(x)==="index")&&env.MASSIVE_API_KEY){const m=await massiveIndexBatchCandles(requested,interval,env,outputsize);if(m.size)return m;}const provider=requested.map(tdSymbol),out=new Map();if(!requested.length)return out;
   const p=await tdFetch("time_series",{symbol:provider.join(","),interval,outputsize:String(outputsize),order:"ASC",timezone:"UTC"},env);
   if(Array.isArray(p?.values)){const c=tdCandlesFromNode(p,interval);if(c)out.set(requested[0],c);return out;}
   const lookup=new Map(provider.map((x,i)=>[norm(x),requested[i]]));
@@ -133,7 +134,13 @@ async function tdBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutpu
   }
   return out;
 }
+async function massiveIndexFetch(path,params,env){if(!env.MASSIVE_API_KEY)throw new Error("MASSIVE_API_KEY missing");const q=new URLSearchParams(params||{});q.set("apiKey",env.MASSIVE_API_KEY);const r=await fetchTimeout(`https://api.massive.com${path}?${q}`);const j=await r.json().catch(()=>null);if(!r.ok||!j||j.status==="ERROR")throw new Error(j?.error||j?.message||`Massive HTTP ${r.status}`);return j;}
+function massiveIndexRange(interval){const now=Date.now(),d={"5min":7,"15min":14,"1h":45,"4h":180,"1day":500}[interval]||45,m={"5min":[5,"minute"],"15min":[15,"minute"],"1h":[1,"hour"],"4h":[4,"hour"],"1day":[1,"day"]}[interval]||[1,"hour"];return {from:new Date(now-d*86400000).toISOString().slice(0,10),to:new Date(now).toISOString().slice(0,10),mult:m[0],span:m[1]};}
+async function massiveIndexCandles(symbol,interval,env,limit=CONFIG.candleOutputSize){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const r=massiveIndexRange(interval),j=await massiveIndexFetch(`/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/${r.mult}/${r.span}/${r.from}/${r.to}`,{adjusted:"true",sort:"asc",limit:String(Math.max(limit,120))},env);return normalizeCandles((j.results||[]).map(x=>({timestamp:Math.floor(Number(x.t)/1000),open:x.o,high:x.h,low:x.l,close:x.c,volume:null})),candleSec(interval));}
+async function massiveIndexBatchCandles(symbols,interval,env,outputsize=CONFIG.candleOutputSize){const out=new Map();await Promise.all(symbols.map(async sym=>{try{const c=await massiveIndexCandles(sym,interval,env,outputsize);if(c.length)out.set(norm(sym),c);}catch{}}));return out;}
+async function massiveIndexQuote(symbol,env){const s=norm(symbol),ticker=MASSIVE_INDEX_PROVIDER[s];if(!ticker)throw new Error("Unsupported Massive index");const c=await massiveIndexCandles(s,"5min",env,30),last=c.at(-1);if(!last)throw new Error("Massive index quote unavailable");const age=Math.max(0,nowSec()-last.timestamp-300);return {source:"Massive Indices",requestedSymbol:s,providerSymbol:ticker,price:last.close,providerTimestamp:last.timestamp,quoteAgeSec:age,fresh:age<=900,bid:null,ask:null,executionVerified:false,analysisOnly:true};}
 async function tdQuote(symbol,env){
+  if(marketType(symbol)==="index"&&env.MASSIVE_API_KEY){try{return await massiveIndexQuote(symbol,env);}catch{}}
   const ps=tdSymbol(symbol),p=await tdFetch("quote",{symbol:ps},env),price=num(p.close)??num(p.price);
   if(!price||price<=0)throw new Error("TD price invalid");
   const ts=parseTs(p.last_quote_at??p.timestamp??p.datetime),age=ts==null?null:Math.max(0,nowSec()-ts);

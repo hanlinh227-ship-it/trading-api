@@ -50,8 +50,9 @@ jobs:
           const wrangler=read('cloudflare-worker/prepare-wrangler.mjs');
           const pkg=JSON.parse(read('cloudflare-worker/package.json'));
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
-          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.12','MARKET_SIGNAL','weightedFxMove','forexSessionBias','metalSessionBias','indexSessionBias','INDEX_CASH','INDEX_PROVIDER','SIGNAL_ONLY','v771816:signal:auto_notify:','autoScanSignalGroup','getBooksLive','pnlUsdEstimated','Refresh P/L'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
+          for(const x of ['allowedProfileModes','regimeRouteScores','adaptiveLocationPolicy','adaptiveTriggerPolicy','v775:books','NEWS_CONTEXT_REQUIRED','EXECUTION_QUOTE_REQUIRED','V77.16.13','MARKET_SIGNAL','weightedFxMove','forexSessionBias','metalSessionBias','indexSessionBias','INDEX_CASH','INDEX_PROVIDER','SIGNAL_ONLY','v771816:signal:auto_notify:','autoScanSignalGroup','getBooksLive','pnlUsdEstimated','Refresh P/L'])if(!engine.includes(x))throw new Error('Signal lock missing: '+x);
           for(const x of ['NAS100','US30','US500','DEX','JP225','NDX','DJI','SPX','DAX','N225'])if(!engine.includes(x))throw new Error('Index Cash mapping missing: '+x);
+          for(const x of ['MASSIVE_INDEX_PROVIDER','I:NDX','I:DJI','I:SPX','I:DAX','I:N225','Massive Indices'])if(!engine.includes(x))throw new Error('Massive Index lock missing: '+x);
           for(const x of ['V77.18.31','Metal + Index Cash Migration','posPnlMovePct','HYRO • VỊ THẾ LIVE','propEnv(env)','prop:review','runSystemHealthAudit','announceReleaseOnce','ensureDualAiIntervention','/dual-ai/status','/ai/status','AI_ADMIN_REQUIRED','dailyObjective:{challengePct:2,fundedStretchPct:5}'])if(!index.includes(x))throw new Error('Index lock missing: '+x);
           if(index.includes('hyroMultiStatus')||index.includes('runHyroMultiCron')||index.includes('handleHyroMultiTelegram'))throw new Error('Multi-account runtime present');
           for(const x of ['HUB-R5-INDEX-CASH','REALTIME P/L','pnlUsdEstimated','signal:top','signal:scan:forex','signal:scan:index','symmarket:index','🔥 TOP SETUPS','loadHubUxTuning','/hub/ux','V771822_SAFE_DAILY'])if(!hub.includes(x))throw new Error('Hub R5 lock missing: '+x);
@@ -68,14 +69,14 @@ jobs:
           for(const x of ['MAX_SLOTS=3','MAX_SAME_DIRECTION=2','CLUSTER_DUPLICATION','ENTRY_SPACING_MS=180000'])if(!portfolio.includes(x))throw new Error('Portfolio lock missing: '+x);
           for(const x of ['minimumCutHoldMinutes:8','reduceOnly:true','HYRO_POSITION_REEVAL_AUTO_CUT'])if(!review.includes(x))throw new Error('Position review lock missing: '+x);
           for(const x of ['ANTHROPIC_API_KEY','CLAUDE_CONFIGURED'])if(!health.includes(x))throw new Error('Health Claude lock missing: '+x);
-          if(/MASSIVE_API_KEY|Massive Futures/.test(health))throw new Error('System Health still depends on removed Futures provider');
+          if(/Massive Futures/.test(health))throw new Error('System Health still depends on removed Futures provider');
           if(!release.includes('🏠 Mở Hub mới')||!release.includes('BOT ĐÃ CẬP NHẬT'))throw new Error('Release visibility lock missing');
           if(!/keep_vars\s*:\s*true/.test(wrangler)||!/binding\s*:\s*['"]TRADING_STATE['"]/.test(wrangler)||!wrangler.includes('TRADING_V77_STATE'))throw new Error('KV deployment lock missing');
           if(pkg.devDependencies?.wrangler!=='4.124.0')throw new Error('Wrangler must be pinned');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
           const legacy=engine+hub+index+adaptive+dual;
-          if(/FUTURE_SYMBOLS|FUTURE_SCAN|MASSIVE_API_KEY|Massive Futures|signal:scan:future|symmarket:future|futureMinRR|runFutureGroup|runFutureSymbol|futureSizing/.test(legacy))throw new Error('Legacy Futures conflict remains');
-          console.log('V77.18.31 Metal + Index Cash validation PASS');
+          if(/FUTURE_SYMBOLS|FUTURE_SCAN|Massive Futures|signal:scan:future|symmarket:future|futureMinRR|runFutureGroup|runFutureSymbol|futureSizing/.test(legacy))throw new Error('Legacy Futures conflict remains');
+          console.log('V77.18.32 Index Provider R2 validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
