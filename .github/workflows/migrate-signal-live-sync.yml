@@ -1,0 +1,31 @@
+name: V77.18.41 Signal Live Sync Migration
+on:
+  push:
+    branches: [v771841-signal-live-sync]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v771841-signal-live-sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migration
+        run: node scripts/migrate_signal_live_sync.mjs
+      - name: Validate JS syntax
+        run: |
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/hub-v77171.js
+      - name: Commit migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js .github/workflows/validate-cloudflare-v77.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'V77.18.41 persist MARKET_SIGNAL into scoped Live books'
+          git push origin HEAD:v771841-signal-live-sync
