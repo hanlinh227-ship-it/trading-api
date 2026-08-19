@@ -1,17 +1,22 @@
 import fs from 'node:fs';
 
-function replaceOne(s,oldText,newText,label){const n=s.split(oldText).length-1;if(n!==1)throw new Error(`${label}: expected 1 got ${n}`);return s.replace(oldText,newText);}
+function ensureReplace(s,oldText,newText,label){
+  if(s.includes(newText))return s;
+  const n=s.split(oldText).length-1;
+  if(n!==1)throw new Error(`${label}: expected old=1 or new present; got old=${n}`);
+  return s.replace(oldText,newText);
+}
 
 const handoffPath='docs/checkpoints/CURRENT_HANDOFF.md';
 let h=fs.readFileSync(handoffPath,'utf8');
 h=h.replace('Updated: 2026-08-19 UTC+7','Updated: 2026-08-20 UTC+7');
-h=replaceOne(h,'- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42**.','- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42 + HUB-R13-ENTRY-INTEL-COVERAGE (V78-023 deployed)**.','handoff_hub');
-h=replaceOne(h,'- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7**.','- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7 + V78-020 safe Entry Intelligence promotion + V78-021/V78-022 quality/freshness rendering overlays**.','handoff_engine');
+h=ensureReplace(h,'- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42**.','- HUB `cloudflare-worker/hub-v77171.js`: **V77.18.42 + HUB-R13-ENTRY-INTEL-COVERAGE (V78-023 deployed)**.','handoff_hub');
+h=ensureReplace(h,'- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7**.','- Signal engine `cloudflare-worker/engine-v77168.js`: **V77.16.20 — Signal Lifecycle Guard R7 + V78-020 safe Entry Intelligence promotion + V78-021/V78-022 quality/freshness rendering overlays**.','handoff_engine');
 const v78Overlay='''\n## V78 CURRENT PRODUCTION OVERLAY — 2026-08-20\n- V78-020: PRODUCTION-VERIFIED safe Entry Intelligence promotion. REQUIRED evidence may block; QUALITY evidence only ranks; OPTIONAL market enrichment never independently blocks.\n- V78-021: group-scan candidate rendering shows Quality grade/score, blocked-promotion reasons and Freshness.\n- V78-022: cross-market Hub top setups show the same Quality/Freshness visibility; source commit `c41706b99b6357cc829b1a6ded0b7240bc428a27`, Cloudflare Version `c60f16a4-6a93-4ba3-aab3-a450b0188de0`.\n- V78-023: Hub R13 Entry Intelligence ACTIVE ADVISORY + read-only Coverage view across Forex/Crypto/Metal/Index; source commit `fbabe727caeb771b29188169800a7d275936b5ff`, Cloudflare Version `e6171203-204b-494e-884e-ddc7803b8993`.\n- Entry Intelligence execution authority remains NONE; Hyro remains the sole real-capital execution path.\n- Production Claude API remains PAUSED; Claude.ai Web remains an authorized co-engineer.\n- Hyro hardening blueprint: `docs/ai-coengineer/V78_HYRO_HARDENING_BLUEPRINT.md`; no real-capital hardening source change is implied by the blueprint.\n''';
 if(!h.includes('## V78 CURRENT PRODUCTION OVERLAY — 2026-08-20')) h=h.replace('## AI-001 — HYRO TELEMETRY REPAIR',v78Overlay+'\n## AI-001 — HYRO TELEMETRY REPAIR');
 const oldIssue='''## CURRENT OPEN ISSUE\nAI-002: documentation synchronization. This handoff and `MASTER_TRADING_STATE.md` are being synchronized to the V77.18.46 reviewed component state and permanent GitHub co-engineering mode, then Claude must review the exact documentation diff before AI-002 is marked RESOLVED.\n''';
 const newIssue='''## CURRENT OPEN ISSUE\nAI-002: **RESOLVED by V78-024 canonical documentation synchronization.** Current handoff/master now include V78-020 through V78-023 production overlays. Next engineering work is coverage-guided Entry Intelligence optimization and separately-reviewed Hyro execution hardening; neither may weaken existing hard safeguards.\n''';
-h=replaceOne(h,oldIssue,newIssue,'handoff_issue');
+h=ensureReplace(h,oldIssue,newIssue,'handoff_issue');
 fs.writeFileSync(handoffPath,h);
 
 const masterPath='docs/checkpoints/MASTER_TRADING_STATE.md';
