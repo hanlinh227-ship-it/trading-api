@@ -10,6 +10,7 @@ import {handleClaudeTelegram} from "./claude-telegram.js";
 import {ensureDualAiIntervention,getDualAiInterventionState} from "./dual-ai-intervention.js";
 import {getAdaptiveTuningState} from "./adaptive-tuning.js";
 import {getAiGovernanceState} from "./ai-arbiter.js";
+import {telegramApiRequest} from "./providers/telegram-client.js";
 
 const VERSION="V77.18.43",SERVICE="Trading V77.18.43 Legacy Cleanup + Version Sync";
 const RELEASE_NAME="Legacy Cleanup + Version Sync";
@@ -19,7 +20,7 @@ const money=v=>{const x=Number(v||0),sign=x>0?"+":"";return sign+"$"+x.toLocaleS
 const ago=ts=>{if(!ts)return "—";const s=Math.max(0,Math.round((Date.now()-Number(ts))/1000));if(s<60)return `${s}s`;const m=Math.round(s/60);return m<60?`${m}m`:`${Math.round(m/60)}h`;};
 async function kvGet(env,key,fallback=null){try{return await env.TRADING_STATE?.get(key,"json")??fallback;}catch{return fallback;}}
 async function kvPut(env,key,value,ttl){if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(value),ttl?{expirationTtl:ttl}:undefined);}
-async function tg(env,method,payload){const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
+async function tg(env,method,payload){const p=await telegramApiRequest(env,method,payload);if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
 const send=(env,chatId,text,reply_markup)=>tg(env,"sendMessage",{chat_id:chatId,text,reply_markup:reply_markup||propKeyboard(false,String(env.HYRO_BYBIT_MODE||"DEMO")),disable_web_page_preview:true});
 const verify=(req,env)=>!env.TELEGRAM_WEBHOOK_SECRET||req.headers.get("x-telegram-bot-api-secret-token")===env.TELEGRAM_WEBHOOK_SECRET;
 const phaseName=p=>p?.phase==="FUNDED"?"FUNDED":"CHALLENGE",programName=p=>p?.program==="TWO_STEP"?"Two-Step":"One-Step";
