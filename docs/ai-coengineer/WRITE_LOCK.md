@@ -1,14 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: 25b8fa9b90ef703e573cd9ca70794957fe8b55bb
-PURPOSE: V78 Phase 2 partial ingest, execution-path verification, V78-041 decision, and Wave 0/Wave 1 planning docs committed; awaiting Claude exact Phase 2 resend/review.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE:
+- docs/ai-coengineer/V78_KV_KEY_REGISTRY.md
+STARTED: 2026-08-19T12:42:00Z
+BASE_SHA: 186d8f0d791a291808a91fed5afc4333a69fad82
+PURPOSE: V78-001 only — document current TRADING_STATE/KV key registry. ZERO_BEHAVIOR documentation change. No production source modification authorized.
 
 Protocol:
-- Before modifying production source, set `LOCKED: true`, owner and exact scope.
-- The other AI may review but must not write files in scope.
-- Re-read HEAD before every source write.
-- Release lock after commit and hand off review.
+- Claude may READ/REVIEW/DESIGN but must not write the declared scope while this lock is active.
+- This lock authorizes documentation-only V78-001; no Wave 1+ source change is authorized.
+- Re-read HEAD before every future production source write.
+- Release lock after V78-001 commit and hand off review.
