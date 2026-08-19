@@ -29,7 +29,7 @@ Documentation commits:
 Claude reported PASS in chat, with one clarification request around legacy `profit lock/target ~1.20%` wording versus current dynamic target math. ChatGPT must resolve the wording/source evidence separately; no production-risk constant is changed by this issue.
 
 ## AI-003
-Status: OPEN — PHASE 1 BLUEPRINT RECEIVED / CHATGPT INTEGRATION ACTIVE
+Status: OPEN — PHASE 2 PARTIAL INGEST / WAVE 0-1 SCOPING ACTIVE
 Severity: STRATEGIC
 Owners: CHATGPT + CLAUDE
 Primary integrator: CHATGPT
@@ -39,22 +39,37 @@ Area: FULL SYSTEM REDESIGN / V78
 Mandate:
 `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md`
 
-Claude Phase 1 blueprint persisted at:
+Claude Phase 1 blueprint:
 `docs/ai-coengineer/V78_CLAUDE_PHASE1_BLUEPRINT.md`
 
-Phase 1 findings include:
-- overlapping Telegram routers/verification/dedupe;
-- duplicated Hyro risk/profile display logic;
-- Signal vs Hyro analysis-pipeline duplication;
-- provider/client duplication;
-- Hyro idempotency/reconciliation/cancel-scope/state-machine weaknesses;
-- lack of account/provider abstractions for future multi-account;
-- orphaned non-production Binance20 path;
-- AI runtime duplication requiring deliberate separation/shared primitives.
+Phase 2 canonical ingest path:
+`docs/ai-coengineer/V78_CLAUDE_PHASE2_BACKLOG.md`
 
-ChatGPT architecture decisions are recorded in `DECISIONS.md` (DECISION-004 through DECISION-008).
+Phase 2 ingest status:
+PARTIAL ONLY. User reports Claude produced target HUB menu, DecisionEvidence schema and ordered V78-001..V78-091 backlog, but exact body is not present in the current GitHub bus/available attachment. ChatGPT will not fabricate the missing 91 items. Claude must resend exact Phase 2 text for canonical ingest.
 
-Next design step:
-Claude should review ChatGPT decisions, challenge them where source evidence disagrees, then produce a Phase 2 implementation decomposition with atomic issues ordered by risk. Phase 2 remains DESIGN ONLY until ChatGPT creates scoped write issues.
+Independent evidence verified during ingest:
+- `engine-v77168.js` Signal crypto path uses unsigned public GET market-data helpers and contains no `/v5/order/create`; it is not current real-capital execution.
+- Hyro is current real-capital execution authority; Binance20 remains NON_PRODUCTION.
+- `hyro-scanner.js::fundingView()` is a funding/carry gate, not a news/event source.
+- DECISION-009 / V78-041: Hyro executable new orders require a distinct hard-news/context gate; funding remains separate.
 
-No production source write is authorized by AI-003 yet.
+Wave 0 / Wave 1 planning issues are documented at:
+`docs/ai-coengineer/V78_IMPLEMENTATION_WAVE0_WAVE1.md`
+
+### Wave 0 — OPEN / PLANNING
+- V78-W0-01: ingest exact Claude Phase 2 backlog (ZERO_BEHAVIOR)
+- V78-W0-02: KV/state registry baseline (ZERO_BEHAVIOR)
+- V78-W0-03: execution-authority map (ZERO_BEHAVIOR)
+- V78-W0-04: V78-041 news/funding policy baseline (ZERO_BEHAVIOR)
+- V78-W0-05: deterministic baseline validation matrix (ZERO_BEHAVIOR)
+
+### Wave 1 — OPEN / NOT YET AUTHORIZED FOR SOURCE WRITE
+- V78-W1-01: shared Bybit signed-client extraction (ZERO_BEHAVIOR; MEDIUM; private execution code)
+- V78-W1-02: shared Telegram HTTP client extraction (ZERO_BEHAVIOR)
+- V78-W1-03: DecisionEvidence schema foundation in SHADOW mode (blocked on exact Claude schema ingest)
+- V78-W1-04: Binance20 NON_PRODUCTION quarantine marker (ZERO_BEHAVIOR)
+- V78-W1-05: shared provider capability inventory (ZERO_BEHAVIOR)
+
+One-writer rule:
+Each Wave 1 source issue requires a separate exact WRITE_LOCK. No production source write is authorized by this planning entry. High-risk idempotency, cancel scoping, account-KV migration, engine split, hard-news enforcement and multi-account live enablement remain deferred beyond Wave 1.
