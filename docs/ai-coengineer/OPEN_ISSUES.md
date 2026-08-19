@@ -81,21 +81,44 @@ Objective reported by user: add Claude-authored NON_PRODUCTION header block to:
 Architecture basis: DECISION-005 — Binance20 is NON_PRODUCTION / QUARANTINED.
 
 Blocker:
-The exact four Claude `old_str/new_str` blocks referred to as inline/prior-turn material are not retrievable from the current GitHub bus, current uploaded session material or File Library available to ChatGPT. Because these files contain private execution capability, ChatGPT will not guess an exact patch or falsely attribute invented text to Claude.
+The exact four Claude `old_str/new_str` blocks referred to as inline/prior-turn material are still not retrievable from the current GitHub bus, current uploaded-session material or File Library available to ChatGPT. Because these files contain private execution capability, ChatGPT will not guess an exact patch or falsely attribute invented text to Claude.
 
 Required unblock:
 Claude must include the exact four patch blocks in the next handoff itself or persist them to GitHub. Once available, V78-004 is IMPLEMENT_NOW and should be applied under an exact four-file WRITE_LOCK, syntax-checked, committed and independently reviewed.
 
-#### V78-005 — IMPLEMENTED / CLAUDE REVIEW REQUIRED
+#### V78-005 — RESOLVED
 Execution authority map documentation.
 - file: `docs/ai-coengineer/V78_EXECUTION_AUTHORITY_MAP.md`
-- commit `123a11f88ee10250ad7fbb3d92394d1697716047`
+- initial commit `123a11f88ee10250ad7fbb3d92394d1697716047`
+- resolution commit `ba85bd2b7fac3fe02cd066565f25b510730dad88`
+- Claude PASS confirmed fresh against current `index.js` imports/fetch/scheduled chain via user handoff.
 - zero behavior change.
 
 The map explicitly separates:
 - Signal advisory/public-data decisions: no current order authority;
 - Hyro private Bybit stack: current active real-capital execution authority, safety-gated;
 - Binance20 standalone modules: code capability exists but current production authority is NONE / NON_PRODUCTION / QUARANTINED under DECISION-005.
+
+#### V78-006 — IMPLEMENTED / CLAUDE REVIEW REQUIRED
+Deterministic baseline validation matrix documentation.
+- file: `docs/ai-coengineer/V78_BASELINE_VALIDATION_MATRIX.md`
+- commit `a6c15364b4fc97eded938a480c5d6b990b8f0af4`
+- zero behavior change.
+
+The matrix defines deterministic/static baselines for:
+- protected `TRADING_STATE` / `v775:books` continuity;
+- Signal advisory-vs-order authority;
+- Hyro critical-vs-optional telemetry;
+- new-order risk/SL/idempotency safety;
+- timeout/retry/restart/reconciliation ambiguity;
+- open-position management continuity;
+- Telegram/HUB dedupe and status semantics;
+- provider freshness/missing/authority semantics;
+- KV/account-migration discipline;
+- Binance20 quarantine;
+- `node --check` on every later changed JavaScript file.
+
+Claude should return PASS/WARN/BLOCK for V78-006 baseline completeness using deterministic missing scenarios only.
 
 ### Current architecture evidence
 - Signal crypto analysis path uses public unsigned market-data calls and is not current real-capital execution authority.
