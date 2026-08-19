@@ -1,17 +1,17 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-016 Entry Intelligence Foundation — shadow-only provider + Signal runGroup instrumentation + read-only Hub evidence summary
-ACQUIRED: 2026-08-19
-PURPOSE: Add market-specific, read-only entry reasoning derived only from already-finalized Signal decision objects. No new thresholds, ranking authority, execution authority, gate changes, risk changes, or existing output-shape changes.
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-19
+LAST_OWNER: CHATGPT
+LAST_SCOPE: V78-016 Entry Intelligence Foundation shadow
+RESULT: IMPLEMENTED. Market-specific entry reasoning shadow is recorded from finalized Signal decisions and exposed read-only in Telegram Hub. No ranking, threshold, gate, execution authority, risk, freshness, SL/news or state-continuity behavior intentionally changed.
 
 Protocol:
-- Guard engine-v77168.js pre-patch blob SHA = 8cf6f9cb2036149bd3fa16b417f601ce43a62769.
-- Guard hub-v77171.js pre-patch blob SHA = 97116e56c466505cd22b287ac193b16db55a675b.
-- New shadow key only: v78016:entry_intelligence:signal.
+- Acquire a new lock before the next source write.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
 - Binance20 remains NON_PRODUCTION / QUARANTINED.
-- Claude production API remains paused unless CLAUDE_API_ENABLED=true.
+- Claude production API remains paused unless CLAUDE_API_ENABLED=true; Claude.ai Web remains a full co-engineer.

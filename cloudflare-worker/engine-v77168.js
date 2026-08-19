@@ -2,6 +2,7 @@ import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "j
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 import {atrFromHLC} from "./providers/indicators.js";
 import {buildSignalDecisionEvidence,recordSignalDecisionEvidence,getSignalDecisionEvidence} from "./providers/decision-evidence.js";
+import {buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow} from "./providers/entry-intelligence.js";
 
 const CONFIG = {
   version: "V77.16.20",
@@ -605,7 +606,7 @@ async function runGroup(group,env,trigger="API_RUN_NOW"){
       for(const c of candidates){if(Date.now()-started>CONFIG.scanDeadlineMs)break;deepAttempted++;const pc=prepared.get(c.symbol);if(!pc)tmp.push({ok:false,status:"DATA_BLOCK",symbol:c.symbol,reason:"ANALYSIS_DATA_UNAVAILABLE"});else tmp.push(await deepAnalyze(c.symbol,env,pc,null,"Twelve Data",c.context||{}));}
       tmp.sort((a,b)=>actionableRank(b)-actionableRank(a));analyses.push(...tmp.slice(0,CONFIG.maxCandidates));
     }
-    const books=existingBooks,newItems=fillBooks(group,books,analyses,trigger);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);for(const a of analyses){try{await recordSignalDecisionEvidence(env,buildSignalDecisionEvidence(a,{runtimeVersion:CONFIG.version,scanId}));}catch{}}
+    const books=existingBooks,newItems=fillBooks(group,books,analyses,trigger);await saveBooks(env,books);for(const a of analyses)await recordShadowSetup(group,a,scanId,env);for(const a of analyses){try{await recordSignalDecisionEvidence(env,buildSignalDecisionEvidence(a,{runtimeVersion:CONFIG.version,scanId}));}catch{}}for(const a of analyses){try{await recordEntryIntelligenceShadow(env,buildEntryIntelligenceShadow(a,{runtimeVersion:CONFIG.version,scanId}));}catch{}}
     const out={ok:true,version:CONFIG.version,group,scanId,scannedAt,requested:broad.requested,broadOk:broad.rows.length,fresh:broad.rows.length,deepRequested:Math.min(CONFIG.maxCandidates,broad.rows.length),deepOk:analyses.filter(a=>a.ok!==false).length,newCount:newItems.length,newItems,scanTrigger:trigger,analyses,diagnostics:{broadErrors:broad.errors,deepAttempted,skippedUnavailable,liveSymbolsSkipped:[...liveSymbols],tdCreditsLeft:memory.tdCreditsLeft,tdCreditsAtStart:budget.left,tdCreditsPlanned:budget.required},elapsedMs:Date.now()-started};
     await env.TRADING_STATE.put(CONFIG.keys.lastRun,JSON.stringify(out));await saveScanSnapshot(group,out,env);return out;
   }finally{await releaseLock(env);}
@@ -760,6 +761,7 @@ export default {
       if(p==="/knowledge"){const symbol=canonicalUserSymbol(u.searchParams.get("symbol"));return json({ok:true,symbol,knowledge:symbolKnowledge(symbol)});}
       if(p==="/shadow"){const symbol=u.searchParams.get("symbol");return json({ok:true,rows:await getShadowSetups(env,symbol)});}
       if(p==="/evidence/signal")return json({ok:true,schemaVersion:"V78-002",rows:await getSignalDecisionEvidence(env,Number(u.searchParams.get("limit")||20))});
+      if(p==="/evidence/entry-intelligence")return json({ok:true,revision:"V78-016",shadowOnly:true,rows:await getEntryIntelligenceShadow(env,Number(u.searchParams.get("limit")||20))});
       if(p==="/latest-scan"){const g=u.searchParams.get("group");if(!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json({ok:true,group:g,snapshot:await getScanSnapshot(g,env)});}
       return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|index","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NAS100|US30|US500|DEX|JP225","/symbols?group=forex|crypto|metal|index","/knowledge?symbol=NAS100","/telegram/menu","/books","/order-history"]});
     }catch(e){console.error("HTTP",e);return json({ok:false,version:CONFIG.version,error:e?.message||String(e)},500);}

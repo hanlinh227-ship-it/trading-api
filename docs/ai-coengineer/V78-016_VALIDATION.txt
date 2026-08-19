@@ -1,0 +1,9 @@
+node --check providers/entry-intelligence.js = PASS
+node --check engine-v77168.js = PASS
+node --check hub-v77171.js = PASS
+engine entry-intelligence symbols = 3
+hub getter/callback integration = PASS
+v78016 key outside provider = ZERO_MATCHES
+verifyTelegram preserved = 1
+git diff --check = PASS
+V78-016_ENTRY_INTELLIGENCE_SHADOW_PASS

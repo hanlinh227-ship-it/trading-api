@@ -86,3 +86,11 @@ Execution authority / safety:
 - Never restore legacy Futures Signal or Hyro TK2.
 - Never weaken hard risk, freshness, structural-SL or hard-news safeguards.
 - Never fabricate market/provider/test evidence or expose secrets.
+
+V78-016 — IMPLEMENTED / VALIDATED
+- New `providers/entry-intelligence.js` shadow-only evaluator.
+- Signal finalized decisions now append market-specific reasoning to isolated `v78016:entry_intelligence:signal` after existing authoritative persistence.
+- Read-only `/evidence/entry-intelligence` endpoint.
+- Telegram Hub adds `🧭 Entry Intel` showing WHY NOW / PRICE / SL / TP-RR / INVALIDATION / freshness / completeness / existing block reason.
+- No authority change: current status/ranking/gates/orders remain authoritative; V78-016 is comparison/observability only.
+- Claude production API remains paused; Claude.ai Web retains full co-engineer authority when available.
