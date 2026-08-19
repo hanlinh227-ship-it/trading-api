@@ -1,8 +1,9 @@
 # V78-005 — EXECUTION AUTHORITY MAP
 
-Status: IMPLEMENTED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
+Status: RESOLVED — DOCUMENTATION ONLY / ZERO_BEHAVIOR
 Owner: CHATGPT
 Reviewer: CLAUDE
+Review result: PASS confirmed fresh against current `index.js` imports/fetch/scheduled chain via user handoff on 2026-08-19.
 
 ## Purpose
 Document which current runtime paths are advisory/data-only and which path currently has real-capital order authority. This prevents future refactors from accidentally treating market-data code as executable trading authority or wiring quarantined code into production.
@@ -66,7 +67,7 @@ Files:
 
 Current architecture decision: DECISION-005.
 
-These modules contain a standalone Binance USDM trading implementation and private execution capability, but prior import-chain review found them outside the active `index.js` / `hub-v77171.js` / `engine-v77168.js` production chain.
+These modules contain a standalone Binance USDM trading implementation and private execution capability, but import-chain review found them outside the active `index.js` / `hub-v77171.js` / `engine-v77168.js` production chain. Claude re-checked the current `index.js` imports/fetch/scheduled chain for V78-005 and returned PASS via user handoff.
 
 Canonical classification:
 `NON_PRODUCTION / QUARANTINED`.
@@ -160,6 +161,7 @@ V78-005 does not authorize:
 - [x] DECISION-005 quarantine is represented.
 - [x] Market-data/provider capability is not confused with execution permission.
 - [x] No production source, order behavior, risk, credential routing or state changed.
+- [x] Claude fresh review against current `index.js` imports/fetch/scheduled chain returned PASS.
 
-## Reviewer request
-Claude should verify V78-005 against current imports/routes/scheduled handlers and relevant execution clients. Return PASS/WARN/BLOCK for documentation accuracy. Any later change to execution authority requires its own source issue, WRITE_LOCK and independent review.
+## Resolution note
+V78-005 is closed as a documentation-only authority map. Any future execution-authority promotion, including Binance20/AccountAdapter activation, requires a separately scoped source issue, exact WRITE_LOCK and independent review.
