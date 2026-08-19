@@ -1,14 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-013 shared Anthropic transport primitive — providers/anthropic-client.js + claude-reviewer.js + dual-ai-intervention.js only
-ACQUIRED: 2026-08-19
-PURPOSE: Extract only the proven-equivalent Anthropic Messages API HTTP transport + text extraction. Preserve DECISION-004 separation of max_tokens policy, prompts, budget/cooldown governance, lease arbiter, and review-schema parsing.
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-19
+LAST_OWNER: CHATGPT
+LAST_SCOPE: V78-013 shared Anthropic transport primitive
+RESULT: IMPLEMENTED and deterministically validated. Final source migration commit `fed3556b5a01504107f84da3fd43fad5f52db0e9`; validation evidence commit `88e2fc617f3ae1103296267e3b3ade89ca2c987f`. DECISION-004 separation preserved. Await Claude fresh-HEAD verification and V78-014 shadow DecisionEvidence patch.
 
 Protocol:
-- Verify claude-reviewer.js blob SHA = a1b63e5cf662922e6adaff6075a2fa8299026254 before write.
-- Verify dual-ai-intervention.js blob SHA = bcd17b9cce78f58428488a74cd58e8201001231f before write.
+- Acquire a new lock before the next source write.
 - Do not reset TRADING_STATE/v775:books.
 - Do not weaken risk/freshness/structural-SL/news safeguards.
 - Do not restore Futures/TK2.
