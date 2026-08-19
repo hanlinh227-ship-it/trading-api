@@ -1,0 +1,57 @@
+name: V78-013 Validation Capture
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v78-013-validation-capture.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run and capture exact V78-013 validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='docs/ai-coengineer/V78-013_VALIDATION.txt'
+          mkdir -p docs/ai-coengineer
+          : > "$out"
+          run(){ echo "$ $*" | tee -a "$out"; "$@" 2>&1 | tee -a "$out"; rc=${PIPESTATUS[0]}; echo "exit=$rc" | tee -a "$out"; test "$rc" -eq 0; }
+          run node --check cloudflare-worker/providers/anthropic-client.js
+          run node --check cloudflare-worker/claude-reviewer.js
+          run node --check cloudflare-worker/dual-ai-intervention.js
+          echo '$ grep -c "anthropicMessagesRequest\|extractAnthropicText" cloudflare-worker/claude-reviewer.js cloudflare-worker/dual-ai-intervention.js' | tee -a "$out"
+          grep -c 'anthropicMessagesRequest\|extractAnthropicText' cloudflare-worker/claude-reviewer.js cloudflare-worker/dual-ai-intervention.js | tee -a "$out"
+          echo '$ grep raw Anthropic fetch in callers — expected ZERO_MATCHES' | tee -a "$out"
+          if grep -n 'fetch(API_URL\|fetch("https://api.anthropic.com' cloudflare-worker/claude-reviewer.js cloudflare-worker/dual-ai-intervention.js | tee -a "$out"; then echo 'ERROR_RAW_FETCH_REMAINS' | tee -a "$out"; exit 1; else echo 'ZERO_MATCHES' | tee -a "$out"; fi
+          echo '$ grep -c "budgetCheck\|saveBudget" cloudflare-worker/claude-reviewer.js' | tee -a "$out"
+          grep -c 'budgetCheck\|saveBudget' cloudflare-worker/claude-reviewer.js | tee -a "$out"
+          echo '$ grep -c "acquireAiLease\|releaseAiLease" cloudflare-worker/dual-ai-intervention.js' | tee -a "$out"
+          grep -c 'acquireAiLease\|releaseAiLease' cloudflare-worker/dual-ai-intervention.js | tee -a "$out"
+          echo '$ grep -c "normalizeReview\|parseClaudeJson" cloudflare-worker/claude-reviewer.js' | tee -a "$out"
+          grep -c 'normalizeReview\|parseClaudeJson' cloudflare-worker/claude-reviewer.js | tee -a "$out"
+          echo '$ grep -c "function parse(" cloudflare-worker/dual-ai-intervention.js' | tee -a "$out"
+          grep -c 'function parse(' cloudflare-worker/dual-ai-intervention.js | tee -a "$out"
+          echo '$ grep -c Anthropic endpoint cloudflare-worker/providers/anthropic-client.js' | tee -a "$out"
+          grep -c 'https://api.anthropic.com/v1/messages' cloudflare-worker/providers/anthropic-client.js | tee -a "$out"
+          echo 'V78-013_VALIDATION_PASS' | tee -a "$out"
+      - name: Commit validation evidence and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/v78-013-validation-capture.yml
+          git add docs/ai-coengineer/V78-013_VALIDATION.txt
+          git commit -m 'V78-013 persist deterministic validation evidence'
+          git push origin HEAD:main
