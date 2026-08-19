@@ -12,7 +12,6 @@ Design authority does NOT by itself authorize production writes. Production sour
 
 ## Mandatory startup sequence
 On every Trading engineering session, before analysis or source edits:
-
 1. Refresh `main` and identify current HEAD SHA.
 2. Read `docs/checkpoints/MASTER_TRADING_STATE.md`.
 3. Read `docs/checkpoints/CURRENT_HANDOFF.md`.
@@ -21,12 +20,11 @@ On every Trading engineering session, before analysis or source edits:
 6. Read `docs/ai-coengineer/OPEN_ISSUES.md`.
 7. Read `docs/ai-coengineer/DECISIONS.md`.
 8. Read the newest OPEN message in `docs/ai-coengineer/CHATGPT_TO_CLAUDE.md`.
-9. For redesign work also read `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md`.
+9. For redesign work also read `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md` and any active V78 blueprint.
 10. Treat current `main` source as authority when docs lag source.
 
 ## Communication bus
 GitHub is the official communication bus between ChatGPT and Claude.
-
 - ChatGPT -> Claude: `docs/ai-coengineer/CHATGPT_TO_CLAUDE.md`
 - Claude -> ChatGPT: `docs/ai-coengineer/CLAUDE_TO_CHATGPT.md`
 - Shared state: `docs/ai-coengineer/SHARED_STATE.md`
@@ -35,13 +33,25 @@ GitHub is the official communication bus between ChatGPT and Claude.
 - Architecture decisions: `docs/ai-coengineer/DECISIONS.md`
 - Protocol: `docs/ai-coengineer/PROTOCOL.md`
 
-When an OPEN message from ChatGPT requests review/design, Claude must read the exact referenced source and append or return a structured response with exact SHA context and `PASS | WARN | BLOCK` when applicable.
+When an OPEN message from ChatGPT requests review/design, Claude must read the exact referenced source and append or return a structured response with exact SHA context and `PASS | WARN | BLOCK | DESIGN` when applicable.
 
 When Claude finds a new issue, append it to `CLAUDE_TO_CHATGPT.md` when write access is available; otherwise return it in chat so ChatGPT can persist it.
 
+## Mandatory final handoff
+At the end of **every substantive task**, Claude MUST leave exactly one ready-to-send prompt for ChatGPT, even if the technical result is already persisted to GitHub.
+
+The prompt must:
+- begin with `continue co-engineering` unless a more exact continuation phrase is required;
+- tell ChatGPT to refresh `main`;
+- name the issue/workstream and exact SHA/design doc(s);
+- state what ChatGPT must do next (`VERIFY`, `DESIGN`, `REVIEW`, or scoped `IMPLEMENT`);
+- require WRITE_LOCK/hard-safety compliance;
+- avoid asking the user to summarize GitHub state again.
+
+If GitHub MCP write remains blocked by 403, Claude must still return its result in chat **plus exactly one final ChatGPT handoff prompt**.
+
 ## One-writer rule
 Before source writes, inspect `WRITE_LOCK.md`.
-
 - `LOCKED: true` + `OWNER: CHATGPT` -> Claude may READ/REVIEW/DESIGN only.
 - `LOCKED: true` + `OWNER: CLAUDE` -> Claude may modify only the declared SCOPE.
 - `LOCKED: false` does not by itself authorize production changes; ownership must still be assigned in `OPEN_ISSUES.md` or an explicit ChatGPT handoff.
@@ -50,7 +60,6 @@ Always refresh HEAD immediately before a source write. If HEAD changed after ana
 
 ## Review / redesign standard
 Never approve or redesign based only on an edited function. Trace the complete lifecycle when relevant:
-
 `DISCOVERY -> DATA -> CONTEXT -> SIGNAL -> QUALIFICATION -> RISK GATE -> POSITION SIZE -> ORDER -> EXCHANGE/BROKER -> TELEMETRY -> POSITION MANAGEMENT -> CLOSE -> RECONCILIATION`
 
 Always check:
@@ -88,7 +97,6 @@ Never:
 
 ## Output contract for reviews/designs
 Every engineering review/design should include as applicable:
-
 - `Reviewed/Designed against SHA:`
 - `Verdict: PASS | WARN | BLOCK | DESIGN`
 - `Current problems:`
@@ -100,5 +108,6 @@ Every engineering review/design should include as applicable:
 - `Execution impact:`
 - `Data integrity:`
 - `Required next action:`
+- `NEXT_AI_PROMPT:` exactly one prompt for ChatGPT.
 
 When the task came from the communication bus, persist the result to `docs/ai-coengineer/CLAUDE_TO_CHATGPT.md` when write access is available; otherwise return it in chat for ChatGPT to persist.
