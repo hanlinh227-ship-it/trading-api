@@ -46,7 +46,7 @@ Phase 2 canonical ingest path:
 `docs/ai-coengineer/V78_CLAUDE_PHASE2_BACKLOG.md`
 
 Integrity status:
-The complete verbatim target HUB menu and full V78-001..V78-091 body are still not available in the current GitHub bus/retrievable session context. ChatGPT will not fabricate missing Claude-authored content. Known mapping constraints remain preserved separately.
+The complete verbatim target HUB menu and full V78-001..V78-091 body are still not present in the current GitHub bus or retrievable uploaded-session material available to ChatGPT. ChatGPT will not fabricate missing Claude-authored content.
 
 ### Implemented Wave 0 items
 
@@ -60,15 +60,42 @@ KV/state registry documentation.
 DecisionEvidence schema documentation.
 - initial commit `0bbe2b0c0fccda112820cad1f8f65121ba0d8fce`
 - Claude DecisionAction correction incorporated in commit `e432a62cac0031223fda889a9b1a28dfe34ff18c`
-- canonical action enum now preserves `MARKET_PLAN`, `LIMIT_PLAN`, `DATA_BLOCK`.
+- canonical action enum preserves `MARKET_PLAN`, `LIMIT_PLAN`, `DATA_BLOCK`.
 - zero behavior change.
 
-#### V78-003 — IMPLEMENTED / CLAUDE REVIEW REQUIRED
+#### V78-003 — RESOLVED
 Hyro news-gate status documentation.
 - file: `docs/ai-coengineer/V78_HYRO_NEWS_GATE_STATUS.md`
-- commit `b31aa8f364ba1fc7b210d0a1289bccd0f4df2125`
-- documents that funding/carry and OI/ratio/orderbook/spread context exist, but current reviewed Hyro path does not prove an authoritative hard-news clearance gate.
-- zero behavior change; production news enforcement remains a separate future issue.
+- initial commit `b31aa8f364ba1fc7b210d0a1289bccd0f4df2125`
+- resolution commit `e9208741d52054ec84e1fb932c798a6d8a6b0342`
+- Claude PASS reported through user handoff.
+- zero behavior change.
+
+#### V78-004 — BLOCKED_ON_EXACT_PATCH_TEXT
+Objective reported by user: add Claude-authored NON_PRODUCTION header block to:
+- `cloudflare-worker/binance-futures20-config.js`
+- `cloudflare-worker/binance-futures20-engine.js`
+- `cloudflare-worker/binance-futures20-runtime.js`
+- `cloudflare-worker/binance-usdm-client.js`
+
+Architecture basis: DECISION-005 — Binance20 is NON_PRODUCTION / QUARANTINED.
+
+Blocker:
+The exact four Claude `old_str/new_str` blocks referred to as inline/prior-turn material are not retrievable from the current GitHub bus, current uploaded session material or File Library available to ChatGPT. Because these files contain private execution capability, ChatGPT will not guess an exact patch or falsely attribute invented text to Claude.
+
+Required unblock:
+Claude must include the exact four patch blocks in the next handoff itself or persist them to GitHub. Once available, V78-004 is IMPLEMENT_NOW and should be applied under an exact four-file WRITE_LOCK, syntax-checked, committed and independently reviewed.
+
+#### V78-005 — IMPLEMENTED / CLAUDE REVIEW REQUIRED
+Execution authority map documentation.
+- file: `docs/ai-coengineer/V78_EXECUTION_AUTHORITY_MAP.md`
+- commit `123a11f88ee10250ad7fbb3d92394d1697716047`
+- zero behavior change.
+
+The map explicitly separates:
+- Signal advisory/public-data decisions: no current order authority;
+- Hyro private Bybit stack: current active real-capital execution authority, safety-gated;
+- Binance20 standalone modules: code capability exists but current production authority is NONE / NON_PRODUCTION / QUARANTINED under DECISION-005.
 
 ### Current architecture evidence
 - Signal crypto analysis path uses public unsigned market-data calls and is not current real-capital execution authority.
@@ -81,6 +108,6 @@ Hyro news-gate status documentation.
 Claude may self-acquire WRITE_LOCK and commit directly if its GitHub connector allows write. If connector returns 403, Claude must return exact patch/change material and ChatGPT should implement it immediately rather than restart design-only discussion.
 
 ### Wave 1
-NOT STARTED by V78-001..V78-003. Every source issue requires its own exact WRITE_LOCK and independent review.
+NOT STARTED. Every source issue requires its own exact WRITE_LOCK and independent review.
 
 High-risk idempotency, cancel scoping, account-KV migration, engine split, hard-news production enforcement and multi-account live enablement remain separately scoped/deferred.
