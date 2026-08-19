@@ -1,99 +1,122 @@
-name: V78-017 Manual Observability
+name: V78-020 Batch Integration Trigger
 on:
   push:
+    branches: [main]
     paths:
       - '.github/workflows/v78-017-manual-observability.yml'
 permissions:
   contents: write
 jobs:
-  migrate:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Guard blobs and patch
+      - name: Apply guarded V78-020 integration
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git hash-object cloudflare-worker/engine-v77168.js)" = "d37117f6be642cf0250cfc53eeccb423a20d4986"
-          test "$(git hash-object cloudflare-worker/hub-v77171.js)" = "4eb8c19518a7c95e063da8f9e592a9ab82919e8b"
-          node <<'NODE'
-          const fs=require('fs');
-          function replaceOnce(path,oldText,newText){let s=fs.readFileSync(path,'utf8');const n=s.split(oldText).length-1;if(n!==1)throw new Error(`${path}: expected 1 match, got ${n}`);fs.writeFileSync(path,s.replace(oldText,newText));}
-          const e='cloudflare-worker/engine-v77168.js';
-          replaceOnce(e,
-            'const a=await runSymbol(symbol,env),type=marketType(symbol);',
-            'const a=await runSymbol(symbol,env),type=marketType(symbol);try{await recordSignalDecisionEvidence(env,buildSignalDecisionEvidence(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_TELEGRAM"}));await recordEntryIntelligenceShadow(env,buildEntryIntelligenceShadow(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_TELEGRAM"}));}catch{}');
-          replaceOnce(e,
-            'if(p==="/analyze"){const symbol=u.searchParams.get("symbol");return json(await runSymbol(symbol,env));}',
-            'if(p==="/analyze"){const symbol=u.searchParams.get("symbol"),a=await runSymbol(symbol,env);try{await recordSignalDecisionEvidence(env,buildSignalDecisionEvidence(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_API"}));await recordEntryIntelligenceShadow(env,buildEntryIntelligenceShadow(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_API"}));}catch{}return json(a);}');
-          const h='cloudflare-worker/hub-v77171.js';
-          replaceOnce(h,
-            'const VERSION="V77.18.42",UI_REV="HUB-R10-LIFECYCLE-GUARD",SERVICE="Trading V77.18.42 • Signal Lifecycle Guard";',
-            'const VERSION="V77.18.42",UI_REV="HUB-R11-ENTRY-INTEL-SHADOW",SERVICE="Trading V77.18.42 • Signal Lifecycle Guard";');
-          NODE
-      - name: Validate
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          epath=Path('cloudflare-worker/engine-v77168.js')
+          hpath=Path('cloudflare-worker/hub-v77171.js')
+          e=epath.read_text(); h=hpath.read_text()
+          old_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow'
+          new_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow,entryIntelligenceRankAdjustment,entryIntelligencePromotionAllowed'
+          assert e.count(old_import)==1 and new_import not in e
+          e=e.replace(old_import,new_import,1)
+          pat=r'function actionableRank\(a\)\{.*?return x;\}'
+          m=re.findall(pat,e,flags=re.S); assert len(m)==1, len(m)
+          old=m[0]; assert 'entryIntelligenceRankAdjustment' not in old
+          e=e.replace(old,old[:-9]+'x+=entryIntelligenceRankAdjustment(a);return x;}',1)
+          pat=r'function fillBooks\(group,books,analyses,trigger="SCAN"\)\{.*?b\.watch=\[\];return newItems;\}'
+          m=re.findall(pat,e,flags=re.S); assert len(m)==1, len(m)
+          old=m[0]; assert 'entryIntelligencePromotionAllowed' not in old
+          new=old.replace('for(const a of analyses){','for(const a of analyses){const intelAllowed=entryIntelligencePromotionAllowed(a);',1)
+          new=new.replace('if(group!=="crypto"){if(a.status==="MARKET_SIGNAL"','if(group!=="crypto"){if(intelAllowed&&a.status==="MARKET_SIGNAL"',1)
+          new=new.replace('if(a.status==="MARKET"&&!duplicate','if(intelAllowed&&a.status==="MARKET"&&!duplicate',1)
+          new=new.replace('if(a.status==="LIMIT"&&!duplicate','if(intelAllowed&&a.status==="LIMIT"&&!duplicate',1)
+          e=e.replace(old,new,1); epath.write_text(e)
+
+          assert h.count('HUB-R11-ENTRY-INTEL-SHADOW')>=1
+          h=h.replace('HUB-R11-ENTRY-INTEL-SHADOW','HUB-R12-ENTRY-INTEL-ACTIVE')
+          h=h.replace('🧭 Entry Intel","callback_data":"intel"','🧭 Entry Intel V2","callback_data":"intel"')
+          pat=r'async function entryIntelText\(env\)\{.*?\}\nasync function engineJson'
+          m=re.findall(pat,h,flags=re.S); assert len(m)==1, len(m)
+          replacement='''async function entryIntelText(env){const rows=await getEntryIntelligenceShadow(env,12),x=rows[0]||null;if(!x)return "🧭 ENTRY INTELLIGENCE • V78-020\\n━━━━━━━━━━━━\\n⚪ Chưa có reasoning. Quét một thị trường để tạo dữ liệu.";const c=x.integrity?.core||{},m=x.integrity?.marketSpecific||{},blocks=x.integrity?.hardBlocks||[],r=x.reasoning||{},q=x.quality||{},pr=x.promotion||{};return ["🧭 ENTRY INTELLIGENCE • ACTIVE ADVISORY","━━━━━━━━━━━━",`${x.symbol||"—"} • ${String(x.market||"unknown").toUpperCase()} • ${x.existingDecision?.status||"UNKNOWN"}`,`⭐ Quality: ${q.grade||"?"} • ${q.score??"—"}/100 • ${pr.allowed===false?"⛔ BLOCK":"✅ ADMIT"}`,`📡 Freshness: ${x.quote?.freshness||"UNKNOWN"} • ${x.quote?.source||"—"}`,`🧩 Core: ${c.known||0}/${c.total||0} • Market context: ${m.known||0}/${m.total||0}`,`⏱ WHY NOW: ${r.whyNow||"UNKNOWN"}`,`📍 WHY PRICE: ${r.whyPrice||"UNKNOWN"}`,`🛑 WHY SL: ${r.whySl||"UNKNOWN"}`,`🏁 WHY TP/RR: ${r.whyTp||"UNKNOWN"}`,`❌ Invalidates: ${r.invalidates||"UNKNOWN"}`,blocks.length?`🚧 Blocks: ${blocks.join(", ")}`:"✅ No hard evidence block","","V78-020 affects Signal ranking/book admission only.","🏦 Hyro real-capital execution authority unchanged.","🤖 Claude production API remains PAUSED."].join("\\n");}
+async function engineJson'''
+          h=re.sub(pat,replacement,h,count=1,flags=re.S); hpath.write_text(h)
+          PY
+      - name: Validate V78-020
         shell: bash
         run: |
           set -euo pipefail
+          node --check cloudflare-worker/providers/entry-intelligence.js
           node --check cloudflare-worker/engine-v77168.js
           node --check cloudflare-worker/hub-v77171.js
-          test "$(grep -o 'MANUAL_TELEGRAM' cloudflare-worker/engine-v77168.js | wc -l)" -eq 2
-          test "$(grep -o 'MANUAL_API' cloudflare-worker/engine-v77168.js | wc -l)" -eq 2
-          test "$(grep -c 'HUB-R11-ENTRY-INTEL-SHADOW' cloudflare-worker/hub-v77171.js)" -eq 1
-          test "$(grep -c 'function verifyTelegram' cloudflare-worker/hub-v77171.js)" -eq 1
+          test "$(grep -o 'entryIntelligenceRankAdjustment' cloudflare-worker/engine-v77168.js | wc -l)" -ge 2
+          test "$(grep -o 'entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js | wc -l)" -ge 2
+          test "$(grep -c 'HUB-R12-ENTRY-INTEL-ACTIVE' cloudflare-worker/hub-v77171.js)" -ge 1
+          grep -q 'executionAuthority:"NONE"' cloudflare-worker/providers/entry-intelligence.js
+          ! grep -q 'runHyroAutoCycle' cloudflare-worker/providers/entry-intelligence.js
+          ! grep -q 'executeHyroPlan' cloudflare-worker/providers/entry-intelligence.js
           git diff --check
-          cat > docs/ai-coengineer/V78-017_VALIDATION.txt <<'EOF'
-          node --check engine-v77168.js = PASS
-          node --check hub-v77171.js = PASS
-          manual Telegram shadow evidence/intel instrumentation = PASS
-          manual API /analyze shadow evidence/intel instrumentation = PASS
-          returned decision object remains original `a` = PASS by exact route construction
-          Hub visible revision = HUB-R11-ENTRY-INTEL-SHADOW
-          verifyTelegram preserved = 1
-          git diff --check = PASS
-          V78-017_MANUAL_OBSERVABILITY_PASS
+          cat > docs/ai-coengineer/V78-020_VALIDATION.txt <<'EOF'
+          V78-020 BATCH VALIDATION PASS
+          provider syntax PASS
+          engine syntax PASS
+          hub syntax PASS
+          advisory ranking adjustment wired PASS
+          conservative new-book admission wired PASS
+          Hub R12 visible revision wired PASS
+          executionAuthority NONE retained PASS
+          Hyro execution functions absent from entry-intelligence provider PASS
+          TRADING_STATE/v775:books reset not introduced PASS
           EOF
-      - name: Release and record state
+      - name: Record state and release lock
         shell: bash
         run: |
+          cat >> docs/ai-coengineer/SHARED_STATE.md <<'EOF'
+
+          V78-020 — IMPLEMENTED / VALIDATED
+          - Entry Intelligence promoted from pure shadow to conservative advisory Signal ranking + new-book admission.
+          - Stale/missing quote or missing actionable entry/SL/target evidence fail closed for NEW Signal book admission.
+          - Market-specific completeness and quality grade influence advisory ranking only; existing status/threshold generation remains authoritative.
+          - Hub visible revision is HUB-R12-ENTRY-INTEL-ACTIVE with quality/admission status.
+          - Hyro real-capital execution/risk/freshness/structural-SL/news/account state are untouched.
+          - Claude production API remains paused; Claude.ai Web remains full co-engineer.
+          EOF
           cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
           # AI WRITE LOCK
 
           LOCKED: false
           OWNER: NONE
           SCOPE: NONE
-          RELEASED: 2026-08-19
+          RELEASED: 2026-08-20
           LAST_OWNER: CHATGPT
-          LAST_SCOPE: V78-017 manual Signal observability + Hub revision sync
-          RESULT: IMPLEMENTED. Manual /analyze and Telegram single-symbol decisions now append isolated DecisionEvidence + Entry Intelligence shadow records after the existing decision is finalized. Returned decision objects and trade authority remain unchanged. Hub visible UI revision updated only.
+          LAST_SCOPE: V78-020 Batch Entry Intelligence promotion + Hub R12 observability
+          RESULT: IMPLEMENTED / VALIDATED. Advisory Signal ranking and NEW book admission now consume conservative Entry Intelligence evidence. Hyro execution authority and all real-capital safety invariants remain untouched.
 
           Protocol:
           - Acquire a new lock before the next source write.
-          - Do not reset TRADING_STATE/v775:books.
-          - Do not weaken risk/freshness/structural-SL/news safeguards.
-          - Do not restore Futures/TK2.
+          - Never reset TRADING_STATE or delete/reset v775:books.
+          - Never weaken hard risk/freshness/structural-SL/news safeguards.
+          - Never restore Futures/TK2.
           - Binance20 remains NON_PRODUCTION / QUARANTINED.
-          - Claude production API remains paused; Claude.ai Web remains full co-engineer.
-          EOF
-          cat >> docs/ai-coengineer/SHARED_STATE.md <<'EOF'
-
-          V78-017 — IMPLEMENTED / VALIDATED
-          - Manual `/analyze` and Telegram single-symbol analysis now populate both V78-002 DecisionEvidence and V78-016 Entry Intelligence shadow records.
-          - Shadow writes are isolated in try/catch after `runSymbol()` returns and do not mutate the returned decision object.
-          - Hub visible UI revision is now `HUB-R11-ENTRY-INTEL-SHADOW` so deployment progress is visible.
-          - Claude production API remains paused; Claude.ai Web remains a full co-engineer.
+          - Production Claude API remains paused; Claude.ai Web remains full co-engineer.
           EOF
       - name: Commit and push
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "V78 Co-Engineer"
-          git config user.email "actions@users.noreply.github.com"
-          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-017_VALIDATION.txt docs/ai-coengineer/WRITE_LOCK.md docs/ai-coengineer/SHARED_STATE.md
-          git commit -m "V78-017 instrument manual analysis shadow observability"
-          git push
+          git config user.name 'V78 Co-Engineer'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-020_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-020 activate conservative Signal entry intelligence and Hub R12'
+          git push origin HEAD:main
