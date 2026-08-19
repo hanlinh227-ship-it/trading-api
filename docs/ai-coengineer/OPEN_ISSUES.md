@@ -16,7 +16,7 @@ Area: DOCS
 CURRENT_HANDOFF/MASTER sync was reviewed PASS with a wording clarification only; no production-risk constant changed.
 
 ## AI-003
-Status: OPEN — V78 IMPLEMENTATION-FORWARD WAVE 1 SCOPING
+Status: OPEN — V78 IMPLEMENTATION-FORWARD WAVE 1 ACTIVE
 Owners: CHATGPT + CLAUDE
 Area: FULL SYSTEM REDESIGN
 
@@ -33,51 +33,47 @@ Hyro news-gate status. Zero behavior. Funding is not hard-news clearance.
 DECISION-005 Binance20 NON_PRODUCTION source annotation applied. Claude reconfirmed quarantine intact: no production import in `index.js`, `hub-v77171.js`, or `engine-v77168.js`.
 
 ### V78-005 — RESOLVED
-Execution authority map. Claude PASS fresh against current production import/fetch/scheduled chain. Signal advisory has no order authority; Hyro is current safety-gated real-capital authority; Binance20 remains quarantined.
+Execution authority map. Signal advisory has no order authority; Hyro is current safety-gated real-capital authority; Binance20 remains quarantined.
 
 ### V78-006 — RESOLVED
-File: `docs/ai-coengineer/V78_BASELINE_VALIDATION_MATRIX.md`
-Initial commit: `a6c15364b4fc97eded938a480c5d6b990b8f0af4`
-Claude WARN corrections resolved at `b9f4226961e29df0d0f1d9a23954a16f15221fc7`.
-Added deterministic invariants:
-- G-09 AI tuning authoritative writes must pass `sanitize()`/equivalent bounded validation;
-- H-16 CHALLENGE execution environment remains forced DEMO through canonical `propEnv()` proxy/equivalent;
-- Section 9.1 `.github/workflows/validate-cloudflare-v77.yml` canonical-lock co-maintenance.
-Zero behavior.
+Baseline validation matrix including AI-tuning sanitize-only writes, CHALLENGE forced-DEMO propEnv invariant, and CI canonical-lock co-maintenance.
 
 ### V78-007 — RESOLVED
-File: `docs/ai-coengineer/V78_PROVIDER_CAPABILITY_INVENTORY.md`
-Commit: `27d800f452fe5476df7bac037a0d7a5f0dc76c51`
-Claude review completed in Wave 0 handoff. Zero behavior.
+Provider capability inventory including market-data, execution, AI, GitHub and Telegram capability classes.
 
-### V78-010 — RESOLVED
-Shared Bybit HMAC primitive deduplication only.
-Final source commit: `bf2fee88abbf11b850758e76f1bcac6453644ebf`.
-Lock release commit: `5dd75b7441a759dab72123a5ce6a8d5202abf7f6`.
-Claude independently verified PASS at HEAD `5dd75b7441a759dab72123a5ce6a8d5202abf7f6`: sole `hmacHex` source is `cloudflare-worker/providers/bybit-signed-client.js`; all four Hyro consumers import it exactly once; signer/public-call semantics, credentials, mode routing, GET/POST behavior, error shapes, endpoints and KV keys unchanged.
-`V78-010b` semantic signed-client unification remains explicitly DEFERRED / NOT STARTED.
+### V78-010 — RESOLVED / CLAUDE PASS
+Shared Bybit HMAC primitive only.
+Source: `bf2fee88abbf11b850758e76f1bcac6453644ebf`.
+`V78-010b` signed-client semantic unification remains DEFERRED / NOT STARTED because current clients differ in credentials/mode, error shape and GET/POST behavior.
 
-### V78-011 — SELECTED / SCOPING ONLY — NO IMPLEMENTATION YET
-Purpose: narrow Telegram transport deduplication without changing routing, keyboard/UI behavior, authorization, webhook verification, message text, execution authority or notification semantics.
+### V78-011 — RESOLVED / CLAUDE PASS
+Shared Telegram transport across the seven proven-equivalent consumers plus `providers/telegram-client.js`.
+Final migration HEAD in chain: `a27bd47c720476410a76ba78161ebc68b0a7aef2`.
+`engine-v77168.js` Telegram `fetchTimeout` path intentionally excluded and deferred to V78-054.
+`verifyTelegram` / webhook-secret handling intentionally untouched and deferred to V78-081.
 
-Exact candidate scope to verify before implementation:
-- `cloudflare-worker/index.js`: Telegram transport helpers `tg(...)` and `send(...)` only.
-- Search current production modules for byte-/behavior-equivalent Telegram Bot API transport helpers before choosing any additional consumer.
-- New shared provider, if equivalence is proven: `cloudflare-worker/providers/telegram-client.js` (transport primitive only).
-- `verifyTelegram` / webhook-secret verification is OUT OF SCOPE and deferred to V78-081.
+### V78-012 — RESOLVED / CLAUDE PASS
+Shared ATR primitive only: `providers/indicators.js:atrFromHLC` backs `engine-v77168.js` and `hyro-scanner.js`.
+Source commit: `c60cfe8532fdd10b9eca1f7bbefe5024b1d3da70`.
+Claude executed equivalence tests across multiple candle lengths/periods and confirmed byte-equivalent outputs to both originals.
+EMA and RSI intentionally remain local because their implementations are genuinely non-equivalent.
 
-Acceptance criteria before implementation can be marked IMPLEMENTABLE:
-1. Inventory every production Telegram Bot API call and classify transport vs presentation/routing/auth.
-2. Extract only proven-equivalent HTTP transport; preserve exact method, URL, headers, JSON body, response parsing and thrown-error behavior per migrated caller.
-3. Do not move keyboards, callback routing, command parsing, chat authorization, webhook-secret verification, notification dedupe/KV keys, or trading logic.
-4. No Telegram message text or reply_markup behavior changes.
-5. No Hyro execution/risk/freshness/news/SL behavior changes.
-6. `verifyTelegram` remains untouched and deferred to V78-081.
-7. `node --check` every changed JS file; grep/search confirms no unintended duplicate of the migrated transport remains and no production import cycle is introduced.
-8. Acquire WRITE_LOCK only after Claude/ChatGPT confirms exact consumers and replacement blocks from fresh HEAD.
+### V78-013 — RESOLVED / AWAITING CLAUDE FRESH-HEAD REVIEW
+Shared Anthropic Messages API transport only.
+Source chain:
+- provider: `60d0e37f833b02e51ceee6c2a6c467ca3f76d9f8`
+- dual AI migration: `22a872e0ed9a945f68f97a505182a28b930a0738`
+- reviewer + final source migration: `fed3556b5a01504107f84da3fd43fad5f52db0e9`
+- deterministic validation evidence: `88e2fc617f3ae1103296267e3b3ade89ca2c987f`
+New shared primitive: `cloudflare-worker/providers/anthropic-client.js` with `anthropicMessagesRequest` + `extractAnthropicText`.
+DECISION-004 boundaries preserved: reviewer max_tokens policy, budget/cooldown, prompts and rich review parser remain separate from dual-ai fixed-token policy, lease arbiter, BUG_HUNT prompt and its different parser.
+Validation file: `docs/ai-coengineer/V78-013_VALIDATION.txt` = PASS.
+
+### V78-014 — NEXT / NOT STARTED
+DecisionEvidence shadow-populate. Requires fresh Claude scope/patch after V78-013 independent verification. No production execution-authority change is allowed; initial population must be shadow/observability-first.
 
 ### Phase 2 integrity
 Full verbatim Claude V78-001..V78-091 backlog/target HUB menu remains unavailable in retrievable GitHub material; do not fabricate it.
 
 ### Wave 1
-OPEN with V78-011 selected for exact-scope verification only. No V78-011 source implementation has begun. V78-010b remains deferred. High-risk idempotency, cancel scoping, account-KV migration, engine split, production hard-news enforcement and multi-account live enablement remain separately scoped.
+ACTIVE. V78-010 through V78-013 have real source implementations. Next is V78-014 shadow DecisionEvidence. High-risk idempotency, cancel scoping, account-KV migration, engine split, production hard-news enforcement and multi-account live enablement remain separately scoped and must not be bundled into low-risk refactors.
