@@ -1,152 +1,118 @@
 # V78 IMPLEMENTATION — WAVE 0 / WAVE 1
 
-Status: OPEN — V78-001 RESOLVED / V78-002 IMPLEMENTED DOCUMENTATION-ONLY / OTHER EXACT PHASE-2 MAPPINGS PARTIALLY AVAILABLE
-Owner: CHATGPT
-Reviewer: CLAUDE
+Status: OPEN — V78-001 RESOLVED / V78-002 RESOLVED / V78-003 IMPLEMENTED AWAITING CLAUDE REVIEW
+Owner: CHATGPT + CLAUDE
+Reviewer/integrator: reciprocal under implementation-forward protocol
 Production source authorization: NONE until each source issue receives an explicit WRITE_LOCK scope.
 
 ## Integrity constraint
-The complete Claude Phase 2 verbatim body is still not present in the GitHub bus or otherwise retrievable by ChatGPT in the current session context. ChatGPT therefore must not invent or falsely attribute the missing HUB menu, Claude-exact DecisionEvidence body, V78-003..V78-091 semantics, or acceptance criteria.
+The complete Claude Phase 2 verbatim body is still not present in the GitHub bus or otherwise retrievable by ChatGPT in the current session context. ChatGPT therefore must not invent or falsely attribute the missing target HUB menu or the unexpanded V78-004..V78-091 semantics/acceptance criteria.
 
-Confirmed exact facts supplied by the user in the current handoff:
-- `V78-001` = KV key registry, documentation-only, ZERO_BEHAVIOR.
-- `V78-002` = DecisionEvidence schema documentation, ZERO_BEHAVIOR.
-- mapping contains new IDs `V78-005`, `V78-006`, `V78-007`, `V78-014`.
+Confirmed exact facts currently available:
+- `V78-001` = KV key registry, documentation-only, ZERO_BEHAVIOR — RESOLVED.
+- `V78-002` = DecisionEvidence schema documentation, ZERO_BEHAVIOR — RESOLVED after Claude DecisionAction correction.
+- `V78-003` = Hyro news-gate status documentation, ZERO_BEHAVIOR — IMPLEMENTED, awaiting Claude accuracy review.
+- mapping contains IDs `V78-005`, `V78-006`, `V78-007`, `V78-014`.
 - `V78-011` scope is narrowed; `verifyTelegram` work is deferred to `V78-081`.
 
-Until Claude's complete exact body is accessible, these ID constraints are preserved without guessing unexpanded semantics.
-
-## Wave 0 — Documentation, invariants, evidence baselines
+## Wave 0
 
 ### V78-001 — KV/state registry baseline — RESOLVED
-Former provisional ID: `V78-W0-02`
-Class: ZERO_BEHAVIOR
 Scope: `docs/ai-coengineer/V78_KV_KEY_REGISTRY.md`
-Objective: canonical inventory of current `TRADING_STATE` key prefixes, owners, lifecycle, readers/writers, migration criticality and non-production state.
-Hard constraints: do not rename/delete keys; preserve `v775:books`; no runtime behavior change.
-Initial implementation commit: `a45b8f33672273ac0ae580bf6f6bee54a8c63893`
-Claude review result: WARN — missing `v771816:signal:auto_notify:{sig}` plus two Claude-reviewer TTL description inaccuracies.
+Class: ZERO_BEHAVIOR
+Initial commit: `a45b8f33672273ac0ae580bf6f6bee54a8c63893`
 Correction commit: `b451a086336bb9a6e59dc84031a1866e46e591da`
-Resolved corrections:
-- added `v771816:signal:auto_notify:{sig}` from `engine-v77168.js:notifySignalPlans`, TTL 1800s;
-- corrected `v771821:claude:daily_system_audit` TTL to 2592000s;
-- corrected `v771822:claude:overnight` TTL to 172800s.
-Acceptance: no runtime behavior/state mutation; registry accuracy corrected.
-Rollback: documentation-only revert.
+Claude WARN corrections incorporated:
+- `v771816:signal:auto_notify:{sig}` TTL 1800s;
+- Claude daily audit TTL 2592000s;
+- Claude overnight TTL 172800s.
+No runtime behavior/state mutation.
 
-### V78-002 — DecisionEvidence schema — IMPLEMENTED DOCUMENTATION ONLY
-Class: ZERO_BEHAVIOR
+### V78-002 — DecisionEvidence schema — RESOLVED
 Scope: `docs/ai-coengineer/V78_DECISION_EVIDENCE_SCHEMA.md`
-Objective: define the shared evidence contract for provider identity, timestamps, freshness, observations, hard gates, decision reason, data integrity and execution suitability without changing any current decision or execution path.
-Implementation commit: `0bbe2b0c0fccda112820cad1f8f65121ba0d8fce`
-Integrity condition: because Claude's verbatim Phase 2 schema body is not retrievable by ChatGPT, this implementation is explicitly not claimed as a verbatim Claude paste. Claude must compare field-for-field and provide exact corrections before future source/shadow adoption.
-Acceptance: schema documentation exists; no source consumer, KV key, risk gate, order or Telegram behavior changed.
-Rollback: documentation-only revert.
-
-### W0-PENDING — Ingest exact Claude Phase 2 backlog
 Class: ZERO_BEHAVIOR
+Initial commit: `0bbe2b0c0fccda112820cad1f8f65121ba0d8fce`
+Resolution commit: `e432a62cac0031223fda889a9b1a28dfe34ff18c`
+Claude correction incorporated in `DecisionAction`:
+- `MARKET_PLAN`
+- `LIMIT_PLAN`
+- `DATA_BLOCK`
+while preserving generic lifecycle actions.
+Source-alignment note documents plan labels vs execution authority and DATA_BLOCK vs NO_TRADE.
+No runtime consumer, KV key, risk gate, order, Telegram route or provider call changed.
+
+### V78-003 — Hyro news-gate status — IMPLEMENTED / REVIEW REQUIRED
+Scope: `docs/ai-coengineer/V78_HYRO_NEWS_GATE_STATUS.md`
+Class: ZERO_BEHAVIOR
+Commit: `b31aa8f364ba1fc7b210d0a1289bccd0f4df2125`
+Objective: document current source-backed gap between funding/microstructure controls and authoritative hard-news/event-risk clearance.
+Current finding:
+- funding protection exists in `hyro-scanner.js:fundingView`;
+- OI/long-short/orderbook/spread context exists in `hyro-market-context.js`;
+- reviewed Hyro path does not prove an authoritative hard-news provider/gate before execution;
+- funding must not be used as a news substitute per DECISION-009.
+No production enforcement was added.
+
+### W0-PENDING — Exact Claude Phase 2 ingest
 Scope: `docs/ai-coengineer/V78_CLAUDE_PHASE2_BACKLOG.md`
-Objective: persist exact target HUB menu, exact Claude DecisionEvidence schema body and exact V78-001..V78-091 body from Claude chat.
-Dependency: Claude exact body must actually be available to ChatGPT.
+Objective: persist the exact target HUB menu and exact V78-001..V78-091 backlog when the actual verbatim body is accessible to ChatGPT.
 Acceptance: no invented items; all Claude IDs and acceptance criteria preserved exactly.
-Rollback: documentation-only revert.
 
 ### W0-PENDING — Execution authority map
 Class: ZERO_BEHAVIOR
-Scope: documentation/evidence only.
-Objective: record that current `engine-v77168.js` Signal crypto path uses unsigned public GET market-data calls and does not call `/v5/order/create`; Hyro is current real-capital execution path; Binance20 remains NON_PRODUCTION.
-Acceptance: exact file/function evidence included; no behavior change.
-Rollback: documentation-only revert.
-Exact V78 ID: PENDING CLAUDE BODY.
+Objective: durable documentation that Signal crypto analysis uses public GET data and Hyro is current real-capital execution authority; Binance20 remains NON_PRODUCTION.
+Exact V78 ID: awaiting verbatim backlog.
 
 ### V78-041 — News/funding policy baseline — DECISION RECORDED
-Class: ZERO_BEHAVIOR design decision
-Scope: `DECISIONS.md` / design docs only.
-Objective: distinguish hard-news/context gate from funding-rate microstructure/carry gate before implementation.
-Acceptance: funding cannot be documented as equivalent to news; executable-order policy is explicit.
 Decision: `DECISION-009`.
-Production enforcement: explicitly deferred to a later scoped issue.
+Funding remains separate carry/microstructure evidence; future executable hard-news enforcement requires its own scoped source issue.
 
 ### W0-PENDING — Deterministic baseline validation matrix
 Class: ZERO_BEHAVIOR
-Scope: docs/test-plan only.
-Objective: define expected behavior for Signal advisory paths, Hyro execution, state continuity, Telegram routing, health and provider freshness before mechanical refactors.
-Acceptance: covers no-reset, no-duplicate, no fabricated data, no accidental real order from Signal and current Hyro execution authority.
-Exact V78 ID: PENDING CLAUDE BODY.
+Objective: define expected Signal advisory, Hyro execution, state-continuity, Telegram, health and provider-freshness behavior before mechanical source refactors.
+Exact V78 ID: awaiting verbatim backlog.
 
-## Wave 1 — Low-risk shared primitives, one issue at a time
+## Implementation-forward co-engineering
+Canonical governance now allows BOTH ChatGPT and Claude to implement scoped issues directly:
+- if an issue/handoff is `IMPLEMENTABLE` / `IMPLEMENT_NOW` or has exact objective + file/function scope + acceptance criteria;
+- if WRITE_LOCK is free;
+- if no unresolved BLOCK applies;
+- after refreshing HEAD;
+- within the exact lock only.
 
-No Wave 1 source change is authorized or started by V78-001/V78-002.
+The implementing AI commits, releases lock and hands exact SHA to the other AI for independent review. If Claude's connector remains 403/read-only, Claude returns exact patch/change material and ChatGPT applies it immediately without reopening design discussion.
 
-### Provisional — Shared Bybit signed-client extraction
-Class: ZERO_BEHAVIOR
-Candidate scope: extract repeated Bybit HMAC/sign/request primitives used by Hyro execution/manager/review/demo without changing endpoints, params, risk or order semantics.
-Dependency: V78-001 + baseline validation.
-Risk: MEDIUM because private execution client is touched.
-Validation: request canonicalization/signature parity; endpoint/verb/body equality; no state changes.
-Rollback: restore per-module clients.
-Reviewer skills: trading-regression-tester, hyro-execution-auditor, trading-risk-guardian.
-Exact V78 ID: PENDING CLAUDE BODY.
+## Wave 1 — NOT STARTED
+No Wave 1 source change has been started in V78-001..V78-003.
 
-### Provisional — Shared Telegram HTTP client extraction
-Class: ZERO_BEHAVIOR
-Candidate scope: centralize Telegram Bot API POST transport only; no router/menu/dedupe change.
-Important mapping constraint: if this work overlaps `V78-011`, its scope must remain narrowed; `verifyTelegram` consolidation is **not** part of V78-011 and is deferred to `V78-081`.
-Risk: LOW/MEDIUM.
-Validation: method/payload/chat/error parity.
-Rollback: revert helper/import migration.
-Exact V78 ID: PENDING CLAUDE BODY except the V78-011/V78-081 constraint above.
+Candidate concepts remain deferred until their exact V78 IDs/scopes are confirmed or the current handoff explicitly marks them IMPLEMENT_NOW:
+- shared Bybit signed client;
+- shared Telegram HTTP transport;
+- DecisionEvidence shadow source adoption;
+- Binance20 NON_PRODUCTION quarantine marker;
+- provider capability inventory.
 
-### Provisional — DecisionEvidence shadow foundation
-Class: SHADOW
-Candidate scope: source implementation of the accepted V78-002 schema only after Claude field-level review; populate/log alongside existing decisions without gating or replacing behavior.
-Dependency: V78-002 reviewer PASS/correction + validation baseline.
-Risk: LOW if shadow-only.
-Validation: timestamp/provider/freshness/source identity, deterministic serialization, no decision changes.
-Rollback: remove shadow generation.
-Exact V78 source-adoption ID: PENDING CLAUDE BODY.
-
-### Provisional — Binance20 NON_PRODUCTION quarantine marker
-Class: ZERO_BEHAVIOR
-Scope: documentation/module header/validator guard only; no execution wiring.
-Dependency: execution-authority map.
-Risk: LOW.
-Validation: production import chain unchanged; no credentials/routes/scheduled handlers added.
-Rollback: revert marker/guard.
-Exact V78 ID: PENDING CLAUDE BODY.
-
-### Provisional — Shared provider capability inventory
-Class: ZERO_BEHAVIOR
-Scope: documentation/schema only.
-Objective: map Twelve Data, Massive, Bybit public/private, OKX, Binance public/USDM, KuCoin, Gate, Telegram and AI dependencies into capability contracts before AccountAdapter work.
-Dependency: V78-001 + execution-authority map.
-Risk: LOW.
-Exact V78 ID: PENDING CLAUDE BODY.
-
-## Confirmed Phase 2 ID constraints awaiting verbatim expansion
+## Confirmed Phase 2 constraints awaiting verbatim expansion
 
 | ID | Confirmed constraint |
 |---|---|
-| `V78-001` | KV key registry; RESOLVED after Claude WARN corrections. |
-| `V78-002` | DecisionEvidence schema documentation; implemented zero-behavior, awaiting Claude field-level comparison. |
-| `V78-005` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
-| `V78-006` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
-| `V78-007` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
-| `V78-014` | New exact Phase 2 ID exists; semantic body must come from Claude exact resend. |
-| `V78-011` | Scope narrowed; must not absorb `verifyTelegram` consolidation. |
-| `V78-081` | `verifyTelegram` consolidation is deferred here. |
+| `V78-001` | KV key registry — RESOLVED. |
+| `V78-002` | DecisionEvidence schema doc — RESOLVED. |
+| `V78-003` | Hyro news-gate status doc — implemented, review pending. |
+| `V78-005` | Exact Phase 2 ID exists; semantic body awaiting exact ingest. |
+| `V78-006` | Exact Phase 2 ID exists; semantic body awaiting exact ingest. |
+| `V78-007` | Exact Phase 2 ID exists; semantic body awaiting exact ingest. |
+| `V78-014` | Exact Phase 2 ID exists; semantic body awaiting exact ingest. |
+| `V78-011` | Scope narrowed; must not absorb `verifyTelegram`. |
+| `V78-081` | `verifyTelegram` consolidation belongs here. |
 
-## One-writer execution rule
-Only ONE source issue may hold WRITE_LOCK at a time. V78-001 and V78-002 are documentation-only issues. Completing them does not authorize any Wave 1 source issue.
-
-## Explicitly deferred
-Do not start yet:
-- any Wave 1 source extraction without exact mapping/review;
+## Explicitly deferred from current authorization
+Do not start without a dedicated scoped issue/lock:
 - idempotency redesign;
 - cancel scoping;
 - account-KV migration;
 - engine split;
 - HUB router cutover;
 - NotificationBus behavior cutover;
-- hard-news gate production enforcement;
+- hard-news production enforcement;
 - multi-account live enablement.
