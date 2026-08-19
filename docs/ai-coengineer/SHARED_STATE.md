@@ -122,3 +122,11 @@ V78-021 — RESOLVED / DEPLOYED
 - REQUIRED/QUALITY/OPTIONAL classification remains unchanged; visibility only.
 - Exact validation: docs/ai-coengineer/V78-021_VALIDATION.txt.
 - hubSummary() separate inline top-7 builder remains deferred as a separate follow-up.
+
+
+V78-022 — RESOLVED / DEPLOYED
+- Source commit: c41706b99b6357cc829b1a6ded0b7240bc428a27.
+- Cloudflare Version ID: c60f16a4-6a93-4ba3-aab3-a450b0188de0.
+- Hub cross-market top-setups rendering now shows Entry Intelligence Quality grade/score, blocked-promotion reasons, and Freshness.
+- hubRank/runHub top selection unchanged; rendering-only.
+- Validation: docs/ai-coengineer/V78-022_VALIDATION.txt.

@@ -1,0 +1,3575 @@
+V78-022 HUB TOP-7 QUALITY VISIBILITY
+sourceCommit: c41706b99b6357cc829b1a6ded0b7240bc428a27
+cloudflareVersionId: c60f16a4-6a93-4ba3-aab3-a450b0188de0
+engine pre-patch blob guard: 58741958b9b8a646b54fe6b7b4045cacef8d843f PASS
+node --check: PASS
+hubSummary definitions: 1 PASS
+Entry Intelligence render surfaces: singleAnalysisText + watchLine + hubSummary PASS
+hubKeyboard/runHub/sendHub definitions: 3 PASS
+hubRank/runHub top sort/slice unchanged by exact source diff: PASS
+scope: additive rendering only; no decision/ranking/admission/KV/endpoint change
+REQUIRED/QUALITY/OPTIONAL taxonomy: unchanged
+verifiedAt: 2026-08-19T23:37:41.707972Z
+
+=== PRE-PATCH HUB EVIDENCE ===
+{
+  "ok": true,
+  "version": "V77.16.20",
+  "books": {
+    "forex": {
+      "marketActive": [],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "crypto": {
+      "marketActive": [
+        {
+          "id": "LDOUSDT-1787175043556",
+          "symbol": "LDOUSDT",
+          "side": "LONG",
+          "entry": 0.337,
+          "sl": 0.32074514285714284,
+          "tp": 0.3797,
+          "tp1": 0.3797,
+          "tp2": 0.3797,
+          "targetRR": 2.63,
+          "origin": "MARKET",
+          "discoveredBy": "AUTO_CRON",
+          "status": "ACTIVE",
+          "openedAt": 1787175043556,
+          "createdAt": 1787175043556,
+          "engineOpened": "V77.16.20",
+          "engine": "V77.16.20",
+          "source": "Bybit Spot",
+          "executionVerified": true,
+          "executionAuthority": "Bybit Spot",
+          "quantity": 15380.018280250262,
+          "riskUsd": 250
+        }
+      ],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "metal": {
+      "marketActive": [],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "index": {
+      "marketActive": [],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "updatedAt": 1787182636108
+  },
+  "hubScanId": "hub-1787182618436-bbz6hu",
+  "scannedAt": "2026-08-19T23:36:58.436Z",
+  "runs": {
+    "crypto": {
+      "ok": true,
+      "version": "V77.16.20",
+      "group": "crypto",
+      "scanId": "crypto-1787182618579-4a3vf2",
+      "scannedAt": "2026-08-19T23:36:58.579Z",
+      "requested": 61,
+      "broadOk": 60,
+      "fresh": 60,
+      "deepRequested": 3,
+      "deepOk": 3,
+      "newCount": 0,
+      "newItems": [],
+      "scanTrigger": "API_HUB",
+      "analyses": [
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "ZECUSDT",
+          "market": "crypto",
+          "side": "LONG",
+          "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+          "canonicalStage": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+          "planned": {
+            "entry": 558.33,
+            "sl": 547.4134857142858,
+            "risk": 10.916514285714243,
+            "roomR": 2.013463219552028,
+            "targetRR": 2.01,
+            "tp1": 580.31,
+            "tp1RR": 2.01,
+            "tp2": 580.31,
+            "tp2RR": 2.01,
+            "mode": "LIMIT",
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_ONLY",
+            "indicative": true,
+            "conditional": true,
+            "currentPrice": 563.58,
+            "entryStyle": "STRUCTURAL_FALLBACK_LIMIT",
+            "minQualityRR": 1.3,
+            "rrQualityPass": true,
+            "geometry": {
+              "pass": true,
+              "distanceATR": 0.7,
+              "correctSide": true,
+              "notInvalid": true
+            },
+            "confluence": 1,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Gate Spot Analysis",
+          "method": {
+            "symbol": "ZECUSDT",
+            "type": "crypto",
+            "side": "LONG",
+            "methodFit": 91,
+            "activeMode": "RELATIVE",
+            "allowedModes": [
+              "RELATIVE"
+            ],
+            "routeScores": {
+              "RELATIVE": 91
+            },
+            "htfPass": true,
+            "route": {
+              "allowed": [
+                "RELATIVE"
+              ],
+              "activeMode": "RELATIVE",
+              "scores": {
+                "RELATIVE": 91
+              },
+              "side": "LONG",
+              "htfPass": true,
+              "votes": {
+                "bull": 3,
+                "bear": 0,
+                "side": "LONG"
+              },
+              "trendSide": "LONG",
+              "ctxSide": "LONG",
+              "ctxMag": 1,
+              "extension": 1,
+              "emaDistATR": 2.09
+            },
+            "profile": "PRIVACY",
+            "families": [
+              "RELATIVE"
+            ],
+            "sessionFit": 15,
+            "why": [
+              "dynamic regime: RELATIVE",
+              "BTC-relative context"
+            ],
+            "drivers": [
+              "privacy regulation",
+              "network adoption",
+              "exchange access",
+              "BTC regime"
+            ]
+          },
+          "knowledge": {
+            "canonicalSymbol": "ZECUSDT",
+            "allowedModes": [
+              "RELATIVE"
+            ],
+            "riskATR": 0.75,
+            "newsProfile": {
+              "profile": "PRIVACY",
+              "symbolSpecific": [
+                "ZEC project/protocol announcements",
+                "ZEC token unlock/supply schedule",
+                "ZEC exchange/on-chain/whale flows"
+              ],
+              "profileDrivers": [
+                "privacy regulation",
+                "network adoption",
+                "exchange access",
+                "BTC regime"
+              ],
+              "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 91,
+              "developmentWinRatePct": 80.22,
+              "developmentMeanR": 0.604
+            }
+          },
+          "context": {
+            "relativeStrength": 3.7300000000000004,
+            "benchmark": "BTC",
+            "score": 8.73
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "ZEC",
+              "source": "V69",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "RELATIVE",
+              "families": [
+                "RELATIVE"
+              ],
+              "profile": "PRIVACY",
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 12,
+              "riskATR": 0.75,
+              "newsProfile": {
+                "profile": "PRIVACY",
+                "symbolSpecific": [
+                  "ZEC project/protocol announcements",
+                  "ZEC token unlock/supply schedule",
+                  "ZEC exchange/on-chain/whale flows"
+                ],
+                "profileDrivers": [
+                  "privacy regulation",
+                  "network adoption",
+                  "exchange access",
+                  "BTC regime"
+                ],
+                "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            },
+            "m15Location": {
+              "valid": false,
+              "type": "NO_LOCATION",
+              "level": null
+            },
+            "m5Trigger": {
+              "valid": false,
+              "mss": false,
+              "displacement": false,
+              "retest": false,
+              "level": 564.92
+            }
+          },
+          "score": 66,
+          "entryPolicy": {
+            "profile": "RELATIVE",
+            "location": {
+              "pass": true,
+              "mode": "RELATIVE_CONTINUATION_ZONE",
+              "soft": true,
+              "level": 559.708089188199
+            },
+            "trigger": {
+              "pass": false,
+              "pending": false,
+              "mode": "RELATIVE",
+              "level": 564.92
+            }
+          }
+        },
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "WLDUSDT",
+          "market": "crypto",
+          "side": "LONG",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "canonicalStage": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "planned": {
+            "entry": 0.35741334981803086,
+            "sl": 0.35198885714285716,
+            "risk": 0.005424492675173698,
+            "roomR": 2.596860393311909,
+            "targetRR": 2.6,
+            "tp1": 0.3715,
+            "tp1RR": 2.6,
+            "tp2": 0.3715,
+            "tp2RR": 2.6,
+            "mode": "LIMIT",
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_ONLY",
+            "indicative": true,
+            "currentPrice": 0.3602,
+            "entryStyle": "STRUCTURE_RETEST_LIMIT",
+            "minQualityRR": 1.35,
+            "rrQualityPass": true,
+            "geometry": {
+              "pass": true,
+              "distanceATR": 0.57,
+              "correctSide": true,
+              "notInvalid": true
+            },
+            "confluence": 1,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Gate Spot Analysis",
+          "method": {
+            "symbol": "WLDUSDT",
+            "type": "crypto",
+            "side": "NEUTRAL",
+            "methodFit": 47,
+            "activeMode": "TREND",
+            "allowedModes": [
+              "TREND"
+            ],
+            "routeScores": {
+              "TREND": 47
+            },
+            "htfPass": false,
+            "route": {
+              "allowed": [
+                "TREND"
+              ],
+              "activeMode": "TREND",
+              "scores": {
+                "TREND": 47
+              },
+              "side": "NEUTRAL",
+              "htfPass": false,
+              "votes": {
+                "bull": 1,
+                "bear": 1,
+                "side": "NEUTRAL"
+              },
+              "trendSide": "NEUTRAL",
+              "ctxSide": "LONG",
+              "ctxMag": 1,
+              "extension": 1,
+              "emaDistATR": 1.702
+            },
+            "profile": "AI_IDENTITY",
+            "families": [
+              "D1TREND"
+            ],
+            "sessionFit": 42,
+            "why": [
+              "dynamic regime: TREND",
+              "BTC-relative context"
+            ],
+            "drivers": [
+              "project announcements",
+              "token unlocks/listings",
+              "exchange/on-chain flows",
+              "BTC regime"
+            ]
+          },
+          "knowledge": {
+            "canonicalSymbol": "WLDUSDT",
+            "allowedModes": [
+              "TREND"
+            ],
+            "riskATR": 0.7,
+            "newsProfile": {
+              "profile": "AI_IDENTITY",
+              "symbolSpecific": [
+                "WLD project/protocol announcements",
+                "WLD token unlock/supply schedule",
+                "WLD exchange/on-chain/whale flows"
+              ],
+              "profileDrivers": [
+                "project announcements",
+                "token unlocks/listings",
+                "exchange/on-chain flows",
+                "BTC regime"
+              ],
+              "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 91,
+              "developmentWinRatePct": 80.22,
+              "developmentMeanR": 0.604
+            }
+          },
+          "context": {
+            "relativeStrength": 5.9399999999999995,
+            "benchmark": "BTC",
+            "score": 10
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "WLD",
+              "source": "V69",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "D1TREND",
+              "families": [
+                "D1TREND"
+              ],
+              "profile": "AI_IDENTITY",
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 6,
+              "riskATR": 0.7,
+              "newsProfile": {
+                "profile": "AI_IDENTITY",
+                "symbolSpecific": [
+                  "WLD project/protocol announcements",
+                  "WLD token unlock/supply schedule",
+                  "WLD exchange/on-chain/whale flows"
+                ],
+                "profileDrivers": [
+                  "project announcements",
+                  "token unlocks/listings",
+                  "exchange/on-chain flows",
+                  "BTC regime"
+                ],
+                "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            }
+          },
+          "score": 40,
+          "entryPolicy": {
+            "profile": "TREND",
+            "conditional": true,
+            "rescue": true
+          }
+        },
+        {
+          "ok": true,
+          "status": "WATCH",
+          "action": "WATCH",
+          "symbol": "ARBUSDT",
+          "market": "crypto",
+          "side": "SHORT",
+          "reason": "M15_LOCATION_REQUIRED",
+          "canonicalStage": "M15_LOCATION_REQUIRED",
+          "engine": "V77.16.20",
+          "source": "Gate Spot Analysis",
+          "method": {
+            "symbol": "ARBUSDT",
+            "type": "crypto",
+            "side": "SHORT",
+            "methodFit": 93,
+            "activeMode": "MEAN_REVERSION",
+            "allowedModes": [
+              "MEAN_REVERSION",
+              "RELATIVE"
+            ],
+            "routeScores": {
+              "RELATIVE": 91,
+              "MEAN_REVERSION": 93
+            },
+            "htfPass": true,
+            "route": {
+              "allowed": [
+                "MEAN_REVERSION",
+                "RELATIVE"
+              ],
+              "activeMode": "MEAN_REVERSION",
+              "scores": {
+                "RELATIVE": 91,
+                "MEAN_REVERSION": 93
+              },
+              "side": "SHORT",
+              "htfPass": true,
+              "votes": {
+                "bull": 2,
+                "bear": 1,
+                "side": "LONG"
+              },
+              "trendSide": "LONG",
+              "ctxSide": "LONG",
+              "ctxMag": 1,
+              "extension": 1,
+              "emaDistATR": 5.533
+            },
+            "profile": "L2",
+            "families": [
+              "L2",
+              "MEANREV",
+              "BREADTH"
+            ],
+            "sessionFit": 92,
+            "why": [
+              "dynamic regime: MEAN_REVERSION",
+              "BTC-relative context"
+            ],
+            "drivers": [
+              "rollup activity/fees",
+              "token unlocks",
+              "Ethereum roadmap",
+              "L2 relative strength"
+            ]
+          },
+          "knowledge": {
+            "canonicalSymbol": "ARBUSDT",
+            "allowedModes": [
+              "RELATIVE",
+              "MEAN_REVERSION"
+            ],
+            "riskATR": 1,
+            "newsProfile": {
+              "profile": "L2",
+              "symbolSpecific": [
+                "ARB project/protocol announcements",
+                "ARB token unlock/supply schedule",
+                "ARB exchange/on-chain/whale flows"
+              ],
+              "profileDrivers": [
+                "rollup activity/fees",
+                "token unlocks",
+                "Ethereum roadmap",
+                "L2 relative strength"
+              ],
+              "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 91,
+              "developmentWinRatePct": 87.91,
+              "developmentMeanR": 0.758
+            }
+          },
+          "context": {
+            "relativeStrength": 12.940000000000001,
+            "benchmark": "BTC",
+            "score": 10
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "ARB",
+              "source": "V70",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "L2",
+              "families": [
+                "L2",
+                "MEANREV",
+                "BREADTH"
+              ],
+              "profile": "L2",
+              "entryMode": "ROUTER",
+              "rr": null,
+              "signalHourUTC": 0,
+              "riskATR": 1,
+              "newsProfile": {
+                "profile": "L2",
+                "symbolSpecific": [
+                  "ARB project/protocol announcements",
+                  "ARB token unlock/supply schedule",
+                  "ARB exchange/on-chain/whale flows"
+                ],
+                "profileDrivers": [
+                  "rollup activity/fees",
+                  "token unlocks",
+                  "Ethereum roadmap",
+                  "L2 relative strength"
+                ],
+                "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            },
+            "m15Location": {
+              "valid": false,
+              "type": "NO_LOCATION",
+              "level": null
+            }
+          },
+          "score": 53,
+          "entryPolicy": {
+            "profile": "MEAN_REVERSION",
+            "location": {
+              "pass": false,
+              "mode": "MEAN_REVERSION",
+              "soft": false
+            }
+          }
+        }
+      ],
+      "diagnostics": {
+        "broadErrors": [
+          {
+            "symbol": "IPUSDT",
+            "reason": "EXACT_SPOT_UNAVAILABLE"
+          }
+        ],
+        "deepAttempted": 5,
+        "skippedUnavailable": [],
+        "liveSymbolsSkipped": [
+          "LDOUSDT"
+        ],
+        "tdCreditsLeft": null,
+        "tdCreditsAtStart": null,
+        "tdCreditsPlanned": 0
+      },
+      "elapsedMs": 8634
+    },
+    "forex": {
+      "ok": true,
+      "version": "V77.16.20",
+      "group": "forex",
+      "scanId": "forex-1787182627986-u73mdc",
+      "scannedAt": "2026-08-19T23:37:07.986Z",
+      "requested": 28,
+      "broadOk": 28,
+      "fresh": 28,
+      "deepRequested": 3,
+      "deepOk": 3,
+      "newCount": 0,
+      "newItems": [],
+      "scanTrigger": "API_HUB",
+      "analyses": [
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "NZDJPY",
+          "market": "forex",
+          "side": "LONG",
+          "reason": "EXECUTION_QUOTE_REQUIRED",
+          "canonicalStage": "EXECUTION_QUOTE_REQUIRED",
+          "planned": {
+            "entry": 93.94139,
+            "sl": 93.76554657142857,
+            "tp1": 94.41576,
+            "tp2": 94.41576,
+            "targetRR": 2.7,
+            "tp1RR": 2.7,
+            "tp2RR": 2.7,
+            "roomR": 2.697683978604427,
+            "mode": "LIMIT",
+            "currentPrice": 93.97144,
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_ONLY",
+            "entryStyle": "MSS_DISPLACEMENT_LIMIT",
+            "adaptive": false,
+            "minQualityRR": 1.3,
+            "rrQualityPass": true,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Twelve Data",
+          "method": {
+            "symbol": "NZDJPY",
+            "type": "forex",
+            "side": "LONG",
+            "methodFit": 71,
+            "activeMode": "TREND",
+            "allowedModes": [
+              "TREND"
+            ],
+            "routeScores": {
+              "TREND": 71
+            },
+            "htfPass": true,
+            "route": {
+              "allowed": [
+                "TREND"
+              ],
+              "activeMode": "TREND",
+              "scores": {
+                "TREND": 71
+              },
+              "side": "LONG",
+              "htfPass": true,
+              "votes": {
+                "bull": 2,
+                "bear": 0,
+                "side": "LONG"
+              },
+              "trendSide": "LONG",
+              "ctxSide": "LONG",
+              "ctxMag": 0.074,
+              "extension": 0.893,
+              "emaDistATR": 0.772
+            },
+            "profile": "FAST",
+            "families": [
+              "FAST"
+            ],
+            "sessionFit": 33,
+            "why": [
+              "dynamic regime: TREND",
+              "currency-strength context"
+            ],
+            "drivers": []
+          },
+          "knowledge": {
+            "canonicalSymbol": "NZDJPY",
+            "allowedModes": [
+              "TREND"
+            ],
+            "riskATR": 0.7,
+            "newsProfile": {
+              "base": {
+                "NZD": [
+                  "RBNZ",
+                  "New Zealand CPI/jobs",
+                  "China growth",
+                  "dairy/commodity risk sentiment"
+                ]
+              },
+              "quote": {
+                "JPY": [
+                  "BoJ",
+                  "MoF intervention risk",
+                  "Japan/Tokyo CPI",
+                  "JGB yields + global risk"
+                ]
+              },
+              "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 65,
+              "developmentWinRatePct": 84.62,
+              "developmentMeanR": 0.708
+            }
+          },
+          "context": {
+            "baseStrength": 0.059617948283456644,
+            "quoteStrength": -0.029174637435628845,
+            "strengthDiff": 0.08879258571908549,
+            "strengthNormalizedSigned": 0.1479876428651425,
+            "session": "OFF_PEAK",
+            "sessionScore": 0.35,
+            "score": 5.335428860020159
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "NZDJPY",
+              "source": "V66",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "FAST",
+              "families": [
+                "FAST"
+              ],
+              "profile": null,
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 7,
+              "riskATR": 0.7,
+              "newsProfile": {
+                "base": {
+                  "NZD": [
+                    "RBNZ",
+                    "New Zealand CPI/jobs",
+                    "China growth",
+                    "dairy/commodity risk sentiment"
+                  ]
+                },
+                "quote": {
+                  "JPY": [
+                    "BoJ",
+                    "MoF intervention risk",
+                    "Japan/Tokyo CPI",
+                    "JGB yields + global risk"
+                  ]
+                },
+                "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            },
+            "m15Location": {
+              "valid": true,
+              "type": "BREAKOUT_RETEST",
+              "level": 93.91705
+            },
+            "m5Trigger": {
+              "valid": false,
+              "mss": true,
+              "displacement": true,
+              "retest": false,
+              "level": 93.94139
+            },
+            "news": {
+              "cleared": true,
+              "soft": true,
+              "source": "SOFT_NO_EXTERNAL_NEWS_FEED"
+            }
+          },
+          "score": 76,
+          "setupReady": true,
+          "analysisQuote": {
+            "source": "Twelve Data",
+            "requestedSymbol": "NZDJPY",
+            "providerSymbol": "NZD/JPY",
+            "price": 93.97862,
+            "providerTimestamp": 1787182620,
+            "quoteAgeSec": 10,
+            "fresh": true,
+            "bid": null,
+            "ask": null,
+            "executionVerified": false,
+            "analysisOnly": true
+          },
+          "entryPolicy": {
+            "profile": "TREND",
+            "location": {
+              "pass": true,
+              "mode": "STRUCTURAL_LOCATION",
+              "soft": false,
+              "level": 93.91705
+            },
+            "trigger": {
+              "pass": true,
+              "pending": true,
+              "mode": "MSS_DISPLACEMENT_LIMIT",
+              "level": 93.94139
+            }
+          }
+        },
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "EURAUD",
+          "market": "forex",
+          "side": "LONG",
+          "reason": "M15_LOCATION_REQUIRED",
+          "canonicalStage": "M15_LOCATION_REQUIRED",
+          "planned": {
+            "entry": 1.63798,
+            "sl": 1.6366847714285713,
+            "risk": 0.0012952285714287193,
+            "roomR": 3.1268612269205134,
+            "targetRR": 3.13,
+            "tp1": 1.64102,
+            "tp1RR": 2.35,
+            "tp2": 1.64203,
+            "tp2RR": 3.13,
+            "mode": "LIMIT",
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_PLUS_EXTENSION",
+            "indicative": true,
+            "conditional": true,
+            "currentPrice": 1.63848,
+            "entryStyle": "STRUCTURAL_FALLBACK_LIMIT",
+            "minQualityRR": 1.3,
+            "rrQualityPass": true,
+            "geometry": {
+              "pass": true,
+              "distanceATR": 0.52,
+              "correctSide": true,
+              "notInvalid": true
+            },
+            "confluence": 2,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Twelve Data",
+          "method": {
+            "symbol": "EURAUD",
+            "type": "forex",
+            "side": "LONG",
+            "methodFit": 69,
+            "activeMode": "TREND",
+            "allowedModes": [
+              "TREND"
+            ],
+            "routeScores": {
+              "TREND": 69
+            },
+            "htfPass": true,
+            "route": {
+              "allowed": [
+                "TREND"
+              ],
+              "activeMode": "TREND",
+              "scores": {
+                "TREND": 69
+              },
+              "side": "LONG",
+              "htfPass": true,
+              "votes": {
+                "bull": 2,
+                "bear": 1,
+                "side": "LONG"
+              },
+              "trendSide": "LONG",
+              "ctxSide": "SHORT",
+              "ctxMag": 0.026,
+              "extension": 0.41,
+              "emaDistATR": 0.306
+            },
+            "profile": "FAST",
+            "families": [
+              "FAST"
+            ],
+            "sessionFit": 75,
+            "why": [
+              "dynamic regime: TREND",
+              "currency-strength context"
+            ],
+            "drivers": []
+          },
+          "knowledge": {
+            "canonicalSymbol": "EURAUD",
+            "allowedModes": [
+              "TREND"
+            ],
+            "riskATR": 0.45,
+            "newsProfile": {
+              "base": {
+                "EUR": [
+                  "ECB",
+                  "Eurozone CPI/PMI",
+                  "Germany growth/industrial data",
+                  "EU fiscal/political risk"
+                ]
+              },
+              "quote": {
+                "AUD": [
+                  "RBA",
+                  "Australia CPI/jobs",
+                  "China PMIs/growth",
+                  "iron ore + risk sentiment"
+                ]
+              },
+              "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 65,
+              "developmentWinRatePct": 86.15,
+              "developmentMeanR": 0.723
+            }
+          },
+          "context": {
+            "baseStrength": -0.0187857842315414,
+            "quoteStrength": 0.012256263866691779,
+            "strengthDiff": -0.03104204809823318,
+            "strengthNormalizedSigned": -0.05173674683038864,
+            "session": "OFF_PEAK",
+            "sessionScore": 0.35,
+            "score": 5.09287660201258
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "EURAUD",
+              "source": "V66",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "FAST",
+              "families": [
+                "FAST"
+              ],
+              "profile": null,
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 2,
+              "riskATR": 0.45,
+              "newsProfile": {
+                "base": {
+                  "EUR": [
+                    "ECB",
+                    "Eurozone CPI/PMI",
+                    "Germany growth/industrial data",
+                    "EU fiscal/political risk"
+                  ]
+                },
+                "quote": {
+                  "AUD": [
+                    "RBA",
+                    "Australia CPI/jobs",
+                    "China PMIs/growth",
+                    "iron ore + risk sentiment"
+                  ]
+                },
+                "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            },
+            "m15Location": {
+              "valid": false,
+              "type": "NO_LOCATION",
+              "level": null
+            }
+          },
+          "score": 44,
+          "entryPolicy": {
+            "profile": "TREND",
+            "location": {
+              "pass": false,
+              "mode": "TREND",
+              "soft": false,
+              "level": 1.63884451170323
+            }
+          }
+        },
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "AUDCAD",
+          "market": "forex",
+          "side": "NEUTRAL",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "canonicalStage": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "planned": {
+            "entry": 0.98441,
+            "sl": 0.9857378285714287,
+            "risk": 0.0013278285714286575,
+            "roomR": 2.6584757068466915,
+            "targetRR": 2.66,
+            "tp1": 0.98167,
+            "tp1RR": 2.06,
+            "tp2": 0.98088,
+            "tp2RR": 2.66,
+            "mode": "LIMIT",
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_PLUS_EXTENSION",
+            "indicative": true,
+            "currentPrice": 0.98398,
+            "entryStyle": "STRUCTURE_RETEST_LIMIT",
+            "minQualityRR": 1.3,
+            "rrQualityPass": true,
+            "geometry": {
+              "pass": true,
+              "distanceATR": 0.89,
+              "correctSide": true,
+              "notInvalid": true
+            },
+            "confluence": 1,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Twelve Data",
+          "method": {
+            "symbol": "AUDCAD",
+            "type": "forex",
+            "side": "NEUTRAL",
+            "methodFit": 46,
+            "activeMode": "GENERIC",
+            "allowedModes": [
+              "GENERIC"
+            ],
+            "routeScores": {
+              "GENERIC": 46
+            },
+            "htfPass": false,
+            "route": {
+              "allowed": [
+                "GENERIC"
+              ],
+              "activeMode": "GENERIC",
+              "scores": {
+                "GENERIC": 46
+              },
+              "side": "NEUTRAL",
+              "htfPass": false,
+              "votes": {
+                "bull": 1,
+                "bear": 1,
+                "side": "NEUTRAL"
+              },
+              "trendSide": "NEUTRAL",
+              "ctxSide": "NEUTRAL",
+              "ctxMag": 0.018,
+              "extension": 0.566,
+              "emaDistATR": 0.293
+            },
+            "profile": "MED",
+            "families": [
+              "MED"
+            ],
+            "sessionFit": 83,
+            "why": [
+              "dynamic regime: GENERIC",
+              "currency-strength context"
+            ],
+            "drivers": []
+          },
+          "knowledge": {
+            "canonicalSymbol": "AUDCAD",
+            "allowedModes": [
+              "GENERIC"
+            ],
+            "riskATR": 0.5,
+            "newsProfile": {
+              "base": {
+                "AUD": [
+                  "RBA",
+                  "Australia CPI/jobs",
+                  "China PMIs/growth",
+                  "iron ore + risk sentiment"
+                ]
+              },
+              "quote": {
+                "CAD": [
+                  "BoC",
+                  "Canada CPI/jobs/GDP",
+                  "WTI crude oil",
+                  "US-Canada growth differential"
+                ]
+              },
+              "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 65,
+              "developmentWinRatePct": 87.69,
+              "developmentMeanR": 0.754
+            }
+          },
+          "context": {
+            "baseStrength": 0.012256263866691779,
+            "quoteStrength": -0.009337901572146586,
+            "strengthDiff": 0.021594165438838367,
+            "strengthNormalizedSigned": 0.03599027573139728,
+            "session": "OFF_PEAK",
+            "sessionScore": 0.35,
+            "score": 5.053195494843122
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "AUDCAD",
+              "source": "V66",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "MED",
+              "families": [
+                "MED"
+              ],
+              "profile": null,
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 1,
+              "riskATR": 0.5,
+              "newsProfile": {
+                "base": {
+                  "AUD": [
+                    "RBA",
+                    "Australia CPI/jobs",
+                    "China PMIs/growth",
+                    "iron ore + risk sentiment"
+                  ]
+                },
+                "quote": {
+                  "CAD": [
+                    "BoC",
+                    "Canada CPI/jobs/GDP",
+                    "WTI crude oil",
+                    "US-Canada growth differential"
+                  ]
+                },
+                "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            }
+          },
+          "score": 40,
+          "entryPolicy": {
+            "profile": "GENERIC",
+            "conditional": true,
+            "rescue": true
+          }
+        }
+      ],
+      "diagnostics": {
+        "broadErrors": [],
+        "deepAttempted": 6,
+        "skippedUnavailable": [],
+        "liveSymbolsSkipped": [],
+        "tdCreditsLeft": 1,
+        "tdCreditsAtStart": 54,
+        "tdCreditsPlanned": 40
+      },
+      "elapsedMs": 6014
+    },
+    "metal": {
+      "ok": true,
+      "version": "V77.16.20",
+      "status": "RATE_BUDGET_WAIT",
+      "group": "metal",
+      "scanId": "metal-1787182634719-zzgw96",
+      "scannedAt": "2026-08-19T23:37:14.719Z",
+      "requested": 2,
+      "broadOk": 0,
+      "fresh": 0,
+      "deepRequested": 0,
+      "deepOk": 0,
+      "newCount": 0,
+      "analyses": [],
+      "retryAfterSec": 48,
+      "diagnostics": {
+        "broadErrors": [],
+        "tdCreditsLeft": 0,
+        "tdCreditsRequired": 10
+      },
+      "elapsedMs": 112
+    },
+    "index": {
+      "ok": true,
+      "version": "V77.16.20",
+      "group": "index",
+      "scanId": "index-1787182635509-jcgfgt",
+      "scannedAt": "2026-08-19T23:37:15.509Z",
+      "requested": 5,
+      "broadOk": 0,
+      "fresh": 0,
+      "deepRequested": 0,
+      "deepOk": 0,
+      "newCount": 0,
+      "newItems": [],
+      "scanTrigger": "API_HUB",
+      "analyses": [],
+      "diagnostics": {
+        "broadErrors": [
+          {
+            "symbol": "NAS100",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "US30",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "US500",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "DEX",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "JP225",
+            "reason": "H1_UNAVAILABLE"
+          }
+        ],
+        "deepAttempted": 0,
+        "skippedUnavailable": [],
+        "liveSymbolsSkipped": [],
+        "tdCreditsLeft": 0,
+        "tdCreditsAtStart": 0,
+        "tdCreditsPlanned": 0
+      },
+      "elapsedMs": 855
+    }
+  },
+  "top": [
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "NZDJPY",
+      "market": "forex",
+      "side": "LONG",
+      "reason": "EXECUTION_QUOTE_REQUIRED",
+      "canonicalStage": "EXECUTION_QUOTE_REQUIRED",
+      "planned": {
+        "entry": 93.94139,
+        "sl": 93.76554657142857,
+        "tp1": 94.41576,
+        "tp2": 94.41576,
+        "targetRR": 2.7,
+        "tp1RR": 2.7,
+        "tp2RR": 2.7,
+        "roomR": 2.697683978604427,
+        "mode": "LIMIT",
+        "currentPrice": 93.97144,
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_ONLY",
+        "entryStyle": "MSS_DISPLACEMENT_LIMIT",
+        "adaptive": false,
+        "minQualityRR": 1.3,
+        "rrQualityPass": true,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Twelve Data",
+      "method": {
+        "symbol": "NZDJPY",
+        "type": "forex",
+        "side": "LONG",
+        "methodFit": 71,
+        "activeMode": "TREND",
+        "allowedModes": [
+          "TREND"
+        ],
+        "routeScores": {
+          "TREND": 71
+        },
+        "htfPass": true,
+        "route": {
+          "allowed": [
+            "TREND"
+          ],
+          "activeMode": "TREND",
+          "scores": {
+            "TREND": 71
+          },
+          "side": "LONG",
+          "htfPass": true,
+          "votes": {
+            "bull": 2,
+            "bear": 0,
+            "side": "LONG"
+          },
+          "trendSide": "LONG",
+          "ctxSide": "LONG",
+          "ctxMag": 0.074,
+          "extension": 0.893,
+          "emaDistATR": 0.772
+        },
+        "profile": "FAST",
+        "families": [
+          "FAST"
+        ],
+        "sessionFit": 33,
+        "why": [
+          "dynamic regime: TREND",
+          "currency-strength context"
+        ],
+        "drivers": []
+      },
+      "knowledge": {
+        "canonicalSymbol": "NZDJPY",
+        "allowedModes": [
+          "TREND"
+        ],
+        "riskATR": 0.7,
+        "newsProfile": {
+          "base": {
+            "NZD": [
+              "RBNZ",
+              "New Zealand CPI/jobs",
+              "China growth",
+              "dairy/commodity risk sentiment"
+            ]
+          },
+          "quote": {
+            "JPY": [
+              "BoJ",
+              "MoF intervention risk",
+              "Japan/Tokyo CPI",
+              "JGB yields + global risk"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 65,
+          "developmentWinRatePct": 84.62,
+          "developmentMeanR": 0.708
+        }
+      },
+      "context": {
+        "baseStrength": 0.059617948283456644,
+        "quoteStrength": -0.029174637435628845,
+        "strengthDiff": 0.08879258571908549,
+        "strengthNormalizedSigned": 0.1479876428651425,
+        "session": "OFF_PEAK",
+        "sessionScore": 0.35,
+        "score": 5.335428860020159
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "NZDJPY",
+          "source": "V66",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "FAST",
+          "families": [
+            "FAST"
+          ],
+          "profile": null,
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 7,
+          "riskATR": 0.7,
+          "newsProfile": {
+            "base": {
+              "NZD": [
+                "RBNZ",
+                "New Zealand CPI/jobs",
+                "China growth",
+                "dairy/commodity risk sentiment"
+              ]
+            },
+            "quote": {
+              "JPY": [
+                "BoJ",
+                "MoF intervention risk",
+                "Japan/Tokyo CPI",
+                "JGB yields + global risk"
+              ]
+            },
+            "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        },
+        "m15Location": {
+          "valid": true,
+          "type": "BREAKOUT_RETEST",
+          "level": 93.91705
+        },
+        "m5Trigger": {
+          "valid": false,
+          "mss": true,
+          "displacement": true,
+          "retest": false,
+          "level": 93.94139
+        },
+        "news": {
+          "cleared": true,
+          "soft": true,
+          "source": "SOFT_NO_EXTERNAL_NEWS_FEED"
+        }
+      },
+      "score": 76,
+      "setupReady": true,
+      "analysisQuote": {
+        "source": "Twelve Data",
+        "requestedSymbol": "NZDJPY",
+        "providerSymbol": "NZD/JPY",
+        "price": 93.97862,
+        "providerTimestamp": 1787182620,
+        "quoteAgeSec": 10,
+        "fresh": true,
+        "bid": null,
+        "ask": null,
+        "executionVerified": false,
+        "analysisOnly": true
+      },
+      "entryPolicy": {
+        "profile": "TREND",
+        "location": {
+          "pass": true,
+          "mode": "STRUCTURAL_LOCATION",
+          "soft": false,
+          "level": 93.91705
+        },
+        "trigger": {
+          "pass": true,
+          "pending": true,
+          "mode": "MSS_DISPLACEMENT_LIMIT",
+          "level": 93.94139
+        }
+      },
+      "group": "forex",
+      "scanId": "forex-1787182627986-u73mdc",
+      "scannedAt": "2026-08-19T23:37:07.986Z"
+    },
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "EURAUD",
+      "market": "forex",
+      "side": "LONG",
+      "reason": "M15_LOCATION_REQUIRED",
+      "canonicalStage": "M15_LOCATION_REQUIRED",
+      "planned": {
+        "entry": 1.63798,
+        "sl": 1.6366847714285713,
+        "risk": 0.0012952285714287193,
+        "roomR": 3.1268612269205134,
+        "targetRR": 3.13,
+        "tp1": 1.64102,
+        "tp1RR": 2.35,
+        "tp2": 1.64203,
+        "tp2RR": 3.13,
+        "mode": "LIMIT",
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_PLUS_EXTENSION",
+        "indicative": true,
+        "conditional": true,
+        "currentPrice": 1.63848,
+        "entryStyle": "STRUCTURAL_FALLBACK_LIMIT",
+        "minQualityRR": 1.3,
+        "rrQualityPass": true,
+        "geometry": {
+          "pass": true,
+          "distanceATR": 0.52,
+          "correctSide": true,
+          "notInvalid": true
+        },
+        "confluence": 2,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Twelve Data",
+      "method": {
+        "symbol": "EURAUD",
+        "type": "forex",
+        "side": "LONG",
+        "methodFit": 69,
+        "activeMode": "TREND",
+        "allowedModes": [
+          "TREND"
+        ],
+        "routeScores": {
+          "TREND": 69
+        },
+        "htfPass": true,
+        "route": {
+          "allowed": [
+            "TREND"
+          ],
+          "activeMode": "TREND",
+          "scores": {
+            "TREND": 69
+          },
+          "side": "LONG",
+          "htfPass": true,
+          "votes": {
+            "bull": 2,
+            "bear": 1,
+            "side": "LONG"
+          },
+          "trendSide": "LONG",
+          "ctxSide": "SHORT",
+          "ctxMag": 0.026,
+          "extension": 0.41,
+          "emaDistATR": 0.306
+        },
+        "profile": "FAST",
+        "families": [
+          "FAST"
+        ],
+        "sessionFit": 75,
+        "why": [
+          "dynamic regime: TREND",
+          "currency-strength context"
+        ],
+        "drivers": []
+      },
+      "knowledge": {
+        "canonicalSymbol": "EURAUD",
+        "allowedModes": [
+          "TREND"
+        ],
+        "riskATR": 0.45,
+        "newsProfile": {
+          "base": {
+            "EUR": [
+              "ECB",
+              "Eurozone CPI/PMI",
+              "Germany growth/industrial data",
+              "EU fiscal/political risk"
+            ]
+          },
+          "quote": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 65,
+          "developmentWinRatePct": 86.15,
+          "developmentMeanR": 0.723
+        }
+      },
+      "context": {
+        "baseStrength": -0.0187857842315414,
+        "quoteStrength": 0.012256263866691779,
+        "strengthDiff": -0.03104204809823318,
+        "strengthNormalizedSigned": -0.05173674683038864,
+        "session": "OFF_PEAK",
+        "sessionScore": 0.35,
+        "score": 5.09287660201258
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "EURAUD",
+          "source": "V66",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "FAST",
+          "families": [
+            "FAST"
+          ],
+          "profile": null,
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 2,
+          "riskATR": 0.45,
+          "newsProfile": {
+            "base": {
+              "EUR": [
+                "ECB",
+                "Eurozone CPI/PMI",
+                "Germany growth/industrial data",
+                "EU fiscal/political risk"
+              ]
+            },
+            "quote": {
+              "AUD": [
+                "RBA",
+                "Australia CPI/jobs",
+                "China PMIs/growth",
+                "iron ore + risk sentiment"
+              ]
+            },
+            "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        },
+        "m15Location": {
+          "valid": false,
+          "type": "NO_LOCATION",
+          "level": null
+        }
+      },
+      "score": 44,
+      "entryPolicy": {
+        "profile": "TREND",
+        "location": {
+          "pass": false,
+          "mode": "TREND",
+          "soft": false,
+          "level": 1.63884451170323
+        }
+      },
+      "group": "forex",
+      "scanId": "forex-1787182627986-u73mdc",
+      "scannedAt": "2026-08-19T23:37:07.986Z"
+    },
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "ZECUSDT",
+      "market": "crypto",
+      "side": "LONG",
+      "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+      "canonicalStage": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+      "planned": {
+        "entry": 558.33,
+        "sl": 547.4134857142858,
+        "risk": 10.916514285714243,
+        "roomR": 2.013463219552028,
+        "targetRR": 2.01,
+        "tp1": 580.31,
+        "tp1RR": 2.01,
+        "tp2": 580.31,
+        "tp2RR": 2.01,
+        "mode": "LIMIT",
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_ONLY",
+        "indicative": true,
+        "conditional": true,
+        "currentPrice": 563.58,
+        "entryStyle": "STRUCTURAL_FALLBACK_LIMIT",
+        "minQualityRR": 1.3,
+        "rrQualityPass": true,
+        "geometry": {
+          "pass": true,
+          "distanceATR": 0.7,
+          "correctSide": true,
+          "notInvalid": true
+        },
+        "confluence": 1,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Gate Spot Analysis",
+      "method": {
+        "symbol": "ZECUSDT",
+        "type": "crypto",
+        "side": "LONG",
+        "methodFit": 91,
+        "activeMode": "RELATIVE",
+        "allowedModes": [
+          "RELATIVE"
+        ],
+        "routeScores": {
+          "RELATIVE": 91
+        },
+        "htfPass": true,
+        "route": {
+          "allowed": [
+            "RELATIVE"
+          ],
+          "activeMode": "RELATIVE",
+          "scores": {
+            "RELATIVE": 91
+          },
+          "side": "LONG",
+          "htfPass": true,
+          "votes": {
+            "bull": 3,
+            "bear": 0,
+            "side": "LONG"
+          },
+          "trendSide": "LONG",
+          "ctxSide": "LONG",
+          "ctxMag": 1,
+          "extension": 1,
+          "emaDistATR": 2.09
+        },
+        "profile": "PRIVACY",
+        "families": [
+          "RELATIVE"
+        ],
+        "sessionFit": 15,
+        "why": [
+          "dynamic regime: RELATIVE",
+          "BTC-relative context"
+        ],
+        "drivers": [
+          "privacy regulation",
+          "network adoption",
+          "exchange access",
+          "BTC regime"
+        ]
+      },
+      "knowledge": {
+        "canonicalSymbol": "ZECUSDT",
+        "allowedModes": [
+          "RELATIVE"
+        ],
+        "riskATR": 0.75,
+        "newsProfile": {
+          "profile": "PRIVACY",
+          "symbolSpecific": [
+            "ZEC project/protocol announcements",
+            "ZEC token unlock/supply schedule",
+            "ZEC exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "privacy regulation",
+            "network adoption",
+            "exchange access",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 91,
+          "developmentWinRatePct": 80.22,
+          "developmentMeanR": 0.604
+        }
+      },
+      "context": {
+        "relativeStrength": 3.7300000000000004,
+        "benchmark": "BTC",
+        "score": 8.73
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "ZEC",
+          "source": "V69",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "RELATIVE",
+          "families": [
+            "RELATIVE"
+          ],
+          "profile": "PRIVACY",
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 12,
+          "riskATR": 0.75,
+          "newsProfile": {
+            "profile": "PRIVACY",
+            "symbolSpecific": [
+              "ZEC project/protocol announcements",
+              "ZEC token unlock/supply schedule",
+              "ZEC exchange/on-chain/whale flows"
+            ],
+            "profileDrivers": [
+              "privacy regulation",
+              "network adoption",
+              "exchange access",
+              "BTC regime"
+            ],
+            "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        },
+        "m15Location": {
+          "valid": false,
+          "type": "NO_LOCATION",
+          "level": null
+        },
+        "m5Trigger": {
+          "valid": false,
+          "mss": false,
+          "displacement": false,
+          "retest": false,
+          "level": 564.92
+        }
+      },
+      "score": 66,
+      "entryPolicy": {
+        "profile": "RELATIVE",
+        "location": {
+          "pass": true,
+          "mode": "RELATIVE_CONTINUATION_ZONE",
+          "soft": true,
+          "level": 559.708089188199
+        },
+        "trigger": {
+          "pass": false,
+          "pending": false,
+          "mode": "RELATIVE",
+          "level": 564.92
+        }
+      },
+      "group": "crypto",
+      "scanId": "crypto-1787182618579-4a3vf2",
+      "scannedAt": "2026-08-19T23:36:58.579Z"
+    },
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "WLDUSDT",
+      "market": "crypto",
+      "side": "LONG",
+      "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+      "canonicalStage": "HTF_METHOD_ALIGNMENT_REQUIRED",
+      "planned": {
+        "entry": 0.35741334981803086,
+        "sl": 0.35198885714285716,
+        "risk": 0.005424492675173698,
+        "roomR": 2.596860393311909,
+        "targetRR": 2.6,
+        "tp1": 0.3715,
+        "tp1RR": 2.6,
+        "tp2": 0.3715,
+        "tp2RR": 2.6,
+        "mode": "LIMIT",
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_ONLY",
+        "indicative": true,
+        "currentPrice": 0.3602,
+        "entryStyle": "STRUCTURE_RETEST_LIMIT",
+        "minQualityRR": 1.35,
+        "rrQualityPass": true,
+        "geometry": {
+          "pass": true,
+          "distanceATR": 0.57,
+          "correctSide": true,
+          "notInvalid": true
+        },
+        "confluence": 1,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Gate Spot Analysis",
+      "method": {
+        "symbol": "WLDUSDT",
+        "type": "crypto",
+        "side": "NEUTRAL",
+        "methodFit": 47,
+        "activeMode": "TREND",
+        "allowedModes": [
+          "TREND"
+        ],
+        "routeScores": {
+          "TREND": 47
+        },
+        "htfPass": false,
+        "route": {
+          "allowed": [
+            "TREND"
+          ],
+          "activeMode": "TREND",
+          "scores": {
+            "TREND": 47
+          },
+          "side": "NEUTRAL",
+          "htfPass": false,
+          "votes": {
+            "bull": 1,
+            "bear": 1,
+            "side": "NEUTRAL"
+          },
+          "trendSide": "NEUTRAL",
+          "ctxSide": "LONG",
+          "ctxMag": 1,
+          "extension": 1,
+          "emaDistATR": 1.702
+        },
+        "profile": "AI_IDENTITY",
+        "families": [
+          "D1TREND"
+        ],
+        "sessionFit": 42,
+        "why": [
+          "dynamic regime: TREND",
+          "BTC-relative context"
+        ],
+        "drivers": [
+          "project announcements",
+          "token unlocks/listings",
+          "exchange/on-chain flows",
+          "BTC regime"
+        ]
+      },
+      "knowledge": {
+        "canonicalSymbol": "WLDUSDT",
+        "allowedModes": [
+          "TREND"
+        ],
+        "riskATR": 0.7,
+        "newsProfile": {
+          "profile": "AI_IDENTITY",
+          "symbolSpecific": [
+            "WLD project/protocol announcements",
+            "WLD token unlock/supply schedule",
+            "WLD exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "project announcements",
+            "token unlocks/listings",
+            "exchange/on-chain flows",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 91,
+          "developmentWinRatePct": 80.22,
+          "developmentMeanR": 0.604
+        }
+      },
+      "context": {
+        "relativeStrength": 5.9399999999999995,
+        "benchmark": "BTC",
+        "score": 10
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "WLD",
+          "source": "V69",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "D1TREND",
+          "families": [
+            "D1TREND"
+          ],
+          "profile": "AI_IDENTITY",
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 6,
+          "riskATR": 0.7,
+          "newsProfile": {
+            "profile": "AI_IDENTITY",
+            "symbolSpecific": [
+              "WLD project/protocol announcements",
+              "WLD token unlock/supply schedule",
+              "WLD exchange/on-chain/whale flows"
+            ],
+            "profileDrivers": [
+              "project announcements",
+              "token unlocks/listings",
+              "exchange/on-chain flows",
+              "BTC regime"
+            ],
+            "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        }
+      },
+      "score": 40,
+      "entryPolicy": {
+        "profile": "TREND",
+        "conditional": true,
+        "rescue": true
+      },
+      "group": "crypto",
+      "scanId": "crypto-1787182618579-4a3vf2",
+      "scannedAt": "2026-08-19T23:36:58.579Z"
+    },
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "AUDCAD",
+      "market": "forex",
+      "side": "NEUTRAL",
+      "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+      "canonicalStage": "HTF_METHOD_ALIGNMENT_REQUIRED",
+      "planned": {
+        "entry": 0.98441,
+        "sl": 0.9857378285714287,
+        "risk": 0.0013278285714286575,
+        "roomR": 2.6584757068466915,
+        "targetRR": 2.66,
+        "tp1": 0.98167,
+        "tp1RR": 2.06,
+        "tp2": 0.98088,
+        "tp2RR": 2.66,
+        "mode": "LIMIT",
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_PLUS_EXTENSION",
+        "indicative": true,
+        "currentPrice": 0.98398,
+        "entryStyle": "STRUCTURE_RETEST_LIMIT",
+        "minQualityRR": 1.3,
+        "rrQualityPass": true,
+        "geometry": {
+          "pass": true,
+          "distanceATR": 0.89,
+          "correctSide": true,
+          "notInvalid": true
+        },
+        "confluence": 1,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Twelve Data",
+      "method": {
+        "symbol": "AUDCAD",
+        "type": "forex",
+        "side": "NEUTRAL",
+        "methodFit": 46,
+        "activeMode": "GENERIC",
+        "allowedModes": [
+          "GENERIC"
+        ],
+        "routeScores": {
+          "GENERIC": 46
+        },
+        "htfPass": false,
+        "route": {
+          "allowed": [
+            "GENERIC"
+          ],
+          "activeMode": "GENERIC",
+          "scores": {
+            "GENERIC": 46
+          },
+          "side": "NEUTRAL",
+          "htfPass": false,
+          "votes": {
+            "bull": 1,
+            "bear": 1,
+            "side": "NEUTRAL"
+          },
+          "trendSide": "NEUTRAL",
+          "ctxSide": "NEUTRAL",
+          "ctxMag": 0.018,
+          "extension": 0.566,
+          "emaDistATR": 0.293
+        },
+        "profile": "MED",
+        "families": [
+          "MED"
+        ],
+        "sessionFit": 83,
+        "why": [
+          "dynamic regime: GENERIC",
+          "currency-strength context"
+        ],
+        "drivers": []
+      },
+      "knowledge": {
+        "canonicalSymbol": "AUDCAD",
+        "allowedModes": [
+          "GENERIC"
+        ],
+        "riskATR": 0.5,
+        "newsProfile": {
+          "base": {
+            "AUD": [
+              "RBA",
+              "Australia CPI/jobs",
+              "China PMIs/growth",
+              "iron ore + risk sentiment"
+            ]
+          },
+          "quote": {
+            "CAD": [
+              "BoC",
+              "Canada CPI/jobs/GDP",
+              "WTI crude oil",
+              "US-Canada growth differential"
+            ]
+          },
+          "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 65,
+          "developmentWinRatePct": 87.69,
+          "developmentMeanR": 0.754
+        }
+      },
+      "context": {
+        "baseStrength": 0.012256263866691779,
+        "quoteStrength": -0.009337901572146586,
+        "strengthDiff": 0.021594165438838367,
+        "strengthNormalizedSigned": 0.03599027573139728,
+        "session": "OFF_PEAK",
+        "sessionScore": 0.35,
+        "score": 5.053195494843122
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "AUDCAD",
+          "source": "V66",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "MED",
+          "families": [
+            "MED"
+          ],
+          "profile": null,
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 1,
+          "riskATR": 0.5,
+          "newsProfile": {
+            "base": {
+              "AUD": [
+                "RBA",
+                "Australia CPI/jobs",
+                "China PMIs/growth",
+                "iron ore + risk sentiment"
+              ]
+            },
+            "quote": {
+              "CAD": [
+                "BoC",
+                "Canada CPI/jobs/GDP",
+                "WTI crude oil",
+                "US-Canada growth differential"
+              ]
+            },
+            "liveRoutingRule": "Use point-in-time news for both currencies to choose/confirm the pair-specific regime/action; because daily trading is mandatory, news changes execution geometry rather than creating NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        }
+      },
+      "score": 40,
+      "entryPolicy": {
+        "profile": "GENERIC",
+        "conditional": true,
+        "rescue": true
+      },
+      "group": "forex",
+      "scanId": "forex-1787182627986-u73mdc",
+      "scannedAt": "2026-08-19T23:37:07.986Z"
+    },
+    {
+      "ok": true,
+      "status": "WATCH",
+      "action": "WATCH",
+      "symbol": "ARBUSDT",
+      "market": "crypto",
+      "side": "SHORT",
+      "reason": "M15_LOCATION_REQUIRED",
+      "canonicalStage": "M15_LOCATION_REQUIRED",
+      "engine": "V77.16.20",
+      "source": "Gate Spot Analysis",
+      "method": {
+        "symbol": "ARBUSDT",
+        "type": "crypto",
+        "side": "SHORT",
+        "methodFit": 93,
+        "activeMode": "MEAN_REVERSION",
+        "allowedModes": [
+          "MEAN_REVERSION",
+          "RELATIVE"
+        ],
+        "routeScores": {
+          "RELATIVE": 91,
+          "MEAN_REVERSION": 93
+        },
+        "htfPass": true,
+        "route": {
+          "allowed": [
+            "MEAN_REVERSION",
+            "RELATIVE"
+          ],
+          "activeMode": "MEAN_REVERSION",
+          "scores": {
+            "RELATIVE": 91,
+            "MEAN_REVERSION": 93
+          },
+          "side": "SHORT",
+          "htfPass": true,
+          "votes": {
+            "bull": 2,
+            "bear": 1,
+            "side": "LONG"
+          },
+          "trendSide": "LONG",
+          "ctxSide": "LONG",
+          "ctxMag": 1,
+          "extension": 1,
+          "emaDistATR": 5.533
+        },
+        "profile": "L2",
+        "families": [
+          "L2",
+          "MEANREV",
+          "BREADTH"
+        ],
+        "sessionFit": 92,
+        "why": [
+          "dynamic regime: MEAN_REVERSION",
+          "BTC-relative context"
+        ],
+        "drivers": [
+          "rollup activity/fees",
+          "token unlocks",
+          "Ethereum roadmap",
+          "L2 relative strength"
+        ]
+      },
+      "knowledge": {
+        "canonicalSymbol": "ARBUSDT",
+        "allowedModes": [
+          "RELATIVE",
+          "MEAN_REVERSION"
+        ],
+        "riskATR": 1,
+        "newsProfile": {
+          "profile": "L2",
+          "symbolSpecific": [
+            "ARB project/protocol announcements",
+            "ARB token unlock/supply schedule",
+            "ARB exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "rollup activity/fees",
+            "token unlocks",
+            "Ethereum roadmap",
+            "L2 relative strength"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 91,
+          "developmentWinRatePct": 87.91,
+          "developmentMeanR": 0.758
+        }
+      },
+      "context": {
+        "relativeStrength": 12.940000000000001,
+        "benchmark": "BTC",
+        "score": 10
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "ARB",
+          "source": "V70",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "L2",
+          "families": [
+            "L2",
+            "MEANREV",
+            "BREADTH"
+          ],
+          "profile": "L2",
+          "entryMode": "ROUTER",
+          "rr": null,
+          "signalHourUTC": 0,
+          "riskATR": 1,
+          "newsProfile": {
+            "profile": "L2",
+            "symbolSpecific": [
+              "ARB project/protocol announcements",
+              "ARB token unlock/supply schedule",
+              "ARB exchange/on-chain/whale flows"
+            ],
+            "profileDrivers": [
+              "rollup activity/fees",
+              "token unlocks",
+              "Ethereum roadmap",
+              "L2 relative strength"
+            ],
+            "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        },
+        "m15Location": {
+          "valid": false,
+          "type": "NO_LOCATION",
+          "level": null
+        }
+      },
+      "score": 53,
+      "entryPolicy": {
+        "profile": "MEAN_REVERSION",
+        "location": {
+          "pass": false,
+          "mode": "MEAN_REVERSION",
+          "soft": false
+        }
+      },
+      "group": "crypto",
+      "scanId": "crypto-1787182618579-4a3vf2",
+      "scannedAt": "2026-08-19T23:36:58.579Z"
+    }
+  ]
+}
+
+=== POST-PATCH HUB EVIDENCE ===
+{
+  "ok": true,
+  "version": "V77.16.20",
+  "books": {
+    "forex": {
+      "marketActive": [],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "crypto": {
+      "marketActive": [
+        {
+          "id": "LDOUSDT-1787175043556",
+          "symbol": "LDOUSDT",
+          "side": "LONG",
+          "entry": 0.337,
+          "sl": 0.32074514285714284,
+          "tp": 0.3797,
+          "tp1": 0.3797,
+          "tp2": 0.3797,
+          "targetRR": 2.63,
+          "origin": "MARKET",
+          "discoveredBy": "AUTO_CRON",
+          "status": "ACTIVE",
+          "openedAt": 1787175043556,
+          "createdAt": 1787175043556,
+          "engineOpened": "V77.16.20",
+          "engine": "V77.16.20",
+          "source": "Bybit Spot",
+          "executionVerified": true,
+          "executionAuthority": "Bybit Spot",
+          "quantity": 15380.018280250262,
+          "riskUsd": 250
+        }
+      ],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "metal": {
+      "marketActive": [],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "index": {
+      "marketActive": [],
+      "signalActive": [],
+      "limitActive": [],
+      "limitPending": [],
+      "watch": []
+    },
+    "updatedAt": 1787182660328
+  },
+  "hubScanId": "hub-1787182648977-2yc22r",
+  "scannedAt": "2026-08-19T23:37:28.977Z",
+  "runs": {
+    "crypto": {
+      "ok": true,
+      "version": "V77.16.20",
+      "group": "crypto",
+      "scanId": "crypto-1787182648980-apcvqm",
+      "scannedAt": "2026-08-19T23:37:28.980Z",
+      "requested": 61,
+      "broadOk": 60,
+      "fresh": 60,
+      "deepRequested": 3,
+      "deepOk": 3,
+      "newCount": 0,
+      "newItems": [],
+      "scanTrigger": "API_HUB",
+      "analyses": [
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "ZECUSDT",
+          "market": "crypto",
+          "side": "LONG",
+          "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+          "canonicalStage": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+          "planned": {
+            "entry": 558.33,
+            "sl": 547.4134857142858,
+            "risk": 10.916514285714243,
+            "roomR": 2.013463219552028,
+            "targetRR": 2.01,
+            "tp1": 580.31,
+            "tp1RR": 2.01,
+            "tp2": 580.31,
+            "tp2RR": 2.01,
+            "mode": "LIMIT",
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_ONLY",
+            "indicative": true,
+            "conditional": true,
+            "currentPrice": 563.58,
+            "entryStyle": "STRUCTURAL_FALLBACK_LIMIT",
+            "minQualityRR": 1.3,
+            "rrQualityPass": true,
+            "geometry": {
+              "pass": true,
+              "distanceATR": 0.7,
+              "correctSide": true,
+              "notInvalid": true
+            },
+            "confluence": 1,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Gate Spot Analysis",
+          "method": {
+            "symbol": "ZECUSDT",
+            "type": "crypto",
+            "side": "LONG",
+            "methodFit": 91,
+            "activeMode": "RELATIVE",
+            "allowedModes": [
+              "RELATIVE"
+            ],
+            "routeScores": {
+              "RELATIVE": 91
+            },
+            "htfPass": true,
+            "route": {
+              "allowed": [
+                "RELATIVE"
+              ],
+              "activeMode": "RELATIVE",
+              "scores": {
+                "RELATIVE": 91
+              },
+              "side": "LONG",
+              "htfPass": true,
+              "votes": {
+                "bull": 3,
+                "bear": 0,
+                "side": "LONG"
+              },
+              "trendSide": "LONG",
+              "ctxSide": "LONG",
+              "ctxMag": 1,
+              "extension": 1,
+              "emaDistATR": 2.09
+            },
+            "profile": "PRIVACY",
+            "families": [
+              "RELATIVE"
+            ],
+            "sessionFit": 15,
+            "why": [
+              "dynamic regime: RELATIVE",
+              "BTC-relative context"
+            ],
+            "drivers": [
+              "privacy regulation",
+              "network adoption",
+              "exchange access",
+              "BTC regime"
+            ]
+          },
+          "knowledge": {
+            "canonicalSymbol": "ZECUSDT",
+            "allowedModes": [
+              "RELATIVE"
+            ],
+            "riskATR": 0.75,
+            "newsProfile": {
+              "profile": "PRIVACY",
+              "symbolSpecific": [
+                "ZEC project/protocol announcements",
+                "ZEC token unlock/supply schedule",
+                "ZEC exchange/on-chain/whale flows"
+              ],
+              "profileDrivers": [
+                "privacy regulation",
+                "network adoption",
+                "exchange access",
+                "BTC regime"
+              ],
+              "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 91,
+              "developmentWinRatePct": 80.22,
+              "developmentMeanR": 0.604
+            }
+          },
+          "context": {
+            "relativeStrength": 3.76,
+            "benchmark": "BTC",
+            "score": 8.76
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "ZEC",
+              "source": "V69",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "RELATIVE",
+              "families": [
+                "RELATIVE"
+              ],
+              "profile": "PRIVACY",
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 12,
+              "riskATR": 0.75,
+              "newsProfile": {
+                "profile": "PRIVACY",
+                "symbolSpecific": [
+                  "ZEC project/protocol announcements",
+                  "ZEC token unlock/supply schedule",
+                  "ZEC exchange/on-chain/whale flows"
+                ],
+                "profileDrivers": [
+                  "privacy regulation",
+                  "network adoption",
+                  "exchange access",
+                  "BTC regime"
+                ],
+                "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            },
+            "m15Location": {
+              "valid": false,
+              "type": "NO_LOCATION",
+              "level": null
+            },
+            "m5Trigger": {
+              "valid": false,
+              "mss": false,
+              "displacement": false,
+              "retest": false,
+              "level": 564.92
+            }
+          },
+          "score": 67,
+          "entryPolicy": {
+            "profile": "RELATIVE",
+            "location": {
+              "pass": true,
+              "mode": "RELATIVE_CONTINUATION_ZONE",
+              "soft": true,
+              "level": 559.708089188199
+            },
+            "trigger": {
+              "pass": false,
+              "pending": false,
+              "mode": "RELATIVE",
+              "level": 564.92
+            }
+          }
+        },
+        {
+          "ok": true,
+          "status": "LIMIT_PLAN",
+          "action": "LIMIT_PLAN",
+          "symbol": "INJUSDT",
+          "market": "crypto",
+          "side": "LONG",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "canonicalStage": "HTF_METHOD_ALIGNMENT_REQUIRED",
+          "planned": {
+            "entry": 4.590860735522642,
+            "sl": 4.558985714285714,
+            "risk": 0.03187502123692809,
+            "roomR": 2.325936159423341,
+            "targetRR": 2.33,
+            "tp1": 4.665,
+            "tp1RR": 2.33,
+            "tp2": 4.665,
+            "tp2RR": 2.33,
+            "mode": "LIMIT",
+            "targetSource": "STRUCTURE_LIQUIDITY",
+            "targetTier": "PRIMARY_ONLY",
+            "indicative": true,
+            "currentPrice": 4.611,
+            "entryStyle": "STRUCTURE_RETEST_LIMIT",
+            "minQualityRR": 1.35,
+            "rrQualityPass": true,
+            "geometry": {
+              "pass": true,
+              "distanceATR": 0.48,
+              "correctSide": true,
+              "notInvalid": true
+            },
+            "confluence": 1,
+            "planType": "LIMIT_PLAN",
+            "executionVerified": false
+          },
+          "executionReady": false,
+          "engine": "V77.16.20",
+          "source": "Gate Spot Analysis",
+          "method": {
+            "symbol": "INJUSDT",
+            "type": "crypto",
+            "side": "NEUTRAL",
+            "methodFit": 45,
+            "activeMode": "TREND",
+            "allowedModes": [
+              "TREND"
+            ],
+            "routeScores": {
+              "TREND": 45
+            },
+            "htfPass": false,
+            "route": {
+              "allowed": [
+                "TREND"
+              ],
+              "activeMode": "TREND",
+              "scores": {
+                "TREND": 45
+              },
+              "side": "NEUTRAL",
+              "htfPass": false,
+              "votes": {
+                "bull": 1,
+                "bear": 1,
+                "side": "NEUTRAL"
+              },
+              "trendSide": "NEUTRAL",
+              "ctxSide": "LONG",
+              "ctxMag": 1,
+              "extension": 1,
+              "emaDistATR": 3.071
+            },
+            "profile": "PERP_DEX",
+            "families": [
+              "MOMENTUM"
+            ],
+            "sessionFit": 17,
+            "why": [
+              "dynamic regime: TREND",
+              "BTC-relative context"
+            ],
+            "drivers": [
+              "perp DEX volume/OI",
+              "protocol incentives",
+              "token unlocks",
+              "leverage regime"
+            ]
+          },
+          "knowledge": {
+            "canonicalSymbol": "INJUSDT",
+            "allowedModes": [
+              "TREND"
+            ],
+            "riskATR": 0.7,
+            "newsProfile": {
+              "profile": "PERP_DEX",
+              "symbolSpecific": [
+                "INJ project/protocol announcements",
+                "INJ token unlock/supply schedule",
+                "INJ exchange/on-chain/whale flows"
+              ],
+              "profileDrivers": [
+                "perp DEX volume/OI",
+                "protocol incentives",
+                "token unlocks",
+                "leverage regime"
+              ],
+              "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 91,
+              "developmentWinRatePct": 80.22,
+              "developmentMeanR": 0.604
+            }
+          },
+          "context": {
+            "relativeStrength": 6.01,
+            "benchmark": "BTC",
+            "score": 10
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "INJ",
+              "source": "V69",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "MOMENTUM",
+              "families": [
+                "MOMENTUM"
+              ],
+              "profile": "PERP_DEX",
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 9,
+              "riskATR": 0.7,
+              "newsProfile": {
+                "profile": "PERP_DEX",
+                "symbolSpecific": [
+                  "INJ project/protocol announcements",
+                  "INJ token unlock/supply schedule",
+                  "INJ exchange/on-chain/whale flows"
+                ],
+                "profileDrivers": [
+                  "perp DEX volume/OI",
+                  "protocol incentives",
+                  "token unlocks",
+                  "leverage regime"
+                ],
+                "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            }
+          },
+          "score": 40,
+          "entryPolicy": {
+            "profile": "TREND",
+            "conditional": true,
+            "rescue": true
+          }
+        },
+        {
+          "ok": true,
+          "status": "WATCH",
+          "action": "WATCH",
+          "symbol": "HYPEUSDT",
+          "market": "crypto",
+          "side": "LONG",
+          "reason": "M15_LOCATION_REQUIRED",
+          "canonicalStage": "M15_LOCATION_REQUIRED",
+          "engine": "V77.16.20",
+          "source": "Gate Spot Analysis",
+          "method": {
+            "symbol": "HYPEUSDT",
+            "type": "crypto",
+            "side": "LONG",
+            "methodFit": 91,
+            "activeMode": "RELATIVE",
+            "allowedModes": [
+              "RELATIVE"
+            ],
+            "routeScores": {
+              "RELATIVE": 91
+            },
+            "htfPass": true,
+            "route": {
+              "allowed": [
+                "RELATIVE"
+              ],
+              "activeMode": "RELATIVE",
+              "scores": {
+                "RELATIVE": 91
+              },
+              "side": "LONG",
+              "htfPass": true,
+              "votes": {
+                "bull": 2,
+                "bear": 0,
+                "side": "LONG"
+              },
+              "trendSide": "LONG",
+              "ctxSide": "LONG",
+              "ctxMag": 1,
+              "extension": 1,
+              "emaDistATR": 3.934
+            },
+            "profile": "PERP_DEX",
+            "families": [
+              "RELATIVE"
+            ],
+            "sessionFit": 15,
+            "why": [
+              "dynamic regime: RELATIVE",
+              "BTC-relative context"
+            ],
+            "drivers": [
+              "perp DEX volume/OI",
+              "protocol incentives",
+              "token unlocks",
+              "leverage regime"
+            ]
+          },
+          "knowledge": {
+            "canonicalSymbol": "HYPEUSDT",
+            "allowedModes": [
+              "RELATIVE"
+            ],
+            "riskATR": 0.8,
+            "newsProfile": {
+              "profile": "PERP_DEX",
+              "symbolSpecific": [
+                "HYPE project/protocol announcements",
+                "HYPE token unlock/supply schedule",
+                "HYPE exchange/on-chain/whale flows"
+              ],
+              "profileDrivers": [
+                "perp DEX volume/OI",
+                "protocol incentives",
+                "token unlocks",
+                "leverage regime"
+              ],
+              "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+            },
+            "calibration": {
+              "status": "PRIOR_ONLY_UNCALIBRATED",
+              "reason": "V73 is exposed development prior, not untouched OOS proof",
+              "sampleSize": 91,
+              "developmentWinRatePct": 85.71,
+              "developmentMeanR": 0.714
+            }
+          },
+          "context": {
+            "relativeStrength": 12.649999999999999,
+            "benchmark": "BTC",
+            "score": 10
+          },
+          "canonical": {
+            "v73Prior": {
+              "applicable": true,
+              "available": true,
+              "key": "HYPE",
+              "source": "V69",
+              "timeframe": "H1",
+              "status": "PASS",
+              "family": "RELATIVE",
+              "families": [
+                "RELATIVE"
+              ],
+              "profile": "PERP_DEX",
+              "entryMode": "DUAL_FADE",
+              "rr": 1,
+              "signalHourUTC": 10,
+              "riskATR": 0.8,
+              "newsProfile": {
+                "profile": "PERP_DEX",
+                "symbolSpecific": [
+                  "HYPE project/protocol announcements",
+                  "HYPE token unlock/supply schedule",
+                  "HYPE exchange/on-chain/whale flows"
+                ],
+                "profileDrivers": [
+                  "perp DEX volume/OI",
+                  "protocol incentives",
+                  "token unlocks",
+                  "leverage regime"
+                ],
+                "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+              },
+              "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+            },
+            "m15Location": {
+              "valid": false,
+              "type": "NO_LOCATION",
+              "level": null
+            }
+          },
+          "score": 53,
+          "entryPolicy": {
+            "profile": "RELATIVE",
+            "location": {
+              "pass": false,
+              "mode": "RELATIVE",
+              "soft": false,
+              "level": 69.18909647789563
+            }
+          }
+        }
+      ],
+      "diagnostics": {
+        "broadErrors": [
+          {
+            "symbol": "IPUSDT",
+            "reason": "EXACT_SPOT_UNAVAILABLE"
+          }
+        ],
+        "deepAttempted": 5,
+        "skippedUnavailable": [],
+        "liveSymbolsSkipped": [
+          "LDOUSDT"
+        ],
+        "tdCreditsLeft": null,
+        "tdCreditsAtStart": null,
+        "tdCreditsPlanned": 0
+      },
+      "elapsedMs": 8463
+    },
+    "forex": {
+      "ok": true,
+      "version": "V77.16.20",
+      "status": "RATE_BUDGET_WAIT",
+      "group": "forex",
+      "scanId": "forex-1787182658143-bfnxu6",
+      "scannedAt": "2026-08-19T23:37:38.143Z",
+      "requested": 28,
+      "broadOk": 0,
+      "fresh": 0,
+      "deepRequested": 0,
+      "deepOk": 0,
+      "newCount": 0,
+      "analyses": [],
+      "retryAfterSec": 24,
+      "diagnostics": {
+        "broadErrors": [],
+        "tdCreditsLeft": 0,
+        "tdCreditsRequired": 40
+      },
+      "elapsedMs": 93
+    },
+    "metal": {
+      "ok": true,
+      "version": "V77.16.20",
+      "status": "RATE_BUDGET_WAIT",
+      "group": "metal",
+      "scanId": "metal-1787182658927-vngs7r",
+      "scannedAt": "2026-08-19T23:37:38.927Z",
+      "requested": 2,
+      "broadOk": 0,
+      "fresh": 0,
+      "deepRequested": 0,
+      "deepOk": 0,
+      "newCount": 0,
+      "analyses": [],
+      "retryAfterSec": 23,
+      "diagnostics": {
+        "broadErrors": [],
+        "tdCreditsLeft": 0,
+        "tdCreditsRequired": 10
+      },
+      "elapsedMs": 84
+    },
+    "index": {
+      "ok": true,
+      "version": "V77.16.20",
+      "group": "index",
+      "scanId": "index-1787182659769-2z83rd",
+      "scannedAt": "2026-08-19T23:37:39.769Z",
+      "requested": 5,
+      "broadOk": 0,
+      "fresh": 0,
+      "deepRequested": 0,
+      "deepOk": 0,
+      "newCount": 0,
+      "newItems": [],
+      "scanTrigger": "API_HUB",
+      "analyses": [],
+      "diagnostics": {
+        "broadErrors": [
+          {
+            "symbol": "NAS100",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "US30",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "US500",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "DEX",
+            "reason": "H1_UNAVAILABLE"
+          },
+          {
+            "symbol": "JP225",
+            "reason": "H1_UNAVAILABLE"
+          }
+        ],
+        "deepAttempted": 0,
+        "skippedUnavailable": [],
+        "liveSymbolsSkipped": [],
+        "tdCreditsLeft": 0,
+        "tdCreditsAtStart": 0,
+        "tdCreditsPlanned": 0
+      },
+      "elapsedMs": 833
+    }
+  },
+  "top": [
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "ZECUSDT",
+      "market": "crypto",
+      "side": "LONG",
+      "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+      "canonicalStage": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+      "planned": {
+        "entry": 558.33,
+        "sl": 547.4134857142858,
+        "risk": 10.916514285714243,
+        "roomR": 2.013463219552028,
+        "targetRR": 2.01,
+        "tp1": 580.31,
+        "tp1RR": 2.01,
+        "tp2": 580.31,
+        "tp2RR": 2.01,
+        "mode": "LIMIT",
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_ONLY",
+        "indicative": true,
+        "conditional": true,
+        "currentPrice": 563.58,
+        "entryStyle": "STRUCTURAL_FALLBACK_LIMIT",
+        "minQualityRR": 1.3,
+        "rrQualityPass": true,
+        "geometry": {
+          "pass": true,
+          "distanceATR": 0.7,
+          "correctSide": true,
+          "notInvalid": true
+        },
+        "confluence": 1,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Gate Spot Analysis",
+      "method": {
+        "symbol": "ZECUSDT",
+        "type": "crypto",
+        "side": "LONG",
+        "methodFit": 91,
+        "activeMode": "RELATIVE",
+        "allowedModes": [
+          "RELATIVE"
+        ],
+        "routeScores": {
+          "RELATIVE": 91
+        },
+        "htfPass": true,
+        "route": {
+          "allowed": [
+            "RELATIVE"
+          ],
+          "activeMode": "RELATIVE",
+          "scores": {
+            "RELATIVE": 91
+          },
+          "side": "LONG",
+          "htfPass": true,
+          "votes": {
+            "bull": 3,
+            "bear": 0,
+            "side": "LONG"
+          },
+          "trendSide": "LONG",
+          "ctxSide": "LONG",
+          "ctxMag": 1,
+          "extension": 1,
+          "emaDistATR": 2.09
+        },
+        "profile": "PRIVACY",
+        "families": [
+          "RELATIVE"
+        ],
+        "sessionFit": 15,
+        "why": [
+          "dynamic regime: RELATIVE",
+          "BTC-relative context"
+        ],
+        "drivers": [
+          "privacy regulation",
+          "network adoption",
+          "exchange access",
+          "BTC regime"
+        ]
+      },
+      "knowledge": {
+        "canonicalSymbol": "ZECUSDT",
+        "allowedModes": [
+          "RELATIVE"
+        ],
+        "riskATR": 0.75,
+        "newsProfile": {
+          "profile": "PRIVACY",
+          "symbolSpecific": [
+            "ZEC project/protocol announcements",
+            "ZEC token unlock/supply schedule",
+            "ZEC exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "privacy regulation",
+            "network adoption",
+            "exchange access",
+            "BTC regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 91,
+          "developmentWinRatePct": 80.22,
+          "developmentMeanR": 0.604
+        }
+      },
+      "context": {
+        "relativeStrength": 3.76,
+        "benchmark": "BTC",
+        "score": 8.76
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "ZEC",
+          "source": "V69",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "RELATIVE",
+          "families": [
+            "RELATIVE"
+          ],
+          "profile": "PRIVACY",
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 12,
+          "riskATR": 0.75,
+          "newsProfile": {
+            "profile": "PRIVACY",
+            "symbolSpecific": [
+              "ZEC project/protocol announcements",
+              "ZEC token unlock/supply schedule",
+              "ZEC exchange/on-chain/whale flows"
+            ],
+            "profileDrivers": [
+              "privacy regulation",
+              "network adoption",
+              "exchange access",
+              "BTC regime"
+            ],
+            "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        },
+        "m15Location": {
+          "valid": false,
+          "type": "NO_LOCATION",
+          "level": null
+        },
+        "m5Trigger": {
+          "valid": false,
+          "mss": false,
+          "displacement": false,
+          "retest": false,
+          "level": 564.92
+        }
+      },
+      "score": 67,
+      "entryPolicy": {
+        "profile": "RELATIVE",
+        "location": {
+          "pass": true,
+          "mode": "RELATIVE_CONTINUATION_ZONE",
+          "soft": true,
+          "level": 559.708089188199
+        },
+        "trigger": {
+          "pass": false,
+          "pending": false,
+          "mode": "RELATIVE",
+          "level": 564.92
+        }
+      },
+      "group": "crypto",
+      "scanId": "crypto-1787182648980-apcvqm",
+      "scannedAt": "2026-08-19T23:37:28.980Z"
+    },
+    {
+      "ok": true,
+      "status": "LIMIT_PLAN",
+      "action": "LIMIT_PLAN",
+      "symbol": "INJUSDT",
+      "market": "crypto",
+      "side": "LONG",
+      "reason": "HTF_METHOD_ALIGNMENT_REQUIRED",
+      "canonicalStage": "HTF_METHOD_ALIGNMENT_REQUIRED",
+      "planned": {
+        "entry": 4.590860735522642,
+        "sl": 4.558985714285714,
+        "risk": 0.03187502123692809,
+        "roomR": 2.325936159423341,
+        "targetRR": 2.33,
+        "tp1": 4.665,
+        "tp1RR": 2.33,
+        "tp2": 4.665,
+        "tp2RR": 2.33,
+        "mode": "LIMIT",
+        "targetSource": "STRUCTURE_LIQUIDITY",
+        "targetTier": "PRIMARY_ONLY",
+        "indicative": true,
+        "currentPrice": 4.611,
+        "entryStyle": "STRUCTURE_RETEST_LIMIT",
+        "minQualityRR": 1.35,
+        "rrQualityPass": true,
+        "geometry": {
+          "pass": true,
+          "distanceATR": 0.48,
+          "correctSide": true,
+          "notInvalid": true
+        },
+        "confluence": 1,
+        "planType": "LIMIT_PLAN",
+        "executionVerified": false
+      },
+      "executionReady": false,
+      "engine": "V77.16.20",
+      "source": "Gate Spot Analysis",
+      "method": {
+        "symbol": "INJUSDT",
+        "type": "crypto",
+        "side": "NEUTRAL",
+        "methodFit": 45,
+        "activeMode": "TREND",
+        "allowedModes": [
+          "TREND"
+        ],
+        "routeScores": {
+          "TREND": 45
+        },
+        "htfPass": false,
+        "route": {
+          "allowed": [
+            "TREND"
+          ],
+          "activeMode": "TREND",
+          "scores": {
+            "TREND": 45
+          },
+          "side": "NEUTRAL",
+          "htfPass": false,
+          "votes": {
+            "bull": 1,
+            "bear": 1,
+            "side": "NEUTRAL"
+          },
+          "trendSide": "NEUTRAL",
+          "ctxSide": "LONG",
+          "ctxMag": 1,
+          "extension": 1,
+          "emaDistATR": 3.071
+        },
+        "profile": "PERP_DEX",
+        "families": [
+          "MOMENTUM"
+        ],
+        "sessionFit": 17,
+        "why": [
+          "dynamic regime: TREND",
+          "BTC-relative context"
+        ],
+        "drivers": [
+          "perp DEX volume/OI",
+          "protocol incentives",
+          "token unlocks",
+          "leverage regime"
+        ]
+      },
+      "knowledge": {
+        "canonicalSymbol": "INJUSDT",
+        "allowedModes": [
+          "TREND"
+        ],
+        "riskATR": 0.7,
+        "newsProfile": {
+          "profile": "PERP_DEX",
+          "symbolSpecific": [
+            "INJ project/protocol announcements",
+            "INJ token unlock/supply schedule",
+            "INJ exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "perp DEX volume/OI",
+            "protocol incentives",
+            "token unlocks",
+            "leverage regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 91,
+          "developmentWinRatePct": 80.22,
+          "developmentMeanR": 0.604
+        }
+      },
+      "context": {
+        "relativeStrength": 6.01,
+        "benchmark": "BTC",
+        "score": 10
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "INJ",
+          "source": "V69",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "MOMENTUM",
+          "families": [
+            "MOMENTUM"
+          ],
+          "profile": "PERP_DEX",
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 9,
+          "riskATR": 0.7,
+          "newsProfile": {
+            "profile": "PERP_DEX",
+            "symbolSpecific": [
+              "INJ project/protocol announcements",
+              "INJ token unlock/supply schedule",
+              "INJ exchange/on-chain/whale flows"
+            ],
+            "profileDrivers": [
+              "perp DEX volume/OI",
+              "protocol incentives",
+              "token unlocks",
+              "leverage regime"
+            ],
+            "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        }
+      },
+      "score": 40,
+      "entryPolicy": {
+        "profile": "TREND",
+        "conditional": true,
+        "rescue": true
+      },
+      "group": "crypto",
+      "scanId": "crypto-1787182648980-apcvqm",
+      "scannedAt": "2026-08-19T23:37:28.980Z"
+    },
+    {
+      "ok": true,
+      "status": "WATCH",
+      "action": "WATCH",
+      "symbol": "HYPEUSDT",
+      "market": "crypto",
+      "side": "LONG",
+      "reason": "M15_LOCATION_REQUIRED",
+      "canonicalStage": "M15_LOCATION_REQUIRED",
+      "engine": "V77.16.20",
+      "source": "Gate Spot Analysis",
+      "method": {
+        "symbol": "HYPEUSDT",
+        "type": "crypto",
+        "side": "LONG",
+        "methodFit": 91,
+        "activeMode": "RELATIVE",
+        "allowedModes": [
+          "RELATIVE"
+        ],
+        "routeScores": {
+          "RELATIVE": 91
+        },
+        "htfPass": true,
+        "route": {
+          "allowed": [
+            "RELATIVE"
+          ],
+          "activeMode": "RELATIVE",
+          "scores": {
+            "RELATIVE": 91
+          },
+          "side": "LONG",
+          "htfPass": true,
+          "votes": {
+            "bull": 2,
+            "bear": 0,
+            "side": "LONG"
+          },
+          "trendSide": "LONG",
+          "ctxSide": "LONG",
+          "ctxMag": 1,
+          "extension": 1,
+          "emaDistATR": 3.934
+        },
+        "profile": "PERP_DEX",
+        "families": [
+          "RELATIVE"
+        ],
+        "sessionFit": 15,
+        "why": [
+          "dynamic regime: RELATIVE",
+          "BTC-relative context"
+        ],
+        "drivers": [
+          "perp DEX volume/OI",
+          "protocol incentives",
+          "token unlocks",
+          "leverage regime"
+        ]
+      },
+      "knowledge": {
+        "canonicalSymbol": "HYPEUSDT",
+        "allowedModes": [
+          "RELATIVE"
+        ],
+        "riskATR": 0.8,
+        "newsProfile": {
+          "profile": "PERP_DEX",
+          "symbolSpecific": [
+            "HYPE project/protocol announcements",
+            "HYPE token unlock/supply schedule",
+            "HYPE exchange/on-chain/whale flows"
+          ],
+          "profileDrivers": [
+            "perp DEX volume/OI",
+            "protocol incentives",
+            "token unlocks",
+            "leverage regime"
+          ],
+          "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+        },
+        "calibration": {
+          "status": "PRIOR_ONLY_UNCALIBRATED",
+          "reason": "V73 is exposed development prior, not untouched OOS proof",
+          "sampleSize": 91,
+          "developmentWinRatePct": 85.71,
+          "developmentMeanR": 0.714
+        }
+      },
+      "context": {
+        "relativeStrength": 12.649999999999999,
+        "benchmark": "BTC",
+        "score": 10
+      },
+      "canonical": {
+        "v73Prior": {
+          "applicable": true,
+          "available": true,
+          "key": "HYPE",
+          "source": "V69",
+          "timeframe": "H1",
+          "status": "PASS",
+          "family": "RELATIVE",
+          "families": [
+            "RELATIVE"
+          ],
+          "profile": "PERP_DEX",
+          "entryMode": "DUAL_FADE",
+          "rr": 1,
+          "signalHourUTC": 10,
+          "riskATR": 0.8,
+          "newsProfile": {
+            "profile": "PERP_DEX",
+            "symbolSpecific": [
+              "HYPE project/protocol announcements",
+              "HYPE token unlock/supply schedule",
+              "HYPE exchange/on-chain/whale flows"
+            ],
+            "profileDrivers": [
+              "perp DEX volume/OI",
+              "protocol incentives",
+              "token unlocks",
+              "leverage regime"
+            ],
+            "liveRoutingRule": "Refresh symbol-specific news plus BTC/market regime before the daily/session decision. News routes among the frozen symbol actions; it does not silently convert a mandatory trading day into NO TRADE."
+          },
+          "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+        },
+        "m15Location": {
+          "valid": false,
+          "type": "NO_LOCATION",
+          "level": null
+        }
+      },
+      "score": 53,
+      "entryPolicy": {
+        "profile": "RELATIVE",
+        "location": {
+          "pass": false,
+          "mode": "RELATIVE",
+          "soft": false,
+          "level": 69.18909647789563
+        }
+      },
+      "group": "crypto",
+      "scanId": "crypto-1787182648980-apcvqm",
+      "scannedAt": "2026-08-19T23:37:28.980Z"
+    }
+  ]
+}
+
+NOTE: /hub performs fresh scans; candidate rotation between calls is market/provider-state variation. Ranking non-regression is established by exact source diff leaving hubRank/runHub sort/slice untouched.
+No Hyro authority, hard risk, freshness, structural SL, news safeguards, TRADING_STATE, v775:books, Binance20 quarantine, or production Claude API pause changed.
