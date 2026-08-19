@@ -1,0 +1,42 @@
+name: V77.18.29 Live PnL Migration
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch live PnL display
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/index.js'); s=p.read_text()
+          old='function posLine(p,i){const side=p.side==="Buy"?"BUY":"SELL";return `${i+1}. ${p.symbol} ${side} | P/L ${money(p.unrealisedPnl)}\\nEntry ${p.avgPrice} | SL ${p.stopLoss||"—"} | TP ${p.takeProfit||"—"}`;}'
+          new='function posPnlPct(p){const e=Number(p?.avgPrice||0),m=Number(p?.markPrice||0);if(!(e>0&&m>0))return 0;const raw=(m-e)/e*100;return p?.side==="Sell"?-raw:raw;}\nfunction posLine(p,i){const side=p.side==="Buy"?"BUY":"SELL",pnl=Number(p.unrealisedPnl||0),pct=posPnlPct(p),icon=pnl>0?"🟢":pnl<0?"🔴":"⚪",sign=pct>0?"+":"";return `${i+1}. ${icon} ${p.symbol} ${side}\\nP/L ${money(pnl)} (${sign}${pct.toFixed(2)}%)\\nEntry ${p.avgPrice} → Mark ${p.markPrice||"—"}\\nSL ${p.stopLoss||"—"} | TP ${p.takeProfit||"—"}`;}'
+          if old not in s: raise SystemExit('posLine target missing')
+          s=s.replace(old,new)
+          old='async function positionsText(env){env=await propEnv(env);const c=await getHyroControl(env),cfg=hyroExecutionConfig(env),t=await getHyroTelemetry(env),kb=propKeyboard(c.manualPaused,cfg.mode);return {text:t.connected?`📈 HYRO • VỊ THẾ\\n${t.positions.length?t.positions.map(posLine).join("\\n\\n"):"Không có vị thế."}`:`📈 Hyro • Telemetry ${t.reason||"OFF"}`,kb};}'
+          new='async function positionsText(env){env=await propEnv(env);const c=await getHyroControl(env),cfg=hyroExecutionConfig(env),t=await getHyroTelemetry(env),kb=propKeyboard(c.manualPaused,cfg.mode);if(!t.connected)return {text:`📈 Hyro • Telemetry ${t.reason||"OFF"}`,kb};const total=Number(t.totalUnrealised||0),basis=Number(t.equity||0)-total,totalPct=basis>0?total/basis*100:0,sign=totalPct>0?"+":"";return {text:["📈 HYRO • VỊ THẾ LIVE",`Tổng P/L mở ${money(total)} (${sign}${totalPct.toFixed(2)}%)`,`━━━━━━━━━━━━`,t.positions.length?t.positions.map(posLine).join("\\n\\n"):"Không có vị thế."].join("\\n"),kb};}'
+          if old not in s: raise SystemExit('positionsText target missing')
+          p.write_text(s.replace(old,new))
+          p=Path('cloudflare-worker/hub-v77171.js'); s=p.read_text()
+          old='function booksText(b){const L=["📚 LIVE ORDERS","━━━━━━━━━━━━"];let n=0;for(const g of ["crypto","forex","metal","future"]){const x=b?.[g]||{},rows=[...(x.marketActive||[]),...(x.limitActive||[]),...(x.limitPending||[])];if(!rows.length)continue;L.push("",groupName(g));for(const p of rows){n++;L.push(`${p.status==="PENDING"?"🟡":"🟢"} ${p.symbol} • ${side(p.side)}`,`   E ${fmt(p.entry)} • SL ${fmt(p.sl)} • TP ${fmt(p.tp)}`);}}if(!n)L.push("","⚪ Hiện chưa có lệnh live.");L.push("","━━━━━━━━━━━━",`Tổng: ${n} lệnh`);return L.join("\\n");}'
+          new='function orderLivePnl(p){const e=Number(p?.entry||0),q=Number(p?.currentPrice??p?.markPrice??p?.price??p?.lastPrice),dir=p?.side==="SHORT"?-1:1;if(!(e>0&&q>0))return null;const pct=(q-e)/e*100*dir,usd=Number(p?.unrealisedPnl??p?.pnlUsd);return {price:q,pct,usd:Number.isFinite(usd)?usd:null};}\nfunction booksText(b){const L=["📚 LIVE ORDERS • P/L","━━━━━━━━━━━━"];let n=0;for(const g of ["crypto","forex","metal","future"]){const x=b?.[g]||{},rows=[...(x.marketActive||[]),...(x.limitActive||[]),...(x.limitPending||[])];if(!rows.length)continue;L.push("",groupName(g));for(const p of rows){n++;const live=orderLivePnl(p),pending=p.status==="PENDING",icon=pending?"🟡":live?.pct>0?"🟢":live?.pct<0?"🔴":"⚪",kind=pending?"LIMIT CHỜ":p.orderType==="LIMIT"||p.status==="LIMIT_ACTIVE"?"LIMIT KHỚP":"MARKET";L.push(`${icon} ${p.symbol} • ${side(p.side)} • ${kind}`,`   E ${fmt(p.entry)}${live?` → Now ${fmt(live.price)}`:""}`,pending?`   Chưa khớp • SL ${fmt(p.sl)} • TP ${fmt(p.tp)}`:`   P/L ${live?(live.pct>=0?"+":"")+live.pct.toFixed(2)+"%":"—"}${live?.usd!=null?` • ${live.usd>=0?"+":""}$${live.usd.toFixed(2)}`:""}`,`   SL ${fmt(p.sl)} • TP ${fmt(p.tp)}`);}}if(!n)L.push("","⚪ Hiện chưa có lệnh live.");L.push("","━━━━━━━━━━━━",`Tổng: ${n} lệnh`);return L.join("\\n");}'
+          if old not in s: raise SystemExit('booksText target missing')
+          s=s.replace(old,new).replace('const VERSION="V77.18.27",UI_REV="HUB-R3-SIGNAL",SERVICE="Trading V77.18.27 • Signal UX R3";','const VERSION="V77.18.29",UI_REV="HUB-R4-LIVE-PNL",SERVICE="Trading V77.18.29 • Live PnL UX";')
+          p.write_text(s)
+          PY
+          node validate-worker.mjs
+      - name: Commit
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/index.js cloudflare-worker/hub-v77171.js
+          git commit -m "V77.18.29 show live PnL percent and USD" || exit 0
+          git push origin HEAD:main
