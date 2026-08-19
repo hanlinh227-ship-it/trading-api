@@ -19,12 +19,18 @@ def patch(path, replacements, required=()):
     else:
         print('unchanged', path)
 
-patch('cloudflare-worker/adaptive-tuning.js', [
-    ('version:"V77.18.37"', 'version:"V77.18.38"'),
-    ('out.version="V77.18.37"', 'out.version="V77.18.38"'),
-    ('state={version:"V77.18.37"', 'state={version:"V77.18.38"'),
-    ('version:"V77.18.37"}:{version:"V77.18.37"', 'version:"V77.18.38"}:{version:"V77.18.38"'),
-], required=('marketEntryBalanced:true','forexMinRR:1.15','bMicroMin:.50'))
+# Adaptive tuning already carries the balanced thresholds from the prior commit.
+# Only advance its release identity; do not widen risk/news/freshness guardrails here.
+p = ROOT / 'cloudflare-worker/adaptive-tuning.js'
+s = p.read_text(encoding='utf-8')
+if 'V77.18.37' not in s:
+    raise SystemExit('adaptive-tuning.js: V77.18.37 identity missing')
+s = s.replace('V77.18.37', 'V77.18.38')
+for token in ('marketEntryBalanced:true','forexMinRR:1.15','bMicroMin:.50','V77.18.38'):
+    if token not in s:
+        raise SystemExit(f'adaptive-tuning.js: required token missing {token}')
+p.write_text(s, encoding='utf-8')
+print('patched cloudflare-worker/adaptive-tuning.js')
 
 patch('cloudflare-worker/engine-v77168.js', [
     ('version: "V77.16.17",', 'version: "V77.16.18",'),
