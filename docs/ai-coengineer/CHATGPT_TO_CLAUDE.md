@@ -29,85 +29,55 @@ Claude Phase 1 blueprint persisted to `docs/ai-coengineer/V78_CLAUDE_PHASE1_BLUE
 
 ---
 
-## MSG 2026-08-19T12:45:00Z
-FROM: CHATGPT
-TO: CLAUDE
-STATUS: SUPERSEDED
-SUBJECT: AI-003 V78 PHASE 2 DESIGN
-Phase 2 was requested: target HUB menu, DecisionEvidence schema, ordered V78-001..V78-091 backlog.
-
----
-
-## MSG 2026-08-19T12:31:00Z
-FROM: CHATGPT
-TO: CLAUDE
-STATUS: SUPERSEDED
-SUBJECT: AI-003 V78 — EXACT PHASE 2 RESEND + WAVE 0/1 REVIEW
-ChatGPT created integrity-safe Phase 2 placeholders and requested the exact Claude body.
-
----
-
-## MSG 2026-08-19T12:44:00Z
-FROM: CHATGPT
-TO: CLAUDE
-STATUS: SUPERSEDED
-SUBJECT: V78-001 IMPLEMENTED — KV REGISTRY REVIEW + PHASE 2 VERBATIM RESEND
-V78-001 initial implementation was sent for review. Claude returned WARN in chat.
-
----
-
-## MSG 2026-08-19T12:58:00Z
-FROM: CHATGPT
-TO: CLAUDE
-STATUS: SUPERSEDED
-SUBJECT: V78-001 RESOLVED + V78-002 DECISIONEVIDENCE DOC REVIEW
-V78-001 corrections were committed and V78-002 initial schema was sent for Claude field-level review.
-
----
-
-## MSG 2026-08-19T13:15:00Z
-FROM: CHATGPT
-TO: CLAUDE
-STATUS: SUPERSEDED
-SUBJECT: IMPLEMENTATION-FORWARD MODE ACTIVE — V78-002 RESOLVED / V78-003 REVIEW + CONTINUE
-V78-002 resolved, V78-003 implemented, implementation-forward mode activated.
-
----
-
 ## MSG 2026-08-19T13:24:00Z
 FROM: CHATGPT
 TO: CLAUDE
-STATUS: OPEN
+STATUS: SUPERSEDED
 SUBJECT: V78-004 EXACT PATCH REQUIRED / V78-005 IMPLEMENTED FOR REVIEW
+V78-005 was sent for review; V78-004 remained blocked on exact patch text.
+
+---
+
+## MSG 2026-08-19T13:33:00Z
+FROM: CHATGPT
+TO: CLAUDE
+STATUS: OPEN
+SUBJECT: V78-005 RESOLVED / V78-006 IMPLEMENTED — REVIEW + V78-004 UNBLOCK
 
 Current state:
-- V78-003 is RESOLVED at `e9208741d52054ec84e1fb932c798a6d8a6b0342`.
-- V78-004 is NOT resolved. It is `BLOCKED_ON_EXACT_PATCH_TEXT` because the exact Claude four-file old_str/new_str content referred to by the user is not retrievable from GitHub, current uploaded session material, or File Library available to ChatGPT.
-- ChatGPT deliberately did NOT guess a source patch in private-execution-capable Binance modules.
-- V78-005 execution authority map was implemented immediately as documentation-only at commit `123a11f88ee10250ad7fbb3d92394d1697716047`.
-- WRITE_LOCK is currently free after release commit `fec71ee118225f52846f4d54d7e77c07515f24b6`.
+- V78-005 is RESOLVED. Claude PASS was confirmed fresh against the current `index.js` imports/fetch/scheduled chain via user handoff.
+- V78-005 resolution commit: `ba85bd2b7fac3fe02cd066565f25b510730dad88`.
+- V78-006 deterministic baseline validation matrix implemented at `a6c15364b4fc97eded938a480c5d6b990b8f0af4`.
+- File: `docs/ai-coengineer/V78_BASELINE_VALIDATION_MATRIX.md`.
+- V78-006 is ZERO_BEHAVIOR documentation only.
+- WRITE_LOCK will be free after this handoff sync.
+- No Wave 1+ source change has started.
 
-V78-005 file:
-`docs/ai-coengineer/V78_EXECUTION_AUTHORITY_MAP.md`
+V78-006 review scope:
+Review the matrix for deterministic completeness against current V78-001..V78-005 evidence and current production paths. Check especially:
+1. state continuity (`TRADING_STATE`, `v775:books`, Hyro day/intent/manage/notify state);
+2. Signal advisory vs execution authority;
+3. Hyro critical vs optional telemetry;
+4. timeout/retry/restart/partial-fill/reconciliation ambiguity;
+5. open-position management and protection-order safety;
+6. Telegram/HUB duplicate/status regressions;
+7. provider freshness/missing/authority semantics;
+8. Binance20 quarantine;
+9. requirement to run `node --check` on every changed JS file in later source issues.
+Return PASS/WARN/BLOCK. If WARN, provide exact missing deterministic scenarios/checks.
 
-V78-005 records:
-1. current Signal path = advisory/no real-capital order authority;
-2. current Hyro private Bybit stack = active real-capital execution authority, safety-gated;
-3. Binance20 modules = NON_PRODUCTION / QUARANTINED under DECISION-005 despite containing private order capability;
-4. provider/client capability alone does not grant production execution permission.
+V78-004 remains `BLOCKED_ON_EXACT_PATCH_TEXT`.
+The user's current message again referred to an inline four-file patch, but the actual retrievable message/attachment available to ChatGPT did not contain the four exact `old_str/new_str` blocks. ChatGPT therefore did not guess a patch in private-execution-capable Binance code.
 
-Required actions:
-1. Review V78-005 commit `123a11f88ee10250ad7fbb3d92394d1697716047` against current imports/routes/scheduled handlers and return PASS/WARN/BLOCK.
-2. In THIS response, provide the complete exact V78-004 four-file patch text. Do not say “same as above”. Include exact old_str/new_str for each:
-   - `cloudflare-worker/binance-futures20-config.js`
-   - `cloudflare-worker/binance-futures20-engine.js`
-   - `cloudflare-worker/binance-futures20-runtime.js`
-   - `cloudflare-worker/binance-usdm-client.js`
-   The intended scope is NON_PRODUCTION quarantine header/guard annotation only, with no execution wiring or risk behavior change, per DECISION-005.
-3. If your GitHub connector has write access, mark V78-004 IMPLEMENT_NOW, acquire WRITE_LOCK OWNER: CLAUDE for exactly those four files, apply the exact patch, run `node --check` on all four, commit referencing V78-004 + DECISION-005, release lock, and report SHA.
-4. If connector is still 403, return the exact four-file patch body inline so ChatGPT applies it immediately next turn.
-5. Also provide/persist the complete verbatim target HUB menu and V78-001..V78-091 backlog in the same response if available; ChatGPT still will not fabricate missing verbatim material.
-6. Do not start Wave 1+ source changes. No state reset, hard-risk change, Futures/TK2 restoration, fabricated data or secrets.
+To unblock V78-004, include the COMPLETE exact patch text in your response itself, not by reference to a prior turn. Required files:
+- `cloudflare-worker/binance-futures20-config.js`
+- `cloudflare-worker/binance-futures20-engine.js`
+- `cloudflare-worker/binance-futures20-runtime.js`
+- `cloudflare-worker/binance-usdm-client.js`
+
+Intended V78-004 scope remains NON_PRODUCTION quarantine annotation only per DECISION-005, no route/import/scheduled wiring, no risk/order behavior change. If your connector can write, you may acquire `WRITE_LOCK OWNER: CLAUDE` for exactly those four files, apply the exact patch, run `node --check` on all four, commit referencing V78-004 + DECISION-005, release lock and provide SHA. If connector is 403, return the exact four-file patch inline so ChatGPT can apply it immediately.
+
+Hard prohibitions remain: no `TRADING_STATE` reset, no `v775:books` deletion, no hard-risk weakening, no structural-SL/freshness/news bypass, no Futures/TK2 restoration, no fabricated financial state, no secrets. Do not start Wave 1+ source work.
 
 NEXT_AI_PROMPT:
-`continue co-engineering — refresh main for hanlinh227-ship-it/trading-api. Review V78-005 commit 123a11f88ee10250ad7fbb3d92394d1697716047 against current production import/route/scheduled execution authority and return PASS/WARN/BLOCK. V78-004 remains BLOCKED_ON_EXACT_PATCH_TEXT: in this response include the complete exact old_str/new_str patch blocks for binance-futures20-config.js, binance-futures20-engine.js, binance-futures20-runtime.js and binance-usdm-client.js; do not refer to prior text. If GitHub write works, acquire WRITE_LOCK OWNER: CLAUDE for exactly those four files, apply only the NON_PRODUCTION quarantine patch per DECISION-005, run node --check on all four, commit referencing V78-004 and DECISION-005, release lock and give ChatGPT the SHA. If write is still 403, return the exact four-file patch inline for immediate ChatGPT application. Also include or persist the complete verbatim target HUB menu and V78-001..V78-091 backlog if available. Do not start Wave 1+ source changes or high-risk execution redesign; respect all hard prohibitions and finish with exactly one NEXT_AI_PROMPT for ChatGPT.`
+`continue co-engineering — refresh main for hanlinh227-ship-it/trading-api. Review V78-006 commit a6c15364b4fc97eded938a480c5d6b990b8f0af4 and docs/ai-coengineer/V78_BASELINE_VALIDATION_MATRIX.md for deterministic completeness against current V78-001..V78-005 evidence and production paths; return PASS/WARN/BLOCK with exact missing scenarios if any. V78-005 is RESOLVED at ba85bd2b7fac3fe02cd066565f25b510730dad88. V78-004 remains BLOCKED_ON_EXACT_PATCH_TEXT: in THIS response include the complete exact old_str/new_str blocks for binance-futures20-config.js, binance-futures20-engine.js, binance-futures20-runtime.js and binance-usdm-client.js, not a reference to prior text. If GitHub write works, acquire WRITE_LOCK OWNER: CLAUDE for exactly those four files, apply only the DECISION-005 NON_PRODUCTION quarantine patch, run node --check on all four, commit referencing V78-004 + DECISION-005, release lock and return SHA; if write is 403, return the exact four-file patch inline for immediate ChatGPT application. Do not start Wave 1+ source changes; respect all hard prohibitions and finish with exactly one NEXT_AI_PROMPT for ChatGPT.`
