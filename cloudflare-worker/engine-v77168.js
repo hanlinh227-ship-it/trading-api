@@ -2,8 +2,8 @@ import V73_CONFIG from "../data/nocut_intraday_allpass_v73.json" with { type: "j
 import SYMBOL_KNOWLEDGE from "../data/symbol_knowledge_registry.json" with { type: "json" };
 
 const CONFIG = {
-  version: "V77.16.13",
-  service: "Trading V77.16.13 Index Provider R2",
+  version: "V77.16.14",
+  service: "Trading V77.16.14 Split Market Live",
   tdCreditsPerMinute: 55,
   tdReserveCredits: 3,
   maxQuoteAgeSec: 65,
@@ -521,7 +521,7 @@ async function prepareNonCryptoDeep(symbols,h1Map,env){
 }
 
 function emptyGroup(){return {marketActive:[],limitActive:[],limitPending:[],watch:[]};}
-function emptyBooks(){return {forex:emptyGroup(),crypto:emptyGroup(),metal:emptyGroup(),future:emptyGroup(),updatedAt:Date.now()};}
+function emptyBooks(){return {forex:emptyGroup(),crypto:emptyGroup(),metal:emptyGroup(),index:emptyGroup(),updatedAt:Date.now()};}
 function validExecutablePosition(p,group){
   if(!p||typeof p!=="object"||!GROUPS[group]?.includes(canonicalUserSymbol(p.symbol)))return false;
   if(!["LONG","SHORT"].includes(p.side))return false;
@@ -537,7 +537,7 @@ async function saveBooks(env,b){b.updatedAt=Date.now();for(const g of Object.key
 function bookQty(p){const q=Number(p?.quantity??p?.qty);if(Number.isFinite(q)&&q>0)return {qty:q,estimated:false};const e=Number(p?.entry),sl=Number(p?.sl),risk=Number(p?.riskUsd??CONFIG.defaultRiskUsd),d=Math.abs(e-sl);return e>0&&sl>0&&risk>0&&d>0?{qty:risk/d,estimated:true}:{qty:null,estimated:true};}
 async function liveBookQuote(g,p,env){try{if(g==="crypto")return await cryptoExecutionQuote(p.symbol);if(g==="forex"||g==="metal")return await tdQuote(p.symbol,env);if(g==="index")return await tdQuote(p.symbol,env);}catch{}return null;}
 function enrichBookPosition(g,p,q){const o={...p},px=Number(q?.price),e=Number(p.entry),dir=p.side==="SHORT"?-1:1;if(!(px>0&&e>0))return o;o.currentPrice=px;o.liveAt=Date.now();o.liveSource=q?.source||null;o.pnlPct=(px-e)/e*100*dir;if(p.status!=="PENDING"){const z=bookQty(p);if(z.qty){o.pnlUsd=(px-e)*dir*z.qty;o.pnlUsdEstimated=z.estimated||g!=="crypto";}}return o;}
-async function getBooksLive(env){const b=await getBooks(env),o=JSON.parse(JSON.stringify(b)),jobs=[];for(const g of Object.keys(GROUPS))for(const k of ["marketActive","limitActive","limitPending"])for(let i=0;i<(o[g]?.[k]||[]).length;i++)jobs.push((async()=>{const p=o[g][k][i],q=await liveBookQuote(g,p,env);o[g][k][i]=enrichBookPosition(g,p,q);})());await Promise.all(jobs);o.liveRefreshedAt=Date.now();return o;}
+async function getBooksLive(env,onlyGroup=null){const b=await getBooks(env),o=JSON.parse(JSON.stringify(b)),groups=onlyGroup&&GROUPS[onlyGroup]?[onlyGroup]:Object.keys(GROUPS),jobs=[];for(const g of groups)for(const k of ["marketActive","limitActive","limitPending"])for(let i=0;i<(o[g]?.[k]||[]).length;i++)jobs.push((async()=>{const p=o[g][k][i],q=await liveBookQuote(g,p,env);o[g][k][i]=enrichBookPosition(g,p,q);})());await Promise.all(jobs);o.liveRefreshedAt=Date.now();o.liveRefreshedGroup=onlyGroup||"all";return o;}
 async function saveScanSnapshot(group,run,env){try{await env.TRADING_STATE.put(CONFIG.keys.scanPrefix+group,JSON.stringify(run),{expirationTtl:900});}catch{}}
 async function getScanSnapshot(group,env){try{return await env.TRADING_STATE.get(CONFIG.keys.scanPrefix+group,"json");}catch{return null;}}
 async function appendOrderHistory(env,event){try{const old=await env.TRADING_STATE.get(CONFIG.keys.orderHistory,"json"),rows=Array.isArray(old?.rows)?old.rows:[];rows.unshift({...event,recordedAt:Date.now(),engine:CONFIG.version});await env.TRADING_STATE.put(CONFIG.keys.orderHistory,JSON.stringify({rows:rows.slice(0,250),updatedAt:Date.now()}));}catch{}}
@@ -600,15 +600,15 @@ async function runSymbol(symbol,env){
 async function telegram(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const r=await fetchTimeout(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p.ok)throw new Error(p.description||"Telegram error");return p;}
 function telegramSafeText(text){const x=String(text??"");return x.length<=3900?x:x.slice(0,3860)+"\n… đã rút gọn";}
 async function sendText(env,text,chatId=env.TELEGRAM_CHAT_ID,reply_markup){return telegram(env,"sendMessage",{chat_id:chatId,text:telegramSafeText(text),reply_markup,disable_web_page_preview:true});}
-function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"👤 CÁ NHÂN",callback_data:"personal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"books"}]]};}
-function signalKeyboard(){return {inline_keyboard:[[{text:"🧭 QUÉT TẤT CẢ / TOP SETUPS",callback_data:"hub"}],[{text:"💱 FOREX",callback_data:"scan:forex"},{text:"🪙 CRYPTO",callback_data:"scan:crypto"}],[{text:"🥇 METAL",callback_data:"scan:metal"},{text:"📊 INDEX CASH",callback_data:"scan:future"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
+function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"👤 CÁ NHÂN",callback_data:"personal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"live"}]]};}
+function signalKeyboard(){return {inline_keyboard:[[{text:"🧭 QUÉT TẤT CẢ / TOP SETUPS",callback_data:"hub"}],[{text:"💱 FOREX",callback_data:"scan:forex"},{text:"🪙 CRYPTO",callback_data:"scan:crypto"}],[{text:"🥇 METAL",callback_data:"scan:metal"},{text:"📊 INDEX CASH",callback_data:"scan:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
 function propKeyboard(){return {inline_keyboard:[[{text:"🟣 HYROTRADER",callback_data:"prop:hyro"},{text:"🔵 BREAKOUT",callback_data:"prop:breakout"}],[{text:"📚 LỆNH PROP",callback_data:"prop:orders"},{text:"🛡️ RISK PROP",callback_data:"prop:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
 function personalKeyboard(){return {inline_keyboard:[[{text:"🖥️ MT5 CÁ NHÂN",callback_data:"personal:mt5"}],[{text:"📚 LỆNH CÁ NHÂN",callback_data:"personal:orders"},{text:"🛡️ RISK CÁ NHÂN",callback_data:"personal:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
 function symbolMarketKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"symmarket:forex"},{text:"🪙 Crypto",callback_data:"symmarket:crypto"}],[{text:"🥇 Metal",callback_data:"symmarket:metal"},{text:"📊 Index Cash",callback_data:"symmarket:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}
 function symbolListFor(group){return GROUPS[group]||[];}
 function symbolPageKeyboard(group,page=0){const all=symbolListFor(group),size=12,pages=Math.max(1,Math.ceil(all.length/size)),p=Math.max(0,Math.min(pages-1,Number(page)||0)),slice=all.slice(p*size,p*size+size),rows=[];for(let i=0;i<slice.length;i+=2)rows.push(slice.slice(i,i+2).map(sym=>({text:sym,callback_data:"sym:"+group+":"+sym})));const nav=[];if(p>0)nav.push({text:"⬅️",callback_data:"sympage:"+group+":"+(p-1)});nav.push({text:(p+1)+"/"+pages,callback_data:"noop"});if(p<pages-1)nav.push({text:"➡️",callback_data:"sympage:"+group+":"+(p+1)});rows.push(nav);rows.push([{text:"↩️ Chọn thị trường",callback_data:"symbols"},{text:"📡 SIGNAL",callback_data:"signal"}]);return {inline_keyboard:rows};}
 function groupKeyboard(group,run){const rows=baseKeyboard().inline_keyboard,pending=freshWatchFromRun(run).filter(w=>w.reason==="NEWS_CONTEXT_REQUIRED").slice(0,3);if(pending.length)rows.unshift(pending.map(w=>({text:"✅ Tin OK "+w.symbol,callback_data:"news:"+group+":"+w.symbol})));return {inline_keyboard:rows};}
-function signalNotifyKeyboard(group,symbol=null){const rows=[];if(symbol)rows.push([{text:"🔎 "+symbol,callback_data:"sym:"+group+":"+symbol},{text:"📡 "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"scan:"+group}]);else rows.push([{text:"📡 Quét lại",callback_data:"scan:"+group},{text:"🔥 Top Setups",callback_data:"hub"}]);rows.push([{text:"📚 Live Orders",callback_data:"books"},{text:"🏠 Hub",callback_data:"menu"}]);return {inline_keyboard:rows};}
+function signalNotifyKeyboard(group,symbol=null){const rows=[];if(symbol)rows.push([{text:"🔎 "+symbol,callback_data:"sym:"+group+":"+symbol},{text:"📡 "+groupTitle(group).replace(/^[^ ]+ /,""),callback_data:"scan:"+group}]);else rows.push([{text:"📡 Quét lại",callback_data:"scan:"+group},{text:"🔥 Top Setups",callback_data:"hub"}]);rows.push([{text:"📚 Live Orders",callback_data:"live"},{text:"🏠 Hub",callback_data:"menu"}]);return {inline_keyboard:rows};}
 function signalEventText(kind,p,extra={}){const group=extra.group||"crypto",side=sideText(p?.side),entry=fmtPx(p?.entry),sl=fmtPx(p?.sl),tp1=fmtPx(p?.tp1),tp2=fmtPx(p?.tp2||p?.tp),rr=Number(p?.targetRR);const head=kind==="LIMIT_FILLED"?"🔵 LIMIT KHỚP • LIVE":kind==="TP"?"✅ TP DONE":kind==="SL"?"🛑 SL HIT":kind==="LIMIT_NEW"?"🟡 LIMIT MỚI • ĐANG CHỜ":"🟢 MARKET • LIVE";const L=[head,groupTitle(group)+" • "+(p?.symbol||"—")+" • "+side,"━━━━━━━━━━━━━━"];if(kind==="TP"||kind==="SL"){const mv=Number(extra.closePrice)>0&&Number(p?.entry)>0?(Number(extra.closePrice)-Number(p.entry))/Number(p.entry)*100*(p.side==="SHORT"?-1:1):null;L.push("📍 Entry "+entry,"🏁 Close "+fmtPx(extra.closePrice)+(Number.isFinite(mv)?` • ${mv>=0?"+":""}${mv.toFixed(2)}%`:""));}else{L.push("🎯 Entry "+entry,"🛡 SL "+sl,"💰 TP1 "+tp1+" • TP2 "+tp2+(Number.isFinite(rr)?" • RR "+rr.toFixed(2):""));if(kind!=="LIMIT_NEW")L.push("🔄 Mở 📚 Live Orders để refresh P/L % + USD");}if(p?.discoveredBy)L.push("⚙️ "+orderSourceText(p.discoveredBy));return L.join("\n");}
 function hubKeyboard(h){const rows=baseKeyboard().inline_keyboard,p=[];for(const [g,r] of Object.entries(h?.runs||{}))for(const w of freshWatchFromRun(r))if(w.reason==="NEWS_CONTEXT_REQUIRED"&&p.length<3)p.push({text:"✅ Tin OK "+w.symbol,callback_data:"news:"+g+":"+w.symbol});if(p.length)rows.unshift(p);return {inline_keyboard:rows};}
 function groupTitle(g){return g==="forex"?"💱 FOREX":g==="crypto"?"🪙 CRYPTO":g==="index"?"📊 INDEX CASH":"🥇 METAL";}
@@ -711,7 +711,7 @@ async function handleTelegram(req,env){
       const a=await runSymbol(symbol,env),type=marketType(symbol);
       if(type!=="unknown"){const books=await getBooks(env);const added=fillBooks(type,books,[a],"COMMAND_MANUAL");if(added.length||a.status==="WATCH")await saveBooks(env,books);}
       await sendText(env,singleAnalysisText(a),chatId,baseKeyboard());
-    }else if(cb==="books")await sendText(env,booksSummary(await getBooksLive(env)),chatId,{inline_keyboard:[[{text:"🔄 Refresh P/L",callback_data:"books"},{text:"📡 Signal",callback_data:"signal"}],[{text:"🏦 Hyro",callback_data:"prop"},{text:"🏠 Hub",callback_data:"menu"}]]});
+    }else if(cb==="books"||cb==="live")await sendText(env,"📚 LIVE CENTER\n\nLive đã tách riêng theo từng thị trường trong Hub mới.",chatId,baseKeyboard());
     else if(cb==="status"||text==="/status")await sendText(env,`⚙️ SYSTEM STATUS\nVersion: ${CONFIG.version}\nKV: ${env.TRADING_STATE?"ONLINE":"MISSING"}\nTwelve Data: ${env.TWELVE_DATA_API_KEY?"CONFIGURED":"MISSING"}\nTelegram: CONNECTED\nHub: ADAPTIVE + FRESH SCAN\nCrypto: 61 symbol\nForex: 28 pairs\nMetal: XAU/XAG\nIndex Cash: NAS100/US30/US500/DEX/JP225\nMARKET/LIMIT EXEC chỉ khi execution authority thật; MARKET PLAN/LIMIT PLAN luôn tách rõ.\nNews gate: ${env.NEWS_GATE_URL?"EXTERNAL STRICT":"SOFT UNVERIFIED"}`,chatId,baseKeyboard());
     else await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nChọn HUB/thị trường hoặc gõ /coin BTC để phân tích riêng.`,chatId,baseKeyboard());
   }
@@ -730,12 +730,12 @@ export default {
       if(p==="/telegram/webhook-info")return json(await telegram(env,"getWebhookInfo",{}));
       if(p==="/telegram/menu"){await sendText(env,`🤖 TRADING HUB ${CONFIG.version}\nMỗi lần bấm = quét mới. Chọn HUB/thị trường hoặc 🔎 TỪNG SYMBOL.`,env.TELEGRAM_CHAT_ID,baseKeyboard());return json({ok:true});}
       if(p==="/telegram/webhook"&&req.method==="POST")return handleTelegram(req,env);
-      if(p==="/books"||p==="/orders")return json(await getBooksLive(env));
+      if(p==="/books"||p==="/orders"){const g=u.searchParams.get("group");if(g&&!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json(await getBooksLive(env,g||null));}
       if(p==="/order-history"||p==="/history")return json(await getOrderHistory(env));
       if(p==="/knowledge"){const symbol=canonicalUserSymbol(u.searchParams.get("symbol"));return json({ok:true,symbol,knowledge:symbolKnowledge(symbol)});}
       if(p==="/shadow"){const symbol=u.searchParams.get("symbol");return json({ok:true,rows:await getShadowSetups(env,symbol)});}
       if(p==="/latest-scan"){const g=u.searchParams.get("group");if(!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json({ok:true,group:g,snapshot:await getScanSnapshot(g,env)});}
-      return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|future","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NQ|MNQ|ES|MES","/knowledge?symbol=NQ","/telegram/menu","/books","/order-history"]});
+      return json({ok:true,version:CONFIG.version,endpoints:["/status","/hub","/run-now?group=forex|crypto|metal|index","/analyze?symbol=BTCUSDT|EURUSD|XAUUSD|NAS100|US30|US500|DEX|JP225","/knowledge?symbol=NAS100","/telegram/menu","/books","/order-history"]});
     }catch(e){console.error("HTTP",e);return json({ok:false,version:CONFIG.version,error:e?.message||String(e)},500);}
   },
   async scheduled(_controller,env,ctx){ctx.waitUntil((async()=>{await lifecycle(env);const t=new Date(Number(_controller?.scheduledTime||Date.now())),minute=t.getUTCMinutes();if(minute%CONFIG.autoCryptoScanMinutes===0)await autoScanCrypto(env);if(minute===2)await autoScanSignalGroup("forex",env);if(minute===12)await autoScanSignalGroup("metal",env);if(minute%15===7)await autoScanSignalGroup("index",env);})().catch(e=>console.error("CRON",e)));}
