@@ -1,11 +1,11 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-007 only — docs/ai-coengineer/V78_PROVIDER_CAPABILITY_INVENTORY.md; documentation-only provider inventory correction; no production source change.
-STARTED: 2026-08-19T20:33:00+07:00
-BASE_SHA: 401bfa0f264e8a39ef1712dd2d3f4e9d1e67f6be
-PURPOSE: Add Claude-confirmed six missing provider/capability rows and resolve V78-007. V78-004 remains separately blocked unless exact four-file patch text is retrievable. No Wave 1 source change is authorized under this lock.
+LOCKED: false
+OWNER: NONE
+SCOPE: none
+STARTED: null
+BASE_SHA: 6cd6e34824e2259d3c7482e7f41980c46ae656bc
+PURPOSE: V78-007 resolved after Claude-confirmed six-provider inventory correction. Wave 0 documentation foundation is complete except V78-004 remains blocked on exact four-file patch text. Wave 1 may open only as a separately locked issue with exact scope and acceptance criteria.
 
 Protocol:
 - Before modifying production source, set `LOCKED: true`, owner and exact scope.
