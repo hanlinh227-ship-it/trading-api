@@ -1,0 +1,16 @@
+V78-023 CONSOLIDATED HUB INTELLIGENCE COVERAGE + R13 VISIBILITY
+sourceCommit: fbabe727caeb771b29188169800a7d275936b5ff
+cloudflareVersionId: e6171203-204b-494e-884e-ddc7803b8993
+verifiedAt: 2026-08-19T23:45:07.145Z
+node --check hub-v77171.js: PASS
+UI revision: HUB-R13-ENTRY-INTEL-COVERAGE
+Entry Intel screen: ACTIVE ADVISORY semantics; Quality/ADMIT-BLOCK/Freshness/WHY fields visible
+Coverage screen: last 60 Entry Intelligence rows summarized by Forex/Crypto/Metal/Index
+Coverage dimensions: sample count, LIVE count, average quality, promotion block count, top missing core fields
+Evidence taxonomy: REQUIRED may block; QUALITY ranks; OPTIONAL never independently blocks
+Execution authority: unchanged (Entry Intelligence NONE; Hyro remains sole real-capital execution path)
+Production Claude API: PAUSED
+No TRADING_STATE/v775:books reset or deletion
+No risk/freshness/structural-SL/news weakening
+No Futures/TK2 restore
+Binance20 remains NON_PRODUCTION / QUARANTINED

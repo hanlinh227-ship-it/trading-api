@@ -130,3 +130,13 @@ V78-022 — RESOLVED / DEPLOYED
 - Hub cross-market top-setups rendering now shows Entry Intelligence Quality grade/score, blocked-promotion reasons, and Freshness.
 - hubRank/runHub top selection unchanged; rendering-only.
 - Validation: docs/ai-coengineer/V78-022_VALIDATION.txt.
+
+
+V78-023 — RESOLVED / DEPLOYED
+- Source commit: fbabe727caeb771b29188169800a7d275936b5ff.
+- Cloudflare Version ID: e6171203-204b-494e-884e-ddc7803b8993.
+- Hub UI revision is HUB-R13-ENTRY-INTEL-COVERAGE.
+- Entry Intel UI now reflects ACTIVE ADVISORY status from V78-020 instead of stale SHADOW wording.
+- New read-only Coverage view summarizes Entry Intelligence evidence quality/missing-core patterns across Forex/Crypto/Metal/Index.
+- No execution authority, ranking formula, admission gate, hard risk, freshness, structural-SL or news policy changed in V78-023.
+- Validation: docs/ai-coengineer/V78-023_VALIDATION.txt.
