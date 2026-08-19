@@ -1,8 +1,9 @@
 import {runClaudeReview,getClaudeReviewerStatus,getClaudeReviewState,formatClaudeReviewText} from "./claude-reviewer.js";
 import {getAiGovernanceState} from "./ai-arbiter.js";
+import {telegramApiRequest} from "./providers/telegram-client.js";
 
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
-async function tg(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const r=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}),p=await r.json();if(!p?.ok)throw new Error(p?.description||"Telegram error");return p;}
+async function tg(env,method,payload){const p=await telegramApiRequest(env,method,payload);if(!p?.ok)throw new Error(p?.description||"Telegram error");return p;}
 const send=(env,chatId,text,reply_markup)=>tg(env,"sendMessage",{chat_id:chatId,text,reply_markup,disable_web_page_preview:true});
 const keyboard=()=>({inline_keyboard:[[{text:"🧠 Trạng thái AI",callback_data:"claude:status"},{text:"🔎 Review ngay",callback_data:"claude:review"}],[{text:"⬅️ Menu",callback_data:"menu"}]]});
 function statusText(s,g){const last=s?.last,used=Number(s?.budget?.count||0),limit=Number(s?.dailyLimit||0),verdict=last?.review?.verdict||last?.reason||last?.error||"Chưa review",lease=g?.lease?.expiresAt>Date.now()?`${g.lease.actor} • ${g.lease.scope}`:"FREE";return ["🧠 DUAL AI • CO-ENGINEER",`Claude API ${s?.configured?"✅ CONNECTED":"❌ MISSING"} | ${s?.model||"—"}`,"ChatGPT ↔ Claude: ngang quyền phân tích/đề xuất","Arbiter: 1 writer • hard risk/secret/trade khóa",`Lease: ${lease}`,`Usage Claude hôm nay: ${used}/${limit} | cooldown ${Number(s?.cooldownMin||0)}m`,`Review gần nhất: ${verdict}`,"Source change: đề xuất → arbiter/validator → merge","Quyền giao dịch: ❌ trực tiếp • Deploy: ❌ trực tiếp"].join("\n");}
