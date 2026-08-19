@@ -1,0 +1,33 @@
+name: V77.18.30 Forex PR Migration
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: github.head_ref == 'v771830-forex-opportunity-r3'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v771830-forex-opportunity-r3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply migration
+        run: python3 scripts/patch_v771830_forex.py
+      - name: Validate source and Wrangler
+        run: |
+          cd cloudflare-worker
+          node validate-worker.mjs
+          npm install --no-audit --no-fund
+          TRADING_KV_NAMESPACE_ID=0123456789abcdef0123456789abcdef node prepare-wrangler.mjs
+          npx wrangler deploy --dry-run --outdir /tmp/v771830-dist
+      - name: Commit validated production files only
+        run: |
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/dual-ai-intervention.js cloudflare-worker/index.js .github/workflows/validate-cloudflare-v77.yml
+          git commit -m "V77.18.30 Forex Opportunity Routing R3" || exit 0
+          git push origin HEAD:v771830-forex-opportunity-r3
