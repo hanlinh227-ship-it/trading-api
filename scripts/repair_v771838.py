@@ -7,9 +7,10 @@ def patch(path, replacements, required=()):
     s = p.read_text(encoding='utf-8')
     original = s
     for old, new in replacements:
-        if old not in s:
-            raise SystemExit(f'{path}: missing expected text: {old[:120]}')
-        s = s.replace(old, new)
+        if old in s:
+            s = s.replace(old, new)
+        elif new not in s:
+            raise SystemExit(f'{path}: neither old nor new text found: {old[:120]}')
     for token in required:
         if token not in s:
             raise SystemExit(f'{path}: required token missing after patch: {token}')
@@ -19,18 +20,17 @@ def patch(path, replacements, required=()):
     else:
         print('unchanged', path)
 
-# Adaptive tuning already carries the balanced thresholds from the prior commit.
-# Only advance its release identity; do not widen risk/news/freshness guardrails here.
 p = ROOT / 'cloudflare-worker/adaptive-tuning.js'
 s = p.read_text(encoding='utf-8')
-if 'V77.18.37' not in s:
-    raise SystemExit('adaptive-tuning.js: V77.18.37 identity missing')
-s = s.replace('V77.18.37', 'V77.18.38')
+if 'V77.18.37' in s:
+    s = s.replace('V77.18.37', 'V77.18.38')
+elif 'V77.18.38' not in s:
+    raise SystemExit('adaptive-tuning.js: release identity missing')
 for token in ('marketEntryBalanced:true','forexMinRR:1.15','bMicroMin:.50','V77.18.38'):
     if token not in s:
         raise SystemExit(f'adaptive-tuning.js: required token missing {token}')
 p.write_text(s, encoding='utf-8')
-print('patched cloudflare-worker/adaptive-tuning.js')
+print('checked cloudflare-worker/adaptive-tuning.js')
 
 patch('cloudflare-worker/engine-v77168.js', [
     ('version: "V77.16.17",', 'version: "V77.16.18",'),
@@ -56,16 +56,23 @@ patch('cloudflare-worker/dual-ai-intervention.js', [
 
 p = ROOT / '.github/workflows/validate-cloudflare-v77.yml'
 s = p.read_text(encoding='utf-8')
-s = s.replace("locks(engine,['V77.16.17','Market Isolation + Forex R4'", "locks(engine,['V77.16.18','Balanced Market Routing R5'")
-s = s.replace("locks(index,['V77.18.36','Market Isolation + Forex R4'", "locks(index,['V77.18.38','Repair + Deploy Sync'")
-s = s.replace("locks(hub,['V77.18.36','HUB-R7-MARKET-ISOLATED'", "locks(hub,['V77.18.38','HUB-R8-BALANCED'")
-s = s.replace("locks(dual,['FOREX_MARKET_ISOLATION_R4','fresh explicit analysis quote','MARKET-ISOLATED HUB']", "locks(dual,['MARKET_BALANCE_R5_BUDGET','max_tokens:1400','fresh explicit analysis quote','MARKET-ISOLATED HUB']")
-s = s.replace("locks(adaptive,['hardNews:true'", "locks(adaptive,['V77.18.38','marketEntryBalanced:true','hardNews:true'")
-s = s.replace("console.log('V77.18.36 Market Isolation + Forex R4 validation PASS');", "console.log('V77.18.38 Repair + Deploy Sync validation PASS');")
+repls = [
+    ("locks(engine,['V77.16.17','Market Isolation + Forex R4'", "locks(engine,['V77.16.18','Balanced Market Routing R5'"),
+    ("locks(index,['V77.18.36','Market Isolation + Forex R4'", "locks(index,['V77.18.38','Repair + Deploy Sync'"),
+    ("locks(hub,['V77.18.36','HUB-R7-MARKET-ISOLATED'", "locks(hub,['V77.18.38','HUB-R8-BALANCED'"),
+    ("locks(dual,['FOREX_MARKET_ISOLATION_R4','fresh explicit analysis quote','MARKET-ISOLATED HUB']", "locks(dual,['MARKET_BALANCE_R5_BUDGET','max_tokens:1400','fresh explicit analysis quote','MARKET-ISOLATED HUB']"),
+    ("locks(adaptive,['hardNews:true'", "locks(adaptive,['V77.18.38','marketEntryBalanced:true','hardNews:true'"),
+    ("console.log('V77.18.36 Market Isolation + Forex R4 validation PASS');", "console.log('V77.18.38 Repair + Deploy Sync validation PASS');"),
+]
+for old,new in repls:
+    if old in s:
+        s=s.replace(old,new)
+    elif new not in s:
+        raise SystemExit(f'validator: neither old nor new text found: {old[:100]}')
 for token in ('V77.16.18','V77.18.38','HUB-R8-BALANCED','MARKET_BALANCE_R5_BUDGET','max_tokens:1400'):
     if token not in s:
         raise SystemExit(f'validator missing {token}')
 p.write_text(s, encoding='utf-8')
-print('patched .github/workflows/validate-cloudflare-v77.yml')
+print('checked .github/workflows/validate-cloudflare-v77.yml')
 
 print('V77.18.38_REPAIR_PATCH_OK')
