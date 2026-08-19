@@ -23,3 +23,734 @@ FINAL V78-020 STATIC VALIDATION: PASS
 - No live HTTP result, scanId, symbol, status, timestamp, RATE_BUDGET_WAIT or BUSY value has been invented.
 - V78-020 is NOT marked PRODUCTION-VERIFIED by this record.
 - Current source/static validation remains PASS; production live verification remains pending an actual workflow execution or direct HTTP-capable session.
+
+=== V78-020 PRODUCTION LIVE VERIFICATION ===
+{
+  "verifiedAt": "2026-08-19T22:33:16.505324Z",
+  "workerUrl": "https://trading-v77-scanner.hanlinh227.workers.dev",
+  "deployedGitHead": "b6f48a952c1508e6678cfe634d4a75ccdeecdc69",
+  "requiredAncestor": "47800df837101611db8b61e0a25b8fcbd8888f55",
+  "statusEndpoint": {
+    "ok": true,
+    "version": "V77.18.43",
+    "service": "Trading V77.18.43 Legacy Cleanup + Version Sync",
+    "kv": true,
+    "twelveData": true,
+    "telegram": true,
+    "v73": {
+      "version": "NO_CUT_INTRADAY_ALLPASS_V73",
+      "classification": "EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS"
+    },
+    "providers": {
+      "forex": "Twelve Data analysis; MT5 broker quote required for execution",
+      "crypto": "Exchange-native analysis + exact canonical bid/ask execution",
+      "metal": "Twelve Data analysis; MT5 broker quote required for execution",
+      "index": "Verified native Index only: Massive I:ticker primary + Twelve Data type=Index fallback; sanity fail-closed"
+    },
+    "newsGate": {
+      "mode": "SOFT_UNVERIFIED",
+      "clearanceTtlSec": 1800,
+      "externalUrlConfigured": false
+    },
+    "hub": {
+      "enabled": true,
+      "freshScan": true,
+      "order": [
+        "crypto",
+        "forex",
+        "metal",
+        "index"
+      ]
+    },
+    "hubUx": {
+      "revision": "HUB-R11-ENTRY-INTEL-SHADOW",
+      "tuning": {
+        "preset": "COMPACT",
+        "density": "MINIMAL",
+        "showVersion": true,
+        "showHealthBadge": true,
+        "showAutoState": true,
+        "notificationButtons": true,
+        "source": "DEFAULT",
+        "updatedAt": 0
+      }
+    },
+    "prop": {
+      "provider": "HYROTRADER",
+      "phase": "CHALLENGE",
+      "program": "ONE_STEP",
+      "capitalMode": "LIVE_EQUITY_DYNAMIC",
+      "drawdownType": "STANDARD_TRAILING",
+      "riskShell": "ACTIVE"
+    },
+    "architecture": {
+      "signal": "INDEPENDENT",
+      "prop": "INDEPENDENT",
+      "personal": "INDEPENDENT",
+      "ai": "CO_ENGINEER_ARBITRATED"
+    },
+    "hyro": {
+      "mode": "DEMO",
+      "credentialsReady": true,
+      "credentialVars": {
+        "key": "HYRO_BYBIT_API_KEY",
+        "secret": "HYRO_BYBIT_API_SECRET"
+      },
+      "autoExecutionRequested": true,
+      "silentTelegram": true,
+      "independentFromSignal": true,
+      "dynamicEquitySizing": true,
+      "riskPolicyActivation": 1787097600000,
+      "requiredSecretsByMode": {
+        "DEMO": [
+          "HYRO_BYBIT_API_KEY",
+          "HYRO_BYBIT_API_SECRET"
+        ],
+        "LIVE": [
+          "HYRO_BYBIT_LIVE_API_KEY",
+          "HYRO_BYBIT_LIVE_API_SECRET"
+        ]
+      },
+      "activeRequiredSecrets": [
+        "HYRO_BYBIT_API_KEY",
+        "HYRO_BYBIT_API_SECRET"
+      ],
+      "optionalVars": [
+        "HYRO_BYBIT_MODE=DEMO|LIVE",
+        "HYRO_AUTO_EXECUTION=true|false"
+      ],
+      "manualPaused": false,
+      "quickMarketScan": "ABC_MICRO_PORTFOLIO",
+      "microstructure": [
+        "OPEN_INTEREST",
+        "LONG_SHORT_RATIO",
+        "ORDERBOOK",
+        "SPREAD"
+      ],
+      "portfolioGuard": "3_SLOT_DIVERSIFIED",
+      "dailyObjective": {
+        "challengePct": 2,
+        "fundedStretchPct": 5
+      },
+      "autoReconnect": true,
+      "lastRuntime": {
+        "ok": true,
+        "executed": false,
+        "mode": "DEMO",
+        "startedAt": 1787178745226,
+        "silentTelegram": true,
+        "source": "HYRO_INDEPENDENT_SCANNER_MICRO_PORTFOLIO",
+        "marketOnly": false,
+        "accountId": "A",
+        "reason": "NO_ELIGIBLE_CANDIDATE",
+        "candidateCount": 0,
+        "portfolioBlocked": 0,
+        "lastPortfolio": null,
+        "antiMirrorBlocked": 0,
+        "scanSummary": {
+          "broadCount": 100,
+          "deepCount": 16,
+          "profile": "PER_SYMBOL_ABC_REGISTRY",
+          "tiers": {
+            "C": 16
+          },
+          "microstructure": true,
+          "portfolio": true,
+          "bMicroMin": 0.5
+        },
+        "preview": [
+          {
+            "symbol": "HYPEUSDT",
+            "status": "WATCH",
+            "tier": "C",
+            "side": "BUY",
+            "rr": 31.400215771052505,
+            "strategy": "RANGE_BREAK",
+            "profile": "HYPEUSDT:RANGE_BREAK:389",
+            "riskMultiplier": 1,
+            "microScore": 0.4923,
+            "openInterest": {
+              "changePct": -0.00446885387998182,
+              "score": 0.46424916896014545
+            },
+            "longShort": {
+              "buyRatio": 0.5653,
+              "sellRatio": 0.4347,
+              "score": 0.542855
+            },
+            "orderbook": {
+              "imbalance": -0.2387208462914874,
+              "spreadBps": 1.4030164854444218,
+              "score": 0.32095936528138447,
+              "spreadScore": 0.8830819595462982
+            },
+            "funding": {
+              "rate": 0.0001,
+              "nextFundingTime": 1787184000000,
+              "minutesToFunding": 87.53533333333333,
+              "paysFunding": true,
+              "adverseRate": 0.0001,
+              "block": false,
+              "rrPenalty": 0
+            },
+            "reason": "PROFILE_TRIGGER_OR_RR_REQUIRED",
+            "antiMirrorBlocked": false
+          },
+          {
+            "symbol": "GPSUSDT",
+            "status": "WATCH",
+            "tier": "C",
+            "side": "SELL",
+            "rr": 4.200246720103192,
+            "strategy": "MOMENTUM_BREAKOUT",
+            "profile": "GPSUSDT:MOMENTUM_BREAKOUT:531",
+            "riskMultiplier": 1,
+            "microScore": 0.5277,
+            "openInterest": {
+              "changePct": 0.010462132242815697,
+              "score": 0.5836970579425256
+            },
+            "longShort": {
+              "buyRatio": 0.5566,
+              "sellRatio": 0.4434,
+              "score": 0.50019
+            },
+            "orderbook": {
+              "imbalance": -0.05836312256523173,
+              "spreadBps": 8.382932349735595,
+              "score": 0.5437723419239238,
+              "spreadScore": 0.3014223041887004
+            },
+            "funding": {
+              "rate": 5e-05,
+              "nextFundingTime": 1787184000000,
+              "minutesToFunding": 87.55723333333333,
+              "paysFunding": false,
+              "adverseRate": 0,
+              "block": false,
+              "rrPenalty": 0
+            },
+            "reason": "PROFILE_TRIGGER_OR_RR_REQUIRED",
+            "antiMirrorBlocked": false
+          },
+          {
+            "symbol": "ARBUSDT",
+            "status": "WATCH",
+            "tier": "C",
+            "side": "BUY",
+            "rr": 2.8260440881735667,
+            "strategy": "TREND_PULLBACK",
+            "profile": "ARBUSDT:TREND_PULLBACK:820",
+            "riskMultiplier": 1,
+            "microScore": 0.5319,
+            "openInterest": {
+              "changePct": -0.00781301881082526,
+              "score": 0.4374958495133979
+            },
+            "longShort": {
+              "buyRatio": 0.7173,
+              "sellRatio": 0.2827,
+              "score": 0.596055
+            },
+            "orderbook": {
+              "imbalance": -0.22128333304484013,
+              "spreadBps": 2.2421524663668437,
+              "score": 0.3340375002163699,
+              "spreadScore": 0.8131539611360964
+            },
+            "funding": {
+              "rate": 0.0001,
+              "nextFundingTime": 1787184000000,
+              "minutesToFunding": 87.51265,
+              "paysFunding": true,
+              "adverseRate": 0.0001,
+              "block": false,
+              "rrPenalty": 0
+            },
+            "reason": "PROFILE_TRIGGER_OR_RR_REQUIRED",
+            "antiMirrorBlocked": false
+          }
+        ],
+        "telemetry": {
+          "equity": 4848.44037742,
+          "walletBalance": 4848.44037742,
+          "available": 4819.89132181,
+          "positions": 1,
+          "openOrders": 4
+        },
+        "dynamicRisk": {
+          "capitalBasis": 4848.44037742,
+          "dayBase": 4853.70347125,
+          "targetUsd": 97.074069425,
+          "maxSingleWorstLossUsd": 26.666422075809997,
+          "aPlusRiskUsd": 21.81798169839,
+          "maxCombinedOpenRiskUsd": 43.63596339678,
+          "dailyHardStopUsd": 77.57504603872,
+          "notionalCapUsd": 8727.192679356,
+          "marginCapUsd": 2909.0642264519997,
+          "riskScale": 0.3,
+          "policy": "V771825_PHASE_OBJECTIVE_SAFE_RISK",
+          "activatesAt": 1787097600000,
+          "ratios": {
+            "singlePct": 0.0055,
+            "aPct": 0.0045,
+            "combinedPct": 0.009,
+            "hardPct": 0.016,
+            "targetPct": 0.02,
+            "notionalPct": 1.8,
+            "marginPct": 0.6
+          },
+          "objective": {
+            "phase": "CHALLENGE",
+            "dailyTargetPct": 2,
+            "mode": "CONSISTENCY_CAP"
+          },
+          "autoScaled": true
+        },
+        "management": {
+          "ok": true,
+          "count": 1,
+          "managed": [
+            {
+              "symbol": "GRVTUSDT",
+              "ok": true,
+              "strategyProfile": "GRVTUSDT:LIQUIDITY_RECLAIM:606",
+              "tpPolicy": "V771822_EARLY_BANK",
+              "tp1": 0.323436,
+              "tp2": 0.332556,
+              "tp3": 0.342892,
+              "tp1Placed": true,
+              "tp2Placed": true,
+              "beMoved": false,
+              "trailingArmed": false,
+              "lastError": null
+            }
+          ],
+          "at": 1787178746116
+        },
+        "adaptive": {
+          "version": "V77.18.38",
+          "signal": {
+            "locationTrendFit": 46,
+            "locationRelativeFit": 46,
+            "triggerTrendFit": 48,
+            "triggerRelativeFit": 48,
+            "conditionalFit": 50,
+            "fallbackFit": 40,
+            "forexMinRR": 1.15,
+            "metalMinRR": 1.22,
+            "indexMinRR": 1.3,
+            "marketChaseAtr": 0.75
+          },
+          "hyro": {
+            "maxDeep": 16,
+            "minTurnover": 5000000,
+            "bMicroMin": 0.5,
+            "bDistMult": 1.45,
+            "bMinRR": 1.35
+          }
+        },
+        "dualAi": {
+          "completed": false,
+          "verdict": null,
+          "costUsd": null
+        },
+        "finishedAt": 1787178751031,
+        "elapsedMs": 5805
+      }
+    },
+    "dualAi": {
+      "completed": false,
+      "version": "V77.18.25",
+      "reviewRevision": "BUG_HUNT_R6_STATE_LIFECYCLE",
+      "startedAt": 1787178745529,
+      "finishedAt": 1787178745718,
+      "error": "CLAUDE_API_DISABLED",
+      "guardrails": {
+        "coEngineer": true,
+        "fullEngineering": true,
+        "secrets": false
+      }
+    },
+    "adaptiveTuning": {
+      "version": "V77.18.38",
+      "source": "DEFAULT",
+      "values": {
+        "version": "V77.18.38",
+        "signal": {
+          "locationTrendFit": 46,
+          "locationRelativeFit": 46,
+          "triggerTrendFit": 48,
+          "triggerRelativeFit": 48,
+          "conditionalFit": 50,
+          "fallbackFit": 40,
+          "forexMinRR": 1.15,
+          "metalMinRR": 1.22,
+          "indexMinRR": 1.3,
+          "marketChaseAtr": 0.75
+        },
+        "hyro": {
+          "maxDeep": 16,
+          "minTurnover": 5000000,
+          "bMicroMin": 0.5,
+          "bDistMult": 1.45,
+          "bMinRR": 1.35
+        }
+      },
+      "updatedAt": null
+    },
+    "aiGovernance": {
+      "policy": {
+        "version": "V77.18.25",
+        "mode": "CO_ENGINEER_ARBITRATED_FULL_ENGINEERING",
+        "actors": {
+          "CHATGPT": {
+            "role": "CO_ENGINEER",
+            "readRepo": true,
+            "readRuntime": true,
+            "proposeSource": true,
+            "sourceAuthority": true,
+            "hubAuthority": true,
+            "strategyAuthority": true,
+            "softTuning": true,
+            "directTrade": false,
+            "directDeploy": false,
+            "secrets": false
+          },
+          "CLAUDE": {
+            "role": "CO_ENGINEER",
+            "readRepo": true,
+            "readRuntime": true,
+            "proposeSource": true,
+            "sourceAuthority": true,
+            "hubAuthority": true,
+            "strategyAuthority": true,
+            "softTuning": true,
+            "directTrade": false,
+            "directDeploy": false,
+            "secrets": false
+          }
+        },
+        "arbiter": {
+          "singleWriter": true,
+          "engineeringAuthority": true,
+          "hardRiskGuarded": true,
+          "secretsImmutable": true,
+          "tradeAuthority": false,
+          "deployAuthority": false
+        }
+      },
+      "lease": {
+        "releasedAt": 1787178745780,
+        "actor": "CLAUDE",
+        "scope": "FULL_ENGINEERING_PLUS_HUB_UX"
+      },
+      "proposals": {
+        "items": []
+      },
+      "state": {
+        "version": "V77.18.25",
+        "lastActor": "CLAUDE",
+        "lastAction": "MARKET_BALANCE_R5_BUDGET",
+        "verdict": "WARN",
+        "reviewId": "msg_011CeBfPR1rJa59mux5ijb7W",
+        "updatedAt": 1787122234765
+      }
+    },
+    "claudeReviewer": {
+      "configured": true,
+      "model": "claude-sonnet-5",
+      "dailyLimit": 4,
+      "cooldownMin": 45,
+      "last": {
+        "ok": true,
+        "version": "V77.18.31",
+        "kind": "MANUAL_FINAL_SYSTEM_REVIEW",
+        "startedAt": 1787108606470,
+        "finishedAt": 1787108627946,
+        "githubHead": "4742259ff442830368e5a34870e902718348d36c",
+        "model": "claude-sonnet-5",
+        "messageId": "msg_011CeBN6H6ePqEGyjjZhqNsN",
+        "stopReason": "max_tokens",
+        "usage": {
+          "input_tokens": 17697,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 1400,
+          "output_tokens_details": {
+            "thinking_tokens": 1400
+          },
+          "service_tier": "standard",
+          "inference_geo": "global"
+        },
+        "budget": {
+          "day": "2026-08-19",
+          "count": 1,
+          "lastAt": 1787108627910,
+          "inputTokens": 17697,
+          "outputTokens": 1400
+        },
+        "review": {
+          "verdict": "WARN",
+          "confidence": 0,
+          "summary": "",
+          "findings": [],
+          "tuning": [],
+          "must_fix": []
+        }
+      },
+      "budget": {
+        "day": "2026-08-19",
+        "count": 1,
+        "lastAt": 1787108627910,
+        "inputTokens": 17697,
+        "outputTokens": 1400
+      },
+      "release": {
+        "version": "V77.18.22",
+        "at": 1787076847974,
+        "verdict": "WARN"
+      },
+      "dailyAudit": {
+        "at": 1787078705341,
+        "version": "V77.18.22",
+        "verdict": "WARN"
+      },
+      "overnight": {
+        "active": false,
+        "until": 1787097600000,
+        "intervalMinutes": 30,
+        "state": {
+          "at": 1787092018743,
+          "version": "V77.18.22",
+          "verdict": "WARN"
+        }
+      },
+      "automation": {
+        "releaseFinalReview": true,
+        "incidentReview": true,
+        "dailySystemAuditHours": 24
+      },
+      "permissions": {
+        "trade": false,
+        "closePosition": false,
+        "deploy": false,
+        "kvMutationExceptOwnReviewState": true,
+        "reviewOnly": true
+      }
+    }
+  },
+  "groups": {
+    "forex": {
+      "prior": {
+        "status": null,
+        "scanId": "forex-1787178522346-tj3mgg",
+        "scannedAt": "2026-08-19T22:28:42.346Z",
+        "analyses": [
+          {
+            "symbol": "NZDCAD",
+            "status": "LIMIT_PLAN",
+            "reason": "HTF_METHOD_ALIGNMENT_REQUIRED"
+          },
+          {
+            "symbol": "AUDJPY",
+            "status": "LIMIT_PLAN",
+            "reason": "HTF_METHOD_ALIGNMENT_REQUIRED"
+          },
+          {
+            "symbol": "NZDJPY",
+            "status": "LIMIT_PLAN",
+            "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED"
+          }
+        ]
+      },
+      "new": {
+        "status": null,
+        "scanId": "forex-1787178777416-xjqoj4",
+        "scannedAt": "2026-08-19T22:32:57.416Z",
+        "analyses": [
+          {
+            "symbol": "NZDCAD",
+            "status": "LIMIT_PLAN",
+            "reason": "HTF_METHOD_ALIGNMENT_REQUIRED"
+          },
+          {
+            "symbol": "NZDJPY",
+            "status": "LIMIT_PLAN",
+            "reason": "M15_LOCATION_REQUIRED"
+          },
+          {
+            "symbol": "AUDJPY",
+            "status": "LIMIT_PLAN",
+            "reason": "HTF_METHOD_ALIGNMENT_REQUIRED"
+          }
+        ]
+      },
+      "priorActionablePlans": [
+        {
+          "symbol": "NZDCAD",
+          "status": "LIMIT_PLAN",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED"
+        },
+        {
+          "symbol": "AUDJPY",
+          "status": "LIMIT_PLAN",
+          "reason": "HTF_METHOD_ALIGNMENT_REQUIRED"
+        },
+        {
+          "symbol": "NZDJPY",
+          "status": "LIMIT_PLAN",
+          "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED"
+        }
+      ],
+      "absentPriorActionablePlans": [],
+      "absenceAssessment": "NONE",
+      "legitimateWaitOrBusy": false,
+      "rescuePromotionChecks": [
+        {
+          "symbol": "NZDJPY",
+          "status": "LIMIT_PLAN",
+          "reason": "M15_LOCATION_REQUIRED",
+          "validEvidence": false,
+          "promotionAllowed": false,
+          "evidenceCreatedAt": 1787178780529
+        }
+      ]
+    },
+    "crypto": {
+      "prior": {
+        "status": null,
+        "scanId": "crypto-1787178627999-f3ujic",
+        "scannedAt": "2026-08-19T22:30:27.999Z",
+        "analyses": [
+          {
+            "symbol": "FARTCOINUSDT",
+            "status": "LIMIT_PLAN",
+            "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED"
+          },
+          {
+            "symbol": "LINKUSDT",
+            "status": "WATCH",
+            "reason": "M15_LOCATION_REQUIRED"
+          },
+          {
+            "symbol": "HYPEUSDT",
+            "status": "WATCH",
+            "reason": "M15_LOCATION_REQUIRED"
+          }
+        ]
+      },
+      "new": {
+        "status": null,
+        "scanId": "crypto-1787178782011-x7q8xw",
+        "scannedAt": "2026-08-19T22:33:02.011Z",
+        "analyses": [
+          {
+            "symbol": "UNIUSDT",
+            "status": "LIMIT_PLAN",
+            "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED"
+          },
+          {
+            "symbol": "ADAUSDT",
+            "status": "LIMIT_PLAN",
+            "reason": "M15_LOCATION_REQUIRED"
+          },
+          {
+            "symbol": "LINKUSDT",
+            "status": "WATCH",
+            "reason": "M15_LOCATION_REQUIRED"
+          }
+        ]
+      },
+      "priorActionablePlans": [
+        {
+          "symbol": "FARTCOINUSDT",
+          "status": "LIMIT_PLAN",
+          "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED"
+        }
+      ],
+      "absentPriorActionablePlans": [
+        {
+          "symbol": "FARTCOINUSDT",
+          "status": "LIMIT_PLAN",
+          "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED"
+        }
+      ],
+      "absenceAssessment": "INFORMATIONAL_CANDIDATE_ROTATION_NOT_PROMOTION_PROOF",
+      "legitimateWaitOrBusy": false,
+      "rescuePromotionChecks": [
+        {
+          "symbol": "UNIUSDT",
+          "status": "LIMIT_PLAN",
+          "reason": "M5_MSS_DISPLACEMENT_RETEST_REQUIRED",
+          "validEvidence": false,
+          "promotionAllowed": false,
+          "evidenceCreatedAt": 1787178789742
+        },
+        {
+          "symbol": "ADAUSDT",
+          "status": "LIMIT_PLAN",
+          "reason": "M15_LOCATION_REQUIRED",
+          "validEvidence": false,
+          "promotionAllowed": false,
+          "evidenceCreatedAt": 1787178790128
+        }
+      ]
+    },
+    "metal": {
+      "prior": {
+        "status": "RATE_BUDGET_WAIT",
+        "scanId": "metal-1787178537992-5e57cn",
+        "scannedAt": "2026-08-19T22:28:57.992Z",
+        "analyses": []
+      },
+      "new": {
+        "status": null,
+        "scanId": "metal-1787178791703-6r5xol",
+        "scannedAt": "2026-08-19T22:33:11.703Z",
+        "analyses": [
+          {
+            "symbol": "XAUUSD",
+            "status": "WATCH",
+            "reason": "M15_LOCATION_REQUIRED"
+          },
+          {
+            "symbol": "XAGUSD",
+            "status": "WATCH",
+            "reason": "M15_LOCATION_REQUIRED"
+          }
+        ]
+      },
+      "priorActionablePlans": [],
+      "absentPriorActionablePlans": [],
+      "absenceAssessment": "NONE",
+      "legitimateWaitOrBusy": false,
+      "rescuePromotionChecks": []
+    },
+    "index": {
+      "prior": {
+        "status": null,
+        "scanId": "index-1787178538672-vtgzb2",
+        "scannedAt": "2026-08-19T22:28:58.672Z",
+        "analyses": []
+      },
+      "new": {
+        "status": null,
+        "scanId": "index-1787178794757-su2lc9",
+        "scannedAt": "2026-08-19T22:33:14.757Z",
+        "analyses": []
+      },
+      "priorActionablePlans": [],
+      "absentPriorActionablePlans": [],
+      "absenceAssessment": "NONE",
+      "legitimateWaitOrBusy": false,
+      "rescuePromotionChecks": []
+    }
+  },
+  "productionVerified": true,
+  "failures": []
+}

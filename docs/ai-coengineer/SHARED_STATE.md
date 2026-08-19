@@ -107,3 +107,10 @@ V78-020 — CLAUDE OVER-BLOCK FIX + SAFE PROMOTION IMPLEMENTED
 - Entry Intelligence promotion gate is applied only to non-crypto MARKET_SIGNAL admission. Crypto MARKET/LIMIT admission remains unchanged.
 - Primary single-symbol output now shows Entry Intelligence quality/admission evidence.
 - No Hyro execution/risk/freshness/SL/news/account behavior changed.
+
+V78-020 — PRODUCTION-VERIFIED
+- Current production deployment contains commit 47800df837101611db8b61e0a25b8fcbd8888f55 or a descendant.
+- One real /run-now request was executed for each forex/crypto/metal/index without retry-hiding BUSY/RATE_BUDGET_WAIT.
+- Immediately-prior /latest-scan snapshots were compared to the new results; candidate rotation is recorded but is not treated as promotion suppression because promotion occurs after analyses are produced.
+- Rescue MARKET_PLAN/LIMIT_PLAN evidence checks use /evidence/entry-intelligence and require promotion.allowed=true when quote/entry/SL/target evidence is valid.
+- Exact live statuses, symbols, scanIds and timestamps are appended to V78-020_VALIDATION.txt.
