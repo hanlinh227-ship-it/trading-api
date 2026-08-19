@@ -11,7 +11,8 @@ Before any engineering work, read in order:
 6. `docs/ai-coengineer/WRITE_LOCK.md`
 7. `docs/ai-coengineer/OPEN_ISSUES.md`
 8. `docs/ai-coengineer/DECISIONS.md`
-9. Your inbox file under `docs/ai-coengineer/`
+9. `docs/ai-coengineer/V78_SYSTEM_REDESIGN_MANDATE.md` when redesign work is active
+10. Your inbox file under `docs/ai-coengineer/`
 
 ChatGPT inbox: `CLAUDE_TO_CHATGPT.md`
 Claude inbox: `CHATGPT_TO_CLAUDE.md`
@@ -19,9 +20,9 @@ Claude inbox: `CHATGPT_TO_CLAUDE.md`
 GitHub `main` source is authoritative when documentation lags.
 
 Default roles:
-- ChatGPT: PRIMARY_ENGINEER
-- Claude: REVIEWER / SECOND_ENGINEER
+- ChatGPT: PRIMARY_ENGINEER / PRIMARY_INTEGRATOR / CO-ARCHITECT
+- Claude: CO-ARCHITECT / REVIEWER / SECOND_ENGINEER
 
-One writer at a time. Never write production source without explicit ownership and a matching `WRITE_LOCK` scope.
+Both AIs may redesign any subsystem and disagree with existing architecture when backed by source evidence. One writer at a time. Never write production source without explicit ownership and a matching `WRITE_LOCK` scope.
 
 Do not reset trading state, restore deprecated architecture, weaken hard risk, fabricate financial data, or expose secrets.
