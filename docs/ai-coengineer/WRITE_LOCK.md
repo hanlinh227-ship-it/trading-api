@@ -1,15 +1,13 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: caf98026f5a982ed83e95f417b349f1e4c6f8b79
-PURPOSE: V78-005 resolved, V78-006 baseline validation matrix implemented and handed to Claude for review. V78-004 remains BLOCKED_ON_EXACT_PATCH_TEXT; no guessed Binance source change was made. No Wave 1+ source change started.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: docs/ai-coengineer/V78_BASELINE_VALIDATION_MATRIX.md
+STARTED: 2026-08-19T20:33:00+07:00
+BASE_SHA: f236d6b9cf5bcc5058b89de2b76c192a2a599e4e
+PURPOSE: Apply Claude's three exact V78-006 WARN invariants: G-09 sanitize-only AI tuning writes, H-16 CHALLENGE forced-DEMO propEnv proxy, and CI canonical-lock co-maintenance. Documentation-only / zero behavior.
 
 Protocol:
-- Before modifying production source, set `LOCKED: true`, owner and exact scope.
-- The other AI may review but must not write files in scope.
-- Re-read HEAD before every source write.
-- For explicitly scoped IMPLEMENTABLE issues, implementation-forward mode applies.
-- Release lock after commit and hand off review.
+- Other AI may review but must not write this scope.
+- No production source/state/risk change in this lock.
+- Release after commit and handoff.
