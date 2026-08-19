@@ -22,7 +22,7 @@ export async function runHyroAutoCycle(env,opts={}){
     const telemetryView=telemetry?.connected?{equity:telemetry.equity,walletBalance:telemetry.walletBalance,available:telemetry.available,positions:telemetry.positions.length,openOrders:telemetry.openOrders.length}:null;
     if(!telemetry.connected)return done(env,base,{reason:telemetry.reason||"ACCOUNT_NOT_CONNECTED",telemetry:telemetryView,diagnostics:telemetry.diagnostics||null});
     if(!(Number(telemetry.equity)>0))return done(env,base,{reason:"ACCOUNT_EQUITY_ZERO_OR_UNAVAILABLE",telemetry:telemetryView,failClosed:true});
-    const intervention=await ensureDualAiIntervention(env,{version:"V77.18.24"}).catch(e=>({completed:false,error:String(e?.message||e)}));
+    const intervention=await ensureDualAiIntervention(env,{version:"V77.18.25"}).catch(e=>({completed:false,error:String(e?.message||e)}));
     const adaptive=await loadAdaptiveTuning(env),dynamicRisk=hyroDynamicRiskView(profile,telemetry),management=await manageHyroPositions(env,telemetry).catch(e=>({ok:false,reason:String(e?.message||e),managed:[]}));
     if(control.manualPaused){if(telemetry.openOrders?.length)await cancelHyroPending(env).catch(()=>{});return done(env,base,{reason:"MANUAL_PAUSED",telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});}
     if(!cfg.autoExecutionRequested)return done(env,base,{reason:"AUTO_EXECUTION_DISABLED",telemetry:telemetryView,dynamicRisk,management,adaptive,intervention});
