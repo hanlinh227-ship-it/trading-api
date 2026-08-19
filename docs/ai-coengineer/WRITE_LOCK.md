@@ -1,14 +1,16 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: e432a62cac0031223fda889a9b1a28dfe34ff18c
-PURPOSE: V78-002 DecisionAction correction committed and schema documentation marked RESOLVED. No production behavior changed.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE:
+- CLAUDE.md
+- AGENTS.md
+- docs/ai-coengineer/PROTOCOL.md
+STARTED: 2026-08-19T13:06:00Z
+BASE_SHA: ae2849350d27ba7c714c8e787e665e43af505718
+PURPOSE: Documentation-only governance update: authorize implementation-forward co-engineering so Claude may self-acquire WRITE_LOCK for explicitly IMPLEMENTABLE scoped issues and commit directly when connector permissions allow. No production source modification authorized by this governance lock.
 
 Protocol:
-- Before modifying production source, set `LOCKED: true`, owner and exact scope.
-- The other AI may review but must not write files in scope.
-- Re-read HEAD before every source write.
-- Release lock after commit and hand off review.
+- Claude may READ/REVIEW but must not write the declared governance scope while this lock is active.
+- No production source or trading-state change is authorized.
+- Release after governance commits.
