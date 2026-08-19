@@ -94,3 +94,9 @@ V78-016 — IMPLEMENTED / VALIDATED
 - Telegram Hub adds `🧭 Entry Intel` showing WHY NOW / PRICE / SL / TP-RR / INVALIDATION / freshness / completeness / existing block reason.
 - No authority change: current status/ranking/gates/orders remain authoritative; V78-016 is comparison/observability only.
 - Claude production API remains paused; Claude.ai Web retains full co-engineer authority when available.
+
+V78-017 — IMPLEMENTED / VALIDATED
+- Manual `/analyze` and Telegram single-symbol analysis now populate both V78-002 DecisionEvidence and V78-016 Entry Intelligence shadow records.
+- Shadow writes are isolated in try/catch after `runSymbol()` returns and do not mutate the returned decision object.
+- Hub visible UI revision is now `HUB-R11-ENTRY-INTEL-SHADOW` so deployment progress is visible.
+- Claude production API remains paused; Claude.ai Web remains a full co-engineer.

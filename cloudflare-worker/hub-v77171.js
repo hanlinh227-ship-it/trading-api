@@ -5,7 +5,7 @@ import {getSignalDecisionEvidence,getHyroDecisionEvidence} from "./providers/dec
 import {getEntryIntelligenceShadow} from "./providers/entry-intelligence.js";
 import {isClaudeApiEnabled} from "./providers/anthropic-client.js";
 
-const VERSION="V77.18.42",UI_REV="HUB-R10-LIFECYCLE-GUARD",SERVICE="Trading V77.18.42 • Signal Lifecycle Guard";
+const VERSION="V77.18.42",UI_REV="HUB-R11-ENTRY-INTEL-SHADOW",SERVICE="Trading V77.18.42 • Signal Lifecycle Guard";
 const HYRO_PROFILE_KEY="v7717:hyro:profile",HYRO_DRAFT_KEY="v77171:hyro:draft";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8"}});
 async function telegram(env,method,payload){if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN missing");const p=await telegramApiRequest(env,method,payload);if(!p.ok)throw new Error(p.description||"Telegram error");return p;}

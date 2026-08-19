@@ -1,0 +1,9 @@
+node --check engine-v77168.js = PASS
+node --check hub-v77171.js = PASS
+manual Telegram shadow evidence/intel instrumentation = PASS
+manual API /analyze shadow evidence/intel instrumentation = PASS
+returned decision object remains original `a` = PASS by exact route construction
+Hub visible revision = HUB-R11-ENTRY-INTEL-SHADOW
+verifyTelegram preserved = 1
+git diff --check = PASS
+V78-017_MANUAL_OBSERVABILITY_PASS

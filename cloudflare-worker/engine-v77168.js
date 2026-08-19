@@ -733,7 +733,7 @@ async function handleTelegram(req,env){
     if(cm){
       let symbol=canonicalUserSymbol(cm[1]);if(!symbol.endsWith("USDT")&&CRYPTO_BASE.includes(symbol))symbol=symbol+"USDT";
       await sendText(env,`⏳ Đang phân tích ${symbol} theo profile riêng...`,chatId);
-      const a=await runSymbol(symbol,env),type=marketType(symbol);
+      const a=await runSymbol(symbol,env),type=marketType(symbol);try{await recordSignalDecisionEvidence(env,buildSignalDecisionEvidence(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_TELEGRAM"}));await recordEntryIntelligenceShadow(env,buildEntryIntelligenceShadow(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_TELEGRAM"}));}catch{}
       if(type!=="unknown"){const books=await getBooks(env);const added=fillBooks(type,books,[a],"COMMAND_MANUAL");if(added.length||a.status==="WATCH")await saveBooks(env,books);}
       await sendText(env,singleAnalysisText(a),chatId,baseKeyboard());
     }else if(cb==="books"||cb==="live")await sendText(env,"📚 LIVE CENTER\n\nLive đã tách riêng theo từng thị trường trong Hub mới.",chatId,baseKeyboard());
@@ -749,7 +749,7 @@ export default {
       const u=new URL(req.url),p=u.pathname.replace(/\/$/,"")||"/";
       if(p==="/status")return json({ok:true,version:CONFIG.version,service:CONFIG.service,kv:!!env.TRADING_STATE,twelveData:!!env.TWELVE_DATA_API_KEY,telegram:!!env.TELEGRAM_BOT_TOKEN,v73:{version:V73_CONFIG.version,classification:V73_CONFIG.classification},providers:{forex:"Twelve Data analysis; MT5 broker quote required for execution",crypto:"Exchange-native analysis + exact canonical bid/ask execution",metal:"Twelve Data analysis; MT5 broker quote required for execution",index:"Verified native Index only: Massive I:ticker primary + Twelve Data type=Index fallback; sanity fail-closed"},newsGate:{mode:env.NEWS_GATE_URL?"EXTERNAL_STRICT":"SOFT_UNVERIFIED",clearanceTtlSec:CONFIG.newsClearanceTtlSec,externalUrlConfigured:!!env.NEWS_GATE_URL},hub:{enabled:true,freshScan:true,order:["crypto","forex","metal","index"]}});
       if(p==="/run-now"){const g=u.searchParams.get("group");return json(await runGroup(g,env,"API_RUN_NOW"));}
-      if(p==="/analyze"){const symbol=u.searchParams.get("symbol");return json(await runSymbol(symbol,env));}
+      if(p==="/analyze"){const symbol=u.searchParams.get("symbol"),a=await runSymbol(symbol,env);try{await recordSignalDecisionEvidence(env,buildSignalDecisionEvidence(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_API"}));await recordEntryIntelligenceShadow(env,buildEntryIntelligenceShadow(a,{runtimeVersion:CONFIG.version,scanId:"MANUAL_API"}));}catch{}return json(a);}
       if(p==="/symbols"){const g=u.searchParams.get("group");if(!GROUPS[g])return json({ok:false,error:"invalid group"},400);return json({ok:true,group:g,symbols:GROUPS[g]});}
       if(p==="/hub")return json(await runHub(env,"API_HUB"));
       if(p==="/telegram/setup-webhook")return json(await setupWebhook(req,env));
