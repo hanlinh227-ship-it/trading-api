@@ -31,3 +31,4 @@ jobs:
           git add cloudflare-worker/engine-v77168.js cloudflare-worker/index.js cloudflare-worker/hub-v77171.js
           git commit -m "V77.18.34 Native index failover" || exit 0
           git push origin HEAD:v771834-index-native-failover
+# trigger
