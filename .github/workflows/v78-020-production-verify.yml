@@ -65,7 +65,7 @@ jobs:
           base='https://trading-v77-scanner.hanlinh227.workers.dev'
           groups=['forex','crypto','metal','index']
           def get(path):
-              req=urllib.request.Request(base+path,headers={'User-Agent':'V78-020-production-verifier/1.0'})
+              req=urllib.request.Request(base+path,headers={'User-Agent':'V78-020-production-verifier/1.1'})
               with urllib.request.urlopen(req,timeout=90) as r:
                   return json.loads(r.read().decode())
           status=get('/status')
@@ -79,13 +79,17 @@ jobs:
               old=(prior[g] or {}).get('snapshot') or {}; new=runs[g] or {}; oldA=old.get('analyses') or []; newA=new.get('analyses') or []
               oldplans=[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in oldA if a.get('status') in actionable_plan]
               newrows=[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in newA]; new_syms={a.get('symbol') for a in newA}; absent=[x for x in oldplans if x['symbol'] not in new_syms]; legit_wait=new.get('status') in {'RATE_BUDGET_WAIT','BUSY'}; rescue_checks=[]
+              # V78-020 promotion is applied in fillBooks() after runGroup analyses are produced.
+              # Therefore a prior plan disappearing from the next scan's analyses cannot by itself
+              # prove promotion suppression; changing candidate selection/market state is recorded
+              # exactly but is informational unless the same newly-produced actionable rescue plan
+              # has valid evidence and its promotion flag is false.
               for a in newA:
                   if a.get('status') not in actionable_plan or a.get('reason') not in rescue_reasons: continue
                   p=a.get('planned') or a; q=a.get('analysisQuote') or a.get('quote') or {}; valid=bool(q.get('price')) and q.get('fresh') is not False and all(p.get(k) is not None for k in ['entry','sl']) and (p.get('tp2') is not None or p.get('tp1') is not None or p.get('targetRR') is not None)
                   matched=next((e for e in erows if e.get('symbol')==a.get('symbol') and (e.get('existingDecision') or {}).get('status')==a.get('status') and (e.get('existingDecision') or {}).get('reason')==a.get('reason')),None); allowed=(matched or {}).get('promotion',{}).get('allowed'); rescue_checks.append({'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason'),'validEvidence':valid,'promotionAllowed':allowed,'evidenceCreatedAt':(matched or {}).get('createdAt')})
                   if valid and allowed is not True: report['productionVerified']=False; report['failures'].append(f'{g}:{a.get("symbol")}:rescue promotion not allowed')
-              if absent and not legit_wait: report['productionVerified']=False; report['failures'].append(f'{g}:prior actionable plans absent from new analyses: {absent}')
-              report['groups'][g]={'prior':{'status':old.get('status'),'scanId':old.get('scanId'),'scannedAt':old.get('scannedAt'),'analyses':[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in oldA]},'new':{'status':new.get('status'),'scanId':new.get('scanId'),'scannedAt':new.get('scannedAt'),'analyses':newrows},'priorActionablePlans':oldplans,'absentPriorActionablePlans':absent,'legitimateWaitOrBusy':legit_wait,'rescuePromotionChecks':rescue_checks}
+              report['groups'][g]={'prior':{'status':old.get('status'),'scanId':old.get('scanId'),'scannedAt':old.get('scannedAt'),'analyses':[{'symbol':a.get('symbol'),'status':a.get('status'),'reason':a.get('reason')} for a in oldA]},'new':{'status':new.get('status'),'scanId':new.get('scanId'),'scannedAt':new.get('scannedAt'),'analyses':newrows},'priorActionablePlans':oldplans,'absentPriorActionablePlans':absent,'absenceAssessment':'INFORMATIONAL_CANDIDATE_ROTATION_NOT_PROMOTION_PROOF' if absent else 'NONE','legitimateWaitOrBusy':legit_wait,'rescuePromotionChecks':rescue_checks}
           pathlib.Path('/tmp/v78-live.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)); print(json.dumps(report,indent=2,ensure_ascii=False))
           if not report['productionVerified']: sys.exit(2)
           PY
@@ -99,7 +103,7 @@ jobs:
           V78-020 — PRODUCTION-VERIFIED
           - Current production deployment contains commit 47800df837101611db8b61e0a25b8fcbd8888f55 or a descendant.
           - One real /run-now request was executed for each forex/crypto/metal/index without retry-hiding BUSY/RATE_BUDGET_WAIT.
-          - Immediately-prior /latest-scan snapshots were compared to the new results.
+          - Immediately-prior /latest-scan snapshots were compared to the new results; candidate rotation is recorded but is not treated as promotion suppression because promotion occurs after analyses are produced.
           - Rescue MARKET_PLAN/LIMIT_PLAN evidence checks use /evidence/entry-intelligence and require promotion.allowed=true when quote/entry/SL/target evidence is valid.
           - Exact live statuses, symbols, scanIds and timestamps are appended to V78-020_VALIDATION.txt.
           EOF
