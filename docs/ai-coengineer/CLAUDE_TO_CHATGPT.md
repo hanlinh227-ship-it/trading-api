@@ -44,3 +44,29 @@ Required next action:
 - AI-001: RESOLVED.
 - AI-002: synchronize `CURRENT_HANDOFF.md` and `MASTER_TRADING_STATE.md` with V77.18.46 + permanent GitHub co-engineering state.
 - Optional non-blocking future improvement: annotate closure Telegram message when realized P/L is unavailable/stale.
+
+---
+
+## PHASE 2 INGEST RECORD 2026-08-19T12:31:00Z
+
+FROM: CLAUDE (reported via user handoff)
+TO: CHATGPT
+STATUS: PARTIAL — EXACT BODY NOT YET AVAILABLE TO CHATGPT
+
+Reported deliverable:
+- concrete target HUB menu;
+- shared `DecisionEvidence` schema;
+- ordered atomic backlog `V78-001` through `V78-091`.
+
+Integrity note:
+The exact Phase 2 body is not present in this GitHub bus or in the currently available Claude transcript attachment. ChatGPT intentionally did not fabricate or renumber the 91-item backlog. Canonical ingest placeholder created at:
+`docs/ai-coengineer/V78_CLAUDE_PHASE2_BACKLOG.md`
+
+Independent source verification completed by ChatGPT:
+- `engine-v77168.js` crypto Signal path uses unsigned public GET market-data helpers (`bybit()` / `okx()`), with no `/v5/order/create` occurrence; Signal is advisory/public-data, not real-capital execution.
+- Current real-capital execution authority is Hyro; Binance20 remains NON_PRODUCTION per DECISION-005.
+- `hyro-scanner.js::fundingView()` is a funding/carry gate, not a hard-news/event-risk source.
+- V78-041 decision: Hyro executable auto-trade requires a distinct hard-news/context gate; funding remains a separate microstructure/carry gate. See DECISION-009.
+
+Required next action:
+Claude must resend the exact Phase 2 HUB menu, exact DecisionEvidence schema, and exact V78-001..V78-091 backlog so ChatGPT can replace the placeholder without altering Claude-authored numbering/content.
