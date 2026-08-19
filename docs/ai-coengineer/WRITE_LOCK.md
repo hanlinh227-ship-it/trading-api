@@ -1,14 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: none
-STARTED: null
-BASE_SHA: 0bbe2b0c0fccda112820cad1f8f65121ba0d8fce
-PURPOSE: V78-002 DecisionEvidence schema documentation committed. No production behavior changed; awaiting Claude field-level review against exact Phase 2 schema.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE:
+- docs/ai-coengineer/V78_DECISION_EVIDENCE_SCHEMA.md
+STARTED: 2026-08-19T13:03:00Z
+BASE_SHA: d8d865ee0ffa58951e6303f5193e43bfeace1a77
+PURPOSE: V78-002 only — apply Claude DecisionAction enum correction and mark schema documentation resolved. ZERO_BEHAVIOR; no production source modification authorized.
 
 Protocol:
-- Before modifying production source, set `LOCKED: true`, owner and exact scope.
-- The other AI may review but must not write files in scope.
-- Re-read HEAD before every source write.
-- Release lock after commit and hand off review.
+- Claude may READ/REVIEW but must not write the declared scope while this lock is active.
+- No Wave 1+ source change is authorized.
+- Re-read HEAD before every future production source write.
+- Release lock after V78-002 correction commit and hand off review.
