@@ -16,64 +16,58 @@ Area: DOCS
 CURRENT_HANDOFF/MASTER sync was reviewed PASS with a wording clarification only; no production-risk constant changed.
 
 ## AI-003
-Status: OPEN — V78 IMPLEMENTATION-FORWARD WAVE 1 ACTIVE
+Status: OPEN — V78 IMPLEMENTATION-FORWARD ACTIVE
 Owners: CHATGPT + CLAUDE
 Area: FULL SYSTEM REDESIGN
 
-### V78-001 — RESOLVED
-KV/state registry. Zero behavior.
-
-### V78-002 — RESOLVED
-DecisionEvidence schema. Zero behavior.
-
-### V78-003 — RESOLVED
-Hyro news-gate status. Zero behavior. Funding is not hard-news clearance.
-
-### V78-004 — RESOLVED
-DECISION-005 Binance20 NON_PRODUCTION source annotation applied. Claude reconfirmed quarantine intact: no production import in `index.js`, `hub-v77171.js`, or `engine-v77168.js`.
-
-### V78-005 — RESOLVED
-Execution authority map. Signal advisory has no order authority; Hyro is current safety-gated real-capital authority; Binance20 remains quarantined.
-
-### V78-006 — RESOLVED
-Baseline validation matrix including AI-tuning sanitize-only writes, CHALLENGE forced-DEMO propEnv invariant, and CI canonical-lock co-maintenance.
-
-### V78-007 — RESOLVED
-Provider capability inventory including market-data, execution, AI, GitHub and Telegram capability classes.
+### V78-001 through V78-007 — RESOLVED
+Governance/baseline foundation complete: KV registry, DecisionEvidence schema, Hyro news-gate status, Binance20 quarantine, execution authority map, baseline validation matrix, provider capability inventory.
 
 ### V78-010 — RESOLVED / CLAUDE PASS
-Shared Bybit HMAC primitive only.
-Source: `bf2fee88abbf11b850758e76f1bcac6453644ebf`.
-`V78-010b` signed-client semantic unification remains DEFERRED / NOT STARTED because current clients differ in credentials/mode, error shape and GET/POST behavior.
+Shared Bybit HMAC primitive only. V78-010b remains DEFERRED / NOT STARTED.
 
 ### V78-011 — RESOLVED / CLAUDE PASS
-Shared Telegram transport across the seven proven-equivalent consumers plus `providers/telegram-client.js`.
-Final migration HEAD in chain: `a27bd47c720476410a76ba78161ebc68b0a7aef2`.
-`engine-v77168.js` Telegram `fetchTimeout` path intentionally excluded and deferred to V78-054.
-`verifyTelegram` / webhook-secret handling intentionally untouched and deferred to V78-081.
+Shared Telegram transport. `engine-v77168.js` timeout transport deferred V78-054; `verifyTelegram` deferred V78-081.
 
 ### V78-012 — RESOLVED / CLAUDE PASS
-Shared ATR primitive only: `providers/indicators.js:atrFromHLC` backs `engine-v77168.js` and `hyro-scanner.js`.
-Source commit: `c60cfe8532fdd10b9eca1f7bbefe5024b1d3da70`.
-Claude executed equivalence tests across multiple candle lengths/periods and confirmed byte-equivalent outputs to both originals.
-EMA and RSI intentionally remain local because their implementations are genuinely non-equivalent.
+Shared ATR primitive only. EMA/RSI remain separate due real semantic divergence.
 
-### V78-013 — RESOLVED / AWAITING CLAUDE FRESH-HEAD REVIEW
-Shared Anthropic Messages API transport only.
-Source chain:
-- provider: `60d0e37f833b02e51ceee6c2a6c467ca3f76d9f8`
-- dual AI migration: `22a872e0ed9a945f68f97a505182a28b930a0738`
-- reviewer + final source migration: `fed3556b5a01504107f84da3fd43fad5f52db0e9`
-- deterministic validation evidence: `88e2fc617f3ae1103296267e3b3ade89ca2c987f`
-New shared primitive: `cloudflare-worker/providers/anthropic-client.js` with `anthropicMessagesRequest` + `extractAnthropicText`.
-DECISION-004 boundaries preserved: reviewer max_tokens policy, budget/cooldown, prompts and rich review parser remain separate from dual-ai fixed-token policy, lease arbiter, BUG_HUNT prompt and its different parser.
-Validation file: `docs/ai-coengineer/V78-013_VALIDATION.txt` = PASS.
+### V78-013 — RESOLVED / VALIDATED
+Shared Anthropic transport only; DECISION-004 boundaries preserved.
+Final source migration: `fed3556b5a01504107f84da3fd43fad5f52db0e9`.
+Validation: `docs/ai-coengineer/V78-013_VALIDATION.txt`.
 
-### V78-014 — NEXT / NOT STARTED
-DecisionEvidence shadow-populate. Requires fresh Claude scope/patch after V78-013 independent verification. No production execution-authority change is allowed; initial population must be shadow/observability-first.
+### CLAUDE API PAUSE — ACTIVE USER DIRECTIVE
+Commit: `c61987415a3e53832a444466406df9ffe25951f9`.
+Anthropic transport fail-closes before network fetch unless `CLAUDE_API_ENABLED=true`.
+Do not re-enable or call Claude API until the user explicitly asks.
 
-### Phase 2 integrity
-Full verbatim Claude V78-001..V78-091 backlog/target HUB menu remains unavailable in retrievable GitHub material; do not fabricate it.
+### V78-014 — RESOLVED / VALIDATED
+DecisionEvidence shadow-populate.
+Final migration: `0c3dc007433c3e9afae1990d07d23c149742500a`.
+Validation: `docs/ai-coengineer/V78-014_VALIDATION.txt`.
+Signal and Hyro evidence remain additive/shadow only.
 
-### Wave 1
-ACTIVE. V78-010 through V78-013 have real source implementations. Next is V78-014 shadow DecisionEvidence. High-risk idempotency, cancel scoping, account-KV migration, engine split, production hard-news enforcement and multi-account live enablement remain separately scoped and must not be bundled into low-risk refactors.
+### V78-015 — IMPLEMENTED / VALIDATED / AWAITING LATER CLAUDE REVIEW
+Read-only Telegram Hub Evidence/Runtime view.
+Source commit: `db2b48f5b96d36e411fbd2f93c0cc73e354fe213`.
+Validation: `docs/ai-coengineer/V78-015_VALIDATION.txt`.
+No trading behavior/KV write/threshold/execution-authority change.
+
+### NEXT BATCH — ENTRY INTELLIGENCE FOUNDATION
+Status: QUEUED FOR DESIGN/SHADOW IMPLEMENTATION
+Owner: CHATGPT while Claude unavailable; Claude later optimizes/reviews from fresh HEAD.
+
+Required scope:
+- market-specific reasoning for Forex / Crypto / Metals / Index Cash;
+- explicit regime + location + trigger + freshness + RR + invalidation evidence;
+- preserve current production output/authority initially through shadow comparison;
+- no loosening simply to increase trade count;
+- later expose compact WHY NOW / BLOCK REASON / FRESHNESS / RR in Hub;
+- high-risk Hyro execution hardening remains separately scoped.
+
+Resume handoff for Claude:
+`docs/ai-coengineer/CLAUDE_RESUME_HANDOFF_2026-08-19.md`.
+
+### Hard prohibitions
+Never reset `TRADING_STATE`/`v775:books`, weaken risk/freshness/structural-SL/news safeguards, restore Futures/TK2, change Binance20 quarantine, fabricate data/test output, expose secrets, or silently expand execution authority.
