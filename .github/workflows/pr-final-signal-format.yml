@@ -1,0 +1,40 @@
+name: V77.18.42 Final Signal Format
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pr-final-signal-format.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fix USD labels
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for f in ['cloudflare-worker/engine-v77168.js','cloudflare-worker/hub-v77171.js']:
+              p=Path(f); s=p.read_text()
+              s=s.replace('${usd>=0?"+":""}${usd.toFixed(2)}','${usd>=0?"+":""}$${usd.toFixed(2)}')
+              p.write_text(s)
+          PY
+          node --check cloudflare-worker/engine-v77168.js
+          node --check cloudflare-worker/hub-v77171.js
+          grep -F '$${usd.toFixed(2)}' cloudflare-worker/engine-v77168.js
+          grep -F '$${usd.toFixed(2)}' cloudflare-worker/hub-v77171.js
+      - name: Commit format fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js
+          if git diff --cached --quiet; then echo 'No format changes'; exit 0; fi
+          git commit -m 'V77.18.42 restore explicit USD labels in Live P/L'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
