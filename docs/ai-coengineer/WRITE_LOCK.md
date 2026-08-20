@@ -4,11 +4,11 @@ LOCKED: true
 OWNER: CHATGPT
 SCOPE: V78-032 PR #60 review/acceptance; cloudflare-worker/engine-v77168.js and scripts/ai/forex-metal-index-validation.js only.
 ACQUIRED: 2026-08-20
-BASE_SHA: 6c6adb6c51ef82bf39f35aa69f8e648bb8e4cb9f
+BASE_SHA: d9924f3ea9cc36b76d7ef83f71f544e82fb5655b
 
 Protocol:
 - ENTRY-001-R4 was verified stale and closed without implementation evidence before takeover.
-- V78-032 implementation is isolated in PR #60; source HEAD ca59c04d89c528c1ddcd7e6bfa4e90677351284f awaits independent review.
+- V78-032 implementation is isolated in PR #60; current source HEAD 680d2fb8a4bd1e0826c1445e17b5849c448d737e awaits independent review.
 - One writer at a time. Reviewers may review but must not modify overlapping source while this lock is active.
 - Preserve TRADING_STATE and v775:books.
 - Preserve SIGNAL-ONLY architecture and executionAuthority=SIGNAL_ONLY/NONE for non-crypto advisory signals.
