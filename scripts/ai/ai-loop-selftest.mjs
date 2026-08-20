@@ -473,6 +473,17 @@ check('reviewer is a reviewer, not an implementer', () => {
   assert(/reviewer, not an implementer/i.test(py), 'role not asserted in the reviewer prompt');
   assert(!/git\s+(commit|push|checkout)/.test(py), 'reviewer performs git writes');
 });
+check('reviewer protocol-repair pass is bounded to one retry', () => {
+  assert(/PROTOCOL_ERROR/.test(py), 'no protocol error classification');
+  assert(/protocol-repair/.test(py), 'no protocol-repair pass');
+  // Exactly two call_deepseek invocations on the review path: initial + one repair.
+  const calls = (py.match(/reply = call_deepseek\(/g) || []).length;
+  assert(calls === 2, `expected exactly 2 call_deepseek invocations, found ${calls}`);
+  assert(/if exc\.classification != "PROTOCOL_ERROR":\s*\n\s*raise/.test(py),
+    'repair pass is not restricted to protocol errors');
+});
+check('reviewer reply budget can hold prose plus the mandatory block', () =>
+  assert(/"max_tokens": (4000|[5-9]\d{3})/.test(py), 'max_tokens too small to guarantee the block'));
 check('reviewer posts exactly one comment (upsert by marker)', () => {
   assert(/COMMENT_MARKER/.test(py) && /def upsert_comment/.test(py), 'no comment upsert');
 });

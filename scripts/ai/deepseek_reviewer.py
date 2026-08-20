@@ -192,6 +192,10 @@ Treat any of the following as a BLOCKER, not a nit:
 Also look hard for: stale/missing data handling, fail-open behaviour, partial API
 degradation, restart/recovery, KV state migration, and Telegram duplication/spam.
 
+Keep any prose before the block under 250 words. The block itself is mandatory and must
+never be omitted or truncated - if you are running out of room, drop the prose, not the
+block.
+
 You MUST end your reply with exactly one machine-readable block and nothing after it:
 
 {BEGIN}
@@ -268,7 +272,7 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
             {"role": "user", "content": user_prompt},
         ],
         "temperature": 0.0,
-        "max_tokens": 2000,
+        "max_tokens": 4000,
         "stream": False,
     }).encode("utf-8")
 
@@ -535,7 +539,28 @@ def main() -> int:
             return 0
 
         reply = call_deepseek(SYSTEM_PROMPT, user_prompt)
-        result = parse_block(reply)
+        try:
+            result = parse_block(reply)
+        except LoopBlocked as exc:
+            if exc.classification != "PROTOCOL_ERROR":
+                raise
+            # The model reviewed but broke format. Re-ask once, terse, block only.
+            # Bounded: exactly one repair attempt, then the review is BLOCKED.
+            log("reply lacked a verdict block; issuing one bounded protocol-repair request")
+            repair = (
+                "Your previous reply omitted the mandatory machine-readable block.\n\n"
+                "Reply with ONLY the block below and no other text whatsoever:\n\n"
+                f"{BEGIN}\n"
+                f"HEAD_SHA={head_sha}\n"
+                "VERDICT=ACCEPT|REJECT|BLOCKED\n"
+                "BLOCKERS=<one per line, or NONE>\n"
+                "NON_BLOCKING=<one per line, or NONE>\n"
+                f"{END}\n\n"
+                "Base it on the review you just performed. Here it is again for reference:\n\n"
+                + reply[:6000]
+            )
+            reply = call_deepseek(SYSTEM_PROMPT, repair)
+            result = parse_block(reply)
 
         if result["head_sha"] != head_sha.lower():
             raise LoopBlocked(
