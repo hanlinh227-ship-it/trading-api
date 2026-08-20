@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Bounded cloud-only DeepSeek implementation loop for GitHub Actions.
 
-Reads one JSON task spec, calls DeepSeek for a scoped unified diff, applies it,
-runs deterministic validation commands, and feeds failures back to DeepSeek for
-bounded repair rounds. It never commits, pushes, merges, deploys, or writes
-secrets. GitHub Actions owns those lifecycle operations.
+DeepSeek returns structured edits, not hand-written git patches. The worker applies
+those edits transactionally, lets git generate the diff, validates scope and
+secrets, runs deterministic checks, and feeds failures back for bounded repair.
+It never commits, pushes, merges, deploys, or writes secrets.
 """
 
 from __future__ import annotations
@@ -14,10 +14,8 @@ import json
 import os
 import pathlib
 import re
-import shlex
 import subprocess
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 
@@ -46,12 +44,8 @@ def fail(message: str) -> None:
 
 def run_shell(command: str, timeout: int = 180) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["bash", "-lc", command],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
+        ["bash", "-lc", command], cwd=ROOT, text=True,
+        capture_output=True, timeout=timeout, check=False,
     )
 
 
@@ -87,32 +81,8 @@ def path_allowed(path: str, allowed: list[str], forbidden: list[str]) -> bool:
     return False
 
 
-def patch_paths(patch: str) -> list[str]:
-    paths: list[str] = []
-    for line in patch.splitlines():
-        if line.startswith("+++ b/") or line.startswith("--- a/"):
-            p = line[6:].strip()
-            if p != "/dev/null":
-                paths.append(normalize_path(p))
-    return sorted(set(paths))
-
-
-def extract_patch(text: str) -> str:
-    """Extract either git-style or standard a/b unified diff without accepting prose-only output."""
-    text = text.strip()
-    fenced = re.search(r"```(?:diff|patch)?\s*(.*?)```", text, re.S | re.I)
-    if fenced:
-        text = fenced.group(1).strip()
-
-    git_start = text.find("diff --git ")
-    if git_start >= 0:
-        return text[git_start:].rstrip() + "\n"
-
-    standard = re.search(r"(?m)^--- a/[^\n]+\n\+\+\+ b/[^\n]+", text)
-    if standard:
-        return text[standard.start():].rstrip() + "\n"
-
-    raise ValueError("model response did not contain a unified git diff")
+def contains_secret(text: str) -> bool:
+    return any(pattern.search(text or "") for pattern in SECRET_PATTERNS)
 
 
 def load_task(path: pathlib.Path) -> dict:
@@ -121,12 +91,8 @@ def load_task(path: pathlib.Path) -> dict:
     except Exception as exc:
         fail(f"cannot read task JSON: {exc}")
     required = [
-        "task_id",
-        "base_sha",
-        "objective",
-        "allowed_paths",
-        "forbidden_paths",
-        "acceptance_criteria",
+        "task_id", "base_sha", "objective", "allowed_paths",
+        "forbidden_paths", "acceptance_criteria",
     ]
     missing = [k for k in required if not task.get(k)]
     if missing:
@@ -139,9 +105,6 @@ def load_task(path: pathlib.Path) -> dict:
         fail("acceptance_criteria must be a non-empty list")
     task["max_rounds"] = max(1, min(int(task.get("max_rounds", 2)), 4))
     task["max_output_tokens"] = max(512, min(int(task.get("max_output_tokens", 5000)), 8000))
-    task["max_patch_regeneration_attempts"] = max(
-        0, min(int(task.get("max_patch_regeneration_attempts", 1)), 1)
-    )
     task["validation_commands"] = list(task.get("validation_commands") or [])[:10]
     for cmd in task["validation_commands"]:
         if not isinstance(cmd, str) or not cmd.strip():
@@ -178,30 +141,112 @@ def current_diff(max_chars: int = 80000) -> str:
     return p.stdout[-max_chars:]
 
 
-def call_deepseek(
-    task: dict,
-    context: str,
-    feedback: str,
-    round_no: int,
-    generation_attempt: int = 1,
-) -> str:
+def extract_json_object(text: str) -> dict:
+    text = text.strip()
+    fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.S | re.I)
+    if fenced:
+        text = fenced.group(1).strip()
+    try:
+        obj = json.loads(text)
+    except Exception:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start < 0 or end <= start:
+            raise ValueError("response did not contain a JSON object")
+        try:
+            obj = json.loads(text[start:end + 1])
+        except Exception as exc:
+            raise ValueError(f"invalid JSON response: {exc}") from exc
+    if not isinstance(obj, dict):
+        raise ValueError("response JSON must be an object")
+    return obj
+
+
+def validate_edit_spec(obj: dict, task: dict) -> list[dict]:
+    edits = obj.get("edits")
+    if not isinstance(edits, list) or not edits:
+        raise ValueError("response must contain non-empty edits array")
+    if len(edits) > 24:
+        raise ValueError("too many edits; maximum is 24")
+    clean: list[dict] = []
+    for index, edit in enumerate(edits, start=1):
+        if not isinstance(edit, dict):
+            raise ValueError(f"edit {index} must be an object")
+        op = str(edit.get("op", "replace")).strip().lower()
+        path = normalize_path(str(edit.get("path", "")))
+        if op not in {"replace", "create"}:
+            raise ValueError(f"edit {index} has unsupported op={op}")
+        if not path or not path_allowed(path, task["allowed_paths"], task["forbidden_paths"]):
+            raise ValueError(f"edit {index} path outside scope: {path or '[EMPTY]'}")
+        new_text = edit.get("new_text")
+        if not isinstance(new_text, str):
+            raise ValueError(f"edit {index} new_text must be a string")
+        if contains_secret(new_text):
+            raise ValueError(f"edit {index} may contain a secret")
+        if op == "replace":
+            old_text = edit.get("old_text")
+            if not isinstance(old_text, str) or not old_text:
+                raise ValueError(f"edit {index} replace requires non-empty old_text")
+            clean.append({"op": op, "path": path, "old_text": old_text, "new_text": new_text})
+        else:
+            clean.append({"op": op, "path": path, "new_text": new_text})
+    return clean
+
+
+def apply_structured_edits(edits: list[dict]) -> tuple[bool, str]:
+    """Apply all edits transactionally in memory, then write files only if every guard passes."""
+    staged: dict[str, str] = {}
+    existed: dict[str, bool] = {}
+    try:
+        for idx, edit in enumerate(edits, start=1):
+            rel = edit["path"]
+            path = ROOT / rel
+            if rel not in staged:
+                existed[rel] = path.is_file()
+                staged[rel] = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+            if edit["op"] == "create":
+                if existed[rel] or staged[rel]:
+                    return False, f"STRUCTURED_EDIT_CREATE_EXISTS: edit={idx} path={rel}"
+                staged[rel] = edit["new_text"]
+                existed[rel] = True
+                continue
+            if not existed[rel]:
+                return False, f"STRUCTURED_EDIT_REPLACE_MISSING_FILE: edit={idx} path={rel}"
+            old_text = edit["old_text"]
+            count = staged[rel].count(old_text)
+            if count != 1:
+                return False, f"STRUCTURED_EDIT_EXACT_MATCH_FAILED: edit={idx} path={rel} matches={count} expected=1"
+            staged[rel] = staged[rel].replace(old_text, edit["new_text"], 1)
+        for rel, data in staged.items():
+            if contains_secret(data):
+                return False, f"STRUCTURED_EDIT_RESULT_SECRET_GUARD: path={rel}"
+        for rel, data in staged.items():
+            path = ROOT / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(data, encoding="utf-8")
+        return True, ""
+    except Exception as exc:
+        return False, f"STRUCTURED_EDIT_APPLY_EXCEPTION: {exc}"
+
+
+def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str:
     key = os.environ.get("DEEPSEEK_API_KEY")
     if not key:
         fail("DEEPSEEK_API_KEY secret is unavailable")
     system = (
         "You are the primary implementation agent for a SIGNAL-ONLY Trading repository.\n"
-        "Return exactly ONE complete unified git diff and no prose. The response must begin with either 'diff --git a/' or '--- a/' and use a/ and b/ repository paths. "
-        "Every hunk header/count must be internally consistent and the complete patch must pass git apply --check. Never return a partial/truncated patch. "
-        "If patch-format feedback is present, regenerate the ENTIRE patch from scratch rather than returning a fragment or explanation. "
-        "Obey the task allow-list. Never expose secrets, never reset state, never weaken freshness, structural SL, RR, hard-news, execution authority, "
-        "or protected risk controls. Never restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, "
-        "or production Anthropic API. Do not deploy. Do not fabricate test or runtime evidence.\n"
-        "Fix the root cause with the smallest coherent patch. A failed validation is evidence to repair, not permission to weaken safeguards."
+        "Return exactly ONE JSON object and no prose. Never return a git diff. Schema:\n"
+        '{"edits":[{"op":"replace","path":"repo/path","old_text":"exact existing text","new_text":"replacement"},'
+        '{"op":"create","path":"repo/path","new_text":"full new file"}]}\n'
+        "For replace, old_text must be copied EXACTLY from supplied repository context and must occur exactly once. "
+        "Prefer small, local replacements. Use multiple edits instead of rewriting a large file. "
+        "Obey the task allow-list. Never expose secrets, reset state, weaken freshness, structural SL, RR, hard-news, execution authority, or protected risk controls. "
+        "Never restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or production Anthropic API. "
+        "Do not deploy or fabricate test/runtime evidence. Fix root cause with the smallest coherent edits."
     )
     user = {
         "task_id": task["task_id"],
         "round": round_no,
-        "generation_attempt": generation_attempt,
         "max_rounds": task["max_rounds"],
         "objective": task["objective"],
         "allowed_paths": task["allowed_paths"],
@@ -217,21 +262,18 @@ def call_deepseek(
     else:
         prompt += "\n\nCURRENT WORKING DIFF:\n" + current_diff()
         prompt += "\n\nRELEVANT REPOSITORY CONTEXT:\n" + context
-    body = json.dumps(
-        {
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.1,
-            "stream": False,
-            "max_tokens": task["max_output_tokens"],
-        }
-    ).encode("utf-8")
+    body = json.dumps({
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.1,
+        "stream": False,
+        "max_tokens": task["max_output_tokens"],
+    }).encode("utf-8")
     req = urllib.request.Request(
-        API_URL,
-        data=body,
+        API_URL, data=body,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         method="POST",
     )
@@ -249,34 +291,6 @@ def call_deepseek(
         fail("DeepSeek response missing choices[0].message.content")
 
 
-def verify_patch_scope(patch: str, task: dict) -> None:
-    for pattern in SECRET_PATTERNS:
-        if pattern.search(patch):
-            fail("potential secret found in generated patch")
-    changed = patch_paths(patch)
-    if not changed:
-        fail("generated patch contains no file paths")
-    bad = [p for p in changed if not path_allowed(p, task["allowed_paths"], task["forbidden_paths"])]
-    if bad:
-        fail("patch touched paths outside scope: " + ", ".join(bad))
-
-
-def apply_patch(patch: str) -> tuple[bool, str]:
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".patch", delete=False) as f:
-        f.write(patch)
-        patch_file = f.name
-    try:
-        check = run_shell("git apply --check " + shlex.quote(patch_file), timeout=60)
-        if check.returncode != 0:
-            return False, (check.stderr or check.stdout)[-5000:]
-        applied = run_shell("git apply " + shlex.quote(patch_file), timeout=60)
-        if applied.returncode != 0:
-            return False, (applied.stderr or applied.stdout)[-5000:]
-        return True, ""
-    finally:
-        pathlib.Path(patch_file).unlink(missing_ok=True)
-
-
 def ensure_result_scope(task: dict) -> list[str]:
     diff = run_git("diff", "--name-only")
     if diff.returncode != 0:
@@ -285,6 +299,9 @@ def ensure_result_scope(task: dict) -> list[str]:
     bad = [p for p in resulting if not path_allowed(p, task["allowed_paths"], task["forbidden_paths"])]
     if bad:
         fail("resulting workspace touched paths outside scope: " + ", ".join(bad))
+    patch = current_diff(160000)
+    if contains_secret(patch):
+        fail("potential secret found in resulting diff")
     return resulting
 
 
@@ -299,54 +316,6 @@ def run_validations(task: dict) -> tuple[bool, str]:
         if p.returncode != 0:
             return False, "\n\n".join(logs)[-18000:]
     return True, "\n\n".join(logs)[-18000:]
-
-
-def generate_and_apply_patch(
-    task: dict,
-    context: str,
-    feedback: str,
-    round_no: int,
-) -> tuple[bool, str]:
-    """Generate a patch and allow one bounded full-regeneration attempt for format/apply failures."""
-    max_attempts = 1 + task["max_patch_regeneration_attempts"]
-    attempt_feedback = feedback
-
-    for generation_attempt in range(1, max_attempts + 1):
-        response = call_deepseek(
-            task,
-            context,
-            attempt_feedback,
-            round_no,
-            generation_attempt=generation_attempt,
-        )
-        try:
-            patch = extract_patch(response)
-        except ValueError:
-            attempt_feedback = (
-                "PATCH_FORMAT_REGEN_REQUIRED: previous response was not a complete unified diff. "
-                "Regenerate the entire patch from scratch. Return exactly one patch only, beginning with "
-                "'diff --git a/' or '--- a/', using repository-relative a/ and b/ paths."
-            )
-            if generation_attempt < max_attempts:
-                continue
-            return False, attempt_feedback
-
-        verify_patch_scope(patch, task)
-        ok, apply_error = apply_patch(patch)
-        if ok:
-            return True, ""
-
-        attempt_feedback = (
-            "PATCH_APPLY_REGEN_REQUIRED:\n"
-            + apply_error
-            + "\nRegenerate the ENTIRE patch from scratch. Do not return a fragment. "
-            "Ensure all @@ hunk ranges/counts match the supplied repository context and that the final patch passes git apply --check."
-        )
-        if generation_attempt < max_attempts:
-            continue
-        return False, attempt_feedback
-
-    return False, "PATCH_GENERATION_UNREACHABLE"
 
 
 def main() -> None:
@@ -368,35 +337,42 @@ def main() -> None:
     context = collect_context(task)
     feedback = str(task.get("review_feedback") or "")
     last_validation = ""
-    rounds_used = 0
 
     for round_no in range(1, task["max_rounds"] + 1):
-        rounds_used = round_no
-        ok, patch_feedback = generate_and_apply_patch(task, context, feedback, round_no)
+        response = call_deepseek(task, context, feedback, round_no)
+        try:
+            obj = extract_json_object(response)
+            edits = validate_edit_spec(obj, task)
+        except ValueError as exc:
+            feedback = "STRUCTURED_EDIT_FORMAT_INVALID: " + str(exc)
+            if round_no >= task["max_rounds"]:
+                fail(feedback)
+            continue
+
+        ok, edit_error = apply_structured_edits(edits)
         if not ok:
-            fail(patch_feedback)
+            feedback = edit_error + "\nRegenerate structured edits from current repository context; old_text must match exactly once."
+            if round_no >= task["max_rounds"]:
+                fail(feedback)
+            continue
 
         resulting = ensure_result_scope(task)
         if not resulting:
-            feedback = "PATCH_APPLIED_BUT_NO_RESULTING_DIFF"
+            feedback = "STRUCTURED_EDITS_APPLIED_BUT_NO_RESULTING_DIFF"
             if round_no >= task["max_rounds"]:
                 fail(feedback)
             continue
 
         valid, last_validation = run_validations(task)
         if valid:
-            print(
-                json.dumps(
-                    {
-                        "status": "IMPLEMENTED_VALIDATED",
-                        "task_id": task["task_id"],
-                        "rounds_used": rounds_used,
-                        "files": resulting,
-                        "validation": "PASS" if task["validation_commands"] else "NOT_DECLARED",
-                    },
-                    ensure_ascii=False,
-                )
-            )
+            print(json.dumps({
+                "status": "IMPLEMENTED_VALIDATED",
+                "task_id": task["task_id"],
+                "rounds_used": round_no,
+                "files": resulting,
+                "validation": "PASS" if task["validation_commands"] else "NOT_DECLARED",
+                "transport": "STRUCTURED_EDITS_V1",
+            }, ensure_ascii=False))
             return
         feedback = "VALIDATION_FAILED:\n" + last_validation
 
