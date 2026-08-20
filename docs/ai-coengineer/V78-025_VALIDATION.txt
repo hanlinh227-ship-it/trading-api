@@ -1,0 +1,45 @@
+V78-025 SAFE WORKFLOW CLEANUP + ENTRY INTELLIGENCE / HUB UX AUDIT
+Date: 2026-08-20
+
+SOURCE CHANGE
+- entry-intelligence.js commit: 7529201a6fd8d841e6443b1cdd88f5dea6fecea3
+- Removed synthetic CASH_INDEX fallback from Index optional instrumentIdentity.
+- Missing optional Index identity now remains missing rather than inflating advisory completeness.
+- No hard-block, threshold, execution-authority, provider-fetch, or Hyro change.
+
+FOUR-MARKET AUDIT
+- Forex: engine has session plus real strengthDiff/baseStrength/quoteStrength, but Entry Intelligence does not yet alias those into optional currency-strength context.
+- Crypto: engine has BTC-relative context and deep fundingRate/openInterest when supplied; Entry Intelligence currently misses fundingRate because it looks for funding. Long-short/orderbook/identity remain optional and must not be invented.
+- Metal: engine has XAU/XAG relativeStrength and broad-scan session; Entry Intelligence does not yet surface relativeStrength as market-specific context. USD/rates context stays absent unless actually sourced.
+- Index Cash: engine has exact cash-index provider routing, session and broad-scan cross-index relativeStrength. Instrument identity is now counted only when explicitly present.
+
+INVARIANTS
+- REQUIRED may block; QUALITY may rank; OPTIONAL context never independently blocks.
+- V78-020 statusActionable rescue protection remains intact.
+- Non-crypto MARKET_SIGNAL remains SIGNAL_ONLY and executionVerified=false.
+- Crypto MARKET/LIMIT remains on its separate exact execution-quote/cost path.
+- No market-specific quality-weight change approved; fix real context alias coverage before weighting by market.
+
+HUB/UX AUDIT
+- Hub remains HUB-R13-ENTRY-INTEL-COVERAGE.
+- It already exposes quality, freshness/source, WHY NOW, WHY PRICE, SL, TP/RR, invalidation, REQUIRED blocks, and execution-authority NONE wording.
+- Future display-only candidates: replace ACTIVE ADVISORY + ADMIT/BLOCK with clearer SIGNAL-only wording; sample Coverage per market from the retained window rather than one global latest-60 window.
+- No Hub source behavior changed in V78-025.
+
+WORKFLOW CLEANUP
+- Archive manifest commit: 00e03a185cd6eae92bed041a4eb35f925295b509
+- Manifest: docs/ai-coengineer/archive/V78_020_024_ONE_SHOT_WORKFLOWS.md
+- Completed V78-020/021/022/023/024 one-shot carrier workflows were removed from active .github/workflows after recording exact historical blob SHAs. Git history and V78 validation records remain the audit trail.
+- Temporary V78-025 carrier workflow was also removed after direct guarded implementation.
+
+HYRO H1-H6
+- No implementation this round.
+- No idempotency, orderLinkId, cancel-scope, reconciliation, partial-fill, or multi-account source change.
+
+SAFETY
+- No TRADING_STATE/v775:books reset or deletion.
+- No risk/freshness/structural-SL/news weakening.
+- Futures/TK2 not restored.
+- Binance20 remains quarantined.
+- Production Claude API remains paused.
+- No new Cloudflare Version ID is claimed because deployment was not independently verified in this round.
