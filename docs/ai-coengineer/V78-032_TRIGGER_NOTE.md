@@ -1,1 +1,0 @@
-V78-032 direct patch workflow staged by ChatGPT on 2026-08-20. This note is temporary evidence that source edits are being applied under WRITE_LOCK. It must not be treated as deployment evidence.
