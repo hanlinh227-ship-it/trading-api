@@ -77,6 +77,10 @@ $script:HARD_MAX_POLLS       = 120
 # required workflow that never starts produces no check run, so absence must not be
 # mistaken for success.
 $script:REQUIRED_CHECKS      = @("validate", "DeepSeek adversarial review")
+# One definition of "blocking" for Codex findings, applied identically to inline comments
+# and to the review summary. Asymmetry here would let the same defect block in one place
+# and pass in the other. P3 is informational and deliberately excluded.
+$script:CODEX_BLOCKING_PATTERN = '(?i)\b(P1|P2|blocking|must fix|critical|bug:)\b'
 $script:PROTECTED_BRANCHES   = @("main", "master", "refs/heads/main", "origin/main")
 $script:REPO_ROOT            = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $script:PROMPT_TEMPLATE      = Join-Path $script:REPO_ROOT "scripts\ai\claude_loop_prompt.md"
@@ -952,9 +956,10 @@ function Get-CodexInlineFindings {
         if ([string]::IsNullOrWhiteSpace($cid)) { continue }
         if ($cid.ToLowerInvariant() -ne $Sha.ToLowerInvariant()) { continue }
         $body = "$($c.body)"
-        # Any severity badge or blocking phrasing counts. P2 included: the contract's gate
-        # is "no blocking findings", and silently discarding P2s would hide real defects.
-        if ($body -match '(?i)\b(P1|P2|P3|blocking|must fix|critical)\b') {
+        # Severity set must match Get-CodexVerdict's body scan exactly, or the same finding
+        # would block when inline and pass when in the summary. P1/P2 block; P3 is
+        # informational and does not.
+        if ($body -match $script:CODEX_BLOCKING_PATTERN) {
             $first = ($body -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 2) -join " "
             $first = ($first -replace '!\[[^\]]*\]\([^)]*\)', '' -replace '<[^>]+>', '').Trim()
             $where = "$($c.path)"
@@ -989,7 +994,7 @@ function Get-CodexVerdict {
         }
         if ($rev.state -eq "APPROVED") { return [pscustomobject]@{ Verdict = "ACCEPT"; Sha = $rev.commit_id; Blockers = @() } }
         if ($rev.state -eq "COMMENTED") {
-            if ($rev.body -and $rev.body -match '(?i)\b(P1|P2|blocking|must fix|critical|bug:)\b') {
+            if ($rev.body -and $rev.body -match $script:CODEX_BLOCKING_PATTERN) {
                 $summary = ($rev.body -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 4) -join " "
                 return [pscustomobject]@{ Verdict = "REJECT"; Sha = $rev.commit_id; Blockers = @($summary) }
             }

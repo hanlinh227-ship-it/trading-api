@@ -43,15 +43,28 @@ jobs:
           EVENT_PR: ${{ github.event.pull_request.number }}
           INPUT_PR: ${{ inputs.pr_number }}
           EVENT_SHA: ${{ github.event.pull_request.head.sha }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pr="${EVENT_PR:-$INPUT_PR}"
           if [ -z "$pr" ]; then
             echo "::error title=No PR::Could not resolve a pull request number."
             exit 1
           fi
+          sha="$EVENT_SHA"
+          # workflow_dispatch carries no pull_request payload, so EVENT_SHA is empty and
+          # --expect-sha would be omitted, silently dropping the stale-head guard. Resolve
+          # the head from the API instead so the guard is always armed.
+          if [ -z "$sha" ]; then
+            sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" --jq .head.sha)"
+          fi
+          if [ -z "$sha" ]; then
+            echo "::error title=No head SHA::Could not resolve the head SHA for PR #$pr; refusing to review without the stale-head guard."
+            exit 1
+          fi
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
-          echo "sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
-          echo "Reviewing PR #$pr (event head: ${EVENT_SHA:-resolved from API})"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Reviewing PR #$pr at $sha"
 
       # Checkout the exact PR head so the reviewed tree matches the reviewed SHA.
       - uses: actions/checkout@v4

@@ -497,9 +497,19 @@ def upsert_comment(repo: str, pr: int, body: str) -> None:
     except LoopBlocked as exc:
         log(f"could not list existing comments ({exc.classification}); will post a new one")
 
-    tmp = os.path.join(os.environ.get("RUNNER_TEMP", os.environ.get("TEMP", ".")), "deepseek_review_body.md")
-    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(body)
+    # Never assume the temp directory exists: a missing RUNNER_TEMP/TEMP would raise
+    # FileNotFoundError here and turn a completed review into a failed one.
+    tmp_dir = os.environ.get("RUNNER_TEMP") or os.environ.get("TEMP") or "."
+    try:
+        os.makedirs(tmp_dir, exist_ok=True)
+    except OSError:
+        tmp_dir = "."
+    tmp = os.path.join(tmp_dir, "deepseek_review_body.md")
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+    except OSError as exc:
+        raise LoopBlocked("IO_ERROR", f"could not stage the comment body: {exc}") from exc
 
     if comment_id:
         proc = run(["gh", "api", "-X", "PATCH", f"repos/{repo}/issues/comments/{comment_id}",

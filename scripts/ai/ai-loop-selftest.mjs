@@ -542,11 +542,41 @@ check('DeepSeek verdict comments are authenticated', () => {
   // A forged ACCEPT from any PR participant must be ignored, not trusted.
   assert(/ignoring a DEEPSEEK_REVIEW block from/.test(seg), 'forged verdicts are not rejected');
 });
+check('Codex severity set is identical inline and in the summary', () => {
+  // An asymmetric threshold lets the same defect block in one place and pass in the other.
+  assert(/\$script:CODEX_BLOCKING_PATTERN\s*=/.test(ps1), 'no single blocking-severity definition');
+  const uses = (ps1.match(/\$script:CODEX_BLOCKING_PATTERN/g) || []).length;
+  assert(uses >= 3, `severity pattern should be defined once and used everywhere, found ${uses} refs`);
+  // No hand-rolled severity regex may survive alongside it.
+  const strays = (ps1.match(/-match '\(\?i\)\\b\(P1/g) || []).length;
+  assert(strays === 0, 'a duplicate inline severity regex still exists');
+  // P3 is informational and must not appear in the blocking set.
+  const def = ps1.split('$script:CODEX_BLOCKING_PATTERN =')[1].split('\n')[0];
+  assert(!/P3/.test(def), 'P3 is treated as blocking');
+  assert(/P1\|P2/.test(def), 'P1/P2 are not treated as blocking');
+});
+check('no stray control characters in the controller', () => {
+  // A literal 0x08 once replaced a \b escape here and silently broke the regex.
+  const ctrl = ps1.match(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g) || [];
+  assert(ctrl.length === 0, `found ${ctrl.length} control character(s) in ai-loop.ps1`);
+});
+check('workflow always arms the stale-head guard', () => {
+  assert(/--expect-sha/.test(wf), 'no stale-head guard');
+  // workflow_dispatch has no pull_request payload, so the SHA must be resolved from the API.
+  assert(/head\.sha/.test(wf), 'head sha is not resolved for workflow_dispatch');
+  assert(/refusing to review without the stale-head guard/.test(wf),
+    'workflow proceeds even when the head sha cannot be resolved');
+});
+check('reviewer stages its comment body safely', () => {
+  assert(/os\.makedirs\(tmp_dir, exist_ok=True\)/.test(py), 'temp dir is assumed to exist');
+  assert(/could not stage the comment body/.test(py), 'staging failure is not classified');
+});
 check('Codex inline findings are treated as blocking', () => {
   assert(/function Get-CodexInlineFindings/.test(ps1), 'inline review comments are never read');
   const seg = ps1.split('function Get-CodexInlineFindings')[1].split('function Wait-ForReviews')[0];
   assert(/pulls\/\$\(\$script:State\.pr_number\)\/comments/.test(seg), 'does not query inline comments');
-  assert(/P1\|P2/.test(seg), 'severity badges are not detected');
+  assert(/\$script:CODEX_BLOCKING_PATTERN/.test(seg),
+    'inline scan does not use the shared blocking-severity definition');
   assert(/inline\.Count -gt 0/.test(seg), 'inline findings do not override the review state');
   assert(/original_commit_id/.test(seg), 'inline findings are not pinned to a commit');
 });
