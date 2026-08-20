@@ -590,10 +590,23 @@ check('abandoned output capture is reported, not silently truncated', () => {
   assert(/capture did not complete within/.test(seg), 'a timed-out capture is silently dropped');
   assert(!/try \{ if \(\$outTask\.Wait\(15000\)\)/.test(seg), 'capture timeout is still swallowed by catch');
 });
-check('reviewer diff budget is large enough for infra-sized PRs', () => {
-  const m = py.match(/DEEPSEEK_MAX_DIFF_CHARS", "(\d+)"/);
-  assert(m, 'diff budget is not configurable');
-  assert(Number(m[1]) >= 150000, `diff budget ${m[1]} is too small`);
+check('total review coverage is large enough for infra-sized PRs', () => {
+  // The budget bounds ONE CHUNK, not the whole diff - chunking handles size now. It is
+  // sized for the model's reliability rather than its context limit: 160k-char chunks fit
+  // in context but produced two consecutive PROTOCOL_ERROR failures because the mandatory
+  // block never appeared. What must remain generous is chunks x budget, the total coverage
+  // before a PR is declared too large to review.
+  const perChunk = Number((py.match(/DEEPSEEK_MAX_DIFF_CHARS", "(\d+)"/) || [])[1]);
+  const chunks = Number((py.match(/DEEPSEEK_MAX_DIFF_CHUNKS", "(\d+)"/) || [])[1]);
+  assert(Number.isFinite(perChunk) && Number.isFinite(chunks), 'chunk budget is not configurable');
+  assert(perChunk >= 40000, `per-chunk budget ${perChunk} is too small to hold a meaningful unit of diff`);
+  assert(perChunk <= 120000, `per-chunk budget ${perChunk} is large enough to degrade instruction-following`);
+  assert(perChunk * chunks >= 400000,
+    `total coverage ${perChunk * chunks} is too small for an infrastructure-sized PR`);
+  // The request budget must be able to service every chunk at least once.
+  const totalReq = Number((py.match(/DEEPSEEK_MAX_TOTAL_REQUESTS", "(\d+)"/) || [])[1]);
+  assert(totalReq >= chunks * 2,
+    `request budget ${totalReq} cannot service ${chunks} chunks with a repair pass each`);
 });
 check('oversized diffs are chunked, not silently truncated', () => {
   // Truncate-and-reject was correct but made any PR past the budget permanently

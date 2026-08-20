@@ -41,14 +41,18 @@ BACKOFF_CAP_SEC = 16.0
 # ~160k chars of diff alongside the system prompt and a 4k-token reply, and a reviewer that
 # cannot see the whole diff must REJECT (see fetch_diff), so a too-small budget would make
 # large PRs permanently unreviewable.
-MAX_DIFF_CHARS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHARS", "160000"))
+# Sized for RELIABILITY, not for the context limit. A 160k-char chunk fits in context but
+# the model's instruction-following degrades across it: two consecutive reviews failed with
+# PROTOCOL_ERROR because the mandatory verdict block never appeared, repair pass included.
+# Smaller chunks are answered reliably; the chunk cap keeps the total work bounded.
+MAX_DIFF_CHARS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHARS", "80000"))
 # An oversized diff is split at file boundaries and reviewed in chunks rather than
 # truncated. The cap keeps the work bounded; beyond it the PR is genuinely too large to
 # review in one pass and the reviewer says so instead of pretending otherwise.
-MAX_DIFF_CHUNKS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHUNKS", "6"))
+MAX_DIFF_CHUNKS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHUNKS", "8"))
 # MAX_ATTEMPTS bounds retries per call. This bounds the WHOLE review, so a chunked
 # review cannot quietly multiply into an unbounded number of API requests.
-MAX_TOTAL_REQUESTS = int(os.environ.get("DEEPSEEK_MAX_TOTAL_REQUESTS", "12"))
+MAX_TOTAL_REQUESTS = int(os.environ.get("DEEPSEEK_MAX_TOTAL_REQUESTS", "20"))
 MAX_EVIDENCE_CHARS = 8000
 
 COMMENT_MARKER = "<!-- ai-loop:deepseek-review -->"
