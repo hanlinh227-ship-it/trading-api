@@ -1,3 +1,4 @@
+# rerun: telemetry diagnostics
 name: V78-026 H1 Cloudflare DEMO Preview Acceptance
 on:
   push:
