@@ -1,0 +1,16 @@
+V78-028 SIGNAL HUB CLEANUP + INDEX CASH LIVE ACCEPTANCE
+SOURCE_SHA=4e0a5732b59ec02077bd3e7198a9dae181c8f7ad
+CLOUDFLARE_VERSION_ID=1961e90e-900e-43d5-8e72-cc354dccbe4b
+NODE_CHECK=PASS
+TWELVE_DATA_DJI_DIRECT=UNSUPPORTED_404
+YAHOO_US30_IDENTITY=^DJI/INDEX
+US30_YAHOO_FALLBACK_FRESH=false
+US30_YAHOO_FALLBACK_EXECUTION_VERIFIED=false
+US30_YAHOO_FALLBACK_ANALYSIS_ONLY=true
+US30_YAHOO_FALLBACK_MARKET_ADMISSION=BLOCKED
+--- LIVE INDEX CASH ---
+symbol=NAS100 | status=WATCH | price=29426.023 | source=Yahoo Finance Cash Index Fallback | providerSymbol=^NDX | fresh=false | fallback=true | analysisOnly=true | executionVerified=false | quoteAgeSec=24943 | instrumentIdentity=CASH_INDEX
+symbol=US30 | status=WATCH | price=53463.05 | source=Yahoo Finance Cash Index Fallback | providerSymbol=^DJI | fresh=false | fallback=true | analysisOnly=true | executionVerified=false | quoteAgeSec=27188 | instrumentIdentity=CASH_INDEX
+symbol=US500 | status=WATCH | price=7707.98 | source=Yahoo Finance Cash Index Fallback | providerSymbol=^GSPC | fresh=false | fallback=true | analysisOnly=true | executionVerified=false | quoteAgeSec=27195 | instrumentIdentity=CASH_INDEX
+symbol=DEX | status=WATCH | price=26091.33 | source=Yahoo Finance Cash Index Fallback | providerSymbol=^GDAXI | fresh=false | fallback=true | analysisOnly=true | executionVerified=false | quoteAgeSec=43907 | instrumentIdentity=CASH_INDEX
+symbol=JP225 | status=WATCH | price=65903.86 | source=Yahoo Finance Cash Index Fallback | providerSymbol=^N225 | fresh=false | fallback=true | analysisOnly=true | executionVerified=false | quoteAgeSec=904 | instrumentIdentity=CASH_INDEX
