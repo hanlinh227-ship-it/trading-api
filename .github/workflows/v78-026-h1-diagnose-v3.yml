@@ -93,3 +93,4 @@ jobs:
           git config user.name 'V78-026 H1 Validator';git config user.email 'actions@users.noreply.github.com'
           if [ "$STATUS" = PASS ]; then git add cloudflare-worker/hyro-execution.js docs/ai-coengineer/V78-026_VALIDATION.txt docs/ai-coengineer/V78-026_RUN_STATUS.txt; else git add docs/ai-coengineer/V78-026_RUN_STATUS.txt; fi
           git commit -m "V78-026 H1 validation $STATUS at ${FAIL_STAGE:-all-stages}" || true; git push origin HEAD:v78-026-h1; test "$STATUS" = PASS
+          # V78-026 prerequisite recheck 2026-08-20
