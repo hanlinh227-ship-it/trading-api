@@ -1,58 +1,57 @@
 {
   "protocol_version": "3.0",
   "architecture": "CODEX_CONTROL__CLAUDE_PARALLEL_REVIEW__DEEPSEEK_IMPLEMENTER__GITHUB_LOOP__CLOUDFLARE_RUNTIME",
-  "status": "STAGED_FOR_FIRST_REAL_TASK",
-  "task_id": null,
+  "status": "DISPATCHING_FIRST_REAL_TASK",
+  "task_id": "ENTRY-001",
+  "task_goal": "Current-price entry intelligence integrity and anti-chase for Signal-only MARKET admission",
   "active_pr": null,
   "active_head": null,
   "round": 0,
   "max_rounds_default": 2,
   "max_rounds_hard_cap": 4,
-  "next_actor": "CODEX",
-  "write_lock_owner": "CHATGPT",
+  "next_actor": "DEEPSEEK",
+  "write_lock_owner": "DEEPSEEK",
   "implementation_sha": null,
   "review_required": {
     "codex": true,
-    "claude": false
+    "claude": true
   },
   "review_status": {
-    "codex": "IDLE",
-    "claude": "IDLE"
+    "codex": "PENDING_IMPLEMENTATION",
+    "claude": "PENDING_IMPLEMENTATION"
   },
-  "review_consensus": "IDLE",
+  "review_consensus": "WAITING_FOR_IMPLEMENTATION",
   "codex_verdict": null,
   "claude_verdict": null,
-  "deepseek_verdict": null,
-  "validation": "INFRA_NOT_YET_EXERCISED_END_TO_END",
+  "deepseek_verdict": "PENDING",
+  "validation": "PENDING_REAL_LOOP_EXECUTION",
   "automation": {
-    "issue_dispatch": "STAGED",
-    "deepseek_implement_fix": "STAGED",
-    "deepseek_validation_loop": "STAGED",
-    "codex_pr_review_trigger": "STAGED_REQUIRES_REAL_FIRST_REVIEW_EVIDENCE",
-    "parallel_review_consensus_gate": "STAGED",
-    "claude_scheduled_watcher": "USER_CONFIRMED_HOURLY",
+    "issue_dispatch": "READY",
+    "deepseek_implement_fix": "READY",
+    "deepseek_validation_loop": "READY",
+    "codex_pr_review_trigger": "READY_REQUIRES_REAL_EVIDENCE",
+    "parallel_review_consensus_gate": "READY",
+    "claude_scheduled_watcher": "USER_CONFIRMED_HOURLY_FALLBACK",
     "claude_instant_headless_trigger": "UNAVAILABLE_WITHOUT_SEPARATE_BILLED_AUTOMATION",
-    "cloudflare_deploy": "EXISTING_SEPARATE_WORKFLOW"
+    "cloudflare_deploy": "GATED_UNTIL_ACCEPTANCE"
   },
   "cost_guards": {
     "deepseek_max_rounds_default": 2,
     "deepseek_max_rounds_hard_cap": 4,
-    "deepseek_max_output_tokens_per_call": 8000,
+    "deepseek_max_output_tokens_per_call": 6000,
     "anthropic_production_api": false
   },
   "deployment": {
-    "status": "NOT_DEPLOYED_BY_AI_INFRA_003",
+    "status": "NOT_DEPLOYED_ENTRY_001",
     "source_sha": null,
     "cloudflare_version_id": null,
     "deployed_at": null
   },
   "live_verification": "NOT_RUN",
   "remaining_issues": [
-    "Run first real bounded protected Trading task to obtain end-to-end evidence",
-    "Confirm real Codex @codex review evidence on an AI-loop PR",
-    "Confirm Claude Scheduled Watcher can post the required SHA-bound verdict envelope through available GitHub access",
-    "Claude review may have up to hourly schedule latency without separately billed Anthropic automation",
-    "Automatic merge/deploy remains gated until real first-loop evidence is accepted",
-    "Trading Signal/runtime logic intentionally untouched by AI-INFRA-003"
+    "Dispatch ENTRY-001 and obtain real DeepSeek implementation/validation evidence",
+    "Obtain Codex and Claude SHA-bound review verdicts on the same PR head",
+    "Do not deploy until dual-review consensus and deterministic validation pass",
+    "Preserve Signal-only architecture and all protected state/risk/freshness invariants"
   ]
 }
