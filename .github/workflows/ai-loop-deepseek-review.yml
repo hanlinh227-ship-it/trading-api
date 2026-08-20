@@ -28,7 +28,11 @@ permissions:
 
 concurrency:
   group: ai-loop-deepseek-${{ github.event.pull_request.number || inputs.pr_number }}
-  cancel-in-progress: true
+  # NOT cancel-in-progress. The controller dispatches this workflow while the automatic
+  # pull_request trigger also fires, so cancelling would let the two runs kill each other
+  # and leave no completed review comment - stalling the loop at PENDING indefinitely.
+  # Both runs review the same head and the comment upsert is last-writer-wins.
+  cancel-in-progress: false
 
 jobs:
   deepseek-review:
@@ -77,7 +81,10 @@ jobs:
       # reviewer only takes effect once a human has merged it.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          # base.ref, not base.sha: for a synchronize event base.sha is the merge base,
+          # which can lag the branch the change will actually merge into. Both are
+          # human-reviewed history, but the ref is the one that matters.
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
           fetch-depth: 1
           persist-credentials: false
 

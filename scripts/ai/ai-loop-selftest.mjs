@@ -748,6 +748,52 @@ check('the reviewer runs from a trusted revision, not the PR head', () => {
   // It still reviews the head: the SHA guard and the diff come from the API.
   assert(/--expect-sha/.test(wf), 'reviewer no longer pins the reviewed head');
 });
+check('paginated GitHub reads survive multi-page responses', () => {
+  // gh --paginate emits ONE JSON document per page. With an array-producing --jq that
+  // yields several concatenated arrays, and ConvertFrom-Json fuses them into a single
+  // object whose scalar properties become space-joined lists - so `.login` came back as
+  // every author at once, no author check could match, and every verdict read as PENDING.
+  // The loop was silently unable to see ANY reviewer verdict.
+  const bad = ps1.match(/--paginate", "--jq", "\[/g) || [];
+  assert(bad.length === 0, `${bad.length} paginated call(s) still request a JSON array per page`);
+  assert(/function Invoke-GhJsonLines/.test(ps1), 'no newline-delimited JSON reader');
+  const helper = ps1.split('function Invoke-GhJsonLines')[1].split('\nfunction ')[0];
+  assert(/"\.\[\] \| \$JqObject"/.test(helper), 'helper does not emit one object per line');
+  assert(/StartsWith\("\{"\)/.test(helper), 'helper does not parse line by line');
+  // Every reader that paginates must go through it.
+  for (const fn of ['Get-DeepSeekVerdict', 'Get-CodexInlineFindings', 'Get-CodexVerdict']) {
+    const seg = ps1.split(`function ${fn}`)[1].split('\nfunction ')[0];
+    assert(/Invoke-GhJsonLines/.test(seg), `${fn} does not use the line-delimited reader`);
+  }
+});
+check('the loop never authors a CI workflow change', () => {
+  // For a same-repository pull_request event GitHub loads the workflow from the PR HEAD,
+  // so a run able to edit its own workflow can replace the review step with one that posts
+  // a forged current-SHA ACCEPT using the job's pull-requests: write token. Checking out a
+  // trusted base pins the worktree but NOT the job definition, so the only control that
+  // actually works is refusing to author the change.
+  const seg = ps1.split('function Assert-ChangesInLockScope')[1].split('\nfunction ')[0];
+  assert(/\^\\\.github\/workflows\//.test(seg), 'workflow paths are not detected');
+  assert(/forge its own review verdict|forged/.test(seg), 'the reason is not documented');
+  assert(/Stop-Loop -Status "BLOCKED"/.test(seg), 'a workflow edit does not block the round');
+  // It must be checked before the general scope test, since a lock could list a workflow.
+  const wfIdx = seg.indexOf('workflowEdits');
+  const scopeIdx = seg.indexOf('$outside =');
+  assert(wfIdx > -1 && wfIdx < scopeIdx, 'workflow guard does not precede the scope test');
+});
+check('a push is detected even if local HEAD is reset afterwards', () => {
+  // A rewritten validator can commit, push with the controller's credentials, then reset
+  // the local branch back to the saved SHA before returning success. Every local check
+  // then passes while the unauthorised commit is already on the remote.
+  assert(/function Get-RemoteBranchSha/.test(ps1), 'no remote tip probe');
+  const helper = ps1.split('function Get-RemoteBranchSha')[1].split('\nfunction ')[0];
+  assert(/ls-remote/.test(helper), 'remote tip is read from local refs rather than the server');
+  assert(/\$script:RemoteBeforeRound = Get-RemoteBranchSha/.test(ps1), 'remote tip is not sampled pre-round');
+  const pub = ps1.split('function Publish-Round')[1].split('\nfunction ')[0];
+  assert(/\$script:RemoteBeforeRound/.test(pub), 'remote tip is not re-checked before staging');
+  assert(/refusing to continue on a remote it did not author/.test(pub),
+    'a moved remote does not block the round');
+});
 check('a bootstrap reviewer cannot vouch for the change that supplied it', () => {
   // On the PR that introduces the reviewer there is no trusted copy at base. Falling back
   // to the head copy silently would undo the whole trust boundary, so the fallback is

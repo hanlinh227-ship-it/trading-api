@@ -277,6 +277,41 @@ function Invoke-Native {
     }
 }
 
+function Invoke-GhJsonLines {
+    <#
+      gh --paginate emits ONE JSON document per page. With an array-producing --jq that
+      means several concatenated arrays, and ConvertFrom-Json silently fuses them into a
+      single object whose scalar properties become space-joined lists - so `.login` came
+      back as every author at once and no author check could ever match.
+
+      Asking jq for one object PER LINE instead gives newline-delimited JSON, which stays
+      correct across any number of pages. Each line is parsed independently.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$JqObject,
+        [int]$TimeoutSec = 120
+    )
+    $r = Invoke-Gh -Arguments @("api", $Path, "--paginate", "--jq", ".[] | $JqObject") -TimeoutSec $TimeoutSec
+    if ($r.ExitCode -ne 0) { return $null }
+    $out = @()
+    foreach ($line in ($r.StdOut -split "`r?`n")) {
+        $t = $line.Trim()
+        if (-not $t -or -not $t.StartsWith("{")) { continue }
+        try { $out += ($t | ConvertFrom-Json) } catch { }
+    }
+    return ,$out
+}
+
+function Get-RemoteBranchSha {
+    # ls-remote asks the server directly, so a locally reset ref cannot hide a push.
+    $r = Invoke-Git -Arguments @("ls-remote", "origin", "refs/heads/$($script:State.branch)") -TimeoutSec 90
+    if ($r.ExitCode -ne 0) { return $null }
+    $line = @($r.StdOut -split "`r?`n" | Where-Object { $_ }) | Select-Object -First 1
+    if (-not $line) { return "" }
+    return ($line -split "\s+")[0].Trim()
+}
+
 function Invoke-Git {
     param([Parameter(Mandatory = $true)][string[]]$Arguments, [int]$TimeoutSec = 180)
     return Invoke-Native -File "git" -Arguments $Arguments -TimeoutSec $TimeoutSec
@@ -470,6 +505,18 @@ function Assert-ChangesInLockScope {
     # Runs BEFORE tests and BEFORE staging, so an out-of-scope edit can never be committed.
     $changed = @(Get-ChangedFiles)
     if ($changed.Count -eq 0) { return }
+
+    # CI definitions are never loop-writable, whatever the lock says. For a same-repository
+    # pull_request event GitHub loads the workflow from the PR HEAD, so a run that can edit
+    # its own workflow can replace the review step with one that posts a forged current-SHA
+    # ACCEPT using the job's `pull-requests: write` token. Checking out a trusted base pins
+    # the worktree but NOT the job definition, so the only effective control is refusing to
+    # author the change at all and leaving CI edits to a human.
+    $workflowEdits = @($changed | Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
+    if ($workflowEdits.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("Round modified CI workflow definition(s): " + ($workflowEdits -join ", ") + ". A run that can rewrite its own CI can forge its own review verdict, so workflow changes require human authorship and review and are never made by the loop.")
+    }
+
     $outside = @($changed | Where-Object { -not (Test-PathInLockScope -RelativePath $_) })
     if ($outside.Count -gt 0) {
         Stop-Loop -Status "BLOCKED" -Reason ("Round modified file(s) outside the declared WRITE_LOCK scope; refusing to test or stage them: " + ($outside -join ", "))
@@ -822,6 +869,17 @@ function Publish-Round {
         }
     }
 
+    # A local-only comparison is defeatable: a rewritten validator can commit, push with the
+    # controller's credentials, then reset the local branch and worktree back to the saved
+    # SHA before returning success. The unauthorised commit is already on the remote by
+    # then, and every local check passes. So verify the REMOTE ref has not moved either.
+    if ($script:RemoteBeforeRound) {
+        $remoteNow = Get-RemoteBranchSha
+        if ($null -ne $remoteNow -and $remoteNow -ne $script:RemoteBeforeRound) {
+            Stop-Loop -Status "BLOCKED" -Reason "Remote branch $($script:State.branch) moved from $($script:RemoteBeforeRound) to $remoteNow during the round. The controller did not push; refusing to continue on a remote it did not author."
+        }
+    }
+
     $status = (Invoke-Git -Arguments @("status", "--porcelain")).StdOut
     if ([string]::IsNullOrWhiteSpace($status)) {
         Write-Warn2 "No changes to commit this round."
@@ -1058,10 +1116,8 @@ function Get-DeepSeekVerdict {
     # compromised bot) could forge VERDICT=ACCEPT and walk the loop straight to
     # READY_TO_MERGE. Only a comment authored by the Actions bot AND carrying the
     # reviewer's own marker is admissible.
-    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/issues/$($script:State.pr_number)/comments", "--paginate", "--jq", "[.[] | {body, login: .user.login, type: .user.type}]")
-    if ($r.ExitCode -ne 0) { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
-    $comments = @()
-    try { $comments = @($r.StdOut | ConvertFrom-Json) } catch { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
+    $comments = Invoke-GhJsonLines -Path "repos/$Repo/issues/$($script:State.pr_number)/comments" -JqObject "{body, login: .user.login, type: .user.type}"
+    if ($null -eq $comments) { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
 
     $best = [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() }
     foreach ($c in $comments) {
@@ -1115,10 +1171,8 @@ function Get-CodexInlineFindings {
     # "no findings" would let a transient GitHub error convert a bland same-head COMMENTED
     # review into ACCEPT while unread P1/P2 findings sit in the API.
     $out = @()
-    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/pulls/$($script:State.pr_number)/comments", "--paginate", "--jq", "[.[] | {login: .user.login, type: .user.type, commit_id: .original_commit_id, current: .commit_id, path, line, body}]")
-    if ($r.ExitCode -ne 0) { return [pscustomobject]@{ Available = $false; Findings = @() } }
-    $items = @()
-    try { $items = @($r.StdOut | ConvertFrom-Json) } catch { return [pscustomobject]@{ Available = $false; Findings = @() } }
+    $items = Invoke-GhJsonLines -Path "repos/$Repo/pulls/$($script:State.pr_number)/comments" -JqObject "{login: .user.login, type: .user.type, commit_id: .original_commit_id, current: .commit_id, path, line, body}"
+    if ($null -eq $items) { return [pscustomobject]@{ Available = $false; Findings = @() } }
     foreach ($c in $items) {
         # Exact identity, not a substring: a collaborator or bot named e.g. "codex-reviewer"
         # must not be able to speak for the independent reviewer.
@@ -1145,10 +1199,9 @@ function Get-CodexInlineFindings {
 }
 
 function Get-CodexVerdict {
-    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/pulls/$($script:State.pr_number)/reviews", "--paginate", "--jq", "[.[] | {login: .user.login, state, commit_id, body}]")
-    if ($r.ExitCode -ne 0) { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
-    $reviews = @()
-    try { $reviews = @($r.StdOut | ConvertFrom-Json) } catch { $reviews = @() }
+    $reviews = Invoke-GhJsonLines -Path "repos/$Repo/pulls/$($script:State.pr_number)/reviews" -JqObject "{login: .user.login, state, commit_id, body}"
+    if ($null -eq $reviews) { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
+    $reviews = @($reviews)
 
     # Aggregate EVERY same-head review before deciding. Returning on the first match let an
     # older bland COMMENTED/APPROVED entry win over a later CHANGES_REQUESTED for the same
@@ -1417,6 +1470,7 @@ function Main {
         # Script-scoped so Publish-Round can re-check it after the tests have run, which is
         # where the controller executes repo-resident (and therefore editable) validators.
         $script:HeadBeforeRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+        $script:RemoteBeforeRound = Get-RemoteBranchSha
 
         $claude = Invoke-ClaudeRound -BlockingFindings $blockingText
 
