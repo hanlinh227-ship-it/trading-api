@@ -2,7 +2,7 @@ import baseEngine from "./engine-v77168.js";
 import {loadHubUxTuning,getHubUxState} from "./hub-ux-tuning.js";
 import {telegramApiRequest} from "./providers/telegram-client.js";
 import {getSignalDecisionEvidence} from "./providers/decision-evidence.js";
-import {getEntryIntelligenceShadow} from "./providers/entry-intelligence.js";
+import {buildEntryIntelligenceShadow,getEntryIntelligenceShadow} from "./providers/entry-intelligence.js";
 import {isClaudeApiEnabled} from "./providers/anthropic-client.js";
 
 const VERSION="V78.027",UI_REV="HUB-R14-SIGNAL-ONLY",SERVICE="Trading Signal Hub • Entry Intelligence";
@@ -33,7 +33,7 @@ async function entryCoverageText(env){const rows=await getEntryIntelligenceShado
 
 async function engineJson(path,req,env){const u=new URL(req.url);const r=await baseEngine.fetch(new Request(u.origin+path,{method:"GET"}),env);try{return await r.json();}catch{return null;}}
 
-function setupCard(a,i=0){if(!a)return null;const p=a.planned||a,mode=a.status==="MARKET_SIGNAL"||a.status==="MARKET"||a.status==="MARKET_PLAN"?"MARKET":a.status==="LIMIT"||a.status==="LIMIT_PLAN"?"LIMIT":"WATCH",rr=Number(p?.targetRR||0),score=Number(a.score||0),q=a?.entryIntelligence?.quality||null;let L=[`${i?i+". ":""}${mode==="MARKET"?"⚡":mode==="LIMIT"?"🎯":"👀"} ${a.symbol} • ${side(a.side)}`,`   ${mode} • Score ${score}/100${rr?` • RR ${rr.toFixed(2)}`:""}`];if(p?.entry)L.push(`   📍 Entry ${fmt(p.entry)}`);if(p?.sl)L.push(`   🛑 SL ${fmt(p.sl)}   🏁 TP ${fmt(p.tp2||p.tp1||p.tp)}`);if(a.method?.profile)L.push(`   🧠 ${a.method.profile}${a.method?.activeMode?` • ${a.method.activeMode}`:""}`);if(q)L.push(`   ⭐ Quality ${q.grade||"?"} ${q.score??"—"}/100`);return L.join("\n");}
+function setupCard(a,i=0){if(!a)return null;const p=a.planned||a,mode=a.status==="MARKET_SIGNAL"||a.status==="MARKET"||a.status==="MARKET_PLAN"?"MARKET":a.status==="LIMIT"||a.status==="LIMIT_PLAN"?"LIMIT":"WATCH",rr=Number(p?.targetRR||0),score=Number(a.score||0),q=buildEntryIntelligenceShadow(a)?.quality||null;let L=[`${i?i+". ":""}${mode==="MARKET"?"⚡":mode==="LIMIT"?"🎯":"👀"} ${a.symbol} • ${side(a.side)}`,`   ${mode} • Score ${score}/100${rr?` • RR ${rr.toFixed(2)}`:""}`];if(p?.entry)L.push(`   📍 Entry ${fmt(p.entry)}`);if(p?.sl)L.push(`   🛑 SL ${fmt(p.sl)}   🏁 TP ${fmt(p.tp2||p.tp1||p.tp)}`);if(a.method?.profile)L.push(`   🧠 ${a.method.profile}${a.method?.activeMode?` • ${a.method.activeMode}`:""}`);if(q)L.push(`   ⭐ Quality ${q.grade||"?"} ${q.score??"—"}/100`);return L.join("\n");}
 
 function symbolResultText(g,a){const q=a?.analysisQuote||a?.quote||{},price=Number(q?.price??a?.currentPrice??a?.entry),age=Number(q?.quoteAgeSec),src=q?.source||a?.source||"—",fresh=q?.fresh===false?"🔴 STALE":"🟢 FRESH",L=[`${groupName(g)} • ${a?.symbol||"—"}`,"━━━━━━━━━━━━",`💵 Giá: ${fmt(price)}`,`📡 ${src} • ${fresh}${Number.isFinite(age)?` • ${Math.round(age)}s`:""}`,""];L.push(setupCard(a)||`⚪ ${a?.reason||"Chưa có setup"}`);return L.join("\n");}
 
