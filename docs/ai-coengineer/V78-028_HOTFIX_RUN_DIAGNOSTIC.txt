@@ -1,4 +1,49 @@
 === META ===
-[{"conclusion":"skipped","createdAt":"2026-08-20T03:32:23Z","databaseId":32328592655,"headSha":"9528ce2bb3b0faa15196611e12df3820d5e74f49","status":"completed","url":"https://github.com/hanlinh227-ship-it/trading-api/actions/runs/32328592655"}]
+{"conclusion":"failure","createdAt":"2026-08-20T03:30:34Z","databaseId":32328482965,"headSha":"9d929ad9a8cf1624a5e6eb0b4e8bc8dfcad5e273","status":"completed","url":"https://github.com/hanlinh227-ship-it/trading-api/actions/runs/32328482965"}
 
 === FAILED LOGS ===
+run	Live all-five Index Cash validation	﻿2026-08-20T03:30:54.3874521Z ##[group]Run set -euo pipefail
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3874862Z ^[[36;1mset -euo pipefail^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3875264Z ^[[36;1mBASE='https://trading-v77-scanner.hanlinh227.workers.dev'^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3875628Z ^[[36;1msleep 8^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3875842Z ^[[36;1mmkdir -p /tmp/i^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3876273Z ^[[36;1mfor S in NAS100 US30 US500 DEX JP225; do curl -fsS "$BASE/analyze?symbol=$S" -o "/tmp/i/$S.json"; done^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3877013Z ^[[36;1mnode <<'NODE'^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3877349Z ^[[36;1mconst fs=require('fs'),out=[];^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3877828Z ^[[36;1mfor(const s of ['NAS100','US30','US500','DEX','JP225']){^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3878360Z ^[[36;1m  const x=JSON.parse(fs.readFileSync('/tmp/i/'+s+'.json','utf8')),q=x.analysisQuote||x.quote||{};^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3878890Z ^[[36;1m  if(!(Number(q.price)>0)) throw Error(s+' price missing');^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3879242Z ^[[36;1m  if(q.fallback===true){^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3879755Z ^[[36;1m    if(q.fresh!==false||q.executionVerified!==false||q.analysisOnly!==true) throw Error(s+' unsafe fallback flags');^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3880496Z ^[[36;1m    if(['MARKET','MARKET_SIGNAL'].includes(x.status)) throw Error(s+' fallback admitted as market');^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3880945Z ^[[36;1m  }^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3881689Z ^[[36;1m  out.push(`${s} status=${x.status||'UNKNOWN'} price=${q.price} source=${q.source||'—'} fresh=${String(q.fresh)} fallback=${String(q.fallback===true)} interval=${q.fallbackInterval||'native'} age=${q.quoteAgeSec??'null'}`);^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3882490Z ^[[36;1m}^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3882868Z ^[[36;1mfs.writeFileSync('/tmp/i/live.txt',out.join('\n')+'\n'); console.log(out.join('\n'));^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3883301Z ^[[36;1mNODE^[[0m
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3906064Z shell: /usr/bin/bash -e {0}
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3906346Z env:
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3907111Z   CLOUDFLARE_API_TOKEN: ***
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3907457Z   CLOUDFLARE_ACCOUNT_ID: ***
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3907777Z   TRADING_KV_NAMESPACE_ID: ***
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3908092Z   SHA028: d7c9bbe664b6b6182084da96721870e847dfb90e
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3908430Z   CF028: c3f83c1b-6615-4bd7-8c3d-e2eacc2142e3
+run	Live all-five Index Cash validation	2026-08-20T03:30:54.3908714Z ##[endgroup]
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5602149Z [stdin]:4
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5602806Z   if(!(Number(q.price)>0)) throw Error(s+' price missing');
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5605335Z                            ^
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5605625Z 
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5605825Z Error: US30 price missing
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5606175Z     at [stdin]:4:34
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5606817Z     at runScriptInThisContext (node:internal/vm:209:10)
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5607497Z     at node:internal/process/execution:446:12
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5608046Z     at [stdin]-wrapper:6:24
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5608643Z     at runScriptInContext (node:internal/process/execution:444:60)
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5609381Z     at evalFunction (node:internal/process/execution:279:30)
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5610014Z     at evalTypeScript (node:internal/process/execution:291:3)
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5610599Z     at node:internal/main/eval_stdin:53:5
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5611229Z     at Socket.<anonymous> (node:internal/process/execution:201:5)
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5611843Z     at Socket.emit (node:events:531:35)
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5612159Z 
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5612317Z Node.js v22.23.2
+run	Live all-five Index Cash validation	2026-08-20T03:31:18.5640080Z ##[error]Process completed with exit code 1.
