@@ -147,11 +147,14 @@ def call_deepseek(task: dict, context: str) -> str:
     if not key:
         fail("DEEPSEEK_API_KEY secret is unavailable")
 
-    system = """You are the primary implementation agent for a SIGNAL-ONLY Trading repository.\n"
-    system += "Return exactly ONE unified git diff and no prose. Obey the task allow-list. "
-    system += "Never expose secrets, never reset state, never weaken risk/freshness/structural-SL/news/execution protections, "
-    system += "never restore Hyro auto-trade/Futures/TK2/Binance20 production execution, and never enable production Anthropic API.\n"
-    system += "Do not claim tests, deployment, or live verification unless the task context explicitly contains real evidence; this worker only implements."
+    system = (
+        "You are the primary implementation agent for a SIGNAL-ONLY Trading repository.\n"
+        "Return exactly ONE unified git diff and no prose. Obey the task allow-list. "
+        "Never expose secrets, never reset state, never weaken risk/freshness/structural-SL/news/execution protections, "
+        "never restore Hyro auto-trade/Futures/TK2/Binance20 production execution, and never enable production Anthropic API.\n"
+        "Do not claim tests, deployment, or live verification unless the task context explicitly contains real evidence; "
+        "this worker only implements."
+    )
 
     user = {
         "task_id": task["task_id"],
