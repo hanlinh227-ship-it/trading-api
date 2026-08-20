@@ -115,7 +115,6 @@ V78-020 — PRODUCTION-VERIFIED
 - Rescue MARKET_PLAN/LIMIT_PLAN evidence checks use /evidence/entry-intelligence and require promotion.allowed=true when quote/entry/SL/target evidence is valid.
 - Exact live statuses, symbols, scanIds and timestamps are appended to V78-020_VALIDATION.txt.
 
-
 V78-021 — RESOLVED / DEPLOYED
 - Source commit: 111d0618a505a9d65652e52283fb7f22e6bd7c0a.
 - Group-scan candidate rendering now adds Entry Intelligence quality grade/score, blocked-promotion reasons, and quote freshness through buildEntryIntelligenceShadow().
@@ -123,14 +122,12 @@ V78-021 — RESOLVED / DEPLOYED
 - Exact validation: docs/ai-coengineer/V78-021_VALIDATION.txt.
 - hubSummary() separate inline top-7 builder remains deferred as a separate follow-up.
 
-
 V78-022 — RESOLVED / DEPLOYED
 - Source commit: c41706b99b6357cc829b1a6ded0b7240bc428a27.
 - Cloudflare Version ID: c60f16a4-6a93-4ba3-aab3-a450b0188de0.
 - Hub cross-market top-setups rendering now shows Entry Intelligence Quality grade/score, blocked-promotion reasons, and Freshness.
 - hubRank/runHub top selection unchanged; rendering-only.
 - Validation: docs/ai-coengineer/V78-022_VALIDATION.txt.
-
 
 V78-023 — RESOLVED / DEPLOYED
 - Source commit: fbabe727caeb771b29188169800a7d275936b5ff.
@@ -140,3 +137,15 @@ V78-023 — RESOLVED / DEPLOYED
 - New read-only Coverage view summarizes Entry Intelligence evidence quality/missing-core patterns across Forex/Crypto/Metal/Index.
 - No execution authority, ranking formula, admission gate, hard risk, freshness, structural-SL or news policy changed in V78-023.
 - Validation: docs/ai-coengineer/V78-023_VALIDATION.txt.
+
+V78-025 — SAFE WORKFLOW CLEANUP + ENTRY INTELLIGENCE / HUB UX AUDIT
+- Entry Intelligence source commit: `7529201a6fd8d841e6443b1cdd88f5dea6fecea3`.
+- Removed synthetic `CASH_INDEX` fallback from Index OPTIONAL `instrumentIdentity`; optional completeness/ranking now uses real supplied identity only.
+- No REQUIRED hard-block, threshold, provider fetch, crypto admission path, or execution authority changed.
+- Four-market audit found real optional-context alias gaps: Forex `strengthDiff`, Crypto `fundingRate`/BTC-relative, Metal `relativeStrength`; these are follow-up observability improvements and must remain OPTIONAL.
+- No market-specific quality-weight change approved until optional evidence plumbing is normalized and Coverage evidence is observed.
+- Hub remains `HUB-R13-ENTRY-INTEL-COVERAGE`; current UX is safe, with clearer SIGNAL-only terminology and per-market Coverage sampling identified as display-only follow-ups.
+- Completed V78-020 through V78-024 one-shot carrier workflows were archived out of active `.github/workflows`; exact historical blob SHAs are recorded in `docs/ai-coengineer/archive/V78_020_024_ONE_SHOT_WORKFLOWS.md` and all validation records/Git history remain preserved.
+- H1-H6 Hyro execution changes: NONE. Dedicated H1 idempotency round remains next only after Claude independently verifies V78-025 clean.
+- Validation: `docs/ai-coengineer/V78-025_VALIDATION.txt`.
+- No new Cloudflare Version ID is claimed for V78-025 because deployment evidence was not independently verified in this batch.
