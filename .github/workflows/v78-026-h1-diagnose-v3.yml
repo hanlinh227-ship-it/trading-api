@@ -1,0 +1,95 @@
+name: V78-026 H1 Self-reporting Validation V3
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v78-026-h1-diagnose-v3.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+  HYRO_BYBIT_API_KEY: ${{ secrets.HYRO_BYBIT_API_KEY }}
+  HYRO_BYBIT_API_SECRET: ${{ secrets.HYRO_BYBIT_API_SECRET }}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: v78-026-h1, fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate H1 and always persist outcome
+        shell: bash
+        run: |
+          set +e; mkdir -p docs/ai-coengineer; STATUS=PASS; FAIL_STAGE=; : >/tmp/log
+          stage(){ n="$1"; shift; echo "=== $n ===" >>/tmp/log; "$@" >>/tmp/log 2>&1; r=$?; echo "rc=$r" >>/tmp/log; if [ $r -ne 0 ] && [ "$STATUS" = PASS ]; then STATUS=FAIL; FAIL_STAGE="$n"; fi; return $r; }
+          stage guard bash -c "grep -q '^LOCKED: true$' docs/ai-coengineer/WRITE_LOCK.md && grep -q '^SCOPE: V78-026 H1 deterministic order identity + intent state machine ONLY$' docs/ai-coengineer/WRITE_LOCK.md && test \"\$(git hash-object cloudflare-worker/hyro-execution.js)\" = b97695c3f96939290e4a80d24d9fc702d154b29a"
+          if [ "$STATUS" = PASS ]; then cp cloudflare-worker/hyro-execution.js /tmp/pre.js; stage patch python3 scripts/v78-026-h1-apply.py; fi
+          if [ "$STATUS" = PASS ]; then stage nodecheck node --check cloudflare-worker/hyro-execution.js; fi
+          if [ "$STATUS" = PASS ]; then
+            stage static python3 - <<'PY'
+          from pathlib import Path
+          s=Path('cloudflare-worker/hyro-execution.js').read_text()
+          checks={'sha256Hex':s.count('async function sha256Hex'),'retryable_refs':s.count('RETRYABLE_REJECTION_CODES'),'randomUUID':s.count('crypto.randomUUID'),'cancelAll':s.count('/v5/order/cancel-all')}
+          print(checks)
+          assert checks=={'sha256Hex':1,'retryable_refs':2,'randomUUID':0,'cancelAll':1}
+          for x in ['PREPARED','SUBMITTING','ACKNOWLEDGED','FAILED_RETRYABLE','RECONCILE_REQUIRED']:assert f'state:"{x}"' in s,x
+          assert 'existing?.orderLinkId||deterministicOrderLinkId' in s
+          assert 'ACK_WITHOUT_ORDER_ID' in s
+          PY
+          fi
+          if [ "$STATUS" = PASS ]; then
+            stage untouched python3 - <<'PY'
+          from pathlib import Path
+          import re,hashlib
+          A=Path('/tmp/pre.js').read_text();B=Path('cloudflare-worker/hyro-execution.js').read_text()
+          def ext(s,n):
+            m=re.search(r'(?:export\s+)?(?:async\s+)?function\s+'+re.escape(n)+r'\s*\(',s);assert m;n0=m.start();i=s.find('{',n0);d=0;q=None;esc=False;line=False;block=False;j=i
+            while j<len(s):
+              c=s[j];z=s[j+1] if j+1<len(s) else ''
+              if line:
+                if c=='\n':line=False
+              elif block:
+                if c=='*' and z=='/':block=False;j+=1
+              elif q:
+                if esc:esc=False
+                elif c=='\\':esc=True
+                elif c==q:q=None
+              elif c=='/' and z=='/':line=True;j+=1
+              elif c=='/' and z=='*':block=True;j+=1
+              elif c in "'\"`":q=c
+              elif c=='{':d+=1
+              elif c=='}':
+                d-=1
+                if d==0:return s[n0:j+1]
+              j+=1
+            raise Exception(n)
+          for n in ['evaluateHyroGate','normalizedOrder','hyroDynamicRiskView','cancelHyroPending','reconcileHyro','getHyroTelemetry','collectTelemetry']:
+            a,b=ext(A,n),ext(B,n);assert a==b,n;print('BYTE_IDENTICAL',n,'sha256='+hashlib.sha256(a.encode()).hexdigest())
+          PY
+          fi
+          if [ "$STATUS" = PASS ]; then
+            stage legacy python3 - <<'PY'
+          import os,json,urllib.parse,urllib.request
+          a=os.environ.get('CLOUDFLARE_ACCOUNT_ID','');n=os.environ.get('TRADING_KV_NAMESPACE_ID','');t=os.environ.get('CLOUDFLARE_API_TOKEN','');p='v7718:hyro:intent:'
+          if not a or not n or not t:raise SystemExit('CLOUDFLARE_KV_SECRETS_MISSING')
+          b=f'https://api.cloudflare.com/client/v4/accounts/{a}/storage/kv/namespaces/{n}'
+          def g(u):return urllib.request.urlopen(urllib.request.Request(u,headers={'Authorization':'Bearer '+t}),timeout=30).read()
+          ks=json.loads(g(b+'/keys?'+urllib.parse.urlencode({'prefix':p,'limit':100})))
+          for row in ks.get('result') or []:
+            k=row.get('name')
+            try:v=json.loads(g(b+'/values/'+urllib.parse.quote(k,safe='')))
+            except:continue
+            if isinstance(v,dict) and 'state' not in v and v.get('status')=='SUBMITTED':print(json.dumps({'legacyKeySuffix':k[len(p):],'status':'SUBMITTED','orderIdPresent':bool(v.get('orderId')),'orderLinkIdPresent':bool(v.get('orderLinkId'))}));break
+          else:raise SystemExit('NO_LEGACY_PREPATCH_INTENT_RECORD_FOUND')
+          PY
+          fi
+          if [ "$STATUS" = PASS ]; then stage demosecrets bash -c 'test -n "$HYRO_BYBIT_API_KEY" && test -n "$HYRO_BYBIT_API_SECRET"'; fi
+          if [ "$STATUS" = PASS ]; then stage demo node scripts/v78-026-h1-demo-test.mjs; fi
+          if [ "$STATUS" = PASS ]; then echo 'V78-026 H1 PRE-DEPLOY VALIDATION PASS' > docs/ai-coengineer/V78-026_VALIDATION.txt; cat /tmp/log >> docs/ai-coengineer/V78-026_VALIDATION.txt; fi
+          { echo "STATUS=$STATUS"; echo "FAIL_STAGE=${FAIL_STAGE:-NONE}"; echo "RUN_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"; echo "BRANCH_BASE=$(git rev-parse HEAD)"; echo '--- LOG ---'; cat /tmp/log; } > docs/ai-coengineer/V78-026_RUN_STATUS.txt
+          git config user.name 'V78-026 H1 Validator';git config user.email 'actions@users.noreply.github.com'
+          if [ "$STATUS" = PASS ]; then git add cloudflare-worker/hyro-execution.js docs/ai-coengineer/V78-026_VALIDATION.txt docs/ai-coengineer/V78-026_RUN_STATUS.txt; else git add docs/ai-coengineer/V78-026_RUN_STATUS.txt; fi
+          git commit -m "V78-026 H1 validation $STATUS at ${FAIL_STAGE:-all-stages}" || true; git push origin HEAD:v78-026-h1; test "$STATUS" = PASS
