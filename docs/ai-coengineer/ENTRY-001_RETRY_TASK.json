@@ -1,0 +1,49 @@
+{
+  "task_id": "ENTRY-001-R1",
+  "base_sha": "b759a95cc4df23829ce02f6a2fa5bd9a2746e627",
+  "objective": "Retry ENTRY-001 after DeepSeek diff-parser hotfix. Audit and fix current-price MARKET admission so a refreshed live/current price must independently preserve valid structural location, anti-chase geometry, structural SL, clean target and RR before MARKET_SIGNAL can survive. Prevent stale old-plan quality/SL/TP/RR from grandfathering a MARKET signal after price moves. When current MARKET fails, preserve thesis only as LIMIT when a genuinely better structural limit independently passes geometry+SL+target+RR; otherwise WATCH/BLOCK under existing contracts.",
+  "allowed_paths": [
+    "cloudflare-worker/engine-v77168.js",
+    "cloudflare-worker/providers/entry-intelligence.js",
+    "cloudflare-worker/providers/decision-evidence.js",
+    "scripts/ai/entry-001-validation.js"
+  ],
+  "forbidden_paths": [
+    "cloudflare-worker/index.js",
+    "cloudflare-worker/hub-v77171.js",
+    "docs/checkpoints",
+    "docs/ai-coengineer/WRITE_LOCK.md",
+    "docs/ai-coengineer/AI_CONVERSATION_STATE.json"
+  ],
+  "acceptance_criteria": [
+    "A returned MARKET/MARKET_SIGNAL at refreshed current price must use one coherent current-price plan: entry/currentPrice/planned.entry/structural SL/TP/targetRR/roomR and geometry must describe the same rebuilt plan.",
+    "If the old plan passed but the current-price rebuild is invalid or current-price RR fails, MARKET/MARKET_SIGNAL must not survive by retaining old plan quality or geometry.",
+    "Fresh quote + chase distance beyond the existing meaningful trigger/structural reference must not produce MARKET/MARKET_SIGNAL.",
+    "A failed current MARKET may become LIMIT only when a real better structural price ahead independently passes limit geometry, structural SL, target and RR; otherwise truthful WATCH/BLOCK is used.",
+    "Do not weaken quote freshness, structural SL, RR thresholds, hard-news safeguards, execution authority or market identity to increase signal count.",
+    "Yahoo Cash Index visibility fallback remains fresh=false, fallback=true, analysisOnly=true, executionVerified=false, instrumentIdentity=CASH_INDEX and never creates MARKET/MARKET_SIGNAL.",
+    "A genuinely admissible native CASH_INDEX quote remains eligible for normal structural checks; no Futures substitution.",
+    "Missing OPTIONAL evidence alone must not become a hard block.",
+    "Regression validation must cover: MARKET still valid at current price; current RR fails; rebuilt structure invalid; chase; stale quote; Yahoo fallback; native Index; LIMIT integrity; optional evidence missing; no stale-plan leakage.",
+    "SIGNAL-ONLY architecture and protected TRADING_STATE/v775:books remain untouched."
+  ],
+  "validation_commands": [
+    "node --check cloudflare-worker/engine-v77168.js",
+    "node --check cloudflare-worker/providers/entry-intelligence.js",
+    "node --check cloudflare-worker/providers/decision-evidence.js",
+    "node scripts/ai/entry-001-validation.js"
+  ],
+  "max_rounds": 2,
+  "max_output_tokens": 6000,
+  "context_max_chars": 180000,
+  "requires_claude": true,
+  "auto_merge": false,
+  "context_files": [
+    "docs/ai-coengineer/SHARED_STATE.md",
+    "docs/ai-coengineer/AI_LOOP_PROTOCOL.md",
+    "docs/ai-coengineer/WRITE_LOCK.md",
+    "cloudflare-worker/engine-v77168.js",
+    "cloudflare-worker/providers/entry-intelligence.js",
+    "cloudflare-worker/providers/decision-evidence.js"
+  ]
+}
