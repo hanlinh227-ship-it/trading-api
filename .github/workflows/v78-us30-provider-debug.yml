@@ -1,0 +1,19 @@
+name: V78 US30 Provider Debug
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+jobs:
+  debug:
+    if: github.event.issue.title == 'DEBUG-V78-US30-PROVIDER'
+    runs-on: ubuntu-latest
+    env:
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Capture sanitized provider evidence
+        run: bash scripts/v78_us30_provider_debug.sh
