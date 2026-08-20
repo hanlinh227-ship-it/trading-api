@@ -4,7 +4,7 @@ LOCKED: true
 OWNER: DEEPSEEK
 SCOPE: ENTRY-001 Current-price entry intelligence integrity and anti-chase; cloudflare-worker/engine-v77168.js, cloudflare-worker/providers/entry-intelligence.js, cloudflare-worker/providers/decision-evidence.js, scripts/ai/entry-001-validation.js only.
 ACQUIRED: 2026-08-20
-BASE_SHA: c1d2b28bfd0cb905438ba9da74d78cf64b39aef0
+BASE_SHA: 66dd14b340ae24da0c41c23fc5a0986ea5492e8c
 
 Protocol:
 - One writer at a time.
