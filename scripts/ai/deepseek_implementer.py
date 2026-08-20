@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Bounded cloud-only DeepSeek implementation loop for GitHub Actions.
 
-DeepSeek returns structured edits, not hand-written git patches. The worker applies
-those edits transactionally, lets git generate the diff, validates scope and
-secrets, runs deterministic checks, and feeds failures back for bounded repair.
-It never commits, pushes, merges, deploys, or writes secrets.
+DeepSeek returns structured edits, never hand-written git patches. The worker
+applies edits transactionally, lets git generate the diff, enforces scope and
+secret guards, runs deterministic validation, and feeds failures back for
+bounded repair. Fuzzy similarity is used only to select recovery context; every
+replacement still requires old_text to match the current source exactly once.
 """
 
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import pathlib
@@ -34,6 +36,9 @@ SECRET_PATTERNS = (
 DANGEROUS_VALIDATION = re.compile(
     r"\b(rm\s+-rf|git\s+reset\s+--hard|git\s+clean|git\s+push|git\s+commit|wrangler\s+deploy|curl\b.*(?:-X\s*(?:POST|PUT|PATCH|DELETE)|--request\s*(?:POST|PUT|PATCH|DELETE)))",
     re.I,
+)
+EXACT_MATCH_ERROR = re.compile(
+    r"STRUCTURED_EDIT_EXACT_MATCH_FAILED: edit=(\d+) path=([^\s]+) matches=(\d+) expected=1"
 )
 
 
@@ -194,7 +199,7 @@ def validate_edit_spec(obj: dict, task: dict) -> list[dict]:
 
 
 def apply_structured_edits(edits: list[dict]) -> tuple[bool, str]:
-    """Apply all edits transactionally in memory, then write files only if every guard passes."""
+    """Apply all edits transactionally; no file is written unless every guard passes."""
     staged: dict[str, str] = {}
     existed: dict[str, bool] = {}
     try:
@@ -229,6 +234,71 @@ def apply_structured_edits(edits: list[dict]) -> tuple[bool, str]:
         return False, f"STRUCTURED_EDIT_APPLY_EXCEPTION: {exc}"
 
 
+def recovery_excerpt(edit: dict, max_chars: int = 16000) -> str:
+    """Return real nearby source for regeneration. Similarity selects context only."""
+    rel = edit.get("path", "")
+    path = ROOT / rel
+    if edit.get("op") != "replace" or not path.is_file():
+        return "[RECOVERY_SOURCE_UNAVAILABLE]"
+    source = path.read_text(encoding="utf-8", errors="replace")
+    src_lines = source.splitlines()
+    old_lines = str(edit.get("old_text", "")).splitlines()
+    if not src_lines:
+        return "[RECOVERY_SOURCE_EMPTY]"
+
+    # Prefer an exact distinctive line as an anchor.
+    anchors = sorted(
+        {line.strip() for line in old_lines if len(line.strip()) >= 16},
+        key=len,
+        reverse=True,
+    )
+    center = None
+    for anchor in anchors[:12]:
+        hits = [i for i, line in enumerate(src_lines) if anchor in line]
+        if len(hits) == 1:
+            center = hits[0]
+            break
+
+    # If no unique anchor exists, find the closest matching block of lines.
+    if center is None and old_lines:
+        matcher = difflib.SequenceMatcher(None, old_lines, src_lines, autojunk=False)
+        blocks = [b for b in matcher.get_matching_blocks() if b.size > 0]
+        if blocks:
+            best = max(blocks, key=lambda b: b.size)
+            center = best.b + max(0, best.size // 2)
+
+    if center is None:
+        center = min(len(src_lines) // 2, len(src_lines) - 1)
+
+    radius = 90
+    start = max(0, center - radius)
+    end = min(len(src_lines), center + radius + 1)
+    excerpt = "\n".join(f"{i + 1:06d}: {src_lines[i]}" for i in range(start, end))
+    if len(excerpt) > max_chars:
+        excerpt = excerpt[:max_chars]
+    return f"PATH: {rel}\nLINES {start + 1}-{end}\n{excerpt}"
+
+
+def exact_match_recovery_feedback(error: str, edits: list[dict]) -> str:
+    match = EXACT_MATCH_ERROR.search(error)
+    if not match:
+        return error + "\nRegenerate structured edits from current repository context; old_text must match exactly once."
+    index = int(match.group(1))
+    if index < 1 or index > len(edits):
+        return error + "\nRegenerate structured edits from current repository context; old_text must match exactly once."
+    edit = edits[index - 1]
+    excerpt = recovery_excerpt(edit)
+    return (
+        error
+        + "\nEXACT_MATCH_RECOVERY_REQUIRED: The previous old_text was not present exactly once. "
+          "Regenerate the failing edit using the REAL CURRENT SOURCE excerpt below. "
+          "Copy old_text verbatim from this excerpt (without the numeric line prefixes). "
+          "Do not use fuzzy replacement and do not broaden scope. Other edits may be regenerated if needed, "
+          "but every replace old_text must match exactly once.\n\n"
+        + excerpt
+    )
+
+
 def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str:
     key = os.environ.get("DEEPSEEK_API_KEY")
     if not key:
@@ -238,11 +308,12 @@ def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str
         "Return exactly ONE JSON object and no prose. Never return a git diff. Schema:\n"
         '{"edits":[{"op":"replace","path":"repo/path","old_text":"exact existing text","new_text":"replacement"},'
         '{"op":"create","path":"repo/path","new_text":"full new file"}]}\n'
-        "For replace, old_text must be copied EXACTLY from supplied repository context and must occur exactly once. "
-        "Prefer small, local replacements. Use multiple edits instead of rewriting a large file. "
+        "For replace, old_text must be copied EXACTLY from supplied repository source and occur exactly once. "
+        "If recovery feedback includes numbered source lines, copy source text without the numeric prefixes. "
+        "Prefer small local replacements and multiple edits over rewriting a large file. "
         "Obey the task allow-list. Never expose secrets, reset state, weaken freshness, structural SL, RR, hard-news, execution authority, or protected risk controls. "
         "Never restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or production Anthropic API. "
-        "Do not deploy or fabricate test/runtime evidence. Fix root cause with the smallest coherent edits."
+        "Do not deploy or fabricate test/runtime evidence. Fix the root cause with the smallest coherent edits."
     )
     user = {
         "task_id": task["task_id"],
@@ -351,7 +422,7 @@ def main() -> None:
 
         ok, edit_error = apply_structured_edits(edits)
         if not ok:
-            feedback = edit_error + "\nRegenerate structured edits from current repository context; old_text must match exactly once."
+            feedback = exact_match_recovery_feedback(edit_error, edits)
             if round_no >= task["max_rounds"]:
                 fail(feedback)
             continue
@@ -371,7 +442,7 @@ def main() -> None:
                 "rounds_used": round_no,
                 "files": resulting,
                 "validation": "PASS" if task["validation_commands"] else "NOT_DECLARED",
-                "transport": "STRUCTURED_EDITS_V1",
+                "transport": "STRUCTURED_EDITS_V1_EXACT_RECOVERY",
             }, ensure_ascii=False))
             return
         feedback = "VALIDATION_FAILED:\n" + last_validation
