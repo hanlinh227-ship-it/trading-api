@@ -2,7 +2,7 @@
 
 LOCKED: true
 OWNER: CHATGPT
-SCOPE: V78-032 Forex + Metal regime admission repair; cloudflare-worker/engine-v77168.js and scripts/ai/forex-metal-index-validation.js only.
+SCOPE: V78-032 Forex + Metal regime admission repair; cloudflare-worker/engine-v77168.js, scripts/ai/forex-metal-index-validation.js, and temporary .github/workflows/v78-032-direct-patch.yml only.
 ACQUIRED: 2026-08-20
 BASE_SHA: c5b2cea9849ba5e5420d86967a2d994edc0ac340
 
@@ -15,5 +15,6 @@ Protocol:
 - Yahoo/Twelve Data visibility-only Cash Index fallbacks remain fresh=false and may never create MARKET/MARKET_SIGNAL.
 - Do not restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or any real-capital execution path.
 - V73 historical data and symbol_knowledge_registry.json remain read-only in this batch.
+- Temporary direct-patch workflow is one-shot infrastructure only; it must not deploy and must be removed from main after the branch/PR is created.
 - Production Claude/Anthropic API remains paused.
 - No secret may be committed or printed.
