@@ -560,8 +560,9 @@ def parse_block(text: str) -> dict:
     }
 
 
-def render_block(head_sha: str, verdict: str, blockers: list[str], non_blocking: list[str]) -> str:
-    lines = [BEGIN, f"HEAD_SHA={head_sha}", f"VERDICT={verdict}"]
+def render_block(head_sha: str, verdict: str, blockers: list[str], non_blocking: list[str],
+                 trust: str = "trusted") -> str:
+    lines = [BEGIN, f"HEAD_SHA={head_sha}", f"VERDICT={verdict}", f"TRUST={trust}"]
     lines.append("BLOCKERS=" + (blockers[0] if blockers else "NONE"))
     lines.extend(blockers[1:])
     lines.append("NON_BLOCKING=" + (non_blocking[0] if non_blocking else "NONE"))
@@ -570,7 +571,7 @@ def render_block(head_sha: str, verdict: str, blockers: list[str], non_blocking:
     return "\n".join(lines)
 
 
-def build_comment(head_sha: str, result: dict, prose: str) -> str:
+def build_comment(head_sha: str, result: dict, prose: str, trust: str = "trusted") -> str:
     icon = {"ACCEPT": "✅", "REJECT": "❌", "BLOCKED": "⛔"}.get(result["verdict"], "❔")
     parts = [
         COMMENT_MARKER,
@@ -579,6 +580,14 @@ def build_comment(head_sha: str, result: dict, prose: str) -> str:
         f"**Verdict:** `{result['verdict']}`  •  **Reviewed SHA:** `{head_sha}`",
         "",
     ]
+    if trust != "trusted":
+        parts += [
+            "> **UNTRUSTED REVIEW.** No reviewer exists at the base revision yet, so this one",
+            "> was bootstrapped from the PR head - meaning the change under review supplied its",
+            "> own reviewer. The findings are still worth reading, but this verdict cannot count",
+            "> as an acceptance and the controller will not gate on it.",
+            "",
+        ]
     if result.get("downgraded"):
         parts += [
             "> Note: DeepSeek returned `ACCEPT` while also listing blockers. Per the loop "
@@ -603,7 +612,7 @@ def build_comment(head_sha: str, result: dict, prose: str) -> str:
         ]
     parts += [
         "```",
-        render_block(head_sha, result["verdict"], result["blockers"], result["non_blocking"]),
+        render_block(head_sha, result["verdict"], result["blockers"], result["non_blocking"], trust),
         "```",
         "",
         "_DeepSeek is an adversarial reviewer only. It cannot merge or deploy._",
@@ -611,7 +620,7 @@ def build_comment(head_sha: str, result: dict, prose: str) -> str:
     return redact("\n".join(parts))
 
 
-def build_blocked_comment(head_sha: str, classification: str, message: str) -> str:
+def build_blocked_comment(head_sha: str, classification: str, message: str, trust: str = "trusted") -> str:
     return redact("\n".join([
         COMMENT_MARKER,
         f"## ⛔ DeepSeek adversarial review could not complete — `{head_sha[:12]}`",
@@ -621,7 +630,7 @@ def build_blocked_comment(head_sha: str, classification: str, message: str) -> s
         f"```\n{message}\n```",
         "",
         "```",
-        render_block(head_sha, "BLOCKED", [f"DeepSeek review unavailable ({classification})"], []),
+        render_block(head_sha, "BLOCKED", [f"DeepSeek review unavailable ({classification})"], [], trust),
         "```",
     ]))
 
@@ -696,6 +705,10 @@ def main() -> int:
                     help="path to local deterministic test evidence")
     ap.add_argument("--objective", default=os.environ.get("AI_LOOP_OBJECTIVE"),
                     help="the loop objective this PR is meant to achieve")
+    ap.add_argument("--trust", choices=["trusted", "bootstrap"], default="trusted",
+                    help="trusted = this reviewer came from the base revision; bootstrap = it "
+                         "came from the PR head because none exists at base, so the review is "
+                         "UNTRUSTED and must not be counted as an acceptance")
     ap.add_argument("--no-comment", action="store_true", help="do not post to GitHub")
     ap.add_argument("--dry-run", action="store_true",
                     help="gather context and validate wiring without calling DeepSeek")
@@ -741,7 +754,7 @@ def main() -> int:
             log(f"  api url          {API_URL}")
             log(f"  model            {MODEL}")
             emit_outputs({"verdict": "DRY_RUN", "head_sha": head_sha, "api_key_present": str(has_key).lower()})
-            print(render_block(head_sha, "BLOCKED", ["DRY_RUN - no verdict produced"], []))
+            print(render_block(head_sha, "BLOCKED", ["DRY_RUN - no verdict produced"], [], args.trust))
             return 0
 
         results = []
@@ -786,14 +799,15 @@ def main() -> int:
         result = merge_results(results)
         prose = "\n\n".join(p for p in proses if p.strip())
         if not args.no_comment:
-            upsert_comment(args.repo, args.pr, build_comment(head_sha, result, prose))
+            upsert_comment(args.repo, args.pr, build_comment(head_sha, result, prose, args.trust))
 
         emit_outputs({
             "verdict": result["verdict"],
             "head_sha": head_sha,
             "blocker_count": str(len(result["blockers"])),
+            "trust": args.trust,
         })
-        print(render_block(head_sha, result["verdict"], result["blockers"], result["non_blocking"]))
+        print(render_block(head_sha, result["verdict"], result["blockers"], result["non_blocking"], args.trust))
 
         # REJECT is a valid review outcome, not a job failure. The controller decides.
         return 0
@@ -802,11 +816,11 @@ def main() -> int:
         log(f"DEEPSEEK_BLOCKED [{exc.classification}] {exc.message}")
         if not args.no_comment and SHA_RE.match(head_sha):
             try:
-                upsert_comment(args.repo, args.pr, build_blocked_comment(head_sha, exc.classification, exc.message))
+                upsert_comment(args.repo, args.pr, build_blocked_comment(head_sha, exc.classification, exc.message, args.trust))
             except LoopBlocked as inner:
                 log(f"could not post blocked comment: {inner.message}")
         emit_outputs({"verdict": "BLOCKED", "head_sha": head_sha, "classification": exc.classification})
-        print(render_block(head_sha, "BLOCKED", [f"{exc.classification}: {exc.message}"], []))
+        print(render_block(head_sha, "BLOCKED", [f"{exc.classification}: {exc.message}"], [], args.trust))
         # A review that cannot complete must fail the job loudly.
         return 1
     except subprocess.TimeoutExpired as exc:

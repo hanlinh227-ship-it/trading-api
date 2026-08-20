@@ -1077,13 +1077,14 @@ function Get-DeepSeekVerdict {
         }
         $block = ($b -split "DEEPSEEK_REVIEW_BEGIN", 2)[1]
         $block = ($block -split "DEEPSEEK_REVIEW_END", 2)[0]
-        $sha = $null; $verdict = "PENDING"; $blockers = @(); $cur = ""
+        $sha = $null; $verdict = "PENDING"; $blockers = @(); $cur = ""; $trust = "trusted"
         foreach ($line in ($block -split "`r?`n")) {
             $t = $line.Trim()
             if ([string]::IsNullOrWhiteSpace($t)) { continue }
-            if ($t -match '^(HEAD_SHA|VERDICT|BLOCKERS|NON_BLOCKING)\s*=\s*(.*)$') {
+            if ($t -match '^(HEAD_SHA|VERDICT|TRUST|BLOCKERS|NON_BLOCKING)\s*=\s*(.*)$') {
                 $cur = $Matches[1]; $val = $Matches[2].Trim()
                 if ($cur -eq "HEAD_SHA") { $sha = $val.ToLowerInvariant() }
+                elseif ($cur -eq "TRUST") { $trust = $val.ToLowerInvariant() }
                 elseif ($cur -eq "VERDICT") { $verdict = $val.ToUpperInvariant() }
                 elseif ($cur -eq "BLOCKERS" -and $val -and $val.ToUpperInvariant() -ne "NONE") { $blockers += $val }
             }
@@ -1091,6 +1092,13 @@ function Get-DeepSeekVerdict {
         }
         # Contract rule: ACCEPT with blockers is a contradiction; downgrade to REJECT.
         if ($verdict -eq "ACCEPT" -and $blockers.Count -gt 0) { $verdict = "REJECT" }
+        # An untrusted (bootstrap) review was produced by a reviewer supplied by the very
+        # change under review, so it cannot vouch for it. Findings still count against the
+        # change; an acceptance does not count for it.
+        if ($trust -ne "trusted" -and $verdict -eq "ACCEPT") {
+            Write-Warn2 "DeepSeek review for this head is UNTRUSTED (reviewer bootstrapped from the PR head); not counting it as an acceptance"
+            $verdict = "PENDING"
+        }
         if ($sha -eq $script:State.head_sha.ToLowerInvariant()) {
             $best = [pscustomobject]@{ Verdict = $verdict; Sha = $sha; Blockers = $blockers }
         }

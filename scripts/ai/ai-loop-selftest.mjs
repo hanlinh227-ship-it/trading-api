@@ -748,6 +748,23 @@ check('the reviewer runs from a trusted revision, not the PR head', () => {
   // It still reviews the head: the SHA guard and the diff come from the API.
   assert(/--expect-sha/.test(wf), 'reviewer no longer pins the reviewed head');
 });
+check('a bootstrap reviewer cannot vouch for the change that supplied it', () => {
+  // On the PR that introduces the reviewer there is no trusted copy at base. Falling back
+  // to the head copy silently would undo the whole trust boundary, so the fallback is
+  // explicit and its verdict is not admissible as an acceptance.
+  assert(/level=bootstrap/.test(wf), 'workflow has no bootstrap trust level');
+  assert(/level=trusted/.test(wf), 'workflow never marks a review trusted');
+  assert(/UNTRUSTED/.test(wf), 'bootstrap fallback is not flagged');
+  assert(/--trust /.test(wf), 'trust level is not passed to the reviewer');
+  assert(/"--trust", choices=\["trusted", "bootstrap"\]/.test(py), 'reviewer has no trust flag');
+  assert(/f"TRUST=\{trust\}"/.test(py), 'trust level is not emitted in the verdict block');
+  // Controller must refuse to count it as an acceptance.
+  const seg = ps1.split('function Get-DeepSeekVerdict')[1].split('function Get-Codex')[0];
+  assert(/TRUST/.test(seg), 'controller does not parse the trust level');
+  assert(/\$trust -ne "trusted" -and \$verdict -eq "ACCEPT"/.test(seg),
+    'an untrusted ACCEPT is still counted as an acceptance');
+  assert(/\$verdict = "PENDING"/.test(seg), 'untrusted acceptance is not downgraded');
+});
 check('a commit created during the TESTS is also refused', () => {
   // Closing Claude's direct execution is not enough: the controller itself runs
   // repo-resident validators that are writable under the lock.

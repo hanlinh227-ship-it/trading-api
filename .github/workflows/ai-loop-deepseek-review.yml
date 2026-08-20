@@ -81,6 +81,25 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      # Bootstrap case: on the very PR that INTRODUCES the reviewer, no trusted copy exists
+      # at base yet. Rather than silently falling back to the head copy (which would undo
+      # the trust boundary), the fallback is explicit and the resulting review is marked
+      # UNTRUSTED. The controller refuses to count an untrusted verdict as an acceptance.
+      - name: Resolve reviewer trust level
+        id: trust
+        env:
+          HEAD_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          if [ -f scripts/ai/deepseek_reviewer.py ]; then
+            echo "level=trusted" >> "$GITHUB_OUTPUT"
+            echo "Reviewer resolved from the trusted base revision."
+          else
+            echo "level=bootstrap" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Untrusted review::No reviewer exists at the base revision, so it is being bootstrapped from the PR head. This review is UNTRUSTED and cannot grant ACCEPT."
+            git fetch --depth=1 origin "$HEAD_SHA"
+            git checkout "$HEAD_SHA" -- scripts/ai/deepseek_reviewer.py
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -109,6 +128,7 @@ jobs:
         run: |
           set -o pipefail
           args="--pr ${{ steps.target.outputs.pr }} --repo ${{ github.repository }}"
+          args="$args --trust ${{ steps.trust.outputs.level }}"
           if [ -n "${{ steps.target.outputs.sha }}" ]; then
             args="$args --expect-sha ${{ steps.target.outputs.sha }}"
           fi
