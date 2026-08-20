@@ -1089,6 +1089,28 @@ function Publish-Round {
     $c = Invoke-Git -Arguments @("commit", "-F", $msgFile)
     if ($c.ExitCode -ne 0) { Stop-Loop -Status "BLOCKED" -Reason "git commit failed: $(Protect-Secret $c.StdErr)" }
 
+    # Validate the COMMIT, not the index that preceded it.
+    #
+    # Inspecting the index was still check-then-act: a detached helper can stage an
+    # out-of-scope file between the `git diff --cached` probe and `git commit`, and git
+    # would include it with no further check before the push. A commit is immutable, so
+    # examining its own path list is the only inspection that cannot be raced. Nothing has
+    # left the machine yet at this point, so refusing here still prevents publication.
+    $committed = Invoke-Git -Arguments @("show", "--name-only", "--format=", "HEAD")
+    if ($committed.ExitCode -ne 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read the paths of the commit just created. Refusing to push a commit whose contents are unverified."
+    }
+    $committedFiles = @($committed.StdOut -split "`r?`n" | Where-Object { $_.Trim() })
+    $committedWorkflows = @($committedFiles | Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
+    if ($committedWorkflows.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("The commit just created contains CI workflow file(s): " + ($committedWorkflows -join ", ") + ". It has NOT been pushed. The loop never authors CI changes; reset this commit and investigate.")
+    }
+    $committedOutside = @($committedFiles | Where-Object { -not (Test-PathInLockScope -RelativePath $_) })
+    if ($committedOutside.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("The commit just created contains file(s) outside the declared WRITE_LOCK scope: " + ($committedOutside -join ", ") + ". It has NOT been pushed; reset this commit and investigate.")
+    }
+    Write-Good "Commit contains $($committedFiles.Count) file(s), all within the declared lock scope"
+
     # Explicit refspec, never a force push.
     $p = Invoke-Git -Arguments @("push", "origin", "$($script:State.branch):$($script:State.branch)") -TimeoutSec 300
     if ($p.ExitCode -ne 0) { Stop-Loop -Status "BLOCKED" -Reason "git push failed: $(Protect-Secret $p.StdErr)" }

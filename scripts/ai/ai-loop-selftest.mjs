@@ -1126,6 +1126,17 @@ check('the staged index is verified, not just the pre-staging working tree', () 
   assert(/CI workflow file\(s\) are staged/.test(pub), 'staged workflow files do not block');
   const commitIdx = pub.indexOf('"commit", "-F"');
   assert(commitIdx > stagedIdx, 'the commit happens before the staged set is verified');
+  // Even the index check is check-then-act: a detached helper can stage between the probe
+  // and `git commit`. A COMMIT is immutable, so its own path list is the only inspection
+  // that cannot be raced - and nothing has left the machine before the push.
+  assert(/"show", "--name-only", "--format=", "HEAD"/.test(pub),
+    'the created commit is never inspected');
+  const showIdx = pub.indexOf('"show", "--name-only"');
+  const pushIdx = pub.indexOf('"push", "origin"');
+  assert(showIdx > commitIdx, 'the commit is inspected before it exists');
+  assert(pushIdx > showIdx, 'the push happens before the commit is inspected');
+  assert(/It has NOT been pushed/.test(pub),
+    'a bad commit is not clearly reported as unpublished');
 });
 check('the NEWEST check attempt decides, not merely any success', () => {
   // "Any suite succeeded" was too weak: a check genuinely cancelled now would be waved
