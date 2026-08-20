@@ -1,0 +1,54 @@
+=== HEADERS ===
+HTTP/2 200 
+date: Thu, 20 Aug 2026 03:36:34 GMT
+content-type: application/json; charset=utf-8
+content-length: 966
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=F6tM7GvqcCqBS436%2B4R3KqkPFOQ0%2F6cE6%2FBmfj1jeeb8XAPkh4lrNgrHbe4BU2t63FMd4t7z5C54Ist2KJnLXtUoB%2BgUORg89yoL3vg6RGrU%2FcS%2BAApqd54MGAsiPuu5aojCHngj3BuOlPNuCJ7dH8ML%2FrSTvgbOX%2BgTsjk%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: a2de5ab9ebb96d93-YYZ
+alt-svc: h3=":443"; ma=86400
+
+
+=== BODY ===
+{
+  "ok": true,
+  "status": "WATCH",
+  "action": "WATCH",
+  "symbol": "US30",
+  "market": "index",
+  "side": "NEUTRAL",
+  "reason": "TIMEFRAME_DATA_REQUIRED",
+  "canonicalStage": "TIMEFRAME_DATA_REQUIRED",
+  "engine": "V77.16.20",
+  "source": "Verified native Index",
+  "score": 5,
+  "canonical": {
+    "v73Prior": {
+      "applicable": true,
+      "available": true,
+      "key": "US30",
+      "source": "INDEX_CASH_PRIORS_R1",
+      "timeframe": "MULTI",
+      "status": "RUNTIME_METHOD_PRIOR",
+      "family": "INDEX_BLUECHIP_ROTATION",
+      "families": [
+        "TREND",
+        "MEANREV"
+      ],
+      "profile": "INDEX_BLUECHIP_ROTATION",
+      "entryMode": "DYNAMIC",
+      "rr": null,
+      "signalHourUTC": null,
+      "riskATR": 0.68,
+      "newsProfile": {
+        "profileDrivers": [
+          "Fed/FOMC",
+          "US macro",
+          "industrial/financial rotation"
+        ]
+      },
+      "classification": "INDEX_CASH_RUNTIME_PRIOR"
+    }
+  }
+}
