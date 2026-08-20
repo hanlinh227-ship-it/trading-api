@@ -139,6 +139,9 @@ def load_task(path: pathlib.Path) -> dict:
         fail("acceptance_criteria must be a non-empty list")
     task["max_rounds"] = max(1, min(int(task.get("max_rounds", 2)), 4))
     task["max_output_tokens"] = max(512, min(int(task.get("max_output_tokens", 5000)), 8000))
+    task["max_patch_regeneration_attempts"] = max(
+        0, min(int(task.get("max_patch_regeneration_attempts", 1)), 1)
+    )
     task["validation_commands"] = list(task.get("validation_commands") or [])[:10]
     for cmd in task["validation_commands"]:
         if not isinstance(cmd, str) or not cmd.strip():
@@ -175,13 +178,21 @@ def current_diff(max_chars: int = 80000) -> str:
     return p.stdout[-max_chars:]
 
 
-def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str:
+def call_deepseek(
+    task: dict,
+    context: str,
+    feedback: str,
+    round_no: int,
+    generation_attempt: int = 1,
+) -> str:
     key = os.environ.get("DEEPSEEK_API_KEY")
     if not key:
         fail("DEEPSEEK_API_KEY secret is unavailable")
     system = (
         "You are the primary implementation agent for a SIGNAL-ONLY Trading repository.\n"
-        "Return exactly ONE unified git diff and no prose. The response must begin with either 'diff --git a/' or '--- a/' and use a/ and b/ repository paths. "
+        "Return exactly ONE complete unified git diff and no prose. The response must begin with either 'diff --git a/' or '--- a/' and use a/ and b/ repository paths. "
+        "Every hunk header/count must be internally consistent and the complete patch must pass git apply --check. Never return a partial/truncated patch. "
+        "If patch-format feedback is present, regenerate the ENTIRE patch from scratch rather than returning a fragment or explanation. "
         "Obey the task allow-list. Never expose secrets, never reset state, never weaken freshness, structural SL, RR, hard-news, execution authority, "
         "or protected risk controls. Never restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, "
         "or production Anthropic API. Do not deploy. Do not fabricate test or runtime evidence.\n"
@@ -190,6 +201,7 @@ def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str
     user = {
         "task_id": task["task_id"],
         "round": round_no,
+        "generation_attempt": generation_attempt,
         "max_rounds": task["max_rounds"],
         "objective": task["objective"],
         "allowed_paths": task["allowed_paths"],
@@ -289,6 +301,54 @@ def run_validations(task: dict) -> tuple[bool, str]:
     return True, "\n\n".join(logs)[-18000:]
 
 
+def generate_and_apply_patch(
+    task: dict,
+    context: str,
+    feedback: str,
+    round_no: int,
+) -> tuple[bool, str]:
+    """Generate a patch and allow one bounded full-regeneration attempt for format/apply failures."""
+    max_attempts = 1 + task["max_patch_regeneration_attempts"]
+    attempt_feedback = feedback
+
+    for generation_attempt in range(1, max_attempts + 1):
+        response = call_deepseek(
+            task,
+            context,
+            attempt_feedback,
+            round_no,
+            generation_attempt=generation_attempt,
+        )
+        try:
+            patch = extract_patch(response)
+        except ValueError:
+            attempt_feedback = (
+                "PATCH_FORMAT_REGEN_REQUIRED: previous response was not a complete unified diff. "
+                "Regenerate the entire patch from scratch. Return exactly one patch only, beginning with "
+                "'diff --git a/' or '--- a/', using repository-relative a/ and b/ paths."
+            )
+            if generation_attempt < max_attempts:
+                continue
+            return False, attempt_feedback
+
+        verify_patch_scope(patch, task)
+        ok, apply_error = apply_patch(patch)
+        if ok:
+            return True, ""
+
+        attempt_feedback = (
+            "PATCH_APPLY_REGEN_REQUIRED:\n"
+            + apply_error
+            + "\nRegenerate the ENTIRE patch from scratch. Do not return a fragment. "
+            "Ensure all @@ hunk ranges/counts match the supplied repository context and that the final patch passes git apply --check."
+        )
+        if generation_attempt < max_attempts:
+            continue
+        return False, attempt_feedback
+
+    return False, "PATCH_GENERATION_UNREACHABLE"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("task_file")
@@ -312,30 +372,17 @@ def main() -> None:
 
     for round_no in range(1, task["max_rounds"] + 1):
         rounds_used = round_no
-        response = call_deepseek(task, context, feedback, round_no)
-        try:
-            patch = extract_patch(response)
-        except ValueError:
-            feedback = (
-                "MODEL_OUTPUT_FORMAT_INVALID: previous response was not an applicable unified diff. "
-                "Return exactly one patch only, beginning with 'diff --git a/' or '--- a/', using repository-relative a/ and b/ paths."
-            )
-            if round_no >= task["max_rounds"]:
-                fail("model response did not contain a unified git diff after bounded retry")
-            continue
-        verify_patch_scope(patch, task)
-        ok, apply_error = apply_patch(patch)
+        ok, patch_feedback = generate_and_apply_patch(task, context, feedback, round_no)
         if not ok:
-            feedback = "PATCH_APPLY_FAILED:\n" + apply_error
-            if round_no >= task["max_rounds"]:
-                fail(feedback)
-            continue
+            fail(patch_feedback)
+
         resulting = ensure_result_scope(task)
         if not resulting:
             feedback = "PATCH_APPLIED_BUT_NO_RESULTING_DIFF"
             if round_no >= task["max_rounds"]:
                 fail(feedback)
             continue
+
         valid, last_validation = run_validations(task)
         if valid:
             print(
