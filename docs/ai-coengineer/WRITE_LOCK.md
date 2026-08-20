@@ -1,15 +1,17 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-20
-LAST_RESULT: V78-027 RESOLVED — Signal-only cutover complete; Hyro runtime/UI disconnected and Hyro KV data purged.
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: V78-028 Signal-only Hub cleanup + WHY NOW + Index Cash quote reliability
+ACQUIRED: 2026-08-20
 
 Protocol:
 - One writer at a time.
-- Current production direction is Signal-only.
-- Preserve Signal engine, market data, entry intelligence, ranking and all existing risk/freshness/structural-SL/news protections.
-- Preserve TRADING_STATE and v775:books Signal data.
-- Never restore Hyro auto-trade, Futures/TK2, or Binance20 production execution without explicit new user direction.
-- Production Claude API remains paused; Claude.ai Web remains co-engineer for Signal-only optimization.
+- Signal-only production direction.
+- Remove reachable dead Hyro/Personal fallback UI from active Signal engine handling.
+- Improve Signal explanation and Index Cash price visibility without weakening freshness or changing execution authority.
+- Preserve /coin|/analyze|/forex|/metal|/future text-command handling.
+- Preserve TRADING_STATE and v775:books; never reset either.
+- Never weaken hard risk/freshness/structural-SL/news protections.
+- Never restore Hyro auto-trade, Futures/TK2, or Binance20 production execution.
+- Production Claude API remains paused.
