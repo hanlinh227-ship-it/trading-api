@@ -619,20 +619,29 @@ check('oversized diffs are chunked, not silently truncated', () => {
   assert(/fetch_diff.*\n.*Return the COMPLETE diff/.test(py) || /Return the COMPLETE diff/.test(py),
     'fetch_diff no longer returns the complete diff');
 });
-check('an oversized single hunk fails closed rather than becoming a huge prompt', () => {
-  // One @@ hunk bigger than the per-chunk budget cannot be placed anywhere without either
-  // splitting it (corrupting the diff) or emitting an oversized chunk, which reproduces
-  // the PROTOCOL_ERROR the budget exists to prevent.
-  const seg = py.split('def _split_file_diff')[1].split('\ndef ')[0];
-  assert(/HUNK_TOO_LARGE/.test(seg), 'an oversized hunk is not classified');
-  assert(/len\(header\) \+ len\(hunk\) > MAX_DIFF_CHARS/.test(seg),
-    'hunk size is never compared against the budget');
-  assert(/raise LoopBlocked/.test(seg), 'an oversized hunk does not fail closed');
-  // The guard must precede the packing logic, or the first oversized hunk still slips in
-  // through the `current == header` branch.
-  const guardIdx = seg.indexOf('HUNK_TOO_LARGE');
-  const packIdx = seg.indexOf('current != header');
-  assert(guardIdx > -1 && guardIdx < packIdx, 'the oversized-hunk guard runs after packing');
+check('an oversized hunk is split into valid sub-hunks, not refused or oversized', () => {
+  // An ADDED FILE is one hunk covering the whole file, so "hunk larger than the budget" is
+  // the normal case here, not a pathological one - refusing it made the reviewer useless
+  // on exactly the PRs that most need reviewing. Emitting it whole would reproduce the
+  // PROTOCOL_ERROR the budget exists to prevent. So it is split, with each piece carrying
+  // a recomputed @@ header describing precisely the lines it contains.
+  assert(/def _split_hunk/.test(py), 'oversized hunks are not split');
+  const seg = py.split('def _split_hunk')[1].split('\ndef ')[0];
+  assert(/_HUNK_HEADER_RE/.test(py), 'hunk headers are never parsed');
+  assert(/old_pos \+= old_count/.test(seg) && /new_pos \+= new_count/.test(seg),
+    'sub-hunk start offsets do not accumulate, so headers would be wrong');
+  assert(/header_reserve/.test(seg),
+    'packing does not reserve space for the header each piece carries, so pieces overshoot');
+  // Counts must be derived from content, both sides.
+  assert(/old_count \+= 1/.test(seg) && /new_count \+= 1/.test(seg),
+    'line counts are not derived from the piece content');
+  assert(/startswith\("\\\\\\\\"\)/.test(seg) || /startswith\('\\\\\\\\'\)/.test(seg) || /No newline/.test(seg),
+    'the "\\ No newline at end of file" marker is not handled');
+  // The caller splits rather than refusing, and only fails when a single LINE cannot fit.
+  const caller = py.split('def _split_file_diff')[1].split('\ndef ')[0];
+  assert(/_split_hunk\(hunk,/.test(caller), 'the caller does not split an oversized hunk');
+  assert(/longest single line/.test(caller),
+    'the unfittable case is not reported in terms of the offending line');
 });
 check('chunked verdicts merge with rejection winning', () => {
   assert(/def merge_results/.test(py), 'no verdict merge');

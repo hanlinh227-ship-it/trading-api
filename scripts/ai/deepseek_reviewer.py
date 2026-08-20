@@ -166,6 +166,65 @@ def fetch_diff(repo: str, pr: int) -> str:
     return proc.stdout or ""
 
 
+_HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$")
+
+
+def _split_hunk(hunk: str, budget: int) -> list[str]:
+    """Split one oversized @@ hunk into several SELF-CONSISTENT hunks.
+
+    An added file is a single hunk covering the whole file, so "one hunk larger than the
+    budget" is the normal case for this repository, not a pathological one. Refusing it
+    would make the reviewer useless on exactly the PRs that most need reviewing.
+
+    Splitting is safe as long as each piece carries a correctly recomputed @@ header:
+    line counts are derived from the piece's own content and the start offsets accumulate,
+    so every emitted hunk describes precisely the lines it contains.
+    """
+    lines = hunk.split("\n")
+    m = _HUNK_HEADER_RE.match(lines[0])
+    if not m:
+        return [hunk]
+
+    old_pos, new_pos = int(m.group(1)), int(m.group(3))
+    section = m.group(5) or ""
+    body = [ln for ln in lines[1:] if ln != ""]
+
+    out: list[str] = []
+    cur: list[str] = []
+    cur_len = 0
+    old_count = new_count = 0
+    # Each emitted piece carries its own recomputed @@ header, so that header's length has
+    # to be reserved when packing or the pieces overshoot the caller's budget.
+    header_reserve = len(lines[0]) + 32
+
+    def flush() -> None:
+        nonlocal cur, cur_len, old_count, new_count, old_pos, new_pos
+        if not cur:
+            return
+        header = f"@@ -{old_pos},{old_count} +{new_pos},{new_count} @@{section}"
+        out.append(header + "\n" + "\n".join(cur) + "\n")
+        old_pos += old_count
+        new_pos += new_count
+        cur, cur_len, old_count, new_count = [], 0, 0, 0
+
+    for ln in body:
+        if cur and header_reserve + cur_len + len(ln) + 1 > budget:
+            flush()
+        cur.append(ln)
+        cur_len += len(ln) + 1
+        if ln.startswith("-"):
+            old_count += 1
+        elif ln.startswith("+"):
+            new_count += 1
+        elif ln.startswith("\\"):
+            pass  # "\ No newline at end of file" belongs to neither side
+        else:
+            old_count += 1
+            new_count += 1
+    flush()
+    return out or [hunk]
+
+
 def _split_file_diff(file_diff: str) -> list[str]:
     """Split one file's diff at @@ hunk boundaries, repeating the file header each time.
 
@@ -183,17 +242,27 @@ def _split_file_diff(file_diff: str) -> list[str]:
     out: list[str] = []
     current = header
     for hunk in bodies:
-        # A single intact hunk larger than the budget cannot be placed anywhere without
-        # either splitting it (which corrupts the diff) or emitting an oversized chunk
-        # (which reproduces the very PROTOCOL_ERROR the budget exists to avoid). Neither is
-        # acceptable, so say so rather than silently doing one of them.
+        # A hunk larger than the budget is split into self-consistent sub-hunks with
+        # recomputed @@ headers rather than refused: an added file is one hunk covering the
+        # whole file, so this is the normal case, and refusing it would make the reviewer
+        # useless on exactly the PRs that most need reviewing.
         if len(header) + len(hunk) > MAX_DIFF_CHARS:
-            raise LoopBlocked(
-                "HUNK_TOO_LARGE",
-                f"a single diff hunk is {len(hunk)} chars, which exceeds the "
-                f"{MAX_DIFF_CHARS}-char per-chunk budget; it cannot be reviewed without "
-                "either corrupting the hunk or sending an unreliably large prompt",
-            )
+            pieces = _split_hunk(hunk, max(1024, MAX_DIFF_CHARS - len(header)))
+            for piece in pieces:
+                if len(header) + len(piece) > MAX_DIFF_CHARS:
+                    # Only reachable when one individual LINE is itself too large, which no
+                    # amount of hunk splitting can fix. Report the line, not the piece.
+                    longest = max((len(l) for l in piece.splitlines()), default=0)
+                    raise LoopBlocked(
+                        "HUNK_TOO_LARGE",
+                        f"a diff hunk could not be reduced below the {MAX_DIFF_CHARS}-char "
+                        f"per-chunk budget; its longest single line is {longest} chars",
+                    )
+                if current != header:
+                    out.append(current)
+                    current = header
+                out.append(header + piece)
+            continue
         if len(current) + len(hunk) > MAX_DIFF_CHARS and current != header:
             out.append(current)
             current = header + hunk
