@@ -560,6 +560,12 @@ check('write-lock scope is enforced before testing or staging', () => {
   assert(assertIdx > -1 && testIdx > assertIdx, 'scope check does not precede the tests');
   assert(pubIdx > assertIdx, 'scope check does not precede staging');
   assert(/outside the declared WRITE_LOCK scope/.test(ps1), 'out-of-scope files are not refused');
+  // The parser must read only the allowed-scope section: scanning the whole lock file also
+  // harvests backticked bullets from the Protocol prose, and a prose bullet naming a real
+  // path would silently authorise it.
+  assert(/allowed\\s\+scope/.test(ps1), 'scope parsing is not restricted to its section');
+  assert(/\$inScopeSection/.test(ps1), 'no section tracking while parsing the lock');
+  assert(/-notmatch '\^-'/.test(ps1), 'flag-like prose entries are not rejected');
 });
 check('skipped reviewers are never synthesised into acceptance', () => {
   // Either switch previously produced an exact-head ACCEPT, satisfying the READY gate

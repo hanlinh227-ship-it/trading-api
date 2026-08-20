@@ -409,12 +409,25 @@ function Test-WriteLock {
     # owner-only verification is not enough either: Publish-Round runs `git add -A`, so an
     # erroneous round could otherwise commit arbitrary out-of-scope files, up to and
     # including Trading business source.
+    # Parse ONLY the allowed-scope section. Scanning the whole file would also harvest
+    # backticked bullets from the Protocol prose (it previously picked up
+    # `--dangerously-skip-permissions`), and a prose bullet naming a real path would then
+    # silently authorise it.
     $script:AllowedPaths = @()
+    $inScopeSection = $false
     foreach ($line in ($lock -split "`r?`n")) {
+        if ($line -match '^\s*#{1,6}\s') {
+            $inScopeSection = ($line -match '(?i)allowed\s+scope')
+            continue
+        }
+        if (-not $inScopeSection) { continue }
         $m = [regex]::Match($line, '^\s*-\s+`([^`]+)`')
         if ($m.Success) {
             $p = $m.Groups[1].Value.Trim()
-            if ($p -and $p -notmatch '^\s*$') { $script:AllowedPaths += ($p -replace '\\', '/') }
+            # A path, not prose: reject anything that looks like a flag or has no path shape.
+            if ($p -and $p -notmatch '^-' -and $p -notmatch '\s') {
+                $script:AllowedPaths += ($p -replace '\\', '/')
+            }
         }
     }
     if ($script:AllowedPaths.Count -gt 0) {
