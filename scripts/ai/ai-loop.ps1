@@ -623,23 +623,45 @@ function Initialize-Branch {
         Write-Good "Local branch matches the advertised PR head"
     }
 
-    # Assert-ChangesInLockScope only inspects what THIS round changed. A branch or reused
-    # PR whose head ALREADY carries a committed workflow edit would sail past it, and that
-    # PR-owned workflow definition is what GitHub runs for a same-repo pull_request - so it
-    # could post a same-SHA TRUST=trusted verdict the controller would then admit. Scan the
-    # whole base..head range, not just the working tree.
+    # Assert-ChangesInLockScope only inspects what THIS round changed, so a branch - or a
+    # reused PR via -PrNumber - whose head already carries a workflow edit would sail past
+    # it. That matters because GitHub runs the PR HEAD's workflow definition for a
+    # same-repo pull_request, so such a branch could post a forged same-SHA TRUST=trusted
+    # verdict the controller would then admit.
+    #
+    # PRIMARY CHECK: the whole commit HISTORY, not the net tree diff.
+    #
+    # A net tree diff is not sufficient. A workflow edited in one commit and reverted in a
+    # later one nets to nothing in `git diff BASE...HEAD`, yet the branch still ran CI at
+    # that intermediate head with an attacker-controlled workflow definition, and those
+    # check runs remain attached to the PR where the rollup can still see them. Any commit
+    # in the range is disqualifying, reverted or not.
+    $historyScan = Invoke-Git -Arguments @("log", "--format=%H", "origin/$BaseBranch..HEAD", "--", ".github/workflows")
+    if ($historyScan.ExitCode -ne 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not scan the origin/$BaseBranch..HEAD commit history for CI workflow changes. Refusing to run without that evidence."
+    }
+    $offendingCommits = @($historyScan.StdOut -split "`r?`n" | Where-Object { $_.Trim() })
+    if ($offendingCommits.Count -gt 0) {
+        $shown = (@($offendingCommits | Select-Object -First 5 | ForEach-Object { $_.Substring(0, [Math]::Min(12, $_.Length)) })) -join ", "
+        $more = ""
+        if ($offendingCommits.Count -gt 5) { $more = " (+$($offendingCommits.Count - 5) more)" }
+        Stop-Loop -Status "BLOCKED" -Reason ("This branch's history contains $($offendingCommits.Count) commit(s) touching .github/workflows/: $shown$more. GitHub runs the PR head's workflow definition, and an intermediate head already ran CI with that definition, so the loop cannot trust its own review on this branch - even if the change was later reverted. A human must review and merge CI changes.")
+    }
+
+    # SECONDARY CHECK: the net tree diff. Strictly weaker than the history scan above and
+    # kept only as defence in depth, for the case where history is shallow or grafted and
+    # the log could under-report.
     $rangeDiff = Invoke-Git -Arguments @("diff", "--name-only", "origin/$BaseBranch...HEAD")
-    if ($rangeDiff.ExitCode -eq 0) {
-        $committedWorkflowEdits = @($rangeDiff.StdOut -split "`r?`n" |
-            Where-Object { $_ } |
-            Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
-        if ($committedWorkflowEdits.Count -gt 0) {
-            Stop-Loop -Status "BLOCKED" -Reason ("This branch already contains committed CI workflow change(s): " + ($committedWorkflowEdits -join ", ") + ". GitHub runs the PR head's workflow definition, so the loop cannot trust its own review on this branch. A human must review and merge CI changes.")
-        }
-        Write-Good "No committed CI workflow changes on this branch"
-    } else {
+    if ($rangeDiff.ExitCode -ne 0) {
         Stop-Loop -Status "BLOCKED" -Reason "Could not diff origin/$BaseBranch...HEAD to check for committed CI workflow changes. Refusing to run without that evidence."
     }
+    $committedWorkflowEdits = @($rangeDiff.StdOut -split "`r?`n" |
+        Where-Object { $_ } |
+        Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
+    if ($committedWorkflowEdits.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("This branch already contains committed CI workflow change(s): " + ($committedWorkflowEdits -join ", ") + ". GitHub runs the PR head's workflow definition, so the loop cannot trust its own review on this branch. A human must review and merge CI changes.")
+    }
+    Write-Good "No CI workflow changes anywhere in this branch's history"
 
     # Final paranoia check: whatever we ended up on must not be a protected branch.
     $current = (Invoke-Git -Arguments @("rev-parse", "--abbrev-ref", "HEAD")).StdOut.Trim()

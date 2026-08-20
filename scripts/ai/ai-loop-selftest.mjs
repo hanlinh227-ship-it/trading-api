@@ -13,7 +13,9 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -889,13 +891,32 @@ check('a branch already carrying a committed workflow edit is refused', () => {
   // GitHub runs for a same-repo pull_request, so it could post a same-SHA TRUST=trusted
   // verdict the controller would admit. The whole base..head range must be scanned.
   const seg = ps1.split('function Initialize-Branch')[1].split('\nfunction ')[0];
-  assert(/origin\/\$BaseBranch\.\.\.HEAD/.test(seg), 'base..head range is never diffed');
+  // The COMMIT HISTORY is the primary check. A net tree diff is blind to an edit that was
+  // later reverted, yet the branch still ran CI at that intermediate head with an
+  // attacker-controlled workflow definition.
+  assert(/"log", "--format=%H", "origin\/\$BaseBranch\.\.HEAD", "--", "\.github\/workflows"/.test(seg),
+    'the commit history is never scanned for workflow changes');
+  assert(/\$offendingCommits/.test(seg), 'offending commits are not collected');
+  assert(/even if the change was later reverted/.test(seg),
+    'the guard does not state that a revert is still disqualifying');
+  // Two-dot range: commits reachable from HEAD but not from base. Three dots would be the
+  // symmetric difference and would implicate legitimate CI changes made on the base branch.
+  assert(!/"log"[^\n]*BaseBranch\.\.\.HEAD/.test(seg),
+    'history scan uses a symmetric-difference range, which would implicate base-branch commits');
+  // The net tree diff is retained only as defence in depth.
+  assert(/origin\/\$BaseBranch\.\.\.HEAD/.test(seg), 'base...head tree diff was dropped entirely');
   assert(/committedWorkflowEdits/.test(seg), 'committed workflow edits are not detected');
   assert(/already contains committed CI workflow change/.test(seg),
     'a pre-existing workflow edit does not block the run');
-  // A failed diff must block rather than silently skip the check.
+  // Either probe failing must block rather than silently skip.
   assert(/Refusing to run without that evidence/.test(seg),
     'an unavailable range diff disables the guard instead of blocking');
+  const failClosed = (seg.match(/Refusing to run without that evidence/g) || []).length;
+  assert(failClosed === 2, `both the history scan and the tree diff must fail closed; found ${failClosed}`);
+  // History scan must run BEFORE the weaker tree diff, so the stronger verdict wins.
+  const guardBody = stripPs1Comments(seg);
+  assert(guardBody.indexOf('$historyScan') < guardBody.indexOf('$rangeDiff'),
+    'the weaker tree diff is evaluated before the history scan');
   // And it must happen before any implementation round starts.
   const body = stripPs1Comments(ps1);
   assert(body.indexOf('committedWorkflowEdits') < body.indexOf('$claude = Invoke-ClaudeRound'),
@@ -1189,6 +1210,137 @@ check('contract forbids committing live state to main', () =>
   assert(/NOT continuously committed to `main`/.test(contract), 'state-churn rule missing'));
 
 // =====================================================================================
+// =====================================================================================
+// 17. BEHAVIOURAL: the CI-workflow history guard, exercised against real git repositories.
+//
+// The controller decides this with two git commands. Asserting they appear in the source
+// proves only that they are written down, so these tests build throwaway repositories and
+// run the exact commands, checking the verdict each one produces. That is what catches a
+// wrong revision range or a net-diff blind spot.
+// =====================================================================================
+function gitAvailable() {
+  try {
+    execFileSync('git', ['--version'], { stdio: 'ignore' });
+    return true;
+  } catch { return false; }
+}
+
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/** Build a repo with a `main` base and a `feature` branch, then apply `commits`. */
+function buildRepo(commits) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-loop-guard-'));
+  git(dir, ['init', '-q', '-b', 'main', '.']);
+  git(dir, ['config', 'user.email', 'selftest@example.invalid']);
+  git(dir, ['config', 'user.name', 'selftest']);
+  git(dir, ['config', 'commit.gpgsign', 'false']);
+  fs.mkdirSync(path.join(dir, '.github', 'workflows'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.github/workflows/ci.yml'), 'name: ci\n');
+  fs.writeFileSync(path.join(dir, 'src/app.txt'), 'base\n');
+  git(dir, ['add', '-A']);
+  git(dir, ['commit', '-qm', 'base']);
+  // `origin/main` is what the controller compares against; a local alias stands in for it.
+  git(dir, ['update-ref', 'refs/remotes/origin/main', 'refs/heads/main']);
+  git(dir, ['checkout', '-qb', 'feature']);
+  for (const c of commits) { c(dir); }
+  return dir;
+}
+
+const writeFile = (rel, body) => (dir) => {
+  const target = path.join(dir, rel);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, body);
+  git(dir, ['add', '-A']);
+  git(dir, ['commit', '-qm', `write ${rel}`]);
+};
+const restoreFromBase = (rel) => (dir) => {
+  git(dir, ['checkout', '-q', 'origin/main', '--', rel]);
+  git(dir, ['add', '-A']);
+  git(dir, ['commit', '-qm', `revert ${rel}`]);
+};
+
+/** The controller's PRIMARY check: any commit in base..HEAD touching workflows. */
+function historyGuardBlocks(dir) {
+  const out = git(dir, ['log', '--format=%H', 'origin/main..HEAD', '--', '.github/workflows']);
+  return out.split('\n').filter((l) => l.trim()).length > 0;
+}
+
+/** The controller's SECONDARY check: the net tree diff. Kept only as defence in depth. */
+function treeDiffBlocks(dir) {
+  const out = git(dir, ['diff', '--name-only', 'origin/main...HEAD']);
+  return out.split('\n').some((l) => l.trim().startsWith('.github/workflows/'));
+}
+
+if (!gitAvailable()) {
+  check('CI-workflow history guard behaviour (git unavailable)', () => {
+    throw new Error('git is required to exercise the workflow history guard');
+  });
+} else {
+  check('BEHAVIOUR: workflow edited then reverted is still BLOCKED', () => {
+    // The case a net tree diff cannot see. The branch ran CI at the intermediate head with
+    // an attacker-controlled workflow, and those check runs stay attached to the PR.
+    const dir = buildRepo([
+      writeFile('.github/workflows/ci.yml', 'name: ci\n# tampered\n'),
+      restoreFromBase('.github/workflows/ci.yml'),
+      writeFile('src/app.txt', 'more work\n'),
+    ]);
+    assert(historyGuardBlocks(dir), 'history guard missed a reverted workflow edit');
+    // Proves the guard is not redundant: the old net-diff check is blind here.
+    assert(!treeDiffBlocks(dir),
+      'tree diff unexpectedly saw the revert - the history guard would be redundant');
+  });
+
+  check('BEHAVIOUR: workflow edited in any historical commit is BLOCKED', () => {
+    const dir = buildRepo([
+      writeFile('src/app.txt', 'ordinary\n'),
+      writeFile('.github/workflows/ci.yml', 'name: ci\n# tampered\n'),
+      writeFile('src/app.txt', 'more ordinary\n'),
+    ]);
+    assert(historyGuardBlocks(dir), 'history guard missed a mid-history workflow edit');
+  });
+
+  check('BEHAVIOUR: a newly ADDED workflow file is BLOCKED', () => {
+    // Adding a brand new workflow is as dangerous as editing one; GitHub will run it.
+    const dir = buildRepo([writeFile('.github/workflows/evil.yml', 'name: evil\n')]);
+    assert(historyGuardBlocks(dir), 'history guard missed an added workflow file');
+  });
+
+  check('BEHAVIOUR: no workflow touched anywhere in history is ALLOWED', () => {
+    const dir = buildRepo([
+      writeFile('src/app.txt', 'work\n'),
+      writeFile('src/other.txt', 'more\n'),
+    ]);
+    assert(!historyGuardBlocks(dir), 'history guard blocked a branch that never touched workflows');
+    assert(!treeDiffBlocks(dir), 'tree diff blocked a branch that never touched workflows');
+  });
+
+  check('BEHAVIOUR: ordinary non-workflow commits are ALLOWED', () => {
+    const dir = buildRepo([
+      writeFile('scripts/ai-note.txt', 'in-scope edit\n'),
+      writeFile('src/app.txt', 'refactor\n'),
+      writeFile('src/app.txt', 'refactor again\n'),
+    ]);
+    assert(!historyGuardBlocks(dir), 'history guard blocked ordinary work');
+    assert(!treeDiffBlocks(dir), 'tree diff blocked ordinary work');
+  });
+
+  check('BEHAVIOUR: a base-branch workflow change does not implicate the feature branch', () => {
+    // Only commits reachable from HEAD but not from base may disqualify it, otherwise every
+    // branch cut after a legitimate CI change would be permanently unusable.
+    const dir = buildRepo([writeFile('src/app.txt', 'work\n')]);
+    git(dir, ['checkout', '-q', 'main']);
+    fs.writeFileSync(path.join(dir, '.github/workflows/ci.yml'), 'name: ci\n# merged by a human\n');
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-qm', 'human CI change on base']);
+    git(dir, ['update-ref', 'refs/remotes/origin/main', 'refs/heads/main']);
+    git(dir, ['checkout', '-q', 'feature']);
+    assert(!historyGuardBlocks(dir), 'a workflow change on the BASE branch wrongly blocked the feature branch');
+  });
+}
+
 console.log('');
 if (failures.length) {
   console.log(`AI_LOOP_SELFTEST FAIL  ${passed} passed, ${failures.length} failed`);
