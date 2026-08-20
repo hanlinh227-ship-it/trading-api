@@ -77,6 +77,9 @@ $script:HARD_MAX_POLLS       = 120
 # required workflow that never starts produces no check run, so absence must not be
 # mistaken for success.
 $script:REQUIRED_CHECKS      = @("validate", "DeepSeek adversarial review", "AI loop safety selftest")
+# Only set when reusing an existing PR (-PrNumber). Declared here so Set-StrictMode does
+# not throw on the -Branch path, where there is no advertised PR head to compare against.
+$script:ExpectedPrHead      = ""
 # One definition of "blocking" for Codex findings, applied identically to inline comments
 # and to the review summary. Asymmetry here would let the same defect block in one place
 # and pass in the other. P3 is informational and deliberately excluded.
@@ -618,6 +621,24 @@ function Initialize-Branch {
             }
         }
         Write-Good "Local branch matches the advertised PR head"
+    }
+
+    # Assert-ChangesInLockScope only inspects what THIS round changed. A branch or reused
+    # PR whose head ALREADY carries a committed workflow edit would sail past it, and that
+    # PR-owned workflow definition is what GitHub runs for a same-repo pull_request - so it
+    # could post a same-SHA TRUST=trusted verdict the controller would then admit. Scan the
+    # whole base..head range, not just the working tree.
+    $rangeDiff = Invoke-Git -Arguments @("diff", "--name-only", "origin/$BaseBranch...HEAD")
+    if ($rangeDiff.ExitCode -eq 0) {
+        $committedWorkflowEdits = @($rangeDiff.StdOut -split "`r?`n" |
+            Where-Object { $_ } |
+            Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
+        if ($committedWorkflowEdits.Count -gt 0) {
+            Stop-Loop -Status "BLOCKED" -Reason ("This branch already contains committed CI workflow change(s): " + ($committedWorkflowEdits -join ", ") + ". GitHub runs the PR head's workflow definition, so the loop cannot trust its own review on this branch. A human must review and merge CI changes.")
+        }
+        Write-Good "No committed CI workflow changes on this branch"
+    } else {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not diff origin/$BaseBranch...HEAD to check for committed CI workflow changes. Refusing to run without that evidence."
     }
 
     # Final paranoia check: whatever we ended up on must not be a protected branch.

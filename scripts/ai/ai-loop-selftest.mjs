@@ -883,6 +883,24 @@ check('paginated GitHub reads survive multi-page responses', () => {
     assert(/Invoke-GhJsonLines/.test(seg), `${fn} does not use the line-delimited reader`);
   }
 });
+check('a branch already carrying a committed workflow edit is refused', () => {
+  // Assert-ChangesInLockScope only sees THIS round's changes. A reused PR whose head
+  // already contains a workflow edit would pass it - and that PR-owned definition is what
+  // GitHub runs for a same-repo pull_request, so it could post a same-SHA TRUST=trusted
+  // verdict the controller would admit. The whole base..head range must be scanned.
+  const seg = ps1.split('function Initialize-Branch')[1].split('\nfunction ')[0];
+  assert(/origin\/\$BaseBranch\.\.\.HEAD/.test(seg), 'base..head range is never diffed');
+  assert(/committedWorkflowEdits/.test(seg), 'committed workflow edits are not detected');
+  assert(/already contains committed CI workflow change/.test(seg),
+    'a pre-existing workflow edit does not block the run');
+  // A failed diff must block rather than silently skip the check.
+  assert(/Refusing to run without that evidence/.test(seg),
+    'an unavailable range diff disables the guard instead of blocking');
+  // And it must happen before any implementation round starts.
+  const body = stripPs1Comments(ps1);
+  assert(body.indexOf('committedWorkflowEdits') < body.indexOf('$claude = Invoke-ClaudeRound'),
+    'the committed-workflow check runs after implementation has already begun');
+});
 check('the loop never authors a CI workflow change', () => {
   // For a same-repository pull_request event GitHub loads the workflow from the PR HEAD,
   // so a run able to edit its own workflow can replace the review step with one that posts
