@@ -42,6 +42,10 @@ BACKOFF_CAP_SEC = 16.0
 # cannot see the whole diff must REJECT (see fetch_diff), so a too-small budget would make
 # large PRs permanently unreviewable.
 MAX_DIFF_CHARS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHARS", "160000"))
+# An oversized diff is split at file boundaries and reviewed in chunks rather than
+# truncated. The cap keeps the work bounded; beyond it the PR is genuinely too large to
+# review in one pass and the reviewer says so instead of pretending otherwise.
+MAX_DIFF_CHUNKS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHUNKS", "6"))
 MAX_EVIDENCE_CHARS = 8000
 
 COMMENT_MARKER = "<!-- ai-loop:deepseek-review -->"
@@ -124,19 +128,54 @@ def fetch_pr(repo: str, pr: int) -> dict:
 
 
 def fetch_diff(repo: str, pr: int) -> str:
-    proc = run(["gh", "pr", "diff", str(pr), "--repo", repo], timeout=120)
+    """Return the COMPLETE diff. Fitting it to the model is split_diff's job."""
+    proc = run(["gh", "pr", "diff", str(pr), "--repo", repo], timeout=180)
     if proc.returncode != 0:
         raise LoopBlocked("GITHUB_ERROR", f"gh pr diff failed: {redact(proc.stderr.strip())}")
-    diff = proc.stdout or ""
-    if len(diff) > MAX_DIFF_CHARS:
-        omitted = len(diff) - MAX_DIFF_CHARS
-        # Fail closed: a reviewer that cannot see the whole change must not accept it.
-        diff = diff[:MAX_DIFF_CHARS] + (
-            f"\n\n[DIFF TRUNCATED: {omitted} of {len(diff)} chars were omitted. "
-            "You have NOT seen the whole change. Emit VERDICT=REJECT and record the "
-            "truncation as a BLOCKER - never ACCEPT a diff you could not fully read.]"
+    return proc.stdout or ""
+
+
+def split_diff(diff: str) -> list[str]:
+    """Split an oversized diff into review chunks at file boundaries.
+
+    Truncating and rejecting was correct but made any PR larger than the budget
+    permanently unreviewable, and simply raising the budget just defers the same wall.
+    Chunking at `diff --git` boundaries keeps every hunk intact and lets the whole change
+    be reviewed. Verdicts are merged by the caller: any REJECT wins.
+    """
+    if len(diff) <= MAX_DIFF_CHARS:
+        return [diff]
+
+    # Keep each file's diff whole; only split BETWEEN files.
+    parts = re.split(r"(?m)^(?=diff --git )", diff)
+    parts = [p for p in parts if p.strip()]
+
+    chunks: list[str] = []
+    current = ""
+    for part in parts:
+        if len(part) > MAX_DIFF_CHARS:
+            # A single file larger than the budget: flush, then hard-split this one file.
+            if current:
+                chunks.append(current)
+                current = ""
+            for i in range(0, len(part), MAX_DIFF_CHARS):
+                chunks.append(part[i:i + MAX_DIFF_CHARS])
+            continue
+        if len(current) + len(part) > MAX_DIFF_CHARS:
+            chunks.append(current)
+            current = part
+        else:
+            current += part
+    if current:
+        chunks.append(current)
+
+    if len(chunks) > MAX_DIFF_CHUNKS:
+        raise LoopBlocked(
+            "DIFF_TOO_LARGE",
+            f"diff needs {len(chunks)} chunks but the cap is {MAX_DIFF_CHUNKS}; "
+            "split this PR into smaller reviewable changes",
         )
-    return diff
+    return chunks
 
 
 def fetch_changed_files(repo: str, pr: int) -> list[str]:
@@ -236,7 +275,7 @@ Rules for the block:
 """
 
 
-def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str], evidence: str, objective: str | None, changed_files: list[str] | None = None) -> str:
+def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str], evidence: str, objective: str | None, changed_files: list[str] | None = None, part: tuple[int, int] | None = None) -> str:
     parts = [
         f"REPOSITORY: hanlinh227-ship-it/trading-api",
         f"PR: #{pr['number']} — {pr.get('title') or '(no title)'}",
@@ -266,6 +305,16 @@ def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str
         diff,
         "```",
         "",
+    ]
+    if part and part[1] > 1:
+        parts += [
+            f"NOTE: this is PART {part[0]} OF {part[1]} of a diff too large for one request.",
+            "Review ONLY what is shown here. Do not flag the split itself as a finding - the",
+            "other parts are reviewed separately and every verdict is merged, with any REJECT",
+            "winning. The authoritative full scope is the changed-file list above.",
+            "",
+        ]
+    parts += [
         f"Review the diff above against the head SHA {pr['headRefOid']} and emit your block.",
     ]
     return "\n".join(parts)
@@ -295,6 +344,41 @@ _ATTEMPTS_USED = [0]
 
 def attempts_remaining() -> int:
     return max(0, MAX_ATTEMPTS - _ATTEMPTS_USED[0])
+
+
+def reset_attempts() -> None:
+    """Start a fresh attempt budget. Called once per diff chunk, never mid-review."""
+    _ATTEMPTS_USED[0] = 0
+
+
+def merge_results(results: list[dict]) -> dict:
+    """Combine per-chunk verdicts. Any rejection wins; ACCEPT requires unanimity."""
+    if not results:
+        raise LoopBlocked("EMPTY_REVIEW", "no chunk produced a verdict")
+    if len(results) == 1:
+        return results[0]
+    blockers, non_blocking = [], []
+    verdict = "ACCEPT"
+    for r in results:
+        blockers.extend(r["blockers"])
+        non_blocking.extend(r["non_blocking"])
+        if r["verdict"] == "BLOCKED":
+            verdict = "BLOCKED"
+        elif r["verdict"] == "REJECT" and verdict != "BLOCKED":
+            verdict = "REJECT"
+    if blockers and verdict == "ACCEPT":
+        verdict = "REJECT"
+    seen = set()
+    blockers = [b for b in blockers if not (b in seen or seen.add(b))]
+    seen = set()
+    non_blocking = [n for n in non_blocking if not (n in seen or seen.add(n))]
+    return {
+        "head_sha": results[0]["head_sha"],
+        "verdict": verdict,
+        "blockers": blockers,
+        "non_blocking": non_blocking,
+        "downgraded": any(r.get("downgraded") for r in results),
+    }
 
 
 def call_deepseek(system_prompt: str, user_prompt: str) -> str:
@@ -582,13 +666,20 @@ def main() -> int:
         checks_status, failing = fetch_checks(args.repo, head_sha)
         evidence = read_evidence(args.evidence_file)
         changed_files = fetch_changed_files(args.repo, args.pr)
-        user_prompt = build_user_prompt(pr, diff, checks_status, failing, evidence, args.objective, changed_files)
+        chunks = split_diff(diff)
+        prompts = [
+            build_user_prompt(pr, c, checks_status, failing, evidence, args.objective,
+                              changed_files, part=(i, len(chunks)))
+            for i, c in enumerate(chunks, start=1)
+        ]
+        user_prompt = prompts[0]
 
         if args.dry_run:
             has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
             # Phrased to avoid a NAME: VALUE shape, which redact() would (correctly) mask.
             log("DRY RUN - no DeepSeek API call was made")
             log(f"  diff chars       {len(diff)} (budget {MAX_DIFF_CHARS})")
+            log(f"  review chunks    {len(chunks)} (cap {MAX_DIFF_CHUNKS})")
             log(f"  changed files    {len(changed_files)}")
             log(f"  prompt chars     {len(user_prompt)}")
             log(f"  checks rollup    {checks_status}")
@@ -599,37 +690,47 @@ def main() -> int:
             print(render_block(head_sha, "BLOCKED", ["DRY_RUN - no verdict produced"], []))
             return 0
 
-        reply = call_deepseek(SYSTEM_PROMPT, user_prompt)
-        try:
-            result = parse_block(reply)
-        except LoopBlocked as exc:
-            if exc.classification != "PROTOCOL_ERROR":
-                raise
-            # The model reviewed but broke format. Re-ask once, terse, block only.
-            # Bounded: exactly one repair attempt, then the review is BLOCKED.
-            log("reply lacked a verdict block; issuing one bounded protocol-repair request")
-            repair = (
-                "Your previous reply omitted the mandatory machine-readable block.\n\n"
-                "Reply with ONLY the block below and no other text whatsoever:\n\n"
-                f"{BEGIN}\n"
-                f"HEAD_SHA={head_sha}\n"
-                "VERDICT=ACCEPT|REJECT|BLOCKED\n"
-                "BLOCKERS=<one per line, or NONE>\n"
-                "NON_BLOCKING=<one per line, or NONE>\n"
-                f"{END}\n\n"
-                "Base it on the review you just performed. Here it is again for reference:\n\n"
-                + reply[:6000]
-            )
-            reply = call_deepseek(SYSTEM_PROMPT, repair)
-            result = parse_block(reply)
+        results = []
+        proses = []
+        for idx, prompt_text in enumerate(prompts, start=1):
+            if len(prompts) > 1:
+                log(f"reviewing chunk {idx}/{len(prompts)}")
+            # Each chunk is its own logical review and gets its own bounded attempt budget.
+            reset_attempts()
+            reply = call_deepseek(SYSTEM_PROMPT, prompt_text)
+            try:
+                result = parse_block(reply)
+            except LoopBlocked as exc:
+                if exc.classification != "PROTOCOL_ERROR":
+                    raise
+                # The model reviewed but broke format. Re-ask once, terse, block only.
+                # Bounded: exactly one repair attempt, then the review is BLOCKED.
+                log("reply lacked a verdict block; issuing one bounded protocol-repair request")
+                repair = (
+                    "Your previous reply omitted the mandatory machine-readable block.\n\n"
+                    "Reply with ONLY the block below and no other text whatsoever:\n\n"
+                    f"{BEGIN}\n"
+                    f"HEAD_SHA={head_sha}\n"
+                    "VERDICT=ACCEPT|REJECT|BLOCKED\n"
+                    "BLOCKERS=<one per line, or NONE>\n"
+                    "NON_BLOCKING=<one per line, or NONE>\n"
+                    f"{END}\n\n"
+                    "Base it on the review you just performed. Here it is again for reference:\n\n"
+                    + reply[:6000]
+                )
+                reply = call_deepseek(SYSTEM_PROMPT, repair)
+                result = parse_block(reply)
 
-        if result["head_sha"] != head_sha.lower():
-            raise LoopBlocked(
-                "STALE_REVIEW",
-                f"DeepSeek reported HEAD_SHA={result['head_sha']} but the PR head is {head_sha}",
-            )
+            if result["head_sha"] != head_sha.lower():
+                raise LoopBlocked(
+                    "STALE_REVIEW",
+                    f"DeepSeek reported HEAD_SHA={result['head_sha']} but the PR head is {head_sha}",
+                )
+            results.append(result)
+            proses.append(reply.split(BEGIN, 1)[0])
 
-        prose = reply.split(BEGIN, 1)[0]
+        result = merge_results(results)
+        prose = "\n\n".join(p for p in proses if p.strip())
         if not args.no_comment:
             upsert_comment(args.repo, args.pr, build_comment(head_sha, result, prose))
 

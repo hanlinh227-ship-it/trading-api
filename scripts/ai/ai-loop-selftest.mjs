@@ -356,14 +356,27 @@ check('DeepSeek workflow does not trigger on main pushes', () => {
 // 11. Static: permission safety
 // =====================================================================================
 check('dangerously-skip-permissions is never used', () => {
-  for (const [name, src] of Object.entries(LOOP_SOURCES)) {
-    const uses = src.match(/--dangerously-skip-permissions/g) || [];
-    const mentions = src.match(/dangerously-skip-permissions/g) || [];
-    // It may be *named* in a prohibition comment, but never passed as a live flag.
-    assert(uses.length === mentions.length - (mentions.length - uses.length) || true, 'noop');
-    assert(!/claude[^\n]*--dangerously-skip-permissions/.test(src),
-      `${name} passes --dangerously-skip-permissions to claude`);
+  // A same-line `claude ... --flag` regex is too weak: a multi-line invocation, an
+  // argument array, or a variable would slip past it. Assert instead that the flag does
+  // not appear in EXECUTABLE code at all; it may only be named in prohibition prose.
+  const executable = {
+    ps1: stripPs1Comments(ps1),
+    py: py.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n'),
+    wf: wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n'),
+  };
+  for (const [name, src] of Object.entries(executable)) {
+    assert(!/--dangerously-skip-permissions/.test(src),
+      `${name} references --dangerously-skip-permissions in executable code`);
   }
+  // And it must never reach the allowedTools list under any spelling.
+  const seg = ps1.split('function Get-ClaudeAllowedTools')[1].split('function ')[0];
+  assert(!/dangerously/i.test(seg), 'allowedTools mentions the skip-permissions flag');
+});
+check('allowedTools does not grant arbitrary execution via npm scripts', () => {
+  const seg = stripPs1Comments(ps1).split('function Get-ClaudeAllowedTools')[1].split('function ')[0];
+  // npm scripts are arbitrary code defined in package.json.
+  assert(!/npm test/.test(seg), 'allowedTools grants npm test, which runs arbitrary package scripts');
+  assert(!/npm run|npx |Bash\(npm/.test(seg), 'allowedTools grants an npm/npx escape hatch');
 });
 check('claude is invoked with a narrow allowedTools list', () => {
   assert(/--allowedTools/.test(ps1), 'no --allowedTools');
@@ -503,16 +516,44 @@ check('process output capture is race-free and deadlock-free', () => {
     assert(/\d{3,}/.test(m), `unbounded task wait: ${m}`);
   }
 });
-check('truncated diff fails closed to REJECT', () => {
-  assert(/DIFF TRUNCATED/.test(py), 'no truncation notice');
-  assert(/Emit VERDICT=REJECT and record the/.test(py),
-    'truncation does not force REJECT - a reviewer must never accept a diff it could not read');
-  assert(!/flag truncation as NON_BLOCKING/.test(py), 'truncation is still treated as non-blocking');
+check('the reviewer never silently drops part of a diff', () => {
+  // Superseded by chunking: nothing is truncated any more, so no partial-read path can
+  // reach a verdict at all. Assert the old truncation behaviour is fully gone.
+  assert(!/DIFF TRUNCATED/.test(py), 'truncation notice still present alongside chunking');
+  assert(!/diff\[:MAX_DIFF_CHARS\] \+ \(/.test(py), 'diff is still truncated before review');
+  assert(!/flag truncation as NON_BLOCKING/.test(py), 'truncation treated as non-blocking');
+  // The whole diff must reach split_diff, which is the only place size is handled.
+  const seg = py.split('def fetch_diff')[1].split('def split_diff')[0];
+  assert(/return proc\.stdout or ""/.test(seg), 'fetch_diff does not return the complete diff');
+  assert(!/MAX_DIFF_CHARS/.test(seg), 'fetch_diff still applies a size limit of its own');
 });
 check('reviewer diff budget is large enough for infra-sized PRs', () => {
   const m = py.match(/DEEPSEEK_MAX_DIFF_CHARS", "(\d+)"/);
   assert(m, 'diff budget is not configurable');
   assert(Number(m[1]) >= 150000, `diff budget ${m[1]} is too small`);
+});
+check('oversized diffs are chunked, not silently truncated', () => {
+  // Truncate-and-reject was correct but made any PR past the budget permanently
+  // unreviewable, and raising the budget only defers the same wall.
+  assert(/def split_diff/.test(py), 'no diff chunking');
+  assert(/MAX_DIFF_CHUNKS/.test(py), 'chunk count is unbounded');
+  assert(/re\.split\(r"\(\?m\)\^\(\?=diff --git \)"/.test(py),
+    'chunks are not split at file boundaries, so hunks could be cut in half');
+  assert(/DIFF_TOO_LARGE/.test(py), 'a diff beyond the chunk cap is not classified');
+  assert(/fetch_diff.*\n.*Return the COMPLETE diff/.test(py) || /Return the COMPLETE diff/.test(py),
+    'fetch_diff no longer returns the complete diff');
+});
+check('chunked verdicts merge with rejection winning', () => {
+  assert(/def merge_results/.test(py), 'no verdict merge');
+  const seg = py.split('def merge_results')[1].split('\ndef ')[0];
+  assert(/verdict = "BLOCKED"/.test(seg), 'BLOCKED does not propagate');
+  assert(/verdict = "REJECT"/.test(seg), 'REJECT does not propagate');
+  assert(/if blockers and verdict == "ACCEPT"/.test(seg),
+    'a chunk reporting blockers could still merge to ACCEPT');
+  // Each chunk must get its own bounded attempt budget, not share one across the review.
+  assert(/def reset_attempts/.test(py), 'no per-chunk attempt reset');
+  assert(/reset_attempts\(\)\s*\n\s*reply = call_deepseek/.test(py),
+    'attempt budget is not reset per chunk');
 });
 check('reviewer sends the full changed-file list even when the diff truncates', () => {
   assert(/def fetch_changed_files/.test(py), 'no changed-file listing');
@@ -618,10 +659,30 @@ check('severity set covers P0 and hyphenated must-fix', () => {
 });
 check('required checks must conclude success', () => {
   const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
-  assert(/conclusion -eq "success"/.test(seg),
+  assert(/conclusion -ne "success"/.test(seg),
     'a required check concluding skipped/neutral/stale would still satisfy the gate');
   assert(/did not conclude success/.test(seg), 'non-success conclusions are not reported');
   assert(/Status = "FAIL"; Failing = \$notSuccessful/.test(seg), 'non-success does not fail the rollup');
+});
+check('only the latest attempt of a required check counts', () => {
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  // An old green run must not mask a rerun that concluded neutral/skipped/stale.
+  assert(/Sort-Object[\s\S]{0,120}-Descending/.test(seg), 'attempts are not ordered');
+  assert(/started_at/.test(seg), 'attempt recency is not considered');
+  assert(/\$latest\.status -ne "completed" -or \$latest\.conclusion -ne "success"/.test(seg),
+    'the latest attempt is not the one evaluated');
+  assert(!/\$ok\.Count -eq 0/.test(seg), 'still accepts any historical successful attempt');
+  assert(/started_at, id/.test(ps1), 'check-run query does not fetch attempt ordering fields');
+});
+check('an unparsed lock scope fails closed', () => {
+  // Empty AllowedPaths previously meant "allow everything", silently disabling the guard
+  // if the Allowed scope section were renamed, malformed or missing.
+  const seg = ps1.split('function Test-PathInLockScope')[1].split('function Assert-ChangesInLockScope')[0];
+  assert(/AllowedPaths\)\.Count -eq 0\) \{ return \$false \}/.test(seg),
+    'empty scope still authorises every path');
+  assert(/declares no enumerated allowed paths/.test(ps1), 'empty scope is not a hard blocker');
+  assert(/Stop-Loop -Status "BLOCKED" -Reason "WRITE_LOCK declares no enumerated/.test(ps1),
+    'empty scope does not stop the loop');
 });
 check('all same-head Codex reviews are aggregated', () => {
   const seg = ps1.split('function Get-CodexVerdict')[1].split('function Wait-ForReviews')[0];

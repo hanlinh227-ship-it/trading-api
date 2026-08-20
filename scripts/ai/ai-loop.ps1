@@ -430,16 +430,22 @@ function Test-WriteLock {
             }
         }
     }
+    # Fail CLOSED on an empty scope. Treating "no paths parsed" as "everything allowed"
+    # would silently disable the guard whenever the Allowed scope section is renamed,
+    # malformed or missing - and Publish-Round's `git add -A` would then be free to stage
+    # Trading business source. A free lock is not write authorization either.
     if ($script:AllowedPaths.Count -gt 0) {
         Write-Good "Lock scope enumerates $($script:AllowedPaths.Count) allowed path(s)"
     } else {
-        Write-Warn2 "Lock declares no enumerated allowed paths; scope enforcement will not be able to bound this round"
+        Stop-Loop -Status "BLOCKED" -Reason "WRITE_LOCK declares no enumerated allowed paths, so this round cannot be bounded. Add an 'Allowed scope' section listing each writable path as a backticked bullet before running the loop."
     }
 }
 
 function Test-PathInLockScope {
     param([Parameter(Mandatory = $true)][string]$RelativePath)
-    if (@($script:AllowedPaths).Count -eq 0) { return $true }
+    # No implicit allow-all: an unparsed scope is a blocker raised in Test-WriteLock, and
+    # if execution ever reaches here without one, nothing is in scope.
+    if (@($script:AllowedPaths).Count -eq 0) { return $false }
     $p = ($RelativePath -replace '\\', '/').Trim()
     foreach ($allowed in $script:AllowedPaths) {
         if ($p -eq $allowed) { return $true }
@@ -557,8 +563,11 @@ function Get-ClaudeAllowedTools {
         "Bash(git rev-parse:*)",
         "Bash(node --check:*)",
         "Bash(node scripts/ai/:*)",
-        "Bash(node cloudflare-worker/validate-worker.mjs)",
-        "Bash(npm test:*)"
+        "Bash(node cloudflare-worker/validate-worker.mjs)"
+        # Deliberately NOT granted: Bash(npm test:*). An npm script is arbitrary code
+        # defined in package.json, so granting it would hand back the general execution
+        # this narrow list exists to withhold. The controller runs the deterministic
+        # suite itself and does not depend on Claude running it.
     ) -join ","
 }
 
@@ -775,6 +784,11 @@ function Publish-Round {
         Stop-Loop -Status "BLOCKED" -Reason "Refusing to push: HEAD is on protected branch '$current'."
     }
 
+    # Re-assert scope immediately before `git add -A`. Assert-ChangesInLockScope already
+    # ran before the tests, but a test step can itself create files, and staging is the
+    # last moment at which an out-of-scope file can still be stopped.
+    Assert-ChangesInLockScope
+
     $status = (Invoke-Git -Arguments @("status", "--porcelain")).StdOut
     if ([string]::IsNullOrWhiteSpace($status)) {
         Write-Warn2 "No changes to commit this round."
@@ -924,7 +938,10 @@ function Request-CodexReview {
 # STEP 12 - Poll GitHub for checks and both reviewer verdicts
 # ======================================================================================
 function Get-CheckRollup {
-    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/commits/$($script:State.head_sha)/check-runs", "--jq", "[.check_runs[] | {name, status, conclusion}]")
+    # started_at and id are needed to identify the LATEST attempt per check name. Without
+    # them, an old successful run keeps satisfying the gate after a rerun concluded
+    # neutral/skipped/stale.
+    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/commits/$($script:State.head_sha)/check-runs", "--jq", "[.check_runs[] | {name, status, conclusion, started_at, id}]")
     if ($r.ExitCode -ne 0) { return [pscustomobject]@{ Status = "UNKNOWN"; Failing = @() } }
     $runs = @()
     try { $runs = @($r.StdOut | ConvertFrom-Json) } catch { return [pscustomobject]@{ Status = "UNKNOWN"; Failing = @() } }
@@ -947,10 +964,11 @@ function Get-CheckRollup {
     foreach ($required in $script:REQUIRED_CHECKS) {
         $matching = @($runs | Where-Object { "$($_.name)" -eq $required })
         if ($matching.Count -eq 0) { $absent += $required; continue }
-        $ok = @($matching | Where-Object { $_.status -eq "completed" -and $_.conclusion -eq "success" })
-        if ($ok.Count -eq 0) {
-            $seen = (@($matching | ForEach-Object { "$($_.conclusion)" }) -join "/")
-            $notSuccessful += "$required (conclusion: $seen)"
+        # Only the LATEST attempt counts. Accepting any historical success would let an old
+        # green run mask a rerun that concluded neutral/skipped/stale.
+        $latest = @($matching | Sort-Object -Property @{Expression = { $_.started_at }}, @{Expression = { $_.id }} -Descending)[0]
+        if ($latest.status -ne "completed" -or $latest.conclusion -ne "success") {
+            $notSuccessful += "$required (latest attempt: status=$($latest.status), conclusion=$($latest.conclusion))"
         }
     }
     if ($absent.Count -gt 0) {
@@ -1027,7 +1045,10 @@ function Get-CodexInlineFindings {
         # Exact identity, not a substring: a collaborator or bot named e.g. "codex-reviewer"
         # must not be able to speak for the independent reviewer.
         if ($c.login -ne $script:CODEX_BOT_LOGIN) { continue }
-        $cid = $c.commit_id; if ([string]::IsNullOrWhiteSpace($cid)) { $cid = $c.current }
+        # original_commit_id is the commit the finding was actually written against.
+        # Falling back to commit_id would also match a comment merely carried forward onto
+        # a newer head, which is not the same claim, so require the exact original.
+        $cid = $c.commit_id
         if ([string]::IsNullOrWhiteSpace($cid)) { continue }
         if ($cid.ToLowerInvariant() -ne $Sha.ToLowerInvariant()) { continue }
         $body = "$($c.body)"
