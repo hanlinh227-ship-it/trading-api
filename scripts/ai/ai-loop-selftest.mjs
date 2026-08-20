@@ -473,6 +473,23 @@ check('reviewer is a reviewer, not an implementer', () => {
   assert(/reviewer, not an implementer/i.test(py), 'role not asserted in the reviewer prompt');
   assert(!/git\s+(commit|push|checkout)/.test(py), 'reviewer performs git writes');
 });
+check('truncated diff fails closed to REJECT', () => {
+  assert(/DIFF TRUNCATED/.test(py), 'no truncation notice');
+  assert(/Emit VERDICT=REJECT and record the/.test(py),
+    'truncation does not force REJECT - a reviewer must never accept a diff it could not read');
+  assert(!/flag truncation as NON_BLOCKING/.test(py), 'truncation is still treated as non-blocking');
+});
+check('reviewer diff budget is large enough for infra-sized PRs', () => {
+  const m = py.match(/DEEPSEEK_MAX_DIFF_CHARS", "(\d+)"/);
+  assert(m, 'diff budget is not configurable');
+  assert(Number(m[1]) >= 150000, `diff budget ${m[1]} is too small`);
+});
+check('reviewer sends the full changed-file list even when the diff truncates', () => {
+  assert(/def fetch_changed_files/.test(py), 'no changed-file listing');
+  assert(/COMPLETE CHANGED-FILE LIST/.test(py), 'file list not surfaced in the prompt');
+  assert(/authoritative scope, even if the diff below is truncated/.test(py),
+    'file list is not framed as the authoritative scope');
+});
 check('reviewer protocol-repair pass is bounded to one retry', () => {
   assert(/PROTOCOL_ERROR/.test(py), 'no protocol error classification');
   assert(/protocol-repair/.test(py), 'no protocol-repair pass');

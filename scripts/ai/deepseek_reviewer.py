@@ -37,7 +37,11 @@ MAX_ATTEMPTS = 3
 BACKOFF_BASE_SEC = 2.0
 BACKOFF_CAP_SEC = 16.0
 
-MAX_DIFF_CHARS = 60000
+# Infrastructure-sized PRs run well past 60k chars. DeepSeek's context comfortably holds
+# ~160k chars of diff alongside the system prompt and a 4k-token reply, and a reviewer that
+# cannot see the whole diff must REJECT (see fetch_diff), so a too-small budget would make
+# large PRs permanently unreviewable.
+MAX_DIFF_CHARS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHARS", "160000"))
 MAX_EVIDENCE_CHARS = 8000
 
 COMMENT_MARKER = "<!-- ai-loop:deepseek-review -->"
@@ -122,8 +126,24 @@ def fetch_diff(repo: str, pr: int) -> str:
         raise LoopBlocked("GITHUB_ERROR", f"gh pr diff failed: {redact(proc.stderr.strip())}")
     diff = proc.stdout or ""
     if len(diff) > MAX_DIFF_CHARS:
-        diff = diff[:MAX_DIFF_CHARS] + f"\n\n[diff truncated at {MAX_DIFF_CHARS} chars - review what is shown and flag truncation as NON_BLOCKING]"
+        omitted = len(diff) - MAX_DIFF_CHARS
+        # Fail closed: a reviewer that cannot see the whole change must not accept it.
+        diff = diff[:MAX_DIFF_CHARS] + (
+            f"\n\n[DIFF TRUNCATED: {omitted} of {len(diff)} chars were omitted. "
+            "You have NOT seen the whole change. Emit VERDICT=REJECT and record the "
+            "truncation as a BLOCKER - never ACCEPT a diff you could not fully read.]"
+        )
     return diff
+
+
+def fetch_changed_files(repo: str, pr: int) -> list[str]:
+    """Full file list, so a truncated diff still reveals the true scope of the change."""
+    try:
+        data = gh_json(["pr", "view", str(pr), "--repo", repo, "--json", "files",
+                        "--jq", "[.files[] | \"\\(.path) (+\\(.additions)/-\\(.deletions))\"]"])
+        return list(data or [])
+    except LoopBlocked:
+        return []
 
 
 def fetch_checks(repo: str, sha: str) -> tuple[str, list[str]]:
@@ -213,7 +233,7 @@ Rules for the block:
 """
 
 
-def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str], evidence: str, objective: str | None) -> str:
+def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str], evidence: str, objective: str | None, changed_files: list[str] | None = None) -> str:
     parts = [
         f"REPOSITORY: hanlinh227-ship-it/trading-api",
         f"PR: #{pr['number']} — {pr.get('title') or '(no title)'}",
@@ -224,8 +244,12 @@ def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str
     ]
     if objective:
         parts += ["LOOP OBJECTIVE (what this PR is supposed to achieve):", objective, ""]
+    if changed_files:
+        parts += ["COMPLETE CHANGED-FILE LIST (authoritative scope, even if the diff below is truncated):"]
+        parts += [f"  - {f}" for f in changed_files]
+        parts += [""]
     parts += [
-        "PR DESCRIPTION (author intent — verify the diff actually matches it):",
+        "PR DESCRIPTION (author intent - verify the diff actually matches it):",
         (pr.get("body") or "(empty)").strip(),
         "",
         f"GITHUB CHECK ROLLUP for {pr['headRefOid']}: {checks_status}",
@@ -522,13 +546,15 @@ def main() -> int:
             raise LoopBlocked("EMPTY_DIFF", "PR diff is empty; nothing to review")
         checks_status, failing = fetch_checks(args.repo, head_sha)
         evidence = read_evidence(args.evidence_file)
-        user_prompt = build_user_prompt(pr, diff, checks_status, failing, evidence, args.objective)
+        changed_files = fetch_changed_files(args.repo, args.pr)
+        user_prompt = build_user_prompt(pr, diff, checks_status, failing, evidence, args.objective, changed_files)
 
         if args.dry_run:
             has_key = bool(os.environ.get("DEEPSEEK_API_KEY"))
             # Phrased to avoid a NAME: VALUE shape, which redact() would (correctly) mask.
             log("DRY RUN - no DeepSeek API call was made")
-            log(f"  diff chars       {len(diff)}")
+            log(f"  diff chars       {len(diff)} (budget {MAX_DIFF_CHARS})")
+            log(f"  changed files    {len(changed_files)}")
             log(f"  prompt chars     {len(user_prompt)}")
             log(f"  checks rollup    {checks_status}")
             log(f"  api key detected {'yes' if has_key else 'NO'} (value never read)")
