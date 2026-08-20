@@ -525,6 +525,55 @@ check('reviewer protocol-repair pass is bounded to one retry', () => {
   assert(/if exc\.classification != "PROTOCOL_ERROR":\s*\n\s*raise/.test(py),
     'repair pass is not restricted to protocol errors');
 });
+check('HTTP attempts are capped across the WHOLE review, not per call', () => {
+  // Two invocations of a 3-attempt loop would allow 6 requests; the contract says 3.
+  assert(/_ATTEMPTS_USED/.test(py), 'no shared attempt counter');
+  assert(/def attempts_remaining/.test(py), 'no shared budget accessor');
+  assert(/budget = attempts_remaining\(\)/.test(py), 'retry loop does not consume the shared budget');
+  assert(/for attempt in range\(1, budget \+ 1\)/.test(py), 'retry loop is not bounded by the shared budget');
+  assert(!/for attempt in range\(1, MAX_ATTEMPTS \+ 1\)/.test(py), 'per-call attempt loop still present');
+  assert(/ATTEMPTS_EXHAUSTED/.test(py), 'exhausted budget is not classified');
+});
+check('DeepSeek verdict comments are authenticated', () => {
+  const seg = ps1.split('function Get-DeepSeekVerdict')[1].split('function Get-Codex')[0];
+  assert(/github-actions\[bot\]/.test(seg), 'verdict author is not verified');
+  assert(/ai-loop:deepseek-review/.test(seg), 'reviewer comment marker is not verified');
+  assert(/login: \.user\.login/.test(seg), 'comment author is not even fetched');
+  // A forged ACCEPT from any PR participant must be ignored, not trusted.
+  assert(/ignoring a DEEPSEEK_REVIEW block from/.test(seg), 'forged verdicts are not rejected');
+});
+check('Codex inline findings are treated as blocking', () => {
+  assert(/function Get-CodexInlineFindings/.test(ps1), 'inline review comments are never read');
+  const seg = ps1.split('function Get-CodexInlineFindings')[1].split('function Wait-ForReviews')[0];
+  assert(/pulls\/\$\(\$script:State\.pr_number\)\/comments/.test(seg), 'does not query inline comments');
+  assert(/P1\|P2/.test(seg), 'severity badges are not detected');
+  assert(/inline\.Count -gt 0/.test(seg), 'inline findings do not override the review state');
+  assert(/original_commit_id/.test(seg), 'inline findings are not pinned to a commit');
+});
+check('check rollup requires named checks to actually report', () => {
+  assert(/\$script:REQUIRED_CHECKS\s*=\s*@\(/.test(ps1), 'no required-check list');
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  assert(/foreach \(\$required in \$script:REQUIRED_CHECKS\)/.test(seg), 'required checks are not verified present');
+  assert(/absent\.Count -gt 0/.test(seg), 'absent required checks do not downgrade the rollup');
+  assert(/Status = "PENDING"[\s\S]{0,80}\}\s*\n\s*return \[pscustomobject\]@\{ Status = "PASS"/.test(seg)
+    || /absent[\s\S]{0,200}PENDING/.test(seg), 'absent required checks still yield PASS');
+});
+check('unverified Claude round fails closed', () => {
+  const seg = ps1.split('$claude = Invoke-ClaudeRound')[1].split('$testsPass = ')[0];
+  assert(/SafetyInvariants -ne "PASS"/.test(seg),
+    'only an explicit FAIL is caught; UNKNOWN would pass through as safe');
+  assert(/@\(\$claude\.Blockers\)\.Count -gt 0/.test(seg),
+    'blockers are ignored unless STATUS=BLOCKED');
+  assert(/"IMPLEMENTED", "NO_CHANGE_NEEDED"/.test(seg), 'an unknown STATUS is accepted');
+});
+check('persisted state matches the schema shape', () => {
+  const seg = ps1.split('function Write-Summary')[1];
+  assert(/\$serialisable\["tests"\]\s*=\s*\[ordered\]@\{/.test(seg), 'tests is not serialised as an object');
+  assert(/\$serialisable\["checks"\]\s*=\s*\[ordered\]@\{ status/.test(seg), 'checks is not serialised as an object');
+  // Schema agrees these are objects with a status property.
+  assert(schema.properties.tests.type === 'object', 'schema tests is not an object');
+  assert(schema.properties.checks.type === 'object', 'schema checks is not an object');
+});
 check('reviewer reply budget can hold prose plus the mandatory block', () =>
   assert(/"max_tokens": (4000|[5-9]\d{3})/.test(py), 'max_tokens too small to guarantee the block'));
 check('reviewer posts exactly one comment (upsert by marker)', () => {

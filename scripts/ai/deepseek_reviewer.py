@@ -284,10 +284,23 @@ def classify_http_error(exc: urllib.error.HTTPError) -> tuple[str, bool]:
     return f"HTTP_{code}", False
 
 
+# One HTTP attempt budget for the ENTIRE review, shared by the initial call and the
+# protocol-repair call. Without this, two invocations of three attempts each could make
+# six requests, breaking the contract's "maximum attempts = 3".
+_ATTEMPTS_USED = [0]
+
+
+def attempts_remaining() -> int:
+    return max(0, MAX_ATTEMPTS - _ATTEMPTS_USED[0])
+
+
 def call_deepseek(system_prompt: str, user_prompt: str) -> str:
     key = os.environ.get("DEEPSEEK_API_KEY")
     if not key:
         raise LoopBlocked("MISSING_SECRET", "DEEPSEEK_API_KEY is not available to this job")
+    if attempts_remaining() <= 0:
+        raise LoopBlocked("ATTEMPTS_EXHAUSTED",
+                          f"the {MAX_ATTEMPTS}-attempt budget for this review is already spent")
 
     payload = json.dumps({
         "model": MODEL,
@@ -301,7 +314,9 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
     }).encode("utf-8")
 
     last: tuple[str, str] | None = None
-    for attempt in range(1, MAX_ATTEMPTS + 1):
+    budget = attempts_remaining()
+    for attempt in range(1, budget + 1):
+        _ATTEMPTS_USED[0] += 1
         req = urllib.request.Request(
             API_URL,
             data=payload,
@@ -323,26 +338,26 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
             except Exception:
                 pass
             last = (classification, f"HTTP {exc.code}: {detail}")
-            log(f"DeepSeek attempt {attempt}/{MAX_ATTEMPTS} failed [{classification}]")
+            log(f"DeepSeek attempt {_ATTEMPTS_USED[0]}/{MAX_ATTEMPTS} failed [{classification}]")
             if not retryable:
                 raise LoopBlocked(classification, last[1]) from exc
         except urllib.error.URLError as exc:
             last = ("NETWORK_ERROR", str(exc.reason))
-            log(f"DeepSeek attempt {attempt}/{MAX_ATTEMPTS} failed [NETWORK_ERROR]")
+            log(f"DeepSeek attempt {_ATTEMPTS_USED[0]}/{MAX_ATTEMPTS} failed [NETWORK_ERROR]")
         except TimeoutError:
             last = ("TIMEOUT", f"no response within {REQUEST_TIMEOUT_SEC}s")
-            log(f"DeepSeek attempt {attempt}/{MAX_ATTEMPTS} failed [TIMEOUT]")
+            log(f"DeepSeek attempt {_ATTEMPTS_USED[0]}/{MAX_ATTEMPTS} failed [TIMEOUT]")
         except json.JSONDecodeError as exc:
             last = ("BAD_RESPONSE", f"non-JSON response: {exc}")
-            log(f"DeepSeek attempt {attempt}/{MAX_ATTEMPTS} failed [BAD_RESPONSE]")
+            log(f"DeepSeek attempt {_ATTEMPTS_USED[0]}/{MAX_ATTEMPTS} failed [BAD_RESPONSE]")
 
-        if attempt < MAX_ATTEMPTS:
+        if attempt < budget:
             delay = min(BACKOFF_BASE_SEC * (2 ** (attempt - 1)), BACKOFF_CAP_SEC)
             log(f"backing off {delay:.0f}s before retry")
             time.sleep(delay)
 
     classification, message = last or ("UNKNOWN", "exhausted attempts")
-    raise LoopBlocked(classification, f"{MAX_ATTEMPTS} attempts exhausted: {message}")
+    raise LoopBlocked(classification, f"{_ATTEMPTS_USED[0]}/{MAX_ATTEMPTS} attempts exhausted: {message}")
 
 
 # --------------------------------------------------------------------------------------
