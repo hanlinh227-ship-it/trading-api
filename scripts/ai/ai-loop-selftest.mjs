@@ -845,6 +845,14 @@ check('the suite auditing a PR is the trusted base copy, not the PR head copy', 
     'the bootstrap fallback does not declare that its assertions are untrusted');
   // Still credential-free, and still not inside the privileged job.
   assert(!/secrets\./.test(job), 'the selftest job is exposed to secrets');
+  // And the credential actions/checkout persists is dropped once fetching is done, so the
+  // code about to run - which in bootstrap mode comes from the change under review - has
+  // no token to pick up.
+  assert(/--unset-all http\.https:\/\/github\.com\/\.extraheader/.test(job),
+    'the persisted git credential is left available to the code the job runs');
+  const unsetIdx = job.indexOf('--unset-all http');
+  const runIdx = job.indexOf('node scripts/ai/ai-loop-selftest.mjs');
+  assert(unsetIdx > -1 && unsetIdx < runIdx, 'the credential is dropped after the suite runs');
 });
 check('an absent remote branch does not disable the push guard', () => {
   // Get-RemoteBranchSha returns "" when the branch does not exist yet. A truthiness test

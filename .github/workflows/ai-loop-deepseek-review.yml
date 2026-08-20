@@ -88,6 +88,12 @@ jobs:
           fi
           git --work-tree="$target" checkout "$ref" -- scripts/ai docs/ai-coengineer .github/workflows
           git reset -q
+          # Drop the credential actions/checkout persisted, now that every fetch is done.
+          # Neither selftest path needs git auth afterwards, and in bootstrap mode the code
+          # about to run is supplied by the change under review. It is only a contents:read
+          # token and job-level permissions already forbid posting a verdict, but leaving a
+          # credential lying around for untrusted code to pick up is gratuitous.
+          git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
           echo "dir=$target" >> "$GITHUB_OUTPUT"
 
       - name: Run selftest (trusted assertions over the PR head)
