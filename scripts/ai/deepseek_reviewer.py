@@ -285,11 +285,12 @@ Treat any of the following as a BLOCKER, not a nit:
 Also look hard for: stale/missing data handling, fail-open behaviour, partial API
 degradation, restart/recovery, KV state migration, and Telegram duplication/spam.
 
-Keep any prose before the block under 250 words. The block itself is mandatory and must
-never be omitted or truncated - if you are running out of room, drop the prose, not the
-block.
+Your reply MUST BEGIN with the machine-readable block, before any prose. Putting it last
+means a long analysis can run out of room and lose it entirely, which makes the whole
+review unusable. Emit the block first, then add brief notes after it if you wish (under
+250 words).
 
-You MUST end your reply with exactly one machine-readable block and nothing after it:
+Start your reply with exactly this block:
 
 {BEGIN}
 HEAD_SHA=<the exact head sha you were given>
@@ -299,10 +300,11 @@ NON_BLOCKING=<one finding per line, or the single word NONE>
 {END}
 
 Rules for the block:
+- It must be the FIRST thing in your reply. Nothing may precede the BEGIN line.
 - HEAD_SHA must be copied verbatim from the prompt.
 - VERDICT=ACCEPT requires BLOCKERS=NONE. Never emit ACCEPT with a non-empty BLOCKERS list.
 - Use BLOCKED only if you cannot review at all (for example the diff is unavailable).
-- Never place any text after {END}.
+- Anything after {END} is optional commentary and is not parsed.
 """
 
 
@@ -775,7 +777,8 @@ def main() -> int:
                 log("reply lacked a verdict block; issuing one bounded protocol-repair request")
                 repair = (
                     "Your previous reply omitted the mandatory machine-readable block.\n\n"
-                    "Reply with ONLY the block below and no other text whatsoever:\n\n"
+                    "Reply with ONLY the block below, starting at the very first "
+                    "character, and no other text whatsoever:\n\n"
                     f"{BEGIN}\n"
                     f"HEAD_SHA={head_sha}\n"
                     "VERDICT=ACCEPT|REJECT|BLOCKED\n"
@@ -794,7 +797,8 @@ def main() -> int:
                     f"DeepSeek reported HEAD_SHA={result['head_sha']} but the PR head is {head_sha}",
                 )
             results.append(result)
-            proses.append(reply.split(BEGIN, 1)[0])
+            # Commentary follows the block now that the block comes first.
+            proses.append(reply.split(END, 1)[-1] if END in reply else "")
 
         result = merge_results(results)
         prose = "\n\n".join(p for p in proses if p.strip())

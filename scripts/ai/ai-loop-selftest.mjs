@@ -598,6 +598,19 @@ check('reviewer sends the full changed-file list even when the diff truncates', 
   assert(/authoritative scope, even if the diff below is truncated/.test(py),
     'file list is not framed as the authoritative scope');
 });
+check('the verdict block is emitted first, so it cannot be lost', () => {
+  // With the block last, a long analysis runs out of reply budget before reaching it and
+  // the entire review becomes unusable - which is exactly what happened at fa2055e, on
+  // both the first attempt and the repair pass.
+  assert(/Your reply MUST BEGIN with the machine-readable block/.test(py),
+    'the block is not demanded first');
+  assert(/It must be the FIRST thing in your reply/.test(py), 'block-first is not stated as a rule');
+  assert(!/end your reply with exactly one machine-readable block/.test(py),
+    'the old block-last instruction is still present');
+  // Commentary is then whatever follows the block, not what precedes it.
+  assert(/reply\.split\(END, 1\)\[-1\]/.test(py), 'prose is still taken from before the block');
+  assert(!/reply\.split\(BEGIN, 1\)\[0\]\)/.test(py), 'prose extraction still assumes block-last');
+});
 check('reviewer protocol-repair pass is bounded to one retry', () => {
   assert(/PROTOCOL_ERROR/.test(py), 'no protocol error classification');
   assert(/protocol-repair/.test(py), 'no protocol-repair pass');

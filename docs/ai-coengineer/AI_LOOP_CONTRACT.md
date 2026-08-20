@@ -147,6 +147,29 @@ let an unrelated provider-side check veto every PR in the repository indefinitel
 Cloudflare Workers Build failure tracked in issue #62 is exactly that case. Their failures
 are surfaced in the run summary so they stay visible rather than silently ignored.
 
+### What the loop cannot certify about itself
+
+Two changes are deliberately outside what the loop may clear on its own. Both produce a
+terminal `BLOCKED`, and both require a human to review and merge:
+
+1. **A change to the reviewer itself.** The DeepSeek reviewer runs from the trusted base
+   revision, so on the PR that introduces or modifies it there is no trusted copy to run.
+   The workflow falls back to the PR head, marks the review `TRUST=bootstrap`, and the
+   controller refuses to count an untrusted `ACCEPT` as an acceptance. The asymmetry is the
+   point: a reviewer supplied by the code under review may raise concerns but may not clear
+   them. Findings still count against the change.
+
+2. **A change to a CI workflow.** For a same-repository `pull_request` event GitHub loads
+   the workflow definition from the **PR head**, so checking out a trusted base pins the
+   worktree but not the job definition. A run able to edit its own workflow could replace
+   the review step with one that posts a forged verdict using the job's `pull-requests:
+   write` token. There is no in-workflow fix for this, so `Assert-ChangesInLockScope`
+   refuses to author any change under `.github/workflows/` at all.
+
+Consequently `AI-LOOP-INFRA-V1` — the PR that introduces both the reviewer and its
+workflow — is not self-certifiable. That is the design working, not a defect to engineer
+around.
+
 ### Bounds
 
 - `MAX_ROUNDS = 5` (hard ceiling; the controller clamps any higher request down to 5).
