@@ -17,16 +17,18 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Capture latest final-runner status and failed logs
+      - name: Capture latest non-skipped final-runner status and failed logs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUN=$(gh run list --workflow v78-028-final-runner.yml --limit 1 --json databaseId,status,conclusion,headSha,createdAt,url --jq '.[0].databaseId')
-          gh run list --workflow v78-028-final-runner.yml --limit 1 --json databaseId,status,conclusion,headSha,createdAt,url > /tmp/meta.json
+          gh run list --workflow v78-028-final-runner.yml --limit 10 --json databaseId,status,conclusion,headSha,createdAt,url > /tmp/all.json
+          RUN=$(jq -r '[.[]|select(.conclusion!="skipped")][0].databaseId // empty' /tmp/all.json)
+          test -n "$RUN"
+          jq '[.[]|select(.conclusion!="skipped")][0]' /tmp/all.json > /tmp/meta.json
           { echo '=== META ==='; cat /tmp/meta.json; echo; echo '=== FAILED LOGS ==='; gh run view "$RUN" --log-failed || true; } > docs/ai-coengineer/V78_FINAL_RUN_DIAGNOSTIC.txt
           git config user.name 'V78 Inspector'
           git config user.email 'actions@users.noreply.github.com'
           git add docs/ai-coengineer/V78_FINAL_RUN_DIAGNOSTIC.txt
-          git commit -m 'Record V78 final runner diagnostic'
+          git commit -m 'Record latest non-skipped V78 final runner diagnostic'
           git push origin HEAD:main
