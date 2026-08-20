@@ -341,6 +341,34 @@ function Invoke-Git {
     return Invoke-Native -File "git" -Arguments $safeArgs -TimeoutSec $TimeoutSec
 }
 
+function Assert-NoForcePush {
+    <#
+      A force-push makes the previous head UNREACHABLE, and no amount of history scanning
+      can see an unreachable commit - not even --full-history, which only walks the range
+      it is given.
+
+      That is exploitable: point the PR briefly at a malicious workflow commit, let its
+      workflow run start, then force-push to a clean history. The scan finds nothing
+      because the commit is gone from the graph, while the old run stays alive (the
+      workflow deliberately does NOT cancel in progress, so that a dispatched and an
+      automatic run cannot kill each other), waits for the new head, and posts a forged
+      bot-authored acceptance for that SHA.
+
+      The controller cannot reconstruct what definitions ran across a rewritten history, so
+      it refuses to certify such a PR at all and hands it to a human.
+    #>
+    param([Parameter(Mandatory = $true)][int]$PrNumber)
+    if ($PrNumber -le 0) { return }
+    $events = Invoke-GhJsonLines -Path "repos/$Repo/issues/$PrNumber/timeline" -JqObject 'select(.event=="head_ref_force_pushed") | {event, created_at}'
+    if ($null -eq $events) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read the PR #$PrNumber timeline to check for force-pushes. A rewritten history cannot be audited after the fact, so the loop refuses to proceed without that evidence."
+    }
+    if (@($events).Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "PR #$PrNumber has been force-pushed $(@($events).Count) time(s). A force-push makes the previous head unreachable, so no history scan can prove what CI definitions ran on it, and a workflow run started before the rewrite can still post a verdict for the current SHA. A human must review this PR."
+    }
+    Write-Good "PR #$PrNumber has never been force-pushed"
+}
+
 function Assert-NoRepositoryHooks {
     # Neutralising hooks is the control; detecting them is how the operator finds out an
     # attempt was made. Sample hooks ship with every clone and are inert.
@@ -604,6 +632,7 @@ function Initialize-Branch {
         if ($pr.state -ne "OPEN") { Stop-Loop -Status "BLOCKED" -Reason "PR #$PrNumber is $($pr.state), not OPEN." }
         $script:State.branch = $pr.headRefName
         $script:State.pr_number = $PrNumber
+        Assert-NoForcePush -PrNumber $PrNumber
         $script:ExpectedPrHead = "$($pr.headRefOid)".Trim()
         Write-Good "Reusing PR #$PrNumber on branch $($pr.headRefName) at $($script:ExpectedPrHead)"
     }
@@ -1358,6 +1387,12 @@ function Get-CodexVerdict {
 function Wait-ForReviews {
     Write-Step "STEP 12/12  Polling GitHub for checks and reviewer verdicts"
     $script:State.status = "AWAITING_REVIEWS"
+
+    # Re-check before trusting any verdict: a rewrite during the run would invalidate the
+    # history evidence gathered at branch resolution.
+    if ($null -ne $script:State.pr_number -and -not $DryRun) {
+        Assert-NoForcePush -PrNumber $script:State.pr_number
+    }
 
     if ($DryRun) {
         Write-Warn2 "DRY RUN - not polling live reviewers."

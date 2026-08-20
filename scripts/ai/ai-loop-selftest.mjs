@@ -988,6 +988,26 @@ check('a bootstrap reviewer cannot vouch for the change that supplied it', () =>
     'an untrusted ACCEPT is still counted as an acceptance');
   assert(/\$verdict = "PENDING"/.test(seg), 'untrusted acceptance is not downgraded');
 });
+check('a force-pushed PR is refused, since its old history cannot be audited', () => {
+  // A force-push makes the previous head UNREACHABLE, so no history scan can see it -
+  // not even --full-history, which only walks the range it is given. The old workflow run
+  // stays alive (the workflow deliberately does not cancel in progress), waits for the new
+  // head, and can post a forged bot-authored acceptance for that SHA.
+  assert(/function Assert-NoForcePush/.test(ps1), 'force-pushes are never detected');
+  const seg = ps1.split('function Assert-NoForcePush')[1].split('\nfunction ')[0];
+  assert(/head_ref_force_pushed/.test(seg), 'the timeline is not queried for force-push events');
+  assert(/timeline/.test(seg), 'the PR timeline is never read');
+  assert(/Stop-Loop -Status "BLOCKED"/.test(seg), 'a force-pushed PR does not block the run');
+  // An unreadable timeline is itself a blocker: absence of evidence is not evidence.
+  assert(/\$null -eq \$events/.test(seg), 'an unreadable timeline silently passes');
+  assert(/without that evidence/.test(seg), 'an unreadable timeline is not treated as a blocker');
+  // Checked when reusing a PR, and again before any verdict is trusted.
+  const calls = (stripPs1Comments(ps1).match(/Assert-NoForcePush -PrNumber/g) || []).length;
+  assert(calls >= 2, `force-push detection must run at branch resolution and before verdict trust; found ${calls}`);
+  // It must use the paginated NDJSON reader, not an array-per-page jq.
+  assert(/Invoke-GhJsonLines -Path "repos\/\$Repo\/issues\/\$PrNumber\/timeline"/.test(seg),
+    'timeline read does not use the multi-page-safe reader');
+});
 check('repository git hooks cannot influence controller git operations', () => {
   // Claude has Write/Edit, so a round could plant .git/hooks/pre-commit. Git excludes
   // .git/ from both `git diff` and `git ls-files --others`, so such a hook is invisible to
