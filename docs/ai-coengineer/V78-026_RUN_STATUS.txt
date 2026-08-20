@@ -1,12 +1,29 @@
 STATUS=FAIL
-FAIL_STAGE=static
-RUN_AT=2026-08-20T00:40:59Z
-BRANCH_BASE=67d18a4356175b1a09ae15acf6714b7e09ba838b
+FAIL_STAGE=demosecrets
+RUN_AT=2026-08-20T00:41:57Z
+BRANCH_BASE=697c3f41c53a0caf2baece0dbb127589f4fd9398
 --- LOG ---
 === guard ===
 rc=0
 === patch ===
 V78-026 H1 patch applied
 rc=0
+=== nodecheck ===
+rc=0
 === static ===
+{'sha256Hex': 1, 'retryable_refs': 2, 'randomUUID': 0, 'cancelAll': 1}
+rc=0
+=== untouched ===
+BYTE_IDENTICAL evaluateHyroGate sha256=9927fc46ac1fa1d75c0d908270512623e587a6124ef15765761f6310f10baaed
+BYTE_IDENTICAL normalizedOrder sha256=db3ba88635e2bd4b78f5bf68014956ea2754ef4aff284535c1a3edd67fda48fa
+BYTE_IDENTICAL hyroDynamicRiskView sha256=8f5b919ecd14d646efe244e936b490fda35a83b87421924edea6de4ee214600d
+BYTE_IDENTICAL cancelHyroPending sha256=36c8ee2e7b298f6ed28e1cc866fff5bb7d69ec51a69ae5f46cac58c179860c15
+BYTE_IDENTICAL reconcileHyro sha256=0d38a20bec59f9cfc459a00c123faab3530ec89369c604f2a61e916dcc4fc844
+BYTE_IDENTICAL getHyroTelemetry sha256=6b0e8252bf152eb965a59c2e7c8b1ad8480659122ff585c7b770ad2cdf1cb7e2
+BYTE_IDENTICAL collectTelemetry sha256=9703e735a30356dc585bac31993823a1353c893dd4896df644ca9696db4762a5
+rc=0
+=== legacy ===
+{"legacyKeySuffix": "hyro-auto:A:ACEUSDT:BUY:22749000", "status": "SUBMITTED", "orderIdPresent": true, "orderLinkIdPresent": true}
+rc=0
+=== demosecrets ===
 rc=1
