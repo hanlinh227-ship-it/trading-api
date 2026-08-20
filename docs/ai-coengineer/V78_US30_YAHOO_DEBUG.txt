@@ -1,0 +1,9 @@
+US30 YAHOO CASH INDEX DIAGNOSTIC
+symbol=^DJI
+instrumentType=INDEX
+exchangeName=DJI
+regularMarketPrice=53463.05
+regularMarketTime=1787171917
+lastBarTimestamp=1787169600 lastBarClose=53463.05078125
+chartError=None
+HTTP=200
