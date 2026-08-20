@@ -1,0 +1,177 @@
+name: V78-028 V78-030 Final Runner
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    if: github.event.issue.title == 'RUN-V78-028-030-FINAL'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          test "$(git hash-object cloudflare-worker/engine-v77168.js)" = "71eced95377590b532ff5f16b46a3a764af41451"
+      - name: V78-028 patch and static validation
+        run: |
+          set -euo pipefail
+          python3 scripts/v78_028_030_patch.py 028
+          node --check cloudflare-worker/engine-v77168.js
+          test "$(grep -c 'function whyNowVi' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'propKeyboard\|personalKeyboard' cloudflare-worker/engine-v77168.js)" = 0
+          test "$(grep -c '🟣 HYROTRADER\|🔵 BREAKOUT\|👤 CÁ NHÂN\|🏦 PROP' cloudflare-worker/engine-v77168.js)" = 0
+          grep -Fq 'fresh:age!==null&&age<=CONFIG.maxQuoteAgeSec' cloudflare-worker/engine-v77168.js
+          grep -Fq 'source:"Index completed M5 fallback"' cloudflare-worker/engine-v77168.js
+          grep -Fq 'fresh:false' cloudflare-worker/engine-v77168.js
+          grep -Fq 'executionVerified:false' cloudflare-worker/engine-v77168.js
+          grep -Fq 'analysisOnly:true' cloudflare-worker/engine-v77168.js
+          grep -Fq 'fallback:true' cloudflare-worker/engine-v77168.js
+          grep -Fq 'instrumentIdentity:"CASH_INDEX"' cloudflare-worker/engine-v77168.js
+          git diff --check
+      - name: Commit V78-028
+        run: |
+          set -euo pipefail
+          git config user.name 'V78 Signal Integrator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-028 close dead Hub fallback, add WHY NOW and harden Index Cash quotes'
+          echo "SHA028=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git push origin HEAD:main
+      - name: Deploy V78-028
+        working-directory: cloudflare-worker
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy 2>&1 | tee /tmp/d028
+          V=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/d028 | tail -1 | sed 's/Version ID: //')
+          test -n "$V"
+          echo "CF028=$V" >> "$GITHUB_ENV"
+      - name: Live Index Cash validation
+        run: |
+          set -euo pipefail
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          sleep 8
+          mkdir -p /tmp/i
+          for S in NAS100 US30 US500 DEX JP225; do curl -fsS "$BASE/analyze?symbol=$S" -o "/tmp/i/$S.json"; done
+          node <<'NODE'
+          const fs=require('fs'), out=[];
+          for(const s of ['NAS100','US30','US500','DEX','JP225']){
+            const x=JSON.parse(fs.readFileSync('/tmp/i/'+s+'.json','utf8')),q=x.analysisQuote||x.quote||{};
+            if(!(Number(q.price)>0)) throw Error(s+' price missing');
+            if(q.fallback===true){if(q.fresh!==false||q.executionVerified!==false||q.analysisOnly!==true)throw Error(s+' unsafe fallback');if(['MARKET','MARKET_SIGNAL'].includes(x.status))throw Error(s+' fallback market admission');}
+            out.push(`${s} status=${x.status||'UNKNOWN'} price=${q.price} source=${q.source||'—'} fresh=${String(q.fresh)} fallback=${String(q.fallback===true)} age=${q.quoteAgeSec??'null'}`);
+          }
+          fs.writeFileSync('/tmp/i/live.txt',out.join('\n')+'\n'); console.log(out.join('\n'));
+          NODE
+      - name: V78-030 patch and static validation
+        run: |
+          set -euo pipefail
+          test "$(grep -c 'function whyNowVi' cloudflare-worker/engine-v77168.js)" = 1
+          python3 scripts/v78_028_030_patch.py 030
+          node --check cloudflare-worker/engine-v77168.js
+          test "$(grep -c 'Why now:' cloudflare-worker/engine-v77168.js)" = 2
+          test "$(grep -c 'function watchLine' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'function hubSummary' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'function runHub' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'function actionableRank' cloudflare-worker/engine-v77168.js)" = 1
+          git diff --check
+      - name: Commit V78-030
+        run: |
+          set -euo pipefail
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-030 propagate WHY NOW to group scan and Hub top setups'
+          echo "SHA030=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git push origin HEAD:main
+      - name: Deploy V78-030
+        working-directory: cloudflare-worker
+        run: |
+          set -euo pipefail
+          npx wrangler deploy 2>&1 | tee /tmp/d030
+          V=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/d030 | tail -1 | sed 's/Version ID: //')
+          test -n "$V"
+          echo "CF030=$V" >> "$GITHUB_ENV"
+      - name: Live group and Hub validation
+        run: |
+          set -euo pipefail
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          sleep 8
+          curl -fsS "$BASE/run-now?group=forex" -o /tmp/forex.json
+          curl -fsS "$BASE/hub" -o /tmp/hub.json
+      - name: Persist validation and release lock
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main
+          cat > docs/ai-coengineer/V78-028_VALIDATION.txt <<EOF
+          V78-028 SIGNAL HUB CLEANUP + INDEX CASH RELIABILITY
+          SOURCE_SHA=${SHA028}
+          CLOUDFLARE_VERSION_ID=${CF028}
+          ENGINE_GUARD_PREPATCH=71eced95377590b532ff5f16b46a3a764af41451
+          NODE_CHECK=PASS
+          WHY_NOW_FUNCTION_COUNT=1
+          DEAD_PROP_PERSONAL_FUNCTIONS=0
+          DEAD_HYRO_RENDER_REFERENCES=0
+          INDEX_NATIVE_TD_FRESHNESS=AGE_BASED
+          INDEX_COMPLETED_M5_FALLBACK=ANALYSIS_ONLY_FRESH_FALSE
+          INDEX_FALLBACK_MARKET_ADMISSION=BLOCKED
+          INDEX_IDENTITY=CASH_INDEX
+          V775_BOOKS_PRESERVED=true
+          TRADING_STATE_RESET=false
+          EXECUTION_AUTHORITY=NONE
+          CLAUDE_PRODUCTION_API=PAUSED
+          --- LIVE INDEX CASH ---
+          $(cat /tmp/i/live.txt)
+          EOF
+          cat > docs/ai-coengineer/V78-030_VALIDATION.txt <<EOF
+          V78-030 WHY NOW PROPAGATION
+          SOURCE_SHA=${SHA030}
+          CLOUDFLARE_VERSION_ID=${CF030}
+          NODE_CHECK=PASS
+          WHY_NOW_WATCHLINE_HUBSUMMARY_COUNT=2
+          RENDERING_ONLY=true
+          EOF
+          cat >> docs/ai-coengineer/SHARED_STATE.md <<EOF
+
+          V78-028 — RESOLVED / DEPLOYED
+          - Source: ${SHA028}
+          - Cloudflare Version ID: ${CF028}
+          - Signal-only Hub cleanup and Index Cash freshness/fallback reliability complete.
+
+          V78-030 — RESOLVED / DEPLOYED
+          - Source: ${SHA030}
+          - Cloudflare Version ID: ${CF030}
+          - WHY NOW propagated to watchLine() and hubSummary(); rendering-only.
+          EOF
+          cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
+          # AI WRITE LOCK
+
+          LOCKED: false
+          OWNER: NONE
+          SCOPE: NONE
+          RELEASED: 2026-08-20
+          LAST_RESULT: V78-028 and V78-030 RESOLVED / DEPLOYED.
+          EOF
+          git rm -f .github/workflows/v78-028-final-runner.yml .github/workflows/v78-028-pr-dispatch.yml .github/workflows/v78-028-issue-dispatch.yml .github/workflows/v78-028-signal-index.yml 2>/dev/null || true
+          git rm -f cloudflare-worker/.v78-028-trigger 2>/dev/null || true
+          git add docs/ai-coengineer/V78-028_VALIDATION.txt docs/ai-coengineer/V78-030_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-028 V78-030 persist validation and release lock'
+          git push origin HEAD:main
