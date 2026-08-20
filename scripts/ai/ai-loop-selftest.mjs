@@ -473,6 +473,24 @@ check('reviewer is a reviewer, not an implementer', () => {
   assert(/reviewer, not an implementer/i.test(py), 'role not asserted in the reviewer prompt');
   assert(!/git\s+(commit|push|checkout)/.test(py), 'reviewer performs git writes');
 });
+check('process output capture is race-free and deadlock-free', () => {
+  // Register-ObjectEvent + -MessageData appends from the threadpool without
+  // synchronisation and can only be drained by sleeping after exit; that race can
+  // truncate output and fake a test failure. ReadToEndAsync has neither problem.
+  // Scan executable code only; the rationale comment names the construct it replaced.
+  assert(!/Register-ObjectEvent/.test(stripPs1Comments(ps1)), 'still uses cross-runspace event capture');
+  assert(/StandardOutput\.ReadToEndAsync\(\)/.test(ps1), 'stdout is not read async');
+  assert(/StandardError\.ReadToEndAsync\(\)/.test(ps1), 'stderr is not read async');
+  // Both reads must start before WaitForExit, or a full pipe deadlocks the child.
+  const seg = stripPs1Comments(ps1).split('function Invoke-Native')[1].split('function Invoke-Git')[0];
+  const outIdx = seg.indexOf('ReadToEndAsync');
+  const waitIdx = seg.indexOf('WaitForExit');
+  assert(outIdx > -1 && waitIdx > outIdx, 'async reads must be started before WaitForExit');
+  // Every Task wait must be bounded.
+  for (const m of seg.match(/\.Wait\(([^)]*)\)/g) || []) {
+    assert(/\d{3,}/.test(m), `unbounded task wait: ${m}`);
+  }
+});
 check('truncated diff fails closed to REJECT', () => {
   assert(/DIFF TRUNCATED/.test(py), 'no truncation notice');
   assert(/Emit VERDICT=REJECT and record the/.test(py),

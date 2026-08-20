@@ -216,18 +216,17 @@ function Invoke-Native {
 
     $proc = New-Object System.Diagnostics.Process
     $proc.StartInfo = $psi
-    $sbOut = New-Object System.Text.StringBuilder
-    $sbErr = New-Object System.Text.StringBuilder
-    $onOut = Register-ObjectEvent -InputObject $proc -EventName OutputDataReceived -Action {
-        if ($null -ne $EventArgs.Data) { [void]$Event.MessageData.AppendLine($EventArgs.Data) }
-    } -MessageData $sbOut
-    $onErr = Register-ObjectEvent -InputObject $proc -EventName ErrorDataReceived -Action {
-        if ($null -ne $EventArgs.Data) { [void]$Event.MessageData.AppendLine($EventArgs.Data) }
-    } -MessageData $sbErr
 
     [void]$proc.Start()
-    $proc.BeginOutputReadLine()
-    $proc.BeginErrorReadLine()
+
+    # Read both pipes with ReadToEndAsync rather than Register-ObjectEvent. The event
+    # approach needs a cross-runspace callback, appends to a StringBuilder from the
+    # threadpool without synchronisation, and can only be drained by sleeping after exit -
+    # a race that silently truncates output and can fake a test failure. Kicking off both
+    # async reads before waiting is deadlock-free (neither pipe can fill while the other
+    # blocks) and each Task returns the complete stream text.
+    $outTask = $proc.StandardOutput.ReadToEndAsync()
+    $errTask = $proc.StandardError.ReadToEndAsync()
 
     if ($StdInFile -and (Test-Path $StdInFile)) {
         $content = Get-Content -Path $StdInFile -Raw -Encoding UTF8
@@ -238,19 +237,24 @@ function Invoke-Native {
     $exited = $proc.WaitForExit($TimeoutSec * 1000)
     if (-not $exited) {
         try { $proc.Kill() } catch { }
-        Unregister-Event -SourceIdentifier $onOut.Name -ErrorAction SilentlyContinue
-        Unregister-Event -SourceIdentifier $onErr.Name -ErrorAction SilentlyContinue
-        return [pscustomobject]@{ ExitCode = 124; StdOut = $sbOut.ToString(); StdErr = "TIMEOUT after ${TimeoutSec}s"; TimedOut = $true }
+        # Killing closes the pipes, so the readers complete; bound the wait regardless.
+        $partialOut = ""
+        try { if ($outTask.Wait(5000)) { $partialOut = $outTask.Result } } catch { }
+        Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
+        return [pscustomobject]@{ ExitCode = 124; StdOut = $partialOut; StdErr = "TIMEOUT after ${TimeoutSec}s"; TimedOut = $true }
     }
-    Start-Sleep -Milliseconds 120
-    Unregister-Event -SourceIdentifier $onOut.Name -ErrorAction SilentlyContinue
-    Unregister-Event -SourceIdentifier $onErr.Name -ErrorAction SilentlyContinue
+
+    # Process has exited; both reads are complete or about to be. Bounded, never infinite.
+    $stdOut = ""
+    $stdErr = ""
+    try { if ($outTask.Wait(15000)) { $stdOut = $outTask.Result } } catch { }
+    try { if ($errTask.Wait(15000)) { $stdErr = $errTask.Result } } catch { }
     Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
 
     return [pscustomobject]@{
         ExitCode = $proc.ExitCode
-        StdOut   = $sbOut.ToString()
-        StdErr   = $sbErr.ToString()
+        StdOut   = $stdOut
+        StdErr   = $stdErr
         TimedOut = $false
     }
 }
@@ -396,6 +400,18 @@ function New-TaskId {
 
 function Initialize-Branch {
     Write-Step "STEP 5/12  Resolving implementation branch"
+
+    # Switching branches with uncommitted work either fails obscurely or silently carries
+    # edits onto the wrong branch. Refuse up front with an actionable message instead.
+    $dirty = (Invoke-Git -Arguments @("status", "--porcelain")).StdOut
+    if (-not [string]::IsNullOrWhiteSpace($dirty)) {
+        $files = @($dirty -split "`r?`n" | Where-Object { $_ } | ForEach-Object { $_.Trim() })
+        $shown = ($files | Select-Object -First 10) -join "; "
+        $more = ""
+        if ($files.Count -gt 10) { $more = " (+$($files.Count - 10) more)" }
+        Stop-Loop -Status "BLOCKED" -Reason "Working tree is not clean; refusing to switch branches and risk carrying or losing edits. Commit or stash first. Pending: $shown$more"
+    }
+    Write-Good "Working tree is clean"
 
     if ($PrNumber -gt 0) {
         $r = Invoke-Gh -Arguments @("pr", "view", "$PrNumber", "--repo", $Repo, "--json", "headRefName,headRefOid,state")
