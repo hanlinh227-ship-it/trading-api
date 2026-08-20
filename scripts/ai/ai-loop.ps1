@@ -76,7 +76,7 @@ $script:HARD_MAX_POLLS       = 120
 # Checks that must actually report for this head before the rollup may read PASS. A
 # required workflow that never starts produces no check run, so absence must not be
 # mistaken for success.
-$script:REQUIRED_CHECKS      = @("validate", "DeepSeek adversarial review")
+$script:REQUIRED_CHECKS      = @("validate", "DeepSeek adversarial review", "AI loop safety selftest")
 # One definition of "blocking" for Codex findings, applied identically to inline comments
 # and to the review summary. Asymmetry here would let the same defect block in one place
 # and pass in the other. P3 is informational and deliberately excluded.

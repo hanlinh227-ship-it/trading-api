@@ -757,9 +757,13 @@ check('the reviewer runs from a trusted revision, not the PR head', () => {
   // The reviewer script is editable under the active lock. Running the head's copy would
   // let the change under review rewrite its own reviewer and post a forged current-SHA
   // ACCEPT under the Actions identity, which the bot+marker check would then admit.
-  assert(/base\.sha/.test(wf), 'workflow does not check out the base revision');
-  assert(!/pull_request\.head\.sha \|\| format\('refs\/pull/.test(wf),
-    'workflow still checks out the PR head for execution');
+  // Scoped to the REVIEWER job. The separate secretless selftest job legitimately checks
+  // out the PR head - that is the revision whose safety is in question, and it holds no
+  // credentials.
+  const reviewJob = wf.split(/^\s{2}deepseek-review:/m)[1] || '';
+  assert(/base\.ref|base\.sha/.test(reviewJob), 'reviewer job does not check out the base revision');
+  assert(!/pull_request\.head\.sha \|\| format\('refs\/pull/.test(reviewJob),
+    'reviewer job still checks out the PR head for execution');
   assert(/trusted/i.test(wf), 'the trust boundary is not documented in the workflow');
   // It still reviews the head: the SHA guard and the diff come from the API.
   assert(/--expect-sha/.test(wf), 'reviewer no longer pins the reviewed head');
@@ -776,17 +780,33 @@ check('a reused PR branch is reset to the advertised head', () => {
   assert(/would publish commits this round never reviewed/.test(seg),
     'the consequence of a divergent branch is not stated or enforced');
 });
-check('the selftest itself runs in CI, not only locally', () => {
+check('the selftest runs in CI, isolated from the privileged reviewer', () => {
   // Otherwise every safety property here is only ever checked on a developer machine and
   // a regression can reach the repository unnoticed.
   assert(/ai-loop-selftest\.mjs/.test(wf), 'the selftest is never run by CI');
   assert(/setup-node/.test(wf), 'CI has no node runtime for the selftest');
-  // It must run against the PR HEAD, not the trusted base copy - the head is the revision
-  // whose safety is in question.
-  const seg = wf.split('AI loop safety selftest')[1] || '';
-  assert(/HEAD_SHA/.test(seg), 'the selftest does not run against the PR head');
-  assert(/Selftest missing/.test(seg), 'a missing selftest is not treated as a failure');
+
+  // It MUST be its own job. The selftest is lock-writable, so on a future PR it is
+  // untrusted code; running it in the reviewer's job would let it overwrite the
+  // checked-out reviewer or write $GITHUB_ENV before the reviewer executes with
+  // DEEPSEEK_API_KEY and a write-capable token, forging a TRUST=trusted acceptance.
+  assert(/^\s{2}loop-selftest:/m.test(wf), 'the selftest is not a separate job');
+  const selftestJob = wf.split(/^\s{2}loop-selftest:/m)[1].split(/^\s{2}deepseek-review:/m)[0];
+  const reviewJob = wf.split(/^\s{2}deepseek-review:/m)[1];
+
+  // The untrusted job gets no secrets whatsoever.
+  assert(!/secrets\./.test(selftestJob), 'the selftest job is exposed to secrets');
+  assert(/permissions:\s*\n\s*contents: read/.test(selftestJob),
+    'the selftest job does not drop to contents: read');
+  assert(/head\.sha/.test(selftestJob), 'the selftest does not run against the PR head');
+  assert(/Selftest missing/.test(selftestJob), 'a missing selftest is not treated as a failure');
+
+  // And the privileged job must not execute PR-head code at all.
+  assert(!/ai-loop-selftest/.test(reviewJob), 'the reviewer job still runs the PR-owned selftest');
 });
+check('the selftest is a required check', () =>
+  assert(/"AI loop safety selftest"/.test(ps1),
+    'the selftest can fail without blocking READY_TO_MERGE'));
 check('an absent remote branch does not disable the push guard', () => {
   // Get-RemoteBranchSha returns "" when the branch does not exist yet. A truthiness test
   // treats that as "skip", disabling the guard on exactly the common case - a freshly
