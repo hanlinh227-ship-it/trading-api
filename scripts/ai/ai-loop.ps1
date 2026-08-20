@@ -873,7 +873,11 @@ function Publish-Round {
     # controller's credentials, then reset the local branch and worktree back to the saved
     # SHA before returning success. The unauthorised commit is already on the remote by
     # then, and every local check passes. So verify the REMOTE ref has not moved either.
-    if ($script:RemoteBeforeRound) {
+    # $null means the probe failed; "" means the branch does not exist on the remote yet.
+    # A truthiness test treats "" as "skip", which disables this guard on exactly the
+    # common case - a freshly created branch - letting a rewritten validator push
+    # out-of-scope content and reset local HEAD with nothing to detect it.
+    if ($null -ne $script:RemoteBeforeRound) {
         $remoteNow = Get-RemoteBranchSha
         if ($null -ne $remoteNow -and $remoteNow -ne $script:RemoteBeforeRound) {
             Stop-Loop -Status "BLOCKED" -Reason "Remote branch $($script:State.branch) moved from $($script:RemoteBeforeRound) to $remoteNow during the round. The controller did not push; refusing to continue on a remote it did not author."

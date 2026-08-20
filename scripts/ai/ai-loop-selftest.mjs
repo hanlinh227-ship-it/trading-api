@@ -761,6 +761,31 @@ check('the reviewer runs from a trusted revision, not the PR head', () => {
   // It still reviews the head: the SHA guard and the diff come from the API.
   assert(/--expect-sha/.test(wf), 'reviewer no longer pins the reviewed head');
 });
+check('an absent remote branch does not disable the push guard', () => {
+  // Get-RemoteBranchSha returns "" when the branch does not exist yet. A truthiness test
+  // treats that as "skip", disabling the guard on exactly the common case - a freshly
+  // created branch - so an unauthorised push could land with nothing to detect it.
+  const pub = ps1.split('function Publish-Round')[1].split('\nfunction ')[0];
+  assert(/\$null -ne \$script:RemoteBeforeRound/.test(pub),
+    'guard uses a truthiness test, so an empty remote SHA skips it');
+  assert(!/if \(\$script:RemoteBeforeRound\) \{/.test(pub), 'truthiness guard still present');
+});
+check('paginated GitHub reads survive multi-page responses - python side too', () => {
+  // The identical defect existed in the reviewer: json.loads() over concatenated pages
+  // raises "Extra data", the exception was read as "no existing comment", and every run
+  // posted ANOTHER bot verdict instead of updating the single promised comment.
+  const bad = py.match(/"--paginate",\s*\n?\s*"--jq", "\[/g) || [];
+  assert(bad.length === 0, `${bad.length} python paginated call(s) still request an array per page`);
+  assert(/def gh_json_lines/.test(py), 'python side has no line-delimited reader');
+  const seg = py.split('def gh_json_lines')[1].split('\ndef ')[0];
+  assert(/f"\.\[\] \| \{jq_object\}"/.test(seg), 'python reader does not emit one object per line');
+  assert(/splitlines\(\)/.test(seg), 'python reader does not parse line by line');
+  // upsert must use it, and must not silently treat a listing failure as "no comment".
+  const up = py.split('def upsert_comment')[1].split('\ndef ')[0];
+  assert(/gh_json_lines/.test(up), 'upsert_comment still uses the array reader');
+  assert(/could not list existing PR comments/.test(up),
+    'a failed listing is still silently treated as "no existing comment"');
+});
 check('paginated GitHub reads survive multi-page responses', () => {
   // gh --paginate emits ONE JSON document per page. With an array-producing --jq that
   // yields several concatenated arrays, and ConvertFrom-Json fuses them into a single

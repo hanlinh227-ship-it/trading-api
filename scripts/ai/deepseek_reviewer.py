@@ -106,6 +106,30 @@ def run(cmd: list[str], timeout: int = 120) -> subprocess.CompletedProcess:
     )
 
 
+def gh_json_lines(path: str, jq_object: str, timeout: int = 120) -> list | None:
+    """Read a paginated GitHub collection as newline-delimited JSON.
+
+    `gh api --paginate` emits ONE JSON document per page, so an array-producing --jq
+    yields several concatenated arrays and a single json.loads() fails with "Extra data".
+    That exception was swallowed as "no existing comment", so every run posted ANOTHER bot
+    verdict instead of updating the one promised comment. Asking jq for one object per line
+    is correct for any number of pages.
+    """
+    proc = run(["gh", "api", path, "--paginate", "--jq", f".[] | {jq_object}"], timeout=timeout)
+    if proc.returncode != 0:
+        return None
+    out = []
+    for line in (proc.stdout or "").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return out
+
+
 def gh_json(args: list[str], timeout: int = 90):
     proc = run(["gh"] + args, timeout=timeout)
     if proc.returncode != 0:
@@ -641,9 +665,11 @@ def upsert_comment(repo: str, pr: int, body: str) -> None:
     """Post one comment, or update the existing loop comment in place."""
     comment_id = None
     try:
-        comments = gh_json(["api", f"repos/{repo}/issues/{pr}/comments", "--paginate",
-                            "--jq", "[.[] | {id, body, login: .user.login}]"])
-        for c in comments or []:
+        comments = gh_json_lines(f"repos/{repo}/issues/{pr}/comments",
+                                 "{id, body, login: .user.login}")
+        if comments is None:
+            raise LoopBlocked("GITHUB_ERROR", "could not list existing PR comments")
+        for c in comments:
             # Author check is mandatory, not cosmetic. Matching on the marker alone also
             # matches any comment that merely QUOTES it - a human comment discussing the
             # protocol - and the reviewer would then overwrite that person's comment and
