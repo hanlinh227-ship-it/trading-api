@@ -314,13 +314,32 @@ function Test-Preflight {
 # ======================================================================================
 function Test-GitHubAuth {
     Write-Step "STEP 2/12  Verifying GitHub authentication"
-    $r = Invoke-Gh -Arguments @("auth", "status") -TimeoutSec 60
-    if ($r.ExitCode -ne 0) {
-        Stop-Loop -Status "BLOCKED" -Reason "GitHub CLI is not authenticated. Run: gh auth login"
+
+    # `gh auth status` also fails on a transient network blip while the token is perfectly
+    # valid. Reporting that as "not authenticated" would send the user to re-login for no
+    # reason, so distinguish the two and retry the transient case a bounded number of times.
+    $combined = ""
+    $authOk = $false
+    $lastReason = "unknown"
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $r = Invoke-Gh -Arguments @("auth", "status") -TimeoutSec 60
+        $combined = "$($r.StdOut)$($r.StdErr)"
+        if ($r.ExitCode -eq 0 -and $combined -match "Logged in to") { $authOk = $true; break }
+
+        if ($combined -match "(?i)not logged (in|into)|no accounts|gh auth login") {
+            Stop-Loop -Status "BLOCKED" -Reason "GitHub CLI is not authenticated. Run: gh auth login"
+        }
+        if ($combined -match "(?i)dial tcp|connection|timeout|temporary failure|network is unreachable|EOF") {
+            $lastReason = "network"
+            Write-Warn2 "gh auth status attempt $attempt/3 hit a network error; retrying"
+        } else {
+            $lastReason = "unexpected output (exit $($r.ExitCode))"
+            Write-Warn2 "gh auth status attempt $attempt/3 was inconclusive; retrying"
+        }
+        if ($attempt -lt 3) { Start-Sleep -Seconds (2 * $attempt) }
     }
-    $combined = "$($r.StdOut)$($r.StdErr)"
-    if ($combined -notmatch "Logged in to") {
-        Stop-Loop -Status "BLOCKED" -Reason "GitHub CLI reported no active login."
+    if (-not $authOk) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not verify GitHub authentication after 3 attempts ($lastReason). If you are online, check: gh auth status"
     }
     Write-Good "gh authenticated"
 

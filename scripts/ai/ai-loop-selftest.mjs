@@ -187,6 +187,14 @@ check('missing gh auth blocked', () => {
   const seg = ps1.split('function Test-GitHubAuth')[1] || '';
   assert(/gh.*auth.*status/s.test(seg), 'no gh auth status probe');
   assert(/Stop-Loop -Status "BLOCKED"/.test(seg), 'auth failure does not block the loop');
+  assert(/gh auth login/.test(seg), 'no actionable remediation for a real logout');
+});
+check('auth probe separates a real logout from a network blip', () => {
+  const seg = ps1.split('function Test-GitHubAuth')[1].split('function Update-Base')[0];
+  assert(/not logged \(in\|into\)|not logged/.test(seg), 'does not detect a genuine logout');
+  assert(/dial tcp|network is unreachable/.test(seg), 'does not detect a transient network error');
+  // Retry must be bounded.
+  assert(/for \(\$attempt = 1; \$attempt -le 3; \$attempt\+\+\)/.test(seg), 'auth retry is not bounded to 3');
 });
 
 // =====================================================================================
