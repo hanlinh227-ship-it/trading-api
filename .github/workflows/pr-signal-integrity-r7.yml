@@ -19,3 +19,5 @@ jobs:
         run: |
           node --check cloudflare-worker/engine-v77168.js
           node --check cloudflare-worker/providers/entry-intelligence.js
+      - name: V78-032 Forex/Metal/Index invariant validation
+        run: node scripts/ai/forex-metal-index-validation.mjs
