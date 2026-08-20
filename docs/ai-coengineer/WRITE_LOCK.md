@@ -1,19 +1,18 @@
 # AI WRITE LOCK
 
 LOCKED: true
-OWNER: DEEPSEEK
-SCOPE: ENTRY-001 Current-price entry intelligence integrity and anti-chase; cloudflare-worker/engine-v77168.js, cloudflare-worker/providers/entry-intelligence.js, cloudflare-worker/providers/decision-evidence.js, scripts/ai/entry-001-validation.js only.
+OWNER: CHATGPT
+SCOPE: AI-INFRA-004 DeepSeek diff-format resilience only; scripts/ai/deepseek_implementer.py and docs/ai-coengineer/**. No Trading Signal/runtime logic.
 ACQUIRED: 2026-08-20
-BASE_SHA: 7fe03d04723237bd3974b9ca4e8f3c22f4463670
+BASE_SHA: c110ea87096b1e79c166de1e34775533694184c3
 
 Protocol:
+- ENTRY-001 implementation attempt failed before any source diff/branch/PR was created.
 - One writer at a time.
-- DeepSeek may modify only the explicit ENTRY-001 allow-list.
-- Codex and Claude may review but must not modify overlapping source while this lock is active.
+- Do not modify cloudflare-worker/** or Trading decision logic in this hotfix.
 - Preserve TRADING_STATE and v775:books.
 - Preserve SIGNAL-ONLY architecture.
 - Do not weaken quote freshness, structural SL, RR, hard-news, execution-authority, or market identity protections.
-- Do not restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or any real-capital execution path.
 - Production Claude/Anthropic API remains paused.
-- DeepSeek API usage is bounded by task max_rounds and output-token guards.
+- DeepSeek API usage must remain bounded by task max_rounds/output-token guards.
 - No secret may be committed or printed.
