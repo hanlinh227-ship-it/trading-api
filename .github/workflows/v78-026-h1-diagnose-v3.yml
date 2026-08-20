@@ -86,6 +86,16 @@ jobs:
           else:raise SystemExit('NO_LEGACY_PREPATCH_INTENT_RECORD_FOUND')
           PY
           fi
+          if [ "$STATUS" = PASS ]; then
+            stage secretvisibility bash -c '
+              echo "checked_out_ref: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+              echo "HYRO_BYBIT_API_KEY_present: $([ -n "$HYRO_BYBIT_API_KEY" ] && echo yes || echo no)"
+              echo "HYRO_BYBIT_API_KEY_length: ${#HYRO_BYBIT_API_KEY}"
+              echo "HYRO_BYBIT_API_SECRET_present: $([ -n "$HYRO_BYBIT_API_SECRET" ] && echo yes || echo no)"
+              echo "HYRO_BYBIT_API_SECRET_length: ${#HYRO_BYBIT_API_SECRET}"
+              echo "note: lengths only, never values. If both present=no here, the secret is not reaching this job (check Environment-scope + branch-policy, or exact name, in GitHub repo Settings)."
+            '
+          fi
           if [ "$STATUS" = PASS ]; then stage demosecrets bash -c 'test -n "$HYRO_BYBIT_API_KEY" && test -n "$HYRO_BYBIT_API_SECRET"'; fi
           if [ "$STATUS" = PASS ]; then stage demo node scripts/v78-026-h1-demo-test.mjs; fi
           if [ "$STATUS" = PASS ]; then echo 'V78-026 H1 PRE-DEPLOY VALIDATION PASS' > docs/ai-coengineer/V78-026_VALIDATION.txt; cat /tmp/log >> docs/ai-coengineer/V78-026_VALIDATION.txt; fi
