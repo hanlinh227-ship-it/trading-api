@@ -81,6 +81,7 @@ git config user.name 'V78 Signal Integrator'
 git config user.email 'actions@users.noreply.github.com'
 git add docs/ai-coengineer/V78-028_VALIDATION.txt
 git commit -m 'V78-028 persist post-Yahoo live Index Cash acceptance'
+git pull --rebase origin main
 git push origin HEAD:main
 
 # Capture pre-V78-030 live render state for ordering comparison.
@@ -113,6 +114,7 @@ git diff --check
 git add "$ENGINE"
 git commit -m 'V78-030 propagate WHY NOW to group scan and Hub top setups'
 SHA030=$(git rev-parse HEAD)
+git pull --rebase origin main
 git push origin HEAD:main
 
 cd cloudflare-worker
@@ -184,7 +186,8 @@ PY
   git add "$HUB"
   git commit -m 'V78-031 fix Hub setupCard quality rendering from live entry intelligence'
   SHA031=$(git rev-parse HEAD)
-  git push origin HEAD:main
+  git pull --rebase origin main
+git push origin HEAD:main
   cd cloudflare-worker
   npx wrangler deploy 2>&1 | tee /tmp/deploy031.log
   CF031=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/deploy031.log | tail -1 | sed 's/Version ID: //')
@@ -240,4 +243,5 @@ printf '# AI WRITE LOCK\n\nLOCKED: false\nOWNER: NONE\nSCOPE: NONE\nRELEASED: 20
 
 git add docs/ai-coengineer/V78-030_VALIDATION.txt docs/ai-coengineer/V78-031_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
 git commit -m 'Persist V78-030 and V78-031 evidence and release write lock'
+git pull --rebase origin main
 git push origin HEAD:main
