@@ -1,7 +1,7 @@
 {
   "protocol_version": "3.0",
   "architecture": "CODEX_CONTROL__CLAUDE_PARALLEL_REVIEW__DEEPSEEK_IMPLEMENTER__GITHUB_LOOP__CLOUDFLARE_RUNTIME",
-  "status": "DISPATCHING_FIRST_REAL_TASK",
+  "status": "ENTRY_001_RETRY_AFTER_INFRA_HOTFIX",
   "task_id": "ENTRY-001",
   "task_goal": "Current-price entry intelligence integrity and anti-chase for Signal-only MARKET admission",
   "active_pr": null,
@@ -10,30 +10,33 @@
   "max_rounds_default": 2,
   "max_rounds_hard_cap": 4,
   "next_actor": "DEEPSEEK",
-  "write_lock_owner": "DEEPSEEK",
+  "write_lock_owner": "CHATGPT",
   "implementation_sha": null,
   "review_required": {
     "codex": true,
     "claude": true
   },
   "review_status": {
-    "codex": "PENDING_IMPLEMENTATION",
-    "claude": "PENDING_IMPLEMENTATION"
+    "codex": "WAITING_FOR_PR",
+    "claude": "WAITING_FOR_PR"
   },
   "review_consensus": "WAITING_FOR_IMPLEMENTATION",
   "codex_verdict": null,
   "claude_verdict": null,
-  "deepseek_verdict": "PENDING",
-  "validation": "PENDING_REAL_LOOP_EXECUTION",
+  "deepseek_verdict": "FIRST_ATTEMPT_BLOCKED_BY_OUTPUT_FORMAT",
+  "validation": "NOT_REACHED_FIRST_ATTEMPT",
   "automation": {
-    "issue_dispatch": "READY",
-    "deepseek_implement_fix": "READY",
-    "deepseek_validation_loop": "READY",
-    "codex_pr_review_trigger": "READY_REQUIRES_REAL_EVIDENCE",
-    "parallel_review_consensus_gate": "READY",
+    "issue_dispatch": "REAL_EVENT_CONFIRMED",
+    "deepseek_api_call": "REAL_CALL_CONFIRMED",
+    "first_attempt_failure": "MODEL_RESPONSE_WITHOUT_ACCEPTED_UNIFIED_DIFF",
+    "deepseek_diff_parser_hotfix": "APPLIED_TO_MAIN",
+    "deepseek_implement_fix": "RETRY_PENDING",
+    "deepseek_validation_loop": "RETRY_PENDING",
+    "codex_pr_review_trigger": "WAITING_FOR_REAL_PR",
+    "parallel_review_consensus_gate": "STAGED",
     "claude_scheduled_watcher": "USER_CONFIRMED_HOURLY_FALLBACK",
-    "claude_instant_headless_trigger": "UNAVAILABLE_WITHOUT_SEPARATE_BILLED_AUTOMATION",
-    "cloudflare_deploy": "GATED_UNTIL_ACCEPTANCE"
+    "claude_instant_review": "USER_RUN_NOW_WHEN_PR_EXISTS",
+    "cloudflare_deploy": "GATED"
   },
   "cost_guards": {
     "deepseek_max_rounds_default": 2,
@@ -42,16 +45,16 @@
     "anthropic_production_api": false
   },
   "deployment": {
-    "status": "NOT_DEPLOYED_ENTRY_001",
+    "status": "NOT_DEPLOYED",
     "source_sha": null,
     "cloudflare_version_id": null,
     "deployed_at": null
   },
   "live_verification": "NOT_RUN",
   "remaining_issues": [
-    "Dispatch ENTRY-001 and obtain real DeepSeek implementation/validation evidence",
-    "Obtain Codex and Claude SHA-bound review verdicts on the same PR head",
-    "Do not deploy until dual-review consensus and deterministic validation pass",
-    "Preserve Signal-only architecture and all protected state/risk/freshness invariants"
+    "Retry ENTRY-001 from fresh main after diff-parser hotfix",
+    "Obtain first real DeepSeek implementation PR",
+    "Obtain SHA-bound Codex and Claude verdicts on the same PR head",
+    "Do not merge/deploy before dual-review consensus"
   ]
 }
