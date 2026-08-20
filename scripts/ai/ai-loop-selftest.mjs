@@ -988,6 +988,27 @@ check('a bootstrap reviewer cannot vouch for the change that supplied it', () =>
     'an untrusted ACCEPT is still counted as an acceptance');
   assert(/\$verdict = "PENDING"/.test(seg), 'untrusted acceptance is not downgraded');
 });
+check('repository git hooks cannot influence controller git operations', () => {
+  // Claude has Write/Edit, so a round could plant .git/hooks/pre-commit. Git excludes
+  // .git/ from both `git diff` and `git ls-files --others`, so such a hook is invisible to
+  // Get-ChangedFiles AND to both lock-scope assertions - yet the controller would EXECUTE
+  // it through its own trusted git commit/push, under its own credentials.
+  assert(/\$script:NO_HOOKS_DIR/.test(ps1), 'no hooks-path override is defined');
+  const seg = ps1.split('function Invoke-Git')[1].split('\nfunction ')[0];
+  assert(/core\.hooksPath=\$script:NO_HOOKS_DIR/.test(seg), 'git calls do not disable hooks');
+  assert(/"-c", "core\.hooksPath/.test(seg), 'hooks-path is not passed as a git -c override');
+  // It must apply to EVERY git invocation, not just commit/push.
+  assert(/\$safeArgs = @\("-c", "core\.hooksPath=\$script:NO_HOOKS_DIR"\) \+ \$Arguments/.test(seg),
+    'the hooks override is not prepended to every git invocation');
+  // And a planted hook must be reported, not merely neutralised.
+  assert(/function Assert-NoRepositoryHooks/.test(ps1), 'planted hooks are never detected');
+  const det = ps1.split('function Assert-NoRepositoryHooks')[1].split('\nfunction ')[0];
+  assert(/\*\.sample/.test(det), 'inert sample hooks are not excluded, so the check would always fire');
+  assert(/Stop-Loop -Status "BLOCKED"/.test(det), 'a planted hook does not block the run');
+  // Checked before the round and again before staging.
+  const calls = (stripPs1Comments(ps1).match(/^\s*Assert-NoRepositoryHooks\s*$/gm) || []).length;
+  assert(calls >= 2, `hook detection must run before the round and before staging; found ${calls}`);
+});
 check('a commit created during the TESTS is also refused', () => {
   // Closing Claude's direct execution is not enough: the controller itself runs
   // repo-resident validators that are writable under the lock.

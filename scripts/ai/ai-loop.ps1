@@ -96,6 +96,9 @@ $script:REPO_ROOT            = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).
 $script:PROMPT_TEMPLATE      = Join-Path $script:REPO_ROOT "scripts\ai\claude_loop_prompt.md"
 $script:LOCK_FILE            = Join-Path $script:REPO_ROOT "docs\ai-coengineer\WRITE_LOCK.md"
 $script:RUN_DIR              = Join-Path $env:TEMP "ai-loop"
+# A controller-owned empty directory used as core.hooksPath, so no repository-controlled
+# git hook can ever be discovered or executed by the controller's git invocations.
+$script:NO_HOOKS_DIR         = Join-Path $script:RUN_DIR "nohooks"
 
 # Loop state, mirroring AI_LOOP_STATE.schema.json.
 $script:State = [ordered]@{
@@ -316,8 +319,38 @@ function Get-RemoteBranchSha {
 }
 
 function Invoke-Git {
+    <#
+      Every git invocation runs with hooks disabled.
+
+      Claude has Write/Edit, so a round could create .git/hooks/pre-commit or pre-push.
+      Git excludes .git/ from both `git diff` and `git ls-files --others`, so such a hook is
+      invisible to Get-ChangedFiles AND to both lock-scope assertions - and the controller
+      would then EXECUTE it through its own trusted `git commit` / `git push`, letting it
+      stage out-of-scope files or perform arbitrary remote writes under the controller's
+      credentials. Verified: a planted pre-commit hook shows up in neither change-detection
+      command yet runs on a normal commit, and does not run with core.hooksPath redirected.
+
+      The path is a controller-owned empty directory, so no repository-controlled hook can
+      ever be found.
+    #>
     param([Parameter(Mandatory = $true)][string[]]$Arguments, [int]$TimeoutSec = 180)
-    return Invoke-Native -File "git" -Arguments $Arguments -TimeoutSec $TimeoutSec
+    if (-not (Test-Path $script:NO_HOOKS_DIR)) {
+        New-Item -ItemType Directory -Force -Path $script:NO_HOOKS_DIR | Out-Null
+    }
+    $safeArgs = @("-c", "core.hooksPath=$script:NO_HOOKS_DIR") + $Arguments
+    return Invoke-Native -File "git" -Arguments $safeArgs -TimeoutSec $TimeoutSec
+}
+
+function Assert-NoRepositoryHooks {
+    # Neutralising hooks is the control; detecting them is how the operator finds out an
+    # attempt was made. Sample hooks ship with every clone and are inert.
+    $hooksDir = Join-Path $script:REPO_ROOT ".git\hooks"
+    if (-not (Test-Path $hooksDir)) { return }
+    $live = @(Get-ChildItem -Path $hooksDir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "*.sample" })
+    if ($live.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("Repository git hook(s) present: " + (@($live | ForEach-Object { $_.Name }) -join ", ") + ". Hooks live under .git/ where no scope check can see them and would run under the controller's own credentials. Remove them, or investigate how they got there, before running the loop.")
+    }
 }
 
 function Invoke-Gh {
@@ -922,6 +955,9 @@ function Publish-Round {
     if (-not (Test-BranchSafe $current)) {
         Stop-Loop -Status "BLOCKED" -Reason "Refusing to push: HEAD is on protected branch '$current'."
     }
+
+    # A hook planted DURING the round is the case that matters, so re-check here too.
+    Assert-NoRepositoryHooks
 
     # Re-assert scope immediately before `git add -A`. Assert-ChangesInLockScope already
     # ran before the tests, but a test step can itself create files, and staging is the
@@ -1551,6 +1587,7 @@ function Main {
         # working tree to the CURRENT HEAD - would no longer see the smuggled change.
         # Script-scoped so Publish-Round can re-check it after the tests have run, which is
         # where the controller executes repo-resident (and therefore editable) validators.
+        Assert-NoRepositoryHooks
         $script:HeadBeforeRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
         $script:RemoteBeforeRound = Get-RemoteBranchSha
 
