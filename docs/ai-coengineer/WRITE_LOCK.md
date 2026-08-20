@@ -2,21 +2,52 @@
 
 LOCKED: true
 OWNER: CLAUDE_LOCAL
-SCOPE: V78-032 PR #60 follow-up only: fix review blockers, re-sync canonical validate lock manifest if required, wire forex-metal-index validation into signal-integrity CI, and update PR #60 branch. Cloudflare provider-side build connection issue must remain separate and must not be chased by changing worker source.
+SCOPE: AI-LOOP-INFRA-V1
 ACQUIRED: 2026-08-20
-BASE_SHA: f55df72e11bcaa529ef8b44b4f32a892618606e9
+BASE_SHA: 40f020ccc91ff31d061ae22795242da792e01b7b
 
-Protocol:
-- ChatGPT review/implementation lock for V78-032 is released and transferred to Claude Code local for one bounded follow-up batch.
-- Refresh origin/main and PR #60 HEAD immediately before any write.
+## Previous scope released
+
+V78-032 PR #60 follow-up is COMPLETE and its lock is RELEASED.
+Final PR #60 head: `93424ed`. PR #60 is NOT merged and must be merged manually by ChatGPT.
+Separated findings: issue #61 (hub global-scan true positive), issue #62 (Cloudflare
+Workers Build provider-side failure). Details in `CLAUDE_TO_CHATGPT.md`.
+
+## Allowed scope for AI-LOOP-INFRA-V1
+
+Only these paths may be written under this lock:
+
+- `docs/ai-coengineer/AI_LOOP_CONTRACT.md`
+- `docs/ai-coengineer/AI_LOOP_STATE.schema.json`
+- `scripts/ai/ai-loop.ps1`
+- `scripts/ai/deepseek_reviewer.py`
+- `scripts/ai/claude_loop_prompt.md`
+- `scripts/ai/ai-loop-selftest.mjs`
+- `.github/workflows/ai-loop-deepseek-review.yml`
+- `docs/ai-coengineer/WRITE_LOCK.md` (this file)
+- `docs/ai-coengineer/CLAUDE_TO_CHATGPT.md` (bus append only)
+
+No Trading business source may be modified under this lock. In particular
+`cloudflare-worker/**`, `data/**` and all existing trading workflows are OUT OF SCOPE.
+
+## Protocol
+
+- Refresh `origin/main` and the working branch HEAD immediately before any write.
 - One writer at a time.
+- Loop infrastructure is REVIEW/ORCHESTRATION only. It may never merge, deploy, or
+  mutate GitHub secrets.
+- MAX_ROUNDS is hard-bounded at 5. No unbounded loop may be created.
 - Preserve TRADING_STATE and v775:books.
-- Preserve SIGNAL-ONLY architecture and executionAuthority=SIGNAL_ONLY/NONE for non-crypto advisory signals.
-- Do not weaken quote freshness, structural SL, RR, hard-news, anti-chase, or market identity protections.
-- Yahoo/Twelve Data visibility-only Cash Index fallbacks remain fresh=false and may never create MARKET/MARKET_SIGNAL.
-- Do not restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or any real-capital execution path.
-- V73 historical data and symbol_knowledge_registry.json remain read-only in this batch.
-- PR #60 source changes must remain bounded; separate unrelated CI/provider issues into separate commits/issues as appropriate.
-- Cloudflare Workers Build connection failure is treated as provider/integration-side unless independently proven source-caused; do not modify worker business logic to chase it.
-- Production Claude/Anthropic API remains paused.
-- No secret may be committed or printed.
+- Preserve SIGNAL-ONLY architecture and executionAuthority=SIGNAL_ONLY/NONE.
+- Do not weaken quote freshness, structural SL, RR, hard-news, anti-chase, or market
+  identity protections.
+- Do not restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or
+  any real-capital execution path.
+- V73 historical data and `symbol_knowledge_registry.json` remain read-only.
+- Production Claude/Anthropic API remains paused. The local loop uses Claude Code
+  subscription auth via `claude -p`, never Anthropic API billing.
+- Cloudflare production deploy remains OFF: `deploy-cloudflare` requires repository
+  variable `ENABLE_CLOUDFLARE_AUTO_DEPLOY == 'true'`, which is not set.
+- No secret may be committed or printed. Secret existence may only be checked by name
+  via `gh secret list`.
+- `--dangerously-skip-permissions` is forbidden. The loop uses narrow `--allowedTools`.
