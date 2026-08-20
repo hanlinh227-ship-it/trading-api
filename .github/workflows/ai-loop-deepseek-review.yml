@@ -43,7 +43,6 @@ jobs:
           EVENT_PR: ${{ github.event.pull_request.number }}
           INPUT_PR: ${{ inputs.pr_number }}
           EVENT_SHA: ${{ github.event.pull_request.head.sha }}
-        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pr="${EVENT_PR:-$INPUT_PR}"

@@ -560,6 +560,37 @@ check('no stray control characters in the controller', () => {
   const ctrl = ps1.match(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g) || [];
   assert(ctrl.length === 0, `found ${ctrl.length} control character(s) in ai-loop.ps1`);
 });
+check('workflow has no duplicate sibling keys', () => {
+  // PyYAML silently keeps the last of a duplicated key, but GitHub Actions rejects the
+  // workflow at startup - producing a failed run with zero jobs and no log. A plain
+  // "does it parse" check cannot catch this, so scan sibling keys directly.
+  const lines = wf.split('\n');
+  const stack = new Map(); // indent -> Set of keys seen in the current block
+  const dupes = [];
+  let lastIndent = -1;
+  lines.forEach((raw, i) => {
+    if (/^\s*#/.test(raw) || !raw.trim()) return;
+    const m = raw.match(/^(\s*)(-\s+)?([A-Za-z_][\w-]*)\s*:(\s|$)/);
+    if (!m) return;
+    const indent = m[1].length + (m[2] ? m[2].length : 0);
+    const key = m[3];
+    if (m[2]) {
+      // A new list item starts a fresh mapping at this level and below.
+      for (const k of [...stack.keys()]) if (k >= indent) stack.delete(k);
+    } else if (indent < lastIndent) {
+      // A dedent closes deeper blocks only. Returning to `indent` re-enters the SAME
+      // mapping, so its recorded keys must survive - otherwise a duplicate that straddles
+      // a nested block (the exact `env:` bug) goes undetected.
+      for (const k of [...stack.keys()]) if (k > indent) stack.delete(k);
+    }
+    if (!stack.has(indent)) stack.set(indent, new Set());
+    const seen = stack.get(indent);
+    if (seen.has(key)) dupes.push(`line ${i + 1}: duplicate key "${key}"`);
+    seen.add(key);
+    lastIndent = indent;
+  });
+  assert(dupes.length === 0, dupes.join('; '));
+});
 check('workflow always arms the stale-head guard', () => {
   assert(/--expect-sha/.test(wf), 'no stale-head guard');
   // workflow_dispatch has no pull_request payload, so the SHA must be resolved from the API.
