@@ -65,11 +65,20 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Reviewing PR #$pr at $sha"
 
-      # Checkout the exact PR head so the reviewed tree matches the reviewed SHA.
+      # Check out the BASE revision, never the PR head.
+      #
+      # The reviewer script is itself editable under the active lock, so running the PR
+      # head's copy would let the change under review rewrite its own reviewer and post a
+      # forged current-SHA ACCEPT carrying the expected marker under the Actions identity -
+      # which the controller's bot-and-marker authentication would then admit.
+      #
+      # The reviewer does not need the PR worktree: it fetches the diff through `gh pr
+      # diff`. So the trusted base copy reviews the untrusted head, and a change to the
+      # reviewer only takes effect once a human has merged it.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', steps.target.outputs.pr) }}
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          fetch-depth: 1
           persist-credentials: false
 
       - uses: actions/setup-python@v5

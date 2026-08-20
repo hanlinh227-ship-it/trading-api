@@ -49,15 +49,27 @@
       "type": "string",
       "description": "Implementation branch. Must never be main.",
       "minLength": 1,
-      "not": { "enum": ["main", "refs/heads/main", "origin/main"] }
+      "not": {
+        "enum": [
+          "main",
+          "refs/heads/main",
+          "origin/main"
+        ]
+      }
     },
     "pr_number": {
-      "type": ["integer", "null"],
+      "type": [
+        "integer",
+        "null"
+      ],
       "description": "GitHub PR number once created.",
       "minimum": 1
     },
     "head_sha": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Exact PR head commit under review this round.",
       "pattern": "^[0-9a-f]{40}$"
     },
@@ -80,41 +92,84 @@
       "type": "object",
       "description": "Deterministic local test evidence for head_sha.",
       "additionalProperties": false,
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "properties": {
-        "status": { "type": "string", "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ]
+        },
         "commands": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["command", "exit_code"],
+            "required": [
+              "command",
+              "exit_code"
+            ],
             "properties": {
-              "command": { "type": "string" },
-              "exit_code": { "type": "integer" },
-              "summary": { "type": "string", "maxLength": 4000 }
+              "command": {
+                "type": "string"
+              },
+              "exit_code": {
+                "type": "integer"
+              },
+              "summary": {
+                "type": "string",
+                "maxLength": 4000
+              }
             }
           }
         }
       }
     },
     "deepseek_verdict": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Adversarial reviewer verdict. Only valid when deepseek_review_sha equals head_sha.",
-      "enum": ["ACCEPT", "REJECT", "BLOCKED", "PENDING", null]
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "BLOCKED",
+        "PENDING",
+        null
+      ]
     },
     "deepseek_review_sha": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "SHA DeepSeek actually reviewed. Any mismatch with head_sha makes the verdict stale and void.",
       "pattern": "^[0-9a-f]{40}$"
     },
     "codex_verdict": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Independent reviewer verdict. Only valid when codex_review_sha equals head_sha.",
-      "enum": ["ACCEPT", "REJECT", "BLOCKED", "PENDING", null]
+      "enum": [
+        "ACCEPT",
+        "REJECT",
+        "BLOCKED",
+        "PENDING",
+        null
+      ]
     },
     "codex_review_sha": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "SHA Codex actually reviewed (GitHub review commit_id). Any mismatch with head_sha makes the review stale and void.",
       "pattern": "^[0-9a-f]{40}$"
     },
@@ -124,12 +179,39 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["source", "summary"],
+        "required": [
+          "source",
+          "summary"
+        ],
         "properties": {
-          "source": { "type": "string", "enum": ["DEEPSEEK", "CODEX", "TESTS", "CHECKS", "CONTROLLER"] },
-          "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
-          "file": { "type": ["string", "null"] },
-          "line": { "type": ["integer", "null"], "minimum": 1 }
+          "source": {
+            "type": "string",
+            "enum": [
+              "DEEPSEEK",
+              "CODEX",
+              "TESTS",
+              "CHECKS",
+              "CONTROLLER"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
         }
       }
     },
@@ -137,22 +219,62 @@
       "type": "object",
       "description": "Required GitHub check-run rollup for head_sha.",
       "additionalProperties": false,
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "properties": {
-        "status": { "type": "string", "enum": ["PASS", "FAIL", "PENDING", "UNKNOWN"] },
-        "failing": { "type": "array", "items": { "type": "string" } }
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "FAIL",
+            "PENDING",
+            "UNKNOWN"
+          ]
+        },
+        "failing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "other_failing": {
+          "type": "array",
+          "description": "Checks not in the required set whose latest attempt failed. Reported for visibility; these do not gate READY_TO_MERGE.",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "last_actor": {
       "type": "string",
-      "enum": ["CONTROLLER", "CLAUDE_LOCAL", "DEEPSEEK", "CODEX", "GITHUB", "HUMAN"]
+      "enum": [
+        "CONTROLLER",
+        "CLAUDE_LOCAL",
+        "DEEPSEEK",
+        "CODEX",
+        "GITHUB",
+        "HUMAN"
+      ]
     },
     "next_actor": {
       "type": "string",
-      "enum": ["CONTROLLER", "CLAUDE_LOCAL", "DEEPSEEK", "CODEX", "GITHUB", "HUMAN", "NONE"]
+      "enum": [
+        "CONTROLLER",
+        "CLAUDE_LOCAL",
+        "DEEPSEEK",
+        "CODEX",
+        "GITHUB",
+        "HUMAN",
+        "NONE"
+      ]
     },
     "next_action": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Human-readable statement of what must happen next.",
       "maxLength": 2000
     }
@@ -160,7 +282,16 @@
   "allOf": [
     {
       "$comment": "READY_TO_MERGE requires both reviewers ACCEPT on the exact head, passing tests and passing checks, with no blocking findings.",
-      "if": { "properties": { "status": { "const": "READY_TO_MERGE" } }, "required": ["status"] },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "READY_TO_MERGE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
       "then": {
         "required": [
           "head_sha",
@@ -173,22 +304,60 @@
           "codex_review_sha"
         ],
         "properties": {
-          "deepseek_verdict": { "const": "ACCEPT" },
-          "codex_verdict": { "const": "ACCEPT" },
-          "tests": { "properties": { "status": { "const": "PASS" } } },
-          "checks": { "properties": { "status": { "const": "PASS" } } },
-          "blocking_findings": { "maxItems": 0 },
-          "next_actor": { "const": "HUMAN" }
+          "deepseek_verdict": {
+            "const": "ACCEPT"
+          },
+          "codex_verdict": {
+            "const": "ACCEPT"
+          },
+          "tests": {
+            "properties": {
+              "status": {
+                "const": "PASS"
+              }
+            }
+          },
+          "checks": {
+            "properties": {
+              "status": {
+                "const": "PASS"
+              }
+            }
+          },
+          "blocking_findings": {
+            "maxItems": 0
+          },
+          "next_actor": {
+            "const": "HUMAN"
+          }
         }
       }
     },
     {
       "$comment": "Terminal states hand control back to a human and schedule no further actor.",
       "if": {
-        "properties": { "status": { "enum": ["BLOCKED", "MAX_ROUNDS_REACHED"] } },
-        "required": ["status"]
+        "properties": {
+          "status": {
+            "enum": [
+              "BLOCKED",
+              "MAX_ROUNDS_REACHED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       },
-      "then": { "properties": { "next_actor": { "enum": ["HUMAN", "NONE"] } } }
+      "then": {
+        "properties": {
+          "next_actor": {
+            "enum": [
+              "HUMAN",
+              "NONE"
+            ]
+          }
+        }
+      }
     }
   ]
 }

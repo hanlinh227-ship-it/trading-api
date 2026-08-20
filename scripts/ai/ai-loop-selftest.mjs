@@ -618,7 +618,12 @@ check('HTTP attempts are capped across the WHOLE review, not per call', () => {
 });
 check('DeepSeek verdict comments are authenticated', () => {
   const seg = ps1.split('function Get-DeepSeekVerdict')[1].split('function Get-Codex')[0];
-  assert(/github-actions\[bot\]/.test(seg), 'verdict author is not verified');
+  assert(/\$script:REVIEW_BOT_LOGIN/.test(seg), 'verdict author is not verified');
+  // Controller and reviewer must agree on the identity, or a valid verdict would be
+  // refused and the loop would stall at PENDING.
+  assert(/REVIEW_BOT_LOGIN\s*=.*github-actions\[bot\]/.test(ps1), 'controller bot identity is not pinned');
+  assert(/AI_LOOP_BOT_LOGIN/.test(ps1) && /AI_LOOP_BOT_LOGIN/.test(py),
+    'controller and reviewer do not share the same bot-identity override');
   assert(/ai-loop:deepseek-review/.test(seg), 'reviewer comment marker is not verified');
   assert(/login: \.user\.login/.test(seg), 'comment author is not even fetched');
   // A forged ACCEPT from any PR participant must be ignored, not trusted.
@@ -696,8 +701,10 @@ check('severity set covers P0 and hyphenated must-fix', () => {
 });
 check('required checks must conclude success', () => {
   const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
-  assert(/conclusion -ne "success"/.test(seg),
-    'a required check concluding skipped/neutral/stale would still satisfy the gate');
+  assert(/\$_\.conclusion -eq "success"/.test(seg),
+    'success is not required explicitly - a skipped/neutral/stale conclusion could satisfy the gate');
+  assert(/no successful attempt; saw/.test(seg),
+    'a check with no successful attempt at all is not reported');
   assert(/did not conclude success/.test(seg), 'non-success conclusions are not reported');
   assert(/Status = "FAIL"; Failing = \$notSuccessful/.test(seg), 'non-success does not fail the rollup');
 });
@@ -721,14 +728,48 @@ check('claude cannot execute any file it is able to edit', () => {
   assert(/Bash\(node --check:\*\)/.test(seg), 'syntax checking was removed too');
 });
 check('a commit created during the implementation round is refused', () => {
-  assert(/\$headBeforeRound/.test(ps1) && /\$headAfterRound/.test(ps1), 'HEAD is not sampled around the round');
+  assert(/\$script:HeadBeforeRound/.test(ps1) && /\$headAfterRound/.test(ps1), 'HEAD is not sampled around the round');
   assert(/HEAD moved from/.test(ps1), 'a moved HEAD does not stop the loop');
   const body = stripPs1Comments(ps1);
-  const beforeIdx = body.indexOf('$headBeforeRound = ');
+  const beforeIdx = body.indexOf('$script:HeadBeforeRound = ');
   const roundIdx = body.indexOf('$claude = Invoke-ClaudeRound');
   const afterIdx = body.indexOf('$headAfterRound = ');
   assert(beforeIdx > -1 && beforeIdx < roundIdx && afterIdx > roundIdx,
     'HEAD must be sampled before AND after the round');
+});
+check('the reviewer runs from a trusted revision, not the PR head', () => {
+  // The reviewer script is editable under the active lock. Running the head's copy would
+  // let the change under review rewrite its own reviewer and post a forged current-SHA
+  // ACCEPT under the Actions identity, which the bot+marker check would then admit.
+  assert(/base\.sha/.test(wf), 'workflow does not check out the base revision');
+  assert(!/pull_request\.head\.sha \|\| format\('refs\/pull/.test(wf),
+    'workflow still checks out the PR head for execution');
+  assert(/trusted/i.test(wf), 'the trust boundary is not documented in the workflow');
+  // It still reviews the head: the SHA guard and the diff come from the API.
+  assert(/--expect-sha/.test(wf), 'reviewer no longer pins the reviewed head');
+});
+check('a commit created during the TESTS is also refused', () => {
+  // Closing Claude's direct execution is not enough: the controller itself runs
+  // repo-resident validators that are writable under the lock.
+  const seg = ps1.split('function Publish-Round')[1].split('function Sync-PullRequest')[0];
+  assert(/\$script:HeadBeforeRound/.test(seg), 'HEAD is not re-checked before staging');
+  assert(/refusing to stage on a history it did not author/.test(seg),
+    'a commit created during the tests does not block staging');
+  // The pre-round sample must be script-scoped so it survives into Publish-Round.
+  assert(/\$script:HeadBeforeRound = \(Invoke-Git/.test(ps1), 'pre-round HEAD is not script-scoped');
+});
+check('superseded attempts do not veto a later successful attempt', () => {
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  // Overlapping pull_request/workflow_dispatch triggers create separate check SUITES, so
+  // a cancelled automatic run must not gate a later successful dispatched run.
+  assert(/\$supersededConclusions/.test(seg), 'supersede signals are not distinguished');
+  assert(/\$hardFailConclusions/.test(seg), 'genuine failures are not distinguished');
+  assert(/cancelled/.test(seg) && /stale/.test(seg), 'cancelled/stale are not treated as superseded');
+  assert(/\$succeed\.Count -gt 0/.test(seg), 'a successful attempt does not clear the check');
+  // A genuine failure must still gate even when another suite went green.
+  const hardIdx = seg.indexOf('$hard.Count -gt 0');
+  const okIdx = seg.indexOf('$succeed.Count -gt 0');
+  assert(hardIdx > -1 && hardIdx < okIdx, 'a real failure is not evaluated before a success');
 });
 check('superseded check attempts are collapsed before evaluation', () => {
   const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
@@ -746,6 +787,14 @@ check('non-required failing checks are reported but do not gate', () => {
   assert(/not gating/.test(seg), 'non-required failures are not distinguished from gating ones');
   // The gate itself must consider only the required set.
   assert(/REQUIRED_CHECKS -notcontains/.test(seg), 'non-required checks are not separated out');
+  // EVERY return path must carry them, including PENDING and FAIL - the contract promises
+  // they stay visible, and logging alone does not reach the summary.
+  const returns = seg.match(/return \[pscustomobject\]@\{ Status = "(PASS|FAIL|PENDING)"[^}]*\}/g) || [];
+  assert(returns.length >= 3, `expected PASS/FAIL/PENDING returns, found ${returns.length}`);
+  for (const r of returns) assert(/OtherFailing/.test(r), `return path omits OtherFailing: ${r}`);
+  // And they must actually reach the state and the printed summary.
+  assert(/checks_other_failing/.test(ps1), 'non-required failures never reach loop state');
+  assert(/CHECKS_OTHER_FAILING=/.test(ps1), 'non-required failures never reach the summary');
 });
 check('only the latest attempt of a required check counts', () => {
   const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
@@ -775,6 +824,23 @@ check('all same-head Codex reviews are aggregated', () => {
   // No early return on the first matching review.
   assert(!/foreach \(\$rev in \$reviews\)/.test(seg), 'still iterates and returns on first match');
   assert(/\$blockers\.Count -gt 0/.test(seg), 'rejection does not take precedence over the set');
+});
+check('every persisted state key is declared by the schema', () => {
+  // The schema is additionalProperties:false, so any state field the controller emits but
+  // the schema does not declare invalidates every persisted state file. Derive the key set
+  // from the controller itself so adding a field without updating the schema fails here.
+  const block = ps1.split('$script:State = [ordered]@{')[1].split('\n}')[0];
+  const keys = [...block.matchAll(/^\s{4}([a-z_]+)\s*=/gm)].map((m) => m[1]);
+  assert(keys.length >= 15, `expected the full state key set, parsed ${keys.length}`);
+  // Keys deliberately re-nested during serialisation rather than emitted at top level.
+  const renested = new Set(['checks_other_failing']);
+  const declared = new Set(Object.keys(schema.properties));
+  const undeclared = keys.filter((k) => !declared.has(k) && !renested.has(k));
+  assert(undeclared.length === 0, `state keys missing from the schema: ${undeclared.join(', ')}`);
+  // Anything re-nested must actually be removed before serialisation.
+  for (const k of renested) {
+    assert(new RegExp(`Remove\\("${k}"\\)`).test(ps1), `${k} is re-nested but never removed from the top level`);
+  }
 });
 check('blocking findings are serialised in the schema shape', () => {
   const seg = ps1.split('function Write-Summary')[1];
@@ -887,7 +953,14 @@ check('unverified Claude round fails closed', () => {
 check('persisted state matches the schema shape', () => {
   const seg = ps1.split('function Write-Summary')[1];
   assert(/\$serialisable\["tests"\]\s*=\s*\[ordered\]@\{/.test(seg), 'tests is not serialised as an object');
-  assert(/\$serialisable\["checks"\]\s*=\s*\[ordered\]@\{ status/.test(seg), 'checks is not serialised as an object');
+  assert(/\$serialisable\["checks"\]\s*=\s*\[ordered\]@\{/.test(seg), 'checks is not serialised as an object');
+  assert(/status\s*=\s*\$script:State\.checks/.test(seg), 'checks.status is not serialised');
+  // Schema is additionalProperties:false, so no state key may be emitted that it does not
+  // declare. Non-required failures belong INSIDE checks, not as a new top-level field.
+  assert(/\$serialisable\.Remove\("checks_other_failing"\)/.test(seg),
+    'a top-level key not declared by the schema is still emitted');
+  assert(schema.properties.checks.properties.other_failing, 'schema does not declare checks.other_failing');
+  assert(schema.additionalProperties === false, 'schema no longer forbids undeclared properties');
   // Schema agrees these are objects with a status property.
   assert(schema.properties.tests.type === 'object', 'schema tests is not an object');
   assert(schema.properties.checks.type === 'object', 'schema checks is not an object');

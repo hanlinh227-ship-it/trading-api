@@ -84,6 +84,10 @@ $script:CODEX_BLOCKING_PATTERN = '(?i)(\bP0\b|\bP1\b|\bP2\b|\bblocking\b|\bmust[
 # The independent reviewer's exact identity. A substring match on "codex" would let any
 # collaborator or bot named e.g. "codex-reviewer" manufacture an ACCEPT.
 $script:CODEX_BOT_LOGIN      = "chatgpt-codex-connector[bot]"
+# The account the DeepSeek reviewer posts under. MUST match BOT_LOGIN in
+# scripts/ai/deepseek_reviewer.py (same AI_LOOP_BOT_LOGIN override), or the reviewer
+# would post a verdict the controller then refuses to admit, stalling at PENDING.
+$script:REVIEW_BOT_LOGIN     = if ($env:AI_LOOP_BOT_LOGIN) { $env:AI_LOOP_BOT_LOGIN } else { "github-actions[bot]" }
 $script:PROTECTED_BRANCHES   = @("main", "master", "refs/heads/main", "origin/main")
 $script:REPO_ROOT            = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $script:PROMPT_TEMPLATE      = Join-Path $script:REPO_ROOT "scripts\ai\claude_loop_prompt.md"
@@ -108,6 +112,7 @@ $script:State = [ordered]@{
     codex_review_sha    = $null
     blocking_findings   = @()
     checks              = "UNKNOWN"
+    checks_other_failing = @()
     last_actor          = "CONTROLLER"
     next_actor          = "CONTROLLER"
     next_action         = ""
@@ -713,7 +718,8 @@ function Get-TestCommandList {
         "node cloudflare-worker/validate-worker.mjs",
         "node scripts/ai/forex-metal-index-validation.mjs",
         "node scripts/ai/ai-loop-selftest.mjs",
-        "node --check <each changed cloudflare-worker/**/*.js>",
+        "node --check <each changed .js/.mjs file>",
+        "python -m py_compile <each changed .py file>",
         "git diff --check"
     )
 }
@@ -802,6 +808,19 @@ function Publish-Round {
     # ran before the tests, but a test step can itself create files, and staging is the
     # last moment at which an out-of-scope file can still be stopped.
     Assert-ChangesInLockScope
+
+    # Re-assert HEAD too. Removing executable paths from Claude's allowedTools does not by
+    # itself close the escape: the CONTROLLER executes repo-resident validators, and those
+    # files are writable under the active lock. A rewritten validator could shell out and
+    # commit out-of-scope work, which would then vanish from the working tree and satisfy
+    # the scope check above. Comparing HEAD to the value sampled before the round catches
+    # any commit the controller did not author, whoever created it.
+    if ($script:HeadBeforeRound) {
+        $headNow = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+        if ($headNow -ne $script:HeadBeforeRound) {
+            Stop-Loop -Status "BLOCKED" -Reason "HEAD moved from $($script:HeadBeforeRound) to $headNow during the round or its tests. Only the controller may create commits; refusing to stage on a history it did not author."
+        }
+    }
 
     $status = (Invoke-Git -Arguments @("status", "--porcelain")).StdOut
     if ([string]::IsNullOrWhiteSpace($status)) {
@@ -974,16 +993,34 @@ function Get-CheckRollup {
     # STEP 2 - the gate is the REQUIRED set, per the contract's "required GitHub checks
     # PASS". Every required check must be present and its latest attempt must have
     # concluded success.
+    # Overlapping triggers (a pull_request run cancelled by a later workflow_dispatch)
+    # produce SEPARATE check suites, so requiring every suite to succeed would let the
+    # cancelled one veto the head forever. Distinguish supersede signals from real
+    # failures: `cancelled`/`skipped`/`stale`/`neutral` mean "this attempt was replaced",
+    # while `failure`/`timed_out`/`action_required` are genuine and must gate even if some
+    # other suite of the same name went green.
+    $supersededConclusions = @("cancelled", "skipped", "stale", "neutral")
+    $hardFailConclusions   = @("failure", "timed_out", "action_required")
+
     $absent = @(); $notSuccessful = @()
     foreach ($required in $script:REQUIRED_CHECKS) {
         $matching = @($effective | Where-Object { "$($_.name)" -eq $required })
         if ($matching.Count -eq 0) { $absent += $required; continue }
-        foreach ($run in $matching) {
-            if ($run.status -ne "completed") {
-                $notSuccessful += "$required (still $($run.status))"
-            } elseif ($run.conclusion -ne "success") {
-                $notSuccessful += "$required (concluded $($run.conclusion))"
-            }
+
+        $hard    = @($matching | Where-Object { $_.status -eq "completed" -and $hardFailConclusions -contains $_.conclusion })
+        $succeed = @($matching | Where-Object { $_.status -eq "completed" -and $_.conclusion -eq "success" })
+        $running = @($matching | Where-Object { $_.status -ne "completed" })
+
+        if ($hard.Count -gt 0) {
+            $notSuccessful += "$required (concluded $($hard[0].conclusion))"
+        } elseif ($succeed.Count -gt 0) {
+            # At least one suite genuinely succeeded and nothing genuinely failed.
+            continue
+        } elseif ($running.Count -gt 0) {
+            $notSuccessful += "$required (still $($running[0].status))"
+        } else {
+            $only = @($matching | ForEach-Object { "$($_.conclusion)" } | Select-Object -Unique) -join "/"
+            $notSuccessful += "$required (no successful attempt; saw $only)"
         }
     }
 
@@ -1030,8 +1067,8 @@ function Get-DeepSeekVerdict {
     foreach ($c in $comments) {
         $b = $c.body
         if ($null -eq $b -or $b -notmatch "DEEPSEEK_REVIEW_BEGIN") { continue }
-        if ($c.login -ne "github-actions[bot]") {
-            Write-Warn2 "ignoring a DEEPSEEK_REVIEW block from '$($c.login)' - only github-actions[bot] may issue a verdict"
+        if ($c.login -ne $script:REVIEW_BOT_LOGIN) {
+            Write-Warn2 "ignoring a DEEPSEEK_REVIEW block from '$($c.login)' - only $($script:REVIEW_BOT_LOGIN) may issue a verdict"
             continue
         }
         if ($b -notmatch [regex]::Escape("<!-- ai-loop:deepseek-review -->")) {
@@ -1154,6 +1191,8 @@ function Wait-ForReviews {
         $polls++
         $checks = Get-CheckRollup
         $script:State.checks = $checks.Status
+        # Non-required failures do not gate, but the contract promises they stay visible.
+        $script:State.checks_other_failing = @($checks.OtherFailing)
 
         # A skipped reviewer is NEVER synthesised into an acceptance. -SkipDeepSeek /
         # -SkipCodex are rehearsal switches, rejected outside -DryRun at startup; if one is
@@ -1247,6 +1286,9 @@ function Write-Summary {
     Write-Host "ROUNDS=$($script:State.round)/$($script:State.max_rounds)"
     Write-Host "TESTS=$($script:State.tests)"
     Write-Host "CHECKS=$($script:State.checks)"
+    if (@($script:State.checks_other_failing).Count -gt 0) {
+        Write-Host "CHECKS_OTHER_FAILING=$(@($script:State.checks_other_failing) -join ', ') (reported, not gating)"
+    }
     $dsv = $script:State.deepseek_verdict; if ($null -eq $dsv) { $dsv = "NOT_RUN" }
     $cxv = $script:State.codex_verdict;    if ($null -eq $cxv) { $cxv = "NOT_RUN" }
     Write-Host "DEEPSEEK=$dsv (sha=$($script:State.deepseek_review_sha))"
@@ -1276,7 +1318,14 @@ function Write-Summary {
                 [ordered]@{ command = $_.Command; exit_code = $(if ($_.Pass) { 0 } else { 1 }) }
             })
         }
-        $serialisable["checks"] = [ordered]@{ status = $script:State.checks }
+        # Nested under `checks`, not a new top-level key: the schema is
+        # additionalProperties:false, so an extra top-level field would invalidate every
+        # persisted state file.
+        $serialisable.Remove("checks_other_failing") | Out-Null
+        $serialisable["checks"] = [ordered]@{
+            status        = $script:State.checks
+            other_failing = @($script:State.checks_other_failing)
+        }
         # blocking_findings are accumulated as plain strings by Stop-Loop, test failures,
         # check failures and reviewer findings alike, but the schema requires each item to
         # be an object with `source` and `summary`. Classify on the way out so a persisted
@@ -1357,13 +1406,15 @@ function Main {
         # Claude must never create a commit. If HEAD moves during its round, something
         # executed a git write on its behalf and the scope assertions - which compare the
         # working tree to the CURRENT HEAD - would no longer see the smuggled change.
-        $headBeforeRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+        # Script-scoped so Publish-Round can re-check it after the tests have run, which is
+        # where the controller executes repo-resident (and therefore editable) validators.
+        $script:HeadBeforeRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
 
         $claude = Invoke-ClaudeRound -BlockingFindings $blockingText
 
         $headAfterRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
-        if ($headAfterRound -ne $headBeforeRound) {
-            Stop-Loop -Status "BLOCKED" -Reason "HEAD moved from $headBeforeRound to $headAfterRound during the implementation round. Only the controller may create commits; refusing to continue on a self-committed history."
+        if ($headAfterRound -ne $script:HeadBeforeRound) {
+            Stop-Loop -Status "BLOCKED" -Reason "HEAD moved from $($script:HeadBeforeRound) to $headAfterRound during the implementation round. Only the controller may create commits; refusing to continue on a self-committed history."
         }
 
         # Fail closed on the implementer's report. An absent or malformed result block
