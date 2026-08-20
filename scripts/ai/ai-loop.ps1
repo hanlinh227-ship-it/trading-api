@@ -1096,9 +1096,20 @@ function Publish-Round {
     # would include it with no further check before the push. A commit is immutable, so
     # examining its own path list is the only inspection that cannot be raced. Nothing has
     # left the machine yet at this point, so refusing here still prevents publication.
-    $committed = Invoke-Git -Arguments @("show", "--name-only", "--format=", "HEAD")
+    # Resolve the SHA once and use it for BOTH the inspection and the push. Selecting the
+    # commit through the mutable ref `HEAD` and then pushing the mutable branch NAME leaves
+    # a gap: a detached helper can `git update-ref` the branch at a prepared out-of-scope
+    # commit between the two, and the push would publish that unvalidated commit under the
+    # controller's credentials. Pinning the SHA closes it - what is inspected is exactly
+    # what is published.
+    $commitSha = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+    if ($commitSha -notmatch '^[0-9a-f]{40}$') {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not resolve the SHA of the commit just created. Refusing to push a commit that cannot be pinned."
+    }
+
+    $committed = Invoke-Git -Arguments @("show", "--name-only", "--format=", $commitSha)
     if ($committed.ExitCode -ne 0) {
-        Stop-Loop -Status "BLOCKED" -Reason "Could not read the paths of the commit just created. Refusing to push a commit whose contents are unverified."
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read the paths of commit $commitSha. Refusing to push a commit whose contents are unverified."
     }
     $committedFiles = @($committed.StdOut -split "`r?`n" | Where-Object { $_.Trim() })
     $committedWorkflows = @($committedFiles | Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
@@ -1111,11 +1122,12 @@ function Publish-Round {
     }
     Write-Good "Commit contains $($committedFiles.Count) file(s), all within the declared lock scope"
 
-    # Explicit refspec, never a force push.
-    $p = Invoke-Git -Arguments @("push", "origin", "$($script:State.branch):$($script:State.branch)") -TimeoutSec 300
+    # Push the exact validated SHA, never the branch name. Explicit refspec, never forced.
+    $p = Invoke-Git -Arguments @("push", "origin", "$commitSha`:refs/heads/$($script:State.branch)") -TimeoutSec 300
     if ($p.ExitCode -ne 0) { Stop-Loop -Status "BLOCKED" -Reason "git push failed: $(Protect-Secret $p.StdErr)" }
 
-    $script:State.head_sha = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+    # The recorded head is the SHA that was inspected, not a re-resolution of HEAD.
+    $script:State.head_sha = $commitSha
     Write-Good "pushed $($script:State.branch) -> $($script:State.head_sha)"
     return $true
 }

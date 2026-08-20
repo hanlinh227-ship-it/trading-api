@@ -1129,7 +1129,7 @@ check('the staged index is verified, not just the pre-staging working tree', () 
   // Even the index check is check-then-act: a detached helper can stage between the probe
   // and `git commit`. A COMMIT is immutable, so its own path list is the only inspection
   // that cannot be raced - and nothing has left the machine before the push.
-  assert(/"show", "--name-only", "--format=", "HEAD"/.test(pub),
+  assert(/"show", "--name-only", "--format=", \$commitSha/.test(pub),
     'the created commit is never inspected');
   const showIdx = pub.indexOf('"show", "--name-only"');
   const pushIdx = pub.indexOf('"push", "origin"');
@@ -1137,6 +1137,22 @@ check('the staged index is verified, not just the pre-staging working tree', () 
   assert(pushIdx > showIdx, 'the push happens before the commit is inspected');
   assert(/It has NOT been pushed/.test(pub),
     'a bad commit is not clearly reported as unpublished');
+  // Selecting the commit through mutable HEAD and then pushing the mutable branch NAME
+  // leaves a gap: a helper can `git update-ref` the branch at a prepared out-of-scope
+  // commit in between, and the push would publish that unvalidated commit. The SHA must be
+  // resolved once and used for BOTH the inspection and the push.
+  assert(/\$commitSha = \(Invoke-Git -Arguments @\("rev-parse", "HEAD"\)\)/.test(pub),
+    'the commit SHA is never pinned');
+  assert(/"show", "--name-only", "--format=", \$commitSha/.test(pub),
+    'the inspection still selects the commit through mutable HEAD');
+  assert(/"push", "origin", "\$commitSha`:refs\/heads\/\$\(\$script:State\.branch\)"/.test(pub),
+    'the push still resolves a mutable branch name instead of the validated SHA');
+  assert(!/"push", "origin", "\$\(\$script:State\.branch\):\$\(\$script:State\.branch\)"/.test(pub),
+    'the old branch-name refspec is still present');
+  assert(/\$commitSha -notmatch/.test(pub), 'an unresolvable commit SHA does not block');
+  // And the recorded head must be that same SHA, not a re-resolution.
+  assert(/\$script:State\.head_sha = \$commitSha/.test(pub),
+    'the recorded head is re-resolved rather than being the inspected SHA');
 });
 check('the NEWEST check attempt decides, not merely any success', () => {
   // "Any suite succeeded" was too weak: a check genuinely cancelled now would be waved
