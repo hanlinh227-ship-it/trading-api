@@ -45,7 +45,7 @@ function marketSpecific(a,market){
   if(market==="forex")return {session:first(existingSession(a),c?.forexSession),currencyStrength:first(c?.currencyStrength,a?.currencyStrength,canon?.currencyStrength),crossPairConfirmation:first(c?.crossPairConfirmation,c?.relativeStrength,a?.relativeStrength),eventSensitivity:first(canon?.news?.source,c?.news?.source)};
   if(market==="crypto")return {funding:first(micro?.funding,c?.funding,a?.funding),openInterest:first(micro?.openInterest,micro?.oi,c?.openInterest),longShort:first(micro?.longShort,c?.longShort),orderbook:first(micro?.orderbook,c?.orderbook),spread:first(micro?.spread,c?.spread,a?.spread),spotPerpIdentity:first(c?.instrumentIdentity,a?.instrumentType)};
   if(market==="metal")return {session:first(existingSession(a),c?.metalSession),usdContext:first(c?.usdContext,c?.dxy,canon?.usdContext),ratesContext:first(c?.ratesContext,c?.yields,canon?.ratesContext),volatilityContext:first(c?.volatilityRegime,a?.volatilityRegime)};
-  if(market==="index")return {session:first(existingSession(a),c?.indexSession),instrumentIdentity:first(c?.instrumentIdentity,a?.instrumentType,"CASH_INDEX"),crossIndexConfirmation:first(c?.crossIndexConfirmation,c?.relativeStrength,a?.relativeStrength),riskContext:first(c?.riskSentiment,canon?.riskSentiment)};
+  if(market==="index")return {session:first(existingSession(a),c?.indexSession),instrumentIdentity:first(c?.instrumentIdentity,a?.instrumentType),crossIndexConfirmation:first(c?.crossIndexConfirmation,c?.relativeStrength,a?.relativeStrength),riskContext:first(c?.riskSentiment,canon?.riskSentiment)};
   return {};
 }
 
