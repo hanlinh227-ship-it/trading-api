@@ -208,7 +208,10 @@ def _split_hunk(hunk: str, budget: int) -> list[str]:
         cur, cur_len, old_count, new_count = [], 0, 0, 0
 
     for ln in body:
-        if cur and header_reserve + cur_len + len(ln) + 1 > budget:
+        # A "\ No newline at end of file" marker is only meaningful attached to the line
+        # before it. Flushing between the two would emit it in a zero-count hunk that is not
+        # a self-consistent diff, so it never starts a new piece.
+        if cur and not ln.startswith("\\") and header_reserve + cur_len + len(ln) + 1 > budget:
             flush()
         cur.append(ln)
         cur_len += len(ln) + 1
@@ -247,7 +250,16 @@ def _split_file_diff(file_diff: str) -> list[str]:
         # whole file, so this is the normal case, and refusing it would make the reviewer
         # useless on exactly the PRs that most need reviewing.
         if len(header) + len(hunk) > MAX_DIFF_CHARS:
-            pieces = _split_hunk(hunk, max(1024, MAX_DIFF_CHARS - len(header)))
+            # The exact remainder, not a floor: a floor would let _split_hunk pack past
+            # the real budget and then trip HUNK_TOO_LARGE even though every line fits.
+            remaining = MAX_DIFF_CHARS - len(header)
+            if remaining <= 0:
+                raise LoopBlocked(
+                    "BUDGET_TOO_SMALL",
+                    f"DEEPSEEK_MAX_DIFF_CHARS={MAX_DIFF_CHARS} leaves no room for the "
+                    f"{len(header)}-char file header; raise the budget",
+                )
+            pieces = _split_hunk(hunk, remaining)
             for piece in pieces:
                 if len(header) + len(piece) > MAX_DIFF_CHARS:
                     # Only reachable when one individual LINE is itself too large, which no

@@ -642,6 +642,15 @@ check('an oversized hunk is split into valid sub-hunks, not refused or oversized
   assert(/_split_hunk\(hunk,/.test(caller), 'the caller does not split an oversized hunk');
   assert(/longest single line/.test(caller),
     'the unfittable case is not reported in terms of the offending line');
+  // The exact remainder, not a floor. A floor lets _split_hunk pack past the real budget
+  // and then trip HUNK_TOO_LARGE even though every individual line fits.
+  assert(/remaining = MAX_DIFF_CHARS - len\(header\)/.test(caller),
+    'the caller does not pass the exact remaining budget');
+  assert(!/max\(1024, MAX_DIFF_CHARS/.test(caller), 'a budget floor still overrides the remainder');
+  assert(/BUDGET_TOO_SMALL/.test(caller), 'a budget leaving no room for the header is not rejected');
+  // A "\ No newline at end of file" marker is only meaningful attached to the line before
+  // it; flushing between them emits a zero-count hunk that is not a self-consistent diff.
+  assert(/not ln\.startswith/.test(seg), 'a split can orphan the no-newline marker');
 });
 check('chunked verdicts merge with rejection winning', () => {
   assert(/def merge_results/.test(py), 'no verdict merge');
