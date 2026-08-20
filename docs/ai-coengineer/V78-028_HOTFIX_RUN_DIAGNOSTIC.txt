@@ -1,4 +1,63 @@
 === META ===
-{"conclusion":"failure","createdAt":"2026-08-20T03:45:07Z","databaseId":32329354410,"headSha":"e98624876d1a31fd8677b1f0d6c29b07086dfb07","status":"completed","url":"https://github.com/hanlinh227-ship-it/trading-api/actions/runs/32329354410"}
+{"conclusion":"failure","createdAt":"2026-08-20T03:47:41Z","databaseId":32329509945,"headSha":"0181f17b46762afba91ea287d79f4c57e3ebe0da","status":"completed","url":"https://github.com/hanlinh227-ship-it/trading-api/actions/runs/32329509945"}
 
 === FAILED LOGS ===
+run	Run closed-loop final pass	﻿2026-08-20T03:47:48.1345496Z ##[group]Run bash scripts/v78_final_pass.sh
+run	Run closed-loop final pass	2026-08-20T03:47:48.1346243Z ^[[36;1mbash scripts/v78_final_pass.sh^[[0m
+run	Run closed-loop final pass	2026-08-20T03:47:48.1398668Z shell: /usr/bin/bash -e {0}
+run	Run closed-loop final pass	2026-08-20T03:47:48.1399258Z env:
+run	Run closed-loop final pass	2026-08-20T03:47:48.1400152Z   CLOUDFLARE_API_TOKEN: ***
+run	Run closed-loop final pass	2026-08-20T03:47:48.1400765Z   CLOUDFLARE_ACCOUNT_ID: ***
+run	Run closed-loop final pass	2026-08-20T03:47:48.1401358Z   TRADING_KV_NAMESPACE_ID: ***
+run	Run closed-loop final pass	2026-08-20T03:47:48.1401865Z ##[endgroup]
+run	Run closed-loop final pass	2026-08-20T03:47:48.1760909Z V78-028 quote visibility fallback applied
+run	Run closed-loop final pass	2026-08-20T03:47:48.2306032Z [main afba899] V78-028 final Index Cash quote visibility fallback
+run	Run closed-loop final pass	2026-08-20T03:47:48.2306932Z  1 file changed, 2 insertions(+), 1 deletion(-)
+run	Run closed-loop final pass	2026-08-20T03:47:49.2281831Z To https://github.com/hanlinh227-ship-it/trading-api
+run	Run closed-loop final pass	2026-08-20T03:47:49.2282460Z    0181f17..afba899  HEAD -> main
+run	Run closed-loop final pass	2026-08-20T03:47:54.2055352Z 
+run	Run closed-loop final pass	2026-08-20T03:47:54.2056087Z added 38 packages in 5s
+run	Run closed-loop final pass	2026-08-20T03:47:54.3583177Z 
+run	Run closed-loop final pass	2026-08-20T03:47:54.3583729Z > check
+run	Run closed-loop final pass	2026-08-20T03:47:54.3584609Z > node validate-worker.mjs
+run	Run closed-loop final pass	2026-08-20T03:47:54.3585090Z 
+run	Run closed-loop final pass	2026-08-20T03:47:55.0041658Z Worker preflight PASS: 25 JS/MJS files, imports resolved.
+run	Run closed-loop final pass	2026-08-20T03:47:55.1097503Z 
+run	Run closed-loop final pass	2026-08-20T03:47:55.1098339Z > prepare:wrangler
+run	Run closed-loop final pass	2026-08-20T03:47:55.1099271Z > node prepare-wrangler.mjs
+run	Run closed-loop final pass	2026-08-20T03:47:55.1099907Z 
+run	Run closed-loop final pass	2026-08-20T03:47:55.1432539Z Prepared wrangler.jsonc with existing TRADING_STATE (TRADING_KV_NAMESPACE_ID).
+run	Run closed-loop final pass	2026-08-20T03:47:56.5960143Z 
+run	Run closed-loop final pass	2026-08-20T03:47:56.5962587Z  ⛅️ wrangler 4.124.0
+run	Run closed-loop final pass	2026-08-20T03:47:56.5963167Z ────────────────────
+run	Run closed-loop final pass	2026-08-20T03:47:57.3616767Z Total Upload: 517.42 KiB / gzip: 66.99 KiB
+run	Run closed-loop final pass	2026-08-20T03:47:58.6865089Z Worker Startup Time: 4 ms
+run	Run closed-loop final pass	2026-08-20T03:47:58.6876273Z Your Worker has access to the following bindings:
+run	Run closed-loop final pass	2026-08-20T03:47:58.6895226Z Binding                                                   Resource          
+run	Run closed-loop final pass	2026-08-20T03:47:58.6896913Z env.TRADING_STATE (***)      KV Namespace      
+run	Run closed-loop final pass	2026-08-20T03:47:58.6897853Z 
+run	Run closed-loop final pass	2026-08-20T03:47:58.6898621Z Uploaded trading-v77-scanner (1.49 sec)
+run	Run closed-loop final pass	2026-08-20T03:47:59.5390588Z Deployed trading-v77-scanner triggers (0.85 sec)
+run	Run closed-loop final pass	2026-08-20T03:47:59.5391637Z   https://trading-v77-scanner.hanlinh227.workers.dev
+run	Run closed-loop final pass	2026-08-20T03:47:59.5392216Z   schedule: * * * * *
+run	Run closed-loop final pass	2026-08-20T03:47:59.5395604Z Current Version ID: 3555e65f-ee94-47d7-b5b9-5a4273715eba
+run	Run closed-loop final pass	2026-08-20T03:47:59.5412757Z 
+run	Run closed-loop final pass	2026-08-20T03:47:59.5414025Z Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+run	Run closed-loop final pass	2026-08-20T03:48:12.8758610Z [stdin]:4
+run	Run closed-loop final pass	2026-08-20T03:48:12.8760092Z   if(!(Number(q.price)>0)) throw new Error(`${s} price missing`);
+run	Run closed-loop final pass	2026-08-20T03:48:12.8761246Z                            ^
+run	Run closed-loop final pass	2026-08-20T03:48:12.8761768Z 
+run	Run closed-loop final pass	2026-08-20T03:48:12.8762072Z Error: US30 price missing
+run	Run closed-loop final pass	2026-08-20T03:48:12.8762483Z     at [stdin]:4:34
+run	Run closed-loop final pass	2026-08-20T03:48:12.8762990Z     at runScriptInThisContext (node:internal/vm:209:10)
+run	Run closed-loop final pass	2026-08-20T03:48:12.8763622Z     at node:internal/process/execution:446:12
+run	Run closed-loop final pass	2026-08-20T03:48:12.8764199Z     at [stdin]-wrapper:6:24
+run	Run closed-loop final pass	2026-08-20T03:48:12.8765066Z     at runScriptInContext (node:internal/process/execution:444:60)
+run	Run closed-loop final pass	2026-08-20T03:48:12.8765851Z     at evalFunction (node:internal/process/execution:279:30)
+run	Run closed-loop final pass	2026-08-20T03:48:12.8767119Z     at evalTypeScript (node:internal/process/execution:291:3)
+run	Run closed-loop final pass	2026-08-20T03:48:12.8767769Z     at node:internal/main/eval_stdin:53:5
+run	Run closed-loop final pass	2026-08-20T03:48:12.8768477Z     at Socket.<anonymous> (node:internal/process/execution:201:5)
+run	Run closed-loop final pass	2026-08-20T03:48:12.8769134Z     at Socket.emit (node:events:531:35)
+run	Run closed-loop final pass	2026-08-20T03:48:12.8769453Z 
+run	Run closed-loop final pass	2026-08-20T03:48:12.8769602Z Node.js v22.23.2
+run	Run closed-loop final pass	2026-08-20T03:48:12.8806724Z ##[error]Process completed with exit code 1.
