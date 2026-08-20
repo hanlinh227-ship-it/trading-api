@@ -1,17 +1,15 @@
 # AI WRITE LOCK
 
-LOCKED: true
-OWNER: CHATGPT
-SCOPE: V78-027 signal-only production cleanup and Hub simplification
-ACQUIRED: 2026-08-20
-SUPERSEDES: V78-026 H1 cancelled by explicit user direction.
+LOCKED: false
+OWNER: NONE
+SCOPE: NONE
+RELEASED: 2026-08-20
+LAST_RESULT: V78-027 RESOLVED — Signal-only cutover complete; Hyro runtime/UI disconnected and Hyro KV data purged.
 
 Protocol:
 - One writer at a time.
-- Production direction is Signal-only.
-- Remove Hyro execution/runtime and Hyro Telegram surfaces from active production wiring.
+- Current production direction is Signal-only.
 - Preserve Signal engine, market data, entry intelligence, ranking and all existing risk/freshness/structural-SL/news protections.
 - Preserve TRADING_STATE and v775:books Signal data.
-- Never restore Futures/TK2.
-- Binance20 remains NON_PRODUCTION / QUARANTINED.
+- Never restore Hyro auto-trade, Futures/TK2, or Binance20 production execution without explicit new user direction.
 - Production Claude API remains paused; Claude.ai Web remains co-engineer for Signal-only optimization.
