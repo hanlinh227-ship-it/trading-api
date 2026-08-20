@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hanlinh227-ship-it/trading-api/docs/ai-coengineer/AI_LOOP_STATE.schema.json",
+  "title": "AI Loop Runtime State",
+  "description": "Contract for the bounded multi-AI engineering loop. This schema is a CONTRACT ONLY. Live state is not continuously committed to main; it lives in the GitHub PR (head SHA, check runs, review comments) and in a local run file. GitHub is the state bus.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "objective",
+    "created_at",
+    "round",
+    "max_rounds",
+    "branch",
+    "status",
+    "last_actor",
+    "next_actor"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Stable identifier for this loop run.",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"
+    },
+    "objective": {
+      "type": "string",
+      "description": "The single human engineering objective driving this run.",
+      "minLength": 12,
+      "maxLength": 2000
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of run creation."
+    },
+    "round": {
+      "type": "integer",
+      "description": "Current round number, 1-based. Incremented only on FIX_REQUIRED.",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "max_rounds": {
+      "type": "integer",
+      "description": "Hard ceiling on rounds. The controller clamps any larger request to 5.",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "branch": {
+      "type": "string",
+      "description": "Implementation branch. Must never be main.",
+      "minLength": 1,
+      "not": { "enum": ["main", "refs/heads/main", "origin/main"] }
+    },
+    "pr_number": {
+      "type": ["integer", "null"],
+      "description": "GitHub PR number once created.",
+      "minimum": 1
+    },
+    "head_sha": {
+      "type": ["string", "null"],
+      "description": "Exact PR head commit under review this round.",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "status": {
+      "type": "string",
+      "description": "Current loop state. READY_TO_MERGE, BLOCKED and MAX_ROUNDS_REACHED are terminal.",
+      "enum": [
+        "IDLE",
+        "TASK_ACCEPTED",
+        "IMPLEMENTING",
+        "TESTING",
+        "AWAITING_REVIEWS",
+        "FIX_REQUIRED",
+        "READY_TO_MERGE",
+        "BLOCKED",
+        "MAX_ROUNDS_REACHED"
+      ]
+    },
+    "tests": {
+      "type": "object",
+      "description": "Deterministic local test evidence for head_sha.",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "exit_code"],
+            "properties": {
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" },
+              "summary": { "type": "string", "maxLength": 4000 }
+            }
+          }
+        }
+      }
+    },
+    "deepseek_verdict": {
+      "type": ["string", "null"],
+      "description": "Adversarial reviewer verdict. Only valid when deepseek_review_sha equals head_sha.",
+      "enum": ["ACCEPT", "REJECT", "BLOCKED", "PENDING", null]
+    },
+    "deepseek_review_sha": {
+      "type": ["string", "null"],
+      "description": "SHA DeepSeek actually reviewed. Any mismatch with head_sha makes the verdict stale and void.",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "codex_verdict": {
+      "type": ["string", "null"],
+      "description": "Independent reviewer verdict. Only valid when codex_review_sha equals head_sha.",
+      "enum": ["ACCEPT", "REJECT", "BLOCKED", "PENDING", null]
+    },
+    "codex_review_sha": {
+      "type": ["string", "null"],
+      "description": "SHA Codex actually reviewed (GitHub review commit_id). Any mismatch with head_sha makes the review stale and void.",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "blocking_findings": {
+      "type": "array",
+      "description": "Union of blocking findings from all reviewers for the current head. Must be empty for READY_TO_MERGE.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "summary"],
+        "properties": {
+          "source": { "type": "string", "enum": ["DEEPSEEK", "CODEX", "TESTS", "CHECKS", "CONTROLLER"] },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"], "minimum": 1 }
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "description": "Required GitHub check-run rollup for head_sha.",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["PASS", "FAIL", "PENDING", "UNKNOWN"] },
+        "failing": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "last_actor": {
+      "type": "string",
+      "enum": ["CONTROLLER", "CLAUDE_LOCAL", "DEEPSEEK", "CODEX", "GITHUB", "HUMAN"]
+    },
+    "next_actor": {
+      "type": "string",
+      "enum": ["CONTROLLER", "CLAUDE_LOCAL", "DEEPSEEK", "CODEX", "GITHUB", "HUMAN", "NONE"]
+    },
+    "next_action": {
+      "type": ["string", "null"],
+      "description": "Human-readable statement of what must happen next.",
+      "maxLength": 2000
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "READY_TO_MERGE requires both reviewers ACCEPT on the exact head, passing tests and passing checks, with no blocking findings.",
+      "if": { "properties": { "status": { "const": "READY_TO_MERGE" } }, "required": ["status"] },
+      "then": {
+        "required": [
+          "head_sha",
+          "pr_number",
+          "tests",
+          "checks",
+          "deepseek_verdict",
+          "deepseek_review_sha",
+          "codex_verdict",
+          "codex_review_sha"
+        ],
+        "properties": {
+          "deepseek_verdict": { "const": "ACCEPT" },
+          "codex_verdict": { "const": "ACCEPT" },
+          "tests": { "properties": { "status": { "const": "PASS" } } },
+          "checks": { "properties": { "status": { "const": "PASS" } } },
+          "blocking_findings": { "maxItems": 0 },
+          "next_actor": { "const": "HUMAN" }
+        }
+      }
+    },
+    {
+      "$comment": "Terminal states hand control back to a human and schedule no further actor.",
+      "if": {
+        "properties": { "status": { "enum": ["BLOCKED", "MAX_ROUNDS_REACHED"] } },
+        "required": ["status"]
+      },
+      "then": { "properties": { "next_actor": { "enum": ["HUMAN", "NONE"] } } }
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+name: AI Loop DeepSeek Review
+
+# ADVERSARIAL_REVIEWER stage of the bounded multi-AI engineering loop.
+# See docs/ai-coengineer/AI_LOOP_CONTRACT.md.
+#
+# This workflow reviews only. It never merges, never deploys, and never modifies source.
+# It deliberately does NOT trigger on pushes to main.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to review'
+        required: true
+        type: string
+      dry_run:
+        description: 'Gather context and validate wiring without calling the DeepSeek API'
+        required: false
+        default: false
+        type: boolean
+
+# Least privilege: read the code, write only PR conversation comments.
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-loop-deepseek-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  deepseek-review:
+    name: DeepSeek adversarial review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    steps:
+      - name: Resolve target PR
+        id: target
+        env:
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          INPUT_PR: ${{ inputs.pr_number }}
+          EVENT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          pr="${EVENT_PR:-$INPUT_PR}"
+          if [ -z "$pr" ]; then
+            echo "::error title=No PR::Could not resolve a pull request number."
+            exit 1
+          fi
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Reviewing PR #$pr (event head: ${EVENT_SHA:-resolved from API})"
+
+      # Checkout the exact PR head so the reviewed tree matches the reviewed SHA.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', steps.target.outputs.pr) }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify DeepSeek secret is present
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          # Existence check only. The value is never printed.
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "::error title=Missing secret::DEEPSEEK_API_KEY is not available to this job. Classification: MISSING_SECRET"
+            exit 1
+          fi
+          echo "DEEPSEEK_API_KEY is present (value not printed)."
+
+      - name: Syntax check reviewer
+        run: python -m py_compile scripts/ai/deepseek_reviewer.py
+
+      - name: Run DeepSeek adversarial review
+        id: review
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEEPSEEK_TIMEOUT_SEC: '120'
+        run: |
+          set -o pipefail
+          args="--pr ${{ steps.target.outputs.pr }} --repo ${{ github.repository }}"
+          if [ -n "${{ steps.target.outputs.sha }}" ]; then
+            args="$args --expect-sha ${{ steps.target.outputs.sha }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            args="$args --dry-run"
+          fi
+          python scripts/ai/deepseek_reviewer.py $args
+
+      - name: Summarise verdict
+        if: always()
+        run: |
+          verdict="${{ steps.review.outputs.verdict }}"
+          sha="${{ steps.review.outputs.head_sha }}"
+          {
+            echo "### DeepSeek adversarial review"
+            echo ""
+            echo "- Verdict: \`${verdict:-UNKNOWN}\`"
+            echo "- Reviewed SHA: \`${sha:-unknown}\`"
+            echo "- Blockers: \`${{ steps.review.outputs.blocker_count || 'n/a' }}\`"
+            echo ""
+            echo "DeepSeek is a reviewer only. It cannot merge or deploy."
+          } >> "$GITHUB_STEP_SUMMARY"
