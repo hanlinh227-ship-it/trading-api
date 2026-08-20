@@ -1,0 +1,151 @@
+name: V78-026 H1 Guarded DEMO Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v78-026-h1-validate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+  HYRO_BYBIT_API_KEY: ${{ secrets.HYRO_BYBIT_API_KEY }}
+  HYRO_BYBIT_API_SECRET: ${{ secrets.HYRO_BYBIT_API_SECRET }}
+
+jobs:
+  validate-h1-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v78-026-h1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Guard exact H1 scope and pre-patch blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '^LOCKED: true$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -q '^OWNER: CHATGPT$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -q '^SCOPE: V78-026 H1 deterministic order identity + intent state machine ONLY$' docs/ai-coengineer/WRITE_LOCK.md
+          test "$(git hash-object cloudflare-worker/hyro-execution.js)" = 'b97695c3f96939290e4a80d24d9fc702d154b29a'
+          cp cloudflare-worker/hyro-execution.js /tmp/hyro-pre.js
+
+      - name: Apply H1 patch and safety correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/v78-026-h1-apply.mjs | tee /tmp/apply.log
+          node scripts/v78-026-h1-safety-fix.mjs | tee -a /tmp/apply.log
+
+      - name: Static validation and untouched-function proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/hyro-execution.js
+          echo "sha256Hex=$(grep -c 'async function sha256Hex' cloudflare-worker/hyro-execution.js)" | tee /tmp/static.log
+          echo "untouched_defs=$(grep -c 'function evaluateHyroGate\|function normalizedOrder\|function hyroDynamicRiskView\|function cancelHyroPending\|function reconcileHyro' cloudflare-worker/hyro-execution.js)" | tee -a /tmp/static.log
+          echo "retryable_code_refs=$(grep -c 'RETRYABLE_REJECTION_CODES' cloudflare-worker/hyro-execution.js)" | tee -a /tmp/static.log
+          echo "random_uuid_refs=$(grep -c 'crypto.randomUUID' cloudflare-worker/hyro-execution.js || true)" | tee -a /tmp/static.log
+          echo "cancel_all_refs=$(grep -c '/v5/order/cancel-all' cloudflare-worker/hyro-execution.js)" | tee -a /tmp/static.log
+          test "$(grep -c 'async function sha256Hex' cloudflare-worker/hyro-execution.js)" = 1
+          test "$(grep -c 'function evaluateHyroGate\|function normalizedOrder\|function hyroDynamicRiskView\|function cancelHyroPending\|function reconcileHyro' cloudflare-worker/hyro-execution.js)" = 5
+          test "$(grep -c 'RETRYABLE_REJECTION_CODES' cloudflare-worker/hyro-execution.js)" = 2
+          test "$(grep -c 'crypto.randomUUID' cloudflare-worker/hyro-execution.js || true)" = 0
+          test "$(grep -c '/v5/order/cancel-all' cloudflare-worker/hyro-execution.js)" = 1
+          for state in PREPARED SUBMITTING ACKNOWLEDGED FAILED_RETRYABLE RECONCILE_REQUIRED; do grep -q "state:\"$state\"" cloudflare-worker/hyro-execution.js; done
+          grep -q 'reconcileIntentByOrderLinkId(env,idKey,existing)' cloudflare-worker/hyro-execution.js
+          grep -q 'const t=await getHyroTelemetry(env),gate=await evaluateHyroGate(env,plan,t);' cloudflare-worker/hyro-execution.js
+          grep -q 'existing?.orderLinkId||deterministicOrderLinkId' cloudflare-worker/hyro-execution.js
+          grep -q 'ACK_WITHOUT_ORDER_ID' cloudflare-worker/hyro-execution.js
+          git diff --check
+          git diff -- cloudflare-worker/hyro-execution.js | tee /tmp/source.diff
+
+          node --input-type=module <<'NODE' | tee /tmp/unchanged.log
+          import fs from 'node:fs';import crypto from 'node:crypto';
+          const pre=fs.readFileSync('/tmp/hyro-pre.js','utf8'),post=fs.readFileSync('cloudflare-worker/hyro-execution.js','utf8');
+          function ext(src,name){const re=new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`),m=re.exec(src);if(!m)throw new Error(name+' missing');let i=src.indexOf('{',m.index),d=0,q=null,e=false,line=false,block=false;for(let j=i;j<src.length;j++){const c=src[j],n=src[j+1];if(line){if(c==='\n')line=false;continue;}if(block){if(c==='*'&&n==='/'){block=false;j++;}continue;}if(q){if(e){e=false;continue;}if(c==='\\'){e=true;continue;}if(c===q)q=null;continue;}if(c==='/'&&n==='/'){line=true;j++;continue;}if(c==='/'&&n==='*'){block=true;j++;continue;}if(c==='"'||c==="'"||c==='`'){q=c;continue;}if(c==='{')d++;else if(c==='}'&&--d===0)return src.slice(m.index,j+1);}throw new Error(name+' unterminated');}
+          for(const n of ['evaluateHyroGate','normalizedOrder','hyroDynamicRiskView','cancelHyroPending','reconcileHyro','getHyroTelemetry','collectTelemetry']){const a=ext(pre,n),b=ext(post,n);if(a!==b)throw new Error('CHANGED '+n);console.log(`BYTE_IDENTICAL ${n} sha256=${crypto.createHash('sha256').update(a).digest('hex')}`)}
+          NODE
+
+      - name: Read-only legacy production KV compatibility evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}" || { echo 'Missing CLOUDFLARE_API_TOKEN'; exit 1; }
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}" || { echo 'Missing CLOUDFLARE_ACCOUNT_ID'; exit 1; }
+          test -n "${TRADING_KV_NAMESPACE_ID:-}" || { echo 'Missing TRADING_KV_NAMESPACE_ID'; exit 1; }
+          python3 - <<'PY' | tee /tmp/legacy.log
+          import os,json,urllib.parse,urllib.request
+          acct=os.environ['CLOUDFLARE_ACCOUNT_ID']; ns=os.environ['TRADING_KV_NAMESPACE_ID']; tok=os.environ['CLOUDFLARE_API_TOKEN']; prefix='v7718:hyro:intent:'
+          base=f'https://api.cloudflare.com/client/v4/accounts/{acct}/storage/kv/namespaces/{ns}'
+          def req(url):
+            r=urllib.request.Request(url,headers={'Authorization':'Bearer '+tok});return urllib.request.urlopen(r,timeout=30).read()
+          keys=json.loads(req(base+'/keys?'+urllib.parse.urlencode({'prefix':prefix,'limit':100})))
+          found=None
+          for row in keys.get('result') or []:
+            key=row.get('name');
+            try:v=json.loads(req(base+'/values/'+urllib.parse.quote(key,safe='')))
+            except Exception:continue
+            if isinstance(v,dict) and 'state' not in v and v.get('status')=='SUBMITTED':found=(key,v);break
+          if not found: raise SystemExit('NO_LEGACY_PREPATCH_INTENT_RECORD_FOUND')
+          key,v=found
+          print(json.dumps({'legacyKeySuffix':key[len(prefix):],'statePresent':False,'status':v.get('status'),'orderIdPresent':bool(v.get('orderId')),'orderLinkIdPresent':bool(v.get('orderLinkId'))},separators=(',',':')))
+          PY
+
+      - name: Guard DEMO credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${HYRO_BYBIT_API_KEY:-}" || { echo 'Missing HYRO_BYBIT_API_KEY GitHub secret'; exit 1; }
+          test -n "${HYRO_BYBIT_API_SECRET:-}" || { echo 'Missing HYRO_BYBIT_API_SECRET GitHub secret'; exit 1; }
+
+      - name: Real Bybit DEMO acceptance tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/v78-026-h1-demo-test.mjs | tee /tmp/demo.log
+          grep -q '^DEMO_ACK ' /tmp/demo.log
+          grep -q '^AMBIG_RECONCILE ' /tmp/demo.log
+          grep -q '^LEGACY_COMPAT ' /tmp/demo.log
+          grep -q '^V78-026 DEMO ACCEPTANCE PASS$' /tmp/demo.log
+
+      - name: Persist branch validation evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'V78-026 H1 PRE-DEPLOY VALIDATION PASS'
+            echo 'Date: 2026-08-20'
+            echo 'Pre-patch blob: b97695c3f96939290e4a80d24d9fc702d154b29a'
+            echo
+            echo 'STATIC:'; cat /tmp/static.log
+            echo
+            echo 'UNTOUCHED FUNCTIONS:'; cat /tmp/unchanged.log
+            echo
+            echo 'REAL KV LEGACY EVIDENCE:'; cat /tmp/legacy.log
+            echo
+            echo 'REAL BYBIT DEMO EVIDENCE:'; cat /tmp/demo.log
+            echo
+            echo 'SAFETY NOTES:'
+            echo '- Reconciliation is performed before current account gates for SUBMITTING/RECONCILE_REQUIRED intents.'
+            echo '- Both realtime and history lookups must succeed with no hit before absence is considered conclusive.'
+            echo '- ACK without orderId is treated as RECONCILE_REQUIRED.'
+            echo '- Existing orderLinkId is retained across PREPARED/FAILED_RETRYABLE retries.'
+            echo '- H2-H6 not started.'
+            echo '- No deployment performed by this validation workflow.'
+          } > docs/ai-coengineer/V78-026_VALIDATION.txt
+          git config user.name 'V78-026 H1 Validator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/hyro-execution.js docs/ai-coengineer/V78-026_VALIDATION.txt
+          git commit -m 'V78-026 H1 deterministic order identity state machine validated in DEMO'
+          git push origin HEAD:v78-026-h1
+          echo "validated_branch_sha=$(git rev-parse HEAD)"
