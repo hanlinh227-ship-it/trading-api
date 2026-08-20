@@ -17,7 +17,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '..', '..');
+
+// AI_LOOP_SELFTEST_ROOT lets a TRUSTED copy of this suite audit an UNTRUSTED tree.
+//
+// This file is writable under the loop's lock, so on any PR it is code the change under
+// review controls. Running the head's own copy would let a malicious change rewrite its
+// own assertions to pass - the suite would then prove nothing about that change. Pointing
+// a base-revision copy at the head's files instead keeps the assertions trusted while the
+// subject stays untrusted, mirroring how the reviewer runs from base.
+//
+// Unset, it audits its own checkout, which is the correct behaviour locally.
+const ROOT = process.env.AI_LOOP_SELFTEST_ROOT
+  ? path.resolve(process.env.AI_LOOP_SELFTEST_ROOT)
+  : path.resolve(HERE, '..', '..');
 
 // Normalise CRLF. A fresh checkout on a machine with core.autocrlf=true yields \r\n, and
 // several checks match on '\n' or split on it - so without this the suite passes in the
@@ -807,6 +819,22 @@ check('the selftest runs in CI, isolated from the privileged reviewer', () => {
 check('the selftest is a required check', () =>
   assert(/"AI loop safety selftest"/.test(ps1),
     'the selftest can fail without blocking READY_TO_MERGE'));
+check('the suite auditing a PR is the trusted base copy, not the PR head copy', () => {
+  // This file is lock-writable, so on any PR its assertions are controlled by the change
+  // under review. Running the head's own copy would let a malicious change rewrite its own
+  // checks to pass - and it gates READY_TO_MERGE, so that would be a fail-open. The base
+  // copy auditing the head's files keeps the assertions trusted and the subject untrusted,
+  // exactly as the reviewer does.
+  assert(/AI_LOOP_SELFTEST_ROOT/.test(read('scripts/ai/ai-loop-selftest.mjs')),
+    'the suite cannot be pointed at an external tree');
+  const job = wf.split(/^\s{2}loop-selftest:/m)[1].split(/^\s{2}deepseek-review:/m)[0];
+  assert(/base\.ref/.test(job), 'the selftest job does not check out the trusted base');
+  assert(/AI_LOOP_SELFTEST_ROOT:/.test(job), 'the job does not point the suite at the PR head');
+  assert(/Untrusted selftest/.test(job),
+    'the bootstrap fallback does not declare that its assertions are untrusted');
+  // Still credential-free, and still not inside the privileged job.
+  assert(!/secrets\./.test(job), 'the selftest job is exposed to secrets');
+});
 check('an absent remote branch does not disable the push guard', () => {
   // Get-RemoteBranchSha returns "" when the branch does not exist yet. A truthiness test
   // treats that as "skip", disabling the guard on exactly the common case - a freshly

@@ -53,22 +53,64 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Check out the BASE revision: the suite's ASSERTIONS must be trusted even though
+      # the tree it audits is not.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', inputs.pr_number) }}
+          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
           fetch-depth: 1
-          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run selftest
+
+      - name: Materialise the PR head for auditing
+        id: head
+        env:
+          # No GH_TOKEN and no secrets: this job stays credential-free. For a pull_request
+          # event the head SHA is already in the payload; a manual dispatch supplies the
+          # PR number and the ref is fetched anonymously from the public remote.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_PR: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
-          if [ ! -f scripts/ai/ai-loop-selftest.mjs ]; then
-            echo "::error title=Selftest missing::scripts/ai/ai-loop-selftest.mjs is absent from the PR head."
+          target="${RUNNER_TEMP}/prhead"
+          mkdir -p "$target"
+          if [ -n "$HEAD_SHA" ]; then
+            git fetch --depth=1 origin "$HEAD_SHA"
+            ref="$HEAD_SHA"
+          elif [ -n "$INPUT_PR" ]; then
+            git fetch --depth=1 origin "refs/pull/${INPUT_PR}/head"
+            ref="FETCH_HEAD"
+          else
+            echo "::error title=No head::Could not resolve the PR head to audit."
             exit 1
           fi
-          node scripts/ai/ai-loop-selftest.mjs
+          git --work-tree="$target" checkout "$ref" -- scripts/ai docs/ai-coengineer .github/workflows
+          git reset -q
+          echo "dir=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Run selftest (trusted assertions over the PR head)
+        env:
+          AI_LOOP_SELFTEST_ROOT: ${{ steps.head.outputs.dir }}
+        run: |
+          set -euo pipefail
+          if [ -f scripts/ai/ai-loop-selftest.mjs ]; then
+            echo "Auditing ${AI_LOOP_SELFTEST_ROOT} using the TRUSTED base copy of the suite."
+            node scripts/ai/ai-loop-selftest.mjs
+          else
+            # Bootstrap: the base has no suite yet (this is the PR introducing it). Run the
+            # head's own copy so the checks still run, but say plainly that its assertions
+            # are supplied by the change under review and prove nothing against a malicious
+            # one. This PR is already not self-certifiable for other reasons.
+            echo "::warning title=Untrusted selftest::No selftest exists at the base revision, so the PR head's own copy is being run. Its assertions are controlled by the change under review and guard only against accidental regression."
+            cd "$AI_LOOP_SELFTEST_ROOT"
+            if [ ! -f scripts/ai/ai-loop-selftest.mjs ]; then
+              echo "::error title=Selftest missing::scripts/ai/ai-loop-selftest.mjs is absent from the PR head."
+              exit 1
+            fi
+            node scripts/ai/ai-loop-selftest.mjs
+          fi
 
   deepseek-review:
     name: DeepSeek adversarial review
