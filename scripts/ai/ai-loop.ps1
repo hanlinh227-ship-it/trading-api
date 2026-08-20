@@ -1054,6 +1054,25 @@ function Publish-Round {
     }
 
     [void](Invoke-Git -Arguments @("add", "-A"))
+
+    # Verify what was ACTUALLY staged, not what was present when the pre-staging check ran.
+    # `git add -A` is a separate step from that check, so anything appearing in between
+    # would otherwise be committed unexamined. This inspects the index itself, which is the
+    # exact set about to become a commit - no inference, no window.
+    $staged = Invoke-Git -Arguments @("diff", "--cached", "--name-only")
+    if ($staged.ExitCode -ne 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read the staged file list before committing. Refusing to commit without knowing what is in the index."
+    }
+    $stagedFiles = @($staged.StdOut -split "`r?`n" | Where-Object { $_.Trim() })
+    $stagedWorkflows = @($stagedFiles | Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
+    if ($stagedWorkflows.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("CI workflow file(s) are staged for commit: " + ($stagedWorkflows -join ", ") + ". The loop never authors CI changes.")
+    }
+    $stagedOutside = @($stagedFiles | Where-Object { -not (Test-PathInLockScope -RelativePath $_) })
+    if ($stagedOutside.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("File(s) outside the declared WRITE_LOCK scope are staged for commit: " + ($stagedOutside -join ", ") + ". Refusing to commit them.")
+    }
+    Write-Good "All $($stagedFiles.Count) staged file(s) are within the declared lock scope"
     $msgFile = Join-Path $script:RUN_DIR "commitmsg_r$($script:State.round).txt"
     $msg = @(
         "$($script:State.task_id): AI loop round $($script:State.round)",
@@ -1230,10 +1249,19 @@ function Get-CheckRollup {
         $succeed = @($matching | Where-Object { $_.status -eq "completed" -and $_.conclusion -eq "success" })
         $running = @($matching | Where-Object { $_.status -ne "completed" })
 
+        # The NEWEST attempt across all suites decides. "Any suite succeeded" was too weak:
+        # a check genuinely cancelled now would be waved through by a stale success from
+        # earlier. Ordering by recency handles both cases with one rule - a cancelled run
+        # superseded by a later success passes, a real cancellation after a stale success
+        # does not.
+        $newest = @($matching | Sort-Object -Property @{Expression = { $_.started_at }}, @{Expression = { $_.id }} -Descending)[0]
+
         if ($hard.Count -gt 0) {
             $notSuccessful += "$required (concluded $($hard[0].conclusion))"
-        } elseif ($succeed.Count -gt 0) {
-            # At least one suite genuinely succeeded and nothing genuinely failed.
+        } elseif ($newest.status -eq "completed" -and $newest.conclusion -ne "success") {
+            $notSuccessful += "$required (latest attempt concluded $($newest.conclusion))"
+        } elseif ($succeed.Count -gt 0 -and $newest.status -eq "completed") {
+            # The newest attempt succeeded and nothing genuinely failed.
             continue
         } elseif ($running.Count -gt 0) {
             $notSuccessful += "$required (still $($running[0].status))"

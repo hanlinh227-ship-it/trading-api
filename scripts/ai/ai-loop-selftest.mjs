@@ -1104,6 +1104,31 @@ check('a commit created during the TESTS is also refused', () => {
   // The pre-round sample must be script-scoped so it survives into Publish-Round.
   assert(/\$script:HeadBeforeRound = \(Invoke-Git/.test(ps1), 'pre-round HEAD is not script-scoped');
 });
+check('the staged index is verified, not just the pre-staging working tree', () => {
+  // `git add -A` is a separate step from the pre-staging scope check, so anything
+  // appearing in between would be committed unexamined. Inspecting the INDEX removes the
+  // window entirely: it is exactly the set about to become a commit.
+  const pub = ps1.split('function Publish-Round')[1].split('\nfunction ')[0];
+  assert(/"diff", "--cached", "--name-only"/.test(pub), 'the staged set is never inspected');
+  const addIdx = pub.indexOf('"add", "-A"');
+  const stagedIdx = pub.indexOf('"diff", "--cached", "--name-only"');
+  assert(addIdx > -1 && stagedIdx > addIdx, 'the index is inspected before staging, not after');
+  assert(/are staged for commit/.test(pub), 'out-of-scope staged files do not block');
+  assert(/CI workflow file\(s\) are staged/.test(pub), 'staged workflow files do not block');
+  const commitIdx = pub.indexOf('"commit", "-F"');
+  assert(commitIdx > stagedIdx, 'the commit happens before the staged set is verified');
+});
+check('the NEWEST check attempt decides, not merely any success', () => {
+  // "Any suite succeeded" was too weak: a check genuinely cancelled now would be waved
+  // through by a stale success from earlier. Recency handles both cases with one rule.
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  assert(/\$newest = @\(\$matching \| Sort-Object/.test(seg), 'attempts are not ordered by recency');
+  assert(/\$newest\.conclusion -ne "success"/.test(seg), 'the newest attempt is not required to succeed');
+  assert(/latest attempt concluded/.test(seg), 'a failing latest attempt is not reported');
+  // A bare "any success passes" must no longer exist on its own.
+  assert(!/\} elseif \(\$succeed\.Count -gt 0\) \{/.test(seg),
+    'a stale success can still satisfy the gate without being the newest attempt');
+});
 check('superseded attempts do not veto a later successful attempt', () => {
   const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
   // Overlapping pull_request/workflow_dispatch triggers create separate check SUITES, so
