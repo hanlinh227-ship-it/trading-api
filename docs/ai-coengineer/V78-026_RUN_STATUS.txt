@@ -1,7 +1,7 @@
 STATUS=FAIL
 FAIL_STAGE=demosecrets
-RUN_AT=2026-08-20T01:16:46Z
-BRANCH_BASE=d99cb089245aa0cfb765334a655bc9e8ac76153e
+RUN_AT=2026-08-20T01:23:33Z
+BRANCH_BASE=fb0d567d9cce915e55da76ef6bea29686dcbeab1
 --- LOG ---
 === guard ===
 rc=0
@@ -24,6 +24,14 @@ BYTE_IDENTICAL collectTelemetry sha256=9703e735a30356dc585bac31993823a1353c893dd
 rc=0
 === legacy ===
 {"legacyKeySuffix": "hyro-auto:A:ACEUSDT:BUY:22749000", "status": "SUBMITTED", "orderIdPresent": true, "orderLinkIdPresent": true}
+rc=0
+=== secretvisibility ===
+checked_out_ref: v78-026-h1
+HYRO_BYBIT_API_KEY_present: no
+HYRO_BYBIT_API_KEY_length: 0
+HYRO_BYBIT_API_SECRET_present: no
+HYRO_BYBIT_API_SECRET_length: 0
+note: lengths only, never values. If both present=no here, the secret is not reaching this job (check Environment-scope + branch-policy, or exact name, in GitHub repo Settings).
 rc=0
 === demosecrets ===
 rc=1
