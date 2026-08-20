@@ -1,13 +1,13 @@
 STATUS=FAIL
-RUN_AT=2026-08-20T00:47:02Z
+RUN_AT=2026-08-20T00:50:49Z
 PREVIEW_ALIAS=v78026h1
-PREVIEW_VERSION=7808f728-4827-442e-8902-38455c9bf119
+PREVIEW_VERSION=e299c0af-5642-4a27-b3b9-143bd2fc1fcb
 UPLOAD_SUMMARY:
 Worker Startup Time: 4 ms
 Your Worker has access to the following bindings:
-Uploaded trading-v77-scanner (0.65 sec)
-Worker Version ID: 7808f728-4827-442e-8902-38455c9bf119
-Version Preview URL: https://7808f728-trading-v77-scanner.hanlinh227.workers.dev
+Uploaded trading-v77-scanner (0.64 sec)
+Worker Version ID: e299c0af-5642-4a27-b3b9-143bd2fc1fcb
+Version Preview URL: https://e299c0af-trading-v77-scanner.hanlinh227.workers.dev
 Version Preview Alias URL: https://v78026h1-trading-v77-scanner.hanlinh227.workers.dev
 DEMO_RESULT:
-{"ok":false,"error":"DEMO_TELEMETRY_TELEMETRY_ERROR"}
+{"ok":false,"error":"DEMO_TELEMETRY_TELEMETRY_ERROR {\"criticalFailures\":[\"wallet\",\"positions\",\"orders\"],\"optionalFailures\":[\"closedPnl\"],\"endpoints\":[{\"name\":\"wallet\",\"ok\":false,\"httpStatus\":403,\"retCode\":null,\"retMsg\":\"Bybit private HTTP 403\"},{\"name\":\"positions\",\"ok\":false,\"httpStatus\":403,\"retCode\":null,\"retMsg\":\"Bybit private HTTP 403\"},{\"name\":\"orders\",\"ok\":false,\"httpStatus\":403,\"retCode\":null,\"retMsg\":\"Bybit private HTTP 403\"},{\"name\":\"closedPnl\",\"ok\":false,\"httpStatus\":403,\"retCode\":null,\"retMsg\":\"Bybit private HTTP 403\"}]}"}
