@@ -1,18 +1,19 @@
 # AI WRITE LOCK
 
 LOCKED: true
-OWNER: CHATGPT
-SCOPE: AI-INFRA-005 DeepSeek corrupt-patch regeneration resilience only; scripts/ai/deepseek_implementer.py and docs/ai-coengineer/**. No Trading Signal/runtime logic.
+OWNER: DEEPSEEK
+SCOPE: ENTRY-001-R2 Current-price entry intelligence integrity and anti-chase; cloudflare-worker/engine-v77168.js, cloudflare-worker/providers/entry-intelligence.js, cloudflare-worker/providers/decision-evidence.js, scripts/ai/entry-001-validation.js only.
 ACQUIRED: 2026-08-20
-BASE_SHA: 9aeab7387c1d0ecdd16c23987dc47a62df53af9f
+BASE_SHA: 935ac1815e022f1151ae931585f38dbdbe1f8b88
 
 Protocol:
-- ENTRY-001-R1 failed before any source diff/branch/PR was created because git apply --check rejected a corrupt generated patch.
 - One writer at a time.
-- Do not modify cloudflare-worker/** or Trading decision logic in this hotfix.
+- DeepSeek may modify only the explicit ENTRY-001-R2 allow-list.
+- Codex and Claude may review but must not modify overlapping source while this lock is active.
 - Preserve TRADING_STATE and v775:books.
 - Preserve SIGNAL-ONLY architecture.
 - Do not weaken quote freshness, structural SL, RR, hard-news, execution-authority, or market identity protections.
+- Do not restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, or any real-capital execution path.
 - Production Claude/Anthropic API remains paused.
-- DeepSeek API usage must remain bounded by task max_rounds/output-token guards plus a small explicit patch-format retry cap.
+- DeepSeek semantic repair rounds remain bounded; patch-format regeneration is capped at one extra attempt per round.
 - No secret may be committed or printed.
