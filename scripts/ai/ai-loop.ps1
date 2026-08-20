@@ -258,8 +258,10 @@ function Invoke-Native {
     # Process has exited; both reads are complete or about to be. Bounded, never infinite.
     $stdOut = ""
     $stdErr = ""
-    try { if ($outTask.Wait(15000)) { $stdOut = $outTask.Result } } catch { }
-    try { if ($errTask.Wait(15000)) { $stdErr = $errTask.Result } } catch { }
+    if ($outTask.Wait(15000)) { $stdOut = $outTask.Result }
+    else { Write-Warn2 "stdout capture did not complete within 15s for '$File'; output may be incomplete" }
+    if ($errTask.Wait(15000)) { $stdErr = $errTask.Result }
+    else { Write-Warn2 "stderr capture did not complete within 15s for '$File'; output may be incomplete" }
     Remove-Item $outFile, $errFile -ErrorAction SilentlyContinue
 
     return [pscustomobject]@{
@@ -394,16 +396,19 @@ function Test-WriteLock {
     $scope = ""
     if ($lock -match "(?m)^SCOPE:\s*(.+)$") { $scope = $Matches[1].Trim() }
 
-    if ($locked) {
-        Write-Info "LOCKED: true / OWNER: $owner"
-        Write-Info "SCOPE : $scope"
-        if ($owner -ne "CLAUDE_LOCAL") {
-            Stop-Loop -Status "BLOCKED" -Reason "WRITE_LOCK is held by '$owner', not CLAUDE_LOCAL. Refusing to write."
-        }
-        Write-Good "Lock held by CLAUDE_LOCAL"
-    } else {
-        Write-Good "WRITE_LOCK is free"
+    # A released lock is NOT write authorization. A freed lock usually keeps its previous
+    # Allowed scope text, so continuing here would let the loop implement and commit
+    # against stale authorization without ever acquiring ownership - straight through the
+    # repository's one-writer rule.
+    if (-not $locked) {
+        Stop-Loop -Status "BLOCKED" -Reason "WRITE_LOCK.md says LOCKED: false. A free lock is not write authorization; acquire the lock for this scope (LOCKED: true / OWNER: CLAUDE_LOCAL) before running the loop."
     }
+    Write-Info "LOCKED: true / OWNER: $owner"
+    Write-Info "SCOPE : $scope"
+    if ($owner -ne "CLAUDE_LOCAL") {
+        Stop-Loop -Status "BLOCKED" -Reason "WRITE_LOCK is held by '$owner', not CLAUDE_LOCAL. Refusing to write."
+    }
+    Write-Good "Lock held by CLAUDE_LOCAL"
 
     # Parse the enumerated allowed-path list. A free lock is NOT write authorization, and
     # owner-only verification is not enough either: Publish-Round runs `git add -A`, so an
@@ -561,13 +566,22 @@ function Get-ClaudeAllowedTools {
         "Bash(git diff:*)",
         "Bash(git show:*)",
         "Bash(git rev-parse:*)",
-        "Bash(node --check:*)",
-        "Bash(node scripts/ai/:*)",
-        "Bash(node cloudflare-worker/validate-worker.mjs)"
-        # Deliberately NOT granted: Bash(npm test:*). An npm script is arbitrary code
-        # defined in package.json, so granting it would hand back the general execution
-        # this narrow list exists to withhold. The controller runs the deterministic
-        # suite itself and does not depend on Claude running it.
+        # `node --check` only PARSES a file; it never executes it, so it is safe even on a
+        # file Claude just wrote.
+        "Bash(node --check:*)"
+        # Deliberately NOT granted, and this is the whole point of the list:
+        #  - Bash(npm test:*)            an npm script is arbitrary code from package.json.
+        #  - Bash(node scripts/ai/:*)    Claude can EDIT those scripts, so permission to run
+        #                                them is permission to run anything it just wrote -
+        #                                including code that shells out to `git commit` and
+        #                                `git push`. A self-commit would then vanish from
+        #                                Get-ChangedFiles (which compares the working tree
+        #                                to the NEW HEAD), so both scope assertions would
+        #                                pass while unauthorised content was already
+        #                                committed.
+        #  - Bash(node cloudflare-worker/validate-worker.mjs)  same escape, same reason.
+        # The controller runs every deterministic test itself, so Claude never needs to
+        # execute anything.
     ) -join ","
 }
 
@@ -941,45 +955,64 @@ function Get-CheckRollup {
     # started_at and id are needed to identify the LATEST attempt per check name. Without
     # them, an old successful run keeps satisfying the gate after a rerun concluded
     # neutral/skipped/stale.
-    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/commits/$($script:State.head_sha)/check-runs", "--jq", "[.check_runs[] | {name, status, conclusion, started_at, id}]")
+    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/commits/$($script:State.head_sha)/check-runs", "--jq", "[.check_runs[] | {name, status, conclusion, started_at, id, suite: .check_suite.id}]")
     if ($r.ExitCode -ne 0) { return [pscustomobject]@{ Status = "UNKNOWN"; Failing = @() } }
     $runs = @()
     try { $runs = @($r.StdOut | ConvertFrom-Json) } catch { return [pscustomobject]@{ Status = "UNKNOWN"; Failing = @() } }
-    if ($runs.Count -eq 0) { return [pscustomobject]@{ Status = "UNKNOWN"; Failing = @() } }
-    $failing = @(); $pending = 0
-    foreach ($run in $runs) {
-        if ($run.status -ne "completed") { $pending++ }
-        elseif (@("failure", "timed_out", "cancelled", "action_required") -contains $run.conclusion) { $failing += $run.name }
-    }
-    if ($failing.Count -gt 0) { return [pscustomobject]@{ Status = "FAIL"; Failing = $failing } }
-    if ($pending -gt 0) { return [pscustomobject]@{ Status = "PENDING"; Failing = @() } }
+    if ($runs.Count -eq 0) { return [pscustomobject]@{ Status = "UNKNOWN"; Failing = @(); OtherFailing = @() } }
 
-    # A non-empty, all-green list is NOT proof the gate held: if a required workflow never
-    # started it creates no check run at all, and the rollup would report PASS on the
-    # strength of unrelated successes. Require each expected check to be present by name.
-    # Each required check must be present AND explicitly successful. Treating "any
-    # completed conclusion that is not in the failure list" as a pass would let a required
-    # check that concluded `skipped`, `neutral` or `stale` satisfy the READY gate.
+    # STEP 1 - collapse superseded attempts FIRST. Scanning every historical run before
+    # this would let a cancelled earlier attempt report FAIL even though a later attempt
+    # succeeded, and an unrelated in-progress run hold the rollup at PENDING forever. Two
+    # workflows can also publish the same check NAME (this repo has two `validate`), so the
+    # identity is (name, check_suite) and only the newest attempt in each is authoritative.
+    $effective = @()
+    foreach ($group in ($runs | Group-Object -Property { "$($_.name)|$($_.suite)" })) {
+        $effective += @($group.Group | Sort-Object -Property @{Expression = { $_.started_at }}, @{Expression = { $_.id }} -Descending)[0]
+    }
+
+    # STEP 2 - the gate is the REQUIRED set, per the contract's "required GitHub checks
+    # PASS". Every required check must be present and its latest attempt must have
+    # concluded success.
     $absent = @(); $notSuccessful = @()
     foreach ($required in $script:REQUIRED_CHECKS) {
-        $matching = @($runs | Where-Object { "$($_.name)" -eq $required })
+        $matching = @($effective | Where-Object { "$($_.name)" -eq $required })
         if ($matching.Count -eq 0) { $absent += $required; continue }
-        # Only the LATEST attempt counts. Accepting any historical success would let an old
-        # green run mask a rerun that concluded neutral/skipped/stale.
-        $latest = @($matching | Sort-Object -Property @{Expression = { $_.started_at }}, @{Expression = { $_.id }} -Descending)[0]
-        if ($latest.status -ne "completed" -or $latest.conclusion -ne "success") {
-            $notSuccessful += "$required (latest attempt: status=$($latest.status), conclusion=$($latest.conclusion))"
+        foreach ($run in $matching) {
+            if ($run.status -ne "completed") {
+                $notSuccessful += "$required (still $($run.status))"
+            } elseif ($run.conclusion -ne "success") {
+                $notSuccessful += "$required (concluded $($run.conclusion))"
+            }
         }
     }
+
+    # STEP 3 - non-required checks are reported but do not gate. Surfacing them keeps a
+    # genuine failure visible instead of silently ignored; blocking on them would let an
+    # unrelated provider-side check (e.g. the Cloudflare Workers Build tracked in issue
+    # #62) veto every PR in the repository forever.
+    $otherFailing = @($effective |
+        Where-Object { $script:REQUIRED_CHECKS -notcontains "$($_.name)" } |
+        Where-Object { $_.status -eq "completed" -and @("failure", "timed_out", "cancelled", "action_required") -contains $_.conclusion } |
+        ForEach-Object { "$($_.name)" } | Select-Object -Unique)
+    if ($otherFailing.Count -gt 0) {
+        Write-Warn2 "non-required check(s) failing (reported, not gating): $($otherFailing -join ', ')"
+    }
+
     if ($absent.Count -gt 0) {
         Write-Warn2 "required check(s) never reported for this head: $($absent -join ', ')"
-        return [pscustomobject]@{ Status = "PENDING"; Failing = @() }
+        return [pscustomobject]@{ Status = "PENDING"; Failing = @(); OtherFailing = $otherFailing }
     }
     if ($notSuccessful.Count -gt 0) {
+        $stillRunning = @($notSuccessful | Where-Object { $_ -match 'still ' })
+        if ($stillRunning.Count -eq $notSuccessful.Count) {
+            Write-Info "required check(s) still running: $($notSuccessful -join ', ')"
+            return [pscustomobject]@{ Status = "PENDING"; Failing = @(); OtherFailing = $otherFailing }
+        }
         Write-Warn2 "required check(s) did not conclude success: $($notSuccessful -join ', ')"
-        return [pscustomobject]@{ Status = "FAIL"; Failing = $notSuccessful }
+        return [pscustomobject]@{ Status = "FAIL"; Failing = $notSuccessful; OtherFailing = $otherFailing }
     }
-    return [pscustomobject]@{ Status = "PASS"; Failing = @() }
+    return [pscustomobject]@{ Status = "PASS"; Failing = @(); OtherFailing = $otherFailing }
 }
 
 function Get-DeepSeekVerdict {
@@ -1176,7 +1209,10 @@ function Wait-ForReviews {
             $script:State.blocking_findings = @("Failing GitHub checks: " + ($checks.Failing -join ", "))
             return $false
         }
-        Start-Sleep -Seconds $PollIntervalSec
+        # Clamp the wait so a fixed interval can never overshoot the deadline.
+        $remaining = [int]([Math]::Ceiling(($deadline - (Get-Date)).TotalSeconds))
+        if ($remaining -le 0) { break }
+        Start-Sleep -Seconds ([Math]::Min($PollIntervalSec, $remaining))
     }
 
     Write-Warn2 "Review window elapsed without a complete verdict set."
@@ -1318,7 +1354,17 @@ function Main {
         Write-Host ""
         Write-Host "---------- ROUND $round / $($script:State.max_rounds) ----------" -ForegroundColor Magenta
 
+        # Claude must never create a commit. If HEAD moves during its round, something
+        # executed a git write on its behalf and the scope assertions - which compare the
+        # working tree to the CURRENT HEAD - would no longer see the smuggled change.
+        $headBeforeRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+
         $claude = Invoke-ClaudeRound -BlockingFindings $blockingText
+
+        $headAfterRound = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+        if ($headAfterRound -ne $headBeforeRound) {
+            Stop-Loop -Status "BLOCKED" -Reason "HEAD moved from $headBeforeRound to $headAfterRound during the implementation round. Only the controller may create commits; refusing to continue on a self-committed history."
+        }
 
         # Fail closed on the implementer's report. An absent or malformed result block
         # leaves Status/SafetyInvariants as UNKNOWN, which is NOT a pass: it means the

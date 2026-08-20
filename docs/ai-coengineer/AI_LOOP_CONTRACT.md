@@ -122,7 +122,7 @@ Terminal states: `READY_TO_MERGE`, `BLOCKED`, `MAX_ROUNDS_REACHED`. The loop STO
 `head_sha`:
 
 1. deterministic tests PASS locally;
-2. required GitHub checks PASS for that head;
+2. required GitHub checks PASS for that head (see "Which checks gate" below);
 3. `deepseek_verdict == ACCEPT` **and** `deepseek_review_sha == head_sha`;
 4. `codex_verdict == ACCEPT` (or no blocking findings) **and** `codex_review_sha == head_sha`.
 
@@ -130,6 +130,22 @@ Any stale review SHA fails the gate and forces another round. A single `REJECT` 
 reviewer fails the gate.
 
 `READY_TO_MERGE` means "a human may now merge". **The loop never merges.**
+
+### Which checks gate
+
+Only the checks named in the controller's `REQUIRED_CHECKS` list gate `READY_TO_MERGE`.
+Each must be **present** for the head and its **latest attempt** must have concluded
+`success`; absence, `neutral`, `skipped`, `stale` or a failure all fail the gate.
+
+Attempt identity is `(check name, check suite)`, because two different workflows can
+publish check runs under the same name — this repository has two named `validate`. Only
+the newest attempt within each identity is authoritative, so a superseded or cancelled
+earlier attempt neither fails the gate nor masks a later failure.
+
+Checks **not** in the required list are reported but do not gate. Blocking on them would
+let an unrelated provider-side check veto every PR in the repository indefinitely — the
+Cloudflare Workers Build failure tracked in issue #62 is exactly that case. Their failures
+are surfaced in the run summary so they stay visible rather than silently ignored.
 
 ### Bounds
 

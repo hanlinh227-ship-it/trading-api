@@ -380,7 +380,7 @@ check('allowedTools does not grant arbitrary execution via npm scripts', () => {
 });
 check('claude is invoked with a narrow allowedTools list', () => {
   assert(/--allowedTools/.test(ps1), 'no --allowedTools');
-  const seg = ps1.split('function Get-ClaudeAllowedTools')[1].split('function ')[0];
+  const seg = stripPs1Comments(ps1).split('function Get-ClaudeAllowedTools')[1].split('function ')[0];
   assert(/"Read", "Edit", "Write", "Glob", "Grep"/.test(seg), 'expected file tools missing');
   for (const banned of ['git push', 'git commit', 'gh pr merge', 'wrangler deploy']) {
     assert(!seg.includes(banned), `allowedTools grants ${banned}`);
@@ -522,10 +522,47 @@ check('the reviewer never silently drops part of a diff', () => {
   assert(!/DIFF TRUNCATED/.test(py), 'truncation notice still present alongside chunking');
   assert(!/diff\[:MAX_DIFF_CHARS\] \+ \(/.test(py), 'diff is still truncated before review');
   assert(!/flag truncation as NON_BLOCKING/.test(py), 'truncation treated as non-blocking');
-  // The whole diff must reach split_diff, which is the only place size is handled.
-  const seg = py.split('def fetch_diff')[1].split('def split_diff')[0];
+  // The whole diff must reach the splitter, which is the only place size is handled.
+  const seg = py.split('def fetch_diff')[1].split('\ndef ')[0];
   assert(/return proc\.stdout or ""/.test(seg), 'fetch_diff does not return the complete diff');
   assert(!/MAX_DIFF_CHARS/.test(seg), 'fetch_diff still applies a size limit of its own');
+});
+check('an oversized single file splits at hunk boundaries, never mid-hunk', () => {
+  // Slicing one file at raw byte offsets cuts hunks in half and hands the reviewer
+  // malformed diff text, which can hide or invent defects.
+  assert(/def _split_file_diff/.test(py), 'no hunk-aware splitter');
+  const seg = py.split('def _split_file_diff')[1].split('\ndef ')[0];
+  assert(/re\.split\(r"\(\?m\)\^\(\?=@@ \)"/.test(seg), 'does not split at @@ hunk boundaries');
+  assert(/header \+ hunk/.test(seg), 'file header is not repeated on each piece');
+  // The old byte-offset slicer must be gone.
+  assert(!/range\(0, len\(part\), MAX_DIFF_CHARS\)/.test(py), 'byte-offset slicing still present');
+});
+check('total request count is bounded across a chunked review', () => {
+  assert(/MAX_TOTAL_REQUESTS/.test(py), 'no total request cap');
+  assert(/_TOTAL_REQUESTS\[0\] >= MAX_TOTAL_REQUESTS/.test(py), 'cap is never enforced');
+  assert(/REQUEST_BUDGET_EXHAUSTED/.test(py), 'exhausted total budget is not classified');
+  // reset_attempts must NOT reset the per-review total.
+  // Match the assignment, not a mention: MAX_TOTAL_REQUESTS contains _TOTAL_REQUESTS.
+  const seg = py.split('def reset_attempts')[1].split('\ndef ')[0];
+  assert(!/_TOTAL_REQUESTS\[0\]\s*=/.test(seg), 'per-chunk reset also clears the whole-review budget');
+  assert(/_ATTEMPTS_USED\[0\] = 0/.test(seg), 'per-chunk reset does not clear the attempt budget');
+});
+check('same-named checks from different suites are all evaluated', () => {
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  // This repo publishes two check runs named `validate` from different workflows.
+  assert(/Group-Object/.test(seg), 'checks are not grouped by suite');
+  assert(/\.suite/.test(seg), 'check suite identity is not considered');
+  assert(/check_suite\.id/.test(ps1), 'check-run query does not fetch the suite id');
+});
+check('polling never sleeps past its deadline', () => {
+  const seg = ps1.split('function Wait-ForReviews')[1];
+  assert(/Math\]::Min\(\$PollIntervalSec, \$remaining\)/.test(seg), 'sleep is not clamped to the deadline');
+  assert(/\$remaining -le 0\) \{ break \}/.test(seg), 'no break when the deadline has passed');
+});
+check('abandoned output capture is reported, not silently truncated', () => {
+  const seg = ps1.split('function Invoke-Native')[1].split('function Invoke-Git')[0];
+  assert(/capture did not complete within/.test(seg), 'a timed-out capture is silently dropped');
+  assert(!/try \{ if \(\$outTask\.Wait\(15000\)\)/.test(seg), 'capture timeout is still swallowed by catch');
 });
 check('reviewer diff budget is large enough for infra-sized PRs', () => {
   const m = py.match(/DEEPSEEK_MAX_DIFF_CHARS", "(\d+)"/);
@@ -664,13 +701,61 @@ check('required checks must conclude success', () => {
   assert(/did not conclude success/.test(seg), 'non-success conclusions are not reported');
   assert(/Status = "FAIL"; Failing = \$notSuccessful/.test(seg), 'non-success does not fail the rollup');
 });
+check('an actively held lock is required, not merely a present file', () => {
+  // A released lock usually retains its previous Allowed scope text, so continuing on
+  // LOCKED: false would authorise writes from stale scope without acquiring ownership.
+  const seg = ps1.split('function Test-WriteLock')[1].split('function Test-PathInLockScope')[0];
+  assert(/if \(-not \$locked\)/.test(seg), 'a released lock does not stop the loop');
+  assert(/A free lock is not write authorization/.test(seg), 'free lock is still treated as permission');
+  assert(!/Write-Good "WRITE_LOCK is free"/.test(seg), 'still continues on a free lock');
+});
+check('claude cannot execute any file it is able to edit', () => {
+  // Permission to run an editable script is permission to run whatever Claude just wrote,
+  // including code that shells out to git commit/push. A self-commit would then vanish
+  // from Get-ChangedFiles, which compares the working tree to the NEW HEAD.
+  const seg = stripPs1Comments(ps1).split('function Get-ClaudeAllowedTools')[1].split('function ')[0];
+  assert(!/node scripts\/ai\//.test(seg), 'allowedTools can execute editable scripts under scripts/ai/');
+  assert(!/validate-worker\.mjs/.test(seg), 'allowedTools can execute an editable validator');
+  assert(!/Bash\(node (?!--check)/.test(seg), 'allowedTools grants a non---check node invocation');
+  // node --check only parses; it never executes.
+  assert(/Bash\(node --check:\*\)/.test(seg), 'syntax checking was removed too');
+});
+check('a commit created during the implementation round is refused', () => {
+  assert(/\$headBeforeRound/.test(ps1) && /\$headAfterRound/.test(ps1), 'HEAD is not sampled around the round');
+  assert(/HEAD moved from/.test(ps1), 'a moved HEAD does not stop the loop');
+  const body = stripPs1Comments(ps1);
+  const beforeIdx = body.indexOf('$headBeforeRound = ');
+  const roundIdx = body.indexOf('$claude = Invoke-ClaudeRound');
+  const afterIdx = body.indexOf('$headAfterRound = ');
+  assert(beforeIdx > -1 && beforeIdx < roundIdx && afterIdx > roundIdx,
+    'HEAD must be sampled before AND after the round');
+});
+check('superseded check attempts are collapsed before evaluation', () => {
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  // A cancelled earlier attempt must not report FAIL when a later attempt succeeded, and
+  // an unrelated in-progress run must not hold the rollup at PENDING forever.
+  const effIdx = seg.indexOf('$effective = @()');
+  const reqIdx = seg.indexOf('foreach ($required in $script:REQUIRED_CHECKS)');
+  assert(effIdx > -1 && reqIdx > effIdx, 'required-check evaluation runs before attempts are collapsed');
+  assert(!/foreach \(\$run in \$runs\)/.test(seg), 'still scans every historical run first');
+  assert(/\$\(\$_\.name\)\|\$\(\$_\.suite\)/.test(seg), 'attempt identity is not (name, suite)');
+});
+check('non-required failing checks are reported but do not gate', () => {
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  assert(/OtherFailing/.test(seg), 'non-required failures are not surfaced at all');
+  assert(/not gating/.test(seg), 'non-required failures are not distinguished from gating ones');
+  // The gate itself must consider only the required set.
+  assert(/REQUIRED_CHECKS -notcontains/.test(seg), 'non-required checks are not separated out');
+});
 check('only the latest attempt of a required check counts', () => {
   const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
   // An old green run must not mask a rerun that concluded neutral/skipped/stale.
   assert(/Sort-Object[\s\S]{0,120}-Descending/.test(seg), 'attempts are not ordered');
   assert(/started_at/.test(seg), 'attempt recency is not considered');
-  assert(/\$latest\.status -ne "completed" -or \$latest\.conclusion -ne "success"/.test(seg),
-    'the latest attempt is not the one evaluated');
+  assert(/\$effective \+= @\(\$group\.Group \| Sort-Object/.test(seg),
+    'the latest attempt per group is not the one retained');
+  assert(/\$matching = @\(\$effective \| Where-Object/.test(seg),
+    'required checks are evaluated against raw runs rather than the collapsed set');
   assert(!/\$ok\.Count -eq 0/.test(seg), 'still accepts any historical successful attempt');
   assert(/started_at, id/.test(ps1), 'check-run query does not fetch attempt ordering fields');
 });

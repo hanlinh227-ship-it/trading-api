@@ -46,6 +46,9 @@ MAX_DIFF_CHARS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHARS", "160000"))
 # truncated. The cap keeps the work bounded; beyond it the PR is genuinely too large to
 # review in one pass and the reviewer says so instead of pretending otherwise.
 MAX_DIFF_CHUNKS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHUNKS", "6"))
+# MAX_ATTEMPTS bounds retries per call. This bounds the WHOLE review, so a chunked
+# review cannot quietly multiply into an unbounded number of API requests.
+MAX_TOTAL_REQUESTS = int(os.environ.get("DEEPSEEK_MAX_TOTAL_REQUESTS", "12"))
 MAX_EVIDENCE_CHARS = 8000
 
 COMMENT_MARKER = "<!-- ai-loop:deepseek-review -->"
@@ -135,6 +138,33 @@ def fetch_diff(repo: str, pr: int) -> str:
     return proc.stdout or ""
 
 
+def _split_file_diff(file_diff: str) -> list[str]:
+    """Split one file's diff at @@ hunk boundaries, repeating the file header each time.
+
+    Never slices mid-hunk: a half hunk is malformed diff text that would mislead the
+    reviewer about what actually changed.
+    """
+    hunks = re.split(r"(?m)^(?=@@ )", file_diff)
+    header = hunks[0] if hunks else file_diff
+    bodies = [h for h in hunks[1:] if h.strip()]
+    if not bodies:
+        # No hunk markers to split on (binary/rename-only). Emit as-is rather than
+        # corrupting it; an over-budget single piece is still a faithful piece.
+        return [file_diff]
+
+    out: list[str] = []
+    current = header
+    for hunk in bodies:
+        if len(current) + len(hunk) > MAX_DIFF_CHARS and current != header:
+            out.append(current)
+            current = header + hunk
+        else:
+            current += hunk
+    if current.strip() and current != header:
+        out.append(current)
+    return out or [file_diff]
+
+
 def split_diff(diff: str) -> list[str]:
     """Split an oversized diff into review chunks at file boundaries.
 
@@ -154,12 +184,13 @@ def split_diff(diff: str) -> list[str]:
     current = ""
     for part in parts:
         if len(part) > MAX_DIFF_CHARS:
-            # A single file larger than the budget: flush, then hard-split this one file.
+            # A single file larger than the budget. Slicing at raw byte offsets would cut
+            # hunks in half and hand the reviewer malformed, misleading diff text, so split
+            # at @@ hunk boundaries and repeat the file header on every piece.
             if current:
                 chunks.append(current)
                 current = ""
-            for i in range(0, len(part), MAX_DIFF_CHARS):
-                chunks.append(part[i:i + MAX_DIFF_CHARS])
+            chunks.extend(_split_file_diff(part))
             continue
         if len(current) + len(part) > MAX_DIFF_CHARS:
             chunks.append(current)
@@ -312,6 +343,9 @@ def build_user_prompt(pr: dict, diff: str, checks_status: str, failing: list[str
             "Review ONLY what is shown here. Do not flag the split itself as a finding - the",
             "other parts are reviewed separately and every verdict is merged, with any REJECT",
             "winning. The authoritative full scope is the changed-file list above.",
+            "Do NOT report that something is missing, undefined or unreferenced merely because",
+            "you cannot see it in this part - it is very likely defined in another part. Only",
+            "report a defect you can demonstrate from the text actually shown here.",
             "",
         ]
     parts += [
@@ -340,6 +374,7 @@ def classify_http_error(exc: urllib.error.HTTPError) -> tuple[str, bool]:
 # protocol-repair call. Without this, two invocations of three attempts each could make
 # six requests, breaking the contract's "maximum attempts = 3".
 _ATTEMPTS_USED = [0]
+_TOTAL_REQUESTS = [0]
 
 
 def attempts_remaining() -> int:
@@ -347,7 +382,11 @@ def attempts_remaining() -> int:
 
 
 def reset_attempts() -> None:
-    """Start a fresh attempt budget. Called once per diff chunk, never mid-review."""
+    """Start a fresh attempt budget. Called once per diff chunk, never mid-review.
+
+    The per-review total is deliberately NOT reset: MAX_ATTEMPTS bounds retries within a
+    call, MAX_TOTAL_REQUESTS bounds the review end to end.
+    """
     _ATTEMPTS_USED[0] = 0
 
 
@@ -358,14 +397,24 @@ def merge_results(results: list[dict]) -> dict:
     if len(results) == 1:
         return results[0]
     blockers, non_blocking = [], []
-    verdict = "ACCEPT"
+    saw_reject = saw_blocked = False
     for r in results:
         blockers.extend(r["blockers"])
         non_blocking.extend(r["non_blocking"])
-        if r["verdict"] == "BLOCKED":
-            verdict = "BLOCKED"
-        elif r["verdict"] == "REJECT" and verdict != "BLOCKED":
-            verdict = "REJECT"
+        if r["verdict"] == "REJECT":
+            saw_reject = True
+        elif r["verdict"] == "BLOCKED":
+            saw_blocked = True
+            blockers.append("A diff chunk could not be reviewed (chunk verdict BLOCKED).")
+    # REJECT takes precedence over BLOCKED. Both fail the gate, but BLOCKED stops the loop
+    # outright while REJECT feeds actionable findings into another round - so an
+    # unreviewable chunk must not mask a concrete rejection from a chunk that WAS reviewed.
+    if saw_reject:
+        verdict = "REJECT"
+    elif saw_blocked:
+        verdict = "BLOCKED"
+    else:
+        verdict = "ACCEPT"
     if blockers and verdict == "ACCEPT":
         verdict = "REJECT"
     seen = set()
@@ -410,6 +459,11 @@ def call_deepseek(system_prompt: str, user_prompt: str) -> str:
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             method="POST",
         )
+        if _TOTAL_REQUESTS[0] >= MAX_TOTAL_REQUESTS:
+            raise LoopBlocked("REQUEST_BUDGET_EXHAUSTED",
+                              f"this review already made {_TOTAL_REQUESTS[0]} requests "
+                              f"(cap {MAX_TOTAL_REQUESTS})")
+        _TOTAL_REQUESTS[0] += 1
         try:
             with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SEC) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
