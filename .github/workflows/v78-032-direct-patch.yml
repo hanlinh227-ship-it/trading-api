@@ -1,0 +1,196 @@
+name: V78-032 Direct Forex Metal Patch
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: v78-032-direct-patch
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.event.issue.title == '[V78-032-APPLY]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: chatgpt/v78-032-forex-metal-entry
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create clean implementation branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B "$BRANCH" origin/main
+
+      - name: Apply exact V78-032 source edits
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('cloudflare-worker/engine-v77168.js')
+          s = path.read_text()
+
+          def rep(old, new, label):
+              global s
+              n = s.count(old)
+              if n != 1:
+                  raise SystemExit(f'{label}: exact match count={n}, expected=1')
+              s = s.replace(old, new, 1)
+
+          rep(
+          '''const INDEX_PRIORS = {
+  NAS100:{profile:"INDEX_GROWTH_MOMENTUM",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.72,newsProfile:{profileDrivers:["Fed/FOMC","US CPI/PCE/NFP","US yields","US mega-cap technology"]}},
+  US30:{profile:"INDEX_BLUECHIP_ROTATION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.68,newsProfile:{profileDrivers:["Fed/FOMC","US macro","industrial/financial rotation"]}},
+  US500:{profile:"INDEX_BROAD_RISK",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.66,newsProfile:{profileDrivers:["Fed/FOMC","US CPI/PCE/NFP","US yields","broad risk sentiment"]}},
+  DEX:{profile:"INDEX_EUROPE_SESSION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.72,newsProfile:{profileDrivers:["ECB","Eurozone CPI/PMI","Germany macro"]}},
+  JP225:{profile:"INDEX_ASIA_SESSION",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.74,newsProfile:{profileDrivers:["BoJ","Japan CPI/wages","JPY","Asia risk sentiment"]}}
+};
+const GROUPS = { forex: FOREX, crypto: CRYPTO, metal: METALS, index: INDEX_CASH };''',
+          '''const INDEX_PRIORS = {
+  NAS100:{profile:"INDEX_GROWTH_MOMENTUM",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.72,newsProfile:{profileDrivers:["Fed/FOMC","US CPI/PCE/NFP","US yields","US mega-cap technology"]}},
+  US30:{profile:"INDEX_BLUECHIP_ROTATION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.68,newsProfile:{profileDrivers:["Fed/FOMC","US macro","industrial/financial rotation"]}},
+  US500:{profile:"INDEX_BROAD_RISK",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.66,newsProfile:{profileDrivers:["Fed/FOMC","US CPI/PCE/NFP","US yields","broad risk sentiment"]}},
+  DEX:{profile:"INDEX_EUROPE_SESSION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.72,newsProfile:{profileDrivers:["ECB","Eurozone CPI/PMI","Germany macro"]}},
+  JP225:{profile:"INDEX_ASIA_SESSION",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.74,newsProfile:{profileDrivers:["BoJ","Japan CPI/wages","JPY","Asia risk sentiment"]}}
+};
+// Runtime routing priors only: no fabricated backtest statistics or directional bias.
+const METAL_PRIORS = {
+  XAUUSD:{profile:"METAL_GOLD_ADAPTIVE",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],newsProfile:{profileDrivers:["London/New York liquidity","XAU/XAG relative context"]}},
+  XAGUSD:{profile:"METAL_SILVER_ADAPTIVE",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],newsProfile:{profileDrivers:["London/New York liquidity","XAG/XAU relative context"]}}
+};
+const GROUPS = { forex: FOREX, crypto: CRYPTO, metal: METALS, index: INDEX_CASH };''',
+          'metal-priors')
+
+          rep(
+          '''function v73Prior(symbol,type){
+  if(type==="index"){const k=INDEX_PRIORS[norm(symbol)];if(!k)return {applicable:true,available:false,key:norm(symbol)};return {applicable:true,available:true,key:norm(symbol),source:"INDEX_CASH_PRIORS_R1",timeframe:"MULTI",status:"RUNTIME_METHOD_PRIOR",family:k.profile,families:k.families||[],profile:k.profile,entryMode:"DYNAMIC",rr:null,signalHourUTC:null,riskATR:k.riskATR,newsProfile:k.newsProfile||{profileDrivers:[]},classification:"INDEX_CASH_RUNTIME_PRIOR"};}
+  const e=v73Entry(symbol,type);let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=v73CryptoPriorKey(symbol);''',
+          '''function v73Prior(symbol,type){
+  if(type==="index"){const k=INDEX_PRIORS[norm(symbol)];if(!k)return {applicable:true,available:false,key:norm(symbol)};return {applicable:true,available:true,key:norm(symbol),source:"INDEX_CASH_PRIORS_R1",timeframe:"MULTI",status:"RUNTIME_METHOD_PRIOR",family:k.profile,families:k.families||[],profile:k.profile,entryMode:"DYNAMIC",rr:null,signalHourUTC:null,riskATR:k.riskATR,newsProfile:k.newsProfile||{profileDrivers:[]},classification:"INDEX_CASH_RUNTIME_PRIOR"};}
+  if(type==="metal"){const k=METAL_PRIORS[norm(symbol)];if(!k)return {applicable:true,available:false,key:norm(symbol)};return {applicable:true,available:true,key:norm(symbol),source:"METAL_RUNTIME_PRIORS_R1",timeframe:"MULTI",status:"RUNTIME_METHOD_PRIOR",family:k.profile,families:k.families||[],profile:k.profile,entryMode:"DYNAMIC",rr:null,signalHourUTC:null,riskATR:null,newsProfile:k.newsProfile||{profileDrivers:[]},classification:"METAL_SIGNAL_RUNTIME_PRIOR"};}
+  const e=v73Entry(symbol,type);let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=v73CryptoPriorKey(symbol);''',
+          'metal-v73-prior')
+
+          rep('''function regimeRouteScores(prior,T,context={}){''','''function regimeRouteScores(prior,T,context={},type="unknown"){''','route-signature')
+
+          rep(
+          '''  const trendStrength=Math.max(v.bull,v.bear)/3,trendSide=baseSide,momOK=trendSide==="LONG"?(r>=52&&H1.close>=H1.ema20):(trendSide==="SHORT"?(r<=48&&H1.close<=H1.ema20):false),hAlign=H4?.trend===H1?.trend&&H1?.trend!=="NEUTRAL";
+  const rel=Number(context.strengthNormalizedSigned??context.relativeStrength??context.strengthDiff),ctxMag=Number.isFinite(rel)?Math.min(1,Math.abs(rel)/2):0,ctxSide=Number.isFinite(rel)&&Math.abs(rel)>.05?(rel>0?"LONG":"SHORT"):"NEUTRAL";''',
+          '''  const trendStrength=Math.max(v.bull,v.bear)/3,trendSide=baseSide,momOK=trendSide==="LONG"?(r>=52&&H1.close>=H1.ema20):(trendSide==="SHORT"?(r<=48&&H1.close<=H1.ema20):false),hAlign=H4?.trend===H1?.trend&&H1?.trend!=="NEUTRAL";
+  // V73 remains a prior, not a permanent regime prison: a Forex MR-only prior may admit TREND only on strong live HTF agreement.
+  if(type==="forex"&&allowed.length===1&&allowed[0]==="MEAN_REVERSION"&&trendSide!=="NEUTRAL"&&trendStrength>=.67&&hAlign&&momOK)allowed.push("TREND");
+  const rel=Number(context.strengthNormalizedSigned??context.relativeStrength??context.strengthDiff),ctxMag=Number.isFinite(rel)?Math.min(1,Math.abs(rel)/2):0,ctxSide=Number.isFinite(rel)&&Math.abs(rel)>.05?(rel>0?"LONG":"SHORT"):"NEUTRAL";''',
+          'forex-live-trend-override')
+
+          rep(
+          '''  return {allowed,activeMode,scores,side,htfPass,votes:v,trendSide,ctxSide,ctxMag:Number(ctxMag.toFixed(3)),extension:Number(ext.toFixed(3)),emaDistATR:Number(emaDist.toFixed(3))};
+}
+function methodAssessment(symbol,type,T,context={}){
+  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context),mode=route.activeMode;''',
+          '''  return {allowed,activeMode,scores,side,htfPass,votes:v,trendSide,ctxSide,ctxMag:Number(ctxMag.toFixed(3)),extension:Number(ext.toFixed(3)),emaDistATR:Number(emaDist.toFixed(3)),longRev:!!longRev,shortRev:!!shortRev,mrSide};
+}
+function methodAssessment(symbol,type,T,context={}){
+  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context,type),mode=route.activeMode;''',
+          'route-reversal-evidence')
+
+          rep(
+          '''  if(mode==="MEAN_REVERSION")return {pass:false,mode,soft:false};''',
+          '''  if(mode==="MEAN_REVERSION"){
+    const route=intel?.route||{},aligned=side==="LONG"?(route.mrSide==="LONG"&&route.longRev===true&&M15.bullishReclaim===true):(route.mrSide==="SHORT"&&route.shortRev===true&&M15.bearishReclaim===true),extended=Number(route.extension||0)>=.35,dist=Number(route.emaDistATR||0),r=Number(M15.rsi14??50),extreme=side==="LONG"?r<=48:r>=52,contextOK=Number(context.score||0)>=4.8;
+    if(aligned&&extended&&(dist>=.45||extreme)&&contextOK&&Number(intel.methodFit||0)>=50)return {pass:true,mode:"MEAN_REVERSION_RECLAIM_ZONE",soft:true,level:M15.close,reversalConfirmed:true};
+    return {pass:false,mode,soft:false,level:Number.isFinite(M15.ema20)?M15.ema20:null};
+  }''',
+          'mr-location')
+
+          rep(
+          '''  if(mode==="MEAN_REVERSION")return {pass:false,pending:false,mode};''',
+          '''  if(mode==="MEAN_REVERSION"){
+    const route=intel?.route||{},aligned=side==="LONG"?(route.mrSide==="LONG"&&route.longRev===true):(route.mrSide==="SHORT"&&route.shortRev===true),reclaim=side==="LONG"?M5.bullishReclaim===true:M5.bearishReclaim===true,rejection=side==="LONG"?(M5.close>M5.open&&M5.close>=M5.ema20):(M5.close<M5.open&&M5.close<=M5.ema20),contextOK=Number(context.score||0)>=4.8;
+    if(aligned&&reclaim&&rejection&&contextOK&&Number(intel.methodFit||0)>=52)return {pass:true,pending:false,mode:"M5_MEAN_REVERSION_RECLAIM",level:M5.close,soft:true,reversalConfirmed:true};
+    return {pass:false,pending:false,mode,level:trig?.level??null};
+  }''',
+          'mr-trigger')
+
+          rep(
+          '''function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return INDEX_PRIORS[s]||SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}''',
+          '''function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return INDEX_PRIORS[s]||METAL_PRIORS[s]||SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}''',
+          'metal-symbol-knowledge')
+
+          path.write_text(s)
+          PY
+
+      - name: Add deterministic V78-032 validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > scripts/ai/forex-metal-index-validation.js <<'JS'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+
+          const engine=fs.readFileSync('cloudflare-worker/engine-v77168.js','utf8');
+          const checks=[
+            ['metal priors',engine.includes('const METAL_PRIORS = {')&&engine.includes('METAL_GOLD_ADAPTIVE')&&engine.includes('METAL_SILVER_ADAPTIVE')],
+            ['metal prior router',engine.includes('source:"METAL_RUNTIME_PRIORS_R1"')&&engine.includes('classification:"METAL_SIGNAL_RUNTIME_PRIOR"')],
+            ['forex live trend override',engine.includes('type==="forex"&&allowed.length===1&&allowed[0]==="MEAN_REVERSION"&&trendSide!=="NEUTRAL"&&trendStrength>=.67&&hAlign&&momOK')],
+            ['route reversal evidence',engine.includes('longRev:!!longRev,shortRev:!!shortRev,mrSide')],
+            ['MR location requires reclaim',engine.includes('MEAN_REVERSION_RECLAIM_ZONE')&&engine.includes('M15.bullishReclaim===true')&&engine.includes('M15.bearishReclaim===true')],
+            ['MR trigger requires M5 reclaim',engine.includes('M5_MEAN_REVERSION_RECLAIM')&&engine.includes('M5.bullishReclaim===true')&&engine.includes('M5.bearishReclaim===true')],
+            ['no MR hard dead path',!engine.includes('if(mode==="MEAN_REVERSION")return {pass:false,mode,soft:false};')&&!engine.includes('if(mode==="MEAN_REVERSION")return {pass:false,pending:false,mode};')],
+            ['Yahoo fallback remains stale',engine.includes('source:"Yahoo Finance Cash Index Fallback"')&&engine.includes('fresh:false')&&engine.includes('instrumentIdentity:"CASH_INDEX"')],
+            ['TD visibility fallback remains stale',engine.includes('source:"Twelve Data Index Quote Fallback"')&&engine.includes('fresh:false')&&engine.includes('fallback:true')],
+            ['anti-chase unchanged',engine.includes('return {pass:chase<=.70&&notExtreme')],
+            ['signal only preserved',engine.includes('executionAuthority:"SIGNAL_ONLY"')&&engine.includes('signalOnly:true')],
+            ['RR quality preserved',engine.includes('function minimumQualityRR')&&engine.includes('function rrQuality')],
+            ['structural SL preserved',engine.includes('function buildTradePlan')&&engine.includes('STRUCTURE_LIQUIDITY')]
+          ];
+          for(const [name,ok] of checks){assert.equal(ok,true,name);console.log('PASS',name);}
+          console.log(`V78-032 validation PASS ${checks.length}/${checks.length}`);
+          JS
+          git diff --exit-code origin/main -- data/nocut_intraday_allpass_v73.json data/symbol_knowledge_registry.json
+
+      - name: Syntax and regression validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/engine-v77168.js
+          node scripts/ai/forex-metal-index-validation.js
+          git diff --check
+          git diff --stat
+
+      - name: Commit and push implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ChatGPT Trading Coengineer'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js scripts/ai/forex-metal-index-validation.js
+          git commit -m 'V78-032: repair Forex MR and Metal regime admission'
+          git push --force-with-lease origin "$BRANCH"
+          echo "HEAD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Open PR and request Codex review
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$PR" ]; then
+            URL="$(gh pr create --base main --head "$BRANCH" --title 'V78-032 Forex + Metal regime admission repair' --body "SIGNAL-ONLY bounded repair.\n\nChanges:\n- MR-only Forex priors may admit TREND only under strong live HTF agreement.\n- MEAN_REVERSION receives reclaim-confirmed adaptive location/trigger paths; extension alone cannot pass.\n- XAUUSD/XAGUSD receive neutral runtime TREND+MEAN_REVERSION routing priors with no fabricated backtest statistics.\n- Index Cash freshness/fallback protections are unchanged.\n\nValidation:\n- node --check cloudflare-worker/engine-v77168.js\n- node scripts/ai/forex-metal-index-validation.js\n- git diff --check\n\nNo deploy or merge performed."
+            )"
+            PR="${URL##*/}"
+          fi
+          gh pr comment "$PR" --body "@codex review\n\nReview current head $HEAD_SHA for Forex MR safety, Metal routing priors, no threshold weakening, and unchanged Cash Index fallback freshness. Do not implement changes."
+          gh issue comment "${{ github.event.issue.number }}" --body "V78-032 implementation created. Branch: $BRANCH • HEAD: $HEAD_SHA • PR: #$PR • local deterministic validation passed."
