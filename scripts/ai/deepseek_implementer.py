@@ -98,16 +98,21 @@ def patch_paths(patch: str) -> list[str]:
 
 
 def extract_patch(text: str) -> str:
+    """Extract either git-style or standard a/b unified diff without accepting prose-only output."""
     text = text.strip()
     fenced = re.search(r"```(?:diff|patch)?\s*(.*?)```", text, re.S | re.I)
     if fenced:
         text = fenced.group(1).strip()
-    first = text.find("diff --git ")
-    if first >= 0:
-        text = text[first:]
-    if "diff --git " not in text:
-        fail("model response did not contain a unified git diff")
-    return text.rstrip() + "\n"
+
+    git_start = text.find("diff --git ")
+    if git_start >= 0:
+        return text[git_start:].rstrip() + "\n"
+
+    standard = re.search(r"(?m)^--- a/[^\n]+\n\+\+\+ b/[^\n]+", text)
+    if standard:
+        return text[standard.start():].rstrip() + "\n"
+
+    raise ValueError("model response did not contain a unified git diff")
 
 
 def load_task(path: pathlib.Path) -> dict:
@@ -176,8 +181,8 @@ def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str
         fail("DEEPSEEK_API_KEY secret is unavailable")
     system = (
         "You are the primary implementation agent for a SIGNAL-ONLY Trading repository.\n"
-        "Return exactly ONE unified git diff and no prose. Obey the task allow-list. "
-        "Never expose secrets, never reset state, never weaken freshness, structural SL, RR, hard-news, execution authority, "
+        "Return exactly ONE unified git diff and no prose. The response must begin with either 'diff --git a/' or '--- a/' and use a/ and b/ repository paths. "
+        "Obey the task allow-list. Never expose secrets, never reset state, never weaken freshness, structural SL, RR, hard-news, execution authority, "
         "or protected risk controls. Never restore Hyro auto-trade, Futures Signal, TK2, Binance20 production execution, "
         "or production Anthropic API. Do not deploy. Do not fabricate test or runtime evidence.\n"
         "Fix the root cause with the smallest coherent patch. A failed validation is evidence to repair, not permission to weaken safeguards."
@@ -308,7 +313,16 @@ def main() -> None:
     for round_no in range(1, task["max_rounds"] + 1):
         rounds_used = round_no
         response = call_deepseek(task, context, feedback, round_no)
-        patch = extract_patch(response)
+        try:
+            patch = extract_patch(response)
+        except ValueError:
+            feedback = (
+                "MODEL_OUTPUT_FORMAT_INVALID: previous response was not an applicable unified diff. "
+                "Return exactly one patch only, beginning with 'diff --git a/' or '--- a/', using repository-relative a/ and b/ paths."
+            )
+            if round_no >= task["max_rounds"]:
+                fail("model response did not contain a unified git diff after bounded retry")
+            continue
         verify_patch_scope(patch, task)
         ok, apply_error = apply_patch(patch)
         if not ok:
