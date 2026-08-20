@@ -1,0 +1,26 @@
+name: V78 US30 Live Debug
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+jobs:
+  debug:
+    if: github.event.issue.title == 'DEBUG-V78-US30-LIVE'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Capture exact US30 live response
+        run: |
+          set -euo pipefail
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          curl -sS -D /tmp/headers.txt "$BASE/analyze?symbol=US30" -o /tmp/us30.json || true
+          { echo '=== HEADERS ==='; cat /tmp/headers.txt; echo; echo '=== BODY ==='; cat /tmp/us30.json; } > docs/ai-coengineer/V78_US30_LIVE_DEBUG.txt
+          git config user.name 'V78 Inspector'
+          git config user.email 'actions@users.noreply.github.com'
+          git add docs/ai-coengineer/V78_US30_LIVE_DEBUG.txt
+          git commit -m 'Capture exact US30 live analyze response'
+          git push origin HEAD:main
