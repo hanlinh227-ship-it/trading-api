@@ -62,3 +62,21 @@ Completed H1 diagnostic workflows were removed from active `.github/workflows` a
 - Claude.ai Web remains an equal co-engineer and may optimize Signal architecture under WRITE_LOCK.
 
 Historical V78-001..V78-025 decisions and validation remain in Git history and `docs/ai-coengineer/`; this file describes the current canonical state.
+
+V78-028 — RESOLVED / DEPLOYED
+- Source SHA: 4e0a5732b59ec02077bd3e7198a9dae181c8f7ad
+- Cloudflare Version ID: 1961e90e-900e-43d5-8e72-cc354dccbe4b
+- Post-Yahoo-fix live acceptance passed for NAS100/US30/US500/DEX/JP225.
+- Yahoo ^DJI is visibility-only for US30 when used: fresh=false, analysisOnly=true, executionVerified=false; MARKET/MARKET_SIGNAL admission blocked.
+
+V78-030 — RESOLVED / DEPLOYED
+- Source SHA: b98cdf3d2afa0d2e072b4ff262c56d30b0f5c03e
+- Cloudflare Version ID: 3d78408f-d55e-4115-84e4-b1d967ab3b1b
+- WHY NOW propagated only to watchLine() and hubSummary(); actionableRank/hubRank/fillBooks unchanged.
+- Live group + Hub JSON passed and Hub top ordering remained unchanged.
+
+V78-031 — true
+- Dead setupCard entryIntelligence field present at fresh audit: true.
+- Source SHA: 2716fc07d3305c1ddd880f4ff71a98244f15d41a
+- Cloudflare Version ID: 691af45f-59d8-4993-9fc0-910b6ea90c30
+- If applied, fix is rendering-only via buildEntryIntelligenceShadow(a).quality.
