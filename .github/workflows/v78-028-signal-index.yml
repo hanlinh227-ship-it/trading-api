@@ -1,0 +1,207 @@
+name: V78-028 Signal Hub + Index Cash
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/v78-028-signal-index.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v78-028-signal-index
+  cancel-in-progress: false
+
+jobs:
+  apply-validate-deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Guard and patch V78-028
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object cloudflare-worker/engine-v77168.js)" = "71eced95377590b532ff5f16b46a3a764af41451"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
+          reps=[]
+          reps.append(('''function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"👤 CÁ NHÂN",callback_data:"personal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"live"}]]};}''','''function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"live"}]]};}'''))
+          reps.append(('''function propKeyboard(){return {inline_keyboard:[[{text:"🟣 HYROTRADER",callback_data:"prop:hyro"},{text:"🔵 BREAKOUT",callback_data:"prop:breakout"}],[{text:"📚 LỆNH PROP",callback_data:"prop:orders"},{text:"🛡️ RISK PROP",callback_data:"prop:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}\nfunction personalKeyboard(){return {inline_keyboard:[[{text:"🖥️ MT5 CÁ NHÂN",callback_data:"personal:mt5"}],[{text:"📚 LỆNH CÁ NHÂN",callback_data:"personal:orders"},{text:"🛡️ RISK CÁ NHÂN",callback_data:"personal:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}\nfunction symbolMarketKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"symmarket:forex"},{text:"🪙 Crypto",callback_data:"symmarket:crypto"}],[{text:"🥇 Metal",callback_data:"symmarket:metal"},{text:"📊 Index Cash",callback_data:"symmarket:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}''','''function symbolMarketKeyboard(){return {inline_keyboard:[[{text:"💱 Forex",callback_data:"symmarket:forex"},{text:"🪙 Crypto",callback_data:"symmarket:crypto"}],[{text:"🥇 Metal",callback_data:"symmarket:metal"},{text:"📊 Index Cash",callback_data:"symmarket:index"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}'''))
+          oldbranches='''  else if(cb==="prop")await sendText(env,"🏦 PROP\\n\\nTheo dõi các tài khoản quỹ được tích hợp. Kết nối execution sẽ được bật riêng cho từng quỹ sau khi xác nhận API/rule.",chatId,propKeyboard());\n  else if(cb==="prop:hyro")await sendText(env,"🟣 HYROTRADER\\n\\nTrạng thái: CHƯA KẾT NỐI TÀI KHOẢN/API.\\nSignal engine vẫn hoạt động độc lập; chưa tự gửi lệnh vào quỹ.",chatId,propKeyboard());\n  else if(cb==="prop:breakout")await sendText(env,"🔵 BREAKOUT\\n\\nTrạng thái: CHƯA KẾT NỐI TÀI KHOẢN/API.\\nChưa bật auto-execution cho tới khi quyền bot/API được xác nhận.",chatId,propKeyboard());\n  else if(cb==="prop:orders"||cb==="prop:risk")await sendText(env,"🏦 PROP\\n\\nChưa có tài khoản prop được kết nối nên chưa có position/risk telemetry riêng.",chatId,propKeyboard());\n  else if(cb==="personal")await sendText(env,"👤 CÁ NHÂN\\n\\nTheo dõi tài khoản cá nhân đã tích hợp. MT5 Bridge sẽ cung cấp equity, positions, broker bid/ask và execution khi được kết nối.",chatId,personalKeyboard());\n  else if(cb?.startsWith("personal:"))await sendText(env,"👤 MT5 CÁ NHÂN\\n\\nTrạng thái: CHƯA KẾT NỐI MT5 BRIDGE.\\nKhi kết nối, khu vực này sẽ hiển thị Equity • Daily P/L • Live Positions • Pending • Risk.",chatId,personalKeyboard());\n  else if(cb==="hub"||text==="/hub")await sendText(env,"🏠 Global scan đã tắt. Chọn từng thị trường trong Hub mới.",chatId,baseKeyboard());'''
+          newbranches='''  else if(cb==="hub"||text==="/hub")await sendText(env,"🏠 Global scan đã tắt. Chọn từng thị trường trong Hub mới.",chatId,baseKeyboard());'''
+          reps.append((oldbranches,newbranches))
+          oldreason='''function reasonText(r){return ({HTF_METHOD_ALIGNMENT_REQUIRED:"Chờ phương pháp riêng + HTF đồng thuận",HTF_ALIGNMENT_REQUIRED:"Chờ D1/H4/H1 đồng thuận",M15_LOCATION_REQUIRED:"Chờ giá vào vùng M15 đẹp",M5_MSS_DISPLACEMENT_RETEST_REQUIRED:"Chờ trigger M5 phù hợp profile",STRUCTURAL_SL_REQUIRED:"Chưa có SL cấu trúc",CLEAN_TARGET_REQUIRED:"Chưa có mục tiêu thanh khoản đủ tốt",NEWS_CONTEXT_REQUIRED:"Chờ tin/context",EXECUTION_QUOTE_REQUIRED:"Kế hoạch đạt cấu trúc; chờ giá execution thật",FINAL_QUOTE_REQUIRED:"Chờ giá execution",FINAL_QUOTE_STALE:"Giá execution cũ",EXECUTION_COST_TOO_HIGH:"Spread/chi phí cao",RR_QUALITY_REQUIRED:"RR cấu trúc chưa đủ tốt",LIMIT_GEOMETRY_REQUIRED:"Vùng LIMIT chưa đúng khoảng cách/retest",MARKET_GEOMETRY_REQUIRED:"Giá MARKET đã chạy xa trigger",TIMEFRAME_DATA_REQUIRED:"Thiếu timeframe",ANALYSIS_DATA_UNAVAILABLE:"Thiếu dữ liệu"})[r]||"Chờ thêm xác nhận";}'''
+          newreason=oldreason+'''\nconst SESSION_VI={LONDON_ACTIVE:"phiên London",LONDON_NY_OVERLAP:"giao thoa London-New York",NEW_YORK_ACTIVE:"phiên New York",ASIA_ACTIVE:"phiên châu Á",OFF_PEAK:"ngoài giờ cao điểm",TOKYO_ACTIVE:"phiên Tokyo",TOKYO_OFF:"ngoài phiên Tokyo",EUROPE_ACTIVE:"phiên châu Âu",EUROPE_OFF:"ngoài phiên châu Âu",US_CASH_WINDOW:"phiên Mỹ",US_OFF:"ngoài phiên Mỹ"};\nfunction whyNowVi(a){const parts=[],sess=SESSION_VI[a?.context?.session];if(sess)parts.push(sess);if(a?.method?.profile)parts.push("phương pháp "+a.method.profile);const actionableSet=["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"];if(actionableSet.includes(a?.status))parts.push("đủ điều kiện kỹ thuật để vào lệnh");else{const rsn=reasonText(a?.reason);if(rsn)parts.push(rsn);}return parts.length?parts.join(" • "):"Chưa đủ dữ liệu để giải thích";}'''
+          reps.append((oldreason,newreason))
+          oldsingle='''  const eiShadow=buildEntryIntelligenceShadow(a);if(eiShadow)L.push(`Quality: ${eiShadow.quality.grade} (${eiShadow.quality.score}/100)${eiShadow.promotion.allowed===false?" • ⚠️ "+eiShadow.promotion.reasons.join(","):""}`);\n  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);if(a.source)L.push(`Data: ${a.source}`);const q=a.quote||a.analysisQuote;if(q?.price)L.push(`Giá nguồn: ${fmtPx(q.price)}${Number.isFinite(q.quoteAgeSec)?" • age "+q.quoteAgeSec+"s":""}${q.executionVerified?" • execution verified":" • analysis only"}`);if(a.context?.benchmark)L.push(`Context: đối chiếu ${a.context.benchmark}${a.context.smtSignal&&a.context.smtSignal!=="NONE"?" • SMT "+a.context.smtSignal:""}`);\n  return L.join("\\n");'''
+          newsingle='''  const eiShadow=buildEntryIntelligenceShadow(a);if(eiShadow)L.push(`Quality: ${eiShadow.quality.grade} (${eiShadow.quality.score}/100)${eiShadow.promotion.allowed===false?" • ⚠️ "+eiShadow.promotion.reasons.join(","):""}`);\n  L.push(`WHY NOW: ${whyNowVi(a)}`);\n  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);if(a.source)L.push(`Data: ${a.source}`);const q=a.quote||a.analysisQuote;if(q?.price)L.push(`Giá nguồn: ${fmtPx(q.price)}${Number.isFinite(q.quoteAgeSec)?" • age "+q.quoteAgeSec+"s":""}${q.executionVerified?" • execution verified":" • analysis only"}`);if(a.context?.benchmark)L.push(`Context: đối chiếu ${a.context.benchmark}${a.context.smtSignal&&a.context.smtSignal!=="NONE"?" • SMT "+a.context.smtSignal:""}`);\n  return L.join("\\n");'''
+          reps.append((oldsingle,newsingle))
+          for old,new in reps:
+            assert s.count(old)==1, f'baseline mismatch count={s.count(old)} for {old[:80]!r}'
+            s=s.replace(old,new,1)
+
+          # Index Cash reliability: correct Twelve Data freshness and preserve a visible completed-candle reference when native quote is unavailable.
+          oldidx='''async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null,fresh:true,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}'''
+          newidx='''async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);const age=last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null;return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:age,fresh:age!==null&&age<=CONFIG.maxQuoteAgeSec,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}'''
+          assert s.count(oldidx)==1
+          s=s.replace(oldidx,newidx,1)
+          oldrun='''  const maps=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env,CONFIG.candleOutputSize))),candles=maps.map(m=>m.get(s)||[]);let q=null;try{q=await tdQuote(s,env);}catch{}const sess=indexSessionBias(s),context={session:sess.label,sessionScore:sess.score,score:Math.min(10,5+sess.score*.8)};const a=await deepAnalyze(s,env,candles,q,q?.source||"Verified native Index",context);if(q)a.analysisQuote=q;return a;'''
+          newrun='''  const maps=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env,CONFIG.candleOutputSize))),candles=maps.map(m=>m.get(s)||[]);let q=null;try{q=await tdQuote(s,env);}catch{}if(!q){const last=(candles[0]||[]).at(-1),price=num(last?.close);if(validIndexPrice(s,price)){const age=last?.timestamp?Math.max(0,nowSec()-Number(last.timestamp)):null;q={source:"Index completed M5 fallback",requestedSymbol:s,providerSymbol:MASSIVE_INDEX_PROVIDER[s]||INDEX_PROVIDER[s]||s,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:age,fresh:false,bid:null,ask:null,executionVerified:false,analysisOnly:true,fallback:true};}}const sess=indexSessionBias(s),context={session:sess.label,sessionScore:sess.score,instrumentIdentity:"CASH_INDEX",score:Math.min(10,5+sess.score*.8)};const a=await deepAnalyze(s,env,candles,q,q?.source||"Verified native Index",context);if(q)a.analysisQuote=q;return a;'''
+          assert s.count(oldrun)==1
+          s=s.replace(oldrun,newrun,1)
+          p.write_text(s)
+          PY
+
+          node --check cloudflare-worker/engine-v77168.js
+          test "$(grep -c 'propKeyboard\|personalKeyboard' cloudflare-worker/engine-v77168.js)" = "0"
+          test "$(grep -c '🟣 HYROTRADER\|🔵 BREAKOUT\|👤 CÁ NHÂN\|🏦 PROP' cloudflare-worker/engine-v77168.js)" = "0"
+          test "$(grep -c 'function whyNowVi\|SESSION_VI' cloudflare-worker/engine-v77168.js)" = "2"
+          test "$(grep -c 'WHY NOW:' cloudflare-worker/engine-v77168.js)" = "1"
+          grep -q '/coin|analyze|forex|metal|future' cloudflare-worker/engine-v77168.js
+          grep -q 'Index completed M5 fallback' cloudflare-worker/engine-v77168.js
+          grep -q 'instrumentIdentity:"CASH_INDEX"' cloudflare-worker/engine-v77168.js
+          git diff --check
+
+      - name: Simulate stale callbacks locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import engine from './cloudflare-worker/engine-v77168.js';
+          const sent=[];
+          globalThis.fetch=async (url,init={})=>{ if(String(url).includes('api.telegram.org')){sent.push(JSON.parse(init.body||'{}'));return new Response(JSON.stringify({ok:true,result:{}}),{status:200,headers:{'content-type':'application/json'}});} return new Response(JSON.stringify({ok:false}),{status:503,headers:{'content-type':'application/json'}}); };
+          for (const cb of ['prop','prop:hyro','prop:breakout','personal','personal:mt5']) {
+            sent.length=0;
+            const req=new Request('https://local/telegram/webhook',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({callback_query:{id:'1',data:cb,message:{chat:{id:1}}}})});
+            const r=await engine.fetch(req,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'1'},{});
+            if(r.status!==200) throw new Error(cb+' status '+r.status);
+            const text=sent.map(x=>x.text||'').join('\n');
+            if(/HYRO|PROP|CÁ NHÂN|MT5|BREAKOUT/i.test(text)) throw new Error(cb+' resurrected dead UI: '+text);
+          }
+          console.log('STALE_CALLBACK_FALLBACK=PASS');
+          NODE
+
+      - name: Commit source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'V78 Signal Integrator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-028 close dead Hub fallback, add WHY NOW and harden Index Cash quotes'
+          git push origin HEAD:main
+          echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Deploy patched worker
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          npm install --no-audit --no-fund
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy 2>&1 | tee /tmp/v78-028-deploy.log
+          VER=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/v78-028-deploy.log | tail -1 | sed 's/Version ID: //')
+          echo "CF_VERSION=${VER:-UNKNOWN}" >> "$GITHUB_ENV"
+
+      - name: Live Signal and Index Cash validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          mkdir -p /tmp/v78028
+          sleep 8
+          curl -fsS "$BASE/analyze?symbol=EURUSD" -o /tmp/v78028/eurusd.json
+          for S in NAS100 US30 US500 DEX JP225; do curl -fsS "$BASE/analyze?symbol=$S" -o "/tmp/v78028/$S.json"; done
+          node <<'NODE'
+          const fs=require('fs');
+          const e=JSON.parse(fs.readFileSync('/tmp/v78028/eurusd.json','utf8'));
+          const why=JSON.stringify(e);
+          if(!e.symbol || e.symbol!=='EURUSD') throw new Error('EURUSD live analyze missing');
+          const lines=[];
+          for(const s of ['NAS100','US30','US500','DEX','JP225']){
+            const x=JSON.parse(fs.readFileSync('/tmp/v78028/'+s+'.json','utf8'));
+            const q=x.analysisQuote||x.quote||{};
+            if(!(Number(q.price)>0)) throw new Error(s+' price missing');
+            if(q.fallback===true && q.fresh!==false) throw new Error(s+' fallback incorrectly fresh');
+            lines.push(`${s} status=${x.status||'UNKNOWN'} price=${q.price} source=${q.source||'—'} fresh=${String(q.fresh)} age=${q.quoteAgeSec??'null'}`);
+          }
+          fs.writeFileSync('/tmp/v78028/index-lines.txt',lines.join('\n')+'\n');
+          console.log(lines.join('\n'));
+          NODE
+
+      - name: Persist validation and release lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > docs/ai-coengineer/V78-028_VALIDATION.txt <<EOF
+          V78-028 SIGNAL HUB CLEANUP + WHY NOW + INDEX CASH RELIABILITY
+          SOURCE_SHA=${SOURCE_SHA}
+          CLOUDFLARE_VERSION_ID=${CF_VERSION}
+          ENGINE_GUARD_PREPATCH=71eced95377590b532ff5f16b46a3a764af41451
+          NODE_CHECK=PASS
+          DEAD_HYRO_CALLBACK_SIMULATION=PASS
+          PROP_PERSONAL_RENDER_REFERENCES=0
+          WHY_NOW_SINGLE_ANALYSIS=WIRED
+          INDEX_NATIVE_TD_FRESHNESS=AGE_BASED_NOT_HARDCODED
+          INDEX_COMPLETED_M5_FALLBACK=DISPLAY_ONLY_AND_ALWAYS_FRESH_FALSE
+          INDEX_IDENTITY=CASH_INDEX_EXPLICIT_ON_INDEX_RUN_SYMBOL
+          V775_BOOKS_PRESERVED=true
+          TRADING_STATE_RESET=false
+          EXECUTION_AUTHORITY=NONE
+          CLAUDE_PRODUCTION_API=PAUSED
+          --- LIVE INDEX CASH ---
+          $(cat /tmp/v78028/index-lines.txt)
+          EOF
+          cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
+          # AI WRITE LOCK
+
+          LOCKED: false
+          OWNER: NONE
+          SCOPE: NONE
+          RELEASED: 2026-08-20
+          LAST_RESULT: V78-028 RESOLVED — Signal-only dead fallback removed, WHY NOW added, Index Cash price path hardened without freshness weakening.
+
+          Protocol:
+          - One writer at a time.
+          - Current production direction is Signal-only.
+          - Preserve Signal engine, market data, entry intelligence, ranking and all existing risk/freshness/structural-SL/news protections.
+          - Preserve TRADING_STATE and v775:books Signal data.
+          - Never restore Hyro auto-trade, Futures/TK2, or Binance20 production execution without explicit new user direction.
+          - Production Claude API remains paused; Claude.ai Web remains co-engineer for Signal-only optimization.
+          EOF
+          cat >> docs/ai-coengineer/SHARED_STATE.md <<EOF
+
+          V78-028 — RESOLVED / DEPLOYED
+          - Source: ${SOURCE_SHA}.
+          - Cloudflare Version ID: ${CF_VERSION}.
+          - Removed reachable pre-V78-027 prop/personal fallback rendering from engine Telegram handler.
+          - Added Vietnamese WHY NOW on single-symbol analysis.
+          - Index Cash native Twelve Data freshness is now age-based; if both native quote providers fail but completed M5 candles exist, price remains visible as an analysis-only fallback explicitly marked fresh=false, so freshness gates are not weakened.
+          - Index runSymbol now explicitly carries CASH_INDEX identity.
+          - No execution authority or Signal hard-gate weakening.
+          - Validation: docs/ai-coengineer/V78-028_VALIDATION.txt.
+          EOF
+          git config user.name 'V78 Signal Integrator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add docs/ai-coengineer/V78-028_VALIDATION.txt docs/ai-coengineer/WRITE_LOCK.md docs/ai-coengineer/SHARED_STATE.md
+          git commit -m 'V78-028 record deployed Signal and Index Cash validation'
+          git push origin HEAD:main
