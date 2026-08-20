@@ -1016,7 +1016,13 @@ check('a force-pushed PR is refused, since its old history cannot be audited', (
   assert(/without that evidence/.test(seg), 'an unreadable timeline is not treated as a blocker');
   // Checked when reusing a PR, and again before any verdict is trusted.
   const calls = (stripPs1Comments(ps1).match(/Assert-NoForcePush -PrNumber/g) || []).length;
-  assert(calls >= 2, `force-push detection must run at branch resolution and before verdict trust; found ${calls}`);
+  assert(calls >= 3, `force-push detection must run at branch resolution, before verdict trust, and at the readiness decision; found ${calls}`);
+  // The decisive one is inside the readiness branch: a rewrite to a malicious workflow head
+  // and back to the SAME sha during the polling window would satisfy the live-head
+  // comparison, while the non-cancelling run posts a forged same-SHA verdict.
+  const ready = ps1.split('if ($bothAccepted -and $shaFresh')[1].split('if ($checks.Status -eq "FAIL")')[0];
+  assert(/Assert-NoForcePush -PrNumber/.test(ready),
+    'force-push is not rechecked at the moment readiness is declared');
   // It must use the paginated NDJSON reader, not an array-per-page jq.
   assert(/Invoke-GhJsonLines -Path "repos\/\$Repo\/issues\/\$PrNumber\/timeline"/.test(seg),
     'timeline read does not use the multi-page-safe reader');
@@ -1033,6 +1039,17 @@ check('repository git hooks cannot influence controller git operations', () => {
   // It must apply to EVERY git invocation, not just commit/push.
   assert(/\$safeArgs = @\("-c", "core\.hooksPath=\$script:NO_HOOKS_DIR"\) \+ \$Arguments/.test(seg),
     'the hooks override is not prepended to every git invocation');
+  // Redirecting hooks at a predictable persistent path turns THAT path into an injection
+  // point: the controller runs repo-resident validators, and a rewritten one can plant an
+  // executable there, which the .git/hooks check would never see. Verified per invocation
+  // so there is no window between the check and the commit.
+  assert(/Get-ChildItem -Path \$script:NO_HOOKS_DIR/.test(seg),
+    'the replacement hooks directory is never verified empty');
+  assert(/replacement git hooks directory is not empty/.test(seg),
+    'a planted hook in the replacement directory does not block');
+  const emptyIdx = seg.indexOf('Get-ChildItem -Path $script:NO_HOOKS_DIR');
+  const execIdx = seg.indexOf('Invoke-Native -File "git"');
+  assert(emptyIdx > -1 && emptyIdx < execIdx, 'the emptiness check runs after git executes');
   // And a planted hook must be reported, not merely neutralised.
   assert(/function Assert-NoRepositoryHooks/.test(ps1), 'planted hooks are never detected');
   const det = ps1.split('function Assert-NoRepositoryHooks')[1].split('\nfunction ')[0];

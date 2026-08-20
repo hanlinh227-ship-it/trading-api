@@ -337,6 +337,18 @@ function Invoke-Git {
     if (-not (Test-Path $script:NO_HOOKS_DIR)) {
         New-Item -ItemType Directory -Force -Path $script:NO_HOOKS_DIR | Out-Null
     }
+
+    # The replacement directory must itself stay empty, checked HERE rather than once per
+    # round. Redirecting core.hooksPath at a predictable, persistent path turns that path
+    # into a new injection point: the controller executes repo-resident validators, and a
+    # rewritten one can plant an executable `pre-commit` in the replacement directory, which
+    # Assert-NoRepositoryHooks would not see because it inspects only .git/hooks. Verifying
+    # immediately before each invocation leaves no window between check and commit.
+    $planted = @(Get-ChildItem -Path $script:NO_HOOKS_DIR -Force -ErrorAction SilentlyContinue)
+    if ($planted.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("The replacement git hooks directory is not empty: " + (@($planted | ForEach-Object { $_.Name }) -join ", ") + ". It exists so that no hook can ever be found; anything inside it would be executed by the controller's own git operations.")
+    }
+
     $safeArgs = @("-c", "core.hooksPath=$script:NO_HOOKS_DIR") + $Arguments
     return Invoke-Native -File "git" -Arguments $safeArgs -TimeoutSec $TimeoutSec
 }
@@ -1451,6 +1463,13 @@ function Wait-ForReviews {
                 $script:State.blocking_findings = @("Could not confirm the live PR head before declaring READY_TO_MERGE.")
                 return $false
             }
+            # A force-push can land DURING the polling window: rewrite to a malicious
+            # workflow head, let its run start, then rewrite back to this same SHA. The
+            # live-head comparison below would still match, and because the workflow does
+            # not cancel in progress that run can post a forged same-SHA verdict. Re-check
+            # here, at the decisive moment, not only once before polling began.
+            Assert-NoForcePush -PrNumber $script:State.pr_number
+
             if ($liveSha.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) {
                 Write-Warn2 "PR head advanced to $liveSha during polling; the reviews above describe $($script:State.head_sha)"
                 $script:State.blocking_findings = @("PR head advanced to $liveSha while reviews were being collected; $($script:State.head_sha) is no longer the head.")
