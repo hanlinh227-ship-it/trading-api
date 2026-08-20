@@ -619,6 +619,21 @@ check('oversized diffs are chunked, not silently truncated', () => {
   assert(/fetch_diff.*\n.*Return the COMPLETE diff/.test(py) || /Return the COMPLETE diff/.test(py),
     'fetch_diff no longer returns the complete diff');
 });
+check('an oversized single hunk fails closed rather than becoming a huge prompt', () => {
+  // One @@ hunk bigger than the per-chunk budget cannot be placed anywhere without either
+  // splitting it (corrupting the diff) or emitting an oversized chunk, which reproduces
+  // the PROTOCOL_ERROR the budget exists to prevent.
+  const seg = py.split('def _split_file_diff')[1].split('\ndef ')[0];
+  assert(/HUNK_TOO_LARGE/.test(seg), 'an oversized hunk is not classified');
+  assert(/len\(header\) \+ len\(hunk\) > MAX_DIFF_CHARS/.test(seg),
+    'hunk size is never compared against the budget');
+  assert(/raise LoopBlocked/.test(seg), 'an oversized hunk does not fail closed');
+  // The guard must precede the packing logic, or the first oversized hunk still slips in
+  // through the `current == header` branch.
+  const guardIdx = seg.indexOf('HUNK_TOO_LARGE');
+  const packIdx = seg.indexOf('current != header');
+  assert(guardIdx > -1 && guardIdx < packIdx, 'the oversized-hunk guard runs after packing');
+});
 check('chunked verdicts merge with rejection winning', () => {
   assert(/def merge_results/.test(py), 'no verdict merge');
   const seg = py.split('def merge_results')[1].split('\ndef ')[0];
@@ -1023,6 +1038,15 @@ check('a force-pushed PR is refused, since its old history cannot be audited', (
   const ready = ps1.split('if ($bothAccepted -and $shaFresh')[1].split('if ($checks.Status -eq "FAIL")')[0];
   assert(/Assert-NoForcePush -PrNumber/.test(ready),
     'force-push is not rechecked at the moment readiness is declared');
+  // The timeline audit is a network round trip. An ordinary synchronize push landing
+  // during it creates NO force-push event while the cached SHA still matches, so the head
+  // must be re-read afterwards - the last thing checked before READY is the live head.
+  assert(/\$liveShaBefore/.test(ready), 'the head is not captured before the audit for comparison');
+  const auditIdx = ready.indexOf('Assert-NoForcePush -PrNumber');
+  const rereadIdx = ready.indexOf('$liveAfter = Invoke-Gh');
+  assert(rereadIdx > -1 && rereadIdx > auditIdx, 'the head is not re-read AFTER the timeline audit');
+  assert(/PR head changed during the readiness audit/.test(ready),
+    'a head change during the audit does not prevent readiness');
   // It must use the paginated NDJSON reader, not an array-per-page jq.
   assert(/Invoke-GhJsonLines -Path "repos\/\$Repo\/issues\/\$PrNumber\/timeline"/.test(seg),
     'timeline read does not use the multi-page-safe reader');
@@ -1032,24 +1056,26 @@ check('repository git hooks cannot influence controller git operations', () => {
   // .git/ from both `git diff` and `git ls-files --others`, so such a hook is invisible to
   // Get-ChangedFiles AND to both lock-scope assertions - yet the controller would EXECUTE
   // it through its own trusted git commit/push, under its own credentials.
-  assert(/\$script:NO_HOOKS_DIR/.test(ps1), 'no hooks-path override is defined');
+  assert(/\$script:NO_HOOKS_PATH/.test(ps1), 'no hooks-path override is defined');
   const seg = ps1.split('function Invoke-Git')[1].split('\nfunction ')[0];
-  assert(/core\.hooksPath=\$script:NO_HOOKS_DIR/.test(seg), 'git calls do not disable hooks');
+  assert(/core\.hooksPath=\$script:NO_HOOKS_PATH/.test(seg), 'git calls do not disable hooks');
   assert(/"-c", "core\.hooksPath/.test(seg), 'hooks-path is not passed as a git -c override');
   // It must apply to EVERY git invocation, not just commit/push.
-  assert(/\$safeArgs = @\("-c", "core\.hooksPath=\$script:NO_HOOKS_DIR"\) \+ \$Arguments/.test(seg),
+  assert(/\$safeArgs = @\("-c", "core\.hooksPath=\$script:NO_HOOKS_PATH"\) \+ \$Arguments/.test(seg),
     'the hooks override is not prepended to every git invocation');
-  // Redirecting hooks at a predictable persistent path turns THAT path into an injection
-  // point: the controller runs repo-resident validators, and a rewritten one can plant an
-  // executable there, which the .git/hooks check would never see. Verified per invocation
-  // so there is no window between the check and the commit.
-  assert(/Get-ChildItem -Path \$script:NO_HOOKS_DIR/.test(seg),
-    'the replacement hooks directory is never verified empty');
-  assert(/replacement git hooks directory is not empty/.test(seg),
-    'a planted hook in the replacement directory does not block');
-  const emptyIdx = seg.indexOf('Get-ChildItem -Path $script:NO_HOOKS_DIR');
-  const execIdx = seg.indexOf('Invoke-Native -File "git"');
-  assert(emptyIdx > -1 && emptyIdx < execIdx, 'the emptiness check runs after git executes');
+  // The placeholder must be a FILE, not an empty directory. An empty directory is
+  // check-then-execute and therefore raceable: a detached helper can wait for git.exe to
+  // start and write pre-commit into it after the check passed. Under a file, git resolves
+  // <hooksPath>/pre-commit to something that cannot exist, and the path cannot be turned
+  // into a hooks directory while it exists - an isolation boundary rather than a check.
+  assert(/nohooks\.disabled/.test(ps1), 'the hooks placeholder is not a file path');
+  assert(/Set-Content -Path \$script:NO_HOOKS_PATH/.test(seg),
+    'the hooks placeholder is not created as a file');
+  assert(!/New-Item -ItemType Directory -Force -Path \$script:NO_HOOKS_PATH/.test(seg),
+    'the hooks placeholder is still created as a directory');
+  // And if something replaced it with a directory, refuse.
+  assert(/-PathType Container/.test(seg), 'the placeholder type is never re-verified');
+  assert(/is a directory, not a file/.test(seg), 'a replaced placeholder does not block');
   // And a planted hook must be reported, not merely neutralised.
   assert(/function Assert-NoRepositoryHooks/.test(ps1), 'planted hooks are never detected');
   const det = ps1.split('function Assert-NoRepositoryHooks')[1].split('\nfunction ')[0];

@@ -96,9 +96,15 @@ $script:REPO_ROOT            = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).
 $script:PROMPT_TEMPLATE      = Join-Path $script:REPO_ROOT "scripts\ai\claude_loop_prompt.md"
 $script:LOCK_FILE            = Join-Path $script:REPO_ROOT "docs\ai-coengineer\WRITE_LOCK.md"
 $script:RUN_DIR              = Join-Path $env:TEMP "ai-loop"
-# A controller-owned empty directory used as core.hooksPath, so no repository-controlled
-# git hook can ever be discovered or executed by the controller's git invocations.
-$script:NO_HOOKS_DIR         = Join-Path $script:RUN_DIR "nohooks"
+# core.hooksPath points at a controller-owned FILE, not a directory.
+#
+# An empty directory was check-then-execute and therefore raceable: a detached helper can
+# wait for git.exe to start and write pre-commit into it after the emptiness check has
+# already passed. A file is an isolation boundary instead of a check - git resolves
+# <hooksPath>/pre-commit, which cannot exist under a file, and the path cannot be turned
+# into a hooks directory while it exists (mkdir fails with "File exists"). Verified: git
+# accepts it, finds no hooks, and otherwise operates normally.
+$script:NO_HOOKS_PATH        = Join-Path $script:RUN_DIR "nohooks.disabled"
 
 # Loop state, mirroring AI_LOOP_STATE.schema.json.
 $script:State = [ordered]@{
@@ -334,22 +340,18 @@ function Invoke-Git {
       ever be found.
     #>
     param([Parameter(Mandatory = $true)][string[]]$Arguments, [int]$TimeoutSec = 180)
-    if (-not (Test-Path $script:NO_HOOKS_DIR)) {
-        New-Item -ItemType Directory -Force -Path $script:NO_HOOKS_DIR | Out-Null
+    if (-not (Test-Path $script:NO_HOOKS_PATH)) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $script:NO_HOOKS_PATH) | Out-Null
+        Set-Content -Path $script:NO_HOOKS_PATH -Value "git hooks are disabled for this loop" -Encoding ASCII
     }
 
-    # The replacement directory must itself stay empty, checked HERE rather than once per
-    # round. Redirecting core.hooksPath at a predictable, persistent path turns that path
-    # into a new injection point: the controller executes repo-resident validators, and a
-    # rewritten one can plant an executable `pre-commit` in the replacement directory, which
-    # Assert-NoRepositoryHooks would not see because it inspects only .git/hooks. Verifying
-    # immediately before each invocation leaves no window between check and commit.
-    $planted = @(Get-ChildItem -Path $script:NO_HOOKS_DIR -Force -ErrorAction SilentlyContinue)
-    if ($planted.Count -gt 0) {
-        Stop-Loop -Status "BLOCKED" -Reason ("The replacement git hooks directory is not empty: " + (@($planted | ForEach-Object { $_.Name }) -join ", ") + ". It exists so that no hook can ever be found; anything inside it would be executed by the controller's own git operations.")
+    # Confirm it is still a FILE. If something replaced it with a directory, the isolation
+    # boundary is gone and hooks could be planted inside, so refuse rather than proceed.
+    if (Test-Path $script:NO_HOOKS_PATH -PathType Container) {
+        Stop-Loop -Status "BLOCKED" -Reason "The git hooks placeholder '$script:NO_HOOKS_PATH' is a directory, not a file. It exists as a file precisely so that no hook can be placed under it; something has replaced it."
     }
 
-    $safeArgs = @("-c", "core.hooksPath=$script:NO_HOOKS_DIR") + $Arguments
+    $safeArgs = @("-c", "core.hooksPath=$script:NO_HOOKS_PATH") + $Arguments
     return Invoke-Native -File "git" -Arguments $safeArgs -TimeoutSec $TimeoutSec
 }
 
@@ -1458,6 +1460,7 @@ function Wait-ForReviews {
             # returning READY would hand the human a newer, entirely unreviewed head.
             $live = Invoke-Gh -Arguments @("pr", "view", "$($script:State.pr_number)", "--repo", $Repo, "--json", "headRefOid", "--jq", ".headRefOid")
             $liveSha = $live.StdOut.Trim()
+            $liveShaBefore = $liveSha
             if ($live.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($liveSha)) {
                 Write-Warn2 "could not revalidate the live PR head; refusing to declare readiness on an unconfirmed head"
                 $script:State.blocking_findings = @("Could not confirm the live PR head before declaring READY_TO_MERGE.")
@@ -1469,6 +1472,23 @@ function Wait-ForReviews {
             # not cancel in progress that run can post a forged same-SHA verdict. Re-check
             # here, at the decisive moment, not only once before polling began.
             Assert-NoForcePush -PrNumber $script:State.pr_number
+
+            # Re-read the head AFTER the timeline audit. That audit is a network round trip,
+            # and an ordinary synchronize push landing during it creates no force-push event
+            # while the cached SHA still matches - so readiness would be declared for an
+            # obsolete head. The last thing checked before READY must be the live head.
+            $liveAfter = Invoke-Gh -Arguments @("pr", "view", "$($script:State.pr_number)", "--repo", $Repo, "--json", "headRefOid", "--jq", ".headRefOid")
+            $liveSha = $liveAfter.StdOut.Trim()
+            if ($liveAfter.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($liveSha)) {
+                Write-Warn2 "could not re-confirm the live PR head after the force-push audit"
+                $script:State.blocking_findings = @("Could not re-confirm the live PR head after the force-push audit.")
+                return $false
+            }
+            if ($liveSha -ne $liveShaBefore) {
+                Write-Warn2 "PR head changed during the readiness audit ($liveShaBefore -> $liveSha)"
+                $script:State.blocking_findings = @("PR head changed during the readiness audit: $liveShaBefore -> $liveSha.")
+                return $false
+            }
 
             if ($liveSha.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) {
                 Write-Warn2 "PR head advanced to $liveSha during polling; the reviews above describe $($script:State.head_sha)"

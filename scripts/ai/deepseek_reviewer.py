@@ -183,6 +183,17 @@ def _split_file_diff(file_diff: str) -> list[str]:
     out: list[str] = []
     current = header
     for hunk in bodies:
+        # A single intact hunk larger than the budget cannot be placed anywhere without
+        # either splitting it (which corrupts the diff) or emitting an oversized chunk
+        # (which reproduces the very PROTOCOL_ERROR the budget exists to avoid). Neither is
+        # acceptable, so say so rather than silently doing one of them.
+        if len(header) + len(hunk) > MAX_DIFF_CHARS:
+            raise LoopBlocked(
+                "HUNK_TOO_LARGE",
+                f"a single diff hunk is {len(hunk)} chars, which exceeds the "
+                f"{MAX_DIFF_CHARS}-char per-chunk budget; it cannot be reviewed without "
+                "either corrupting the hunk or sending an unreliably large prompt",
+            )
         if len(current) + len(hunk) > MAX_DIFF_CHARS and current != header:
             out.append(current)
             current = header + hunk
