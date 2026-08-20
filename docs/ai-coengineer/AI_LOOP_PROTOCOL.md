@@ -6,42 +6,46 @@ Repository: `hanlinh227-ship-it/trading-api`
 
 ## Roles
 
-- Codex = CONTROL PLANE: architect, task/spec creator, GitHub reviewer and final acceptance authority.
-- Claude Code Web / Claude Max = DEEP OPTIMIZER + SECOND REVIEWER for difficult or protected Trading logic. Production Anthropic API remains OFF.
-- DeepSeek API = PRIMARY AUTOMATED IMPLEMENTER/FIXER running in GitHub Actions.
+- Codex = CONTROL PLANE: architect, task/spec creator, independent reviewer and final acceptance authority.
+- Claude Max / Claude Code / Scheduled Watcher = independent deep optimizer/reviewer for protected Trading logic. Production Anthropic API remains OFF.
+- DeepSeek API = PRIMARY AUTOMATED IMPLEMENTER/FIXER in GitHub Actions.
 - GitHub = source of truth, task bus, state, WRITE_LOCK, PR/CI evidence and audit trail.
 - Cloudflare = production Signal runtime and deployment/live-verification target.
 
-## Practical automation boundary
+## Review model
 
-Codex GitHub review can be triggered from a PR using `@codex review` when the Codex GitHub integration is enabled for this repository.
+Protected Trading tasks use PARALLEL DUAL REVIEW.
 
-DeepSeek is headless through GitHub Actions and can implement, validate, consume Codex findings and repair for bounded rounds.
+DeepSeek implements and validates one PR head. Codex and Claude review the SAME implementation SHA independently. DeepSeek must not repair a `requires_claude=true` task until both required verdicts exist for that exact head.
 
-Claude Max / Claude Code Web is subscription-based and is NOT represented as an Anthropic API credential. It can run remote web tasks after being started, but GitHub cannot reliably wake a Max web session headlessly. Therefore protected/high-complexity tasks may enter `CLAUDE_REVIEW_REQUIRED` and wait for the user to start one Claude Code Web review session. This is the only non-headless segment while production Anthropic API is prohibited.
+Review state for a protected task:
 
-Never claim FULLY_AUTONOMOUS_3_AI while this limitation exists.
+- `review_required.codex=true`
+- `review_required.claude=true`
+- `review_status.codex=PENDING|ACCEPT|REJECT`
+- `review_status.claude=PENDING|ACCEPT|REJECT|BLOCKED`
+- `review_consensus=WAITING|REPAIR_REQUIRED|ACCEPT|BLOCKED`
+
+Claude Scheduled Watcher is a watchdog/fallback wake mechanism. It is not Anthropic API automation and may introduce schedule latency. Never claim instantaneous or fully autonomous Claude review without real evidence.
 
 ## Normal state machine
 
-`USER_PROMPT -> CODEX_DISCOVER -> CODEX_SPEC -> DEEPSEEK_IMPLEMENT -> DEEPSEEK_VALIDATE -> PR -> CODEX_REVIEW`
+`USER_PROMPT -> CODEX_DISCOVER -> CODEX_SPEC -> DEEPSEEK_IMPLEMENT -> DEEPSEEK_VALIDATE -> PR -> PARALLEL_REVIEW`
 
 Then:
 
-- Codex blockers -> `DEEPSEEK_FIX -> VALIDATE -> CODEX_REVIEW`.
-- No blockers + Claude not required -> `ACCEPT -> MERGE/DEPLOY_GATE -> LIVE_VERIFY -> DONE`.
-- No blockers + Claude required -> `CLAUDE_REVIEW_REQUIRED -> CLAUDE_VERDICT -> DEEPSEEK_FIX or ACCEPT`.
-- `MAX_ROUNDS` exhausted -> `BLOCKED -> STOP`.
+- required reviewer missing -> `WAITING_FOR_REVIEW`
+- either reviewer REJECT -> aggregate both available findings -> `DEEPSEEK_FIX -> VALIDATE -> PARALLEL_REVIEW`
+- Claude BLOCKED -> `BLOCKED -> STOP`
+- all required reviewers ACCEPT -> `READY_FOR_FINAL_ACCEPT`
+- final acceptance -> `MERGE/DEPLOY_GATE -> LIVE_VERIFY -> DONE`
+- `MAX_ROUNDS` exhausted -> `BLOCKED -> STOP`
 
-## Task creation contract
+Non-protected tasks may use Codex-only review when `requires_claude=false`.
 
-Codex creates a GitHub Issue whose title starts with `[AI-TASK]` and whose body contains exactly one machine-readable block:
+## Task contract
 
-`AI_TASK_JSON_BEGIN`
-
-JSON object
-
-`AI_TASK_JSON_END`
+Codex creates a GitHub Issue titled with `[AI-TASK]` and exactly one machine-readable block between `AI_TASK_JSON_BEGIN` and `AI_TASK_JSON_END`.
 
 Required JSON fields:
 
@@ -58,39 +62,51 @@ Required JSON fields:
 - `auto_merge`
 - `context_files`
 
-The task `base_sha` must equal current main HEAD after DeepSeek WRITE_LOCK acquisition. A mismatch is a stale-write hard block.
+`base_sha` must equal current main HEAD after DeepSeek WRITE_LOCK acquisition. A mismatch is a stale-write hard block.
 
-## Bounded DeepSeek loop
+## DeepSeek bounded loop
 
-DeepSeek is allowed at most 4 implementation/review rounds per task. The task should normally use 2 rounds and only use more for justified difficult work.
+Default max rounds: 2. Hard cap: 4.
 
-The worker:
+The worker reads only declared context, requests a scoped unified diff, rejects out-of-scope/secret-bearing patches, applies only after `git apply --check`, runs deterministic validation, and uses real failure evidence for bounded repair. It must never weaken safeguards to make tests pass.
 
-1. reads only declared context files;
-2. requests one scoped unified diff;
-3. rejects out-of-scope paths and probable secrets;
-4. applies the diff only after `git apply --check`;
-5. runs declared deterministic validation;
-6. if validation fails, feeds bounded failure evidence back to DeepSeek;
-7. stops on PASS or `MAX_ROUNDS`.
+DeepSeek does not merge or deploy by itself.
 
-DeepSeek does not commit, push, merge or deploy itself; GitHub Actions owns those lifecycle operations.
+## Codex verdict
 
-## Codex review loop
+Workflow requests `@codex review` on each current PR head. Blocking inline findings tied to that head mean REJECT. A real Codex no-blocker signal is required for ACCEPT. Missing evidence remains PENDING.
 
-The issue-driven workflow opens a PR and posts `@codex review`.
+## Claude verdict envelope
 
-The monitor runs every 15 minutes and checks AI-loop PRs. If Codex produces blocking review comments for the current head, those comments become bounded DeepSeek repair feedback. The repaired branch is pushed and Codex is requested to review the new head again.
+For `requires_claude=true`, Claude reviews the exact current head and posts a PR conversation comment using:
 
-Codex no-blocker evidence may advance the task to acceptance/deployment gating, but no status may be invented if the GitHub integration did not actually return evidence.
+`CLAUDE_REVIEW_BEGIN`
 
-## Claude escalation
+`CLAUDE_REVIEW_HEAD: <sha>`
 
-Use `requires_claude=true` when changes materially affect any of:
+`CLAUDE_VERDICT: ACCEPT|REJECT|BLOCKED`
 
-- MARKET/LIMIT/WATCH/BLOCK decision logic
+`CLAUDE_FINDINGS:`
+
+`<findings or NONE>`
+
+`CLAUDE_REVIEW_END`
+
+A verdict for an older SHA is stale and must not satisfy the gate.
+
+## Review aggregation
+
+DeepSeek repair begins only after all required reviewer verdicts for the current head are available. Codex and Claude findings are combined into one bounded repair prompt so DeepSeek performs one coherent repair round rather than reacting serially to reviewers.
+
+After each repair, prior verdicts are stale. Both required reviewers must review the new head again.
+
+## Protected Trading tasks requiring Claude
+
+Set `requires_claude=true` for material changes to:
+
+- MARKET / LIMIT / WATCH / BLOCK decision logic
 - current-price geometry / anti-chase
-- HTF/M15/M5 entry intelligence
+- HTF / M15 / M5 entry intelligence
 - structural SL / target / RR
 - hard-news admission
 - quote freshness/admission
@@ -98,17 +114,14 @@ Use `requires_claude=true` when changes materially affect any of:
 - cross-market ranking
 - execution authority or protected state
 
-Claude review is read/review-first. Claude must fresh-read current PR/main and WRITE_LOCK. Claude may propose a repair; DeepSeek remains the default implementer unless task ownership is explicitly transferred.
-
 ## WRITE_LOCK
 
-`docs/ai-coengineer/WRITE_LOCK.md` remains mandatory.
+`docs/ai-coengineer/WRITE_LOCK.md` is mandatory.
 
-- DeepSeek implementation task: `LOCKED=true`, `OWNER=DEEPSEEK`.
-- Codex may review while DeepSeek owns the lock but must not modify overlapping source.
-- Claude may review while DeepSeek owns the lock but must not modify overlapping source.
-- Any writer must re-check current HEAD and lock before source writes.
-- Lock is released only after task DONE/BLOCKED or a truthful handoff state where no writer remains active.
+- DeepSeek source implementation: `LOCKED=true`, `OWNER=DEEPSEEK`.
+- Codex and Claude may review while DeepSeek owns the lock but must not modify overlapping source.
+- Any writer must stale-check HEAD and lock immediately before writing.
+- GitHub orchestration metadata may be updated only within the declared task protocol and must not bypass source ownership.
 
 ## Protected invariants
 
@@ -122,7 +135,7 @@ Never weaken merely to pass a test:
 - hard-news safeguards
 - execution authority
 - production credentials/secrets
-- Signal-only architecture
+- SIGNAL-ONLY architecture
 
 Absolute prohibitions:
 
@@ -137,33 +150,23 @@ Absolute prohibitions:
 
 ## API/cost guards
 
-Expected secret: `DEEPSEEK_API_KEY`.
+Expected GitHub secret: `DEEPSEEK_API_KEY`.
 
-Never print or commit the secret.
-
-Each task must bound:
-
-- context file list / context chars
-- output tokens per DeepSeek call
-- max implementation rounds
-- deterministic validation timeout
-
-Do not use DeepSeek to repeatedly reread the full repository when narrow source context is sufficient.
+Each task bounds context, output tokens, implementation rounds and validation timeout. Do not repeatedly reread the full repository when narrow context is sufficient.
 
 ## Status vocabulary
 
-- DESIGNED = architecture/spec only
-- STAGED = code/workflow exists but not yet exercised
+- STAGED = workflow exists but has not completed a real end-to-end task
 - RUNNING = real cloud loop evidence exists
-- CODEX_REVIEW_REQUIRED = PR waiting for real Codex review
-- CLAUDE_REVIEW_REQUIRED = protected task waiting for Claude Max web review
-- BLOCKED = loop stopped without acceptance
+- PARALLEL_DUAL_REVIEW_REQUIRED = protected PR requires both reviewers
+- WAITING_FOR_REVIEW = one or more required verdicts missing
+- REPAIR_REQUIRED = required review consensus found blocking issues
+- READY_FOR_FINAL_ACCEPT = all required reviewers ACCEPT
+- BLOCKED = stopped without acceptance
 - DEPLOYED = Cloudflare accepted a real deployment
-- LIVE_VERIFIED = required production verification actually passed
-- RESOLVED = acceptance criteria plus required live verification passed
+- LIVE_VERIFIED = production verification actually passed
+- RESOLVED = acceptance criteria and required live verification passed
 
 ## User experience target
 
-The user should normally only need to give Codex a short goal such as `phát triển tư duy tìm entry`.
-
-Codex then fresh-reads GitHub, converts that goal into one bounded task, acquires DeepSeek WRITE_LOCK, creates the issue contract, and lets the GitHub/DeepSeek/Codex loop run until PASS, BLOCKED, or Claude review is genuinely required.
+The user normally gives Codex/ChatGPT one short goal. Codex fresh-reads GitHub, creates one bounded task, assigns DeepSeek implementation, requests independent Codex + Claude review where protected, aggregates review evidence, and stops only at ACCEPT, BLOCKED, or the task round cap.
