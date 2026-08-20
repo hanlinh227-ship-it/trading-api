@@ -18,9 +18,6 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cloudflare-worker
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -36,141 +33,200 @@ jobs:
           node-version: '22'
 
       - name: Guard required deployment secrets
-        id: guard
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}" || { echo 'Missing CLOUDFLARE_API_TOKEN'; exit 1; }
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}" || { echo 'Missing CLOUDFLARE_ACCOUNT_ID'; exit 1; }
-          test -n "${TRADING_KV_NAMESPACE_ID:-}" || { echo 'Missing TRADING_KV_NAMESPACE_ID'; exit 1; }
-          [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]] || { echo 'TRADING_KV_NAMESPACE_ID must be 32 hex chars'; exit 1; }
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
 
-      - name: V78-020 guarded integration
-        id: v78020
+      - name: V78-028 guarded source patch
         working-directory: .
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git hash-object cloudflare-worker/engine-v77168.js)" = "71eced95377590b532ff5f16b46a3a764af41451"
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
 
-          epath=Path('cloudflare-worker/engine-v77168.js')
-          hpath=Path('cloudflare-worker/hub-v77171.js')
-          ppath=Path('cloudflare-worker/providers/entry-intelligence.js')
-          e=epath.read_text(); h=hpath.read_text(); p=ppath.read_text()
+          old='function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🏦 PROP",callback_data:"prop"},{text:"👤 CÁ NHÂN",callback_data:"personal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"live"}]]};}'
+          new='function baseKeyboard(){return {inline_keyboard:[[{text:"📡 SIGNAL",callback_data:"signal"}],[{text:"🔎 SYMBOL",callback_data:"symbols"}],[{text:"📊 STATUS",callback_data:"status"},{text:"📚 LIVE ORDERS",callback_data:"live"}]]};}'
+          assert s.count(old)==1; s=s.replace(old,new,1)
 
-          assert 'revision:"V78-020"' in p, 'V78-020 provider missing'
-          assert 'executionAuthority:"NONE"' in p, 'entry intelligence execution authority changed'
-          assert 'runHyroAutoCycle' not in p and 'executeHyroPlan' not in p and 'HYRO_BYBIT' not in p, 'Hyro boundary violated'
+          old='function propKeyboard(){return {inline_keyboard:[[{text:"🟣 HYROTRADER",callback_data:"prop:hyro"},{text:"🔵 BREAKOUT",callback_data:"prop:breakout"}],[{text:"📚 LỆNH PROP",callback_data:"prop:orders"},{text:"🛡️ RISK PROP",callback_data:"prop:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}\nfunction personalKeyboard(){return {inline_keyboard:[[{text:"🖥️ MT5 CÁ NHÂN",callback_data:"personal:mt5"}],[{text:"📚 LỆNH CÁ NHÂN",callback_data:"personal:orders"},{text:"🛡️ RISK CÁ NHÂN",callback_data:"personal:risk"}],[{text:"⬅️ MENU CHÍNH",callback_data:"menu"}]]};}\n'
+          assert s.count(old)==1; s=s.replace(old,'',1)
 
-          old_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow'
-          new_import='buildEntryIntelligenceShadow,recordEntryIntelligenceShadow,getEntryIntelligenceShadow,entryIntelligenceRankAdjustment,entryIntelligencePromotionAllowed'
-          if new_import not in e:
-            assert e.count(old_import)==1, 'engine entry-intelligence import baseline mismatch'
-            e=e.replace(old_import,new_import,1)
+          branches='''  else if(cb==="prop")await sendText(env,"🏦 PROP\\n\\nTheo dõi các tài khoản quỹ được tích hợp. Kết nối execution sẽ được bật riêng cho từng quỹ sau khi xác nhận API/rule.",chatId,propKeyboard());
+  else if(cb==="prop:hyro")await sendText(env,"🟣 HYROTRADER\\n\\nTrạng thái: CHƯA KẾT NỐI TÀI KHOẢN/API.\\nSignal engine vẫn hoạt động độc lập; chưa tự gửi lệnh vào quỹ.",chatId,propKeyboard());
+  else if(cb==="prop:breakout")await sendText(env,"🔵 BREAKOUT\\n\\nTrạng thái: CHƯA KẾT NỐI TÀI KHOẢN/API.\\nChưa bật auto-execution cho tới khi quyền bot/API được xác nhận.",chatId,propKeyboard());
+  else if(cb==="prop:orders"||cb==="prop:risk")await sendText(env,"🏦 PROP\\n\\nChưa có tài khoản prop được kết nối nên chưa có position/risk telemetry riêng.",chatId,propKeyboard());
+  else if(cb==="personal")await sendText(env,"👤 CÁ NHÂN\\n\\nTheo dõi tài khoản cá nhân đã tích hợp. MT5 Bridge sẽ cung cấp equity, positions, broker bid/ask và execution khi được kết nối.",chatId,personalKeyboard());
+  else if(cb?.startsWith("personal:"))await sendText(env,"👤 MT5 CÁ NHÂN\\n\\nTrạng thái: CHƯA KẾT NỐI MT5 BRIDGE.\\nKhi kết nối, khu vực này sẽ hiển thị Equity • Daily P/L • Live Positions • Pending • Risk.",chatId,personalKeyboard());
+'''
+          assert s.count(branches)==1; s=s.replace(branches,'',1)
 
-          if 'x+=entryIntelligenceRankAdjustment(a);return x;}' not in e:
-            pat=r'function actionableRank\(a\)\{.*?return x;\}'
-            m=re.findall(pat,e,flags=re.S); assert len(m)==1, f'actionableRank matches={len(m)}'
-            old=m[0]
-            e=e.replace(old,old[:-9]+'x+=entryIntelligenceRankAdjustment(a);return x;}',1)
+          reason='function reasonText(r){return ({HTF_METHOD_ALIGNMENT_REQUIRED:"Chờ phương pháp riêng + HTF đồng thuận",HTF_ALIGNMENT_REQUIRED:"Chờ D1/H4/H1 đồng thuận",M15_LOCATION_REQUIRED:"Chờ giá vào vùng M15 đẹp",M5_MSS_DISPLACEMENT_RETEST_REQUIRED:"Chờ trigger M5 phù hợp profile",STRUCTURAL_SL_REQUIRED:"Chưa có SL cấu trúc",CLEAN_TARGET_REQUIRED:"Chưa có mục tiêu thanh khoản đủ tốt",NEWS_CONTEXT_REQUIRED:"Chờ tin/context",EXECUTION_QUOTE_REQUIRED:"Kế hoạch đạt cấu trúc; chờ giá execution thật",FINAL_QUOTE_REQUIRED:"Chờ giá execution",FINAL_QUOTE_STALE:"Giá execution cũ",EXECUTION_COST_TOO_HIGH:"Spread/chi phí cao",RR_QUALITY_REQUIRED:"RR cấu trúc chưa đủ tốt",LIMIT_GEOMETRY_REQUIRED:"Vùng LIMIT chưa đúng khoảng cách/retest",MARKET_GEOMETRY_REQUIRED:"Giá MARKET đã chạy xa trigger",TIMEFRAME_DATA_REQUIRED:"Thiếu timeframe",ANALYSIS_DATA_UNAVAILABLE:"Thiếu dữ liệu"})[r]||"Chờ thêm xác nhận";}'
+          why=reason+'\nconst SESSION_VI={LONDON_ACTIVE:"phiên London",LONDON_NY_OVERLAP:"giao thoa London-New York",NEW_YORK_ACTIVE:"phiên New York",ASIA_ACTIVE:"phiên châu Á",OFF_PEAK:"ngoài giờ cao điểm",TOKYO_ACTIVE:"phiên Tokyo",TOKYO_OFF:"ngoài phiên Tokyo",EUROPE_ACTIVE:"phiên châu Âu",EUROPE_OFF:"ngoài phiên châu Âu",US_CASH_WINDOW:"phiên Mỹ",US_OFF:"ngoài phiên Mỹ"};\nfunction whyNowVi(a){const parts=[],sess=SESSION_VI[a?.context?.session];if(sess)parts.push(sess);if(a?.method?.profile)parts.push("phương pháp "+a.method.profile);const actionableSet=["MARKET","LIMIT","MARKET_SIGNAL","MARKET_PLAN","LIMIT_PLAN"];if(actionableSet.includes(a?.status))parts.push("đủ điều kiện kỹ thuật để vào lệnh");else{const rsn=reasonText(a?.reason);if(rsn)parts.push(rsn);}return parts.length?parts.join(" • "):"Chưa đủ dữ liệu để giải thích";}'
+          assert s.count(reason)==1; s=s.replace(reason,why,1)
 
-          if 'const intelAllowed=entryIntelligencePromotionAllowed(a);' not in e:
-            pat=r'function fillBooks\(group,books,analyses,trigger="SCAN"\)\{.*?b\.watch=\[\];return newItems;\}'
-            m=re.findall(pat,e,flags=re.S); assert len(m)==1, f'fillBooks matches={len(m)}'
-            old=m[0]
-            new=old.replace('for(const a of analyses){','for(const a of analyses){const intelAllowed=entryIntelligencePromotionAllowed(a);',1)
-            new=new.replace('if(group!=="crypto"){if(a.status==="MARKET_SIGNAL"','if(group!=="crypto"){if(intelAllowed&&a.status==="MARKET_SIGNAL"',1)
-            new=new.replace('if(a.status==="MARKET"&&!duplicate','if(intelAllowed&&a.status==="MARKET"&&!duplicate',1)
-            new=new.replace('if(a.status==="LIMIT"&&!duplicate','if(intelAllowed&&a.status==="LIMIT"&&!duplicate',1)
-            e=e.replace(old,new,1)
-          epath.write_text(e)
+          old='  const eiShadow=buildEntryIntelligenceShadow(a);if(eiShadow)L.push(`Quality: ${eiShadow.quality.grade} (${eiShadow.quality.score}/100)${eiShadow.promotion.allowed===false?" • ⚠️ "+eiShadow.promotion.reasons.join(","):""}`);\n  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);'
+          new='  const eiShadow=buildEntryIntelligenceShadow(a);if(eiShadow)L.push(`Quality: ${eiShadow.quality.grade} (${eiShadow.quality.score}/100)${eiShadow.promotion.allowed===false?" • ⚠️ "+eiShadow.promotion.reasons.join(","):""}`);\n  L.push(`WHY NOW: ${whyNowVi(a)}`);\n  L.push("",`Trạng thái: ${a.status==="WATCH"?reasonText(a.reason):a.status}`);'
+          assert s.count(old)==1; s=s.replace(old,new,1)
 
-          if 'HUB-R12-ENTRY-INTEL-ACTIVE' not in h:
-            assert 'HUB-R11-ENTRY-INTEL-SHADOW' in h, 'hub revision baseline mismatch'
-            h=h.replace('HUB-R11-ENTRY-INTEL-SHADOW','HUB-R12-ENTRY-INTEL-ACTIVE')
-          h=h.replace('🧭 Entry Intel","callback_data":"intel"','🧭 Entry Intel V2","callback_data":"intel"')
-          if 'ENTRY INTELLIGENCE • ACTIVE ADVISORY' not in h:
-            pat=r'async function entryIntelText\(env\)\{.*?\}\nasync function engineJson'
-            m=re.findall(pat,h,flags=re.S); assert len(m)==1, f'entryIntelText matches={len(m)}'
-            replacement='''async function entryIntelText(env){const rows=await getEntryIntelligenceShadow(env,12),x=rows[0]||null;if(!x)return "🧭 ENTRY INTELLIGENCE • V78-020\\n━━━━━━━━━━━━\\n⚪ Chưa có reasoning. Quét một thị trường để tạo dữ liệu.";const c=x.integrity?.core||{},m=x.integrity?.marketSpecific||{},blocks=x.integrity?.hardBlocks||[],r=x.reasoning||{},q=x.quality||{},pr=x.promotion||{};return ["🧭 ENTRY INTELLIGENCE • ACTIVE ADVISORY","━━━━━━━━━━━━",`${x.symbol||"—"} • ${String(x.market||"unknown").toUpperCase()} • ${x.existingDecision?.status||"UNKNOWN"}`,`⭐ Quality: ${q.grade||"?"} • ${q.score??"—"}/100 • ${pr.allowed===false?"⛔ BLOCK":"✅ ADMIT"}`,`📡 Freshness: ${x.quote?.freshness||"UNKNOWN"} • ${x.quote?.source||"—"}`,`🧩 Core: ${c.known||0}/${c.total||0} • Market context: ${m.known||0}/${m.total||0}`,`⏱ WHY NOW: ${r.whyNow||"UNKNOWN"}`,`📍 WHY PRICE: ${r.whyPrice||"UNKNOWN"}`,`🛑 WHY SL: ${r.whySl||"UNKNOWN"}`,`🏁 WHY TP/RR: ${r.whyTp||"UNKNOWN"}`,`❌ Invalidates: ${r.invalidates||"UNKNOWN"}`,blocks.length?`🚧 Blocks: ${blocks.join(", ")}`:"✅ No hard evidence block","","V78-020 affects Signal ranking/book admission only.","🏦 Hyro real-capital execution authority unchanged.","🤖 Claude production API remains PAUSED."].join("\\n");}
-async function engineJson'''
-            h=re.sub(pat,replacement,h,count=1,flags=re.S)
-          hpath.write_text(h)
+          old='async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null,fresh:true,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}'
+          new='async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);const age=last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null;return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:age,fresh:age!==null&&age<=CONFIG.maxQuoteAgeSec,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}'
+          assert s.count(old)==1; s=s.replace(old,new,1)
+
+          old='  const maps=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env,CONFIG.candleOutputSize))),candles=maps.map(m=>m.get(s)||[]);let q=null;try{q=await tdQuote(s,env);}catch{}const sess=indexSessionBias(s),context={session:sess.label,sessionScore:sess.score,score:Math.min(10,5+sess.score*.8)};const a=await deepAnalyze(s,env,candles,q,q?.source||"Verified native Index",context);if(q)a.analysisQuote=q;return a;'
+          new='  const maps=await Promise.all(INTERVALS.map(i=>tdBatchCandles([s],i,env,CONFIG.candleOutputSize))),candles=maps.map(m=>m.get(s)||[]);let q=null;try{q=await tdQuote(s,env);}catch{}if(!q){const last=(candles[0]||[]).at(-1),price=num(last?.close);if(validIndexPrice(s,price)){const age=last?.timestamp?Math.max(0,nowSec()-Number(last.timestamp)):null;q={source:"Index completed M5 fallback",requestedSymbol:s,providerSymbol:MASSIVE_INDEX_PROVIDER[s]||INDEX_PROVIDER[s]||s,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:age,fresh:false,bid:null,ask:null,executionVerified:false,analysisOnly:true,fallback:true};}}const sess=indexSessionBias(s),context={session:sess.label,sessionScore:sess.score,instrumentIdentity:"CASH_INDEX",score:Math.min(10,5+sess.score*.8)};const a=await deepAnalyze(s,env,candles,q,q?.source||"Verified native Index",context);if(q)a.analysisQuote=q;return a;'
+          assert s.count(old)==1; s=s.replace(old,new,1)
+
+          p.write_text(s)
           PY
 
-          node --check cloudflare-worker/providers/entry-intelligence.js
           node --check cloudflare-worker/engine-v77168.js
-          node --check cloudflare-worker/hub-v77171.js
-          grep -q 'entryIntelligenceRankAdjustment' cloudflare-worker/engine-v77168.js
-          grep -q 'entryIntelligencePromotionAllowed' cloudflare-worker/engine-v77168.js
-          grep -q 'HUB-R12-ENTRY-INTEL-ACTIVE' cloudflare-worker/hub-v77171.js
-          grep -q 'ENTRY INTELLIGENCE • ACTIVE ADVISORY' cloudflare-worker/hub-v77171.js
-          grep -q 'executionAuthority:"NONE"' cloudflare-worker/providers/entry-intelligence.js
-          ! grep -q 'runHyroAutoCycle' cloudflare-worker/providers/entry-intelligence.js
-          ! grep -q 'executeHyroPlan' cloudflare-worker/providers/entry-intelligence.js
+          test "$(grep -c 'propKeyboard\|personalKeyboard' cloudflare-worker/engine-v77168.js)" = "0"
+          test "$(grep -c '🟣 HYROTRADER\|🔵 BREAKOUT\|👤 CÁ NHÂN\|🏦 PROP' cloudflare-worker/engine-v77168.js)" = "0"
+          test "$(grep -c 'function whyNowVi' cloudflare-worker/engine-v77168.js)" = "1"
+          test "$(grep -c 'WHY NOW:' cloudflare-worker/engine-v77168.js)" = "1"
+          grep -q '/coin|analyze|forex|metal|future' cloudflare-worker/engine-v77168.js
+          grep -q 'Index completed M5 fallback' cloudflare-worker/engine-v77168.js
+          grep -q 'instrumentIdentity:"CASH_INDEX"' cloudflare-worker/engine-v77168.js
           git diff --check
 
-          mkdir -p docs/ai-coengineer
-          cat > docs/ai-coengineer/V78-020_VALIDATION.txt <<'EOF'
-          V78-020 BATCH VALIDATION PASS
-          provider syntax PASS
-          engine syntax PASS
-          hub syntax PASS
-          advisory ranking adjustment wired PASS
-          conservative new-book admission wired PASS
-          Hub R12 visible revision wired PASS
-          executionAuthority NONE retained PASS
-          Hyro execution functions absent from entry-intelligence provider PASS
-          TRADING_STATE/v775:books reset not introduced PASS
-          EOF
+      - name: Simulate stale prop/personal callbacks
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import engine from './cloudflare-worker/engine-v77168.js';
+          const sent=[];
+          globalThis.fetch=async (url,init={})=>{if(String(url).includes('api.telegram.org')){sent.push(JSON.parse(init.body||'{}'));return new Response(JSON.stringify({ok:true,result:{}}),{status:200,headers:{'content-type':'application/json'}});}return new Response(JSON.stringify({ok:false}),{status:503,headers:{'content-type':'application/json'}});};
+          for(const cb of ['prop','prop:hyro','prop:breakout','personal','personal:mt5']){sent.length=0;const req=new Request('https://local/telegram/webhook',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({callback_query:{id:'1',data:cb,message:{chat:{id:1}}}})});const r=await engine.fetch(req,{TELEGRAM_BOT_TOKEN:'x',TELEGRAM_CHAT_ID:'1'},{});if(r.status!==200)throw new Error(cb+' status '+r.status);const txt=sent.map(x=>x.text||'').join('\n');if(/HYRO|PROP|CÁ NHÂN|MT5|BREAKOUT/i.test(txt))throw new Error(cb+' resurrected dead UI '+txt);}
+          console.log('STALE_CALLBACK_FALLBACK=PASS');
+          NODE
 
-          if ! git diff --quiet -- cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-020_VALIDATION.txt; then
-            git config user.name 'V78 Deploy Integrator'
-            git config user.email 'actions@users.noreply.github.com'
-            git add cloudflare-worker/engine-v77168.js cloudflare-worker/hub-v77171.js docs/ai-coengineer/V78-020_VALIDATION.txt
-            git commit -m 'V78-020 activate conservative Signal entry intelligence and Hub R12'
-            git push origin HEAD:main
-          fi
+      - name: Commit V78-028 source
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'V78 Signal Integrator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-028 close dead Hub fallback, add WHY NOW and harden Index Cash quotes'
+          git push origin HEAD:main
+          echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Install pinned Wrangler
-        id: install
+        working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
 
       - name: Worker preflight
-        id: preflight
+        working-directory: cloudflare-worker
         run: npm run check
 
       - name: Prepare Wrangler using existing KV only
-        id: prepare
+        working-directory: cloudflare-worker
         run: npm run prepare:wrangler
 
       - name: Deploy production worker
-        id: deploy
-        run: npx wrangler deploy
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler deploy 2>&1 | tee /tmp/v78-028-deploy.log
+          VER=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/v78-028-deploy.log | tail -1 | sed 's/Version ID: //')
+          echo "CF_VERSION=${VER:-UNKNOWN}" >> "$GITHUB_ENV"
+
+      - name: Live validation
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          mkdir -p /tmp/v78028
+          sleep 8
+          curl -fsS "$BASE/analyze?symbol=EURUSD" -o /tmp/v78028/eurusd.json
+          for S in NAS100 US30 US500 DEX JP225; do curl -fsS "$BASE/analyze?symbol=$S" -o "/tmp/v78028/$S.json"; done
+          node <<'NODE'
+          const fs=require('fs');
+          const e=JSON.parse(fs.readFileSync('/tmp/v78028/eurusd.json','utf8'));
+          if(!e.symbol||e.symbol!=='EURUSD')throw new Error('EURUSD analyze missing');
+          const lines=[];
+          for(const s of ['NAS100','US30','US500','DEX','JP225']){const x=JSON.parse(fs.readFileSync('/tmp/v78028/'+s+'.json','utf8'));const q=x.analysisQuote||x.quote||{};if(!(Number(q.price)>0))throw new Error(s+' price missing');if(q.fallback===true){if(q.fresh!==false||q.executionVerified!==false||q.analysisOnly!==true)throw new Error(s+' fallback safety flags invalid');if(x.status==='MARKET_SIGNAL')throw new Error(s+' stale fallback admitted as MARKET_SIGNAL');}lines.push(`${s} status=${x.status||'UNKNOWN'} price=${q.price} source=${q.source||'—'} fresh=${String(q.fresh)} age=${q.quoteAgeSec??'null'} fallback=${String(q.fallback===true)}`);}
+          fs.writeFileSync('/tmp/v78028/index-lines.txt',lines.join('\n')+'\n');
+          console.log(lines.join('\n'));
+          NODE
+
+      - name: Persist V78-028 validation, update state, release lock
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > docs/ai-coengineer/V78-028_VALIDATION.txt <<EOF
+          V78-028 SIGNAL HUB CLEANUP + WHY NOW + INDEX CASH RELIABILITY
+          SOURCE_SHA=${SOURCE_SHA}
+          CLOUDFLARE_VERSION_ID=${CF_VERSION}
+          ENGINE_GUARD_PREPATCH=71eced95377590b532ff5f16b46a3a764af41451
+          NODE_CHECK=PASS
+          DEAD_HYRO_CALLBACK_SIMULATION=PASS
+          PROP_PERSONAL_RENDER_REFERENCES=0
+          WHY_NOW_SINGLE_ANALYSIS=WIRED
+          COMMAND_REGEX_UNTOUCHED=true
+          INDEX_NATIVE_TD_FRESHNESS=AGE_BASED_NOT_HARDCODED
+          INDEX_COMPLETED_M5_FALLBACK=DISPLAY_ONLY_ALWAYS_FRESH_FALSE
+          INDEX_IDENTITY=CASH_INDEX
+          V775_BOOKS_PRESERVED=true
+          TRADING_STATE_RESET=false
+          EXECUTION_AUTHORITY=NONE
+          CLAUDE_PRODUCTION_API=PAUSED
+          --- LIVE INDEX CASH ---
+          $(cat /tmp/v78028/index-lines.txt)
+          EOF
+          cat >> docs/ai-coengineer/SHARED_STATE.md <<EOF
+
+          V78-028 — RESOLVED / DEPLOYED
+          - Source: ${SOURCE_SHA}.
+          - Cloudflare Version ID: ${CF_VERSION}.
+          - Removed reachable pre-V78-027 prop/personal fallback rendering from engine Telegram handler.
+          - Added Vietnamese WHY NOW on single-symbol analysis.
+          - Index Cash Twelve Data freshness is age-based; completed-M5 fallback remains analysis-only/fresh=false and cannot satisfy MARKET_SIGNAL admission.
+          - Index runSymbol explicitly carries CASH_INDEX identity.
+          - No execution authority or hard-gate weakening.
+          - Validation: docs/ai-coengineer/V78-028_VALIDATION.txt.
+          EOF
+          cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
+          # AI WRITE LOCK
+
+          LOCKED: false
+          OWNER: NONE
+          SCOPE: NONE
+          RELEASED: 2026-08-20
+          LAST_RESULT: V78-028 RESOLVED — Signal-only Hub cleanup, WHY NOW, and Index Cash reliability deployed and validated.
+
+          Protocol:
+          - One writer at a time.
+          - Preserve Signal engine, market data, entry intelligence, ranking and all existing risk/freshness/structural-SL/news protections.
+          - Preserve TRADING_STATE and v775:books Signal data.
+          - Never restore Hyro auto-trade, Futures/TK2, or Binance20 production execution without explicit new user direction.
+          - Production Claude API remains paused.
+          EOF
+          git config user.name 'V78 Signal Integrator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add docs/ai-coengineer/V78-028_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-028 record deployed validation and release lock'
+          git push origin HEAD:main
 
       - name: Deployment summary
         if: always()
         working-directory: .
         shell: bash
-        env:
-          GUARD_OUTCOME: ${{ steps.guard.outcome }}
-          V78020_OUTCOME: ${{ steps.v78020.outcome }}
-          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
-          PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
-          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
         run: |
-          {
-            echo "# Cloudflare deployment"
-            echo
-            echo "- Commit: \`${GITHUB_SHA}\`"
-            echo "- Run: \`${GITHUB_RUN_ID}\`"
-            echo "- Guard: \`${GUARD_OUTCOME}\`"
-            echo "- V78-020 integration: \`${V78020_OUTCOME}\`"
-            echo "- Preflight: \`${PREFLIGHT_OUTCOME}\`"
-            echo "- Prepare: \`${PREPARE_OUTCOME}\`"
-            echo "- Deploy: \`${DEPLOY_OUTCOME}\`"
-            echo "- Worker: \`trading-v77-scanner\`"
-            echo "- Expected Hub revision: \`HUB-R12-ENTRY-INTEL-ACTIVE\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "# V78-028 production deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source SHA: ${SOURCE_SHA:-UNKNOWN}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Cloudflare Version ID: ${CF_VERSION:-UNKNOWN}" >> "$GITHUB_STEP_SUMMARY"
