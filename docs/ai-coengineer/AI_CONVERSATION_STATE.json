@@ -1,29 +1,46 @@
 {
-  "protocol_version": "1.0",
-  "architecture": "GPT_ORCHESTRATOR__CLAUDE_OPTIMIZER__DEEPSEEK_IMPLEMENTER",
-  "status": "STAGED",
+  "protocol_version": "2.0",
+  "architecture": "CODEX_CONTROL__CLAUDE_CODE_OPTIMIZER__DEEPSEEK_IMPLEMENTER__GITHUB_LOOP__CLOUDFLARE_RUNTIME",
+  "status": "STAGED_FOR_FIRST_REAL_TASK",
   "task_id": null,
   "round": 0,
-  "max_rounds": 4,
-  "next_actor": "GPT",
-  "write_lock_owner": "NONE",
-  "bootstrap_source_sha": "9b8244e3579a9b4494be8048fa32587b5b8a6323",
+  "max_rounds_default": 2,
+  "max_rounds_hard_cap": 4,
+  "next_actor": "CODEX",
+  "write_lock_owner": "CHATGPT",
+  "bootstrap_source_sha": "1cbd10bbc6b5f567edbaa825108594901f15f474",
   "implementation_sha": null,
   "codex_verdict": null,
   "claude_verdict": null,
   "deepseek_verdict": null,
-  "validation": "NOT_RUN_BY_USER_REQUEST",
+  "validation": "INFRA_NOT_YET_EXERCISED_END_TO_END",
+  "automation": {
+    "issue_dispatch": "STAGED",
+    "deepseek_implement_fix": "STAGED",
+    "deepseek_validation_loop": "STAGED",
+    "codex_pr_review_trigger": "STAGED_REQUIRES_CODEX_GITHUB_INTEGRATION",
+    "codex_review_monitor": "STAGED",
+    "claude_code_web": "CONNECTED_BUT_NOT_HEADLESS",
+    "cloudflare_deploy": "EXISTING_SEPARATE_WORKFLOW"
+  },
+  "cost_guards": {
+    "deepseek_max_rounds_default": 2,
+    "deepseek_max_rounds_hard_cap": 4,
+    "deepseek_max_output_tokens_per_call": 8000,
+    "anthropic_production_api": false
+  },
   "deployment": {
-    "status": "NOT_DEPLOYED",
+    "status": "NOT_DEPLOYED_BY_AI_INFRA_002",
     "source_sha": null,
     "cloudflare_version_id": null,
     "deployed_at": null
   },
   "live_verification": "NOT_RUN",
   "remaining_issues": [
-    "DeepSeek cloud workflow is staged but has not been executed",
-    "DEEPSEEK_API_KEY presence cannot be read back from repository secrets by AI",
-    "No AI task has yet been dispatched",
-    "Trading Signal/runtime logic intentionally untouched"
+    "Run first real bounded AI task to obtain end-to-end evidence",
+    "Confirm Codex GitHub integration responds to @codex review in this repository",
+    "Claude Max Web cannot be headlessly awakened by GitHub without separate Anthropic-billed automation",
+    "Automatic merge/deploy remains gated until real first-loop evidence is accepted",
+    "Trading Signal/runtime logic intentionally untouched by AI-INFRA-002"
   ]
 }
