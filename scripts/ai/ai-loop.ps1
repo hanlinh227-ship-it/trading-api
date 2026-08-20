@@ -616,8 +616,11 @@ function Invoke-DeterministicTests {
     $results = @()
     $allPass = $true
 
-    $changed = Get-ChangedFiles
+    # @() is required: a function returning zero or one item unrolls to $null / a bare
+    # string, and under Set-StrictMode neither exposes .Count.
+    $changed = @(Get-ChangedFiles)
     if ($changed.Count -gt 0) { Write-Info "changed files: $($changed -join ', ')" }
+    else { Write-Info "no working-tree changes detected" }
 
     # 1. Syntax-check every changed JS/MJS file.
     foreach ($f in $changed) {
