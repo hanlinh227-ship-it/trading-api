@@ -1,0 +1,95 @@
+name: AI Task - DeepSeek Implementer
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_file:
+        description: "Repository-relative JSON task spec"
+        required: true
+        type: string
+      model:
+        description: "DeepSeek model alias"
+        required: false
+        default: "deepseek-chat"
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: deepseek-ai-writer
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    name: DeepSeek cloud implementation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      DEEPSEEK_MODEL: ${{ inputs.model }}
+      TASK_FILE: ${{ inputs.task_file }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout authoritative main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Enforce DeepSeek write lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEEPSEEK_API_KEY" || { echo "DEEPSEEK_API_KEY secret missing"; exit 2; }
+          test -f "$TASK_FILE" || { echo "Task file not found: $TASK_FILE"; exit 2; }
+          grep -Eq '^LOCKED:[[:space:]]*true[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
+          grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
+          echo "DeepSeek lock verified."
+
+      - name: Implement scoped task with DeepSeek
+        run: python3 scripts/ai/deepseek_implementer.py "$TASK_FILE"
+
+      - name: Require a real source diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "DeepSeek produced no repository diff."
+            exit 3
+          fi
+          git diff --stat
+
+      - name: Commit implementation branch
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
+          SAFE_TASK="$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')"
+          BRANCH="ai/deepseek-${SAFE_TASK}-${GITHUB_RUN_ID}"
+          git config user.name "DeepSeek Cloud Implementer"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "${TASK_ID}: DeepSeek implementation"
+          git push origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request for GPT review
+        shell: bash
+        env:
+          BRANCH: ${{ steps.commit.outputs.branch }}
+          TASK_ID: ${{ steps.commit.outputs.task_id }}
+          IMPLEMENTATION_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "$TASK_ID - DeepSeek implementation" \
+            --body "DeepSeek implementation staged for GPT/Codex final review.\n\nImplementation SHA: $IMPLEMENTATION_SHA\nTask file: $TASK_FILE\n\nStatus: IMPLEMENTED_NOT_VALIDATED\n\nThis workflow intentionally does not deploy production. Merge/deploy requires the repository review and validation policy."
