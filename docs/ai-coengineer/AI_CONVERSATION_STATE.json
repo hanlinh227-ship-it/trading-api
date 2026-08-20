@@ -6,8 +6,8 @@
   "round": 0,
   "max_rounds": 4,
   "next_actor": "GPT",
-  "write_lock_owner": "CHATGPT",
-  "base_sha": "ce3581d531e28f8ea85d9e17037db9891b0d89e6",
+  "write_lock_owner": "NONE",
+  "bootstrap_source_sha": "9b8244e3579a9b4494be8048fa32587b5b8a6323",
   "implementation_sha": null,
   "codex_verdict": null,
   "claude_verdict": null,
@@ -21,8 +21,9 @@
   },
   "live_verification": "NOT_RUN",
   "remaining_issues": [
-    "DeepSeek cloud workflow staged but not executed",
+    "DeepSeek cloud workflow is staged but has not been executed",
     "DEEPSEEK_API_KEY presence cannot be read back from repository secrets by AI",
+    "No AI task has yet been dispatched",
     "Trading Signal/runtime logic intentionally untouched"
   ]
 }
