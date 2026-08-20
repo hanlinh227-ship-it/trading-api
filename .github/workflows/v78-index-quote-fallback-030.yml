@@ -1,0 +1,172 @@
+name: V78 Index Quote Fallback + V78-030 Final
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+jobs:
+  run:
+    if: github.event.issue.title == 'RUN-V78-INDEX-QUOTE-FALLBACK-030'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard current engine and patch safe Index quote visibility fallback
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          test "$(git hash-object cloudflare-worker/engine-v77168.js)" = "00db7bae394940bc14adefbbcba8636926486edf"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/engine-v77168.js')
+          s=p.read_text()
+          old='''async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);const age=last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null;return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:age,fresh:age!==null&&age<=CONFIG.maxQuoteAgeSec,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}
+async function tdQuote(symbol,env){
+  if(marketType(symbol)==="index"){if(env.MASSIVE_API_KEY){try{return await massiveIndexQuote(symbol,env);}catch{}}if(env.TWELVE_DATA_API_KEY)return tdIndexQuote(symbol,env);throw new Error("No native index provider configured");}
+'''
+          new='''async function tdIndexQuote(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("time_series",{symbol:ps,type:"Index",interval:"1min",outputsize:"2",order:"DESC",timezone:"UTC"},env),node=tdIndexNode(p);assertTdIndexIdentity(s,node);const c=tdCandlesFromNode(node,"1min"),last=c?.at(-1),price=num(last?.close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data invalid native index value ${s}/${ps}: ${price}`);const age=last?.timestamp?Math.max(0,nowSec()-last.timestamp-60):null;return {source:"Twelve Data Native Index",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:last?.timestamp||null,quoteAgeSec:age,fresh:age!==null&&age<=CONFIG.maxQuoteAgeSec,bid:null,ask:null,executionVerified:false,analysisOnly:true,assetType:node?.meta?.type||"Index"};}
+async function tdIndexQuoteVisibilityFallback(symbol,env){const s=norm(symbol),ps=INDEX_PROVIDER[s]||s,p=await tdFetch("quote",{symbol:ps,type:"Index"},env),price=num(p?.close)??num(p?.price)??num(p?.previous_close);if(!(price>0)||!validIndexPrice(s,price))throw new Error(`Twelve Data index quote fallback invalid ${s}/${ps}: ${price}`);const ts=parseTs(p?.last_quote_at??p?.timestamp??p?.datetime),age=ts==null?null:Math.max(0,nowSec()-ts);return {source:"Twelve Data Index Quote Fallback",requestedSymbol:s,providerSymbol:ps,price,providerTimestamp:ts,quoteAgeSec:age,fresh:false,bid:null,ask:null,executionVerified:false,analysisOnly:true,fallback:true,fallbackInterval:"quote",assetType:"Index"};}
+async function tdQuote(symbol,env){
+  if(marketType(symbol)==="index"){if(env.MASSIVE_API_KEY){try{return await massiveIndexQuote(symbol,env);}catch{}}if(env.TWELVE_DATA_API_KEY){try{return await tdIndexQuote(symbol,env);}catch{}try{return await tdIndexQuoteVisibilityFallback(symbol,env);}catch{}}throw new Error("No native index quote available");}
+'''
+          assert s.count(old)==1, s.count(old)
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          node --check cloudflare-worker/engine-v77168.js
+          test "$(grep -c 'function tdIndexQuoteVisibilityFallback' cloudflare-worker/engine-v77168.js)" = 1
+          grep -Fq 'source:"Twelve Data Index Quote Fallback"' cloudflare-worker/engine-v77168.js
+          grep -Fq 'fresh:false' cloudflare-worker/engine-v77168.js
+          grep -Fq 'executionVerified:false' cloudflare-worker/engine-v77168.js
+          grep -Fq 'analysisOnly:true' cloudflare-worker/engine-v77168.js
+          grep -Fq 'fallbackInterval:"quote"' cloudflare-worker/engine-v77168.js
+          git diff --check
+      - name: Commit and deploy Index quote visibility fix
+        run: |
+          set -euo pipefail
+          git config user.name 'V78 Signal Integrator'
+          git config user.email 'actions@users.noreply.github.com'
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-028 final Index Cash quote visibility fallback'
+          echo "SHA028=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git push origin HEAD:main
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy 2>&1 | tee /tmp/d028
+          V=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/d028 | tail -1 | sed 's/Version ID: //')
+          test -n "$V"
+          echo "CF028=$V" >> "$GITHUB_ENV"
+      - name: Live all-five Index Cash acceptance
+        run: |
+          set -euo pipefail
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          sleep 8
+          mkdir -p /tmp/i
+          for S in NAS100 US30 US500 DEX JP225; do curl -fsS "$BASE/analyze?symbol=$S" -o "/tmp/i/$S.json"; done
+          node <<'NODE'
+          const fs=require('fs'),out=[];
+          for(const s of ['NAS100','US30','US500','DEX','JP225']){
+            const x=JSON.parse(fs.readFileSync('/tmp/i/'+s+'.json','utf8')),q=x.analysisQuote||x.quote||{};
+            if(!(Number(q.price)>0)) throw Error(s+' price missing');
+            if(q.fallback===true){if(q.fresh!==false||q.executionVerified!==false||q.analysisOnly!==true)throw Error(s+' unsafe fallback flags');if(['MARKET','MARKET_SIGNAL'].includes(x.status))throw Error(s+' fallback admitted as market');}
+            out.push(`${s} status=${x.status||'UNKNOWN'} price=${q.price} source=${q.source||'—'} fresh=${String(q.fresh)} fallback=${String(q.fallback===true)} interval=${q.fallbackInterval||'native'} age=${q.quoteAgeSec??'null'}`);
+          }
+          fs.writeFileSync('/tmp/i/live.txt',out.join('\n')+'\n');console.log(out.join('\n'));
+          NODE
+      - name: Apply V78-030 rendering-only WHY NOW propagation
+        run: |
+          set -euo pipefail
+          test "$(grep -c 'function whyNowVi' cloudflare-worker/engine-v77168.js)" = 1
+          python3 scripts/v78_028_030_patch.py 030
+          node --check cloudflare-worker/engine-v77168.js
+          test "$(grep -c 'Why now:' cloudflare-worker/engine-v77168.js)" = 2
+          test "$(grep -c 'function watchLine' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'function hubSummary' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'function runHub' cloudflare-worker/engine-v77168.js)" = 1
+          test "$(grep -c 'function actionableRank' cloudflare-worker/engine-v77168.js)" = 1
+          git diff --check
+      - name: Commit deploy and live-check V78-030
+        run: |
+          set -euo pipefail
+          git add cloudflare-worker/engine-v77168.js
+          git commit -m 'V78-030 propagate WHY NOW to group scan and Hub top setups'
+          echo "SHA030=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git push origin HEAD:main
+          cd cloudflare-worker
+          npx wrangler deploy 2>&1 | tee /tmp/d030
+          V=$(grep -Eo 'Version ID: [0-9a-f-]+' /tmp/d030 | tail -1 | sed 's/Version ID: //')
+          test -n "$V"
+          echo "CF030=$V" >> "$GITHUB_ENV"
+          cd ..
+          sleep 8
+          curl -fsS 'https://trading-v77-scanner.hanlinh227.workers.dev/run-now?group=forex' -o /tmp/forex.json
+          curl -fsS 'https://trading-v77-scanner.hanlinh227.workers.dev/hub' -o /tmp/hub.json
+          node -e "JSON.parse(require('fs').readFileSync('/tmp/forex.json','utf8'));JSON.parse(require('fs').readFileSync('/tmp/hub.json','utf8'));console.log('V78-030 live JSON PASS')"
+      - name: Persist evidence release lock and cleanup temporary tooling
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main
+          cat > docs/ai-coengineer/V78-028_HOTFIX_VALIDATION.txt <<EOF
+          V78-028 INDEX CASH FINAL HOTFIX VALIDATION
+          HOTFIX_SOURCE_SHA=${SHA028}
+          CLOUDFLARE_VERSION_ID=${CF028}
+          NODE_CHECK=PASS
+          TD_INDEX_QUOTE_FALLBACK=VISIBILITY_ONLY
+          FALLBACK_FRESH=false
+          FALLBACK_EXECUTION_VERIFIED=false
+          FALLBACK_ANALYSIS_ONLY=true
+          FALLBACK_MARKET_ADMISSION=BLOCKED
+          CASH_INDEX_ONLY=true
+          --- LIVE INDEX CASH ---
+          $(cat /tmp/i/live.txt)
+          EOF
+          cat > docs/ai-coengineer/V78-030_VALIDATION.txt <<EOF
+          V78-030 WHY NOW PROPAGATION
+          SOURCE_SHA=${SHA030}
+          CLOUDFLARE_VERSION_ID=${CF030}
+          NODE_CHECK=PASS
+          WHY_NOW_WATCHLINE_HUBSUMMARY_COUNT=2
+          LIVE_GROUP_JSON=PASS
+          LIVE_HUB_JSON=PASS
+          RENDERING_ONLY=true
+          EOF
+          cat >> docs/ai-coengineer/SHARED_STATE.md <<EOF
+
+          V78-028 — RESOLVED / DEPLOYED
+          - Final Index Cash hotfix source: ${SHA028}.
+          - Cloudflare Version ID: ${CF028}.
+          - All five CASH INDEX symbols return visible prices; any fallback is analysis-only and fresh=false.
+          - No Futures substitution and no market admission from fallback.
+
+          V78-030 — RESOLVED / DEPLOYED
+          - Source: ${SHA030}.
+          - Cloudflare Version ID: ${CF030}.
+          - WHY NOW rendered in watchLine() and hubSummary(); decision/ranking logic untouched.
+          EOF
+          cat > docs/ai-coengineer/WRITE_LOCK.md <<'EOF'
+          # AI WRITE LOCK
+
+          LOCKED: false
+          OWNER: NONE
+          SCOPE: NONE
+          RELEASED: 2026-08-20
+          LAST_RESULT: V78-028 final Index Cash hotfix and V78-030 resolved/deployed.
+          EOF
+          for f in .github/workflows/v78-index-quote-fallback-030.yml .github/workflows/v78-028-hotfix-030-final.yml .github/workflows/v78-028-hotfix-inspect.yml .github/workflows/v78-us30-live-debug.yml; do git rm -f "$f" 2>/dev/null || true; done
+          for f in docs/ai-coengineer/.v78-028-030-trigger-note docs/ai-coengineer/.v78-028-030-trigger-note-2 docs/ai-coengineer/.v78-028-030-trigger-note-3 docs/ai-coengineer/V78_US30_LIVE_DEBUG.txt docs/ai-coengineer/V78-028_HOTFIX_RUN_DIAGNOSTIC.txt; do git rm -f "$f" 2>/dev/null || true; done
+          git add docs/ai-coengineer/V78-028_HOTFIX_VALIDATION.txt docs/ai-coengineer/V78-030_VALIDATION.txt docs/ai-coengineer/SHARED_STATE.md docs/ai-coengineer/WRITE_LOCK.md
+          git commit -m 'V78-028 V78-030 persist final production evidence and release lock'
+          git push origin HEAD:main
