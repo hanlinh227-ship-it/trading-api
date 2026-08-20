@@ -111,6 +111,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Verify DeepSeek secret is present
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -124,6 +128,23 @@ jobs:
 
       - name: Syntax check reviewer
         run: python -m py_compile scripts/ai/deepseek_reviewer.py
+
+      # The loop's own safety properties were only ever verified on a developer's machine,
+      # so a regression could reach the repository unnoticed. Run the suite in CI, against
+      # the PR HEAD - the revision whose safety is actually in question - rather than the
+      # base copy checked out above. It is offline and mutates nothing.
+      - name: AI loop safety selftest (PR head)
+        env:
+          HEAD_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          git --work-tree="$workdir" checkout "$HEAD_SHA" -- scripts/ai docs/ai-coengineer .github/workflows 2>/dev/null || true
+          if [ ! -f "$workdir/scripts/ai/ai-loop-selftest.mjs" ]; then
+            echo "::error title=Selftest missing::scripts/ai/ai-loop-selftest.mjs is absent from the PR head."
+            exit 1
+          fi
+          cd "$workdir" && node scripts/ai/ai-loop-selftest.mjs
 
       - name: Run DeepSeek adversarial review
         id: review

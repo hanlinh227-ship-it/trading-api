@@ -568,7 +568,8 @@ function Initialize-Branch {
         if ($pr.state -ne "OPEN") { Stop-Loop -Status "BLOCKED" -Reason "PR #$PrNumber is $($pr.state), not OPEN." }
         $script:State.branch = $pr.headRefName
         $script:State.pr_number = $PrNumber
-        Write-Good "Reusing PR #$PrNumber on branch $($pr.headRefName)"
+        $script:ExpectedPrHead = "$($pr.headRefOid)".Trim()
+        Write-Good "Reusing PR #$PrNumber on branch $($pr.headRefName) at $($script:ExpectedPrHead)"
     }
     elseif ($Branch) {
         $script:State.branch = $Branch
@@ -595,6 +596,28 @@ function Initialize-Branch {
             $co = Invoke-Git -Arguments @("checkout", "-B", $script:State.branch, "origin/$BaseBranch")
         }
         if ($co.ExitCode -ne 0) { Stop-Loop -Status "BLOCKED" -Reason "Could not create branch $($script:State.branch)." }
+    }
+
+    # A reused local branch can sit AHEAD of the PR head - leftover commits from an earlier
+    # run, or anything else. Checking it out unverified means the eventual push publishes
+    # those pre-existing commits too, while Assert-ChangesInLockScope only ever sees
+    # working-tree changes, so out-of-scope commits would bypass the declared lock
+    # entirely. Require the local tip to equal the head the PR actually advertises.
+    if ($script:ExpectedPrHead) {
+        $localHead = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+        if ($localHead -ne $script:ExpectedPrHead) {
+            Write-Warn2 "local $($script:State.branch) is at $localHead but PR #$($script:State.pr_number) advertises $($script:ExpectedPrHead); resetting to the PR head"
+            [void](Invoke-Git -Arguments @("fetch", "origin", $script:State.branch))
+            $reset = Invoke-Git -Arguments @("reset", "--hard", $script:ExpectedPrHead)
+            if ($reset.ExitCode -ne 0) {
+                Stop-Loop -Status "BLOCKED" -Reason "Local branch $($script:State.branch) is at $localHead, not the advertised PR head $($script:ExpectedPrHead), and could not be reset. Refusing to run: a later push would publish commits this round never reviewed."
+            }
+            $localHead = (Invoke-Git -Arguments @("rev-parse", "HEAD")).StdOut.Trim()
+            if ($localHead -ne $script:ExpectedPrHead) {
+                Stop-Loop -Status "BLOCKED" -Reason "Local branch $($script:State.branch) still differs from the advertised PR head after reset."
+            }
+        }
+        Write-Good "Local branch matches the advertised PR head"
     }
 
     # Final paranoia check: whatever we ended up on must not be a protected branch.
@@ -875,13 +898,19 @@ function Publish-Round {
     # then, and every local check passes. So verify the REMOTE ref has not moved either.
     # $null means the probe failed; "" means the branch does not exist on the remote yet.
     # A truthiness test treats "" as "skip", which disables this guard on exactly the
-    # common case - a freshly created branch - letting a rewritten validator push
-    # out-of-scope content and reset local HEAD with nothing to detect it.
-    if ($null -ne $script:RemoteBeforeRound) {
-        $remoteNow = Get-RemoteBranchSha
-        if ($null -ne $remoteNow -and $remoteNow -ne $script:RemoteBeforeRound) {
-            Stop-Loop -Status "BLOCKED" -Reason "Remote branch $($script:State.branch) moved from $($script:RemoteBeforeRound) to $remoteNow during the round. The controller did not push; refusing to continue on a remote it did not author."
-        }
+    # common case - a freshly created branch. And an UNAVAILABLE probe, before or after,
+    # must be a blocker rather than a skip: if ls-remote fails transiently while a
+    # rewritten validator pushes and restores local HEAD, skipping leaves the unauthorised
+    # remote write completely undetected. No probe, no evidence, no staging.
+    if ($null -eq $script:RemoteBeforeRound) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read the remote tip of $($script:State.branch) before the round, so an unauthorised push during it cannot be ruled out. Refusing to stage without that evidence."
+    }
+    $remoteNow = Get-RemoteBranchSha
+    if ($null -eq $remoteNow) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read the remote tip of $($script:State.branch) after the round, so an unauthorised push during it cannot be ruled out. Refusing to stage without that evidence."
+    }
+    if ($remoteNow -ne $script:RemoteBeforeRound) {
+        Stop-Loop -Status "BLOCKED" -Reason "Remote branch $($script:State.branch) moved from '$($script:RemoteBeforeRound)' to '$remoteNow' during the round. The controller did not push; refusing to continue on a remote it did not author."
     }
 
     $status = (Invoke-Git -Arguments @("status", "--porcelain")).StdOut

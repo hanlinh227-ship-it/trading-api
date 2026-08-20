@@ -664,23 +664,26 @@ def build_blocked_comment(head_sha: str, classification: str, message: str, trus
 def upsert_comment(repo: str, pr: int, body: str) -> None:
     """Post one comment, or update the existing loop comment in place."""
     comment_id = None
-    try:
-        comments = gh_json_lines(f"repos/{repo}/issues/{pr}/comments",
-                                 "{id, body, login: .user.login}")
-        if comments is None:
-            raise LoopBlocked("GITHUB_ERROR", "could not list existing PR comments")
-        for c in comments:
-            # Author check is mandatory, not cosmetic. Matching on the marker alone also
-            # matches any comment that merely QUOTES it - a human comment discussing the
-            # protocol - and the reviewer would then overwrite that person's comment and
-            # strand its own verdict under a non-bot author, which the controller must
-            # ignore. That stalls the loop at PENDING forever.
-            if c.get("login") != BOT_LOGIN:
-                continue
-            if COMMENT_MARKER in (c.get("body") or ""):
-                comment_id = c.get("id")
-    except LoopBlocked as exc:
-        log(f"could not list existing comments ({exc.classification}); will post a new one")
+    # Deliberately NOT inside a try that swallows LoopBlocked. A listing failure means we
+    # do not know whether a verdict comment already exists, and assuming "none" posts a
+    # duplicate verdict every time - breaking the single-comment guarantee the contract
+    # makes and leaving several conflicting verdicts on the PR. Fail closed instead.
+    comments = gh_json_lines(f"repos/{repo}/issues/{pr}/comments",
+                             "{id, body, login: .user.login}")
+    if comments is None:
+        raise LoopBlocked("GITHUB_ERROR",
+                          "could not list existing PR comments, so an existing verdict "
+                          "cannot be located; refusing to post a duplicate")
+    for c in comments:
+        # Author check is mandatory, not cosmetic. Matching on the marker alone also
+        # matches any comment that merely QUOTES it - a human comment discussing the
+        # protocol - and the reviewer would then overwrite that person's comment and
+        # strand its own verdict under a non-bot author, which the controller must
+        # ignore. That stalls the loop at PENDING forever.
+        if c.get("login") != BOT_LOGIN:
+            continue
+        if COMMENT_MARKER in (c.get("body") or ""):
+            comment_id = c.get("id")
 
     # Never assume the temp directory exists: a missing RUNNER_TEMP/TEMP would raise
     # FileNotFoundError here and turn a completed review into a failed one.

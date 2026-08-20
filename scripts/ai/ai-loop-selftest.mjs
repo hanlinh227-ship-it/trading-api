@@ -19,7 +19,10 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+// Normalise CRLF. A fresh checkout on a machine with core.autocrlf=true yields \r\n, and
+// several checks match on '\n' or split on it - so without this the suite passes in the
+// working tree and fails on a clean clone, which is precisely when it matters most.
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
 const exists = (rel) => fs.existsSync(path.join(ROOT, rel));
 
 let passed = 0;
@@ -761,14 +764,42 @@ check('the reviewer runs from a trusted revision, not the PR head', () => {
   // It still reviews the head: the SHA guard and the diff come from the API.
   assert(/--expect-sha/.test(wf), 'reviewer no longer pins the reviewed head');
 });
+check('a reused PR branch is reset to the advertised head', () => {
+  // A local branch left ahead of the PR head would have its extra commits published by
+  // the eventual push, while Assert-ChangesInLockScope only sees working-tree changes -
+  // so out-of-scope commits would bypass the lock entirely.
+  assert(/\$script:ExpectedPrHead/.test(ps1), 'the advertised PR head is never recorded');
+  assert(/headRefName,headRefOid,state/.test(ps1), 'PR head oid is not fetched');
+  const seg = ps1.split('function Initialize-Branch')[1].split('\nfunction ')[0];
+  assert(/\$localHead -ne \$script:ExpectedPrHead/.test(seg), 'local tip is not compared to the PR head');
+  assert(/reset", "--hard"/.test(seg), 'a divergent local branch is not reset');
+  assert(/would publish commits this round never reviewed/.test(seg),
+    'the consequence of a divergent branch is not stated or enforced');
+});
+check('the selftest itself runs in CI, not only locally', () => {
+  // Otherwise every safety property here is only ever checked on a developer machine and
+  // a regression can reach the repository unnoticed.
+  assert(/ai-loop-selftest\.mjs/.test(wf), 'the selftest is never run by CI');
+  assert(/setup-node/.test(wf), 'CI has no node runtime for the selftest');
+  // It must run against the PR HEAD, not the trusted base copy - the head is the revision
+  // whose safety is in question.
+  const seg = wf.split('AI loop safety selftest')[1] || '';
+  assert(/HEAD_SHA/.test(seg), 'the selftest does not run against the PR head');
+  assert(/Selftest missing/.test(seg), 'a missing selftest is not treated as a failure');
+});
 check('an absent remote branch does not disable the push guard', () => {
   // Get-RemoteBranchSha returns "" when the branch does not exist yet. A truthiness test
   // treats that as "skip", disabling the guard on exactly the common case - a freshly
   // created branch - so an unauthorised push could land with nothing to detect it.
   const pub = ps1.split('function Publish-Round')[1].split('\nfunction ')[0];
-  assert(/\$null -ne \$script:RemoteBeforeRound/.test(pub),
-    'guard uses a truthiness test, so an empty remote SHA skips it');
   assert(!/if \(\$script:RemoteBeforeRound\) \{/.test(pub), 'truthiness guard still present');
+  // Stronger than distinguishing "" from $null: an UNAVAILABLE probe, before or after,
+  // is itself a blocker. Skipping on a failed probe would leave an unauthorised push
+  // undetected exactly when ls-remote is flaky.
+  assert(/\$null -eq \$script:RemoteBeforeRound/.test(pub), 'a failed pre-round probe does not block');
+  assert(/\$null -eq \$remoteNow/.test(pub), 'a failed post-round probe does not block');
+  const blocks = (pub.match(/cannot be ruled out/g) || []).length;
+  assert(blocks === 2, `both probe failures must block; found ${blocks} guard(s)`);
 });
 check('paginated GitHub reads survive multi-page responses - python side too', () => {
   // The identical defect existed in the reviewer: json.loads() over concatenated pages
