@@ -26,9 +26,19 @@ Only these paths may be written under this lock:
 - `.github/workflows/ai-loop-deepseek-review.yml`
 - `docs/ai-coengineer/WRITE_LOCK.md` (this file)
 - `docs/ai-coengineer/CLAUDE_TO_CHATGPT.md` (bus append only)
+- `.gitignore` (scope amendment, 2026-08-20: the loop's own test path runs
+  `python -m py_compile`, which generates `scripts/ai/__pycache__/`. Without an ignore
+  entry that bytecode is offered for commit on every round. Raised as a P1 lock-scope
+  violation by Codex on PR #63 and legalised here explicitly rather than silently.)
 
 No Trading business source may be modified under this lock. In particular
 `cloudflare-worker/**`, `data/**` and all existing trading workflows are OUT OF SCOPE.
+
+## Status
+
+AI-LOOP-INFRA-V1 is IMPLEMENTED and delivered in PR #63 (branch
+`claude/ai-loop-infra-v1`). NOT merged, NOT deployed. The lock stays held until ChatGPT
+reviews and merges PR #63, or explicitly releases it.
 
 ## Protocol
 
