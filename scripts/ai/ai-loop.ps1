@@ -636,7 +636,13 @@ function Initialize-Branch {
     # that intermediate head with an attacker-controlled workflow definition, and those
     # check runs remain attached to the PR where the rollup can still see them. Any commit
     # in the range is disqualifying, reverted or not.
-    $historyScan = Invoke-Git -Arguments @("log", "--format=%H", "origin/$BaseBranch..HEAD", "--", ".github/workflows")
+    # --full-history is REQUIRED, not decorative. By default `git log -- <path>` applies
+    # history simplification and prunes TREESAME sides of a merge. So incorporating a
+    # malicious workflow commit as the second parent of a `git merge -s ours` commit leaves
+    # it fully reachable in the range while `git log -- .github/workflows` prints nothing,
+    # and the net tree diff is empty too. Reproduced locally: rev-list finds the commit,
+    # both simplified probes return 0, --full-history returns it.
+    $historyScan = Invoke-Git -Arguments @("log", "--full-history", "--format=%H", "origin/$BaseBranch..HEAD", "--", ".github/workflows")
     if ($historyScan.ExitCode -ne 0) {
         Stop-Loop -Status "BLOCKED" -Reason "Could not scan the origin/$BaseBranch..HEAD commit history for CI workflow changes. Refusing to run without that evidence."
     }

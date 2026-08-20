@@ -324,7 +324,16 @@ check('schema encodes the READY_TO_MERGE gate', () => {
 const LOOP_SOURCES = { ps1, py, wf, prompt };
 check('no merge executed by any loop component', () => {
   const banned = [/gh\s+pr\s+merge/i, /pulls\/\d*\/merge/i, /--auto-merge/i, /merge_pull_request/i, /git\s+merge\b/i];
-  for (const [name, src] of Object.entries(LOOP_SOURCES)) {
+  // Scan EXECUTABLE code only. Rationale comments legitimately name the operations they
+  // exist to defend against - the workflow history guard has to explain `git merge -s ours`
+  // to justify --full-history - and a comment is not an invocation.
+  const executable = {
+    ps1: stripPs1Comments(ps1),
+    py: py.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n'),
+    wf: wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n'),
+    prompt,
+  };
+  for (const [name, src] of Object.entries(executable)) {
     for (const b of banned) {
       assert(!b.test(src), `${name} contains a merge operation matching ${b}`);
     }
@@ -894,8 +903,12 @@ check('a branch already carrying a committed workflow edit is refused', () => {
   // The COMMIT HISTORY is the primary check. A net tree diff is blind to an edit that was
   // later reverted, yet the branch still ran CI at that intermediate head with an
   // attacker-controlled workflow definition.
-  assert(/"log", "--format=%H", "origin\/\$BaseBranch\.\.HEAD", "--", "\.github\/workflows"/.test(seg),
-    'the commit history is never scanned for workflow changes');
+  assert(/"log", "--full-history", "--format=%H", "origin\/\$BaseBranch\.\.HEAD", "--", "\.github\/workflows"/.test(seg),
+    'the commit history is never scanned for workflow changes, or omits --full-history');
+  // Without --full-history, Git prunes TREESAME merge sides, so incorporating a malicious
+  // workflow commit as the second parent of a `merge -s ours` hides it completely while
+  // leaving it fully reachable in the range.
+  assert(/--full-history/.test(seg), 'history scan omits --full-history and is evadable by a merge');
   assert(/\$offendingCommits/.test(seg), 'offending commits are not collected');
   assert(/even if the change was later reverted/.test(seg),
     'the guard does not state that a revert is still disqualifying');
@@ -1262,8 +1275,16 @@ const restoreFromBase = (rel) => (dir) => {
   git(dir, ['commit', '-qm', `revert ${rel}`]);
 };
 
-/** The controller's PRIMARY check: any commit in base..HEAD touching workflows. */
+/** The controller's PRIMARY check: any commit in base..HEAD touching workflows.
+ *  Mirrors the controller exactly, --full-history included: without it Git prunes
+ *  TREESAME merge sides and a `merge -s ours` hides the offending commit entirely. */
 function historyGuardBlocks(dir) {
+  const out = git(dir, ['log', '--full-history', '--format=%H', 'origin/main..HEAD', '--', '.github/workflows']);
+  return out.split('\n').filter((l) => l.trim()).length > 0;
+}
+
+/** The pre-fix probe, retained ONLY so a test can prove it was genuinely blind. */
+function simplifiedHistoryBlocks(dir) {
   const out = git(dir, ['log', '--format=%H', 'origin/main..HEAD', '--', '.github/workflows']);
   return out.split('\n').filter((l) => l.trim()).length > 0;
 }
@@ -1306,6 +1327,52 @@ if (!gitAvailable()) {
     // Adding a brand new workflow is as dangerous as editing one; GitHub will run it.
     const dir = buildRepo([writeFile('.github/workflows/evil.yml', 'name: evil\n')]);
     assert(historyGuardBlocks(dir), 'history guard missed an added workflow file');
+  });
+
+  check('BEHAVIOUR: a workflow commit hidden by `merge -s ours` is still BLOCKED', () => {
+    // Git's default path-history simplification prunes TREESAME sides of a merge. Carrying
+    // the malicious commit in as the SECOND PARENT of a `merge -s ours` therefore leaves it
+    // fully reachable in the range while the simplified log prints nothing and the net tree
+    // diff is empty - and the workflow run it started can still be alive, waiting for the
+    // clean head to post a forged same-SHA verdict.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-loop-guard-merge-'));
+    git(dir, ['init', '-q', '-b', 'main', '.']);
+    git(dir, ['config', 'user.email', 'selftest@example.invalid']);
+    git(dir, ['config', 'user.name', 'selftest']);
+    git(dir, ['config', 'commit.gpgsign', 'false']);
+    fs.mkdirSync(path.join(dir, '.github', 'workflows'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.github/workflows/ci.yml'), 'name: ci\n');
+    fs.writeFileSync(path.join(dir, 'src/app.txt'), 'base\n');
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-qm', 'base']);
+    git(dir, ['update-ref', 'refs/remotes/origin/main', 'refs/heads/main']);
+
+    // A side branch carrying the malicious workflow edit.
+    git(dir, ['checkout', '-qb', 'evil']);
+    fs.writeFileSync(path.join(dir, '.github/workflows/ci.yml'), 'name: ci\n# tampered\n');
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-qm', 'malicious workflow edit']);
+    const evilSha = git(dir, ['rev-parse', 'evil']).trim();
+
+    // The feature branch absorbs it with -s ours, so HEAD's tree is clean.
+    git(dir, ['checkout', '-qb', 'feature', 'main']);
+    fs.writeFileSync(path.join(dir, 'src/app.txt', ), 'work\n');
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-qm', 'ordinary work']);
+    git(dir, ['merge', '-s', 'ours', '-q', '--no-edit', 'evil']);
+
+    // The commit really is in the range, and HEAD's workflow really is clean.
+    const reachable = git(dir, ['rev-list', 'origin/main..HEAD']).split('\n').map((s) => s.trim());
+    assert(reachable.includes(evilSha), 'test setup wrong: the malicious commit is not reachable');
+    assert(!git(dir, ['show', 'HEAD:.github/workflows/ci.yml']).includes('tampered'),
+      'test setup wrong: HEAD workflow should look clean');
+
+    // Both pre-fix probes are blind; only --full-history sees it.
+    assert(!treeDiffBlocks(dir), 'tree diff unexpectedly caught it - scenario is not the blind spot');
+    assert(!simplifiedHistoryBlocks(dir),
+      'simplified log unexpectedly caught it - scenario is not the blind spot');
+    assert(historyGuardBlocks(dir), 'the --full-history guard missed a workflow commit hidden behind merge -s ours');
   });
 
   check('BEHAVIOUR: no workflow touched anywhere in history is ALLOWED', () => {
