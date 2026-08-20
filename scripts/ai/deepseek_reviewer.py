@@ -45,6 +45,9 @@ MAX_DIFF_CHARS = int(os.environ.get("DEEPSEEK_MAX_DIFF_CHARS", "160000"))
 MAX_EVIDENCE_CHARS = 8000
 
 COMMENT_MARKER = "<!-- ai-loop:deepseek-review -->"
+# The account this reviewer runs as. Only its own comments may be updated in place, and
+# only its comments are admissible as a verdict on the controller side.
+BOT_LOGIN = os.environ.get("AI_LOOP_BOT_LOGIN", "github-actions[bot]")
 
 BEGIN = "DEEPSEEK_REVIEW_BEGIN"
 END = "DEEPSEEK_REVIEW_END"
@@ -490,8 +493,15 @@ def upsert_comment(repo: str, pr: int, body: str) -> None:
     comment_id = None
     try:
         comments = gh_json(["api", f"repos/{repo}/issues/{pr}/comments", "--paginate",
-                            "--jq", "[.[] | {id, body}]"])
+                            "--jq", "[.[] | {id, body, login: .user.login}]"])
         for c in comments or []:
+            # Author check is mandatory, not cosmetic. Matching on the marker alone also
+            # matches any comment that merely QUOTES it - a human comment discussing the
+            # protocol - and the reviewer would then overwrite that person's comment and
+            # strand its own verdict under a non-bot author, which the controller must
+            # ignore. That stalls the loop at PENDING forever.
+            if c.get("login") != BOT_LOGIN:
+                continue
             if COMMENT_MARKER in (c.get("body") or ""):
                 comment_id = c.get("id")
     except LoopBlocked as exc:

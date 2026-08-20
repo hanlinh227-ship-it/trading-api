@@ -80,7 +80,10 @@ $script:REQUIRED_CHECKS      = @("validate", "DeepSeek adversarial review")
 # One definition of "blocking" for Codex findings, applied identically to inline comments
 # and to the review summary. Asymmetry here would let the same defect block in one place
 # and pass in the other. P3 is informational and deliberately excluded.
-$script:CODEX_BLOCKING_PATTERN = '(?i)\b(P1|P2|blocking|must fix|critical|bug:)\b'
+$script:CODEX_BLOCKING_PATTERN = '(?i)(\bP0\b|\bP1\b|\bP2\b|\bblocking\b|\bmust[- ]fix\b|\bcritical\b|\bbug:)'
+# The independent reviewer's exact identity. A substring match on "codex" would let any
+# collaborator or bot named e.g. "codex-reviewer" manufacture an ACCEPT.
+$script:CODEX_BOT_LOGIN      = "chatgpt-codex-connector[bot]"
 $script:PROTECTED_BRANCHES   = @("main", "master", "refs/heads/main", "origin/main")
 $script:REPO_ROOT            = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $script:PROMPT_TEMPLATE      = Join-Path $script:REPO_ROOT "scripts\ai\claude_loop_prompt.md"
@@ -401,6 +404,48 @@ function Test-WriteLock {
     } else {
         Write-Good "WRITE_LOCK is free"
     }
+
+    # Parse the enumerated allowed-path list. A free lock is NOT write authorization, and
+    # owner-only verification is not enough either: Publish-Round runs `git add -A`, so an
+    # erroneous round could otherwise commit arbitrary out-of-scope files, up to and
+    # including Trading business source.
+    $script:AllowedPaths = @()
+    foreach ($line in ($lock -split "`r?`n")) {
+        $m = [regex]::Match($line, '^\s*-\s+`([^`]+)`')
+        if ($m.Success) {
+            $p = $m.Groups[1].Value.Trim()
+            if ($p -and $p -notmatch '^\s*$') { $script:AllowedPaths += ($p -replace '\\', '/') }
+        }
+    }
+    if ($script:AllowedPaths.Count -gt 0) {
+        Write-Good "Lock scope enumerates $($script:AllowedPaths.Count) allowed path(s)"
+    } else {
+        Write-Warn2 "Lock declares no enumerated allowed paths; scope enforcement will not be able to bound this round"
+    }
+}
+
+function Test-PathInLockScope {
+    param([Parameter(Mandatory = $true)][string]$RelativePath)
+    if (@($script:AllowedPaths).Count -eq 0) { return $true }
+    $p = ($RelativePath -replace '\\', '/').Trim()
+    foreach ($allowed in $script:AllowedPaths) {
+        if ($p -eq $allowed) { return $true }
+        # A directory entry authorises everything beneath it.
+        if ($allowed.EndsWith('/') -and $p.StartsWith($allowed)) { return $true }
+        if ($p.StartsWith($allowed.TrimEnd('/') + '/')) { return $true }
+    }
+    return $false
+}
+
+function Assert-ChangesInLockScope {
+    # Runs BEFORE tests and BEFORE staging, so an out-of-scope edit can never be committed.
+    $changed = @(Get-ChangedFiles)
+    if ($changed.Count -eq 0) { return }
+    $outside = @($changed | Where-Object { -not (Test-PathInLockScope -RelativePath $_) })
+    if ($outside.Count -gt 0) {
+        Stop-Loop -Status "BLOCKED" -Reason ("Round modified file(s) outside the declared WRITE_LOCK scope; refusing to test or stage them: " + ($outside -join ", "))
+    }
+    Write-Good "All $($changed.Count) changed file(s) are within the declared lock scope"
 }
 
 # ======================================================================================
@@ -882,14 +927,26 @@ function Get-CheckRollup {
     # A non-empty, all-green list is NOT proof the gate held: if a required workflow never
     # started it creates no check run at all, and the rollup would report PASS on the
     # strength of unrelated successes. Require each expected check to be present by name.
-    $names = @($runs | ForEach-Object { "$($_.name)" })
-    $absent = @()
+    # Each required check must be present AND explicitly successful. Treating "any
+    # completed conclusion that is not in the failure list" as a pass would let a required
+    # check that concluded `skipped`, `neutral` or `stale` satisfy the READY gate.
+    $absent = @(); $notSuccessful = @()
     foreach ($required in $script:REQUIRED_CHECKS) {
-        if (-not ($names -contains $required)) { $absent += $required }
+        $matching = @($runs | Where-Object { "$($_.name)" -eq $required })
+        if ($matching.Count -eq 0) { $absent += $required; continue }
+        $ok = @($matching | Where-Object { $_.status -eq "completed" -and $_.conclusion -eq "success" })
+        if ($ok.Count -eq 0) {
+            $seen = (@($matching | ForEach-Object { "$($_.conclusion)" }) -join "/")
+            $notSuccessful += "$required (conclusion: $seen)"
+        }
     }
     if ($absent.Count -gt 0) {
         Write-Warn2 "required check(s) never reported for this head: $($absent -join ', ')"
         return [pscustomobject]@{ Status = "PENDING"; Failing = @() }
+    }
+    if ($notSuccessful.Count -gt 0) {
+        Write-Warn2 "required check(s) did not conclude success: $($notSuccessful -join ', ')"
+        return [pscustomobject]@{ Status = "FAIL"; Failing = $notSuccessful }
     }
     return [pscustomobject]@{ Status = "PASS"; Failing = @() }
 }
@@ -945,13 +1002,18 @@ function Get-CodexInlineFindings {
     # Codex reports its actual findings as INLINE review comments, not in the review body.
     # A COMMENTED review with a bland summary can still carry several P1 defects, so the
     # inline set must be read or the controller would accept a rejected change.
+    # Fail closed on an unreadable inline set. Returning the same empty array used for
+    # "no findings" would let a transient GitHub error convert a bland same-head COMMENTED
+    # review into ACCEPT while unread P1/P2 findings sit in the API.
     $out = @()
-    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/pulls/$($script:State.pr_number)/comments", "--paginate", "--jq", "[.[] | {login: .user.login, commit_id: .original_commit_id, current: .commit_id, path, line, body}]")
-    if ($r.ExitCode -ne 0) { return $out }
+    $r = Invoke-Gh -Arguments @("api", "repos/$Repo/pulls/$($script:State.pr_number)/comments", "--paginate", "--jq", "[.[] | {login: .user.login, type: .user.type, commit_id: .original_commit_id, current: .commit_id, path, line, body}]")
+    if ($r.ExitCode -ne 0) { return [pscustomobject]@{ Available = $false; Findings = @() } }
     $items = @()
-    try { $items = @($r.StdOut | ConvertFrom-Json) } catch { return $out }
+    try { $items = @($r.StdOut | ConvertFrom-Json) } catch { return [pscustomobject]@{ Available = $false; Findings = @() } }
     foreach ($c in $items) {
-        if ($null -eq $c.login -or $c.login -notmatch '(?i)codex') { continue }
+        # Exact identity, not a substring: a collaborator or bot named e.g. "codex-reviewer"
+        # must not be able to speak for the independent reviewer.
+        if ($c.login -ne $script:CODEX_BOT_LOGIN) { continue }
         $cid = $c.commit_id; if ([string]::IsNullOrWhiteSpace($cid)) { $cid = $c.current }
         if ([string]::IsNullOrWhiteSpace($cid)) { continue }
         if ($cid.ToLowerInvariant() -ne $Sha.ToLowerInvariant()) { continue }
@@ -967,7 +1029,7 @@ function Get-CodexInlineFindings {
             $out += "Codex [$where] $first"
         }
     }
-    return $out
+    return [pscustomobject]@{ Available = $true; Findings = $out }
 }
 
 function Get-CodexVerdict {
@@ -976,32 +1038,38 @@ function Get-CodexVerdict {
     $reviews = @()
     try { $reviews = @($r.StdOut | ConvertFrom-Json) } catch { $reviews = @() }
 
-    foreach ($rev in $reviews) {
-        if ($null -eq $rev.login -or $rev.login -notmatch '(?i)codex') { continue }
-        if ($null -eq $rev.commit_id) { continue }
-        if ($rev.commit_id.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) { continue }
+    # Aggregate EVERY same-head review before deciding. Returning on the first match let an
+    # older bland COMMENTED/APPROVED entry win over a later CHANGES_REQUESTED for the same
+    # SHA. Any rejection anywhere in the same-head set takes precedence.
+    $sameHead = @($reviews | Where-Object {
+        $_.login -eq $script:CODEX_BOT_LOGIN -and
+        $null -ne $_.commit_id -and
+        $_.commit_id.ToLowerInvariant() -eq $script:State.head_sha.ToLowerInvariant()
+    })
+    if ($sameHead.Count -eq 0) { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
 
-        $inline = @(Get-CodexInlineFindings -Sha $rev.commit_id)
+    $sha = $script:State.head_sha
+    $inlineResult = Get-CodexInlineFindings -Sha $sha
+    if (-not $inlineResult.Available) {
+        Write-Warn2 "Codex inline comments could not be read; holding the verdict at PENDING rather than assuming there are none"
+        return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() }
+    }
+    $blockers = @($inlineResult.Findings)
 
+    foreach ($rev in $sameHead) {
         if ($rev.state -eq "CHANGES_REQUESTED") {
             $summary = "Codex requested changes"
             if ($rev.body) { $summary = ($rev.body -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 4) -join " " }
-            return [pscustomobject]@{ Verdict = "REJECT"; Sha = $rev.commit_id; Blockers = (@($summary) + $inline) }
+            $blockers = @($summary) + $blockers
         }
-        # Inline findings override an APPROVED or bland COMMENTED summary.
-        if ($inline.Count -gt 0) {
-            return [pscustomobject]@{ Verdict = "REJECT"; Sha = $rev.commit_id; Blockers = $inline }
-        }
-        if ($rev.state -eq "APPROVED") { return [pscustomobject]@{ Verdict = "ACCEPT"; Sha = $rev.commit_id; Blockers = @() } }
-        if ($rev.state -eq "COMMENTED") {
-            if ($rev.body -and $rev.body -match $script:CODEX_BLOCKING_PATTERN) {
-                $summary = ($rev.body -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 4) -join " "
-                return [pscustomobject]@{ Verdict = "REJECT"; Sha = $rev.commit_id; Blockers = @($summary) }
-            }
-            return [pscustomobject]@{ Verdict = "ACCEPT"; Sha = $rev.commit_id; Blockers = @() }
+        elseif ($rev.body -and $rev.body -match $script:CODEX_BLOCKING_PATTERN) {
+            $blockers += (($rev.body -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 4) -join " ")
         }
     }
-    return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() }
+    if ($blockers.Count -gt 0) {
+        return [pscustomobject]@{ Verdict = "REJECT"; Sha = $sha; Blockers = @($blockers | Select-Object -Unique) }
+    }
+    return [pscustomobject]@{ Verdict = "ACCEPT"; Sha = $sha; Blockers = @() }
 }
 
 function Wait-ForReviews {
@@ -1020,13 +1088,17 @@ function Wait-ForReviews {
         $checks = Get-CheckRollup
         $script:State.checks = $checks.Status
 
+        # A skipped reviewer is NEVER synthesised into an acceptance. -SkipDeepSeek /
+        # -SkipCodex are rehearsal switches, rejected outside -DryRun at startup; if one is
+        # somehow set here the verdict stays PENDING so the READY gate cannot be satisfied
+        # without the contractually required independent review.
         $ds = Get-DeepSeekVerdict
-        if ($SkipDeepSeek) { $ds = [pscustomobject]@{ Verdict = "ACCEPT"; Sha = $script:State.head_sha; Blockers = @() } }
+        if ($SkipDeepSeek) { $ds = [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
         $script:State.deepseek_verdict = $ds.Verdict
         $script:State.deepseek_review_sha = $ds.Sha
 
         $cx = Get-CodexVerdict
-        if ($SkipCodex) { $cx = [pscustomobject]@{ Verdict = "ACCEPT"; Sha = $script:State.head_sha; Blockers = @() } }
+        if ($SkipCodex) { $cx = [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
         $script:State.codex_verdict = $cx.Verdict
         $script:State.codex_review_sha = $cx.Sha
 
@@ -1042,11 +1114,28 @@ function Wait-ForReviews {
         }
 
         $bothAccepted = ($ds.Verdict -eq "ACCEPT" -and $cx.Verdict -eq "ACCEPT")
+        # Both reviewer SHAs are always required to equal the head. No skip switch may
+        # relax this - the switches are rehearsal-only and already force PENDING above.
         $shaFresh = $true
-        if (-not $SkipDeepSeek) { if ($ds.Sha -ne $script:State.head_sha.ToLowerInvariant()) { $shaFresh = $false } }
-        if (-not $SkipCodex)    { if ($null -eq $cx.Sha -or $cx.Sha.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) { $shaFresh = $false } }
+        if ($null -eq $ds.Sha -or $ds.Sha.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) { $shaFresh = $false }
+        if ($null -eq $cx.Sha -or $cx.Sha.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) { $shaFresh = $false }
 
         if ($bothAccepted -and $shaFresh -and $checks.Status -eq "PASS" -and $script:State.tests -eq "PASS") {
+            # Revalidate the live PR head before declaring readiness. If another push landed
+            # while we were polling, everything above describes an obsolete commit, and
+            # returning READY would hand the human a newer, entirely unreviewed head.
+            $live = Invoke-Gh -Arguments @("pr", "view", "$($script:State.pr_number)", "--repo", $Repo, "--json", "headRefOid", "--jq", ".headRefOid")
+            $liveSha = $live.StdOut.Trim()
+            if ($live.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($liveSha)) {
+                Write-Warn2 "could not revalidate the live PR head; refusing to declare readiness on an unconfirmed head"
+                $script:State.blocking_findings = @("Could not confirm the live PR head before declaring READY_TO_MERGE.")
+                return $false
+            }
+            if ($liveSha.ToLowerInvariant() -ne $script:State.head_sha.ToLowerInvariant()) {
+                Write-Warn2 "PR head advanced to $liveSha during polling; the reviews above describe $($script:State.head_sha)"
+                $script:State.blocking_findings = @("PR head advanced to $liveSha while reviews were being collected; $($script:State.head_sha) is no longer the head.")
+                return $false
+            }
             return $true
         }
         if ($checks.Status -eq "FAIL") {
@@ -1118,6 +1207,19 @@ function Write-Summary {
             })
         }
         $serialisable["checks"] = [ordered]@{ status = $script:State.checks }
+        # blocking_findings are accumulated as plain strings by Stop-Loop, test failures,
+        # check failures and reviewer findings alike, but the schema requires each item to
+        # be an object with `source` and `summary`. Classify on the way out so a persisted
+        # rejected/blocked run still validates against its own contract.
+        $serialisable["blocking_findings"] = @(@($script:State.blocking_findings) | Where-Object { $_ } | ForEach-Object {
+            $text = "$_"
+            $source = "CONTROLLER"
+            if ($text -match '^Codex ')                  { $source = "CODEX" }
+            elseif ($text -match '(?i)^deepseek|DeepSeek review') { $source = "DEEPSEEK" }
+            elseif ($text -match '(?i)^test failed')     { $source = "TESTS" }
+            elseif ($text -match '(?i)^failing github checks|required check') { $source = "CHECKS" }
+            [ordered]@{ source = $source; summary = $text }
+        })
         ($serialisable | ConvertTo-Json -Depth 6) | Set-Content -Path $statePath -Encoding UTF8
         Write-Info "run state: $statePath"
     } catch { }
@@ -1154,6 +1256,13 @@ function Main {
     }
     $script:State.objective = $trimmed
     $script:State.task_id = New-TaskId -Objective $trimmed
+
+    # Rehearsal switches must not exist on a live run: skipping a reviewer there would
+    # remove a contractually required independent review from the READY gate.
+    if (-not $DryRun) {
+        if ($SkipDeepSeek) { Stop-Loop -Status "BLOCKED" -Reason "-SkipDeepSeek is a rehearsal switch and may only be used with -DryRun. A live loop requires the adversarial review." }
+        if ($SkipCodex)    { Stop-Loop -Status "BLOCKED" -Reason "-SkipCodex is a rehearsal switch and may only be used with -DryRun. A live loop requires the independent review." }
+    }
 
     $script:State.status = "TASK_ACCEPTED"
     Write-Good "TASK_ACCEPTED  task_id=$($script:State.task_id)  max_rounds=$MaxRounds"
@@ -1193,6 +1302,9 @@ function Main {
         if (-not $DryRun -and @("IMPLEMENTED", "NO_CHANGE_NEEDED") -notcontains $claude.Status) {
             Stop-Loop -Status "BLOCKED" -Reason "CLAUDE_LOCAL returned an unverified round (STATUS='$($claude.Status)'). Expected IMPLEMENTED or NO_CHANGE_NEEDED."
         }
+
+        # Bound the round to the declared lock scope BEFORE anything is tested or staged.
+        Assert-ChangesInLockScope
 
         $testsPass = Invoke-DeterministicTests
         $evidenceFile = Write-EvidenceFile

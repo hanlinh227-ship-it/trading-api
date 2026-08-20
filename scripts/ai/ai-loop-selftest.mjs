@@ -247,12 +247,16 @@ check('stale Codex review SHA rejected', () => {
   assert(!isReadyToMerge({ ...GOOD, codex_review_sha: SHA_B }), 'stale Codex SHA accepted');
   assert(!isReadyToMerge({ ...GOOD, codex_review_sha: null }), 'null Codex SHA accepted');
 });
-check('controller compares DeepSeek review SHA to head', () =>
-  assert(/\$ds\.Sha -ne \$script:State\.head_sha\.ToLowerInvariant\(\)/.test(ps1),
-    'DeepSeek SHA freshness comparison missing'));
-check('controller compares Codex review SHA to head', () =>
+check('controller compares DeepSeek review SHA to head', () => {
+  assert(/\$ds\.Sha\.ToLowerInvariant\(\) -ne \$script:State\.head_sha\.ToLowerInvariant\(\)/.test(ps1),
+    'DeepSeek SHA freshness comparison missing');
+  assert(/\$null -eq \$ds\.Sha -or/.test(ps1), 'a null DeepSeek SHA is not treated as stale');
+});
+check('controller compares Codex review SHA to head', () => {
   assert(/\$cx\.Sha\.ToLowerInvariant\(\) -ne \$script:State\.head_sha\.ToLowerInvariant\(\)/.test(ps1),
-    'Codex SHA freshness comparison missing'));
+    'Codex SHA freshness comparison missing');
+  assert(/\$null -eq \$cx\.Sha -or/.test(ps1), 'a null Codex SHA is not treated as stale');
+});
 check('reviewer refuses to review a moved head', () =>
   assert(/STALE_HEAD/.test(py) && /STALE_REVIEW/.test(py), 'reviewer lacks stale-head guards'));
 check('reviewer only counts Codex reviews at the exact commit', () =>
@@ -542,6 +546,107 @@ check('DeepSeek verdict comments are authenticated', () => {
   // A forged ACCEPT from any PR participant must be ignored, not trusted.
   assert(/ignoring a DEEPSEEK_REVIEW block from/.test(seg), 'forged verdicts are not rejected');
 });
+check('write-lock scope is enforced before testing or staging', () => {
+  // Owner-only verification is not enough: Publish-Round runs `git add -A`, so an
+  // out-of-scope edit would otherwise be committed, up to Trading business source.
+  assert(/function Assert-ChangesInLockScope/.test(ps1), 'no lock-scope enforcement');
+  assert(/function Test-PathInLockScope/.test(ps1), 'no per-path scope test');
+  assert(/\$script:AllowedPaths/.test(ps1), 'allowed paths are never parsed from the lock');
+  // Must run before both the test step and the staging step.
+  const body = stripPs1Comments(ps1);
+  const assertIdx = body.indexOf('Assert-ChangesInLockScope\n');
+  const testIdx = body.indexOf('$testsPass = Invoke-DeterministicTests');
+  const pubIdx = body.indexOf('$pushed = Publish-Round');
+  assert(assertIdx > -1 && testIdx > assertIdx, 'scope check does not precede the tests');
+  assert(pubIdx > assertIdx, 'scope check does not precede staging');
+  assert(/outside the declared WRITE_LOCK scope/.test(ps1), 'out-of-scope files are not refused');
+});
+check('skipped reviewers are never synthesised into acceptance', () => {
+  // Either switch previously produced an exact-head ACCEPT, satisfying the READY gate
+  // without the contractually required independent review.
+  assert(!/if \(\$SkipDeepSeek\) \{ \$ds = \[pscustomobject\]@\{ Verdict = "ACCEPT"/.test(ps1),
+    'SkipDeepSeek still fabricates an ACCEPT');
+  assert(!/if \(\$SkipCodex\) \{ \$cx = \[pscustomobject\]@\{ Verdict = "ACCEPT"/.test(ps1),
+    'SkipCodex still fabricates an ACCEPT');
+  assert(/if \(\$SkipDeepSeek\) \{ \$ds = \[pscustomobject\]@\{ Verdict = "PENDING"/.test(ps1),
+    'SkipDeepSeek does not hold the verdict at PENDING');
+  assert(/if \(\$SkipCodex\) \{ \$cx = \[pscustomobject\]@\{ Verdict = "PENDING"/.test(ps1),
+    'SkipCodex does not hold the verdict at PENDING');
+  // And the switches must not be usable on a live run at all.
+  assert(/-SkipDeepSeek is a rehearsal switch/.test(ps1), 'SkipDeepSeek is allowed on a live run');
+  assert(/-SkipCodex is a rehearsal switch/.test(ps1), 'SkipCodex is allowed on a live run');
+  // SHA freshness must no longer be conditional on the switches.
+  assert(!/if \(-not \$SkipDeepSeek\) \{ if \(\$ds\.Sha/.test(ps1), 'DeepSeek SHA freshness is skippable');
+  assert(!/if \(-not \$SkipCodex\)\s+\{ if \(\$null -eq \$cx\.Sha/.test(ps1), 'Codex SHA freshness is skippable');
+});
+check('PR head is revalidated immediately before declaring readiness', () => {
+  const seg = ps1.split('if ($bothAccepted -and $shaFresh')[1].split('if ($checks.Status -eq "FAIL")')[0];
+  assert(/headRefOid/.test(seg), 'live head is not refetched before returning READY');
+  assert(/PR head advanced to/.test(seg), 'an advanced head does not fail closed');
+  assert(/could not revalidate the live PR head/.test(seg), 'an unconfirmable head does not fail closed');
+  const readyIdx = seg.indexOf('return $true');
+  const fetchIdx = seg.indexOf('headRefOid');
+  assert(fetchIdx > -1 && readyIdx > fetchIdx, 'READY is returned before the head is revalidated');
+});
+check('unreadable Codex inline comments fail closed', () => {
+  const seg = ps1.split('function Get-CodexInlineFindings')[1].split('function Get-CodexVerdict')[0];
+  assert(/Available = \$false/.test(seg), 'an API failure is indistinguishable from "no findings"');
+  assert(/Available = \$true/.test(seg), 'no availability signal on success');
+  const v = ps1.split('function Get-CodexVerdict')[1].split('function Wait-ForReviews')[0];
+  assert(/-not \$inlineResult\.Available/.test(v), 'verdict ignores the availability signal');
+  assert(/holding the verdict at PENDING/.test(v), 'unreadable inline set does not hold at PENDING');
+});
+check('Codex reviewer identity is exact, not a substring', () => {
+  assert(/\$script:CODEX_BOT_LOGIN\s*=\s*"chatgpt-codex-connector\[bot\]"/.test(ps1),
+    'expected Codex bot login is not pinned');
+  // No substring matching on "codex" may survive for identity purposes.
+  assert(!/-match '\(\?i\)codex'/.test(ps1), 'a substring identity match still exists');
+  const uses = (ps1.match(/\$script:CODEX_BOT_LOGIN/g) || []).length;
+  assert(uses >= 3, `bot login should gate reviews and inline comments, found ${uses} refs`);
+});
+check('severity set covers P0 and hyphenated must-fix', () => {
+  const def = ps1.split('$script:CODEX_BLOCKING_PATTERN =')[1].split('\n')[0];
+  assert(/P0/.test(def), 'P0 is not treated as blocking');
+  assert(/must\[- \]fix/.test(def), 'hyphenated must-fix is not matched');
+  assert(!/\bP3\b/.test(def.replace(/P0|P1|P2/g, '')), 'P3 is treated as blocking');
+});
+check('required checks must conclude success', () => {
+  const seg = ps1.split('function Get-CheckRollup')[1].split('function Get-DeepSeekVerdict')[0];
+  assert(/conclusion -eq "success"/.test(seg),
+    'a required check concluding skipped/neutral/stale would still satisfy the gate');
+  assert(/did not conclude success/.test(seg), 'non-success conclusions are not reported');
+  assert(/Status = "FAIL"; Failing = \$notSuccessful/.test(seg), 'non-success does not fail the rollup');
+});
+check('all same-head Codex reviews are aggregated', () => {
+  const seg = ps1.split('function Get-CodexVerdict')[1].split('function Wait-ForReviews')[0];
+  assert(/\$sameHead = @\(\$reviews \| Where-Object/.test(seg), 'reviews are not collected as a set');
+  // No early return on the first matching review.
+  assert(!/foreach \(\$rev in \$reviews\)/.test(seg), 'still iterates and returns on first match');
+  assert(/\$blockers\.Count -gt 0/.test(seg), 'rejection does not take precedence over the set');
+});
+check('blocking findings are serialised in the schema shape', () => {
+  const seg = ps1.split('function Write-Summary')[1];
+  assert(/\$serialisable\["blocking_findings"\]/.test(seg), 'blocking_findings are copied verbatim as strings');
+  assert(/source = \$source; summary = \$text/.test(seg), 'findings are not objects with source and summary');
+  const item = schema.properties.blocking_findings.items;
+  assert(item.required.includes('source') && item.required.includes('summary'),
+    'schema does not require source and summary');
+  for (const s of ['CODEX', 'DEEPSEEK', 'TESTS', 'CHECKS', 'CONTROLLER']) {
+    assert(item.properties.source.enum.includes(s), `schema source enum missing ${s}`);
+    assert(seg.includes(`"${s}"`), `controller never emits source ${s}`);
+  }
+});
+check('reviewer only updates its own comments', () => {
+  // Marker-only matching also matches comments that merely QUOTE the marker, so the
+  // reviewer would overwrite a human's comment and strand its verdict under a non-bot
+  // author - which the controller must then ignore, stalling the loop at PENDING.
+  const seg = py.split('def upsert_comment')[1].split('def emit_outputs')[0];
+  assert(/BOT_LOGIN/.test(seg), 'comment author is not checked before updating');
+  assert(/login: \.user\.login/.test(seg), 'comment author is not even fetched');
+  const loginIdx = seg.indexOf('c.get("login") != BOT_LOGIN');
+  const markerIdx = seg.indexOf('COMMENT_MARKER in');
+  assert(loginIdx > -1 && loginIdx < markerIdx, 'author check does not gate the marker match');
+});
 check('Codex severity set is identical inline and in the summary', () => {
   // An asymmetric threshold lets the same defect block in one place and pass in the other.
   assert(/\$script:CODEX_BLOCKING_PATTERN\s*=/.test(ps1), 'no single blocking-severity definition');
@@ -553,7 +658,7 @@ check('Codex severity set is identical inline and in the summary', () => {
   // P3 is informational and must not appear in the blocking set.
   const def = ps1.split('$script:CODEX_BLOCKING_PATTERN =')[1].split('\n')[0];
   assert(!/P3/.test(def), 'P3 is treated as blocking');
-  assert(/P1\|P2/.test(def), 'P1/P2 are not treated as blocking');
+  assert(/P1/.test(def) && /P2/.test(def), 'P1/P2 are not treated as blocking');
 });
 check('no stray control characters in the controller', () => {
   // A literal 0x08 once replaced a \b escape here and silently broke the regex.
@@ -608,7 +713,7 @@ check('Codex inline findings are treated as blocking', () => {
   assert(/pulls\/\$\(\$script:State\.pr_number\)\/comments/.test(seg), 'does not query inline comments');
   assert(/\$script:CODEX_BLOCKING_PATTERN/.test(seg),
     'inline scan does not use the shared blocking-severity definition');
-  assert(/inline\.Count -gt 0/.test(seg), 'inline findings do not override the review state');
+  assert(/\$blockers\.Count -gt 0/.test(seg), 'inline findings do not override the review state');
   assert(/original_commit_id/.test(seg), 'inline findings are not pinned to a commit');
 });
 check('check rollup requires named checks to actually report', () => {
