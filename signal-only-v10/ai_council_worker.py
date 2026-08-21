@@ -9,12 +9,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
-from pathlib import Path
 
 ORIGIN=os.environ.get('SIGNAL_V10_ORIGIN','').rstrip('/')
 SECRET=(os.environ.get('SIGNAL_V10_BRIDGE_SECRET') or os.environ.get('TELEGRAM_BOT_TOKEN') or '').strip()
 POLL_SECONDS=max(3,int(os.environ.get('SIGNAL_V10_POLL_SECONDS','7')))
-BATCH_LIMIT=max(1,min(3,int(os.environ.get('SIGNAL_V10_BATCH_LIMIT','3'))))
+BATCH_LIMIT=max(1,min(6,int(os.environ.get('SIGNAL_V10_BATCH_LIMIT','6'))))
 CLAUDE_MODEL=os.environ.get('SIGNAL_V10_CLAUDE_MODEL','sonnet')
 DEEPSEEK_MODEL=os.environ.get('SIGNAL_V10_DEEPSEEK_MODEL',os.environ.get('DEEPSEEK_MODEL','deepseek-chat'))
 CODEX_MODEL=os.environ.get('SIGNAL_V10_CODEX_MODEL','gpt-5.6-sol')
@@ -24,11 +23,11 @@ CODEX_TIMEOUT=int(os.environ.get('SIGNAL_V10_CODEX_TIMEOUT','48'))
 CACHE_TTL=120
 CACHE={}
 
-COMMON='''SIGNAL ONLY V10. Review only supplied candidates. No execution authority. Return every candidateId exactly once. LONG/SHORT means the candidate is good enough to publish now in that direction. WAIT means do not publish. Confidence is confidence in your action. Missing evidence => WAIT. Normally WAIT rather than reversing scanner side. JSON only: {"reviews":[{"candidateId":"...","action":"LONG|SHORT|WAIT","confidence":0-100,"reason":"short factual reason"}]}'''
+COMMON='''SIGNAL ONLY V10. Review only supplied candidates. No execution authority. Return every candidateId exactly once. LONG/SHORT means the candidate is good enough to publish now in that direction. WAIT means do not publish. Confidence is confidence in your action. Never invent missing evidence. Normally WAIT rather than reversing scanner side. For crypto candidates, judge a short-horizon scalp rather than demanding swing-trade confirmation: verified-fresh price, valid Entry/SL/TP, supplied structure/momentum and realistic short-horizon RR matter most. Funding, open interest, long/short ratio, orderbook or a named trading session are optional corroboration for crypto; absence of those optional fields alone is not a reason to reject an otherwise coherent scalp. Do not require every indicator or every timeframe to agree. Use a contrary LONG/SHORT action only when supplied evidence positively supports the opposite direction; uncertainty or incomplete optional context must be WAIT. JSON only: {"reviews":[{"candidateId":"...","action":"LONG|SHORT|WAIT","confidence":0-100,"reason":"short factual reason"}]}'''
 ROLES={
- 'claude':'You are Claude, context/regime/timing specialist. Judge higher-timeframe coherence, session/regime fit, exhaustion/chase risk and whether the current trigger makes sense.',
- 'deepseek':'You are DeepSeek, adversarial edge/risk specialist. Attack fake breakout, weak participation, spread/cost drag, crowding, volatility mismatch and stop/target geometry.',
- 'codex':'You are Codex, quantitative/logical verifier. Check numerical consistency, plan geometry, RR, quality evidence, internal contradictions and execution logic. Do not invent data.'
+ 'claude':'You are Claude, context/regime/timing specialist. Judge higher-timeframe coherence, session/regime fit, exhaustion/chase risk and whether the current trigger makes sense. For crypto scalp, do not over-penalize 24/7 session ambiguity; focus on current regime, chase risk and timing evidence actually supplied.',
+ 'deepseek':'You are DeepSeek, adversarial edge/risk specialist. Attack fake breakout, weak participation, spread/cost drag, crowding, volatility mismatch and stop/target geometry. For crypto scalp, distinguish a real hard risk from merely absent optional derivatives telemetry.',
+ 'codex':'You are Codex, quantitative/logical verifier. Check numerical consistency, plan geometry, RR, quality evidence, internal contradictions and execution logic. Do not invent data. For crypto scalp, validate the short-horizon plan against supplied numbers without imposing unsupplied swing criteria.'
 }
 
 def utc(): return datetime.now(timezone.utc).isoformat()
@@ -76,7 +75,7 @@ def review_codex(candidates):return normalize(extract_json(run_cli(['/usr/bin/co
 def review_deepseek(candidates):
     key=os.environ.get('DEEPSEEK_API_KEY','').strip()
     if not key:raise RuntimeError('DEEPSEEK_API_KEY_MISSING')
-    body={'model':DEEPSEEK_MODEL,'messages':[{'role':'system','content':ROLES['deepseek']+'\n\n'+COMMON},{'role':'user','content':'CANDIDATES='+json.dumps([{'candidateId':x['id'],**(x.get('candidate') or {})} for x in candidates],ensure_ascii=False,separators=(',',':'))}],'response_format':{'type':'json_object'},'temperature':0.05,'max_tokens':900,'stream':False}
+    body={'model':DEEPSEEK_MODEL,'messages':[{'role':'system','content':ROLES['deepseek']+'\n\n'+COMMON},{'role':'user','content':'CANDIDATES='+json.dumps([{'candidateId':x['id'],**(x.get('candidate') or {})} for x in candidates],ensure_ascii=False,separators=(',',':'))}],'response_format':{'type':'json_object'},'temperature':0.05,'max_tokens':1400,'stream':False}
     req=urllib.request.Request('https://api.deepseek.com/chat/completions',data=json.dumps(body).encode(),headers={'Authorization':f'Bearer {key}','Content-Type':'application/json'},method='POST')
     try:
         with urllib.request.urlopen(req,timeout=DEEPSEEK_TIMEOUT) as r:data=json.loads(r.read().decode())
@@ -102,7 +101,8 @@ def cycle():
     if not candidates:
         report_health({},'IDLE');return 0
     key=batch_key(candidates);providers={}
-    # Sequential calls avoid CPU/process spikes on small VPS; successful calls are cached for retry.
+    # Sequential calls avoid CPU/process spikes on small VPS; each provider reviews the whole batch.
+    # Larger batching raises throughput without relaxing the all-three-providers requirement.
     for name in ('deepseek','claude','codex'):
         providers[name]=one_provider(name,candidates,key)
         print(utc(),'AI',name,providers[name]['status'],providers[name].get('latencySeconds'),flush=True)
@@ -116,7 +116,7 @@ def cycle():
 
 def main():
     if not ORIGIN or not SECRET:raise SystemExit('SIGNAL_V10_ORIGIN and SIGNAL_V10_BRIDGE_SECRET/TELEGRAM_BOT_TOKEN required')
-    print(utc(),'SIGNAL ONLY V10 3-AI WORKER START',ORIGIN,flush=True)
+    print(utc(),'SIGNAL ONLY V10 3-AI WORKER START',ORIGIN,'batch',BATCH_LIMIT,flush=True)
     while True:
         try:cycle();time.sleep(POLL_SECONDS)
         except KeyboardInterrupt:break
