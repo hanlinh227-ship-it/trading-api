@@ -8,17 +8,15 @@ from pathlib import Path
 ROOT=Path('/opt/trading/trading-api/auto-futures-v1');STATE=ROOT/'state';LOGS=ROOT/'logs'
 HEALTH=STATE/'ai_provider_health.json';POLICY=STATE/'ai_coordination_policy.json';CONS_LOG=LOGS/'ai_consensus.jsonl';LOCK_PATH='/tmp/auto-futures-ai-health.lock'
 PROVIDERS=('claude','deepseek','codex')
-FAIL_STATUSES={'TIMEOUT','ERROR','INVALID_JSON','INVALID_RESPONSE','INCOMPLETE_OUTPUT','UNAVAILABLE','RATE_LIMITED'}
+FAIL_STATUSES={'TIMEOUT','ERROR','INVALID_JSON','INVALID_RESPONSE','INCOMPLETE_OUTPUT','EMPTY_OUTPUT','UNAVAILABLE','RATE_LIMITED'}
 CIRCUIT_FAILURES=3;CIRCUIT_MINUTES=10;MAX_EVENTS=120
-
 
 def now():return datetime.now(timezone.utc)
 def iso():return now().isoformat()
 @contextmanager
 def locked():
     fh=open(LOCK_PATH,'w')
-    try:
-        fcntl.flock(fh.fileno(),fcntl.LOCK_EX);yield
+    try:fcntl.flock(fh.fileno(),fcntl.LOCK_EX);yield
     finally:
         try:fcntl.flock(fh.fileno(),fcntl.LOCK_UN)
         finally:fh.close()
