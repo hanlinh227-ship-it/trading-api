@@ -60,28 +60,37 @@ def close_partial(p, price, fraction, event):
     gain = pnl(p["side"], p["entry"], price, qty)
     p["remaining_qty"] -= qty
     p["realized_pnl"] += gain
-    log_event({"event":event,"timestamp":now(),"symbol":p["symbol"],"strategy":p.get("strategy"),"price":price,"quantity":qty,"pnl":gain,"remaining_qty":p["remaining_qty"]})
+    log_event({"event":event,"timestamp":now(),"symbol":p["symbol"],"strategy":p.get("strategy"),"regime":p.get("regime"),"price":price,"quantity":qty,"pnl":gain,"remaining_qty":p["remaining_qty"]})
 
 
 def close_all(p, price, reason):
     qty = p["remaining_qty"]
     gain = pnl(p["side"], p["entry"], price, qty) if qty > 0 else 0.0
-    p["remaining_qty"] = 0.0; p["realized_pnl"] += gain; p["status"] = "CLOSED"; p["closed_at"] = now(); p["close_reason"] = reason
-    log_event({"event":"PAPER_CLOSE","timestamp":now(),"symbol":p["symbol"],"strategy":p.get("strategy"),"price":price,"reason":reason,"pnl":gain,"total_pnl":p["realized_pnl"]})
+    p["remaining_qty"] = 0.0
+    p["realized_pnl"] += gain
+    p["status"] = "CLOSED"
+    p["closed_at"] = now()
+    p["close_reason"] = reason
+    log_event({"event":"PAPER_CLOSE","timestamp":now(),"symbol":p["symbol"],"strategy":p.get("strategy"),"regime":p.get("regime"),"mtf_alignment":p.get("mtf_alignment"),"learning_multiplier":p.get("learning_multiplier"),"price":price,"reason":reason,"pnl":gain,"total_pnl":p["realized_pnl"]})
 
 
 def manage_position(p, price):
     long = p["side"] == "LONG"
     if (long and price <= p["stop_loss"]) or ((not long) and price >= p["stop_loss"]):
-        close_all(p, price, "STOP"); return
+        close_all(p, price, "STOP")
+        return
     hit1 = p.get("tp1") is not None and ((long and price >= p["tp1"]) or ((not long) and price <= p["tp1"]))
     if hit1 and not p.get("tp1_done"):
-        close_partial(p, price, p["tp1_fraction"], "TP1"); p["tp1_done"] = True
+        close_partial(p, price, p["tp1_fraction"], "TP1")
+        p["tp1_done"] = True
         if p.get("breakeven_after_tp1", True):
-            p["stop_loss"] = p["entry"]; p["break_even"] = True
+            p["stop_loss"] = p["entry"]
+            p["break_even"] = True
     hit2 = p.get("tp2") is not None and ((long and price >= p["tp2"]) or ((not long) and price <= p["tp2"]))
     if hit2 and not p.get("tp2_done"):
-        close_partial(p, price, p["tp2_fraction"], "TP2"); p["tp2_done"] = True; p["trailing_active"] = True
+        close_partial(p, price, p["tp2_fraction"], "TP2")
+        p["tp2_done"] = True
+        p["trailing_active"] = True
     if p.get("trailing_active"):
         distance = p["initial_risk"] * p.get("trail_factor", 0.85)
         candidate = price-distance if long else price+distance
@@ -114,8 +123,40 @@ def main():
         if qty <= 0:
             continue
         m = d.get("management") or {}
-        p = {"id":f"{symbol}-{int(datetime.now().timestamp())}","symbol":symbol,"strategy":d.get("strategy","NO_EDGE"),"side":d["action"],"entry":entry,"stop_loss":stop,"initial_stop":stop,"initial_risk":abs(entry-stop),"tp1":d.get("tp1"),"tp2":d.get("tp2"),"tp3":d.get("tp3"),"quantity":qty,"remaining_qty":qty,"tp1_fraction":float(m.get("tp1_close_pct",30))/100.0,"tp2_fraction":float(m.get("tp2_close_pct",30))/100.0,"trail_factor":float(m.get("trail_atr_mult",0.85)),"breakeven_after_tp1":bool(m.get("breakeven_after_tp1",True)),"tp1_done":False,"tp2_done":False,"break_even":False,"trailing_active":False,"realized_pnl":0.0,"status":"OPEN","opened_at":now(),"closed_at":None}
-        positions.append(p); open_symbols.add(symbol); log_event({"event":"PAPER_OPEN","timestamp":now(),**p})
+        p = {
+            "id":f"{symbol}-{int(datetime.now().timestamp())}",
+            "symbol":symbol,
+            "strategy":d.get("strategy","NO_EDGE"),
+            "regime":d.get("regime","UNKNOWN"),
+            "mtf_alignment":d.get("mtf_alignment",{}),
+            "learning_multiplier":d.get("learning_multiplier",1.0),
+            "spread_bps":d.get("spread_bps"),
+            "side":d["action"],
+            "entry":entry,
+            "stop_loss":stop,
+            "initial_stop":stop,
+            "initial_risk":abs(entry-stop),
+            "tp1":d.get("tp1"),
+            "tp2":d.get("tp2"),
+            "tp3":d.get("tp3"),
+            "quantity":qty,
+            "remaining_qty":qty,
+            "tp1_fraction":float(m.get("tp1_close_pct",30))/100.0,
+            "tp2_fraction":float(m.get("tp2_close_pct",30))/100.0,
+            "trail_factor":float(m.get("trail_atr_mult",0.85)),
+            "breakeven_after_tp1":bool(m.get("breakeven_after_tp1",True)),
+            "tp1_done":False,
+            "tp2_done":False,
+            "break_even":False,
+            "trailing_active":False,
+            "realized_pnl":0.0,
+            "status":"OPEN",
+            "opened_at":now(),
+            "closed_at":None,
+        }
+        positions.append(p)
+        open_symbols.add(symbol)
+        log_event({"event":"PAPER_OPEN","timestamp":now(),**p})
 
     for p in positions:
         if p.get("status") != "OPEN":
@@ -129,10 +170,12 @@ def main():
     state.update({"mode":"PAPER","updated_at":now(),"starting_equity":starting,"equity":starting+realized,"realized_pnl":realized,"positions":positions,"daily_trade_limit":None,"daily_loss_limit":None})
     save(POSITIONS_FILE, state)
     open_pos = [p for p in positions if p.get("status")=="OPEN"]
-    print("="*48); print("V4 PAPER SCALP POSITION MANAGER"); print("="*48)
+    print("="*56)
+    print("V5 MTF PAPER SCALP POSITION MANAGER")
+    print("="*56)
     print("EQUITY:", round(state["equity"],4), "| OPEN:", len(open_pos), "| CLOSED:", len(positions)-len(open_pos), "| REALIZED:", round(realized,4))
     for p in open_pos:
-        print(p["symbol"], p["strategy"], p["side"], "| entry", p["entry"], "| SL", round(p["stop_loss"],8), "| qty", round(p["remaining_qty"],8))
+        print(p["symbol"], p.get("regime"), p["strategy"], p["side"], "| entry", p["entry"], "| SL", round(p["stop_loss"],8), "| qty", round(p["remaining_qty"],8))
     print("PAPER MODE ONLY - NO REAL BINANCE ORDER WAS SENT")
 
 
