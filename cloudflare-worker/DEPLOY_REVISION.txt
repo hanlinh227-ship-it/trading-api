@@ -1,11 +1,15 @@
 V10
 SIGNAL-ONLY-V10-SOURCE-OF-TRUTH
+Revision: V10-CRYPTO-OPPORTUNITY-DEPLOY-HARDENING-2026-08-21
 GitHub source entry: cloudflare-worker/index.js -> hub-v10-unified-entry.js.
 Telegram UX: hub-v10-unified-v2.js.
 Cron: signal-v10-scheduled-v2.js.
+Crypto opportunity cadence: 3 minutes; Forex 10 minutes; Metal 10 minutes; Index 15 minutes.
 Signal lifecycle: scan -> mandatory verified-fresh candidate quote -> Entry Intelligence -> V10 pre-gate -> VPS 3-AI council -> accepted signal -> verified-fresh TP/SL lifecycle -> history -> per-market/per-symbol learning.
+Crypto frequency is increased by scanning more often, not by bypassing quote freshness, Entry Intelligence, quality, RR, geometry or 3-AI consensus.
 Unified Live preserves V10 OPEN rows until lifecycle closes them and also includes active compatibility books.
 Rejected candidates are not official BUY/SELL signals.
 Legacy V77/V78 engine/hub files are compatibility scanner internals only; they are not public version authority.
 Binance Auto remains a separate VPS approval/execution project.
-NOTE: this file describes GitHub source intent; it is not proof of current Cloudflare deployment.
+Cloudflare deployment workflow validates the actual Unified V10 V2 entry path before deploy.
+NOTE: GitHub source intent alone is not proof of successful Cloudflare runtime deployment; workflow/runtime evidence must confirm it.
