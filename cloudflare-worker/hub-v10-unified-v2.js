@@ -30,7 +30,7 @@ function bookPayload(raw,g){
 function legacyRows(b){const out=[];for(const [k,label] of [["marketActive","MARKET"],["signalActive","SIGNAL"],["limitActive","LIMIT ACTIVE"],["limitPending","LIMIT CHỜ"]])for(const p of Array.isArray(b?.[k])?b[k]:[])out.push({...p,_bucket:label});return out;}
 function legacyLine(p){const side=String(p?.side||"").toUpperCase();return `${side==="LONG"?"🟢":"🔴"} ${p.symbol||"—"} • ${side==="LONG"?"BUY":"SELL"} • ${p._bucket}\n   📍 ${fmt(p.entry)} • SL ${fmt(p.sl)} • TP ${fmt(p.tp??p.tp2??p.tp1)}`;}
 function v10Line(x){const c=x?.candidate||{},s=x?.consensus||{},side=String(c.side||"").toUpperCase();return `${side==="LONG"?"🟢":"🔴"} ${c.symbol||"—"} • ${side==="LONG"?"BUY":"SELL"} • V10 CHÍNH THỨC\n   📍 ${fmt(c.entry)} • SL ${fmt(c.sl)} • TP ${fmt(c.tp)}${c.rr?` • RR ${Number(c.rr).toFixed(2)}`:""}\n   🧠 ${s.same||0}/3 AI • Conf ${s.directionalConfidence??0}% • ${x.lifecycleStatus||"OPEN"}`;}
-async function liveData(g,env){const [accepted,raw]=await Promise.all([getSignalV10Accepted(env,{market:g,limit:20}),engine(`/books?group=${g}`,env)]);return {accepted,legacy:legacyRows(bookPayload(raw,g))};}
+async function liveData(g,env){const [accepted,raw]=await Promise.all([getSignalV10Accepted(env,{market:g,limit:20,includeExpired:true}),engine(`/books?group=${g}`,env)]);return {accepted,legacy:legacyRows(bookPayload(raw,g))};}
 async function liveText(g,env){const d=await liveData(g,env),L=[`${name(g)} • LỆNH ĐANG CHẠY`,"━━━━━━━━━━━━",`🔥 V10 chính thức: ${d.accepted.length}`,`📦 Lệnh trước còn theo dõi: ${d.legacy.length}`];if(!d.accepted.length&&!d.legacy.length)L.push("","⚪ Hiện không có lệnh đang chạy.");if(d.accepted.length){L.push("","🔥 V10 CHÍNH THỨC");for(const x of d.accepted.slice(0,8))L.push(v10Line(x));}if(d.legacy.length){L.push("","📦 LỆNH TRƯỚC / ĐANG THEO DÕI");for(const p of d.legacy.slice(0,10))L.push(legacyLine(p));}L.push("","Lệnh TP/SL/hết hạn chuyển sang 🕘 Lịch sử, không bị xóa.");return L.join("\n");}
 async function liveAllText(env){const L=["📚 TOÀN BỘ LỆNH ĐANG CHẠY","━━━━━━━━━━━━"];let total=0;for(const g of GROUPS){const d=await liveData(g,env),n=d.accepted.length+d.legacy.length;total+=n;L.push("",`${name(g)} • ${n} lệnh`,`🔥 V10 ${d.accepted.length} • 📦 trước ${d.legacy.length}`);for(const x of d.accepted.slice(0,3))L.push(v10Line(x));for(const p of d.legacy.slice(0,3))L.push(legacyLine(p));}if(!total)L.push("","⚪ Không có lệnh đang chạy ở cả 4 thị trường.");return L.join("\n");}
 
@@ -38,11 +38,11 @@ async function refreshCandidateQuotes(analyses,env){
   const out=[];
   for(const a of analyses||[]){
     if(!ACTIONABLE.has(String(a?.status||"").toUpperCase())||!a?.symbol){out.push(a);continue;}
-    if(a?.analysisQuote?.price||a?.quote?.price){out.push(a);continue;}
     try{
       const fresh=await engine(`/analyze?symbol=${encodeURIComponent(a.symbol)}`,env),q=fresh?.analysisQuote||fresh?.quote;
-      out.push(q?.price?{...a,analysisQuote:q,quote:q,source:a.source||q.source}:a);
-    }catch{out.push(a);}
+      if(q?.price&&q?.fresh===true){out.push({...a,analysisQuote:q,quote:q,source:q.source||a.source,quoteRefresh:{verified:true,at:Date.now()}});}
+      else out.push({...a,analysisQuote:null,quote:null,quoteRefresh:{verified:false,at:Date.now(),reason:q?.price?"QUOTE_NOT_VERIFIED_FRESH":"QUOTE_MISSING"}});
+    }catch{out.push({...a,analysisQuote:null,quote:null,quoteRefresh:{verified:false,at:Date.now(),reason:"QUOTE_REFRESH_FAILED"}});}
   }
   return out;
 }
@@ -58,11 +58,11 @@ async function handleTelegram(req,env){if(!verifyTelegram(req,env))return json({
   if(cb==="menu"||text==="/start"||text==="/menu"){await send(env,chatId,["◈ TRADING HUB • V10","━━━━━━━━━━━━","📚 LỆNH ĐANG CHẠY = V10 + lệnh trước","🔥 V10 CHÍNH THỨC = đã qua 3 AI","🔍 QUÉT MỚI = candidate, chưa phải lệnh","🕘 LỊCH SỬ = TP / SL / hết hạn","","🟨 Binance Auto vẫn là project riêng."].join("\n"),mainKb());return json({ok:true,version:"V10"});}
   if(cb==="signal"||text==="/signal10"){await send(env,chatId,["📡 SIGNAL CENTER • V10","━━━━━━━━━━━━","Quét mới → pre-gate → 3 AI → V10 chính thức → theo dõi TP/SL → lịch sử.","","Candidate bị loại chỉ hiện lý do, không hiển thị như một lệnh BUY/SELL."].join("\n"),signalKb());return json({ok:true});}
   if(cb.startsWith("market:")){const g=cb.split(":")[1];await send(env,chatId,await marketText(g,env),marketKb(g));return json({ok:true});}
-  if(cb.startsWith("signal:scan:")){const g=cb.split(":")[2];await send(env,chatId,`⏳ ${name(g)} đang quét + refresh giá candidate…`);const r=await engine(`/run-now?group=${g}`,env);const enriched=r?.ok?await refreshCandidateQuotes(r?.analyses||[],env):[];const added=r?.ok?await recordSignalV10Candidates(env,g,enriched,{scanId:r?.scanId,trigger:"HUB_MANUAL_V10_UNIFIED"}):[];await send(env,chatId,scanText(g,r,added),scanKb(g));return json({ok:true,group:g,added:added.length});}
+  if(cb.startsWith("signal:scan:")){const g=cb.split(":")[2];await send(env,chatId,`⏳ ${name(g)} đang quét + refresh giá candidate…`);const r=await engine(`/run-now?group=${g}`,env);const enriched=r?.ok?await refreshCandidateQuotes(r?.analyses||[],env):[];const added=r?.ok?await recordSignalV10Candidates(env,g,enriched,{scanId:r?.scanId,trigger:"HUB_MANUAL_V10_UNIFIED_FRESH_REQUIRED"}):[];await send(env,chatId,scanText(g,r,added),scanKb(g));return json({ok:true,group:g,added:added.length});}
   if(cb==="live:all"){await send(env,chatId,await liveAllText(env),mainKb());return json({ok:true});}
   if(cb.startsWith("live:")){const g=cb.split(":")[1];if(GROUPS.includes(g)){await send(env,chatId,await liveText(g,env),marketKb(g));return json({ok:true});}}
   if(cb.startsWith("history:")){const g=cb.split(":")[1];await send(env,chatId,await historyText(g==="all"?null:g,env),g==="all"?mainKb():marketKb(g));return json({ok:true});}
-  if(cb==="signal:top"){const rows=await getSignalV10Accepted(env,{limit:20}),L=["🔥 V10 CHÍNH THỨC","━━━━━━━━━━━━"];if(!rows.length)L.push("⚪ Chưa có signal 3-AI còn hiệu lực.");for(const x of rows.slice(0,10))L.push("",v10Line(x));L.push("","Candidate bị loại không xuất hiện trong danh sách này.");await send(env,chatId,L.join("\n"),signalKb());return json({ok:true});}
+  if(cb==="signal:top"){const rows=await getSignalV10Accepted(env,{limit:20,includeExpired:true}),L=["🔥 V10 CHÍNH THỨC","━━━━━━━━━━━━"];if(!rows.length)L.push("⚪ Chưa có signal 3-AI còn hiệu lực.");for(const x of rows.slice(0,10))L.push("",v10Line(x));L.push("","Candidate bị loại không xuất hiện trong danh sách này.");await send(env,chatId,L.join("\n"),signalKb());return json({ok:true});}
   return null;
 }
 
