@@ -1,0 +1,72 @@
+import v10Core from "./hub-v10.js";
+import baseEngine from "./engine-v77168.js";
+import {telegramApiRequest} from "./providers/telegram-client.js";
+import {recordSignalV10Candidates,getSignalV10Accepted} from "./signal-v10-council.js";
+import {getSignalV10History} from "./signal-v10-learning.js";
+
+const GROUPS=["forex","crypto","metal","index"];
+const ACTIONABLE=new Set(["MARKET_SIGNAL","MARKET","LIMIT","MARKET_PLAN","LIMIT_PLAN"]);
+const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+const name=g=>g==="forex"?"💱 FOREX":g==="crypto"?"🪙 CRYPTO":g==="metal"?"🥇 METAL":"📊 INDEX";
+const fmt=v=>{const n=Number(v);if(!Number.isFinite(n))return "—";if(Math.abs(n)>=1000)return n.toFixed(2);if(Math.abs(n)>=10)return n.toFixed(4);if(Math.abs(n)>=1)return n.toFixed(5);return n.toPrecision(6);};
+async function tg(env,method,payload){return telegramApiRequest(env,method,payload);}
+async function send(env,chatId,text,kb){return tg(env,"sendMessage",{chat_id:chatId||env.TELEGRAM_CHAT_ID,text,reply_markup:kb,disable_web_page_preview:true});}
+function verifyTelegram(req,env){return !env.TELEGRAM_WEBHOOK_SECRET||req.headers.get("x-telegram-bot-api-secret-token")===env.TELEGRAM_WEBHOOK_SECRET;}
+function authorized(u,env){const got=String(u?.callback_query?.from?.id??u?.message?.from?.id??"");const want=String(env.TELEGRAM_ALLOWED_USER_ID||env.TELEGRAM_CHAT_ID||"");return !want||got===want;}
+async function engine(path,env){const r=await baseEngine.fetch(new Request(`https://internal${path}`,{method:"GET"}),env);try{return await r.json();}catch{return null;}}
+
+const mainKb=()=>({inline_keyboard:[[{text:"📚 LỆNH ĐANG CHẠY",callback_data:"live:all"}],[{text:"💱 Forex",callback_data:"market:forex"},{text:"🪙 Crypto",callback_data:"market:crypto"}],[{text:"🥇 Metal",callback_data:"market:metal"},{text:"📊 Index",callback_data:"market:index"}],[{text:"🔥 V10 CHÍNH THỨC",callback_data:"signal:top"},{text:"🕘 LỊCH SỬ",callback_data:"history:all"}],[{text:"📈 Thống kê",callback_data:"v10:stats"},{text:"🧠 3 AI",callback_data:"v10:council"}],[{text:"🟨 BINANCE AUTO",callback_data:"binance"}]]});
+const signalKb=()=>({inline_keyboard:[[{text:"📚 LỆNH ĐANG CHẠY",callback_data:"live:all"}],[{text:"💱 Forex",callback_data:"market:forex"},{text:"🪙 Crypto",callback_data:"market:crypto"}],[{text:"🥇 Metal",callback_data:"market:metal"},{text:"📊 Index",callback_data:"market:index"}],[{text:"🔥 V10 CHÍNH THỨC",callback_data:"signal:top"},{text:"🕘 LỊCH SỬ",callback_data:"history:all"}],[{text:"⬅️ Hub",callback_data:"menu"}]]});
+const marketKb=g=>({inline_keyboard:[[{text:"🔍 QUÉT MỚI",callback_data:`signal:scan:${g}`},{text:"📚 LỆNH ĐANG CHẠY",callback_data:`live:${g}`}],[{text:"🔥 V10 CHÍNH THỨC",callback_data:"signal:top"},{text:"📈 Stats",callback_data:`v10:stats:${g}`}],[{text:"🕘 Lịch sử",callback_data:`history:${g}`}],[{text:"⬅️ Signal",callback_data:"signal"},{text:"🏠 Hub",callback_data:"menu"}]]});
+const scanKb=g=>({inline_keyboard:[[{text:"🔄 Quét lại",callback_data:`signal:scan:${g}`},{text:"📚 LỆNH ĐANG CHẠY",callback_data:`live:${g}`}],[{text:"🔥 V10 chính thức",callback_data:"signal:top"},{text:"🕘 Lịch sử",callback_data:`history:${g}`}],[{text:"⬅️ Market",callback_data:`market:${g}`},{text:"🏠 Hub",callback_data:"menu"}]]});
+
+function bookPayload(raw,g){
+  if(!raw||typeof raw!=="object")return {};
+  if(raw[g]&&typeof raw[g]==="object")return raw[g];
+  if(raw.books?.[g]&&typeof raw.books[g]==="object")return raw.books[g];
+  if(Array.isArray(raw.marketActive)||Array.isArray(raw.signalActive)||Array.isArray(raw.limitActive)||Array.isArray(raw.limitPending))return raw;
+  return {};
+}
+function legacyRows(b){const out=[];for(const [k,label] of [["marketActive","MARKET"],["signalActive","SIGNAL"],["limitActive","LIMIT ACTIVE"],["limitPending","LIMIT CHỜ"]])for(const p of Array.isArray(b?.[k])?b[k]:[])out.push({...p,_bucket:label});return out;}
+function legacyLine(p){const side=String(p?.side||"").toUpperCase();return `${side==="LONG"?"🟢":"🔴"} ${p.symbol||"—"} • ${side==="LONG"?"BUY":"SELL"} • ${p._bucket}\n   📍 ${fmt(p.entry)} • SL ${fmt(p.sl)} • TP ${fmt(p.tp??p.tp2??p.tp1)}`;}
+function v10Line(x){const c=x?.candidate||{},s=x?.consensus||{},side=String(c.side||"").toUpperCase();return `${side==="LONG"?"🟢":"🔴"} ${c.symbol||"—"} • ${side==="LONG"?"BUY":"SELL"} • V10 CHÍNH THỨC\n   📍 ${fmt(c.entry)} • SL ${fmt(c.sl)} • TP ${fmt(c.tp)}${c.rr?` • RR ${Number(c.rr).toFixed(2)}`:""}\n   🧠 ${s.same||0}/3 AI • Conf ${s.directionalConfidence??0}% • ${x.lifecycleStatus||"OPEN"}`;}
+async function liveData(g,env){const [accepted,raw]=await Promise.all([getSignalV10Accepted(env,{market:g,limit:20}),engine(`/books?group=${g}`,env)]);return {accepted,legacy:legacyRows(bookPayload(raw,g))};}
+async function liveText(g,env){const d=await liveData(g,env),L=[`${name(g)} • LỆNH ĐANG CHẠY`,"━━━━━━━━━━━━",`🔥 V10 chính thức: ${d.accepted.length}`,`📦 Lệnh trước còn theo dõi: ${d.legacy.length}`];if(!d.accepted.length&&!d.legacy.length)L.push("","⚪ Hiện không có lệnh đang chạy.");if(d.accepted.length){L.push("","🔥 V10 CHÍNH THỨC");for(const x of d.accepted.slice(0,8))L.push(v10Line(x));}if(d.legacy.length){L.push("","📦 LỆNH TRƯỚC / ĐANG THEO DÕI");for(const p of d.legacy.slice(0,10))L.push(legacyLine(p));}L.push("","Lệnh TP/SL/hết hạn chuyển sang 🕘 Lịch sử, không bị xóa.");return L.join("\n");}
+async function liveAllText(env){const L=["📚 TOÀN BỘ LỆNH ĐANG CHẠY","━━━━━━━━━━━━"];let total=0;for(const g of GROUPS){const d=await liveData(g,env),n=d.accepted.length+d.legacy.length;total+=n;L.push("",`${name(g)} • ${n} lệnh`,`🔥 V10 ${d.accepted.length} • 📦 trước ${d.legacy.length}`);for(const x of d.accepted.slice(0,3))L.push(v10Line(x));for(const p of d.legacy.slice(0,3))L.push(legacyLine(p));}if(!total)L.push("","⚪ Không có lệnh đang chạy ở cả 4 thị trường.");return L.join("\n");}
+
+async function refreshCandidateQuotes(analyses,env){
+  const out=[];
+  for(const a of analyses||[]){
+    if(!ACTIONABLE.has(String(a?.status||"").toUpperCase())||!a?.symbol){out.push(a);continue;}
+    if(a?.analysisQuote?.price||a?.quote?.price){out.push(a);continue;}
+    try{
+      const fresh=await engine(`/analyze?symbol=${encodeURIComponent(a.symbol)}`,env),q=fresh?.analysisQuote||fresh?.quote;
+      out.push(q?.price?{...a,analysisQuote:q,quote:q,source:a.source||q.source}:a);
+    }catch{out.push(a);}
+  }
+  return out;
+}
+const reasonVi=r=>{const s=String(r||"");if(s==="QUOTE_MISSING")return "thiếu giá live xác nhận";if(s==="QUOTE_STALE")return "giá đã cũ";if(s.startsWith("QUALITY_BELOW_"))return `chất lượng dưới ${s.split("_").at(-1)}`;if(s.startsWith("RR_BELOW_"))return `RR dưới ${s.split("_").at(-1)}`;if(s==="PLAN_INCOMPLETE")return "thiếu Entry/SL/TP";if(s.includes("GEOMETRY"))return "Entry-SL-TP không hợp lệ";if(s==="ENTRY_INTELLIGENCE_BLOCK")return "thiếu bằng chứng entry";return s.replaceAll("_"," ").toLowerCase();};
+function scanText(g,r,added=[]){if(r?.status==="BUSY")return `${name(g)} • QUÉT MỚI\n━━━━━━━━━━━━\n⏳ Scanner đang bận. Không dùng dữ liệu cũ.`;if(r?.status==="RATE_BUDGET_WAIT")return `${name(g)} • QUÉT MỚI\n━━━━━━━━━━━━\n⏱ Data quota đang hồi. Không phát lệnh từ snapshot cũ.`;const pass=added.filter(x=>x?.preGate?.pass),rej=added.filter(x=>!x?.preGate?.pass),L=[`${name(g)} • QUÉT MỚI`,`━━━━━━━━━━━━`,`🔎 Coverage ${r?.broadOk||0}/${r?.requested||0} • Deep ${r?.deepOk||0}/${r?.deepRequested||0}`,`🧠 Đạt pre-gate, chờ 3 AI: ${pass.length}`,`🗑 Setup bị loại: ${rej.length}`];if(pass.length){L.push("","🧠 ĐANG CHỜ 3 AI");for(const x of pass.slice(0,3)){const c=x.candidate;L.push(`${c.side==="LONG"?"🟢 BUY":"🔴 SELL"} ${c.symbol}`,`📍 ${fmt(c.entry)} • SL ${fmt(c.sl)} • TP ${fmt(c.tp)}`,`⭐ Quality ${c.qualityScore}/100${c.rr?` • RR ${Number(c.rr).toFixed(2)}`:""}`);}}else L.push("","⚪ Chưa có setup mới đủ chuẩn để đưa 3 AI.");if(rej.length){const counts={};for(const x of rej)for(const rr of x?.preGate?.reasons||[])counts[reasonVi(rr)]=(counts[reasonVi(rr)]||0)+1;L.push("","ℹ️ Setup bị loại — KHÔNG PHẢI LỆNH:");for(const [k,v] of Object.entries(counts).slice(0,4))L.push(`• ${k}: ${v}`);}L.push("","✅ Chỉ setup vượt pre-gate + 3 AI mới thành V10 CHÍNH THỨC.");return L.join("\n");}
+
+function legacyHistoryRows(raw,g){const rows=Array.isArray(raw?.rows)?raw.rows:Array.isArray(raw)?raw:[];return rows.filter(x=>!g||x?.group===g||x?.market===g||x?.position?.group===g);}
+function historyLine(x){const p=x?.position||x?.candidate||x,ev=String(x?.event||x?.outcome||x?.lifecycleStatus||"CLOSED").toUpperCase(),side=String(p?.side||x?.side||"").toUpperCase();return `${ev.includes("TP")||ev==="WIN"?"✅":ev.includes("SL")||ev==="LOSS"?"❌":"⚪"} ${p?.symbol||x?.symbol||"—"} • ${side||"—"} • ${ev}\n   📍 Entry ${fmt(p?.entry??x?.entry)}${x?.closePrice||p?.closePrice?` • Close ${fmt(x?.closePrice??p?.closePrice)}`:""}`;}
+async function historyText(g,env){const [legacy,v10]=await Promise.all([engine("/order-history",env),getSignalV10History(env,100)]),rows=[...v10.filter(x=>!g||x.market===g),...legacyHistoryRows(legacy,g)].sort((a,b)=>Number(b.recordedAt||b.closedAt||0)-Number(a.recordedAt||a.closedAt||0)).slice(0,18),L=[`🕘 LỊCH SỬ${g?` • ${name(g)}`:""}`,"━━━━━━━━━━━━"];if(!rows.length)L.push("⚪ Chưa có lịch sử phù hợp.");for(const x of rows)L.push("",historyLine(x));L.push("","Lệnh đã đóng được lưu ở đây; Live chỉ giữ lệnh còn hoạt động.");return L.join("\n");}
+async function marketText(g,env){const d=await liveData(g,env);return [`${name(g)} • HUB`,`━━━━━━━━━━━━`,`📚 Đang chạy: ${d.accepted.length+d.legacy.length}`,`🔥 V10 chính thức: ${d.accepted.length}`,`📦 Lệnh trước còn theo dõi: ${d.legacy.length}`,"","🔍 QUÉT MỚI = tìm setup mới","🔥 V10 CHÍNH THỨC = đã vượt pre-gate + 3 AI","📚 LỆNH ĐANG CHẠY = gồm cả lệnh trước còn active"].join("\n");}
+
+async function handleTelegram(req,env){if(!verifyTelegram(req,env))return json({ok:false,error:"invalid telegram secret"},403);let u;try{u=await req.clone().json();}catch{return null;}if(!authorized(u,env))return null;const cb=String(u?.callback_query?.data||""),text=String(u?.message?.text||"").trim(),chatId=u?.callback_query?.message?.chat?.id??u?.message?.chat?.id??env.TELEGRAM_CHAT_ID;const owns=cb==="menu"||cb==="signal"||cb==="signal:top"||cb.startsWith("market:")||cb.startsWith("signal:scan:")||cb.startsWith("live:")||cb.startsWith("history:")||text==="/start"||text==="/menu"||text==="/signal10";if(!owns)return null;if(u?.callback_query?.id)tg(env,"answerCallbackQuery",{callback_query_id:u.callback_query.id,text:"V10 HUB"}).catch(()=>{});
+  if(cb==="menu"||text==="/start"||text==="/menu"){await send(env,chatId,["◈ TRADING HUB • V10","━━━━━━━━━━━━","📚 LỆNH ĐANG CHẠY = V10 + lệnh trước","🔥 V10 CHÍNH THỨC = đã qua 3 AI","🔍 QUÉT MỚI = candidate, chưa phải lệnh","🕘 LỊCH SỬ = TP / SL / hết hạn","","🟨 Binance Auto vẫn là project riêng."].join("\n"),mainKb());return json({ok:true,version:"V10"});}
+  if(cb==="signal"||text==="/signal10"){await send(env,chatId,["📡 SIGNAL CENTER • V10","━━━━━━━━━━━━","Quét mới → pre-gate → 3 AI → V10 chính thức → theo dõi TP/SL → lịch sử.","","Candidate bị loại chỉ hiện lý do, không hiển thị như một lệnh BUY/SELL."].join("\n"),signalKb());return json({ok:true});}
+  if(cb.startsWith("market:")){const g=cb.split(":")[1];await send(env,chatId,await marketText(g,env),marketKb(g));return json({ok:true});}
+  if(cb.startsWith("signal:scan:")){const g=cb.split(":")[2];await send(env,chatId,`⏳ ${name(g)} đang quét + refresh giá candidate…`);const r=await engine(`/run-now?group=${g}`,env);const enriched=r?.ok?await refreshCandidateQuotes(r?.analyses||[],env):[];const added=r?.ok?await recordSignalV10Candidates(env,g,enriched,{scanId:r?.scanId,trigger:"HUB_MANUAL_V10_UNIFIED"}):[];await send(env,chatId,scanText(g,r,added),scanKb(g));return json({ok:true,group:g,added:added.length});}
+  if(cb==="live:all"){await send(env,chatId,await liveAllText(env),mainKb());return json({ok:true});}
+  if(cb.startsWith("live:")){const g=cb.split(":")[1];if(GROUPS.includes(g)){await send(env,chatId,await liveText(g,env),marketKb(g));return json({ok:true});}}
+  if(cb.startsWith("history:")){const g=cb.split(":")[1];await send(env,chatId,await historyText(g==="all"?null:g,env),g==="all"?mainKb():marketKb(g));return json({ok:true});}
+  if(cb==="signal:top"){const rows=await getSignalV10Accepted(env,{limit:20}),L=["🔥 V10 CHÍNH THỨC","━━━━━━━━━━━━"];if(!rows.length)L.push("⚪ Chưa có signal 3-AI còn hiệu lực.");for(const x of rows.slice(0,10))L.push("",v10Line(x));L.push("","Candidate bị loại không xuất hiện trong danh sách này.");await send(env,chatId,L.join("\n"),signalKb());return json({ok:true});}
+  return null;
+}
+
+export default {
+  async fetch(req,env,ctx){if(new URL(req.url).pathname==="/telegram/webhook"&&req.method==="POST"){const r=await handleTelegram(req,env);if(r)return r;}return v10Core.fetch(req,env,ctx);},
+  async scheduled(event,env,ctx){return v10Core.scheduled?.(event,env,ctx);}
+};
