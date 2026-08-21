@@ -1,4 +1,4 @@
-import signalHub from "./hub-v10-unified-v2.js";
+import signalHub from "./hub-v10-unified-entry.js";
 import {handleUnifiedTelegram,handleControlApi} from "./binance-control-plane.js";
 
 const VERSION="V10";
@@ -43,6 +43,7 @@ export default {
       telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2",
       legacyLiveOrdersVisible:true,
       candidateQuoteRefresh:true,
+      autoCandidateQuoteRefresh:true,
       rejectedCandidatesHiddenFromTradeList:true,
       binanceCallbackNamespace:"binance:*",
       signalThreeAiCouncil:true,
