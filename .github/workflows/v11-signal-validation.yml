@@ -1,0 +1,28 @@
+name: V11 Signal Validation
+on:
+  push:
+    branches: [signal-v11]
+    paths: ['cloudflare-worker/v11/**','docs/checkpoints/V11_SIGNAL_MASTER.md','.github/workflows/v11-signal-validation.yml']
+  pull_request:
+    paths: ['cloudflare-worker/v11/**','docs/checkpoints/V11_SIGNAL_MASTER.md','.github/workflows/v11-signal-validation.yml']
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Syntax
+        run: |
+          set -euo pipefail
+          for f in cloudflare-worker/v11/*.js; do node --check "$f"; done
+      - name: V11 invariants
+        run: |
+          set -euo pipefail
+          grep -q "creditsPerMinute:55" cloudflare-worker/v11/config.js
+          grep -q "CLOUDFLARE_SINGLE_SCHEDULER" cloudflare-worker/v11/orchestrator.js
+          grep -q "V11_QUOTE_NOT_VERIFIED_FRESH" cloudflare-worker/v11/data-hub.js
+          grep -q "HUMAN_ASSISTED_NOT_API" cloudflare-worker/v11/ai-gateway.js
+          grep -q "crypto:{quality:62,minRR:1.08" cloudflare-worker/v11/config.js
+          ! grep -R "v10Core.scheduled\|V77.*authority\|V78.*authority" cloudflare-worker/v11
