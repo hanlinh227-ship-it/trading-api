@@ -6,7 +6,6 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
-import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,64 +31,44 @@ def webhook_origin():
     return f'{p.scheme}://{p.netloc}'
 def sign(method,path,ts,raw=''):return hmac.new(TOKEN.encode(),f'{method}\n{path}\n{ts}\n{raw}'.encode(),hashlib.sha256).hexdigest()
 def control_request(origin,method,path,payload=None,query=None):
-    raw='' if payload is None else json.dumps(payload,separators=(',',':'),ensure_ascii=False);ts=str(int(time.time()))
-    headers={'x-auto-futures-timestamp':ts,'x-auto-futures-signature':sign(method,path,ts,raw),'user-agent':'AUTO-FUTURES-V8-HUB-BRIDGE'}
-    url=origin+path
+    raw='' if payload is None else json.dumps(payload,separators=(',',':'),ensure_ascii=False);ts=str(int(time.time()));headers={'x-auto-futures-timestamp':ts,'x-auto-futures-signature':sign(method,path,ts,raw),'user-agent':'AUTO-FUTURES-V10-HUB-BRIDGE'};url=origin+path
     if query:url+='?'+urllib.parse.urlencode(query)
     data=raw.encode() if method=='POST' else None
     if method=='POST':headers['content-type']='application/json'
     return request_json(url,data=data,headers=headers,method=method,timeout=35)
-
-def binance_public(path,params=None):
-    url=BINANCE+path+('?' + urllib.parse.urlencode(params) if params else '')
-    return request_json(url,headers={'User-Agent':'AUTO-FUTURES-V8-HUB-BRIDGE'},timeout=15)
+def binance_public(path,params=None):return request_json(BINANCE+path+('?' + urllib.parse.urlencode(params) if params else ''),headers={'User-Agent':'AUTO-FUTURES-V10-HUB-BRIDGE'},timeout=15)
 def binance_signed(path,params=None):
     if not BINANCE_KEY or not BINANCE_SECRET:raise RuntimeError('BINANCE_CREDENTIALS_MISSING')
-    p=dict(params or {});p['timestamp']=int(binance_public('/fapi/v1/time')['serverTime']);p['recvWindow']=10000
-    q=urllib.parse.urlencode(p);sig=hmac.new(BINANCE_SECRET.encode(),q.encode(),hashlib.sha256).hexdigest()
-    return request_json(BINANCE+path+'?'+q+'&signature='+sig,headers={'X-MBX-APIKEY':BINANCE_KEY,'User-Agent':'AUTO-FUTURES-V8-HUB-BRIDGE'},timeout=20)
+    p=dict(params or {});p['timestamp']=int(binance_public('/fapi/v1/time')['serverTime']);p['recvWindow']=10000;q=urllib.parse.urlencode(p);sig=hmac.new(BINANCE_SECRET.encode(),q.encode(),hashlib.sha256).hexdigest();return request_json(BINANCE+path+'?'+q+'&signature='+sig,headers={'X-MBX-APIKEY':BINANCE_KEY,'User-Agent':'AUTO-FUTURES-V10-HUB-BRIDGE'},timeout=20)
 def live_snapshot():
     try:
-        rows=binance_signed('/fapi/v2/positionRisk');acct=binance_signed('/fapi/v2/account')
-        positions=[]
+        rows=binance_signed('/fapi/v2/positionRisk');acct=binance_signed('/fapi/v2/account');positions=[]
         for x in rows:
             amt=float(x.get('positionAmt',0) or 0)
             if abs(amt)<=0:continue
             positions.append({'symbol':x.get('symbol'),'side':'LONG' if amt>0 else 'SHORT','positionAmt':abs(amt),'entryPrice':float(x.get('entryPrice',0) or 0),'markPrice':float(x.get('markPrice',0) or 0),'unrealizedPnl':float(x.get('unRealizedProfit',0) or 0),'leverage':int(float(x.get('leverage',0) or 0)),'marginMode':'ISOLATED' if str(x.get('isolated','false')).lower()=='true' else 'CROSS'})
         return {'mode':'LIVE_BINANCE','updated_at':now().isoformat(),'positions':positions,'open_count':len(positions),'max_open_positions':5,'wallet_balance':float(acct.get('totalWalletBalance',0) or 0),'available_balance':float(acct.get('availableBalance',0) or 0),'unrealized_pnl':sum(p['unrealizedPnl'] for p in positions),'error':None}
     except Exception as exc:return {'mode':'LIVE_BINANCE','updated_at':now().isoformat(),'positions':[],'open_count':None,'max_open_positions':5,'wallet_balance':None,'available_balance':None,'unrealized_pnl':None,'error':str(exc)[:300]}
-
 def age_seconds(ts):
     try:return max(0.0,(now()-datetime.fromisoformat(str(ts).replace('Z','+00:00'))).total_seconds())
     except Exception:return 10**9
-
 def ai_health():
-    c=load(STATE/'ai_consensus.json',{})
-    generated=c.get('generated_at');age=age_seconds(generated)
-    lat=c.get('reviewer_latency_seconds') or {}
-    rows={}
+    c=load(STATE/'ai_consensus.json',{});generated=c.get('generated_at');age=age_seconds(generated);lat=c.get('reviewer_latency_seconds') or {};meta=c.get('provider_meta') or {};rows={}
     for name,key in [('claude','claude_status'),('deepseek','deepseek_status'),('codex','codex_status')]:
-        status=str(c.get(key) or 'UNKNOWN').upper()
-        rows[name]={'status':status,'ok':status=='OK','latency_seconds':lat.get(name)}
-    ok_count=sum(1 for x in rows.values() if x['ok'])
-    fresh=age<=180
-    if not fresh:overall='STALE'
-    elif ok_count==3:overall='HEALTHY'
-    elif ok_count>=1:overall='DEGRADED'
-    else:overall='DOWN'
+        status=str(c.get(key) or 'UNKNOWN').upper();m=meta.get(name) or {};cache=m.get('cache_usage') or {};usage=m.get('usage') or {}
+        rows[name]={'status':status,'ok':status=='OK','latency_seconds':lat.get(name),'model':m.get('model'),'transport':m.get('transport'),'cache_read_tokens':cache.get('cache_read_input_tokens',usage.get('prompt_cache_hit_tokens')),'cache_write_tokens':cache.get('cache_creation_input_tokens'),'estimated_usd':m.get('estimated_usd')}
+    ok_count=sum(1 for x in rows.values() if x['ok']);fresh=age<=180;overall='STALE' if not fresh else 'HEALTHY' if ok_count==3 else 'DEGRADED' if ok_count>=1 else 'DOWN'
     return {'overall':overall,'ok_count':ok_count,'required':3,'fresh':fresh,'age_seconds':round(age,1) if age<10**8 else None,'generated_at':generated,'reviewers':rows,'budget':(c.get('policy') or {}).get('budget',{}),'token_mode':(c.get('policy') or {}).get('token_mode')}
-
 def ai_status():
     h=ai_health();return f"{h['ok_count']}/3 OK" if h['fresh'] else 'STALE'
 def report(origin):
-    pending=load(PENDING,{'items':[]});live=live_snapshot();health=ai_health()
-    payload={'reported_at':now().isoformat(),'runtime':{'ai_status':ai_status(),'ai_health':health,'scan_status':'ACTIVE','mode':'CONFIRM_PER_TRADE','position_source':'BINANCE_LIVE_ONLY','live_snapshot_error':live.get('error')},'pending':pending,'positions':{'mode':'LIVE_BINANCE','positions':live['positions'],'open_count':live['open_count'],'max_open_positions':5,'updated_at':live['updated_at']},'pnl':{'realized_pnl':None,'unrealized_pnl':live.get('unrealized_pnl'),'wallet_balance':live.get('wallet_balance'),'available_balance':live.get('available_balance'),'updated_at':live['updated_at']}}
+    pending=load(PENDING,{'items':[]});live=live_snapshot();health=ai_health();payload={'reported_at':now().isoformat(),'runtime':{'ai_status':ai_status(),'ai_health':health,'scan_status':'ACTIVE','mode':'CONFIRM_PER_TRADE','signal_quality_guard':'V10_REQUIRED_ALL_ENTRY_PATHS','position_source':'BINANCE_LIVE_ONLY','live_snapshot_error':live.get('error')},'pending':pending,'positions':{'mode':'LIVE_BINANCE','positions':live['positions'],'open_count':live['open_count'],'max_open_positions':5,'updated_at':live['updated_at']},'pnl':{'realized_pnl':None,'unrealized_pnl':live.get('unrealized_pnl'),'wallet_balance':live.get('wallet_balance'),'available_balance':live.get('available_balance'),'updated_at':live['updated_at']}}
     return control_request(origin,'POST','/binance/control/report',payload=payload)
 def current_price(symbol):return float(binance_public('/fapi/v1/ticker/price',{'symbol':symbol})['price'])
 def run_revalidation():
-    env=os.environ.copy();commands=[['python3',str(ROOT/'paper_trader.py')],['python3',str(ROOT/'research/market_context_monitor.py')],['python3',str(ROOT/'ai/consensus.py')],['python3',str(ROOT/'risk/risk_engine.py')],['python3',str(ROOT/'execution/execution_guard.py')],['python3',str(ROOT/'execution/live_preflight.py')]]
+    env=os.environ.copy();commands=[['python3',str(ROOT/'paper_trader.py')],['python3',str(ROOT/'research/market_context_monitor.py')],['python3',str(ROOT/'research/signal_quality_guard.py')],['python3',str(ROOT/'ai/consensus.py')],['python3',str(ROOT/'risk/risk_engine.py')],['python3',str(ROOT/'execution/execution_guard.py')],['python3',str(ROOT/'execution/live_preflight.py')]]
     for cmd in commands:
-        p=subprocess.run(cmd,cwd=str(ROOT.parent),env=env,capture_output=True,text=True,timeout=300)
+        p=subprocess.run(cmd,cwd=str(ROOT.parent),env=env,capture_output=True,text=True,timeout=180)
         if p.returncode!=0:return False,(p.stderr or p.stdout)[-1500:]
     return True,'PASS'
 def notify(text):
@@ -113,17 +92,15 @@ def process_confirm(event):
     except Exception:return 'INVALID_LOCAL_EXPIRY'
     update_local_item(trade_id,'CONFIRMING');ok,detail=run_revalidation()
     if not ok:update_local_item(trade_id,'REVALIDATION_FAILED',detail);return 'REVALIDATION_FAILED'
-    risk=load(RISK,{'decisions':{}});guard=load(GUARD,{'decisions':{}});pre=load(STATE/'live_preflight.json',{})
-    d=risk.get('decisions',{}).get(item['symbol'],{});g=guard.get('decisions',{}).get(item['symbol'],{});pf=(pre.get('decisions') or {}).get(item['symbol'],{})
+    risk=load(RISK,{'decisions':{}});guard=load(GUARD,{'decisions':{}});pre=load(STATE/'live_preflight.json',{});d=risk.get('decisions',{}).get(item['symbol'],{});g=guard.get('decisions',{}).get(item['symbol'],{});pf=(pre.get('decisions') or {}).get(item['symbol'],{})
     if not d.get('approved') or not g.get('executable') or not pf.get('eligible'):update_local_item(trade_id,'NO_LONGER_VALID','CURRENT_GUARD_OR_PREFLIGHT_REJECTED');return 'CURRENT_GUARD_OR_PREFLIGHT_REJECTED'
     if str(d.get('action')).upper()!=str(item.get('action')).upper():update_local_item(trade_id,'SETUP_CHANGED','DIRECTION_CHANGED');return 'DIRECTION_CHANGED'
     if str(d.get('strategy')).upper()!=str(item.get('strategy')).upper():update_local_item(trade_id,'SETUP_CHANGED','STRATEGY_CHANGED');return 'STRATEGY_CHANGED'
     if g.get('fingerprint')!=item.get('fingerprint'):update_local_item(trade_id,'SETUP_CHANGED','FINGERPRINT_CHANGED');return 'FINGERPRINT_CHANGED'
     old_entry=float(item['entry']);old_stop=float(item['stop_loss']);r=abs(old_entry-old_stop);px=current_price(item['symbol'])
-    if r<=0 or abs(px-old_entry)>0.35*r:update_local_item(trade_id,'PRICE_MOVED',f'CURRENT_PRICE={px}');return 'PRICE_MOVED'
-    confirmation={'status':'CONFIRMED','confirmed_at':now().isoformat(),'expires_in_seconds':30,'source_trade_id':trade_id,'symbol':item['symbol'],'action':item['action'],'strategy':item['strategy'],'fingerprint':g.get('fingerprint'),'decision':d,'confirmed_by_telegram_user':str(event.get('telegram_user_id','')),'source':'CLOUDFLARE_EXISTING_HUB'}
-    save(CONFIRM,confirmation);p=subprocess.run(['python3',str(ROOT/'execution/live_executor.py')],cwd=str(ROOT.parent),env=os.environ.copy(),capture_output=True,text=True,timeout=120)
-    out=load(EXEC_STATE,{});status=out.get('status') or ('EXECUTOR_OK' if p.returncode==0 else 'EXECUTOR_FAILED');update_local_item(trade_id,'CONFIRMED' if not out.get('executed') else 'EXECUTED',status);notify(f"🟨 BINANCE {item['symbol']} {item['action']}\n{status}\nExecuted: {bool(out.get('executed'))}");return status
+    if r<=0 or abs(px-old_entry)>.35*r:update_local_item(trade_id,'PRICE_MOVED',f'CURRENT_PRICE={px}');return 'PRICE_MOVED'
+    confirmation={'status':'CONFIRMED','confirmed_at':now().isoformat(),'expires_in_seconds':30,'source_trade_id':trade_id,'symbol':item['symbol'],'action':item['action'],'strategy':item['strategy'],'fingerprint':g.get('fingerprint'),'decision':d,'confirmed_by_telegram_user':str(event.get('telegram_user_id','')),'source':'CLOUDFLARE_EXISTING_HUB_V10'};save(CONFIRM,confirmation)
+    p=subprocess.run(['python3',str(ROOT/'execution/live_executor.py')],cwd=str(ROOT.parent),env=os.environ.copy(),capture_output=True,text=True,timeout=120);out=load(EXEC_STATE,{});status=out.get('status') or ('EXECUTOR_OK' if p.returncode==0 else 'EXECUTOR_FAILED');update_local_item(trade_id,'CONFIRMED' if not out.get('executed') else 'EXECUTED',status);notify(f"🟨 BINANCE {item['symbol']} {item['action']}\n{status}\nExecuted: {bool(out.get('executed'))}");return status
 def process_event(event):
     decision=str(event.get('decision','')).upper();trade_id=event.get('trade_id')
     if decision=='REJECTED':update_local_item(trade_id,'REJECTED','REJECTED_ON_EXISTING_HUB');return 'REJECTED'
