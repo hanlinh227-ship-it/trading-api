@@ -1,8 +1,8 @@
-import signalHub from "./hub-v77171.js";
+import signalHub from "./hub-v10.js";
 import {handleUnifiedTelegram,handleControlApi} from "./binance-control-plane.js";
 
-const VERSION="V78.029";
-const SERVICE="Trading Unified Hub • Signal + Binance Approval";
+const VERSION="V10";
+const SERVICE="Trading Unified Hub • Signal Only V10 + Separate Binance Approval";
 
 export default {
   async fetch(req,env,ctx){
@@ -20,11 +20,16 @@ export default {
       ...body,
       version:VERSION,
       service:SERVICE,
+      signalOnlySourceOfTruth:"V10",
+      signalThreeAiCouncil:true,
+      signalLifecycleLearning:true,
+      signalObservedWinRate:true,
+      legacySignalVersions:"COMPATIBILITY_SCANNER_ONLY",
       executionAuthority:"APPROVAL_CONTROL_ONLY",
       binanceApprovalHub:true,
-      binanceExecutionLocation:"VPS",
-      hyroRemoved:true
-    },null,2),{status:r.status,headers:{"content-type":"application/json; charset=utf-8"}});
+      binanceAutoProjectSeparate:true,
+      binanceExecutionLocation:"VPS"
+    },null,2),{status:r.status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
   },
   async scheduled(event,env,ctx){
     return signalHub.scheduled?.(event,env,ctx);
