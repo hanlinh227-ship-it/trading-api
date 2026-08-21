@@ -17,6 +17,7 @@ GUARD_FILE = STATE / 'execution_guard.json'
 CONFIRM_FILE = STATE / 'trade_confirmation.json'
 OUT_FILE = STATE / 'live_executor_state.json'
 BASE = 'https://fapi.binance.com'
+MAX_CONCURRENT_POSITIONS = 5
 
 
 def now():
@@ -84,7 +85,8 @@ def signed(method, path, params=None):
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f'BINANCE_HTTP_{e.code}: {e.read().decode(errors="replace")}')
+        body = e.read().decode(errors='replace')
+        raise RuntimeError(f'BINANCE_HTTP_{e.code}: {body}')
 
 
 def symbol_info(symbol):
@@ -144,6 +146,30 @@ def require_one_way():
         raise RuntimeError('HEDGE_MODE_BLOCKED_USE_ONE_WAY')
 
 
+def live_open_positions():
+    rows = signed('GET', '/fapi/v2/positionRisk', {})
+    return [x for x in rows if abs(float(x.get('positionAmt', 0) or 0)) > 0]
+
+
+def enforce_live_slot(symbol):
+    rows = live_open_positions()
+    symbols = {str(x.get('symbol')) for x in rows}
+    if symbol in symbols:
+        raise RuntimeError('POSITION_ALREADY_OPEN_LIVE')
+    if len(rows) >= MAX_CONCURRENT_POSITIONS:
+        raise RuntimeError(f'MAX_{MAX_CONCURRENT_POSITIONS}_LIVE_POSITIONS')
+    return len(rows), MAX_CONCURRENT_POSITIONS - len(rows)
+
+
+def ensure_isolated(symbol):
+    try:
+        signed('POST', '/fapi/v1/marginType', {'symbol': symbol, 'marginType': 'ISOLATED'})
+    except RuntimeError as exc:
+        text = str(exc)
+        if '-4046' not in text and 'No need to change margin type' not in text:
+            raise
+
+
 def build_plan(symbol, d):
     account = signed('GET', '/fapi/v2/account', {})
     available = float(account.get('availableBalance', 0))
@@ -172,10 +198,20 @@ def build_plan(symbol, d):
     q1 = floor_step(qty * float(m.get('tp1_close_pct', 30)) / 100, step)
     q2 = floor_step(qty * float(m.get('tp2_close_pct', 30)) / 100, step)
     return {
-        'symbol': symbol, 'side': side, 'close_side': close_side, 'qty': qty, 'q1': q1, 'q2': q2,
-        'leverage': leverage, 'stop': round_tick(float(d['stop_loss']), tick),
-        'tp1': round_tick(float(d['tp1']), tick), 'tp2': round_tick(float(d['tp2']), tick),
-        'tp3': round_tick(float(d['tp3']), tick), 'strategy': d.get('strategy'), 'risk_pct': risk_pct,
+        'symbol': symbol,
+        'side': side,
+        'close_side': close_side,
+        'qty': qty,
+        'q1': q1,
+        'q2': q2,
+        'leverage': leverage,
+        'stop': round_tick(float(d['stop_loss']), tick),
+        'tp1': round_tick(float(d['tp1']), tick),
+        'tp2': round_tick(float(d['tp2']), tick),
+        'tp3': round_tick(float(d['tp3']), tick),
+        'strategy': d.get('strategy'),
+        'risk_pct': risk_pct,
+        'margin_mode': 'ISOLATED',
     }
 
 
@@ -183,15 +219,24 @@ def emergency_close(plan, filled_qty):
     if filled_qty <= 0:
         return None
     return signed('POST', '/fapi/v1/order', {
-        'symbol': plan['symbol'], 'side': plan['close_side'], 'type': 'MARKET',
-        'quantity': filled_qty, 'reduceOnly': 'true', 'newOrderRespType': 'RESULT',
+        'symbol': plan['symbol'],
+        'side': plan['close_side'],
+        'type': 'MARKET',
+        'quantity': filled_qty,
+        'reduceOnly': 'true',
+        'newOrderRespType': 'RESULT',
     })
 
 
 def place_algo(plan, order_type, stop_price, quantity=None, close_all=False):
     params = {
-        'algoType': 'CONDITIONAL', 'symbol': plan['symbol'], 'side': plan['close_side'],
-        'type': order_type, 'stopPrice': stop_price, 'workingType': 'MARK_PRICE', 'priceProtect': 'true',
+        'algoType': 'CONDITIONAL',
+        'symbol': plan['symbol'],
+        'side': plan['close_side'],
+        'type': order_type,
+        'stopPrice': stop_price,
+        'workingType': 'MARK_PRICE',
+        'priceProtect': 'true',
     }
     if close_all:
         params['closePosition'] = 'true'
@@ -202,9 +247,14 @@ def place_algo(plan, order_type, stop_price, quantity=None, close_all=False):
 
 
 def execute(plan):
+    enforce_live_slot(plan['symbol'])
+    ensure_isolated(plan['symbol'])
     signed('POST', '/fapi/v1/leverage', {'symbol': plan['symbol'], 'leverage': plan['leverage']})
     entry = signed('POST', '/fapi/v1/order', {
-        'symbol': plan['symbol'], 'side': plan['side'], 'type': 'MARKET', 'quantity': plan['qty'],
+        'symbol': plan['symbol'],
+        'side': plan['side'],
+        'type': 'MARKET',
+        'quantity': plan['qty'],
         'newOrderRespType': 'RESULT',
     })
     filled = float(entry.get('executedQty') or plan['qty'])
@@ -239,6 +289,11 @@ def main():
         'live_armed': LIVE_ARMED,
         'status': reason,
         'executed': False,
+        'policy': {
+            'max_concurrent_positions': MAX_CONCURRENT_POSITIONS,
+            'margin_mode': 'ISOLATED_ONLY',
+            'slot_refills_after_position_close': True,
+        },
     }
     if not gate:
         save_json(OUT_FILE, output)
@@ -253,8 +308,11 @@ def main():
         print_output(output)
         return
     require_one_way()
+    open_count, slots_left = enforce_live_slot(symbol)
+    output['live_open_positions_before'] = open_count
+    output['live_slots_left_before'] = slots_left
     result = execute(plan)
-    output.update({'status': 'EXECUTED_PROTECTED', 'executed': True, 'result': result})
+    output.update({'status': 'EXECUTED_PROTECTED_ISOLATED', 'executed': True, 'result': result})
     c = gate['confirmation']
     c['status'] = 'CONSUMED'
     c['consumed_at'] = now().isoformat()
