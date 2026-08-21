@@ -46,6 +46,7 @@ def load_env():
         out[k.strip()] = v.strip().strip('"').strip("'")
     return out
 
+
 ENV = load_env()
 API_KEY = ENV.get('BINANCE_API_KEY', '')
 API_SECRET = ENV.get('BINANCE_API_SECRET', '')
@@ -57,7 +58,7 @@ def public_get(path, params=None):
     url = BASE + path
     if params:
         url += '?' + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={'User-Agent':'AUTO-FUTURES-V6-CONFIRMED'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'AUTO-FUTURES-V6-CONFIRMED'})
     with urllib.request.urlopen(req, timeout=15) as r:
         return json.loads(r.read().decode())
 
@@ -102,12 +103,12 @@ def flt(info, name):
 
 def floor_step(value, step):
     v, s = Decimal(str(value)), Decimal(str(step))
-    return float((v/s).to_integral_value(rounding=ROUND_DOWN)*s) if s else float(v)
+    return float((v / s).to_integral_value(rounding=ROUND_DOWN) * s) if s else float(v)
 
 
 def round_tick(value, tick):
     v, t = Decimal(str(value)), Decimal(str(tick))
-    return float((v/t).to_integral_value(rounding=ROUND_HALF_UP)*t) if t else float(v)
+    return float((v / t).to_integral_value(rounding=ROUND_HALF_UP) * t) if t else float(v)
 
 
 def confirmation_gate():
@@ -115,15 +116,16 @@ def confirmation_gate():
     if c.get('status') != 'CONFIRMED':
         return None, 'NO_TELEGRAM_CONFIRMATION'
     try:
-        confirmed_at = datetime.fromisoformat(c['confirmed_at'].replace('Z','+00:00'))
+        confirmed_at = datetime.fromisoformat(c['confirmed_at'].replace('Z', '+00:00'))
     except Exception:
         return None, 'CONFIRMATION_TIME_INVALID'
     ttl = int(c.get('expires_in_seconds', 30))
     if (now() - confirmed_at).total_seconds() > ttl:
-        c['status'] = 'EXPIRED'; save_json(CONFIRM_FILE, c)
+        c['status'] = 'EXPIRED'
+        save_json(CONFIRM_FILE, c)
         return None, 'CONFIRMATION_EXPIRED'
-    risk = load_json(RISK_FILE, {'decisions':{}})
-    guard = load_json(GUARD_FILE, {'decisions':{}})
+    risk = load_json(RISK_FILE, {'decisions': {}})
+    guard = load_json(GUARD_FILE, {'decisions': {}})
     symbol = c.get('symbol')
     d = risk.get('decisions', {}).get(symbol, {})
     g = guard.get('decisions', {}).get(symbol, {})
@@ -133,7 +135,7 @@ def confirmation_gate():
         return None, 'FINGERPRINT_CHANGED'
     if str(d.get('action')).upper() != str(c.get('action')).upper():
         return None, 'DIRECTION_CHANGED'
-    return {'confirmation':c, 'decision':d, 'guard':g}, 'PASS'
+    return {'confirmation': c, 'decision': d, 'guard': g}, 'PASS'
 
 
 def require_one_way():
@@ -147,29 +149,33 @@ def build_plan(symbol, d):
     available = float(account.get('availableBalance', 0))
     if available <= 0:
         raise RuntimeError('NO_AVAILABLE_BALANCE')
-    entry = float(d['entry']); stop = float(d['stop_loss'])
-    distance = abs(entry-stop)
+    entry = float(d['entry'])
+    stop = float(d['stop_loss'])
+    distance = abs(entry - stop)
     if distance <= 0:
         raise RuntimeError('INVALID_STOP_DISTANCE')
-    risk_pct = float(d.get('risk_pct', 0.5)); leverage = int(d.get('max_leverage', 3))
-    qty = min(available*risk_pct/100/distance, available*leverage/entry)
+    risk_pct = float(d.get('risk_pct', 0.5))
+    leverage = int(d.get('max_leverage', 3))
+    qty = min(available * risk_pct / 100 / distance, available * leverage / entry)
     info = symbol_info(symbol)
     lot = flt(info, 'MARKET_LOT_SIZE') or flt(info, 'LOT_SIZE')
     price_filter = flt(info, 'PRICE_FILTER')
-    step = float(lot['stepSize']); min_qty = float(lot['minQty']); tick = float(price_filter['tickSize'])
+    step = float(lot['stepSize'])
+    min_qty = float(lot['minQty'])
+    tick = float(price_filter['tickSize'])
     qty = floor_step(qty, step)
     if qty < min_qty:
         raise RuntimeError(f'QTY_BELOW_MIN_{qty}_{min_qty}')
-    side = 'BUY' if d['action']=='LONG' else 'SELL'
-    close_side = 'SELL' if side=='BUY' else 'BUY'
+    side = 'BUY' if d['action'] == 'LONG' else 'SELL'
+    close_side = 'SELL' if side == 'BUY' else 'BUY'
     m = d.get('management') or {}
-    q1 = floor_step(qty*float(m.get('tp1_close_pct',30))/100, step)
-    q2 = floor_step(qty*float(m.get('tp2_close_pct',30))/100, step)
+    q1 = floor_step(qty * float(m.get('tp1_close_pct', 30)) / 100, step)
+    q2 = floor_step(qty * float(m.get('tp2_close_pct', 30)) / 100, step)
     return {
-        'symbol':symbol,'side':side,'close_side':close_side,'qty':qty,'q1':q1,'q2':q2,
-        'leverage':leverage,'stop':round_tick(float(d['stop_loss']),tick),
-        'tp1':round_tick(float(d['tp1']),tick),'tp2':round_tick(float(d['tp2']),tick),
-        'tp3':round_tick(float(d['tp3']),tick),'strategy':d.get('strategy'),'risk_pct':risk_pct,
+        'symbol': symbol, 'side': side, 'close_side': close_side, 'qty': qty, 'q1': q1, 'q2': q2,
+        'leverage': leverage, 'stop': round_tick(float(d['stop_loss']), tick),
+        'tp1': round_tick(float(d['tp1']), tick), 'tp2': round_tick(float(d['tp2']), tick),
+        'tp3': round_tick(float(d['tp3']), tick), 'strategy': d.get('strategy'), 'risk_pct': risk_pct,
     }
 
 
@@ -177,15 +183,15 @@ def emergency_close(plan, filled_qty):
     if filled_qty <= 0:
         return None
     return signed('POST', '/fapi/v1/order', {
-        'symbol':plan['symbol'],'side':plan['close_side'],'type':'MARKET',
-        'quantity':filled_qty,'reduceOnly':'true','newOrderRespType':'RESULT',
+        'symbol': plan['symbol'], 'side': plan['close_side'], 'type': 'MARKET',
+        'quantity': filled_qty, 'reduceOnly': 'true', 'newOrderRespType': 'RESULT',
     })
 
 
 def place_algo(plan, order_type, stop_price, quantity=None, close_all=False):
     params = {
-        'algoType':'CONDITIONAL','symbol':plan['symbol'],'side':plan['close_side'],
-        'type':order_type,'stopPrice':stop_price,'workingType':'MARK_PRICE','priceProtect':'true',
+        'algoType': 'CONDITIONAL', 'symbol': plan['symbol'], 'side': plan['close_side'],
+        'type': order_type, 'stopPrice': stop_price, 'workingType': 'MARK_PRICE', 'priceProtect': 'true',
     }
     if close_all:
         params['closePosition'] = 'true'
@@ -196,10 +202,10 @@ def place_algo(plan, order_type, stop_price, quantity=None, close_all=False):
 
 
 def execute(plan):
-    signed('POST', '/fapi/v1/leverage', {'symbol':plan['symbol'],'leverage':plan['leverage']})
+    signed('POST', '/fapi/v1/leverage', {'symbol': plan['symbol'], 'leverage': plan['leverage']})
     entry = signed('POST', '/fapi/v1/order', {
-        'symbol':plan['symbol'],'side':plan['side'],'type':'MARKET','quantity':plan['qty'],
-        'newOrderRespType':'RESULT',
+        'symbol': plan['symbol'], 'side': plan['side'], 'type': 'MARKET', 'quantity': plan['qty'],
+        'newOrderRespType': 'RESULT',
     })
     filled = float(entry.get('executedQty') or plan['qty'])
     protection = {}
@@ -213,28 +219,48 @@ def execute(plan):
     except Exception as exc:
         close_result = emergency_close(plan, filled)
         raise RuntimeError(f'PROTECTION_FAILED_EMERGENCY_CLOSED: {exc}; close={close_result}')
-    return {'entry':entry,'protection':protection,'filled_qty':filled}
+    return {'entry': entry, 'protection': protection, 'filled_qty': filled}
+
+
+def print_output(output):
+    print(json.dumps(output, indent=2, ensure_ascii=False))
+    if not output.get('executed'):
+        print('LIVE EXECUTION LOCKED')
+        print('NO REAL ORDER WAS SENT')
 
 
 def main():
     if not API_KEY or not API_SECRET:
         raise SystemExit('BINANCE API credentials missing')
     gate, reason = confirmation_gate()
-    output = {'generated_at':now().isoformat(),'live_trading':LIVE_TRADING,'live_armed':LIVE_ARMED,'status':reason,'executed':False}
+    output = {
+        'generated_at': now().isoformat(),
+        'live_trading': LIVE_TRADING,
+        'live_armed': LIVE_ARMED,
+        'status': reason,
+        'executed': False,
+    }
     if not gate:
-        save_json(OUT_FILE, output); print(json.dumps(output, indent=2)); return
+        save_json(OUT_FILE, output)
+        print_output(output)
+        return
     symbol = gate['confirmation']['symbol']
     plan = build_plan(symbol, gate['decision'])
     output['plan'] = plan
     if not (LIVE_TRADING and LIVE_ARMED):
         output['status'] = 'CONFIRMED_DRY_RUN_LIVE_LOCKED'
-        save_json(OUT_FILE, output); print(json.dumps(output, indent=2)); return
+        save_json(OUT_FILE, output)
+        print_output(output)
+        return
     require_one_way()
     result = execute(plan)
-    output.update({'status':'EXECUTED_PROTECTED','executed':True,'result':result})
-    c = gate['confirmation']; c['status']='CONSUMED'; c['consumed_at']=now().isoformat(); save_json(CONFIRM_FILE,c)
+    output.update({'status': 'EXECUTED_PROTECTED', 'executed': True, 'result': result})
+    c = gate['confirmation']
+    c['status'] = 'CONSUMED'
+    c['consumed_at'] = now().isoformat()
+    save_json(CONFIRM_FILE, c)
     save_json(OUT_FILE, output)
-    print(json.dumps(output, indent=2, ensure_ascii=False))
+    print_output(output)
 
 
 if __name__ == '__main__':
