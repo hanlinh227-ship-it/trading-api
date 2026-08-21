@@ -15,15 +15,11 @@ cd "$ROOT"
 if [[ "$SKIP_GIT" != "1" ]]; then
   git fetch origin "$BRANCH"
   git checkout -f "$BRANCH"
-  # Production source-of-truth: tracked runtime code must equal GitHub.
-  # Runtime state/env files are not removed by reset --hard.
   git reset --hard "origin/$BRANCH"
 fi
-
 mkdir -p "$BOT/state" "$BOT/logs" "$BOT/backups"
 chmod +x "$BOT/run_pipeline.sh" "$BOT/runtime/"*.sh 2>/dev/null || true
 
-# Existing Telegram/Cloudflare Hub credentials only. Never create another bot.
 if [[ ! -f /opt/trading/.env.telegram ]]; then
   cat > /opt/trading/.env.telegram <<'EOF'
 TELEGRAM_BOT_TOKEN=""
@@ -33,7 +29,6 @@ EOF
 fi
 chmod 600 /opt/trading/.env.telegram
 
-# AI budget defaults. Provider-side exact remaining quota is not invented.
 touch /opt/trading/.env.ai
 add_ai_default(){ grep -q "^$1=" /opt/trading/.env.ai || echo "$1=$2" >> /opt/trading/.env.ai; }
 add_ai_default CLAUDE_BUDGET_WINDOW_HOURS '"5"'
@@ -44,18 +39,16 @@ add_ai_default DEEPSEEK_DAILY_BUDGET_USD '"1.00"'
 add_ai_default DEEPSEEK_MONTHLY_BUDGET_USD '"15.00"'
 add_ai_default DEEPSEEK_INPUT_USD_PER_M_TOKENS '"0.28"'
 add_ai_default DEEPSEEK_OUTPUT_USD_PER_M_TOKENS '"0.42"'
-add_ai_default AI_REVIEW_TIMEOUT_SECONDS '"65"'
+add_ai_default AI_REVIEW_TIMEOUT_SECONDS '"60"'
+add_ai_default AI_COUNCIL_LOCK_WAIT_SECONDS '"20"'
 add_ai_default AUTO_FUTURES_SCAN_MAX_RUNTIME_SECONDS '"240"'
 chmod 600 /opt/trading/.env.ai
 
-# Never overwrite an existing LIVE setting during deploy/update.
-# First installation remains fail-closed by default.
 if [[ -f /opt/trading/.env.binance ]]; then
   grep -q '^BINANCE_LIVE_TRADING=' /opt/trading/.env.binance || echo 'BINANCE_LIVE_TRADING="false"' >> /opt/trading/.env.binance
   grep -q '^BINANCE_LIVE_ARMED=' /opt/trading/.env.binance || echo 'BINANCE_LIVE_ARMED="false"' >> /opt/trading/.env.binance
   chmod 600 /opt/trading/.env.binance
 fi
-
 systemctl disable --now auto-futures-telegram.service >/dev/null 2>&1 || true
 
 cat > /etc/systemd/system/auto-futures-scan.service <<'EOF'
@@ -74,14 +67,11 @@ ExecStart=/opt/trading/trading-api/auto-futures-v1/runtime/scan_loop.sh
 TimeoutStartSec=300
 Nice=5
 EOF
-
 cat > /etc/systemd/system/auto-futures-scan.timer <<'EOF'
 [Unit]
 Description=Auto Futures Production Scan Scheduler
 [Timer]
 OnBootSec=20s
-# Start the next scan only AFTER the previous service becomes inactive.
-# This prevents timer catch-up from creating back-to-back overlapping loops.
 OnUnitInactiveSec=45s
 AccuracySec=3s
 Persistent=false
@@ -89,7 +79,6 @@ Unit=auto-futures-scan.service
 [Install]
 WantedBy=timers.target
 EOF
-
 cat > /etc/systemd/system/auto-futures-hub-bridge.service <<'EOF'
 [Unit]
 Description=Auto Futures Existing Cloudflare Hub Control Bridge
@@ -109,7 +98,6 @@ NoNewPrivileges=true
 [Install]
 WantedBy=multi-user.target
 EOF
-
 cat > /etc/systemd/system/auto-futures-update.service <<'EOF'
 [Unit]
 Description=Auto Futures GitHub Production Updater
@@ -122,7 +110,6 @@ WorkingDirectory=/opt/trading/trading-api
 ExecStart=/opt/trading/trading-api/auto-futures-v1/runtime/watch_github.sh
 TimeoutStartSec=300
 EOF
-
 cat > /etc/systemd/system/auto-futures-update.timer <<'EOF'
 [Unit]
 Description=Check Auto Futures GitHub Updates Every 5 Minutes
@@ -136,11 +123,10 @@ Unit=auto-futures-update.service
 WantedBy=timers.target
 EOF
 
-# Static validation only: no Claude/DeepSeek/Codex calls and no test trading pipeline.
 FILES=(
   "$BOT/paper_trader.py"
-  "$BOT/ai/common.py" "$BOT/ai/ai_budget_governor.py" "$BOT/ai/claude_trader.py"
-  "$BOT/ai/deepseek_trader.py" "$BOT/ai/codex_trader.py" "$BOT/ai/consensus.py"
+  "$BOT/ai/common.py" "$BOT/ai/ai_budget_governor.py" "$BOT/ai/ai_coordination.py"
+  "$BOT/ai/claude_trader.py" "$BOT/ai/deepseek_trader.py" "$BOT/ai/codex_trader.py" "$BOT/ai/consensus.py"
   "$BOT/risk/risk_engine.py" "$BOT/execution/execution_guard.py" "$BOT/execution/live_preflight.py"
   "$BOT/execution/approval_queue.py" "$BOT/execution/live_executor.py" "$BOT/execution/hub_control_bridge.py"
   "$BOT/research/market_context_monitor.py" "$BOT/research/reliability_learner.py"
@@ -154,7 +140,6 @@ systemctl daemon-reload
 systemctl enable --now auto-futures-update.timer
 systemctl enable --now auto-futures-scan.timer
 systemctl enable --now auto-futures-position.service
-
 set +u
 source /opt/trading/.env.telegram 2>/dev/null || true
 source /opt/trading/.env.ai 2>/dev/null || true
@@ -167,25 +152,8 @@ else
   systemctl stop auto-futures-hub-bridge.service 2>/dev/null || true
   HUB_STATUS="NEEDS_EXISTING_HUB_CREDENTIALS"
 fi
-
-UPDATE_STATUS="$(systemctl is-active auto-futures-update.timer || true)"
-SCAN_STATUS="$(systemctl is-active auto-futures-scan.timer || true)"
-POSITION_STATUS="$(systemctl is-active auto-futures-position.service || true)"
-
+UPDATE_STATUS="$(systemctl is-active auto-futures-update.timer || true)";SCAN_STATUS="$(systemctl is-active auto-futures-scan.timer || true)";POSITION_STATUS="$(systemctl is-active auto-futures-position.service || true)"
 echo; echo "========================================"; echo "PRODUCTION SYSTEM STATUS"; echo "========================================"
-echo "BRANCH=$BRANCH"
-echo "GITHUB_SOURCE_OF_TRUTH=true"
-echo "CLOUDFLARE_HUB=existing_only"
-echo "SCAN_SINGLETON=flock_plus_systemd"
-echo "UPDATE_AI_TESTS=disabled"
-echo "UPDATE_PIPELINE_TEST=disabled"
-echo "UPDATE_TIMER=$UPDATE_STATUS"
-echo "SCAN_TIMER=$SCAN_STATUS"
-echo "POSITION_MANAGER=$POSITION_STATUS"
-echo "BINANCE_HUB_BRIDGE=$HUB_STATUS"
-echo "LIVE_PREFLIGHT=fail_closed"
-echo "MAX_LIVE_POSITIONS=5"
-echo "MARGIN_MODE=ISOLATED_ONLY"
-echo "DUPLICATE_TELEGRAM_HUB=disabled"
+echo "BRANCH=$BRANCH";echo "GITHUB_SOURCE_OF_TRUTH=true";echo "CLOUDFLARE_HUB=existing_only";echo "SCAN_SINGLETON=flock_plus_systemd";echo "AI_COUNCIL_SINGLE_FLIGHT=true";echo "AI_PROVIDER_CIRCUIT_BREAKER=true";echo "AI_SHARED_DECISION_CONTRACT=true";echo "AI_DIRECTIONAL_CONFIDENCE=true";echo "AI_COORDINATION_LEARNING=bounded_health_and_conflict_memory";echo "UPDATE_AI_TESTS=disabled";echo "UPDATE_PIPELINE_TEST=disabled";echo "UPDATE_TIMER=$UPDATE_STATUS";echo "SCAN_TIMER=$SCAN_STATUS";echo "POSITION_MANAGER=$POSITION_STATUS";echo "BINANCE_HUB_BRIDGE=$HUB_STATUS";echo "LIVE_PREFLIGHT=fail_closed";echo "MAX_LIVE_POSITIONS=5";echo "MARGIN_MODE=ISOLATED_ONLY";echo "DUPLICATE_TELEGRAM_HUB=disabled"
 if [[ -f /opt/trading/.env.binance ]]; then grep -E '^BINANCE_(LIVE_TRADING|LIVE_ARMED)=' /opt/trading/.env.binance || true; fi
 echo "========================================"
