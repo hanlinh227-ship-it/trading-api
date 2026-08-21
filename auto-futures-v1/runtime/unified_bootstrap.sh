@@ -14,7 +14,6 @@ cd "$ROOT"
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
-
 mkdir -p "$BOT/state" "$BOT/logs" "$BOT/backups"
 chmod +x "$BOT/run_pipeline.sh" "$BOT/runtime/"*.sh 2>/dev/null || true
 
@@ -24,12 +23,22 @@ TELEGRAM_BOT_TOKEN=""
 TELEGRAM_CHAT_ID=""
 TELEGRAM_ALLOWED_USER_ID=""
 EOF
-  chmod 600 /opt/trading/.env.telegram
-  echo "TELEGRAM_ENV_CREATED=1"
-else
-  chmod 600 /opt/trading/.env.telegram
-  echo "TELEGRAM_ENV_EXISTS=1"
 fi
+chmod 600 /opt/trading/.env.telegram
+
+# AI budget settings are local guardrails. They do not claim to know provider-side remaining quota.
+touch /opt/trading/.env.ai
+add_ai_default(){ grep -q "^$1=" /opt/trading/.env.ai || echo "$1=$2" >> /opt/trading/.env.ai; }
+add_ai_default CLAUDE_BUDGET_WINDOW_HOURS '"5"'
+add_ai_default CLAUDE_MAX_CALLS_5H '"24"'
+add_ai_default CLAUDE_RESERVE_CALLS_5H '"6"'
+add_ai_default CODEX_MAX_CALLS_5H '"40"'
+add_ai_default DEEPSEEK_DAILY_BUDGET_USD '"1.00"'
+add_ai_default DEEPSEEK_MONTHLY_BUDGET_USD '"15.00"'
+# DeepSeek prices are configurable because provider pricing changes. Update these to current account pricing when needed.
+add_ai_default DEEPSEEK_INPUT_USD_PER_M_TOKENS '"0.28"'
+add_ai_default DEEPSEEK_OUTPUT_USD_PER_M_TOKENS '"0.42"'
+chmod 600 /opt/trading/.env.ai
 
 systemctl disable --now auto-futures-telegram.service >/dev/null 2>&1 || true
 
@@ -38,7 +47,6 @@ cat > /etc/systemd/system/auto-futures-hub-bridge.service <<'EOF'
 Description=Auto Futures V8 Existing Hub Control Bridge
 After=network-online.target
 Wants=network-online.target
-
 [Service]
 Type=simple
 User=root
@@ -50,7 +58,6 @@ ExecStart=/usr/bin/python3 /opt/trading/trading-api/auto-futures-v1/execution/hu
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -58,14 +65,12 @@ EOF
 cat > /etc/systemd/system/auto-futures-scan.timer <<'EOF'
 [Unit]
 Description=Run Auto Futures V8 MTF scan every 60 seconds
-
 [Timer]
 OnBootSec=20s
 OnUnitActiveSec=60s
 AccuracySec=3s
 Persistent=true
 Unit=auto-futures-scan.service
-
 [Install]
 WantedBy=timers.target
 EOF
@@ -75,7 +80,6 @@ cat > /etc/systemd/system/auto-futures-update.service <<'EOF'
 Description=Auto Futures GitHub Safe Updater
 After=network-online.target
 Wants=network-online.target
-
 [Service]
 Type=oneshot
 User=root
@@ -87,14 +91,12 @@ EOF
 cat > /etc/systemd/system/auto-futures-update.timer <<'EOF'
 [Unit]
 Description=Check Auto Futures GitHub Updates Every 5 Minutes
-
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min
 AccuracySec=10s
 Persistent=true
 Unit=auto-futures-update.service
-
 [Install]
 WantedBy=timers.target
 EOF
@@ -107,6 +109,7 @@ systemctl enable --now auto-futures-position.service
 python3 -m py_compile \
   "$BOT/paper_trader.py" \
   "$BOT/ai/common.py" \
+  "$BOT/ai/ai_budget_governor.py" \
   "$BOT/ai/claude_trader.py" \
   "$BOT/ai/deepseek_trader.py" \
   "$BOT/ai/codex_trader.py" \
@@ -121,7 +124,6 @@ python3 -m py_compile \
   "$BOT/research/reliability_learner.py" \
   "$BOT/position/ai_position_guardian.py" \
   "$BOT/position/position_manager.py"
-
 echo "PYTHON_SYNTAX=PASS"
 
 if [[ -f /opt/trading/.env.binance ]]; then
@@ -132,6 +134,7 @@ fi
 
 set +u
 source /opt/trading/.env.telegram 2>/dev/null || true
+source /opt/trading/.env.ai 2>/dev/null || true
 set -u
 if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
   systemctl enable --now auto-futures-hub-bridge.service
@@ -141,28 +144,15 @@ else
   systemctl stop auto-futures-hub-bridge.service 2>/dev/null || true
   HUB_STATUS="NEEDS_EXISTING_HUB_CREDENTIALS"
 fi
+UPDATE_STATUS="$(systemctl is-active auto-futures-update.timer || true)";SCAN_STATUS="$(systemctl is-active auto-futures-scan.timer || true)";POSITION_STATUS="$(systemctl is-active auto-futures-position.service || true)"
 
-UPDATE_STATUS="$(systemctl is-active auto-futures-update.timer || true)"
-SCAN_STATUS="$(systemctl is-active auto-futures-scan.timer || true)"
-POSITION_STATUS="$(systemctl is-active auto-futures-position.service || true)"
-
-echo
-echo "========================================"
-echo "UNIFIED SYSTEM STATUS"
-echo "========================================"
-echo "BRANCH=$BRANCH"
-echo "UPDATE_TIMER=$UPDATE_STATUS"
-echo "SCAN_TIMER=$SCAN_STATUS"
-echo "POSITION_MANAGER=$POSITION_STATUS"
-echo "BINANCE_HUB_BRIDGE=$HUB_STATUS"
-echo "LIVE_PREFLIGHT=fail_closed"
-echo "EXECUTION_IDEMPOTENCY=entry_client_order_id"
-echo "INCIDENT_LOCK=enabled"
-echo "RELIABILITY_COUNCIL=event_gated_6h_cache"
-echo "MARKET_CONTEXT=20s_cached"
-echo "AI_TOKEN_MODE=event_gated_90s_cache"
-echo "POSITION_GUARDIAN=HOLD_REDUCE_EXIT"
-echo "DUPLICATE_TELEGRAM_HUB=disabled"
+echo;echo "========================================";echo "UNIFIED SYSTEM STATUS";echo "========================================"
+echo "BRANCH=$BRANCH";echo "UPDATE_TIMER=$UPDATE_STATUS";echo "SCAN_TIMER=$SCAN_STATUS";echo "POSITION_MANAGER=$POSITION_STATUS";echo "BINANCE_HUB_BRIDGE=$HUB_STATUS"
+echo "LIVE_PREFLIGHT=fail_closed";echo "EXECUTION_IDEMPOTENCY=entry_client_order_id";echo "INCIDENT_LOCK=enabled";echo "RELIABILITY_COUNCIL=event_gated_6h_cache"
+echo "AI_TOKEN_MODE=event_gated_budget_governed";echo "CLAUDE_WINDOW=${CLAUDE_BUDGET_WINDOW_HOURS:-5}h";echo "CLAUDE_MAX_CALLS=${CLAUDE_MAX_CALLS_5H:-24}";echo "CLAUDE_RESERVED=${CLAUDE_RESERVE_CALLS_5H:-6}"
+echo "DEEPSEEK_DAILY_USD=${DEEPSEEK_DAILY_BUDGET_USD:-1.00}";echo "DEEPSEEK_MONTHLY_USD=${DEEPSEEK_MONTHLY_BUDGET_USD:-15.00}"
+echo "POSITION_GUARDIAN=HOLD_REDUCE_EXIT";echo "DUPLICATE_TELEGRAM_HUB=disabled"
 if [[ -f /opt/trading/.env.binance ]]; then grep -E '^BINANCE_(LIVE_TRADING|LIVE_ARMED)=' /opt/trading/.env.binance || true; fi
 echo "========================================"
-if [[ "$HUB_STATUS" == "NEEDS_EXISTING_HUB_CREDENTIALS" ]]; then echo "NEXT=reuse the existing Hub TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in /opt/trading/.env.telegram"; else echo "NEXT=run V8 pipeline and inspect live_preflight/reliability before arming live"; fi
+python3 "$BOT/ai/ai_budget_governor.py" || true
+if [[ "$HUB_STATUS" == "NEEDS_EXISTING_HUB_CREDENTIALS" ]]; then echo "NEXT=reuse existing Hub credentials"; else echo "NEXT=run V8 pipeline and inspect budget/preflight before arming live"; fi
