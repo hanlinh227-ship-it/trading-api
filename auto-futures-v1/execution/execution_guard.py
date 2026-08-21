@@ -5,236 +5,71 @@ from datetime import datetime, timezone
 
 ROOT = Path("/opt/trading/trading-api/auto-futures-v1")
 STATE = ROOT / "state"
-
 SNAPSHOT_FILE = STATE / "market_snapshot.json"
 CONSENSUS_FILE = STATE / "ai_consensus.json"
 RISK_FILE = STATE / "risk_decisions.json"
-DAILY_FILE = STATE / "daily_risk.json"
 EXEC_STATE_FILE = STATE / "execution_state.json"
-
-MAX_SIGNAL_AGE_SECONDS = 600
-
-
-def utc_now():
-    return datetime.now(timezone.utc)
+OUTPUT_FILE = STATE / "execution_guard.json"
+MAX_SIGNAL_AGE_SECONDS = 420
 
 
 def load(path, default):
-    if not path.exists():
-        return default
-
     try:
-        return json.loads(
-            path.read_text(encoding="utf-8")
-        )
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
     except Exception:
         return default
 
 
 def parse_time(value):
-    if not value:
-        return None
-
     try:
-        return datetime.fromisoformat(
-            value.replace("Z", "+00:00")
-        )
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except Exception:
         return None
 
 
 def fingerprint(symbol, decision, consensus):
-    payload = {
-        "symbol": symbol,
-        "action": decision.get("action"),
-        "entry": decision.get("entry"),
-        "stop_loss": decision.get("stop_loss"),
-        "tp1": decision.get("tp1"),
-        "tp2": decision.get("tp2"),
-        "tp3": decision.get("tp3"),
-        "consensus_generated_at": consensus.get("generated_at"),
-    }
-
-    raw = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-
+    raw = json.dumps({"symbol":symbol,"action":decision.get("action"),"strategy":decision.get("strategy"),"entry":decision.get("entry"),"stop":decision.get("stop_loss"),"consensus":consensus.get("generated_at")}, sort_keys=True).encode()
     return hashlib.sha256(raw).hexdigest()
 
 
 def main():
     snapshot = load(SNAPSHOT_FILE, {})
     consensus = load(CONSENSUS_FILE, {})
-    risk = load(RISK_FILE, {"decisions": {}})
-    daily = load(DAILY_FILE, {})
-    exec_state = load(
-        EXEC_STATE_FILE,
-        {
-            "processed": {},
-            "emergency_stop": False,
-        }
-    )
-
+    risk = load(RISK_FILE, {"decisions":{}})
+    state = load(EXEC_STATE_FILE, {"processed":{},"emergency_stop":False})
+    now = datetime.now(timezone.utc)
     global_blocks = []
-
-    if exec_state.get("emergency_stop"):
+    if state.get("emergency_stop"):
         global_blocks.append("MANUAL_EMERGENCY_STOP")
-
-    if daily.get("kill_switch"):
-        global_blocks.append("DAILY_LOSS_KILL_SWITCH")
-
-    snapshot_time = parse_time(
-        snapshot.get("generated_at")
-    )
-
-    consensus_time = parse_time(
-        consensus.get("generated_at")
-    )
-
-    now = utc_now()
-
-    if snapshot_time is None:
-        global_blocks.append("SNAPSHOT_TIME_INVALID")
-    else:
-        age = (
-            now - snapshot_time
-        ).total_seconds()
-
-        if age > MAX_SIGNAL_AGE_SECONDS:
-            global_blocks.append(
-                f"SNAPSHOT_STALE_{int(age)}S"
-            )
-
-    if consensus_time is None:
-        global_blocks.append("CONSENSUS_TIME_INVALID")
-    else:
-        age = (
-            now - consensus_time
-        ).total_seconds()
-
-        if age > MAX_SIGNAL_AGE_SECONDS:
-            global_blocks.append(
-                f"CONSENSUS_STALE_{int(age)}S"
-            )
+    for label, value in (("SNAPSHOT", snapshot.get("generated_at")), ("CONSENSUS", consensus.get("generated_at")), ("RISK", risk.get("generated_at"))):
+        t = parse_time(value)
+        if t is None:
+            global_blocks.append(f"{label}_TIME_INVALID")
+        else:
+            age = (now - t).total_seconds()
+            if age > MAX_SIGNAL_AGE_SECONDS:
+                global_blocks.append(f"{label}_STALE_{int(age)}S")
 
     decisions = {}
-
-    for symbol, decision in risk.get(
-        "decisions", {}
-    ).items():
-
-        approved = bool(
-            decision.get("approved")
-        )
-
-        fp = fingerprint(
-            symbol,
-            decision,
-            consensus,
-        )
-
+    for symbol, d in risk.get("decisions", {}).items():
         reasons = list(global_blocks)
+        if not d.get("approved"):
+            reasons.append("RISK_ENGINE_NOT_APPROVED")
+        if d.get("action") not in {"LONG","SHORT"}:
+            reasons.append("NOT_ENTRY_ACTION")
+        if d.get("entry") is None or d.get("stop_loss") is None:
+            reasons.append("MISSING_ENTRY_OR_STOP")
+        fp = fingerprint(symbol, d, consensus)
+        if state.get("processed", {}).get(symbol) == fp:
+            reasons.append("DUPLICATE_DECISION")
+        decisions[symbol] = {"executable":not reasons,"fingerprint":fp,"blocks":reasons,"action":d.get("action"),"strategy":d.get("strategy"),"entry":d.get("entry"),"stop_loss":d.get("stop_loss"),"tp1":d.get("tp1"),"tp2":d.get("tp2"),"tp3":d.get("tp3")}
 
-        if not approved:
-            reasons.append(
-                "RISK_ENGINE_NOT_APPROVED"
-            )
-
-        if decision.get("action") not in (
-            "LONG",
-            "SHORT",
-        ):
-            reasons.append(
-                "NOT_ENTRY_ACTION"
-            )
-
-        previous = exec_state.get(
-            "processed",
-            {}
-        ).get(symbol)
-
-        if previous == fp:
-            reasons.append(
-                "DUPLICATE_DECISION"
-            )
-
-        executable = (
-            len(reasons) == 0
-        )
-
-        decisions[symbol] = {
-            "executable": executable,
-            "fingerprint": fp,
-            "blocks": reasons,
-            "action": decision.get("action"),
-            "entry": decision.get("entry"),
-            "stop_loss": decision.get("stop_loss"),
-            "tp1": decision.get("tp1"),
-            "tp2": decision.get("tp2"),
-            "tp3": decision.get("tp3"),
-        }
-
-    output = {
-        "generated_at": now.isoformat(),
-        "mode": "DRY_RUN",
-        "global_blocks": global_blocks,
-        "decisions": decisions,
-    }
-
-    (
-        STATE / "execution_guard.json"
-    ).write_text(
-        json.dumps(
-            output,
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-
-    print()
-    print("=" * 50)
-    print("EXECUTION SAFETY GUARD")
-    print("=" * 50)
-
-    print(
-        "EMERGENCY STOP :",
-        exec_state.get(
-            "emergency_stop",
-            False
-        )
-    )
-
-    print(
-        "DAILY KILL      :",
-        daily.get(
-            "kill_switch",
-            False
-        )
-    )
-
-    print(
-        "GLOBAL BLOCKS   :",
-        global_blocks or "NONE"
-    )
-
-    print()
-
-    for symbol, item in decisions.items():
-        print(
-            symbol,
-            "| EXECUTABLE:",
-            item["executable"],
-            "|",
-            ",".join(item["blocks"])
-            if item["blocks"]
-            else "PASS"
-        )
-
-    print()
-    print("DRY RUN ONLY")
+    out = {"generated_at":now.isoformat(),"mode":"DRY_RUN","policy":{"daily_loss_kill":False,"daily_trade_limit":None,"manual_emergency_stop":True,"freshness_guard":True,"duplicate_guard":True},"global_blocks":global_blocks,"decisions":decisions}
+    OUTPUT_FILE.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+    print("="*48); print("V4 SCALP EXECUTION GUARD"); print("="*48)
+    print("EMERGENCY STOP:", state.get("emergency_stop",False), "| DAILY LOSS KILL: DISABLED")
+    for s,d in decisions.items():
+        print(s, "| EXECUTABLE", d["executable"], "|", ",".join(d["blocks"]) if d["blocks"] else "PASS")
     print("NO BINANCE ORDER AUTHORITY")
 
 
