@@ -40,7 +40,7 @@ def size_for_risk(equity, entry, stop, risk_pct, leverage):
     return max(0.0,min(risk_usd/distance,equity*leverage/entry))
 
 def close_partial(p, price, fraction, event):
-    qty=min(p['quantity']*fraction,p['remaining_qty'])
+    qty=min(p['remaining_qty']*fraction,p['remaining_qty'])
     if qty<=0:return
     gain=pnl(p['side'],p['entry'],price,qty);p['remaining_qty']-=qty;p['realized_pnl']+=gain
     log_event({'event':event,'timestamp':now(),'symbol':p['symbol'],'strategy':p.get('strategy'),'price':price,'quantity':qty,'pnl':gain,'remaining_qty':p['remaining_qty']})
@@ -50,16 +50,32 @@ def close_all(p, price, reason):
     p['remaining_qty']=0.0;p['realized_pnl']+=gain;p['status']='CLOSED';p['closed_at']=now();p['close_reason']=reason
     log_event({'event':'PAPER_CLOSE','timestamp':now(),'symbol':p['symbol'],'strategy':p.get('strategy'),'regime':p.get('regime'),'price':price,'reason':reason,'pnl':gain,'total_pnl':p['realized_pnl']})
 
-def apply_ai_management(p, mgmt):
+def apply_ai_management(p, mgmt, price):
     d=(mgmt.get('decisions') or {}).get(p.get('symbol')) or {}
-    if not d:return
-    try: proposed=float(d.get('proposed_stop'))
-    except Exception:return
+    if not d:return False
+    action=str(d.get('management_action','HOLD')).upper()
     old=float(p['stop_loss']);long=p['side']=='LONG'
-    # invariant: AI can only tighten risk, never widen it.
+
+    # Exit / reduce require the guardian's multi-evidence rule. A single AI vote never closes the trade.
+    if action=='EXIT':
+        close_all(p,price,'AI_CONTEXT_EXIT')
+        p['ai_management_mode']=action;p['ai_management_reason']=d.get('reason');p['ai_management_updated_at']=now()
+        return True
+    if action=='REDUCE' and not p.get('ai_reduced_once'):
+        fraction=max(0.0,min(0.75,float(d.get('reduce_fraction',0.5) or 0.5)))
+        close_partial(p,price,fraction,'AI_REDUCE')
+        p['ai_reduced_once']=True
+
+    try: proposed=float(d.get('proposed_stop'))
+    except Exception: proposed=old
     if (long and proposed>old) or ((not long) and proposed<old):
-        p['stop_loss']=proposed;p['ai_management_mode']=d.get('mode');p['ai_management_updated_at']=now();p['trail_factor']=float(d.get('trail_factor_r',p.get('trail_factor',0.85)))
-        log_event({'event':'AI_STOP_TIGHTEN','timestamp':now(),'symbol':p['symbol'],'old_stop':old,'new_stop':proposed,'mode':d.get('mode'),'ai_actions':d.get('ai_actions')})
+        p['stop_loss']=proposed
+        log_event({'event':'AI_STOP_TIGHTEN','timestamp':now(),'symbol':p['symbol'],'old_stop':old,'new_stop':proposed,'mode':action,'reason':d.get('reason'),'ai_actions':d.get('ai_actions')})
+    p['ai_management_mode']=action
+    p['ai_management_reason']=d.get('reason')
+    p['ai_management_updated_at']=now()
+    p['trail_factor']=float(d.get('trail_factor_r',p.get('trail_factor',0.85)))
+    return False
 
 def manage_position(p, price):
     long=p['side']=='LONG'
@@ -95,14 +111,16 @@ def main():
             positions.append(p);open_symbols.add(symbol);open_count+=1;log_event({'event':'PAPER_OPEN','timestamp':now(),**p})
     for p in positions:
         if p.get('status')!='OPEN':continue
-        apply_ai_management(p,mgmt)
-        try:manage_position(p,get_price(p['symbol']))
+        try:
+            px=get_price(p['symbol'])
+            exited=apply_ai_management(p,mgmt,px)
+            if not exited and p.get('status')=='OPEN':manage_position(p,px)
         except Exception as exc:log_event({'event':'PRICE_ERROR','timestamp':now(),'symbol':p.get('symbol'),'error':repr(exc)})
     realized=sum(float(p.get('realized_pnl',0) or 0) for p in positions);open_pos=[p for p in positions if p.get('status')=='OPEN']
     state.update({'mode':'PAPER','updated_at':now(),'starting_equity':starting,'equity':starting+realized,'realized_pnl':realized,'positions':positions,'max_concurrent_positions':MAX_OPEN_POSITIONS,'open_slots':max(0,MAX_OPEN_POSITIONS-len(open_pos)),'daily_trade_limit':None,'daily_loss_limit':None})
     save(POSITIONS_FILE,state)
-    print('='*56);print('V6 AI-MANAGED PAPER POSITION MANAGER');print('='*56);print('EQUITY:',round(state['equity'],4),'| OPEN:',len(open_pos),'/',MAX_OPEN_POSITIONS,'| SLOTS:',state['open_slots'],'| REALIZED:',round(realized,4))
-    for p in open_pos:print(p['symbol'],p.get('regime'),p['strategy'],p['side'],'| entry',p['entry'],'| SL',round(p['stop_loss'],8),'| AI',p.get('ai_management_mode','STRUCTURE'))
+    print('='*56);print('V7 AI-CONTEXT PAPER POSITION MANAGER');print('='*56);print('EQUITY:',round(state['equity'],4),'| OPEN:',len(open_pos),'/',MAX_OPEN_POSITIONS,'| SLOTS:',state['open_slots'],'| REALIZED:',round(realized,4))
+    for p in open_pos:print(p['symbol'],p.get('regime'),p['strategy'],p['side'],'| entry',p['entry'],'| SL',round(p['stop_loss'],8),'| AI',p.get('ai_management_mode','STRUCTURE'),'|',p.get('ai_management_reason',''))
     print('PAPER MODE ONLY - NO REAL BINANCE ORDER WAS SENT')
 
 if __name__=='__main__':main()
