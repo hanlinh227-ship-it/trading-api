@@ -11,39 +11,44 @@ echo
 echo "========================================"
 echo "AUTO FUTURES V6 — MTF ADAPTIVE SCALP"
 echo "24/7 | EXISTING HUB PER-TRADE CONFIRMATION"
+echo "MAX 5 ISOLATED | 3-AI POSITION GUARDIAN"
 echo "========================================"
 
-echo; echo "=== 1/9 CONTINUOUS LEARNING POLICY ==="
+echo; echo "=== 1/10 CONTINUOUS ENTRY LEARNING ==="
 python3 auto-futures-v1/learning/continuous_learner.py
 
-echo; echo "=== 2/9 LIQUID FUTURES + DEEP MTF SCANNER ==="
+echo; echo "=== 2/10 LIQUID FUTURES + DEEP MTF SCANNER ==="
 python3 auto-futures-v1/paper_trader.py
 
-echo; echo "=== 3/9 THREE SPECIALIZED AI REVIEWERS ==="
+echo; echo "=== 3/10 THREE SPECIALIZED AI REVIEWERS ==="
 python3 auto-futures-v1/ai/consensus.py
 
-echo; echo "=== 4/9 ADAPTIVE PER-TRADE RISK ==="
+echo; echo "=== 4/10 ADAPTIVE PER-TRADE RISK ==="
 python3 auto-futures-v1/risk/risk_engine.py
 
-echo; echo "=== 5/9 EXECUTION GUARD ==="
+echo; echo "=== 5/10 EXECUTION GUARD ==="
 python3 auto-futures-v1/execution/execution_guard.py
 
-echo; echo "=== 6/9 PAPER EXECUTOR ==="
+echo; echo "=== 6/10 3-AI POSITION GUARDIAN ==="
+python3 auto-futures-v1/position/ai_position_guardian.py
+
+echo; echo "=== 7/10 PAPER EXECUTOR ==="
 python3 auto-futures-v1/execution/paper_executor.py
 
-echo; echo "=== 7/9 POSITION MANAGER ==="
+echo; echo "=== 8/10 POSITION MANAGER ==="
 python3 auto-futures-v1/position/position_manager.py
 
-echo; echo "=== 8/9 RESEARCH JOURNAL ==="
+echo; echo "=== 9/10 RESEARCH JOURNAL ==="
 python3 auto-futures-v1/research/learning_engine.py
 
-echo; echo "=== 9/9 HUB APPROVAL QUEUE ==="
+echo; echo "=== 10/10 HUB APPROVAL QUEUE ==="
 python3 auto-futures-v1/execution/approval_queue.py
 
 echo
 echo "========================================"
 echo "PIPELINE COMPLETE"
-echo "V6 MTF ADAPTIVE RESEARCH COMPLETE"
+echo "V6 ADAPTIVE ENTRY + POSITION MANAGEMENT"
+echo "FULL 5/5 => NO NEW HUB TRADE NOTIFICATIONS"
 echo "LIVE ORDER REQUIRES EXISTING HUB CONFIRMATION"
 echo "NO REAL BINANCE ORDER WAS SENT"
 echo "========================================"
