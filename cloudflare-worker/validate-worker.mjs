@@ -18,7 +18,23 @@ for(const f of files){
     if(!fs.existsSync(p))errors.push(`IMPORT ${f}: missing ${spec}`);
   }
 }
-const required=['index.js','engine-v77168.js','hub-v77171.js','hyro-runtime.js','hyro-scanner.js','hyro-execution.js','system-health.js','adaptive-tuning.js','ai-arbiter.js','dual-ai-intervention.js','claude-reviewer.js','claude-telegram.js'];
+const required=[
+  'index.js',
+  'hub-v10.js',
+  'signal-v10-council.js',
+  'signal-v10-learning.js',
+  'engine-v77168.js',
+  'hub-v77171.js',
+  'binance-control-plane.js',
+  'adaptive-tuning.js',
+  'ai-arbiter.js',
+  'providers/entry-intelligence.js',
+  'providers/decision-evidence.js',
+  'providers/telegram-client.js'
+];
 for(const f of required)if(!fs.existsSync(path.join(root,f)))errors.push(`REQUIRED missing ${f}`);
-if(errors.length){console.error(`Worker preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
-console.log(`Worker preflight PASS: ${files.length} JS/MJS files, imports resolved.`);
+const index=fs.readFileSync(path.join(root,'index.js'),'utf8');
+if(!index.includes('hub-v10.js'))errors.push('SOURCE_OF_TRUTH index.js must import hub-v10.js');
+if(!index.includes('const VERSION="V10"'))errors.push('SOURCE_OF_TRUTH index.js must expose VERSION V10');
+if(errors.length){console.error(`Worker V10 preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
+console.log(`Worker V10 preflight PASS: ${files.length} JS/MJS files, imports resolved, V10 source-of-truth locked.`);
