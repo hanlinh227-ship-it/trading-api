@@ -247,57 +247,71 @@ log "PYTHON SYNTAX PASS"
 
 
 # ============================================================
-# 8. CLAUDE TEST
+# 8-10. AI RUNTIME TESTS
 # ============================================================
 
-timeout 120 \
-claude \
---model sonnet \
--p 'Return exactly this JSON and nothing else: {"status":"OK"}' \
+log "AI TEST START"
+
+timeout 120 claude --model sonnet -p \
+'Return exactly this JSON and nothing else: {"status":"OK"}' \
 > /tmp/auto_futures_claude.out \
 2> /tmp/auto_futures_claude.err
 
+python3 - <<'PY2'
+import json
+from pathlib import Path
 
-grep -Eq \
-'"status"[[:space:]]*:[[:space:]]*"OK"' \
-/tmp/auto_futures_claude.out
+text = Path("/tmp/auto_futures_claude.out").read_text().strip()
+obj = json.loads(text[text.find("{"):text.rfind("}")+1])
+
+if obj.get("status") != "OK":
+    raise SystemExit(1)
+PY2
 
 log "CLAUDE PASS"
 
 
-# ============================================================
-# 9. DEEPSEEK TEST
-# ============================================================
+python3 auto-futures-v1/ai/deepseek_trader.py \
+> /tmp/auto_futures_deepseek.out \
+2> /tmp/auto_futures_deepseek.err
 
-python3 \
-auto-futures-v1/ai/deepseek_trader.py \
-> /tmp/auto_futures_deepseek.out
+python3 - <<'PY2'
+import json
+from pathlib import Path
 
+text = Path("/tmp/auto_futures_deepseek.out").read_text().strip()
+obj = json.loads(text.splitlines()[-1])
 
-grep -Eq \
-'"status"[[:space:]]*:[[:space:]]*"OK"' \
-/tmp/auto_futures_deepseek.out
+if obj.get("status") != "OK":
+    raise SystemExit(1)
+PY2
 
 log "DEEPSEEK PASS"
 
 
-# ============================================================
-# 10. CODEX TEST
-# ============================================================
-
-timeout 180 \
-codex exec \
+timeout 180 codex exec \
 'Return exactly this JSON and nothing else: {"status":"OK"}' \
 > /tmp/auto_futures_codex.out \
 2> /tmp/auto_futures_codex.err
 
+python3 - <<'PY2'
+import json
+from pathlib import Path
 
-grep -Eq \
-'"status"[[:space:]]*:[[:space:]]*"OK"' \
-/tmp/auto_futures_codex.out
+text = Path("/tmp/auto_futures_codex.out").read_text().strip()
+
+start = text.rfind('{"status":"OK"}')
+
+if start == -1:
+    raise SystemExit(1)
+
+obj = json.loads(text[start:])
+
+if obj.get("status") != "OK":
+    raise SystemExit(1)
+PY2
 
 log "CODEX PASS"
-
 
 # ============================================================
 # 11. EMERGENCY STOP OFF FOR PAPER
