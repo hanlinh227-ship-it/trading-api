@@ -6,7 +6,6 @@ SNAPSHOT = ROOT / "state" / "market_snapshot.json"
 LEARNING = ROOT / "state" / "learning_stats.json"
 POLICY = ROOT / "state" / "adaptive_policy.json"
 MARKET_CONTEXT = ROOT / "state" / "market_context.json"
-POSITIONS = ROOT / "state" / "paper_positions.json"
 
 
 def load_snapshot():
@@ -23,30 +22,49 @@ def load_optional(path):
 
 
 def candidate_setups(snapshot):
+    """Fast entry-review set.
+
+    Position management is handled by the dedicated guardian, so PAPER positions
+    are never injected into entry-review prompts. Only actionable LONG/SHORT
+    scanner candidates are sent to the three reviewers, ranked by quality.
+    """
     items = snapshot.get("ai_candidates") or snapshot.get("setups") or []
-    positions = load_optional(POSITIONS).get("positions", [])
-    open_symbols = {p.get("symbol") for p in positions if p.get("status") == "OPEN"}
-    # Token policy: always preserve open positions, then only the strongest new candidates.
-    open_rows = [x for x in items if x.get("symbol") in open_symbols]
-    new_rows = [x for x in items if x.get("symbol") not in open_symbols]
-    new_rows = sorted(new_rows, key=lambda x: float(x.get("setup_quality", x.get("setup_score", 0)) or 0), reverse=True)
-    merged = []
-    seen = set()
-    for x in open_rows + new_rows[:7]:
-        symbol = x.get("symbol")
-        if symbol and symbol not in seen:
-            merged.append(x); seen.add(symbol)
-    return merged[:12]
+    actionable = [
+        x for x in items
+        if str(x.get("candidate_action", "WAIT")).upper() in {"LONG", "SHORT"}
+        and not (x.get("blockers") or [])
+    ]
+    actionable.sort(
+        key=lambda x: (
+            float(x.get("setup_quality", x.get("setup_score", 0)) or 0),
+            -float(x.get("spread_bps", 999999) or 999999),
+        ),
+        reverse=True,
+    )
+    return actionable[:3]
 
 
 def compact_setup(s):
+    tfs = s.get("timeframes") or {}
+    # Keep only the fields needed for the decision. This materially reduces
+    # Claude latency/token use while preserving all eight timeframe layers.
+    compact_tfs = {}
+    for tf in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"):
+        d = tfs.get(tf)
+        if not isinstance(d, dict):
+            continue
+        compact_tfs[tf] = {
+            k: d.get(k) for k in (
+                "trend", "rsi", "momentum", "mom3", "ema20_dist_pct",
+                "volume_ratio", "atr_pct"
+            ) if k in d
+        }
     return {
         "symbol": s["symbol"],
         "candidate_action": s.get("candidate_action", "WAIT"),
         "strategy": s.get("strategy", "NO_EDGE"),
         "regime": s.get("regime", "UNKNOWN"),
-        "setup_score": s.get("setup_score", 0),
-        "setup_quality": s.get("setup_quality", 0),
+        "setup_quality": s.get("setup_quality", s.get("setup_score", 0)),
         "learning_multiplier": s.get("learning_multiplier", 1.0),
         "entry": s.get("entry"),
         "stop_loss": s.get("stop_loss"),
@@ -54,28 +72,22 @@ def compact_setup(s):
         "tp2": s.get("tp2"),
         "tp3": s.get("tp3"),
         "funding_rate": s.get("funding_rate"),
-        "open_interest": s.get("open_interest"),
         "open_interest_change_pct": s.get("open_interest_change_pct"),
         "taker_buy_sell_ratio": s.get("taker_buy_sell_ratio"),
         "spread_bps": s.get("spread_bps"),
         "estimated_roundtrip_cost_bps": s.get("estimated_roundtrip_cost_bps"),
-        "timeframes": s.get("timeframes"),
+        "timeframes": compact_tfs,
         "mtf_alignment": s.get("mtf_alignment", {}),
         "entry_standard": s.get("entry_standard", {}),
-        "reasons": s.get("reasons", [])[:6],
-        "warnings": s.get("warnings", [])[:6],
-        "blockers": s.get("blockers", [])[:6],
+        "warnings": (s.get("warnings") or [])[:3],
         "management": s.get("management", {}),
     }
 
 
 def reviewer_context(snapshot):
     market = load_optional(MARKET_CONTEXT)
-    # Do not send a giant market dump to every AI. Only cached compact context is included.
     return {
         "engine": snapshot.get("engine"),
-        "policy": snapshot.get("policy", {}),
-        "all_timeframe_context": snapshot.get("all_timeframe_context", {}),
         "adaptive_policy": load_optional(POLICY),
         "market_context": {
             "generated_at": market.get("generated_at"),
