@@ -33,8 +33,44 @@ else
   echo "TELEGRAM_ENV_EXISTS=1"
 fi
 
-# Install/update Telegram approval hub + 60s scalp timer.
-"$BOT/runtime/install_telegram_approval.sh"
+# Telegram approval service. Self-contained: no external installer script required.
+cat > /etc/systemd/system/auto-futures-telegram.service <<'EOF'
+[Unit]
+Description=Auto Futures V6 Telegram Approval Hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/trading/trading-api
+EnvironmentFile=-/opt/trading/.env.ai
+EnvironmentFile=-/opt/trading/.env.binance
+EnvironmentFile=-/opt/trading/.env.telegram
+ExecStart=/usr/bin/python3 /opt/trading/trading-api/auto-futures-v1/execution/telegram_hub.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Scalp scan timer: every 60 seconds.
+cat > /etc/systemd/system/auto-futures-scan.timer <<'EOF'
+[Unit]
+Description=Run Auto Futures V6 MTF scan every 60 seconds
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=60s
+AccuracySec=3s
+Persistent=true
+Unit=auto-futures-scan.service
+
+[Install]
+WantedBy=timers.target
+EOF
 
 # GitHub auto-update service/timer.
 cat > /etc/systemd/system/auto-futures-update.service <<'EOF'
@@ -104,6 +140,7 @@ source /opt/trading/.env.telegram 2>/dev/null || true
 set -u
 if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" && -n "${TELEGRAM_ALLOWED_USER_ID:-}" ]]; then
   systemctl enable --now auto-futures-telegram.service
+  systemctl restart auto-futures-telegram.service
   TELEGRAM_STATUS="$(systemctl is-active auto-futures-telegram.service || true)"
 else
   systemctl stop auto-futures-telegram.service 2>/dev/null || true
