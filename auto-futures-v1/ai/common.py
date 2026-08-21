@@ -2,10 +2,29 @@ import json
 from pathlib import Path
 
 ROOT = Path("/opt/trading/trading-api/auto-futures-v1")
-SNAPSHOT = ROOT / "state" / "market_snapshot.json"
-LEARNING = ROOT / "state" / "learning_stats.json"
-POLICY = ROOT / "state" / "adaptive_policy.json"
-MARKET_CONTEXT = ROOT / "state" / "market_context.json"
+STATE = ROOT / "state"
+SNAPSHOT = STATE / "market_snapshot.json"
+POLICY = STATE / "adaptive_policy.json"
+MARKET_CONTEXT = STATE / "market_context.json"
+COORDINATION = STATE / "ai_coordination_policy.json"
+
+TIMEFRAMES = ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d")
+VALID_ACTIONS = {"LONG", "SHORT", "WAIT"}
+VALID_REGIMES = {"TREND", "RANGE", "SQUEEZE", "COUNTERTREND", "MIXED", "UNKNOWN"}
+
+DECISION_CONTRACT = """
+COMMON DECISION CONTRACT — obey exactly:
+- Review only supplied candidates. Never invent symbols, prices or missing data.
+- LONG/SHORT means THIS candidate is executable now in that direction; WAIT means do not enter now.
+- Confidence is confidence in your returned ACTION, not generic directional strength.
+- A role-specific concern may veto to WAIT. Do not reverse the scanner direction unless evidence clearly supports the opposite; normally use WAIT instead of flipping direction.
+- Missing/unknown required evidence => WAIT, never assume favorable values.
+- Historical/learning data is weak evidence and never overrides current market structure.
+- Do not add daily trade quotas or portfolio rules. Judge only current edge/execution quality.
+- Keep reasons factual and compact. Return every supplied symbol exactly once.
+- JSON only, no markdown:
+{"reviews":[{"symbol":"BTCUSDT","regime":"TREND|RANGE|SQUEEZE|COUNTERTREND|MIXED","strategy":"...","action":"LONG|SHORT|WAIT","confidence":0-100,"reason":"<=18 words","invalidation":"<=12 words"}]}
+""".strip()
 
 
 def load_snapshot():
@@ -22,11 +41,10 @@ def load_optional(path):
 
 
 def candidate_setups(snapshot):
-    """Fast entry-review set.
+    """Only the strongest actionable entry candidates.
 
-    Position management is handled by the dedicated guardian, so PAPER positions
-    are never injected into entry-review prompts. Only actionable LONG/SHORT
-    scanner candidates are sent to the three reviewers, ranked by quality.
+    Position management has its own guardian. PAPER positions and WAIT/no-edge rows
+    never enter the entry-review payload, reducing token use and role confusion.
     """
     items = snapshot.get("ai_candidates") or snapshot.get("setups") or []
     actionable = [
@@ -46,10 +64,8 @@ def candidate_setups(snapshot):
 
 def compact_setup(s):
     tfs = s.get("timeframes") or {}
-    # Keep only the fields needed for the decision. This materially reduces
-    # Claude latency/token use while preserving all eight timeframe layers.
     compact_tfs = {}
-    for tf in ("1m", "3m", "5m", "15m", "30m", "1h", "4h", "1d"):
+    for tf in TIMEFRAMES:
         d = tfs.get(tf)
         if not isinstance(d, dict):
             continue
@@ -60,10 +76,10 @@ def compact_setup(s):
             ) if k in d
         }
     return {
-        "symbol": s["symbol"],
-        "candidate_action": s.get("candidate_action", "WAIT"),
-        "strategy": s.get("strategy", "NO_EDGE"),
-        "regime": s.get("regime", "UNKNOWN"),
+        "symbol": str(s["symbol"]).upper(),
+        "candidate_action": str(s.get("candidate_action", "WAIT")).upper(),
+        "strategy": str(s.get("strategy", "NO_EDGE")).upper(),
+        "regime": str(s.get("regime", "UNKNOWN")).upper(),
         "setup_quality": s.get("setup_quality", s.get("setup_score", 0)),
         "learning_multiplier": s.get("learning_multiplier", 1.0),
         "entry": s.get("entry"),
@@ -84,16 +100,13 @@ def compact_setup(s):
     }
 
 
-def reviewer_context(snapshot):
-    market = load_optional(MARKET_CONTEXT)
+def coordination_advisory():
+    """Read-only meta-learning hints. Never grants execution authority."""
+    x = load_optional(COORDINATION)
     return {
-        "engine": snapshot.get("engine"),
-        "adaptive_policy": load_optional(POLICY),
-        "market_context": {
-            "generated_at": market.get("generated_at"),
-            "source": market.get("source"),
-            "symbols": market.get("symbols", {}),
-        },
+        "generated_at": x.get("generated_at"),
+        "repeated_conflicts": (x.get("repeated_conflicts") or [])[:3],
+        "provider_health": x.get("provider_health", {}),
     }
 
 
@@ -107,11 +120,56 @@ def normalize_confidence(value):
     return round(max(0.0, min(100.0, value)), 2)
 
 
-def validate_review(x):
-    if not isinstance(x, dict):
-        return False
-    if str(x.get("action", "")).upper() not in {"LONG", "SHORT", "WAIT", "EXIT", "HOLD"}:
-        return False
-    if not x.get("symbol"):
-        return False
-    return True
+def normalize_review(r, supplied_symbols):
+    if not isinstance(r, dict):
+        return None
+    sym = str(r.get("symbol", "")).upper().strip()
+    if not sym or sym not in supplied_symbols:
+        return None
+    action = str(r.get("action", "WAIT")).upper().strip()
+    if action not in VALID_ACTIONS:
+        action = "WAIT"
+    regime = str(r.get("regime", "UNKNOWN")).upper().strip()
+    if regime not in VALID_REGIMES:
+        regime = "UNKNOWN"
+    return {
+        "symbol": sym,
+        "regime": regime,
+        "strategy": str(r.get("strategy", "NO_EDGE")).upper()[:40],
+        "action": action,
+        "confidence": normalize_confidence(r.get("confidence", 0)),
+        "reason": str(r.get("reason", ""))[:180],
+        "invalidation": str(r.get("invalidation", ""))[:140],
+    }
+
+
+def parse_review_response(text, setups):
+    supplied = {str(x.get("symbol", "")).upper() for x in setups if x.get("symbol")}
+    if not text or not supplied:
+        return {}, "EMPTY_OUTPUT" if supplied else "NO_CANDIDATES"
+    a, b = text.find("{"), text.rfind("}")
+    if a < 0 or b <= a:
+        return {}, "INVALID_JSON"
+    try:
+        obj = json.loads(text[a:b + 1])
+    except Exception:
+        return {}, "INVALID_JSON"
+    clean = {}
+    for raw in obj.get("reviews", []):
+        r = normalize_review(raw, supplied)
+        if r:
+            clean[r["symbol"]] = r
+    # Missing symbols are explicit WAITs rather than silently disappearing.
+    for s in supplied:
+        if s not in clean:
+            clean[s] = {
+                "symbol": s, "regime": "UNKNOWN", "strategy": "NO_EDGE",
+                "action": "WAIT", "confidence": 100.0,
+                "reason": "REVIEW_MISSING_FROM_PROVIDER_OUTPUT",
+                "invalidation": "provider output incomplete",
+            }
+    return clean, "OK"
+
+
+def role_prompt(role_text):
+    return role_text.strip() + "\n\n" + DECISION_CONTRACT
