@@ -66,6 +66,8 @@ jobs:
           grep -q 'candidateQuoteRefresh:true' cloudflare-worker/index.js
           grep -q 'autoCandidateQuoteRefresh:true' cloudflare-worker/index.js
           grep -q 'hub-v10-unified-entry.js' cloudflare-worker/index.js
+          grep -q 'hub-v10-unified-v2.js' cloudflare-worker/hub-v10-unified-entry.js
+          grep -q 'signal-v10-scheduled-v2.js' cloudflare-worker/hub-v10-unified-entry.js
           grep -q 'binanceAutoProjectSeparate:true' cloudflare-worker/index.js
           grep -q '/signal-v10/candidates' cloudflare-worker/signal-v10-council.js
           grep -q '/signal-v10/review' cloudflare-worker/signal-v10-council.js
@@ -78,6 +80,8 @@ jobs:
           grep -q 'AUTO_CRON_V10_VERIFIED_FRESH_QUOTE' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'q?.fresh!==true' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'verifiedFreshRequired:true' cloudflare-worker/signal-v10-scheduled-v2.js
+          grep -q 'crypto:3\*60e3' cloudflare-worker/signal-v10-scheduled-v2.js
+          grep -q 'forex:10\*60e3,metal:10\*60e3,index:15\*60e3' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'LỆNH ĐANG CHẠY' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'KHÔNG PHẢI LỆNH' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'SIGNAL_V10_ORIGIN' signal-only-v10/ai_council_worker.py
