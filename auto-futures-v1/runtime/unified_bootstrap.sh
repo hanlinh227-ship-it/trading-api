@@ -7,11 +7,10 @@ BRANCH="auto-futures-v1"
 
 echo "========================================"
 echo "AUTO FUTURES UNIFIED BOOTSTRAP"
-echo "GitHub -> VPS -> Telegram -> Binance"
+echo "GitHub -> Existing Cloudflare Hub -> VPS -> Binance"
 echo "========================================"
 
 cd "$ROOT"
-
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
@@ -19,7 +18,7 @@ git pull --ff-only origin "$BRANCH"
 mkdir -p "$BOT/state" "$BOT/logs" "$BOT/backups"
 chmod +x "$BOT/run_pipeline.sh" "$BOT/runtime/"*.sh 2>/dev/null || true
 
-# Telegram env template: secrets stay local on VPS only.
+# Reuse the EXISTING Telegram Hub bot credentials on VPS only for signed Hub bridge calls.
 if [[ ! -f /opt/trading/.env.telegram ]]; then
   cat > /opt/trading/.env.telegram <<'EOF'
 TELEGRAM_BOT_TOKEN=""
@@ -33,10 +32,12 @@ else
   echo "TELEGRAM_ENV_EXISTS=1"
 fi
 
-# Telegram approval service. Self-contained: no external installer script required.
-cat > /etc/systemd/system/auto-futures-telegram.service <<'EOF'
+# Remove the duplicate VPS Telegram polling hub. The existing Cloudflare Hub owns Telegram webhook/UI.
+systemctl disable --now auto-futures-telegram.service >/dev/null 2>&1 || true
+
+cat > /etc/systemd/system/auto-futures-hub-bridge.service <<'EOF'
 [Unit]
-Description=Auto Futures V6 Telegram Approval Hub
+Description=Auto Futures V6 Existing Hub Control Bridge
 After=network-online.target
 Wants=network-online.target
 
@@ -47,7 +48,7 @@ WorkingDirectory=/opt/trading/trading-api
 EnvironmentFile=-/opt/trading/.env.ai
 EnvironmentFile=-/opt/trading/.env.binance
 EnvironmentFile=-/opt/trading/.env.telegram
-ExecStart=/usr/bin/python3 /opt/trading/trading-api/auto-futures-v1/execution/telegram_hub.py
+ExecStart=/usr/bin/python3 /opt/trading/trading-api/auto-futures-v1/execution/hub_control_bridge.py
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
@@ -56,7 +57,6 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 EOF
 
-# Scalp scan timer: every 60 seconds.
 cat > /etc/systemd/system/auto-futures-scan.timer <<'EOF'
 [Unit]
 Description=Run Auto Futures V6 MTF scan every 60 seconds
@@ -72,7 +72,6 @@ Unit=auto-futures-scan.service
 WantedBy=timers.target
 EOF
 
-# GitHub auto-update service/timer.
 cat > /etc/systemd/system/auto-futures-update.service <<'EOF'
 [Unit]
 Description=Auto Futures GitHub Safe Updater
@@ -107,7 +106,6 @@ systemctl enable --now auto-futures-update.timer
 systemctl enable --now auto-futures-scan.timer
 systemctl enable --now auto-futures-position.service
 
-# Syntax validation.
 python3 -m py_compile \
   "$BOT/paper_trader.py" \
   "$BOT/ai/common.py" \
@@ -117,13 +115,14 @@ python3 -m py_compile \
   "$BOT/ai/consensus.py" \
   "$BOT/risk/risk_engine.py" \
   "$BOT/execution/execution_guard.py" \
+  "$BOT/execution/approval_queue.py" \
   "$BOT/execution/live_executor.py" \
-  "$BOT/execution/telegram_hub.py" \
+  "$BOT/execution/hub_control_bridge.py" \
   "$BOT/position/position_manager.py"
 
 echo "PYTHON_SYNTAX=PASS"
 
-# Keep real execution locked until Telegram credentials are valid and user arms it.
+# Never auto-arm money execution during code deployment.
 if [[ -f /opt/trading/.env.binance ]]; then
   grep -q '^BINANCE_LIVE_TRADING=' /opt/trading/.env.binance \
     && sed -i 's/^BINANCE_LIVE_TRADING=.*/BINANCE_LIVE_TRADING="false"/' /opt/trading/.env.binance \
@@ -134,17 +133,16 @@ if [[ -f /opt/trading/.env.binance ]]; then
   chmod 600 /opt/trading/.env.binance
 fi
 
-# Start Telegram hub only when credentials are present.
 set +u
 source /opt/trading/.env.telegram 2>/dev/null || true
 set -u
-if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" && -n "${TELEGRAM_ALLOWED_USER_ID:-}" ]]; then
-  systemctl enable --now auto-futures-telegram.service
-  systemctl restart auto-futures-telegram.service
-  TELEGRAM_STATUS="$(systemctl is-active auto-futures-telegram.service || true)"
+if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
+  systemctl enable --now auto-futures-hub-bridge.service
+  systemctl restart auto-futures-hub-bridge.service
+  HUB_STATUS="$(systemctl is-active auto-futures-hub-bridge.service || true)"
 else
-  systemctl stop auto-futures-telegram.service 2>/dev/null || true
-  TELEGRAM_STATUS="NEEDS_CREDENTIALS"
+  systemctl stop auto-futures-hub-bridge.service 2>/dev/null || true
+  HUB_STATUS="NEEDS_EXISTING_HUB_CREDENTIALS"
 fi
 
 UPDATE_STATUS="$(systemctl is-active auto-futures-update.timer || true)"
@@ -159,14 +157,14 @@ echo "BRANCH=$BRANCH"
 echo "UPDATE_TIMER=$UPDATE_STATUS"
 echo "SCAN_TIMER=$SCAN_STATUS"
 echo "POSITION_MANAGER=$POSITION_STATUS"
-echo "TELEGRAM_HUB=$TELEGRAM_STATUS"
+echo "BINANCE_HUB_BRIDGE=$HUB_STATUS"
+echo "DUPLICATE_TELEGRAM_HUB=disabled"
 if [[ -f /opt/trading/.env.binance ]]; then
   grep -E '^BINANCE_(LIVE_TRADING|LIVE_ARMED)=' /opt/trading/.env.binance || true
 fi
-
 echo "========================================"
-if [[ "$TELEGRAM_STATUS" == "NEEDS_CREDENTIALS" ]]; then
-  echo "NEXT=fill /opt/trading/.env.telegram then rerun this script"
+if [[ "$HUB_STATUS" == "NEEDS_EXISTING_HUB_CREDENTIALS" ]]; then
+  echo "NEXT=reuse the existing Hub TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in /opt/trading/.env.telegram"
 else
-  echo "NEXT=validate Telegram signal/confirmation flow before arming live"
+  echo "NEXT=existing Hub owns BINANCE button; VPS bridge owns revalidation/execution"
 fi
