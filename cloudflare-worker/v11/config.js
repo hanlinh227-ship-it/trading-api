@@ -1,0 +1,2 @@
+export const V11_CONFIG=Object.freeze({version:'V11.0.0-foundation',td:{creditsPerMinute:55,reserveLifecycle:5,reserveVerification:4,discoveryBudget:46},quoteTtlSec:{crypto:8,forex:25,metal:20,index:20},scanCadenceSec:{crypto:60,forex:120,metal:120,index:180},markets:{crypto:{quality:62,minRR:1.08,horizonMin:90,deepMax:8},forex:{quality:68,minRR:1.20,horizonMin:180,deepMax:6},metal:{quality:70,minRR:1.25,horizonMin:180,deepMax:4},index:{quality:68,minRR:1.20,horizonMin:180,deepMax:5}}});
+export const V11_GROUPS=Object.freeze(['crypto','forex','metal','index']);
