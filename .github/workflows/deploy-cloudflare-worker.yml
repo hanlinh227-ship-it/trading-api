@@ -72,6 +72,12 @@ jobs:
           grep -q 'crypto:1\*60e3' signal-v10-scheduled-v2.js
           grep -q 'AUTO_CRON_V10_CRYPTO_SCALP' signal-v10-scheduled-v2.js
           grep -q 'q?.fresh!==true' signal-v10-scheduled-v2.js
+          grep -q 'crypto:1.10' signal-v10-council.js
+          grep -q 'crypto:64' signal-v10-council.js
+          grep -q 'crypto:60' signal-v10-council.js
+          grep -q 'crypto:2\*3600e3' signal-v10-council.js
+          grep -q 'QUOTE_NOT_VERIFIED_FRESH' signal-v10-council.js
+          grep -q 'CRYPTO_SCALP_V10' signal-v10-council.js
           grep -q 'binanceApprovalHub:true' index.js
           grep -q 'binanceAutoProjectSeparate:true' index.js
           grep -q 'callback_data:"binance"' binance-control-plane.js
@@ -93,6 +99,10 @@ jobs:
           echo 'UNIFIED_ENTRY=V2'
           echo 'CRYPTO_SCAN_CADENCE=1_MINUTE'
           echo 'CRYPTO_MODE=SCALP_OPPORTUNITY'
+          echo 'CRYPTO_MIN_QUALITY=64'
+          echo 'CRYPTO_MIN_RR=1.10'
+          echo 'CRYPTO_AI_CONFIDENCE=60'
+          echo 'CRYPTO_SIGNAL_TTL=2_HOURS'
           echo 'VERIFIED_FRESH_QUOTES=REQUIRED'
           echo 'THREE_AI_COUNCIL=VPS_BATCH_WORKER'
           echo 'LIFECYCLE_LEARNING=ENABLED'
