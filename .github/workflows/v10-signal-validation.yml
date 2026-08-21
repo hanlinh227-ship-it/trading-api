@@ -83,6 +83,14 @@ jobs:
           grep -q 'verifiedFreshRequired:true' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'crypto:1\*60e3' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'forex:10\*60e3,metal:10\*60e3,index:15\*60e3' cloudflare-worker/signal-v10-scheduled-v2.js
+          grep -q 'crypto:1.10' cloudflare-worker/signal-v10-council.js
+          grep -q 'crypto:64' cloudflare-worker/signal-v10-council.js
+          grep -q 'crypto:60' cloudflare-worker/signal-v10-council.js
+          grep -q 'crypto:2\*3600e3' cloudflare-worker/signal-v10-council.js
+          grep -q 'q.fresh===true' cloudflare-worker/signal-v10-council.js
+          grep -q 'QUOTE_NOT_VERIFIED_FRESH' cloudflare-worker/signal-v10-council.js
+          grep -q 'CRYPTO_SCALP_V10' cloudflare-worker/signal-v10-council.js
+          grep -q 'CRYPTO_SCALP_2_OF_3_NO_OPPOSITION' cloudflare-worker/signal-v10-council.js
           grep -q 'LỆNH ĐANG CHẠY' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'KHÔNG PHẢI LỆNH' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'SIGNAL_V10_ORIGIN' signal-only-v10/ai_council_worker.py
