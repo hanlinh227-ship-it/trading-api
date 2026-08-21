@@ -36,6 +36,7 @@ jobs:
           for f in \
             cloudflare-worker/index.js \
             cloudflare-worker/hub-v10.js \
+            cloudflare-worker/hub-v10-unified.js \
             cloudflare-worker/signal-v10-council.js \
             cloudflare-worker/signal-v10-learning.js \
             cloudflare-worker/binance-control-plane.js \
@@ -58,12 +59,17 @@ jobs:
         run: |
           set -euo pipefail
           grep -q 'telegramRootOwner:"SIGNAL_V10"' cloudflare-worker/index.js
+          grep -q 'telegramUx:"V10_UNIFIED_LIVE_HISTORY"' cloudflare-worker/index.js
+          grep -q 'legacyLiveOrdersVisible:true' cloudflare-worker/index.js
+          grep -q 'hub-v10-unified.js' cloudflare-worker/index.js
           grep -q 'binanceAutoProjectSeparate:true' cloudflare-worker/index.js
           grep -q '/signal-v10/candidates' cloudflare-worker/signal-v10-council.js
           grep -q '/signal-v10/review' cloudflare-worker/signal-v10-council.js
           grep -q '/signal-v10/worker-health' cloudflare-worker/signal-v10-council.js
           grep -q 'refreshSignalV10Lifecycle' cloudflare-worker/hub-v10.js
           grep -q 'V10_ONLY_HISTORY' cloudflare-worker/signal-v10-learning.js
+          grep -q 'LỆNH ĐANG CHẠY' cloudflare-worker/hub-v10-unified.js
+          grep -q 'Setup bị loại không phải lệnh' cloudflare-worker/hub-v10-unified.js
           grep -q 'SIGNAL_V10_ORIGIN' signal-only-v10/ai_council_worker.py
           ! grep -q 'auto-futures-v1' signal-only-v10/ai_council_worker.py
       - name: Validate Worker build manifest
