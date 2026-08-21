@@ -1,4 +1,4 @@
-import signalHub from "./hub-v10-unified.js";
+import signalHub from "./hub-v10-unified-v2.js";
 import {handleUnifiedTelegram,handleControlApi} from "./binance-control-plane.js";
 
 const VERSION="V10";
@@ -13,8 +13,6 @@ async function telegramOwner(req){
   try{
     const u=await req.clone().json();
     const cb=String(u?.callback_query?.data||"");
-    // Binance control owns only its own namespace. /start, /menu, market/signal
-    // callbacks are owned by Signal Only V10 so an old Binance menu cannot mask V10.
     return cb==="binance"||cb.startsWith("binance:")?"BINANCE":"SIGNAL_V10";
   }catch{return "SIGNAL_V10";}
 }
@@ -30,12 +28,9 @@ export default {
       if(b)return b;
     }
 
-    // Signal V10 owns the Telegram root/menu and all signal-market callbacks.
-    // Unified Hub keeps legacy active/pending orders visible beside official V10 signals.
     const r=await signalHub.fetch(req,env,ctx);
     if(owner==="SIGNAL_V10")return r;
 
-    // Non-webhook requests are handled by Signal V10/legacy scanner compatibility.
     if(new URL(req.url).pathname!=="/status")return r;
     let body;
     try{body=await r.clone().json();}catch{return r;}
@@ -45,8 +40,10 @@ export default {
       service:SERVICE,
       signalOnlySourceOfTruth:"V10",
       telegramRootOwner:"SIGNAL_V10",
-      telegramUx:"V10_UNIFIED_LIVE_HISTORY",
+      telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2",
       legacyLiveOrdersVisible:true,
+      candidateQuoteRefresh:true,
+      rejectedCandidatesHiddenFromTradeList:true,
       binanceCallbackNamespace:"binance:*",
       signalThreeAiCouncil:true,
       signalLifecycleLearning:true,
@@ -58,7 +55,5 @@ export default {
       binanceExecutionLocation:"VPS"
     },null,2),{status:r.status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
   },
-  async scheduled(event,env,ctx){
-    return signalHub.scheduled?.(event,env,ctx);
-  }
+  async scheduled(event,env,ctx){return signalHub.scheduled?.(event,env,ctx);}
 };
