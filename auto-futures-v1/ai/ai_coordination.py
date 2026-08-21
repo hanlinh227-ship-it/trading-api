@@ -1,51 +1,61 @@
+import fcntl
 import json
 from collections import Counter
+from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 ROOT=Path('/opt/trading/trading-api/auto-futures-v1');STATE=ROOT/'state';LOGS=ROOT/'logs'
-HEALTH=STATE/'ai_provider_health.json';POLICY=STATE/'ai_coordination_policy.json';CONS_LOG=LOGS/'ai_consensus.jsonl'
+HEALTH=STATE/'ai_provider_health.json';POLICY=STATE/'ai_coordination_policy.json';CONS_LOG=LOGS/'ai_consensus.jsonl';LOCK_PATH='/tmp/auto-futures-ai-health.lock'
 PROVIDERS=('claude','deepseek','codex')
 FAIL_STATUSES={'TIMEOUT','ERROR','INVALID_JSON','INVALID_RESPONSE','INCOMPLETE_OUTPUT','UNAVAILABLE','RATE_LIMITED'}
 CIRCUIT_FAILURES=3;CIRCUIT_MINUTES=10;MAX_EVENTS=120
 
+
 def now():return datetime.now(timezone.utc)
 def iso():return now().isoformat()
+@contextmanager
+def locked():
+    fh=open(LOCK_PATH,'w')
+    try:
+        fcntl.flock(fh.fileno(),fcntl.LOCK_EX);yield
+    finally:
+        try:fcntl.flock(fh.fileno(),fcntl.LOCK_UN)
+        finally:fh.close()
 def load(path,default):
     try:return json.loads(path.read_text(encoding='utf-8')) if path.exists() else default
     except Exception:return default
-def save(path,obj):path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(obj,indent=2,ensure_ascii=False),encoding='utf-8')
+def save(path,obj):
+    path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_suffix(path.suffix+'.tmp');tmp.write_text(json.dumps(obj,indent=2,ensure_ascii=False),encoding='utf-8');tmp.replace(path)
 def parse(ts):
     try:return datetime.fromisoformat(str(ts).replace('Z','+00:00'))
     except Exception:return None
 
 def circuit_allowed(provider,priority='NORMAL'):
-    s=load(HEALTH,{});p=(s.get('providers') or {}).get(provider,{})
-    until=parse(p.get('circuit_until'))
-    if not until or now()>=until:return True,'PASS'
-    if str(priority).upper() in {'CRITICAL','CONFIRM','POSITION'}:
-        last_probe=parse(p.get('last_critical_probe_at'))
-        if not last_probe or (now()-last_probe).total_seconds()>=60:
-            p['last_critical_probe_at']=iso();s.setdefault('providers',{})[provider]=p;save(HEALTH,s);return True,'CRITICAL_PROBE'
-    return False,f'CIRCUIT_OPEN_UNTIL_{until.isoformat()}'
+    with locked():
+        s=load(HEALTH,{});p=(s.get('providers') or {}).get(provider,{});until=parse(p.get('circuit_until'))
+        if not until or now()>=until:return True,'PASS'
+        if str(priority).upper() in {'CRITICAL','CONFIRM','POSITION'}:
+            last_probe=parse(p.get('last_critical_probe_at'))
+            if not last_probe or (now()-last_probe).total_seconds()>=60:
+                p['last_critical_probe_at']=iso();s.setdefault('providers',{})[provider]=p;save(HEALTH,s);return True,'CRITICAL_PROBE'
+        return False,f'CIRCUIT_OPEN_UNTIL_{until.isoformat()}'
 
 def record_result(provider,status,elapsed=None,review_count=0,candidate_count=0,error=None):
-    s=load(HEALTH,{'providers':{}});p=s.setdefault('providers',{}).setdefault(provider,{})
-    ev={'at':iso(),'status':str(status).upper(),'elapsed_seconds':elapsed,'review_count':int(review_count or 0),'candidate_count':int(candidate_count or 0),'error':str(error or '')[:300]}
-    events=(p.get('events') or [])+[ev];events=events[-MAX_EVENTS:];p['events']=events;p['last_status']=ev['status'];p['last_at']=ev['at']
-    if ev['status']=='OK':p['consecutive_failures']=0;p['last_ok_at']=ev['at'];p['circuit_until']=None
-    elif ev['status'] in FAIL_STATUSES:
-        n=int(p.get('consecutive_failures',0) or 0)+1;p['consecutive_failures']=n
-        if n>=CIRCUIT_FAILURES:p['circuit_until']=(now()+timedelta(minutes=CIRCUIT_MINUTES)).isoformat()
-    ok=[x for x in events if x.get('status')=='OK'];fail=[x for x in events if x.get('status') in FAIL_STATUSES]
-    lat=[float(x.get('elapsed_seconds')) for x in ok if x.get('elapsed_seconds') is not None]
-    p['success_rate']=round(len(ok)/max(1,len(ok)+len(fail)),4);p['avg_latency_seconds']=round(sum(lat)/len(lat),2) if lat else None
-    cov=[]
-    for x in ok:
-        c=int(x.get('candidate_count',0) or 0);r=int(x.get('review_count',0) or 0)
-        if c>0:cov.append(min(1.0,r/c))
-    p['coverage_rate']=round(sum(cov)/len(cov),4) if cov else None
-    s['generated_at']=iso();save(HEALTH,s);return p
+    with locked():
+        s=load(HEALTH,{'providers':{}});p=s.setdefault('providers',{}).setdefault(provider,{})
+        ev={'at':iso(),'status':str(status).upper(),'elapsed_seconds':elapsed,'review_count':int(review_count or 0),'candidate_count':int(candidate_count or 0),'error':str(error or '')[:300]};events=(p.get('events') or [])+[ev];events=events[-MAX_EVENTS:];p['events']=events;p['last_status']=ev['status'];p['last_at']=ev['at']
+        if ev['status']=='OK':p['consecutive_failures']=0;p['last_ok_at']=ev['at'];p['circuit_until']=None
+        elif ev['status'] in FAIL_STATUSES:
+            n=int(p.get('consecutive_failures',0) or 0)+1;p['consecutive_failures']=n
+            if n>=CIRCUIT_FAILURES:p['circuit_until']=(now()+timedelta(minutes=CIRCUIT_MINUTES)).isoformat()
+        ok=[x for x in events if x.get('status')=='OK'];fail=[x for x in events if x.get('status') in FAIL_STATUSES];lat=[float(x.get('elapsed_seconds')) for x in ok if x.get('elapsed_seconds') is not None]
+        p['success_rate']=round(len(ok)/max(1,len(ok)+len(fail)),4);p['avg_latency_seconds']=round(sum(lat)/len(lat),2) if lat else None
+        cov=[]
+        for x in ok:
+            c=int(x.get('candidate_count',0) or 0);r=int(x.get('review_count',0) or 0)
+            if c>0:cov.append(min(1.0,r/c))
+        p['coverage_rate']=round(sum(cov)/len(cov),4) if cov else None;s['generated_at']=iso();save(HEALTH,s);return p
 
 def health_snapshot():
     s=load(HEALTH,{'providers':{}});out={}
