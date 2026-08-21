@@ -141,14 +141,14 @@ log "LIVE SAFETY LOCK PASS"
 # 3. CHECK GIT STATE
 # ============================================================
 
-git fetch origin
+git fetch origin auto-futures-v1
 
 CURRENT_BRANCH="$(git branch --show-current)"
 
 log "CURRENT BRANCH: $CURRENT_BRANCH"
 
-if [[ "$CURRENT_BRANCH" != "main" ]]; then
-    git checkout main
+if [[ "$CURRENT_BRANCH" != "auto-futures-v1" ]]; then
+    git checkout auto-futures-v1
 fi
 
 
@@ -166,7 +166,7 @@ fi
 # 4. UPDATE MAIN
 # ============================================================
 
-git pull --ff-only origin main
+git pull --ff-only origin auto-futures-v1
 
 UPDATE_STARTED=1
 
