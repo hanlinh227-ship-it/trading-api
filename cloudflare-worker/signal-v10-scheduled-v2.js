@@ -4,7 +4,7 @@ import {refreshSignalV10Learning} from "./signal-v10-learning.js";
 
 const SCHEDULE_KEY="v10:signal:schedule";
 const GROUPS=["crypto","forex","metal","index"];
-const INTERVAL_MS={crypto:5*60e3,forex:10*60e3,metal:10*60e3,index:15*60e3};
+const INTERVAL_MS={crypto:3*60e3,forex:10*60e3,metal:10*60e3,index:15*60e3};
 const ACTIONABLE=new Set(["MARKET_SIGNAL","MARKET","LIMIT","MARKET_PLAN","LIMIT_PLAN"]);
 
 async function engine(path,env){const r=await baseEngine.fetch(new Request(`https://internal${path}`,{method:"GET"}),env);try{return await r.json();}catch{return null;}}
