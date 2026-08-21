@@ -6,7 +6,7 @@ BOT="$ROOT/auto-futures-v1"
 BRANCH="auto-futures-v1"
 
 echo "========================================"
-echo "AUTO FUTURES UNIFIED BOOTSTRAP V7"
+echo "AUTO FUTURES UNIFIED BOOTSTRAP V8"
 echo "GitHub -> Existing Cloudflare Hub -> VPS -> Binance"
 echo "========================================"
 
@@ -35,7 +35,7 @@ systemctl disable --now auto-futures-telegram.service >/dev/null 2>&1 || true
 
 cat > /etc/systemd/system/auto-futures-hub-bridge.service <<'EOF'
 [Unit]
-Description=Auto Futures V7 Existing Hub Control Bridge
+Description=Auto Futures V8 Existing Hub Control Bridge
 After=network-online.target
 Wants=network-online.target
 
@@ -57,7 +57,7 @@ EOF
 
 cat > /etc/systemd/system/auto-futures-scan.timer <<'EOF'
 [Unit]
-Description=Run Auto Futures V7 MTF scan every 60 seconds
+Description=Run Auto Futures V8 MTF scan every 60 seconds
 
 [Timer]
 OnBootSec=20s
@@ -113,23 +113,20 @@ python3 -m py_compile \
   "$BOT/ai/consensus.py" \
   "$BOT/risk/risk_engine.py" \
   "$BOT/execution/execution_guard.py" \
+  "$BOT/execution/live_preflight.py" \
   "$BOT/execution/approval_queue.py" \
   "$BOT/execution/live_executor.py" \
   "$BOT/execution/hub_control_bridge.py" \
   "$BOT/research/market_context_monitor.py" \
+  "$BOT/research/reliability_learner.py" \
   "$BOT/position/ai_position_guardian.py" \
   "$BOT/position/position_manager.py"
 
 echo "PYTHON_SYNTAX=PASS"
 
-# Deploys never auto-arm real-money execution.
 if [[ -f /opt/trading/.env.binance ]]; then
-  grep -q '^BINANCE_LIVE_TRADING=' /opt/trading/.env.binance \
-    && sed -i 's/^BINANCE_LIVE_TRADING=.*/BINANCE_LIVE_TRADING="false"/' /opt/trading/.env.binance \
-    || echo 'BINANCE_LIVE_TRADING="false"' >> /opt/trading/.env.binance
-  grep -q '^BINANCE_LIVE_ARMED=' /opt/trading/.env.binance \
-    && sed -i 's/^BINANCE_LIVE_ARMED=.*/BINANCE_LIVE_ARMED="false"/' /opt/trading/.env.binance \
-    || echo 'BINANCE_LIVE_ARMED="false"' >> /opt/trading/.env.binance
+  grep -q '^BINANCE_LIVE_TRADING=' /opt/trading/.env.binance && sed -i 's/^BINANCE_LIVE_TRADING=.*/BINANCE_LIVE_TRADING="false"/' /opt/trading/.env.binance || echo 'BINANCE_LIVE_TRADING="false"' >> /opt/trading/.env.binance
+  grep -q '^BINANCE_LIVE_ARMED=' /opt/trading/.env.binance && sed -i 's/^BINANCE_LIVE_ARMED=.*/BINANCE_LIVE_ARMED="false"/' /opt/trading/.env.binance || echo 'BINANCE_LIVE_ARMED="false"' >> /opt/trading/.env.binance
   chmod 600 /opt/trading/.env.binance
 fi
 
@@ -158,16 +155,14 @@ echo "UPDATE_TIMER=$UPDATE_STATUS"
 echo "SCAN_TIMER=$SCAN_STATUS"
 echo "POSITION_MANAGER=$POSITION_STATUS"
 echo "BINANCE_HUB_BRIDGE=$HUB_STATUS"
+echo "LIVE_PREFLIGHT=fail_closed"
+echo "EXECUTION_IDEMPOTENCY=entry_client_order_id"
+echo "INCIDENT_LOCK=enabled"
+echo "RELIABILITY_COUNCIL=event_gated_6h_cache"
 echo "MARKET_CONTEXT=20s_cached"
 echo "AI_TOKEN_MODE=event_gated_90s_cache"
 echo "POSITION_GUARDIAN=HOLD_REDUCE_EXIT"
 echo "DUPLICATE_TELEGRAM_HUB=disabled"
-if [[ -f /opt/trading/.env.binance ]]; then
-  grep -E '^BINANCE_(LIVE_TRADING|LIVE_ARMED)=' /opt/trading/.env.binance || true
-fi
+if [[ -f /opt/trading/.env.binance ]]; then grep -E '^BINANCE_(LIVE_TRADING|LIVE_ARMED)=' /opt/trading/.env.binance || true; fi
 echo "========================================"
-if [[ "$HUB_STATUS" == "NEEDS_EXISTING_HUB_CREDENTIALS" ]]; then
-  echo "NEXT=reuse the existing Hub TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in /opt/trading/.env.telegram"
-else
-  echo "NEXT=existing Hub owns BINANCE button; VPS bridge owns revalidation/execution"
-fi
+if [[ "$HUB_STATUS" == "NEEDS_EXISTING_HUB_CREDENTIALS" ]]; then echo "NEXT=reuse the existing Hub TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in /opt/trading/.env.telegram"; else echo "NEXT=run V8 pipeline and inspect live_preflight/reliability before arming live"; fi
