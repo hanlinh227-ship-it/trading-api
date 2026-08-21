@@ -5,6 +5,8 @@ ROOT = Path("/opt/trading/trading-api/auto-futures-v1")
 SNAPSHOT = ROOT / "state" / "market_snapshot.json"
 LEARNING = ROOT / "state" / "learning_stats.json"
 POLICY = ROOT / "state" / "adaptive_policy.json"
+MARKET_CONTEXT = ROOT / "state" / "market_context.json"
+POSITIONS = ROOT / "state" / "paper_positions.json"
 
 
 def load_snapshot():
@@ -22,7 +24,19 @@ def load_optional(path):
 
 def candidate_setups(snapshot):
     items = snapshot.get("ai_candidates") or snapshot.get("setups") or []
-    return items[:12]
+    positions = load_optional(POSITIONS).get("positions", [])
+    open_symbols = {p.get("symbol") for p in positions if p.get("status") == "OPEN"}
+    # Token policy: always preserve open positions, then only the strongest new candidates.
+    open_rows = [x for x in items if x.get("symbol") in open_symbols]
+    new_rows = [x for x in items if x.get("symbol") not in open_symbols]
+    new_rows = sorted(new_rows, key=lambda x: float(x.get("setup_quality", x.get("setup_score", 0)) or 0), reverse=True)
+    merged = []
+    seen = set()
+    for x in open_rows + new_rows[:7]:
+        symbol = x.get("symbol")
+        if symbol and symbol not in seen:
+            merged.append(x); seen.add(symbol)
+    return merged[:12]
 
 
 def compact_setup(s):
@@ -33,7 +47,6 @@ def compact_setup(s):
         "regime": s.get("regime", "UNKNOWN"),
         "setup_score": s.get("setup_score", 0),
         "setup_quality": s.get("setup_quality", 0),
-        "base_score": s.get("base_score"),
         "learning_multiplier": s.get("learning_multiplier", 1.0),
         "entry": s.get("entry"),
         "stop_loss": s.get("stop_loss"),
@@ -49,23 +62,26 @@ def compact_setup(s):
         "timeframes": s.get("timeframes"),
         "mtf_alignment": s.get("mtf_alignment", {}),
         "entry_standard": s.get("entry_standard", {}),
-        "timeframe_hierarchy": s.get("timeframe_hierarchy", {}),
-        "entry_standardization": s.get("entry_standardization", {}),
-        "all_timeframes_present": s.get("all_timeframes_present", []),
-        "reasons": s.get("reasons", []),
-        "warnings": s.get("warnings", []),
-        "blockers": s.get("blockers", []),
+        "reasons": s.get("reasons", [])[:6],
+        "warnings": s.get("warnings", [])[:6],
+        "blockers": s.get("blockers", [])[:6],
         "management": s.get("management", {}),
     }
 
 
 def reviewer_context(snapshot):
+    market = load_optional(MARKET_CONTEXT)
+    # Do not send a giant market dump to every AI. Only cached compact context is included.
     return {
         "engine": snapshot.get("engine"),
         "policy": snapshot.get("policy", {}),
         "all_timeframe_context": snapshot.get("all_timeframe_context", {}),
-        "learning_stats": load_optional(LEARNING),
         "adaptive_policy": load_optional(POLICY),
+        "market_context": {
+            "generated_at": market.get("generated_at"),
+            "source": market.get("source"),
+            "symbols": market.get("symbols", {}),
+        },
     }
 
 
