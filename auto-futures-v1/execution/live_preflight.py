@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 ROOT=Path('/opt/trading/trading-api/auto-futures-v1');STATE=ROOT/'state';ENV_FILE=Path('/opt/trading/.env.binance')
-RISK=STATE/'risk_decisions.json';OUT=STATE/'live_preflight.json';BASE='https://fapi.binance.com';MAX_POSITIONS=5
+RISK=STATE/'risk_decisions.json';OUT=STATE/'live_preflight.json';INCIDENT=STATE/'execution_incident.json';BASE='https://fapi.binance.com';MAX_POSITIONS=5
 MAX_ENTRY_DRIFT_R=0.35
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -54,6 +54,9 @@ def mark(symbol):return float(public('/fapi/v1/premiumIndex',{'symbol':symbol})[
 
 def main():
     risk=load(RISK,{'decisions':{}});result={'generated_at':now(),'engine':'V8_FAIL_CLOSED_LIVE_PREFLIGHT','account_ok':False,'live_open_positions':None,'slots_left':0,'decisions':{},'fatal_errors':[]}
+    incident=load(INCIDENT,{})
+    if incident.get('active'):
+        result['fatal_errors'].append('UNRESOLVED_EXECUTION_INCIDENT');result['incident']=incident;save(result);print(json.dumps(result));return
     if not KEY or not SECRET:
         result['fatal_errors'].append('BINANCE_CREDENTIALS_MISSING');save(result);print(json.dumps(result));return
     try:
