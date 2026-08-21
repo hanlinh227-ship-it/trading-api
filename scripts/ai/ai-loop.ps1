@@ -503,11 +503,14 @@ function Update-Base {
 # ======================================================================================
 function Test-WriteLock {
     Write-Step "STEP 4/12  Verifying WRITE_LOCK"
-    if (-not (Test-Path $script:LOCK_FILE)) {
-        Write-Warn2 "WRITE_LOCK.md not found; continuing without a lock assertion"
-        return
+    # WRITE_LOCK is authorization evidence, so never trust the mutable feature
+    # worktree copy. Read it from the freshly fetched trusted base branch.
+    $trustedLockRef = "origin/" + $BaseBranch + ":docs/ai-coengineer/WRITE_LOCK.md"
+    $lockRead = Invoke-Git -Arguments @("show", $trustedLockRef)
+    if ($lockRead.ExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($lockRead.StdOut)) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read WRITE_LOCK.md from trusted origin/$BaseBranch. Refusing to derive write authorization from the mutable working tree."
     }
-    $lock = Get-Content -Path $script:LOCK_FILE -Raw -Encoding UTF8
+    $lock = $lockRead.StdOut
     $locked = ($lock -match "(?m)^LOCKED:\s*true")
     $owner = ""
     if ($lock -match "(?m)^OWNER:\s*(.+)$") { $owner = $Matches[1].Trim() }
@@ -956,7 +959,13 @@ function Invoke-DeterministicTests {
         @{ Name = "ai-loop selftest";       File = "node"; Args = @("scripts/ai/ai-loop-selftest.mjs"); Cwd = $script:REPO_ROOT; Probe = (Join-Path $script:REPO_ROOT "scripts\ai\ai-loop-selftest.mjs") }
     )
     foreach ($t in $always) {
-        if (-not (Test-Path $t.Probe)) { Write-Info "skip $($t.Name) (not present)"; continue }
+        if (-not (Test-Path $t.Probe)) {
+            $allPass = $false
+            $msg = "required always-run validator missing: $($t.Probe)"
+            $results += [pscustomobject]@{ Command = $t.Name; Pass = $false; Output = $msg }
+            Write-Bad "$($t.Name) - $msg"
+            continue
+        }
         $r = Invoke-Native -File $t.File -Arguments $t.Args -WorkingDirectory $t.Cwd -TimeoutSec 300
         $ok = ($r.ExitCode -eq 0)
         if (-not $ok) { $allPass = $false }
@@ -1107,11 +1116,38 @@ function Publish-Round {
         Stop-Loop -Status "BLOCKED" -Reason "Could not resolve the SHA of the commit just created. Refusing to push a commit that cannot be pinned."
     }
 
+    # Keep an immutable-object readability probe, but do not derive authoritative
+    # path evidence from `git show --name-only`: merge commits can make that evidence
+    # ambiguous/empty. The controller creates exactly one commit over HeadBeforeRound.
     $committed = Invoke-Git -Arguments @("show", "--name-only", "--format=", $commitSha)
     if ($committed.ExitCode -ne 0) {
-        Stop-Loop -Status "BLOCKED" -Reason "Could not read the paths of commit $commitSha. Refusing to push a commit whose contents are unverified."
+        Stop-Loop -Status "BLOCKED" -Reason "Could not read commit $commitSha. Refusing to push a commit whose contents are unverified."
     }
-    $committedFiles = @($committed.StdOut -split "`r?`n" | Where-Object { $_.Trim() })
+
+    $parentProbe = Invoke-Git -Arguments @("rev-list", "--parents", "-n", "1", $commitSha)
+    if ($parentProbe.ExitCode -ne 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not resolve the parent lineage of commit $commitSha."
+    }
+    $parts = @($parentProbe.StdOut.Trim() -split "\s+" | Where-Object { $_ })
+    if ($parts.Count -ne 2) {
+        Stop-Loop -Status "BLOCKED" -Reason "Commit $commitSha does not have exactly one parent. Controller-authored rounds must be single-parent commits."
+    }
+    $commitParent = $parts[1]
+    if (-not $script:HeadBeforeRound -or $commitParent -ne $script:HeadBeforeRound) {
+        Stop-Loop -Status "BLOCKED" -Reason "Commit $commitSha parent $commitParent does not equal the pre-round HEAD $($script:HeadBeforeRound)."
+    }
+
+    $pathProbe = Invoke-Git -Arguments @(
+        "diff-tree", "--no-commit-id", "--name-only", "-r",
+        $commitParent, $commitSha
+    )
+    if ($pathProbe.ExitCode -ne 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "Could not derive explicit-parent path evidence for commit $commitSha."
+    }
+    $committedFiles = @($pathProbe.StdOut -split "`r?`n" | Where-Object { $_.Trim() })
+    if ($committedFiles.Count -eq 0) {
+        Stop-Loop -Status "BLOCKED" -Reason "Commit $commitSha produced no explicit-parent path evidence; refusing to push."
+    }
     $committedWorkflows = @($committedFiles | Where-Object { ($_ -replace '\\', '/') -match '^\.github/workflows/' })
     if ($committedWorkflows.Count -gt 0) {
         Stop-Loop -Status "BLOCKED" -Reason ("The commit just created contains CI workflow file(s): " + ($committedWorkflows -join ", ") + ". It has NOT been pushed. The loop never authors CI changes; reset this commit and investigate.")
@@ -1342,7 +1378,13 @@ function Get-DeepSeekVerdict {
     $comments = Invoke-GhJsonLines -Path "repos/$Repo/issues/$($script:State.pr_number)/comments" -JqObject "{body, login: .user.login, type: .user.type}"
     if ($null -eq $comments) { return [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() } }
 
-    $best = [pscustomobject]@{ Verdict = "PENDING"; Sha = $null; Blockers = @() }
+    # Aggregate every authenticated verdict for the exact head. Never use
+    # last-writer-wins: one same-head REJECT must dominate every ACCEPT.
+    $sameHeadAccept = $false
+    $sameHeadReject = $false
+    $sameHeadBlockers = @()
+    $sameHeadSeen = $false
+
     foreach ($c in $comments) {
         $b = $c.body
         if ($null -eq $b -or $b -notmatch "DEEPSEEK_REVIEW_BEGIN") { continue }
@@ -1379,10 +1421,36 @@ function Get-DeepSeekVerdict {
             $verdict = "PENDING"
         }
         if ($sha -eq $script:State.head_sha.ToLowerInvariant()) {
-            $best = [pscustomobject]@{ Verdict = $verdict; Sha = $sha; Blockers = $blockers }
+            $sameHeadSeen = $true
+            if ($verdict -eq "REJECT") {
+                $sameHeadReject = $true
+                $sameHeadBlockers += @($blockers)
+            }
+            elseif ($verdict -eq "ACCEPT") {
+                $sameHeadAccept = $true
+            }
         }
     }
-    return $best
+
+    if ($sameHeadReject) {
+        return [pscustomobject]@{
+            Verdict = "REJECT"
+            Sha = $script:State.head_sha
+            Blockers = @($sameHeadBlockers | Where-Object { $_ } | Select-Object -Unique)
+        }
+    }
+    if ($sameHeadAccept) {
+        return [pscustomobject]@{
+            Verdict = "ACCEPT"
+            Sha = $script:State.head_sha
+            Blockers = @()
+        }
+    }
+    return [pscustomobject]@{
+        Verdict = "PENDING"
+        Sha = $(if ($sameHeadSeen) { $script:State.head_sha } else { $null })
+        Blockers = @()
+    }
 }
 
 function Get-CodexInlineFindings {
