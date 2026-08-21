@@ -6,7 +6,7 @@ BOT="$ROOT/auto-futures-v1"
 BRANCH="auto-futures-v1"
 
 echo "========================================"
-echo "AUTO FUTURES UNIFIED BOOTSTRAP"
+echo "AUTO FUTURES UNIFIED BOOTSTRAP V7"
 echo "GitHub -> Existing Cloudflare Hub -> VPS -> Binance"
 echo "========================================"
 
@@ -18,7 +18,6 @@ git pull --ff-only origin "$BRANCH"
 mkdir -p "$BOT/state" "$BOT/logs" "$BOT/backups"
 chmod +x "$BOT/run_pipeline.sh" "$BOT/runtime/"*.sh 2>/dev/null || true
 
-# Reuse the EXISTING Telegram Hub bot credentials on VPS only for signed Hub bridge calls.
 if [[ ! -f /opt/trading/.env.telegram ]]; then
   cat > /opt/trading/.env.telegram <<'EOF'
 TELEGRAM_BOT_TOKEN=""
@@ -32,12 +31,11 @@ else
   echo "TELEGRAM_ENV_EXISTS=1"
 fi
 
-# Remove the duplicate VPS Telegram polling hub. The existing Cloudflare Hub owns Telegram webhook/UI.
 systemctl disable --now auto-futures-telegram.service >/dev/null 2>&1 || true
 
 cat > /etc/systemd/system/auto-futures-hub-bridge.service <<'EOF'
 [Unit]
-Description=Auto Futures V6 Existing Hub Control Bridge
+Description=Auto Futures V7 Existing Hub Control Bridge
 After=network-online.target
 Wants=network-online.target
 
@@ -59,7 +57,7 @@ EOF
 
 cat > /etc/systemd/system/auto-futures-scan.timer <<'EOF'
 [Unit]
-Description=Run Auto Futures V6 MTF scan every 60 seconds
+Description=Run Auto Futures V7 MTF scan every 60 seconds
 
 [Timer]
 OnBootSec=20s
@@ -118,11 +116,13 @@ python3 -m py_compile \
   "$BOT/execution/approval_queue.py" \
   "$BOT/execution/live_executor.py" \
   "$BOT/execution/hub_control_bridge.py" \
+  "$BOT/research/market_context_monitor.py" \
+  "$BOT/position/ai_position_guardian.py" \
   "$BOT/position/position_manager.py"
 
 echo "PYTHON_SYNTAX=PASS"
 
-# Never auto-arm money execution during code deployment.
+# Deploys never auto-arm real-money execution.
 if [[ -f /opt/trading/.env.binance ]]; then
   grep -q '^BINANCE_LIVE_TRADING=' /opt/trading/.env.binance \
     && sed -i 's/^BINANCE_LIVE_TRADING=.*/BINANCE_LIVE_TRADING="false"/' /opt/trading/.env.binance \
@@ -158,6 +158,9 @@ echo "UPDATE_TIMER=$UPDATE_STATUS"
 echo "SCAN_TIMER=$SCAN_STATUS"
 echo "POSITION_MANAGER=$POSITION_STATUS"
 echo "BINANCE_HUB_BRIDGE=$HUB_STATUS"
+echo "MARKET_CONTEXT=20s_cached"
+echo "AI_TOKEN_MODE=event_gated_90s_cache"
+echo "POSITION_GUARDIAN=HOLD_REDUCE_EXIT"
 echo "DUPLICATE_TELEGRAM_HUB=disabled"
 if [[ -f /opt/trading/.env.binance ]]; then
   grep -E '^BINANCE_(LIVE_TRADING|LIVE_ARMED)=' /opt/trading/.env.binance || true
