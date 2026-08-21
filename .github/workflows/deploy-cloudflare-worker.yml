@@ -48,21 +48,31 @@ jobs:
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
 
-      - name: Validate V10 Worker source
+      - name: Validate Unified V10 V2 Worker source
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
           npm run check
           node --check index.js
-          node --check hub-v10.js
+          node --check hub-v10-unified-entry.js
+          node --check hub-v10-unified-v2.js
+          node --check signal-v10-scheduled-v2.js
           node --check signal-v10-council.js
           node --check signal-v10-learning.js
           node --check binance-control-plane.js
           grep -q 'const VERSION="V10"' index.js
-          grep -q 'hub-v10.js' index.js
+          grep -q 'hub-v10-unified-entry.js' index.js
+          grep -q 'hub-v10-unified-v2.js' hub-v10-unified-entry.js
+          grep -q 'signal-v10-scheduled-v2.js' hub-v10-unified-entry.js
           grep -q 'signalOnlySourceOfTruth:"V10"' index.js
+          grep -q 'telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2"' index.js
+          grep -q 'candidateQuoteRefresh:true' index.js
+          grep -q 'autoCandidateQuoteRefresh:true' index.js
+          grep -q 'crypto:3\*60e3' signal-v10-scheduled-v2.js
+          grep -q 'q?.fresh!==true' signal-v10-scheduled-v2.js
           grep -q 'binanceApprovalHub:true' index.js
+          grep -q 'binanceAutoProjectSeparate:true' index.js
           grep -q 'callback_data:"binance"' binance-control-plane.js
           git diff --exit-code
 
@@ -79,6 +89,9 @@ jobs:
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
           echo 'SIGNAL_ONLY_VERSION=V10'
+          echo 'UNIFIED_ENTRY=V2'
+          echo 'CRYPTO_SCAN_CADENCE=3_MINUTES'
+          echo 'VERIFIED_FRESH_QUOTES=REQUIRED'
           echo 'THREE_AI_COUNCIL=VPS_BATCH_WORKER'
           echo 'LIFECYCLE_LEARNING=ENABLED'
           echo 'OBSERVED_WIN_RATE=ENABLED'
