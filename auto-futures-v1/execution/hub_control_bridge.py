@@ -58,11 +58,32 @@ def live_snapshot():
             positions.append({'symbol':x.get('symbol'),'side':'LONG' if amt>0 else 'SHORT','positionAmt':abs(amt),'entryPrice':float(x.get('entryPrice',0) or 0),'markPrice':float(x.get('markPrice',0) or 0),'unrealizedPnl':float(x.get('unRealizedProfit',0) or 0),'leverage':int(float(x.get('leverage',0) or 0)),'marginMode':'ISOLATED' if str(x.get('isolated','false')).lower()=='true' else 'CROSS'})
         return {'mode':'LIVE_BINANCE','updated_at':now().isoformat(),'positions':positions,'open_count':len(positions),'max_open_positions':5,'wallet_balance':float(acct.get('totalWalletBalance',0) or 0),'available_balance':float(acct.get('availableBalance',0) or 0),'unrealized_pnl':sum(p['unrealizedPnl'] for p in positions),'error':None}
     except Exception as exc:return {'mode':'LIVE_BINANCE','updated_at':now().isoformat(),'positions':[],'open_count':None,'max_open_positions':5,'wallet_balance':None,'available_balance':None,'unrealized_pnl':None,'error':str(exc)[:300]}
+
+def age_seconds(ts):
+    try:return max(0.0,(now()-datetime.fromisoformat(str(ts).replace('Z','+00:00'))).total_seconds())
+    except Exception:return 10**9
+
+def ai_health():
+    c=load(STATE/'ai_consensus.json',{})
+    generated=c.get('generated_at');age=age_seconds(generated)
+    lat=c.get('reviewer_latency_seconds') or {}
+    rows={}
+    for name,key in [('claude','claude_status'),('deepseek','deepseek_status'),('codex','codex_status')]:
+        status=str(c.get(key) or 'UNKNOWN').upper()
+        rows[name]={'status':status,'ok':status=='OK','latency_seconds':lat.get(name)}
+    ok_count=sum(1 for x in rows.values() if x['ok'])
+    fresh=age<=180
+    if not fresh:overall='STALE'
+    elif ok_count==3:overall='HEALTHY'
+    elif ok_count>=1:overall='DEGRADED'
+    else:overall='DOWN'
+    return {'overall':overall,'ok_count':ok_count,'required':3,'fresh':fresh,'age_seconds':round(age,1) if age<10**8 else None,'generated_at':generated,'reviewers':rows,'budget':(c.get('policy') or {}).get('budget',{}),'token_mode':(c.get('policy') or {}).get('token_mode')}
+
 def ai_status():
-    c=load(STATE/'ai_consensus.json',{});bits=[c.get('claude_status'),c.get('deepseek_status'),c.get('codex_status')];return f"{sum(1 for x in bits if str(x).upper()=='OK')}/3 OK"
+    h=ai_health();return f"{h['ok_count']}/3 OK" if h['fresh'] else 'STALE'
 def report(origin):
-    pending=load(PENDING,{'items':[]});live=live_snapshot()
-    payload={'reported_at':now().isoformat(),'runtime':{'ai_status':ai_status(),'scan_status':'ACTIVE','mode':'CONFIRM_PER_TRADE','position_source':'BINANCE_LIVE_ONLY','live_snapshot_error':live.get('error')},'pending':pending,'positions':{'mode':'LIVE_BINANCE','positions':live['positions'],'open_count':live['open_count'],'max_open_positions':5,'updated_at':live['updated_at']},'pnl':{'realized_pnl':None,'unrealized_pnl':live.get('unrealized_pnl'),'wallet_balance':live.get('wallet_balance'),'available_balance':live.get('available_balance'),'updated_at':live['updated_at']}}
+    pending=load(PENDING,{'items':[]});live=live_snapshot();health=ai_health()
+    payload={'reported_at':now().isoformat(),'runtime':{'ai_status':ai_status(),'ai_health':health,'scan_status':'ACTIVE','mode':'CONFIRM_PER_TRADE','position_source':'BINANCE_LIVE_ONLY','live_snapshot_error':live.get('error')},'pending':pending,'positions':{'mode':'LIVE_BINANCE','positions':live['positions'],'open_count':live['open_count'],'max_open_positions':5,'updated_at':live['updated_at']},'pnl':{'realized_pnl':None,'unrealized_pnl':live.get('unrealized_pnl'),'wallet_balance':live.get('wallet_balance'),'available_balance':live.get('available_balance'),'updated_at':live['updated_at']}}
     return control_request(origin,'POST','/binance/control/report',payload=payload)
 def current_price(symbol):return float(binance_public('/fapi/v1/ticker/price',{'symbol':symbol})['price'])
 def run_revalidation():
