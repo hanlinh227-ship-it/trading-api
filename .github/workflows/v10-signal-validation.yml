@@ -1,0 +1,52 @@
+name: V10 Signal Static Validation
+
+on:
+  push:
+    branches: [main, auto-futures-v1]
+    paths:
+      - 'cloudflare-worker/**'
+      - 'signal-only-v10/**'
+      - '.github/workflows/v10-signal-validation.yml'
+  pull_request:
+    paths:
+      - 'cloudflare-worker/**'
+      - 'signal-only-v10/**'
+      - '.github/workflows/v10-signal-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Cloudflare V10 JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            cloudflare-worker/index.js \
+            cloudflare-worker/hub-v10.js \
+            cloudflare-worker/signal-v10-council.js \
+            cloudflare-worker/signal-v10-learning.js \
+            cloudflare-worker/ai-arbiter.js \
+            cloudflare-worker/adaptive-tuning.js; do
+            [[ -f "$f" ]] && node --check "$f"
+          done
+      - name: Validate VPS V10 worker when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f signal-only-v10/ai_council_worker.py ]]; then
+            python -m py_compile signal-only-v10/ai_council_worker.py
+          fi
+          if [[ -f signal-only-v10/runtime/install_signal_v10.sh ]]; then
+            bash -n signal-only-v10/runtime/install_signal_v10.sh
+          fi
