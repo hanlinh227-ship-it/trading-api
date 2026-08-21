@@ -1,21 +1,137 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ROOT="/opt/trading/trading-api";BOT="$ROOT/auto-futures-v1";BRANCH="auto-futures-v1";BACKUP_ROOT="/opt/trading/auto-futures-backups";LOG="$BOT/logs/auto_update.log";TS="$(date +%Y%m%d_%H%M%S)";BACKUP="$BACKUP_ROOT/release_$TS";BACKUP_READY=0
+ROOT="/opt/trading/trading-api"
+BOT="$ROOT/auto-futures-v1"
+BRANCH="auto-futures-v1"
+BACKUP_ROOT="/opt/trading/auto-futures-backups"
+LOG="$BOT/logs/auto_update.log"
+LOCK="/tmp/auto-futures-deploy.lock"
+TS="$(date +%Y%m%d_%H%M%S)"
+BACKUP="$BACKUP_ROOT/release_$TS"
+BACKUP_READY=0
+
+mkdir -p "$BACKUP_ROOT" "$BOT/logs"
 log(){ echo "$(date -u -Is) $*" | tee -a "$LOG"; }
-rollback(){ rc=$?;trap - ERR;log "UPDATE FAILED rc=$rc";if [[ "$BACKUP_READY" -eq 1 && -d "$BACKUP/auto-futures-v1" ]]; then log "ROLLBACK START";systemctl stop auto-futures-hub-bridge.service auto-futures-position.service auto-futures-scan.timer 2>/dev/null||true;rm -rf "$ROOT/auto-futures-v1.failed.$TS" 2>/dev/null||true;[[ -d "$BOT" ]]&&mv "$BOT" "$ROOT/auto-futures-v1.failed.$TS";cp -a "$BACKUP/auto-futures-v1" "$BOT";systemctl daemon-reload||true;systemctl restart auto-futures-position.service auto-futures-scan.timer 2>/dev/null||true;log "ROLLBACK COMPLETE";fi;exit "$rc"; }
+
+cd "$ROOT"
+exec 8>"$LOCK"
+if ! flock -n 8; then log "DEPLOY_SKIP reason=DEPLOY_LOCK_BUSY"; exit 0; fi
+
+# Preserve current live configuration. Deploy must never silently arm/disarm money.
+LIVE_TRADING="false"; LIVE_ARMED="false"
+if [[ -f /opt/trading/.env.binance ]]; then
+  set -a; source /opt/trading/.env.binance; set +a
+  LIVE_TRADING="${BINANCE_LIVE_TRADING:-false}"
+  LIVE_ARMED="${BINANCE_LIVE_ARMED:-false}"
+fi
+
+pending_count(){
+python3 - <<'PY'
+import json
+from pathlib import Path
+p=Path('/opt/trading/trading-api/auto-futures-v1/state/pending_trades.json')
+try:
+ d=json.loads(p.read_text())
+ print(sum(1 for x in d.get('items',[]) if x.get('status') in {'PENDING','CONFIRMING'}))
+except Exception: print(0)
+PY
+}
+live_count(){
+python3 - <<'PY'
+import json
+from pathlib import Path
+p=Path('/opt/trading/trading-api/auto-futures-v1/state/live_preflight.json')
+try: print(int(json.loads(p.read_text()).get('live_open_positions',0) or 0))
+except Exception: print(0)
+PY
+}
+
+# Refresh account-only preflight if current code can do so. It has no order authority.
+if [[ -f "$BOT/execution/live_preflight.py" && -f /opt/trading/.env.binance ]]; then
+  python3 "$BOT/execution/live_preflight.py" >/tmp/auto_futures_preupdate_preflight.out 2>&1 || true
+fi
+OPEN_NOW="$(live_count)"
+PENDING_NOW="$(pending_count)"
+
+# Never hot-swap trading code while a real position or confirmation is active.
+if [[ "$OPEN_NOW" -gt 0 || "$PENDING_NOW" -gt 0 ]]; then
+  log "DEPLOY_DEFER open_live=$OPEN_NOW pending=$PENDING_NOW"
+  exit 0
+fi
+
+log "========================================"
+log "PRODUCTION UPDATE START live=$LIVE_TRADING armed=$LIVE_ARMED"
+log "========================================"
+mkdir -p "$BACKUP"
+cp -a "$BOT" "$BACKUP/auto-futures-v1"
+BACKUP_READY=1
+log "BACKUP PASS: $BACKUP"
+
+rollback(){
+  rc=$?
+  trap - ERR
+  log "UPDATE FAILED rc=$rc"
+  if [[ "$BACKUP_READY" -eq 1 && -d "$BACKUP/auto-futures-v1" ]]; then
+    log "ROLLBACK START"
+    systemctl stop auto-futures-scan.timer auto-futures-scan.service auto-futures-hub-bridge.service auto-futures-position.service 2>/dev/null || true
+    rm -rf "$ROOT/auto-futures-v1.failed.$TS" 2>/dev/null || true
+    [[ -d "$BOT" ]] && mv "$BOT" "$ROOT/auto-futures-v1.failed.$TS"
+    cp -a "$BACKUP/auto-futures-v1" "$BOT"
+    systemctl daemon-reload || true
+    systemctl start auto-futures-position.service auto-futures-hub-bridge.service auto-futures-scan.timer 2>/dev/null || true
+    log "ROLLBACK COMPLETE"
+  fi
+  exit "$rc"
+}
 trap rollback ERR
-mkdir -p "$BACKUP_ROOT" "$BOT/logs";cd "$ROOT";log "========================================";log "AUTO FUTURES UNIFIED UPDATE START";log "========================================"
-mkdir -p "$BACKUP";cp -a "$BOT" "$BACKUP/auto-futures-v1";BACKUP_READY=1;log "BACKUP PASS: $BACKUP"
-if [[ -f /opt/trading/.env.binance ]]; then grep -q '^BINANCE_LIVE_TRADING=' /opt/trading/.env.binance&&sed -i 's/^BINANCE_LIVE_TRADING=.*/BINANCE_LIVE_TRADING="false"/' /opt/trading/.env.binance||echo 'BINANCE_LIVE_TRADING="false"'>>/opt/trading/.env.binance;grep -q '^BINANCE_LIVE_ARMED=' /opt/trading/.env.binance&&sed -i 's/^BINANCE_LIVE_ARMED=.*/BINANCE_LIVE_ARMED="false"/' /opt/trading/.env.binance||echo 'BINANCE_LIVE_ARMED="false"'>>/opt/trading/.env.binance;chmod 600 /opt/trading/.env.binance;fi;log "LIVE SAFETY LOCK PASS"
-git fetch origin "$BRANCH";[[ "$(git branch --show-current)" == "$BRANCH" ]]||git checkout "$BRANCH";if [[ -n "$(git status --porcelain)" ]];then log "WARNING: repository contains local changes";git status --short|tee -a "$LOG";fi;git pull --ff-only origin "$BRANCH";log "GITHUB UPDATE PASS"
-[[ -f /opt/trading/.env.ai ]]&&{ set -a;source /opt/trading/.env.ai;set +a; };[[ -f /opt/trading/.env.binance ]]&&{ set -a;source /opt/trading/.env.binance;set +a; };[[ -f /opt/trading/.env.telegram ]]&&{ set -a;source /opt/trading/.env.telegram;set +a; };[[ "${BINANCE_LIVE_TRADING:-false}" == "false" ]];[[ "${BINANCE_LIVE_ARMED:-false}" == "false" ]]
-FILES=( auto-futures-v1/paper_trader.py auto-futures-v1/ai/common.py auto-futures-v1/ai/claude_trader.py auto-futures-v1/ai/deepseek_trader.py auto-futures-v1/ai/codex_trader.py auto-futures-v1/ai/consensus.py auto-futures-v1/risk/risk_engine.py auto-futures-v1/execution/execution_guard.py auto-futures-v1/execution/live_preflight.py auto-futures-v1/execution/approval_queue.py auto-futures-v1/execution/live_executor.py auto-futures-v1/execution/hub_control_bridge.py auto-futures-v1/research/market_context_monitor.py auto-futures-v1/research/reliability_learner.py auto-futures-v1/position/ai_position_guardian.py auto-futures-v1/position/position_manager.py )
-for f in "${FILES[@]}";do [[ -f "$ROOT/$f" ]]||{ log "FAIL missing $f";exit 30;};done;python3 -m py_compile "${FILES[@]}";log "PYTHON SYNTAX PASS"
-log "AI TEST START";timeout 120 claude --model sonnet -p 'Return exactly this JSON and nothing else: {"status":"OK"}' >/tmp/auto_futures_claude.out 2>/tmp/auto_futures_claude.err;grep -q '"status":"OK"' /tmp/auto_futures_claude.out;log "CLAUDE PASS"
-python3 auto-futures-v1/ai/deepseek_trader.py >/tmp/auto_futures_deepseek.out 2>/tmp/auto_futures_deepseek.err;grep -q '"status"' /tmp/auto_futures_deepseek.out;grep -q 'OK' /tmp/auto_futures_deepseek.out;log "DEEPSEEK PASS"
-timeout 180 codex exec 'Return exactly this JSON and nothing else: {"status":"OK"}' >/tmp/auto_futures_codex.out 2>/tmp/auto_futures_codex.err;grep -q '"status":"OK"' /tmp/auto_futures_codex.out;log "CODEX PASS"
-timeout 900 "$BOT/run_pipeline.sh" >/tmp/auto_futures_pipeline.out 2>&1;grep -q 'PIPELINE COMPLETE' /tmp/auto_futures_pipeline.out;log "PIPELINE PASS"
-chmod +x "$BOT/runtime/unified_bootstrap.sh" "$BOT/runtime/watch_github.sh" "$BOT/runtime/update_auto_futures.sh";"$BOT/runtime/unified_bootstrap.sh" >/tmp/auto_futures_bootstrap.out 2>&1;log "UNIFIED BOOTSTRAP PASS"
-sleep 3;POSITION="$(systemctl is-active auto-futures-position.service||true)";SCAN="$(systemctl is-active auto-futures-scan.timer||true)";UPDATE="$(systemctl is-active auto-futures-update.timer||true)";HUB="$(systemctl is-active auto-futures-hub-bridge.service||true)";[[ "$POSITION" == "active" ]];[[ "$SCAN" == "active" ]];[[ "$UPDATE" == "active" ]];if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]];then [[ "$HUB" == "active" ]];fi;log "POSITION=$POSITION SCAN=$SCAN UPDATE=$UPDATE HUB_BRIDGE=$HUB";log "HEALTH CHECK PASS"
-find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'release_*' -mtime +14 -exec rm -rf {} + 2>/dev/null||true;log "========================================";log "AUTO UPDATE COMPLETE";log "V8_FAIL_CLOSED=true";log "INCIDENT_LOCK=true";log "RELIABILITY_COUNCIL=true";log "LIVE_TRADING=false";log "LIVE_ARMED=false";log "========================================";trap - ERR;exit 0
+
+# Stop only runtime processes after proving there are no live positions/pending confirms.
+systemctl stop auto-futures-scan.timer auto-futures-scan.service 2>/dev/null || true
+pkill -f '/auto-futures-v1/ai/(claude|deepseek|codex)_trader.py' 2>/dev/null || true
+
+# GitHub branch is the only tracked-code source of truth. Local tracked edits are discarded.
+git fetch origin "$BRANCH"
+git checkout -f "$BRANCH"
+git reset --hard "origin/$BRANCH"
+log "GITHUB SOURCE SYNC PASS: $(git rev-parse HEAD)"
+
+FILES=(
+  auto-futures-v1/paper_trader.py
+  auto-futures-v1/ai/common.py auto-futures-v1/ai/ai_budget_governor.py auto-futures-v1/ai/claude_trader.py
+  auto-futures-v1/ai/deepseek_trader.py auto-futures-v1/ai/codex_trader.py auto-futures-v1/ai/consensus.py
+  auto-futures-v1/risk/risk_engine.py auto-futures-v1/execution/execution_guard.py auto-futures-v1/execution/live_preflight.py
+  auto-futures-v1/execution/approval_queue.py auto-futures-v1/execution/live_executor.py auto-futures-v1/execution/hub_control_bridge.py
+  auto-futures-v1/research/market_context_monitor.py auto-futures-v1/research/reliability_learner.py
+  auto-futures-v1/position/ai_position_guardian.py auto-futures-v1/position/position_manager.py
+)
+for f in "${FILES[@]}"; do [[ -f "$ROOT/$f" ]] || { log "FAIL missing=$f"; exit 30; }; done
+python3 -m py_compile "${FILES[@]}"
+bash -n "$BOT/run_pipeline.sh" "$BOT/runtime/scan_loop.sh" "$BOT/runtime/watch_github.sh" "$BOT/runtime/update_auto_futures.sh" "$BOT/runtime/unified_bootstrap.sh"
+log "STATIC VALIDATION PASS"
+
+# No provider test calls and no test pipeline. Bootstrap only reconciles services/config.
+BOOTSTRAP_SKIP_GIT=1 "$BOT/runtime/unified_bootstrap.sh" >/tmp/auto_futures_bootstrap.out 2>&1
+log "SERVICE RECONCILE PASS"
+
+# Verify deploy did not change the user's live flags.
+if [[ -f /opt/trading/.env.binance ]]; then
+  set -a; source /opt/trading/.env.binance; set +a
+  [[ "${BINANCE_LIVE_TRADING:-false}" == "$LIVE_TRADING" ]]
+  [[ "${BINANCE_LIVE_ARMED:-false}" == "$LIVE_ARMED" ]]
+fi
+
+sleep 2
+POSITION="$(systemctl is-active auto-futures-position.service || true)"
+SCAN="$(systemctl is-active auto-futures-scan.timer || true)"
+UPDATE="$(systemctl is-active auto-futures-update.timer || true)"
+HUB="$(systemctl is-active auto-futures-hub-bridge.service || true)"
+[[ "$POSITION" == "active" ]]
+[[ "$SCAN" == "active" ]]
+[[ "$UPDATE" == "active" ]]
+log "HEALTH position=$POSITION scan=$SCAN update=$UPDATE hub=$HUB"
+
+find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'release_*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true
+log "PRODUCTION UPDATE COMPLETE live=$LIVE_TRADING armed=$LIVE_ARMED"
+trap - ERR
+exit 0
