@@ -1,60 +1,14 @@
 import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
-
-const ID_RE=/^[a-f0-9]{32}$/i;
-const NAMESPACE_NAME='TRADING_V77_STATE';
-
-function explicitKvId(){
-  for(const key of ['TRADING_KV_NAMESPACE_ID','CF_TRADING_KV_NAMESPACE_ID','CLOUDFLARE_KV_NAMESPACE_ID']){
-    const v=String(process.env[key]||'').trim();
-    if(ID_RE.test(v))return {id:v,source:key};
-  }
-  return null;
-}
-
-function parseNamespaceList(raw){
-  const text=String(raw||'').trim();
-  try{
-    const j=JSON.parse(text);
-    const rows=Array.isArray(j)?j:Array.isArray(j?.result)?j.result:[];
-    for(const x of rows){
-      const title=String(x?.title||x?.name||'');
-      const id=String(x?.id||x?.namespace_id||'');
-      if(title===NAMESPACE_NAME&&ID_RE.test(id))return id;
-    }
-  }catch{}
-  const lines=text.split(/\r?\n/);
-  for(const line of lines){
-    if(!line.includes(NAMESPACE_NAME))continue;
-    const m=line.match(/[a-f0-9]{32}/i);
-    if(m)return m[0];
-  }
-  return null;
-}
-
-function discoverKvId(){
-  try{
-    const out=execFileSync(process.platform==='win32'?'npx.cmd':'npx',['wrangler','kv','namespace','list'],{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:20000,env:process.env});
-    const id=parseNamespaceList(out);
-    if(id)return {id,source:'WRANGLER_KV_DISCOVERY'};
-  }catch{}
-  return null;
-}
-
-const resolved=explicitKvId()||discoverKvId();
-if(!resolved){
-  throw new Error(`Unable to resolve existing ${NAMESPACE_NAME} KV namespace. Set encrypted Cloudflare Build variable TRADING_KV_NAMESPACE_ID to the existing 32-character namespace ID. No new namespace will be created.`);
-}
-
-const config={
-  $schema:'./node_modules/wrangler/config-schema.json',
-  name:'trading-v77-scanner',
-  main:'index.js',
-  compatibility_date:'2026-08-18',
-  keep_vars:true,
-  kv_namespaces:[{binding:'TRADING_STATE',id:resolved.id}],
-  triggers:{crons:['* * * * *']},
-};
-
+const ID_RE=/^[a-f0-9]{32}$/i,UUID_RE=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const NAMESPACE_NAME='TRADING_V77_STATE',VPC_NAME='v11-ai-bridge';
+function run(args){return execFileSync(process.platform==='win32'?'npx.cmd':'npx',['wrangler',...args],{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:30000,env:process.env});}
+function explicitKv(){for(const k of ['TRADING_KV_NAMESPACE_ID','CF_TRADING_KV_NAMESPACE_ID','CLOUDFLARE_KV_NAMESPACE_ID']){const v=String(process.env[k]||'').trim();if(ID_RE.test(v))return {id:v,source:k};}return null;}
+function discoverKv(){try{const raw=run(['kv','namespace','list']);let rows=[];try{const j=JSON.parse(raw);rows=Array.isArray(j)?j:(j?.result||[]);}catch{}for(const x of rows){if(String(x?.title||x?.name||'')===NAMESPACE_NAME&&ID_RE.test(String(x?.id||'')))return {id:String(x.id),source:'WRANGLER_KV_DISCOVERY'};}for(const line of raw.split(/\r?\n/)){if(line.includes(NAMESPACE_NAME)){const m=line.match(/[a-f0-9]{32}/i);if(m)return {id:m[0],source:'WRANGLER_KV_DISCOVERY'};}}}catch{}return null;}
+function explicitVpc(){const v=String(process.env.V11_AI_BRIDGE_SERVICE_ID||'').trim();return UUID_RE.test(v)?{id:v,source:'V11_AI_BRIDGE_SERVICE_ID'}:null;}
+function discoverVpc(){try{const raw=run(['vpc','service','list']);let rows=[];try{const j=JSON.parse(raw);rows=Array.isArray(j)?j:(j?.result||[]);}catch{}for(const x of rows){if(String(x?.name||'')===VPC_NAME&&UUID_RE.test(String(x?.id||x?.service_id||'')))return {id:String(x.id||x.service_id),source:'WRANGLER_VPC_DISCOVERY'};}for(const line of raw.split(/\r?\n/)){if(line.includes(VPC_NAME)){const m=line.match(/[a-f0-9]{8}-[a-f0-9-]{27,36}/i);if(m&&UUID_RE.test(m[0]))return {id:m[0],source:'WRANGLER_VPC_DISCOVERY'};}}}catch{}return null;}
+const kv=explicitKv()||discoverKv();if(!kv)throw new Error(`Unable to resolve existing ${NAMESPACE_NAME} KV namespace; deployment aborted.`);
+const vpc=explicitVpc()||discoverVpc();if(!vpc)throw new Error(`Unable to resolve existing ${VPC_NAME} VPC Service. Set V11_AI_BRIDGE_SERVICE_ID or grant Connectivity Directory Read/Bind to the Cloudflare deploy token. Deployment aborted to prevent dropping AI_BRIDGE.`);
+const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-22',keep_vars:true,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:vpc.id,remote:true}],triggers:{crons:['* * * * *']}};
 fs.writeFileSync('wrangler.jsonc',`${JSON.stringify(config,null,2)}\n`,'utf8');
-console.log(`Prepared wrangler.jsonc with existing TRADING_STATE (${resolved.source}).`);
+console.log(`Prepared V11 wrangler.jsonc: TRADING_STATE=${kv.source}, AI_BRIDGE=${vpc.source}.`);
