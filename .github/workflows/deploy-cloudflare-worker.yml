@@ -69,7 +69,8 @@ jobs:
           grep -q 'telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2"' index.js
           grep -q 'candidateQuoteRefresh:true' index.js
           grep -q 'autoCandidateQuoteRefresh:true' index.js
-          grep -q 'crypto:3\*60e3' signal-v10-scheduled-v2.js
+          grep -q 'crypto:1\*60e3' signal-v10-scheduled-v2.js
+          grep -q 'AUTO_CRON_V10_CRYPTO_SCALP' signal-v10-scheduled-v2.js
           grep -q 'q?.fresh!==true' signal-v10-scheduled-v2.js
           grep -q 'binanceApprovalHub:true' index.js
           grep -q 'binanceAutoProjectSeparate:true' index.js
@@ -90,7 +91,8 @@ jobs:
           echo 'CLOUDFLARE_DEPLOY=PASS'
           echo 'SIGNAL_ONLY_VERSION=V10'
           echo 'UNIFIED_ENTRY=V2'
-          echo 'CRYPTO_SCAN_CADENCE=3_MINUTES'
+          echo 'CRYPTO_SCAN_CADENCE=1_MINUTE'
+          echo 'CRYPTO_MODE=SCALP_OPPORTUNITY'
           echo 'VERIFIED_FRESH_QUOTES=REQUIRED'
           echo 'THREE_AI_COUNCIL=VPS_BATCH_WORKER'
           echo 'LIFECYCLE_LEARNING=ENABLED'
