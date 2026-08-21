@@ -1,0 +1,10 @@
+import {V11_CONFIG} from './config.js';
+const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
+function geometry(c){const e=num(c.entry),s=num(c.sl),t=num(c.tp);if(!e||!s||!t)return false;return c.side==='LONG'?s<e&&t>e:c.side==='SHORT'?s>e&&t<e:false;}
+function rr(c){const e=num(c.entry),s=num(c.sl),t=num(c.tp);return e&&s&&t?Math.abs(t-e)/Math.abs(e-s):0;}
+const common=(c,m)=>{const p=V11_CONFIG.markets[m],reasons=[];if(!geometry(c))reasons.push('INVALID_GEOMETRY');if(rr(c)<p.minRR)reasons.push(`RR_BELOW_${p.minRR}`);if(num(c.qualityScore)<p.quality)reasons.push(`QUALITY_BELOW_${p.quality}`);return reasons;};
+export function evaluateCrypto(c){const r=common(c,'crypto');if(c.liquidityOk===false)r.push('LIQUIDITY_WEAK');if(c.chaseRisk==='HIGH')r.push('CHASE_RISK');return {pass:!r.length,reasons:r,families:['MOMENTUM_PULLBACK','BREAKOUT_RETEST','SWEEP_RECLAIM','RELATIVE_STRENGTH']};}
+export function evaluateForex(c){const r=common(c,'forex');if(c.sessionLiquid===false)r.push('SESSION_LIQUIDITY_WEAK');if(c.highImpactBlocked===true)r.push('HIGH_IMPACT_EVENT_BLOCK');return {pass:!r.length,reasons:r,families:['SESSION_SWEEP_MSS','TREND_PULLBACK','POST_NEWS_RETEST','CURRENCY_STRENGTH']};}
+export function evaluateMetal(c){const r=common(c,'metal');if(c.usEventBlocked===true)r.push('US_EVENT_BLOCK');if(c.volatilityShock===true)r.push('VOLATILITY_SHOCK');return {pass:!r.length,reasons:r,families:['SESSION_SWEEP_RECLAIM','IMPULSE_PULLBACK','BREAKOUT_RETEST']};}
+export function evaluateIndex(c){const r=common(c,'index');if(c.cashSessionActive===false&&c.allowExtended!==true)r.push('CASH_SESSION_INACTIVE');if(c.relativeEvidenceStale===true)r.push('RELATIVE_EVIDENCE_STALE');return {pass:!r.length,reasons:r,families:['OPENING_RANGE_RETEST','VWAP_RECLAIM','TREND_PULLBACK','RELATIVE_SMT']};}
+export function evaluateMarketCandidate(m,c){return ({crypto:evaluateCrypto,forex:evaluateForex,metal:evaluateMetal,index:evaluateIndex}[m]||(()=>({pass:false,reasons:['UNKNOWN_MARKET']})))(c);}
