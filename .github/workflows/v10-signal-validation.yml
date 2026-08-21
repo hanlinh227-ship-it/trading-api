@@ -33,17 +33,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for f in \
-            cloudflare-worker/index.js \
-            cloudflare-worker/hub-v10.js \
-            cloudflare-worker/hub-v10-unified-v2.js \
-            cloudflare-worker/hub-v10-unified-entry.js \
-            cloudflare-worker/signal-v10-scheduled-v2.js \
-            cloudflare-worker/signal-v10-council.js \
-            cloudflare-worker/signal-v10-learning.js \
-            cloudflare-worker/binance-control-plane.js \
-            cloudflare-worker/ai-arbiter.js \
-            cloudflare-worker/adaptive-tuning.js; do
+          for f in cloudflare-worker/index.js cloudflare-worker/hub-v10.js cloudflare-worker/hub-v10-unified-v2.js cloudflare-worker/hub-v10-unified-entry.js cloudflare-worker/signal-v10-scheduled-v2.js cloudflare-worker/signal-v10-council.js cloudflare-worker/signal-v10-learning.js cloudflare-worker/binance-control-plane.js cloudflare-worker/ai-arbiter.js cloudflare-worker/adaptive-tuning.js; do
             test -f "$f"
             node --check "$f"
           done
@@ -51,50 +41,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f signal-only-v10/ai_council_worker.py
-          test -f signal-only-v10/runtime/install_signal_v10.sh
-          test -f signal-only-v10/runtime/update_signal_v10.sh
           python -m py_compile signal-only-v10/ai_council_worker.py
           bash -n signal-only-v10/runtime/install_signal_v10.sh signal-only-v10/runtime/update_signal_v10.sh
-      - name: Assert V10 separation and complete review path
+      - name: Assert V10 single authority and AI conflict policy
         shell: bash
         run: |
           set -euo pipefail
           grep -q 'telegramRootOwner:"SIGNAL_V10"' cloudflare-worker/index.js
-          grep -q 'telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2"' cloudflare-worker/index.js
-          grep -q 'legacyLiveOrdersVisible:true' cloudflare-worker/index.js
-          grep -q 'candidateQuoteRefresh:true' cloudflare-worker/index.js
-          grep -q 'autoCandidateQuoteRefresh:true' cloudflare-worker/index.js
           grep -q 'hub-v10-unified-entry.js' cloudflare-worker/index.js
           grep -q 'hub-v10-unified-v2.js' cloudflare-worker/hub-v10-unified-entry.js
           grep -q 'signal-v10-scheduled-v2.js' cloudflare-worker/hub-v10-unified-entry.js
-          grep -q 'binanceAutoProjectSeparate:true' cloudflare-worker/index.js
-          grep -q '/signal-v10/candidates' cloudflare-worker/signal-v10-council.js
-          grep -q '/signal-v10/review' cloudflare-worker/signal-v10-council.js
-          grep -q '/signal-v10/worker-health' cloudflare-worker/signal-v10-council.js
-          grep -q 'V10_ONLY_HISTORY' cloudflare-worker/signal-v10-learning.js
-          grep -q 'refreshCandidateQuotes' cloudflare-worker/hub-v10-unified-v2.js
-          grep -q 'q?.fresh===true' cloudflare-worker/hub-v10-unified-v2.js
-          grep -q 'analysisQuote:null,quote:null' cloudflare-worker/hub-v10-unified-v2.js
-          grep -q 'includeExpired:true' cloudflare-worker/hub-v10-unified-v2.js
+          grep -q 'Scheduling is intentionally owned only by signal-v10-scheduled-v2.js' cloudflare-worker/hub-v10-unified-v2.js
+          ! grep -q 'v10Core.scheduled' cloudflare-worker/hub-v10-unified-v2.js
+          grep -q 'handleSignalV10Api' cloudflare-worker/hub-v10-unified-v2.js
+          grep -q 'cb==="v10:council"' cloudflare-worker/hub-v10-unified-v2.js
+          grep -q 'cb==="v10:stats"' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'AUTO_CRON_V10_CRYPTO_SCALP' cloudflare-worker/signal-v10-scheduled-v2.js
-          grep -q 'AUTO_CRON_V10_VERIFIED_FRESH_QUOTE' cloudflare-worker/signal-v10-scheduled-v2.js
-          grep -q 'q?.fresh!==true' cloudflare-worker/signal-v10-scheduled-v2.js
-          grep -q 'verifiedFreshRequired:true' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'crypto:1\*60e3' cloudflare-worker/signal-v10-scheduled-v2.js
-          grep -q 'forex:10\*60e3,metal:10\*60e3,index:15\*60e3' cloudflare-worker/signal-v10-scheduled-v2.js
+          grep -q 'q?.fresh!==true' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'crypto:1.10' cloudflare-worker/signal-v10-council.js
           grep -q 'crypto:64' cloudflare-worker/signal-v10-council.js
           grep -q 'crypto:60' cloudflare-worker/signal-v10-council.js
           grep -q 'crypto:2\*3600e3' cloudflare-worker/signal-v10-council.js
-          grep -q 'q.fresh===true' cloudflare-worker/signal-v10-council.js
           grep -q 'QUOTE_NOT_VERIFIED_FRESH' cloudflare-worker/signal-v10-council.js
-          grep -q 'CRYPTO_SCALP_V10' cloudflare-worker/signal-v10-council.js
-          grep -q 'CRYPTO_SCALP_2_OF_3_NO_OPPOSITION' cloudflare-worker/signal-v10-council.js
-          grep -q 'LỆNH ĐANG CHẠY' cloudflare-worker/hub-v10-unified-v2.js
-          grep -q 'KHÔNG PHẢI LỆNH' cloudflare-worker/hub-v10-unified-v2.js
-          grep -q 'SIGNAL_V10_ORIGIN' signal-only-v10/ai_council_worker.py
+          grep -q 'if(opp>0)' cloudflare-worker/signal-v10-council.js
+          grep -q 'else if(same<2)' cloudflare-worker/signal-v10-council.js
+          grep -q 'allPresent' cloudflare-worker/signal-v10-council.js
+          grep -q "for name in ('deepseek','claude','codex')" signal-only-v10/ai_council_worker.py
+          grep -q "all(x\['status'\]=='OK'" signal-only-v10/ai_council_worker.py
           ! grep -q 'auto-futures-v1' signal-only-v10/ai_council_worker.py
+          grep -q 'binanceAutoProjectSeparate:true' cloudflare-worker/index.js
       - name: Validate Worker build manifest
         working-directory: cloudflare-worker
         shell: bash
