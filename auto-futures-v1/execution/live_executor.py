@@ -1,5 +1,4 @@
 import json
-import os
 import hmac
 import hashlib
 import urllib.parse
@@ -30,20 +29,24 @@ def load_env():
     return out
 ENV=load_env();API_KEY=ENV.get('BINANCE_API_KEY','');API_SECRET=ENV.get('BINANCE_API_SECRET','');LIVE_TRADING=ENV.get('BINANCE_LIVE_TRADING','false').lower()=='true';LIVE_ARMED=ENV.get('BINANCE_LIVE_ARMED','false').lower()=='true'
 
+def risk_pct_for_balance(balance):
+    if balance<100:return 1.0
+    if balance<250:return .75
+    if balance<1000:return .60
+    if balance<5000:return .50
+    return .35
+
 def public_get(path,params=None):
-    url=BASE+path+('?' + urllib.parse.urlencode(params) if params else '')
-    req=urllib.request.Request(url,headers={'User-Agent':'AUTO-FUTURES-V8-FAIL-CLOSED'})
+    url=BASE+path+('?' + urllib.parse.urlencode(params) if params else '');req=urllib.request.Request(url,headers={'User-Agent':'AUTO-FUTURES-V10-FAIL-CLOSED'})
     with urllib.request.urlopen(req,timeout=15) as r:return json.loads(r.read().decode())
 def signed(method,path,params=None):
-    p=dict(params or {});p['timestamp']=int(public_get('/fapi/v1/time')['serverTime']);p['recvWindow']=10000
-    q=urllib.parse.urlencode(p);sig=hmac.new(API_SECRET.encode(),q.encode(),hashlib.sha256).hexdigest();payload=q+'&signature='+sig;url=BASE+path;data=None
+    p=dict(params or {});p['timestamp']=int(public_get('/fapi/v1/time')['serverTime']);p['recvWindow']=10000;q=urllib.parse.urlencode(p);sig=hmac.new(API_SECRET.encode(),q.encode(),hashlib.sha256).hexdigest();payload=q+'&signature='+sig;url=BASE+path;data=None
     if method=='GET':url+='?'+payload
     else:data=payload.encode()
     req=urllib.request.Request(url,data=data,method=method,headers={'X-MBX-APIKEY':API_KEY,'Content-Type':'application/x-www-form-urlencoded'})
     try:
         with urllib.request.urlopen(req,timeout=20) as r:return json.loads(r.read().decode())
-    except urllib.error.HTTPError as e:
-        body=e.read().decode(errors='replace');raise RuntimeError(f'BINANCE_HTTP_{e.code}: {body}')
+    except urllib.error.HTTPError as e:raise RuntimeError(f'BINANCE_HTTP_{e.code}: {e.read().decode(errors="replace")}')
     except Exception as e:raise RuntimeError('BINANCE_TRANSPORT_UNKNOWN:'+repr(e))
 def symbol_info(symbol):
     for x in public_get('/fapi/v1/exchangeInfo').get('symbols',[]):
@@ -72,11 +75,10 @@ def confirmation_gate():
     if not d.get('approved') or not g.get('executable'):return None,'CURRENT_GUARD_REJECTED'
     if c.get('fingerprint')!=g.get('fingerprint'):return None,'FINGERPRINT_CHANGED'
     if str(d.get('action')).upper()!=str(c.get('action')).upper():return None,'DIRECTION_CHANGED'
-    return {'confirmation':c,'decision':d,'guard':g},'PASS'
+    return {'confirmation':c,'decision':d,'guard':g,'preflight':pf},'PASS'
 def require_one_way():
     if bool(signed('GET','/fapi/v1/positionSide/dual',{}).get('dualSidePosition')):raise RuntimeError('HEDGE_MODE_BLOCKED_USE_ONE_WAY')
-def live_open_positions():
-    return [x for x in signed('GET','/fapi/v2/positionRisk',{}) if abs(float(x.get('positionAmt',0) or 0))>0]
+def live_open_positions():return [x for x in signed('GET','/fapi/v2/positionRisk',{}) if abs(float(x.get('positionAmt',0) or 0))>0]
 def enforce_live_slot(symbol):
     rows=live_open_positions();symbols={str(x.get('symbol')) for x in rows}
     if symbol in symbols:raise RuntimeError('POSITION_ALREADY_OPEN_LIVE')
@@ -97,17 +99,16 @@ def build_plan(symbol,d):
     action=str(d.get('action')).upper();tp1=float(d['tp1']);tp2=float(d['tp2']);tp3=float(d['tp3'])
     if action=='LONG' and not (stop<px<tp3):raise RuntimeError('LONG_PROTECTION_WRONG_SIDE')
     if action=='SHORT' and not (stop>px>tp3):raise RuntimeError('SHORT_PROTECTION_WRONG_SIDE')
-    risk_pct=float(d.get('risk_pct',.5));leverage=int(d.get('max_leverage',3));lot=flt(info,'MARKET_LOT_SIZE') or flt(info,'LOT_SIZE');pf=flt(info,'PRICE_FILTER');mn=flt(info,'MIN_NOTIONAL')
-    step=float(lot.get('stepSize',0) or 0);min_qty=float(lot.get('minQty',0) or 0);max_qty=float(lot.get('maxQty',1e99) or 1e99);tick=float(pf.get('tickSize',0) or 0);min_notional=float(mn.get('notional',0) or 0)
+    risk_pct=risk_pct_for_balance(available);leverage=int(d.get('max_leverage',3));lot=flt(info,'MARKET_LOT_SIZE') or flt(info,'LOT_SIZE');pf=flt(info,'PRICE_FILTER');mn=flt(info,'MIN_NOTIONAL') or flt(info,'NOTIONAL')
+    step=float(lot.get('stepSize',0) or 0);min_qty=float(lot.get('minQty',0) or 0);max_qty=float(lot.get('maxQty',1e99) or 1e99);tick=float(pf.get('tickSize',0) or 0);min_notional=float(mn.get('notional') or mn.get('minNotional') or 0)
     qty=floor_step(min(available*risk_pct/100/distance,available*leverage/px),step)
     if qty<min_qty:raise RuntimeError(f'QTY_BELOW_MIN_{qty}_{min_qty}')
     if qty>max_qty:raise RuntimeError('QTY_ABOVE_MAX')
     if min_notional and qty*px<min_notional:raise RuntimeError('NOTIONAL_BELOW_MIN')
-    side='BUY' if action=='LONG' else 'SELL';close_side='SELL' if side=='BUY' else 'BUY';m=d.get('management') or {}
-    q1=floor_step(qty*float(m.get('tp1_close_pct',30))/100,step);q2=floor_step(qty*float(m.get('tp2_close_pct',30))/100,step)
+    side='BUY' if action=='LONG' else 'SELL';close_side='SELL' if side=='BUY' else 'BUY';m=d.get('management') or {};q1=floor_step(qty*float(m.get('tp1_close_pct',30))/100,step);q2=floor_step(qty*float(m.get('tp2_close_pct',30))/100,step)
     if q1<min_qty or (min_notional and q1*px<min_notional):q1=0
     if q2<min_qty or (min_notional and q2*px<min_notional):q2=0
-    return {'symbol':symbol,'side':side,'close_side':close_side,'qty':qty,'q1':q1,'q2':q2,'leverage':leverage,'stop':round_tick(stop,tick),'tp1':round_tick(tp1,tick),'tp2':round_tick(tp2,tick),'tp3':round_tick(tp3,tick),'strategy':d.get('strategy'),'risk_pct':risk_pct,'margin_mode':'ISOLATED','mark_before_entry':px,'min_qty':min_qty,'min_notional':min_notional}
+    return {'symbol':symbol,'side':side,'close_side':close_side,'qty':qty,'q1':q1,'q2':q2,'leverage':leverage,'stop':round_tick(stop,tick),'tp1':round_tick(tp1,tick),'tp2':round_tick(tp2,tick),'tp3':round_tick(tp3,tick),'strategy':d.get('strategy'),'risk_pct':risk_pct,'available_balance_at_execution':available,'sizing_source':'BINANCE_AVAILABLE_BALANCE','margin_mode':'ISOLATED','mark_before_entry':px,'min_qty':min_qty,'min_notional':min_notional}
 def client_id(prefix,seed):return (prefix+hashlib.sha256(seed.encode()).hexdigest()[:24])[:36]
 def query_order(symbol,cid):
     try:return signed('GET','/fapi/v1/order',{'symbol':symbol,'origClientOrderId':cid})
@@ -119,29 +120,23 @@ def post_market_idempotent(symbol,side,qty,cid,reduce_only=False):
     except Exception as exc:
         recovered=query_order(symbol,cid)
         if recovered:return recovered
-        incident('ORDER_STATUS_UNKNOWN',{'symbol':symbol,'clientOrderId':cid,'error':str(exc)[:300]})
-        raise RuntimeError('ORDER_STATUS_UNKNOWN_INCIDENT_LOCKED')
+        incident('ORDER_STATUS_UNKNOWN',{'symbol':symbol,'clientOrderId':cid,'error':str(exc)[:300]});raise RuntimeError('ORDER_STATUS_UNKNOWN_INCIDENT_LOCKED')
 def emergency_close(plan,filled_qty,seed):
     if filled_qty<=0:return None
-    return post_market_idempotent(plan['symbol'],plan['close_side'],filled_qty,client_id('AFV8X',seed),True)
+    return post_market_idempotent(plan['symbol'],plan['close_side'],filled_qty,client_id('AFV10X',seed),True)
 def place_algo(plan,order_type,stop_price,quantity=None,close_all=False):
     params={'algoType':'CONDITIONAL','symbol':plan['symbol'],'side':plan['close_side'],'type':order_type,'stopPrice':stop_price,'workingType':'MARK_PRICE','priceProtect':'true'}
     if close_all:params['closePosition']='true'
     elif quantity and quantity>0:params['quantity']=quantity;params['reduceOnly']='true'
     return signed('POST','/fapi/v1/algoOrder',params)
 def verify_live_position(symbol):
-    rows=signed('GET','/fapi/v2/positionRisk',{'symbol':symbol});rows=rows if isinstance(rows,list) else [rows]
-    active=[x for x in rows if abs(float(x.get('positionAmt',0) or 0))>0]
-    return active[0] if active else None
+    rows=signed('GET','/fapi/v2/positionRisk',{'symbol':symbol});rows=rows if isinstance(rows,list) else [rows];active=[x for x in rows if abs(float(x.get('positionAmt',0) or 0))>0];return active[0] if active else None
 def execute(plan,seed):
-    enforce_live_slot(plan['symbol']);ensure_isolated(plan['symbol']);signed('POST','/fapi/v1/leverage',{'symbol':plan['symbol'],'leverage':plan['leverage']})
-    cid=client_id('AFV8E',seed);entry=post_market_idempotent(plan['symbol'],plan['side'],plan['qty'],cid,False);pos=verify_live_position(plan['symbol'])
-    if not pos:
-        incident('ENTRY_RESPONSE_BUT_NO_POSITION',{'symbol':plan['symbol'],'entry':entry});raise RuntimeError('ENTRY_POSITION_RECONCILIATION_FAILED')
+    enforce_live_slot(plan['symbol']);ensure_isolated(plan['symbol']);signed('POST','/fapi/v1/leverage',{'symbol':plan['symbol'],'leverage':plan['leverage']});cid=client_id('AFV10E',seed);entry=post_market_idempotent(plan['symbol'],plan['side'],plan['qty'],cid,False);pos=verify_live_position(plan['symbol'])
+    if not pos:incident('ENTRY_RESPONSE_BUT_NO_POSITION',{'symbol':plan['symbol'],'entry':entry});raise RuntimeError('ENTRY_POSITION_RECONCILIATION_FAILED')
     filled=abs(float(pos.get('positionAmt',0) or entry.get('executedQty') or plan['qty']));protection={}
     try:
-        protection['stop']=place_algo(plan,'STOP_MARKET',plan['stop'],close_all=True)
-        protection['tp3']=place_algo(plan,'TAKE_PROFIT_MARKET',plan['tp3'],close_all=True)
+        protection['stop']=place_algo(plan,'STOP_MARKET',plan['stop'],close_all=True);protection['tp3']=place_algo(plan,'TAKE_PROFIT_MARKET',plan['tp3'],close_all=True)
         if plan['q1']>0:protection['tp1']=place_algo(plan,'TAKE_PROFIT_MARKET',plan['tp1'],quantity=plan['q1'])
         if plan['q2']>0:protection['tp2']=place_algo(plan,'TAKE_PROFIT_MARKET',plan['tp2'],quantity=plan['q2'])
         if not protection.get('stop') or not protection.get('tp3'):raise RuntimeError('MANDATORY_PROTECTION_RESPONSE_EMPTY')
@@ -156,11 +151,9 @@ def print_output(output):
     if not output.get('executed'):print('LIVE EXECUTION LOCKED');print('NO REAL ORDER WAS SENT')
 def main():
     if not API_KEY or not API_SECRET:raise SystemExit('BINANCE API credentials missing')
-    gate,reason=confirmation_gate();output={'generated_at':now().isoformat(),'live_trading':LIVE_TRADING,'live_armed':LIVE_ARMED,'status':reason,'executed':False,'policy':{'max_concurrent_positions':5,'margin_mode':'ISOLATED_ONLY','slot_refills_after_position_close':True,'idempotent_entry':True,'unknown_status_fail_closed':True,'protective_failure_incident_lock':True}}
+    gate,reason=confirmation_gate();output={'generated_at':now().isoformat(),'live_trading':LIVE_TRADING,'live_armed':LIVE_ARMED,'status':reason,'executed':False,'policy':{'max_concurrent_positions':5,'margin_mode':'ISOLATED_ONLY','slot_refills_after_position_close':True,'idempotent_entry':True,'unknown_status_fail_closed':True,'protective_failure_incident_lock':True,'live_sizing_source':'BINANCE_AVAILABLE_BALANCE'}}
     if not gate:save_json(OUT_FILE,output);print_output(output);return
     symbol=gate['confirmation']['symbol'];plan=build_plan(symbol,gate['decision']);output['plan']=plan
     if not (LIVE_TRADING and LIVE_ARMED):output['status']='CONFIRMED_DRY_RUN_LIVE_LOCKED';save_json(OUT_FILE,output);print_output(output);return
-    require_one_way();open_count,slots_left=enforce_live_slot(symbol);output['live_open_positions_before']=open_count;output['live_slots_left_before']=slots_left
-    seed=str(gate['confirmation'].get('fingerprint') or gate['confirmation'].get('id') or symbol+now().isoformat());result=execute(plan,seed);output.update({'status':'EXECUTED_PROTECTED_ISOLATED_RECONCILED','executed':True,'result':result})
-    c=gate['confirmation'];c['status']='CONSUMED';c['consumed_at']=now().isoformat();save_json(CONFIRM_FILE,c);save_json(OUT_FILE,output);print_output(output)
+    require_one_way();open_count,slots_left=enforce_live_slot(symbol);output['live_open_positions_before']=open_count;output['live_slots_left_before']=slots_left;seed=str(gate['confirmation'].get('fingerprint') or gate['confirmation'].get('id') or symbol+now().isoformat());result=execute(plan,seed);output.update({'status':'EXECUTED_PROTECTED_ISOLATED_RECONCILED','executed':True,'result':result});c=gate['confirmation'];c['status']='CONSUMED';c['consumed_at']=now().isoformat();save_json(CONFIRM_FILE,c);save_json(OUT_FILE,output);print_output(output)
 if __name__=='__main__':main()
