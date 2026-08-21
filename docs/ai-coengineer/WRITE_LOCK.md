@@ -8,27 +8,24 @@ RELEASED_BY: CHATGPT
 
 ## Completed scope
 
-V10-FINAL-CRYPTO-SCALP-COMPLETION completed on GitHub `main`.
+V10-CONFLICT-AUDIT-R1 completed on GitHub `main`.
 
-Implemented:
-- Crypto target scan cadence remains 1 minute.
-- Crypto Signal-only quality floor tuned from 70 to 64.
-- Crypto duplicate advisory RR floor tuned from 1.20 to 1.10 while retaining the compatibility engine structural plan validation.
-- Crypto aligned three-AI confidence floor tuned from 64 to 60; all three reviews are still required, at least 2/3 must align, and any opposite-direction review still blocks promotion.
-- Crypto accepted-signal TTL reduced from 8 hours to 2 hours for scalp semantics.
-- Weak learned Crypto symbols with n>=8 and observed WR<45% receive a +6 quality penalty.
-- Council quote handling hardened: only a positive quote price with explicit `fresh === true` is considered verified; unknown freshness can no longer be interpreted as fresh.
-- Missing/stale quote, incomplete Entry/SL/TP, invalid geometry and Entry Intelligence hard blocks remain fail-closed.
-- Forex, Metal and Index thresholds were not changed.
-- Binance Auto execution authority and hard-risk controls were not changed.
-- Static validation and Cloudflare deployment validation now assert the final Crypto scalp policy.
-- V10 master checkpoint and deployment revision were synchronized.
+Conflict audit findings and fixes:
+- Found a real previous-version scheduling conflict: `hub-v10-unified-v2.js` delegated `scheduled()` to `hub-v10.js`, while the canonical entry also runs `signal-v10-scheduled-v2.js`. The old core still carried obsolete Crypto 5-minute cadence and weaker lifecycle freshness semantics. Removed this delegation so scheduled authority is now exclusively `signal-v10-scheduled-v2.js`.
+- Kept `hub-v10.js` only as compatibility fetch/core fallback; it no longer receives scheduled events through the canonical V10 path.
+- Found a Telegram routing conflict: Unified V2 exposed `v10:stats` and `v10:council` buttons but did not claim those callbacks, causing fallback into the older V10 core. Unified V2 now owns and renders both callbacks directly.
+- Unified V2 now handles `/signal-v10/*` API before compatibility fallback, keeping the three-AI bridge on the canonical V10 surface.
+- Verified three-AI decision semantics: all Claude/DeepSeek/Codex reviews must be OK; at least two must align with candidate direction; any opposite-direction review blocks; WAIT is not treated as opposition; market-specific confidence floor remains enforced by the council.
+- VPS provider order remains DeepSeek -> Claude -> Codex sequentially with successful-result cache; provider failure prevents submission instead of silently accepting partial council output.
+- Added static regression guards preventing `v10Core.scheduled` from returning to Unified V2 and asserting the three-AI conflict policy/routing.
+- Crypto final policy remains 1-minute target scan, Quality 64, advisory RR 1.10, aligned AI confidence 60, accepted TTL 2h, verified-fresh quote required.
+- Signal V10 remains separate from Binance Auto execution authority.
 
 Runtime evidence note:
-- Source and deployment-trigger changes are complete on GitHub main.
-- Successful Cloudflare/VPS runtime deployment is not claimed without observable workflow/runtime evidence.
+- GitHub source conflict fixes and validation guards are complete.
+- Successful Cloudflare/VPS production deployment is not claimed without workflow/runtime evidence.
 
 ## Current protocol
 
 - No writer currently owns the repository write lock.
-- Future changes must fresh-read `main` and preserve Signal V10 / Binance Auto separation.
+- Future changes must fresh-read `main` and preserve the single canonical V10 scheduler, three-AI conflict rules, verified-fresh pricing and Signal V10 / Binance Auto separation.
