@@ -3,7 +3,7 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-ROOT=Path('/opt/trading/trading-api/auto-futures-v1');STATE=ROOT/'state';RISK=STATE/'risk_decisions.json';GUARD=STATE/'execution_guard.json';PREFLIGHT=STATE/'live_preflight.json';OUT=STATE/'pending_trades.json'
+ROOT=Path('/opt/trading/trading-api/auto-futures-v1');STATE=ROOT/'state';RISK=STATE/'risk_decisions.json';GUARD=STATE/'execution_guard.json';PREFLIGHT=STATE/'live_preflight.json';RELIABILITY=STATE/'reliability_review.json';OUT=STATE/'pending_trades.json'
 TTL_BY_STRATEGY={'BREAKOUT':60,'MOMENTUM':75,'TREND_PULLBACK':120,'MEAN_REVERSION':120};MAX_OPEN_POSITIONS=5
 
 def now():return datetime.now(timezone.utc)
@@ -13,15 +13,16 @@ def load(path,default):
 def save(path,obj):path.write_text(json.dumps(obj,indent=2,ensure_ascii=False),encoding='utf-8')
 def make_id(symbol,action,fingerprint):return hashlib.sha256(f'{symbol}|{action}|{fingerprint}'.encode()).hexdigest()[:18]
 def main():
-    risk=load(RISK,{'decisions':{}});guard=load(GUARD,{'decisions':{}});pre=load(PREFLIGHT,{});old=load(OUT,{'items':[]});t=now()
+    risk=load(RISK,{'decisions':{}});guard=load(GUARD,{'decisions':{}});pre=load(PREFLIGHT,{});rel=load(RELIABILITY,{});old=load(OUT,{'items':[]});t=now()
     account_ok=bool(pre.get('account_ok'));live_open=pre.get('live_open_positions');open_positions=int(live_open if isinstance(live_open,int) else risk.get('open_positions',0) or 0);slots=max(0,MAX_OPEN_POSITIONS-open_positions)
-    if not account_ok:
+    reliability_block=bool(rel.get('must_block_live')) and str(rel.get('severity','')).upper() in {'HIGH','CRITICAL'}
+    if not account_ok or reliability_block:
         items=[]
         for item in old.get('items',[]):
-            if item.get('status') in {'PENDING','CONFIRMING'}:item['status']='EXPIRED_PREFLIGHT_BLOCK';item['resolved_at']=t.isoformat()
+            if item.get('status') in {'PENDING','CONFIRMING'}:item['status']='EXPIRED_PREFLIGHT_BLOCK' if not reliability_block else 'EXPIRED_RELIABILITY_BLOCK';item['resolved_at']=t.isoformat()
             items.append(item)
-        payload={'generated_at':t.isoformat(),'capacity':{'open_positions':open_positions,'max_open_positions':MAX_OPEN_POSITIONS,'available_slots':slots,'telegram_new_trade_notifications':False},'policy':{'confirmation_required':True,'live_preflight_required':True,'fail_closed':True},'preflight_errors':pre.get('fatal_errors',[]) or ['PREFLIGHT_NOT_READY'],'items':items[-100:]}
-        save(OUT,payload);print('APPROVAL QUEUE: 0 pending | LIVE PREFLIGHT BLOCK | HUB NEW-TRADE NOTIFICATIONS SUPPRESSED');return
+        payload={'generated_at':t.isoformat(),'capacity':{'open_positions':open_positions,'max_open_positions':MAX_OPEN_POSITIONS,'available_slots':slots,'telegram_new_trade_notifications':False},'policy':{'confirmation_required':True,'live_preflight_required':True,'reliability_council_required':True,'fail_closed':True},'preflight_errors':pre.get('fatal_errors',[]) or ([] if account_ok else ['PREFLIGHT_NOT_READY']),'reliability_block':reliability_block,'reliability_severity':rel.get('severity'),'items':items[-100:]}
+        save(OUT,payload);print('APPROVAL QUEUE: 0 pending |', 'RELIABILITY BLOCK' if reliability_block else 'LIVE PREFLIGHT BLOCK','| HUB NEW-TRADE NOTIFICATIONS SUPPRESSED');return
     if slots<=0:
         items=[]
         for item in old.get('items',[]):
@@ -47,7 +48,7 @@ def main():
         if item.get('id') in current_ids:continue
         if item.get('status') in {'PENDING','CONFIRMING'}:item['status']='EXPIRED'
         items.append(item)
-    payload={'generated_at':t.isoformat(),'capacity':{'open_positions':open_positions,'max_open_positions':MAX_OPEN_POSITIONS,'available_slots':slots,'telegram_new_trade_notifications':True},'policy':{'confirmation_required':True,'live_preflight_required':True,'fail_closed':True,'missed_signal_action':'EXPIRE_NO_TRADE','revalidate_on_confirm':True,'one_time_confirmation':True,'suppress_new_signals_when_full':True},'items':items[-100:]};save(OUT,payload)
+    payload={'generated_at':t.isoformat(),'capacity':{'open_positions':open_positions,'max_open_positions':MAX_OPEN_POSITIONS,'available_slots':slots,'telegram_new_trade_notifications':True},'policy':{'confirmation_required':True,'live_preflight_required':True,'reliability_council_required':True,'fail_closed':True,'missed_signal_action':'EXPIRE_NO_TRADE','revalidate_on_confirm':True,'one_time_confirmation':True,'suppress_new_signals_when_full':True},'items':items[-100:]};save(OUT,payload)
     pending=[x for x in items if x.get('status')=='PENDING'];print('APPROVAL QUEUE:',len(pending),'pending | LIVE SLOTS',slots)
     for x in pending:print(x['id'],x['symbol'],x['action'],x['strategy'],'TTL',x['ttl_seconds'],'QTY',x.get('estimated_qty'))
 if __name__=='__main__':main()
