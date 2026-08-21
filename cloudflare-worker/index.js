@@ -1,4 +1,4 @@
-import signalHub from "./hub-v10.js";
+import signalHub from "./hub-v10-unified.js";
 import {handleUnifiedTelegram,handleControlApi} from "./binance-control-plane.js";
 
 const VERSION="V10";
@@ -31,6 +31,7 @@ export default {
     }
 
     // Signal V10 owns the Telegram root/menu and all signal-market callbacks.
+    // Unified Hub keeps legacy active/pending orders visible beside official V10 signals.
     const r=await signalHub.fetch(req,env,ctx);
     if(owner==="SIGNAL_V10")return r;
 
@@ -44,6 +45,8 @@ export default {
       service:SERVICE,
       signalOnlySourceOfTruth:"V10",
       telegramRootOwner:"SIGNAL_V10",
+      telegramUx:"V10_UNIFIED_LIVE_HISTORY",
+      legacyLiveOrdersVisible:true,
       binanceCallbackNamespace:"binance:*",
       signalThreeAiCouncil:true,
       signalLifecycleLearning:true,
