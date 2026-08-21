@@ -19,7 +19,7 @@ def run(cmd,prompt):
 def review(provider,evidence):
  prompt=ROLE+'\nEVIDENCE='+json.dumps(evidence,ensure_ascii=False,separators=(',',':'))
  if provider=='claude':return run(['claude','--model',CLAUDE_MODEL,'-p'],prompt)
- if provider=='codex':return run(['/usr/bin/codex','exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only'],prompt)
+ if provider=='codex':return run(['/usr/bin/codex','exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check'],prompt)
  raise ValueError('UNKNOWN_PROVIDER')
 class H(BaseHTTPRequestHandler):
  def sendj(self,code,obj):
