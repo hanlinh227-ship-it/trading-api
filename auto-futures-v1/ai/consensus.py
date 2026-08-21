@@ -7,7 +7,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-
 from ai_budget_governor import allow, record_call, snapshot as budget_snapshot
 from ai_coordination import circuit_allowed, record_result, health_snapshot, build_coordination_policy
 
@@ -15,7 +14,6 @@ ROOT=Path('/opt/trading/trading-api/auto-futures-v1');AI_DIR=ROOT/'ai';STATE_DIR
 SNAPSHOT=STATE_DIR/'market_snapshot.json';LIVE_PREFLIGHT=STATE_DIR/'live_preflight.json';OUT=STATE_DIR/'ai_consensus.json';CACHE=STATE_DIR/'ai_consensus_cache.json'
 SCRIPTS={'claude':'claude_trader.py','deepseek':'deepseek_trader.py','codex':'codex_trader.py'};CACHE_TTL_SECONDS=90
 AI_REVIEW_TIMEOUT_SECONDS=int(os.environ.get('AI_REVIEW_TIMEOUT_SECONDS','60'));COUNCIL_LOCK_WAIT_SECONDS=int(os.environ.get('AI_COUNCIL_LOCK_WAIT_SECONDS','20'));LOCK_PATH='/tmp/auto-futures-ai-council.lock'
-
 
 def load(path,default):
     try:return json.loads(path.read_text(encoding='utf-8')) if path.exists() else default
@@ -27,17 +25,14 @@ def live_open_count():
     p=load(LIVE_PREFLIGHT,{})
     try:return max(0,int(p.get('live_open_positions',0) or 0))
     except Exception:return 0
-def event_fingerprint(snapshot,live_count):
-    rows=[]
-    for x in snapshot.get('ai_candidates') or snapshot.get('setups') or []:
-        action=str(x.get('candidate_action','WAIT')).upper()
-        if action not in {'LONG','SHORT'} or (x.get('blockers') or []):continue
-        rows.append({'symbol':x.get('symbol'),'action':action,'strategy':x.get('strategy'),'regime':x.get('regime'),'quality5':int(float(x.get('setup_quality',0) or 0)//5)*5,'warnings':(x.get('warnings') or [])[:3]})
-    rows=sorted(rows,key=lambda x:x['quality5'],reverse=True)[:3]
-    return hashlib.sha256(json.dumps({'candidates':rows,'live_open_count':live_count},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+def score(x):return float(x.get('signal_intelligence_score',x.get('setup_quality',x.get('setup_score',0))) or 0)
 def actionable(snapshot):
     rows=[x for x in snapshot.get('ai_candidates') or snapshot.get('setups') or [] if str(x.get('candidate_action','WAIT')).upper() in {'LONG','SHORT'} and not (x.get('blockers') or [])]
-    rows.sort(key=lambda x:float(x.get('setup_quality',x.get('setup_score',0)) or 0),reverse=True);return rows[:3]
+    rows.sort(key=lambda x:(score(x),-float(x.get('spread_bps',999999) or 999999)),reverse=True);return rows[:3]
+def event_fingerprint(snapshot,live_count):
+    rows=[]
+    for x in actionable(snapshot):rows.append({'symbol':x.get('symbol'),'action':str(x.get('candidate_action')).upper(),'strategy':x.get('strategy'),'regime':x.get('regime'),'quality5':int(score(x)//5)*5,'warnings':(x.get('warnings') or [])[:3]})
+    return hashlib.sha256(json.dumps({'candidates':rows,'live_open_count':live_count},sort_keys=True,separators=(',',':')).encode()).hexdigest()
 def acquire_council_lock():
     fh=open(LOCK_PATH,'w');deadline=time.time()+COUNCIL_LOCK_WAIT_SECONDS
     while True:
@@ -107,18 +102,18 @@ def main():
             out=cache['consensus'];out['generated_at']=datetime.now(timezone.utc).isoformat();out.setdefault('policy',{})['token_mode']='SINGLE_FLIGHT_CACHE_REUSE';OUT.write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf-8');print('3-AI SINGLE-FLIGHT: reused current cache');return
         return write_idle('COUNCIL_BUSY_NO_FRESH_CACHE')
     try:
-        # Recheck cache after waiting for the lock; another council may have just completed.
         cache=load(CACHE,{})
         if cache.get('fingerprint')==fp and age_seconds(cache.get('generated_at'))<CACHE_TTL_SECONDS and cache.get('consensus'):
             out=cache['consensus'];out['generated_at']=datetime.now(timezone.utc).isoformat();out.setdefault('policy',{})['token_mode']='POST_LOCK_CACHE_REUSE';OUT.write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf-8');print('3-AI POST-LOCK CACHE REUSED');return
-        priority='POSITION' if live_count>0 else 'NORMAL';print(f'Starting coordinated 3-AI council | top {len(candidates)} | outer timeout {AI_REVIEW_TIMEOUT_SECONDS}s...',flush=True);results={}
+        priority='POSITION' if live_count>0 else 'NORMAL';print(f'Starting V10 coordinated 3-AI council | top {len(candidates)} | timeout {AI_REVIEW_TIMEOUT_SECONDS}s...',flush=True);results={}
         with ThreadPoolExecutor(max_workers=3) as pool:
             future_map={pool.submit(run_ai,n,s,priority,len(candidates)):n for n,s in SCRIPTS.items()}
             for f in as_completed(future_map):n,r=f.result();results[n]=r;print(f'AI reviewer finished: {n} | {r.get("status")} | {r.get("elapsed_seconds","-")}s',flush=True)
-        decisions=make_decisions(results);generated=datetime.now(timezone.utc).isoformat();out={'generated_at':generated,'last_active_consensus_at':generated,'policy':{'style':'SCALP_ONLY_24_7','decision_rule':'2_of_3_same_direction_no_opposition','three_ai_required':True,'confidence_rule':'directional_reviewers_only','token_mode':'COORDINATED_SINGLE_FLIGHT_TOP3','candidate_limit':3,'cache_ttl_seconds':CACHE_TTL_SECONDS,'ai_review_timeout_seconds':AI_REVIEW_TIMEOUT_SECONDS,'priority':priority,'budget':budget_snapshot(),'provider_health':health_snapshot()},'claude_status':results.get('claude',{}).get('status','ERROR'),'deepseek_status':results.get('deepseek',{}).get('status','ERROR'),'codex_status':results.get('codex',{}).get('status','ERROR'),'reviewer_latency_seconds':{n:(results.get(n,{}) or {}).get('elapsed_seconds') for n in SCRIPTS},'symbols':decisions}
+        decisions=make_decisions(results);generated=datetime.now(timezone.utc).isoformat();provider_meta={n:{k:(results.get(n,{}) or {}).get(k) for k in ('model','transport','cache_usage','usage','estimated_usd') if (results.get(n,{}) or {}).get(k) is not None} for n in SCRIPTS}
+        out={'generated_at':generated,'last_active_consensus_at':generated,'policy':{'style':'SCALP_ONLY_24_7','decision_rule':'2_of_3_same_direction_no_opposition','three_ai_required':True,'confidence_rule':'directional_reviewers_only','token_mode':'COORDINATED_SINGLE_FLIGHT_TOP3','candidate_limit':3,'cache_ttl_seconds':CACHE_TTL_SECONDS,'ai_review_timeout_seconds':AI_REVIEW_TIMEOUT_SECONDS,'priority':priority,'budget':budget_snapshot(),'provider_health':health_snapshot()},'claude_status':results.get('claude',{}).get('status','ERROR'),'deepseek_status':results.get('deepseek',{}).get('status','ERROR'),'codex_status':results.get('codex',{}).get('status','ERROR'),'reviewer_latency_seconds':{n:(results.get(n,{}) or {}).get('elapsed_seconds') for n in SCRIPTS},'provider_meta':provider_meta,'symbols':decisions}
         STATE_DIR.mkdir(parents=True,exist_ok=True);LOG_DIR.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf-8');CACHE.write_text(json.dumps({'generated_at':generated,'fingerprint':fp,'consensus':out},indent=2,ensure_ascii=False),encoding='utf-8')
         with (LOG_DIR/'ai_consensus.jsonl').open('a',encoding='utf-8') as log:log.write(json.dumps(out,ensure_ascii=False)+'\n')
-        coord=build_coordination_policy(decisions);print('='*56);print('V9 COORDINATED THREE-AI COUNCIL');print('='*56);print('Claude:',out['claude_status'],'DeepSeek:',out['deepseek_status'],'Codex:',out['codex_status']);print('LATENCY:',json.dumps(out['reviewer_latency_seconds']));print('HEALTH:',json.dumps(coord.get('provider_health',{}),ensure_ascii=False))
+        coord=build_coordination_policy(decisions);print('='*56);print('V10 COORDINATED THREE-AI COUNCIL');print('='*56);print('Claude:',out['claude_status'],'DeepSeek:',out['deepseek_status'],'Codex:',out['codex_status']);print('LATENCY:',json.dumps(out['reviewer_latency_seconds']));print('HEALTH:',json.dumps(coord.get('provider_health',{}),ensure_ascii=False))
         for s,d in decisions.items():print(s,'|','/'.join(d['actions']),'| FINAL',d['final_action'],'| DIR_CONF',d['consensus_confidence'],'|',d['reason'])
     finally:
         try:fcntl.flock(lock.fileno(),fcntl.LOCK_UN);lock.close()
