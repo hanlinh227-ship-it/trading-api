@@ -37,6 +37,8 @@ jobs:
             cloudflare-worker/index.js \
             cloudflare-worker/hub-v10.js \
             cloudflare-worker/hub-v10-unified-v2.js \
+            cloudflare-worker/hub-v10-unified-entry.js \
+            cloudflare-worker/signal-v10-scheduled-v2.js \
             cloudflare-worker/signal-v10-council.js \
             cloudflare-worker/signal-v10-learning.js \
             cloudflare-worker/binance-control-plane.js \
@@ -62,14 +64,15 @@ jobs:
           grep -q 'telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2"' cloudflare-worker/index.js
           grep -q 'legacyLiveOrdersVisible:true' cloudflare-worker/index.js
           grep -q 'candidateQuoteRefresh:true' cloudflare-worker/index.js
-          grep -q 'hub-v10-unified-v2.js' cloudflare-worker/index.js
+          grep -q 'autoCandidateQuoteRefresh:true' cloudflare-worker/index.js
+          grep -q 'hub-v10-unified-entry.js' cloudflare-worker/index.js
           grep -q 'binanceAutoProjectSeparate:true' cloudflare-worker/index.js
           grep -q '/signal-v10/candidates' cloudflare-worker/signal-v10-council.js
           grep -q '/signal-v10/review' cloudflare-worker/signal-v10-council.js
           grep -q '/signal-v10/worker-health' cloudflare-worker/signal-v10-council.js
-          grep -q 'refreshSignalV10Lifecycle' cloudflare-worker/hub-v10.js
           grep -q 'V10_ONLY_HISTORY' cloudflare-worker/signal-v10-learning.js
           grep -q 'refreshCandidateQuotes' cloudflare-worker/hub-v10-unified-v2.js
+          grep -q 'AUTO_CRON_V10_QUOTE_REFRESH' cloudflare-worker/signal-v10-scheduled-v2.js
           grep -q 'LỆNH ĐANG CHẠY' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'KHÔNG PHẢI LỆNH' cloudflare-worker/hub-v10-unified-v2.js
           grep -q 'SIGNAL_V10_ORIGIN' signal-only-v10/ai_council_worker.py
