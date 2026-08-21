@@ -1,4 +1,4 @@
-name: Deploy Cloudflare Signal Only V10
+name: Deploy Cloudflare Signal V11
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: trading-signal-v10-cloudflare-production
+  group: trading-signal-v11-cloudflare-production
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +22,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
 
     steps:
       - name: Checkout current main
@@ -29,13 +30,11 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Guard deployment secrets
+      - name: Guard core deployment secrets
         shell: bash
         run: |
           set -euo pipefail
@@ -43,68 +42,23 @@ jobs:
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           test -n "${TRADING_KV_NAMESPACE_ID:-}"
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
-
       - name: Install pinned Wrangler
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
-
-      - name: Validate Unified V10 V2 Worker source
+      - name: Validate V11 source of truth
         working-directory: cloudflare-worker
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm run check
-          node --check index.js
-          node --check hub-v10-unified-entry.js
-          node --check hub-v10-unified-v2.js
-          node --check signal-v10-scheduled-v2.js
-          node --check signal-v10-council.js
-          node --check signal-v10-learning.js
-          node --check binance-control-plane.js
-          grep -q 'const VERSION="V10"' index.js
-          grep -q 'hub-v10-unified-entry.js' index.js
-          grep -q 'hub-v10-unified-v2.js' hub-v10-unified-entry.js
-          grep -q 'signal-v10-scheduled-v2.js' hub-v10-unified-entry.js
-          grep -q 'signalOnlySourceOfTruth:"V10"' index.js
-          grep -q 'telegramUx:"V10_UNIFIED_LIVE_HISTORY_V2"' index.js
-          grep -q 'candidateQuoteRefresh:true' index.js
-          grep -q 'autoCandidateQuoteRefresh:true' index.js
-          grep -q 'crypto:1\*60e3' signal-v10-scheduled-v2.js
-          grep -q 'AUTO_CRON_V10_CRYPTO_SCALP' signal-v10-scheduled-v2.js
-          grep -q 'q?.fresh!==true' signal-v10-scheduled-v2.js
-          grep -q 'crypto:1.10' signal-v10-council.js
-          grep -q 'crypto:64' signal-v10-council.js
-          grep -q 'crypto:60' signal-v10-council.js
-          grep -q 'crypto:2\*3600e3' signal-v10-council.js
-          grep -q 'QUOTE_NOT_VERIFIED_FRESH' signal-v10-council.js
-          grep -q 'CRYPTO_SCALP_V10' signal-v10-council.js
-          grep -q 'binanceApprovalHub:true' index.js
-          grep -q 'binanceAutoProjectSeparate:true' index.js
-          grep -q 'callback_data:"binance"' binance-control-plane.js
-          git diff --exit-code
-
-      - name: Prepare Wrangler using existing KV
+        run: npm run check
+      - name: Prepare Wrangler with existing KV and VPC Service
         working-directory: cloudflare-worker
         run: npm run prepare:wrangler
-
-      - name: Deploy current main to Cloudflare
+      - name: Deploy V11 production Worker
         working-directory: cloudflare-worker
         run: npx wrangler deploy
-
       - name: Deployment summary
-        shell: bash
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
-          echo 'SIGNAL_ONLY_VERSION=V10'
-          echo 'UNIFIED_ENTRY=V2'
-          echo 'CRYPTO_SCAN_CADENCE=1_MINUTE'
-          echo 'CRYPTO_MODE=SCALP_OPPORTUNITY'
-          echo 'CRYPTO_MIN_QUALITY=64'
-          echo 'CRYPTO_MIN_RR=1.10'
-          echo 'CRYPTO_AI_CONFIDENCE=60'
-          echo 'CRYPTO_SIGNAL_TTL=2_HOURS'
-          echo 'VERIFIED_FRESH_QUOTES=REQUIRED'
-          echo 'THREE_AI_COUNCIL=VPS_BATCH_WORKER'
-          echo 'LIFECYCLE_LEARNING=ENABLED'
-          echo 'OBSERVED_WIN_RATE=ENABLED'
-          echo 'BINANCE_AUTO=SEPARATE_VPS_PROJECT'
+          echo 'SIGNAL_ONLY_VERSION=V11'
+          echo 'RUNTIME=CLOUDFLARE_NATIVE'
+          echo 'VPC_AI_BRIDGE=AI_BRIDGE'
+          echo 'THREE_AI_HUNTER=ON_DEMAND_ONLY'
+          echo 'BINANCE_AUTO=SEPARATE_EXECUTION_AUTHORITY'
