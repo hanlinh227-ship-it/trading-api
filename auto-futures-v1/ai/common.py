@@ -3,10 +3,21 @@ from pathlib import Path
 
 ROOT = Path("/opt/trading/trading-api/auto-futures-v1")
 SNAPSHOT = ROOT / "state" / "market_snapshot.json"
+LEARNING = ROOT / "state" / "learning_stats.json"
+POLICY = ROOT / "state" / "adaptive_policy.json"
 
 
 def load_snapshot():
     return json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+
+
+def load_optional(path):
+    try:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
 
 
 def candidate_setups(snapshot):
@@ -38,10 +49,23 @@ def compact_setup(s):
         "timeframes": s.get("timeframes"),
         "mtf_alignment": s.get("mtf_alignment", {}),
         "entry_standard": s.get("entry_standard", {}),
+        "timeframe_hierarchy": s.get("timeframe_hierarchy", {}),
+        "entry_standardization": s.get("entry_standardization", {}),
+        "all_timeframes_present": s.get("all_timeframes_present", []),
         "reasons": s.get("reasons", []),
         "warnings": s.get("warnings", []),
         "blockers": s.get("blockers", []),
         "management": s.get("management", {}),
+    }
+
+
+def reviewer_context(snapshot):
+    return {
+        "engine": snapshot.get("engine"),
+        "policy": snapshot.get("policy", {}),
+        "all_timeframe_context": snapshot.get("all_timeframe_context", {}),
+        "learning_stats": load_optional(LEARNING),
+        "adaptive_policy": load_optional(POLICY),
     }
 
 
