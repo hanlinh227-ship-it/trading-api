@@ -1,4 +1,4 @@
-name: Deploy Cloudflare Worker
+name: Deploy Cloudflare Signal Only V10
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: trading-v78-cloudflare-production
+  group: trading-signal-v10-cloudflare-production
   cancel-in-progress: false
 
 jobs:
@@ -48,17 +48,22 @@ jobs:
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
 
-      - name: Validate immutable Worker source
+      - name: Validate V10 Worker source
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
           npm run check
+          node --check index.js
+          node --check hub-v10.js
+          node --check signal-v10-council.js
+          node --check signal-v10-learning.js
           node --check binance-control-plane.js
+          grep -q 'const VERSION="V10"' index.js
+          grep -q 'hub-v10.js' index.js
+          grep -q 'signalOnlySourceOfTruth:"V10"' index.js
           grep -q 'binanceApprovalHub:true' index.js
           grep -q 'callback_data:"binance"' binance-control-plane.js
-          grep -q '/binance/control/report' binance-control-plane.js
-          grep -q '/binance/control/feed' binance-control-plane.js
           git diff --exit-code
 
       - name: Prepare Wrangler using existing KV
@@ -73,6 +78,8 @@ jobs:
         shell: bash
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
-          echo 'HUB=EXISTING_TELEGRAM_HUB'
-          echo 'BINANCE_BUTTON=ENABLED'
-          echo 'EXECUTION_AUTHORITY=VPS_ONLY'
+          echo 'SIGNAL_ONLY_VERSION=V10'
+          echo 'THREE_AI_COUNCIL=VPS_BATCH_WORKER'
+          echo 'LIFECYCLE_LEARNING=ENABLED'
+          echo 'OBSERVED_WIN_RATE=ENABLED'
+          echo 'BINANCE_AUTO=SEPARATE_VPS_PROJECT'
