@@ -25,12 +25,16 @@ jobs:
           grep -q 'hub-v11.js' cloudflare-worker/index.js
           grep -q 'signalOnlySourceOfTruth:"V11"' cloudflare-worker/index.js
           grep -q 'creditsPerMinute:55' cloudflare-worker/v11/config.js
-          grep -q 'CLOUDFLARE_SINGLE_SCHEDULER' cloudflare-worker/v11/orchestrator.js
+          grep -q 'scheduledNativeV11' cloudflare-worker/hub-v11.js
+          ! grep -q 'v10.scheduled' cloudflare-worker/hub-v11.js
           grep -q 'V11_QUOTE_NOT_VERIFIED_FRESH' cloudflare-worker/v11/data-hub.js
+          grep -q 'V11_QUOTE_NOT_VERIFIED_FRESH' cloudflare-worker/v11/native-runtime.js
+          grep -q 'refreshV11Lifecycle' cloudflare-worker/v11/native-runtime.js
           grep -q 'STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR' cloudflare-worker/v11/instrument-profiles.js
           grep -q 'FORWARD_STRUCTURE_LIQUIDITY' cloudflare-worker/v11/instrument-profiles.js
           grep -q "status:'WATCH'" cloudflare-worker/v11/entry-plan.js
           grep -q 'TRADING_STATE_REQUIRED' cloudflare-worker/v11/store.js
-          grep -q 'HUMAN_ASSISTED_NOT_API' cloudflare-worker/v11/ai-gateway.js
-          grep -q 'DeepSeek API: runtime-native' cloudflare-worker/hub-v11.js
+          grep -q 'signalAiRequired:false' cloudflare-worker/hub-v11.js
+          grep -q 'v11:ai:review' cloudflare-worker/hub-v11.js
+          grep -q 'v11:scan:' cloudflare-worker/hub-v11.js
           ! grep -R 'v10Core.scheduled\|V77.*authority\|V78.*authority' cloudflare-worker/v11
