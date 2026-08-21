@@ -2,8 +2,9 @@
 set -Eeuo pipefail
 
 ROOT="/opt/trading/trading-api"
-LOG="/opt/trading/trading-api/auto-futures-v1/logs/github_watch.log"
+LOG="$ROOT/auto-futures-v1/logs/github_watch.log"
 LOCK="/tmp/auto-futures-update.lock"
+BRANCH="auto-futures-v1"
 
 mkdir -p "$(dirname "$LOG")"
 
@@ -12,8 +13,6 @@ log() {
 }
 
 cd "$ROOT"
-
-# Không cho hai updater chạy đồng thời
 exec 9>"$LOCK"
 
 if ! flock -n 9; then
@@ -21,10 +20,10 @@ if ! flock -n 9; then
     exit 0
 fi
 
-git fetch origin main >/dev/null 2>&1
+git fetch origin "$BRANCH" >/dev/null 2>&1
 
 LOCAL="$(git rev-parse HEAD)"
-REMOTE="$(git rev-parse origin/main)"
+REMOTE="$(git rev-parse "origin/$BRANCH")"
 
 if [[ "$LOCAL" == "$REMOTE" ]]; then
     log "NO UPDATE: $LOCAL"
