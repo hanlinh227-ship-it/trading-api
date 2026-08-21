@@ -1,256 +1,51 @@
 import json
 import subprocess
-import sys
-
-from common import (
-    load_snapshot,
-    compact_setup,
-    validate_review,
-)
+from common import load_snapshot, candidate_setups, compact_setup, normalize_confidence, validate_review
 
 MODEL = "sonnet"
-
-SYSTEM = """
-You are an independent professional Binance Futures trader.
-
-Analyze every market setup independently.
-
-Return JSON only:
-
-{
-  "reviews": [
-    {
-      "symbol": "BTCUSDT",
-      "action": "LONG|SHORT|WAIT|EXIT|HOLD",
-      "confidence": 0,
-      "entry": null,
-      "stop_loss": null,
-      "tp1": null,
-      "tp2": null,
-      "tp3": null,
-      "trailing": "text",
-      "invalidation": "text",
-      "reason": "short text"
-    }
-  ]
-}
-
-Rules:
-
-- Do not blindly follow scanner candidate_action.
-- Analyze 5m, 15m and 1h together.
-- Consider trend, RSI, momentum, relative volume,
-  EMA extension, funding and open interest.
-- Reject chase entries.
-- Reject contradictory momentum.
-- Reject poor RR.
-- Every LONG or SHORT must have a valid stop.
-- Prefer WAIT when evidence is mixed.
-- Never use martingale.
-- Never increase risk after a loss.
-- Do not output markdown.
-- Output exactly one JSON object.
+PROMPT = """
+You are CLAUDE, the regime/context reviewer in a 24/7 Binance USDT perpetual SCALP system.
+The system has NO daily trade-count limit and NO daily/max-loss cap. That does NOT mean reckless trading: every entry must have a real per-trade structural/volatility stop and plausible edge after fees/slippage.
+Your specialty is market context, regime, and trade quality. Treat each coin independently; do not force one method across all coins.
+Preferred strategies: TREND_PULLBACK, BREAKOUT, MOMENTUM, MEAN_REVERSION. Reject the scanner strategy when context disagrees.
+Use 1m for trigger, 5m for setup, 15m for regime. Watch volume participation, VWAP/EMA distance, RSI exhaustion, volatility, funding/OI crowding, and chase risk.
+Return JSON only: {"reviews":[{"symbol":"BTCUSDT","regime":"TREND|RANGE|SQUEEZE|CHAOTIC","strategy":"...","action":"LONG|SHORT|WAIT","confidence":0-100,"reason":"...","invalidation":"..."}]}
+Do not output markdown. Prefer WAIT when edge is unclear, but do not impose arbitrary trade quotas.
 """
 
 
-def normalize_confidence(value):
-    try:
-        value = float(value)
-    except Exception:
-        return 0.0
-
-    if 0 <= value <= 1:
-        value *= 100
-
-    return max(
-        0.0,
-        min(100.0, value),
-    )
-
-
 def main():
+    snap = load_snapshot()
+    setups = [compact_setup(x) for x in candidate_setups(snap)]
+    payload = PROMPT + "\nMARKET_DATA:\n" + json.dumps(setups, ensure_ascii=False)
     try:
-        snapshot = load_snapshot()
+        p = subprocess.run(["claude", "--model", MODEL, "-p", payload], capture_output=True, text=True, timeout=180)
     except Exception as exc:
-        print(json.dumps({
-            "status": "ERROR",
-            "error": f"SNAPSHOT_LOAD_FAILED: {exc}",
-            "reviews": {},
-        }))
-        return
-
-    setups = []
-
-    for setup in snapshot.get("setups", []):
-        try:
-            setups.append(
-                compact_setup(setup)
-            )
-        except Exception:
-            continue
-
-    if not setups:
-        print(json.dumps({
-            "status": "ERROR",
-            "error": "NO_MARKET_SETUPS",
-            "reviews": {},
-        }))
-        return
-
-    prompt = (
-        SYSTEM
-        + "\n\nMARKET DATA:\n"
-        + json.dumps(
-            setups,
-            ensure_ascii=False,
-        )
-    )
-
+        print(json.dumps({"status":"ERROR","error":repr(exc),"reviews":{}})); return
+    if p.returncode != 0:
+        print(json.dumps({"status":"ERROR","error":p.stderr[-1200:],"reviews":{}})); return
+    text = p.stdout.strip(); a, b = text.find("{"), text.rfind("}")
+    if a < 0 or b <= a:
+        print(json.dumps({"status":"INVALID_JSON","reviews":{}})); return
     try:
-        process = subprocess.run(
-            [
-                "claude",
-                "--model",
-                MODEL,
-                "-p",
-                prompt,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=180,
-        )
-
-    except subprocess.TimeoutExpired:
-        print(json.dumps({
-            "status": "ERROR",
-            "error": "CLAUDE_TIMEOUT",
-            "reviews": {},
-        }))
-        return
-
+        obj = json.loads(text[a:b+1])
     except Exception as exc:
-        print(json.dumps({
-            "status": "ERROR",
-            "error": repr(exc),
-            "reviews": {},
-        }))
-        return
-
-    if process.returncode != 0:
-        print(json.dumps({
-            "status": "ERROR",
-            "error": process.stderr[-1000:],
-            "reviews": {},
-        }))
-        return
-
-    text = process.stdout.strip()
-
-    start = text.find("{")
-    end = text.rfind("}")
-
-    if start < 0 or end <= start:
-        print(json.dumps({
-            "status": "INVALID_JSON",
-            "error": text[:1000],
-            "reviews": {},
-        }))
-        return
-
-    try:
-        parsed = json.loads(
-            text[start:end + 1]
-        )
-    except Exception as exc:
-        print(json.dumps({
-            "status": "INVALID_JSON",
-            "error": str(exc),
-            "reviews": {},
-        }))
-        return
-
+        print(json.dumps({"status":"INVALID_JSON","error":str(exc),"reviews":{}})); return
     clean = {}
-
-    for review in parsed.get(
-        "reviews",
-        [],
-    ):
-        if not validate_review(review):
+    for r in obj.get("reviews", []):
+        if not validate_review(r):
             continue
-
-        symbol = str(
-            review.get(
-                "symbol",
-                "",
-            )
-        ).strip().upper()
-
-        if not symbol:
-            continue
-
-        clean[symbol] = {
-            "symbol": symbol,
-
-            "action":
-                review.get("action"),
-
-            "confidence":
-                normalize_confidence(
-                    review.get(
-                        "confidence",
-                        0,
-                    )
-                ),
-
-            "entry":
-                review.get("entry"),
-
-            "stop_loss":
-                review.get(
-                    "stop_loss"
-                ),
-
-            "tp1":
-                review.get("tp1"),
-
-            "tp2":
-                review.get("tp2"),
-
-            "tp3":
-                review.get("tp3"),
-
-            "trailing":
-                review.get(
-                    "trailing",
-                    "",
-                ),
-
-            "invalidation":
-                review.get(
-                    "invalidation",
-                    "",
-                ),
-
-            "reason":
-                review.get(
-                    "reason",
-                    "",
-                ),
+        sym = str(r["symbol"]).upper()
+        clean[sym] = {
+            "symbol": sym,
+            "regime": str(r.get("regime", "UNKNOWN")).upper(),
+            "strategy": str(r.get("strategy", "NO_EDGE")).upper(),
+            "action": str(r.get("action", "WAIT")).upper(),
+            "confidence": normalize_confidence(r.get("confidence", 0)),
+            "reason": str(r.get("reason", "")),
+            "invalidation": str(r.get("invalidation", "")),
         }
-
-    print(
-        json.dumps(
-            {
-                "status": "OK",
-                "model": MODEL,
-                "review_count":
-                    len(clean),
-                "reviews":
-                    clean,
-            },
-            ensure_ascii=False,
-        )
-    )
+    print(json.dumps({"status":"OK","model":MODEL,"review_count":len(clean),"reviews":clean}, ensure_ascii=False))
 
 
 if __name__ == "__main__":
