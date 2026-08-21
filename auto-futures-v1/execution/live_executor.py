@@ -1,734 +1,241 @@
 import json
 import os
-import time
 import hmac
 import hashlib
 import urllib.parse
 import urllib.request
 import urllib.error
-
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from pathlib import Path
 from datetime import datetime, timezone
 
-
-ROOT = Path("/opt/trading/trading-api/auto-futures-v1")
-STATE = ROOT / "state"
-LOGS = ROOT / "logs"
-
-ENV_FILE = Path("/opt/trading/.env.binance")
-
-RISK_FILE = STATE / "risk_decisions.json"
-GUARD_FILE = STATE / "execution_guard.json"
-
-BASE = "https://fapi.binance.com"
+ROOT = Path('/opt/trading/trading-api/auto-futures-v1')
+STATE = ROOT / 'state'
+ENV_FILE = Path('/opt/trading/.env.binance')
+RISK_FILE = STATE / 'risk_decisions.json'
+GUARD_FILE = STATE / 'execution_guard.json'
+CONFIRM_FILE = STATE / 'trade_confirmation.json'
+OUT_FILE = STATE / 'live_executor_state.json'
+BASE = 'https://fapi.binance.com'
 
 
 def now():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(timezone.utc)
+
+
+def load_json(path, default):
+    try:
+        return json.loads(path.read_text(encoding='utf-8')) if path.exists() else default
+    except Exception:
+        return default
+
+
+def save_json(path, obj):
+    path.write_text(json.dumps(obj, indent=2, ensure_ascii=False), encoding='utf-8')
 
 
 def load_env():
-    data = {}
-
-    for line in ENV_FILE.read_text(
-        encoding="utf-8"
-    ).splitlines():
-
+    out = {}
+    if not ENV_FILE.exists():
+        return out
+    for line in ENV_FILE.read_text(encoding='utf-8').splitlines():
         line = line.strip()
-
-        if not line or line.startswith("#"):
+        if not line or line.startswith('#') or '=' not in line:
             continue
-
-        if "=" not in line:
-            continue
-
-        k, v = line.split("=", 1)
-
-        data[k.strip()] = (
-            v.strip()
-            .strip('"')
-            .strip("'")
-        )
-
-    return data
-
+        k, v = line.split('=', 1)
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
 
 ENV = load_env()
-
-API_KEY = ENV.get(
-    "BINANCE_API_KEY",
-    ""
-)
-
-API_SECRET = ENV.get(
-    "BINANCE_API_SECRET",
-    ""
-)
-
-LIVE_TRADING = (
-    ENV.get(
-        "BINANCE_LIVE_TRADING",
-        "false"
-    ).lower()
-    == "true"
-)
-
-LIVE_ARMED = (
-    ENV.get(
-        "BINANCE_LIVE_ARMED",
-        "false"
-    ).lower()
-    == "true"
-)
+API_KEY = ENV.get('BINANCE_API_KEY', '')
+API_SECRET = ENV.get('BINANCE_API_SECRET', '')
+LIVE_TRADING = ENV.get('BINANCE_LIVE_TRADING', 'false').lower() == 'true'
+LIVE_ARMED = ENV.get('BINANCE_LIVE_ARMED', 'false').lower() == 'true'
 
 
-def public_get(path):
-    req = urllib.request.Request(
-        BASE + path,
-        headers={
-            "User-Agent": "AUTO-FUTURES-V1"
-        }
-    )
-
-    with urllib.request.urlopen(
-        req,
-        timeout=15
-    ) as r:
-
-        return json.loads(
-            r.read().decode()
-        )
-
-
-def signed_request(
-    method,
-    path,
-    params
-):
-    server = public_get(
-        "/fapi/v1/time"
-    )
-
-    params = dict(params)
-
-    params["timestamp"] = int(
-        server["serverTime"]
-    )
-
-    params["recvWindow"] = 10000
-
-    query = urllib.parse.urlencode(
-        params
-    )
-
-    signature = hmac.new(
-        API_SECRET.encode(),
-        query.encode(),
-        hashlib.sha256
-    ).hexdigest()
-
-    query = (
-        query
-        + "&signature="
-        + signature
-    )
-
+def public_get(path, params=None):
     url = BASE + path
+    if params:
+        url += '?' + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={'User-Agent':'AUTO-FUTURES-V6-CONFIRMED'})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read().decode())
 
-    if method == "GET":
-        url += "?" + query
-        data = None
 
+def signed(method, path, params=None):
+    params = dict(params or {})
+    params['timestamp'] = int(public_get('/fapi/v1/time')['serverTime'])
+    params['recvWindow'] = 10000
+    query = urllib.parse.urlencode(params)
+    sig = hmac.new(API_SECRET.encode(), query.encode(), hashlib.sha256).hexdigest()
+    payload = query + '&signature=' + sig
+    url = BASE + path
+    data = None
+    if method == 'GET':
+        url += '?' + payload
     else:
-        data = query.encode()
-
-    req = urllib.request.Request(
-        url,
-        data=data,
-        method=method,
-        headers={
-            "X-MBX-APIKEY":
-                API_KEY,
-
-            "Content-Type":
-                "application/x-www-form-urlencoded",
-        }
-    )
-
+        data = payload.encode()
+    req = urllib.request.Request(url, data=data, method=method, headers={
+        'X-MBX-APIKEY': API_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded',
+    })
     try:
-
-        with urllib.request.urlopen(
-            req,
-            timeout=20
-        ) as r:
-
-            return json.loads(
-                r.read().decode()
-            )
-
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read().decode())
     except urllib.error.HTTPError as e:
-
-        body = e.read().decode(
-            errors="replace"
-        )
-
-        raise RuntimeError(
-            f"BINANCE_HTTP_{e.code}: {body}"
-        )
+        raise RuntimeError(f'BINANCE_HTTP_{e.code}: {e.read().decode(errors="replace")}')
 
 
-def get_account():
-    return signed_request(
-        "GET",
-        "/fapi/v2/account",
-        {}
-    )
+def symbol_info(symbol):
+    for x in public_get('/fapi/v1/exchangeInfo').get('symbols', []):
+        if x.get('symbol') == symbol:
+            return x
+    raise RuntimeError('SYMBOL_NOT_FOUND')
 
 
-def get_exchange_info():
-    return public_get(
-        "/fapi/v1/exchangeInfo"
-    )
-
-
-def symbol_info(
-    exchange_info,
-    symbol
-):
-    for item in exchange_info[
-        "symbols"
-    ]:
-
-        if item["symbol"] == symbol:
-            return item
-
+def flt(info, name):
+    for x in info.get('filters', []):
+        if x.get('filterType') == name:
+            return x
     return None
 
 
-def get_filter(
-    info,
-    filter_type
-):
-    for f in info.get(
-        "filters",
-        []
-    ):
-
-        if f.get(
-            "filterType"
-        ) == filter_type:
-
-            return f
-
-    return None
+def floor_step(value, step):
+    v, s = Decimal(str(value)), Decimal(str(step))
+    return float((v/s).to_integral_value(rounding=ROUND_DOWN)*s) if s else float(v)
 
 
-def floor_step(
-    value,
-    step
-):
-    value = Decimal(str(value))
-    step = Decimal(str(step))
-
-    if step == 0:
-        return float(value)
-
-    units = (
-        value / step
-    ).to_integral_value(
-        rounding=ROUND_DOWN
-    )
-
-    return float(
-        units * step
-    )
+def round_tick(value, tick):
+    v, t = Decimal(str(value)), Decimal(str(tick))
+    return float((v/t).to_integral_value(rounding=ROUND_HALF_UP)*t) if t else float(v)
 
 
-def build_plan(
-    symbol,
-    decision,
-    account,
-    exchange_info
-):
-    info = symbol_info(
-        exchange_info,
-        symbol
-    )
+def confirmation_gate():
+    c = load_json(CONFIRM_FILE, {})
+    if c.get('status') != 'CONFIRMED':
+        return None, 'NO_TELEGRAM_CONFIRMATION'
+    try:
+        confirmed_at = datetime.fromisoformat(c['confirmed_at'].replace('Z','+00:00'))
+    except Exception:
+        return None, 'CONFIRMATION_TIME_INVALID'
+    ttl = int(c.get('expires_in_seconds', 30))
+    if (now() - confirmed_at).total_seconds() > ttl:
+        c['status'] = 'EXPIRED'; save_json(CONFIRM_FILE, c)
+        return None, 'CONFIRMATION_EXPIRED'
+    risk = load_json(RISK_FILE, {'decisions':{}})
+    guard = load_json(GUARD_FILE, {'decisions':{}})
+    symbol = c.get('symbol')
+    d = risk.get('decisions', {}).get(symbol, {})
+    g = guard.get('decisions', {}).get(symbol, {})
+    if not d.get('approved') or not g.get('executable'):
+        return None, 'CURRENT_GUARD_REJECTED'
+    if c.get('fingerprint') != g.get('fingerprint'):
+        return None, 'FINGERPRINT_CHANGED'
+    if str(d.get('action')).upper() != str(c.get('action')).upper():
+        return None, 'DIRECTION_CHANGED'
+    return {'confirmation':c, 'decision':d, 'guard':g}, 'PASS'
 
-    if not info:
 
-        return {
-            "symbol": symbol,
-            "status": "BLOCKED",
-            "reason": "SYMBOL_NOT_FOUND",
-        }
+def require_one_way():
+    mode = signed('GET', '/fapi/v1/positionSide/dual', {})
+    if bool(mode.get('dualSidePosition')):
+        raise RuntimeError('HEDGE_MODE_BLOCKED_USE_ONE_WAY')
 
-    entry = float(
-        decision["entry"]
-    )
 
-    stop = float(
-        decision["stop_loss"]
-    )
-
-    action = decision[
-        "action"
-    ]
-
-    risk_pct = float(
-        decision.get(
-            "risk_pct",
-            0.5
-        )
-    )
-
-    leverage = int(
-        decision.get(
-            "max_leverage",
-            3
-        )
-    )
-
-    available = float(
-        account.get(
-            "availableBalance",
-            0
-        )
-    )
-
+def build_plan(symbol, d):
+    account = signed('GET', '/fapi/v2/account', {})
+    available = float(account.get('availableBalance', 0))
     if available <= 0:
-
-        return {
-            "symbol": symbol,
-            "status": "BLOCKED",
-            "reason": "NO_AVAILABLE_BALANCE",
-        }
-
-    stop_distance = abs(
-        entry - stop
-    )
-
-    if stop_distance <= 0:
-
-        return {
-            "symbol": symbol,
-            "status": "BLOCKED",
-            "reason": "INVALID_STOP_DISTANCE",
-        }
-
-    risk_usd = (
-        available
-        * risk_pct
-        / 100
-    )
-
-    qty_by_risk = (
-        risk_usd
-        / stop_distance
-    )
-
-    max_notional = (
-        available
-        * leverage
-    )
-
-    qty_by_leverage = (
-        max_notional
-        / entry
-    )
-
-    qty = min(
-        qty_by_risk,
-        qty_by_leverage
-    )
-
-    lot = (
-        get_filter(
-            info,
-            "MARKET_LOT_SIZE"
-        )
-        or
-        get_filter(
-            info,
-            "LOT_SIZE"
-        )
-    )
-
-    step_size = float(
-        lot["stepSize"]
-    )
-
-    min_qty = float(
-        lot["minQty"]
-    )
-
-    qty = floor_step(
-        qty,
-        step_size
-    )
-
+        raise RuntimeError('NO_AVAILABLE_BALANCE')
+    entry = float(d['entry']); stop = float(d['stop_loss'])
+    distance = abs(entry-stop)
+    if distance <= 0:
+        raise RuntimeError('INVALID_STOP_DISTANCE')
+    risk_pct = float(d.get('risk_pct', 0.5)); leverage = int(d.get('max_leverage', 3))
+    qty = min(available*risk_pct/100/distance, available*leverage/entry)
+    info = symbol_info(symbol)
+    lot = flt(info, 'MARKET_LOT_SIZE') or flt(info, 'LOT_SIZE')
+    price_filter = flt(info, 'PRICE_FILTER')
+    step = float(lot['stepSize']); min_qty = float(lot['minQty']); tick = float(price_filter['tickSize'])
+    qty = floor_step(qty, step)
     if qty < min_qty:
-
-        return {
-            "symbol": symbol,
-            "status": "BLOCKED",
-            "reason":
-                f"QTY_BELOW_MIN_{qty}",
-        }
-
-    side = (
-        "BUY"
-        if action == "LONG"
-        else "SELL"
-    )
-
-    close_side = (
-        "SELL"
-        if action == "LONG"
-        else "BUY"
-    )
-
+        raise RuntimeError(f'QTY_BELOW_MIN_{qty}_{min_qty}')
+    side = 'BUY' if d['action']=='LONG' else 'SELL'
+    close_side = 'SELL' if side=='BUY' else 'BUY'
+    m = d.get('management') or {}
+    q1 = floor_step(qty*float(m.get('tp1_close_pct',30))/100, step)
+    q2 = floor_step(qty*float(m.get('tp2_close_pct',30))/100, step)
     return {
-        "symbol":
-            symbol,
-
-        "status":
-            "READY",
-
-        "action":
-            action,
-
-        "side":
-            side,
-
-        "close_side":
-            close_side,
-
-        "quantity":
-            qty,
-
-        "leverage":
-            leverage,
-
-        "entry_reference":
-            entry,
-
-        "stop_loss":
-            stop,
-
-        "tp1":
-            decision.get("tp1"),
-
-        "tp2":
-            decision.get("tp2"),
-
-        "tp3":
-            decision.get("tp3"),
-
-        "risk_pct":
-            risk_pct,
-
-        "available_balance":
-            available,
+        'symbol':symbol,'side':side,'close_side':close_side,'qty':qty,'q1':q1,'q2':q2,
+        'leverage':leverage,'stop':round_tick(float(d['stop_loss']),tick),
+        'tp1':round_tick(float(d['tp1']),tick),'tp2':round_tick(float(d['tp2']),tick),
+        'tp3':round_tick(float(d['tp3']),tick),'strategy':d.get('strategy'),'risk_pct':risk_pct,
     }
 
 
-def send_entry(plan):
-    leverage_result = signed_request(
-        "POST",
-        "/fapi/v1/leverage",
-        {
-            "symbol":
-                plan["symbol"],
+def emergency_close(plan, filled_qty):
+    if filled_qty <= 0:
+        return None
+    return signed('POST', '/fapi/v1/order', {
+        'symbol':plan['symbol'],'side':plan['close_side'],'type':'MARKET',
+        'quantity':filled_qty,'reduceOnly':'true','newOrderRespType':'RESULT',
+    })
 
-            "leverage":
-                plan["leverage"],
-        }
-    )
 
-    order = signed_request(
-        "POST",
-        "/fapi/v1/order",
-        {
-            "symbol":
-                plan["symbol"],
-
-            "side":
-                plan["side"],
-
-            "type":
-                "MARKET",
-
-            "quantity":
-                plan["quantity"],
-
-            "newOrderRespType":
-                "RESULT",
-        }
-    )
-
-    return {
-        "leverage":
-            leverage_result,
-
-        "entry_order":
-            order,
+def place_algo(plan, order_type, stop_price, quantity=None, close_all=False):
+    params = {
+        'algoType':'CONDITIONAL','symbol':plan['symbol'],'side':plan['close_side'],
+        'type':order_type,'stopPrice':stop_price,'workingType':'MARK_PRICE','priceProtect':'true',
     }
+    if close_all:
+        params['closePosition'] = 'true'
+    elif quantity and quantity > 0:
+        params['quantity'] = quantity
+        params['reduceOnly'] = 'true'
+    return signed('POST', '/fapi/v1/algoOrder', params)
+
+
+def execute(plan):
+    signed('POST', '/fapi/v1/leverage', {'symbol':plan['symbol'],'leverage':plan['leverage']})
+    entry = signed('POST', '/fapi/v1/order', {
+        'symbol':plan['symbol'],'side':plan['side'],'type':'MARKET','quantity':plan['qty'],
+        'newOrderRespType':'RESULT',
+    })
+    filled = float(entry.get('executedQty') or plan['qty'])
+    protection = {}
+    try:
+        protection['stop'] = place_algo(plan, 'STOP_MARKET', plan['stop'], close_all=True)
+        protection['tp3'] = place_algo(plan, 'TAKE_PROFIT_MARKET', plan['tp3'], close_all=True)
+        if plan['q1'] > 0:
+            protection['tp1'] = place_algo(plan, 'TAKE_PROFIT_MARKET', plan['tp1'], quantity=plan['q1'])
+        if plan['q2'] > 0:
+            protection['tp2'] = place_algo(plan, 'TAKE_PROFIT_MARKET', plan['tp2'], quantity=plan['q2'])
+    except Exception as exc:
+        close_result = emergency_close(plan, filled)
+        raise RuntimeError(f'PROTECTION_FAILED_EMERGENCY_CLOSED: {exc}; close={close_result}')
+    return {'entry':entry,'protection':protection,'filled_qty':filled}
 
 
 def main():
-    risk = json.loads(
-        RISK_FILE.read_text(
-            encoding="utf-8"
-        )
-    )
-
-    guard = json.loads(
-        GUARD_FILE.read_text(
-            encoding="utf-8"
-        )
-    )
-
-    account = get_account()
-    exchange_info = get_exchange_info()
-
-    plans = []
-
-    for symbol, decision in risk.get(
-        "decisions",
-        {}
-    ).items():
-
-        guard_decision = (
-            guard.get(
-                "decisions",
-                {}
-            ).get(
-                symbol,
-                {}
-            )
-        )
-
-        if not decision.get(
-            "approved"
-        ):
-            continue
-
-        if not guard_decision.get(
-            "executable"
-        ):
-            continue
-
-        if decision.get(
-            "action"
-        ) not in (
-            "LONG",
-            "SHORT"
-        ):
-            continue
-
-        plan = build_plan(
-            symbol,
-            decision,
-            account,
-            exchange_info
-        )
-
-        plans.append(
-            plan
-        )
-
-    output = {
-        "generated_at":
-            now(),
-
-        "live_trading":
-            LIVE_TRADING,
-
-        "live_armed":
-            LIVE_ARMED,
-
-        "plans":
-            plans,
-
-        "executed":
-            [],
-    }
-
-    #
-    # DOUBLE ARMING:
-    #
-    # BOTH flags must be true.
-    #
-    # This prevents accidental live activation.
-    #
-
-    if (
-        LIVE_TRADING
-        and LIVE_ARMED
-    ):
-
-        for plan in plans:
-
-            if plan[
-                "status"
-            ] != "READY":
-                continue
-
-            result = send_entry(
-                plan
-            )
-
-            output[
-                "executed"
-            ].append({
-                "symbol":
-                    plan[
-                        "symbol"
-                    ],
-
-                "result":
-                    result,
-            })
-
-    path = (
-        STATE
-        / "live_executor_state.json"
-    )
-
-    path.write_text(
-        json.dumps(
-            output,
-            indent=2,
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-
-    print()
-    print("=" * 55)
-    print("BINANCE FUTURES LIVE EXECUTOR")
-    print("=" * 55)
-
-    print(
-        "API AUTH       : PASS"
-    )
-
-    print(
-        "LIVE TRADING   :",
-        LIVE_TRADING
-    )
-
-    print(
-        "LIVE ARMED     :",
-        LIVE_ARMED
-    )
-
-    print(
-        "PLANS          :",
-        len(plans)
-    )
-
-    print(
-        "EXECUTED       :",
-        len(
-            output[
-                "executed"
-            ]
-        )
-    )
-
-    for plan in plans:
-
-        print()
-
-        print(
-            plan[
-                "symbol"
-            ],
-            "|",
-            plan[
-                "status"
-            ]
-        )
-
-        if plan[
-            "status"
-        ] == "READY":
-
-            print(
-                "SIDE     :",
-                plan[
-                    "side"
-                ]
-            )
-
-            print(
-                "QTY      :",
-                plan[
-                    "quantity"
-                ]
-            )
-
-            print(
-                "LEV      :",
-                plan[
-                    "leverage"
-                ]
-            )
-
-            print(
-                "SL       :",
-                plan[
-                    "stop_loss"
-                ]
-            )
-
-            print(
-                "TP1      :",
-                plan[
-                    "tp1"
-                ]
-            )
-
-            print(
-                "TP2      :",
-                plan[
-                    "tp2"
-                ]
-            )
-
-            print(
-                "TP3      :",
-                plan[
-                    "tp3"
-                ]
-            )
-
-        else:
-
-            print(
-                "BLOCKED  :",
-                plan.get(
-                    "reason"
-                )
-            )
-
-    if not (
-        LIVE_TRADING
-        and LIVE_ARMED
-    ):
-
-        print()
-        print(
-            "LIVE EXECUTION LOCKED"
-        )
-
-        print(
-            "NO REAL ORDER WAS SENT"
-        )
+    if not API_KEY or not API_SECRET:
+        raise SystemExit('BINANCE API credentials missing')
+    gate, reason = confirmation_gate()
+    output = {'generated_at':now().isoformat(),'live_trading':LIVE_TRADING,'live_armed':LIVE_ARMED,'status':reason,'executed':False}
+    if not gate:
+        save_json(OUT_FILE, output); print(json.dumps(output, indent=2)); return
+    symbol = gate['confirmation']['symbol']
+    plan = build_plan(symbol, gate['decision'])
+    output['plan'] = plan
+    if not (LIVE_TRADING and LIVE_ARMED):
+        output['status'] = 'CONFIRMED_DRY_RUN_LIVE_LOCKED'
+        save_json(OUT_FILE, output); print(json.dumps(output, indent=2)); return
+    require_one_way()
+    result = execute(plan)
+    output.update({'status':'EXECUTED_PROTECTED','executed':True,'result':result})
+    c = gate['confirmation']; c['status']='CONSUMED'; c['consumed_at']=now().isoformat(); save_json(CONFIRM_FILE,c)
+    save_json(OUT_FILE, output)
+    print(json.dumps(output, indent=2, ensure_ascii=False))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
