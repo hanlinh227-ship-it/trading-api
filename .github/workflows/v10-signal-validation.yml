@@ -71,5 +71,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm ci
+          npm install --ignore-scripts --no-audit --no-fund
           npm run check
