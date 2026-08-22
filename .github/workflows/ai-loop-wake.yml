@@ -64,8 +64,14 @@ jobs:
           import json, os, pathlib, re, subprocess
           body=os.environ.get('ISSUE_BODY','')
           m=re.search(r'AI_TASK_JSON_BEGIN\s*(?:```(?:json)?\s*)?(\{.*?\})(?:\s*```)?\s*AI_TASK_JSON_END',body,re.S|re.I)
-          if not m: raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
-          task=json.loads(m.group(1))
+          if m:
+              task=json.loads(m.group(1))
+          else:
+              # Manual fallback: accept an issue body that itself is a JSON contract.
+              try:
+                  task=json.loads(body.strip())
+              except Exception:
+                  raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           if str(task.get('base_sha') or '') != head:
               raise SystemExit(f"Stale task base_sha={task.get('base_sha')} current={head}")
@@ -103,8 +109,10 @@ jobs:
           set -euo pipefail
           TASK_ID="$(python3 - <<'PY'
           import json,re,os
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(?:```(?:json)?\s*)?(\{.*?\})(?:\s*```)?\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S|re.I)
-          print(json.loads(m.group(1))['task_id'])
+          body=os.environ['ISSUE_BODY']
+          m=re.search(r'AI_TASK_JSON_BEGIN\s*(?:```(?:json)?\s*)?(\{.*?\})(?:\s*```)?\s*AI_TASK_JSON_END',body,re.S|re.I)
+          task=json.loads(m.group(1)) if m else json.loads(body.strip())
+          print(task['task_id'])
           PY
           )"
           BRANCH="ai/deepseek-$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')-${GITHUB_RUN_ID}"
