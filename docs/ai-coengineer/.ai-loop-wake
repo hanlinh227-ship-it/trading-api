@@ -1,5 +1,5 @@
-wake=2026-08-22T04:02:00Z
-reason=paused
-status=paused
+wake=2026-08-22T04:02:30Z
+reason=dispatch-fixed-ai-loop
+status=armed
 issue=102
-base=63401e99d1b06263e281e44c5f8b2e24358e928d
+base=3641a62000925060f0891b31d5b40904d18b7579
