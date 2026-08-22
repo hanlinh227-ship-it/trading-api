@@ -91,8 +91,6 @@ jobs:
           if not base:
               raise SystemExit('Task base_sha missing')
           if base != head:
-              # Manual fallback may advance main through control-plane-only fixes.
-              # Accept only when the declared base is an ancestor of current main.
               ok=subprocess.run(['git','merge-base','--is-ancestor',base,head]).returncode == 0
               if not ok:
                   raise SystemExit(f"Stale/diverged task base_sha={base} current={head}")
@@ -120,8 +118,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --quiet -- . ':!.ai-runtime-task.json' && { echo 'No implementation diff'; exit 13; } || true
+          STATUS="$(git status --porcelain --untracked-files=all -- . ':!.ai-runtime-task.json')"
+          test -n "$STATUS" || { echo 'No implementation changes'; exit 13; }
           git diff --check -- . ':!.ai-runtime-task.json'
+          printf '%s\n' "$STATUS"
           git diff --stat -- . ':!.ai-runtime-task.json'
 
       - name: Push implementation branch
