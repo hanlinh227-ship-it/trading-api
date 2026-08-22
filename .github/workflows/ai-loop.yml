@@ -53,19 +53,27 @@ jobs:
           task.setdefault('max_rounds',2)
           task.setdefault('max_output_tokens',5000)
           task.setdefault('auto_merge',False)
-          task.setdefault('requires_claude',False)
+          # V2 requires Claude for every engineering task.
+          task['requires_claude']=True
           pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           print('TASK_ID='+str(task.get('task_id')))
-          print('REQUIRES_CLAUDE='+str(bool(task.get('requires_claude'))).lower())
           PY
+
+      - name: Reject duplicate implementation PR
+        shell: bash
+        run: |
+          set -euo pipefail
+          TASK_ID="$(python3 -c 'import json; print(json.load(open(".ai-runtime-task.json"))["task_id"])')"
+          EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
+          test -z "$EXISTING" || { echo "DUPLICATE_IMPLEMENTATION_PR: task $TASK_ID already has PR #$EXISTING"; exit 4; }
 
       - name: Enforce DeepSeek lock and secret
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${DEEPSEEK_API_KEY:-}" || { echo 'DEEPSEEK_API_KEY missing'; exit 2; }
-          grep -Eq '^LOCKED:[[:space:]]*true[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
-          grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
+          test -n "${DEEPSEEK_API_KEY:-}" || { echo 'MISSING_DEEPSEEK_SECRET'; exit 2; }
+          grep -Eq '^LOCKED:[[:space:]]*true[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md || { echo 'WRITE_LOCK_MISMATCH'; exit 2; }
+          grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md || { echo 'WRITE_LOCK_MISMATCH'; exit 2; }
 
       - name: DeepSeek implement + bounded repair + validation
         run: python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
@@ -76,6 +84,7 @@ jobs:
           set -euo pipefail
           rm -f .ai-runtime-task.json
           git diff --quiet && { echo 'No implementation diff'; exit 3; } || true
+          git diff --check
           git diff --stat
 
       - name: Push implementation branch
@@ -108,30 +117,21 @@ jobs:
           IMPLEMENTATION_SHA: ${{ steps.push.outputs.sha }}
         run: |
           set -euo pipefail
-          REQUIRES_CLAUDE="$(python3 - <<'PY'
-          import json,re,os
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S)
-          print('true' if json.loads(m.group(1)).get('requires_claude') else 'false')
-          PY
-          )"
-          STATUS='CODEX_REVIEW_REQUIRED'
-          [ "$REQUIRES_CLAUDE" = 'true' ] && STATUS='PARALLEL_DUAL_REVIEW_REQUIRED'
           PR_URL="$(gh pr create --base main --head "$BRANCH" --title "$TASK_ID - AI closed-loop implementation" --body "AI_LOOP_TASK_ISSUE: #$ISSUE_NUMBER
           AI_LOOP_ROUND: 1
           IMPLEMENTATION_SHA: $IMPLEMENTATION_SHA
           IMPLEMENTER: DEEPSEEK
-          REQUIRES_CLAUDE: $REQUIRES_CLAUDE
-          STATUS: $STATUS
+          REQUIRES_CLAUDE: true
+          STATUS: PARALLEL_DUAL_REVIEW_REQUIRED
 
-          DeepSeek completed bounded implementation/validation. Reviewers must evaluate the SAME implementation SHA independently. DeepSeek must not repair a protected task until required review verdicts are available.")"
+          DeepSeek completed bounded implementation/validation. Codex and Claude must independently review the SAME implementation SHA. DeepSeek cannot approve its own implementation.")"
           PR_NUMBER="${PR_URL##*/}"
           gh pr comment "$PR_NUMBER" --body "@codex review
 
           Review current head $IMPLEMENTATION_SHA against the linked task acceptance criteria and repository safety invariants. Do not implement changes. Blocking findings must be concrete and tied to this head."
-          if [ "$REQUIRES_CLAUDE" = 'true' ]; then
-            gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST
+          gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST
           CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
-          Claude Scheduled Watcher / Claude Code should independently review this exact head. Post one PR conversation comment using this machine-readable envelope:
+          Claude watcher/Claude Code must independently review this exact head and post:
 
           CLAUDE_REVIEW_BEGIN
           CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
@@ -141,11 +141,22 @@ jobs:
           CLAUDE_REVIEW_END
 
           Do not modify source while DeepSeek owns WRITE_LOCK."
-          fi
           gh issue comment "$ISSUE_NUMBER" --body "DeepSeek PR opened: $PR_URL
-          Status: $STATUS
+          Status: PARALLEL_DUAL_REVIEW_REQUIRED
           Implementation SHA: $IMPLEMENTATION_SHA
-          Required reviewers: CODEX$([ "$REQUIRES_CLAUDE" = 'true' ] && printf ' + CLAUDE' || true)"
+          Required reviewers: CODEX + CLAUDE"
+
+      - name: Report dispatch failure
+        if: failure()
+        shell: bash
+        run: |
+          if [ -n "${ISSUE_NUMBER:-}" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Failure classes include STALE_BASE_SHA, WRITE_LOCK_MISMATCH, MISSING_DEEPSEEK_SECRET, DUPLICATE_IMPLEMENTATION_PR, or IMPLEMENTER_VALIDATION_FAILED." || true
+          fi
+
+      - name: Cleanup dispatch temp files
+        if: always()
+        run: rm -f .ai-runtime-task.json
 
   monitor:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -182,7 +193,7 @@ jobs:
               issue_body=gh('issue','view',issue,'--json','body','--jq','.body').stdout
               tm=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',issue_body,re.S)
               if not tm: continue
-              task=json.loads(tm.group(1)); requires_claude=bool(task.get('requires_claude'))
+              task=json.loads(tm.group(1)); task['requires_claude']=True
 
               inline=json.loads(gh('api',f'repos/{repo}/pulls/{n}/comments','--paginate').stdout or '[]')
               issue_comments=json.loads(gh('api',f'repos/{repo}/issues/{n}/comments','--paginate').stdout or '[]')
@@ -194,40 +205,38 @@ jobs:
               codex_reviewed=any((x.get('user') or {}).get('login')==codex and (x.get('commit_id') in (None,head)) for x in reviews)
               codex_verdict='REJECT' if codex_blockers else ('ACCEPT' if codex_plus else ('REVIEWED_PENDING_SIGNAL' if codex_reviewed else 'PENDING'))
 
-              claude_verdict='NOT_REQUIRED'; claude_findings=''
-              if requires_claude:
-                  claude_verdict='PENDING'
-                  for c in reversed(issue_comments):
-                      txt=c.get('body') or ''
-                      if 'CLAUDE_REVIEW_BEGIN' not in txt or f'CLAUDE_REVIEW_HEAD: {head}' not in txt: continue
-                      vm=re.search(r'CLAUDE_VERDICT:\s*(ACCEPT|REJECT|BLOCKED)',txt)
-                      if not vm: continue
-                      claude_verdict=vm.group(1)
-                      fm=re.search(r'CLAUDE_FINDINGS:\s*(.*?)\s*CLAUDE_REVIEW_END',txt,re.S)
-                      claude_findings=(fm.group(1).strip() if fm else '')[-24000:]
-                      break
+              claude_verdict='PENDING'; claude_findings=''
+              for c in reversed(issue_comments):
+                  txt=c.get('body') or ''
+                  if 'CLAUDE_REVIEW_BEGIN' not in txt or f'CLAUDE_REVIEW_HEAD: {head}' not in txt: continue
+                  vm=re.search(r'CLAUDE_VERDICT:\s*(ACCEPT|REJECT|BLOCKED)',txt)
+                  if not vm: continue
+                  claude_verdict=vm.group(1)
+                  fm=re.search(r'CLAUDE_FINDINGS:\s*(.*?)\s*CLAUDE_REVIEW_END',txt,re.S)
+                  claude_findings=(fm.group(1).strip() if fm else '')[-24000:]
+                  break
 
               print(f'PR {n} head={head} round={round_no} CODEX={codex_verdict} CLAUDE={claude_verdict}')
               if claude_verdict=='BLOCKED':
-                  gh('issue','comment',issue,'--body',f'PR #{n}: Claude verdict BLOCKED at {head}. AI loop stops for human/Codex diagnosis.',check=False)
+                  gh('issue','comment',issue,'--body',f'PR #{n}: Claude verdict BLOCKED at {head}. AI loop stops for diagnosis.',check=False)
                   continue
 
-              required_ready=(codex_verdict in ('ACCEPT','REJECT')) and (not requires_claude or claude_verdict in ('ACCEPT','REJECT'))
+              required_ready=(codex_verdict in ('ACCEPT','REJECT')) and claude_verdict in ('ACCEPT','REJECT')
               if not required_ready: continue
 
-              if codex_verdict=='ACCEPT' and (not requires_claude or claude_verdict=='ACCEPT'):
-                  gh('issue','comment',issue,'--body',f'PR #{n}: required review consensus ACCEPT at {head}. Status: READY_FOR_FINAL_ACCEPT. No automatic merge/deploy in AI-INFRA-003.',check=False)
+              if codex_verdict=='ACCEPT' and claude_verdict=='ACCEPT':
+                  gh('issue','comment',issue,'--body',f'PR #{n}: mandatory CODEX + CLAUDE consensus ACCEPT at {head}. Status: READY_FOR_FINAL_ACCEPT. No automatic merge/deploy.',check=False)
                   continue
 
               feedback=[]
               if codex_blockers:
                   feedback.append('CODEX FINDINGS:\n'+'\n\n'.join(codex_blockers)[-24000:])
-              if requires_claude and claude_verdict=='REJECT':
+              if claude_verdict=='REJECT':
                   feedback.append('CLAUDE FINDINGS:\n'+(claude_findings or 'Claude returned REJECT without detailed findings.'))
               pathlib.Path(f'.ai-feedback-{n}.txt').write_text('\n\n'.join(feedback)[-40000:])
           PY
 
-      - name: Repair only after required review consensus is available
+      - name: Repair only after both required reviews are available
         shell: bash
         run: |
           set -euo pipefail
@@ -240,7 +249,6 @@ jobs:
             BODY="$(printf '%s' "$PR_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["body"])')"
             ISSUE="$(printf '%s' "$BODY" | sed -n 's/.*AI_LOOP_TASK_ISSUE:[[:space:]]*#\([0-9][0-9]*\).*/\1/p' | head -1)"
             ROUND="$(printf '%s' "$BODY" | sed -n 's/.*AI_LOOP_ROUND:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)"
-            REQUIRES_CLAUDE="$(printf '%s' "$BODY" | sed -n 's/.*REQUIRES_CLAUDE:[[:space:]]*\(true\|false\).*/\1/p' | head -1)"
             ISSUE_BODY="$(gh issue view "$ISSUE" --json body --jq .body)"
             git fetch origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"
@@ -254,6 +262,7 @@ jobs:
           if current>=maxr: raise SystemExit(f'MAX_ROUNDS_EXHAUSTED current={current} max={maxr}')
           task['review_feedback']=pathlib.Path(os.environ['FEEDBACK']).read_text()[-40000:]
           task['max_rounds']=1
+          task['requires_claude']=True
           pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           PY
             python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
@@ -266,12 +275,10 @@ jobs:
             gh pr edit "$PR" --body "$NEW_BODY"
             gh pr comment "$PR" --body "@codex review
 
-          Re-review current head $NEW_SHA after DeepSeek addressed the aggregated prior review findings."
-            if [ "$REQUIRES_CLAUDE" = 'true' ]; then
-              gh pr comment "$PR" --body "CLAUDE_REVIEW_REQUEST
+          Re-review exact current head $NEW_SHA after DeepSeek addressed the aggregated Codex + Claude findings."
+            gh pr comment "$PR" --body "CLAUDE_REVIEW_REQUEST
           CLAUDE_REVIEW_HEAD: $NEW_SHA
-          Claude reviewer: independently re-review this exact head and post a fresh CLAUDE_REVIEW_BEGIN/END verdict envelope tied to $NEW_SHA."
-            fi
+          Independently re-review this exact head and post a fresh CLAUDE_REVIEW_BEGIN/END verdict tied to $NEW_SHA."
           done
 
       - name: Cleanup
