@@ -67,11 +67,26 @@ jobs:
           if m:
               task=json.loads(m.group(1))
           else:
-              # Manual fallback: accept an issue body that itself is a JSON contract.
               try:
                   task=json.loads(body.strip())
               except Exception:
-                  raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
+                  # Compatibility path for older manually-authored [AI-TASK] issues.
+                  def field(name, default=''):
+                      mm=re.search(rf'(?mi)^\s*{re.escape(name)}\s*:\s*(.+?)\s*$', body)
+                      return mm.group(1).strip() if mm else default
+                  base_sha=field('base_sha')
+                  if not base_sha:
+                      raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
+                  task_id=field('task_id') or f'ISSUE-{os.environ.get("ISSUE_NUMBER","manual")}'
+                  task={
+                      'task_id': task_id,
+                      'base_sha': base_sha,
+                      'owner': field('owner','DEEPSEEK'),
+                      'requires_claude': field('requires_claude','true').lower() == 'true',
+                      'requires_codex': field('requires_codex','true').lower() == 'true',
+                      'instructions': [body],
+                      'validation_commands': ['git diff --check']
+                  }
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           if str(task.get('base_sha') or '') != head:
               raise SystemExit(f"Stale task base_sha={task.get('base_sha')} current={head}")
@@ -107,14 +122,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TASK_ID="$(python3 - <<'PY'
-          import json,re,os
-          body=os.environ['ISSUE_BODY']
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(?:```(?:json)?\s*)?(\{.*?\})(?:\s*```)?\s*AI_TASK_JSON_END',body,re.S|re.I)
-          task=json.loads(m.group(1)) if m else json.loads(body.strip())
-          print(task['task_id'])
-          PY
-          )"
+          TASK_ID="$(python3 -c 'import json; print(json.load(open(".ai-runtime-task.json"))["task_id"])')"
           BRANCH="ai/deepseek-$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')-${GITHUB_RUN_ID}"
           git config user.name 'DeepSeek Cloud Implementer'
           git config user.email 'actions@users.noreply.github.com'
