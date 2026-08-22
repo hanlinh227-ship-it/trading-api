@@ -1,243 +1,48 @@
-name: AI Loop DeepSeek Review
+name: AI Loop DeepSeek Legacy Review
 
-# ADVERSARIAL_REVIEWER stage of the bounded multi-AI engineering loop.
-# See docs/ai-coengineer/AI_LOOP_CONTRACT.md.
-#
-# This workflow reviews only. It never merges, never deploys, and never modifies source.
-# It deliberately does NOT trigger on pushes to main.
+# Legacy diagnostic only.
+# DeepSeek is the sole implementation writer in the active V2 orchestration.
+# Therefore this workflow must never auto-review implementation PRs or contribute
+# an acceptance signal for code DeepSeek authored. Codex + Claude are the two
+# independent reviewers for the active loop.
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'Pull request number to review'
+        description: 'Pull request number to inspect manually'
         required: true
         type: string
       dry_run:
-        description: 'Gather context and validate wiring without calling the DeepSeek API'
+        description: 'Gather context only; do not call DeepSeek API'
         required: false
-        default: false
+        default: true
         type: boolean
 
-# Least privilege: read the code, write only PR conversation comments.
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 
 concurrency:
-  group: ai-loop-deepseek-${{ github.event.pull_request.number || inputs.pr_number }}
-  # NOT cancel-in-progress. The controller dispatches this workflow while the automatic
-  # pull_request trigger also fires, so cancelling would let the two runs kill each other
-  # and leave no completed review comment - stalling the loop at PENDING indefinitely.
-  # Both runs review the same head and the comment upsert is last-writer-wins.
+  group: ai-loop-deepseek-legacy-${{ inputs.pr_number }}
   cancel-in-progress: false
 
 jobs:
-  # The loop's safety properties were only ever verified on a developer machine, so a
-  # regression could reach the repository unnoticed. This job runs the suite against the
-  # PR HEAD - the revision whose safety is in question.
-  #
-  # It is a SEPARATE job on purpose. `ai-loop-selftest.mjs` is writable under the loop's
-  # lock, so on a future PR it is untrusted code. Running it in the reviewer's job would
-  # let it overwrite the checked-out reviewer or write to $GITHUB_ENV before the reviewer
-  # step executes with DEEPSEEK_API_KEY and a write-capable token - forging a
-  # TRUST=trusted acceptance. A separate job gives it its own runner, its own workspace,
-  # and NO secrets at all.
-  loop-selftest:
-    name: AI loop safety selftest
+  legacy-diagnostic:
+    name: Legacy DeepSeek diagnostic (non-gating)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # contents: read only. This job is deliberately given nothing worth stealing.
-    permissions:
-      contents: read
     steps:
-      # Check out the BASE revision: the suite's ASSERTIONS must be trusted even though
-      # the tree it audits is not.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
-          fetch-depth: 1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Materialise the PR head for auditing
-        id: head
-        env:
-          # No GH_TOKEN and no secrets: this job stays credential-free. For a pull_request
-          # event the head SHA is already in the payload; a manual dispatch supplies the
-          # PR number and the ref is fetched anonymously from the public remote.
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          INPUT_PR: ${{ inputs.pr_number }}
-        run: |
-          set -euo pipefail
-          target="${RUNNER_TEMP}/prhead"
-          mkdir -p "$target"
-          if [ -n "$HEAD_SHA" ]; then
-            git fetch --depth=1 origin "$HEAD_SHA"
-            ref="$HEAD_SHA"
-          elif [ -n "$INPUT_PR" ]; then
-            git fetch --depth=1 origin "refs/pull/${INPUT_PR}/head"
-            ref="FETCH_HEAD"
-          else
-            echo "::error title=No head::Could not resolve the PR head to audit."
-            exit 1
-          fi
-          git --work-tree="$target" checkout "$ref" -- scripts/ai docs/ai-coengineer .github/workflows
-          git reset -q
-          # Drop the credential actions/checkout persisted, now that every fetch is done.
-          # Neither selftest path needs git auth afterwards, and in bootstrap mode the code
-          # about to run is supplied by the change under review. It is only a contents:read
-          # token and job-level permissions already forbid posting a verdict, but leaving a
-          # credential lying around for untrusted code to pick up is gratuitous.
-          git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
-          echo "dir=$target" >> "$GITHUB_OUTPUT"
-
-      - name: Run selftest (trusted assertions over the PR head)
-        env:
-          AI_LOOP_SELFTEST_ROOT: ${{ steps.head.outputs.dir }}
-        run: |
-          set -euo pipefail
-          if [ -f scripts/ai/ai-loop-selftest.mjs ]; then
-            echo "Auditing ${AI_LOOP_SELFTEST_ROOT} using the TRUSTED base copy of the suite."
-            node scripts/ai/ai-loop-selftest.mjs
-          else
-            # Bootstrap: the base has no suite yet (this is the PR introducing it). Run the
-            # head's own copy so the checks still run, but say plainly that its assertions
-            # are supplied by the change under review and prove nothing against a malicious
-            # one. This PR is already not self-certifiable for other reasons.
-            echo "::warning title=Untrusted selftest::No selftest exists at the base revision, so the PR head's own copy is being run. Its assertions are controlled by the change under review and guard only against accidental regression."
-            cd "$AI_LOOP_SELFTEST_ROOT"
-            if [ ! -f scripts/ai/ai-loop-selftest.mjs ]; then
-              echo "::error title=Selftest missing::scripts/ai/ai-loop-selftest.mjs is absent from the PR head."
-              exit 1
-            fi
-            node scripts/ai/ai-loop-selftest.mjs
-          fi
-
-  deepseek-review:
-    name: DeepSeek adversarial review
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
-    steps:
-      - name: Resolve target PR
-        id: target
-        env:
-          EVENT_PR: ${{ github.event.pull_request.number }}
-          INPUT_PR: ${{ inputs.pr_number }}
-          EVENT_SHA: ${{ github.event.pull_request.head.sha }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pr="${EVENT_PR:-$INPUT_PR}"
-          if [ -z "$pr" ]; then
-            echo "::error title=No PR::Could not resolve a pull request number."
-            exit 1
-          fi
-          sha="$EVENT_SHA"
-          # workflow_dispatch carries no pull_request payload, so EVENT_SHA is empty and
-          # --expect-sha would be omitted, silently dropping the stale-head guard. Resolve
-          # the head from the API instead so the guard is always armed.
-          if [ -z "$sha" ]; then
-            sha="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" --jq .head.sha)"
-          fi
-          if [ -z "$sha" ]; then
-            echo "::error title=No head SHA::Could not resolve the head SHA for PR #$pr; refusing to review without the stale-head guard."
-            exit 1
-          fi
-          echo "pr=$pr" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "Reviewing PR #$pr at $sha"
-
-      # Check out the BASE revision, never the PR head.
-      #
-      # The reviewer script is itself editable under the active lock, so running the PR
-      # head's copy would let the change under review rewrite its own reviewer and post a
-      # forged current-SHA ACCEPT carrying the expected marker under the Actions identity -
-      # which the controller's bot-and-marker authentication would then admit.
-      #
-      # The reviewer does not need the PR worktree: it fetches the diff through `gh pr
-      # diff`. So the trusted base copy reviews the untrusted head, and a change to the
-      # reviewer only takes effect once a human has merged it.
-      - uses: actions/checkout@v4
-        with:
-          # base.ref, not base.sha: for a synchronize event base.sha is the merge base,
-          # which can lag the branch the change will actually merge into. Both are
-          # human-reviewed history, but the ref is the one that matters.
-          ref: ${{ github.event.pull_request.base.ref || github.event.repository.default_branch }}
+          ref: main
           fetch-depth: 1
           persist-credentials: false
 
-      # Bootstrap case: on the very PR that INTRODUCES the reviewer, no trusted copy exists
-      # at base yet. Rather than silently falling back to the head copy (which would undo
-      # the trust boundary), the fallback is explicit and the resulting review is marked
-      # UNTRUSTED. The controller refuses to count an untrusted verdict as an acceptance.
-      - name: Resolve reviewer trust level
-        id: trust
-        env:
-          HEAD_SHA: ${{ steps.target.outputs.sha }}
+      - name: Explain non-gating status
         run: |
-          if [ -f scripts/ai/deepseek_reviewer.py ]; then
-            echo "level=trusted" >> "$GITHUB_OUTPUT"
-            echo "Reviewer resolved from the trusted base revision."
-          else
-            echo "level=bootstrap" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Untrusted review::No reviewer exists at the base revision, so it is being bootstrapped from the PR head. This review is UNTRUSTED and cannot grant ACCEPT."
-            git fetch --depth=1 origin "$HEAD_SHA"
-            git checkout "$HEAD_SHA" -- scripts/ai/deepseek_reviewer.py
-          fi
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Verify DeepSeek secret is present
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: |
-          # Existence check only. The value is never printed.
-          if [ -z "$DEEPSEEK_API_KEY" ]; then
-            echo "::error title=Missing secret::DEEPSEEK_API_KEY is not available to this job. Classification: MISSING_SECRET"
-            exit 1
-          fi
-          echo "DEEPSEEK_API_KEY is present (value not printed)."
-
-      - name: Syntax check reviewer
-        run: python -m py_compile scripts/ai/deepseek_reviewer.py
-
-      - name: Run DeepSeek adversarial review
-        id: review
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          DEEPSEEK_TIMEOUT_SEC: '120'
-        run: |
-          set -o pipefail
-          args="--pr ${{ steps.target.outputs.pr }} --repo ${{ github.repository }}"
-          args="$args --trust ${{ steps.trust.outputs.level }}"
-          if [ -n "${{ steps.target.outputs.sha }}" ]; then
-            args="$args --expect-sha ${{ steps.target.outputs.sha }}"
-          fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            args="$args --dry-run"
-          fi
-          python scripts/ai/deepseek_reviewer.py $args
-
-      - name: Summarise verdict
-        if: always()
-        run: |
-          verdict="${{ steps.review.outputs.verdict }}"
-          sha="${{ steps.review.outputs.head_sha }}"
-          {
-            echo "### DeepSeek adversarial review"
-            echo ""
-            echo "- Verdict: \`${verdict:-UNKNOWN}\`"
-            echo "- Reviewed SHA: \`${sha:-unknown}\`"
-            echo "- Blockers: \`${{ steps.review.outputs.blocker_count || 'n/a' }}\`"
-            echo ""
-            echo "DeepSeek is a reviewer only. It cannot merge or deploy."
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo 'DeepSeek is the active source implementer and cannot independently approve its own implementation.'
+          echo 'This legacy workflow is manual, read-only and NON-GATING.'
+          echo 'Canonical acceptance requires Codex + Claude on the exact implementation SHA.'
+          echo 'PR requested: #${{ inputs.pr_number }}'
+          echo 'dry_run: ${{ inputs.dry_run }}'
