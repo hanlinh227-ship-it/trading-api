@@ -27,6 +27,9 @@ sys.modules["auto_intake_under_test"] = intake
 _spec.loader.exec_module(intake)
 
 GOOD_SHA = "a" * 40
+TRUSTED_VALIDATOR = "scripts/ai/tests/test_auto_intake.py"
+TRUSTED_CONFIG = "scripts/ai/tests/pytest.ini"
+PINNED = f"-c {TRUSTED_CONFIG}"
 
 
 OTHER_SHA = "b" * 40
@@ -260,7 +263,7 @@ class TestValidationCommandAllowlist(IntakeTestBase):
     ]
     SAFE = [
         "python3 -m py_compile scripts/ai/auto_intake.py",
-        "python3 -m pytest scripts/ai/tests/test_auto_intake.py",
+        "python3 -m pytest -c scripts/ai/tests/pytest.ini scripts/ai/tests/test_auto_intake.py",
         "git diff --check",
         "git status --porcelain",
         "git rev-parse HEAD",
@@ -1095,7 +1098,7 @@ class TestPythonValidatorTrustBoundary(IntakeTestBase):
     def test_only_exact_allowlisted_validators_accepted(self):
         """Directory trust is gone: membership is exact-match only."""
         self.assertTrue(intake.validate_validation_command(
-            "python3 -m pytest scripts/ai/tests/test_auto_intake.py"
+            "python3 -m pytest -c scripts/ai/tests/pytest.ini scripts/ai/tests/test_auto_intake.py"
         ))
         for cmd in [
             "python3 -m pytest scripts/ai/tests",
@@ -1109,7 +1112,7 @@ class TestPythonValidatorTrustBoundary(IntakeTestBase):
     def test_task_writable_validator_is_never_executed(self):
         """BLOCKER 2: a validator the task may rewrite is task-authored code."""
         trusted = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
-        cmd = f"python3 -m pytest {trusted}"
+        cmd = f"python3 -m pytest {PINNED} {trusted}"
         # Task cannot write the validator -> allowed.
         self.assertTrue(intake.validate_validation_command(
             cmd, ["cloudflare-worker/src/**"], []
@@ -1136,7 +1139,7 @@ class TestPythonValidatorTrustBoundary(IntakeTestBase):
         trusted = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
         task = make_task(
             allowed_paths=["scripts/ai/**"],
-            validation_commands=[f"python3 -m pytest {trusted}"],
+            validation_commands=[f"python3 -m pytest {PINNED} {trusted}"],
         )
         with self.assertRaises(intake.TaskError):
             intake.validate_task(task, 1, head_resolver=head_ok)
@@ -1354,7 +1357,7 @@ class TestValidatorDependencyClosure(IntakeTestBase):
     def setUp(self):
         super().setUp()
         self.validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
-        self.cmd = f"python3 -m pytest {self.validator}"
+        self.cmd = f"python3 -m pytest {PINNED} {self.validator}"
 
     def test_closure_is_declared_for_every_trusted_validator(self):
         for validator in intake.TRUSTED_PYTHON_VALIDATORS:
@@ -1516,14 +1519,14 @@ class TestExplicitValidatorTargetRequired(IntakeTestBase):
                     cmd, self.immutable_scope, []))
 
     def test_exact_validator_accepted_only_when_closure_is_immutable(self):
-        cmd = f"python3 -m pytest {self.validator}"
+        cmd = f"python3 -m pytest {PINNED} {self.validator}"
         self.assertTrue(intake.validate_validation_command(cmd, self.immutable_scope, []))
         for dependency in intake.validator_closure(self.validator):
             with self.subTest(writable=dependency):
                 self.assertFalse(intake.validate_validation_command(cmd, [dependency], []))
 
     def test_task_writable_validator_rejected(self):
-        cmd = f"pytest {self.validator}"
+        cmd = f"pytest {PINNED} {self.validator}"
         self.assertTrue(intake.validate_validation_command(cmd, self.immutable_scope, []))
         for scope in [["scripts/ai/**"], ["scripts/ai/tests/**"], [self.validator]]:
             with self.subTest(scope=scope):
@@ -1531,7 +1534,7 @@ class TestExplicitValidatorTargetRequired(IntakeTestBase):
 
     def test_auto_loaded_conftest_is_part_of_the_closure(self):
         """A task able to plant a conftest.py could execute code at collection."""
-        cmd = f"python3 -m pytest {self.validator}"
+        cmd = f"python3 -m pytest {PINNED} {self.validator}"
         for scope in [["scripts/ai/tests/conftest.py"], ["conftest.py"], ["pyproject.toml"]]:
             with self.subTest(scope=scope):
                 self.assertFalse(intake.validate_validation_command(cmd, scope, []))
@@ -1540,7 +1543,7 @@ class TestExplicitValidatorTargetRequired(IntakeTestBase):
         """`--doctest-modules` / `--pyargs` pull in modules beyond the named
         target, so they defeat the one-explicit-target rule."""
         for flag in ["--doctest-modules", "--pyargs", "--collect-only", "--co"]:
-            cmd = f"pytest {self.validator} {flag}"
+            cmd = f"pytest {PINNED} {self.validator} {flag}"
             with self.subTest(flag=flag):
                 self.assertFalse(
                     intake.validate_validation_command(cmd, self.immutable_scope, []),
@@ -1548,7 +1551,7 @@ class TestExplicitValidatorTargetRequired(IntakeTestBase):
                 )
         # Control: the same command without the flag is accepted.
         self.assertTrue(intake.validate_validation_command(
-            f"pytest {self.validator}", self.immutable_scope, []))
+            f"pytest {PINNED} {self.validator}", self.immutable_scope, []))
 
     def test_discover_keyword_rejected_even_with_a_valid_target(self):
         cmd = f"python3 -m unittest discover {self.validator}"
@@ -1604,13 +1607,13 @@ class TestRunnerOptionAllowlist(IntakeTestBase):
 
     def test_plugin_option_rejected(self):
         for cmd in [
-            f"pytest -p evil {self.validator}",
-            f"pytest -p=evil {self.validator}",
-            f"pytest {self.validator} -p evil",
-            f"python3 -m pytest -p evil {self.validator}",
-            f"pytest -p no:cacheprovider {self.validator}",
-            f"pytest -P evil {self.validator}",
-            f"pytest --plugins evil {self.validator}",
+            f"pytest {PINNED} -p evil {self.validator}",
+            f"pytest {PINNED} -p=evil {self.validator}",
+            f"pytest {PINNED} {self.validator} -p evil",
+            f"python3 -m pytest {PINNED} -p evil {self.validator}",
+            f"pytest {PINNED} -p no:cacheprovider {self.validator}",
+            f"pytest {PINNED} -P evil {self.validator}",
+            f"pytest {PINNED} --plugins evil {self.validator}",
         ]:
             with self.subTest(cmd=cmd):
                 self._reject(cmd)
@@ -1619,22 +1622,22 @@ class TestRunnerOptionAllowlist(IntakeTestBase):
         for cmd in [
             f"pytest -c evil.ini {self.validator}",
             f"pytest --config-file=evil.ini {self.validator}",
-            f"pytest --rootdir=/tmp {self.validator}",
-            f"pytest --rootdir /tmp {self.validator}",
-            f"pytest --confcutdir=/tmp {self.validator}",
-            f"pytest --import-mode=importlib {self.validator}",
-            f"pytest --assert=plain {self.validator}",
-            f"python3 -m pytest --rootdir=/tmp {self.validator}",
+            f"pytest {PINNED} --rootdir=/tmp {self.validator}",
+            f"pytest {PINNED} --rootdir /tmp {self.validator}",
+            f"pytest {PINNED} --confcutdir=/tmp {self.validator}",
+            f"pytest {PINNED} --import-mode=importlib {self.validator}",
+            f"pytest {PINNED} --assert=plain {self.validator}",
+            f"python3 -m pytest {PINNED} --rootdir=/tmp {self.validator}",
         ]:
             with self.subTest(cmd=cmd):
                 self._reject(cmd)
 
     def test_collection_widening_options_rejected(self):
         for cmd in [
-            f"pytest --doctest-modules {self.validator}",
-            f"pytest --pyargs {self.validator}",
-            f"pytest --collect-only {self.validator}",
-            f"pytest -k evil {self.validator}",
+            f"pytest {PINNED} --doctest-modules {self.validator}",
+            f"pytest {PINNED} --pyargs {self.validator}",
+            f"pytest {PINNED} --collect-only {self.validator}",
+            f"pytest {PINNED} -k evil {self.validator}",
             f"python3 -m unittest discover {self.validator}",
         ]:
             with self.subTest(cmd=cmd):
@@ -1643,24 +1646,24 @@ class TestRunnerOptionAllowlist(IntakeTestBase):
     def test_unknown_option_rejected_by_default(self):
         """Fail-closed: a future pytest option is refused until allowlisted."""
         for cmd in [
-            f"pytest --some-future-option {self.validator}",
-            f"pytest --future=value {self.validator}",
-            f"pytest -Z {self.validator}",
-            f"pytest {self.validator} trailing_positional",
+            f"pytest {PINNED} --some-future-option {self.validator}",
+            f"pytest {PINNED} --future=value {self.validator}",
+            f"pytest {PINNED} -Z {self.validator}",
+            f"pytest {PINNED} {self.validator} trailing_positional",
         ]:
             with self.subTest(cmd=cmd):
                 self._reject(cmd)
 
     def test_ordinary_allowlisted_invocation_still_accepted(self):
         for cmd in [
-            f"pytest {self.validator}",
-            f"python3 -m pytest {self.validator}",
-            f"pytest -v {self.validator}",
-            f"pytest {self.validator} -v",
-            f"pytest {self.validator} -q",
-            f"pytest {self.validator} -x --tb=short",
-            f"pytest {self.validator} --maxfail=1",
-            f"python3 -m pytest {self.validator} -v",
+            f"pytest {PINNED} {self.validator}",
+            f"python3 -m pytest {PINNED} {self.validator}",
+            f"pytest {PINNED} -v {self.validator}",
+            f"pytest {PINNED} {self.validator} -v",
+            f"pytest {PINNED} {self.validator} -q",
+            f"pytest {PINNED} {self.validator} -x --tb=short",
+            f"pytest {PINNED} {self.validator} --maxfail=1",
+            f"python3 -m pytest {PINNED} {self.validator} -v",
         ]:
             with self.subTest(cmd=cmd):
                 self.assertTrue(
@@ -1688,7 +1691,7 @@ class TestRunnerOptionAllowlist(IntakeTestBase):
                 self.assertFalse(intake.validate_validation_command(cmd))
 
     def test_dependency_closure_still_enforced_with_options(self):
-        cmd = f"pytest {self.validator} -v"
+        cmd = f"pytest {PINNED} {self.validator} -v"
         self.assertTrue(intake.validate_validation_command(cmd, self.scope, []))
         for dependency in intake.validator_closure(self.validator):
             with self.subTest(writable=dependency):
@@ -1708,6 +1711,143 @@ class TestRunnerOptionAllowlist(IntakeTestBase):
         self.assertFalse(
             (intake.ROOT / ".ai-intake" / "tasks" / "PLUGIN-INJECT.json").exists()
         )
+
+
+# --- CODEX BLOCKER: implicit pytest config auto-load -------------------------
+
+
+class TestPytestConfigPinning(IntakeTestBase):
+    """pytest auto-loads config from the worktree unless `-c` pins one. A
+    task-writable config can inject `addopts = -p evil`, executing task code
+    before the trusted validator, so the pin is mandatory."""
+
+    # Every implicit configuration source pytest will pick up on its own.
+    IMPLICIT_CONFIGS = [
+        "pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml",
+        "tox.ini", "setup.cfg", "pyproject.toml",
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        self.config = sorted(intake.TRUSTED_VALIDATOR_CONFIGS)[0]
+        self.scope = ["cloudflare-worker/src/**"]
+
+    def test_unpinned_pytest_rejected(self):
+        for cmd in [
+            f"pytest {self.validator}",
+            f"python3 -m pytest {self.validator}",
+            f"pytest -v {self.validator}",
+            f"pytest {self.validator} --maxfail=1",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(
+                    intake.validate_validation_command(cmd, self.scope, []),
+                    "pytest without -c auto-loads task-writable config",
+                )
+
+    def test_pinned_trusted_config_accepted(self):
+        for cmd in [
+            f"pytest -c {self.config} {self.validator}",
+            f"pytest -c={self.config} {self.validator}",
+            f"python3 -m pytest -c {self.config} {self.validator}",
+            f"pytest -c {self.config} {self.validator} -v",
+            f"pytest -v -c {self.config} {self.validator} --tb=short",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(
+                    intake.validate_validation_command(cmd, self.scope, []), cmd)
+
+    def test_implicit_config_sources_rejected_as_the_pin(self):
+        """pytest.toml / .pytest.toml / pytest.ini / .pytest.ini injection."""
+        for config in self.IMPLICIT_CONFIGS:
+            for cmd in (f"pytest -c {config} {self.validator}",
+                        f"pytest -c={config} {self.validator}",
+                        f"python3 -m pytest -c {config} {self.validator}"):
+                with self.subTest(config=config, cmd=cmd):
+                    self.assertFalse(
+                        intake.validate_validation_command(cmd, self.scope, []),
+                        f"{config} is task-writable and must never be the pin",
+                    )
+
+    def test_arbitrary_config_paths_rejected(self):
+        for config in ["evil.ini", "/tmp/evil.ini", "../evil.ini",
+                       "scripts/ai/tests/evil.ini", ".pytest_cache/x.ini"]:
+            with self.subTest(config=config):
+                self.assertFalse(intake.validate_validation_command(
+                    f"pytest -c {config} {self.validator}", self.scope, []))
+
+    def test_every_implicit_config_source_is_in_the_closure(self):
+        """Even pinned, no implicit config source may be task-writable."""
+        closure = intake.validator_closure(self.validator)
+        for config in self.IMPLICIT_CONFIGS:
+            with self.subTest(config=config):
+                self.assertIn(config, closure)
+
+    def test_task_writable_implicit_config_blocks_the_validator(self):
+        cmd = f"pytest -c {self.config} {self.validator}"
+        for config in self.IMPLICIT_CONFIGS + [self.config]:
+            with self.subTest(writable=config):
+                self.assertFalse(
+                    intake.validate_validation_command(cmd, [config], []),
+                    f"a task able to write {config} must not run the validator",
+                )
+
+    def test_duplicate_or_empty_config_rejected(self):
+        for cmd in [
+            f"pytest -c {self.config} -c evil.ini {self.validator}",
+            f"pytest -c evil.ini -c {self.config} {self.validator}",
+            f"pytest -c {self.validator}",
+            f"pytest -c",
+            f"pytest {self.validator} -c",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd, self.scope, []))
+
+    def test_pin_does_not_re_enable_blocked_options(self):
+        for cmd in [
+            f"pytest -c {self.config} -p evil {self.validator}",
+            f"pytest -c {self.config} --rootdir=/tmp {self.validator}",
+            f"pytest -c {self.config} --doctest-modules {self.validator}",
+            f"pytest -c {self.config}",
+            f"pytest -c {self.config} {self.validator} extra.py",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd, self.scope, []))
+
+    def test_python_dash_c_still_blocked(self):
+        for cmd in ["python3 -c import os", "python -c print(1)",
+                    f"python3 -c {self.config}"]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd, self.scope, []))
+
+    def test_unittest_does_not_accept_a_config_pin(self):
+        self.assertTrue(intake.validate_validation_command(
+            f"python3 -m unittest {self.validator}", self.scope, []))
+        self.assertFalse(intake.validate_validation_command(
+            f"python3 -m unittest -c {self.config} {self.validator}", self.scope, []))
+
+    def test_config_injection_rejected_end_to_end(self):
+        task = make_task(
+            task_id="CONFIG-INJECT",
+            allowed_paths=["cloudflare-worker/src/**"],
+            validation_commands=[f"pytest -c pytest.toml {self.validator}"],
+        )
+        with self.assertRaises(intake.TaskError):
+            intake.validate_task(task, 1, head_resolver=head_ok)
+        issue = make_issue(820, task=task)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+        self.assertEqual(summary["failed"], 1)
+        self.assertFalse(
+            (intake.ROOT / ".ai-intake" / "tasks" / "CONFIG-INJECT.json").exists()
+        )
+
+    def test_trusted_config_file_exists_in_the_repository(self):
+        repo_root = MODULE_PATH.parent.parent.parent
+        for config in intake.TRUSTED_VALIDATOR_CONFIGS:
+            with self.subTest(config=config):
+                self.assertTrue((repo_root / config).is_file(),
+                                f"{config} must exist to be pinnable")
 
 
 if __name__ == "__main__":

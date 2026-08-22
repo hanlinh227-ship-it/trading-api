@@ -361,5 +361,49 @@ class TestCredentialFreeValidation(DownstreamScopeBase):
         self.assertNotIn("sk-must-not-be-visible", logs)
 
 
+class TestPytestConfigPinSuppressesInjection(unittest.TestCase):
+    """Proves the mechanism the intake grammar relies on: `-c` really does stop
+    pytest reading a task-writable config from the worktree."""
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import pytest  # noqa: F401
+            cls.have_pytest = True
+        except ImportError:
+            cls.have_pytest = False
+
+    def setUp(self):
+        if not self.have_pytest:
+            self.skipTest("pytest not installed")
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        (self.root / "sub").mkdir()
+        (self.root / "sub" / "test_ok.py").write_text(
+            "def test_ok():\n    assert True\n", encoding="utf-8")
+        (self.root / "sub" / "trusted.ini").write_text(
+            "[pytest]\naddopts =\n", encoding="utf-8")
+        # The attack: a task-writable implicit config injecting a plugin.
+        (self.root / "pytest.ini").write_text(
+            "[pytest]\naddopts = -p evil_injected_plugin\n", encoding="utf-8")
+
+    def _run(self, *args):
+        return subprocess.run(
+            [sys.executable, "-m", "pytest", *args, "-q"],
+            cwd=str(self.root), text=True, capture_output=True, check=False,
+        )
+
+    def test_unpinned_run_loads_the_injected_plugin(self):
+        proc = self._run("sub/test_ok.py")
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("evil_injected_plugin", proc.stdout + proc.stderr)
+
+    def test_pinned_run_ignores_the_injected_config(self):
+        proc = self._run("-c", "sub/trusted.ini", "sub/test_ok.py")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertNotIn("evil_injected_plugin", proc.stdout + proc.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

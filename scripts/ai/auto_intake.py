@@ -115,12 +115,33 @@ VALIDATOR_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "scripts/conftest.py",
         "scripts/ai/conftest.py",
         "scripts/ai/tests/conftest.py",
+        # Every implicit pytest configuration source. `-c` suppresses these,
+        # but they stay in the closure so the boundary does not depend on
+        # pytest's config-precedence rules staying the same.
         "pytest.ini",
+        ".pytest.ini",
+        "pytest.toml",
+        ".pytest.toml",
         "tox.ini",
         "setup.cfg",
         "pyproject.toml",
+        "scripts/ai/tests/pytest.ini",
+        "scripts/ai/tests/.pytest.ini",
+        "scripts/ai/tests/pytest.toml",
+        "scripts/ai/tests/.pytest.toml",
+        "scripts/ai/tests/tox.ini",
+        "scripts/ai/tests/setup.cfg",
+        "scripts/ai/tests/pyproject.toml",
     ),
 }
+
+# The single configuration file an executing pytest validator may be pinned to.
+# Passing `-c <file>` makes that file pytest's ONLY config source, so no
+# task-writable pytest.ini / .pytest.ini / pytest.toml / .pytest.toml /
+# pyproject.toml / tox.ini / setup.cfg can inject addopts such as `-p evil`.
+TRUSTED_VALIDATOR_CONFIGS: frozenset[str] = frozenset({
+    "scripts/ai/tests/pytest.ini",
+})
 
 # An executing test runner accepts ONLY these options. This is a strict
 # allowlist, not a denylist: plugin and configuration injection has too many
@@ -423,19 +444,67 @@ def validate_validation_command(command, allowed: list | None = None,
         # task-writable worktree, so `pytest`, `pytest -v` and
         # `python3 -m unittest` must be refused. Exactly one named target, and
         # it must be an immutable allowlisted validator.
-        targets = [token for token in arg_tokens if looks_like_path(token)]
-        if len(targets) != 1:
-            return False
-        # Everything that is not the target must be an explicitly permitted
-        # option. This is what stops `-p evil`, `--rootdir=…`, `--import-mode=…`,
-        # `discover`, `--pyargs` and any future equivalent.
-        for token in arg_tokens:
-            if token is targets[0] or token == targets[0]:
+        is_pytest = head == "pytest" or (
+            head in {"python", "python3"} and tokens[2] == "pytest"
+        )
+        targets: list[str] = []
+        config: str | None = None
+        # Tokens consumed as pinned-config syntax; exempt from the generic
+        # forbidden-flag and validator-target checks below because the parser
+        # has already validated them against TRUSTED_VALIDATOR_CONFIGS.
+        consumed: set[str] = set()
+        index = 0
+        while index < len(arg_tokens):
+            token = arg_tokens[index]
+            if token == "-c":
+                if config is not None or index + 1 >= len(arg_tokens):
+                    return False
+                config = arg_tokens[index + 1]
+                consumed.update({token, config})
+                index += 2
                 continue
+            if token.startswith("-c="):
+                if config is not None:
+                    return False
+                config = token[3:]
+                consumed.update({token, config})
+                index += 1
+                continue
+            if looks_like_path(token):
+                targets.append(token)
+                index += 1
+                continue
+            # Everything that is not the target or the pinned config must be an
+            # explicitly permitted option. This stops `-p evil`, `--rootdir=…`,
+            # `--import-mode=…`, `discover`, `--pyargs` and future equivalents.
             if not is_permitted_runner_option(token):
                 return False
+            index += 1
+        if len(targets) != 1:
+            return False
+        if is_pytest:
+            # pytest auto-loads config from the worktree unless pinned. Require
+            # the pin, and require it to name the immutable trusted config.
+            if config is None:
+                return False
+            config_path = normalize_path(config)
+            if config_path not in TRUSTED_VALIDATOR_CONFIGS:
+                return False
+            if allowed is not None and path_allowed(
+                config_path, allowed, forbidden or []
+            ):
+                return False
+            consumed.add(config_path)
+            config_tokens = consumed
+        elif config is not None:
+            return False
+        else:
+            config_tokens = set()
 
+    config_tokens = config_tokens if executes else set()
     for token in tokens[1:]:
+        if token in config_tokens:
+            continue
         if not looks_like_path(token):
             continue
         item = repo_safe_path(token)
@@ -454,6 +523,8 @@ def validate_validation_command(command, allowed: list | None = None,
                         return False
 
     for token in tokens[1:]:
+        if token in config_tokens:
+            continue
         if token in FORBIDDEN_FLAGS:
             return False
         if token in SHELL_KEYWORDS or token in SHELL_INTERPRETERS:
