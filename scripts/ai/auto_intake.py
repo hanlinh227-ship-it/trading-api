@@ -80,10 +80,20 @@ SAFE_VALIDATION_GIT_SUBCOMMANDS = {
     "diff", "status", "log", "show", "rev-parse", "ls-files",
     "check-ignore", "check-attr",
 }
-SAFE_PYTHON_MODULES = {
-    "pytest", "py_compile", "compileall", "unittest", "json.tool",
-    "mypy", "ruff", "flake8",
+# Python modules that EXECUTE the code they are pointed at. Their path
+# arguments must be trusted, immutable repository validators.
+EXECUTING_PYTHON_MODULES = {"pytest", "unittest"}
+# Modules that only compile/parse/inspect. Their path arguments are data.
+NON_EXECUTING_PYTHON_MODULES = {
+    "py_compile", "compileall", "json.tool", "mypy", "ruff", "flake8",
 }
+SAFE_PYTHON_MODULES = EXECUTING_PYTHON_MODULES | NON_EXECUTING_PYTHON_MODULES
+# Commands whose path arguments are executed as code.
+EXECUTING_HEADS = {"pytest"}
+# The ONLY repository locations a test/exec runner may be pointed at. An
+# arbitrary issue-selected .py file is never a validator.
+TRUSTED_VALIDATOR_PREFIXES = ("scripts/ai/tests/",)
+TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset()
 SHELL_META_CHARS = set(";|&`$<>(){}!*?[]~#\\\"'\n\r\t")
 SHELL_KEYWORDS = {
     "if", "then", "else", "elif", "fi", "for", "while", "do", "done",
@@ -130,6 +140,10 @@ class TaskError(Exception):
     """Per-issue, recoverable rejection. Never aborts the whole batch."""
 
 
+class ReceiptRaceLost(Exception):
+    """Another concurrent intake run created the durable receipt first."""
+
+
 def fail(message: str) -> None:
     """Process-fatal, fail-closed abort."""
     print(f"AUTO_INTAKE_BLOCK: {message}", file=sys.stderr)
@@ -159,6 +173,59 @@ def is_broad_scope(item: str) -> bool:
         return True
     first = item.split("/", 1)[0]
     return first in {"", ".", "..", "*", "**"} or "*" in first or "?" in first
+
+
+def repo_safe_path(value) -> str | None:
+    """Normalize a repository-relative path, or return None if it is unsafe.
+
+    Rejects non-strings, absolute paths, `~` expansion, `..` traversal, glob
+    scopes, hard-forbidden paths, and anything whose resolved real path escapes
+    the repository ROOT (including via symlink).
+    """
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    if stripped.startswith("/") or stripped.startswith("~"):
+        return None
+    if any(ch in stripped for ch in "*?"):
+        return None
+    item = normalize_path(stripped)
+    if not item or item in {".", ".."}:
+        return None
+    if ".." in item.split("/"):
+        return None
+    if is_hard_forbidden_scope(item):
+        return None
+    try:
+        root = pathlib.Path(os.path.realpath(ROOT))
+        resolved = pathlib.Path(os.path.realpath(ROOT / item))
+    except Exception:
+        return None
+    if resolved != root and root not in resolved.parents:
+        return None
+    return item
+
+
+def is_trusted_validator_path(item: str) -> bool:
+    if item in TRUSTED_PYTHON_VALIDATORS:
+        return True
+    return any(
+        item == prefix.rstrip("/") or item.startswith(prefix)
+        for prefix in TRUSTED_VALIDATOR_PREFIXES
+    )
+
+
+def looks_like_path(token: str) -> bool:
+    """Treat any non-flag token that names a file or directory as a path.
+
+    Dotfiles such as `.env` and `cloudflare-worker/.dev.vars` must be caught
+    here, so a bare `.` in the token is enough to demand a safety check.
+    """
+    if token.startswith("-"):
+        return False
+    return "/" in token or "." in token
 
 
 def validate_allowed_scope(allowed: list) -> None:
@@ -195,6 +262,32 @@ def validate_allowed_scope(allowed: list) -> None:
             reject(f"forbidden allowed_paths entry: {raw}")
         if is_broad_scope(prefix):
             reject(f"overly broad allowed_paths entry: {raw}")
+
+
+def validate_context_files(context_files, issue_number: int) -> None:
+    """BLOCKER 1: context_files must be safe, in-repo, regular files.
+
+    Rejects absolute paths, `..` traversal, globs, hard-forbidden paths
+    (`.git`, `.git/**`, `.env`, `cloudflare-worker/.dev.vars`), anything whose
+    real path escapes ROOT (including via symlink), and anything that is not an
+    existing regular file in this checkout.
+    """
+    if not isinstance(context_files, list):
+        reject(f"issue #{issue_number} context_files must be a list")
+    for raw in context_files:
+        if not isinstance(raw, str) or not raw.strip():
+            reject(f"issue #{issue_number} context_files must contain non-empty strings")
+        item = repo_safe_path(raw)
+        if item is None:
+            reject(f"issue #{issue_number} unsafe context_files entry: {raw!r}")
+        target = ROOT / item
+        if target.is_symlink():
+            reject(f"issue #{issue_number} context_files entry is a symlink: {raw!r}")
+        if not target.is_file():
+            reject(
+                f"issue #{issue_number} context_files entry is not a regular "
+                f"repository file: {raw!r}"
+            )
 
 
 def validate_forbidden_scope(forbidden: list) -> None:
@@ -261,15 +354,28 @@ def validate_validation_command(command) -> bool:
         if tokens[1] in GIT_WRITE_COMMANDS:
             return False
     elif head in {"python", "python3"}:
-        if len(tokens) < 2:
+        # BLOCKER 2: never execute an arbitrary issue-selected .py file. Python
+        # validation runs ONLY an allowlisted module.
+        if len(tokens) < 3 or tokens[1] != "-m":
             return False
-        if tokens[1] == "-m":
-            if len(tokens) < 3 or tokens[2] not in SAFE_PYTHON_MODULES:
-                return False
-        elif not tokens[1].endswith(".py"):
+        if tokens[2] not in SAFE_PYTHON_MODULES:
             return False
     elif head not in SAFE_VALIDATION_COMMANDS:
         return False
+
+    # Does this command EXECUTE the code it is pointed at?
+    executes = head in EXECUTING_HEADS or (
+        head in {"python", "python3"} and tokens[2] in EXECUTING_PYTHON_MODULES
+    )
+    for token in tokens[1:]:
+        if not looks_like_path(token):
+            continue
+        item = repo_safe_path(token)
+        if item is None:
+            return False
+        if executes and not is_trusted_validator_path(item):
+            return False
+
     for token in tokens[1:]:
         if token in FORBIDDEN_FLAGS:
             return False
@@ -388,22 +494,23 @@ def receipt_label(task_id: str) -> str:
     return f"{RECEIPT_LABEL_PREFIX}{task_id[:keep]}~{digest}"
 
 
-def github_status_probe(url: str) -> int:
-    """GET `url` and return the HTTP status only.
+def github_request_status(method: str, url: str, body: dict | None = None) -> int:
+    """Perform a request and return ONLY its HTTP status.
 
-    Returns 0 when the request could not be completed at all. Callers must
-    treat anything other than an explicit 200/404 as INDETERMINATE and fail
-    closed; never as "absent".
+    Returns 0 when the request could not be completed at all. Never calls
+    fail(): transport problems must stay inside the per-issue boundary.
     """
     if not GITHUB_TOKEN:
         return 0
+    data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(
-        url,
+        url, data=data,
         headers={
             "Authorization": f"Bearer {GITHUB_TOKEN}",
             "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
         },
-        method="GET",
+        method=method,
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
@@ -412,6 +519,15 @@ def github_status_probe(url: str) -> int:
         return int(exc.code)
     except Exception:
         return 0
+
+
+def github_status_probe(url: str) -> int:
+    """GET `url` and return the HTTP status only.
+
+    Callers must treat anything other than an explicit 200/404 as
+    INDETERMINATE and fail closed; never as "absent".
+    """
+    return github_request_status("GET", url)
 
 
 def durable_receipt_present(task_id: str) -> bool:
@@ -478,27 +594,31 @@ def task_already_processed(
 
 
 def create_receipt_label(task_id: str, issue_number: int) -> None:
-    """Write the durable ledger entry. Must succeed or the task is not marked."""
+    """BLOCKER 4: CLAIM the durable receipt; never merely observe it.
+
+    Only the process whose POST actually creates the label (201) owns the task.
+    A 422 means another concurrent run created it first -> we LOST the race and
+    must become a duplicate. A later GET 200 is NOT proof of ownership, so it is
+    never used to convert a failed claim into success.
+    """
     name = receipt_label(task_id)
-    created = github_request(
+    code = github_request_status(
         "POST", f"{GITHUB_API}/repos/{REPO}/labels",
         {
             "name": name,
             "color": RECEIPT_LABEL_COLOR,
             "description": f"AUTO-INTAKE V1 processed task {task_id}"[:100],
         },
-        allow_fail=True,
     )
-    # allow_fail absorbs the 422 that means "label already exists"; re-probe to
-    # confirm the durable entry really is present before claiming success.
-    if created is None:
-        code = github_status_probe(
-            f"{GITHUB_API}/repos/{REPO}/labels/{urllib.parse.quote(name, safe='')}"
+    if code == 422:
+        raise ReceiptRaceLost(
+            f"durable receipt `{name}` already claimed by a concurrent run"
         )
-        if code != 200:
-            raise TaskError(
-                f"durable receipt label `{name}` could not be created (HTTP {code})"
-            )
+    if code not in (200, 201):
+        raise TaskError(
+            f"durable receipt label `{name}` could not be claimed (HTTP {code})"
+        )
+    # Best-effort visibility only; never affects ownership.
     github_request(
         "POST", f"{GITHUB_API}/repos/{REPO}/issues/{issue_number}/labels",
         {"labels": [name]}, allow_fail=True,
@@ -506,7 +626,7 @@ def create_receipt_label(task_id: str, issue_number: int) -> None:
 
 
 def post_receipt(issue_number: int, task: dict, task_file: pathlib.Path) -> None:
-    """Durable GitHub-side processed marker. Written only after the task file."""
+    """Human-readable audit comment. Best-effort; never gates ownership."""
     body = (
         f"{RECEIPT_MARKER}: {task['task_id']}\n"
         f"AUTO_INTAKE_ISSUE: {issue_number}\n"
@@ -514,7 +634,15 @@ def post_receipt(issue_number: int, task: dict, task_file: pathlib.Path) -> None
         f"AUTO_INTAKE_TASK_FILE: {task_file.relative_to(ROOT).as_posix()}\n"
     )
     url = f"{GITHUB_API}/repos/{REPO}/issues/{issue_number}/comments"
-    github_request("POST", url, {"body": body})
+    # BLOCKER 5: audit trail only. Ownership is already established by the
+    # durable claim, so a transport failure here must not undo it, escalate to
+    # SystemExit, or abort the batch.
+    if github_request("POST", url, {"body": body}, allow_fail=True) is None:
+        print(
+            f"AUTO_INTAKE_RECEIPT_AUDIT_DEGRADED: #{issue_number} "
+            f"task_id={task['task_id']} (durable claim already held)",
+            file=sys.stderr,
+        )
 
 
 def mark_processed(task: dict, issue_number: int) -> None:
@@ -553,7 +681,7 @@ def set_status_label(issue_number: int, status: str) -> None:
 
 def report_status(issue_number: int, status: str, detail: str = "") -> None:
     if status not in VALID_STATUSES:
-        fail(f"unknown intake status: {status}")
+        raise TaskError(f"unknown intake status: {status}")
     url = f"{GITHUB_API}/repos/{REPO}/issues/{issue_number}/comments"
     body = f"**AUTO-INTAKE V1** status: `{status}`"
     if detail:
@@ -584,24 +712,36 @@ def extract_task_json(issue: dict) -> dict:
     return task
 
 
-def base_sha_exists(sha: str) -> bool:
-    """BLOCKER 8: base_sha must actually resolve to a commit."""
+def resolve_authoritative_head() -> str | None:
+    """BLOCKER 3: current authoritative repository HEAD, or None.
+
+    Local git is authoritative for the checkout the implementer will run in.
+    Falls back to the repository's default-branch head on GitHub. Returning
+    None means UNKNOWN, and every caller must fail closed on it.
+    """
     try:
         proc = subprocess.run(
-            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            ["git", "rev-parse", "HEAD"],
             cwd=str(ROOT), capture_output=True, text=True, check=False, timeout=30,
         )
-        if proc.returncode == 0:
-            return True
+        sha = (proc.stdout or "").strip()
+        if proc.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha):
+            return sha
     except Exception:
         pass
-    data = github_request(
-        "GET", f"{GITHUB_API}/repos/{REPO}/commits/{sha}", allow_fail=True
+    repo = github_request("GET", f"{GITHUB_API}/repos/{REPO}", allow_fail=True)
+    branch = "main"
+    if isinstance(repo, dict) and isinstance(repo.get("default_branch"), str):
+        branch = repo["default_branch"]
+    ref = github_request(
+        "GET", f"{GITHUB_API}/repos/{REPO}/commits/{branch}", allow_fail=True
     )
-    return isinstance(data, dict) and isinstance(data.get("sha"), str) and data["sha"] == sha
+    if isinstance(ref, dict) and re.fullmatch(r"[0-9a-f]{40}", str(ref.get("sha", ""))):
+        return str(ref["sha"])
+    return None
 
 
-def validate_task(task: dict, issue_number: int, sha_resolver=None) -> dict:
+def validate_task(task: dict, issue_number: int, head_resolver=None) -> dict:
     missing = [k for k in REQUIRED_FIELDS if k not in task]
     if missing:
         reject(f"issue #{issue_number} task missing fields: {', '.join(missing)}")
@@ -616,11 +756,7 @@ def validate_task(task: dict, issue_number: int, sha_resolver=None) -> dict:
     for cmd in task["validation_commands"]:
         if not validate_validation_command(cmd):
             reject(f"issue #{issue_number} unsafe validation command blocked: {cmd!r}")
-    if not isinstance(task["context_files"], list):
-        reject(f"issue #{issue_number} context_files must be a list")
-    for item in task["context_files"]:
-        if not isinstance(item, str) or not item.strip():
-            reject(f"issue #{issue_number} context_files must contain non-empty strings")
+    validate_context_files(task["context_files"], issue_number)
     if not isinstance(task["requires_claude"], bool):
         reject(f"issue #{issue_number} requires_claude must be a boolean")
     if not isinstance(task["auto_merge"], bool):
@@ -629,9 +765,18 @@ def validate_task(task: dict, issue_number: int, sha_resolver=None) -> dict:
         reject(f"issue #{issue_number} auto_merge is not permitted in AUTO-INTAKE V1")
     if not isinstance(task["base_sha"], str) or not re.fullmatch(r"[0-9a-f]{40}", task["base_sha"]):
         reject(f"issue #{issue_number} base_sha must be a 40-char hex SHA")
-    resolver = sha_resolver or base_sha_exists
-    if not resolver(task["base_sha"]):
-        reject(f"issue #{issue_number} base_sha does not resolve to a commit: {task['base_sha']}")
+    resolver = head_resolver or resolve_authoritative_head
+    head = resolver()
+    if not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head or ""):
+        reject(
+            f"issue #{issue_number} authoritative HEAD could not be resolved; "
+            f"failing closed rather than accepting an unverifiable base_sha"
+        )
+    if task["base_sha"] != head:
+        reject(
+            f"issue #{issue_number} STALE base_sha: declared {task['base_sha']} "
+            f"but authoritative HEAD is {head}"
+        )
     if not isinstance(task["task_id"], str) or not re.fullmatch(r"[A-Za-z0-9._-]{3,64}", task["task_id"]):
         reject(f"issue #{issue_number} task_id must be 3-64 chars of [A-Za-z0-9._-]")
     if not isinstance(task["objective"], str) or not task["objective"].strip():
@@ -664,10 +809,10 @@ def write_task_file(task: dict, issue_number: int) -> pathlib.Path:
 # --- per-issue processing ---------------------------------------------------
 
 
-def process_issue(issue: dict, seen: dict[str, int], sha_resolver=None) -> dict:
+def process_issue(issue: dict, seen: dict[str, int], head_resolver=None) -> dict:
     number = issue.get("number")
     task = extract_task_json(issue)
-    task = validate_task(task, number, sha_resolver=sha_resolver)
+    task = validate_task(task, number, head_resolver=head_resolver)
     task_id = task["task_id"]
 
     if task_already_processed(task_id, issue_number=number, seen=seen):
@@ -695,8 +840,19 @@ def process_issue(issue: dict, seen: dict[str, int], sha_resolver=None) -> dict:
     }
 
 
+def safe_report_status(issue_number, status: str, detail: str = "") -> None:
+    """Report status without ever letting transport noise escape the boundary."""
+    try:
+        report_status(issue_number, status, detail)
+    except BaseException as exc:  # noqa: BLE001 - contains SystemExit by design
+        print(
+            f"AUTO_INTAKE_STATUS_REPORT_FAILED: #{issue_number} {status}: {exc}",
+            file=sys.stderr,
+        )
+
+
 def run_intake(issues: list[dict], seen: dict[str, int] | None = None,
-               sha_resolver=None) -> dict:
+               head_resolver=None) -> dict:
     """BLOCKER 5: one malformed issue never aborts the batch.
 
     `seen` is an in-batch memo only; durability comes from the GitHub ledger.
@@ -708,25 +864,29 @@ def run_intake(issues: list[dict], seen: dict[str, int] | None = None,
     for issue in issues:
         number = issue.get("number") if isinstance(issue, dict) else None
         try:
-            results.append(process_issue(issue, seen, sha_resolver=sha_resolver))
+            results.append(process_issue(issue, seen, head_resolver=head_resolver))
+        except ReceiptRaceLost as exc:
+            # BLOCKER 4: lost the durable claim to a concurrent run.
+            print(f"AUTO_INTAKE_RACE_LOST: #{number}: {exc}", file=sys.stderr)
+            results.append({
+                "status": "DUPLICATE_SKIPPED",
+                "issue_number": number,
+                "detail": "durable receipt claimed by a concurrent run",
+            })
+            safe_report_status(number, "DUPLICATE_SKIPPED", str(exc))
+        except SystemExit as exc:
+            # BLOCKER 5: a transport-level fail() must not abort the batch.
+            failures.append({"issue_number": number, "error": f"SystemExit: {exc.code}"})
+            print(f"AUTO_INTAKE_ISSUE_ABORTED: #{number}: SystemExit {exc.code}", file=sys.stderr)
+            safe_report_status(number, "FAILED", "AUTO-INTAKE transport failure; see workflow logs")
         except TaskError as exc:
             failures.append({"issue_number": number, "error": str(exc)})
             print(f"AUTO_INTAKE_ISSUE_REJECTED: #{number}: {exc}", file=sys.stderr)
-            try:
-                report_status(number, "FAILED", f"AUTO-INTAKE rejected this task: {exc}")
-            except SystemExit:
-                pass
-            except Exception:
-                pass
+            safe_report_status(number, "FAILED", f"AUTO-INTAKE rejected this task: {exc}")
         except Exception as exc:  # noqa: BLE001 - isolate any per-issue defect
             failures.append({"issue_number": number, "error": f"{type(exc).__name__}: {exc}"})
             print(f"AUTO_INTAKE_ISSUE_ERROR: #{number}: {exc}", file=sys.stderr)
-            try:
-                report_status(number, "FAILED", "AUTO-INTAKE processing error; see workflow logs")
-            except SystemExit:
-                pass
-            except Exception:
-                pass
+            safe_report_status(number, "FAILED", "AUTO-INTAKE processing error; see workflow logs")
     ready = [r for r in results if r["status"] == "READY"]
     return {
         "status": "DONE",

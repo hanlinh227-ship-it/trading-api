@@ -31,9 +31,9 @@ All per-issue rejections raise `TaskError` and are contained to that issue.
 - `forbidden_paths` must be a list of non-empty strings.
 - `acceptance_criteria` must be a non-empty list.
 - `validation_commands` must satisfy the strict allowlist grammar below.
-- `context_files` must be a list of non-empty strings.
+- `context_files` must be a list of **repository-safe, existing regular files**. Each entry is rejected if it is absolute, uses `~`, contains a `..` segment or a glob, is hard-forbidden (`.git`, `.git/**`, `.env`, `cloudflare-worker/.dev.vars`), is a symlink, resolves outside `ROOT` via `os.path.realpath`, or is not an existing regular file in this checkout. `/proc/self/environ`, `../../etc/passwd`, `.git/config`, `.env` and `cloudflare-worker/.dev.vars` are all rejected, including when the file genuinely exists.
 - `requires_claude` and `auto_merge` must be real booleans; `auto_merge` must be `false`.
-- `base_sha` must be a 40-character lowercase hex SHA **and must resolve** to a real commit (`git cat-file -e <sha>^{commit}` locally, falling back to `GET /repos/{repo}/commits/{sha}`). An unresolvable base SHA is a stale-base hard block.
+- `base_sha` must be a 40-character lowercase hex SHA **and must equal the authoritative current HEAD**. `resolve_authoritative_head()` reads local `git rev-parse HEAD`, falling back to the repository's default-branch head on GitHub. A SHA that resolves to a real but *historical* commit is rejected as `STALE`, and an unresolvable HEAD fails closed rather than accepting an unverifiable base. This runs inside `validate_task()`, so it happens **before** any durable receipt is claimed or any task file is written.
 - `task_id` must match `[A-Za-z0-9._-]{3,64}`.
 - `max_rounds` and `max_output_tokens` are **type-checked before any bounds logic**: `bool`, `str`, `float`, `list`, `dict` and `None` are rejected outright. Only real integers are then clamped (`max_rounds` 1..4, `max_output_tokens` 512..8000).
 - The entire task JSON is scanned for secret patterns and rejected if any are found.
@@ -46,7 +46,8 @@ Issue text is never treated as arbitrary shell. A command is accepted only if **
 - it matches the bounded token grammar `^[A-Za-z0-9_./-]+(\s+[A-Za-z0-9_./=-]+)*$`;
 - the head token is on the allowlist (`python`, `python3`, `pytest`, `ruff`, `flake8`, `mypy`, `git`, `echo`, `true`, `false`);
 - `git` is restricted to read-only subcommands (`diff`, `status`, `log`, `show`, `rev-parse`, `ls-files`, `check-ignore`, `check-attr`); every git write subcommand is rejected;
-- `python`/`python3` must run either an in-repo `*.py` file or `-m <module>` where the module is on `SAFE_PYTHON_MODULES`; `-c` is rejected;
+- `python`/`python3` may run **only** `-m <module>` from `SAFE_PYTHON_MODULES`. Executing a bare `.py` file is rejected outright — an issue-selected script is never a validator, no matter its extension. `-c` is rejected;
+- every path-like argument must pass the same repository-safety check as `context_files`, and for commands that **execute** what they are pointed at (`pytest`, `python -m pytest`, `python -m unittest`) the target must additionally be a trusted, immutable validator under `TRUSTED_VALIDATOR_PREFIXES` (`scripts/ai/tests/`) or listed in `TRUSTED_PYTHON_VALIDATORS`. Modules that only compile or parse (`py_compile`, `compileall`, `json.tool`, `mypy`, `ruff`, `flake8`) may target any repo-safe path, since their arguments are data rather than code;
 - no token may be a shell keyword, shell interpreter, network client (`curl`, `wget`, `nc`, `ssh`, `scp`, `rsync`, ...), deploy tool (`wrangler`, `kubectl`, `terraform`, `docker`, `aws`, ...), package manager / arbitrary executor (`pip`, `npm`, `make`, `eval`, `exec`, `source`, `xargs`, `find`, `node`, ...), or a forbidden flag (`-c`, `-e`, `--eval`, `--exec`, `--command`, `-i`).
 
 Anything not explicitly permitted is rejected.
@@ -59,7 +60,17 @@ GitHub is the **source of truth**; local files are only a cache.
 
 Each processed `task_id` gets a permanent repository **label** — `ai-intake-done:<task_id>`, or `ai-intake-done:<truncated>~<sha256[:16]>` when the readable form would exceed GitHub's 50-character label limit. `receipt_label()` is a pure function, so the same `task_id` always maps to the same key on every runner, forever.
 
-The duplicate check is a single `GET /repos/{repo}/labels/{name}`:
+### Claiming, not observing
+
+The ledger entry is **claimed**, never merely observed. `create_receipt_label()` issues `POST /repos/{repo}/labels` and reads the status:
+
+- `201` / `200` -> this process created the entry and **owns** the task;
+- `422` -> the label already exists, so a concurrent run created it first. That is a **lost race**: `ReceiptRaceLost` is raised, the run becomes `DUPLICATE_SKIPPED`, and it does **not** mark, cache, or claim ownership;
+- anything else -> `TaskError`, fail closed.
+
+A later `GET` returning `200` is never accepted as proof of ownership — only the process whose POST actually created the entry may continue. Two concurrent runs that both observe the label absent therefore still produce exactly one `READY`.
+
+The pre-flight duplicate check is a single `GET /repos/{repo}/labels/{name}`:
 
 - `200` -> already processed -> `DUPLICATE_SKIPPED`
 - `404` -> not processed -> proceed
@@ -86,14 +97,16 @@ A human-readable `AUTO_INTAKE_RECEIPT` comment is still posted on the issue with
 For each accepted task the order is strictly:
 
 1. `write_task_file()` — the task file must be written and verified on disk;
-2. `create_receipt_label()` — durable GitHub ledger entry (must succeed; a failed creation is re-probed and raises if the entry is genuinely absent);
-3. `post_receipt()` — human-readable audit comment;
+2. `create_receipt_label()` — durable ledger **claim** (must return 201/200; 422 means the race was lost and the run becomes a duplicate);
+3. `post_receipt()` — human-readable audit comment, **best-effort**: ownership is already established, so a transport failure here logs `AUTO_INTAKE_RECEIPT_AUDIT_DEGRADED` and does not turn a completed intake into a failure;
 4. `mark_processed()` — local cache;
 5. `READY` status.
 
 If step 1 or step 2 fails, the later steps never run, the in-batch memo is not updated, and the task remains eligible for a later retry.
 
 ## Per-issue failure isolation
+
+No GitHub transport failure may escape the per-issue boundary. `github_request_status()` never calls `fail()`, `report_status()` raises `TaskError` rather than `SystemExit`, and `safe_report_status()` contains `BaseException` (including `SystemExit`) around every status report. The per-issue handler explicitly catches `ReceiptRaceLost`, `SystemExit`, `TaskError` and `Exception`, so a transport-level abort in one issue can never terminate the batch.
 
 `run_intake()` processes each issue inside its own boundary. A malformed, unsafe or otherwise failing issue is recorded in `failures`, labelled `FAILED` on GitHub, and processing continues with the remaining issues. The process exits non-zero when any issue failed, so a bad task is still surfaced loudly without discarding valid work.
 
@@ -132,8 +145,12 @@ Covered safety properties:
 - durable idempotency (O(1) label ledger; blocked with no local state, across a simulated fresh checkout, and with 10,000 comments of accumulated history; indeterminate lookup fails closed; ledger-write failure prevents marking)
 - singular status transitions (previous `ai-status:*` labels removed)
 - numeric type fail-closed (`bool`/`str`/`float`/`list`/`None` rejected before clamping)
-- base_sha resolution failure
-- write-before-mark ordering (write -> ledger -> receipt -> mark)
+- base_sha bound to authoritative HEAD (historical-but-valid SHA rejected as STALE before any claim; current HEAD accepted; unresolvable/malformed HEAD fails closed)
+- write-before-mark ordering (write -> claim -> audit -> mark)
+- context_files path safety (`/proc/self/environ`, `../../`, `.git/config`, `.env`, `cloudflare-worker/.dev.vars`, symlink escape, missing file, directory)
+- python validator trust boundary (arbitrary newly-created `.py` rejected; executing modules restricted to trusted validators)
+- receipt claim race (lost race -> duplicate; GET 200 is not ownership; two concurrent runs yield exactly one READY)
+- transport failure containment (receipt SystemExit on issue 1, issue 2 still processes; audit failure does not fail the task)
 - no merge / deploy / PR endpoint is ever called
 - downstream contract with `deepseek_implementer.DANGEROUS_VALIDATION` (no gap, no conflict, no weakening)
 
@@ -146,6 +163,8 @@ Covered safety properties:
 3. **It guards a different entry point.** `deepseek_implementer.py` accepts an arbitrary `task_file` argument. A task file that never passed through AUTO-INTAKE — hand-authored, or produced by some future path — is gated *only* by that denylist. Removing or replacing it would weaken protection for exactly the case it exists to cover.
 
 Scope note: `WRITE_LOCK.md` currently has `LOCKED: true`, `OWNER: DEEPSEEK` covering AI orchestration infrastructure. `deepseek_implementer.py` is DeepSeek's implementation surface; editing it here would be scope expansion under an active foreign lock. AUTO-INTAKE's own gate is tightened instead.
+
+**One downstream change was required.** `ensure_result_scope()` previously ran only *before* `run_validations()`, and validation commands execute code — so a validator could mutate files outside `allowed_paths` and never be detected. A single call to `ensure_result_scope(task, before_untracked)` was added *after* `run_validations()` in `main()`. This is a 3-line strengthening; `DANGEROUS_VALIDATION` itself is untouched and the denylist is not weakened. It is the smallest coherent fix, and it is the only place the recheck can live.
 
 This contract is enforced by tests, not just prose: `TestDownstreamValidationContract` proves AUTO-INTAKE blocks the entire downstream denylist, that the denylist never rejects an intake-accepted command, that arbitrary shell slipping past the denylist is stopped upstream, that a written task file contains no shell metacharacters, and that the downstream pattern itself has not been weakened.
 

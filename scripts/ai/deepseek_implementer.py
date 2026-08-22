@@ -446,6 +446,9 @@ def main() -> None:
             continue
 
         valid, last_validation = run_validations(task)
+        # Validation commands execute code. Re-assert scope AFTER they run so a
+        # validator cannot mutate files outside allowed_paths undetected.
+        ensure_result_scope(task, before_untracked)
         if valid:
             print(json.dumps({
                 "status": "IMPLEMENTED_VALIDATED",
