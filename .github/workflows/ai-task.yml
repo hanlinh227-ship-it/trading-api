@@ -17,8 +17,10 @@ permissions:
   contents: write
   pull-requests: write
 
+# All source-writing entry points share one global writer lock. This prevents the
+# manual DeepSeek workflow from racing AI Closed Loop / AI Closed Loop Wake.
 concurrency:
-  group: deepseek-ai-writer
+  group: trading-ai-closed-loop
   cancel-in-progress: false
 
 jobs:
@@ -60,6 +62,7 @@ jobs:
             echo "DeepSeek produced no repository diff."
             exit 3
           fi
+          git diff --check
           git diff --stat
 
       - name: Commit implementation branch
@@ -69,6 +72,9 @@ jobs:
           set -euo pipefail
           TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
           SAFE_TASK="$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')"
+          # Do not create a second implementation PR for the same task id.
+          EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
+          test -z "$EXISTING" || { echo "Open implementation PR already exists for $TASK_ID: #$EXISTING"; exit 4; }
           BRANCH="ai/deepseek-${SAFE_TASK}-${GITHUB_RUN_ID}"
           git config user.name "DeepSeek Cloud Implementer"
           git config user.email "actions@users.noreply.github.com"
@@ -80,7 +86,7 @@ jobs:
           echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Open pull request for GPT review
+      - name: Open pull request for independent reviews
         shell: bash
         env:
           BRANCH: ${{ steps.commit.outputs.branch }}
@@ -88,8 +94,7 @@ jobs:
           IMPLEMENTATION_SHA: ${{ steps.commit.outputs.sha }}
         run: |
           set -euo pipefail
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "$TASK_ID - DeepSeek implementation" \
-            --body "DeepSeek implementation staged for GPT/Codex final review.\n\nImplementation SHA: $IMPLEMENTATION_SHA\nTask file: $TASK_FILE\n\nStatus: IMPLEMENTED_NOT_VALIDATED\n\nThis workflow intentionally does not deploy production. Merge/deploy requires the repository review and validation policy."
+          PR_URL="$(gh pr create --base main --head "$BRANCH" --title "$TASK_ID - DeepSeek implementation" --body "DeepSeek implementation staged for independent Codex + Claude review.\n\nIMPLEMENTATION_SHA: $IMPLEMENTATION_SHA\nTask file: $TASK_FILE\nIMPLEMENTER: DEEPSEEK\nSTATUS: PARALLEL_DUAL_REVIEW_REQUIRED\n\nNo production deploy is performed here.")"
+          PR_NUMBER="${PR_URL##*/}"
+          gh pr comment "$PR_NUMBER" --body "@codex review\n\nReview exact head $IMPLEMENTATION_SHA. Advisory/review only; do not modify source."
+          gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST\nCLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA\nReview this exact head independently and post a SHA-bound ACCEPT/REJECT/BLOCKED verdict. Advisory/review only; do not modify source."
