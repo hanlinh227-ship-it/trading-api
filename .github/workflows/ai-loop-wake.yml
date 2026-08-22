@@ -87,8 +87,17 @@ jobs:
                       'validation_commands': ['git diff --check']
                   }
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          if str(task.get('base_sha') or '') != head:
-              raise SystemExit(f"Stale task base_sha={task.get('base_sha')} current={head}")
+          base=str(task.get('base_sha') or '')
+          if not base:
+              raise SystemExit('Task base_sha missing')
+          if base != head:
+              # Manual fallback may advance main through control-plane-only fixes.
+              # Accept only when the declared base is an ancestor of current main.
+              ok=subprocess.run(['git','merge-base','--is-ancestor',base,head]).returncode == 0
+              if not ok:
+                  raise SystemExit(f"Stale/diverged task base_sha={base} current={head}")
+              print(f"Task base {base} is behind current main {head}; using fresh current main")
+              task['base_sha']=head
           pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           print('TASK_ID='+str(task.get('task_id')))
           PY
