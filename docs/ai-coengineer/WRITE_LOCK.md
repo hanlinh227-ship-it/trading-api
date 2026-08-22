@@ -1,10 +1,9 @@
 # AI WRITE LOCK
 
-LOCKED: false
-OWNER: NONE
-SCOPE: NONE
-RELEASED: 2026-08-22
-RELEASED_BY: CHATGPT
+LOCKED: true
+OWNER: DEEPSEEK
+SCOPE: V11 quality optimization + Telegram signal discrimination under 3-AI review
+ACQUIRED: 2026-08-22
 
 ## Current baseline
 
@@ -19,14 +18,23 @@ Completed automation scope:
 - CI validation on `main` for V11 automation invariants;
 - canonical Cloudflare auto-deploy workflow remains the normal deployment path.
 
-## Current protocol
+## Optimization scope
 
-- No writer currently owns the repository write lock.
-- Future source changes must fresh-read GitHub `main` before writing.
-- One writer at a time.
-- Preserve TRADING_STATE, V11 native scheduler, deterministic market gates and VPC bridge bindings.
-- Never fabricate market/financial data or deployment evidence.
-- Never promote LIMIT/WATCH into MARKET.
-- Never restore legacy Futures Signal or Hyro/TK2 execution into Signal V11.
-- Never merge Binance Auto execution authority into Signal V11.
-- Never commit secrets, tokens or private keys.
+DeepSeek may implement only bounded V11 quality/ranking/discrimination improvements supported by current evidence. Required independent reviewers: Codex and Claude on the same implementation SHA.
+
+Hard invariants:
+- preserve TRADING_STATE;
+- preserve V11 native scheduler and VPC AI bridge;
+- keep SIGNAL_ONLY authority;
+- never promote LIMIT/WATCH/MARKET_PLAN into MARKET;
+- never weaken quote freshness, structural SL, RR/forward-liquidity or deterministic market gates merely to increase trade count;
+- never fabricate market data, ATR, bid/ask, P/L or deployment evidence;
+- never restore Futures Signal or Hyro/TK2 execution;
+- never merge Binance Auto execution authority into V11;
+- never commit secrets/tokens/private keys.
+
+## Lock protocol
+
+- OWNER DEEPSEEK is the only source writer while this lock is active.
+- Codex and Claude are reviewers only until DeepSeek completes or the task is released.
+- Current GitHub `main` is authoritative; stale checkpoints do not override source.
