@@ -51,6 +51,19 @@ jobs:
           grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
           echo "DeepSeek lock verified."
 
+      - name: AUTO-INTAKE boundary (re-validate task file)
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Manual dispatch must clear the SAME safety boundary as the issue
+          # path: scope, context_files, validator policy, secrets, numerics and
+          # authoritative-HEAD binding. One pipeline, one validator.
+          python3 scripts/ai/auto_intake.py \
+            --validate-task-file "$TASK_FILE" \
+            --expect-head "$(git rev-parse HEAD)"
+
       - name: Implement scoped task with DeepSeek
         run: python3 scripts/ai/deepseek_implementer.py "$TASK_FILE"
 

@@ -10,6 +10,21 @@ AUTO-INTAKE V1 safely converts GitHub issues explicitly marked as AI-loop tasks 
 
 It never merges, pushes, deploys, or executes issue-supplied shell.
 
+## Workflow integration (the entry boundary is real)
+
+AUTO-INTAKE is wired into the actual pipeline, not parallel to it. No workflow parses the `AI_TASK_JSON` contract inline any more:
+
+| Path | Workflow / job | Entry |
+|---|---|---|
+| `[AI-TASK]` issue opened | `ai-loop.yml` / `dispatch` | `auto_intake.py --issue N` -> `.ai-intake/tasks/<task_id>.json` |
+| Scheduled wake | `ai-loop-wake.yml` / `wake-dispatch` | `auto_intake.py --issue N` |
+| Bounded repair round | `ai-loop.yml` / `monitor` | `auto_intake.py --validate-task-file … --expect-head <PR head>` |
+| Manual dispatch | `ai-task.yml` / `implement` | `auto_intake.py --validate-task-file … --expect-head <HEAD>` |
+
+`deepseek_implementer.py` consumes only the AUTO-INTAKE-produced task file, and `task_id` is read from that validated file rather than re-parsed from untrusted issue text. `--validate-task-file` re-applies the identical `validate_task()` boundary to a task rebuilt against a PR head, so the repair and manual paths share one validator rather than a second, weaker parser.
+
+The non-bypass property is enforced by test, repository-wide: `test_workflow_integration.py` asserts that **every** `deepseek_implementer.py` invocation in **every** workflow is preceded by an `auto_intake.py` boundary step in the same job, and that no entry job parses `AI_TASK_JSON_BEGIN` inline. Workflows that cannot be structurally parsed must not invoke the implementer at all.
+
 ## Discovery
 
 - Only issues whose title contains `[AI-TASK]` are considered.
@@ -47,7 +62,11 @@ Issue text is never treated as arbitrary shell. A command is accepted only if **
 - the head token is on the allowlist (`python`, `python3`, `pytest`, `ruff`, `flake8`, `mypy`, `git`, `echo`, `true`, `false`);
 - `git` is restricted to read-only subcommands (`diff`, `status`, `log`, `show`, `rev-parse`, `ls-files`, `check-ignore`, `check-attr`); every git write subcommand is rejected;
 - `python`/`python3` may run **only** `-m <module>` from `SAFE_PYTHON_MODULES`. Executing a bare `.py` file is rejected outright — an issue-selected script is never a validator, no matter its extension. `-c` is rejected;
-- every path-like argument must pass the same repository-safety check as `context_files`, and for commands that **execute** what they are pointed at (`pytest`, `python -m pytest`, `python -m unittest`) the target must additionally be a trusted, immutable validator under `TRUSTED_VALIDATOR_PREFIXES` (`scripts/ai/tests/`) or listed in `TRUSTED_PYTHON_VALIDATORS`. Modules that only compile or parse (`py_compile`, `compileall`, `json.tool`, `mypy`, `ruff`, `flake8`) may target any repo-safe path, since their arguments are data rather than code;
+- every path-like argument must pass the same repository-safety check as `context_files`. For commands that **execute** what they are pointed at (`pytest`, `python -m pytest`, `python -m unittest`) two conditions must both hold:
+  1. the target is an **exact** member of the fixed `TRUSTED_PYTHON_VALIDATORS` allowlist. Directory trust does not exist — living under `scripts/ai/tests/` grants nothing, because a task whose `allowed_paths` cover that directory could otherwise drop a new file there and have it executed with workflow credentials;
+  2. the target is **not writable by this task**. If `path_allowed(target, allowed_paths, forbidden_paths)` is true, the command is refused: a validator the task may rewrite is task-authored code, not a trusted validator.
+
+  Modules that only compile or parse (`py_compile`, `compileall`, `json.tool`, `mypy`, `ruff`, `flake8`) may target any repo-safe path, since their arguments are data rather than code;
 - no token may be a shell keyword, shell interpreter, network client (`curl`, `wget`, `nc`, `ssh`, `scp`, `rsync`, ...), deploy tool (`wrangler`, `kubectl`, `terraform`, `docker`, `aws`, ...), package manager / arbitrary executor (`pip`, `npm`, `make`, `eval`, `exec`, `source`, `xargs`, `find`, `node`, ...), or a forbidden flag (`-c`, `-e`, `--eval`, `--exec`, `--command`, `-i`).
 
 Anything not explicitly permitted is rejected.
@@ -148,9 +167,11 @@ Covered safety properties:
 - base_sha bound to authoritative HEAD (historical-but-valid SHA rejected as STALE before any claim; current HEAD accepted; unresolvable/malformed HEAD fails closed)
 - write-before-mark ordering (write -> claim -> audit -> mark)
 - context_files path safety (`/proc/self/environ`, `../../`, `.git/config`, `.env`, `cloudflare-worker/.dev.vars`, symlink escape, missing file, directory)
-- python validator trust boundary (arbitrary newly-created `.py` rejected; executing modules restricted to trusted validators)
+- python validator trust boundary (exact-match allowlist only, no directory trust; a task-writable validator is refused even when allowlisted)
 - receipt claim race (lost race -> duplicate; GET 200 is not ownership; two concurrent runs yield exactly one READY)
 - transport failure containment (receipt SystemExit on issue 1, issue 2 still processes; audit failure does not fail the task)
+- workflow entry boundary (every implementer invocation preceded by AUTO-INTAKE; no inline contract parsing; no auto-merge/deploy in the loop)
+- post-validation out-of-scope mutation detection and validator-artifact containment (behavioural, real git repo)
 - no merge / deploy / PR endpoint is ever called
 - downstream contract with `deepseek_implementer.DANGEROUS_VALIDATION` (no gap, no conflict, no weakening)
 
@@ -164,7 +185,14 @@ Covered safety properties:
 
 Scope note: `WRITE_LOCK.md` currently has `LOCKED: true`, `OWNER: DEEPSEEK` covering AI orchestration infrastructure. `deepseek_implementer.py` is DeepSeek's implementation surface; editing it here would be scope expansion under an active foreign lock. AUTO-INTAKE's own gate is tightened instead.
 
-**One downstream change was required.** `ensure_result_scope()` previously ran only *before* `run_validations()`, and validation commands execute code — so a validator could mutate files outside `allowed_paths` and never be detected. A single call to `ensure_result_scope(task, before_untracked)` was added *after* `run_validations()` in `main()`. This is a 3-line strengthening; `DANGEROUS_VALIDATION` itself is untouched and the denylist is not weakened. It is the smallest coherent fix, and it is the only place the recheck can live.
+**Two downstream changes were required.**
+
+1. `ensure_result_scope()` previously ran only *before* `run_validations()`, and validation commands execute code — so a validator could mutate files outside `allowed_paths` and never be detected. It is now also called *after* `run_validations()`.
+2. That recheck would have failed spuriously on caches a validator legitimately creates. `is_validator_artifact()` exempts a **fixed** set of deterministic, repository-owned artifacts — `.pytest_cache`, `__pycache__`, `.mypy_cache`, `.ruff_cache`, `.hypothesis` directory segments and `.pyc`/`.pyo` files — and the exemption applies **only** to newly-untracked files. Arbitrary untracked files (including arbitrary dotfiles such as `.envrc` or `.secret_stash`) are still detected, and modifications to **tracked** files are never exempt even if the file has an artifact-like name. The same paths are gitignored so they never enter a PR.
+
+`DANGEROUS_VALIDATION` itself is untouched and the denylist is not weakened.
+
+These properties are proven **behaviourally** in `test_downstream_scope.py` against a real temporary git repository: an actual out-of-scope mutation performed by an actual validation command is detected; real cache artifacts do not trigger a false failure; arbitrary untracked files still do. No test asserts that a source string exists. Both guards were mutation-tested — removing the scope check fails 7 tests, removing the artifact exemption fails 1.
 
 This contract is enforced by tests, not just prose: `TestDownstreamValidationContract` proves AUTO-INTAKE blocks the entire downstream denylist, that the denylist never rejects an intake-accepted command, that arbitrary shell slipping past the denylist is stopped upstream, that a written task file contains no shell metacharacters, and that the downstream pattern itself has not been weakened.
 

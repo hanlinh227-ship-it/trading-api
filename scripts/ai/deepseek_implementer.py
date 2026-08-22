@@ -37,6 +37,24 @@ DANGEROUS_VALIDATION = re.compile(
     r"\b(rm\s+-rf|git\s+reset\s+--hard|git\s+clean|git\s+push|git\s+commit|wrangler\s+deploy|curl\b.*(?:-X\s*(?:POST|PUT|PATCH|DELETE)|--request\s*(?:POST|PUT|PATCH|DELETE)))",
     re.I,
 )
+# Deterministic, repository-owned artifacts that validators are KNOWN to create
+# (pytest/mypy/ruff caches, bytecode). These are exempt from untracked-file scope
+# detection ONLY. Arbitrary implementation-created untracked files are still
+# detected, and modifications to TRACKED files are never exempt.
+VALIDATOR_ARTIFACT_DIRS = (
+    ".pytest_cache", "__pycache__", ".mypy_cache", ".ruff_cache", ".hypothesis",
+)
+VALIDATOR_ARTIFACT_SUFFIXES = (".pyc", ".pyo")
+
+
+def is_validator_artifact(path: str) -> bool:
+    """True only for a known deterministic validator cache/bytecode artifact."""
+    parts = normalize_path(path).split("/")
+    if any(part in VALIDATOR_ARTIFACT_DIRS for part in parts):
+        return True
+    return path.endswith(VALIDATOR_ARTIFACT_SUFFIXES)
+
+
 EXACT_MATCH_ERROR = re.compile(
     r"STRUCTURED_EDIT_EXACT_MATCH_FAILED: edit=(\d+) path=([^\s]+) matches=(\d+) expected=1"
 )
@@ -375,7 +393,10 @@ def ensure_result_scope(task: dict, before_untracked: set[str]) -> list[str]:
         fail(diff.stderr.strip() or "cannot inspect resulting diff")
     resulting = [normalize_path(x) for x in diff.stdout.splitlines() if x.strip()]
     after_untracked = capture_untracked_files()
-    newly_untracked = after_untracked - before_untracked
+    newly_untracked = {
+        p for p in (after_untracked - before_untracked)
+        if not is_validator_artifact(p)
+    }
     resulting.extend(sorted(newly_untracked))
     bad = [p for p in resulting if not path_allowed(p, task["allowed_paths"], task["forbidden_paths"])]
     if bad:

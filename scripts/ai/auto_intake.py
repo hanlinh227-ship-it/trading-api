@@ -90,10 +90,13 @@ NON_EXECUTING_PYTHON_MODULES = {
 SAFE_PYTHON_MODULES = EXECUTING_PYTHON_MODULES | NON_EXECUTING_PYTHON_MODULES
 # Commands whose path arguments are executed as code.
 EXECUTING_HEADS = {"pytest"}
-# The ONLY repository locations a test/exec runner may be pointed at. An
-# arbitrary issue-selected .py file is never a validator.
-TRUSTED_VALIDATOR_PREFIXES = ("scripts/ai/tests/",)
-TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset()
+# The complete, fixed set of repository files a code-EXECUTING validator may be
+# pointed at. Exact paths only: directory trust is not permitted, because a task
+# whose allowed_paths cover a trusted directory could drop a new file there and
+# have it executed with workflow credentials.
+TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset({
+    "scripts/ai/tests/test_auto_intake.py",
+})
 SHELL_META_CHARS = set(";|&`$<>(){}!*?[]~#\\\"'\n\r\t")
 SHELL_KEYWORDS = {
     "if", "then", "else", "elif", "fi", "for", "while", "do", "done",
@@ -209,12 +212,8 @@ def repo_safe_path(value) -> str | None:
 
 
 def is_trusted_validator_path(item: str) -> bool:
-    if item in TRUSTED_PYTHON_VALIDATORS:
-        return True
-    return any(
-        item == prefix.rstrip("/") or item.startswith(prefix)
-        for prefix in TRUSTED_VALIDATOR_PREFIXES
-    )
+    """Exact-match membership in the fixed validator allowlist. No prefixes."""
+    return item in TRUSTED_PYTHON_VALIDATORS
 
 
 def looks_like_path(token: str) -> bool:
@@ -325,7 +324,8 @@ def contains_secret(text: str) -> bool:
     return any(pattern.search(text or "") for pattern in SECRET_PATTERNS)
 
 
-def validate_validation_command(command) -> bool:
+def validate_validation_command(command, allowed: list | None = None,
+                                forbidden: list | None = None) -> bool:
     """Return True only if command is a safe, bounded, non-write command.
 
     BLOCKER 4: strict allowlist / bounded grammar. No pipes, chaining,
@@ -373,8 +373,13 @@ def validate_validation_command(command) -> bool:
         item = repo_safe_path(token)
         if item is None:
             return False
-        if executes and not is_trusted_validator_path(item):
-            return False
+        if executes:
+            if not is_trusted_validator_path(item):
+                return False
+            # A validator the task itself may rewrite is task-authored code, not
+            # a trusted validator. Refuse to execute it with workflow creds.
+            if allowed is not None and path_allowed(item, allowed, forbidden or []):
+                return False
 
     for token in tokens[1:]:
         if token in FORBIDDEN_FLAGS:
@@ -754,11 +759,17 @@ def validate_task(task: dict, issue_number: int, head_resolver=None) -> dict:
     if not isinstance(task["validation_commands"], list):
         reject(f"issue #{issue_number} validation_commands must be a list")
     for cmd in task["validation_commands"]:
-        if not validate_validation_command(cmd):
+        if not validate_validation_command(
+            cmd, task["allowed_paths"], task["forbidden_paths"]
+        ):
             reject(f"issue #{issue_number} unsafe validation command blocked: {cmd!r}")
     validate_context_files(task["context_files"], issue_number)
     if not isinstance(task["requires_claude"], bool):
         reject(f"issue #{issue_number} requires_claude must be a boolean")
+    # AI LOOP V2 invariant: every engineering task carries an independent Claude
+    # review. This only ever ADDS a required reviewer, so it cannot weaken the
+    # gate; it replaces the same normalization the workflow used to do inline.
+    task["requires_claude"] = True
     if not isinstance(task["auto_merge"], bool):
         reject(f"issue #{issue_number} auto_merge must be a boolean")
     if task["auto_merge"]:
@@ -899,10 +910,46 @@ def run_intake(issues: list[dict], seen: dict[str, int] | None = None,
     }
 
 
+def validate_task_file(path: pathlib.Path, expect_head: str) -> dict:
+    """Re-apply the AUTO-INTAKE safety boundary to an already-materialized task.
+
+    Used by the bounded repair path, where the task is rebuilt against a PR head
+    rather than freshly intaken. Same validators, same fail-closed semantics, one
+    pipeline — no second, weaker parser.
+    """
+    try:
+        task = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        fail(f"cannot read task file {path}: {exc}")
+    if not isinstance(task, dict):
+        fail(f"task file {path} must contain a JSON object")
+    task = validate_task(task, 0, head_resolver=lambda: expect_head)
+    path.write_text(json.dumps(task, indent=2, ensure_ascii=False), encoding="utf-8")
+    return task
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--issue", type=int, default=None, help="Specific issue number to process")
+    ap.add_argument("--validate-task-file", default=None,
+                    help="Re-validate an existing task file through the same boundary")
+    ap.add_argument("--expect-head", default=None,
+                    help="Authoritative head the task file must be bound to")
     args = ap.parse_args()
+
+    if args.validate_task_file:
+        if not args.expect_head:
+            fail("--validate-task-file requires --expect-head")
+        try:
+            task = validate_task_file(pathlib.Path(args.validate_task_file), args.expect_head)
+        except TaskError as exc:
+            fail(f"task file rejected by AUTO-INTAKE boundary: {exc}")
+        print(json.dumps({
+            "status": "TASK_FILE_VALIDATED",
+            "task_id": task["task_id"],
+            "base_sha": task["base_sha"],
+        }))
+        return
 
     if args.issue:
         issues = [fetch_issue(args.issue)]

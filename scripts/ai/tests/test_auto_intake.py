@@ -260,7 +260,6 @@ class TestValidationCommandAllowlist(IntakeTestBase):
         "python3 -m py_compile scripts/ai/auto_intake.py",
         "python3 -m pytest scripts/ai/tests/test_auto_intake.py",
         "python3 -m unittest discover",
-        "pytest scripts/ai/tests",
         "git diff --check",
         "git status --porcelain",
         "git rev-parse HEAD",
@@ -268,6 +267,8 @@ class TestValidationCommandAllowlist(IntakeTestBase):
         "echo ok",
         "true",
     ]
+    # Directory trust was removed: only exact allowlisted validator files run.
+    NO_LONGER_TRUSTED = ["pytest scripts/ai/tests", "python3 -m pytest scripts/ai/tests"]
 
     def test_unsafe_commands_rejected(self):
         for cmd in self.UNSAFE:
@@ -1090,14 +1091,54 @@ class TestPythonValidatorTrustBoundary(IntakeTestBase):
             with self.subTest(cmd=cmd):
                 self.assertFalse(intake.validate_validation_command(cmd))
 
-    def test_trusted_validators_accepted(self):
+    def test_only_exact_allowlisted_validators_accepted(self):
+        """Directory trust is gone: membership is exact-match only."""
+        self.assertTrue(intake.validate_validation_command(
+            "python3 -m pytest scripts/ai/tests/test_auto_intake.py"
+        ))
         for cmd in [
-            "python3 -m pytest scripts/ai/tests/test_auto_intake.py",
             "python3 -m pytest scripts/ai/tests",
             "pytest scripts/ai/tests",
+            "python3 -m pytest scripts/ai/tests/test_new_thing.py",
+            "pytest scripts/ai/tests/test_auto_intake.py extra/other.py",
         ]:
             with self.subTest(cmd=cmd):
-                self.assertTrue(intake.validate_validation_command(cmd))
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_task_writable_validator_is_never_executed(self):
+        """BLOCKER 2: a validator the task may rewrite is task-authored code."""
+        trusted = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        cmd = f"python3 -m pytest {trusted}"
+        # Task cannot write the validator -> allowed.
+        self.assertTrue(intake.validate_validation_command(
+            cmd, ["cloudflare-worker/src/**"], []
+        ))
+        # Task CAN write the validator -> refused, even though it is allowlisted.
+        for scope in [["scripts/ai/**"], ["scripts/ai/tests/**"], [trusted]]:
+            with self.subTest(scope=scope):
+                self.assertFalse(intake.validate_validation_command(cmd, scope, []))
+
+    def test_task_authored_test_file_cannot_become_a_validator(self):
+        """Living under scripts/ai/tests/ grants nothing on its own."""
+        for cmd in [
+            "python3 -m pytest scripts/ai/tests/test_task_authored.py",
+            "pytest scripts/ai/tests/test_task_authored.py",
+            "python3 -m unittest scripts/ai/tests/test_task_authored.py",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(
+                    intake.validate_validation_command(cmd, ["scripts/ai/**"], [])
+                )
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_validate_task_rejects_self_writable_validator(self):
+        trusted = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        task = make_task(
+            allowed_paths=["scripts/ai/**"],
+            validation_commands=[f"python3 -m pytest {trusted}"],
+        )
+        with self.assertRaises(intake.TaskError):
+            intake.validate_task(task, 1, head_resolver=head_ok)
 
     def test_non_executing_modules_may_target_repo_safe_paths(self):
         for cmd in [
@@ -1127,15 +1168,9 @@ class TestPythonValidatorTrustBoundary(IntakeTestBase):
         self.assertEqual(summary["failed"], 1)
         self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "VAL-BAD.json").exists())
 
-    @unittest.skipIf(DOWNSTREAM is None, "deepseek_implementer.py not present")
-    def test_downstream_rechecks_scope_after_validation(self):
-        src = (MODULE_PATH.parent / "deepseek_implementer.py").read_text(encoding="utf-8")
-        start = src.index("valid, last_validation = run_validations(task)")
-        end = src.index('"status": "IMPLEMENTED_VALIDATED"')
-        self.assertIn(
-            "ensure_result_scope(task, before_untracked)", src[start:end],
-            "validation may execute code; scope must be re-asserted afterwards",
-        )
+    # NOTE: the post-validation scope recheck is proven BEHAVIOURALLY against a
+    # real git repository in test_downstream_scope.py, not by asserting that a
+    # source string exists.
 
 
 # --- CODEX BLOCKER 4: receipt claim race ------------------------------------

@@ -37,33 +37,41 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Parse task contract
+      - name: AUTO-INTAKE boundary (validate + durable claim)
+        id: intake
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, os, pathlib, re, subprocess
-          body=os.environ.get('ISSUE_BODY','')
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',body,re.S)
-          if not m: raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
-          task=json.loads(m.group(1))
-          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          if task.get('base_sha')!=head:
-              raise SystemExit(f"Stale task base_sha={task.get('base_sha')} current={head}")
-          task.setdefault('max_rounds',2)
-          task.setdefault('max_output_tokens',5000)
-          task.setdefault('auto_merge',False)
-          # V2 requires Claude for every engineering task.
-          task['requires_claude']=True
-          pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
-          print('TASK_ID='+str(task.get('task_id')))
+          # The ONLY entry point into the implementation pipeline. Issue JSON is
+          # never parsed inline here: AUTO-INTAKE performs scope, context_files,
+          # validation-command, secret, numeric and authoritative-HEAD checks,
+          # then durably claims the task before anything is written.
+          python3 scripts/ai/auto_intake.py --issue "$ISSUE_NUMBER" | tee .ai-intake-result.json
+          TASK_FILE="$(python3 - <<'PY'
+          import json, sys
+          summary = json.load(open('.ai-intake-result.json'))
+          ready = [r for r in summary.get('results', []) if r.get('status') == 'READY']
+          if summary.get('failed'):
+              sys.exit('AUTO_INTAKE_REJECTED: ' + json.dumps(summary.get('failures')))
+          if not ready:
+              sys.exit('AUTO_INTAKE_NO_READY_TASK: ' + json.dumps(summary.get('results')))
+          print(ready[0]['task_file'])
           PY
+          )"
+          test -f "$TASK_FILE" || { echo "AUTO_INTAKE_TASK_FILE_MISSING: $TASK_FILE"; exit 2; }
+          echo "task_file=$TASK_FILE" >> "$GITHUB_OUTPUT"
+          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
+          echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
 
       - name: Reject duplicate implementation PR
         shell: bash
+        env:
+          TASK_FILE: ${{ steps.intake.outputs.task_file }}
         run: |
           set -euo pipefail
-          TASK_ID="$(python3 -c 'import json; print(json.load(open(".ai-runtime-task.json"))["task_id"])')"
+          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
           EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
           test -z "$EXISTING" || { echo "DUPLICATE_IMPLEMENTATION_PR: task $TASK_ID already has PR #$EXISTING"; exit 4; }
 
@@ -76,13 +84,15 @@ jobs:
           grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md || { echo 'WRITE_LOCK_MISMATCH'; exit 2; }
 
       - name: DeepSeek implement + bounded repair + validation
-        run: python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
+        env:
+          TASK_FILE: ${{ steps.intake.outputs.task_file }}
+        run: python3 scripts/ai/deepseek_implementer.py "$TASK_FILE"
 
       - name: Require scoped implementation diff
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .ai-runtime-task.json
+          rm -f .ai-intake-result.json
           git diff --quiet && { echo 'No implementation diff'; exit 3; } || true
           git diff --check
           git diff --stat
@@ -90,14 +100,13 @@ jobs:
       - name: Push implementation branch
         id: push
         shell: bash
+        env:
+          TASK_ID_FROM_INTAKE: ${{ steps.intake.outputs.task_id }}
         run: |
           set -euo pipefail
-          TASK_ID="$(python3 - <<'PY'
-          import json,re,os
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S)
-          print(json.loads(m.group(1))['task_id'])
-          PY
-          )"
+          # task_id comes from the AUTO-INTAKE-validated task, never from a
+          # second inline parse of untrusted issue text.
+          TASK_ID="$TASK_ID_FROM_INTAKE"
           BRANCH="ai/deepseek-$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')-${GITHUB_RUN_ID}"
           git config user.name 'DeepSeek Cloud Implementer'
           git config user.email 'actions@users.noreply.github.com'
@@ -156,7 +165,7 @@ jobs:
 
       - name: Cleanup dispatch temp files
         if: always()
-        run: rm -f .ai-runtime-task.json
+        run: rm -f .ai-intake-result.json
 
   monitor:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -265,6 +274,10 @@ jobs:
           task['requires_claude']=True
           pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           PY
+            # Same AUTO-INTAKE boundary on the repair path: the rebuilt task is
+            # re-validated (scope, context_files, validators, secrets, numerics,
+            # head binding) before DeepSeek is allowed to run again.
+            python3 scripts/ai/auto_intake.py --validate-task-file .ai-runtime-task.json --expect-head "$HEAD_SHA"
             python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
             rm -f .ai-runtime-task.json "$FEEDBACK"
             git add -A

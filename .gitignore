@@ -7,3 +7,13 @@ node_modules/
 
 # AI loop local run artifacts (run state lives in the PR, never in git)
 .ai-loop/
+
+# Deterministic validator caches (created by pytest/mypy/ruff during the AI loop
+# validation step; explicitly contained, never treated as implementation output)
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# AUTO-INTAKE run artifacts (task files are regenerated from the issue contract)
+.ai-intake/
