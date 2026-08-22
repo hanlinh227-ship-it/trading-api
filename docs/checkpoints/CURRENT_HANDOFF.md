@@ -8,130 +8,79 @@ Updated: 2026-08-22 UTC+7
 3. this file;
 4. `docs/ai-coengineer/SHARED_STATE.md`;
 5. `docs/ai-coengineer/WRITE_LOCK.md`;
-6. current V11 source files relevant to the task.
+6. current V11 source relevant to the task.
 
 GitHub `main` outranks stale checkpoint/version wording.
 
 ## CURRENT CANONICAL STATE
 
-Signal V11 is the sole public signal authority.
+Signal V11 is the sole public signal authority and remains SIGNAL_ONLY.
 
-Current production contract:
-- runtime: `CLOUDFLARE_NATIVE`;
-- scheduler: `V11_NATIVE`;
-- public signal authority: `V11_ONLY`;
-- execution authority: `SIGNAL_ONLY`;
-- manual whole-market hunter: enabled, review-only;
-- legacy public signal endpoints: disabled;
-- legacy engine role: internal data-adapter compatibility only;
-- active markets: Forex, Crypto, Metal, Index Cash;
-- Hyro execution is removed from active architecture;
-- Binance Auto remains separate.
+Production is now designed to operate without routine VPS/manual commands:
+- Cloudflare native scheduler scans automatically;
+- accepted V11 MARKET signals are persisted in TRADING_STATE;
+- a newly stored accepted signal triggers Telegram automatically;
+- TP / SL / EXPIRED transitions trigger Telegram automatically;
+- duplicate OPEN market/symbol/side signals are blocked;
+- LIMIT/WATCH/MARKET_PLAN cannot be promoted to automatic MARKET;
+- manual 3-AI MARKET hunter remains on-demand only;
+- VPS is only required for the VPC Claude/Codex bridge service, not daily signal operation.
 
-Checkpoint lineage includes source commit `e814802c6a0382c222e3541793892207ab7cfc9c` for the V11 funnel/hunter alignment. Later documentation synchronization commits may follow it; fresh-read source before assuming this is the current HEAD.
+## TELEGRAM
 
-## WHAT WAS JUST FIXED
+Telegram V11 dashboard now includes:
+- LIVE positions;
+- WATCH setups;
+- Forex / Crypto / Metal / Index manual scans;
+- official V11 accepted signals;
+- lifecycle history;
+- statistics;
+- on-demand three-AI MARKET hunter;
+- separate Binance Auto entry point.
 
-### 1. ATR / timeframe contract
-`engine-v77168.js` now exposes real timeframe ATR14 + close metrics to V11 for M5/M15/H1/H4/D1.
+Automatic MARKET alert contains Entry, SL, TP, RR, quality, freshness/source, setup, WHY NOW and SIGNAL ONLY disclaimer.
+Automatic lifecycle alerts are sent for TP / SL / EXPIRED.
 
-Do not derive ATR from `riskATR` and do not fabricate missing volatility.
+## DATA / GATE INTEGRITY
 
-### 2. Native funnel normalization
-`v11/native-runtime.js` consumes real timeframe ATR evidence when building structural entry plans.
+Preserve:
+- real timeframe ATR14 evidence;
+- provider freshness hard gate;
+- structural invalidation SL;
+- forward-structure/liquidity TP;
+- market-specific deterministic policy gates;
+- fail-closed behavior.
 
-### 3. Funnel diagnostics
-`v11/store.js` now separates:
-- effective `reason`;
-- `gateReasons`;
-- `planReason`.
+Valid non-entry outcomes include WATCH, quality rejection, forward-target RR insufficiency, stale quote rejection, NO_MARKET_ENTRY and NO_3AI_CONSENSUS.
 
-This prevents a valid plan label such as `STRUCTURE_GEOMETRY_VALID` from masking the actual deterministic policy rejection.
+## CI / DEPLOYMENT
 
-### 4. Manual AI Hunter safety
-`v11/manual-market-hunter.js` no longer turns `LIMIT_PLAN`, `MARKET_PLAN` or `WATCH` into an immediate MARKET candidate.
+`.github/workflows/v11-signal-validation.yml` now validates production V11 changes on `main`.
+`.github/workflows/deploy-cloudflare-worker.yml` is the canonical auto-deploy path for Cloudflare-worker changes.
 
-Only genuine upstream `MARKET` / `MARKET_SIGNAL` candidates may be reviewed for immediate MARKET suitability.
-
-The hunter preserves upstream risk evidence and does not create a second conflicting entry/SL plan.
-
-### 5. DeepSeek visibility
-The hunter preserves DeepSeek provider status (`OK` / `ERROR` / `UNAVAILABLE`) instead of silently reducing a failed/unavailable DeepSeek review to `null`.
-
-Three-AI positive consensus remains fail-closed: DeepSeek + Claude + Codex must all be healthy, aligned to the candidate direction and free of hard risk.
+Manual VPS deployment should only be used for recovery/diagnostics, not normal operation.
 
 ## VPC AI BRIDGE
 
-Cloudflare Worker binding:
-- binding: `AI_BRIDGE`;
-- VPC service: `v11-ai-bridge`.
+- Cloudflare binding: `AI_BRIDGE`;
+- VPC service: `v11-ai-bridge`;
+- VPS systemd: `v11-manual-ai-bridge`;
+- Claude + Codex: on-demand review only;
+- DeepSeek: API-native when configured;
+- all three required for positive manual-hunter consensus.
 
-VPS bridge:
-- systemd: `v11-manual-ai-bridge`;
-- local health: `http://127.0.0.1:8789/health`;
-- Claude: enabled;
-- Codex: enabled;
-- mode: on-demand only.
+## NEXT ENGINEERING PHASE
 
-Last point-in-time runtime evidence showed bridge health PASS and systemd active/enabled.
+Connection/plumbing work is considered complete unless new runtime evidence proves otherwise.
+Next work is signal-quality refinement from actual production evidence:
+1. observe newly created funnel rows only;
+2. measure APPROVED/WATCH/REJECTED distribution per market;
+3. evaluate closed lifecycle WIN/LOSS/EXPIRED outcomes;
+4. improve ranking/discrimination without lowering hard gates;
+5. investigate freshness failures only when reproducible during an active market session.
 
-## DEPLOYMENT
-
-Worker: `trading-v77-scanner`.
-
-Use:
-`cd cloudflare-worker && npm run deploy`
-
-The deploy path must run:
-1. `npm run check`;
-2. `prepare-wrangler.mjs`;
-3. Wrangler deploy with generated `wrangler.jsonc`.
-
-Generated config must retain:
-- existing `TRADING_STATE` KV;
-- `AI_BRIDGE` VPC binding;
-- `keep_vars:true`;
-- V11 native minute cron.
-
-Cloudflare token needs sufficient Workers/KV permissions plus Connectivity Directory access needed to discover/bind `v11-ai-bridge`.
-
-Never commit the Cloudflare API token.
-
-## CURRENT FAIL-CLOSED BEHAVIOR
-
-These are valid outcomes and must not be weakened merely to increase trade count:
-- `WATCH`;
-- `FORWARD_TARGET_RR_TOO_LOW`;
-- quality gate rejection;
-- stale/unverified quote rejection;
-- `NO_MARKET_ENTRY`;
-- `NO_3AI_CONSENSUS`.
-
-Historical funnel rows may retain earlier errors. Diagnose current failures using newly-created rows/timestamps rather than treating old retained KV history as present runtime behavior.
-
-## PERMANENT INVARIANTS
-
-- V73 remains a frozen exposed-development prior, not untouched OOS proof.
-- V76 Forex R2 remains research-only with 0/28 promoted.
-- Never reset `TRADING_STATE`.
-- Never fabricate ATR, quote, bid/ask, P/L or execution state.
-- Never weaken structural SL, freshness or deterministic market-policy gates.
-- Never restore Futures Signal.
-- Never restore Hyro/TK2 execution into Signal V11.
-- Never merge Binance Auto execution authority into Signal V11.
-- Never let manual/AI review bypass deterministic gates.
-
-## NEXT ENGINEERING WORK
-
-The core V11 runtime repair is complete at this handoff. Next work should be incremental and evidence-driven:
-- observe current V11 production funnel by market;
-- investigate recurring *new* fresh-quote failures if they remain reproducible;
-- improve market-specific candidate discrimination without weakening hard gates;
-- validate DeepSeek provider health when a genuine upstream MARKET candidate reaches the manual hunter;
-- maintain Telegram signal clarity and lifecycle correctness.
-
-Do not resume old V78/V10 signal-authority methods when they conflict with current V11 source.
+Do not return to old V78/V10 signal-authority methods.
 
 ## NEW CHAT PROMPT
 
-`Continue the Trading project from current GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, SHARED_STATE.md and WRITE_LOCK.md first. Signal V11 is the sole public signal authority and is SIGNAL_ONLY. Preserve TRADING_STATE, V11 native scheduler, VPC v11-ai-bridge, real timeframe ATR evidence, deterministic market gates and fail-closed three-AI review. Never promote LIMIT/WATCH into MARKET, never restore Hyro/Futures legacy execution, and fresh-read main before modifying source.`
+`Continue Trading from current GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, SHARED_STATE.md and WRITE_LOCK.md. Signal V11 is the only public signal authority and is SIGNAL_ONLY. Cloudflare auto-scans, Telegram auto-notifies new accepted MARKET signals and TP/SL/EXPIRED lifecycle events, LIMIT/WATCH cannot be promoted into MARKET, and the three-AI hunter is on-demand fail-closed. Preserve TRADING_STATE, V11 native scheduler, VPC bridge and deterministic gates.`
