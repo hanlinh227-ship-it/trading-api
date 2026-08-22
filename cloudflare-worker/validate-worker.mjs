@@ -15,6 +15,8 @@ if(!index.includes('hub-v11.js'))errors.push('SOURCE_OF_TRUTH index.js must impo
 if(!index.includes('const VERSION="V11"'))errors.push('SOURCE_OF_TRUTH index.js must expose VERSION V11');
 if(!index.includes('signalOnlySourceOfTruth:"V11"'))errors.push('SOURCE_OF_TRUTH status must expose V11');
 if(!hub.includes('scheduledNativeV11'))errors.push('V11 scheduler missing');
+if(!hub.includes('getV11WatchRanked'))errors.push('V11 WATCH ranking helper missing');
+if(!hub.includes('providerFailure'))errors.push('V11 provider failure observability missing');
 if(!hunter.includes('env.AI_BRIDGE.fetch'))errors.push('V11 AI hunter must use AI_BRIDGE VPC binding');
 if(hunter.includes('V11_AI_BRIDGE_URL'))errors.push('Legacy public AI bridge URL is forbidden');
 if(errors.length){console.error(`Worker V11 preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
