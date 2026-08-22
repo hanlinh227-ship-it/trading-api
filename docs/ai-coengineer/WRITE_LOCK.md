@@ -3,29 +3,37 @@
 LOCKED: false
 OWNER: NONE
 SCOPE: NONE
-RELEASED: 2026-08-21
+RELEASED: 2026-08-22
 RELEASED_BY: CHATGPT
 
-## Completed scope
+## Current baseline
 
-V10-CRYPTO-SCALP-THROUGHPUT-R2 completed on GitHub `main`.
+Signal V11 is the sole public signal authority on GitHub `main`.
 
-Changes:
-- Increased three-AI worker batch capacity from max/default 3 candidates to max/default 6 candidates per provider cycle. This addresses review backlog risk created by 1-minute Crypto scanning without reducing the requirement that Claude, DeepSeek and Codex all return successfully.
-- Made the shared council prompt explicitly Crypto-scalp aware: evaluate short-horizon scalp evidence instead of demanding swing-trade confirmation.
-- Missing optional Crypto derivatives telemetry (funding, OI, long/short, orderbook) or named session context alone is no longer instructed as a reason to reject an otherwise coherent scalp.
-- Reviewers are explicitly told not to require every indicator/timeframe to agree.
-- Unsupported reversal is discouraged: uncertainty/incomplete optional context must be WAIT; opposite LONG/SHORT requires positive supplied evidence for the opposite direction.
-- Claude role now treats 24/7 Crypto session ambiguity appropriately; DeepSeek distinguishes hard risk from missing optional telemetry; Codex validates the supplied short-horizon plan without adding unsupplied swing criteria.
-- DeepSeek response budget increased from 900 to 1400 tokens so a six-candidate batch can return every candidate exactly once without avoidable truncation.
-- Verified-fresh quote, Entry/SL/TP geometry, Crypto Quality 64, RR 1.10, AI confidence 60, all-three-provider health, 2-of-3 same direction and no-opposition council rule remain unchanged.
-- Signal V10 remains separate from Binance Auto execution authority.
+The V11 runtime/funnel/manual-hunter repair scope is complete and the lock is released.
 
-Validation evidence note:
-- GitHub accepted the source update at commit 2149796defb5d0a64555fa79e2d8b872180d0d72.
-- Commit status endpoint currently exposes no CI statuses for that commit; production VPS/runtime deployment is therefore not claimed from source state alone.
+Completed repair lineage includes:
+- real M5/M15/H1/H4/D1 ATR14 + close evidence exposed to V11;
+- native V11 candidate normalization aligned to real timeframe evidence;
+- funnel `reason` / `gateReasons` / `planReason` semantics corrected;
+- manual AI hunter prohibited from promoting LIMIT/WATCH/MARKET_PLAN into immediate MARKET;
+- DeepSeek status preserved as OK/ERROR/UNAVAILABLE;
+- VPC manual Claude/Codex bridge preserved as on-demand review only;
+- V11 remains SIGNAL_ONLY and fail-closed.
+
+Current canonical docs:
+- `docs/checkpoints/MASTER_TRADING_STATE.md`;
+- `docs/checkpoints/CURRENT_HANDOFF.md`;
+- `docs/ai-coengineer/SHARED_STATE.md`.
 
 ## Current protocol
 
 - No writer currently owns the repository write lock.
-- Future changes must fresh-read `main` before writing and preserve canonical V10 scheduler/council authority and verified-fresh pricing.
+- Future source changes must fresh-read GitHub `main` before writing.
+- One writer at a time.
+- Current V11 source outranks historical V78/V10 wording when they conflict.
+- Preserve `TRADING_STATE`, V11 native scheduler, deterministic market gates and VPC bridge bindings.
+- Never fabricate market/financial data or deployment evidence.
+- Never restore legacy Futures Signal or Hyro/TK2 execution into Signal V11.
+- Never merge Binance Auto execution authority into Signal V11.
+- Never commit secrets, tokens or private keys.
