@@ -1,15 +1,14 @@
 name: AI Closed Loop Wake
 
+# Manual fallback only. The canonical automatic entry point is ai-loop.yml on
+# [AI-TASK] issue creation. Keeping this fallback off push events prevents
+# metadata-only commits from moving main/base_sha and racing the canonical run.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/ai-coengineer/.ai-loop-wake'
   workflow_dispatch:
     inputs:
       issue_number:
         description: 'Open [AI-TASK] issue number to dispatch'
-        required: false
+        required: true
         type: string
 
 permissions:
@@ -33,36 +32,31 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      ISSUE_NUMBER: ${{ inputs.issue_number }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Resolve task issue
+      - name: Resolve and validate task issue
         shell: bash
         run: |
           set -euo pipefail
-          ISSUE='${{ inputs.issue_number }}'
-          if [ -z "$ISSUE" ] && [ -f docs/ai-coengineer/.ai-loop-wake ]; then
-            ISSUE="$(sed -n 's/^issue=//p' docs/ai-coengineer/.ai-loop-wake | tail -1)"
-          fi
-          if [ -z "$ISSUE" ]; then
-            ISSUE="$(gh issue list --state open --limit 50 --json number,title,createdAt --jq '[.[] | select(.title|startswith("[AI-TASK]"))] | sort_by(.createdAt) | reverse | .[0].number // empty')"
-          fi
-          test -n "$ISSUE" || { echo 'No open [AI-TASK] issue found'; exit 10; }
+          ISSUE="$ISSUE_NUMBER"
+          test -n "$ISSUE" || { echo 'issue_number is required'; exit 10; }
           BODY="$(gh issue view "$ISSUE" --json body --jq .body)"
           TITLE="$(gh issue view "$ISSUE" --json title --jq .title)"
+          STATE="$(gh issue view "$ISSUE" --json state --jq .state)"
           [[ "$TITLE" == '[AI-TASK]'* ]] || { echo "Issue #$ISSUE is not an [AI-TASK]"; exit 11; }
-          printf 'ISSUE_NUMBER=%s\n' "$ISSUE" >> "$GITHUB_ENV"
+          [ "$STATE" = 'OPEN' ] || { echo "Issue #$ISSUE is not open"; exit 11; }
           {
             echo 'ISSUE_BODY<<AI_BODY_EOF'
             printf '%s\n' "$BODY"
             echo 'AI_BODY_EOF'
           } >> "$GITHUB_ENV"
-          echo "Resolved AI task issue #$ISSUE"
 
-      - name: Parse and validate task contract
+      - name: Parse contract and reject duplicate implementation
         shell: bash
         run: |
           set -euo pipefail
@@ -73,22 +67,16 @@ jobs:
           if not m: raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
           task=json.loads(m.group(1))
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          parent=subprocess.check_output(['git','rev-parse','HEAD^'],text=True).strip()
-          base=str(task.get('base_sha') or '')
-          # A wake-file push creates one metadata-only commit after the task base.
-          # Accept either exact HEAD (manual dispatch) or HEAD^ (wake push).
-          if base not in (head,parent):
-              raise SystemExit(f'Stale task base_sha={base} head={head} parent={parent}')
-          task.setdefault('max_rounds',2)
-          task.setdefault('max_output_tokens',5000)
-          task.setdefault('auto_merge',False)
-          task.setdefault('requires_claude',False)
+          if str(task.get('base_sha') or '') != head:
+              raise SystemExit(f"Stale task base_sha={task.get('base_sha')} current={head}")
           pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           print('TASK_ID='+str(task.get('task_id')))
-          print('BASE_SHA='+base)
           PY
+          TASK_ID="$(python3 -c 'import json; print(json.load(open(".ai-runtime-task.json"))["task_id"])')"
+          EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
+          test -z "$EXISTING" || { echo "Open implementation PR already exists for $TASK_ID: #$EXISTING"; exit 14; }
 
-      - name: Enforce writer lock and DeepSeek secret
+      - name: Enforce writer lock and secret
         shell: bash
         run: |
           set -euo pipefail
@@ -97,7 +85,6 @@ jobs:
           grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
 
       - name: DeepSeek implement and validate
-        shell: bash
         run: python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
 
       - name: Require scoped implementation diff
@@ -131,60 +118,37 @@ jobs:
           echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Open PR and wake Codex plus Claude
-        shell: bash
+      - name: Open PR and wake independent reviewers
         env:
           BRANCH: ${{ steps.push.outputs.branch }}
           TASK_ID: ${{ steps.push.outputs.task_id }}
           IMPLEMENTATION_SHA: ${{ steps.push.outputs.sha }}
         run: |
           set -euo pipefail
-          REQUIRES_CLAUDE="$(python3 - <<'PY'
-          import json,re,os
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S)
-          print('true' if json.loads(m.group(1)).get('requires_claude') else 'false')
-          PY
-          )"
-          STATUS='CODEX_REVIEW_REQUIRED'
-          [ "$REQUIRES_CLAUDE" = 'true' ] && STATUS='PARALLEL_DUAL_REVIEW_REQUIRED'
           PR_URL="$(gh pr create --base main --head "$BRANCH" --title "$TASK_ID - AI closed-loop implementation" --body "AI_LOOP_TASK_ISSUE: #$ISSUE_NUMBER
           AI_LOOP_ROUND: 1
           IMPLEMENTATION_SHA: $IMPLEMENTATION_SHA
           IMPLEMENTER: DEEPSEEK
-          REQUIRES_CLAUDE: $REQUIRES_CLAUDE
-          STATUS: $STATUS
+          REQUIRES_CLAUDE: true
+          STATUS: PARALLEL_DUAL_REVIEW_REQUIRED
 
-          DeepSeek completed bounded implementation/validation. Codex and Claude must independently review this exact implementation SHA. No reviewer may modify source while DeepSeek owns WRITE_LOCK.")"
+          Manual fallback dispatch. DeepSeek implemented; Codex and Claude must review this exact SHA independently.")"
           PR_NUMBER="${PR_URL##*/}"
           gh pr comment "$PR_NUMBER" --body "@codex review
 
-          Review exact head $IMPLEMENTATION_SHA against linked task acceptance criteria and safety invariants. Advisory/review only; do not modify source."
-          if [ "$REQUIRES_CLAUDE" = 'true' ]; then
-            gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST
+          Review exact head $IMPLEMENTATION_SHA. Advisory/review only; do not modify source."
+          gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST
           CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
-          Claude watcher/Claude Code: independently review this exact head and post:
-
-          CLAUDE_REVIEW_BEGIN
-          CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
-          CLAUDE_VERDICT: ACCEPT|REJECT|BLOCKED
-          CLAUDE_FINDINGS:
-          <concise findings or NONE>
-          CLAUDE_REVIEW_END
-
-          Advisory/review only. Do not modify source while DeepSeek owns WRITE_LOCK."
-          fi
-          gh issue comment "$ISSUE_NUMBER" --body "AI wake dispatch succeeded. DeepSeek PR opened: $PR_URL
+          Review this exact head independently and post a SHA-bound ACCEPT/REJECT/BLOCKED verdict. Advisory/review only; do not modify source."
+          gh issue comment "$ISSUE_NUMBER" --body "Manual AI wake dispatch succeeded. PR: $PR_URL
           Implementation SHA: $IMPLEMENTATION_SHA
-          Status: $STATUS
-          Required reviewers: CODEX$([ "$REQUIRES_CLAUDE" = 'true' ] && printf ' + CLAUDE' || true)"
+          Required reviewers: CODEX + CLAUDE"
 
       - name: Report dispatch failure
         if: failure()
         shell: bash
         run: |
-          if [ -n "${ISSUE_NUMBER:-}" ]; then
-            gh issue comment "$ISSUE_NUMBER" --body "AI wake dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Likely causes are task/base mismatch, WRITE_LOCK mismatch, missing DEEPSEEK_API_KEY, or implementer validation failure." || true
-          fi
+          gh issue comment "$ISSUE_NUMBER" --body "Manual AI wake dispatch FAILED. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}." || true
 
       - name: Cleanup
         if: always()
