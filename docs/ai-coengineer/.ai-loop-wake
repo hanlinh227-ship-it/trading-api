@@ -1,2 +1,4 @@
 status=retired
 reason=AI_LOOP_V2_uses_issue_event_plus_manual_workflow_dispatch
+canonical=ai-loop.yml
+fallback=ai-loop-wake.yml:workflow_dispatch
