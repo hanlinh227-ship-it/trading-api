@@ -1,3 +1,5 @@
-wake=2026-08-22T03:36:00Z
-reason=force-ai-loop-retry
+wake=2026-08-22T03:58:00Z
+reason=force-ai-loop-repair-dispatch
 status=armed
+issue=102
+base=6f0319e42f17e36db34bfd4459e931effb882d79
