@@ -6,124 +6,77 @@ Branch: `main`
 
 ## CURRENT ARCHITECTURE — SIGNAL V11 ONLY
 
-Signal V11 is the sole public signal authority.
+Signal V11 is the sole public signal authority and remains SIGNAL_ONLY.
 
-Current runtime contract:
-- `publicSignalAuthority = V11_ONLY`;
-- `executionAuthority = SIGNAL_ONLY`;
-- Cloudflare-native runtime;
-- V11-native scheduler;
+Current runtime:
+- Cloudflare native scheduler;
+- TRADING_STATE KV lifecycle state;
 - canonical markets: Forex, Crypto, Metal, Index Cash;
-- Hyro execution removed from active architecture;
-- legacy public signal routes disabled;
-- legacy engine modules may remain only as internal data adapters;
-- Binance Auto remains separate and must not inherit Signal V11 authority.
+- automatic Telegram signal notification for newly stored MARKET-ready approvals;
+- automatic Telegram TP / SL / EXPIRED lifecycle notification;
+- Telegram dashboard for LIVE, WATCH, scans, history, stats and manual three-AI hunter;
+- Binance Auto separate;
+- Hyro/Futures legacy execution removed.
 
-Current source checkpoint lineage includes `e814802c6a0382c222e3541793892207ab7cfc9c` (`fix(v11): align native signal funnel and manual market hunter`). Documentation synchronization commits follow it. Always fresh-read `main` before writing.
+## AUTOMATION CONTRACT
 
-## V11 CORE REPAIRS — RESOLVED
+Automatic signal admission requires genuine upstream `MARKET` / `MARKET_SIGNAL` plus deterministic V11 gates.
+`LIMIT`, `LIMIT_PLAN`, `MARKET_PLAN` and `WATCH` cannot be promoted to automatic MARKET.
 
-### Real timeframe ATR contract
-`cloudflare-worker/engine-v77168.js` exposes M5/M15/H1/H4/D1 ATR14 + close metrics to V11. Native candidate normalization uses real calculated ATR evidence.
+Duplicate OPEN market/symbol/side signals are blocked.
+Legacy non-market approvals retained in state are invalidated to history without resetting TRADING_STATE.
 
-Do not fabricate ATR and do not substitute `riskATR` for ATR.
+## DATA INTEGRITY
 
-### Funnel semantics
-`cloudflare-worker/v11/store.js` keeps effective `reason`, `gateReasons` and `planReason` distinct so deterministic market-policy rejection is not hidden by an otherwise valid structure-plan label.
+- real M5/M15/H1/H4/D1 ATR14 + close evidence;
+- no fabricated ATR or bid/ask;
+- provider freshness remains a hard gate;
+- structure SL and forward-liquidity TP remain deterministic;
+- funnel keeps effective reason, gateReasons and planReason distinct;
+- executable crypto MARKET output retains timeframe evidence;
+- native scan reuses a fresh run-now analysis before unnecessary re-analysis.
 
-### Manual whole-market hunter
-`cloudflare-worker/v11/manual-market-hunter.js` is review-only.
+## THREE-AI REVIEW
 
-Hard rule: it must never promote `LIMIT_PLAN`, `MARKET_PLAN` or `WATCH` into immediate MARKET. Only genuine upstream `MARKET` / `MARKET_SIGNAL` candidates can enter the immediate-MARKET AI review pool.
+Manual/on-demand only:
+- DeepSeek API-native when configured;
+- Claude through VPC/VPS bridge;
+- Codex through VPC/VPS bridge;
+- all three required for positive consensus;
+- errors, unavailable providers, WAIT, conflicts or hard risk fail closed;
+- no automatic signal or execution authority.
 
-The hunter must preserve upstream entry/SL/TP/RR evidence and must not manufacture a second conflicting risk plan.
-
-### Three-AI review
-- DeepSeek: API-native when configured;
-- Claude: VPS/VPC bridge;
-- Codex: VPS/VPC bridge;
-- all three are required for positive manual-hunter consensus;
-- any unavailable/error provider, WAIT, directional conflict or hard risk prevents positive consensus;
-- manual hunter has no automatic signal/execution authority.
-
-DeepSeek provider state must remain visible as `OK`, `ERROR` or `UNAVAILABLE`; do not silently collapse it to null.
-
-## VPC MANUAL AI BRIDGE
-
-Cloudflare binding: `AI_BRIDGE`.
 VPC Service: `v11-ai-bridge`.
 VPS service: `v11-manual-ai-bridge`.
-Local health endpoint: `http://127.0.0.1:8789/health`.
-Mode: on-demand only.
 
-Last point-in-time validation showed:
-- bridge health `ok:true`;
-- Claude true;
-- Codex true;
-- systemd active;
-- systemd enabled.
+## CI / DEPLOYMENT
 
-This is point-in-time evidence, not a permanent health guarantee.
+- `.github/workflows/v11-signal-validation.yml` validates V11 production invariants on `main`;
+- `.github/workflows/deploy-cloudflare-worker.yml` is the canonical Cloudflare deployment workflow for worker changes;
+- `npm run check` remains required;
+- generated Wrangler config must preserve TRADING_STATE, AI_BRIDGE, keep_vars and minute cron;
+- never commit tokens/secrets.
 
-## DEPLOYMENT CONTRACT
+## FAIL-CLOSED OUTCOMES
 
-Worker: `trading-v77-scanner`.
+WATCH, RR insufficiency, quality rejection, stale/unverified quote rejection, NO_MARKET_ENTRY and NO_3AI_CONSENSUS are valid states. Do not weaken gates merely to increase signal count.
 
-Canonical deploy path:
-`cloudflare-worker/npm run deploy`
+## NEXT PHASE
 
-`prepare-wrangler.mjs` must preserve:
-- existing `TRADING_STATE` KV namespace;
-- `AI_BRIDGE` VPC binding to `v11-ai-bridge`;
-- `keep_vars:true`;
-- minute V11 cron.
+Infrastructure/plumbing is complete unless new runtime evidence proves otherwise.
+Work next on evidence-driven signal quality:
+1. production funnel distribution by market;
+2. closed lifecycle outcomes;
+3. ranking/discrimination improvements without weakening hard gates;
+4. provider freshness investigation only when reproducible during active sessions;
+5. Telegram clarity improvements that do not change authority.
 
-Do not bare-deploy without the generated config. Cloudflare credentials/tokens must never be committed.
+## PERMANENT RULES
 
-## FAIL-CLOSED BEHAVIOR
-
-Valid non-entry outcomes include:
-- WATCH;
-- RR/forward-target insufficiency;
-- quality/policy rejection;
-- stale/unverified quote rejection;
-- `NO_MARKET_ENTRY`;
-- `NO_3AI_CONSENSUS`.
-
-Do not weaken deterministic gates merely to create more signals.
-
-Historical funnel records remain retained in KV. Diagnose current behavior using new timestamps/rows rather than assuming old errors are still active.
-
-## PERMANENT SAFETY / INTEGRITY CONSTRAINTS
-
-- Never reset `TRADING_STATE`.
-- Never fabricate provider values, ATR, bid/ask, spread, P/L, tests or deployment evidence.
-- Never weaken quote freshness, structural SL or RR/market-policy hard gates.
-- Never restore legacy Futures Signal.
-- Never restore Hyro/TK2 execution into active Signal architecture.
-- Never merge Binance Auto execution authority into V11.
-- Never let AI review bypass deterministic signal gates.
-- V73 remains a frozen exposed-development prior, not untouched OOS proof.
-- V76 Forex R2 remains research-only with 0/28 promoted.
-
-## AI CO-ENGINEERING
-
-ChatGPT and Claude may co-engineer through GitHub under `WRITE_LOCK.md`.
-
-Rules:
-- fresh-read `main` before analysis/write;
-- one writer at a time;
-- current source outranks stale documents;
-- preserve hard safety/data-integrity rules;
-- do not write secrets.
-
-## NEXT PRIORITIES
-
-1. Observe current V11 production funnel per market using only newly-created rows.
-2. Reproduce and diagnose any recurring fresh-quote failures before changing quote policy.
-3. Improve market-specific ranking/discrimination without weakening hard gates.
-4. Verify DeepSeek provider health when a genuine upstream MARKET candidate reaches manual AI review.
-5. Keep Telegram output concise and lifecycle-safe.
-6. Keep checkpoint/handoff docs synchronized whenever V11 authority changes.
-
-Older V78/V10 architecture text is historical only when it conflicts with current Signal V11 source.
+- Never reset TRADING_STATE.
+- Never fabricate market data/tests/deployment evidence.
+- Never restore Futures Signal or Hyro/TK2 execution.
+- Never merge Binance Auto authority into V11.
+- Never allow AI to bypass deterministic gates.
+- V73 remains exposed-development prior, not untouched OOS proof.
+- Fresh-read GitHub main before every write and obey WRITE_LOCK.md.
