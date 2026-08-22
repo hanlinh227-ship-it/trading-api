@@ -110,8 +110,22 @@ VALIDATOR_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "scripts/ai/tests/test_auto_intake.py",
         "scripts/ai/auto_intake.py",
         "scripts/ai/deepseek_implementer.py",
+        # Auto-loaded by the runner before the target executes.
+        "conftest.py",
+        "scripts/conftest.py",
+        "scripts/ai/conftest.py",
+        "scripts/ai/tests/conftest.py",
+        "pytest.ini",
+        "tox.ini",
+        "setup.cfg",
+        "pyproject.toml",
     ),
 }
+
+# Tokens that request AUTO-DISCOVERY of tests from the working tree. A task
+# could plant an executable test anywhere its allowed_paths reach, so discovery
+# is never permitted: an executing validator must name exactly one target.
+DISCOVERY_TOKENS = {"discover", "--pyargs", "--doctest-modules", "--co", "--collect-only"}
 TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset(VALIDATOR_DEPENDENCIES)
 
 
@@ -388,6 +402,17 @@ def validate_validation_command(command, allowed: list | None = None,
     executes = head in EXECUTING_HEADS or (
         head in {"python", "python3"} and tokens[2] in EXECUTING_PYTHON_MODULES
     )
+    if executes:
+        # A test runner with no explicit target auto-discovers tests from the
+        # task-writable worktree, so `pytest`, `pytest -v`, `python3 -m unittest`
+        # and any discovery form must be refused. Exactly one named target,
+        # and it must be an immutable allowlisted validator.
+        if any(token in DISCOVERY_TOKENS for token in tokens[1:]):
+            return False
+        targets = [token for token in tokens[1:] if looks_like_path(token)]
+        if len(targets) != 1:
+            return False
+
     for token in tokens[1:]:
         if not looks_like_path(token):
             continue

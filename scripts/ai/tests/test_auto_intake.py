@@ -250,6 +250,7 @@ class TestValidationCommandAllowlist(IntakeTestBase):
         "eval ls",
         "source .env",
         "python3 -m http.server",
+        "python3 -m unittest discover",
         "node -e process.exit(0)",
         "pytest\nrm -rf .",
         "",
@@ -260,7 +261,6 @@ class TestValidationCommandAllowlist(IntakeTestBase):
     SAFE = [
         "python3 -m py_compile scripts/ai/auto_intake.py",
         "python3 -m pytest scripts/ai/tests/test_auto_intake.py",
-        "python3 -m unittest discover",
         "git diff --check",
         "git status --porcelain",
         "git rev-parse HEAD",
@@ -946,7 +946,7 @@ class TestDownstreamValidationContract(IntakeTestBase):
             task_id="HANDOFF-1",
             validation_commands=[
                 "python3 -m py_compile scripts/ai/auto_intake.py",
-                "python3 -m unittest discover",
+                "git status --porcelain",
                 "git diff --check",
             ],
         ))
@@ -1436,6 +1436,151 @@ class TestValidatorDependencyClosure(IntakeTestBase):
             "python3 -m pytest scripts/ai/tests/test_unknown.py",
             ["cloudflare-worker/src/**"], [],
         ))
+
+
+# --- CODEX BLOCKER: executing validators must name one explicit target -------
+
+
+class TestExplicitValidatorTargetRequired(IntakeTestBase):
+    """A test runner with no explicit target auto-discovers executable tests
+    from the task-writable worktree. Discovery is never permitted."""
+
+    NO_TARGET = [
+        "pytest",
+        "pytest -v",
+        "pytest -q",
+        "pytest -x -v",
+        "pytest --maxfail=1",
+        "python3 -m pytest",
+        "python -m pytest",
+        "python3 -m pytest -v",
+        "python3 -m unittest",
+        "python -m unittest",
+        "python3 -m unittest -v",
+    ]
+    DISCOVERY = [
+        "python3 -m unittest discover",
+        "python3 -m unittest discover -v",
+        "python3 -m unittest discover -s scripts/ai/tests",
+        "pytest --collect-only",
+        "pytest --co",
+        "pytest --pyargs scripts",
+        "pytest --doctest-modules",
+    ]
+    MULTI_TARGET = [
+        "pytest scripts/ai/tests/test_auto_intake.py scripts/ai/tests/test_other.py",
+        "python3 -m pytest scripts/ai/tests/test_auto_intake.py extra/thing.py",
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        self.immutable_scope = ["cloudflare-worker/src/**"]
+
+    def test_bare_pytest_rejected(self):
+        for cmd in ["pytest", "python3 -m pytest", "python -m pytest"]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, self.immutable_scope, []))
+
+    def test_pytest_with_flags_but_no_target_rejected(self):
+        for cmd in ["pytest -v", "pytest -q", "pytest -x -v", "pytest --maxfail=1"]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, self.immutable_scope, []))
+
+    def test_bare_unittest_rejected(self):
+        for cmd in ["python3 -m unittest", "python -m unittest", "python3 -m unittest -v"]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, self.immutable_scope, []))
+
+    def test_unittest_discovery_rejected(self):
+        for cmd in self.DISCOVERY:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, self.immutable_scope, []))
+
+    def test_every_targetless_form_rejected(self):
+        for cmd in self.NO_TARGET + self.DISCOVERY + self.MULTI_TARGET:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, self.immutable_scope, []))
+
+    def test_multiple_targets_rejected(self):
+        for cmd in self.MULTI_TARGET:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, self.immutable_scope, []))
+
+    def test_exact_validator_accepted_only_when_closure_is_immutable(self):
+        cmd = f"python3 -m pytest {self.validator}"
+        self.assertTrue(intake.validate_validation_command(cmd, self.immutable_scope, []))
+        for dependency in intake.validator_closure(self.validator):
+            with self.subTest(writable=dependency):
+                self.assertFalse(intake.validate_validation_command(cmd, [dependency], []))
+
+    def test_task_writable_validator_rejected(self):
+        cmd = f"pytest {self.validator}"
+        self.assertTrue(intake.validate_validation_command(cmd, self.immutable_scope, []))
+        for scope in [["scripts/ai/**"], ["scripts/ai/tests/**"], [self.validator]]:
+            with self.subTest(scope=scope):
+                self.assertFalse(intake.validate_validation_command(cmd, scope, []))
+
+    def test_auto_loaded_conftest_is_part_of_the_closure(self):
+        """A task able to plant a conftest.py could execute code at collection."""
+        cmd = f"python3 -m pytest {self.validator}"
+        for scope in [["scripts/ai/tests/conftest.py"], ["conftest.py"], ["pyproject.toml"]]:
+            with self.subTest(scope=scope):
+                self.assertFalse(intake.validate_validation_command(cmd, scope, []))
+
+    def test_discovery_flags_rejected_even_with_a_valid_target(self):
+        """`--doctest-modules` / `--pyargs` pull in modules beyond the named
+        target, so they defeat the one-explicit-target rule."""
+        for flag in ["--doctest-modules", "--pyargs", "--collect-only", "--co"]:
+            cmd = f"pytest {self.validator} {flag}"
+            with self.subTest(flag=flag):
+                self.assertFalse(
+                    intake.validate_validation_command(cmd, self.immutable_scope, []),
+                    f"{flag} widens execution beyond the named validator",
+                )
+        # Control: the same command without the flag is accepted.
+        self.assertTrue(intake.validate_validation_command(
+            f"pytest {self.validator}", self.immutable_scope, []))
+
+    def test_discover_keyword_rejected_even_with_a_valid_target(self):
+        cmd = f"python3 -m unittest discover {self.validator}"
+        self.assertFalse(intake.validate_validation_command(cmd, self.immutable_scope, []))
+
+    def test_non_executing_validators_do_not_need_a_target_rule(self):
+        for cmd in [
+            "python3 -m py_compile scripts/ai/auto_intake.py",
+            "ruff check scripts/ai",
+            "git diff --check",
+            "echo ok",
+            "true",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(intake.validate_validation_command(cmd, ["scripts/ai/**"], []))
+
+    def test_targetless_runner_rejected_end_to_end(self):
+        for cmd in ["pytest", "pytest -v", "python3 -m unittest"]:
+            with self.subTest(cmd=cmd):
+                task = make_task(
+                    task_id="NO-TARGET",
+                    allowed_paths=["cloudflare-worker/src/**"],
+                    validation_commands=[cmd],
+                )
+                with self.assertRaises(intake.TaskError):
+                    intake.validate_task(task, 1, head_resolver=head_ok)
+                issue = make_issue(800, task=task)
+                summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+                self.assertEqual(summary["failed"], 1)
+                self.assertFalse(
+                    (intake.ROOT / ".ai-intake" / "tasks" / "NO-TARGET.json").exists()
+                )
 
 
 if __name__ == "__main__":
