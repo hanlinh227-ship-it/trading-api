@@ -1,0 +1,28 @@
+name: VPS Runner Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Read-only runner diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "hostname: $(hostname)"
+          echo "user: $(whoami)"
+          echo "pwd: $(pwd)"
+          python3 --version || true
+          node --version || true
+          git --version || true
+          test -d /opt/trading/trading-api-main && echo 'canonical repo: present'
+          for unit in trading-ai-loop.service trading-claude-watcher.service; do
+            systemctl is-active "$unit" >/dev/null 2>&1 && echo "$unit: active" || echo "$unit: not-active-or-missing"
+            systemctl is-enabled "$unit" >/dev/null 2>&1 && echo "$unit: enabled" || echo "$unit: not-enabled-or-missing"
+          done
