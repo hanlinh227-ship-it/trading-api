@@ -49,9 +49,9 @@ jobs:
           const v73=JSON.parse(read('data/nocut_intraday_allpass_v73.json'));
           const locks=(src,list,label)=>{for(const x of list)if(!src.includes(x))throw new Error(label+' missing: '+x)};
           locks(engine,['V77.16.20','Signal Lifecycle Guard R7','INDEX_CASH','NAS100','US30','US500','DEX','JP225','MASSIVE_INDEX_PROVIDER','I:NDX','I:DJI','I:SPX','I:DAX','I:N225','Twelve Data Native Index','INDEX_SANITY','validIndexPrice','type:"Index"','assertTdIndexIdentity','MARKET_SIGNAL','strengthNormalizedSigned','FX_SESSION_CONTINUATION_ZONE','FX_M5_SESSION_CONTINUATION','/symbols','analysisQuote','v775:books','signalActive','SIGNAL_ONLY','lifecycleSignalBooks','SIGNAL_EXPIRED','SIGNAL_TP','SIGNAL_SL','callback_data:"live:"+group','callback_data:"signal:scan:"+group','callback_data:"symbol:"+group+":"+symbol','Global scan đã tắt','Live đã tách riêng theo từng thị trường'],'Signal');
-          locks(index,['V77.18.43','Legacy Cleanup + Version Sync','HYRO • VỊ THẾ LIVE','ensureDualAiIntervention','dailyObjective:{challengePct:2,fundedStretchPct:5}'],'Index');
-          locks(hub,['V77.18.42','HUB-R10-LIFECYCLE-GUARD','marketKeyboard','symbolPageKeyboard','symbolResultText','market:forex','market:crypto','market:metal','market:index','symbols:${g}:0','/books?group=','/symbols?group=','/analyze?symbol=','signalActive','MARKET SIGNAL','SIGNAL-ONLY'],'Hub');
-          locks(dual,['BUG_HUNT_R6_STATE_LIFECYCLE','max_tokens:950','fresh explicit analysis quote','MARKET-ISOLATED HUB'],'Dual AI');
+          locks(index,['V78.027','Trading Signal-Only Runtime','executionAuthority:"SIGNAL_ONLY"','hyroRemoved:true'],'Index');
+          locks(hub,['V78.027','HUB-R14-SIGNAL-ONLY','marketKeyboard','symbolPageKeyboard','symbolResultText','market:forex','market:crypto','market:metal','market:index','symbols:${g}:0','/books?group=','/symbols?group=','/analyze?symbol=','signalActive','MARKET SIGNAL','SIGNAL-ONLY'],'Hub');
+          locks(dual,['BUG_HUNT_R6_STATE_LIFECYCLE','maxTokens:950','fresh explicit analysis quote','MARKET-ISOLATED HUB','ensureDualAiIntervention'],'Dual AI');
           locks(exec,['RISK_V771822_ACTIVATES_AT','singlePct:.0055','aPct:.0045','combinedPct:.009','hardPct:.016'],'Risk');
           locks(scanner,['tp1Pct:.45','runnerPct:.20','fundingRate'],'Scanner');
           locks(runtime,['ensureDualAiIntervention','MAX_ACTIVE_SLOTS_REACHED'],'Runtime');
@@ -67,7 +67,7 @@ jobs:
           if(!/keep_vars\s*:\s*true/.test(wrangler)||!wrangler.includes('TRADING_STATE')||!wrangler.includes('TRADING_V77_STATE'))throw new Error('KV deployment lock missing');
           if(pkg.devDependencies?.wrangler!=='4.124.0')throw new Error('Wrangler must be pinned');
           if(v73.version!=='NO_CUT_INTRADAY_ALLPASS_V73'||v73.forex?.universeCount!==28||v73.crypto?.universeCount!==61)throw new Error('V73 changed');
-          console.log('V77.18.43 Legacy Cleanup validation PASS');
+          console.log('V78.027 Signal-Only canonical validation PASS');
           NODE
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
@@ -83,7 +83,11 @@ jobs:
 
   deploy-cloudflare:
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Explicit opt-in gate. Re-syncing the lock manifest above makes `validate` capable of
+    # passing on main again, which would otherwise silently re-arm an automatic production
+    # Wrangler deploy. Production deploy stays OFF until repository variable
+    # ENABLE_CLOUDFLARE_AUTO_DEPLOY is set to 'true' by a human.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_CLOUDFLARE_AUTO_DEPLOY == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:

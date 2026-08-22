@@ -82,6 +82,11 @@ const INDEX_PRIORS = {
   DEX:{profile:"INDEX_EUROPE_SESSION",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],riskATR:.72,newsProfile:{profileDrivers:["ECB","Eurozone CPI/PMI","Germany macro"]}},
   JP225:{profile:"INDEX_ASIA_SESSION",families:["TREND","RELATIVE"],allowedModes:["TREND","RELATIVE"],riskATR:.74,newsProfile:{profileDrivers:["BoJ","Japan CPI/wages","JPY","Asia risk sentiment"]}}
 };
+// Runtime routing priors only: no fabricated backtest statistics or directional bias.
+const METAL_PRIORS = {
+  XAUUSD:{profile:"METAL_GOLD_ADAPTIVE",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],newsProfile:{profileDrivers:["London/New York liquidity","XAU/XAG relative context"]}},
+  XAGUSD:{profile:"METAL_SILVER_ADAPTIVE",families:["TREND","MEANREV"],allowedModes:["TREND","MEAN_REVERSION"],newsProfile:{profileDrivers:["London/New York liquidity","XAG/XAU relative context"]}}
+};
 const GROUPS = { forex: FOREX, crypto: CRYPTO, metal: METALS, index: INDEX_CASH };
 const INTERVALS = ["5min","15min","1h","4h","1day"];
 const memory = { tdCreditsLeft: null, cryptoBulk: null, cryptoBulkAt: 0 };
@@ -324,6 +329,7 @@ function v73Entry(symbol,type){
 }
 function v73Prior(symbol,type){
   if(type==="index"){const k=INDEX_PRIORS[norm(symbol)];if(!k)return {applicable:true,available:false,key:norm(symbol)};return {applicable:true,available:true,key:norm(symbol),source:"INDEX_CASH_PRIORS_R1",timeframe:"MULTI",status:"RUNTIME_METHOD_PRIOR",family:k.profile,families:k.families||[],profile:k.profile,entryMode:"DYNAMIC",rr:null,signalHourUTC:null,riskATR:k.riskATR,newsProfile:k.newsProfile||{profileDrivers:[]},classification:"INDEX_CASH_RUNTIME_PRIOR"};}
+  if(type==="metal"){const k=METAL_PRIORS[norm(symbol)];if(!k)return {applicable:true,available:false,key:norm(symbol)};return {applicable:true,available:true,key:norm(symbol),source:"METAL_RUNTIME_PRIORS_R1",timeframe:"MULTI",status:"RUNTIME_METHOD_PRIOR",family:k.profile,families:k.families||[],profile:k.profile,entryMode:"DYNAMIC",rr:null,signalHourUTC:null,riskATR:null,newsProfile:k.newsProfile||{profileDrivers:[]},classification:"METAL_SIGNAL_RUNTIME_PRIOR"};}
   const e=v73Entry(symbol,type);let key=null;if(type==="forex")key=norm(symbol);if(type==="crypto")key=v73CryptoPriorKey(symbol);
   if(!key)return {applicable:false,available:false};if(!e)return {applicable:true,available:false,key};
   const m=e.method||{},st=m.style||{},actions=Array.isArray(m.actions)?m.actions:[];
@@ -341,9 +347,11 @@ function allowedProfileModes(prior){
   if(!out.length)out.push("GENERIC");return [...new Set(out)];
 }
 function sideFromTrendVotes(votes,H4,H1){if(votes.bull>=2)return "LONG";if(votes.bear>=2)return "SHORT";if(H4?.trend===H1?.trend&&H1?.trend!=="NEUTRAL")return H1.trend==="BULLISH"?"LONG":"SHORT";return "NEUTRAL";}
-function regimeRouteScores(prior,T,context={}){
+function regimeRouteScores(prior,T,context={},type="unknown"){
   const {M5,M15,H1,H4,D1}=T,v=directionalVotes(D1,H4,H1),allowed=allowedProfileModes(prior),baseSide=sideFromTrendVotes(v,H4,H1),r=Number(H1?.rsi14??50),m15r=Number(M15?.rsi14??50);
   const trendStrength=Math.max(v.bull,v.bear)/3,trendSide=baseSide,momOK=trendSide==="LONG"?(r>=52&&H1.close>=H1.ema20):(trendSide==="SHORT"?(r<=48&&H1.close<=H1.ema20):false),hAlign=H4?.trend===H1?.trend&&H1?.trend!=="NEUTRAL";
+  // V73 remains a prior, not a permanent regime prison: Forex MR-only may admit TREND only on strong live HTF agreement.
+  if(type==="forex"&&allowed.length===1&&allowed[0]==="MEAN_REVERSION"&&trendSide!=="NEUTRAL"&&trendStrength>=.67&&hAlign&&momOK)allowed.push("TREND");
   const rel=Number(context.strengthNormalizedSigned??context.relativeStrength??context.strengthDiff),ctxMag=Number.isFinite(rel)?Math.min(1,Math.abs(rel)/2):0,ctxSide=Number.isFinite(rel)&&Math.abs(rel)>.05?(rel>0?"LONG":"SHORT"):"NEUTRAL";
   const hAtr=Number(H1?.atr14)||1,emaDist=Number.isFinite(H1?.ema20)?Math.abs(H1.close-H1.ema20)/hAtr:0,ext=Math.min(1,Math.max(Math.abs(r-50)/22,Math.abs(m15r-50)/24,Math.min(1,emaDist/2)));
   const longRev=H1?.bullishReclaim||M15?.bullishReclaim||M5?.bullishReclaim,shortRev=H1?.bearishReclaim||M15?.bearishReclaim||M5?.bearishReclaim;
@@ -361,10 +369,10 @@ function regimeRouteScores(prior,T,context={}){
   else if(activeMode==="RELATIVE")htfPass=side!=="NEUTRAL"&&ctxMag>=.18&&((side==="LONG"?v.bull:v.bear)>=1||Number(context.score||0)>=8);
   else if(activeMode==="MEAN_REVERSION")htfPass=side!=="NEUTRAL"&&ext>=.35&&(mrSide!=="NEUTRAL");
   else htfPass=side!=="NEUTRAL"&&(Math.max(v.bull,v.bear)>=2||hAlign);
-  return {allowed,activeMode,scores,side,htfPass,votes:v,trendSide,ctxSide,ctxMag:Number(ctxMag.toFixed(3)),extension:Number(ext.toFixed(3)),emaDistATR:Number(emaDist.toFixed(3))};
+  return {allowed,activeMode,scores,side,htfPass,votes:v,trendSide,ctxSide,ctxMag:Number(ctxMag.toFixed(3)),extension:Number(ext.toFixed(3)),emaDistATR:Number(emaDist.toFixed(3)),longRev:!!longRev,shortRev:!!shortRev,mrSide};
 }
 function methodAssessment(symbol,type,T,context={}){
-  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context),mode=route.activeMode;let fit=Number(route.scores[mode]||50),why=["dynamic regime: "+mode];
+  const prior=v73Prior(symbol,type),route=regimeRouteScores(prior,T,context,type),mode=route.activeMode;let fit=Number(route.scores[mode]||50),why=["dynamic regime: "+mode];
   if(type==="forex"&&Number.isFinite(context.strengthDiff))why.push("currency-strength context");
   if(type==="crypto"){if(Number.isFinite(context.relativeStrength))why.push("BTC-relative context");if(Number.isFinite(context.fundingRate)){if(Math.abs(context.fundingRate)>.0015)fit-=6;why.push("derivatives context");}}
   if(type==="metal"&&Number.isFinite(context.relativeStrength))why.push("metal-relative context");
@@ -381,7 +389,11 @@ function adaptiveLocationPolicy(intel,M15,loc,side,context={}){
   const isFx=intel?.type==="forex",strong=Number(intel?.methodFit||0)>=80&&Number(context.score||0)>=7,nearMult=isFx?(strong?1.20:1.00):(strong?1.0:.80),nearEma=Number.isFinite(M15.ema20)&&Math.abs(M15.close-M15.ema20)<=M15.atr14*nearMult;
   const continuation=side==="LONG"?(M15.bullishBreak||M15.bullishReclaim||sideTrendMatch(M15,side)):(M15.bearishBreak||M15.bearishReclaim||sideTrendMatch(M15,side));
   if(isFx&&["TREND","RELATIVE"].includes(mode)&&Number(intel.methodFit||0)>=46&&Number(context.score||0)>=5.2&&nearEma&&continuation)return {pass:true,mode:"FX_SESSION_CONTINUATION_ZONE",soft:true,level:M15.ema20};
-  if(mode==="MEAN_REVERSION")return {pass:false,mode,soft:false};
+  if(mode==="MEAN_REVERSION"){
+    const route=intel?.route||{},aligned=side==="LONG"?(route.mrSide==="LONG"&&route.longRev===true&&M15.bullishReclaim===true):(route.mrSide==="SHORT"&&route.shortRev===true&&M15.bearishReclaim===true),extended=Number(route.extension||0)>=.35,dist=Number(route.emaDistATR||0),r=Number(M15.rsi14??50),extreme=side==="LONG"?r<=48:r>=52,contextOK=Number(context.score||0)>=4.8;
+    if(aligned&&extended&&(dist>=.45||extreme)&&contextOK&&Number(intel.methodFit||0)>=50)return {pass:true,mode:"MEAN_REVERSION_RECLAIM_ZONE",soft:true,level:M15.close,reversalConfirmed:true};
+    return {pass:false,mode,soft:false,level:Number.isFinite(M15.ema20)?M15.ema20:null};
+  }
   if(mode==="TREND"&&intel.methodFit>=48&&nearEma&&continuation)return {pass:true,mode:"TREND_CONTINUATION_ZONE",soft:true,level:M15.ema20};
   if(mode==="RELATIVE"&&intel.methodFit>=48&&Number(context.score||0)>=6&&nearEma&&continuation)return {pass:true,mode:"RELATIVE_CONTINUATION_ZONE",soft:true,level:M15.ema20};
   if(mode==="GENERIC"&&intel.methodFit>=60&&nearEma&&(M15.bullishBreak||M15.bearishBreak||M15.bullishReclaim||M15.bearishReclaim||sideTrendMatch(M15,side)))return {pass:true,mode:"QUALITY_CONTINUATION_ZONE",soft:true,level:M15.ema20};
@@ -396,7 +408,11 @@ function adaptiveTriggerPolicy(intel,M5,trig,side,context={}){
   const structuralImpulse=side==="LONG"?(M5.bullishBreak||M5.bullishReclaim):(M5.bearishBreak||M5.bearishReclaim),isFx=intel?.type==="forex";
   const fxImpulse=side==="LONG"?trend&&r>=48&&r<=74&&M5.close>=M5.ema20:trend&&r<=52&&r>=26&&M5.close<=M5.ema20;
   if(isFx&&["TREND","RELATIVE"].includes(mode)&&Number(intel.methodFit||0)>=47&&Number(context.score||0)>=5.2&&fxImpulse&&(structuralImpulse||Math.abs(r-50)>=3||Number(intel.methodFit||0)>=72))return {pass:true,pending:false,mode:"FX_M5_SESSION_CONTINUATION",level:M5.close,soft:true};
-  if(mode==="MEAN_REVERSION")return {pass:false,pending:false,mode};
+  if(mode==="MEAN_REVERSION"){
+    const route=intel?.route||{},aligned=side==="LONG"?(route.mrSide==="LONG"&&route.longRev===true):(route.mrSide==="SHORT"&&route.shortRev===true),reclaim=side==="LONG"?M5.bullishReclaim===true:M5.bearishReclaim===true,rejection=side==="LONG"?(M5.close>M5.open&&M5.close>=M5.ema20):(M5.close<M5.open&&M5.close<=M5.ema20),contextOK=Number(context.score||0)>=4.8;
+    if(aligned&&reclaim&&rejection&&contextOK&&Number(intel.methodFit||0)>=52)return {pass:true,pending:false,mode:"M5_MEAN_REVERSION_RECLAIM",level:M5.close,soft:true,reversalConfirmed:true};
+    return {pass:false,pending:false,mode,level:trig?.level??null};
+  }
   if(mode==="TREND"&&intel.methodFit>=50&&impulse&&(structuralImpulse||Math.abs(r-50)>=4||intel.methodFit>=76))return {pass:true,pending:false,mode:"M5_MOMENTUM_CONTINUATION",level:M5.close,soft:true};
   if(mode==="RELATIVE"&&intel.methodFit>=50&&Number(context.score||0)>=6&&impulse&&(structuralImpulse||intel.methodFit>=76))return {pass:true,pending:false,mode:"M5_RELATIVE_BREAK",level:M5.close,soft:true};
   if(mode==="GENERIC"&&intel.methodFit>=62&&impulse&&(structuralImpulse||intel.methodFit>=78))return {pass:true,pending:false,mode:"M5_QUALITY_BREAK",level:M5.close,soft:true};
@@ -439,7 +455,7 @@ function buildTradePlan(side,entry,M5,M15,H1,H4,D1,pendingRetest,prior={}){
   const valid=targetCandidates(side,entry,M15,H1,H4,D1).map(v=>({price:v,rr:Math.abs(v-entry)/risk})).filter(x=>x.rr>=.80&&x.rr<=4);if(!valid.length)return {invalid:"CLEAN_TARGET_REQUIRED",risk,roomR:0};
   const tp1=valid[0],tp2=valid.find(x=>x.rr>=Math.max(1.4,tp1.rr+.35)&&x.rr<=3.2)||null,best=tp2||tp1;return {entry,sl,risk,roomR:best.rr,targetRR:Number(best.rr.toFixed(2)),tp1:tp1.price,tp1RR:Number(tp1.rr.toFixed(2)),tp2:(tp2||tp1).price,tp2RR:Number((tp2||tp1).rr.toFixed(2)),mode:pendingRetest?"LIMIT":"MARKET",targetSource:"STRUCTURE_LIQUIDITY",targetTier:tp2?"PRIMARY_PLUS_EXTENSION":"PRIMARY_ONLY"};
 }
-function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return INDEX_PRIORS[s]||SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}
+function symbolKnowledge(symbol){const s=canonicalUserSymbol(symbol),k=s.endsWith("USDT")?s.slice(0,-4):s;return INDEX_PRIORS[s]||METAL_PRIORS[s]||SYMBOL_KNOWLEDGE?.symbols?.[s]||SYMBOL_KNOWLEDGE?.symbols?.[k]||null;}
 function minimumQualityRR(intel){const mode=profileMode(intel),type=intel?.type||"unknown";let x=mode==="MEAN_REVERSION"?1.10:mode==="TREND"?1.30:mode==="RELATIVE"?1.25:1.30;if(type==="index")x=Math.max(x,mode==="MEAN_REVERSION"?1.20:1.35);else if(type==="metal")x=Math.max(x,mode==="MEAN_REVERSION"?1.18:1.28);else if(type==="crypto")x=Math.max(x,mode==="MEAN_REVERSION"?1.15:1.35);else if(type==="forex")x=Math.max(x,mode==="MEAN_REVERSION"?1.10:1.20);if(Number(intel?.methodFit)>=90)x-=.05;return Math.max(1.1,Number(x.toFixed(2)));}
 function rrQuality(plan,intel){const min=minimumQualityRR(intel),rr=Number(plan?.targetRR);return {pass:Number.isFinite(rr)&&rr>=min,minRR:min,targetRR:rr};}
 function limitGeometry(side,current,entry,M5,M15,plan){const atr=Number(M15?.atr14)||Number(M5?.atr14)||0;if(!atr||!Number.isFinite(current)||!Number.isFinite(entry))return {pass:false,reason:"NO_ATR"};const dist=Math.abs(current-entry)/atr,correct=side==="LONG"?entry<current:entry>current,notInvalid=side==="LONG"?entry>Number(plan?.sl):entry<Number(plan?.sl);return {pass:correct&&notInvalid&&dist>=.05&&dist<=1.05,distanceATR:Number(dist.toFixed(2)),correctSide:correct,notInvalid};}
