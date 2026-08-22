@@ -6,7 +6,60 @@ import {recordV11,refreshV11Lifecycle} from './store.js';
 const SKEY='v11:native:schedule';
 const ACTIONABLE=new Set(['MARKET_SIGNAL','MARKET','LIMIT','MARKET_PLAN','LIMIT_PLAN']);
 async function engine(path,env){const r=await baseEngine.fetch(new Request(`https://v11.internal${path}`),env);try{return await r.json()}catch{return null}}
-function normalizeCandidate(a,q){return {...a,price:Number(q.price),entry:Number(a.entry??q.price),quote:q,atr:Number(a.atr??a.atr14??a.indicators?.atr),qualityScore:Number(a.qualityScore??a.quality??a.score??0),structureLevels:[a.swingLow,a.swingHigh,a.support,a.resistance].filter(Number.isFinite),liquidityLevels:[a.liquidityLow,a.liquidityHigh,a.target1,a.target2,a.tp,a.tp1,a.tp2].filter(Number.isFinite)};}
+const finite=v=>{const x=Number(v);return Number.isFinite(x)?x:null};
+
+function normalizeCandidate(a,q){
+ const planned=a.planned||{};
+ const canonical=a.canonical||{};
+ const mg=canonical.marketGeometry||{};
+ const lg=canonical.limitGeometry||{};
+ const m15=canonical.m15Location||{};
+ const m5=canonical.m5Trigger||{};
+
+ const atrCandidates=[
+  a.atr,
+  a.atr14,
+  a.indicators?.atr,
+  a.indicators?.atr14,
+  a.M5?.atr14,
+  a.M15?.atr14,
+  a.H1?.atr14,
+  a.timeframes?.M5?.atr14,
+  a.timeframes?.M15?.atr14,
+  a.timeframes?.H1?.atr14,
+  planned.atr,
+  planned.atr14,
+  mg.atr,
+  lg.atr
+ ].map(finite).filter(x=>x>0);
+
+ const entry=finite(a.entry??planned.entry??q.price);
+
+ const structureLevels=[
+  a.swingLow,a.swingHigh,a.support,a.resistance,
+  a.structureInvalidation,a.swingInvalidation,
+  m15.level,m5.level,
+  mg.level,lg.level,
+  planned.sl
+ ].map(finite).filter(Number.isFinite);
+
+ const liquidityLevels=[
+  a.liquidityLow,a.liquidityHigh,
+  a.target1,a.target2,a.tp,a.tp1,a.tp2,
+  planned.tp,planned.tp1,planned.tp2
+ ].map(finite).filter(Number.isFinite);
+
+ return {
+  ...a,
+  price:finite(q.price),
+  entry,
+  quote:q,
+  atr:atrCandidates[0]??null,
+  qualityScore:Number(a.qualityScore??a.quality??a.score??0),
+  structureLevels,
+  liquidityLevels
+ };
+}
 async function freshAnalyze(symbol,env){const a=await engine(`/analyze?symbol=${encodeURIComponent(symbol)}`,env),q=a?.analysisQuote||a?.quote;if(!(Number(q?.price)>0)||q?.fresh!==true)throw new Error('V11_QUOTE_NOT_VERIFIED_FRESH');return {analysis:a,quote:{...q,price:Number(q.price),fresh:true}};}
 export async function scanMarketV11(env,market){const r=await engine(`/run-now?group=${market}`,env);if(!r?.ok||['BUSY','RATE_BUDGET_WAIT'].includes(String(r?.status||'')))return {status:r?.status||'SCAN_FAILED',market,approved:0};let approved=0,watch=0,rejected=0;for(const raw of r.analyses||[]){if(!ACTIONABLE.has(String(raw?.status||'').toUpperCase())||!raw?.symbol)continue;try{const {analysis,quote}=await freshAnalyze(raw.symbol,env),c=normalizeCandidate({...raw,...analysis},quote),plan=buildEntryPlan(market,c);if(!plan.ok||!plan.executable){await recordV11(env,{status:plan.ok?'WATCH':'REJECTED',market,symbol:raw.symbol,plan});plan.ok?watch++:rejected++;continue;}const candidate={...c,symbol:plan.symbol,entry:plan.entry,sl:plan.sl,tp:plan.tp,rr:plan.rr,setup:plan.setup};const gate=evaluateMarketCandidate(market,candidate);if(!gate.pass){await recordV11(env,{status:'REJECTED',market,symbol:plan.symbol,plan,gate});rejected++;continue;}await recordV11(env,{status:'APPROVED_SIGNAL',version:'V11',market,symbol:plan.symbol,candidate,plan,gate,approvedAt:Date.now(),expiresAt:Date.now()+V11_CONFIG.markets[market].horizonMin*60000});approved++;}catch(e){await recordV11(env,{status:'REJECTED',market,symbol:raw.symbol,plan:{reason:String(e?.message||e)}});rejected++;}}
  return {status:'SCANNED',market,approved,watch,rejected,coverage:{requested:r.requested,broadOk:r.broadOk,deepOk:r.deepOk}};}
