@@ -122,10 +122,24 @@ VALIDATOR_DEPENDENCIES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-# Tokens that request AUTO-DISCOVERY of tests from the working tree. A task
-# could plant an executable test anywhere its allowed_paths reach, so discovery
-# is never permitted: an executing validator must name exactly one target.
-DISCOVERY_TOKENS = {"discover", "--pyargs", "--doctest-modules", "--co", "--collect-only"}
+# An executing test runner accepts ONLY these options. This is a strict
+# allowlist, not a denylist: plugin and configuration injection has too many
+# spellings (-p, -P, -c, --rootdir, --import-mode, --pyargs, --doctest-modules,
+# discover, ...) for enumeration of the bad ones to ever be complete, and every
+# one of them can execute task-authored Python before the named validator runs.
+# Anything not listed here is refused, so a new pytest option cannot silently
+# become an injection path.
+PERMITTED_RUNNER_OPTIONS = {
+    "-v", "-vv", "-q", "-qq", "-x",
+    "--verbose", "--quiet", "--exitfirst",
+}
+PERMITTED_RUNNER_OPTION_PREFIXES = ("--maxfail=", "--tb=")
+
+
+def is_permitted_runner_option(token: str) -> bool:
+    if token in PERMITTED_RUNNER_OPTIONS:
+        return True
+    return token.startswith(PERMITTED_RUNNER_OPTION_PREFIXES)
 TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset(VALIDATOR_DEPENDENCIES)
 
 
@@ -403,15 +417,23 @@ def validate_validation_command(command, allowed: list | None = None,
         head in {"python", "python3"} and tokens[2] in EXECUTING_PYTHON_MODULES
     )
     if executes:
+        # Arguments to the runner itself, excluding `-m <module>`.
+        arg_tokens = tokens[3:] if head in {"python", "python3"} else tokens[1:]
         # A test runner with no explicit target auto-discovers tests from the
-        # task-writable worktree, so `pytest`, `pytest -v`, `python3 -m unittest`
-        # and any discovery form must be refused. Exactly one named target,
-        # and it must be an immutable allowlisted validator.
-        if any(token in DISCOVERY_TOKENS for token in tokens[1:]):
-            return False
-        targets = [token for token in tokens[1:] if looks_like_path(token)]
+        # task-writable worktree, so `pytest`, `pytest -v` and
+        # `python3 -m unittest` must be refused. Exactly one named target, and
+        # it must be an immutable allowlisted validator.
+        targets = [token for token in arg_tokens if looks_like_path(token)]
         if len(targets) != 1:
             return False
+        # Everything that is not the target must be an explicitly permitted
+        # option. This is what stops `-p evil`, `--rootdir=…`, `--import-mode=…`,
+        # `discover`, `--pyargs` and any future equivalent.
+        for token in arg_tokens:
+            if token is targets[0] or token == targets[0]:
+                continue
+            if not is_permitted_runner_option(token):
+                return False
 
     for token in tokens[1:]:
         if not looks_like_path(token):

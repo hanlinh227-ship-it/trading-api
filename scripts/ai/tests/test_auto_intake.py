@@ -1583,5 +1583,132 @@ class TestExplicitValidatorTargetRequired(IntakeTestBase):
                 )
 
 
+# --- CODEX BLOCKER: plugin/config injection into an executing runner --------
+
+
+class TestRunnerOptionAllowlist(IntakeTestBase):
+    """Plugin and configuration options execute task-authored Python BEFORE the
+    allowlisted validator runs, so the runner accepts an explicit option
+    allowlist only."""
+
+    def setUp(self):
+        super().setUp()
+        self.validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        self.scope = ["cloudflare-worker/src/**"]
+
+    def _reject(self, cmd):
+        self.assertFalse(
+            intake.validate_validation_command(cmd, self.scope, []),
+            f"must be rejected: {cmd}",
+        )
+
+    def test_plugin_option_rejected(self):
+        for cmd in [
+            f"pytest -p evil {self.validator}",
+            f"pytest -p=evil {self.validator}",
+            f"pytest {self.validator} -p evil",
+            f"python3 -m pytest -p evil {self.validator}",
+            f"pytest -p no:cacheprovider {self.validator}",
+            f"pytest -P evil {self.validator}",
+            f"pytest --plugins evil {self.validator}",
+        ]:
+            with self.subTest(cmd=cmd):
+                self._reject(cmd)
+
+    def test_config_injection_rejected(self):
+        for cmd in [
+            f"pytest -c evil.ini {self.validator}",
+            f"pytest --config-file=evil.ini {self.validator}",
+            f"pytest --rootdir=/tmp {self.validator}",
+            f"pytest --rootdir /tmp {self.validator}",
+            f"pytest --confcutdir=/tmp {self.validator}",
+            f"pytest --import-mode=importlib {self.validator}",
+            f"pytest --assert=plain {self.validator}",
+            f"python3 -m pytest --rootdir=/tmp {self.validator}",
+        ]:
+            with self.subTest(cmd=cmd):
+                self._reject(cmd)
+
+    def test_collection_widening_options_rejected(self):
+        for cmd in [
+            f"pytest --doctest-modules {self.validator}",
+            f"pytest --pyargs {self.validator}",
+            f"pytest --collect-only {self.validator}",
+            f"pytest -k evil {self.validator}",
+            f"python3 -m unittest discover {self.validator}",
+        ]:
+            with self.subTest(cmd=cmd):
+                self._reject(cmd)
+
+    def test_unknown_option_rejected_by_default(self):
+        """Fail-closed: a future pytest option is refused until allowlisted."""
+        for cmd in [
+            f"pytest --some-future-option {self.validator}",
+            f"pytest --future=value {self.validator}",
+            f"pytest -Z {self.validator}",
+            f"pytest {self.validator} trailing_positional",
+        ]:
+            with self.subTest(cmd=cmd):
+                self._reject(cmd)
+
+    def test_ordinary_allowlisted_invocation_still_accepted(self):
+        for cmd in [
+            f"pytest {self.validator}",
+            f"python3 -m pytest {self.validator}",
+            f"pytest -v {self.validator}",
+            f"pytest {self.validator} -v",
+            f"pytest {self.validator} -q",
+            f"pytest {self.validator} -x --tb=short",
+            f"pytest {self.validator} --maxfail=1",
+            f"python3 -m pytest {self.validator} -v",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(
+                    intake.validate_validation_command(cmd, self.scope, []),
+                    f"must remain accepted: {cmd}",
+                )
+
+    def test_permitted_options_are_a_closed_set(self):
+        for option in intake.PERMITTED_RUNNER_OPTIONS:
+            with self.subTest(option=option):
+                self.assertTrue(intake.is_permitted_runner_option(option))
+        for option in ["-p", "-P", "-c", "-s", "-k", "--rootdir", "--pyargs", "evil"]:
+            with self.subTest(option=option):
+                self.assertFalse(intake.is_permitted_runner_option(option))
+
+    def test_bare_and_discovery_runners_remain_rejected(self):
+        for cmd in [
+            "pytest", "pytest -v", "pytest -q", "pytest -x",
+            "python3 -m pytest", "python3 -m unittest",
+            "python3 -m unittest discover",
+            "python3 -m unittest discover -s scripts/ai/tests",
+        ]:
+            with self.subTest(cmd=cmd):
+                self._reject(cmd)
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_dependency_closure_still_enforced_with_options(self):
+        cmd = f"pytest {self.validator} -v"
+        self.assertTrue(intake.validate_validation_command(cmd, self.scope, []))
+        for dependency in intake.validator_closure(self.validator):
+            with self.subTest(writable=dependency):
+                self.assertFalse(intake.validate_validation_command(cmd, [dependency], []))
+
+    def test_plugin_injection_rejected_end_to_end(self):
+        task = make_task(
+            task_id="PLUGIN-INJECT",
+            allowed_paths=["cloudflare-worker/src/**"],
+            validation_commands=[f"pytest -p evil {self.validator}"],
+        )
+        with self.assertRaises(intake.TaskError):
+            intake.validate_task(task, 1, head_resolver=head_ok)
+        issue = make_issue(810, task=task)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+        self.assertEqual(summary["failed"], 1)
+        self.assertFalse(
+            (intake.ROOT / ".ai-intake" / "tasks" / "PLUGIN-INJECT.json").exists()
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

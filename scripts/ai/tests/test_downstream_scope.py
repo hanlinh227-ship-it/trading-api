@@ -322,6 +322,31 @@ class TestCredentialFreeValidation(DownstreamScopeBase):
                 with self.subTest(var=name):
                     self.assertIn(name, scrubbed)
 
+    def test_plugin_injection_env_vars_are_scrubbed(self):
+        """Env equivalents of the blocked pytest plugin/config options."""
+        for name in ("PYTEST_PLUGINS", "PYTEST_ADDOPTS", "PYTHONPATH",
+                     "PYTHONSTARTUP", "PYTHONHOME", "PYTHONWARNINGS"):
+            os.environ[name] = "evil"
+            self.addCleanup(os.environ.pop, name, None)
+        scrubbed = dsi.credential_free_env()
+        for name in ("PYTEST_PLUGINS", "PYTEST_ADDOPTS", "PYTHONPATH",
+                     "PYTHONSTARTUP", "PYTHONHOME", "PYTHONWARNINGS"):
+            with self.subTest(var=name):
+                self.assertNotIn(name, scrubbed)
+
+    def test_pytest_addopts_cannot_reach_a_validator(self):
+        """End-to-end through the real validation runner."""
+        os.environ["PYTEST_ADDOPTS"] = "-p evil_plugin"
+        self.addCleanup(os.environ.pop, "PYTEST_ADDOPTS", None)
+        task = dict(
+            self.task,
+            validation_commands=['echo "ADDOPTS:${PYTEST_ADDOPTS:-ABSENT}"'],
+        )
+        ok, logs = dsi.run_validations(task)
+        self.assertTrue(ok, logs)
+        self.assertIn("ADDOPTS:ABSENT", logs)
+        self.assertNotIn("evil_plugin", logs)
+
     def test_a_validator_cannot_read_credentials_at_runtime(self):
         """End-to-end through the real validation runner."""
         os.environ["DEEPSEEK_API_KEY"] = "sk-must-not-be-visible-000000"

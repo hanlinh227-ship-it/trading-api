@@ -87,11 +87,23 @@ CREDENTIAL_ENV_PATTERN = re.compile(
 )
 
 
+# Environment-based equivalents of the pytest plugin/config injection options
+# blocked at intake. PYTEST_PLUGINS and PYTEST_ADDOPTS load plugins and inject
+# arbitrary CLI options; the PYTHON* entries can import code before the target.
+INJECTION_ENV_VARS = {
+    "PYTEST_PLUGINS", "PYTEST_ADDOPTS", "PYTEST_DEBUG",
+    "PYTHONPATH", "PYTHONSTARTUP", "PYTHONHOME", "PYTHONEXECUTABLE",
+    "PYTHONWARNINGS", "PYTHONBREAKPOINT", "PYTHONUSERBASE",
+}
+
+
 def credential_free_env() -> dict[str, str]:
-    """os.environ minus anything that looks like a credential or a runner sink."""
+    """os.environ minus credentials, runner sinks and code-injection vectors."""
     return {
         k: v for k, v in os.environ.items()
-        if k not in CREDENTIAL_ENV_EXACT and not CREDENTIAL_ENV_PATTERN.search(k)
+        if k not in CREDENTIAL_ENV_EXACT
+        and k not in INJECTION_ENV_VARS
+        and not CREDENTIAL_ENV_PATTERN.search(k)
     }
 
 
