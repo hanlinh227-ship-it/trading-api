@@ -2,7 +2,7 @@
 
 LOCKED: true
 OWNER: DEEPSEEK
-SCOPE: V11 quality optimization + Telegram signal discrimination under 3-AI review
+SCOPE: V11 quality optimization + AI orchestration infrastructure repair under mandatory 3-AI review
 ACQUIRED: 2026-08-22
 
 ## Current baseline
@@ -18,11 +18,23 @@ Completed automation scope:
 - CI validation on `main` for V11 automation invariants;
 - canonical Cloudflare auto-deploy workflow remains the normal deployment path.
 
-## Optimization scope
+## Active optimization + infrastructure scope
 
-DeepSeek may implement only bounded V11 quality/ranking/discrimination improvements supported by current evidence. Required independent reviewers: Codex and Claude on the same implementation SHA.
+DeepSeek is the only implementation/source writer while this lock is active. Codex and Claude are independent reviewers/advisers and may not modify overlapping source. The active scope now also includes bounded AI orchestration infrastructure repair needed to make the three-AI loop reliable and non-conflicting.
 
-Hard invariants:
+Required infrastructure invariants:
+- exactly one source writer at a time;
+- all writer entry points share one concurrency group;
+- no implementation task may create duplicate PRs for the same task id;
+- review evidence is bound to the exact implementation SHA;
+- Codex and Claude review independently; neither may silently substitute for the other;
+- DeepSeek must never review/approve its own implementation as an acceptance signal;
+- stale task/base metadata must fail closed without spawning replacement tasks endlessly;
+- workflow failures must surface explicit diagnostics instead of silently stalling;
+- no workflow or watcher may print or commit secrets;
+- no infrastructure repair may weaken V11 trading safety gates.
+
+Hard trading invariants:
 - preserve TRADING_STATE;
 - preserve V11 native scheduler and VPC AI bridge;
 - keep SIGNAL_ONLY authority;
@@ -36,5 +48,6 @@ Hard invariants:
 ## Lock protocol
 
 - OWNER DEEPSEEK is the only source writer while this lock is active.
-- Codex and Claude are reviewers only until DeepSeek completes or the task is released.
+- Codex and Claude are reviewers/advisers only until DeepSeek completes or the task is released.
+- ChatGPT acts as orchestrator/controller and may maintain task metadata, review routing, and lock scope when explicitly authorized by the user; it does not count as an independent implementation reviewer.
 - Current GitHub `main` is authoritative; stale checkpoints do not override source.
