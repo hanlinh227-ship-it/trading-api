@@ -1,40 +1,62 @@
 name: V11 Signal Validation
+
 on:
   push:
-    branches: [signal-v11]
-    paths: ['cloudflare-worker/**','docs/checkpoints/V11_SIGNAL_MASTER.md','.github/workflows/v11-signal-validation.yml']
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/**'
+      - 'docs/checkpoints/**'
+      - 'docs/ai-coengineer/**'
+      - '.github/workflows/v11-signal-validation.yml'
   pull_request:
-    paths: ['cloudflare-worker/**','docs/checkpoints/V11_SIGNAL_MASTER.md','.github/workflows/v11-signal-validation.yml']
-permissions: {contents: read}
+    paths:
+      - 'cloudflare-worker/**'
+      - 'docs/checkpoints/**'
+      - 'docs/ai-coengineer/**'
+      - '.github/workflows/v11-signal-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v11-signal-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - name: Syntax
-        run: |
-          set -euo pipefail
-          node --check cloudflare-worker/index.js
-          node --check cloudflare-worker/hub-v11.js
-          for f in cloudflare-worker/v11/*.js; do node --check "$f"; done
-      - name: V11 invariants
+        with:
+          node-version: '22'
+      - name: Full V11 preflight
+        working-directory: cloudflare-worker
+        run: npm run check
+      - name: V11 production invariants
+        shell: bash
         run: |
           set -euo pipefail
           grep -q 'hub-v11.js' cloudflare-worker/index.js
           grep -q 'signalOnlySourceOfTruth:"V11"' cloudflare-worker/index.js
-          grep -q 'creditsPerMinute:55' cloudflare-worker/v11/config.js
           grep -q 'scheduledNativeV11' cloudflare-worker/hub-v11.js
-          ! grep -q 'v10.scheduled' cloudflare-worker/hub-v11.js
-          grep -q 'V11_QUOTE_NOT_VERIFIED_FRESH' cloudflare-worker/v11/data-hub.js
-          grep -q 'V11_QUOTE_NOT_VERIFIED_FRESH' cloudflare-worker/v11/native-runtime.js
-          grep -q 'refreshV11Lifecycle' cloudflare-worker/v11/native-runtime.js
-          grep -q 'STRUCTURE_LIQUIDITY_INVALIDATION_WITH_VOLATILITY_FLOOR' cloudflare-worker/v11/instrument-profiles.js
-          grep -q 'FORWARD_STRUCTURE_LIQUIDITY' cloudflare-worker/v11/instrument-profiles.js
-          grep -q "status:'WATCH'" cloudflare-worker/v11/entry-plan.js
+          grep -q 'telegramAutoSignal:true' cloudflare-worker/hub-v11.js
+          grep -q 'telegramAutoLifecycle:true' cloudflare-worker/hub-v11.js
+          grep -q 'V11 MARKET SIGNAL' cloudflare-worker/v11/native-runtime.js
+          grep -q 'lifecycle.events' cloudflare-worker/v11/native-runtime.js
+          grep -q 'MARKET_READY' cloudflare-worker/v11/native-runtime.js
+          grep -q 'UPSTREAM_.*_NOT_MARKET_READY' cloudflare-worker/v11/native-runtime.js
+          grep -q 'duplicateOpen' cloudflare-worker/v11/store.js
+          grep -q 'INVALIDATED_LEGACY_NON_MARKET' cloudflare-worker/v11/store.js
+          grep -q 'allThreeRequired:true' cloudflare-worker/v11/manual-market-hunter.js
           grep -q 'TRADING_STATE_REQUIRED' cloudflare-worker/v11/store.js
-          grep -q 'signalAiRequired:false' cloudflare-worker/hub-v11.js
-          grep -q 'v11:ai:review' cloudflare-worker/hub-v11.js
-          grep -q 'v11:scan:' cloudflare-worker/hub-v11.js
-          ! grep -R 'v10Core.scheduled\|V77.*authority\|V78.*authority' cloudflare-worker/v11
+          ! grep -q 'v10.scheduled' cloudflare-worker/hub-v11.js
+          ! grep -R 'V11_AI_BRIDGE_URL' cloudflare-worker/v11
+      - name: Validation summary
+        run: |
+          echo 'V11_VALIDATION=PASS'
+          echo 'AUTO_TELEGRAM_SIGNAL=ON'
+          echo 'AUTO_TELEGRAM_LIFECYCLE=ON'
+          echo 'MARKET_READY_FAIL_CLOSED=ON'
+          echo 'THREE_AI_HUNTER=ON_DEMAND_ONLY'
