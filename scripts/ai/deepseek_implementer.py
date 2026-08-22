@@ -362,15 +362,21 @@ def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str
         fail("DeepSeek response missing choices[0].message.content")
 
 
-def ensure_result_scope(task: dict) -> list[str]:
+def capture_untracked_files() -> set[str]:
+    untracked = run_git("ls-files", "--others", "--exclude-standard")
+    if untracked.returncode != 0:
+        fail(untracked.stderr.strip() or "cannot inspect untracked files")
+    return {normalize_path(x) for x in untracked.stdout.splitlines() if x.strip()}
+
+
+def ensure_result_scope(task: dict, before_untracked: set[str]) -> list[str]:
     diff = run_git("diff", "--name-only")
     if diff.returncode != 0:
         fail(diff.stderr.strip() or "cannot inspect resulting diff")
     resulting = [normalize_path(x) for x in diff.stdout.splitlines() if x.strip()]
-    untracked = run_git("ls-files", "--others", "--exclude-standard")
-    if untracked.returncode != 0:
-        fail(untracked.stderr.strip() or "cannot inspect untracked files")
-    resulting.extend(normalize_path(x) for x in untracked.stdout.splitlines() if x.strip())
+    after_untracked = capture_untracked_files()
+    newly_untracked = after_untracked - before_untracked
+    resulting.extend(sorted(newly_untracked))
     bad = [p for p in resulting if not path_allowed(p, task["allowed_paths"], task["forbidden_paths"])]
     if bad:
         fail("resulting workspace touched paths outside scope: " + ", ".join(bad))
@@ -412,6 +418,7 @@ def main() -> None:
     context = collect_context(task)
     feedback = str(task.get("review_feedback") or "")
     last_validation = ""
+    before_untracked = capture_untracked_files()
 
     for round_no in range(1, task["max_rounds"] + 1):
         response = call_deepseek(task, context, feedback, round_no)
@@ -431,7 +438,7 @@ def main() -> None:
                 fail(feedback)
             continue
 
-        resulting = ensure_result_scope(task)
+        resulting = ensure_result_scope(task, before_untracked)
         if not resulting:
             feedback = "STRUCTURED_EDITS_APPLIED_BUT_NO_RESULTING_DIFF"
             if round_no >= task["max_rounds"]:
