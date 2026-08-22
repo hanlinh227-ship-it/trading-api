@@ -384,5 +384,54 @@ class TestRepairUsesImmutableControlPlane(unittest.TestCase):
         self.assertIn("rm -rf \"${RUNNER_TEMP:-/tmp}/ai-control-plane\"", raw)
 
 
+class TestWriterPathsEnforceTheLock(unittest.TestCase):
+    """Every job that writes source and pushes must honour the exclusive-writer
+    lock, and must read it from a ref the PR cannot influence."""
+
+    WRITER_JOBS = [
+        ("ai-loop.yml", "dispatch"),
+        ("ai-loop.yml", "monitor"),
+        ("ai-loop-wake.yml", "wake-dispatch"),
+        ("ai-task.yml", "implement"),
+    ]
+
+    def _job(self, wf: str, job: str) -> str:
+        raw = (WORKFLOW_DIR / wf).read_text(encoding="utf-8")
+        jobs = dict(split_jobs(raw))
+        self.assertIn(job, jobs, f"{wf}: job {job} not found")
+        return jobs[job]
+
+    def test_every_pushing_job_checks_the_write_lock(self):
+        checked = 0
+        for wf, job in self.WRITER_JOBS:
+            body = self._job(wf, job)
+            if "git push" not in body:
+                continue
+            checked += 1
+            with self.subTest(wf=wf, job=job):
+                self.assertIn("WRITE_LOCK.md", body,
+                              f"{wf}:{job} pushes source without a WRITE_LOCK check")
+                self.assertIn("OWNER:[[:space:]]*DEEPSEEK", body)
+        self.assertGreater(checked, 0)
+
+    def test_repair_job_reads_the_lock_from_pinned_main(self):
+        """The repair loop checks out a PR branch, so the lock must come from
+        the pinned main ref, never from the PR worktree."""
+        body = self._job("ai-loop.yml", "monitor")
+        self.assertIn('$MAIN_SHA:docs/ai-coengineer/WRITE_LOCK.md', body)
+        lock_at = body.index("WRITE_LOCK.md")
+        checkout_at = body.index('git checkout -B "$BRANCH"')
+        self.assertLess(lock_at, checkout_at,
+                        "lock must be verified before any PR checkout")
+
+    def test_every_pushing_job_requires_the_deepseek_secret(self):
+        for wf, job in self.WRITER_JOBS:
+            body = self._job(wf, job)
+            if "git push" not in body:
+                continue
+            with self.subTest(wf=wf, job=job):
+                self.assertIn("DEEPSEEK", body)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

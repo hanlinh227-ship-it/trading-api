@@ -267,6 +267,17 @@ jobs:
           test -f "$CONTROL_PLANE/scripts/ai/auto_intake.py"
           test -f "$CONTROL_PLANE/scripts/ai/deepseek_implementer.py"
           chmod -R a-w "$CONTROL_PLANE/scripts"
+          # The repair loop writes source and pushes, so it is a writer path and
+          # must honour the exclusive-writer lock like every other writer.
+          # Read the lock from origin/main: the loop later checks out a PR
+          # branch, which must never be able to grant itself the lock.
+          LOCK="$(git show "$MAIN_SHA:docs/ai-coengineer/WRITE_LOCK.md")"
+          printf '%s' "$LOCK" | grep -Eq '^LOCKED:[[:space:]]*true[[:space:]]*$' \
+            || { echo 'WRITE_LOCK_MISMATCH: not locked on main'; exit 2; }
+          printf '%s' "$LOCK" | grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' \
+            || { echo 'WRITE_LOCK_MISMATCH: owner is not DEEPSEEK on main'; exit 2; }
+          test -n "${DEEPSEEK_API_KEY:-}" || { echo 'MISSING_DEEPSEEK_SECRET'; exit 2; }
+          echo "WRITE_LOCK verified from origin/main."
           echo "dir=$CONTROL_PLANE" >> "$GITHUB_OUTPUT"
           echo "main_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
           echo "Control plane pinned at origin/main $MAIN_SHA"

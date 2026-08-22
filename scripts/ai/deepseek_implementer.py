@@ -135,7 +135,15 @@ def path_allowed(path: str, allowed: list[str], forbidden: list[str]) -> bool:
         return False
     for raw in forbidden:
         item = normalize_path(str(raw))
-        if path == item or path.startswith(item.rstrip("/") + "/"):
+        if not item:
+            continue
+        # `dir/**` must mean the same thing here as in the allowed branch below;
+        # otherwise the forbidden entry silently becomes a no-op.
+        if item.endswith("/**"):
+            prefix = item[:-3].rstrip("/")
+            if path == prefix or path.startswith(prefix + "/"):
+                return False
+        elif path == item or path.startswith(item.rstrip("/") + "/"):
             return False
     for raw in allowed:
         item = normalize_path(str(raw))
@@ -146,6 +154,29 @@ def path_allowed(path: str, allowed: list[str], forbidden: list[str]) -> bool:
         elif path == item or path.startswith(item.rstrip("/") + "/"):
             return True
     return False
+
+
+def contained_write_path(rel: str) -> pathlib.Path | None:
+    """Resolve `rel` for writing, or None if it escapes the repository.
+
+    `path_allowed()` is a STRING check. If any component of the path is a
+    symlink, a write can land outside ROOT while still looking in-scope, and
+    `git diff`/`ls-files` never report a file written outside the work tree, so
+    ensure_result_scope() would not see it either. Resolve the real path and
+    refuse any symlinked component.
+    """
+    root = pathlib.Path(os.path.realpath(ROOT))
+    target = ROOT / rel
+    resolved = pathlib.Path(os.path.realpath(target))
+    if resolved != root and root not in resolved.parents:
+        return None
+    # Refuse a symlink anywhere along the path, including the leaf itself.
+    probe = ROOT
+    for part in pathlib.PurePosixPath(rel).parts:
+        probe = probe / part
+        if probe.is_symlink():
+            return None
+    return resolved
 
 
 def contains_secret(text: str) -> bool:
@@ -245,6 +276,10 @@ def validate_edit_spec(obj: dict, task: dict) -> list[dict]:
             raise ValueError(f"edit {index} has unsupported op={op}")
         if not path or not path_allowed(path, task["allowed_paths"], task["forbidden_paths"]):
             raise ValueError(f"edit {index} path outside scope: {path or '[EMPTY]'}")
+        if contained_write_path(path) is None:
+            raise ValueError(
+                f"edit {index} path escapes the repository or crosses a symlink: {path}"
+            )
         new_text = edit.get("new_text")
         if not isinstance(new_text, str):
             raise ValueError(f"edit {index} new_text must be a string")
@@ -288,8 +323,14 @@ def apply_structured_edits(edits: list[dict]) -> tuple[bool, str]:
             if contains_secret(data):
                 return False, f"STRUCTURED_EDIT_RESULT_SECRET_GUARD: path={rel}"
         for rel, data in staged.items():
+            # Re-check at write time: an earlier edit in this same batch could
+            # have introduced a symlink component since validation.
+            if contained_write_path(rel) is None:
+                return False, f"STRUCTURED_EDIT_PATH_ESCAPE: path={rel}"
             path = ROOT / rel
             path.parent.mkdir(parents=True, exist_ok=True)
+            if path.is_symlink():
+                return False, f"STRUCTURED_EDIT_SYMLINK_TARGET: path={rel}"
             path.write_text(data, encoding="utf-8")
         return True, ""
     except Exception as exc:

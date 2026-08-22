@@ -405,5 +405,60 @@ class TestPytestConfigPinSuppressesInjection(unittest.TestCase):
         self.assertNotIn("evil_injected_plugin", proc.stdout + proc.stderr)
 
 
+class TestSymlinkWriteContainment(DownstreamScopeBase):
+    """`path_allowed()` is a string check. A symlinked component would let an
+    in-scope-looking write land outside the repository, where git — and
+    therefore ensure_result_scope() — cannot see it."""
+
+    def setUp(self):
+        super().setUp()
+        self.outside = pathlib.Path(self._tmp.name + "-outside")
+        self.outside.mkdir(exist_ok=True)
+        self.addCleanup(shutil.rmtree, self.outside, True)
+        (self.outside / "victim.txt").write_text("ORIGINAL\n", encoding="utf-8")
+        (self.repo / "scripts" / "ai" / "link").symlink_to(self.outside)
+
+    def test_containment_helper_rejects_symlinked_paths(self):
+        for rel in ["scripts/ai/link", "scripts/ai/link/victim.txt",
+                    "scripts/ai/link/nested/new.txt"]:
+            with self.subTest(rel=rel):
+                self.assertIsNone(dsi.contained_write_path(rel))
+
+    def test_containment_helper_allows_ordinary_in_repo_paths(self):
+        for rel in ["scripts/ai/in_scope.py", "scripts/ai/new_file.py"]:
+            with self.subTest(rel=rel):
+                self.assertIsNotNone(dsi.contained_write_path(rel))
+
+    def test_edit_spec_rejects_writes_through_a_symlink(self):
+        spec = {"edits": [{"op": "create", "path": "scripts/ai/link/victim.txt",
+                           "new_text": "PWNED\n"}]}
+        with self.assertRaises(ValueError) as ctx:
+            dsi.validate_edit_spec(spec, self.task)
+        self.assertIn("symlink", str(ctx.exception).lower())
+
+    def test_apply_refuses_even_if_the_spec_check_were_bypassed(self):
+        ok, err = dsi.apply_structured_edits([
+            {"op": "replace", "path": "scripts/ai/link/victim.txt",
+             "old_text": "ORIGINAL", "new_text": "PWNED"}
+        ])
+        self.assertFalse(ok)
+        self.assertIn("STRUCTURED_EDIT_PATH_ESCAPE", err)
+
+    def test_the_file_outside_the_repository_is_untouched(self):
+        dsi.apply_structured_edits([
+            {"op": "replace", "path": "scripts/ai/link/victim.txt",
+             "old_text": "ORIGINAL", "new_text": "PWNED"}
+        ])
+        self.assertEqual((self.outside / "victim.txt").read_text(encoding="utf-8"),
+                         "ORIGINAL\n")
+
+    def test_legitimate_in_scope_write_still_succeeds(self):
+        ok, err = dsi.apply_structured_edits([
+            {"op": "create", "path": "scripts/ai/new_helper.py", "new_text": "# ok\n"}
+        ])
+        self.assertTrue(ok, err)
+        self.assertTrue((self.repo / "scripts/ai/new_helper.py").is_file())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

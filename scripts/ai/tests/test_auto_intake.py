@@ -1147,8 +1147,8 @@ class TestPythonValidatorTrustBoundary(IntakeTestBase):
     def test_non_executing_modules_may_target_repo_safe_paths(self):
         for cmd in [
             "python3 -m py_compile scripts/ai/auto_intake.py",
+            "python3 -m compileall scripts/ai",
             "ruff check scripts/ai",
-            "flake8 scripts/ai",
         ]:
             with self.subTest(cmd=cmd):
                 self.assertTrue(intake.validate_validation_command(cmd))
@@ -1848,6 +1848,167 @@ class TestPytestConfigPinning(IntakeTestBase):
             with self.subTest(config=config):
                 self.assertTrue((repo_root / config).is_file(),
                                 f"{config} must exist to be pinnable")
+
+
+# --- adversarial audit batch: config-plugin runners + package __init__ -------
+
+
+class TestConfigPluginRunnersRejected(IntakeTestBase):
+    """mypy loads Python plugins named by a task-writable config
+    (`[mypy] plugins = evil.py`) and has no single-config pin like pytest's
+    `-c`. flake8 likewise reads task-writable config. Neither is allowlisted."""
+
+    def test_mypy_rejected_everywhere(self):
+        for cmd in [
+            "mypy scripts/ai",
+            "mypy scripts/ai/auto_intake.py",
+            "python3 -m mypy scripts/ai",
+            "python -m mypy scripts/ai/auto_intake.py",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+                self.assertFalse(intake.validate_validation_command(
+                    cmd, ["cloudflare-worker/src/**"], []))
+
+    def test_flake8_rejected_everywhere(self):
+        for cmd in ["flake8 scripts/ai", "python3 -m flake8 scripts/ai"]:
+            with self.subTest(cmd=cmd):
+                self.assertFalse(intake.validate_validation_command(cmd))
+
+    def test_plugin_loading_runners_absent_from_allowlists(self):
+        for name in ("mypy", "flake8"):
+            with self.subTest(name=name):
+                self.assertNotIn(name, intake.SAFE_VALIDATION_COMMANDS)
+                self.assertNotIn(name, intake.SAFE_PYTHON_MODULES)
+                self.assertNotIn(name, intake.NON_EXECUTING_PYTHON_MODULES)
+
+    def test_ruff_and_py_compile_preserved(self):
+        for cmd in [
+            "ruff check scripts/ai",
+            "python3 -m py_compile scripts/ai/auto_intake.py",
+            "python3 -m compileall scripts/ai",
+        ]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(intake.validate_validation_command(
+                    cmd, ["scripts/ai/**"], []))
+
+    def test_mypy_task_rejected_end_to_end(self):
+        task = make_task(
+            task_id="MYPY-PLUGIN",
+            allowed_paths=["cloudflare-worker/src/**"],
+            validation_commands=["mypy scripts/ai"],
+        )
+        with self.assertRaises(intake.TaskError):
+            intake.validate_task(task, 1, head_resolver=head_ok)
+
+
+class TestPackageInitInClosure(IntakeTestBase):
+    """A package __init__.py is imported and EXECUTED before the target module
+    by unittest, and by pytest whenever rootdir makes the target a package."""
+
+    INIT_CHAIN = [
+        "__init__.py",
+        "scripts/__init__.py",
+        "scripts/ai/__init__.py",
+        "scripts/ai/tests/__init__.py",
+    ]
+
+    def setUp(self):
+        super().setUp()
+        self.validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        self.config = sorted(intake.TRUSTED_VALIDATOR_CONFIGS)[0]
+
+    def test_init_chain_is_declared_in_the_closure(self):
+        closure = intake.validator_closure(self.validator)
+        for module in self.INIT_CHAIN:
+            with self.subTest(module=module):
+                self.assertIn(module, closure)
+
+    def test_task_writable_init_blocks_pytest_validator(self):
+        cmd = f"pytest -c {self.config} {self.validator}"
+        for module in self.INIT_CHAIN:
+            with self.subTest(writable=module):
+                self.assertFalse(intake.validate_validation_command(cmd, [module], []))
+
+    def test_task_writable_init_blocks_unittest_validator(self):
+        cmd = f"python3 -m unittest {self.validator}"
+        for module in self.INIT_CHAIN:
+            with self.subTest(writable=module):
+                self.assertFalse(intake.validate_validation_command(cmd, [module], []))
+
+    def test_validators_still_accepted_with_unrelated_scope(self):
+        for cmd in [f"pytest -c {self.config} {self.validator}",
+                    f"python3 -m unittest {self.validator}"]:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(intake.validate_validation_command(
+                    cmd, ["cloudflare-worker/src/**"], []))
+
+
+# --- ultrareview bug_001: forbidden/allowed glob symmetry -------------------
+
+
+class TestForbiddenGlobSymmetry(IntakeTestBase):
+    """`dir/**` must mean the same thing in forbidden_paths as in allowed_paths.
+    Without symmetry the forbidden entry is compared literally, never matches,
+    and the documented carve-out silently fails open."""
+
+    TARGET = "scripts/ai/tests/test_auto_intake.py"
+
+    def test_forbidden_glob_actually_forbids(self):
+        for forbidden in ["scripts/ai/tests/**", "scripts/ai/**", "scripts/**"]:
+            with self.subTest(forbidden=forbidden):
+                self.assertFalse(
+                    intake.path_allowed(self.TARGET, ["scripts/**"], [forbidden]),
+                    f"forbidden entry {forbidden} was silently ignored",
+                )
+
+    def test_glob_and_plain_forms_agree(self):
+        for plain, glob in [("scripts/ai/tests", "scripts/ai/tests/**"),
+                            ("scripts/ai", "scripts/ai/**"),
+                            ("scripts", "scripts/**")]:
+            with self.subTest(plain=plain):
+                self.assertEqual(
+                    intake.path_allowed(self.TARGET, ["scripts/**"], [plain]),
+                    intake.path_allowed(self.TARGET, ["scripts/**"], [glob]),
+                )
+
+    def test_forbidden_glob_matches_the_directory_itself(self):
+        self.assertFalse(intake.path_allowed(
+            "scripts/ai/tests", ["scripts/**"], ["scripts/ai/tests/**"]))
+
+    def test_unrelated_forbidden_glob_does_not_over_match(self):
+        self.assertTrue(intake.path_allowed(
+            self.TARGET, ["scripts/**"], ["cloudflare-worker/**"]))
+        self.assertTrue(intake.path_allowed(
+            self.TARGET, ["scripts/**"], ["scripts/ai/testsuite/**"]))
+
+    def test_documented_closure_carve_out_works_with_globs(self):
+        """AUTO_INTAKE_V1.md: a broad scope may be re-enabled by carving the
+        validator closure out via forbidden_paths."""
+        validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        config = sorted(intake.TRUSTED_VALIDATOR_CONFIGS)[0]
+        cmd = f"pytest -c {config} {validator}"
+        self.assertFalse(intake.validate_validation_command(cmd, ["scripts/**"], []))
+        self.assertTrue(intake.validate_validation_command(
+            cmd, ["scripts/**"], ["scripts/**"]))
+
+    def test_implementer_helper_agrees_with_intake(self):
+        """Both copies of path_allowed() must behave identically."""
+        if DOWNSTREAM is None:
+            self.skipTest("deepseek_implementer.py not present")
+        cases = [
+            (self.TARGET, ["scripts/**"], ["scripts/ai/tests/**"]),
+            (self.TARGET, ["scripts/**"], ["scripts/ai/tests"]),
+            (self.TARGET, ["scripts/**"], []),
+            ("scripts/ai/tests", ["scripts/**"], ["scripts/ai/tests/**"]),
+            ("cloudflare-worker/src/a.js", ["cloudflare-worker/**"], ["cloudflare-worker/src/**"]),
+        ]
+        for path, allowed, forbidden in cases:
+            with self.subTest(path=path, forbidden=forbidden):
+                self.assertEqual(
+                    intake.path_allowed(path, allowed, forbidden),
+                    DOWNSTREAM.path_allowed(path, allowed, forbidden),
+                )
 
 
 if __name__ == "__main__":

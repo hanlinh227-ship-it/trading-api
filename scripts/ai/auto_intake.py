@@ -77,8 +77,13 @@ SECRET_PATTERNS = (
 SAFE_VALIDATION_GRAMMAR = re.compile(
     r"^[A-Za-z0-9_./-]+(?:\s+[A-Za-z0-9_./=-]+)*$"
 )
+# `mypy` is deliberately absent: `[mypy] plugins = evil.py` in a task-writable
+# mypy.ini/setup.cfg/pyproject.toml executes task-authored Python, and mypy has
+# no equivalent of pytest's `-c` single-config pin. `flake8` is absent for the
+# same reason (task-writable setup.cfg/tox.ini/.flake8). `ruff` stays: it is
+# native code with no Python plugin loading.
 SAFE_VALIDATION_COMMANDS = {
-    "python", "python3", "pytest", "ruff", "flake8", "mypy",
+    "python", "python3", "pytest", "ruff",
     "git", "echo", "true", "false",
 }
 SAFE_VALIDATION_GIT_SUBCOMMANDS = {
@@ -90,7 +95,7 @@ SAFE_VALIDATION_GIT_SUBCOMMANDS = {
 EXECUTING_PYTHON_MODULES = {"pytest", "unittest"}
 # Modules that only compile/parse/inspect. Their path arguments are data.
 NON_EXECUTING_PYTHON_MODULES = {
-    "py_compile", "compileall", "json.tool", "mypy", "ruff", "flake8",
+    "py_compile", "compileall", "json.tool", "ruff",
 }
 SAFE_PYTHON_MODULES = EXECUTING_PYTHON_MODULES | NON_EXECUTING_PYTHON_MODULES
 # Commands whose path arguments are executed as code.
@@ -115,6 +120,13 @@ VALIDATOR_DEPENDENCIES: dict[str, tuple[str, ...]] = {
         "scripts/conftest.py",
         "scripts/ai/conftest.py",
         "scripts/ai/tests/conftest.py",
+        # Package __init__ chain: imported (and executed) before the target
+        # module by unittest, and by pytest whenever rootdir makes the target
+        # part of a package.
+        "__init__.py",
+        "scripts/__init__.py",
+        "scripts/ai/__init__.py",
+        "scripts/ai/tests/__init__.py",
         # Every implicit pytest configuration source. `-c` suppresses these,
         # but they stay in the closure so the boundary does not depend on
         # pytest's config-precedence rules staying the same.
@@ -375,7 +387,15 @@ def path_allowed(path: str, allowed: list, forbidden: list) -> bool:
         item = normalize_path(str(raw))
         if not item:
             continue
-        if path == item or path.startswith(item.rstrip("/") + "/"):
+        # `dir/**` must mean the same thing here as it does in the allowed
+        # branch below. Without this, the suffix is compared literally
+        # (`startswith("dir/**/")`), never matches, and the forbidden entry
+        # silently becomes a no-op.
+        if item.endswith("/**"):
+            prefix = item[:-3].rstrip("/")
+            if path == prefix or path.startswith(prefix + "/"):
+                return False
+        elif path == item or path.startswith(item.rstrip("/") + "/"):
             return False
     for raw in allowed:
         item = normalize_path(str(raw))
