@@ -70,7 +70,6 @@ jobs:
               try:
                   task=json.loads(body.strip())
               except Exception:
-                  # Compatibility path for older manually-authored [AI-TASK] issues.
                   def field(name, default=''):
                       mm=re.search(rf'(?mi)^\s*{re.escape(name)}\s*:\s*(.+?)\s*$', body)
                       return mm.group(1).strip() if mm else default
@@ -112,10 +111,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .ai-runtime-task.json
-          git diff --quiet && { echo 'No implementation diff'; exit 13; } || true
-          git diff --check
-          git diff --stat
+          git diff --quiet -- . ':!.ai-runtime-task.json' && { echo 'No implementation diff'; exit 13; } || true
+          git diff --check -- . ':!.ai-runtime-task.json'
+          git diff --stat -- . ':!.ai-runtime-task.json'
 
       - name: Push implementation branch
         id: push
@@ -124,6 +122,7 @@ jobs:
           set -euo pipefail
           TASK_ID="$(python3 -c 'import json; print(json.load(open(".ai-runtime-task.json"))["task_id"])')"
           BRANCH="ai/deepseek-$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')-${GITHUB_RUN_ID}"
+          rm -f .ai-runtime-task.json
           git config user.name 'DeepSeek Cloud Implementer'
           git config user.email 'actions@users.noreply.github.com'
           git checkout -b "$BRANCH"
