@@ -63,7 +63,7 @@ jobs:
           python3 - <<'PY'
           import json, os, pathlib, re, subprocess
           body=os.environ.get('ISSUE_BODY','')
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',body,re.S)
+          m=re.search(r'AI_TASK_JSON_BEGIN\s*(?:```(?:json)?\s*)?(\{.*?\})(?:\s*```)?\s*AI_TASK_JSON_END',body,re.S|re.I)
           if not m: raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
           task=json.loads(m.group(1))
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
@@ -103,7 +103,7 @@ jobs:
           set -euo pipefail
           TASK_ID="$(python3 - <<'PY'
           import json,re,os
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S)
+          m=re.search(r'AI_TASK_JSON_BEGIN\s*(?:```(?:json)?\s*)?(\{.*?\})(?:\s*```)?\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S|re.I)
           print(json.loads(m.group(1))['task_id'])
           PY
           )"
