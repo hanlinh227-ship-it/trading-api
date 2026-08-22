@@ -11,11 +11,16 @@ for(const f of required)if(!fs.existsSync(path.join(root,f)))errors.push(`REQUIR
 const index=fs.readFileSync(path.join(root,'index.js'),'utf8');
 const hub=fs.readFileSync(path.join(root,'hub-v11.js'),'utf8');
 const hunter=fs.readFileSync(path.join(root,'v11/manual-market-hunter.js'),'utf8');
+const native=fs.readFileSync(path.join(root,'v11/native-runtime.js'),'utf8');
+const store=fs.readFileSync(path.join(root,'v11/store.js'),'utf8');
 if(!index.includes('hub-v11.js'))errors.push('SOURCE_OF_TRUTH index.js must import hub-v11.js');
 if(!index.includes('const VERSION="V11"'))errors.push('SOURCE_OF_TRUTH index.js must expose VERSION V11');
 if(!index.includes('signalOnlySourceOfTruth:"V11"'))errors.push('SOURCE_OF_TRUTH status must expose V11');
 if(!hub.includes('scheduledNativeV11'))errors.push('V11 scheduler missing');
 if(!hunter.includes('env.AI_BRIDGE.fetch'))errors.push('V11 AI hunter must use AI_BRIDGE VPC binding');
 if(hunter.includes('V11_AI_BRIDGE_URL'))errors.push('Legacy public AI bridge URL is forbidden');
+if(!native.includes('PROVIDER_FAILURE'))errors.push('V11 native runtime must record provider/data failures distinctly');
+if(!store.includes('v11:watch'))errors.push('V11 store must maintain dedicated WATCH list');
+if(!hub.includes('getV11Watch'))errors.push('V11 hub must use dedicated WATCH list');
 if(errors.length){console.error(`Worker V11 preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
 console.log('Worker V11 preflight PASS: V11 source-of-truth, native scheduler and VPC AI bridge locked.');
