@@ -367,6 +367,10 @@ def ensure_result_scope(task: dict) -> list[str]:
     if diff.returncode != 0:
         fail(diff.stderr.strip() or "cannot inspect resulting diff")
     resulting = [normalize_path(x) for x in diff.stdout.splitlines() if x.strip()]
+    untracked = run_git("ls-files", "--others", "--exclude-standard")
+    if untracked.returncode != 0:
+        fail(untracked.stderr.strip() or "cannot inspect untracked files")
+    resulting.extend(normalize_path(x) for x in untracked.stdout.splitlines() if x.strip())
     bad = [p for p in resulting if not path_allowed(p, task["allowed_paths"], task["forbidden_paths"])]
     if bad:
         fail("resulting workspace touched paths outside scope: " + ", ".join(bad))
