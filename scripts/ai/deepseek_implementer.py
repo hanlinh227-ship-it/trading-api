@@ -342,6 +342,7 @@ def call_deepseek(task: dict, context: str, feedback: str, round_no: int) -> str
         "temperature": 0.1,
         "stream": False,
         "max_tokens": task["max_output_tokens"],
+        "response_format": {"type": "json_object"},
     }).encode("utf-8")
     req = urllib.request.Request(
         API_URL, data=body,
