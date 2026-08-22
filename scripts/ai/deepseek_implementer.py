@@ -21,7 +21,12 @@ import sys
 import urllib.error
 import urllib.request
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+# The control plane may be executed from an immutable main-pinned copy while
+# operating on an untrusted PR worktree. AI_REPO_ROOT names the repository to
+# act on; the executable itself always comes from wherever this file lives.
+ROOT = pathlib.Path(
+    os.environ.get("AI_REPO_ROOT") or pathlib.Path(__file__).resolve().parents[2]
+).resolve()
 API_URL = os.environ.get("DEEPSEEK_API_URL", "https://api.deepseek.com/chat/completions")
 MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 
@@ -65,10 +70,37 @@ def fail(message: str) -> None:
     raise SystemExit(2)
 
 
-def run_shell(command: str, timeout: int = 180) -> subprocess.CompletedProcess[str]:
+# Validation commands execute code. They run with NO credentials in the
+# environment, so even a validator that somehow escapes the intake allowlist
+# cannot reach the DeepSeek API, the GitHub API, or any other secret-bearing
+# service with workflow privileges.
+CREDENTIAL_ENV_EXACT = {
+    "DEEPSEEK_API_KEY", "GITHUB_TOKEN", "GH_TOKEN", "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY", "CLOUDFLARE_API_TOKEN", "CF_API_TOKEN",
+    "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+    "NPM_TOKEN", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    "ACTIONS_ID_TOKEN_REQUEST_URL", "GITHUB_ENV", "GITHUB_OUTPUT",
+    "GITHUB_PATH", "GITHUB_STEP_SUMMARY",
+}
+CREDENTIAL_ENV_PATTERN = re.compile(
+    r"(TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|_KEY$|APIKEY|API_KEY)", re.I
+)
+
+
+def credential_free_env() -> dict[str, str]:
+    """os.environ minus anything that looks like a credential or a runner sink."""
+    return {
+        k: v for k, v in os.environ.items()
+        if k not in CREDENTIAL_ENV_EXACT and not CREDENTIAL_ENV_PATTERN.search(k)
+    }
+
+
+def run_shell(command: str, timeout: int = 180,
+              env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", "-lc", command], cwd=ROOT, text=True,
         capture_output=True, timeout=timeout, check=False,
+        env=env if env is not None else os.environ.copy(),
     )
 
 
@@ -412,8 +444,13 @@ def run_validations(task: dict) -> tuple[bool, str]:
     if not commands:
         return True, "NO_VALIDATION_COMMANDS_DECLARED"
     logs: list[str] = []
+    scrubbed = credential_free_env()
     for cmd in commands:
-        p = run_shell(cmd, timeout=min(int(task.get("validation_timeout_sec", 180)), 300))
+        p = run_shell(
+            cmd,
+            timeout=min(int(task.get("validation_timeout_sec", 180)), 300),
+            env=scrubbed,
+        )
         logs.append(f"$ {cmd}\nexit={p.returncode}\n{(p.stdout + p.stderr)[-9000:]}")
         if p.returncode != 0:
             return False, "\n\n".join(logs)[-18000:]

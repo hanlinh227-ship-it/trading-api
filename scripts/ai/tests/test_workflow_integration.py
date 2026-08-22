@@ -11,8 +11,13 @@ This is a wiring invariant, deliberately checked against a different artifact
 
 from __future__ import annotations
 
+import json
+import os
 import pathlib
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 
 try:
@@ -22,9 +27,22 @@ except ImportError:  # pragma: no cover
 
 WORKFLOW_DIR = pathlib.Path(__file__).resolve().parents[3] / ".github" / "workflows"
 
-IMPLEMENTER_RE = re.compile(r"deepseek_implementer\.py")
-INTAKE_RE = re.compile(r"auto_intake\.py")
+def _invocation(script: str) -> re.Pattern[str]:
+    """Match an actual `python3 <path>/<script>.py` execution.
+
+    A bare filename mention (e.g. a `test -f` existence guard) is NOT an
+    invocation and must not satisfy the boundary invariant.
+    """
+    return re.compile(
+        r"python3(?:[ \t]*\\\n[ \t]*|[ \t]+)+[\"']?[^\s\"']*"
+        + re.escape(script) + r"\.py"
+    )
+
+
+IMPLEMENTER_RE = _invocation("deepseek_implementer")
+INTAKE_RE = _invocation("auto_intake")
 INTAKE_ISSUE_RE = re.compile(r"auto_intake\.py\s+--issue")
+MENTION_IMPLEMENTER_RE = re.compile(r"deepseek_implementer\.py")
 INTAKE_FILE_RE = re.compile(r"auto_intake\.py\s+\\?\s*\n?\s*--validate-task-file")
 INLINE_CONTRACT_RE = re.compile(r"AI_TASK_JSON_BEGIN")
 
@@ -59,9 +77,9 @@ class TestAutoIntakeIsTheEntryBoundary(unittest.TestCase):
         for name, raw in self.unparseable.items():
             with self.subTest(wf=name):
                 self.assertIsNone(
-                    IMPLEMENTER_RE.search(raw),
+                    MENTION_IMPLEMENTER_RE.search(raw),
                     f"{name} cannot be structurally verified and must not "
-                    f"invoke deepseek_implementer.py",
+                    f"reference deepseek_implementer.py at all",
                 )
 
     def test_ai_loop_issue_path_enters_through_auto_intake(self):
@@ -188,7 +206,7 @@ class TestEntryBoundaryWithoutPyYAML(unittest.TestCase):
         checked = 0
         for path in sorted(WORKFLOW_DIR.glob("*.yml")):
             raw = path.read_text(encoding="utf-8")
-            if not IMPLEMENTER_RE.search(raw):
+            if not MENTION_IMPLEMENTER_RE.search(raw):
                 continue
             for job_name, job_text in split_jobs(raw):
                 impl = [m.start() for m in IMPLEMENTER_RE.finditer(job_text)]
@@ -251,6 +269,119 @@ class TestEntryBoundaryWithoutPyYAML(unittest.TestCase):
             raw = (WORKFLOW_DIR / wf).read_text(encoding="utf-8")
             with self.subTest(wf=wf):
                 self.assertIsNotNone(INTAKE_ISSUE_RE.search(raw))
+
+
+class TestTaskFileReachesPythonConsumer(unittest.TestCase):
+    """BLOCKER 1: a shell-local TASK_FILE is invisible to `os.environ`."""
+
+    CONSUMER_RE = re.compile(r"""TASK_ID="\$\(python3 -c '([^']+)'([^)]*)\)""")
+
+    def _consumers(self):
+        for path in sorted(WORKFLOW_DIR.glob("*.yml")):
+            raw = path.read_text(encoding="utf-8")
+            for m in self.CONSUMER_RE.finditer(raw):
+                yield path.name, m.group(1), m.group(2)
+
+    def test_no_consumer_reads_task_file_from_os_environ(self):
+        found = 0
+        for wf, code, _tail in self._consumers():
+            found += 1
+            with self.subTest(wf=wf):
+                self.assertNotIn(
+                    'os.environ["TASK_FILE"]', code,
+                    f"{wf}: TASK_FILE is shell-local; os.environ would KeyError",
+                )
+        self.assertGreater(found, 0, "no task-file consumer found to check")
+
+    def test_every_consumer_receives_the_path_as_an_argument(self):
+        for wf, code, tail in self._consumers():
+            with self.subTest(wf=wf):
+                self.assertIn("sys.argv[1]", code)
+                self.assertIn('"$TASK_FILE"', tail,
+                              f"{wf}: consumer does not pass $TASK_FILE as argv")
+
+    def test_consumer_snippet_actually_works(self):
+        """Execute the real snippet the way the workflow does."""
+        consumers = list(self._consumers())
+        self.assertTrue(consumers)
+        with tempfile.TemporaryDirectory() as tmp:
+            task = pathlib.Path(tmp) / "task.json"
+            task.write_text(json.dumps({"task_id": "ARGV-OK"}), encoding="utf-8")
+            for wf, code, _tail in consumers:
+                with self.subTest(wf=wf):
+                    proc = subprocess.run(
+                        [sys.executable, "-c", code, str(task)],
+                        text=True, capture_output=True, check=False,
+                    )
+                    self.assertEqual(proc.returncode, 0, proc.stderr)
+                    self.assertEqual(proc.stdout.strip(), "ARGV-OK")
+
+    def test_env_style_snippet_would_have_failed(self):
+        """Proves the old form was genuinely broken, not a style nit."""
+        broken = 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])'
+        env = {k: v for k, v in os.environ.items() if k != "TASK_FILE"}
+        proc = subprocess.run(
+            [sys.executable, "-c", broken], text=True, capture_output=True,
+            check=False, env=env,
+        )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("KeyError", proc.stderr)
+
+
+class TestRepairUsesImmutableControlPlane(unittest.TestCase):
+    """BLOCKER 2: the PR worktree must not supply the control-plane executable."""
+
+    def _monitor_text(self) -> str:
+        raw = (WORKFLOW_DIR / "ai-loop.yml").read_text(encoding="utf-8")
+        jobs = dict(split_jobs(raw))
+        self.assertIn("monitor", jobs)
+        return jobs["monitor"]
+
+    def test_control_plane_is_pinned_from_origin_main(self):
+        monitor = self._monitor_text()
+        self.assertIn("git archive", monitor)
+        self.assertIn("origin/main", monitor)
+        self.assertIn("ai-control-plane", monitor)
+
+    def test_repair_checks_out_pr_then_runs_pinned_executables(self):
+        monitor = self._monitor_text()
+        checkout = monitor.index('git checkout -B "$BRANCH"')
+        for script in ("auto_intake", "deepseek_implementer"):
+            with self.subTest(script=script):
+                match = _invocation(script).search(monitor, checkout)
+                self.assertIsNotNone(
+                    match, f"no {script} invocation after the PR checkout")
+                invoked = monitor[match.start():match.end()]
+                self.assertIn(
+                    "$CONTROL_PLANE", invoked,
+                    f"{script} is executed from the untrusted PR worktree",
+                )
+
+    def test_no_worktree_relative_control_plane_invocation_after_checkout(self):
+        monitor = self._monitor_text()
+        checkout = monitor.index('git checkout -B "$BRANCH"')
+        after = monitor[checkout:]
+        for script in ("auto_intake", "deepseek_implementer"):
+            for m in _invocation(script).finditer(after):
+                with self.subTest(script=script, call=m.group(0)[:60]):
+                    self.assertNotIn(
+                        "python3 scripts/ai/", m.group(0),
+                        "repair must never run scripts/ai/* from the PR checkout",
+                    )
+
+    def test_pinned_executable_operates_on_the_workspace(self):
+        monitor = self._monitor_text()
+        for script in ("auto_intake", "deepseek_implementer"):
+            m = _invocation(script).search(monitor, monitor.index("git checkout -B"))
+            with self.subTest(script=script):
+                prefix = monitor[max(0, m.start() - 120):m.start()]
+                self.assertIn("AI_REPO_ROOT", prefix + m.group(0))
+
+    def test_control_plane_is_write_protected_and_cleaned_up(self):
+        monitor = self._monitor_text()
+        self.assertIn("chmod -R a-w", monitor)
+        raw = (WORKFLOW_DIR / "ai-loop.yml").read_text(encoding="utf-8")
+        self.assertIn("rm -rf \"${RUNNER_TEMP:-/tmp}/ai-control-plane\"", raw)
 
 
 if __name__ == "__main__":

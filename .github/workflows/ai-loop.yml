@@ -62,7 +62,9 @@ jobs:
           )"
           test -f "$TASK_FILE" || { echo "AUTO_INTAKE_TASK_FILE_MISSING: $TASK_FILE"; exit 2; }
           echo "task_file=$TASK_FILE" >> "$GITHUB_OUTPUT"
-          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
+          # argv, not env: TASK_FILE is shell-local here and would not be
+          # visible to the child process via os.environ.
+          TASK_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task_id"])' "$TASK_FILE")"
           echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
 
       - name: Reject duplicate implementation PR
@@ -71,7 +73,9 @@ jobs:
           TASK_FILE: ${{ steps.intake.outputs.task_file }}
         run: |
           set -euo pipefail
-          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
+          # argv, not env: TASK_FILE is shell-local here and would not be
+          # visible to the child process via os.environ.
+          TASK_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task_id"])' "$TASK_FILE")"
           EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
           test -z "$EXISTING" || { echo "DUPLICATE_IMPLEMENTATION_PR: task $TASK_ID already has PR #$EXISTING"; exit 4; }
 
@@ -245,11 +249,38 @@ jobs:
               pathlib.Path(f'.ai-feedback-{n}.txt').write_text('\n\n'.join(feedback)[-40000:])
           PY
 
-      - name: Repair only after both required reviews are available
+      - name: Pin immutable control plane from origin/main
+        id: control_plane
         shell: bash
         run: |
           set -euo pipefail
+          # The repair loop checks out an untrusted PR worktree. The orchestration
+          # and security-boundary executables must NOT come from that worktree,
+          # or a PR could replace them and run its own code with GH_TOKEN and
+          # DEEPSEEK_API_KEY present. Pin them from origin/main instead.
+          CONTROL_PLANE="${RUNNER_TEMP:-/tmp}/ai-control-plane"
+          rm -rf "$CONTROL_PLANE"
+          mkdir -p "$CONTROL_PLANE"
+          git fetch --no-tags --quiet origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          git archive "$MAIN_SHA" scripts/ai | tar -x -C "$CONTROL_PLANE"
+          test -f "$CONTROL_PLANE/scripts/ai/auto_intake.py"
+          test -f "$CONTROL_PLANE/scripts/ai/deepseek_implementer.py"
+          chmod -R a-w "$CONTROL_PLANE/scripts"
+          echo "dir=$CONTROL_PLANE" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+          echo "Control plane pinned at origin/main $MAIN_SHA"
+
+      - name: Repair only after both required reviews are available
+        shell: bash
+        env:
+          CONTROL_PLANE: ${{ steps.control_plane.outputs.dir }}
+          CONTROL_PLANE_SHA: ${{ steps.control_plane.outputs.main_sha }}
+        run: |
+          set -euo pipefail
           shopt -s nullglob
+          test -n "${CONTROL_PLANE:-}" || { echo 'CONTROL_PLANE_UNRESOLVED'; exit 2; }
+          test -f "$CONTROL_PLANE/scripts/ai/auto_intake.py" || { echo 'CONTROL_PLANE_MISSING'; exit 2; }
           for FEEDBACK in .ai-feedback-*.txt; do
             PR="${FEEDBACK#.ai-feedback-}"; PR="${PR%.txt}"
             PR_JSON="$(gh pr view "$PR" --json headRefName,headRefOid,body)"
@@ -277,8 +308,13 @@ jobs:
             # Same AUTO-INTAKE boundary on the repair path: the rebuilt task is
             # re-validated (scope, context_files, validators, secrets, numerics,
             # head binding) before DeepSeek is allowed to run again.
-            python3 scripts/ai/auto_intake.py --validate-task-file .ai-runtime-task.json --expect-head "$HEAD_SHA"
-            python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
+            # Executable comes from the main-pinned control plane; only the
+            # repository it OPERATES ON is the untrusted PR worktree.
+            AI_REPO_ROOT="$GITHUB_WORKSPACE" python3 \
+              "$CONTROL_PLANE/scripts/ai/auto_intake.py" \
+              --validate-task-file .ai-runtime-task.json --expect-head "$HEAD_SHA"
+            AI_REPO_ROOT="$GITHUB_WORKSPACE" python3 \
+              "$CONTROL_PLANE/scripts/ai/deepseek_implementer.py" .ai-runtime-task.json
             rm -f .ai-runtime-task.json "$FEEDBACK"
             git add -A
             git commit -m "AI loop: DeepSeek address dual review round $((ROUND+1))"
@@ -296,4 +332,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -f .ai-loop-prs.json .ai-feedback-*.txt .ai-runtime-task.json
+        run: |
+          rm -f .ai-loop-prs.json .ai-feedback-*.txt .ai-runtime-task.json
+          chmod -R u+w "${RUNNER_TEMP:-/tmp}/ai-control-plane" 2>/dev/null || true
+          rm -rf "${RUNNER_TEMP:-/tmp}/ai-control-plane" || true

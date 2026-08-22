@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
+          TASK_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task_id"])' "$TASK_FILE")"
           SAFE_TASK="$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')"
           # Do not create a second implementation PR for the same task id.
           EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"

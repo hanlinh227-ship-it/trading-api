@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import re
 import sys
 import tempfile
 import unittest
@@ -1341,6 +1342,100 @@ class TestTransportFailureContainment(IntakeTestBase):
         self.assertEqual(summary["total"], 5)
         self.assertEqual(summary["failed"], 2)
         self.assertEqual(summary["processed"], 3)
+
+
+# --- CODEX BLOCKER 3: immutable validator dependency closure ----------------
+
+
+class TestValidatorDependencyClosure(IntakeTestBase):
+    """Allowlisting the validator FILE is not enough: everything it imports must
+    also be outside the task's writable scope."""
+
+    def setUp(self):
+        super().setUp()
+        self.validator = sorted(intake.TRUSTED_PYTHON_VALIDATORS)[0]
+        self.cmd = f"python3 -m pytest {self.validator}"
+
+    def test_closure_is_declared_for_every_trusted_validator(self):
+        for validator in intake.TRUSTED_PYTHON_VALIDATORS:
+            with self.subTest(validator=validator):
+                closure = intake.validator_closure(validator)
+                self.assertIn(validator, closure)
+                self.assertGreaterEqual(len(closure), 1)
+
+    def test_writing_any_dependency_blocks_execution(self):
+        """The dependency attack: task writes an imported module, not the test."""
+        for dependency in intake.validator_closure(self.validator):
+            with self.subTest(dependency=dependency):
+                self.assertFalse(
+                    intake.validate_validation_command(self.cmd, [dependency], []),
+                    f"task writable at {dependency} must not execute the validator",
+                )
+
+    def test_writing_a_parent_scope_of_a_dependency_blocks_execution(self):
+        for scope in [["scripts/ai/**"], ["scripts/**"], ["scripts/ai/tests/**"]]:
+            with self.subTest(scope=scope):
+                self.assertFalse(intake.validate_validation_command(self.cmd, scope, []))
+
+    def test_unrelated_scope_still_permits_the_validator(self):
+        self.assertTrue(intake.validate_validation_command(
+            self.cmd, ["cloudflare-worker/src/**"], []
+        ))
+
+    def test_forbidden_paths_can_re_enable_a_broad_scope(self):
+        """Explicitly carving the closure out of a broad scope is sufficient."""
+        allowed = ["scripts/ai/**"]
+        forbidden = list(intake.validator_closure(self.validator))
+        self.assertTrue(intake.validate_validation_command(self.cmd, allowed, forbidden))
+
+    def test_dependency_attack_rejected_end_to_end(self):
+        task = make_task(
+            task_id="DEP-ATTACK",
+            allowed_paths=["scripts/ai/auto_intake.py"],
+            validation_commands=[self.cmd],
+        )
+        with self.assertRaises(intake.TaskError):
+            intake.validate_task(task, 1, head_resolver=head_ok)
+
+        issue = make_issue(700, task=task)
+        summary = intake.run_intake([issue], seen={}, head_resolver=head_ok)
+        self.assertEqual(summary["failed"], 1)
+        self.assertFalse((intake.ROOT / ".ai-intake" / "tasks" / "DEP-ATTACK.json").exists())
+
+    def test_declared_closure_matches_what_the_validator_actually_loads(self):
+        """Drift guard: a new import must be added to VALIDATOR_DEPENDENCIES."""
+        repo_root = MODULE_PATH.parent.parent.parent
+        for validator, closure in intake.VALIDATOR_DEPENDENCIES.items():
+            source_path = repo_root / validator
+            if not source_path.is_file():
+                continue
+            # Only code lines that BUILD a module path from a parent directory
+            # count as loading; a quoted path inside a fixture or comment does
+            # not. Comments are stripped so this guard cannot match itself.
+            loaded = set()
+            for line in source_path.read_text(encoding="utf-8").splitlines():
+                code = line.split("#", 1)[0]
+                if not re.search(r"\bparents?\b", code):
+                    continue
+                loaded.update(re.findall(r'["\']([A-Za-z0-9_]+\.py)["\']', code))
+            for module in loaded:
+                candidates = [c for c in closure if c.endswith("/" + module)]
+                with self.subTest(validator=validator, module=module):
+                    self.assertTrue(
+                        candidates,
+                        f"{validator} loads {module} but it is not declared in "
+                        f"VALIDATOR_DEPENDENCIES",
+                    )
+
+    def test_undeclared_validator_falls_back_to_itself_only(self):
+        self.assertEqual(
+            intake.validator_closure("scripts/ai/tests/test_unknown.py"),
+            ("scripts/ai/tests/test_unknown.py",),
+        )
+        self.assertFalse(intake.validate_validation_command(
+            "python3 -m pytest scripts/ai/tests/test_unknown.py",
+            ["cloudflare-worker/src/**"], [],
+        ))
 
 
 if __name__ == "__main__":

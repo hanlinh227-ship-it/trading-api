@@ -21,7 +21,25 @@ AUTO-INTAKE is wired into the actual pipeline, not parallel to it. No workflow p
 | Bounded repair round | `ai-loop.yml` / `monitor` | `auto_intake.py --validate-task-file … --expect-head <PR head>` |
 | Manual dispatch | `ai-task.yml` / `implement` | `auto_intake.py --validate-task-file … --expect-head <HEAD>` |
 
-`deepseek_implementer.py` consumes only the AUTO-INTAKE-produced task file, and `task_id` is read from that validated file rather than re-parsed from untrusted issue text. `--validate-task-file` re-applies the identical `validate_task()` boundary to a task rebuilt against a PR head, so the repair and manual paths share one validator rather than a second, weaker parser.
+`deepseek_implementer.py` consumes only the AUTO-INTAKE-produced task file, and `task_id` is read from that validated file rather than re-parsed from untrusted issue text. Every consumer receives the task-file path as an **argv argument**, never through `os.environ` — a shell-local variable is not visible to a child process, and reading one that way would `KeyError` at runtime.
+
+### Immutable control plane on the repair path
+
+The `monitor` repair job checks out an untrusted PR branch while `GH_TOKEN` and `DEEPSEEK_API_KEY` are in scope. It must therefore never take its orchestration executables from that worktree. Before the repair loop it pins them:
+
+```
+git archive <origin/main sha> scripts/ai | tar -x -C "$RUNNER_TEMP/ai-control-plane"
+chmod -R a-w "$RUNNER_TEMP/ai-control-plane/scripts"
+```
+
+and then invokes the pinned copies against the PR worktree:
+
+```
+AI_REPO_ROOT="$GITHUB_WORKSPACE" python3 "$CONTROL_PLANE/scripts/ai/auto_intake.py" ...
+AI_REPO_ROOT="$GITHUB_WORKSPACE" python3 "$CONTROL_PLANE/scripts/ai/deepseek_implementer.py" ...
+```
+
+`AI_REPO_ROOT` redirects the repository a control-plane script **operates on**; the executable itself always comes from wherever the file lives. A PR may therefore contain implementation files, but it can never supply the control-plane executable. `test_workflow_integration.py` asserts that no `scripts/ai/*` invocation occurs from the PR checkout after `git checkout -B`, and `test_downstream_scope.py` proves it behaviourally: a tampered worktree copy of `auto_intake.py` is demonstrably modified, yet the pinned copy still runs the trusted code and still rejects. `--validate-task-file` re-applies the identical `validate_task()` boundary to a task rebuilt against a PR head, so the repair and manual paths share one validator rather than a second, weaker parser.
 
 The non-bypass property is enforced by test, repository-wide: `test_workflow_integration.py` asserts that **every** `deepseek_implementer.py` invocation in **every** workflow is preceded by an `auto_intake.py` boundary step in the same job, and that no entry job parses `AI_TASK_JSON_BEGIN` inline. Workflows that cannot be structurally parsed must not invoke the implementer at all.
 
@@ -64,7 +82,9 @@ Issue text is never treated as arbitrary shell. A command is accepted only if **
 - `python`/`python3` may run **only** `-m <module>` from `SAFE_PYTHON_MODULES`. Executing a bare `.py` file is rejected outright — an issue-selected script is never a validator, no matter its extension. `-c` is rejected;
 - every path-like argument must pass the same repository-safety check as `context_files`. For commands that **execute** what they are pointed at (`pytest`, `python -m pytest`, `python -m unittest`) two conditions must both hold:
   1. the target is an **exact** member of the fixed `TRUSTED_PYTHON_VALIDATORS` allowlist. Directory trust does not exist — living under `scripts/ai/tests/` grants nothing, because a task whose `allowed_paths` cover that directory could otherwise drop a new file there and have it executed with workflow credentials;
-  2. the target is **not writable by this task**. If `path_allowed(target, allowed_paths, forbidden_paths)` is true, the command is refused: a validator the task may rewrite is task-authored code, not a trusted validator.
+  2. **no file in the validator's dependency closure** is writable by this task. Allowlisting the entry point alone is insufficient: `test_auto_intake.py` imports `auto_intake.py` and `deepseek_implementer.py`, so a task permitted to write those modules could have its modified copy executed with workflow credentials. `VALIDATOR_DEPENDENCIES` declares the full closure per validator, and the command is refused if `path_allowed()` is true for **any** member. A validator with no declared closure falls back to itself only.
+
+  A broad scope can still be used by explicitly listing the closure in `forbidden_paths`. `TRUSTED_PYTHON_VALIDATORS` is derived from `VALIDATOR_DEPENDENCIES`, so there is one source of truth, and a drift test asserts every module the validator actually loads is declared.
 
   Modules that only compile or parse (`py_compile`, `compileall`, `json.tool`, `mypy`, `ruff`, `flake8`) may target any repo-safe path, since their arguments are data rather than code;
 - no token may be a shell keyword, shell interpreter, network client (`curl`, `wget`, `nc`, `ssh`, `scp`, `rsync`, ...), deploy tool (`wrangler`, `kubectl`, `terraform`, `docker`, `aws`, ...), package manager / arbitrary executor (`pip`, `npm`, `make`, `eval`, `exec`, `source`, `xargs`, `find`, `node`, ...), or a forbidden flag (`-c`, `-e`, `--eval`, `--exec`, `--command`, `-i`).
@@ -167,10 +187,12 @@ Covered safety properties:
 - base_sha bound to authoritative HEAD (historical-but-valid SHA rejected as STALE before any claim; current HEAD accepted; unresolvable/malformed HEAD fails closed)
 - write-before-mark ordering (write -> claim -> audit -> mark)
 - context_files path safety (`/proc/self/environ`, `../../`, `.git/config`, `.env`, `cloudflare-worker/.dev.vars`, symlink escape, missing file, directory)
-- python validator trust boundary (exact-match allowlist only, no directory trust; a task-writable validator is refused even when allowlisted)
+- python validator trust boundary (exact-match allowlist only, no directory trust; a task-writable validator or any task-writable file in its dependency closure is refused; declared closure drift-guarded)
 - receipt claim race (lost race -> duplicate; GET 200 is not ownership; two concurrent runs yield exactly one READY)
 - transport failure containment (receipt SystemExit on issue 1, issue 2 still processes; audit failure does not fail the task)
-- workflow entry boundary (every implementer invocation preceded by AUTO-INTAKE; no inline contract parsing; no auto-merge/deploy in the loop)
+- workflow entry boundary (every implementer invocation preceded by AUTO-INTAKE; no inline contract parsing; task-file path passed as argv and the snippet executed for real; no auto-merge/deploy in the loop)
+- immutable control plane (repair runs main-pinned executables; a tampered PR copy cannot replace them)
+- credential-free validation (secrets absent from the validator environment end-to-end)
 - post-validation out-of-scope mutation detection and validator-artifact containment (behavioural, real git repo)
 - no merge / deploy / PR endpoint is ever called
 - downstream contract with `deepseek_implementer.DANGEROUS_VALIDATION` (no gap, no conflict, no weakening)
@@ -189,6 +211,8 @@ Scope note: `WRITE_LOCK.md` currently has `LOCKED: true`, `OWNER: DEEPSEEK` cove
 
 1. `ensure_result_scope()` previously ran only *before* `run_validations()`, and validation commands execute code — so a validator could mutate files outside `allowed_paths` and never be detected. It is now also called *after* `run_validations()`.
 2. That recheck would have failed spuriously on caches a validator legitimately creates. `is_validator_artifact()` exempts a **fixed** set of deterministic, repository-owned artifacts — `.pytest_cache`, `__pycache__`, `.mypy_cache`, `.ruff_cache`, `.hypothesis` directory segments and `.pyc`/`.pyo` files — and the exemption applies **only** to newly-untracked files. Arbitrary untracked files (including arbitrary dotfiles such as `.envrc` or `.secret_stash`) are still detected, and modifications to **tracked** files are never exempt even if the file has an artifact-like name. The same paths are gitignored so they never enter a PR.
+
+3. Validation commands now execute with a **credential-free environment**. `credential_free_env()` removes known secret variables (`DEEPSEEK_API_KEY`, `GITHUB_TOKEN`, `GH_TOKEN`, cloud and Actions tokens) plus anything matching `TOKEN|SECRET|PASSWORD|CREDENTIAL|_KEY$|API_KEY`, while keeping `PATH`, `HOME` and other benign variables. Even a validator that somehow escaped the intake allowlist cannot reach a secret-bearing service with workflow privileges.
 
 `DANGEROUS_VALIDATION` itself is untouched and the denylist is not weakened.
 

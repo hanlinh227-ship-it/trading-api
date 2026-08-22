@@ -78,7 +78,9 @@ jobs:
           )"
           test -f "$TASK_FILE" || { echo "AUTO_INTAKE_TASK_FILE_MISSING: $TASK_FILE"; exit 2; }
           echo "task_file=$TASK_FILE" >> "$GITHUB_OUTPUT"
-          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
+          # argv, not env: TASK_FILE is shell-local here and would not be
+          # visible to the child process via os.environ.
+          TASK_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["task_id"])' "$TASK_FILE")"
           echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
           EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
           test -z "$EXISTING" || { echo "Open implementation PR already exists for $TASK_ID: #$EXISTING"; exit 14; }

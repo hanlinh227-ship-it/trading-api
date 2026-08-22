@@ -11,6 +11,7 @@ Runs under `python3 -m unittest` and under pytest.
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
 import shutil
 import subprocess
@@ -196,6 +197,143 @@ class TestSecretGuardStillActive(DownstreamScopeBase):
         self.write("scripts/ai/in_scope.py", "KEY = 'sk-abcdefghijklmnopqrstuvwxyz012345'\n")
         with self.assertRaises(SystemExit):
             dsi.ensure_result_scope(self.task, before)
+
+
+class TestControlPlaneImmutability(DownstreamScopeBase):
+    """BLOCKER 2, behavioural: a PR edit of orchestration code must not become
+    the executable used by repair.
+
+    Models the real workflow: origin/main is archived into a pinned directory,
+    the worktree is then switched to a PR branch that rewrites the orchestration
+    scripts, and the pinned copy is invoked with AI_REPO_ROOT pointing at the
+    tampered worktree.
+    """
+
+    MARKER = "PWNED_BY_PR_CHECKOUT"
+
+    def _pin_control_plane(self) -> pathlib.Path:
+        pinned = pathlib.Path(self._tmp.name).parent / (self.repo.name + "-cp")
+        pinned.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, pinned, True)
+        archive = subprocess.run(
+            ["git", "archive", "HEAD", "scripts/ai"],
+            cwd=str(self.repo), capture_output=True, check=False,
+        )
+        self.assertEqual(archive.returncode, 0, archive.stderr)
+        extract = subprocess.run(
+            ["tar", "-x", "-C", str(pinned)], input=archive.stdout, check=False,
+            capture_output=True,
+        )
+        self.assertEqual(extract.returncode, 0, extract.stderr)
+        return pinned
+
+    def setUp(self):
+        super().setUp()
+        # A benign orchestration script tracked on "main".
+        self.write("scripts/ai/orchestrator.py", "print('BENIGN_CONTROL_PLANE')\n")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "orchestration on main")
+
+    def test_pinned_executable_is_unaffected_by_pr_tampering(self):
+        pinned = self._pin_control_plane()
+
+        # The PR checkout rewrites the orchestration script in the worktree.
+        self.write("scripts/ai/orchestrator.py", f"print('{self.MARKER}')\n")
+
+        worktree_run = subprocess.run(
+            [sys.executable, str(self.repo / "scripts/ai/orchestrator.py")],
+            text=True, capture_output=True, check=False,
+        )
+        pinned_run = subprocess.run(
+            [sys.executable, str(pinned / "scripts/ai/orchestrator.py")],
+            text=True, capture_output=True, check=False,
+        )
+
+        # The tampering is real...
+        self.assertIn(self.MARKER, worktree_run.stdout)
+        # ...but the pinned control plane still runs the trusted code.
+        self.assertNotIn(self.MARKER, pinned_run.stdout)
+        self.assertIn("BENIGN_CONTROL_PLANE", pinned_run.stdout)
+
+    def test_pinned_intake_ignores_a_tampered_worktree_copy(self):
+        """A PR that neuters auto_intake.py cannot disable the boundary."""
+        intake_src = (MODULE_PATH.parent / "auto_intake.py").read_text(encoding="utf-8")
+        self.write("scripts/ai/auto_intake.py", intake_src)
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "intake on main")
+        pinned = self._pin_control_plane()
+
+        # PR replaces the boundary with an always-accept stub.
+        self.write(
+            "scripts/ai/auto_intake.py",
+            "import sys\nprint('BOUNDARY_DISABLED')\nsys.exit(0)\n",
+        )
+
+        task = self.repo / "task.json"
+        task.write_text("{}", encoding="utf-8")
+        env = dict(os.environ, AI_REPO_ROOT=str(self.repo))
+        proc = subprocess.run(
+            [sys.executable, str(pinned / "scripts/ai/auto_intake.py"),
+             "--validate-task-file", str(task), "--expect-head", "a" * 40],
+            text=True, capture_output=True, check=False, env=env,
+        )
+
+        self.assertNotIn("BOUNDARY_DISABLED", proc.stdout)
+        self.assertNotEqual(proc.returncode, 0, "pinned boundary must still reject")
+        self.assertIn("AUTO_INTAKE_BLOCK", proc.stderr)
+
+    def test_ai_repo_root_redirects_the_target_not_the_executable(self):
+        env = dict(os.environ, AI_REPO_ROOT=str(self.repo))
+        proc = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.util,os,pathlib,sys;"
+             "spec=importlib.util.spec_from_file_location('m', sys.argv[1]);"
+             "m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m);"
+             "print(m.ROOT)",
+             str(MODULE_PATH.parent / "auto_intake.py")],
+            text=True, capture_output=True, check=False, env=env,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), str(self.repo.resolve()))
+
+
+class TestCredentialFreeValidation(DownstreamScopeBase):
+    """BLOCKER 3, defence in depth: validators run with no credentials."""
+
+    LEAKY = [
+        "DEEPSEEK_API_KEY", "GITHUB_TOKEN", "GH_TOKEN", "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY", "AWS_SECRET_ACCESS_KEY", "ACTIONS_RUNTIME_TOKEN",
+        "SOME_CUSTOM_SECRET", "MY_PRIVATE_KEY", "SERVICE_PASSWORD",
+    ]
+
+    def test_credentials_are_absent_from_the_validation_environment(self):
+        for name in self.LEAKY:
+            os.environ[name] = "leaked-value"
+            self.addCleanup(os.environ.pop, name, None)
+        scrubbed = dsi.credential_free_env()
+        for name in self.LEAKY:
+            with self.subTest(var=name):
+                self.assertNotIn(name, scrubbed)
+
+    def test_benign_environment_is_preserved(self):
+        scrubbed = dsi.credential_free_env()
+        for name in ("PATH", "HOME"):
+            if name in os.environ:
+                with self.subTest(var=name):
+                    self.assertIn(name, scrubbed)
+
+    def test_a_validator_cannot_read_credentials_at_runtime(self):
+        """End-to-end through the real validation runner."""
+        os.environ["DEEPSEEK_API_KEY"] = "sk-must-not-be-visible-000000"
+        self.addCleanup(os.environ.pop, "DEEPSEEK_API_KEY", None)
+        task = dict(
+            self.task,
+            validation_commands=['echo "SEEN:${DEEPSEEK_API_KEY:-ABSENT}"'],
+        )
+        ok, logs = dsi.run_validations(task)
+        self.assertTrue(ok, logs)
+        self.assertIn("SEEN:ABSENT", logs)
+        self.assertNotIn("sk-must-not-be-visible", logs)
 
 
 if __name__ == "__main__":

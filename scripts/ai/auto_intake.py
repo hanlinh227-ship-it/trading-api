@@ -29,7 +29,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+# The control plane may be executed from an immutable main-pinned copy while
+# operating on an untrusted PR worktree. AI_REPO_ROOT names the repository to
+# act on; the executable itself always comes from wherever this file lives.
+ROOT = pathlib.Path(
+    os.environ.get("AI_REPO_ROOT") or pathlib.Path(__file__).resolve().parents[2]
+).resolve()
 
 GITHUB_API = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 REPO = os.environ.get("GITHUB_REPOSITORY", "hanlinh227-ship-it/trading-api")
@@ -91,12 +96,28 @@ SAFE_PYTHON_MODULES = EXECUTING_PYTHON_MODULES | NON_EXECUTING_PYTHON_MODULES
 # Commands whose path arguments are executed as code.
 EXECUTING_HEADS = {"pytest"}
 # The complete, fixed set of repository files a code-EXECUTING validator may be
-# pointed at. Exact paths only: directory trust is not permitted, because a task
-# whose allowed_paths cover a trusted directory could drop a new file there and
-# have it executed with workflow credentials.
-TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset({
-    "scripts/ai/tests/test_auto_intake.py",
-})
+# pointed at, each mapped to its FULL immutable dependency closure. Exact paths
+# only: directory trust is not permitted, because a task whose allowed_paths
+# cover a trusted directory could drop a new file there and have it executed
+# with workflow credentials.
+#
+# The closure matters as much as the entry point: allowlisting a validator that
+# imports a task-writable module would let the task's modified copy of that
+# module execute with workflow credentials. Every file a validator loads must
+# therefore be outside the task's writable scope.
+VALIDATOR_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    "scripts/ai/tests/test_auto_intake.py": (
+        "scripts/ai/tests/test_auto_intake.py",
+        "scripts/ai/auto_intake.py",
+        "scripts/ai/deepseek_implementer.py",
+    ),
+}
+TRUSTED_PYTHON_VALIDATORS: frozenset[str] = frozenset(VALIDATOR_DEPENDENCIES)
+
+
+def validator_closure(item: str) -> tuple[str, ...]:
+    """Every repository file executing `item` will load. Fail-closed default."""
+    return VALIDATOR_DEPENDENCIES.get(item, (item,))
 SHELL_META_CHARS = set(";|&`$<>(){}!*?[]~#\\\"'\n\r\t")
 SHELL_KEYWORDS = {
     "if", "then", "else", "elif", "fi", "for", "while", "do", "done",
@@ -377,9 +398,13 @@ def validate_validation_command(command, allowed: list | None = None,
             if not is_trusted_validator_path(item):
                 return False
             # A validator the task itself may rewrite is task-authored code, not
-            # a trusted validator. Refuse to execute it with workflow creds.
-            if allowed is not None and path_allowed(item, allowed, forbidden or []):
-                return False
+            # a trusted validator. The same is true of anything the validator
+            # IMPORTS, so the whole dependency closure must be outside the
+            # task's writable scope. Refuse to run it with workflow creds.
+            if allowed is not None:
+                for dependency in validator_closure(item):
+                    if path_allowed(dependency, allowed, forbidden or []):
+                        return False
 
     for token in tokens[1:]:
         if token in FORBIDDEN_FLAGS:
