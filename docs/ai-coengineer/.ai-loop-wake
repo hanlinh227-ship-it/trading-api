@@ -1,5 +1,2 @@
-wake=2026-08-22T04:02:30Z
-reason=dispatch-fixed-ai-loop
-status=armed
-issue=102
-base=3641a62000925060f0891b31d5b40904d18b7579
+status=retired
+reason=AI_LOOP_V2_uses_issue_event_plus_manual_workflow_dispatch
