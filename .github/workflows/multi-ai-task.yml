@@ -15,8 +15,6 @@ on:
     branches: [main]
     paths:
       - 'docs/ai-coengineer/AUTO_TASK.json'
-  schedule:
-    - cron: '*/5 * * * *'
 
 permissions:
   contents: write
@@ -58,7 +56,7 @@ jobs:
               p='docs/ai-coengineer/AUTO_TASK.json'
               d=json.load(open(p,encoding='utf-8'))
               if not d.get('enabled',True):
-                  open('/tmp/skip','w').write('disabled'); raise SystemExit(0)
+                  print('AUTO_TASK_DISABLED'); open('/tmp/skip','w').write('disabled'); raise SystemExit(0)
               task=str(d.get('task') or '').strip()
               context=d.get('context')
               if not isinstance(context,str): context=json.dumps(context or {},ensure_ascii=False)
