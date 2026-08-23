@@ -84,9 +84,13 @@ jobs:
         run: |
           set -euo pipefail
           rm -f .ai-runtime-task.json
-          git diff --quiet && { echo 'No implementation diff'; exit 3; } || true
+          STATUS="$(git status --porcelain --untracked-files=all)"
+          test -n "$STATUS" || { echo 'No implementation diff'; exit 3; }
+          # Intent-to-add makes new untracked files visible to diff checks without staging content yet.
+          git add -N -- .
           git diff --check
           git diff --stat
+          echo "$STATUS"
 
       - name: Push implementation branch
         id: push
@@ -145,7 +149,7 @@ jobs:
         shell: bash
         run: |
           if [ -n "${ISSUE_NUMBER:-}" ]; then
-            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Failure classes include STALE_BASE_SHA, WRITE_LOCK_MISMATCH, MISSING_DEEPSEEK_SECRET, DUPLICATE_IMPLEMENTATION_PR, or IMPLEMENTER_VALIDATION_FAILED." || true
+            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Failure classes include STALE_BASE_SHA, WRITE_LOCK_MISMATCH, MISSING_DEEPSEEK_SECRET, DUPLICATE_IMPLEMENTATION_PR, IMPLEMENTER_VALIDATION_FAILED, or NO_SCOPED_DIFF." || true
           fi
 
       - name: Cleanup dispatch temp files
