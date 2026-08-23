@@ -2,8 +2,13 @@ name: AI Closed Loop Dispatch
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited, reopened]
   workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Existing [AI-TASK] issue number to dispatch'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,19 +22,19 @@ env:
 
 # Serialize only writers for the same issue/task. Different task issues run in parallel.
 concurrency:
-  group: ai-task-${{ github.event.issue.number || github.run_id }}
+  group: ai-task-${{ github.event.issue.number || inputs.issue_number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   dispatch:
-    if: github.event_name == 'issues' && startsWith(github.event.issue.title, '[AI-TASK]')
+    if: (github.event_name == 'issues' && startsWith(github.event.issue.title, '[AI-TASK]')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       GH_TOKEN: ${{ github.token }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      ISSUE_NUMBER: ${{ github.event.issue.number }}
-      ISSUE_BODY: ${{ github.event.issue.body }}
+      ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+      ISSUE_BODY: ${{ github.event.issue.body || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +48,9 @@ jobs:
           python3 - <<'PY'
           import json, os, pathlib, re, subprocess
           body=os.environ.get('ISSUE_BODY','')
+          issue=os.environ.get('ISSUE_NUMBER','').strip()
+          if not body and issue:
+              body=subprocess.check_output(['gh','issue','view',issue,'--json','body','--jq','.body'],text=True)
           m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',body,re.S)
           if not m: raise SystemExit('Missing AI_TASK_JSON_BEGIN/END contract')
           task=json.loads(m.group(1))
@@ -98,8 +106,11 @@ jobs:
         run: |
           set -euo pipefail
           TASK_ID="$(python3 - <<'PY'
-          import json,re,os
-          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',os.environ['ISSUE_BODY'],re.S)
+          import json,re,os,subprocess
+          body=os.environ.get('ISSUE_BODY','')
+          if not body:
+              body=subprocess.check_output(['gh','issue','view',os.environ['ISSUE_NUMBER'],'--json','body','--jq','.body'],text=True)
+          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',body,re.S)
           print(json.loads(m.group(1))['task_id'])
           PY
           )"
@@ -149,7 +160,7 @@ jobs:
         shell: bash
         run: |
           if [ -n "${ISSUE_NUMBER:-}" ]; then
-            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Failure classes include STALE_BASE_SHA, WRITE_LOCK_MISMATCH, MISSING_DEEPSEEK_SECRET, DUPLICATE_IMPLEMENTATION_PR, IMPLEMENTER_VALIDATION_FAILED, or NO_SCOPED_DIFF." || true
+            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Failure classes include STALE_BASE_SHA, WRITE_LOCK_MISMATCH, MISSING_DEEPSEEK_SECRET, DUPLICATE_IMPLEMENTATION_PR, IMPLEMENTER_VALIDATION_FAILED, NO_SCOPED_DIFF, or WORKFLOW_PATH_PUSH_PERMISSION." || true
           fi
 
       - name: Cleanup dispatch temp files
