@@ -11,7 +11,7 @@ Safety / validity rules:
 - Only RR 1:1 or 1:2 is allowed.
 - Model selection uses chronological DEV 60% + VALIDATION 20% only.
 - Final OOS 20% is never used to rank candidates.
-- PASS requires >=80% win rate on VALIDATION, OOS and full 4-month window,
+- PASS requires >80% win rate on VALIDATION, OOS and full 4-month window,
   plus minimum sample counts. This intentionally makes trivial 2-3 trade
   overfit configurations unable to pass.
 
@@ -619,9 +619,9 @@ def optimize_symbol(symbol, market, rows, start_ts, end_ts, source, data_error=N
     if full['trades'] < MIN_TOTAL_TRADES: reasons.append('MIN_TOTAL_TRADES')
     if val['trades'] < MIN_VAL_TRADES: reasons.append('MIN_VALIDATION_TRADES')
     if oos['trades'] < MIN_OOS_TRADES: reasons.append('MIN_OOS_TRADES')
-    if full['winRate'] < REQUIRED_WR: reasons.append('FULL_WR_BELOW_80')
-    if val['winRate'] < REQUIRED_WR: reasons.append('VALIDATION_WR_BELOW_80')
-    if oos['winRate'] < REQUIRED_WR: reasons.append('OOS_WR_BELOW_80')
+    if full['winRate'] <= REQUIRED_WR: reasons.append('FULL_WR_NOT_ABOVE_80')
+    if val['winRate'] <= REQUIRED_WR: reasons.append('VALIDATION_WR_NOT_ABOVE_80')
+    if oos['winRate'] <= REQUIRED_WR: reasons.append('OOS_WR_NOT_ABOVE_80')
     passed = not reasons
     result.update({
         'pass': passed, 'reasons': reasons, 'profile': profile,
