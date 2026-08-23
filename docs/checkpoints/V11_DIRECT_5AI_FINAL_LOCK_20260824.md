@@ -100,6 +100,32 @@ The owner only writes prompts and only receives the final requested result.
 
 Never ask the owner to open Actions, provide run IDs, copy logs, send screenshots, execute commands, edit GitHub, troubleshoot Cloudflare/VPS, or perform manual technical work.
 
+### Notification rule — final result only, except AI failure
+
+For the active V11 backtest/integration program:
+- do not send intermediate backtest counts, win rates, partial pass/fail, job progress or routine infrastructure status;
+- do not ask the owner to inspect anything;
+- continue internal method iteration automatically using the stable direct path;
+- the only permitted early owner-facing interruption is a verified failure/unavailability of one or more required five-AI research lanes that cannot be recovered internally after normal retry/reroute attempts;
+- otherwise notify only when the requested final backtest/integration result is complete.
+
+## BACKTEST METHOD LOCK — LEGACY STYLE + 5AI LEARNING
+
+V11 research backtest should preserve the productive style of earlier versions:
+
+`historical exact data -> deterministic method -> chronological backtest -> evaluate evidence -> adjust method -> backtest again`
+
+The difference now is that all five AI support the loop:
+- Claude: regime/context/timeframe interpretation and failure clusters;
+- Codex: integrity/leakage/implementation review;
+- DeepSeek: strategy hypothesis and bounded method changes;
+- Qwen: alternative setup/feature/ranking hypotheses;
+- OpenRouter: adversarial comparison and rejection of weak/overfit ideas.
+
+All five read the same historical/current evidence and learn from permitted historical/DEV/VALIDATION results. They do not replace deterministic replay and do not use untouched FINAL outcomes for tuning.
+
+The preferred iteration is method-as-config. Do not redesign workflow/infra for ordinary strategy changes.
+
 ## RESEARCH CONTRACT PRESERVED
 
 Unless current `main` changes the catalog/contract:
