@@ -1,4 +1,4 @@
-name: VPS Runner Smoke
+name: V11 VPS Bridge Smoke
 
 on:
   workflow_dispatch:
@@ -11,18 +11,16 @@ jobs:
     runs-on: [self-hosted, trading-vps]
     timeout-minutes: 5
     steps:
-      - name: Read-only runner diagnostics
+      - name: Read-only V11 bridge diagnostics
         shell: bash
         run: |
           set -euo pipefail
           echo "hostname: $(hostname)"
           echo "user: $(whoami)"
-          echo "pwd: $(pwd)"
           python3 --version || true
           node --version || true
           git --version || true
           test -d /opt/trading/trading-api-main && echo 'canonical repo: present'
-          for unit in trading-ai-loop.service trading-claude-watcher.service; do
-            systemctl is-active "$unit" >/dev/null 2>&1 && echo "$unit: active" || echo "$unit: not-active-or-missing"
-            systemctl is-enabled "$unit" >/dev/null 2>&1 && echo "$unit: enabled" || echo "$unit: not-enabled-or-missing"
-          done
+          unit=v11-manual-ai-bridge.service
+          systemctl is-active "$unit" >/dev/null 2>&1 && echo "$unit: active" || echo "$unit: not-active-or-missing"
+          systemctl is-enabled "$unit" >/dev/null 2>&1 && echo "$unit: enabled" || echo "$unit: not-enabled-or-missing"
