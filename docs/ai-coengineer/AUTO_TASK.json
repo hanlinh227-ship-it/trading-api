@@ -1,47 +1,22 @@
 {
-  "enabled": true,
-  "task_id": "v11-mtf-fiveai-fast-cache-daily1to3-20260823-r5",
-  "status": "ACTIVE_FAST_MTF_FIVEAI_RESEARCH",
-  "task": "Fresh-read current GitHub main and execute a FAST V11 hierarchical multi-timeframe research/backtest program using ALL five configured AI lanes: Claude, Codex, DeepSeek, Qwen, OpenRouter. Remove infrastructure latency from strategy iteration. The repository currently preserves backtest/evidence/knowledge outputs but the legacy runner still fetches raw historical candles from external providers at runtime, so first create a reusable exact-instrument historical cache layer and thereafter reuse the same immutable dataset snapshot for method-only iterations. Do not refetch unchanged raw history on every strategy round. Prefer one finest practical exact base timeframe per instrument and derive higher timeframes from closed bars. Cache must be keyed by symbol, exact provider/instrument, base timeframe, start/end timestamps and content hash. Persist/cache once using GitHub Actions cache/artifact or an equivalent non-production research store; never commit secrets. Separate FAST RESEARCH from FINAL VALIDATION: fast research may use chronological DEV/VALIDATION partitions and parallel symbol shards to reject weak methods quickly, but untouched final holdout remains sealed until a candidate method/profile is frozen. Parallelize independent symbol work across multiple GitHub Actions matrix shards/workers instead of sequentially processing all 95 symbols. Reuse cached features where feature definition is unchanged; invalidate only affected feature/profile caches when method features change. All five AI lanes must independently contribute: Claude analyzes regime/context/timeframe hierarchy and failure clusters; DeepSeek is sole strategy/research source writer under WRITE_LOCK; Codex performs exact-head leakage/integrity/code review; Qwen searches alternative setup/ranking/feature hypotheses; OpenRouter performs adversarial review and cross-method comparison. Deterministic backtest validation remains final authority. The shared learning registry must persist training/DEV/VALIDATION lessons so each new round starts from prior knowledge instead of rediscovering it. Mandatory user trading contract remains: every current catalog symbol independently, every eligible trading day with exact sufficient data, executes 1-3 real trades; zero or >3 is FAIL. Closed-market days are excluded explicitly; missing exact data is a surfaced failure, never silently excluded. RR exactly 1:1 or 1:2; WR target inclusive >=80.00% per symbol; positive expectancy; no pooling, symbol deletion, fabricated trades, last-bar fallback, proxy promotion, future leakage, lookahead, or repeated final-holdout tuning. MTF roles are fixed: W1/D1 macro regime/structure; H4/H1 bias/structure/volatility/relative-strength-SMT-breadth; M30/M15 location/session/liquidity/setup; M5 trigger; M1 execution refinement only when exact sufficiently deep M1 exists. Learn from V62/V63/V73/V74/V76 and current V11 evidence. Use fast elimination and grouped diagnostics: identify which symbols/regimes/setup families fail, let all five AI propose changes from DEV/VALIDATION only, DeepSeek implements the selected bounded change, then rerun only impacted caches/shards first; run full 95-symbol final validation only after candidate criteria are met. Target runtime for ordinary method-iteration rounds should be minutes rather than hours where compute/data permit. Do not weaken statistical or integrity gates merely to shorten runtime. Keep Signal V11 SIGNAL_ONLY and production/Telegram locked. Do not report intermediate performance to the user; report only all-pass final evidence or a hard external blocker.",
+  "enabled": false,
+  "task_id": "v11-pr-job-orchestration-cancelled-20260823",
+  "status": "CANCELLED_BY_OWNER_DIRECT_BACKTEST_MODE",
+  "task": "All PR/issue/continuous-watch orchestration for the current V11 backtest research is cancelled. Do not auto-dispatch implementation/review tasks from this file. The active research mode is direct five-AI method council plus deterministic direct backtest on main, with no PR gate and no issue gate. Signal V11 production remains locked SIGNAL_ONLY.",
   "context": {
     "source_of_truth": "GitHub main",
-    "starting_main_sha": "1f735f85966f6ff1603edfa1301c0d1ce92a9736",
-    "mode": "FAST_CACHE_PARALLEL_MTF",
-    "maintenance_lock": true,
     "production_signal_locked": true,
+    "direct_backtest_mode": true,
+    "five_ai_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
     "required_win_rate_inclusive": 80.0,
     "min_entries_per_eligible_day": 1,
     "max_entries_per_eligible_day": 3,
     "zero_entry_days_allowed": false,
     "rr_allowed": [1, 2],
-    "evaluation_days_calendar": 122,
     "no_pooling": true,
     "no_symbol_deletion": true,
     "no_lookahead": true,
     "no_final_holdout_retuning": true,
-    "no_proxy_promotion": true,
-    "raw_data_policy": "cache exact historical candles once per immutable dataset key; reuse unchanged data across strategy rounds",
-    "fast_iteration_policy": "DEV/VALIDATION method rounds run parallel symbol shards and rerun impacted shards first; untouched final holdout is evaluated only after method/profile freeze",
-    "cache_key_fields": ["symbol", "market", "exact_instrument", "provider", "base_timeframe", "start_ts", "end_ts", "content_hash"],
-    "timeframe_roles": {
-      "W1_D1": "macro regime, long-range structure, major liquidity",
-      "H4_H1": "bias, structure, volatility, relative strength/SMT/breadth",
-      "M30_M15": "location, session, liquidity, setup/archetype",
-      "M5": "trigger, MSS/displacement/FVG/retest",
-      "M1": "execution refinement only with exact sufficiently deep M1 history"
-    },
-    "five_ai_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
-    "five_ai_roles": {
-      "claude": "regime/context/timeframe architecture and failure-cluster analysis",
-      "deepseek": "sole implementation writer under WRITE_LOCK",
-      "codex": "exact-head code/leakage/integrity reviewer",
-      "qwen": "alternative method/setup/feature/ranking hypotheses",
-      "openrouter": "adversarial review and cross-method comparison"
-    },
-    "shared_memory": ["data/symbol_knowledge_registry.json", "data/v11_mtf_learning_registry.json"],
-    "legacy_sources": ["data/nocut_intraday_allpass_v73.json", "scripts/nocut_intraday_method_v73.py", "scripts/live_symbol_analysis_v74.py", "scripts/research_v76_entry_forex.py", "scripts/entry_v76.py", "data/v76_entry_summary.json", "data/v76_entry_methods.json", "data/v76_entry_research.json", "data/symbol_knowledge_registry.json"],
-    "current_sources": ["scripts/v11_backtest_legacy_ml_4m.py", "scripts/v11_backtest_legacy_ml_4m_run.py", ".github/workflows/multi-ai-task.yml", ".github/workflows/v11-mtf-continuous-watch.yml"],
-    "required_new_evidence": ["data/v11_mtf_learning_registry.json", "data/v11_mtf_backtest_4m.json", "data/v11_mtf_backtest_gate.json"],
-    "user_reporting_policy": "No intermediate performance reports; all-pass final evidence or hard blocker only."
+    "no_proxy_promotion": true
   }
 }
