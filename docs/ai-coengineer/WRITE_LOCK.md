@@ -2,38 +2,39 @@
 
 LOCKED: true
 OWNER: MULTI_AI_ORCHESTRATOR
-SCOPE: Multi-AI gateway/control-center integration, then V11 quality optimization
+SCOPE: Secure Multi-AI gateway integration, then V11 quality optimization
 ACQUIRED: 2026-08-23
 
-## Current baseline
+Signal V11 is the sole public signal authority on GitHub `main` and remains SIGNAL_ONLY.
 
-Signal V11 is the sole public signal authority on GitHub `main` and remains SIGNAL_ONLY. Preserve TRADING_STATE, V11 native scheduler, VPC AI bridge, deterministic freshness/structure/RR gates, automatic Telegram lifecycle, and separate Binance Auto authority.
+## Current orchestration authority
 
-## Concurrent writer policy
+- DeepSeek is the primary source writer for an active implementation branch/path shard.
+- Qwen may write only to a disjoint allowed-path shard with its own lock; otherwise it is read-only test/adversarial analysis.
+- Codex is the authenticated exact-SHA blocking automated reviewer for ACCEPT/REPAIR in the current GitHub closed-loop workflow.
+- Claude is independently requested in parallel for architecture/regression review. User-authored Claude envelopes remain advisory until the secure Multi-AI Gateway supplies independently authenticated provider identity.
+- OpenRouter is read-only adversarial/fallback by default.
+- ChatGPT is orchestrator/integrator and may maintain task metadata, routing, lock scope, and explicitly authorized non-overlapping integration patches; it is not an independent implementation reviewer.
 
-The user explicitly authorized maximum safe parallelism across all five providers. Concurrency is now path/task scoped rather than repository-wide.
+When authenticated five-provider gateway evidence is available, it may expand reviewer/test participation without weakening exact-SHA or deterministic validation gates.
 
-- DeepSeek: primary implementation/repair writer.
-- Qwen: independent implementation/test writer only on a disjoint allowed-path shard.
-- Codex: technical/security reviewer; no overlapping source writes while reviewing.
-- Claude: architecture/regression reviewer; no overlapping source writes while reviewing.
-- OpenRouter: adversarial/fallback reviewer; read-only by default.
-- ChatGPT: orchestrator/integrator. It may maintain lock metadata, route work, and apply provider-generated patches when explicitly authorized by the user, but does not count as an independent reviewer.
+## Scheduling and writer invariants
 
-Required writer invariants:
-- only one writer per exact file/path at a time;
+- no repository-wide writer queue;
+- unrelated tasks/PRs and disjoint path shards run in parallel;
 - same task/PR/path writers serialize;
-- unrelated tasks and disjoint path shards may run concurrently;
-- every writer starts from an exact head SHA and must compare-and-swap before push;
+- exactly one writer per overlapping path shard;
+- every writer starts from an exact head SHA and CAS-checks the remote head before push;
 - stale output is discarded/re-read, never force-overwritten;
-- reviewers never acquire writer locks;
+- reviewers do not acquire overlapping writer locks;
 - no task may create duplicate implementation PRs for the same task id;
-- review evidence must bind to the exact implementation SHA;
-- no workflow may print/commit secrets;
-- missing provider evidence fails closed rather than fabricating success.
+- deterministic validation and exact-SHA blocking review remain final dependency barriers;
+- provider failure removes only that lane and is surfaced explicitly;
+- missing provider evidence fails closed rather than fabricating success;
+- no secrets/API keys/private keys may appear in source, browser payloads, comments, or logs.
 
 ## Hard trading invariants
 
-Never reset `TRADING_STATE`, weaken freshness/structural SL/RR/forward-liquidity/deterministic gates, promote LIMIT/WATCH/MARKET_PLAN into MARKET, fabricate market data or deployment evidence, restore Futures Signal or Hyro/TK2 execution, merge Binance Auto execution authority into V11, or commit secrets/tokens/private keys.
+Preserve `TRADING_STATE`, V11 native scheduler, private VPC `AI_BRIDGE`, SIGNAL_ONLY authority, quote freshness, structural SL, RR/forward-liquidity, automatic Telegram lifecycle and deterministic market gates. Never promote LIMIT/WATCH/MARKET_PLAN into MARKET, fabricate market/deployment evidence, restore Futures Signal or Hyro/TK2 execution, merge Binance Auto execution authority into V11, or commit secrets/private keys.
 
 GitHub `main` remains authoritative; stale checkpoints do not override current source.
