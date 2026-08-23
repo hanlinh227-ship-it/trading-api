@@ -18,9 +18,15 @@ Configure only server-side URLs that return safe JSON status metadata:
 - `CC_GITHUB_STATUS_URL`
 - `CC_CLOUDFLARE_STATUS_URL`
 - `CC_TELEGRAM_STATUS_URL`
+- `CC_MULTI_AI_STATUS_URL` — preferred single gateway `/internal/multi-ai/health` source for Claude, Codex, DeepSeek, Qwen and OpenRouter.
+
+Legacy per-provider overrides remain supported and take precedence when set:
+
 - `CC_DEEPSEEK_STATUS_URL`
 - `CC_CODEX_STATUS_URL`
 - `CC_CLAUDE_STATUS_URL`
+- `CC_QWEN_STATUS_URL`
+- `CC_OPENROUTER_STATUS_URL`
 
 Optional:
 
@@ -28,8 +34,10 @@ Optional:
 - `CONTROL_CENTER_REFRESH_MS` (minimum 2000, default 5000)
 - `CONTROL_CENTER_STALE_MS` (minimum 15000, default 120000)
 
-The adapter allow-lists response keys before exposing data to the browser. Do not configure endpoints that require browser-side credentials. Stale/unknown evidence is never promoted to green ONLINE state.
+The aggregate gateway may return `providers.<name>.configured/model/role` and optional explicit runtime `state/status/last_seen/timestamp`. `configured=true` alone is configuration evidence only and is never promoted to ONLINE. Missing, stale, future-dated or malformed runtime evidence fails closed to UNKNOWN/DEGRADED. The adapter allow-lists response keys before exposing data to the browser; do not place credentials in status payloads.
 
-## Deployment
+## Production topology
 
-The service is deployment-neutral and can run on the VPS, a separate container/service, or another host. Keep it isolated from Signal V11 so dashboard failure cannot affect scanning, Telegram alerts, trading state, or deployment authority.
+The canonical engineering path is GitHub Actions `Multi-AI Task Fanout` → Cloudflare Worker `/internal/multi-ai/review` authenticated by GitHub OIDC → existing private `AI_BRIDGE` VPC binding → VPS `v11-manual-ai-bridge` → Claude/Codex/DeepSeek/Qwen/OpenRouter in parallel. Port 8789 remains private and is never exposed directly.
+
+The Control Center remains isolated from Signal V11 so dashboard/gateway observability failure cannot affect scanning, Telegram alerts, `TRADING_STATE`, signal authority, or deployment authority.
