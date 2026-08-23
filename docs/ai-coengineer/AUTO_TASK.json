@@ -1,13 +1,13 @@
 {
   "enabled": true,
-  "task_id": "v11-autonomous-conflict-audit-20260823-02",
-  "task": "Audit the current GitHub main Signal V11 end-to-end before Telegram Hub is re-enabled. Find every remaining conflict or regression across entry eligibility, native scheduler, manual 5-AI hunter, lifecycle store, CUT logic, live quote routing, symbol-specific TP/SL geometry, weekend gating, max-5-open enforcement, Telegram callbacks and deployment assumptions. Treat GitHub main as source of truth. Do not modify production or enable Telegram. Return concrete findings and patch proposals only, with file/function evidence. Explicitly verify that no legacy path can CUT an open signal merely because a later scan labels it LIMIT, LIMIT_PLAN, MARKET_PLAN or WATCH.",
+  "task_id": "v11-live-price-all-symbol-audit-20260823-01",
+  "task": "Audit current GitHub main V11 live-price correctness for EVERY symbol in cloudflare-worker/v11/symbol-catalog.js. Verify symbol normalization, provider symbol mapping, timestamp freshness, stale fallback behavior, cross-source divergence handling, weekend/closed-market behavior, and whether displayed LIVE price can differ materially from executable market price. Compare the V11 router with proven V77/V78 market-data behavior and identify regressions. Pay special attention to BTCUSDT and all crypto USDT symbols, all 28 forex pairs, XAUUSD/XAGUSD, NAS100/US30/US500/DEX/JP225. Review commit 974ec2779bbb301e4e7a9baabb5af1ecccf7d49e. Do not enable Telegram and do not modify production. Return concrete PASS/FAIL findings per market and file/function patch proposals. Reject any fallback that labels a price LIVE without independently verified provider timestamp/age.",
   "context": {
     "maintenance_lock": true,
-    "target_version": "V11.7+",
     "providers_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
-    "goal": "zero conflicting entry/CUT paths before Telegram unlock",
+    "goal": "all-symbol canonical live price integrity before signal unlock",
     "repo": "hanlinh227-ship-it/trading-api",
-    "trigger": "autonomous-github-push"
+    "btc_user_observed_price": 77100,
+    "source_commit": "974ec2779bbb301e4e7a9baabb5af1ecccf7d49e"
   }
 }
