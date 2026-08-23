@@ -16,8 +16,6 @@ env:
   CODEX_BOT_LOGIN: chatgpt-codex-connector[bot]
 
 # Serialize only writers for the same issue/task. Different task issues run in parallel.
-# The manual wake workflow uses the exact same group key so canonical + fallback
-# dispatch cannot race into duplicate implementation PRs for one task.
 concurrency:
   group: ai-task-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
@@ -54,7 +52,10 @@ jobs:
           task.setdefault('max_rounds',2)
           task.setdefault('max_output_tokens',5000)
           task.setdefault('auto_merge',False)
-          task['requires_claude']=True
+          # Transitional GitHub closed-loop authority: authenticated Codex is blocking;
+          # Claude is always requested independently but user-authored Claude envelopes
+          # cannot authorize automatic ACCEPT/REPAIR until secure gateway identity lands.
+          task['requires_claude']=False
           pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           print('TASK_ID='+str(task.get('task_id')))
           PY
@@ -109,7 +110,7 @@ jobs:
           echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Open PR and request independent reviews
+      - name: Open PR and request parallel reviews
         shell: bash
         env:
           BRANCH: ${{ steps.push.outputs.branch }}
@@ -121,30 +122,23 @@ jobs:
           AI_LOOP_ROUND: 1
           IMPLEMENTATION_SHA: $IMPLEMENTATION_SHA
           IMPLEMENTER: DEEPSEEK
-          REQUIRES_CLAUDE: true
-          STATUS: PARALLEL_DUAL_REVIEW_REQUIRED
+          CODEX_BLOCKING: true
+          CLAUDE_ADVISORY_REQUESTED: true
+          STATUS: CODEX_EXACT_HEAD_GATE_WITH_PARALLEL_ADVISORY
 
-          DeepSeek completed bounded implementation/validation. Codex and Claude must independently review the SAME implementation SHA. DeepSeek cannot approve its own implementation.")"
+          DeepSeek completed bounded implementation/validation. Codex is the authenticated exact-head automated blocking reviewer. Claude is independently requested in parallel for architecture/regression findings but user-authored Claude envelopes do not authorize automatic ACCEPT/REPAIR. DeepSeek cannot approve its own implementation.")"
           PR_NUMBER="${PR_URL##*/}"
           gh pr comment "$PR_NUMBER" --body "@codex review
 
           Review current head $IMPLEMENTATION_SHA against the linked task acceptance criteria and repository safety invariants. Do not implement changes. Blocking findings must be concrete and tied to this head."
           gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST
           CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
-          Claude watcher/Claude Code must independently review this exact head and post:
-
-          CLAUDE_REVIEW_BEGIN
-          CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
-          CLAUDE_VERDICT: ACCEPT|REJECT|BLOCKED
-          CLAUDE_FINDINGS:
-          <concise findings or NONE>
-          CLAUDE_REVIEW_END
-
-          Do not modify source while DeepSeek owns WRITE_LOCK."
+          Independently review architecture/regression/security on this exact head. Advisory until authenticated Multi-AI gateway identity is available; this comment cannot authorize automatic ACCEPT/REPAIR."
           gh issue comment "$ISSUE_NUMBER" --body "DeepSeek PR opened: $PR_URL
-          Status: PARALLEL_DUAL_REVIEW_REQUIRED
+          Status: CODEX_EXACT_HEAD_GATE_WITH_PARALLEL_ADVISORY
           Implementation SHA: $IMPLEMENTATION_SHA
-          Required reviewers: CODEX + CLAUDE"
+          Blocking reviewer: CODEX
+          Parallel advisory: CLAUDE"
 
       - name: Report dispatch failure
         if: failure()
