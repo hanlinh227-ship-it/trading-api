@@ -1,6 +1,6 @@
 # V11 DIRECT 5AI FAST RESEARCH CHECKPOINT
 
-Updated: 2026-08-23 UTC+7
+Updated: 2026-08-24 UTC+7
 Repository: `hanlinh227-ship-it/trading-api`
 Purpose: canonical checkpoint for the current V11 research/backtest phase.
 
@@ -175,8 +175,6 @@ Required final contract:
 
 Do not proactively report intermediate pass counts, win rates or partial success while the research loop is still running.
 
-If the owner explicitly asks for current status, fresh-check current evidence first and answer accurately.
-
 Only report final success when **all current catalog symbols simultaneously pass every required deterministic gate** and the required five-AI participation evidence is genuine.
 
 Never convert an AI opinion into a backtest result.
@@ -207,4 +205,40 @@ Signal V11 remains `SIGNAL_ONLY`.
 
 ## 14. NEW CHAT PROMPT
 
-`Continue Trading from fresh GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, V11_DIRECT_5AI_FAST_RESEARCH_20260823.md and WRITE_LOCK.md. V11 research is in owner-authorized DIRECT 5AI FAST mode: Claude, Codex, DeepSeek, Qwen and OpenRouter are research accelerators before/after one deterministic cached/sharded backtest engine. Do not restore PR/Issue/job-gated research loops. AI/job transport failures must not leave deterministic research idle; continue safe direct backtesting and retry missing AI participation separately, while final five-AI success still requires genuine participation from all five. Preserve 95-symbol independent evaluation, 1-3 real executions per eligible symbol/day, RR 1:1/1:2, >=80.00% per-symbol target, exact data, no leakage and untouched FINAL. Production Signal V11 stays SIGNAL_ONLY and locked.`
+`Continue Trading from fresh GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, V11_DIRECT_5AI_FAST_RESEARCH_20260823.md and WRITE_LOCK.md. V11 research is in owner-authorized DIRECT 5AI FAST mode: Claude, Codex, DeepSeek, Qwen and OpenRouter are research accelerators before/after one deterministic cached/sharded backtest engine. Do not restore PR/Issue/job-gated research loops. AI/job transport failures must not leave deterministic research idle; continue safe direct backtesting and retry missing AI participation separately, while final five-AI success still requires genuine participation from all five. Preserve 95-symbol independent evaluation, 1-3 real executions per eligible symbol/day, RR 1:1/1:2, >=80.00% per-symbol target, exact data, no leakage and untouched FINAL. Production Signal V11 stays SIGNAL_ONLY and locked. The owner is PROMPT-ONLY: never ask the owner to open Actions, copy logs, send screenshots, run commands, edit GitHub, or perform technical steps. The owner receives final result only.`
+
+## 15. OWNER INTERACTION CONTRACT — PROMPT ONLY / FINAL RESULT ONLY
+
+This is mandatory and supersedes any previous request for manual technical help.
+
+The owner will:
+- write prompts only;
+- perform no GitHub, Actions, VPS, Cloudflare, terminal, log-copy, screenshot or manual technical operation;
+- receive only the final outcome of the requested work.
+
+The assistant/orchestrator must handle all available technical operations itself, including:
+- fresh-reading GitHub `main` and current evidence;
+- running/retrying direct backtests;
+- invoking and coordinating all five AI lanes;
+- reading Actions jobs/logs/artifacts/evidence through available tools;
+- fixing research-only runner/workflow issues within authorized scope;
+- comparing results and iterating methodology;
+- maintaining checkpoints and research evidence.
+
+Do NOT ask the owner to:
+- open GitHub Actions;
+- provide a run ID;
+- copy/paste logs;
+- send screenshots of workflow output;
+- press Run/Re-run buttons;
+- execute shell/terminal commands;
+- edit files or settings;
+- perform any troubleshooting step.
+
+If a transient tool/provider/job problem occurs, solve or route around it without involving the owner and continue safe research.
+
+If a true external hard blocker makes the requested result impossible with the available authorized tools, do not convert that into a manual task for the owner. Report only the final blocker after exhausting available compliant alternatives.
+
+For this Trading research program, the owner-facing interaction model is therefore:
+
+`OWNER PROMPT -> ASSISTANT/5AI/TOOLS DO ALL WORK -> OWNER RECEIVES FINAL RESULT ONLY`
