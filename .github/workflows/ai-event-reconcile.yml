@@ -23,11 +23,14 @@ permissions:
 
 env:
   CODEX_BOT_LOGIN: chatgpt-codex-connector[bot]
+  CLAUDE_REVIEW_LOGIN: hanlinh227-ship-it
 
-# Intentionally no workflow-wide concurrency group. Independent PR events are allowed
-# to start immediately. Source safety is enforced with an exact-head compare-and-swap
-# immediately before push, so a slower speculative repair fails closed if another lane
-# already advanced the branch.
+# Different PRs run immediately in parallel. Events for the same PR serialize so only
+# one repair writer can act on one exact head at a time. This removes the repository-wide
+# queue without allowing overlapping writers on the same source head.
+concurrency:
+  group: ai-event-reconcile-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   reconcile:
@@ -47,6 +50,9 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Preserve trusted implementer from main
+        run: cp scripts/ai/deepseek_implementer.py /tmp/trusted-deepseek-implementer.py
 
       - name: Resolve target AI-loop PR
         id: target
@@ -85,9 +91,10 @@ jobs:
           import json, os, pathlib, re, subprocess
           repo=os.environ['GITHUB_REPOSITORY']; pr=os.environ['PR']; head=os.environ['HEAD_SHA']
           codex=os.environ.get('CODEX_BOT_LOGIN','chatgpt-codex-connector[bot]')
-          def gh(*args):
+          claude_login=os.environ.get('CLAUDE_REVIEW_LOGIN','').strip()
+          def gh(*args, check=True):
               p=subprocess.run(['gh',*args],text=True,capture_output=True)
-              if p.returncode: raise RuntimeError(p.stderr or p.stdout)
+              if check and p.returncode: raise RuntimeError(p.stderr or p.stdout)
               return p.stdout
           prj=json.loads(gh('pr','view',pr,'--json','body,headRefOid'))
           if prj['headRefOid'] != head: raise SystemExit('TARGET_HEAD_MOVED_BEFORE_REVIEW_READ')
@@ -103,15 +110,14 @@ jobs:
           inline=json.loads(gh('api',f'repos/{repo}/pulls/{pr}/comments','--paginate') or '[]')
           issue_comments=json.loads(gh('api',f'repos/{repo}/issues/{pr}/comments','--paginate') or '[]')
           reviews=json.loads(gh('api',f'repos/{repo}/pulls/{pr}/reviews','--paginate') or '[]')
-          reactions=json.loads(gh('api',f'repos/{repo}/issues/{pr}/reactions','-H','Accept: application/vnd.github+json') or '[]')
 
           codex_blockers=[c.get('body','') for c in inline if (c.get('user') or {}).get('login')==codex and c.get('commit_id')==head and (c.get('body') or '').strip()]
-          codex_plus=any((x.get('user') or {}).get('login')==codex and x.get('content')=='+1' for x in reactions)
-          codex_reviewed=any((x.get('user') or {}).get('login')==codex and x.get('commit_id') in (None,head) for x in reviews)
-          codex_verdict='REJECT' if codex_blockers else ('ACCEPT' if codex_plus else ('REVIEWED_PENDING_SIGNAL' if codex_reviewed else 'PENDING'))
+          codex_head_reviews=[r for r in reviews if (r.get('user') or {}).get('login')==codex and r.get('commit_id')==head]
+          codex_verdict='REJECT' if codex_blockers else ('ACCEPT' if codex_head_reviews else 'PENDING')
 
           claude_verdict='PENDING'; claude_findings=''
           for c in reversed(issue_comments):
+              if claude_login and (c.get('user') or {}).get('login') != claude_login: continue
               txt=c.get('body') or ''
               if 'CLAUDE_REVIEW_BEGIN' not in txt or f'CLAUDE_REVIEW_HEAD: {head}' not in txt: continue
               vm=re.search(r'CLAUDE_VERDICT:\s*(ACCEPT|REJECT|BLOCKED)',txt)
@@ -124,31 +130,53 @@ jobs:
           feedback=[]
           if codex_verdict=='REJECT': feedback.append('CODEX FINDINGS:\n'+'\n\n'.join(codex_blockers)[-24000:])
           if claude_verdict=='REJECT': feedback.append('CLAUDE FINDINGS:\n'+(claude_findings or 'Claude returned REJECT without detailed findings.'))
+
           mode='WAIT'
           if claude_verdict=='BLOCKED': mode='BLOCKED'
-          elif codex_verdict=='ACCEPT' and claude_verdict=='ACCEPT': mode='ACCEPT'
-          elif feedback: mode='REPAIR'
+          elif codex_verdict in ('ACCEPT','REJECT') and claude_verdict in ('ACCEPT','REJECT'):
+              if codex_verdict=='ACCEPT' and claude_verdict=='ACCEPT': mode='ACCEPT'
+              else: mode='REPAIR'
           if mode=='REPAIR' and round_no>=max_rounds: mode='MAX_ROUNDS'
 
-          state={
-            'pr':int(pr),'head':head,'issue':int(issue),'round':round_no,'max_rounds':max_rounds,
-            'codex':codex_verdict,'claude':claude_verdict,'mode':mode,
-            'feedback':'\n\n'.join(feedback)[-40000:], 'issue_body':issue_body,
-          }
-          pathlib.Path('.ai-event-state.json').write_text(json.dumps(state,ensure_ascii=False))
+          state={'pr':int(pr),'head':head,'issue':int(issue),'round':round_no,'max_rounds':max_rounds,'codex':codex_verdict,'claude':claude_verdict,'mode':mode,'feedback':'\n\n'.join(feedback)[-40000:],'issue_body':issue_body}
+          pathlib.Path('/tmp/ai-event-state.json').write_text(json.dumps(state,ensure_ascii=False))
           print(json.dumps({k:v for k,v in state.items() if k not in ('feedback','issue_body')},indent=2))
           PY
-          MODE="$(jq -r '.mode' .ai-event-state.json)"
+          MODE="$(jq -r '.mode' /tmp/ai-event-state.json)"
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
 
-      - name: Report acceptance immediately
+      - name: Verify required checks before readiness
         if: steps.state.outputs.mode == 'ACCEPT'
+        id: checks
+        shell: bash
+        env:
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+        run: |
+          set -euo pipefail
+          DATA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" -H 'Accept: application/vnd.github+json')"
+          BAD="$(printf '%s' "$DATA" | jq '[.check_runs[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "neutral" and .conclusion != "skipped"))] | length')"
+          if [ "$BAD" != 0 ]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo "CHECKS_NOT_READY=$BAD"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report exact-head acceptance
+        if: steps.state.outputs.mode == 'ACCEPT' && steps.checks.outputs.ready == 'true'
         shell: bash
         env:
           PR: ${{ steps.target.outputs.pr }}
           HEAD_SHA: ${{ steps.target.outputs.head }}
-        run: |
-          gh pr comment "$PR" --body "EVENT_RECONCILE: exact-head CODEX + CLAUDE consensus ACCEPT at $HEAD_SHA. Status: READY_FOR_FINAL_ACCEPT. Merge/deploy remains a separate safety gate."
+        run: gh pr comment "$PR" --body "EVENT_RECONCILE: exact-head CODEX + CLAUDE consensus ACCEPT and required checks ready at $HEAD_SHA. Status: READY_FOR_FINAL_ACCEPT. Merge/deploy remains a separate safety gate."
+
+      - name: Report acceptance waiting on checks
+        if: steps.state.outputs.mode == 'ACCEPT' && steps.checks.outputs.ready != 'true'
+        shell: bash
+        env:
+          PR: ${{ steps.target.outputs.pr }}
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+        run: gh pr comment "$PR" --body "EVENT_RECONCILE: reviewers ACCEPT exact head $HEAD_SHA, but required checks are not ready. Status: WAITING_FOR_CHECKS."
 
       - name: Report blocking terminal state
         if: steps.state.outputs.mode == 'BLOCKED' || steps.state.outputs.mode == 'MAX_ROUNDS'
@@ -157,10 +185,9 @@ jobs:
           PR: ${{ steps.target.outputs.pr }}
           HEAD_SHA: ${{ steps.target.outputs.head }}
           MODE: ${{ steps.state.outputs.mode }}
-        run: |
-          gh pr comment "$PR" --body "EVENT_RECONCILE: $MODE at exact head $HEAD_SHA. Automatic repair is fail-closed; diagnosis/final decision required."
+        run: gh pr comment "$PR" --body "EVENT_RECONCILE: $MODE at exact head $HEAD_SHA. Automatic repair is fail-closed; diagnosis/final decision required."
 
-      - name: Speculative repair on first exact-head rejection
+      - name: Repair after both exact-head reviewers complete
         if: steps.state.outputs.mode == 'REPAIR'
         shell: bash
         env:
@@ -176,28 +203,27 @@ jobs:
 
           python3 - <<'PY'
           import json,pathlib,re
-          s=json.loads(pathlib.Path('.ai-event-state.json').read_text())
+          s=json.loads(pathlib.Path('/tmp/ai-event-state.json').read_text())
           m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',s['issue_body'],re.S)
           task=json.loads(m.group(1)); task['base_sha']=s['head']; task['review_feedback']=s['feedback']; task['max_rounds']=1; task['requires_claude']=True
-          pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
+          pathlib.Path('/tmp/ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
           PY
 
-          python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
-          rm -f .ai-runtime-task.json
+          python3 /tmp/trusted-deepseek-implementer.py /tmp/ai-runtime-task.json
+          rm -f /tmp/ai-runtime-task.json
           git diff --quiet && { echo NO_REPAIR_DIFF; exit 0; } || true
           git diff --check
 
-          # Compare-and-swap safety: never push a speculative repair onto a head
-          # that another worker already advanced while this run was reasoning.
           git fetch origin "$BRANCH"
           CURRENT_REMOTE="$(git rev-parse "origin/$BRANCH")"
-          test "$CURRENT_REMOTE" = "$HEAD_SHA" || { echo "STALE_SPECULATIVE_REPAIR remote=$CURRENT_REMOTE expected=$HEAD_SHA"; exit 0; }
+          test "$CURRENT_REMOTE" = "$HEAD_SHA" || { echo "STALE_REPAIR remote=$CURRENT_REMOTE expected=$HEAD_SHA"; exit 0; }
 
-          ROUND="$(jq -r '.round' .ai-event-state.json)"
+          ROUND="$(jq -r '.round' /tmp/ai-event-state.json)"
           git config user.name 'DeepSeek Event Repair'
           git config user.email 'actions@users.noreply.github.com'
-          git add -A
-          git commit -m "AI event repair: first-blocker round $((ROUND+1))"
+          git add -u
+          git diff --cached --quiet && { echo NO_TRACKED_REPAIR_DIFF; exit 0; } || true
+          git commit -m "AI event repair: dual-review round $((ROUND+1))"
           git push origin "$BRANCH"
           NEW_SHA="$(git rev-parse HEAD)"
 
@@ -206,11 +232,11 @@ jobs:
           gh pr edit "$PR" --body "$NEW_BODY"
           gh pr comment "$PR" --body "@codex review
 
-EVENT_RECONCILE pushed first-blocker repair. Re-review exact current head $NEW_SHA immediately. Previous-SHA review evidence is advisory only."
+          EVENT_RECONCILE pushed dual-review repair. Re-review exact current head $NEW_SHA immediately. Previous-SHA evidence is advisory only."
           gh pr comment "$PR" --body "CLAUDE_REVIEW_REQUEST
-CLAUDE_REVIEW_HEAD: $NEW_SHA
-EVENT_RECONCILE pushed first-blocker repair. Independently review this exact head immediately and post a fresh SHA-bound verdict."
+          CLAUDE_REVIEW_HEAD: $NEW_SHA
+          EVENT_RECONCILE pushed dual-review repair. Independently review this exact head immediately and post a fresh SHA-bound verdict."
 
       - name: Cleanup
         if: always()
-        run: rm -f .ai-event-state.json .ai-runtime-task.json
+        run: rm -f /tmp/ai-event-state.json /tmp/ai-runtime-task.json /tmp/trusted-deepseek-implementer.py
