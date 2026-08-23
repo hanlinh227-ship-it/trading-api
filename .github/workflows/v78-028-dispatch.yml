@@ -1,16 +1,14 @@
-name: Trigger V78-028 Signal Index
+name: V78 Signal Index Dispatcher (retired)
+
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/v78-028-dispatch.yml']
+  workflow_dispatch:
+
 permissions:
-  actions: write
   contents: read
+
 jobs:
-  dispatch:
+  retired:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
-      - name: Dispatch V78-028
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run v78-028-signal-index.yml --repo "$GITHUB_REPOSITORY" --ref main
+      - run: echo 'Retired; V11 is the active authority.'
