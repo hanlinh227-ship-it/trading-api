@@ -1,80 +1,54 @@
 # MULTI-AI GATEWAY CONTRACT — 2026-08-23
 
-Status: implementation contract for the existing VPS 5-AI bridge.
+Status: implementation-ready integration contract.
 
 ## Goal
 
-Expose one authenticated control-plane endpoint for Claude, Codex, DeepSeek, Qwen and OpenRouter without exposing provider API keys, without granting trading/deploy authority, and without requiring callers to know provider-specific URLs.
+Provide one safe engineering endpoint for Claude, Codex, DeepSeek, Qwen and OpenRouter without exposing provider API keys or VPS port 8789, and without granting trading/deploy authority.
 
-The gateway is an engineering/review service only. Signal V11 remains the sole public signal authority and remains SIGNAL_ONLY.
+Signal V11 remains the sole public signal authority and remains SIGNAL_ONLY.
 
-## Current trusted topology
+## Canonical topology
 
-- VPS bridge service: `v11-manual-ai-bridge.service`
-- Existing local bind: `127.0.0.1:8789`
-- Providers already validated together on VPS: Claude, Codex, DeepSeek, Qwen, OpenRouter
-- Control Center remains read-only observability and must not gain write/trading/deploy authority.
+`GitHub workflow_dispatch -> GitHub OIDC -> Cloudflare Worker -> AI_BRIDGE VPC binding -> VPS v11-manual-ai-bridge -> five providers in parallel`
 
-## Public ingress rule
+No new shared bearer secret is required between GitHub and Cloudflare. The Worker verifies the GitHub OIDC JWT signature against GitHub Actions JWKS and requires exact repository `hanlinh227-ship-it/trading-api`, audience `trading-multi-ai-gateway`, `refs/heads/main`, and `workflow_dispatch`.
 
-Do not bind port 8789 directly to the Internet.
+The Worker still authenticates privately to the localhost bridge using the existing `V11_AI_BRIDGE_SECRET` server-side binding. Provider API keys remain on the VPS/provider environment only.
 
-Use an authenticated ingress (Cloudflare Tunnel/Access or equivalent) in front of the local service. The origin must remain localhost/private. The ingress must forward only the gateway API paths and must never expose `/etc/trading-v11-ai.env` or provider credentials.
+## API
 
-## Canonical API
+### `GET /internal/multi-ai/health`
 
-### `GET /health`
+Public safe metadata only. It proxies the private bridge health through an allow-listed projection for Claude, Codex, DeepSeek, Qwen and OpenRouter. `configured=true` is configuration evidence only; absent runtime state remains `UNKNOWN`.
 
-Safe, unactionable status metadata only. The current bridge health payload may contain:
+### `POST /internal/multi-ai/review`
 
-- `ok`
-- `service`
-- `mode`
-- `providerCount`
-- `onDemandOnly`
-- `timestamp`
-- `providers.<name>.configured`
-- `providers.<name>.model`
-- `providers.<name>.role`
-- optional runtime `state/status`, latency and last-seen metadata
+Requires valid GitHub Actions OIDC. One task is forwarded through the private VPC service to `/review` and must return all five providers. Missing/unavailable provider output fails closed with non-2xx response.
 
-`configured=true` alone MUST NOT be interpreted as ONLINE/LIVE provider evidence.
+### GitHub workflow
 
-### `POST /review`
+`.github/workflows/multi-ai-task.yml` resolves the existing Worker URL from `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`, requests a GitHub OIDC token, and submits one task. It does not require new gateway URL/token secrets.
 
-Authenticated engineering/review request. Existing bearer secret remains required. One request fans out to the configured provider pool. This endpoint must not execute trades, mutate Trading State, deploy Cloudflare, or bypass GitHub merge gates.
+## Provider roles
 
-Preferred future alias after compatibility period: `POST /multi-ai/task`.
+- DeepSeek: primary implementation/repair.
+- Qwen: independent repair/test shard.
+- Codex: technical/security blocker review.
+- Claude: architecture/regression review.
+- OpenRouter: adversarial/fallback second opinion.
 
-### Future read-only task status
+Writers may run concurrently only on disjoint allowed paths. Same task/PR/path writers serialize and every push is exact-head/CAS protected. Reviewers are read-only.
 
-A future asynchronous gateway may expose `GET /multi-ai/task/:id`. Until that exists, callers must not fabricate task progress.
+## Security and trading invariants
 
-## Security invariants
+1. Never expose provider keys, bridge secret or GitHub OIDC token in source/browser/Telegram/log output.
+2. Never bind VPS port 8789 publicly.
+3. Gateway has no trade execution, `TRADING_STATE`, Telegram signal-authority or deployment authority.
+4. Missing/stale/malformed provider evidence fails closed.
+5. Exact-head CI/review/merge safety remains independent from gateway consensus.
+6. Preserve V11 scheduler, freshness gate, structural SL, forward-liquidity/RR gate and separate Binance Auto authority.
 
-1. No provider API key in GitHub source, browser JS, Telegram text or Control Center payloads.
-2. Bearer/gateway secret is server-side only.
-3. No direct public listener on VPS port 8789.
-4. Requests are bounded by timeout and output size.
-5. Provider failure is isolated; one failed provider must not kill the gateway process.
-6. Health/status is fail-closed: missing/stale provider runtime evidence is UNKNOWN/DEGRADED, never ONLINE by inference.
-7. Gateway has no Signal V11 execution authority.
-8. GitHub exact-head/CI/merge safety gates remain independent from gateway consensus.
+## Control Center
 
-## Work distribution
-
-The orchestrator may fan out one engineering task with role hints:
-
-- DeepSeek: implementation/repair
-- Qwen: code repair/test/adversarial cases
-- Codex: technical/security review
-- Claude: architecture/regression/advisory review
-- OpenRouter: overflow/second opinion/fallback
-
-Multiple workers may work concurrently only when their write scopes do not overlap. Same task/PR/path writers serialize; reviewers/tests may run in parallel.
-
-## Control Center integration
-
-Add one optional server-side source `CC_MULTI_AI_STATUS_URL` pointing to the gateway `/health` endpoint. If configured, the Control Center may derive the five provider cards from the aggregated `providers` object. Legacy per-provider status URLs remain supported and take precedence when present.
-
-The Control Center must not mark a provider green merely because the gateway says `configured: true`; provider runtime state needs explicit fresh evidence.
+`CC_MULTI_AI_STATUS_URL` may point to `/internal/multi-ai/health`. It populates all five AI cards. Legacy per-provider `CC_*_STATUS_URL` values remain supported and take precedence when configured. The Control Center is read-only and cannot call `/review`.
