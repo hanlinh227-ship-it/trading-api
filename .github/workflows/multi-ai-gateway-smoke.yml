@@ -2,31 +2,63 @@ name: Multi-AI Gateway Smoke
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy Cloudflare Signal V11"]
+    types: [completed]
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: multi-ai-gateway-smoke
   cancel-in-progress: true
 
 jobs:
-  health:
+  five-provider-smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       MULTI_AI_GATEWAY_TIMEOUT_SECONDS: '10'
+      MULTI_AI_GATEWAY_MAX_AGE_MS: '300000'
     steps:
       - uses: actions/checkout@v4
-      - name: Resolve production Worker gateway health URL
+        with:
+          ref: main
+      - name: Resolve gateway URLs and OIDC
         shell: bash
         run: |
           set -euo pipefail
           test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           SUBDOMAIN="$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("result") or {}).get("subdomain") or "")')"
           test -n "$SUBDOMAIN" || { echo CLOUDFLARE_WORKERS_SUBDOMAIN_MISSING; exit 2; }
-          echo "MULTI_AI_GATEWAY_HEALTH_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/health" >> "$GITHUB_ENV"
-      - name: Validate five-provider gateway health
+          BASE="https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai"
+          echo "MULTI_AI_GATEWAY_HEALTH_URL=$BASE/health" >> "$GITHUB_ENV"
+          echo "MULTI_AI_GATEWAY_REVIEW_URL=$BASE/review" >> "$GITHUB_ENV"
+          OIDC="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC"
+          echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
+      - name: Exercise all five providers in one request
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/smoke.json <<'JSON'
+          {"task_id":"post-deploy-five-ai-smoke","instruction":"Health smoke only. Return the required JSON object with verdict PASS and concise evidence that you received this request. Do not modify anything.","context":{"scope":"READ_ONLY_HEALTH_SMOKE"}}
+          JSON
+          CODE="$(curl -sS --max-time 420 -o /tmp/review.json -w '%{http_code}' -X POST "$MULTI_AI_GATEWAY_REVIEW_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/smoke.json)"
+          test "$CODE" -ge 200 && test "$CODE" -lt 300 || { echo "FIVE_AI_REVIEW_HTTP_$CODE"; python3 -c 'import json; d=json.load(open("/tmp/review.json")); print({"ok":d.get("ok"),"providers":{k:(v or {}).get("status") for k,v in (d.get("providers") or {}).items()}})' || true; exit 3; }
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/review.json')); expected={'claude','codex','deepseek','qwen','openrouter'}; p=d.get('providers') or {}
+          bad=[k for k in expected if str((p.get(k) or {}).get('status','')).upper()!='OK']
+          if bad: raise SystemExit('providers not OK: '+','.join(sorted(bad)))
+          print('FIVE_AI_REVIEW_PASS')
+          PY
+      - name: Require fresh healthy runtime evidence
         run: python3 scripts/ops/check_multi_ai_gateway.py
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/smoke.json /tmp/review.json
