@@ -1,0 +1,42 @@
+{
+  "task_id": "V11-VPS-BACKTEST-SUPERVISOR-20260823-A",
+  "base_sha": "b73fb415362e8120fb8626d3d53f130ce43cea16",
+  "owner": "DEEPSEEK",
+  "requires_codex": true,
+  "requires_claude": true,
+  "max_rounds": 4,
+  "max_output_tokens": 12000,
+  "objective": "Implement a persistent VPS supervisor that continuously backtests and researches every current V11 catalog symbol independently until each symbol has genuinely proven >=80.00% WR under the approved 4-month protocol, with RR exactly 1:1 or 1:2 and no more than 3 valid entries per eligible day. It must preserve anti-overfit/OOS integrity, resume after restart, use bounded 5-AI proposals for stalled symbols, and never unlock Telegram or execute trades.",
+  "allowed_paths": [
+    "signal-v11-vps/**",
+    "scripts/v11_symbol_backtest_4m.py",
+    "scripts/v11_symbol_backtest_4m_*.py",
+    "docs/ai-coengineer/**",
+    "data/v11_backtest_gate*.json",
+    "data/v11_symbol_backtest_4m*.json"
+  ],
+  "forbidden_paths": [
+    "cloudflare-worker/index.js",
+    "cloudflare-worker/binance-control-plane.js",
+    "TRADING_STATE*"
+  ],
+  "acceptance_criteria": [
+    "Implement v11-backtest-supervisor as a systemd-managed VPS service without breaking v11-manual-ai-bridge.",
+    "Track every current catalog symbol independently with persistent atomic state and restart-resume behavior.",
+    "Use the latest ~122-day M5 evidence and at most 3 valid entries per eligible day; Crypto all calendar days, Forex/Metal/Index no Saturday/Sunday.",
+    "RR is exactly 1:1 or 1:2; next-bar entry, adverse cost padding, same-bar TP+SL=>SL, timeout=>non-win.",
+    "Local search happens before paid AI calls. Failed/stalled symbols may request bounded proposals from all five bridge providers.",
+    "AI proposals are advisory/config-bounded only and cannot lower threshold, remove symbols, disable OOS, change execution authority, or unlock Telegram.",
+    "Do not repeatedly tune against the same final OOS. Freeze candidate before final OOS; failed OOS cannot be used as direct parameter-ranking feedback in the same generation.",
+    "Expose localhost-only health on 127.0.0.1:8791 with passCount/totalSymbols, queue counts, blocked/research states, current SHA and last result timestamp; no secrets.",
+    "Default concurrency is bounded and configurable; prevent duplicate service instances and runaway AI spend.",
+    "Global success is true only when every catalog symbol independently proves >=80.00% and all integrity gates pass.",
+    "Signal V11 Telegram remains maintenance locked throughout implementation and validation."
+  ],
+  "validation_commands": [
+    "python3 -m py_compile signal-v11-vps/*.py scripts/v11_symbol_backtest_4m.py",
+    "bash -n signal-v11-vps/*.sh",
+    "git diff --check"
+  ],
+  "auto_merge": false
+}
