@@ -1,0 +1,14 @@
+{
+  "mode": "DIRECT_5AI_BACKTEST",
+  "runId": "32673361679",
+  "runAttempt": "1",
+  "sourceSha": "9814b5dc88fdf0560831f57db94f6697be48a169",
+  "symbolCount": 0,
+  "allFiveAIPreReady": false,
+  "allFiveAIPostReady": false,
+  "compliantFiveAIRound": false,
+  "fastAll95Passed": false,
+  "finalRan": false,
+  "publishedAt": "2026-08-23T23:25:07.102029+00:00",
+  "statusEvidencePublished": true
+}
