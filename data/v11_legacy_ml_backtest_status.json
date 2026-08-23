@@ -1,6 +1,6 @@
 {
-  "state": "RUNNING",
+  "state": "failure",
   "runId": "32644048862",
   "headSha": "8e66ad285332d9c10aa9b83e6db11aa245a3193f",
-  "startedAt": "2026-08-23T13:59:56Z"
+  "finishedAt": "2026-08-23T14:00:43Z"
 }
