@@ -12,6 +12,7 @@ Uses the current V11 backtest engine but enforces the user's reporting protocol:
 """
 from __future__ import annotations
 
+# REPORT_ONLY_RUN_TRIGGER=2026-08-23T12:58Z
 import importlib.util
 import json
 from collections import defaultdict
