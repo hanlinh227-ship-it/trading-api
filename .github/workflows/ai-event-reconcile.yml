@@ -30,9 +30,12 @@ permissions:
 env:
   CODEX_BOT_LOGIN: chatgpt-codex-connector[bot]
 
-# Different PRs run in parallel; events for the same PR serialize.
+# Different PRs run in parallel. Normal PR events serialize by PR number.
+# workflow_run is intentionally read-only: it can refresh readiness after checks
+# finish but can never invoke the repair writer, so a missing pull_requests[]
+# association cannot create a second writer lane for the same PR.
 concurrency:
-  group: ai-event-reconcile-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
+  group: ai-event-reconcile-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || format('check-{0}', github.event.workflow_run.head_branch) || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -219,8 +222,17 @@ jobs:
         run: |
           gh pr comment "$PR" --body "EVENT_RECONCILE $MODE at exact head $HEAD_SHA. Automatic repair is fail-closed; diagnosis/final decision required."
 
+      - name: Workflow-run rejection is advisory only
+        if: github.event_name == 'workflow_run' && steps.state.outputs.mode == 'REPAIR'
+        shell: bash
+        env:
+          PR: ${{ steps.target.outputs.pr }}
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+        run: |
+          gh pr comment "$PR" --body "EVENT_RECONCILE workflow_run observed exact-head Codex blockers at $HEAD_SHA. This completion-triggered path is intentionally READ_ONLY and will not invoke a repair writer. A normal PR review/comment/manual event owns repair serialization."
+
       - name: Repair after exact-head Codex rejection
-        if: steps.state.outputs.mode == 'REPAIR'
+        if: github.event_name != 'workflow_run' && steps.state.outputs.mode == 'REPAIR'
         shell: bash
         env:
           PR: ${{ steps.target.outputs.pr }}
