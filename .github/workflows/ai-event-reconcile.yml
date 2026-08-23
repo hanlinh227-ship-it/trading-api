@@ -32,8 +32,7 @@ env:
 
 # Different PRs run in parallel. Normal PR events serialize by PR number.
 # workflow_run is intentionally read-only: it can refresh readiness after checks
-# finish but can never invoke the repair writer, so a missing pull_requests[]
-# association cannot create a second writer lane for the same PR.
+# finish but can never invoke the repair writer.
 concurrency:
   group: ai-event-reconcile-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || format('check-{0}', github.event.workflow_run.head_branch) || github.run_id }}
   cancel-in-progress: false
@@ -54,7 +53,7 @@ jobs:
       MANUAL_PR: ${{ inputs.pr_number }}
       TRUSTED_IMPL: ${{ runner.temp }}/trusted/scripts/ai/deepseek_implementer.py
       EVENT_STATE: ${{ runner.temp }}/ai-event-state.json
-      RUNTIME_TASK: ${{ runner.temp }}/ai-runtime-task.json
+      RUNTIME_TASK: ${{ github.workspace }}/.ai-event-runtime-task.json
     steps:
       - uses: actions/checkout@v4
         with:
@@ -144,14 +143,11 @@ jobs:
           tm=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',issue_body,re.S)
           if not tm: raise SystemExit('task contract missing')
           task=json.loads(tm.group(1)); max_rounds=max(1,min(int(task.get('max_rounds',2)),4))
-
           inline=paged(f'repos/{repo}/pulls/{pr}/comments')
           reviews=paged(f'repos/{repo}/pulls/{pr}/reviews')
-
           codex_blockers=[c.get('body','') for c in inline if (c.get('user') or {}).get('login')==codex and c.get('commit_id')==head and (c.get('body') or '').strip()]
           codex_head_reviews=[r for r in reviews if (r.get('user') or {}).get('login')==codex and r.get('commit_id')==head]
           codex_verdict='REJECT' if codex_blockers else ('ACCEPT' if codex_head_reviews else 'PENDING')
-
           feedback=[]
           if codex_verdict=='REJECT': feedback.append('CODEX FINDINGS:\n'+'\n\n'.join(codex_blockers)[-40000:])
           mode='WAIT'
@@ -187,11 +183,13 @@ jobs:
               old=latest.get(name)
               old_key=((old or {}).get('run_attempt') or 0, (old or {}).get('id') or 0)
               if old is None or key > old_key: latest[name]=r
-          pending=sorted(name for name,r in latest.items() if r.get('status')!='completed')
-          bad=sorted(name for name,r in latest.items() if r.get('status')=='completed' and r.get('conclusion')!='success')
-          ready=bool(latest) and not pending and not bad
+          required={'PR Signal Integrity R7','V11 Signal Validation'}
+          missing=sorted(required-set(latest))
+          pending=sorted(name for name in required if name in latest and latest[name].get('status')!='completed')
+          bad=sorted(name for name in required if name in latest and latest[name].get('status')=='completed' and latest[name].get('conclusion')!='success')
+          ready=not missing and not pending and not bad
           with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write(f'ready={str(ready).lower()}\n')
-          print(json.dumps({'observed_workflows':sorted(latest),'pending':pending,'not_success':bad,'ready':ready},indent=2))
+          print(json.dumps({'required':sorted(required),'observed_workflows':sorted(latest),'missing':missing,'pending':pending,'not_success':bad,'ready':ready},indent=2))
           PY
 
       - name: Report exact-head acceptance
@@ -201,7 +199,7 @@ jobs:
           PR: ${{ steps.target.outputs.pr }}
           HEAD_SHA: ${{ steps.target.outputs.head }}
         run: |
-          gh pr comment "$PR" --body "EVENT_RECONCILE exact-head Codex ACCEPT at $HEAD_SHA. Observed PR validation workflows are successful. Claude remains advisory. READY_FOR_FINAL_ACCEPT; merge/deploy remains a separate safety gate."
+          gh pr comment "$PR" --body "EVENT_RECONCILE exact-head Codex ACCEPT at $HEAD_SHA. Required PR validation workflows are successful. Claude remains advisory until authenticated gateway identity is available. READY_FOR_FINAL_ACCEPT; merge/deploy remains a separate safety gate."
 
       - name: Report acceptance waiting on checks
         if: steps.state.outputs.mode == 'ACCEPT' && steps.checks.outputs.ready != 'true'
@@ -210,7 +208,7 @@ jobs:
           PR: ${{ steps.target.outputs.pr }}
           HEAD_SHA: ${{ steps.target.outputs.head }}
         run: |
-          gh pr comment "$PR" --body "EVENT_RECONCILE Codex ACCEPT exact head $HEAD_SHA, but PR validation workflows are absent/pending/failing. WAITING_FOR_CHECKS. A workflow_run completion event will reconcile automatically."
+          gh pr comment "$PR" --body "EVENT_RECONCILE Codex ACCEPT exact head $HEAD_SHA, but required PR validation workflows are absent/pending/failing. WAITING_FOR_CHECKS. A workflow_run completion event will reconcile automatically."
 
       - name: Report blocking terminal state
         if: steps.state.outputs.mode == 'MAX_ROUNDS'
@@ -245,7 +243,6 @@ jobs:
           git fetch origin "$BRANCH"
           test "$(git rev-parse "origin/$BRANCH")" = "$HEAD_SHA" || { echo STALE_BEFORE_REPAIR; exit 0; }
           git checkout -B "$BRANCH" "$HEAD_SHA"
-
           python3 - <<'PY'
           import json,os,pathlib,re
           s=json.loads(pathlib.Path(os.environ['EVENT_STATE']).read_text())
@@ -253,17 +250,14 @@ jobs:
           task=json.loads(m.group(1)); task['base_sha']=s['head']; task['review_feedback']=s['feedback']; task['max_rounds']=1; task['requires_claude']=False
           pathlib.Path(os.environ['RUNTIME_TASK']).write_text(json.dumps(task,ensure_ascii=False,indent=2))
           PY
-
           python3 "$TRUSTED_IMPL" "$RUNTIME_TASK"
           rm -f "$RUNTIME_TASK"
           git diff --check
           git status --porcelain
           test -n "$(git status --porcelain)" || { echo NO_REPAIR_DIFF; exit 0; }
-
           git fetch origin "$BRANCH"
           CURRENT_REMOTE="$(git rev-parse "origin/$BRANCH")"
           test "$CURRENT_REMOTE" = "$HEAD_SHA" || { echo "STALE_REPAIR remote=$CURRENT_REMOTE expected=$HEAD_SHA"; exit 0; }
-
           ROUND="$(jq -r '.round' "$EVENT_STATE")"
           git config user.name 'DeepSeek Event Repair'
           git config user.email 'actions@users.noreply.github.com'
@@ -273,7 +267,6 @@ jobs:
           git commit -m "AI event repair: Codex round $((ROUND+1))"
           git push origin "$BRANCH"
           NEW_SHA="$(git rev-parse HEAD)"
-
           BODY="$(gh pr view "$PR" --json body --jq '.body')"
           NEW_BODY="$(printf '%s' "$BODY" | sed "s/AI_LOOP_ROUND:[[:space:]]*$ROUND/AI_LOOP_ROUND: $((ROUND+1))/" | sed "s/IMPLEMENTATION_SHA:[[:space:]]*[0-9a-f]*/IMPLEMENTATION_SHA: $NEW_SHA/")"
           gh pr edit "$PR" --body "$NEW_BODY"
