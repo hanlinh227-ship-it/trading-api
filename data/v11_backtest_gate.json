@@ -1,0 +1,14 @@
+{
+  "version": "V11-4M-SYMBOL-BACKTEST-R1",
+  "allPassed": false,
+  "generatedAt": null,
+  "start": null,
+  "end": null,
+  "requiredWinRate": 80,
+  "allowedRR": [1, 2],
+  "minTrades": 40,
+  "totalSymbols": 0,
+  "passCount": 0,
+  "passingSymbols": [],
+  "failingSymbols": ["PENDING_FULL_BACKTEST"]
+}
