@@ -19,7 +19,8 @@ on:
 permissions:
   contents: write
   id-token: write
-\concurrency:
+
+concurrency:
   group: multi-ai-task-${{ github.ref }}
   cancel-in-progress: false
 
