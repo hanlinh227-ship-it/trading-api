@@ -25,7 +25,6 @@ const SAFE_KEYS = new Set([
   'version','provider','events','details','stage','url','label','age_ms','pipeline',
   'intake','implementation','codex_review','claude_review','merge'
 ]);
-
 const STALE_SUCCESS_STATES = new Set(['ONLINE','RUNNING','REVIEWING','ACCEPT','PASS']);
 
 function nowIso() { return new Date().toISOString(); }
@@ -58,6 +57,20 @@ function freshness(obj) {
   const age = Math.max(0, Date.now() - t);
   return { stale: age > STALE_MS, age_ms: age };
 }
+function suppressStalePipeline(pipeline) {
+  if (!pipeline || typeof pipeline !== 'object' || Array.isArray(pipeline)) return {};
+  const out = {};
+  for (const [stage, raw] of Object.entries(pipeline)) {
+    if (raw && typeof raw === 'object') {
+      const state = normalizeState(raw.state || raw.status);
+      out[stage] = { ...raw, state: STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state };
+    } else {
+      const state = normalizeState(raw);
+      out[stage] = STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state;
+    }
+  }
+  return out;
+}
 async function fetchJson(url) {
   if (!url) return { state: 'UNKNOWN', message: 'source not configured', last_updated: null };
   const ctl = new AbortController();
@@ -67,14 +80,14 @@ async function fetchJson(url) {
     if (!res.ok) return { state: 'DEGRADED', message: `HTTP ${res.status}`, last_updated: nowIso() };
     const raw = sanitize(await res.json());
     const fresh = freshness(raw);
-    const base = { ...raw, state: normalizeState(raw?.state || raw?.status), age_ms: fresh.age_ms };
+    const base = { ...raw, state: normalizeState(raw?.state || raw?.status), age_ms: fresh.age_ms, _stale: fresh.stale };
     if (fresh.stale && STALE_SUCCESS_STATES.has(base.state)) {
       base.state = 'DEGRADED';
       base.message = base.message || 'stale or missing evidence timestamp';
     }
     return base;
   } catch (err) {
-    return { state: 'OFFLINE', message: String(err?.message || err).slice(0, 500), last_updated: nowIso() };
+    return { state: 'OFFLINE', message: String(err?.message || err).slice(0, 500), last_updated: nowIso(), _stale: false };
   } finally {
     clearTimeout(timer);
   }
@@ -95,12 +108,13 @@ async function refresh() {
       }
     }
     events.sort((a, b) => Date.parse(b.timestamp || b.last_updated || 0) - Date.parse(a.timestamp || a.last_updated || 0));
+    const githubPipeline = map.github?.details?.pipeline || map.github?.pipeline || {};
     cache = {
       last_updated: nowIso(),
       refresh_ms: REFRESH_MS,
       systems: { vps: map.vps, github: map.github, cloudflare: map.cloudflare, telegram: map.telegram },
       ai: { deepseek: map.deepseek, codex: map.codex, claude: map.claude },
-      pipeline: map.github?.details?.pipeline || map.github?.pipeline || {},
+      pipeline: map.github?._stale ? suppressStalePipeline(githubPipeline) : githubPipeline,
       events: events.slice(0, 100),
     };
     return cache;
@@ -131,9 +145,8 @@ http.createServer(async (req, res) => {
     return;
   }
   if (u.pathname === '/api/status') {
-    const data = await refresh();
     res.writeHead(200, { 'content-type':'application/json', 'cache-control':'no-store' });
-    res.end(JSON.stringify(data));
+    res.end(JSON.stringify(cache));
     return;
   }
   await serveFile(req, res);
