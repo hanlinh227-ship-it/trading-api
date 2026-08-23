@@ -11,13 +11,16 @@ on:
         description: Optional task context
         required: false
         type: string
+  push:
+    branches: [main]
+    paths:
+      - 'docs/ai-coengineer/AUTO_TASK.json'
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
-
-concurrency:
-  group: multi-ai-task-${{ github.run_id }}
+\concurrency:
+  group: multi-ai-task-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -27,10 +30,48 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      TASK: ${{ inputs.task }}
-      CONTEXT: ${{ inputs.context }}
     steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Resolve task input
+        shell: bash
+        env:
+          DISPATCH_TASK: ${{ inputs.task }}
+          DISPATCH_CONTEXT: ${{ inputs.context }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          if os.environ.get('GITHUB_EVENT_NAME') == 'push':
+              p='docs/ai-coengineer/AUTO_TASK.json'
+              d=json.load(open(p,encoding='utf-8'))
+              if not d.get('enabled', True):
+                  print('AUTO_TASK_DISABLED')
+                  open('/tmp/skip','w').write('1')
+                  raise SystemExit(0)
+              task=str(d.get('task') or '').strip()
+              context=d.get('context')
+              if not task: raise SystemExit('AUTO_TASK task missing')
+              if not isinstance(context,str): context=json.dumps(context or {},ensure_ascii=False)
+              task_id=str(d.get('task_id') or os.environ.get('GITHUB_SHA','unknown'))
+          else:
+              task=str(os.environ.get('DISPATCH_TASK') or '').strip()
+              context=str(os.environ.get('DISPATCH_CONTEXT') or '')
+              task_id='manual-'+os.environ.get('GITHUB_RUN_ID','unknown')
+              if not task: raise SystemExit('workflow_dispatch task missing')
+          with open('/tmp/task-env','w',encoding='utf-8') as f:
+              f.write('TASK_ID<<EOF\n'+task_id+'\nEOF\n')
+              f.write('TASK<<EOF\n'+task+'\nEOF\n')
+              f.write('CONTEXT<<EOF\n'+context+'\nEOF\n')
+          PY
+          if [ -f /tmp/skip ]; then echo 'SKIP_TASK=true' >> "$GITHUB_ENV"; exit 0; fi
+          cat /tmp/task-env >> "$GITHUB_ENV"
+
       - name: Resolve production Worker URL and GitHub OIDC token
+        if: env.SKIP_TASK != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -43,53 +84,68 @@ jobs:
           echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
 
       - name: Fan out one task to all five providers
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os, uuid
-          with open('/tmp/multi-ai-task.json','w',encoding='utf-8') as f:
-              json.dump({'task_id':str(uuid.uuid4()),'instruction':os.environ['TASK'],'context':{'text':os.environ.get('CONTEXT','')}},f,ensure_ascii=False)
-          PY
-          code="$(curl -sS --max-time 600 -o /tmp/multi-ai-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/multi-ai-task.json)"
-          test "$code" -ge 200 && test "$code" -lt 300 || { echo "MULTI_AI_GATEWAY_HTTP_$code"; head -c 1500 /tmp/multi-ai-result.json; exit 3; }
-
-      - name: Require and persist five-provider response
+        if: env.SKIP_TASK != 'true'
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json, os
-          path='/tmp/multi-ai-result.json'
-          d=json.load(open(path,encoding='utf-8')); p=d.get('providers') or {}
+          with open('/tmp/multi-ai-task.json','w',encoding='utf-8') as f:
+              json.dump({'task_id':os.environ['TASK_ID'],'instruction':os.environ['TASK'],'context':{'text':os.environ.get('CONTEXT','')}},f,ensure_ascii=False)
+          PY
+          code="$(curl -sS --max-time 600 -o /tmp/multi-ai-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/multi-ai-task.json)"
+          test "$code" -ge 200 && test "$code" -lt 300 || { echo "MULTI_AI_GATEWAY_HTTP_$code"; head -c 1500 /tmp/multi-ai-result.json; exit 3; }
+
+      - name: Validate and sanitize five-provider response
+        if: env.SKIP_TASK != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/ai-coengineer/AUTO_RESULTS
+          python3 - <<'PY'
+          import json, os, datetime, re
+          d=json.load(open('/tmp/multi-ai-result.json',encoding='utf-8')); p=d.get('providers') or {}
           expected=['claude','codex','deepseek','qwen','openrouter']
           missing=[x for x in expected if x not in {str(k).lower() for k in p.keys()}]
           if missing: raise SystemExit('missing providers: '+','.join(missing))
-          failed=[]
-          lines=['## Multi-AI fanout result','',f"Task ID: `{d.get('task_id','unknown')}`",'']
+          failed=[]; out={'task_id':os.environ['TASK_ID'],'source_sha':os.environ.get('GITHUB_SHA'),'created_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'providers':{}}
+          lines=['## Multi-AI fanout result','',f"Task ID: `{os.environ['TASK_ID']}`",'']
           for name in expected:
-              item=p.get(name) or {}
-              status=str(item.get('status') or '').upper()
-              review=item.get('review') if isinstance(item.get('review'),dict) else {}
-              verdict=str(review.get('verdict') or 'UNKNOWN')
-              findings=review.get('findings') if isinstance(review.get('findings'),list) else []
-              proposal=str(review.get('proposal') or '')
+              item=p.get(name) or {}; status=str(item.get('status') or '').upper(); review=item.get('review') if isinstance(item.get('review'),dict) else {}
               if status!='OK': failed.append(f'{name}:{status or "MISSING"}')
+              clean={'status':status or 'MISSING','review':review,'latency':item.get('latency')}
+              out['providers'][name]=clean
+              verdict=str(review.get('verdict') or 'UNKNOWN'); findings=review.get('findings') if isinstance(review.get('findings'),list) else []; proposal=str(review.get('proposal') or '')
               lines += [f'### {name}',f'- status: `{status or "MISSING"}`',f'- verdict: `{verdict}`']
-              if findings:
-                  lines.append('- findings:')
-                  lines.extend('  - '+str(x)[:1000].replace('\n',' ') for x in findings[:20])
-              if proposal:
-                  lines.append('- proposal: '+proposal[:3000].replace('\n',' '))
+              if findings: lines += ['- findings:']+['  - '+str(x)[:1000].replace('\n',' ') for x in findings[:20]]
+              if proposal: lines += ['- proposal: '+proposal[:3000].replace('\n',' ')]
               lines.append('')
+          out['all_providers_ok']=not failed
+          safe=re.sub(r'[^A-Za-z0-9_.-]+','_',os.environ['TASK_ID'])[:120]
+          path=f'docs/ai-coengineer/AUTO_RESULTS/{safe}.json'
+          json.dump(out,open(path,'w',encoding='utf-8'),ensure_ascii=False,indent=2)
+          open('/tmp/result-path','w').write(path)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as f:f.write('\n'.join(lines)+'\n')
           if failed: raise SystemExit('provider failures: '+','.join(failed))
-          summary=os.environ.get('GITHUB_STEP_SUMMARY')
-          if not summary: raise SystemExit('GITHUB_STEP_SUMMARY missing')
-          with open(summary,'a',encoding='utf-8') as f: f.write('\n'.join(lines)+'\n')
           print('MULTI_AI_FANOUT_OK providers='+','.join(expected))
           PY
 
+      - name: Persist result back to GitHub main
+        if: env.SKIP_TASK != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESULT_PATH="$(cat /tmp/result-path)"
+          git config user.name 'trading-5ai-bot'
+          git config user.email 'trading-5ai-bot@users.noreply.github.com'
+          git add "$RESULT_PATH"
+          git diff --cached --quiet && exit 0
+          git commit -m "ai: persist 5-AI result ${TASK_ID}"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
       - name: Upload sanitized fanout evidence
+        if: env.SKIP_TASK != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: multi-ai-fanout-${{ github.run_id }}
@@ -99,4 +155,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -f /tmp/multi-ai-task.json /tmp/multi-ai-result.json
+        run: rm -f /tmp/multi-ai-task.json /tmp/multi-ai-result.json /tmp/task-env /tmp/skip /tmp/result-path
