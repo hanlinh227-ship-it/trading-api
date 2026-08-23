@@ -51,8 +51,8 @@ def configured(provider):
 def engineering(evidence):return str(evidence.get('mode') or '').upper()=='MULTI_AI_ENGINEERING_TASK'
 def role_for(evidence):return ENGINEERING_ROLE if engineering(evidence) else TRADING_ROLE
 
-def local_run(cmd,prompt):
-    p=subprocess.run(cmd+[prompt],capture_output=True,text=True,timeout=TIMEOUT,cwd='/tmp')
+def local_run(cmd,prompt,cwd='/tmp'):
+    p=subprocess.run(cmd,capture_output=True,text=True,input=prompt,timeout=TIMEOUT,cwd=cwd)
     if p.returncode:raise RuntimeError((p.stderr or p.stdout)[-1000:])
     return extract(p.stdout)
 
@@ -69,11 +69,14 @@ def api_run(base,key,model,prompt):
 def review(provider,evidence):
     prompt=role_for(evidence)+'\nPROVIDER_ROLE='+provider+'\nEVIDENCE='+json.dumps(evidence,ensure_ascii=False,separators=(',',':'))
     if provider=='claude':
-        # Evidence is already embedded in the prompt. Reviewer needs no filesystem,
-        # shell, network, or write tools; deny them all to prevent credential reads.
-        result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt)
+        # Claude CLI parses tool-deny values positionally; keep the prompt on stdin
+        # so user task text can never be interpreted as additional CLI arguments.
+        result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt,'/tmp')
     elif provider=='codex':
-        exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex';result=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only'],prompt)
+        exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex'
+        # Bridge intentionally runs outside a repo for containment, so opt out of
+        # Codex's repository trust check while retaining read-only sandboxing.
+        result=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt,'/tmp')
     elif provider=='deepseek':result=api_run(DEEPSEEK_BASE_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL,prompt)
     elif provider=='qwen':result=api_run(QWEN_BASE_URL,QWEN_API_KEY,QWEN_MODEL,prompt)
     elif provider=='openrouter':result=api_run(OPENROUTER_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_MODEL,prompt)
