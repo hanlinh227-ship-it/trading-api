@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed runtime health validator for the Trading Multi-AI gateway."""
 from __future__ import annotations
-import json,os,time,urllib.error,urllib.request
+import json,os,subprocess,time
 URL=os.environ.get('MULTI_AI_GATEWAY_HEALTH_URL','').strip()
 OIDC=os.environ.get('GATEWAY_OIDC','').strip()
 TIMEOUT=float(os.environ.get('MULTI_AI_GATEWAY_TIMEOUT_SECONDS','10'))
@@ -14,23 +14,23 @@ def ms(v):
     except (TypeError,ValueError):return None
     if n<=0:return None
     return int(n*1000 if n<1e12 else n)
+def fetch_json():
+    cmd=['curl','-sS','--max-time',str(TIMEOUT),'-H','Accept: application/json']
+    if OIDC: cmd += ['-H','Authorization: Bearer '+OIDC]
+    cmd += ['-w','\n%{http_code}',URL]
+    try:r=subprocess.run(cmd,capture_output=True,text=True,timeout=TIMEOUT+5)
+    except (subprocess.TimeoutExpired,OSError) as exc:fail(f'gateway unreachable: {type(exc).__name__}')
+    if r.returncode!=0:fail('gateway curl failed: '+(r.stderr or '').strip()[:500])
+    body,sep,status=r.stdout.rpartition('\n')
+    if not sep or not status.isdigit():fail('gateway curl response missing HTTP status')
+    code=int(status)
+    if code!=200:fail(f'gateway returned HTTP {code}: {body[:500]}')
+    try:return json.loads(body)
+    except json.JSONDecodeError:fail('gateway returned invalid JSON')
 def main():
     if not URL:fail('MULTI_AI_GATEWAY_HEALTH_URL is required')
     if not (URL.startswith('https://') or URL.startswith('http://127.0.0.1') or URL.startswith('http://localhost')):fail('gateway health URL must use HTTPS unless localhost')
-    headers={'Accept':'application/json'}
-    if OIDC: headers['Authorization']='Bearer '+OIDC
-    try:
-        with urllib.request.urlopen(urllib.request.Request(URL,headers=headers),timeout=TIMEOUT) as r:
-            raw=r.read(256_000)
-            if r.status!=200:fail(f'gateway returned HTTP {r.status}')
-    except urllib.error.HTTPError as exc:
-        body=''
-        try: body=exc.read(1000).decode('utf-8','replace')
-        except Exception: pass
-        fail(f'gateway returned HTTP {exc.code}: {body[:500]}')
-    except (urllib.error.URLError,TimeoutError,OSError) as exc:fail(f'gateway unreachable: {type(exc).__name__}')
-    try:p=json.loads(raw)
-    except json.JSONDecodeError:fail('gateway returned invalid JSON')
+    p=fetch_json()
     if not isinstance(p,dict) or not isinstance(p.get('providers'),dict):fail('gateway payload missing providers object')
     now=int(time.time()*1000);bad=[];details={}
     for name in EXPECTED:
