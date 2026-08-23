@@ -6,8 +6,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = Number(process.env.PORT || 8788);
-const REFRESH_MS = Math.max(2000, Number(process.env.CONTROL_CENTER_REFRESH_MS || 5000));
-const STALE_MS = Math.max(15000, Number(process.env.CONTROL_CENTER_STALE_MS || 120000));
+function boundedMs(raw, fallback, minimum) {
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.max(minimum, n) : fallback;
+}
+const REFRESH_MS = boundedMs(process.env.CONTROL_CENTER_REFRESH_MS, 5000, 2000);
+const STALE_MS = boundedMs(process.env.CONTROL_CENTER_STALE_MS, 120000, 15000);
 
 const SOURCES = {
   vps: process.env.CC_VPS_STATUS_URL || '',
@@ -25,7 +29,7 @@ const SAFE_KEYS = new Set([
   'version','provider','events','details','stage','url','label','age_ms','pipeline',
   'intake','implementation','codex_review','claude_review','merge'
 ]);
-const STALE_SUCCESS_STATES = new Set(['ONLINE','RUNNING','REVIEWING','ACCEPT','PASS']);
+const STALE_SUCCESS_STATES = new Set(['ONLINE','WAITING','RUNNING','REVIEWING','ACCEPT','PASS']);
 
 function nowIso() { return new Date().toISOString(); }
 function normalizeState(v) {
