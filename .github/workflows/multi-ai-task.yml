@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: multi-ai-task-${{ github.run_id }}
@@ -24,79 +25,43 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      MULTI_AI_GATEWAY_REVIEW_URL: ${{ secrets.MULTI_AI_GATEWAY_REVIEW_URL }}
-      MULTI_AI_GATEWAY_TOKEN: ${{ secrets.MULTI_AI_GATEWAY_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       TASK: ${{ inputs.task }}
       CONTEXT: ${{ inputs.context }}
     steps:
-      - name: Require secure gateway secrets
+      - name: Resolve production Worker URL and GitHub OIDC token
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${MULTI_AI_GATEWAY_REVIEW_URL:-}" || { echo MISSING_MULTI_AI_GATEWAY_REVIEW_URL; exit 2; }
-          test -n "${MULTI_AI_GATEWAY_TOKEN:-}" || { echo MISSING_MULTI_AI_GATEWAY_TOKEN; exit 2; }
+          test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          SUBDOMAIN="$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("result") or {}).get("subdomain") or "")')"
+          test -n "$SUBDOMAIN" || { echo CLOUDFLARE_WORKERS_SUBDOMAIN_MISSING; exit 2; }
+          echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
+          OIDC="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC"
+          echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
 
-      - name: Fan out one task to the five-provider gateway
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json, os
-          payload = {
-            "task": os.environ["TASK"],
-            "context": os.environ.get("CONTEXT", ""),
-            "mode": "parallel",
-            "providers": ["claude", "codex", "deepseek", "qwen", "openrouter"],
-            "roles": {
-              "deepseek": "implementation_repair",
-              "qwen": "independent_repair_test",
-              "codex": "technical_security_review",
-              "claude": "architecture_regression_review",
-              "openrouter": "adversarial_fallback"
-            }
-          }
-          with open("/tmp/multi-ai-task.json", "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False)
-          PY
-
-          http_code="$(curl -sS --max-time 600 -o /tmp/multi-ai-result.json -w '%{http_code}' \
-            -X POST "$MULTI_AI_GATEWAY_REVIEW_URL" \
-            -H "Authorization: Bearer $MULTI_AI_GATEWAY_TOKEN" \
-            -H 'Content-Type: application/json' \
-            --data-binary @/tmp/multi-ai-task.json)"
-
-          test "$http_code" -ge 200 && test "$http_code" -lt 300 || {
-            echo "MULTI_AI_GATEWAY_HTTP_$http_code"
-            python3 - <<'PY'
-          import json
-          try:
-              d=json.load(open('/tmp/multi-ai-result.json'))
-              print({k:d.get(k) for k in ('ok','service','mode','error','message') if k in d})
-          except Exception:
-              print('gateway returned non-JSON error body')
-          PY
-            exit 3
-          }
-
-      - name: Validate five-provider response without exposing secrets
+      - name: Fan out one task to all five providers
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import json, os, uuid
+          with open('/tmp/multi-ai-task.json','w',encoding='utf-8') as f:
+              json.dump({'task_id':str(uuid.uuid4()),'instruction':os.environ['TASK'],'context':{'text':os.environ.get('CONTEXT','')}},f,ensure_ascii=False)
+          PY
+          code="$(curl -sS --max-time 600 -o /tmp/multi-ai-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/multi-ai-task.json)"
+          test "$code" -ge 200 && test "$code" -lt 300 || { echo "MULTI_AI_GATEWAY_HTTP_$code"; cat /tmp/multi-ai-result.json | head -c 1500; exit 3; }
+
+      - name: Require five-provider response
+        shell: bash
+        run: |
+          python3 - <<'PY'
           import json
-          p='/tmp/multi-ai-result.json'
-          d=json.load(open(p,encoding='utf-8'))
-          expected={'claude','codex','deepseek','qwen','openrouter'}
-          providers=d.get('providers') or d.get('results') or {}
-          if isinstance(providers,list):
-              names={str(x.get('provider') or x.get('name') or '').lower() for x in providers if isinstance(x,dict)}
-          elif isinstance(providers,dict):
-              names={str(k).lower() for k in providers}
-          else:
-              raise SystemExit('gateway response missing provider results')
-          missing=expected-names
-          if missing:
-              raise SystemExit('gateway response missing providers: '+','.join(sorted(missing)))
+          d=json.load(open('/tmp/multi-ai-result.json',encoding='utf-8')); p=d.get('providers') or {}
+          expected={'claude','codex','deepseek','qwen','openrouter'}; missing=expected-set(map(str.lower,p.keys()))
+          if missing: raise SystemExit('missing providers: '+','.join(sorted(missing)))
           print('MULTI_AI_FANOUT_OK providers='+','.join(sorted(expected)))
           PY
 
