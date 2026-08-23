@@ -7,11 +7,11 @@ on:
       - '.github/workflows/v11-mtf-continuous-watch.yml'
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '17 0 * * *'
 
 permissions:
   contents: read
-  actions: read
+  actions: write
   issues: read
   pull-requests: read
 
@@ -22,8 +22,9 @@ concurrency:
 jobs:
   live-watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 345
+    timeout-minutes: 355
     env:
+      GH_TOKEN: ${{ github.token }}
       PYTHONUNBUFFERED: '1'
       V11_BT_DAYS: '122'
       V11_HISTORY_DAYS: '330'
@@ -51,18 +52,18 @@ jobs:
           LAST_ENGINE_HASH=''
           LAST_WAIT_SHA=''
           START_TS=$(date +%s)
-          STOP_AFTER=$((5*60*60+35*60))
+          STOP_AFTER=$((5*60*60+45*60))
 
           echo '============================================================'
           echo ' V11 MTF CONTINUOUS WATCH'
-          echo ' This job stays open, watches latest main, and automatically'
-          echo ' starts the MTF backtest whenever a new engine version lands.'
+          echo ' Watches latest main continuously and starts MTF backtest'
+          echo ' automatically whenever a new engine revision lands.'
           echo '============================================================'
 
           while true; do
             NOW_TS=$(date +%s)
             if [ $((NOW_TS-START_TS)) -ge "$STOP_AFTER" ]; then
-              echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') MONITOR_ROTATE next scheduled run will continue"
+              echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') MONITOR_ROTATE preparing next chained run"
               break
             fi
 
@@ -108,7 +109,12 @@ jobs:
             echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') BACKTEST_EXIT code=$RC main=${SHA:0:12} engine=${ENGINE_HASH:0:12}"
             LAST_ENGINE_HASH="$ENGINE_HASH"
             echo 'Waiting for next engine revision; this page remains live.'
-            set +e
             sleep 20
-            set -e
           done
+
+      - name: Start next continuous watch cycle
+        if: always()
+        shell: bash
+        run: |
+          echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') CHAIN_NEXT_RUN"
+          gh workflow run v11-mtf-continuous-watch.yml --ref main || true
