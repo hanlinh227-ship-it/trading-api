@@ -43,7 +43,7 @@ def role_for(evidence):
     return ENGINEERING_ROLE if str(evidence.get('mode') or '').upper()=='MULTI_AI_ENGINEERING_TASK' else TRADING_ROLE
 
 def local_run(cmd,prompt):
-    p=subprocess.run(cmd+[prompt],capture_output=True,text=True,timeout=TIMEOUT)
+    p=subprocess.run(cmd+[prompt],capture_output=True,text=True,timeout=TIMEOUT,cwd='/tmp')
     if p.returncode:raise RuntimeError((p.stderr or p.stdout)[-1000:])
     return extract(p.stdout)
 
@@ -61,7 +61,10 @@ def api_run(base,key,model,prompt):
 
 def review(provider,evidence):
     prompt=role_for(evidence)+'\nPROVIDER_ROLE='+provider+'\nEVIDENCE='+json.dumps(evidence,ensure_ascii=False,separators=(',',':'))
-    if provider=='claude':return local_run(['claude','--model',CLAUDE_MODEL,'-p'],prompt)
+    if provider=='claude':
+        # Claude is a reviewer lane, never a source writer. Restrict tool access
+        # explicitly and run outside the repository workspace to contain prompt injection.
+        return local_run(['claude','--model',CLAUDE_MODEL,'-p','--allowedTools','Read,Grep,Glob','--disallowedTools','Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt)
     if provider=='codex':
         exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex'
         return local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only'],prompt)
