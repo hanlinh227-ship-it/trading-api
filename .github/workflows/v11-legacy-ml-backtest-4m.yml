@@ -18,7 +18,7 @@ concurrency:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    timeout-minutes: 111
     env:
       V11_BT_DAYS: '122'
       V11_HISTORY_DAYS: '330'
