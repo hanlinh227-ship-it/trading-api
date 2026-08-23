@@ -20,15 +20,24 @@ OPENROUTER_BASE_URL=os.environ.get('OPENROUTER_BASE_URL','https://openrouter.ai/
 OPENROUTER_MODEL=os.environ.get('OPENROUTER_MODEL','openrouter/auto')
 PROVIDERS=('claude','codex','deepseek','qwen','openrouter')
 LAST={p:{'state':'UNKNOWN','last_seen':None} for p in PROVIDERS}
-
 TRADING_ROLE='''V11 MANUAL WHOLE-MARKET MARKET HUNTER. Review only supplied fresh candidates. This is an on-demand second opinion, not an automatic signal authority and not execution. Pick immediate MARKET suitability only. Never invent missing data. Return JSON: {"direction":"LONG|SHORT|WAIT","confidence":0-100,"hardRisk":[],"evidence":[],"reason":"..."}. If current evidence is insufficient for immediate MARKET, return WAIT.'''
-ENGINEERING_ROLE='''You are one independent lane in the Trading Multi-AI engineering pool. Work only from supplied task/context. Never invent repository/runtime evidence. Do not execute trades or change deployment authority. Return one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. For implementation-oriented roles, proposal may describe a bounded patch; for review roles, identify concrete blockers. Missing evidence means BLOCKED, not assumption.'''
+ENGINEERING_ROLE='''You are one independent lane in the Trading Multi-AI engineering pool. Work only from supplied task/context. Never invent repository/runtime evidence. Do not execute trades or change deployment authority. Return one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. Missing evidence means BLOCKED, not assumption.'''
 
 def extract(s):
     s=(s or '').strip();a=s.find('{');b=s.rfind('}')
     if a<0 or b<=a:raise ValueError('JSON_NOT_FOUND')
     x=json.loads(s[a:b+1])
     if not isinstance(x,dict):raise ValueError('JSON_OBJECT_REQUIRED')
+    return x
+
+def validate_result(x,engineering):
+    if engineering:
+        if x.get('verdict') not in ('PASS','REJECT','BLOCKED'):raise ValueError('ENGINEERING_VERDICT_REQUIRED')
+        if not isinstance(x.get('findings'),list) or not isinstance(x.get('evidence'),list) or not isinstance(x.get('proposal'),str):raise ValueError('ENGINEERING_SCHEMA_INVALID')
+    else:
+        if x.get('direction') not in ('LONG','SHORT','WAIT'):raise ValueError('TRADING_DIRECTION_REQUIRED')
+        if not isinstance(x.get('confidence'),(int,float)) or not 0<=x['confidence']<=100:raise ValueError('TRADING_CONFIDENCE_INVALID')
+        if not isinstance(x.get('hardRisk'),list) or not isinstance(x.get('evidence'),list) or not isinstance(x.get('reason'),str):raise ValueError('TRADING_SCHEMA_INVALID')
     return x
 
 def configured(provider):
@@ -39,8 +48,8 @@ def configured(provider):
     if provider=='openrouter':return bool(OPENROUTER_API_KEY and OPENROUTER_BASE_URL)
     return False
 
-def role_for(evidence):
-    return ENGINEERING_ROLE if str(evidence.get('mode') or '').upper()=='MULTI_AI_ENGINEERING_TASK' else TRADING_ROLE
+def engineering(evidence):return str(evidence.get('mode') or '').upper()=='MULTI_AI_ENGINEERING_TASK'
+def role_for(evidence):return ENGINEERING_ROLE if engineering(evidence) else TRADING_ROLE
 
 def local_run(cmd,prompt):
     p=subprocess.run(cmd+[prompt],capture_output=True,text=True,timeout=TIMEOUT,cwd='/tmp')
@@ -53,49 +62,42 @@ def api_run(base,key,model,prompt):
     payload=json.dumps({'model':model,'messages':[{'role':'user','content':prompt}],'temperature':0.1,'max_tokens':1400}).encode()
     req=urllib.request.Request(url,data=payload,method='POST',headers={'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'application/json'})
     try:
-        with urllib.request.urlopen(req,timeout=TIMEOUT) as r: raw=r.read(2_000_000)
-    except urllib.error.HTTPError as e:
-        raise RuntimeError('HTTP_'+str(e.code)+':'+e.read(1000).decode(errors='replace'))
-    j=json.loads(raw);content=((j.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
-    return extract(content)
+        with urllib.request.urlopen(req,timeout=TIMEOUT) as r:raw=r.read(2_000_000)
+    except urllib.error.HTTPError as e:raise RuntimeError('HTTP_'+str(e.code)+':'+e.read(1000).decode(errors='replace'))
+    j=json.loads(raw);return extract(((j.get('choices') or [{}])[0].get('message') or {}).get('content') or '')
 
 def review(provider,evidence):
     prompt=role_for(evidence)+'\nPROVIDER_ROLE='+provider+'\nEVIDENCE='+json.dumps(evidence,ensure_ascii=False,separators=(',',':'))
     if provider=='claude':
-        # Claude is a reviewer lane, never a source writer. Restrict tool access
-        # explicitly and run outside the repository workspace to contain prompt injection.
-        return local_run(['claude','--model',CLAUDE_MODEL,'-p','--allowedTools','Read,Grep,Glob','--disallowedTools','Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt)
-    if provider=='codex':
-        exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex'
-        return local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only'],prompt)
-    if provider=='deepseek':return api_run(DEEPSEEK_BASE_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL,prompt)
-    if provider=='qwen':return api_run(QWEN_BASE_URL,QWEN_API_KEY,QWEN_MODEL,prompt)
-    if provider=='openrouter':return api_run(OPENROUTER_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_MODEL,prompt)
-    raise ValueError('UNKNOWN_PROVIDER')
+        # Evidence is already embedded in the prompt. Reviewer needs no filesystem,
+        # shell, network, or write tools; deny them all to prevent credential reads.
+        result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt)
+    elif provider=='codex':
+        exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex';result=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only'],prompt)
+    elif provider=='deepseek':result=api_run(DEEPSEEK_BASE_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL,prompt)
+    elif provider=='qwen':result=api_run(QWEN_BASE_URL,QWEN_API_KEY,QWEN_MODEL,prompt)
+    elif provider=='openrouter':result=api_run(OPENROUTER_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_MODEL,prompt)
+    else:raise ValueError('UNKNOWN_PROVIDER')
+    return validate_result(result,engineering(evidence))
 
 def run_provider(provider,evidence):
     t=time.time()
     if not configured(provider):return provider,{'status':'UNAVAILABLE','latencySeconds':0}
     try:
-        result=review(provider,evidence);now=int(time.time()*1000);LAST[provider]={'state':'ONLINE','last_seen':now}
-        return provider,{'status':'OK','latencySeconds':round(time.time()-t,2),'review':result,'last_seen':now}
+        result=review(provider,evidence);now=int(time.time()*1000);LAST[provider]={'state':'ONLINE','last_seen':now};return provider,{'status':'OK','latencySeconds':round(time.time()-t,2),'review':result,'last_seen':now}
     except subprocess.TimeoutExpired:
-        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)}
-        return provider,{'status':'TIMEOUT','latencySeconds':round(time.time()-t,2)}
+        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'TIMEOUT','latencySeconds':round(time.time()-t,2)}
     except Exception as x:
-        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)}
-        return provider,{'status':'ERROR','latencySeconds':round(time.time()-t,2),'error':str(x)[:300]}
+        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'ERROR','latencySeconds':round(time.time()-t,2),'error':str(x)[:300]}
 
 class H(BaseHTTPRequestHandler):
     def sendj(self,code,obj):
         raw=json.dumps(obj,ensure_ascii=False).encode();self.send_response(code);self.send_header('content-type','application/json');self.send_header('cache-control','no-store');self.send_header('content-length',str(len(raw)));self.end_headers();self.wfile.write(raw)
     def do_GET(self):
         if self.path!='/health':return self.sendj(404,{'ok':False})
-        now=int(time.time()*1000);providers={}
-        meta={'claude':(CLAUDE_MODEL,'architecture_reasoning'),'codex':(CODEX_MODEL,'technical_review'),'deepseek':(DEEPSEEK_MODEL,'implementation_repair'),'qwen':(QWEN_MODEL,'independent_repair_test'),'openrouter':(OPENROUTER_MODEL,'adversarial_fallback')}
+        now=int(time.time()*1000);providers={};meta={'claude':(CLAUDE_MODEL,'architecture_reasoning'),'codex':(CODEX_MODEL,'technical_review'),'deepseek':(DEEPSEEK_MODEL,'implementation_repair'),'qwen':(QWEN_MODEL,'independent_repair_test'),'openrouter':(OPENROUTER_MODEL,'adversarial_fallback')}
         for p in PROVIDERS:
-            model,role=meta[p];last=LAST[p]
-            providers[p]={'configured':configured(p),'model':model,'role':role,'state':last['state'] if configured(p) else 'OFFLINE','last_seen':last['last_seen']}
+            model,role=meta[p];last=LAST[p];providers[p]={'configured':configured(p),'model':model,'role':role,'state':last['state'] if configured(p) else 'OFFLINE','last_seen':last['last_seen']}
         self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'PARALLEL','providerCount':sum(1 for p in PROVIDERS if configured(p)),'onDemandOnly':True,'timestamp':now,'providers':providers})
     def do_POST(self):
         if self.path!='/review':return self.sendj(404,{'ok':False})
@@ -107,16 +109,11 @@ class H(BaseHTTPRequestHandler):
             if not isinstance(e,dict):return self.sendj(400,{'ok':False,'error':'EVIDENCE_OBJECT_REQUIRED'})
             out={}
             with ThreadPoolExecutor(max_workers=5) as pool:
-                futures=[pool.submit(run_provider,p,e) for p in PROVIDERS]
-                for f in as_completed(futures):
-                    p,r=f.result();out[p]=r
-            ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in PROVIDERS}
-            ok=all(x.get('status')=='OK' for x in ordered.values())
-            self.sendj(200 if ok else 502,{'ok':ok,'providers':ordered,'timestamp':int(time.time()*1000)})
+                for f in as_completed([pool.submit(run_provider,p,e) for p in PROVIDERS]):p,r=f.result();out[p]=r
+            ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in PROVIDERS};ok=all(x.get('status')=='OK' for x in ordered.values());self.sendj(200 if ok else 502,{'ok':ok,'providers':ordered,'timestamp':int(time.time()*1000)})
         except Exception as x:self.sendj(400,{'ok':False,'error':str(x)[:300]})
     def log_message(self,*args):pass
 
 if __name__=='__main__':
     if not SECRET:raise SystemExit('V11_AI_BRIDGE_SECRET required')
-    print(f'V11 multi-AI bridge listening {HOST}:{PORT} providers={",".join(PROVIDERS)}',flush=True)
-    ThreadingHTTPServer((HOST,PORT),H).serve_forever()
+    print(f'V11 multi-AI bridge listening {HOST}:{PORT} providers={",".join(PROVIDERS)}',flush=True);ThreadingHTTPServer((HOST,PORT),H).serve_forever()
