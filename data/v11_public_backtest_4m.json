@@ -1,0 +1,2174 @@
+{
+  "meta": {
+    "version": "V11-PUBLIC-H1-4M-R1",
+    "generatedAt": "2026-08-23T13:32:18.080131+00:00",
+    "start": "2026-04-23T13:00:00+00:00",
+    "end": "2026-08-23T13:00:00+00:00",
+    "timeframe": "H1",
+    "requiredWinRateInclusive": 80.0,
+    "allowedRR": [
+      1,
+      2
+    ],
+    "maxEntriesPerEligibleDay": 3,
+    "minTrades": 40,
+    "totalSymbols": 95,
+    "passCount": 0,
+    "allPassed": false,
+    "selectionProtocol": "60% DEV / 20% VALIDATION / 20% untouched OOS; OOS never tunes",
+    "sameBarRule": "SL conservative",
+    "timeoutRule": "non-win",
+    "dataMode": "public/no-secret"
+  },
+  "markets": {
+    "forex": 28,
+    "crypto": 60,
+    "metal": 2,
+    "index": 5
+  },
+  "symbols": {
+    "AUDCAD": {
+      "symbol": "AUDCAD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 AUDCAD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 533,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 0.65,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 52,
+        "wins": 27,
+        "losses": 23,
+        "timeouts": 2,
+        "winRate": 51.92,
+        "meanR": 0.0385,
+        "daysTraded": 35,
+        "eligibleSignalDays": 35,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 19,
+        "wins": 11,
+        "losses": 8,
+        "timeouts": 0,
+        "winRate": 57.89,
+        "meanR": 0.1579,
+        "daysTraded": 14,
+        "eligibleSignalDays": 14,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 25,
+        "wins": 12,
+        "losses": 10,
+        "timeouts": 3,
+        "winRate": 48.0,
+        "meanR": -0.04,
+        "daysTraded": 15,
+        "eligibleSignalDays": 15,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 96,
+        "wins": 50,
+        "losses": 41,
+        "timeouts": 5,
+        "winRate": 52.08,
+        "meanR": 0.0417,
+        "daysTraded": 64,
+        "eligibleSignalDays": 64,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "AUDCHF": {
+      "symbol": "AUDCHF",
+      "market": "forex",
+      "source": "Yahoo Finance H1 AUDCHF=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 592,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "AUDJPY": {
+      "symbol": "AUDJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 AUDJPY=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 599,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "AUDNZD": {
+      "symbol": "AUDNZD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 AUDNZD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 625,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "AUDUSD": {
+      "symbol": "AUDUSD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 AUDUSD=X",
+      "dataError": null,
+      "rows": 2047,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 625,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 0.8,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 58,
+        "wins": 31,
+        "losses": 27,
+        "timeouts": 0,
+        "winRate": 53.45,
+        "meanR": 0.069,
+        "daysTraded": 37,
+        "eligibleSignalDays": 38,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 19,
+        "wins": 11,
+        "losses": 6,
+        "timeouts": 2,
+        "winRate": 57.89,
+        "meanR": 0.1579,
+        "daysTraded": 13,
+        "eligibleSignalDays": 13,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 24,
+        "wins": 11,
+        "losses": 10,
+        "timeouts": 3,
+        "winRate": 45.83,
+        "meanR": -0.0833,
+        "daysTraded": 12,
+        "eligibleSignalDays": 12,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 101,
+        "wins": 53,
+        "losses": 43,
+        "timeouts": 5,
+        "winRate": 52.48,
+        "meanR": 0.0495,
+        "daysTraded": 62,
+        "eligibleSignalDays": 63,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "CADCHF": {
+      "symbol": "CADCHF",
+      "market": "forex",
+      "source": "Yahoo Finance H1 CADCHF=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 607,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "CADJPY": {
+      "symbol": "CADJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 CADJPY=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 587,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "CHFJPY": {
+      "symbol": "CHFJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 CHFJPY=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 585,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "EURAUD": {
+      "symbol": "EURAUD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURAUD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 585,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 1.0,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 52,
+        "wins": 29,
+        "losses": 22,
+        "timeouts": 1,
+        "winRate": 55.77,
+        "meanR": 0.1154,
+        "daysTraded": 37,
+        "eligibleSignalDays": 37,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 21,
+        "wins": 12,
+        "losses": 9,
+        "timeouts": 0,
+        "winRate": 57.14,
+        "meanR": 0.1429,
+        "daysTraded": 12,
+        "eligibleSignalDays": 12,
+        "maxTradesInDay": 3
+      },
+      "oos": {
+        "trades": 21,
+        "wins": 9,
+        "losses": 11,
+        "timeouts": 1,
+        "winRate": 42.86,
+        "meanR": -0.1429,
+        "daysTraded": 15,
+        "eligibleSignalDays": 15,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 94,
+        "wins": 50,
+        "losses": 42,
+        "timeouts": 2,
+        "winRate": 53.19,
+        "meanR": 0.0638,
+        "daysTraded": 64,
+        "eligibleSignalDays": 64,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "EURCAD": {
+      "symbol": "EURCAD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURCAD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 602,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 1.5,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 60,
+        "wins": 31,
+        "losses": 18,
+        "timeouts": 11,
+        "winRate": 51.67,
+        "meanR": 0.0333,
+        "daysTraded": 40,
+        "eligibleSignalDays": 41,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 21,
+        "wins": 6,
+        "losses": 9,
+        "timeouts": 6,
+        "winRate": 28.57,
+        "meanR": -0.4286,
+        "daysTraded": 15,
+        "eligibleSignalDays": 16,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 16,
+        "wins": 6,
+        "losses": 4,
+        "timeouts": 6,
+        "winRate": 37.5,
+        "meanR": -0.25,
+        "daysTraded": 14,
+        "eligibleSignalDays": 14,
+        "maxTradesInDay": 2
+      },
+      "full4m": {
+        "trades": 97,
+        "wins": 43,
+        "losses": 31,
+        "timeouts": 23,
+        "winRate": 44.33,
+        "meanR": -0.1134,
+        "daysTraded": 69,
+        "eligibleSignalDays": 71,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "EURCHF": {
+      "symbol": "EURCHF",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURCHF=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 622,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "EURGBP": {
+      "symbol": "EURGBP",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURGBP=X",
+      "dataError": null,
+      "rows": 2050,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 640,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": true,
+        "minStrength": 0.0,
+        "stopAtr": 1.5,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 25,
+        "wins": 13,
+        "losses": 10,
+        "timeouts": 2,
+        "winRate": 52.0,
+        "meanR": 0.04,
+        "daysTraded": 23,
+        "eligibleSignalDays": 24,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 12,
+        "wins": 7,
+        "losses": 4,
+        "timeouts": 1,
+        "winRate": 58.33,
+        "meanR": 0.1667,
+        "daysTraded": 9,
+        "eligibleSignalDays": 9,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 10,
+        "wins": 6,
+        "losses": 3,
+        "timeouts": 1,
+        "winRate": 60.0,
+        "meanR": 0.2,
+        "daysTraded": 8,
+        "eligibleSignalDays": 8,
+        "maxTradesInDay": 2
+      },
+      "full4m": {
+        "trades": 47,
+        "wins": 26,
+        "losses": 17,
+        "timeouts": 4,
+        "winRate": 55.32,
+        "meanR": 0.1064,
+        "daysTraded": 40,
+        "eligibleSignalDays": 41,
+        "maxTradesInDay": 2
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "EURJPY": {
+      "symbol": "EURJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURJPY=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 586,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "EURNZD": {
+      "symbol": "EURNZD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURNZD=X",
+      "dataError": null,
+      "rows": 2049,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T22:00:00Z",
+      "rawSignals": 663,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": true,
+        "minStrength": 0.0,
+        "stopAtr": 0.8,
+        "rr": 1.0,
+        "horizonHours": 6
+      },
+      "dev": {
+        "trades": 29,
+        "wins": 17,
+        "losses": 9,
+        "timeouts": 3,
+        "winRate": 58.62,
+        "meanR": 0.1724,
+        "daysTraded": 27,
+        "eligibleSignalDays": 27,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 10,
+        "wins": 6,
+        "losses": 3,
+        "timeouts": 1,
+        "winRate": 60.0,
+        "meanR": 0.2,
+        "daysTraded": 7,
+        "eligibleSignalDays": 8,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 15,
+        "wins": 6,
+        "losses": 8,
+        "timeouts": 1,
+        "winRate": 40.0,
+        "meanR": -0.2,
+        "daysTraded": 12,
+        "eligibleSignalDays": 12,
+        "maxTradesInDay": 2
+      },
+      "full4m": {
+        "trades": 54,
+        "wins": 29,
+        "losses": 20,
+        "timeouts": 5,
+        "winRate": 53.7,
+        "meanR": 0.0741,
+        "daysTraded": 46,
+        "eligibleSignalDays": 47,
+        "maxTradesInDay": 2
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "EURUSD": {
+      "symbol": "EURUSD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 EURUSD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 560,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "GBPAUD": {
+      "symbol": "GBPAUD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 GBPAUD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 624,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.35,
+        "stopAtr": 1.0,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 44,
+        "wins": 23,
+        "losses": 19,
+        "timeouts": 2,
+        "winRate": 52.27,
+        "meanR": 0.0455,
+        "daysTraded": 32,
+        "eligibleSignalDays": 32,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 25,
+        "wins": 10,
+        "losses": 14,
+        "timeouts": 1,
+        "winRate": 40.0,
+        "meanR": -0.2,
+        "daysTraded": 14,
+        "eligibleSignalDays": 14,
+        "maxTradesInDay": 3
+      },
+      "oos": {
+        "trades": 14,
+        "wins": 10,
+        "losses": 4,
+        "timeouts": 0,
+        "winRate": 71.43,
+        "meanR": 0.4286,
+        "daysTraded": 10,
+        "eligibleSignalDays": 10,
+        "maxTradesInDay": 2
+      },
+      "full4m": {
+        "trades": 83,
+        "wins": 43,
+        "losses": 37,
+        "timeouts": 3,
+        "winRate": 51.81,
+        "meanR": 0.0361,
+        "daysTraded": 56,
+        "eligibleSignalDays": 56,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "GBPCAD": {
+      "symbol": "GBPCAD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 GBPCAD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 612,
+      "pass": false,
+      "reasons": [
+        "MIN_OOS",
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.6,
+        "stopAtr": 1.25,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 33,
+        "wins": 17,
+        "losses": 12,
+        "timeouts": 4,
+        "winRate": 51.52,
+        "meanR": 0.0303,
+        "daysTraded": 23,
+        "eligibleSignalDays": 23,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 10,
+        "wins": 5,
+        "losses": 3,
+        "timeouts": 2,
+        "winRate": 50.0,
+        "meanR": 0.0,
+        "daysTraded": 6,
+        "eligibleSignalDays": 6,
+        "maxTradesInDay": 3
+      },
+      "oos": {
+        "trades": 4,
+        "wins": 1,
+        "losses": 1,
+        "timeouts": 2,
+        "winRate": 25.0,
+        "meanR": -0.5,
+        "daysTraded": 4,
+        "eligibleSignalDays": 4,
+        "maxTradesInDay": 1
+      },
+      "full4m": {
+        "trades": 47,
+        "wins": 23,
+        "losses": 16,
+        "timeouts": 8,
+        "winRate": 48.94,
+        "meanR": -0.0213,
+        "daysTraded": 33,
+        "eligibleSignalDays": 33,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "GBPCHF": {
+      "symbol": "GBPCHF",
+      "market": "forex",
+      "source": "Yahoo Finance H1 GBPCHF=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 627,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "GBPJPY": {
+      "symbol": "GBPJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 GBPJPY=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 567,
+      "pass": false,
+      "reasons": [
+        "MIN_TOTAL",
+        "MIN_OOS",
+        "FULL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": true,
+        "minStrength": 0.35,
+        "stopAtr": 1.5,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 25,
+        "wins": 15,
+        "losses": 7,
+        "timeouts": 3,
+        "winRate": 60.0,
+        "meanR": 0.2,
+        "daysTraded": 21,
+        "eligibleSignalDays": 21,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 10,
+        "wins": 8,
+        "losses": 2,
+        "timeouts": 0,
+        "winRate": 80.0,
+        "meanR": 0.6,
+        "daysTraded": 9,
+        "eligibleSignalDays": 9,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 2,
+        "wins": 1,
+        "losses": 1,
+        "timeouts": 0,
+        "winRate": 50.0,
+        "meanR": 0.0,
+        "daysTraded": 2,
+        "eligibleSignalDays": 2,
+        "maxTradesInDay": 1
+      },
+      "full4m": {
+        "trades": 37,
+        "wins": 24,
+        "losses": 10,
+        "timeouts": 3,
+        "winRate": 64.86,
+        "meanR": 0.2973,
+        "daysTraded": 32,
+        "eligibleSignalDays": 32,
+        "maxTradesInDay": 2
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "GBPNZD": {
+      "symbol": "GBPNZD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 GBPNZD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 613,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 0.65,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 63,
+        "wins": 33,
+        "losses": 25,
+        "timeouts": 5,
+        "winRate": 52.38,
+        "meanR": 0.0476,
+        "daysTraded": 39,
+        "eligibleSignalDays": 39,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 27,
+        "wins": 13,
+        "losses": 12,
+        "timeouts": 2,
+        "winRate": 48.15,
+        "meanR": -0.037,
+        "daysTraded": 16,
+        "eligibleSignalDays": 16,
+        "maxTradesInDay": 3
+      },
+      "oos": {
+        "trades": 24,
+        "wins": 12,
+        "losses": 12,
+        "timeouts": 0,
+        "winRate": 50.0,
+        "meanR": 0.0,
+        "daysTraded": 14,
+        "eligibleSignalDays": 14,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 114,
+        "wins": 58,
+        "losses": 49,
+        "timeouts": 7,
+        "winRate": 50.88,
+        "meanR": 0.0175,
+        "daysTraded": 69,
+        "eligibleSignalDays": 69,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "GBPUSD": {
+      "symbol": "GBPUSD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 GBPUSD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 634,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.35,
+        "stopAtr": 1.5,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 51,
+        "wins": 28,
+        "losses": 19,
+        "timeouts": 4,
+        "winRate": 54.9,
+        "meanR": 0.098,
+        "daysTraded": 35,
+        "eligibleSignalDays": 36,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 22,
+        "wins": 12,
+        "losses": 8,
+        "timeouts": 2,
+        "winRate": 54.55,
+        "meanR": 0.0909,
+        "daysTraded": 13,
+        "eligibleSignalDays": 13,
+        "maxTradesInDay": 3
+      },
+      "oos": {
+        "trades": 18,
+        "wins": 7,
+        "losses": 6,
+        "timeouts": 5,
+        "winRate": 38.89,
+        "meanR": -0.2222,
+        "daysTraded": 12,
+        "eligibleSignalDays": 12,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 91,
+        "wins": 47,
+        "losses": 33,
+        "timeouts": 11,
+        "winRate": 51.65,
+        "meanR": 0.033,
+        "daysTraded": 60,
+        "eligibleSignalDays": 61,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "NZDCAD": {
+      "symbol": "NZDCAD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 NZDCAD=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 585,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "TREND_PULLBACK",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.35,
+        "stopAtr": 0.65,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 42,
+        "wins": 22,
+        "losses": 11,
+        "timeouts": 9,
+        "winRate": 52.38,
+        "meanR": 0.0476,
+        "daysTraded": 29,
+        "eligibleSignalDays": 30,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 17,
+        "wins": 5,
+        "losses": 8,
+        "timeouts": 4,
+        "winRate": 29.41,
+        "meanR": -0.4118,
+        "daysTraded": 13,
+        "eligibleSignalDays": 13,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 16,
+        "wins": 6,
+        "losses": 4,
+        "timeouts": 6,
+        "winRate": 37.5,
+        "meanR": -0.25,
+        "daysTraded": 10,
+        "eligibleSignalDays": 11,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 75,
+        "wins": 33,
+        "losses": 23,
+        "timeouts": 19,
+        "winRate": 44.0,
+        "meanR": -0.12,
+        "daysTraded": 52,
+        "eligibleSignalDays": 54,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "NZDCHF": {
+      "symbol": "NZDCHF",
+      "market": "forex",
+      "source": "Yahoo Finance H1 NZDCHF=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 629,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "MOMENTUM",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.6,
+        "stopAtr": 0.65,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 23,
+        "wins": 12,
+        "losses": 6,
+        "timeouts": 5,
+        "winRate": 52.17,
+        "meanR": 0.0435,
+        "daysTraded": 22,
+        "eligibleSignalDays": 28,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 9,
+        "wins": 3,
+        "losses": 3,
+        "timeouts": 3,
+        "winRate": 33.33,
+        "meanR": -0.3333,
+        "daysTraded": 8,
+        "eligibleSignalDays": 11,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 8,
+        "wins": 3,
+        "losses": 2,
+        "timeouts": 3,
+        "winRate": 37.5,
+        "meanR": -0.25,
+        "daysTraded": 8,
+        "eligibleSignalDays": 10,
+        "maxTradesInDay": 1
+      },
+      "full4m": {
+        "trades": 40,
+        "wins": 18,
+        "losses": 11,
+        "timeouts": 11,
+        "winRate": 45.0,
+        "meanR": -0.1,
+        "daysTraded": 38,
+        "eligibleSignalDays": 49,
+        "maxTradesInDay": 2
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "NZDJPY": {
+      "symbol": "NZDJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 NZDJPY=X",
+      "dataError": null,
+      "rows": 2048,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 604,
+      "pass": false,
+      "reasons": [
+        "MIN_OOS",
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.6,
+        "stopAtr": 1.25,
+        "rr": 2.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 28,
+        "wins": 10,
+        "losses": 12,
+        "timeouts": 6,
+        "winRate": 35.71,
+        "meanR": 0.0714,
+        "daysTraded": 24,
+        "eligibleSignalDays": 24,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 9,
+        "wins": 4,
+        "losses": 5,
+        "timeouts": 0,
+        "winRate": 44.44,
+        "meanR": 0.3333,
+        "daysTraded": 8,
+        "eligibleSignalDays": 8,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 7,
+        "wins": 1,
+        "losses": 4,
+        "timeouts": 2,
+        "winRate": 14.29,
+        "meanR": -0.5714,
+        "daysTraded": 7,
+        "eligibleSignalDays": 7,
+        "maxTradesInDay": 1
+      },
+      "full4m": {
+        "trades": 44,
+        "wins": 15,
+        "losses": 21,
+        "timeouts": 8,
+        "winRate": 34.09,
+        "meanR": 0.0227,
+        "daysTraded": 39,
+        "eligibleSignalDays": 39,
+        "maxTradesInDay": 2
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "NZDUSD": {
+      "symbol": "NZDUSD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 NZDUSD=X",
+      "dataError": null,
+      "rows": 2049,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T22:00:00Z",
+      "rawSignals": 632,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "TREND_PULLBACK",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 0.65,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 51,
+        "wins": 28,
+        "losses": 14,
+        "timeouts": 9,
+        "winRate": 54.9,
+        "meanR": 0.098,
+        "daysTraded": 37,
+        "eligibleSignalDays": 37,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 16,
+        "wins": 10,
+        "losses": 5,
+        "timeouts": 1,
+        "winRate": 62.5,
+        "meanR": 0.25,
+        "daysTraded": 12,
+        "eligibleSignalDays": 15,
+        "maxTradesInDay": 2
+      },
+      "oos": {
+        "trades": 19,
+        "wins": 7,
+        "losses": 12,
+        "timeouts": 0,
+        "winRate": 36.84,
+        "meanR": -0.2632,
+        "daysTraded": 13,
+        "eligibleSignalDays": 13,
+        "maxTradesInDay": 2
+      },
+      "full4m": {
+        "trades": 86,
+        "wins": 45,
+        "losses": 31,
+        "timeouts": 10,
+        "winRate": 52.33,
+        "meanR": 0.0465,
+        "daysTraded": 62,
+        "eligibleSignalDays": 65,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "USDCAD": {
+      "symbol": "USDCAD",
+      "market": "forex",
+      "source": "Yahoo Finance H1 CAD=X",
+      "dataError": null,
+      "rows": 2050,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T21:00:00Z",
+      "rawSignals": 636,
+      "pass": false,
+      "reasons": [
+        "FULL_WR_BELOW_80",
+        "VAL_WR_BELOW_80",
+        "OOS_WR_BELOW_80"
+      ],
+      "profile": {
+        "family": "SWEEP",
+        "hourUTC": "ANY",
+        "requireAlignment": false,
+        "minStrength": 0.0,
+        "stopAtr": 0.65,
+        "rr": 1.0,
+        "horizonHours": 12
+      },
+      "dev": {
+        "trades": 54,
+        "wins": 30,
+        "losses": 21,
+        "timeouts": 3,
+        "winRate": 55.56,
+        "meanR": 0.1111,
+        "daysTraded": 38,
+        "eligibleSignalDays": 38,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 29,
+        "wins": 13,
+        "losses": 14,
+        "timeouts": 2,
+        "winRate": 44.83,
+        "meanR": -0.1034,
+        "daysTraded": 14,
+        "eligibleSignalDays": 14,
+        "maxTradesInDay": 3
+      },
+      "oos": {
+        "trades": 23,
+        "wins": 7,
+        "losses": 13,
+        "timeouts": 3,
+        "winRate": 30.43,
+        "meanR": -0.3913,
+        "daysTraded": 15,
+        "eligibleSignalDays": 15,
+        "maxTradesInDay": 3
+      },
+      "full4m": {
+        "trades": 106,
+        "wins": 50,
+        "losses": 48,
+        "timeouts": 8,
+        "winRate": 47.17,
+        "meanR": -0.0566,
+        "daysTraded": 67,
+        "eligibleSignalDays": 67,
+        "maxTradesInDay": 3
+      },
+      "split": {
+        "devEnd": "2026-07-05T17:48:00Z",
+        "validationEnd": "2026-07-30T03:24:00Z"
+      }
+    },
+    "USDCHF": {
+      "symbol": "USDCHF",
+      "market": "forex",
+      "source": "Yahoo Finance H1 CHF=X",
+      "dataError": null,
+      "rows": 2036,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T20:00:00Z",
+      "rawSignals": 628,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "USDJPY": {
+      "symbol": "USDJPY",
+      "market": "forex",
+      "source": "Yahoo Finance H1 JPY=X",
+      "dataError": null,
+      "rows": 2037,
+      "firstBar": "2026-04-23T13:00:00Z",
+      "lastBar": "2026-08-21T22:00:00Z",
+      "rawSignals": 587,
+      "pass": false,
+      "reasons": [
+        "NO_DEV_VALIDATION_CANDIDATE"
+      ]
+    },
+    "BTCUSDT": {
+      "symbol": "BTCUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ETHUSDT": {
+      "symbol": "ETHUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "SOLUSDT": {
+      "symbol": "SOLUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "HYPEUSDT": {
+      "symbol": "HYPEUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "SHIBUSDT": {
+      "symbol": "SHIBUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "TRXUSDT": {
+      "symbol": "TRXUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "XRPUSDT": {
+      "symbol": "XRPUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "AAVEUSDT": {
+      "symbol": "AAVEUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ADAUSDT": {
+      "symbol": "ADAUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ALGOUSDT": {
+      "symbol": "ALGOUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "APTUSDT": {
+      "symbol": "APTUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ARBUSDT": {
+      "symbol": "ARBUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ATOMUSDT": {
+      "symbol": "ATOMUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "AVAXUSDT": {
+      "symbol": "AVAXUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "BCHUSDT": {
+      "symbol": "BCHUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "BONKUSDT": {
+      "symbol": "BONKUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "CRVUSDT": {
+      "symbol": "CRVUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "DOGEUSDT": {
+      "symbol": "DOGEUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "DOTUSDT": {
+      "symbol": "DOTUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ETCUSDT": {
+      "symbol": "ETCUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "FILUSDT": {
+      "symbol": "FILUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "FLOKIUSDT": {
+      "symbol": "FLOKIUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "HBARUSDT": {
+      "symbol": "HBARUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "INJUSDT": {
+      "symbol": "INJUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "JTOUSDT": {
+      "symbol": "JTOUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "JUPUSDT": {
+      "symbol": "JUPUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "KAITOUSDT": {
+      "symbol": "KAITOUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "LDOUSDT": {
+      "symbol": "LDOUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "LINKUSDT": {
+      "symbol": "LINKUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "LTCUSDT": {
+      "symbol": "LTCUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "MOODENGUSDT": {
+      "symbol": "MOODENGUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "NEARUSDT": {
+      "symbol": "NEARUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ONDOUSDT": {
+      "symbol": "ONDOUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "OPUSDT": {
+      "symbol": "OPUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ORDIUSDT": {
+      "symbol": "ORDIUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "PENGUUSDT": {
+      "symbol": "PENGUUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "PEPEUSDT": {
+      "symbol": "PEPEUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "PNUTUSDT": {
+      "symbol": "PNUTUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "POLUSDT": {
+      "symbol": "POLUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "POPCATUSDT": {
+      "symbol": "POPCATUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "RENDERUSDT": {
+      "symbol": "RENDERUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "SUSDT": {
+      "symbol": "SUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "STXUSDT": {
+      "symbol": "STXUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "SUIUSDT": {
+      "symbol": "SUIUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "TAOUSDT": {
+      "symbol": "TAOUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "TIAUSDT": {
+      "symbol": "TIAUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "TRUMPUSDT": {
+      "symbol": "TRUMPUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "UNIUSDT": {
+      "symbol": "UNIUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "WIFUSDT": {
+      "symbol": "WIFUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "WLDUSDT": {
+      "symbol": "WLDUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "AIXBTUSDT": {
+      "symbol": "AIXBTUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ASTERUSDT": {
+      "symbol": "ASTERUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "FARTCOINUSDT": {
+      "symbol": "FARTCOINUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "GRASSUSDT": {
+      "symbol": "GRASSUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "IPUSDT": {
+      "symbol": "IPUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "LITUSDT": {
+      "symbol": "LITUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "PUMPUSDT": {
+      "symbol": "PUMPUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "VIRTUALUSDT": {
+      "symbol": "VIRTUALUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "XPLUSDT": {
+      "symbol": "XPLUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "ZECUSDT": {
+      "symbol": "ZECUSDT",
+      "market": "crypto",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 403: Forbidden",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "XAUUSD": {
+      "symbol": "XAUUSD",
+      "market": "metal",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 404: Not Found",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "XAGUSD": {
+      "symbol": "XAGUSD",
+      "market": "metal",
+      "source": null,
+      "dataError": "HTTP_FAIL HTTP Error 404: Not Found",
+      "rows": 0,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "NAS100": {
+      "symbol": "NAS100",
+      "market": "index",
+      "source": "Yahoo Finance H1 ^NDX",
+      "dataError": null,
+      "rows": 756,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "US30": {
+      "symbol": "US30",
+      "market": "index",
+      "source": "Yahoo Finance H1 ^DJI",
+      "dataError": null,
+      "rows": 697,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "US500": {
+      "symbol": "US500",
+      "market": "index",
+      "source": "Yahoo Finance H1 ^GSPC",
+      "dataError": null,
+      "rows": 698,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "DEX": {
+      "symbol": "DEX",
+      "market": "index",
+      "source": "Yahoo Finance H1 ^GDAXI",
+      "dataError": null,
+      "rows": 852,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    },
+    "JP225": {
+      "symbol": "JP225",
+      "market": "index",
+      "source": "Yahoo Finance H1 ^N225",
+      "dataError": null,
+      "rows": 559,
+      "pass_": false,
+      "reasons": [
+        "DATA_COVERAGE_FAIL"
+      ],
+      "pass": false
+    }
+  }
+}
