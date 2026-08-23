@@ -1,0 +1,40 @@
+name: V11 Strict WR Patch
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_v11_backtest_strict_wr.py'
+      - '.github/workflows/v11-backtest-strict-wr-patch.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v11-strict-wr-patch
+  cancel-in-progress: false
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Apply strict threshold patch
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/patch_v11_backtest_strict_wr.py
+          python scripts/patch_v11_backtest_strict_wr.py
+          python -m py_compile scripts/v11_symbol_backtest_4m.py
+          grep -Fq "if full['winRate'] <= REQUIRED_WR" scripts/v11_symbol_backtest_4m.py
+          grep -Fq "if val['winRate'] <= REQUIRED_WR" scripts/v11_symbol_backtest_4m.py
+          grep -Fq "if oos['winRate'] <= REQUIRED_WR" scripts/v11_symbol_backtest_4m.py
+      - name: Commit patch
+        run: |
+          set -euo pipefail
+          git config user.name trading-runtime-bot
+          git config user.email trading-runtime-bot@users.noreply.github.com
+          git add scripts/v11_symbol_backtest_4m.py
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: require strictly above 80 percent per symbol'
+          git pull --rebase origin main
+          git push origin HEAD:main
