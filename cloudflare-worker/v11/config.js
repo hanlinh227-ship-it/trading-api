@@ -1,5 +1,5 @@
 export const V11_CONFIG=Object.freeze({
- version:'V11.1-scalp',
+ version:'V11.2-symbol-scalp',
  mode:'SCALP',
  td:{creditsPerMinute:55,reserveLifecycle:5,reserveVerification:4,discoveryBudget:46},
  quoteTtlSec:{crypto:12,forex:35,metal:30,index:30},
