@@ -1,5 +1,6 @@
 import {INSTRUMENT_PROFILES,canonicalInstrument,getInstrumentProfile} from './instrument-profiles.js';
 import {V11_CONFIG} from './config.js';
+import {getV11BacktestProfile,V11_BACKTEST_META} from './generated-backtest-profiles.js';
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const has=(p,needle)=>(p?.families||[]).some(x=>String(x).toUpperCase().includes(needle));
@@ -8,9 +9,8 @@ const coreCrypto=new Set(['BTC','ETH','SOL','XRP']);
 const fastCrypto=new Set(['HYPE','SUI','INJ','TAO','WIF','BONK','PEPE','FLOKI','POPCAT','PENGU','TRUMP','FARTCOIN','PUMP','MOODENG','PNUT']);
 const slowCrypto=new Set(['TRX','LTC','BCH','ETC','XLM']);
 
-// V11.5 keeps the V77/V78 entry philosophy but uses WIDE-SCALP exits.
-// Scalping here means short-horizon trade management, not tiny stops.
-// Stops must sit outside normal M5 noise; targets should have enough travel to matter.
+// Baseline V77/V78-style policy. Four-month symbol backtests may override only
+// execution geometry / setup preference after that symbol independently passes.
 function derive(symbol,p){
  const m=p.market,b=V11_CONFIG.markets[m],riskPrior=Number(p.riskAtrPrior||.75),reg=String(p.regimePrior||'GENERIC').toUpperCase();
  let q=b.quality,rr=1.12,target=1.35,stop=Math.max(.85,clamp(riskPrior,.60,1.20)),h=b.horizonMin,drift={crypto:.45,forex:.18,metal:.22,index:.22}[m]||.20,ai=52;
@@ -39,15 +39,40 @@ function derive(symbol,p){
   ai=51;
  }
  return Object.freeze({
-  symbol,market:m,qualityFloor:clamp(Math.round(q),50,60),minRR:Number(clamp(rr,1.00,1.18).toFixed(2)),
+  symbol,market:m,qualityFloor:clamp(Math.round(q),50,60),minRR:Number(clamp(rr,1.00,1.18).toFixed(2)),targetRR:null,
   targetAtr:Number(clamp(target,1.10,2.00).toFixed(2)),stopAtr:Number(clamp(stop,.75,1.35).toFixed(2)),
   riskAtr:Number(clamp(riskPrior,.35,1.35).toFixed(2)),horizonMin:Math.round(clamp(h,60,120)),
   entryDriftMaxPct:Number(clamp(drift,.14,.60).toFixed(2)),aiMinConfidence:Math.round(clamp(ai,50,55)),
   minValidAi:4,minAlignedAi:3,maxHardRiskVotes:1,preferredSetups:p.families,entryRouter:p.entryRouter,regimePrior:p.regimePrior,
-  exitStyle:'V77_V78_WIDE_SCALP_STRUCTURE_ATR',hardBlocks:Object.freeze(['STALE_QUOTE','INVALID_GEOMETRY','HARD_NEWS_BLACKOUT','VOLATILITY_SHOCK','EXTREME_CHASE','PRICE_SOURCE_DIVERGENCE'])
+  backtestEligible:false,backtestFamily:null,backtestSession:'ANY',backtestRequireAlignment:false,backtestMinStrength:0,
+  backtestMeta:V11_BACKTEST_META,exitStyle:'V77_V78_WIDE_SCALP_STRUCTURE_ATR',hardBlocks:Object.freeze(['STALE_QUOTE','INVALID_GEOMETRY','HARD_NEWS_BLACKOUT','VOLATILITY_SHOCK','EXTREME_CHASE','PRICE_SOURCE_DIVERGENCE'])
  });
 }
 
-const policies=Object.fromEntries(Object.entries(INSTRUMENT_PROFILES).map(([s,p])=>[s,derive(s,p)]));
+function calibrated(base){
+ const bp=getV11BacktestProfile(base.symbol);
+ if(!bp||bp.eligible!==true)return base;
+ const rr=Number(bp.rr)===2?2:1,stop=Number(bp.stopAtr),h=Number(bp.horizonMin);
+ const setups=[String(bp.family||'').toUpperCase(),...(base.preferredSetups||[])].filter(Boolean);
+ return Object.freeze({...base,
+  minRR:rr,targetRR:rr,
+  stopAtr:Number.isFinite(stop)?clamp(stop,.75,1.50):base.stopAtr,
+  riskAtr:Number.isFinite(stop)?Math.min(base.riskAtr,clamp(stop,.75,1.50)):base.riskAtr,
+  horizonMin:Number.isFinite(h)?Math.round(clamp(h,60,180)):base.horizonMin,
+  preferredSetups:Object.freeze([...new Set(setups)]),
+  backtestEligible:true,backtestFamily:String(bp.family||''),backtestSession:String(bp.session||'ANY'),
+  backtestRequireAlignment:bp.requireAlignment===true,backtestMinStrength:Number(bp.minStrength||0),backtestProfile:bp,
+  exitStyle:'BACKTEST_LOCKED_RR_STRUCTURE_ATR'
+ });
+}
+
+const policies=Object.fromEntries(Object.entries(INSTRUMENT_PROFILES).map(([s,p])=>[s,calibrated(derive(s,p))]));
 export const SYMBOL_SCALP_POLICIES=Object.freeze(policies);
-export function getSymbolScalpPolicy(symbol,market=null){const s=canonicalInstrument(symbol),p=policies[s];if(p&&(!market||p.market===market))return p;const ip=getInstrumentProfile(s);if(ip&&(!market||ip.market===market))return derive(s,ip);const m=market||ip?.market||'crypto',b=V11_CONFIG.markets[m]||V11_CONFIG.markets.crypto;return Object.freeze({symbol:s,market:m,qualityFloor:b.quality,minRR:1.10,targetAtr:1.40,stopAtr:.95,riskAtr:.75,horizonMin:80,entryDriftMaxPct:{crypto:.45,forex:.18,metal:.22,index:.22}[m]||.20,aiMinConfidence:52,minValidAi:4,minAlignedAi:3,maxHardRiskVotes:1,preferredSetups:[],entryRouter:'ROUTER',regimePrior:'GENERIC',exitStyle:'V77_V78_WIDE_SCALP_STRUCTURE_ATR',hardBlocks:[]});}
+export function getSymbolScalpPolicy(symbol,market=null){
+ const s=canonicalInstrument(symbol),p=policies[s];
+ if(p&&(!market||p.market===market))return p;
+ const ip=getInstrumentProfile(s);
+ if(ip&&(!market||ip.market===market))return calibrated(derive(s,ip));
+ const m=market||ip?.market||'crypto',b=V11_CONFIG.markets[m]||V11_CONFIG.markets.crypto;
+ return Object.freeze({symbol:s,market:m,qualityFloor:b.quality,minRR:1,targetRR:null,targetAtr:1.40,stopAtr:.95,riskAtr:.75,horizonMin:80,entryDriftMaxPct:{crypto:.45,forex:.18,metal:.22,index:.22}[m]||.20,aiMinConfidence:52,minValidAi:4,minAlignedAi:3,maxHardRiskVotes:1,preferredSetups:[],entryRouter:'ROUTER',regimePrior:'GENERIC',backtestEligible:false,backtestFamily:null,backtestSession:'ANY',backtestRequireAlignment:false,backtestMinStrength:0,backtestMeta:V11_BACKTEST_META,exitStyle:'V77_V78_WIDE_SCALP_STRUCTURE_ATR',hardBlocks:[]});
+}
