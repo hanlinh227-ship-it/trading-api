@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "task_id": "v11-vps-backtest-supervisor-20260823-01",
+  "task": "Fresh-read GitHub main and implement the autonomous VPS per-symbol backtest supervisor defined in docs/ai-coengineer/VPS_BACKTEST_SUPERVISOR_SPEC.md. Keep Signal V11 Telegram maintenance-locked. The supervisor must run persistently on VPS, track every current catalog symbol independently, use the current 4-month V11 backtest engine or its validated successor, allow at most 3 valid entries per eligible day, RR exactly 1:1 or 1:2, and continue local research / bounded 5-AI proposal rounds for failing symbols without tuning repeatedly against the same final OOS. It must resume after restart, expose localhost-only health, enforce resource/cost controls, and never fabricate or lower the >=80.00% threshold. Implement systemd installation without weakening the existing 5-AI bridge. Return code, validation evidence and deployment-safe instructions; do not unlock Telegram.",
+  "context": {
+    "repo": "hanlinh227-ship-it/trading-api",
+    "spec": "docs/ai-coengineer/VPS_BACKTEST_SUPERVISOR_SPEC.md",
+    "vps_repo_root": "/opt/trading-api",
+    "ai_bridge": "http://127.0.0.1:8789/review",
+    "health_bind": "127.0.0.1:8791",
+    "required_win_rate_inclusive": 80,
+    "rr_allowed": [1, 2],
+    "max_entries_per_eligible_day": 3,
+    "providers_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
+    "maintenance_lock": true
+  }
+}
