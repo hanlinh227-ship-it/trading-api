@@ -1,23 +1,32 @@
 {
   "enabled": true,
-  "task_id": "v11-legacy-fiveai-80wr-20260823-r1",
-  "status": "ACTIVE_RESEARCH",
-  "task": "All five providers must independently audit and improve the Signal V11 four-month per-symbol backtest design using defensible lessons from V62/V63/V73/V76 and current V11 evidence. Goal: find research-safe changes that can raise each current catalog symbol toward an inclusive >=80.00% full-window win-rate gate WITHOUT weakening the gate, deleting symbols, pooling performance, lookahead, final-window retuning, fabrication, or production unlock. Study the current V11 legacy ML architecture conceptually: per-symbol models, exact historical data, next-bar execution, cost padding, structural+ATR stops, same-bar TP+SL=>SL, timeout non-win, RR exactly 1:1 or 1:2, max 3 entries/day. Prioritize robust method-family selection by symbol and regime, richer causal features, nested chronological validation, calibration confidence/abstention, session/time-of-day effects, relative-strength/SMT/breadth, trend/pullback/sweep/retest/failed-break variants, and data-quality defects. Return concrete implementation proposals ranked by expected robustness, leakage risk, complexity, and which symbol/market classes they should help. Explicitly flag any idea that could inflate backtest WR without likely live generalization. Do not claim >=80 unless fresh evidence proves it.",
+  "task_id": "v11-backtest-restart-fiveai-80wr-20260823-r2",
+  "status": "ACTIVE_RESEARCH_RESTART",
+  "task": "Restart Signal V11 backtest research from the current GitHub main using all five configured AI lanes (Claude, Codex, DeepSeek, Qwen, OpenRouter). Fresh-read current V11 source and historical V62/V63/V73/V76 evidence before proposing changes. Learn from prior methods but do not inherit their invalid assumptions. V73 is EXPOSED DEVELOPMENT and its mandatory 1-trade-per-day/noTradeAllowed=false behavior must NOT be used as proof or carried into V11; zero-entry days must be legal whenever no setup clears the quality gate. Preserve useful prior geometry/session/style ideas only as priors. Learn from V76's explicit development/validation/OOS separation and strengthen it into nested chronological walk-forward selection with an untouched final holdout that is never repeatedly retuned against. Every current catalog symbol must be evaluated independently; no pooling, symbol deletion, target weakening, rounding, synthetic wins, lookahead, future leakage, same-final-window iterative tuning, or proxy instrument promotion. Required final target remains inclusive win rate >=80.00% for EVERY symbol, RR exactly 1:1 or 1:2, <=3 valid entries per signal day and actual execution day, exact instrument data, non-trivial sample (canonical minimum 60 final evaluation trades unless a stricter current contract exists), positive expectancy, and deterministic integrity checks. Prefer selective abstention, calibrated confidence, per-symbol/per-regime method families, full valid session/hour search, relative strength/SMT/breadth, trend/pullback/sweep/retest/failed-break variants, and execution-geometry-aligned labels. Repair exact historical data gaps (including XAUUSD and IPUSDT) rather than accepting proxies or tiny samples. Require live per-symbol logs during backtest (FETCH/TRAIN/TEST/RESULT) so execution can be externally observed. DeepSeek remains the sole implementation source writer under WRITE_LOCK; the other four lanes independently review/diagnose, and deterministic validation is final authority. Do not unlock Signal V11 or Telegram. Do not report success unless fresh evidence proves all current catalog symbols satisfy every gate simultaneously.",
   "context": {
     "source_of_truth": "GitHub main",
-    "current_main_before_task": "1646b0829388f623d1f668f750ce19cfcef9c10e",
+    "current_main_before_task": "c3f642a6f620810b824e351b9002dc65ff331e7a",
     "maintenance_lock": true,
     "production_signal_locked": true,
     "required_win_rate_inclusive": 80.0,
     "max_entries_per_eligible_day": 3,
     "rr_allowed": [1, 2],
     "evaluation_days": 122,
+    "canonical_min_final_trades": 60,
+    "zero_entry_days_allowed": true,
     "no_pooling": true,
+    "no_symbol_deletion": true,
     "no_lookahead": true,
     "no_final_window_retuning": true,
+    "no_proxy_promotion": true,
+    "legacy_lessons": {
+      "V62_V63": "reuse candidate/style research ideas only; reject forced-daily fallback and development-fit proof",
+      "V73": "EXPOSED DEVELOPMENT ALL-PASS only; mandatory daily trade is explicitly rejected for V11",
+      "V76": "retain dev/validation/OOS discipline and research archetypes, but require stronger nested chronological selection and fresh final holdout"
+    },
     "legacy_sources": [
-      "scripts/offline_forex_intraday_nocut_v62.py if available in history",
-      "scripts/offline_crypto_intraday_nocut_v63.py if available in history",
+      "historical scripts/offline_forex_intraday_nocut_v62.py",
+      "historical scripts/offline_crypto_intraday_nocut_v63.py",
       "data/nocut_intraday_allpass_v73.json",
       "data/symbol_knowledge_registry.json",
       "data/v76_entry_summary.json",
@@ -30,7 +39,17 @@
       "data/v11_legacy_ml_backtest_4m.json",
       "data/v11_legacy_ml_backtest_gate.json"
     ],
+    "known_repair_priorities": [
+      "remove forced choose_day fallback",
+      "remove daily coverage forcing from style selection/final gate",
+      "expand Forex valid H1 candidate times so legacy hour priors can actually be tested",
+      "nested rolling profile selection using past-only folds",
+      "execution-configuration-aligned outcome labels",
+      "exact XAUUSD historical feed repair",
+      "exact IPUSDT history investigation"
+    ],
     "five_ai_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
-    "writer_policy": "DeepSeek owns implementation source writes; other providers are independent review/diagnostic lanes; deterministic validation remains final authority."
+    "writer_policy": "DeepSeek owns implementation source writes; Claude, Codex, Qwen and OpenRouter are independent review/diagnostic lanes; deterministic validation remains final authority.",
+    "user_reporting_policy": "Do not report intermediate backtest performance. Report only when every current catalog symbol has genuinely passed all final gates, or if a hard blocker makes compliant continuation impossible."
   }
 }
