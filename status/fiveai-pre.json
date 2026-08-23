@@ -1,0 +1,21 @@
+{
+  "allFiveReady": false,
+  "providers": {
+    "claude": {
+      "status": "TIMEOUT"
+    },
+    "codex": {
+      "status": "OK"
+    },
+    "deepseek": {
+      "status": "OK"
+    },
+    "qwen": {
+      "status": "OK"
+    },
+    "openrouter": {
+      "status": "ERROR"
+    }
+  },
+  "error": null
+}

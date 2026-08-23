@@ -1,0 +1,21 @@
+{
+  "allFiveReady": false,
+  "providers": {
+    "claude": {
+      "status": "OK"
+    },
+    "codex": {
+      "status": "OK"
+    },
+    "deepseek": {
+      "status": "OK"
+    },
+    "qwen": {
+      "status": "OK"
+    },
+    "openrouter": {
+      "status": "ERROR"
+    }
+  },
+  "error": null
+}

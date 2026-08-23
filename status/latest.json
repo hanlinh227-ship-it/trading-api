@@ -1,0 +1,12 @@
+{
+  "runId": "32673538861",
+  "fastAll95Passed": false,
+  "allFiveAIPreReady": false,
+  "allFiveAIPostReady": false,
+  "fiveAIReady": false,
+  "finalRan": false,
+  "aiFailures": [
+    "claude",
+    "openrouter"
+  ]
+}
