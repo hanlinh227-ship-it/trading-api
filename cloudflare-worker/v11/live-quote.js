@@ -1,8 +1,8 @@
 import baseEngine from '../engine-v77168.js';
 
 const MAX_AGE_SEC={crypto:15,forex:65,metal:65,index:65};
-const INDEX_TD={NAS100:'NDX',US30:'DJI',US500:'SPX',DEX:'DAX',JP225:'N225'};
-const INDEX_MASSIVE={NAS100:'I:NDX',US30:'I:DJI',US500:'I:SPX',DEX:'I:DAX',JP225:'I:N225'};
+const INDEX_TD={NAS100:'NDX',US30:'DJI',US500:'SPX',SPX500:'SPX',DEX:'DAX',GER40:'DAX',JP225:'N225'};
+const INDEX_MASSIVE={NAS100:'I:NDX',US30:'I:DJI',US500:'I:SPX',SPX500:'I:SPX',DEX:'I:DAX',GER40:'I:DAX',JP225:'I:N225'};
 const norm=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null;};
 const nowSec=()=>Math.floor(Date.now()/1000);
