@@ -22,7 +22,8 @@ const SOURCES = {
 const SAFE_KEYS = new Set([
   'state','status','message','last_updated','last_seen','timestamp','task','task_id',
   'issue','pr','sha','run_id','workflow','validation','verdict','consensus','deploy',
-  'version','provider','events','details','stage','url','label','age_ms'
+  'version','provider','events','details','stage','url','label','age_ms','pipeline',
+  'intake','implementation','codex_review','claude_review','merge'
 ]);
 
 function nowIso() { return new Date().toISOString(); }
