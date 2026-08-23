@@ -23,7 +23,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 API_URL = os.environ.get("DEEPSEEK_API_URL", "https://api.deepseek.com/chat/completions")
-MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
 HARD_FORBIDDEN_PREFIXES = (".git/",)
 HARD_FORBIDDEN_EXACT = {".env", "cloudflare-worker/.dev.vars"}
@@ -109,7 +109,7 @@ def load_task(path: pathlib.Path) -> dict:
     if not isinstance(task["acceptance_criteria"], list) or not task["acceptance_criteria"]:
         fail("acceptance_criteria must be a non-empty list")
     task["max_rounds"] = max(1, min(int(task.get("max_rounds", 2)), 4))
-    task["max_output_tokens"] = max(512, min(int(task.get("max_output_tokens", 5000)), 8000))
+    task["max_output_tokens"] = max(512, min(int(task.get("max_output_tokens", 5000)), 65536))
     task["validation_commands"] = list(task.get("validation_commands") or [])[:10]
     for cmd in task["validation_commands"]:
         if not isinstance(cmd, str) or not cmd.strip():
