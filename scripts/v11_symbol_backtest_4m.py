@@ -11,7 +11,7 @@ Safety / validity rules:
 - Only RR 1:1 or 1:2 is allowed.
 - Model selection uses chronological DEV 60% + VALIDATION 20% only.
 - Final OOS 20% is never used to rank candidates.
-- PASS requires >80% win rate on VALIDATION, OOS and full 4-month window,
+- PASS requires >=80% win rate on VALIDATION, OOS and full 4-month window,
   plus minimum sample counts. This intentionally makes trivial 2-3 trade
   overfit configurations unable to pass.
 
