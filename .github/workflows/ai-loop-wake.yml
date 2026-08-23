@@ -18,8 +18,10 @@ permissions:
   checks: read
   statuses: read
 
+# Same group key as ai-loop.yml for the same issue. This serializes only
+# duplicate writers for one task while unrelated task issues remain parallel.
 concurrency:
-  group: trading-ai-closed-loop
+  group: ai-task-${{ inputs.issue_number }}
   cancel-in-progress: false
 
 env:
