@@ -1,16 +1,37 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-22 UTC+7
+Updated: 2026-08-23 UTC+7
 
 ## READ FIRST
 1. fresh-read GitHub `main`;
 2. `docs/checkpoints/MASTER_TRADING_STATE.md`;
 3. this file;
-4. `docs/ai-coengineer/SHARED_STATE.md`;
-5. `docs/ai-coengineer/WRITE_LOCK.md`;
-6. current V11 source relevant to the task.
+4. `docs/checkpoints/V11_DIRECT_5AI_FAST_RESEARCH_20260823.md` for the active research/backtest phase;
+5. `docs/ai-coengineer/SHARED_STATE.md`;
+6. `docs/ai-coengineer/WRITE_LOCK.md`;
+7. current V11 source relevant to the task.
 
 GitHub `main` outranks stale checkpoint/version wording.
+
+## ACTIVE V11 RESEARCH MODE — DIRECT 5AI FAST
+
+The owner explicitly cancelled the PR/Issue/job-gated V11 research loop because orchestration was consuming more time than the backtest itself.
+
+Canonical research mode is now:
+
+`5AI research -> one deterministic cached/sharded direct backtest -> 5AI evidence review -> bounded method change -> direct backtest again`
+
+Required AI lanes are Claude, Codex, DeepSeek, Qwen and OpenRouter. They are research accelerators, not five duplicate OHLC replay engines. All five independently analyze before/after the same deterministic evidence. A transient AI/gateway/job failure must be recorded honestly but must not leave safe deterministic research idle; retry the missing AI participation separately. Final five-AI success still requires genuine participation from all five.
+
+Ordinary V11 research iterations do NOT require an implementation Issue, implementation PR, reviewer job or continuous monitor. Do not restore those gates unless the owner explicitly requests them.
+
+Active detailed checkpoint:
+`docs/checkpoints/V11_DIRECT_5AI_FAST_RESEARCH_20260823.md`
+
+Canonical direct research workflow:
+`.github/workflows/v11-fiveai-direct-backtest.yml`
+
+Fixed research target remains 95 independent symbols unless current main changes the catalog; 1-3 real executions per eligible symbol/day; RR exactly 1:1 or 1:2; per-symbol WR >=80.00%; positive expectancy; exact data; no pooling/deletion/fabrication/proxy/lookahead/silent-day deletion/final-holdout retuning.
 
 ## CURRENT CANONICAL STATE
 
@@ -60,19 +81,26 @@ Valid non-entry outcomes include WATCH, quality rejection, forward-target RR ins
 
 Manual VPS deployment should only be used for recovery/diagnostics, not normal operation.
 
+Research backtest workflows are separate from production deployment and must not unlock Signal V11.
+
 ## VPC AI BRIDGE
 
 - Cloudflare binding: `AI_BRIDGE`;
 - VPC service: `v11-ai-bridge`;
 - VPS systemd: `v11-manual-ai-bridge`;
-- Claude + Codex: on-demand review only;
+- Claude + Codex: on-demand review only for the production/manual hunter path;
 - DeepSeek: API-native when configured;
 - all three required for positive manual-hunter consensus.
 
-## NEXT ENGINEERING PHASE
+The direct five-AI research workflow may use the configured Multi-AI gateway, but AI transport is not the deterministic performance authority.
 
-Connection/plumbing work is considered complete unless new runtime evidence proves otherwise.
-Next work is signal-quality refinement from actual production evidence:
+## NEXT ENGINEERING / RESEARCH PHASE
+
+Production connection/plumbing work is considered complete unless new runtime evidence proves otherwise.
+
+For V11 research, continue direct FAST iterations from the frozen/cached dataset and shared historical lessons. Use five-AI analysis to choose bounded method changes and deterministic replay to falsify them quickly. Do not spend research cycles rebuilding PR/Issue/job orchestration.
+
+For production signal-quality refinement:
 1. observe newly created funnel rows only;
 2. measure APPROVED/WATCH/REJECTED distribution per market;
 3. evaluate closed lifecycle WIN/LOSS/EXPIRED outcomes;
@@ -83,4 +111,4 @@ Do not return to old V78/V10 signal-authority methods.
 
 ## NEW CHAT PROMPT
 
-`Continue Trading from current GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, SHARED_STATE.md and WRITE_LOCK.md. Signal V11 is the only public signal authority and is SIGNAL_ONLY. Cloudflare auto-scans, Telegram auto-notifies new accepted MARKET signals and TP/SL/EXPIRED lifecycle events, LIMIT/WATCH cannot be promoted into MARKET, and the three-AI hunter is on-demand fail-closed. Preserve TRADING_STATE, V11 native scheduler, VPC bridge and deterministic gates.`
+`Continue Trading from fresh GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, V11_DIRECT_5AI_FAST_RESEARCH_20260823.md, SHARED_STATE.md and WRITE_LOCK.md. Signal V11 remains the only public signal authority and SIGNAL_ONLY. V11 research is in DIRECT 5AI FAST mode: Claude, Codex, DeepSeek, Qwen and OpenRouter accelerate one deterministic cached/sharded backtest before/after evidence; do not restore PR/Issue/job-gated research loops. AI/job transport failures must not leave safe deterministic research idle, but final five-AI success requires genuine participation from all five. Preserve 95-symbol independent evaluation, 1-3 real executions per eligible symbol/day, RR 1:1/1:2, >=80.00% per-symbol target, exact data, no leakage and untouched FINAL.`
