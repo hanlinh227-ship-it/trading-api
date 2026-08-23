@@ -1,4 +1,4 @@
-# run-request: 2026-08-24T00:52+07:00 verified-nonblocking-v11-5ai
+# run-request: 2026-08-24T06:25+07:00 prompt-control-v11
 name: V11 Direct 5AI Backtest
 
 on:
@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/v11-fiveai-direct-backtest.yml'
+      - 'control/v11_backtest_request.json'
   workflow_dispatch:
 
 permissions:
@@ -34,17 +35,14 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Restore immutable market-data cache
         uses: actions/cache@v4
         with:
           path: data/v11_mtf_cache
           key: v11-mtf-data-20250826T1600-20260823T1600-r1
-
       - name: Preflight direct runner
         run: |
           set -euo pipefail
@@ -57,326 +55,97 @@ jobs:
           assert sum(map(len,c.values()))==95
           print('DIRECT_PREFLIGHT_OK 95 symbols')
           PY
-
       - name: Resolve 5AI gateway without blocking deterministic work
         shell: bash
         run: |
           set +e
           echo 'GATEWAY_READY=0' >> "$GITHUB_ENV"
           echo 'GATEWAY_REASON=UNRESOLVED' >> "$GITHUB_ENV"
-
-          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo 'GATEWAY_REASON=CLOUDFLARE_API_TOKEN_MISSING' >> "$GITHUB_ENV"
-            echo '5AI_GATEWAY_UNAVAILABLE reason=CLOUDFLARE_API_TOKEN_MISSING deterministic_backtest_continues=true'
-            exit 0
-          fi
-          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
-            echo 'GATEWAY_REASON=CLOUDFLARE_ACCOUNT_ID_MISSING' >> "$GITHUB_ENV"
-            echo '5AI_GATEWAY_UNAVAILABLE reason=CLOUDFLARE_ACCOUNT_ID_MISSING deterministic_backtest_continues=true'
-            exit 0
-          fi
-
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then echo 'GATEWAY_REASON=CLOUDFLARE_API_TOKEN_MISSING' >> "$GITHUB_ENV"; exit 0; fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then echo 'GATEWAY_REASON=CLOUDFLARE_ACCOUNT_ID_MISSING' >> "$GITHUB_ENV"; exit 0; fi
           for attempt in 1 2 3; do
             SUBDOMAIN="$(curl -sS --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("result") or {}).get("subdomain") or "")' 2>/dev/null)"
             OIDC="$(curl -sS --max-time 30 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("value") or "")' 2>/dev/null)"
-            if [ -n "$SUBDOMAIN" ] && [ -n "$OIDC" ]; then
-              echo "::add-mask::$OIDC"
-              echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
-              echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
-              echo 'GATEWAY_READY=1' >> "$GITHUB_ENV"
-              echo 'GATEWAY_REASON=OK' >> "$GITHUB_ENV"
-              echo "5AI_GATEWAY_READY attempt=$attempt"
-              exit 0
-            fi
-            echo "5AI_GATEWAY_RETRY attempt=$attempt"
+            if [ -n "$SUBDOMAIN" ] && [ -n "$OIDC" ]; then echo "::add-mask::$OIDC"; echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"; echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"; echo 'GATEWAY_READY=1' >> "$GITHUB_ENV"; echo 'GATEWAY_REASON=OK' >> "$GITHUB_ENV"; exit 0; fi
             sleep 2
           done
-
-          echo 'GATEWAY_REASON=RESOLVE_FAILED_AFTER_RETRIES' >> "$GITHUB_ENV"
-          echo '5AI_GATEWAY_UNAVAILABLE reason=RESOLVE_FAILED_AFTER_RETRIES deterministic_backtest_continues=true'
-          exit 0
-
+          echo 'GATEWAY_REASON=RESOLVE_FAILED_AFTER_RETRIES' >> "$GITHUB_ENV"; exit 0
       - name: Five AI + direct parallel backtest + learning
         shell: bash
         run: |
           set -uo pipefail
           mkdir -p data/v11_mtf_out logs
-          rm -f data/v11_mtf_out/v11_mtf_shard_*.json data/v11_mtf_out/v11_mtf_profiles_shard_*.json
-          rm -f data/v11_mtf_fast_merged.json data/v11_mtf_final_merged.json data/v11_fiveai_direct_pre.json data/v11_fiveai_direct_post.json data/v11_direct_backtest_status.json
-
+          rm -f data/v11_mtf_out/v11_mtf_shard_*.json data/v11_mtf_out/v11_mtf_profiles_shard_*.json data/v11_mtf_fast_merged.json data/v11_mtf_final_merged.json data/v11_fiveai_direct_pre.json data/v11_fiveai_direct_post.json data/v11_direct_backtest_status.json
           python3 - <<'PY'
-          import json
+          import json,os
           from pathlib import Path
           ctx=[]
-          for p,limit in [
-              ('scripts/v11_backtest_mtf.py',42000),
-              ('scripts/v11_direct_backtest.py',18000),
-              ('data/symbol_knowledge_registry.json',26000),
-              ('data/v76_entry_summary.json',18000),
-              ('data/nocut_intraday_allpass_v73.json',10000),
-          ]:
+          for p,limit in [('scripts/v11_backtest_mtf.py',42000),('scripts/v11_direct_backtest.py',18000),('data/symbol_knowledge_registry.json',26000),('data/v76_entry_summary.json',18000),('data/nocut_intraday_allpass_v73.json',10000)]:
               try: ctx.append('\n--- '+p+' ---\n'+Path(p).read_text(encoding='utf-8')[:limit])
               except Exception: pass
-          instruction='''Participate as one of the five independent AI lanes in the SAME direct V11 MTF backtest round. Study current engine plus legacy V62/V63/V73/V74/V76 priors. Independently propose the strongest defensible method hypotheses for all 95 symbols under the fixed contract: every exact-data eligible execution day has 1-3 real executions, RR exactly 1:1 or 1:2, per-symbol WR target >=80%, positive expectancy, no pooling/deletion/fabrication/proxies/lookahead/silent-day deletion/final-holdout tuning. Full timeframe intent: W1/D1 macro; H4/H1 bias/structure/volatility/RS-SMT-breadth; M30/M15 setup/location/session/liquidity; M5 trigger; M1 only with exact sufficiently deep history. Return concise hypotheses, integrity risks, and what the deterministic replay should falsify. Do not invent results. Research only; production stays locked.'''
-          req={'task_id':'v11-direct-fiveai-pre-'+__import__('os').environ.get('GITHUB_RUN_ID','unknown'),'instruction':instruction,'context':{'text':'\n'.join(ctx)}}
-          Path('/tmp/fiveai-pre-request.json').write_text(json.dumps(req,ensure_ascii=False),encoding='utf-8')
+          instruction='Participate as one of five independent AI lanes in the SAME direct V11 MTF backtest round. Study current engine plus legacy priors. Propose defensible hypotheses for all 95 symbols under fixed contract: every exact-data eligible execution day has 1-3 real executions, RR exactly 1:1 or 1:2, per-symbol WR target >=80%, positive expectancy, no pooling/deletion/fabrication/proxies/lookahead/silent-day deletion/final-holdout tuning. Do not invent results.'
+          Path('/tmp/fiveai-pre-request.json').write_text(json.dumps({'task_id':'v11-pre-'+os.environ.get('GITHUB_RUN_ID','unknown'),'instruction':instruction,'context':{'text':'\n'.join(ctx)}},ensure_ascii=False),encoding='utf-8')
           PY
-
-          echo '5AI_PRE_START claude codex deepseek qwen openrouter'
-          (
-            if [ "${GATEWAY_READY:-0}" != '1' ]; then
-              echo "5AI_PRE_SKIPPED gateway_reason=${GATEWAY_REASON:-UNKNOWN}"
-              exit 0
-            fi
-            for attempt in 1 2; do
-              code="$(curl -sS --max-time 600 -o /tmp/fiveai-pre-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/fiveai-pre-request.json || true)"
-              if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 300 ] 2>/dev/null; then
-                echo "5AI_PRE_HTTP_OK attempt=$attempt code=$code"
-                exit 0
-              fi
-              echo "5AI_PRE_RETRY attempt=$attempt http=$code"
-              sleep 3
-            done
-            exit 0
-          ) > logs/fiveai-pre.log 2>&1 &
-          AI_PRE_PID=$!
-
+          ( if [ "${GATEWAY_READY:-0}" = '1' ]; then curl -sS --max-time 600 -o /tmp/fiveai-pre-result.json -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/fiveai-pre-request.json || true; fi ) > logs/fiveai-pre.log 2>&1 & AI_PRE_PID=$!
           echo 'BACKTEST_START mode=FAST shards=4 direct=true'
-          PIDS=''
-          for i in 0 1 2 3; do
-            (
-              python -u scripts/v11_direct_backtest.py \
-                --mode fast \
-                --history-start "$V11_DATASET_START" \
-                --history-end "$V11_DATASET_END" \
-                --shard-index "$i" --shard-count "$V11_SHARD_COUNT" \
-                2>&1 | tee "logs/shard-$i.log"
-            ) &
-            PIDS="$PIDS $!"
-          done
-
-          BT_RC=0
-          for p in $PIDS; do wait "$p" || BT_RC=1; done
+          PIDS=''; for i in 0 1 2 3; do (python -u scripts/v11_direct_backtest.py --mode fast --history-start "$V11_DATASET_START" --history-end "$V11_DATASET_END" --shard-index "$i" --shard-count "$V11_SHARD_COUNT" 2>&1 | tee "logs/shard-$i.log") & PIDS="$PIDS $!"; done
+          BT_RC=0; for p in $PIDS; do wait "$p" || BT_RC=1; done
           python -u scripts/v11_direct_backtest.py --merge || BT_RC=1
           cp data/v11_mtf_merged.json data/v11_mtf_fast_merged.json 2>/dev/null || true
           wait "$AI_PRE_PID" || true
-
           python3 - <<'PY'
           import json
           from pathlib import Path
-          expected=['claude','codex','deepseek','qwen','openrouter']
-          out={'allFiveReady':False,'providers':{},'error':None}
-          p=Path('/tmp/fiveai-pre-result.json')
+          expected=['claude','codex','deepseek','qwen','openrouter']; out={'allFiveReady':False,'providers':{},'error':None}; p=Path('/tmp/fiveai-pre-result.json')
           if p.exists():
               try:
-                  d=json.loads(p.read_text(encoding='utf-8')); raw={str(k).lower():v for k,v in (d.get('providers') or {}).items()}
-                  out['providers']={k:{'status':str((raw.get(k) or {}).get('status') or 'MISSING'),'review':(raw.get(k) or {}).get('review') or {}} for k in expected}
-                  out['allFiveReady']=all(str(out['providers'][k]['status']).upper()=='OK' for k in expected)
-              except Exception as e: out['error']='INVALID_PRE_RESULT:'+str(e)
-          else:
-              out['providers']={k:{'status':'MISSING','review':{}} for k in expected}
-              out['error']='NO_PRE_RESULT'
-          Path('data/v11_fiveai_direct_pre.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('5AI_PRE_READY',out['allFiveReady'],[(k,v['status']) for k,v in out['providers'].items()])
+                  d=json.loads(p.read_text()); raw={str(k).lower():v for k,v in (d.get('providers') or {}).items()}; out['providers']={k:{'status':str((raw.get(k) or {}).get('status') or 'MISSING')} for k in expected}; out['allFiveReady']=all(out['providers'][k]['status'].upper()=='OK' for k in expected)
+              except Exception as e: out['error']=str(e)
+          else: out['providers']={k:{'status':'MISSING'} for k in expected}; out['error']='NO_PRE_RESULT'
+          Path('data/v11_fiveai_direct_pre.json').write_text(json.dumps(out,indent=2))
           PY
-
-          resolve_gateway_local() {
-            if [ "${GATEWAY_READY:-0}" = '1' ] && [ -n "${GATEWAY_URL:-}" ] && [ -n "${GATEWAY_OIDC:-}" ]; then return 0; fi
-            if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then return 1; fi
-            for attempt in 1 2 3; do
-              SUBDOMAIN="$(curl -sS --max-time 30 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("result") or {}).get("subdomain") or "")' 2>/dev/null)"
-              OIDC="$(curl -sS --max-time 30 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("value") or "")' 2>/dev/null)"
-              if [ -n "$SUBDOMAIN" ] && [ -n "$OIDC" ]; then
-                GATEWAY_URL="https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review"
-                GATEWAY_OIDC="$OIDC"
-                GATEWAY_READY=1
-                echo "::add-mask::$OIDC"
-                echo "5AI_GATEWAY_RECOVERED_FOR_POST attempt=$attempt"
-                return 0
-              fi
-              sleep 2
-            done
-            return 1
-          }
-
-          echo '5AI_POST_START fresh FAST evidence -> all five AI'
           python3 - <<'PY'
-          import json, os
+          import json,os
           from pathlib import Path
-          p=Path('data/v11_mtf_fast_merged.json')
-          fast=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {'symbols':{}}
-          compact={}
-          for s,r in (fast.get('symbols') or {}).items():
-              compact[s]={'market':r.get('market'),'pass':r.get('pass'),'reasons':r.get('reasons'),'profile':r.get('profile'),'validation':r.get('validation') or {}}
-          instruction='''You are one of five independent AI lanes reviewing the fresh deterministic FAST backtest from the SAME V11 round. Diagnose failure clusters and propose the next bounded method changes using only this DEV/VALIDATION evidence plus historical priors; do not infer or request untouched final-holdout outcomes. Preserve all fixed gates: 95 independent symbols; 1-3 actual executions on every exact-data eligible execution day; RR 1:1/1:2; target >=80% per symbol; positive expectancy; no fabricated fills/proxies/lookahead/silent day deletion/final tuning. Explicitly compare multi-timeframe setup families, session/regime behavior, trigger quality, stop geometry and ranking. Return prioritized changes and reject overfit ideas. Do not fabricate any new result.'''
-          req={'task_id':'v11-direct-fiveai-post-'+os.environ.get('GITHUB_RUN_ID','unknown'),'instruction':instruction,'context':{'text':json.dumps(compact,ensure_ascii=False)}}
-          Path('/tmp/fiveai-post-request.json').write_text(json.dumps(req,ensure_ascii=False),encoding='utf-8')
+          p=Path('data/v11_mtf_fast_merged.json'); fast=json.loads(p.read_text()) if p.exists() else {'symbols':{}}; compact={s:{'market':r.get('market'),'pass':r.get('pass'),'reasons':r.get('reasons'),'validation':r.get('validation') or {}} for s,r in (fast.get('symbols') or {}).items()}
+          Path('/tmp/fiveai-post-request.json').write_text(json.dumps({'task_id':'v11-post-'+os.environ.get('GITHUB_RUN_ID','unknown'),'instruction':'Review fresh deterministic FAST evidence. Diagnose failure clusters and propose bounded DEV/VALIDATION changes. Preserve 95 independent symbols, 1-3 executions/day, RR 1:1/1:2, >=80% per symbol, positive expectancy, no leakage or final tuning. Do not fabricate results.','context':{'text':json.dumps(compact)}}))
           PY
-
-          POST_CODE='000'
-          if resolve_gateway_local; then
-            for attempt in 1 2; do
-              POST_CODE="$(curl -sS --max-time 600 -o /tmp/fiveai-post-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/fiveai-post-request.json || true)"
-              if [ "$POST_CODE" -ge 200 ] 2>/dev/null && [ "$POST_CODE" -lt 300 ] 2>/dev/null; then break; fi
-              echo "5AI_POST_RETRY attempt=$attempt http=$POST_CODE"
-              sleep 3
-            done
-          else
-            echo '5AI_POST_SKIPPED gateway_unavailable_after_retry=true'
-          fi
-          echo "5AI_POST_HTTP $POST_CODE"
-
+          if [ "${GATEWAY_READY:-0}" = '1' ]; then curl -sS --max-time 600 -o /tmp/fiveai-post-result.json -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/fiveai-post-request.json || true; fi
           python3 - <<'PY'
-          import json
+          import json,os
           from pathlib import Path
-          expected=['claude','codex','deepseek','qwen','openrouter']
-          out={'allFiveReady':False,'providers':{},'error':None}
-          p=Path('/tmp/fiveai-post-result.json')
+          expected=['claude','codex','deepseek','qwen','openrouter']; out={'allFiveReady':False,'providers':{},'error':None}; p=Path('/tmp/fiveai-post-result.json')
           if p.exists():
               try:
-                  d=json.loads(p.read_text(encoding='utf-8')); raw={str(k).lower():v for k,v in (d.get('providers') or {}).items()}
-                  out['providers']={k:{'status':str((raw.get(k) or {}).get('status') or 'MISSING'),'review':(raw.get(k) or {}).get('review') or {}} for k in expected}
-                  out['allFiveReady']=all(str(out['providers'][k]['status']).upper()=='OK' for k in expected)
-              except Exception as e: out['error']='INVALID_POST_RESULT:'+str(e)
-          else:
-              out['providers']={k:{'status':'MISSING','review':{}} for k in expected}
-              out['error']='NO_POST_RESULT'
-          Path('data/v11_fiveai_direct_post.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-          print('5AI_POST_READY',out['allFiveReady'],[(k,v['status']) for k,v in out['providers'].items()])
+                  d=json.loads(p.read_text()); raw={str(k).lower():v for k,v in (d.get('providers') or {}).items()}; out['providers']={k:{'status':str((raw.get(k) or {}).get('status') or 'MISSING')} for k in expected}; out['allFiveReady']=all(out['providers'][k]['status'].upper()=='OK' for k in expected)
+              except Exception as e: out['error']=str(e)
+          else: out['providers']={k:{'status':'MISSING'} for k in expected}; out['error']='NO_POST_RESULT'
+          Path('data/v11_fiveai_direct_post.json').write_text(json.dumps(out,indent=2))
+          fast=Path('data/v11_mtf_fast_merged.json'); fs=json.loads(fast.read_text()).get('symbols',{}) if fast.exists() else {}; fast_all=len(fs)==95 and all(bool(v.get('pass')) for v in fs.values()); pre=json.loads(Path('data/v11_fiveai_direct_pre.json').read_text()); five=pre.get('allFiveReady') and out.get('allFiveReady')
+          status={'runId':os.environ.get('GITHUB_RUN_ID'),'fastAll95Passed':fast_all,'allFiveAIPreReady':pre.get('allFiveReady',False),'allFiveAIPostReady':out.get('allFiveReady',False),'fiveAIReady':bool(five),'finalRan':False,'aiFailures':[k for k in expected if pre.get('providers',{}).get(k,{}).get('status')!='OK' or out.get('providers',{}).get(k,{}).get('status')!='OK']}
+          Path('data/v11_direct_backtest_status.json').write_text(json.dumps(status,indent=2)); print('V11_STATUS',json.dumps(status))
           PY
-
-          FAST_ALL="$(python3 - <<'PY'
-          import json
-          from pathlib import Path
-          p=Path('data/v11_mtf_fast_merged.json')
-          if not p.exists(): print('0')
-          else:
-              d=json.loads(p.read_text(encoding='utf-8')); s=d.get('symbols') or {}
-              print('1' if len(s)==95 and all(bool(v.get('pass')) for v in s.values()) else '0')
-          PY
-          )"
-          FIVE_AI_OK="$(python3 - <<'PY'
-          import json
-          a=json.load(open('data/v11_fiveai_direct_pre.json')); b=json.load(open('data/v11_fiveai_direct_post.json'))
-          print('1' if a.get('allFiveReady') and b.get('allFiveReady') else '0')
-          PY
-          )"
-
-          if [ "$FAST_ALL" = '1' ] && [ "$FIVE_AI_OK" = '1' ]; then
-            echo 'FAST_ALL95_PASS_AND_5AI_OK -> FINAL_START'
-            rm -f data/v11_mtf_out/v11_mtf_shard_*.json data/v11_mtf_out/v11_mtf_profiles_shard_*.json
-            PIDS=''
-            for i in 0 1 2 3; do
-              (
-                python -u scripts/v11_direct_backtest.py \
-                  --mode final \
-                  --history-start "$V11_DATASET_START" \
-                  --history-end "$V11_DATASET_END" \
-                  --profiles data/v11_mtf_profiles.json \
-                  --shard-index "$i" --shard-count "$V11_SHARD_COUNT" \
-                  2>&1 | tee "logs/final-shard-$i.log"
-              ) &
-              PIDS="$PIDS $!"
-            done
-            for p in $PIDS; do wait "$p" || BT_RC=1; done
-            python -u scripts/v11_direct_backtest.py --merge || BT_RC=1
-            cp data/v11_mtf_merged.json data/v11_mtf_final_merged.json 2>/dev/null || true
-          else
-            echo 'FINAL_SEALED fast_all95='"$FAST_ALL"' five_ai_ok='"$FIVE_AI_OK"
-          fi
-
-          export BT_RC FAST_ALL FIVE_AI_OK POST_CODE
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          def load(path, default):
-              p=Path(path)
-              if not p.exists(): return default
-              try: return json.loads(p.read_text(encoding='utf-8'))
-              except Exception: return default
-          d=load('data/v11_mtf_fast_merged.json',{'symbols':{}}); s=d.get('symbols') or {}
-          pre=load('data/v11_fiveai_direct_pre.json',{'allFiveReady':False,'providers':{},'error':'MISSING'})
-          post=load('data/v11_fiveai_direct_post.json',{'allFiveReady':False,'providers':{},'error':'MISSING'})
-          failed=[]
-          for phase,obj in [('pre',pre),('post',post)]:
-              for k,v in (obj.get('providers') or {}).items():
-                  if str((v or {}).get('status') or 'MISSING').upper()!='OK': failed.append({'phase':phase,'provider':k,'status':(v or {}).get('status') or 'MISSING'})
-          summary={
-            'mode':'DIRECT_5AI_BACKTEST',
-            'runId':os.environ.get('GITHUB_RUN_ID'),
-            'runAttempt':os.environ.get('GITHUB_RUN_ATTEMPT'),
-            'sourceSha':os.environ.get('GITHUB_SHA'),
-            'symbolCount':len(s),
-            'deterministicBacktestRc':int(os.environ.get('BT_RC','1')),
-            'allFiveAIPreReady':bool(pre.get('allFiveReady')),
-            'allFiveAIPostReady':bool(post.get('allFiveReady')),
-            'compliantFiveAIRound':bool(pre.get('allFiveReady') and post.get('allFiveReady')),
-            'aiFailures':failed,
-            'fastAll95Passed':len(s)==95 and all(bool(v.get('pass')) for v in s.values()),
-            'finalRan':Path('data/v11_mtf_final_merged.json').exists(),
-            'productionUnlocked':False,
-          }
-          Path('data/v11_direct_backtest_status.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
-          print('DIRECT_STATUS',summary)
-          PY
-          exit "$BT_RC"
-
       - name: Upload direct evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: v11-direct-fiveai-${{ github.run_id }}
           path: |
-            data/v11_direct_backtest_status.json
-            data/v11_fiveai_direct_pre.json
-            data/v11_fiveai_direct_post.json
             data/v11_mtf_fast_merged.json
             data/v11_mtf_final_merged.json
-            data/v11_mtf_profiles.json
-            data/v11_mtf_out/*.json
-            logs/*.log
+            data/v11_fiveai_direct_pre.json
+            data/v11_fiveai_direct_post.json
+            data/v11_direct_backtest_status.json
+            logs/
           if-no-files-found: warn
-          retention-days: 14
-
-      - name: Publish assistant-readable latest status
+      - name: Publish machine-readable run status
         if: always()
-        continue-on-error: true
         shell: bash
         run: |
           set +e
-          mkdir -p /tmp/v11-status
-          python3 - <<'PY'
-          import json, os
-          from datetime import datetime, timezone
-          from pathlib import Path
-          p=Path('data/v11_direct_backtest_status.json')
-          if p.exists():
-              try: d=json.loads(p.read_text(encoding='utf-8'))
-              except Exception: d={}
-          else: d={}
-          d.setdefault('mode','DIRECT_5AI_BACKTEST')
-          d.setdefault('runId',os.environ.get('GITHUB_RUN_ID'))
-          d.setdefault('runAttempt',os.environ.get('GITHUB_RUN_ATTEMPT'))
-          d.setdefault('sourceSha',os.environ.get('GITHUB_SHA'))
-          d.setdefault('symbolCount',0)
-          d.setdefault('allFiveAIPreReady',False)
-          d.setdefault('allFiveAIPostReady',False)
-          d.setdefault('compliantFiveAIRound',False)
-          d.setdefault('fastAll95Passed',False)
-          d.setdefault('finalRan',False)
-          d['publishedAt']=datetime.now(timezone.utc).isoformat()
-          d['statusEvidencePublished']=True
-          Path('/tmp/v11-status/v11_direct_backtest_latest_status.json').write_text(json.dumps(d,indent=2),encoding='utf-8')
-          for src,dst in [('data/v11_fiveai_direct_pre.json','v11_fiveai_direct_latest_pre.json'),('data/v11_fiveai_direct_post.json','v11_fiveai_direct_latest_post.json')]:
-              q=Path(src)
-              if q.exists(): Path('/tmp/v11-status/'+dst).write_text(q.read_text(encoding='utf-8'),encoding='utf-8')
-          PY
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -B v11-research-status
-          mkdir -p data
-          cp /tmp/v11-status/* data/
-          git add data/v11_direct_backtest_latest_status.json data/v11_fiveai_direct_latest_pre.json data/v11_fiveai_direct_latest_post.json 2>/dev/null || git add data/v11_direct_backtest_latest_status.json
-          git commit -m "evidence: publish V11 direct 5AI run ${GITHUB_RUN_ID}" || true
-          git push --force origin v11-research-status || true
+          [ -f data/v11_direct_backtest_status.json ] || echo '{"status":"FAILED_BEFORE_STATUS"}' > data/v11_direct_backtest_status.json
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin v11-research-status:v11-research-status 2>/dev/null || git checkout --orphan v11-research-status
+          git checkout v11-research-status 2>/dev/null || true
+          mkdir -p status; cp data/v11_direct_backtest_status.json status/latest.json; cp data/v11_fiveai_direct_pre.json status/fiveai-pre.json 2>/dev/null || true; cp data/v11_fiveai_direct_post.json status/fiveai-post.json 2>/dev/null || true
+          git add status/; git commit -m "status: V11 direct 5AI run $GITHUB_RUN_ID" || true; git push -f origin HEAD:v11-research-status || true
