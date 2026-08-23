@@ -1,14 +1,36 @@
 {
-  "enabled": false,
-  "task_id": "v11-4m-3entry-persymbol-80wr-20260823-audit",
-  "status": "CANCELLED_BY_USER_REPORT_ONLY",
-  "task": "Backtest AI research task cancelled. Run/report backtest only; do not create follow-up AI tasks from this request.",
+  "enabled": true,
+  "task_id": "v11-legacy-fiveai-80wr-20260823-r1",
+  "status": "ACTIVE_RESEARCH",
+  "task": "All five providers must independently audit and improve the Signal V11 four-month per-symbol backtest design using defensible lessons from V62/V63/V73/V76 and current V11 evidence. Goal: find research-safe changes that can raise each current catalog symbol toward an inclusive >=80.00% full-window win-rate gate WITHOUT weakening the gate, deleting symbols, pooling performance, lookahead, final-window retuning, fabrication, or production unlock. Study the current V11 legacy ML architecture conceptually: per-symbol models, exact historical data, next-bar execution, cost padding, structural+ATR stops, same-bar TP+SL=>SL, timeout non-win, RR exactly 1:1 or 1:2, max 3 entries/day. Prioritize robust method-family selection by symbol and regime, richer causal features, nested chronological validation, calibration confidence/abstention, session/time-of-day effects, relative-strength/SMT/breadth, trend/pullback/sweep/retest/failed-break variants, and data-quality defects. Return concrete implementation proposals ranked by expected robustness, leakage risk, complexity, and which symbol/market classes they should help. Explicitly flag any idea that could inflate backtest WR without likely live generalization. Do not claim >=80 unless fresh evidence proves it.",
   "context": {
+    "source_of_truth": "GitHub main",
+    "current_main_before_task": "1646b0829388f623d1f668f750ce19cfcef9c10e",
     "maintenance_lock": true,
-    "required_win_rate_inclusive": 80,
+    "production_signal_locked": true,
+    "required_win_rate_inclusive": 80.0,
     "max_entries_per_eligible_day": 3,
     "rr_allowed": [1, 2],
     "evaluation_days": 122,
-    "no_pooling": true
+    "no_pooling": true,
+    "no_lookahead": true,
+    "no_final_window_retuning": true,
+    "legacy_sources": [
+      "scripts/offline_forex_intraday_nocut_v62.py if available in history",
+      "scripts/offline_crypto_intraday_nocut_v63.py if available in history",
+      "data/nocut_intraday_allpass_v73.json",
+      "data/symbol_knowledge_registry.json",
+      "data/v76_entry_summary.json",
+      "data/v76_entry_methods.json",
+      "data/v76_entry_research.json"
+    ],
+    "current_backtest_sources": [
+      "scripts/v11_backtest_legacy_ml_4m.py",
+      "scripts/v11_backtest_legacy_ml_4m_run.py",
+      "data/v11_legacy_ml_backtest_4m.json",
+      "data/v11_legacy_ml_backtest_gate.json"
+    ],
+    "five_ai_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
+    "writer_policy": "DeepSeek owns implementation source writes; other providers are independent review/diagnostic lanes; deterministic validation remains final authority."
   }
 }
