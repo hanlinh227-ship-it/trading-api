@@ -42,6 +42,9 @@ function normalizeState(v) {
   const allowed = new Set(['ONLINE','DEGRADED','OFFLINE','UNKNOWN','WAITING','RUNNING','REVIEWING','ACCEPT','REJECT','BLOCKED','PASS','FAIL','PENDING']);
   return allowed.has(s) ? s : 'UNKNOWN';
 }
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 function sanitize(value, depth = 0) {
   if (depth > 4) return null;
   if (Array.isArray(value)) return value.slice(0, 100).map(v => sanitize(v, depth + 1));
@@ -69,7 +72,7 @@ function freshness(obj, now = Date.now()) {
   return { stale: age > STALE_MS, age_ms: age, reason: age > STALE_MS ? 'stale timestamp' : null };
 }
 function materializeItem(item, now = Date.now()) {
-  const out = { ...(item || {}) };
+  const out = isPlainObject(item) ? { ...item } : { state: 'DEGRADED', message: 'malformed source payload', last_updated: null };
   const fresh = freshness(out, now);
   out.age_ms = fresh.age_ms;
   out._stale = fresh.stale;
@@ -82,10 +85,10 @@ function materializeItem(item, now = Date.now()) {
   return out;
 }
 function materializePipeline(pipeline, parentStale, now = Date.now()) {
-  if (!pipeline || typeof pipeline !== 'object' || Array.isArray(pipeline)) return {};
+  if (!isPlainObject(pipeline)) return {};
   const out = {};
   for (const [stage, raw] of Object.entries(pipeline)) {
-    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    if (isPlainObject(raw)) {
       const stageFresh = freshness(raw, now);
       const state = normalizeState(raw.state || raw.status);
       const stale = parentStale || stageFresh.stale;
@@ -98,8 +101,10 @@ function materializePipeline(pipeline, parentStale, now = Date.now()) {
         out[stage].message = stageFresh.reason || 'stale parent evidence';
       }
     } else {
+      // Scalar pipeline stages have no stage-local timestamp. Never allow a
+      // scalar success/active value to certify freshness from the parent heartbeat.
       const state = normalizeState(raw);
-      out[stage] = parentStale && STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state;
+      out[stage] = STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state;
     }
   }
   return out;
@@ -111,7 +116,15 @@ async function fetchJson(url) {
   try {
     const res = await fetch(url, { headers: { accept: 'application/json' }, signal: ctl.signal });
     if (!res.ok) return { state: 'DEGRADED', message: `HTTP ${res.status}`, last_updated: nowIso() };
-    return sanitize(await res.json());
+    const parsed = await res.json();
+    if (!isPlainObject(parsed)) {
+      return { state: 'DEGRADED', message: 'malformed source payload: expected JSON object', last_updated: nowIso() };
+    }
+    const safe = sanitize(parsed);
+    if (!isPlainObject(safe)) {
+      return { state: 'DEGRADED', message: 'malformed source payload after sanitization', last_updated: nowIso() };
+    }
+    return safe;
   } catch (err) {
     return { state: 'OFFLINE', message: String(err?.message || err).slice(0, 500), last_updated: nowIso() };
   } finally {
@@ -125,11 +138,17 @@ async function refresh() {
   if (refreshing) return cache;
   refreshing = true;
   try {
-    const entries = await Promise.all(Object.entries(SOURCES).map(async ([name, url]) => [name, await fetchJson(url)]));
+    const entries = await Promise.all(Object.entries(SOURCES).map(async ([name, url]) => {
+      try {
+        return [name, await fetchJson(url)];
+      } catch (err) {
+        return [name, { state: 'OFFLINE', message: `source isolation: ${String(err?.message || err).slice(0, 450)}`, last_updated: nowIso() }];
+      }
+    }));
     const map = Object.fromEntries(entries);
     const events = [];
     for (const [name, item] of entries) {
-      if (Array.isArray(item.events)) {
+      if (isPlainObject(item) && Array.isArray(item.events)) {
         for (const e of item.events.slice(-25)) events.push({ source: name, ...sanitize(e) });
       }
     }
@@ -169,7 +188,7 @@ async function serveFile(req, res) {
   if (relative.startsWith('..') || path.isAbsolute(relative)) { res.writeHead(403); res.end('Forbidden'); return; }
   try {
     const data = await fs.readFile(file);
-    res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+    res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream', 'cache-control':'no-store', 'x-content-type-options':'nosniff' });
     res.end(data);
   } catch { res.writeHead(404); res.end('Not found'); }
 }
