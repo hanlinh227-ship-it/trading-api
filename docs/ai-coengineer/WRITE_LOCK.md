@@ -1,53 +1,39 @@
 # AI WRITE LOCK
 
 LOCKED: true
-OWNER: DEEPSEEK
-SCOPE: V11 quality optimization + AI orchestration infrastructure repair under mandatory 3-AI review
-ACQUIRED: 2026-08-22
+OWNER: MULTI_AI_ORCHESTRATOR
+SCOPE: Multi-AI gateway/control-center integration, then V11 quality optimization
+ACQUIRED: 2026-08-23
 
 ## Current baseline
 
-Signal V11 is the sole public signal authority on GitHub `main` and remains SIGNAL_ONLY.
+Signal V11 is the sole public signal authority on GitHub `main` and remains SIGNAL_ONLY. Preserve TRADING_STATE, V11 native scheduler, VPC AI bridge, deterministic freshness/structure/RR gates, automatic Telegram lifecycle, and separate Binance Auto authority.
 
-Completed automation scope:
-- automatic Telegram alert for newly stored V11 MARKET-ready approved signals;
-- automatic Telegram TP / SL / EXPIRED lifecycle alerts;
-- Telegram dashboard LIVE / WATCH / scans / history / stats / manual three-AI hunter;
-- automatic duplicate OPEN suppression;
-- legacy non-market approvals invalidated without resetting TRADING_STATE;
-- CI validation on `main` for V11 automation invariants;
-- canonical Cloudflare auto-deploy workflow remains the normal deployment path.
+## Concurrent writer policy
 
-## Active optimization + infrastructure scope
+The user explicitly authorized maximum safe parallelism across all five providers. Concurrency is now path/task scoped rather than repository-wide.
 
-DeepSeek is the only implementation/source writer while this lock is active. Codex and Claude are independent reviewers/advisers and may not modify overlapping source. The active scope now also includes bounded AI orchestration infrastructure repair needed to make the three-AI loop reliable and non-conflicting.
+- DeepSeek: primary implementation/repair writer.
+- Qwen: independent implementation/test writer only on a disjoint allowed-path shard.
+- Codex: technical/security reviewer; no overlapping source writes while reviewing.
+- Claude: architecture/regression reviewer; no overlapping source writes while reviewing.
+- OpenRouter: adversarial/fallback reviewer; read-only by default.
+- ChatGPT: orchestrator/integrator. It may maintain lock metadata, route work, and apply provider-generated patches when explicitly authorized by the user, but does not count as an independent reviewer.
 
-Required infrastructure invariants:
-- exactly one source writer at a time;
-- all writer entry points share one concurrency group;
-- no implementation task may create duplicate PRs for the same task id;
-- review evidence is bound to the exact implementation SHA;
-- Codex and Claude review independently; neither may silently substitute for the other;
-- DeepSeek must never review/approve its own implementation as an acceptance signal;
-- stale task/base metadata must fail closed without spawning replacement tasks endlessly;
-- workflow failures must surface explicit diagnostics instead of silently stalling;
-- no workflow or watcher may print or commit secrets;
-- no infrastructure repair may weaken V11 trading safety gates.
+Required writer invariants:
+- only one writer per exact file/path at a time;
+- same task/PR/path writers serialize;
+- unrelated tasks and disjoint path shards may run concurrently;
+- every writer starts from an exact head SHA and must compare-and-swap before push;
+- stale output is discarded/re-read, never force-overwritten;
+- reviewers never acquire writer locks;
+- no task may create duplicate implementation PRs for the same task id;
+- review evidence must bind to the exact implementation SHA;
+- no workflow may print/commit secrets;
+- missing provider evidence fails closed rather than fabricating success.
 
-Hard trading invariants:
-- preserve TRADING_STATE;
-- preserve V11 native scheduler and VPC AI bridge;
-- keep SIGNAL_ONLY authority;
-- never promote LIMIT/WATCH/MARKET_PLAN into MARKET;
-- never weaken quote freshness, structural SL, RR/forward-liquidity or deterministic market gates merely to increase trade count;
-- never fabricate market data, ATR, bid/ask, P/L or deployment evidence;
-- never restore Futures Signal or Hyro/TK2 execution;
-- never merge Binance Auto execution authority into V11;
-- never commit secrets/tokens/private keys.
+## Hard trading invariants
 
-## Lock protocol
+Never reset `TRADING_STATE`, weaken freshness/structural SL/RR/forward-liquidity/deterministic gates, promote LIMIT/WATCH/MARKET_PLAN into MARKET, fabricate market data or deployment evidence, restore Futures Signal or Hyro/TK2 execution, merge Binance Auto execution authority into V11, or commit secrets/tokens/private keys.
 
-- OWNER DEEPSEEK is the only source writer while this lock is active.
-- Codex and Claude are reviewers/advisers only until DeepSeek completes or the task is released.
-- ChatGPT acts as orchestrator/controller and may maintain task metadata, review routing, and lock scope when explicitly authorized by the user; it does not count as an independent implementation reviewer.
-- Current GitHub `main` is authoritative; stale checkpoints do not override source.
+GitHub `main` remains authoritative; stale checkpoints do not override current source.
