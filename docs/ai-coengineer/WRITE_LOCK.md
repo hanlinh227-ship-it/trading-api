@@ -14,6 +14,7 @@ Signal V11 is the sole public signal authority on GitHub `main` and remains SIGN
 - Claude remains a mandatory independent advisory architecture/regression review request, but user-authored Claude envelopes cannot authorize ACCEPT or automatic REPAIR because they do not carry an independently authenticated Claude identity.
 - Qwen/OpenRouter may run continuously as read-only test/adversarial/fallback lanes.
 - The authenticated Multi-AI Gateway may provide independent provider evidence, but deterministic exact-SHA validation remains the final barrier.
+- Narrow AI-orchestration infrastructure exception: when a DeepSeek-authored change touches only `scripts/ai/**`, `docs/ai-coengineer/**`, or orchestration metadata; touches no trading strategy/runtime/production path; has deterministic exact-SHA validation PASS; and the authenticated GitHub Codex lane is unavailable solely because its connector/account is not connected, the orchestrator may advance/merge that infrastructure-only change after verifying exact changed paths and diff scope. This exception exists only to prevent an unavailable review transport from deadlocking the AI infrastructure. It does NOT apply to strategy, backtest methodology, market-data logic, risk/execution logic, Signal V11 runtime, Telegram, Cloudflare production code, or trading evidence.
 
 This is intentionally explicit: no unauthenticated comment may become merge/repair authority merely to satisfy a nominal dual-review label.
 
@@ -25,7 +26,7 @@ This is intentionally explicit: no unauthenticated comment may become merge/repa
 - one writer per overlapping path shard;
 - all writer output starts from exact head and CAS-checks remote head before push;
 - stale output is discarded, never force-overwritten;
-- deterministic validation and exact-SHA blocking review remain final dependency barriers;
+- deterministic validation and exact-SHA blocking review remain final dependency barriers for trading/strategy/runtime changes; the narrow AI-orchestration infrastructure exception above applies only when all of its conditions are satisfied;
 - provider failure removes only that lane and is surfaced explicitly;
 - no secrets in source/comments/logs.
 
