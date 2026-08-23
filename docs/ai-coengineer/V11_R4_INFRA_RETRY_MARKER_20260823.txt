@@ -1,0 +1,3 @@
+V11 R4 MTF infrastructure retry marker
+Base: c686940d1509bb73bc795d76550718ecbbfdb61f
+Reason: previous DeepSeek implementation validated successfully but ai-loop diff gate failed to detect untracked new files. Main now contains the untracked-file detection fix. This marker is orchestration-only; no strategy or production behavior changed.
