@@ -1,0 +1,102 @@
+name: Multi-AI Task Fanout
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Engineering task to fan out to all five AI providers
+        required: true
+        type: string
+      context:
+        description: Optional task context
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: multi-ai-task-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  fanout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TASK: ${{ inputs.task }}
+      CONTEXT: ${{ inputs.context }}
+    steps:
+      - name: Resolve production Worker URL and GitHub OIDC token
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}" && test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          SUBDOMAIN="$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("result") or {}).get("subdomain") or "")')"
+          test -n "$SUBDOMAIN" || { echo CLOUDFLARE_WORKERS_SUBDOMAIN_MISSING; exit 2; }
+          echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
+          OIDC="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC"
+          echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
+
+      - name: Fan out one task to all five providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, uuid
+          with open('/tmp/multi-ai-task.json','w',encoding='utf-8') as f:
+              json.dump({'task_id':str(uuid.uuid4()),'instruction':os.environ['TASK'],'context':{'text':os.environ.get('CONTEXT','')}},f,ensure_ascii=False)
+          PY
+          code="$(curl -sS --max-time 600 -o /tmp/multi-ai-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/multi-ai-task.json)"
+          test "$code" -ge 200 && test "$code" -lt 300 || { echo "MULTI_AI_GATEWAY_HTTP_$code"; head -c 1500 /tmp/multi-ai-result.json; exit 3; }
+
+      - name: Require and persist five-provider response
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          path='/tmp/multi-ai-result.json'
+          d=json.load(open(path,encoding='utf-8')); p=d.get('providers') or {}
+          expected=['claude','codex','deepseek','qwen','openrouter']
+          missing=[x for x in expected if x not in {str(k).lower() for k in p.keys()}]
+          if missing: raise SystemExit('missing providers: '+','.join(missing))
+          failed=[]
+          lines=['## Multi-AI fanout result','',f"Task ID: `{d.get('task_id','unknown')}`",'']
+          for name in expected:
+              item=p.get(name) or {}
+              status=str(item.get('status') or '').upper()
+              review=item.get('review') if isinstance(item.get('review'),dict) else {}
+              verdict=str(review.get('verdict') or 'UNKNOWN')
+              findings=review.get('findings') if isinstance(review.get('findings'),list) else []
+              proposal=str(review.get('proposal') or '')
+              if status!='OK': failed.append(f'{name}:{status or "MISSING"}')
+              lines += [f'### {name}',f'- status: `{status or "MISSING"}`',f'- verdict: `{verdict}`']
+              if findings:
+                  lines.append('- findings:')
+                  lines.extend('  - '+str(x)[:1000].replace('\n',' ') for x in findings[:20])
+              if proposal:
+                  lines.append('- proposal: '+proposal[:3000].replace('\n',' '))
+              lines.append('')
+          if failed: raise SystemExit('provider failures: '+','.join(failed))
+          summary=os.environ.get('GITHUB_STEP_SUMMARY')
+          if not summary: raise SystemExit('GITHUB_STEP_SUMMARY missing')
+          with open(summary,'a',encoding='utf-8') as f: f.write('\n'.join(lines)+'\n')
+          print('MULTI_AI_FANOUT_OK providers='+','.join(expected))
+          PY
+
+      - name: Upload sanitized fanout evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-ai-fanout-${{ github.run_id }}
+          path: /tmp/multi-ai-result.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/multi-ai-task.json /tmp/multi-ai-result.json
