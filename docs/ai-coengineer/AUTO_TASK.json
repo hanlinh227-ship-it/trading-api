@@ -1,19 +1,14 @@
 {
-  "enabled": true,
+  "enabled": false,
   "task_id": "v11-4m-3entry-persymbol-80wr-20260823-audit",
-  "task": "Fresh-read current GitHub main plus issue #129 and PR #130. Independently audit and improve the V11 latest-four-month per-symbol backtest design. The owner requires each symbol to be tested separately, with up to 3 valid entries per eligible day, RR exactly 1:1 or 1:2, and global success only when 100% of current catalog symbols individually reach >=80.00% win rate with sufficient sample/cadence evidence. Compare the proven forced-daily Forex V62 and Crypto V63 engines and V73/V77/V78 priors, but do not copy historical scores as current evidence. Verify next-bar execution, no lookahead, adverse cost, same-bar TP+SL=>SL, timeout non-win, weekend exclusion for Forex/Metal/Index, Crypto 24/7, symbol-specific integrated method selection, and runtime profile/RR consistency. Crucially, current PR #130 only changed prose; identify the exact implementation changes needed, including inclusive >=80 comparisons, max-3-per-day selection/metrics, days traded/eligible-day coverage/avg trades per day, method bundles or integrated families per symbol, and a valid walk-forward protocol that does not repeatedly tune on the final four-month outcomes. Return implementation-ready file/function findings. Do not unlock Telegram and do not claim success without actual generated per-symbol evidence.",
+  "status": "CANCELLED_BY_USER_REPORT_ONLY",
+  "task": "Backtest AI research task cancelled. Run/report backtest only; do not create follow-up AI tasks from this request.",
   "context": {
     "maintenance_lock": true,
-    "providers_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
-    "repo": "hanlinh227-ship-it/trading-api",
-    "issue": 129,
-    "pr": 130,
-    "implementation_sha": "b85d35eb7564aaea955d1a89fb43b19beb448e06",
     "required_win_rate_inclusive": 80,
     "max_entries_per_eligible_day": 3,
     "rr_allowed": [1, 2],
     "evaluation_days": 122,
-    "no_pooling": true,
-    "historical_priors": ["Forex V62", "Crypto V63", "V73", "V77", "V78"]
+    "no_pooling": true
   }
 }
