@@ -1,13 +1,23 @@
 {
   "enabled": true,
-  "task_id": "v11-live-price-all-symbol-audit-20260823-01",
-  "task": "Audit current GitHub main V11 live-price correctness for EVERY symbol in cloudflare-worker/v11/symbol-catalog.js. Verify symbol normalization, provider symbol mapping, timestamp freshness, stale fallback behavior, cross-source divergence handling, weekend/closed-market behavior, and whether displayed LIVE price can differ materially from executable market price. Compare the V11 router with proven V77/V78 market-data behavior and identify regressions. Pay special attention to BTCUSDT and all crypto USDT symbols, all 28 forex pairs, XAUUSD/XAGUSD, NAS100/US30/US500/DEX/JP225. Review commit 974ec2779bbb301e4e7a9baabb5af1ecccf7d49e. Do not enable Telegram and do not modify production. Return concrete PASS/FAIL findings per market and file/function patch proposals. Reject any fallback that labels a price LIVE without independently verified provider timestamp/age.",
+  "task_id": "v11-backtest-and-hub-audit-20260823-01",
+  "task": "Fresh-read current GitHub main. Audit the new V11 four-month per-symbol backtest framework, generated-backtest policy integration, exact RR 1:1/1:2 entry planning, Hub/native single-symbol consistency patch, live quote routing, lifecycle/CUT logic and maintenance gate. Every symbol in cloudflare-worker/v11/symbol-catalog.js must be evaluated independently; performance must never be pooled across symbols. Verify no-lookahead, next-bar entry, same-bar SL conservative handling, timeout as non-win, chronological DEV/VALIDATION/OOS separation, minimum sample-size protection, and that untouched OOS is never used to rank or tune candidates. Find code bugs, data-source mapping gaps, rate-limit issues, overfitting leaks, RR mismatches, Telegram display/runtime disagreement, or paths that could unlock Signal V11 before all symbols independently pass >=80% full-window + validation + OOS win rate at RR exactly 1 or 2. Compare proven V77/V78 behavior and reuse only evidence-backed improvements. Return implementation-ready findings with file/function evidence. Do not enable Telegram and do not claim success unless every requirement is proven.",
   "context": {
     "maintenance_lock": true,
     "providers_required": ["claude", "codex", "deepseek", "qwen", "openrouter"],
-    "goal": "all-symbol canonical live price integrity before signal unlock",
+    "required_win_rate": 80,
+    "allowed_rr": [1, 2],
+    "window_days": 122,
+    "min_total_trades": 40,
     "repo": "hanlinh227-ship-it/trading-api",
-    "btc_user_observed_price": 77100,
-    "source_commit": "974ec2779bbb301e4e7a9baabb5af1ecccf7d49e"
+    "critical_files": [
+      "scripts/v11_symbol_backtest_4m.py",
+      ".github/workflows/v11-symbol-backtest-4m.yml",
+      "cloudflare-worker/v11/generated-backtest-profiles.js",
+      "cloudflare-worker/v11/symbol-scalp-policy.js",
+      "cloudflare-worker/v11/entry-plan.js",
+      "scripts/patch_v11_hub_consistency.py",
+      ".github/workflows/v11-hub-consistency-patch.yml"
+    ]
   }
 }
