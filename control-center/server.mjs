@@ -26,6 +26,8 @@ const SAFE_KEYS = new Set([
   'intake','implementation','codex_review','claude_review','merge'
 ]);
 
+const STALE_SUCCESS_STATES = new Set(['ONLINE','RUNNING','REVIEWING','ACCEPT','PASS']);
+
 function nowIso() { return new Date().toISOString(); }
 function normalizeState(v) {
   const s = String(v || 'UNKNOWN').toUpperCase();
@@ -58,19 +60,23 @@ function freshness(obj) {
 }
 async function fetchJson(url) {
   if (!url) return { state: 'UNKNOWN', message: 'source not configured', last_updated: null };
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 5000);
   try {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 5000);
     const res = await fetch(url, { headers: { accept: 'application/json' }, signal: ctl.signal });
-    clearTimeout(timer);
     if (!res.ok) return { state: 'DEGRADED', message: `HTTP ${res.status}`, last_updated: nowIso() };
     const raw = sanitize(await res.json());
     const fresh = freshness(raw);
     const base = { ...raw, state: normalizeState(raw?.state || raw?.status), age_ms: fresh.age_ms };
-    if (fresh.stale && base.state === 'ONLINE') base.state = 'DEGRADED';
+    if (fresh.stale && STALE_SUCCESS_STATES.has(base.state)) {
+      base.state = 'DEGRADED';
+      base.message = base.message || 'stale or missing evidence timestamp';
+    }
     return base;
   } catch (err) {
     return { state: 'OFFLINE', message: String(err?.message || err).slice(0, 500), last_updated: nowIso() };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -107,8 +113,9 @@ const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; chars
 async function serveFile(req, res) {
   const urlPath = new URL(req.url, 'http://localhost').pathname;
   const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
-  const file = path.normalize(path.join(PUBLIC_DIR, rel));
-  if (!file.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end('Forbidden'); return; }
+  const file = path.resolve(PUBLIC_DIR, rel);
+  const relative = path.relative(PUBLIC_DIR, file);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) { res.writeHead(403); res.end('Forbidden'); return; }
   try {
     const data = await fs.readFile(file);
     res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
