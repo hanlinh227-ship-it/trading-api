@@ -3,6 +3,7 @@
 from __future__ import annotations
 import json,os,time,urllib.error,urllib.request
 URL=os.environ.get('MULTI_AI_GATEWAY_HEALTH_URL','').strip()
+OIDC=os.environ.get('GATEWAY_OIDC','').strip()
 TIMEOUT=float(os.environ.get('MULTI_AI_GATEWAY_TIMEOUT_SECONDS','10'))
 MAX_AGE_MS=int(os.environ.get('MULTI_AI_GATEWAY_MAX_AGE_MS','300000'))
 EXPECTED=('claude','codex','deepseek','qwen','openrouter')
@@ -16,10 +17,17 @@ def ms(v):
 def main():
     if not URL:fail('MULTI_AI_GATEWAY_HEALTH_URL is required')
     if not (URL.startswith('https://') or URL.startswith('http://127.0.0.1') or URL.startswith('http://localhost')):fail('gateway health URL must use HTTPS unless localhost')
+    headers={'Accept':'application/json'}
+    if OIDC: headers['Authorization']='Bearer '+OIDC
     try:
-        with urllib.request.urlopen(urllib.request.Request(URL,headers={'Accept':'application/json'}),timeout=TIMEOUT) as r:
-            if r.status!=200:fail(f'gateway returned HTTP {r.status}')
+        with urllib.request.urlopen(urllib.request.Request(URL,headers=headers),timeout=TIMEOUT) as r:
             raw=r.read(256_000)
+            if r.status!=200:fail(f'gateway returned HTTP {r.status}')
+    except urllib.error.HTTPError as exc:
+        body=''
+        try: body=exc.read(1000).decode('utf-8','replace')
+        except Exception: pass
+        fail(f'gateway returned HTTP {exc.code}: {body[:500]}')
     except (urllib.error.URLError,TimeoutError,OSError) as exc:fail(f'gateway unreachable: {type(exc).__name__}')
     try:p=json.loads(raw)
     except json.JSONDecodeError:fail('gateway returned invalid JSON')
