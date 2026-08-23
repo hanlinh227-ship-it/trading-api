@@ -1,0 +1,11 @@
+{
+  "version": "V11-VPS-BACKTEST-SUPERVISOR-R1",
+  "implemented": false,
+  "installedOnVps": false,
+  "serviceActive": false,
+  "health": "PENDING_IMPLEMENTATION",
+  "passCount": 0,
+  "totalSymbols": 0,
+  "globalGate": "CLOSED",
+  "telegramMaintenanceLock": true
+}
