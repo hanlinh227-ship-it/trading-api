@@ -1,40 +1,36 @@
 # AI WRITE LOCK
 
 LOCKED: true
-OWNER: MULTI_AI_ORCHESTRATOR
-SCOPE: Secure Multi-AI gateway integration, then V11 quality optimization
-ACQUIRED: 2026-08-23
+OWNER: DEEPSEEK
+SCOPE: V11 quality optimization + non-blocking AI orchestration
+ACQUIRED: 2026-08-22
 
 Signal V11 is the sole public signal authority on GitHub `main` and remains SIGNAL_ONLY.
 
 ## Current orchestration authority
 
-- DeepSeek is the primary source writer for an active implementation branch/path shard.
-- Qwen may write only to a disjoint allowed-path shard with its own lock; otherwise it is read-only test/adversarial analysis.
+- DeepSeek is the source writer for the active implementation branch/path shard.
 - Codex is the authenticated exact-SHA blocking automated reviewer for ACCEPT/REPAIR in the current GitHub closed-loop workflow.
-- Claude is independently requested in parallel for architecture/regression review. User-authored Claude envelopes remain advisory until the secure Multi-AI Gateway supplies independently authenticated provider identity.
-- OpenRouter is read-only adversarial/fallback by default.
-- ChatGPT is orchestrator/integrator and may maintain task metadata, routing, lock scope, and explicitly authorized non-overlapping integration patches; it is not an independent implementation reviewer.
+- Claude remains a mandatory independent advisory architecture/regression review request, but user-authored Claude envelopes cannot authorize ACCEPT or automatic REPAIR because they do not carry an independently authenticated Claude identity.
+- Qwen/OpenRouter may run continuously as read-only test/adversarial/fallback lanes.
+- When the secure Multi-AI Gateway is merged, authenticated provider evidence may replace this transitional reviewer boundary without weakening exact-SHA/deterministic checks.
 
-When authenticated five-provider gateway evidence is available, it may expand reviewer/test participation without weakening exact-SHA or deterministic validation gates.
+This is intentionally explicit: no unauthenticated comment may become merge/repair authority merely to satisfy a nominal dual-review label.
 
-## Scheduling and writer invariants
+## Scheduling invariants
 
 - no repository-wide writer queue;
-- unrelated tasks/PRs and disjoint path shards run in parallel;
+- unrelated tasks/PRs run in parallel;
 - same task/PR/path writers serialize;
-- exactly one writer per overlapping path shard;
-- every writer starts from an exact head SHA and CAS-checks the remote head before push;
-- stale output is discarded/re-read, never force-overwritten;
-- reviewers do not acquire overlapping writer locks;
-- no task may create duplicate implementation PRs for the same task id;
+- one writer per overlapping path shard;
+- all writer output starts from exact head and CAS-checks remote head before push;
+- stale output is discarded, never force-overwritten;
 - deterministic validation and exact-SHA blocking review remain final dependency barriers;
 - provider failure removes only that lane and is surfaced explicitly;
-- missing provider evidence fails closed rather than fabricating success;
-- no secrets/API keys/private keys may appear in source, browser payloads, comments, or logs.
+- no secrets in source/comments/logs.
 
 ## Hard trading invariants
 
-Preserve `TRADING_STATE`, V11 native scheduler, private VPC `AI_BRIDGE`, SIGNAL_ONLY authority, quote freshness, structural SL, RR/forward-liquidity, automatic Telegram lifecycle and deterministic market gates. Never promote LIMIT/WATCH/MARKET_PLAN into MARKET, fabricate market/deployment evidence, restore Futures Signal or Hyro/TK2 execution, merge Binance Auto execution authority into V11, or commit secrets/private keys.
+Preserve `TRADING_STATE`, V11 native scheduler, VPC AI bridge, SIGNAL_ONLY authority, quote freshness, structural SL, RR/forward-liquidity and deterministic market gates. Never promote LIMIT/WATCH/MARKET_PLAN into MARKET, fabricate market/deployment evidence, restore Futures Signal or Hyro/TK2 execution, merge Binance Auto authority into V11, or commit secrets/private keys.
 
-GitHub `main` remains authoritative; stale checkpoints do not override current source.
+ChatGPT is orchestrator/controller and may maintain task metadata, routing and lock scope when explicitly authorized by the user; it is not an independent implementation reviewer. Current GitHub `main` is authoritative.
