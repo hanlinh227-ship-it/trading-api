@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "task_id": "V11-VPS-BACKTEST-SUPERVISOR-20260823-A",
+  "base_sha": "d2f44e785b83f7a29573c5274267f44b1bd8ec5d",
+  "task_contract": "docs/ai-coengineer/VPS_BACKTEST_SUPERVISOR_TASK.json",
+  "spec": "docs/ai-coengineer/VPS_BACKTEST_SUPERVISOR_SPEC.md",
+  "status": "READY_FOR_AI_LOOP",
+  "telegram_maintenance_lock": true
+}
