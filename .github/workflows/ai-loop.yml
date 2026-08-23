@@ -15,9 +15,12 @@ permissions:
 env:
   CODEX_BOT_LOGIN: chatgpt-codex-connector[bot]
 
-# No repository-wide concurrency group. Each task dispatch is independent.
-# Exact-head repair/review reconciliation is owned by ai-event-reconcile.yml,
-# which serializes only events for the same PR while unrelated PRs run in parallel.
+# Serialize only writers for the same issue/task. Different task issues run in parallel.
+# The manual wake workflow uses the exact same group key so canonical + fallback
+# dispatch cannot race into duplicate implementation PRs for one task.
+concurrency:
+  group: ai-task-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   dispatch:
@@ -72,7 +75,7 @@ jobs:
           grep -Eq '^LOCKED:[[:space:]]*true[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md || { echo 'WRITE_LOCK_MISMATCH'; exit 2; }
           grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md || { echo 'WRITE_LOCK_MISMATCH'; exit 2; }
 
-      - name: DeepSeek implement and validate
+      - name: DeepSeek implement + bounded repair + validation
         run: python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
 
       - name: Require scoped implementation diff
@@ -106,7 +109,7 @@ jobs:
           echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Open PR and trigger parallel independent reviews
+      - name: Open PR and request independent reviews
         shell: bash
         env:
           BRANCH: ${{ steps.push.outputs.branch }}
@@ -121,27 +124,36 @@ jobs:
           REQUIRES_CLAUDE: true
           STATUS: PARALLEL_DUAL_REVIEW_REQUIRED
 
-          DeepSeek completed bounded implementation/validation. Codex and Claude review this SAME implementation SHA independently. Subsequent repairs are owned only by ai-event-reconcile.yml.")"
+          DeepSeek completed bounded implementation/validation. Codex and Claude must independently review the SAME implementation SHA. DeepSeek cannot approve its own implementation.")"
           PR_NUMBER="${PR_URL##*/}"
           gh pr comment "$PR_NUMBER" --body "@codex review
 
-          Review exact head $IMPLEMENTATION_SHA against task acceptance criteria and safety invariants. Do not modify source."
+          Review current head $IMPLEMENTATION_SHA against the linked task acceptance criteria and repository safety invariants. Do not implement changes. Blocking findings must be concrete and tied to this head."
           gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST
           CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
-          Independently review this exact head and post a SHA-bound ACCEPT|REJECT|BLOCKED verdict."
+          Claude watcher/Claude Code must independently review this exact head and post:
+
+          CLAUDE_REVIEW_BEGIN
+          CLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA
+          CLAUDE_VERDICT: ACCEPT|REJECT|BLOCKED
+          CLAUDE_FINDINGS:
+          <concise findings or NONE>
+          CLAUDE_REVIEW_END
+
+          Do not modify source while DeepSeek owns WRITE_LOCK."
           gh issue comment "$ISSUE_NUMBER" --body "DeepSeek PR opened: $PR_URL
           Status: PARALLEL_DUAL_REVIEW_REQUIRED
           Implementation SHA: $IMPLEMENTATION_SHA
-          Repair reconciler: ai-event-reconcile.yml"
+          Required reviewers: CODEX + CLAUDE"
 
       - name: Report dispatch failure
         if: failure()
         shell: bash
         run: |
           if [ -n "${ISSUE_NUMBER:-}" ]; then
-            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}." || true
+            gh issue comment "$ISSUE_NUMBER" --body "AI dispatch FAILED before implementation PR creation. Inspect Actions run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Failure classes include STALE_BASE_SHA, WRITE_LOCK_MISMATCH, MISSING_DEEPSEEK_SECRET, DUPLICATE_IMPLEMENTATION_PR, or IMPLEMENTER_VALIDATION_FAILED." || true
           fi
 
-      - name: Cleanup
+      - name: Cleanup dispatch temp files
         if: always()
         run: rm -f .ai-runtime-task.json
