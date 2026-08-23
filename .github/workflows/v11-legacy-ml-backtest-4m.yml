@@ -31,6 +31,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Mark run started
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          cat > data/v11_legacy_ml_backtest_status.json <<EOF
+          {
+            "state": "RUNNING",
+            "runId": "${GITHUB_RUN_ID}",
+            "headSha": "${GITHUB_SHA}",
+            "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name trading-backtest-bot
+          git config user.email trading-backtest-bot@users.noreply.github.com
+          git add data/v11_legacy_ml_backtest_status.json
+          git diff --cached --quiet || git commit -m 'backtest: mark V11 legacy ML run started'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -88,8 +107,7 @@ jobs:
           git config user.name trading-backtest-bot
           git config user.email trading-backtest-bot@users.noreply.github.com
           git add data/v11_legacy_ml_backtest_4m.json data/v11_legacy_ml_backtest_gate.json
-          git diff --cached --quiet && exit 0
-          git commit -m 'backtest: update V11 legacy-learned 4m evidence'
+          git diff --cached --quiet || git commit -m 'backtest: update V11 legacy-learned 4m evidence'
           git pull --rebase origin main
           git push origin HEAD:main
 
@@ -101,3 +119,22 @@ jobs:
             data/v11_legacy_ml_backtest_4m.json
             data/v11_legacy_ml_backtest_gate.json
           retention-days: 14
+
+      - name: Mark run finished
+        if: always()
+        run: |
+          set -euo pipefail
+          cat > data/v11_legacy_ml_backtest_status.json <<EOF
+          {
+            "state": "${{ job.status }}",
+            "runId": "${GITHUB_RUN_ID}",
+            "headSha": "${GITHUB_SHA}",
+            "finishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name trading-backtest-bot
+          git config user.email trading-backtest-bot@users.noreply.github.com
+          git add data/v11_legacy_ml_backtest_status.json
+          git diff --cached --quiet || git commit -m 'backtest: mark V11 legacy ML run finished'
+          git pull --rebase origin main
+          git push origin HEAD:main
