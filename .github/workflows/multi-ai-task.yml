@@ -1,0 +1,105 @@
+name: Multi-AI Task Fanout
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Engineering task to fan out to all five AI providers
+        required: true
+        type: string
+      context:
+        description: Optional task context
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-ai-task-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  fanout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MULTI_AI_GATEWAY_REVIEW_URL: ${{ secrets.MULTI_AI_GATEWAY_REVIEW_URL }}
+      MULTI_AI_GATEWAY_TOKEN: ${{ secrets.MULTI_AI_GATEWAY_TOKEN }}
+      TASK: ${{ inputs.task }}
+      CONTEXT: ${{ inputs.context }}
+    steps:
+      - name: Require secure gateway secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MULTI_AI_GATEWAY_REVIEW_URL:-}" || { echo MISSING_MULTI_AI_GATEWAY_REVIEW_URL; exit 2; }
+          test -n "${MULTI_AI_GATEWAY_TOKEN:-}" || { echo MISSING_MULTI_AI_GATEWAY_TOKEN; exit 2; }
+
+      - name: Fan out one task to the five-provider gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          payload = {
+            "task": os.environ["TASK"],
+            "context": os.environ.get("CONTEXT", ""),
+            "mode": "parallel",
+            "providers": ["claude", "codex", "deepseek", "qwen", "openrouter"],
+            "roles": {
+              "deepseek": "implementation_repair",
+              "qwen": "independent_repair_test",
+              "codex": "technical_security_review",
+              "claude": "architecture_regression_review",
+              "openrouter": "adversarial_fallback"
+            }
+          }
+          with open("/tmp/multi-ai-task.json", "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+          PY
+
+          http_code="$(curl -sS --max-time 600 -o /tmp/multi-ai-result.json -w '%{http_code}' \
+            -X POST "$MULTI_AI_GATEWAY_REVIEW_URL" \
+            -H "Authorization: Bearer $MULTI_AI_GATEWAY_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/multi-ai-task.json)"
+
+          test "$http_code" -ge 200 && test "$http_code" -lt 300 || {
+            echo "MULTI_AI_GATEWAY_HTTP_$http_code"
+            python3 - <<'PY'
+          import json
+          try:
+              d=json.load(open('/tmp/multi-ai-result.json'))
+              print({k:d.get(k) for k in ('ok','service','mode','error','message') if k in d})
+          except Exception:
+              print('gateway returned non-JSON error body')
+          PY
+            exit 3
+          }
+
+      - name: Validate five-provider response without exposing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          p='/tmp/multi-ai-result.json'
+          d=json.load(open(p,encoding='utf-8'))
+          expected={'claude','codex','deepseek','qwen','openrouter'}
+          providers=d.get('providers') or d.get('results') or {}
+          if isinstance(providers,list):
+              names={str(x.get('provider') or x.get('name') or '').lower() for x in providers if isinstance(x,dict)}
+          elif isinstance(providers,dict):
+              names={str(k).lower() for k in providers}
+          else:
+              raise SystemExit('gateway response missing provider results')
+          missing=expected-names
+          if missing:
+              raise SystemExit('gateway response missing providers: '+','.join(sorted(missing)))
+          print('MULTI_AI_FANOUT_OK providers='+','.join(sorted(expected)))
+          PY
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/multi-ai-task.json /tmp/multi-ai-result.json
