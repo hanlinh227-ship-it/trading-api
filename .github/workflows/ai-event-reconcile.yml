@@ -7,6 +7,11 @@ on:
     types: [submitted]
   pull_request_review_comment:
     types: [created]
+  workflow_run:
+    workflows:
+      - PR Signal Integrity R7
+      - V11 Signal Validation
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -20,14 +25,14 @@ permissions:
   pull-requests: write
   checks: read
   statuses: read
+  actions: read
 
 env:
   CODEX_BOT_LOGIN: chatgpt-codex-connector[bot]
-  CLAUDE_REVIEW_LOGIN: hanlinh227-ship-it
 
 # Different PRs run in parallel; events for the same PR serialize.
 concurrency:
-  group: ai-event-reconcile-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || github.run_id }}
+  group: ai-event-reconcile-${{ inputs.pr_number || github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -36,6 +41,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'pull_request_review' ||
       github.event_name == 'pull_request_review_comment' ||
+      github.event_name == 'workflow_run' ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request != null)
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -78,6 +84,13 @@ jobs:
             workflow_dispatch) PR="${MANUAL_PR}" ;;
             pull_request_review|pull_request_review_comment) PR="$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")" ;;
             issue_comment) PR="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")" ;;
+            workflow_run)
+              PR="$(jq -r '.workflow_run.pull_requests[0].number // empty' "$GITHUB_EVENT_PATH")"
+              if [ -z "$PR" ]; then
+                HEAD_BRANCH="$(jq -r '.workflow_run.head_branch // empty' "$GITHUB_EVENT_PATH")"
+                PR="$(gh pr list --state open --head "$HEAD_BRANCH" --json number --jq '.[0].number // empty')"
+              fi
+              ;;
             *) echo 'UNSUPPORTED_EVENT'; exit 0 ;;
           esac
           test -n "$PR" && test "$PR" != null || { echo 'NO_TARGET_PR'; exit 0; }
@@ -106,7 +119,6 @@ jobs:
           import json, os, pathlib, re, subprocess
           repo=os.environ['GITHUB_REPOSITORY']; pr=os.environ['PR']; head=os.environ['HEAD_SHA']
           codex=os.environ.get('CODEX_BOT_LOGIN','chatgpt-codex-connector[bot]')
-          claude_login=os.environ.get('CLAUDE_REVIEW_LOGIN','').strip()
           state_path=pathlib.Path(os.environ['EVENT_STATE'])
           def gh(*args):
               p=subprocess.run(['gh',*args],text=True,capture_output=True)
@@ -131,40 +143,25 @@ jobs:
           task=json.loads(tm.group(1)); max_rounds=max(1,min(int(task.get('max_rounds',2)),4))
 
           inline=paged(f'repos/{repo}/pulls/{pr}/comments')
-          issue_comments=paged(f'repos/{repo}/issues/{pr}/comments')
           reviews=paged(f'repos/{repo}/pulls/{pr}/reviews')
 
           codex_blockers=[c.get('body','') for c in inline if (c.get('user') or {}).get('login')==codex and c.get('commit_id')==head and (c.get('body') or '').strip()]
           codex_head_reviews=[r for r in reviews if (r.get('user') or {}).get('login')==codex and r.get('commit_id')==head]
           codex_verdict='REJECT' if codex_blockers else ('ACCEPT' if codex_head_reviews else 'PENDING')
 
-          claude_verdict='PENDING'; claude_findings=''
-          for c in reversed(issue_comments):
-              if not claude_login or (c.get('user') or {}).get('login') != claude_login: continue
-              txt=c.get('body') or ''
-              if 'CLAUDE_REVIEW_BEGIN' not in txt or f'CLAUDE_REVIEW_HEAD: {head}' not in txt: continue
-              vm=re.search(r'CLAUDE_VERDICT:\s*(ACCEPT|REJECT|BLOCKED)',txt)
-              if not vm: continue
-              claude_verdict=vm.group(1)
-              fm=re.search(r'CLAUDE_FINDINGS:\s*(.*?)\s*CLAUDE_REVIEW_END',txt,re.S)
-              claude_findings=(fm.group(1).strip() if fm else '')[-24000:]
-              break
-
           feedback=[]
-          if codex_verdict=='REJECT': feedback.append('CODEX FINDINGS:\n'+'\n\n'.join(codex_blockers)[-24000:])
-          if claude_verdict=='REJECT': feedback.append('CLAUDE FINDINGS:\n'+(claude_findings or 'Claude returned REJECT without detailed findings.'))
+          if codex_verdict=='REJECT': feedback.append('CODEX FINDINGS:\n'+'\n\n'.join(codex_blockers)[-40000:])
           mode='WAIT'
-          if claude_verdict=='BLOCKED': mode='BLOCKED'
-          elif codex_verdict in ('ACCEPT','REJECT') and claude_verdict in ('ACCEPT','REJECT'):
-              mode='ACCEPT' if codex_verdict=='ACCEPT' and claude_verdict=='ACCEPT' else 'REPAIR'
+          if codex_verdict=='ACCEPT': mode='ACCEPT'
+          elif codex_verdict=='REJECT': mode='REPAIR'
           if mode=='REPAIR' and round_no>=max_rounds: mode='MAX_ROUNDS'
-          state={'pr':int(pr),'head':head,'issue':int(issue),'round':round_no,'max_rounds':max_rounds,'codex':codex_verdict,'claude':claude_verdict,'mode':mode,'feedback':'\n\n'.join(feedback)[-40000:],'issue_body':issue_body}
+          state={'pr':int(pr),'head':head,'issue':int(issue),'round':round_no,'max_rounds':max_rounds,'codex':codex_verdict,'mode':mode,'feedback':'\n\n'.join(feedback)[-40000:],'issue_body':issue_body}
           state_path.write_text(json.dumps(state,ensure_ascii=False))
           print(json.dumps({k:v for k,v in state.items() if k not in ('feedback','issue_body')},indent=2))
           PY
           echo "mode=$(jq -r '.mode' "$EVENT_STATE")" >> "$GITHUB_OUTPUT"
 
-      - name: Verify named required checks before readiness
+      - name: Verify exact-head PR workflow evidence before readiness
         if: steps.state.outputs.mode == 'ACCEPT'
         id: checks
         shell: bash
@@ -173,25 +170,25 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, subprocess
+          import json, os, subprocess, urllib.parse
           repo=os.environ['GITHUB_REPOSITORY']; head=os.environ['HEAD_SHA']
-          required={'validate','DeepSeek adversarial review','AI loop safety selftest'}
-          p=subprocess.run(['gh','api',f'repos/{repo}/commits/{head}/check-runs','--paginate','--slurp','-H','Accept: application/vnd.github+json'],text=True,capture_output=True)
+          endpoint=f'repos/{repo}/actions/runs?head_sha={urllib.parse.quote(head)}&event=pull_request&per_page=100'
+          p=subprocess.run(['gh','api',endpoint,'-H','Accept: application/vnd.github+json'],text=True,capture_output=True)
           if p.returncode: raise SystemExit(p.stderr or p.stdout)
-          pages=json.loads(p.stdout or '[]'); runs=[]
-          for page in pages:
-              if isinstance(page,dict): runs.extend(page.get('check_runs') or [])
+          data=json.loads(p.stdout or '{}'); runs=data.get('workflow_runs') or []
           latest={}
           for r in runs:
-              name=r.get('name')
-              if name not in required: continue
-              key=r.get('id') or 0
-              if name not in latest or key > (latest[name].get('id') or 0): latest[name]=r
-          missing=sorted(required-set(latest))
-          bad=sorted(name for name,r in latest.items() if r.get('status')!='completed' or r.get('conclusion')!='success')
-          ready=not missing and not bad
+              name=r.get('name') or str(r.get('workflow_id') or '')
+              if not name: continue
+              key=r.get('run_attempt') or 0, r.get('id') or 0
+              old=latest.get(name)
+              old_key=((old or {}).get('run_attempt') or 0, (old or {}).get('id') or 0)
+              if old is None or key > old_key: latest[name]=r
+          pending=sorted(name for name,r in latest.items() if r.get('status')!='completed')
+          bad=sorted(name for name,r in latest.items() if r.get('status')=='completed' and r.get('conclusion')!='success')
+          ready=bool(latest) and not pending and not bad
           with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write(f'ready={str(ready).lower()}\n')
-          print(json.dumps({'required':sorted(required),'missing':missing,'not_success':bad,'ready':ready},indent=2))
+          print(json.dumps({'observed_workflows':sorted(latest),'pending':pending,'not_success':bad,'ready':ready},indent=2))
           PY
 
       - name: Report exact-head acceptance
@@ -201,7 +198,7 @@ jobs:
           PR: ${{ steps.target.outputs.pr }}
           HEAD_SHA: ${{ steps.target.outputs.head }}
         run: |
-          gh pr comment "$PR" --body "EVENT_RECONCILE exact-head consensus ACCEPT at $HEAD_SHA. Required checks are successful. READY_FOR_FINAL_ACCEPT; merge/deploy remains a separate safety gate."
+          gh pr comment "$PR" --body "EVENT_RECONCILE exact-head Codex ACCEPT at $HEAD_SHA. Observed PR validation workflows are successful. Claude remains advisory. READY_FOR_FINAL_ACCEPT; merge/deploy remains a separate safety gate."
 
       - name: Report acceptance waiting on checks
         if: steps.state.outputs.mode == 'ACCEPT' && steps.checks.outputs.ready != 'true'
@@ -210,10 +207,10 @@ jobs:
           PR: ${{ steps.target.outputs.pr }}
           HEAD_SHA: ${{ steps.target.outputs.head }}
         run: |
-          gh pr comment "$PR" --body "EVENT_RECONCILE reviewers ACCEPT exact head $HEAD_SHA, but named required checks are missing/pending/failing. WAITING_FOR_CHECKS."
+          gh pr comment "$PR" --body "EVENT_RECONCILE Codex ACCEPT exact head $HEAD_SHA, but PR validation workflows are absent/pending/failing. WAITING_FOR_CHECKS. A workflow_run completion event will reconcile automatically."
 
       - name: Report blocking terminal state
-        if: steps.state.outputs.mode == 'BLOCKED' || steps.state.outputs.mode == 'MAX_ROUNDS'
+        if: steps.state.outputs.mode == 'MAX_ROUNDS'
         shell: bash
         env:
           PR: ${{ steps.target.outputs.pr }}
@@ -222,7 +219,7 @@ jobs:
         run: |
           gh pr comment "$PR" --body "EVENT_RECONCILE $MODE at exact head $HEAD_SHA. Automatic repair is fail-closed; diagnosis/final decision required."
 
-      - name: Repair after both exact-head reviewers complete
+      - name: Repair after exact-head Codex rejection
         if: steps.state.outputs.mode == 'REPAIR'
         shell: bash
         env:
@@ -241,7 +238,7 @@ jobs:
           import json,os,pathlib,re
           s=json.loads(pathlib.Path(os.environ['EVENT_STATE']).read_text())
           m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',s['issue_body'],re.S)
-          task=json.loads(m.group(1)); task['base_sha']=s['head']; task['review_feedback']=s['feedback']; task['max_rounds']=1; task['requires_claude']=True
+          task=json.loads(m.group(1)); task['base_sha']=s['head']; task['review_feedback']=s['feedback']; task['max_rounds']=1; task['requires_claude']=False
           pathlib.Path(os.environ['RUNTIME_TASK']).write_text(json.dumps(task,ensure_ascii=False,indent=2))
           PY
 
@@ -261,7 +258,7 @@ jobs:
           git add -A
           git diff --cached --check
           git diff --cached --quiet && { echo NO_STAGED_REPAIR_DIFF; exit 0; } || true
-          git commit -m "AI event repair: dual-review round $((ROUND+1))"
+          git commit -m "AI event repair: Codex round $((ROUND+1))"
           git push origin "$BRANCH"
           NEW_SHA="$(git rev-parse HEAD)"
 
@@ -270,10 +267,10 @@ jobs:
           gh pr edit "$PR" --body "$NEW_BODY"
           gh pr comment "$PR" --body "@codex review
 
-          EVENT_RECONCILE pushed dual-review repair. Re-review exact current head $NEW_SHA immediately. Previous-SHA evidence is advisory only."
+          EVENT_RECONCILE pushed repair from exact-head Codex blockers. Re-review exact current head $NEW_SHA immediately. Previous-SHA evidence is advisory only."
           gh pr comment "$PR" --body "CLAUDE_REVIEW_REQUEST
           CLAUDE_REVIEW_HEAD: $NEW_SHA
-          EVENT_RECONCILE pushed dual-review repair. Independently review this exact head immediately and post a fresh SHA-bound verdict."
+          Advisory architecture/regression review requested for this exact head. Claude comments do not authorize merge or automatic repair."
 
       - name: Cleanup
         if: always()
