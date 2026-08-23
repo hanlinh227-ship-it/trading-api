@@ -1,0 +1,216 @@
+name: AI Event Reconcile
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: AI-loop PR number to reconcile
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  checks: read
+  statuses: read
+
+env:
+  CODEX_BOT_LOGIN: chatgpt-codex-connector[bot]
+
+# Intentionally no workflow-wide concurrency group. Independent PR events are allowed
+# to start immediately. Source safety is enforced with an exact-head compare-and-swap
+# immediately before push, so a slower speculative repair fails closed if another lane
+# already advanced the branch.
+
+jobs:
+  reconcile:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'pull_request_review' ||
+      github.event_name == 'pull_request_review_comment' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      MANUAL_PR: ${{ inputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve target AI-loop PR
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_EVENT_NAME}" in
+            workflow_dispatch) PR="${MANUAL_PR}" ;;
+            pull_request_review|pull_request_review_comment) PR="$(jq -r '.pull_request.number' "$GITHUB_EVENT_PATH")" ;;
+            issue_comment) PR="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")" ;;
+            *) echo 'UNSUPPORTED_EVENT'; exit 0 ;;
+          esac
+          test -n "$PR" && test "$PR" != null || { echo 'NO_TARGET_PR'; exit 0; }
+          PR_JSON="$(gh pr view "$PR" --json number,headRefName,headRefOid,body,state,url)"
+          STATE="$(printf '%s' "$PR_JSON" | jq -r '.state')"
+          BRANCH="$(printf '%s' "$PR_JSON" | jq -r '.headRefName')"
+          BODY="$(printf '%s' "$PR_JSON" | jq -r '.body // ""')"
+          if [ "$STATE" != OPEN ] || [[ "$BRANCH" != ai/deepseek-* ]] || [[ "$BODY" != *AI_LOOP_TASK_ISSUE:* ]]; then
+            echo "SKIP_NON_AI_LOOP_PR=$PR"
+            exit 0
+          fi
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "head=$(printf '%s' "$PR_JSON" | jq -r '.headRefOid')" >> "$GITHUB_OUTPUT"
+
+      - name: Build exact-head review state
+        if: steps.target.outputs.pr != ''
+        id: state
+        shell: bash
+        env:
+          PR: ${{ steps.target.outputs.pr }}
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re, subprocess
+          repo=os.environ['GITHUB_REPOSITORY']; pr=os.environ['PR']; head=os.environ['HEAD_SHA']
+          codex=os.environ.get('CODEX_BOT_LOGIN','chatgpt-codex-connector[bot]')
+          def gh(*args):
+              p=subprocess.run(['gh',*args],text=True,capture_output=True)
+              if p.returncode: raise RuntimeError(p.stderr or p.stdout)
+              return p.stdout
+          prj=json.loads(gh('pr','view',pr,'--json','body,headRefOid'))
+          if prj['headRefOid'] != head: raise SystemExit('TARGET_HEAD_MOVED_BEFORE_REVIEW_READ')
+          body=prj.get('body') or ''
+          im=re.search(r'AI_LOOP_TASK_ISSUE:\s*#(\d+)',body); rm=re.search(r'AI_LOOP_ROUND:\s*(\d+)',body)
+          if not im: raise SystemExit('AI_LOOP_TASK_ISSUE missing')
+          issue=im.group(1); round_no=int(rm.group(1)) if rm else 1
+          issue_body=gh('issue','view',issue,'--json','body','--jq','.body')
+          tm=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',issue_body,re.S)
+          if not tm: raise SystemExit('task contract missing')
+          task=json.loads(tm.group(1)); max_rounds=max(1,min(int(task.get('max_rounds',2)),4))
+
+          inline=json.loads(gh('api',f'repos/{repo}/pulls/{pr}/comments','--paginate') or '[]')
+          issue_comments=json.loads(gh('api',f'repos/{repo}/issues/{pr}/comments','--paginate') or '[]')
+          reviews=json.loads(gh('api',f'repos/{repo}/pulls/{pr}/reviews','--paginate') or '[]')
+          reactions=json.loads(gh('api',f'repos/{repo}/issues/{pr}/reactions','-H','Accept: application/vnd.github+json') or '[]')
+
+          codex_blockers=[c.get('body','') for c in inline if (c.get('user') or {}).get('login')==codex and c.get('commit_id')==head and (c.get('body') or '').strip()]
+          codex_plus=any((x.get('user') or {}).get('login')==codex and x.get('content')=='+1' for x in reactions)
+          codex_reviewed=any((x.get('user') or {}).get('login')==codex and x.get('commit_id') in (None,head) for x in reviews)
+          codex_verdict='REJECT' if codex_blockers else ('ACCEPT' if codex_plus else ('REVIEWED_PENDING_SIGNAL' if codex_reviewed else 'PENDING'))
+
+          claude_verdict='PENDING'; claude_findings=''
+          for c in reversed(issue_comments):
+              txt=c.get('body') or ''
+              if 'CLAUDE_REVIEW_BEGIN' not in txt or f'CLAUDE_REVIEW_HEAD: {head}' not in txt: continue
+              vm=re.search(r'CLAUDE_VERDICT:\s*(ACCEPT|REJECT|BLOCKED)',txt)
+              if not vm: continue
+              claude_verdict=vm.group(1)
+              fm=re.search(r'CLAUDE_FINDINGS:\s*(.*?)\s*CLAUDE_REVIEW_END',txt,re.S)
+              claude_findings=(fm.group(1).strip() if fm else '')[-24000:]
+              break
+
+          feedback=[]
+          if codex_verdict=='REJECT': feedback.append('CODEX FINDINGS:\n'+'\n\n'.join(codex_blockers)[-24000:])
+          if claude_verdict=='REJECT': feedback.append('CLAUDE FINDINGS:\n'+(claude_findings or 'Claude returned REJECT without detailed findings.'))
+          mode='WAIT'
+          if claude_verdict=='BLOCKED': mode='BLOCKED'
+          elif codex_verdict=='ACCEPT' and claude_verdict=='ACCEPT': mode='ACCEPT'
+          elif feedback: mode='REPAIR'
+          if mode=='REPAIR' and round_no>=max_rounds: mode='MAX_ROUNDS'
+
+          state={
+            'pr':int(pr),'head':head,'issue':int(issue),'round':round_no,'max_rounds':max_rounds,
+            'codex':codex_verdict,'claude':claude_verdict,'mode':mode,
+            'feedback':'\n\n'.join(feedback)[-40000:], 'issue_body':issue_body,
+          }
+          pathlib.Path('.ai-event-state.json').write_text(json.dumps(state,ensure_ascii=False))
+          print(json.dumps({k:v for k,v in state.items() if k not in ('feedback','issue_body')},indent=2))
+          PY
+          MODE="$(jq -r '.mode' .ai-event-state.json)"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Report acceptance immediately
+        if: steps.state.outputs.mode == 'ACCEPT'
+        shell: bash
+        env:
+          PR: ${{ steps.target.outputs.pr }}
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+        run: |
+          gh pr comment "$PR" --body "EVENT_RECONCILE: exact-head CODEX + CLAUDE consensus ACCEPT at $HEAD_SHA. Status: READY_FOR_FINAL_ACCEPT. Merge/deploy remains a separate safety gate."
+
+      - name: Report blocking terminal state
+        if: steps.state.outputs.mode == 'BLOCKED' || steps.state.outputs.mode == 'MAX_ROUNDS'
+        shell: bash
+        env:
+          PR: ${{ steps.target.outputs.pr }}
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+          MODE: ${{ steps.state.outputs.mode }}
+        run: |
+          gh pr comment "$PR" --body "EVENT_RECONCILE: $MODE at exact head $HEAD_SHA. Automatic repair is fail-closed; diagnosis/final decision required."
+
+      - name: Speculative repair on first exact-head rejection
+        if: steps.state.outputs.mode == 'REPAIR'
+        shell: bash
+        env:
+          PR: ${{ steps.target.outputs.pr }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+          HEAD_SHA: ${{ steps.target.outputs.head }}
+        run: |
+          set -euo pipefail
+          test -n "${DEEPSEEK_API_KEY:-}" || { echo MISSING_DEEPSEEK_SECRET; exit 2; }
+          git fetch origin "$BRANCH"
+          test "$(git rev-parse "origin/$BRANCH")" = "$HEAD_SHA" || { echo STALE_BEFORE_REPAIR; exit 0; }
+          git checkout -B "$BRANCH" "$HEAD_SHA"
+
+          python3 - <<'PY'
+          import json,pathlib,re
+          s=json.loads(pathlib.Path('.ai-event-state.json').read_text())
+          m=re.search(r'AI_TASK_JSON_BEGIN\s*(\{.*?\})\s*AI_TASK_JSON_END',s['issue_body'],re.S)
+          task=json.loads(m.group(1)); task['base_sha']=s['head']; task['review_feedback']=s['feedback']; task['max_rounds']=1; task['requires_claude']=True
+          pathlib.Path('.ai-runtime-task.json').write_text(json.dumps(task,ensure_ascii=False,indent=2))
+          PY
+
+          python3 scripts/ai/deepseek_implementer.py .ai-runtime-task.json
+          rm -f .ai-runtime-task.json
+          git diff --quiet && { echo NO_REPAIR_DIFF; exit 0; } || true
+          git diff --check
+
+          # Compare-and-swap safety: never push a speculative repair onto a head
+          # that another worker already advanced while this run was reasoning.
+          git fetch origin "$BRANCH"
+          CURRENT_REMOTE="$(git rev-parse "origin/$BRANCH")"
+          test "$CURRENT_REMOTE" = "$HEAD_SHA" || { echo "STALE_SPECULATIVE_REPAIR remote=$CURRENT_REMOTE expected=$HEAD_SHA"; exit 0; }
+
+          ROUND="$(jq -r '.round' .ai-event-state.json)"
+          git config user.name 'DeepSeek Event Repair'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m "AI event repair: first-blocker round $((ROUND+1))"
+          git push origin "$BRANCH"
+          NEW_SHA="$(git rev-parse HEAD)"
+
+          BODY="$(gh pr view "$PR" --json body --jq '.body')"
+          NEW_BODY="$(printf '%s' "$BODY" | sed "s/AI_LOOP_ROUND:[[:space:]]*$ROUND/AI_LOOP_ROUND: $((ROUND+1))/" | sed "s/IMPLEMENTATION_SHA:[[:space:]]*[0-9a-f]*/IMPLEMENTATION_SHA: $NEW_SHA/")"
+          gh pr edit "$PR" --body "$NEW_BODY"
+          gh pr comment "$PR" --body "@codex review
+
+EVENT_RECONCILE pushed first-blocker repair. Re-review exact current head $NEW_SHA immediately. Previous-SHA review evidence is advisory only."
+          gh pr comment "$PR" --body "CLAUDE_REVIEW_REQUEST
+CLAUDE_REVIEW_HEAD: $NEW_SHA
+EVENT_RECONCILE pushed first-blocker repair. Independently review this exact head immediately and post a fresh SHA-bound verdict."
+
+      - name: Cleanup
+        if: always()
+        run: rm -f .ai-event-state.json .ai-runtime-task.json
