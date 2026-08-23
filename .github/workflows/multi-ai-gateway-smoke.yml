@@ -1,0 +1,30 @@
+name: Multi-AI Gateway Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-ai-gateway-smoke
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      MULTI_AI_GATEWAY_HEALTH_URL: ${{ secrets.MULTI_AI_GATEWAY_HEALTH_URL }}
+      MULTI_AI_GATEWAY_TIMEOUT_SECONDS: '10'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate configured gateway health
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MULTI_AI_GATEWAY_HEALTH_URL:-}" || {
+            echo 'MULTI_AI_GATEWAY_HEALTH_URL secret is not configured.'
+            exit 2
+          }
+          python3 scripts/ops/check_multi_ai_gateway.py
