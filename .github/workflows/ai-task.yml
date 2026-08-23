@@ -1,100 +1,29 @@
-name: AI Task - DeepSeek Implementer
+name: AI Task - Legacy Manual Redirect
 
 on:
   workflow_dispatch:
     inputs:
       task_file:
-        description: "Repository-relative JSON task spec"
+        description: "Legacy task file (diagnostic only)"
         required: true
-        type: string
-      model:
-        description: "DeepSeek model alias"
-        required: false
-        default: "deepseek-chat"
         type: string
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
-# All source-writing entry points share one global writer lock. This prevents the
-# manual DeepSeek workflow from racing AI Closed Loop / AI Closed Loop Wake.
-concurrency:
-  group: trading-ai-closed-loop
-  cancel-in-progress: false
+# This legacy source-writing entry point is intentionally retired. All writes must
+# enter through the canonical AI Closed Loop / AI Closed Loop Wake paths so the
+# normalized per-task lock is shared and unrelated tasks never queue globally.
 
 jobs:
-  implement:
-    name: DeepSeek cloud implementation
+  redirect:
+    name: Legacy manual writer disabled
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      DEEPSEEK_MODEL: ${{ inputs.model }}
-      TASK_FILE: ${{ inputs.task_file }}
-      GH_TOKEN: ${{ github.token }}
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout authoritative main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Enforce DeepSeek write lock
+      - name: Explain canonical entry point
         shell: bash
         run: |
-          set -euo pipefail
-          test -n "$DEEPSEEK_API_KEY" || { echo "DEEPSEEK_API_KEY secret missing"; exit 2; }
-          test -f "$TASK_FILE" || { echo "Task file not found: $TASK_FILE"; exit 2; }
-          grep -Eq '^LOCKED:[[:space:]]*true[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
-          grep -Eq '^OWNER:[[:space:]]*DEEPSEEK[[:space:]]*$' docs/ai-coengineer/WRITE_LOCK.md
-          echo "DeepSeek lock verified."
-
-      - name: Implement scoped task with DeepSeek
-        run: python3 scripts/ai/deepseek_implementer.py "$TASK_FILE"
-
-      - name: Require a real source diff
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            echo "DeepSeek produced no repository diff."
-            exit 3
-          fi
-          git diff --check
-          git diff --stat
-
-      - name: Commit implementation branch
-        id: commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          TASK_ID="$(python3 -c 'import json,os; print(json.load(open(os.environ["TASK_FILE"]))["task_id"])')"
-          SAFE_TASK="$(printf '%s' "$TASK_ID" | tr -cs 'A-Za-z0-9._-' '-')"
-          # Do not create a second implementation PR for the same task id.
-          EXISTING="$(gh pr list --state open --search "${TASK_ID} in:title" --json number --jq '.[0].number // empty')"
-          test -z "$EXISTING" || { echo "Open implementation PR already exists for $TASK_ID: #$EXISTING"; exit 4; }
-          BRANCH="ai/deepseek-${SAFE_TASK}-${GITHUB_RUN_ID}"
-          git config user.name "DeepSeek Cloud Implementer"
-          git config user.email "actions@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add -A
-          git commit -m "${TASK_ID}: DeepSeek implementation"
-          git push origin "$BRANCH"
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "task_id=$TASK_ID" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Open pull request for independent reviews
-        shell: bash
-        env:
-          BRANCH: ${{ steps.commit.outputs.branch }}
-          TASK_ID: ${{ steps.commit.outputs.task_id }}
-          IMPLEMENTATION_SHA: ${{ steps.commit.outputs.sha }}
-        run: |
-          set -euo pipefail
-          PR_URL="$(gh pr create --base main --head "$BRANCH" --title "$TASK_ID - DeepSeek implementation" --body "DeepSeek implementation staged for independent Codex + Claude review.\n\nIMPLEMENTATION_SHA: $IMPLEMENTATION_SHA\nTask file: $TASK_FILE\nIMPLEMENTER: DEEPSEEK\nSTATUS: PARALLEL_DUAL_REVIEW_REQUIRED\n\nNo production deploy is performed here.")"
-          PR_NUMBER="${PR_URL##*/}"
-          gh pr comment "$PR_NUMBER" --body "@codex review\n\nReview exact head $IMPLEMENTATION_SHA. Advisory/review only; do not modify source."
-          gh pr comment "$PR_NUMBER" --body "CLAUDE_REVIEW_REQUEST\nCLAUDE_REVIEW_HEAD: $IMPLEMENTATION_SHA\nReview this exact head independently and post a SHA-bound ACCEPT/REJECT/BLOCKED verdict. Advisory/review only; do not modify source."
+          echo "ai-task.yml is retired as a writer."
+          echo "Use the canonical [AI-TASK] issue dispatch or AI Closed Loop Wake."
+          echo "Requested legacy task_file: ${{ inputs.task_file }}"
