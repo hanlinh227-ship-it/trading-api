@@ -41,7 +41,7 @@ MAX_WORKERS = int(os.environ.get("V11_OPT_WORKERS", "4"))
 
 ALLOWED_RR = (1.0, 2.0)
 MODEL_SPECS = (("HGB", 4, 12), ("HGB", 5, 20), ("ET", 10, 8))
-THRESHOLDS = (0.55, 0.62, 0.70, 0.78)
+THRESHOLDS = (0.55, 0.62, 0.70, 0.78, 0.84, 0.90)
 MARGINS = (0.0, 0.06)
 MAXTRADES = (1, 2, 3)
 CFGS_FOREX = [(rr, rf, sw) for rr in ALLOWED_RR for rf in (0.60,0.75,1.0,1.25,1.5,2.0) for sw in (4,8,12)]
