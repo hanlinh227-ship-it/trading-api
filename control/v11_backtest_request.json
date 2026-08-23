@@ -1,13 +1,15 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "authority": "V11_DIRECT_5AI",
   "requestedBy": "chatgpt-prompt-control",
-  "requestedAt": "2026-08-24T06:24:00+07:00",
+  "requestedAt": "2026-08-24T06:58:00+07:00",
   "mode": "FULL_MARKET_RESEARCH",
   "catalogSymbols": 95,
   "targetPerSymbolWinRate": 0.80,
   "executionPerEligibleDay": [1,3],
   "rrAllowed": [1,2],
   "fiveAIRequired": ["claude","codex","deepseek","qwen","openrouter"],
-  "note": "Changing this file is the machine-to-machine prompt control trigger. No owner UI action required after workflow trigger path is enabled."
+  "dataPolicy": "LEGACY_NO_YAHOO",
+  "routes": {"forex":"Twelve Data exact M5","crypto":"KuCoin->Gate.io->OKX->MEXC exact spot 4H","metal":"Dukascopy BID H1","index":"Dukascopy mapped BID H1"},
+  "note": "Owner directive: use proven legacy backtest data acquisition, never Yahoo, require genuine 5/5 AI before and after deterministic evidence."
 }
