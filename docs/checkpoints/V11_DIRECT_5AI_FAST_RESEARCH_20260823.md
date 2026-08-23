@@ -205,7 +205,7 @@ Signal V11 remains `SIGNAL_ONLY`.
 
 ## 14. NEW CHAT PROMPT
 
-`Continue Trading from fresh GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, V11_DIRECT_5AI_FAST_RESEARCH_20260823.md and WRITE_LOCK.md. V11 research is in owner-authorized DIRECT 5AI FAST mode: Claude, Codex, DeepSeek, Qwen and OpenRouter are research accelerators before/after one deterministic cached/sharded backtest engine. Do not restore PR/Issue/job-gated research loops. AI/job transport failures must not leave deterministic research idle; continue safe direct backtesting and retry missing AI participation separately, while final five-AI success still requires genuine participation from all five. Preserve 95-symbol independent evaluation, 1-3 real executions per eligible symbol/day, RR 1:1/1:2, >=80.00% per-symbol target, exact data, no leakage and untouched FINAL. Production Signal V11 stays SIGNAL_ONLY and locked. The owner is PROMPT-ONLY: never ask the owner to open Actions, copy logs, send screenshots, run commands, edit GitHub, or perform technical steps. The owner receives final result only.`
+`Continue Trading from fresh GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, V11_DIRECT_5AI_FAST_RESEARCH_20260823.md and WRITE_LOCK.md. V11 research is in owner-authorized DIRECT 5AI FAST mode: Claude, Codex, DeepSeek, Qwen and OpenRouter are research accelerators before/after one deterministic cached/sharded backtest engine. Do not restore PR/Issue/job-gated research loops. AI/job transport failures must not leave deterministic research idle; continue safe direct backtesting and retry missing AI participation separately, while final five-AI success still requires genuine participation from all five. Preserve 95-symbol independent evaluation, 1-3 real executions per eligible symbol/day, RR 1:1/1:2, >=80.00% per-symbol target, exact data, no leakage and untouched FINAL. Production Signal V11 stays SIGNAL_ONLY and locked. The owner is PROMPT-ONLY: never ask the owner to open Actions, copy logs, send screenshots, run commands, edit GitHub, or perform technical steps. The owner receives final result only. Use the NO-REPAIR GOLDEN PATH: prompt starts requested work immediately; stable research infrastructure is not redesigned or repaired unless a true hard blocker prevents the requested work.`
 
 ## 15. OWNER INTERACTION CONTRACT — PROMPT ONLY / FINAL RESULT ONLY
 
@@ -242,3 +242,69 @@ If a true external hard blocker makes the requested result impossible with the a
 For this Trading research program, the owner-facing interaction model is therefore:
 
 `OWNER PROMPT -> ASSISTANT/5AI/TOOLS DO ALL WORK -> OWNER RECEIVES FINAL RESULT ONLY`
+
+## 16. NO-REPAIR GOLDEN PATH — PROMPT MUST START WORK
+
+This rule is mandatory for ordinary research prompts.
+
+The system is treated as a stable appliance, not a software project that must be redesigned every time the owner asks for work.
+
+For each new owner prompt:
+1. classify the requested task;
+2. use the existing stable tool/runner/data path immediately;
+3. start the requested research/backtest/analysis before any optional optimization work;
+4. run five-AI research/adversarial review in parallel where useful, never as a serial prerequisite to deterministic work;
+5. use cached/frozen data whenever the dataset request is unchanged;
+6. change methodology primarily through configuration/parameters/routing, not workflow rewrites;
+7. return only the final requested outcome.
+
+### Repair budget
+
+Ordinary prompts have a default infrastructure-repair budget of **zero**.
+
+Do not stop requested work to improve architecture, create Issues/PRs, redesign workflows, refactor helpers, change gateways, alter checkpoint machinery, or optimize infrastructure merely because a cleaner implementation is possible.
+
+Infrastructure repair is allowed only when a **true hard blocker** directly prevents the requested work from producing honest evidence. In that case:
+- use the smallest bounded repair;
+- do not redesign unrelated components;
+- resume the original task immediately after the blocker is removed;
+- do not turn the repair itself into a new research project.
+
+### Stable core / variable method split
+
+Keep stable and rarely changed:
+- data snapshot/cache layer;
+- deterministic backtest engine;
+- symbol catalog loader;
+- integrity gates;
+- evidence format;
+- five-AI gateway contract;
+- production locks.
+
+Change frequently through configuration/evidence-driven routing:
+- setup family;
+- timeframe weighting;
+- session/regime filters;
+- trigger conditions;
+- stop geometry within fixed integrity rules;
+- RR choice from allowed domain;
+- ranking weights;
+- per-symbol profiles derived only from permitted historical/DEV/VALIDATION evidence.
+
+The preferred research mechanism is **method-as-config**, not code-as-method. A strategy iteration should normally mean changing a bounded configuration and replaying the same deterministic engine, not writing a new workflow or rebuilding infrastructure.
+
+### Failure containment
+
+A failure in Claude/Codex/DeepSeek/Qwen/OpenRouter, an advisory API, logging, artifact upload, or nonessential orchestration must not stop deterministic work that can still run honestly.
+
+Only failures in required exact data, the deterministic engine, integrity checks, or another component strictly necessary to produce truthful requested evidence may block the task.
+
+### Operating objective
+
+The desired owner experience is:
+
+`PROMPT -> IMMEDIATE WORK -> INTERNAL ITERATION -> FINAL RESULT`
+
+not:
+
+`PROMPT -> REPAIR SYSTEM -> REPAIR JOB -> REPAIR AI -> START WORK LATER`
