@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/v11_backtest_legacy_ml_4m.py'
+      - 'scripts/v11_backtest_legacy_ml_4m_run.py'
       - '.github/workflows/v11-legacy-ml-backtest-4m.yml'
   workflow_dispatch:
 
@@ -62,16 +63,19 @@ jobs:
       - name: Validate legacy-learned runner
         run: |
           set -euo pipefail
-          python -m py_compile scripts/v11_backtest_legacy_ml_4m.py
+          python -m py_compile scripts/v11_backtest_legacy_ml_4m.py scripts/v11_backtest_legacy_ml_4m_run.py
           grep -q 'ALLOWED_RR = (1.0, 2.0)' scripts/v11_backtest_legacy_ml_4m.py
           grep -q 'MAXTRADES = (1, 2, 3)' scripts/v11_backtest_legacy_ml_4m.py
           grep -q 'HistGradientBoostingClassifier' scripts/v11_backtest_legacy_ml_4m.py
           grep -q 'ExtraTreesClassifier' scripts/v11_backtest_legacy_ml_4m.py
+          grep -q 'kucoin_4h' scripts/v11_backtest_legacy_ml_4m_run.py
+          grep -q 'gate_4h' scripts/v11_backtest_legacy_ml_4m_run.py
+          grep -q 'okx_4h' scripts/v11_backtest_legacy_ml_4m_run.py
 
       - name: Run 122-day per-symbol walk-forward backtest
         run: |
           set -euo pipefail
-          python scripts/v11_backtest_legacy_ml_4m.py
+          python scripts/v11_backtest_legacy_ml_4m_run.py
 
       - name: Verify evidence integrity
         run: |
