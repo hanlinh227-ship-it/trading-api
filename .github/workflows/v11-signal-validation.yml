@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - 'cloudflare-worker/**'
+      - 'data/v11_*'
+      - 'scripts/v11_*'
       - 'docs/checkpoints/**'
       - 'docs/ai-coengineer/**'
       - '.github/workflows/v11-signal-validation.yml'
   pull_request:
     paths:
       - 'cloudflare-worker/**'
+      - 'data/v11_*'
+      - 'scripts/v11_*'
       - 'docs/checkpoints/**'
       - 'docs/ai-coengineer/**'
       - '.github/workflows/v11-signal-validation.yml'
@@ -34,29 +38,46 @@ jobs:
       - name: Full V11 preflight
         working-directory: cloudflare-worker
         run: npm run check
-      - name: V11 production invariants
+      - name: Current V11 invariants
         shell: bash
         run: |
           set -euo pipefail
           grep -q 'hub-v11.js' cloudflare-worker/index.js
           grep -q 'signalOnlySourceOfTruth:"V11"' cloudflare-worker/index.js
+          grep -q 'SIGNAL_V11_MAINTENANCE' cloudflare-worker/index.js
           grep -q 'scheduledNativeV11' cloudflare-worker/hub-v11.js
-          grep -q 'telegramAutoSignal:true' cloudflare-worker/hub-v11.js
-          grep -q 'telegramAutoLifecycle:true' cloudflare-worker/hub-v11.js
-          grep -q 'V11 MARKET SIGNAL' cloudflare-worker/v11/native-runtime.js
-          grep -q 'lifecycle.events' cloudflare-worker/v11/native-runtime.js
-          grep -q 'MARKET_READY' cloudflare-worker/v11/native-runtime.js
-          grep -q 'UPSTREAM_.*_NOT_MARKET_READY' cloudflare-worker/v11/native-runtime.js
+          grep -q 'evaluateEntryEligibility' cloudflare-worker/v11/native-runtime.js
+          grep -q 'evaluateHoldStatus' cloudflare-worker/v11/native-runtime.js
+          grep -q 'AI_RECHECK_MS' cloudflare-worker/v11/native-runtime.js
+          grep -q 'cutConfirmed:valid>=4&&cut>=4' cloudflare-worker/v11/native-runtime.js
           grep -q 'duplicateOpen' cloudflare-worker/v11/store.js
-          grep -q 'INVALIDATED_LEGACY_NON_MARKET' cloudflare-worker/v11/store.js
-          grep -q 'allThreeRequired:true' cloudflare-worker/v11/manual-market-hunter.js
+          grep -q 'MAX_OPEN_PER_MARKET=5' cloudflare-worker/v11/store.js
           grep -q 'TRADING_STATE_REQUIRED' cloudflare-worker/v11/store.js
-          ! grep -q 'v10.scheduled' cloudflare-worker/hub-v11.js
+          grep -q 'NO_FRESH_CRYPTO_QUOTE' cloudflare-worker/v11/live-quote.js
+          grep -q 'crossSourceCount' cloudflare-worker/v11/live-quote.js
+          grep -q 'LIMIT_NEAR_MARKET' cloudflare-worker/v11/entry-eligibility.js
+          ! grep -R 'LEGACY_NON_MARKET' cloudflare-worker/v11
+          ! grep -R 'INVALIDATED_LEGACY_NON_MARKET' cloudflare-worker/v11
+          ! grep -R 'allThreeRequired:true' cloudflare-worker/v11
           ! grep -R 'V11_AI_BRIDGE_URL' cloudflare-worker/v11
+          ! grep -q 'v10.scheduled' cloudflare-worker/hub-v11.js
+      - name: Maintenance safety invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f data/v11_backtest_gate.json ]; then
+            python3 - <<'PY'
+          import json
+          d=json.load(open('data/v11_backtest_gate.json',encoding='utf-8'))
+          if not d.get('allPassed',False):
+              text=open('cloudflare-worker/index.js',encoding='utf-8').read()
+              assert 'SIGNAL_V11_MAINTENANCE=true' in text, 'Hub must remain locked while backtest gate is not all-pass'
+          PY
+          fi
       - name: Validation summary
         run: |
           echo 'V11_VALIDATION=PASS'
-          echo 'AUTO_TELEGRAM_SIGNAL=ON'
-          echo 'AUTO_TELEGRAM_LIFECYCLE=ON'
-          echo 'MARKET_READY_FAIL_CLOSED=ON'
-          echo 'THREE_AI_HUNTER=ON_DEMAND_ONLY'
+          echo 'UNIFIED_ENTRY_HOLD_LOGIC=ON'
+          echo 'LEGACY_INSTANT_CUT=ABSENT'
+          echo 'CUT_REQUIRES_4OF5_AI=ON'
+          echo 'MAX_OPEN_PER_MARKET=5'
