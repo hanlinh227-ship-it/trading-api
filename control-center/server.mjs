@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = Number(process.env.PORT || 8788);
-function boundedMs(raw, fallback, minimum) {
+const NODE_TIMER_MAX_MS = 2_147_483_647;
+const CLOCK_SKEW_MS = 30_000;
+function boundedMs(raw, fallback, minimum, maximum = NODE_TIMER_MAX_MS) {
   const n = Number(raw);
-  return Number.isFinite(n) ? Math.max(minimum, n) : fallback;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(maximum, Math.max(minimum, n));
 }
-const REFRESH_MS = boundedMs(process.env.CONTROL_CENTER_REFRESH_MS, 5000, 2000);
 const STALE_MS = boundedMs(process.env.CONTROL_CENTER_STALE_MS, 120000, 15000);
+const REFRESH_MS = boundedMs(process.env.CONTROL_CENTER_REFRESH_MS, 5000, 2000, Math.max(2000, Math.min(NODE_TIMER_MAX_MS, STALE_MS)));
 
 const SOURCES = {
   vps: process.env.CC_VPS_STATUS_URL || '',
@@ -21,13 +24,15 @@ const SOURCES = {
   deepseek: process.env.CC_DEEPSEEK_STATUS_URL || '',
   codex: process.env.CC_CODEX_STATUS_URL || '',
   claude: process.env.CC_CLAUDE_STATUS_URL || '',
+  qwen: process.env.CC_QWEN_STATUS_URL || '',
+  openrouter: process.env.CC_OPENROUTER_STATUS_URL || '',
 };
 
 const SAFE_KEYS = new Set([
   'state','status','message','last_updated','last_seen','timestamp','task','task_id',
   'issue','pr','sha','run_id','workflow','validation','verdict','consensus','deploy',
   'version','provider','events','details','stage','url','label','age_ms','pipeline',
-  'intake','implementation','codex_review','claude_review','merge'
+  'intake','implementation','codex_review','claude_review','merge','qwen_review','openrouter_review'
 ]);
 const STALE_SUCCESS_STATES = new Set(['ONLINE','WAITING','RUNNING','REVIEWING','ACCEPT','PASS']);
 
@@ -55,22 +60,46 @@ function parseTime(obj) {
   }
   return NaN;
 }
-function freshness(obj) {
+function freshness(obj, now = Date.now()) {
   const t = parseTime(obj);
-  if (!Number.isFinite(t)) return { stale: true, age_ms: null };
-  const age = Math.max(0, Date.now() - t);
-  return { stale: age > STALE_MS, age_ms: age };
+  if (!Number.isFinite(t)) return { stale: true, age_ms: null, reason: 'missing timestamp' };
+  const delta = now - t;
+  if (delta < -CLOCK_SKEW_MS) return { stale: true, age_ms: 0, reason: 'future-dated timestamp' };
+  const age = Math.max(0, delta);
+  return { stale: age > STALE_MS, age_ms: age, reason: age > STALE_MS ? 'stale timestamp' : null };
 }
-function suppressStalePipeline(pipeline) {
+function materializeItem(item, now = Date.now()) {
+  const out = { ...(item || {}) };
+  const fresh = freshness(out, now);
+  out.age_ms = fresh.age_ms;
+  out._stale = fresh.stale;
+  const state = normalizeState(out.state || out.status);
+  out.state = state;
+  if (fresh.stale && STALE_SUCCESS_STATES.has(state)) {
+    out.state = 'DEGRADED';
+    out.message = out.message || fresh.reason || 'stale evidence';
+  }
+  return out;
+}
+function materializePipeline(pipeline, parentStale, now = Date.now()) {
   if (!pipeline || typeof pipeline !== 'object' || Array.isArray(pipeline)) return {};
   const out = {};
   for (const [stage, raw] of Object.entries(pipeline)) {
-    if (raw && typeof raw === 'object') {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const stageFresh = freshness(raw, now);
       const state = normalizeState(raw.state || raw.status);
-      out[stage] = { ...raw, state: STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state };
+      const stale = parentStale || stageFresh.stale;
+      out[stage] = {
+        ...raw,
+        age_ms: stageFresh.age_ms,
+        state: stale && STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state,
+      };
+      if (stale && STALE_SUCCESS_STATES.has(state) && !out[stage].message) {
+        out[stage].message = stageFresh.reason || 'stale parent evidence';
+      }
     } else {
       const state = normalizeState(raw);
-      out[stage] = STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state;
+      out[stage] = parentStale && STALE_SUCCESS_STATES.has(state) ? 'UNKNOWN' : state;
     }
   }
   return out;
@@ -82,16 +111,9 @@ async function fetchJson(url) {
   try {
     const res = await fetch(url, { headers: { accept: 'application/json' }, signal: ctl.signal });
     if (!res.ok) return { state: 'DEGRADED', message: `HTTP ${res.status}`, last_updated: nowIso() };
-    const raw = sanitize(await res.json());
-    const fresh = freshness(raw);
-    const base = { ...raw, state: normalizeState(raw?.state || raw?.status), age_ms: fresh.age_ms, _stale: fresh.stale };
-    if (fresh.stale && STALE_SUCCESS_STATES.has(base.state)) {
-      base.state = 'DEGRADED';
-      base.message = base.message || 'stale or missing evidence timestamp';
-    }
-    return base;
+    return sanitize(await res.json());
   } catch (err) {
-    return { state: 'OFFLINE', message: String(err?.message || err).slice(0, 500), last_updated: nowIso(), _stale: false };
+    return { state: 'OFFLINE', message: String(err?.message || err).slice(0, 500), last_updated: nowIso() };
   } finally {
     clearTimeout(timer);
   }
@@ -112,17 +134,28 @@ async function refresh() {
       }
     }
     events.sort((a, b) => Date.parse(b.timestamp || b.last_updated || 0) - Date.parse(a.timestamp || a.last_updated || 0));
-    const githubPipeline = map.github?.details?.pipeline || map.github?.pipeline || {};
     cache = {
       last_updated: nowIso(),
       refresh_ms: REFRESH_MS,
       systems: { vps: map.vps, github: map.github, cloudflare: map.cloudflare, telegram: map.telegram },
-      ai: { deepseek: map.deepseek, codex: map.codex, claude: map.claude },
-      pipeline: map.github?._stale ? suppressStalePipeline(githubPipeline) : githubPipeline,
+      ai: { deepseek: map.deepseek, codex: map.codex, claude: map.claude, qwen: map.qwen, openrouter: map.openrouter },
+      pipeline: map.github?.details?.pipeline || map.github?.pipeline || {},
       events: events.slice(0, 100),
     };
     return cache;
   } finally { refreshing = false; }
+}
+function responseSnapshot() {
+  const now = Date.now();
+  const systems = Object.fromEntries(Object.entries(cache.systems || {}).map(([k, v]) => [k, materializeItem(v, now)]));
+  const ai = Object.fromEntries(Object.entries(cache.ai || {}).map(([k, v]) => [k, materializeItem(v, now)]));
+  const githubStale = Boolean(systems.github?._stale);
+  return {
+    ...cache,
+    systems,
+    ai,
+    pipeline: materializePipeline(cache.pipeline, githubStale, now),
+  };
 }
 setInterval(() => refresh().catch(() => {}), REFRESH_MS).unref();
 await refresh();
@@ -150,7 +183,7 @@ http.createServer(async (req, res) => {
   }
   if (u.pathname === '/api/status') {
     res.writeHead(200, { 'content-type':'application/json', 'cache-control':'no-store' });
-    res.end(JSON.stringify(cache));
+    res.end(JSON.stringify(responseSnapshot()));
     return;
   }
   await serveFile(req, res);
