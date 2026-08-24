@@ -17,17 +17,27 @@ export async function handleBinanceReadonlyHealth(req,env){
   try{
     const r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8790/binance/health",{
       method:"GET",
-      headers:{"authorization":"Bearer "+String(env.BINANCE_BRIDGE_SECRET)}
+      headers:{"authorization":"Bearer "+String(env.BINANCE_BRIDGE_SECRET),"accept":"application/json"}
     }));
+    const text=await r.text();
     let payload={};
-    try{payload=await r.json();}catch{payload={ok:false,reason:"BINANCE_VPS_BRIDGE_NON_JSON"};}
-    return json({
+    try{payload=text?JSON.parse(text):{};}catch{payload={ok:false,reason:"BINANCE_VPS_BRIDGE_NON_JSON"};}
+    const normalized={
       ...payload,
+      ok:payload?.ok===true,
+      authenticated:payload?.authenticated===true,
       via:"VPS_BRIDGE",
       workerMode:{live,liveAck,testnet},
-      bridge:{vpcPresent:true,bridgeSecretPresent:true},
+      bridge:{vpcPresent:true,bridgeSecretPresent:true,httpStatus:r.status,responseOk:r.ok},
+      bridgeDiagnostics:{
+        reason:payload?.reason??null,
+        upstreamStatus:payload?.upstreamStatus??null,
+        binanceCode:payload?.binanceCode??null,
+        binanceMessage:payload?.binanceMessage??null
+      },
       workerCheckedAt:new Date().toISOString()
-    },r.ok?200:r.status||502);
+    };
+    return json(normalized,r.ok?200:(r.status||502));
   }catch(e){
     return json({ok:false,readOnly:true,authenticated:false,via:"VPS_BRIDGE",mode:{live,liveAck,testnet},bridge:{vpcPresent:true,bridgeSecretPresent:true},reason:"BINANCE_VPS_BRIDGE_FETCH_FAILED",error:String(e?.message||e),checkedAt:new Date().toISOString()},502);
   }
