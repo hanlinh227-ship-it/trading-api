@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   loop:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-LOOP]')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-LOOP]') || contains(github.event.head_commit.message, '[V11-RUN]')
     runs-on: ubuntu-latest
     timeout-minutes: 240
     env:
