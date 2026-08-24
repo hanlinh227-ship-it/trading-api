@@ -14,6 +14,47 @@ async function kvGet(env,key,def){try{return await env.TRADING_STATE?.get(key,{t
 async function kvPut(env,key,val){if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(val));}
 function eventTime(x){return Number(x?.updatedTime||x?.createdTime||0);}
 
+// One-day operational target requested for the current LIVE session. This is deliberately
+// separate from daily PnL reconciliation: baselineRealizedUsd is the already-realized PnL at
+// the request snapshot, so historical PnL is never reset or rewritten.
+const LIVE_TARGET_SPEC={
+  id:"2026-08-25T06:01+07:+100USD",
+  day:"2026-08-25",
+  targetUsd:100,
+  baselineRealizedUsd:0.9529275799999999,
+  startAt:"2026-08-25T06:01:00+07:00",
+  endAt:"2026-08-25T23:59:59.999+07:00",
+  policy:"STOP_NEW_ENTRIES_ONLY_KEEP_MANAGING_OPEN_POSITIONS"
+};
+
+async function ensureLiveProfitTarget(env,mode){
+  if(mode!=="LIVE")return null;
+  const s=await kvGet(env,AUTO_KEY,{}),spec=LIVE_TARGET_SPEC;
+  if(day()!==spec.day)return s.profitTarget||null;
+  const existing=s.profitTarget;
+  if(existing?.id!==spec.id){
+    s.profitTarget={...spec,status:"ACTIVE",targetPnlUsd:Number(s.realizedUsd||0)-spec.baselineRealizedUsd,createdAt:iso(),updatedAt:iso(),baselineSource:"LIVE_RUNTIME_SNAPSHOT"};
+    await kvPut(env,AUTO_KEY,s);
+    return s.profitTarget;
+  }
+  return existing;
+}
+
+async function syncLiveProfitTarget(env){
+  const s=await kvGet(env,AUTO_KEY,{}),t=s.profitTarget;
+  if(!t||t.id!==LIVE_TARGET_SPEC.id)return t||null;
+  const current=Number(s.realizedUsd||0)-Number(t.baselineRealizedUsd||0),endMs=Date.parse(t.endAt),startMs=Date.parse(t.startAt);
+  t.targetPnlUsd=current;
+  t.remainingUsd=Math.max(0,Number(t.targetUsd||0)-current);
+  t.updatedAt=iso();
+  if(current>=Number(t.targetUsd||0)){if(t.status!=="REACHED")t.reachedAt=iso();t.status="REACHED";}
+  else if(now()>endMs){t.status="EXPIRED";}
+  else if(now()>=startMs){t.status="ACTIVE";}
+  s.profitTarget=t;
+  await kvPut(env,AUTO_KEY,s);
+  return t;
+}
+
 async function isolateModeState(env,mode){
   const s=await kvGet(env,AUTO_KEY,{}),previous=String(s.executionMode||"").toUpperCase();
   if(mode==="LIVE"&&previous!=="LIVE"){
@@ -80,6 +121,7 @@ async function resolvePaperEquity(env){
 export async function runBybitAutoControlled(env,opts={}){
   const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
   await isolateModeState(env,mode);
+  await ensureLiveProfitTarget(env,mode);
   const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
   if(lastTradeAt>0&&elapsed<ENTRY_SPACING_MS)return {ok:true,executed:false,mode,reason:"ENTRY_SPACING_5M",nextEntryAt:lastTradeAt+ENTRY_SPACING_MS,remainingMs:ENTRY_SPACING_MS-elapsed,state};
 
@@ -100,6 +142,7 @@ export async function runBybitAutoControlled(env,opts={}){
   }
 
   const out=await runBybitAutoV1(innerEnv,opts);
+  const profitTarget=mode==="LIVE"?await syncLiveProfitTarget(env):null;
   const controller={
     executionMode:mode,
     entrySpacingSec:300,
@@ -107,6 +150,7 @@ export async function runBybitAutoControlled(env,opts={}){
     lossPauseMinutes:30,
     unlimitedDailyEntries:true,
     pauseState:pause.controller,
+    profitTarget,
     runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")
   };
   if(mode==="PAPER"){
