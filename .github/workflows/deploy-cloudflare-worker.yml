@@ -24,6 +24,7 @@ jobs:
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
+      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
 
     steps:
       - name: Checkout current main
@@ -62,12 +63,30 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
+      - name: Verify active runtime revision and Bybit mode visibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 3
+          HEALTH="$(curl -fsS "$WORKER_BASE_URL/bybit/health")"
+          printf '%s\n' "$HEALTH"
+          printf '%s' "$HEALTH" | node -e '
+            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+              const j=JSON.parse(s),want=process.env.GITHUB_SHA;
+              if(j.runtimeRevision!==want) throw new Error(`RUNTIME_REVISION_MISMATCH active=${j.runtimeRevision} expected=${want}`);
+              if(j.exchange!=="BYBIT") throw new Error("BYBIT_HEALTH_ROUTE_MISSING");
+              if(!j.execution||typeof j.execution.liveAck!=="boolean"||typeof j.execution.scheduled!=="boolean") throw new Error("BYBIT_EXECUTION_VISIBILITY_MISSING");
+              console.log(`RUNTIME_REVISION=PASS ${want}`);
+              console.log(`BYBIT_MODE=${j.mode} LIVE_ACK=${j.execution.liveAck} SCHEDULED=${j.execution.scheduled}`);
+            });'
       - name: Deployment summary
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
+          echo "RUNTIME_REVISION=$GITHUB_SHA"
           echo 'SIGNAL_ONLY_VERSION=V11'
           echo 'RUNTIME=CLOUDFLARE_NATIVE'
           echo 'VPC_AI_BRIDGE=AI_BRIDGE'
           echo 'BINANCE_HEALTH=VPS_BRIDGE'
           echo 'BINANCE_BRIDGE_SECRET=APPLIED_AFTER_DEPLOY'
-          echo 'BINANCE_AUTO=SEPARATE_EXECUTION_AUTHORITY'
+          echo 'BYBIT_RUNTIME_PREFLIGHT=/bybit/runtime/preflight'
+          echo 'BYBIT_AUTO=SEPARATE_EXECUTION_AUTHORITY'
