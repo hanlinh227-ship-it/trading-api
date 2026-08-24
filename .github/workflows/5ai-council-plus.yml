@@ -1,0 +1,123 @@
+name: 5AI Council Plus
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Task for Claude, Codex, DeepSeek, Qwen and OpenRouter"
+        required: true
+        type: string
+      mode:
+        description: "general | research | coding | writing | review | trading"
+        required: false
+        default: "general"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  five-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Call all five AI
+        shell: bash
+        env:
+          GATEWAY_URL: https://trading-v77-scanner.hanlinh227.workers.dev/internal/multi-ai/review
+          GATEWAY_OIDC: ${{ secrets.GATEWAY_OIDC }}
+          TASK: ${{ inputs.task }}
+          MODE: ${{ inputs.mode }}
+
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import time
+
+          payload = {
+              "task_id": f"plus-5ai-{int(time.time())}",
+              "instruction": os.environ["TASK"],
+              "context": {
+                  "mode": os.environ["MODE"],
+                  "source": "chatgpt-plus-github-bridge"
+              }
+          }
+
+          with open("/tmp/request.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f, ensure_ascii=False)
+
+          print("5AI_REQUEST_READY")
+          print("MODE=" + os.environ["MODE"])
+          PY
+
+          HTTP_CODE=$(curl \
+            -sS \
+            --max-time 600 \
+            -o /tmp/result.json \
+            -w '%{http_code}' \
+            -X POST "$GATEWAY_URL" \
+            -H "Authorization: Bearer $GATEWAY_OIDC" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/request.json)
+
+          echo "HTTP=$HTTP_CODE"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "GATEWAY_REQUEST_FAILED"
+            cat /tmp/result.json || true
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import sys
+
+          with open("/tmp/result.json", encoding="utf-8") as f:
+              data = json.load(f)
+
+          providers = data.get("providers") or {}
+
+          expected = [
+              "claude",
+              "codex",
+              "deepseek",
+              "qwen",
+              "openrouter",
+          ]
+
+          print("")
+          print("========== 5AI COUNCIL ==========")
+
+          bad = []
+
+          for provider in expected:
+              result = providers.get(provider) or {}
+              status = str(result.get("status", "MISSING")).upper()
+
+              print("")
+              print("----- " + provider.upper() + " -----")
+              print("STATUS=" + status)
+              print(
+                  json.dumps(
+                      result,
+                      ensure_ascii=False,
+                      indent=2
+                  )
+              )
+
+              if status != "OK":
+                  bad.append(provider)
+
+          print("")
+          print("=================================")
+
+          if bad:
+              print("5AI_COUNCIL_FAIL=" + ",".join(bad))
+              sys.exit(1)
+
+          print("5AI_COUNCIL_PASS=5/5")
+          PY
