@@ -1,0 +1,4 @@
+V11 R6 trigger
+Catalog: 94 symbols (IPUSDT removed)
+5AI POST: bounded batches of 8, max 2 attempts, hard curl timeout
+FINAL remains sealed until full DEV/VALIDATION + 5AI eligibility.
