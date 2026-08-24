@@ -1,0 +1,47 @@
+{
+  "version": "V11-FUSION-V77-V78-5AI-R1",
+  "mode": "RESEARCH_ONLY_BEFORE_PRODUCTION_PROMOTION",
+  "catalogCount": 94,
+  "sources": {
+    "v77": [
+      "per-symbol family/mode/hour/riskATR priors",
+      "market isolation",
+      "structure/regime-first entry philosophy",
+      "crypto multi-venue quote routing and freshness",
+      "forex Twelve Data routing",
+      "metal/index verified provider identity and sanity"
+    ],
+    "v78": [
+      "entry intelligence",
+      "WHY_NOW/WHY_PRICE reasoning discipline",
+      "quality/pre-gate evidence discipline",
+      "signal lifecycle and live-state separation"
+    ],
+    "v11": [
+      "94-symbol catalog",
+      "canonical entry authority",
+      "deterministic DEV/VALIDATION/untouched FINAL contract",
+      "RR exactly 1:1 or 1:2",
+      "per-symbol WR >= 80 percent and positive expectancy",
+      "no pooling/deletion/fabrication/lookahead/final tuning"
+    ],
+    "fiveAI": ["Claude", "Codex", "DeepSeek", "Qwen", "OpenRouter"]
+  },
+  "fusionRules": {
+    "perSymbolMethodFirst": true,
+    "legacyEntryModePriority": true,
+    "legacyPriorRRPriority": true,
+    "legacyFamilyHourRiskPriority": true,
+    "genericSearchOnlyAfterPrior": true,
+    "deterministicReplayIsAuthority": true,
+    "fiveAIIsReviewAndLearningLayer": true,
+    "untouchedFinalRemainsSealed": true
+  },
+  "liveQuotePolicyReference": {
+    "crypto": "V77/V78 multi-venue: Bybit/OKX/Binance execution verification; KuCoin/Gate analysis fallback; freshness and divergence gates",
+    "forex": "Twelve Data realtime/canonical with freshness validation",
+    "metal": "Twelve Data/canonical adapter with freshness validation",
+    "index": "verified native identity with Massive/Twelve Data failover and sanity bounds"
+  },
+  "promotion": "Research profiles must pass deterministic DEV+VALIDATION and untouched FINAL before protected production promotion."
+}
