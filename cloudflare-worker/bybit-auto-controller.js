@@ -48,6 +48,14 @@ async function clearLegacyPause(env){
   if(Number(s.pauseUntil||0)>0||Number(s.lossStreak||0)>0){s.pauseUntil=0;s.lossStreak=0;await kvPut(env,AUTO_KEY,s);}
 }
 
+async function resolvePaperEquity(env){
+  try{
+    const api=bybitV5(env),wallet=await api.wallet(),acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};
+    const equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);
+    return equity>0?equity:null;
+  }catch{return null;}
+}
+
 export async function runBybitAutoControlled(env,opts={}){
   const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
   if(lastTradeAt>0&&elapsed<ENTRY_SPACING_MS)return {ok:true,executed:false,mode:String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER",reason:"ENTRY_SPACING_5M",nextEntryAt:lastTradeAt+ENTRY_SPACING_MS,remainingMs:ENTRY_SPACING_MS-elapsed,state};
@@ -61,6 +69,14 @@ export async function runBybitAutoControlled(env,opts={}){
   innerEnv.BYBIT_MAX_LOSS_STREAK_INTERNAL="1000000000";
   innerEnv.BYBIT_LOSS_PAUSE_MINUTES_INTERNAL="30";
   innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="300";
+
+  const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
+  let paperEquity=null;
+  if(mode==="PAPER"){
+    paperEquity=await resolvePaperEquity(env);
+    if(paperEquity>0)innerEnv.BYBIT_STARTING_CAPITAL_USD=String(paperEquity);
+  }
+
   const out=await runBybitAutoV1(innerEnv,opts);
-  return {...out,controller:{entrySpacingSec:300,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,pauseState:pause.controller}};
+  return {...out,controller:{entrySpacingSec:300,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,pauseState:pause.controller,paperEquitySource:paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK",paperEquityUsd:paperEquity}};
 }
