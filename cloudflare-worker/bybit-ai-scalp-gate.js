@@ -1,4 +1,4 @@
-const PROVIDERS=["claude","codex","deepseek","qwen","openrouter"];
+const PROVIDERS=["claude","codex","deepseek"];
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
 const upper=v=>String(v||"").toUpperCase();
 const envBool=(v,d=true)=>v==null?d:String(v).toLowerCase()==="true";
@@ -16,17 +16,17 @@ function safeProviderDiagnostics(providers={}){
 }
 
 export async function probeBybitAiBridge(env){
-  if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")return {ok:false,error:"AI_BRIDGE_BINDING_MISSING",providers:{}};
+  if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")return {ok:false,error:"AI_BRIDGE_BINDING_MISSING",providers:{},requiredProviders:PROVIDERS};
   const secret=String(env.V11_AI_BRIDGE_SECRET||"");
-  if(!secret)return {ok:false,error:"AI_BRIDGE_SECRET_MISSING",providers:{}};
+  if(!secret)return {ok:false,error:"AI_BRIDGE_SECRET_MISSING",providers:{},requiredProviders:PROVIDERS};
   const started=Date.now();
   try{
     const r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/health",{headers:{accept:"application/json","authorization":"Bearer "+secret},signal:AbortSignal.timeout(5000)}));
     const j=await r.json().catch(()=>({}));
     const providers={};let configured=0,online=0;
     for(const p of PROVIDERS){const x=j?.providers?.[p]||{};providers[p]={configured:!!x.configured,state:upper(x.state||x.status||"UNKNOWN"),model:String(x.model||"").slice(0,80),last_seen:num(x.last_seen)};if(providers[p].configured)configured++;if(["ONLINE","PASS","RUNNING"].includes(providers[p].state))online++;}
-    return {ok:r.ok&&configured>0,httpStatus:r.status,latencyMs:Date.now()-started,configured,online,providers,error:r.ok?null:String(j?.error||"AI_BRIDGE_HEALTH_HTTP_"+r.status)};
-  }catch(e){return {ok:false,latencyMs:Date.now()-started,error:"AI_BRIDGE_HEALTH_FETCH:"+String(e?.message||e),providers:{}};}
+    return {ok:r.ok&&configured===PROVIDERS.length,httpStatus:r.status,latencyMs:Date.now()-started,configured,online,requiredProviders:PROVIDERS,allRequiredOnline:online===PROVIDERS.length,providers,error:r.ok?null:String(j?.error||"AI_BRIDGE_HEALTH_HTTP_"+r.status)};
+  }catch(e){return {ok:false,latencyMs:Date.now()-started,error:"AI_BRIDGE_HEALTH_FETCH:"+String(e?.message||e),providers:{},requiredProviders:PROVIDERS};}
 }
 
 async function callCouncil(env,setup){
@@ -64,16 +64,23 @@ function providerVerdict(x,setup){
 
 export async function reviewBybitScalp(env,setup){
   const enabled=envBool(env.BYBIT_AI_ENABLED,true),score=num(setup?.score)||0,rr=num(setup?.rr)||0;
-  if(!enabled)return {enabled:false,allow:true,mode:"DISABLED",reason:"AI_DISABLED",score,rr};
+  if(!enabled)return {enabled:false,allow:true,mode:"DISABLED",reason:"AI_DISABLED",score,rr,evaluationUsed:false};
   const raw=await callCouncil(env,setup),verdicts={};let pass=0,reject=0,blocked=0,unavailable=0;
   for(const p of PROVIDERS){const v=providerVerdict(raw.providers?.[p],setup);verdicts[p]=v;if(v==="PASS")pass++;else if(v==="REJECT")reject++;else if(v==="BLOCKED")blocked++;else unavailable++;}
   const usable=pass+reject+blocked;
-  let allow=false,reason="AI_SOFT_GATE_REJECT";
-  if(usable===0){allow=score>=82&&rr>=1;reason=allow?"AI_UNAVAILABLE_HIGH_QUALITY_FALLBACK":"AI_UNAVAILABLE_NO_FALLBACK";}
-  else if(score>=86){allow=(reject+blocked)<4;reason=allow?"HIGH_QUALITY_SOFT_PASS":"HIGH_QUALITY_STRONG_AI_VETO";}
-  else if(score>=80){allow=pass>=2&&pass>=reject&&blocked<2;reason=allow?"MID_QUALITY_AI_PASS":"MID_QUALITY_AI_INSUFFICIENT";}
-  else{allow=pass>=3&&blocked===0;reason=allow?"LOW_QUALITY_STRONG_CONSENSUS":"LOW_QUALITY_AI_INSUFFICIENT";}
-  return {enabled:true,allow,mode:"SOFT_SCALP",reason,score,rr,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
+
+  // If any required provider is unavailable/rate-limited/out of tokens, do not use
+  // the partial council. Trading may continue under deterministic strategy/risk/quote
+  // gates, while AI state explicitly waits for all 3 providers to recover.
+  if(usable<PROVIDERS.length){
+    return {enabled:true,allow:true,mode:"WAIT_AI_PROVIDER",reason:"AI_PARTIAL_UNAVAILABLE_BYPASS",score,rr,evaluationUsed:false,requiredProviders:PROVIDERS,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
+  }
+
+  let allow=false,reason="AI_3WAY_REJECT";
+  if(score>=86){allow=(reject+blocked)<2;reason=allow?"HIGH_QUALITY_3AI_PASS":"HIGH_QUALITY_3AI_VETO";}
+  else if(score>=80){allow=pass>=2&&pass>=reject&&blocked<2;reason=allow?"MID_QUALITY_3AI_PASS":"MID_QUALITY_3AI_INSUFFICIENT";}
+  else{allow=pass===3&&blocked===0;reason=allow?"LOW_QUALITY_3AI_UNANIMOUS":"LOW_QUALITY_3AI_INSUFFICIENT";}
+  return {enabled:true,allow,mode:"THREE_AI_SCALP",reason,score,rr,evaluationUsed:true,requiredProviders:PROVIDERS,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
 }
 
 export async function revalidateBybitScalpAfterAi(env,api,setup){
