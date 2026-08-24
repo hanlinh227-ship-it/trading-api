@@ -61,17 +61,21 @@ export async function scanBinance20(env){
 
 export function sizeBinance20(setup,filters,cfg,equityUsd=50){
   const equity=Math.max(0,Number(equityUsd||0));
-  const start=Math.max(1,Number(cfg.startingCapitalUsd||50));
-  const equityStep=Math.max(1,Number(cfg.risk.equityStepUsd||50));
-  const baseRisk=Math.max(1,Number(cfg.risk.baseRiskUsd||10));
-  const riskStep=Math.max(1,Number(cfg.risk.riskStepUsd||10));
-  const steps=Math.max(0,Math.floor((equity-start)/equityStep));
+  const baseBalance=Math.max(1,Number(cfg.risk.baseBalanceUsd||50));
+  const balanceStep=Math.max(1,Number(cfg.risk.balanceStepUsd||10));
+  const baseRisk=Math.max(1,Number(cfg.risk.baseRiskUsd||5));
+  const baseReward=Math.max(1,Number(cfg.risk.baseRewardUsd||10));
+  const riskStep=Math.max(.1,Number(cfg.risk.riskStepUsd||1));
+  const rewardStep=Math.max(.1,Number(cfg.risk.rewardStepUsd||1));
+  const steps=Math.max(0,Math.floor((equity-baseBalance)/balanceStep));
   const ladderRisk=baseRisk+steps*riskStep;
+  const ladderReward=baseReward+steps*rewardStep;
   const pctCap=Math.max(5,Number(cfg.risk.maxRiskPctOfEquity||25));
   const maxByEquity=equity*(pctCap/100);
   const riskUsd=Math.min(ladderRisk,maxByEquity);
+  const rewardUsd=ladderReward;
   const dist=Math.abs(setup.entry-setup.sl),raw=riskUsd/dist,step=filters.marketStepSize||filters.stepSize,qty=floorStep(raw,step),notional=qty*setup.entry,minNotional=Math.max(5,filters.minNotional||5);
   if(!(riskUsd>0))return {ok:false,reason:"RISK_BUDGET_ZERO",riskUsd,equityUsd:equity};
-  if(!(qty>=filters.minQty)||notional<minNotional)return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,minNotional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null};
-  return {ok:true,qty,notional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null,riskMode:"EQUITY_LADDER",riskLadderStep:steps,ladderRiskUsd:ladderRisk,maxRiskPctOfEquity:pctCap,leverage:cfg.leverage,equityUsd:equity};
+  if(!(qty>=filters.minQty)||notional<minNotional)return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,minNotional,riskUsd,rewardUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null};
+  return {ok:true,qty,notional,riskUsd,rewardUsd,targetRR:riskUsd>0?rewardUsd/riskUsd:null,riskPctOfEquity:equity>0?riskUsd/equity*100:null,riskMode:"BALANCE_DOLLAR_LADDER",riskLadderStep:steps,ladderRiskUsd:ladderRisk,ladderRewardUsd:ladderReward,maxRiskPctOfEquity:pctCap,leverage:cfg.leverage,equityUsd:equity};
 }
