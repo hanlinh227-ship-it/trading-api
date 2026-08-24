@@ -14,6 +14,27 @@ async function kvGet(env,key,def){try{return await env.TRADING_STATE?.get(key,{t
 async function kvPut(env,key,val){if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(val));}
 function eventTime(x){return Number(x?.updatedTime||x?.createdTime||0);}
 
+async function isolateModeState(env,mode){
+  const s=await kvGet(env,AUTO_KEY,{}),previous=String(s.executionMode||"").toUpperCase();
+  if(mode==="LIVE"&&previous!=="LIVE"){
+    const paperPlans=Object.fromEntries(Object.entries(s.openPlans||{}).filter(([,p])=>String(p?.mode||"").toUpperCase()==="PAPER"));
+    s.openPlans=Object.fromEntries(Object.entries(s.openPlans||{}).filter(([,p])=>String(p?.mode||"").toUpperCase()==="LIVE"));
+    s.lastTradeAt=0;
+    s.lastFingerprint=null;
+    s.trades=0;
+    s.pauseUntil=0;
+    s.lossStreak=0;
+    s.executionMode="LIVE";
+    s.lastModeTransition={at:iso(),from:previous||"UNKNOWN",to:"LIVE",discardedPaperPlans:Object.keys(paperPlans)};
+    await kvPut(env,AUTO_KEY,s);
+  }else if(mode==="PAPER"&&previous!=="PAPER"){
+    s.executionMode="PAPER";
+    s.lastModeTransition={at:iso(),from:previous||"UNKNOWN",to:"PAPER"};
+    await kvPut(env,AUTO_KEY,s);
+  }
+  return s;
+}
+
 async function lossPauseGate(env){
   const ctl=await kvGet(env,CONTROL_KEY,{day:day(),pauseUntil:0,lastPauseTriggerAt:0});
   if(ctl.day!==day()){ctl.day=day();ctl.pauseUntil=0;ctl.lastPauseTriggerAt=0;}
@@ -57,12 +78,14 @@ async function resolvePaperEquity(env){
 }
 
 export async function runBybitAutoControlled(env,opts={}){
+  const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
+  await isolateModeState(env,mode);
   const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
-  if(lastTradeAt>0&&elapsed<ENTRY_SPACING_MS)return {ok:true,executed:false,mode:String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER",reason:"ENTRY_SPACING_5M",nextEntryAt:lastTradeAt+ENTRY_SPACING_MS,remainingMs:ENTRY_SPACING_MS-elapsed,state};
+  if(lastTradeAt>0&&elapsed<ENTRY_SPACING_MS)return {ok:true,executed:false,mode,reason:"ENTRY_SPACING_5M",nextEntryAt:lastTradeAt+ENTRY_SPACING_MS,remainingMs:ENTRY_SPACING_MS-elapsed,state};
 
   let pause;
-  try{pause=await lossPauseGate(env);}catch(e){return {ok:true,executed:false,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),state};}
-  if(!pause.ok)return {ok:true,executed:false,mode:String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER",...pause,state};
+  try{pause=await lossPauseGate(env);}catch(e){return {ok:true,executed:false,mode,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),state};}
+  if(!pause.ok)return {ok:true,executed:false,mode,...pause,state};
 
   await clearLegacyPause(env);
   const innerEnv=Object.create(env);
@@ -70,7 +93,6 @@ export async function runBybitAutoControlled(env,opts={}){
   innerEnv.BYBIT_LOSS_PAUSE_MINUTES_INTERNAL="30";
   innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="300";
 
-  const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
   let paperEquity=null;
   if(mode==="PAPER"){
     paperEquity=await resolvePaperEquity(env);
@@ -78,5 +100,5 @@ export async function runBybitAutoControlled(env,opts={}){
   }
 
   const out=await runBybitAutoV1(innerEnv,opts);
-  return {...out,controller:{entrySpacingSec:300,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,pauseState:pause.controller,paperEquitySource:paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK",paperEquityUsd:paperEquity}};
+  return {...out,controller:{entrySpacingSec:300,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,pauseState:pause.controller,paperEquitySource:paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK",paperEquityUsd:paperEquity,executionMode:mode}};
 }
