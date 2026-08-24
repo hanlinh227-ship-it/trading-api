@@ -17,7 +17,7 @@ jobs:
   direct-backtest:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-RUN]')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -25,7 +25,7 @@ jobs:
       PYTHONUNBUFFERED: '1'
       V11_DATASET_START: '2025-08-26T16:00:00Z'
       V11_DATASET_END: '2026-08-23T16:00:00Z'
-      V11_SHARD_COUNT: '4'
+      V11_SHARD_COUNT: '1'
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
@@ -36,16 +36,18 @@ jobs:
         with:
           path: data/v11_mtf_cache
           key: v11-legacy-no-yahoo-v2-20250826-20260823
-      - name: Preflight exact legacy routes
+
+      - name: Preflight exact research contract
         run: |
           set -euo pipefail
           python -m py_compile scripts/v11_mtf_data_cache.py scripts/v11_backtest_mtf_engine_r1.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_direct_backtest.py
           test -n "${TWELVEDATA_API_KEY:-}" || { echo TWELVEDATA_API_KEY_MISSING; exit 2; }
           python - <<'PY'
           import sys;sys.path.insert(0,'scripts');import v11_mtf_data_cache as d
-          assert sum(map(len,d.load_catalog().values()))==95
-          print('LEGACY_DATA_PREFLIGHT_OK symbols=95')
+          cats=d.load_catalog(); assert sum(map(len,cats.values()))==95
+          print('V11_CONTRACT_PREFLIGHT_OK symbols=95 markets='+','.join(cats))
           PY
+
       - name: Resolve required 5AI gateway
         run: |
           set -euo pipefail
@@ -55,64 +57,125 @@ jobs:
           echo "::add-mask::$OIDC"
           echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
           echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
-          echo "GATEWAY_RESOLVE_OK"
-      - name: Require all five AI pre-research
+
+      - name: Five-AI pre-research review
         run: |
-          set -uo pipefail
+          set -euo pipefail
           python - <<'PY'
           import json,os
           from pathlib import Path
           ctx=[]
-          for p in ['scripts/v11_backtest_mtf.py','scripts/v11_mtf_data_cache.py']:
-            try: ctx.append('\n---'+p+'---\n'+Path(p).read_text(encoding='utf-8')[:12000])
-            except Exception: pass
-          Path('/tmp/pre.json').write_text(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':'5AI connectivity smoke and bounded V11 research review. Return provider status for claude,codex,deepseek,qwen,openrouter. Do not fabricate results.','context':{'text':'\n'.join(ctx)}}))
+          for p,lim in [('scripts/v11_direct_backtest.py',18000),('scripts/v11_backtest_mtf_engine_r1.py',22000),('scripts/v11_mtf_data_cache.py',18000)]:
+            try: ctx.append('\n---'+p+'---\n'+Path(p).read_text(encoding='utf-8')[:lim])
+            except Exception as e: ctx.append('\nMISSING '+p+' '+repr(e))
+          instruction='''V11 95-symbol research pre-review. Analyze only the supplied current research code and contract. Required: exact instrument data; each eligible symbol/day 1-3 real executions; RR only 1:1 or 1:2; per-symbol WR >=80%; positive expectancy; no pooling, symbol deletion, fabrication, lookahead/leakage, silent eligible-day deletion, or FINAL tuning. Learn only from DEV/VALIDATION. Identify integrity issues and bounded deterministic refinements. Do not claim performance without replay evidence.'''
+          Path('/tmp/pre.json').write_text(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':{'text':'\n'.join(ctx)}}))
           PY
-          CODE="$(curl -sS --connect-timeout 10 --max-time 90 -o /tmp/pre-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json || echo CURL_FAIL)"
-          echo "5AI_HTTP_STATUS=$CODE"
-          echo '===== 5AI GATEWAY RESPONSE ====='
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('/tmp/pre-result.json')
-          print(p.read_text(errors='replace')[:12000] if p.exists() else 'NO_RESPONSE_BODY')
-          PY
-          echo '===== END 5AI GATEWAY RESPONSE ====='
-          [[ "$CODE" =~ ^2[0-9][0-9]$ ]] || { echo "5AI_HTTP_FAIL=$CODE"; exit 20; }
+          CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/pre-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json || echo CURL_FAIL)"
+          [[ "$CODE" =~ ^2[0-9][0-9]$ ]] || { echo "5AI_PRE_HTTP_FAIL=$CODE"; cat /tmp/pre-result.json 2>/dev/null || true; exit 20; }
           python - <<'PY'
           import json
-          try:
-            d=json.load(open('/tmp/pre-result.json'))
-          except Exception as e:
-            raise SystemExit('5AI_INVALID_JSON '+repr(e))
-          p=d.get('providers') or {}
-          expected=['claude','codex','deepseek','qwen','openrouter']
-          for x in expected:
-            v=p.get(x) or {}
-            print('5AI_PROVIDER',x,'status='+str(v.get('status')),'error='+str(v.get('error') or v.get('message') or ''))
+          d=json.load(open('/tmp/pre-result.json')); p=d.get('providers') or {}; expected=['claude','codex','deepseek','qwen','openrouter']
           bad=[x for x in expected if str((p.get(x) or {}).get('status','')).upper()!='OK']
+          for x in expected: print('5AI_PRE',x,(p.get(x) or {}).get('status'))
           if bad: raise SystemExit('5AI_PRE_FAIL '+','.join(bad))
-          json.dump({'allFiveReady':True,'providers':{x:{'status':'OK'} for x in expected}},open('data/v11_fiveai_direct_pre.json','w'),indent=2)
-          print('5AI_PRE_OK '+','.join(expected))
+          json.dump(d,open('data/v11_fiveai_direct_pre.json','w'),indent=2)
           PY
-      - name: Direct deterministic backtest
+
+      - name: Deterministic DEV and VALIDATION replay
         run: |
           set -euo pipefail
           rm -rf data/v11_mtf_out; mkdir -p data/v11_mtf_out logs
-          PIDS=''; for i in 0 1 2 3; do (python -u scripts/v11_direct_backtest.py --mode fast --history-start "$V11_DATASET_START" --history-end "$V11_DATASET_END" --shard-index "$i" --shard-count "$V11_SHARD_COUNT" 2>&1 | tee "logs/shard-$i.log") & PIDS="$PIDS $!"; done
-          for p in $PIDS; do wait "$p"; done
+          python -u scripts/v11_direct_backtest.py --mode fast --history-start "$V11_DATASET_START" --history-end "$V11_DATASET_END" --shard-index 0 --shard-count 1 2>&1 | tee logs/shard-0.log
           python -u scripts/v11_direct_backtest.py --merge
           cp data/v11_mtf_merged.json data/v11_mtf_fast_merged.json
-      - name: Publish machine-readable status
+          python - <<'PY'
+          import json
+          d=json.load(open('data/v11_mtf_fast_merged.json')); sy=d.get('symbols') or {}
+          per={};
+          for s,r in sorted(sy.items()):
+            v=r.get('validation') or {}; dev=r.get('dev') or {}
+            per[s]={'market':r.get('market'),'pass':bool(r.get('pass')),'reasons':r.get('reasons') or [],'profile':r.get('profile'),'dev':{k:dev.get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','maxTradesInDay')},'validation':{k:v.get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','maxTradesInDay')}}
+          passed=sum(1 for r in sy.values() if r.get('pass')); unavailable=sum(1 for r in sy.values() if 'DATA_UNAVAILABLE' in (r.get('reasons') or []))
+          out={'catalogCount':95,'resultCount':len(sy),'passCount':passed,'failCount':95-passed,'dataUnavailable':unavailable,'allValidationPass':len(sy)==95 and passed==95 and unavailable==0,'symbols':per}
+          json.dump(out,open('data/v11_fast_summary.json','w'),indent=2)
+          print('FAST_SUMMARY',passed,'/95','DATA_UNAVAILABLE',unavailable)
+          PY
+
+      - name: Five-AI evidence review
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          summary=json.load(open('data/v11_fast_summary.json'))
+          instruction='''V11 95-symbol post-VALIDATION evidence review. Review the deterministic per-symbol evidence exactly as supplied. Do not pool symbols. Do not use or request untouched FINAL outcomes for tuning. Recommend only bounded deterministic refinements that can be learned from DEV/VALIDATION while preserving 1-3 real executions on every eligible day, RR only 1:1 or 1:2, per-symbol WR >=80%, positive expectancy, exact data, and no lookahead/leakage/fabrication. Explicitly identify structural impossibility or data blockers when supported by evidence.'''
+          text=json.dumps(summary,separators=(',',':'))
+          open('/tmp/post.json','w').write(json.dumps({'task_id':'v11-post-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':{'text':text[:50000]}}))
+          PY
+          CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/post-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/post.json || echo CURL_FAIL)"
+          [[ "$CODE" =~ ^2[0-9][0-9]$ ]] || { echo "5AI_POST_HTTP_FAIL=$CODE"; cat /tmp/post-result.json 2>/dev/null || true; exit 21; }
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/post-result.json')); p=d.get('providers') or {}; expected=['claude','codex','deepseek','qwen','openrouter']
+          bad=[x for x in expected if str((p.get(x) or {}).get('status','')).upper()!='OK']
+          for x in expected: print('5AI_POST',x,(p.get(x) or {}).get('status'))
+          if bad: raise SystemExit('5AI_POST_FAIL '+','.join(bad))
+          json.dump(d,open('data/v11_fiveai_post.json','w'),indent=2)
+          PY
+
+      - name: Seal FINAL eligibility
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          s=json.load(open('data/v11_fast_summary.json')); p=json.load(open('data/v11_fiveai_post.json')).get('providers') or {}
+          expected=['claude','codex','deepseek','qwen','openrouter']
+          ready=bool(s.get('allValidationPass')) and all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected)
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('FINAL_READY='+('1' if ready else '0')+'\n')
+          print('FINAL_READY',ready)
+          PY
+
+      - name: Untouched FINAL replay
+        if: env.FINAL_READY == '1'
+        run: |
+          set -euo pipefail
+          rm -rf data/v11_mtf_out; mkdir -p data/v11_mtf_out
+          python -u scripts/v11_direct_backtest.py --mode final --history-start "$V11_DATASET_START" --history-end "$V11_DATASET_END" --shard-index 0 --shard-count 1 2>&1 | tee logs/final-0.log
+          python -u scripts/v11_direct_backtest.py --merge
+          cp data/v11_mtf_merged.json data/v11_mtf_final_merged.json
+          python - <<'PY'
+          import json
+          d=json.load(open('data/v11_mtf_final_merged.json')); sy=d.get('symbols') or {}; passed=sum(1 for r in sy.values() if r.get('pass'))
+          per={s:{'market':r.get('market'),'pass':bool(r.get('pass')),'reasons':r.get('reasons') or [],'oos':{k:(r.get('oos') or {}).get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','maxTradesInDay')}} for s,r in sorted(sy.items())}
+          json.dump({'catalogCount':95,'resultCount':len(sy),'passCount':passed,'failCount':95-passed,'allFinalPass':len(sy)==95 and passed==95,'symbols':per},open('data/v11_final_summary.json','w'),indent=2)
+          print('FINAL_SUMMARY',passed,'/95')
+          PY
+
+      - name: Publish machine-readable research status
         if: always()
         run: |
           set +e
-          if [ -f data/v11_fiveai_direct_pre.json ]; then
-            echo '{"status":"5AI_PRE_PASS","fiveAIReady":true}' > data/v11_direct_backtest_status.json
-          else
-            echo '{"status":"5AI_PRE_FAIL","fiveAIReady":false}' > data/v11_direct_backtest_status.json
-          fi
+          python - <<'PY'
+          import json,os
+          def load(p,default=None):
+            try:return json.load(open(p))
+            except Exception:return default
+          fast=load('data/v11_fast_summary.json',{}) or {}; final=load('data/v11_final_summary.json',{}) or {}; pre=load('data/v11_fiveai_direct_pre.json',{}) or {}; post=load('data/v11_fiveai_post.json',{}) or {}
+          providers=['claude','codex','deepseek','qwen','openrouter']
+          pstat=lambda d:{p:str(((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING') for p in providers}
+          if final.get('allFinalPass'): status='COMPLETE_ALL_95_PASS'
+          elif fast.get('allValidationPass'): status='FINAL_INCOMPLETE_OR_FAIL'
+          elif fast: status='REFINEMENT_REQUIRED'
+          else: status='HARD_BLOCKER_RUN_INCOMPLETE'
+          out={'status':status,'runId':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),'fiveAiPre':pstat(pre),'fiveAiPost':pstat(post),'fast':{k:fast.get(k) for k in ('catalogCount','resultCount','passCount','failCount','dataUnavailable','allValidationPass')},'final':{k:final.get(k) for k in ('catalogCount','resultCount','passCount','failCount','allFinalPass')}}
+          json.dump(out,open('data/v11_direct_backtest_status.json','w'),indent=2)
+          PY
           git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin v11-research-status:v11-research-status 2>/dev/null || git checkout --orphan v11-research-status
           git checkout v11-research-status 2>/dev/null || true
-          mkdir -p status; cp data/v11_direct_backtest_status.json status/latest.json
-          git add status/latest.json; git commit -m "status: V11 5AI diagnostic $GITHUB_RUN_ID" || true; git push -f origin HEAD:v11-research-status || true
+          mkdir -p status
+          cp data/v11_direct_backtest_status.json status/latest.json
+          test -f data/v11_fast_summary.json && cp data/v11_fast_summary.json status/fast-summary.json
+          test -f data/v11_final_summary.json && cp data/v11_final_summary.json status/final-summary.json
+          test -f data/v11_fiveai_post.json && cp data/v11_fiveai_post.json status/fiveai-post.json
+          git add status; git commit -m "status: V11 direct research $GITHUB_RUN_ID" || true; git push -f origin HEAD:v11-research-status || true
