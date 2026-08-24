@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 # Research compatibility loader. Production Signal V11 does not import this file.
-# R8 controller: deterministic bounded multi-round search. FINAL is never tuned here.
+# V11 FUSION controller: V77/V78 per-symbol priors + V11 deterministic multi-round research.
 import importlib.util,inspect,os,sys
 from pathlib import Path
 _HERE=Path(__file__).resolve().parent
@@ -10,15 +10,18 @@ if not _ENGINE.exists():raise RuntimeError('V11_GEOMETRY_R4_MISSING')
 spec=importlib.util.spec_from_file_location('v11_geometry_r4_body',_ENGINE)
 _m=importlib.util.module_from_spec(spec);spec.loader.exec_module(_m)
 
+FUSION_VERSION='V11-FUSION-V77-V78-5AI-R1'
+
 # Keep the direct-wrapper warm-up integrity fix.
 _src=inspect.getsource(_m._candidate_days).replace("if i<75 or not is_market_day", "if i<14 or not is_market_day")
 exec(_src,_m.__dict__)
 
-# Round 0 = R7-consistent baseline. Later rounds only expand predeclared DEV/VALIDATION
-# search space; they never inspect FINAL, drop symbols, or relax WR/RR gates.
+# Round 0 starts from the proven legacy per-symbol priors. Later rounds only expand
+# predeclared DEV/VALIDATION search space; FINAL is never inspected or tuned here.
 _round=max(0,min(4,int(os.environ.get('V11_RESEARCH_ROUND','0') or 0)))
 _search_src=inspect.getsource(_m._search_style)
-# Preserve R7 execution-base alignment.
+
+# Preserve R7 execution-base alignment: search and execution must use the same base.
 _search_src=_search_src.replace(
     "h1=frames['h1'];bounds=_research_bounds(h1,market);prior=load_registry_prior(symbol)",
     "h1=frames['h1'];target=frames[BASE_TF[market]];bounds=_research_bounds(h1,market);prior=load_registry_prior(symbol)"
@@ -27,6 +30,17 @@ _search_src=_search_src.replace("c=_candidate_days(frames,market,st,h1)","c=_can
 _search_src=_search_src.replace(
     "d=_style_stats(c,h1,rr,market,bounds['devStart'],bounds['devEnd']);v=_style_stats(c,h1,rr,market,bounds['validationStart'],bounds['validationEnd'])",
     "d=_style_stats(c,target,rr,market,bounds['devStart'],bounds['devEnd']);v=_style_stats(c,target,rr,market,bounds['validationStart'],bounds['validationEnd'])"
+)
+
+# V77/V78 fusion seeding: family/hour/riskATR were already legacy-prior aware in R4.
+# Also prioritize the stored per-symbol entryMode and RR before generic alternatives.
+_search_src=_search_src.replace(
+    "for rr in ALLOWED_RR:",
+    "for rr in tuple(dict.fromkeys(([float(prior.get('priorRR'))] if prior.get('priorRR') in (1,1.0,2,2.0) else [])+list(ALLOWED_RR))):"
+)
+_search_src=_search_src.replace(
+    "for mode in ('MKT','PB','BRK','DUAL_FADE','DUAL_BRK'):test({**style,'mode':mode,'expiry':0 if mode=='MKT' else 2,'hold':12 if mode=='MKT' else 10})",
+    "legacy_mode=str(prior.get('entryMode') or '').upper();modes=list(dict.fromkeys(([legacy_mode] if legacy_mode in ('MKT','PB','BRK','DUAL_FADE','DUAL_BRK') else [])+['MKT','PB','BRK','DUAL_FADE','DUAL_BRK']));\n    for mode in modes:test({**style,'mode':mode,'expiry':0 if mode=='MKT' else 2,'hold':12 if mode=='MKT' else 10})"
 )
 
 if _round>=1:
@@ -46,7 +60,7 @@ if _round>=4:
     _search_src=_search_src.replace("families=tuple(dict.fromkeys(pf+list(FAMILIES)))","families=tuple(dict.fromkeys(list(FAMILIES)+pf))")
 
 exec(_search_src,_m.__dict__)
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-warmup14-executionbase-r8-round{_round}'
-_m.VERSION=str(_m.VERSION)+f'-W14-EXECBASE-R8R{_round}'
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}'
+_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
