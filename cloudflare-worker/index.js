@@ -4,7 +4,7 @@ import {handleChatGptMcp} from "./chatgpt-mcp.js";
 import {handleGpt5AiAction} from "./gpt-5ai-action.js";
 import {handleBybitReadonlyHealth} from "./bybit-readonly-health.js";
 import {handleBybitControlApi} from "./bybit-control-plane.js";
-import {runBybitAutoV1} from "./bybit-auto-v1.js";
+import {runBybitAutoControlled} from "./bybit-auto-controller.js";
 
 const VERSION="V11";
 const SERVICE="Trading Unified Hub • Signal V11 + Separate Bybit Auto";
@@ -46,6 +46,9 @@ export default {
       bybitAutoState:"/bybit/auto/state",
       bybitAutoRun:"/bybit/auto/run",
       bybitScheduledEnabled:envBool(env.BYBIT_AUTO_ENABLED),
+      bybitEntrySpacingSec:300,
+      bybitLossPause:"3 losses -> 30 minutes",
+      bybitDailyEntryCap:"UNLIMITED",
       binanceAutoProductionRoute:false,
       multiAiGateway:"VPC_OIDC_CONTROL_PLANE",
       chatgptMcp:"/mcp",
@@ -58,7 +61,7 @@ export default {
 
   async scheduled(event,env,ctx){
     const signalPromise=Promise.resolve(signalHub.scheduled?.(event,env,ctx)).catch(()=>null);
-    if(envBool(env.BYBIT_AUTO_ENABLED))ctx.waitUntil(Promise.resolve(runBybitAutoV1(env)).catch(()=>null));
+    if(envBool(env.BYBIT_AUTO_ENABLED))ctx.waitUntil(Promise.resolve(runBybitAutoControlled(env)).catch(()=>null));
     return signalPromise;
   }
 };
