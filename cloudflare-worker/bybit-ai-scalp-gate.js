@@ -22,8 +22,8 @@ function compactSetup(setup){return {
     confluence:Array.isArray(setup.context?.confluence)?setup.context.confluence.slice(0,8):[]
   },
   liquidity:{
-    quoteVolume:num(setup.liquidity?.quoteVolume),
-    spreadBps:num(setup.liquidity?.universeSpreadBps)
+    quoteVolume:num(setup.liquidity?.turnover24h),
+    spreadBps:num(setup.liquidity?.spreadBps)
   }
 };}
 
@@ -31,7 +31,9 @@ async function callCouncil(env,setup){
   if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")return {ok:false,error:"AI_BRIDGE_BINDING_MISSING",providers:{}};
   const secret=String(env.V11_AI_BRIDGE_SECRET||"");
   if(!secret)return {ok:false,error:"AI_BRIDGE_SECRET_MISSING",providers:{}};
-  const timeoutMs=Math.max(3500,Math.min(18000,Number(env.BYBIT_AI_TIMEOUT_MS||9000)));
+  // Five providers can legitimately take longer than a single-model scalp check.
+  // We still cap the wait so stale-entry revalidation remains meaningful afterwards.
+  const timeoutMs=Math.max(12000,Math.min(35000,Number(env.BYBIT_AI_TIMEOUT_MS||25000)));
   const instruction=[
     "You are reviewing a very short-horizon crypto scalp on Bybit USDT perpetuals.",
     "Judge only whether the supplied LONG/SHORT setup is reasonable for the next roughly 1-5 minutes.",
@@ -43,6 +45,7 @@ async function callCouncil(env,setup){
     "Keep findings concise and evidence-grounded."
   ].join(" ");
   try{
+    const startedAt=Date.now();
     const r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/review",{
       method:"POST",
       headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret},
@@ -50,8 +53,8 @@ async function callCouncil(env,setup){
       signal:AbortSignal.timeout(timeoutMs)
     }));
     const j=await r.json().catch(()=>({}));
-    return {ok:r.ok,providers:j?.providers||{},bridgeStatus:r.status,error:r.ok?null:(j?.error||"AI_BRIDGE_HTTP_"+r.status)};
-  }catch(e){return {ok:false,error:"AI_BRIDGE_TIMEOUT_OR_FETCH:"+String(e?.message||e),providers:{}};}
+    return {ok:r.ok,providers:j?.providers||{},bridgeStatus:r.status,error:r.ok?null:(j?.error||"AI_BRIDGE_HTTP_"+r.status),latencyMs:Date.now()-startedAt,timeoutMs};
+  }catch(e){return {ok:false,error:"AI_BRIDGE_TIMEOUT_OR_FETCH:"+String(e?.message||e),providers:{},timeoutMs};}
 }
 
 function providerVerdict(x){
@@ -72,7 +75,7 @@ export async function reviewBybitScalp(env,setup){
   else if(score>=86){allow=(reject+blocked)<4;reason=allow?"HIGH_QUALITY_SOFT_PASS":"HIGH_QUALITY_STRONG_AI_VETO";}
   else if(score>=80){allow=pass>=2&&pass>=reject&&blocked<2;reason=allow?"MID_QUALITY_AI_PASS":"MID_QUALITY_AI_INSUFFICIENT";}
   else{allow=pass>=3&&blocked===0;reason=allow?"LOW_QUALITY_STRONG_CONSENSUS":"LOW_QUALITY_AI_INSUFFICIENT";}
-  return {enabled:true,allow,mode:"SOFT_SCALP",reason,score,rr,usable,pass,reject,blocked,unavailable,verdicts,bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,error:raw.error||null};
+  return {enabled:true,allow,mode:"SOFT_SCALP",reason,score,rr,usable,pass,reject,blocked,unavailable,verdicts,bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
 }
 
 export async function revalidateBybitScalpAfterAi(env,api,setup){
