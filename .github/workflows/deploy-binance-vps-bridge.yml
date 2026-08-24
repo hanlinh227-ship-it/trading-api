@@ -29,11 +29,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${BINANCE_FUTURES_API_KEY:-}"
-          test -n "${BINANCE_FUTURES_API_SECRET:-}"
-          test -n "${BINANCE_BRIDGE_SECRET:-}"
-          command -v node >/dev/null
-          command -v systemctl >/dev/null
+          fail=0
+          if [ -n "${BINANCE_FUTURES_API_KEY:-}" ]; then echo 'BINANCE_FUTURES_API_KEY: present'; else echo 'BINANCE_FUTURES_API_KEY: MISSING'; fail=1; fi
+          if [ -n "${BINANCE_FUTURES_API_SECRET:-}" ]; then echo 'BINANCE_FUTURES_API_SECRET: present'; else echo 'BINANCE_FUTURES_API_SECRET: MISSING'; fail=1; fi
+          if [ -n "${BINANCE_BRIDGE_SECRET:-}" ]; then echo 'BINANCE_BRIDGE_SECRET: present'; else echo 'BINANCE_BRIDGE_SECRET: MISSING'; fail=1; fi
+          if command -v node >/dev/null 2>&1; then echo "node: present ($(node --version))"; else echo 'node: MISSING'; fail=1; fi
+          if command -v systemctl >/dev/null 2>&1; then echo 'systemctl: present'; else echo 'systemctl: MISSING'; fail=1; fi
+          if command -v sudo >/dev/null 2>&1; then echo 'sudo: present'; else echo 'sudo: MISSING'; fail=1; fi
+          exit "$fail"
       - name: Sync canonical repo
         shell: bash
         run: |
