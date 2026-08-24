@@ -2,17 +2,20 @@
 // NON_PRODUCTION / QUARANTINED — see docs/ai-coengineer/DECISIONS.md DECISION-005
 // ============================================================================
 
-export const BINANCE20_VERSION="BF20-1.4.0";
+export const BINANCE20_VERSION="BF20-1.5.0";
 export const BINANCE20_CONFIG={
   startingCapitalUsd:50,
   symbols:["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"],
   leverage:3,maxLeverage:5,
   scanEverySec:60,maxOpenPositions:3,maxTradesPerDay:24,
   risk:{
-    mode:"EQUITY_LADDER",
-    baseRiskUsd:10.00,
-    equityStepUsd:50.00,
-    riskStepUsd:10.00,
+    mode:"BALANCE_DOLLAR_LADDER",
+    baseBalanceUsd:50.00,
+    balanceStepUsd:10.00,
+    baseRiskUsd:5.00,
+    baseRewardUsd:10.00,
+    riskStepUsd:1.00,
+    rewardStepUsd:1.00,
     maxRiskPctOfEquity:25.00,
     dailyStopPct:20.00,
     maxLossStreak:3,
@@ -30,9 +33,12 @@ export function binance20Config(env={}){
   const c=structuredClone(BINANCE20_CONFIG),n=(k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
   c.startingCapitalUsd=Math.max(10,n("BINANCE_STARTING_CAPITAL_USD",c.startingCapitalUsd));
   c.leverage=Math.max(1,Math.min(c.maxLeverage,Math.round(n("BINANCE20_LEVERAGE",c.leverage))));
+  c.risk.baseBalanceUsd=Math.max(10,n("BINANCE_BASE_BALANCE_USD",c.risk.baseBalanceUsd));
+  c.risk.balanceStepUsd=Math.max(1,n("BINANCE_BALANCE_STEP_USD",c.risk.balanceStepUsd));
   c.risk.baseRiskUsd=Math.max(1,n("BINANCE_BASE_RISK_USD",c.risk.baseRiskUsd));
-  c.risk.equityStepUsd=Math.max(10,n("BINANCE_EQUITY_STEP_USD",c.risk.equityStepUsd));
-  c.risk.riskStepUsd=Math.max(1,n("BINANCE_RISK_STEP_USD",c.risk.riskStepUsd));
+  c.risk.baseRewardUsd=Math.max(1,n("BINANCE_BASE_REWARD_USD",c.risk.baseRewardUsd));
+  c.risk.riskStepUsd=Math.max(.1,n("BINANCE_RISK_STEP_USD",c.risk.riskStepUsd));
+  c.risk.rewardStepUsd=Math.max(.1,n("BINANCE_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.maxRiskPctOfEquity=Math.max(5,Math.min(50,n("BINANCE_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.dailyStopPct=Math.max(5,Math.min(50,n("BINANCE_DAILY_STOP_PCT",c.risk.dailyStopPct)));
   c.risk.minRR=Math.max(1,Math.min(2,n("BINANCE_MIN_RR",c.risk.minRR)));
