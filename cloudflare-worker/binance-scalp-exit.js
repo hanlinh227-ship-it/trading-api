@@ -1,4 +1,4 @@
-// Binance Futures scalp exit planning V2: structure-first + ATR volatility buffer + Fibonacci targets + delayed BE/trailing.
+// Binance Futures scalp exit planning V3: structure-first + ATR volatility buffer + Fibonacci targets + delayed BE/trailing.
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number(v);
@@ -17,7 +17,7 @@ function volatilityClass(atr,entry){
   if(pct>=.22)return "MEDIUM";
   return "LOW";
 }
-export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.2,rrCap=2.0}){
+export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.0,preferredRR=2.0,rrCap=3.0}){
   const sw=recentSwing(r1,28);if(!sw||!(atr>0)||!(entry>0))return null;
   const fib=fibLevels(sw.low,sw.high),long=side==="BUY",vol=volatilityClass(atr,entry);
   const slBufferAtr=vol==="HIGH"?.45:vol==="MEDIUM"?.32:.24;
@@ -25,21 +25,17 @@ export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.2,rrCap=2.0})
   const structureSl=long?Math.min(structureInvalidation-atr*slBufferAtr,entry-atr*.9):Math.max(structureInvalidation+atr*slBufferAtr,entry+atr*.9);
   const risk=Math.abs(entry-structureSl);if(!(risk>0))return null;
 
-  const rawResistance=long?sw.high:sw.low;
-  const rrAtResistance=Math.abs(rawResistance-entry)/risk;
-  const fib1272=long?fib.e1272:fib.s1272;
-  const fib1618=long?fib.e1618:fib.s1618;
-  const rrFib1272=Math.abs(fib1272-entry)/risk;
-  const rrFib1618=Math.abs(fib1618-entry)/risk;
+  const levels=[
+    {price:long?sw.high:sw.low,source:"STRUCTURE"},
+    {price:long?fib.e1272:fib.s1272,source:"FIB_1.272"},
+    {price:long?fib.e1618:fib.s1618,source:"FIB_1.618"}
+  ].map(x=>({...x,rr:Math.abs(x.price-entry)/risk})).filter(x=>Number.isFinite(x.rr)&&x.rr>=rrFloor);
 
-  const candidates=[];
-  if(rrAtResistance>=rrFloor)candidates.push({price:rawResistance,rr:rrAtResistance,source:"STRUCTURE"});
-  if(rrFib1272>=rrFloor)candidates.push({price:fib1272,rr:rrFib1272,source:"FIB_1.272"});
-  if(rrFib1618>=rrFloor)candidates.push({price:fib1618,rr:rrFib1618,source:"FIB_1.618"});
-  candidates.push({price:long?entry+risk*1.35:entry-risk*1.35,rr:1.35,source:"RR_FALLBACK"});
-  candidates.sort((a,b)=>a.rr-b.rr);
-  const chosen=candidates.find(x=>x.rr>=rrFloor&&x.rr<=rrCap)||candidates[candidates.length-1];
-  const rr=clamp(chosen.rr,rrFloor,rrCap),tp=long?entry+risk*rr:entry-risk*rr;
+  const pref=Math.max(rrFloor,preferredRR),cap=Math.max(pref,rrCap);
+  const preferred=levels.filter(x=>x.rr>=pref&&x.rr<=cap).sort((a,b)=>a.rr-b.rr)[0];
+  const acceptable=levels.filter(x=>x.rr>=rrFloor&&x.rr<=cap).sort((a,b)=>b.rr-a.rr)[0];
+  const chosen=preferred||acceptable||{price:long?entry+risk*pref:entry-risk*pref,rr:pref,source:"RR_2R_FALLBACK"};
+  const rr=clamp(chosen.rr,rrFloor,cap),tp=long?entry+risk*rr:entry-risk*rr;
 
   const breakEvenTriggerR=vol==="HIGH"?1.05:vol==="MEDIUM"?.95:.85;
   const positiveTrailTriggerR=vol==="HIGH"?1.45:vol==="MEDIUM"?1.3:1.2;
@@ -49,6 +45,8 @@ export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.2,rrCap=2.0})
   return {
     sl:structureSl,tp,rr,
     targetSource:chosen.source,
+    preferredRR:pref,
+    minRR:rrFloor,
     volatilityClass:vol,
     breakEvenTriggerR,
     positiveTrailTriggerR,
