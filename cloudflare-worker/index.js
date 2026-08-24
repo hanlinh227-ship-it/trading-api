@@ -1,4 +1,4 @@
-import signalHub from "./hub-v11.js";
+import autoHub from "./bybit-auto-hub.js";
 import {handleMultiAiControl} from "./multi-ai-control-plane.js";
 import {handleChatGptMcp} from "./chatgpt-mcp.js";
 import {handleGpt5AiAction} from "./gpt-5ai-action.js";
@@ -6,9 +6,10 @@ import {handleBybitReadonlyHealth} from "./bybit-readonly-health.js";
 import {handleBybitControlApi} from "./bybit-control-plane.js";
 import {runBybitAutoControlled} from "./bybit-auto-controller.js";
 
-const VERSION="V11";
-const SERVICE="Trading Unified Hub • Signal V11 + Separate Bybit Auto";
+const VERSION="V11-AUTO";
+const SERVICE="Bybit Auto Trade Hub";
 const envBool=v=>String(v||"").toLowerCase()==="true";
+const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
 export default {
   async fetch(req,env,ctx){
@@ -27,41 +28,36 @@ export default {
     const multi=await handleMultiAiControl(req,env);
     if(multi)return multi;
 
-    const r=await signalHub.fetch(req,env,ctx);
+    const hub=await autoHub.fetch(req,env,ctx);
+    if(hub)return hub;
+
     const url=new URL(req.url);
-    if(url.pathname!=="/status")return r;
-
-    let body;
-    try{body=await r.clone().json();}catch{return r;}
-
-    return new Response(JSON.stringify({
-      ...body,
+    if(url.pathname==="/status")return json({
+      ok:true,
       version:VERSION,
       service:SERVICE,
-      signalOnlySourceOfTruth:"V11",
-      bybitAutoProjectSeparate:true,
-      bybitPrimaryExecution:true,
+      hub:"BYBIT_AUTO_TRADE_ONLY",
+      readOnlyHub:true,
+      signalV11Enabled:false,
+      signalSchedulerEnabled:false,
+      bybitAutoEnabled:envBool(env.BYBIT_AUTO_ENABLED),
+      bybitLive:envBool(env.BYBIT_AUTO_LIVE),
       bybitReadonlyHealth:"/bybit/health",
-      bybitScan:"/bybit/scan",
+      bybitPreflight:"/bybit/runtime/preflight",
       bybitAutoState:"/bybit/auto/state",
-      bybitAutoRun:"/bybit/auto/run",
-      bybitScheduledEnabled:envBool(env.BYBIT_AUTO_ENABLED),
-      bybitEntrySpacingSec:300,
-      bybitLossPause:"3 losses -> 30 minutes",
-      bybitDailyEntryCap:"UNLIMITED",
-      binanceAutoProductionRoute:false,
-      multiAiGateway:"VPC_OIDC_CONTROL_PLANE",
-      chatgptMcp:"/mcp",
-      gpt5AiCouncil:"/api/5ai/council"
-    },null,2),{
-      status:r.status,
-      headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}
+      bybitLearningState:"/bybit/learning/state",
+      telegramHub:"/telegram/webhook",
+      management:"HOLD_TIGHTEN_CUT",
+      aiCore:["claude","codex","deepseek"]
     });
+
+    if(url.pathname.startsWith("/v11/"))return json({ok:false,error:"SIGNAL_V11_DISABLED",replacement:"BYBIT_AUTO_TRADE_HUB"},410);
+    return json({ok:false,error:"AUTO_HUB_ENDPOINT_NOT_FOUND"},404);
   },
 
   async scheduled(event,env,ctx){
-    const signalPromise=Promise.resolve(signalHub.scheduled?.(event,env,ctx)).catch(()=>null);
+    // Signal V11 scheduler is intentionally disabled. The only scheduled trading workload
+    // on this Worker is the separate Bybit Auto controller.
     if(envBool(env.BYBIT_AUTO_ENABLED))ctx.waitUntil(Promise.resolve(runBybitAutoControlled(env)).catch(()=>null));
-    return signalPromise;
   }
 };
