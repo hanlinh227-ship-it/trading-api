@@ -36,6 +36,12 @@ jobs:
           command -v claude >/dev/null
           test -x /usr/bin/codex
 
+      - name: Verify VPS can reach Bybit mainnet
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 10 'https://api.bybit.com/v5/market/time' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("retCode")==0, d; print("VPS_BYBIT_NETWORK=PASS")'
+
       - name: Install exact checked-out bridge
         shell: bash
         run: |
@@ -51,7 +57,7 @@ jobs:
           set -euo pipefail
           sleep 2
           HEALTH="$(curl -fsS --max-time 5 http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); exp={"claude","codex","deepseek","qwen","openrouter"}; p=d.get("providers") or {}; assert exp<=set(p), "missing provider entries"; assert d.get("service")=="V11_MULTI_AI_BRIDGE"; print("V11_AI_BRIDGE_DEPLOY=PASS configured=%s" % d.get("providerCount"))'
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); exp={"claude","codex","deepseek","qwen","openrouter"}; p=d.get("providers") or {}; assert exp<=set(p), "missing provider entries"; assert d.get("service")=="V11_MULTI_AI_BRIDGE"; assert d.get("bybitPrivateProxy") is True, "Bybit private proxy missing"; print("V11_AI_BYBIT_BRIDGE_DEPLOY=PASS configured=%s" % d.get("providerCount"))'
 
       - name: Deployment summary
         shell: bash
@@ -59,3 +65,5 @@ jobs:
           echo "V11_AI_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
           echo "V11_AI_BRIDGE_SERVICE=active"
           echo "V11_AI_BRIDGE_ROUTE=localhost:8789"
+          echo "BYBIT_PRIVATE_PROXY=enabled"
+          echo "BYBIT_PRIVATE_EGRESS=VPS"
