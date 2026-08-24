@@ -9,6 +9,7 @@ Updated: 2026-08-24 UTC+7
 4. Read `docs/checkpoints/V11_DIRECT_5AI_FINAL_LOCK_20260824.md`.
 5. Read `docs/checkpoints/V11_SYSTEM_CLEANUP_LOCK_20260824.md`.
 6. Read `docs/ai-coengineer/WRITE_LOCK.md` and current V11 source relevant to the task.
+7. For ChatGPT 5AI work, inspect current `cloudflare-worker/mcp-server.js`, `cloudflare-worker/multi-ai-control-plane.js`, `cloudflare-worker/index.js` before changing infrastructure.
 
 GitHub `main` outranks stale historical checkpoints.
 
@@ -20,14 +21,30 @@ V11 research/backtest has one canonical path:
 
 Required research lanes: Claude, Codex, DeepSeek, Qwen, OpenRouter. AI accelerates research; deterministic evidence is performance truth. A transient AI transport failure must not idle safe deterministic research, but a claimed compliant five-AI round requires provider-status evidence for all five.
 
+## CHATGPT TRADING 5AI MCP — 2026-08-24
+A ChatGPT developer plugin named `Trading 5AI` has been created and connected.
+
+Canonical MCP URL:
+`https://trading-v77-scanner.hanlinh227.workers.dev/mcp`
+
+MCP tool:
+`run_5ai_task`
+
+Purpose:
+`ChatGPT -> Trading 5AI MCP -> Cloudflare Worker -> private AI_BRIDGE VPC -> VPS v11-manual-ai-bridge -> Claude + Codex + DeepSeek + Qwen + OpenRouter -> ChatGPT synthesis`.
+
+The five-provider bridge was smoke-tested successfully before MCP integration. The ChatGPT plugin was subsequently recognized by the ChatGPT UI with `run_5ai_task` and connected successfully. Plugin-specific ChatGPT permission was set to `full_access` where supported.
+
+Important ChatGPT runtime constraint discovered during handoff:
+- the old/current Project conversation returned `FORBIDDEN: This conversation does not support developer MCPs` when attempting the developer MCP;
+- this is a ChatGPT conversation/runtime capability restriction, not evidence that Cloudflare/VPS/5AI is broken;
+- use a NEW conversation that supports Developer MCP, attach/select `@Trading 5AI` at conversation start, and then invoke `run_5ai_task`;
+- never fabricate five-AI opinions if the tool did not actually execute. State the blocker instead.
+
+For realtime market requests, five-AI reasoning does not replace fresh quote validation. Refresh current market data immediately before issuing a MARKET entry; fail closed rather than label stale/invalid data realtime.
+
 ## ACTIVE GITHUB ACTIONS — CLEAN SURFACE
-Only six workflows remain intentionally:
-- `v11-fiveai-direct-backtest.yml` — sole V11 research/backtest workflow.
-- `v11-signal-validation.yml` — V11 production validation.
-- `deploy-cloudflare-worker.yml` — canonical Cloudflare deployment.
-- `multi-ai-gateway-smoke.yml` — five-provider gateway diagnostic.
-- `audit-market-data.yml` — explicit exact-data audit/evidence.
-- `vps-runner-smoke.yml` — manual read-only V11 bridge diagnostic.
+Only the intentionally retained canonical workflows on current `main` may be used. Fresh-read `.github/workflows` before relying on names because main is authoritative.
 
 Do not recreate old V73/V75/V77/V78/V10 workflows, duplicate V11 backtests, AUTO_TASK, Issue/PR AI dispatch, continuous-watch jobs, one-shot patch workflows, legacy watcher services, or retired debug/rollout workflows.
 
@@ -45,7 +62,7 @@ Unless current main explicitly changes the catalog/contract:
 Historical old-version source/data may remain read-only for learning. Old workflows must not execute or compete for authority.
 
 ## OWNER CONTRACT
-Owner is prompt-only and final-result-only. Never ask the owner to open Actions, provide run IDs, copy logs, send screenshots, execute commands, edit GitHub, Cloudflare or VPS, or troubleshoot infrastructure.
+Owner is prompt-only and final-result-only. Never ask the owner to open Actions, provide run IDs, copy logs, send screenshots, execute commands, edit GitHub, Cloudflare or VPS, or troubleshoot infrastructure unless a platform-level interaction cannot be performed by available tools.
 
 Ordinary tasks have infrastructure repair budget zero. Start the requested work immediately. Only a proven hard blocker permits the smallest necessary repair, then resume the original task.
 
@@ -59,4 +76,4 @@ For every future task, if an obsolete component can execute, write, dispatch, du
 Preserve V11 SIGNAL_ONLY authority, TRADING_STATE, native scheduler, quote freshness gates, structural/volatility-aware SL, deterministic market gates, lifecycle TP/SL/EXPIRED handling, Telegram V11, separate Binance Auto authority, and protected risk rules. Research evidence never unlocks production by itself.
 
 ## NEW CHAT PROMPT
-`Continue Trading from fresh GitHub main. Read MASTER_TRADING_STATE.md, CURRENT_HANDOFF.md, V11_DIRECT_5AI_FINAL_LOCK_20260824.md, V11_SYSTEM_CLEANUP_LOCK_20260824.md and WRITE_LOCK.md. Use the cleaned six-workflow surface only. Signal V11 remains SIGNAL_ONLY. Research uses the sole Direct 5AI deterministic backtest path with Claude, Codex, DeepSeek, Qwen and OpenRouter. Do not recreate Issue/PR/AUTO_TASK/legacy workflow orchestration. Owner is prompt-only/final-result-only. Start requested work immediately and preserve the locked 95-symbol, 1-3 executions/day, RR 1:1/1:2, inclusive >=80% per-symbol, exact-data, no-leakage and untouched-FINAL contract.`
+Use the full prompt supplied below by the current handoff response. Minimum startup contract: fresh-read GitHub main; read MASTER_TRADING_STATE, CURRENT_HANDOFF, V11_DIRECT_5AI_FINAL_LOCK_20260824, V11_SYSTEM_CLEANUP_LOCK_20260824, WRITE_LOCK; preserve V11 SIGNAL_ONLY and separate Binance Auto; use `@Trading 5AI` / `run_5ai_task` only when actually available; never invent provider outputs; realtime MARKET requires a fresh quote immediately before final entry.
