@@ -61,7 +61,22 @@ jobs:
           set -euo pipefail
           sleep 2
           HEALTH="$(curl -fsS --max-time 5 http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); req={"claude","codex","deepseek"}; p=d.get("providers") or {}; assert req<=set(p), "missing active scalp provider entries"; assert all(bool((p[n] or {}).get("configured")) for n in req), "one or more active scalp providers not configured"; assert d.get("service")=="V11_MULTI_AI_BRIDGE"; assert d.get("bybitPrivateProxy") is True, "Bybit private proxy missing"; assert int(d.get("scalpProviderTimeoutSec") or 0)<=20; assert int(d.get("scalpBridgeBudgetSec") or 0)<=23; print("V11_3AI_BYBIT_BRIDGE_DEPLOY=PASS active=claude,codex,deepseek")'
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); req={"claude","codex","deepseek"}; p=d.get("providers") or {}; assert req<=set(p); assert all(bool((p[n] or {}).get("configured")) for n in req); assert d.get("service")=="V11_MULTI_AI_BRIDGE"; assert d.get("mode")=="FAST_FIRST_PARALLEL"; assert d.get("bybitPrivateProxy") is True; assert 5<=int(d.get("scalpProviderTimeoutSec") or 0)<=15; assert 6<=int(d.get("scalpBridgeBudgetSec") or 0)<=15; assert 0<float(d.get("scalpFastFirstGraceSec") or 0)<=3; print("V11_FAST_FIRST_HEALTH=PASS")'
+
+      - name: Smoke fast-first scalp review
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source /etc/trading-v11-ai.env
+          set +a
+          START=$(date +%s%3N)
+          BODY='{"evidence":{"mode":"BYBIT_SCALP_DECISION","task_id":"deploy-fast-first-smoke","requestedProviders":["claude","codex","deepseek"],"instruction":"REVIEW_ONLY synthetic deployment smoke test. Do not trade.","context":{"setup":{"symbol":"BTCUSDT","side":"Buy","strategy":"SMOKE","score":90,"entry":100000,"sl":99500,"tp":101000,"rr":2,"spreadBps":1},"horizon":"1-5m","exchange":"BYBIT"}}}'
+          OUT="$(curl -sS --max-time 18 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
+          END=$(date +%s%3N)
+          ELAPSED=$((END-START))
+          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("fastFirst") is True; assert int(d.get("usableProviderCount") or 0)>=1, d; assert set(d.get("requestedProviders") or [])=={"claude","codex","deepseek"}; print("V11_FAST_FIRST_REVIEW=PASS usable=%s decisionMs=%s returnedEarly=%s"%(d.get("usableProviderCount"),d.get("decisionLatencyMs"),d.get("returnedEarly")))'
+          test "$ELAPSED" -lt 18000
 
       - name: Deployment summary
         shell: bash
@@ -72,4 +87,5 @@ jobs:
           echo "BYBIT_PRIVATE_PROXY=enabled"
           echo "BYBIT_PRIVATE_EGRESS=VPS"
           echo "BYBIT_SCALP_AI=claude,codex,deepseek"
+          echo "BYBIT_SCALP_AI_MODE=FAST_FIRST_PARALLEL"
           echo "BYBIT_SCALP_PARTIAL_AI=allowed_when_at_least_one_provider_responds"
