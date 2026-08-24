@@ -67,8 +67,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sleep 3
-          HEALTH="$(curl -fsS "$WORKER_BASE_URL/bybit/health")"
+          HEALTH=""
+          HTTP=""
+          for attempt in 1 2 3 4 5 6; do
+            BODY_FILE="$(mktemp)"
+            HTTP="$(curl -sS --connect-timeout 5 --max-time 15 -o "$BODY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"
+            HEALTH="$(cat "$BODY_FILE")"
+            rm -f "$BODY_FILE"
+            echo "health attempt=$attempt http=$HTTP"
+            if [ "$HTTP" = "200" ]; then
+              break
+            fi
+            if [ "$attempt" -lt 6 ]; then sleep $((attempt * 3)); fi
+          done
+          if [ "$HTTP" != "200" ]; then
+            echo "Cloudflare health did not stabilize after retries. Last HTTP=$HTTP" >&2
+            printf '%s\n' "$HEALTH" >&2
+            exit 22
+          fi
           printf '%s\n' "$HEALTH"
           printf '%s' "$HEALTH" | node -e '
             let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
