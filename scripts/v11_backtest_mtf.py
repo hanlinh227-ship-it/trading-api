@@ -14,7 +14,20 @@ _m=importlib.util.module_from_spec(spec);spec.loader.exec_module(_m)
 # warm-up/integrity. Override that one research guard without changing FINAL.
 _src=inspect.getsource(_m._candidate_days).replace("if i<75 or not is_market_day", "if i<14 or not is_market_day")
 exec(_src,_m.__dict__)
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+'-warmup14'
-_m.VERSION=str(_m.VERSION)+'-W14'
+# R7 integrity fix: style search must simulate on the same execution base that
+# the selected profile is later evaluated on. R4 searched Forex styles on H1
+# but evaluated the frozen candidates on M5, creating a search/evaluation
+# geometry mismatch. Crypto/metals/indices remain H1 because their execution
+# base is H1. This changes no contract threshold and uses no FINAL evidence.
+_search_src=inspect.getsource(_m._search_style)
+_search_src=_search_src.replace(
+    "h1=frames['h1'];bounds=_research_bounds(h1,market);prior=load_registry_prior(symbol)",
+    "h1=frames['h1'];target=frames[BASE_TF[market]];bounds=_research_bounds(h1,market);prior=load_registry_prior(symbol)"
+)
+_search_src=_search_src.replace("c=_candidate_days(frames,market,st,h1)","c=_candidate_days(frames,market,st,target)")
+_search_src=_search_src.replace("d=_style_stats(c,h1,rr,market,bounds['devStart'],bounds['devEnd']);v=_style_stats(c,h1,rr,market,bounds['validationStart'],bounds['validationEnd'])","d=_style_stats(c,target,rr,market,bounds['devStart'],bounds['devEnd']);v=_style_stats(c,target,rr,market,bounds['validationStart'],bounds['validationEnd'])")
+exec(_search_src,_m.__dict__)
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+'-warmup14-executionbase-r7'
+_m.VERSION=str(_m.VERSION)+'-W14-EXECBASE-R7'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
