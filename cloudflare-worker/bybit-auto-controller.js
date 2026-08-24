@@ -1,5 +1,6 @@
 import {runBybitAutoV1,getBybitAutoV1State} from "./bybit-auto-v1.js";
 import {bybitV5} from "./bybit-v5-client.js";
+import {telegramApiRequest} from "./providers/telegram-client.js";
 
 const AUTO_KEY="bybit:auto:v1:state";
 const CONTROL_KEY="bybit:auto:v1:controller";
@@ -13,6 +14,14 @@ function dayStartMs(){return Date.parse(`${day()}T00:00:00+07:00`);}
 async function kvGet(env,key,def){try{return await env.TRADING_STATE?.get(key,{type:"json"})??def;}catch{return def;}}
 async function kvPut(env,key,val){if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(val));}
 function eventTime(x){return Number(x?.updatedTime||x?.createdTime||0);}
+function compactPrice(v,tick=0){
+  const n=Number(v);if(!Number.isFinite(n))return "—";
+  const t=Math.abs(Number(tick||0));let d=8;
+  if(t>0){const s=t.toFixed(12).replace(/0+$/,"");const p=s.indexOf(".");d=p<0?0:s.length-p-1;}
+  else if(Math.abs(n)>=100)d=2;else if(Math.abs(n)>=1)d=4;else if(Math.abs(n)>=.01)d=5;else d=6;
+  return n.toFixed(Math.min(8,d)).replace(/(\.\d*?[1-9])0+$|\.0+$/,"$1");
+}
+const usd=v=>`$${Math.abs(Number(v||0)).toFixed(2)}`;
 
 // One-day operational target requested for the current LIVE session. This is deliberately
 // separate from daily PnL reconciliation: baselineRealizedUsd is the already-realized PnL at
@@ -26,6 +35,28 @@ const LIVE_TARGET_SPEC={
   endAt:"2026-08-25T23:59:59.999+07:00",
   policy:"STOP_NEW_ENTRIES_ONLY_KEEP_MANAGING_OPEN_POSITIONS"
 };
+
+async function notifyLiveEntry(env,out){
+  const p=out?.plan;if(!out?.executed||out?.mode!=="LIVE"||!p?.orderId)return {sent:false,reason:"NO_NEW_LIVE_ENTRY"};
+  const s=await kvGet(env,AUTO_KEY,{});
+  if(String(s.lastTelegramOrderId||"")===String(p.orderId))return {sent:false,reason:"ALREADY_NOTIFIED"};
+  const tick=Number(p.tickSize||p.filters?.tickSize||0),side=String(p.side||"").toLowerCase()==="buy"?"BUY":"SELL",icon=side==="BUY"?"🟢":"🔴";
+  const text=[
+    `${icon} ${p.symbol} ${side}`,
+    `Entry ${compactPrice(p.entry,tick)}`,
+    `SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}`,
+    `TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}`,
+    `RR ${Number(p.rr||0).toFixed(2)} • AUTO LIVE`
+  ].join("\n");
+  try{
+    await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});
+    s.lastTelegramOrderId=String(p.orderId);s.lastTelegramEntryAt=iso();s.lastTelegramEntrySymbol=p.symbol;s.lastTelegramNotifyError=null;
+    await kvPut(env,AUTO_KEY,s);return {sent:true,orderId:p.orderId};
+  }catch(e){
+    s.lastTelegramNotifyError={at:iso(),symbol:p.symbol,orderId:String(p.orderId),error:String(e?.message||e)};
+    await kvPut(env,AUTO_KEY,s);return {sent:false,reason:"TELEGRAM_SEND_FAILED",error:String(e?.message||e)};
+  }
+}
 
 async function ensureLiveProfitTarget(env,mode){
   if(mode!=="LIVE")return null;
@@ -142,6 +173,7 @@ export async function runBybitAutoControlled(env,opts={}){
   }
 
   const out=await runBybitAutoV1(innerEnv,opts);
+  const telegramNotification=await notifyLiveEntry(env,out);
   const profitTarget=mode==="LIVE"?await syncLiveProfitTarget(env):null;
   const controller={
     executionMode:mode,
@@ -151,6 +183,7 @@ export async function runBybitAutoControlled(env,opts={}){
     unlimitedDailyEntries:true,
     pauseState:pause.controller,
     profitTarget,
+    telegramNotification,
     runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")
   };
   if(mode==="PAPER"){
