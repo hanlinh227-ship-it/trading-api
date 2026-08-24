@@ -1,0 +1,20 @@
+[Unit]
+Description=Binance Execution Bridge (READ_ONLY)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/trading/trading-api-main/vps/binance-execution-bridge
+EnvironmentFile=/etc/trading/binance-execution-bridge.env
+ExecStart=/usr/bin/node /opt/trading/trading-api-main/vps/binance-execution-bridge/server.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
