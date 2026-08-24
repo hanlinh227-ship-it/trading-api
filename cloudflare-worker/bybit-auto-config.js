@@ -16,7 +16,6 @@ export const BYBIT_AUTO_CONFIG={
     rewardStepUsd:1,
     maxRiskPctOfEquity:25,
     maxTotalOpenRiskPct:30,
-    dailyStopPct:20,
     maxLossStreak:3,
     pauseMinutes:30,
     minRR:1,
@@ -40,7 +39,6 @@ export function bybitAutoConfig(env={}){
   c.risk.rewardStepUsd=Math.max(.1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.maxRiskPctOfEquity=Math.max(5,Math.min(50,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.maxTotalOpenRiskPct=Math.max(5,Math.min(60,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.dailyStopPct=Math.max(5,Math.min(50,n(env,"BYBIT_DAILY_STOP_PCT",c.risk.dailyStopPct)));
   c.risk.minRR=Math.max(1,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(4,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(5,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
