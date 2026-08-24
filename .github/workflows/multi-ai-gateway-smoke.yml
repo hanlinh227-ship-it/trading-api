@@ -3,7 +3,7 @@ name: Multi-AI Gateway Smoke
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Deploy Cloudflare Signal V11"]
+    workflows: ["Deploy Bybit Auto Hub"]
     types: [completed]
 
 permissions:
@@ -49,9 +49,6 @@ jobs:
           {"task_id":"post-deploy-core-ai-smoke","instruction":"Health smoke only. Return the required JSON object with verdict PASS and concise evidence that you received this request. Do not modify anything.","context":{"scope":"READ_ONLY_HEALTH_SMOKE"}}
           JSON
           CODE="$(curl -sS --max-time 420 -o /tmp/review.json -w '%{http_code}' -X POST "$MULTI_AI_GATEWAY_REVIEW_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/smoke.json)"
-          # The legacy gateway may still return 502 when an optional provider is degraded.
-          # Treat transport as usable when the response is parseable and all 3 trading-core
-          # providers returned OK; Qwen/OpenRouter remain visible but are not core blockers.
           test "$CODE" -eq 200 -o "$CODE" -eq 502 || { echo "CORE_AI_REVIEW_HTTP_$CODE"; cat /tmp/review.json || true; exit 3; }
           python3 - <<'PY'
           import json
