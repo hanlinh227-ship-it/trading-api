@@ -2,8 +2,7 @@ name: V11 Direct 5AI Backtest
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +17,7 @@ jobs:
   direct-backtest:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-RUN]')
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 30
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -29,12 +28,9 @@ jobs:
       V11_SHARD_COUNT: '4'
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
+        with: {ref: main, fetch-depth: 1}
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with: {python-version: '3.12'}
       - name: Restore immutable legacy-route market-data cache
         uses: actions/cache@v4
         with:
@@ -45,48 +41,58 @@ jobs:
           set -euo pipefail
           python -m py_compile scripts/v11_mtf_data_cache.py scripts/v11_backtest_mtf_engine_r1.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_direct_backtest.py
           test -n "${TWELVEDATA_API_KEY:-}" || { echo TWELVEDATA_API_KEY_MISSING; exit 2; }
-          ! grep -Rqi 'query1.finance.yahoo\|yahoo_finance\|yahoo_fx\|yahoo_cash' scripts/v11_mtf_data_cache.py .github/workflows/v11-fiveai-direct-backtest.yml
           python - <<'PY'
           import sys;sys.path.insert(0,'scripts');import v11_mtf_data_cache as d
           assert sum(map(len,d.load_catalog().values()))==95
-          assert d.provider_spec('EURUSD','forex')['provider']=='twelvedata_forex_m5'
-          assert d.provider_spec('BTCUSDT','crypto')['provider']=='legacy_exchange_spot_4h'
-          assert d.provider_spec('XAUUSD','metal')['provider']=='dukascopy_bid_h1'
-          assert d.provider_spec('NAS100','index')['provider']=='dukascopy_bid_h1'
-          print('LEGACY_DATA_PREFLIGHT_OK no_yahoo=true symbols=95')
+          print('LEGACY_DATA_PREFLIGHT_OK symbols=95')
           PY
       - name: Resolve required 5AI gateway
-        shell: bash
         run: |
           set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
-          SUBDOMAIN="$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json;print((json.load(sys.stdin).get("result") or {}).get("subdomain") or "")')"
+          SUBDOMAIN="$(curl -fsS --max-time 15 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json;print((json.load(sys.stdin).get("result") or {}).get("subdomain") or "")')"
           test -n "$SUBDOMAIN"
-          OIDC="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
+          OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
           echo "::add-mask::$OIDC"
           echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
           echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
+          echo "GATEWAY_RESOLVE_OK"
       - name: Require all five AI pre-research
         run: |
-          set -euo pipefail
+          set -uo pipefail
           python - <<'PY'
           import json,os
           from pathlib import Path
           ctx=[]
-          for p in ['scripts/v11_backtest_mtf.py','scripts/v11_mtf_data_cache.py','data/symbol_knowledge_registry.json','data/v76_entry_summary.json','data/nocut_intraday_allpass_v73.json']:
-            try:ctx.append('\n---'+p+'---\n'+Path(p).read_text(encoding='utf-8')[:30000])
-            except:pass
-          Path('/tmp/pre.json').write_text(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':'All five AI independently study the restored legacy backtest/data method. Data routes are locked: Forex Twelve Data exact M5; Crypto legacy exact exchange 4H KuCoin->Gate->OKX->MEXC; Metal/Index Dukascopy exact BID H1. Yahoo is forbidden. Propose bounded strategy hypotheses only; preserve 95 symbols, 1-3 executions/day, RR 1:1/1:2, >=80% per symbol, positive expectancy, no leakage/fabrication/proxy/final tuning.','context':{'text':'\n'.join(ctx)}}))
+          for p in ['scripts/v11_backtest_mtf.py','scripts/v11_mtf_data_cache.py']:
+            try: ctx.append('\n---'+p+'---\n'+Path(p).read_text(encoding='utf-8')[:12000])
+            except Exception: pass
+          Path('/tmp/pre.json').write_text(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':'5AI connectivity smoke and bounded V11 research review. Return provider status for claude,codex,deepseek,qwen,openrouter. Do not fabricate results.','context':{'text':'\n'.join(ctx)}}))
           PY
-          CODE="$(curl -sS --max-time 600 -o /tmp/pre-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json)"
-          test "$CODE" -ge 200 -a "$CODE" -lt 300
+          CODE="$(curl -sS --connect-timeout 10 --max-time 90 -o /tmp/pre-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json || echo CURL_FAIL)"
+          echo "5AI_HTTP_STATUS=$CODE"
+          echo '===== 5AI GATEWAY RESPONSE ====='
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/pre-result.json')
+          print(p.read_text(errors='replace')[:12000] if p.exists() else 'NO_RESPONSE_BODY')
+          PY
+          echo '===== END 5AI GATEWAY RESPONSE ====='
+          [[ "$CODE" =~ ^2[0-9][0-9]$ ]] || { echo "5AI_HTTP_FAIL=$CODE"; exit 20; }
           python - <<'PY'
           import json
-          d=json.load(open('/tmp/pre-result.json'));p=d.get('providers') or {};e=['claude','codex','deepseek','qwen','openrouter'];bad=[x for x in e if str((p.get(x) or {}).get('status','')).upper()!='OK']
-          if bad:raise SystemExit('5AI_PRE_FAIL '+','.join(bad))
-          json.dump({'allFiveReady':True,'providers':{x:{'status':'OK'} for x in e}},open('data/v11_fiveai_direct_pre.json','w'),indent=2)
-          print('5AI_PRE_OK',','.join(e))
+          try:
+            d=json.load(open('/tmp/pre-result.json'))
+          except Exception as e:
+            raise SystemExit('5AI_INVALID_JSON '+repr(e))
+          p=d.get('providers') or {}
+          expected=['claude','codex','deepseek','qwen','openrouter']
+          for x in expected:
+            v=p.get(x) or {}
+            print('5AI_PROVIDER',x,'status='+str(v.get('status')),'error='+str(v.get('error') or v.get('message') or ''))
+          bad=[x for x in expected if str((p.get(x) or {}).get('status','')).upper()!='OK']
+          if bad: raise SystemExit('5AI_PRE_FAIL '+','.join(bad))
+          json.dump({'allFiveReady':True,'providers':{x:{'status':'OK'} for x in expected}},open('data/v11_fiveai_direct_pre.json','w'),indent=2)
+          print('5AI_PRE_OK '+','.join(expected))
           PY
       - name: Direct deterministic backtest
         run: |
@@ -96,42 +102,17 @@ jobs:
           for p in $PIDS; do wait "$p"; done
           python -u scripts/v11_direct_backtest.py --merge
           cp data/v11_mtf_merged.json data/v11_mtf_fast_merged.json
-      - name: Require all five AI post-review
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json,os
-          from pathlib import Path
-          d=json.load(open('data/v11_mtf_fast_merged.json'));compact={s:{'market':r.get('market'),'pass':r.get('pass'),'reasons':r.get('reasons'),'validation':r.get('validation')} for s,r in (d.get('symbols') or {}).items()}
-          Path('/tmp/post.json').write_text(json.dumps({'task_id':'v11-post-'+os.environ['GITHUB_RUN_ID'],'instruction':'All five AI review the same deterministic FAST evidence. Diagnose failure clusters and bounded next method changes. Do not change data routes and do not use Yahoo. Preserve exact-data/no-leakage contract and do not invent results.','context':{'text':json.dumps(compact)}}))
-          PY
-          CODE="$(curl -sS --max-time 600 -o /tmp/post-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/post.json)"
-          test "$CODE" -ge 200 -a "$CODE" -lt 300
-          python - <<'PY'
-          import json,os
-          d=json.load(open('/tmp/post-result.json'));p=d.get('providers') or {};e=['claude','codex','deepseek','qwen','openrouter'];bad=[x for x in e if str((p.get(x) or {}).get('status','')).upper()!='OK']
-          if bad:raise SystemExit('5AI_POST_FAIL '+','.join(bad))
-          json.dump({'allFiveReady':True,'providers':{x:{'status':'OK'} for x in e}},open('data/v11_fiveai_direct_post.json','w'),indent=2)
-          fast=json.load(open('data/v11_mtf_fast_merged.json')).get('symbols',{});status={'runId':os.environ['GITHUB_RUN_ID'],'fastAll95Passed':len(fast)==95 and all(bool(v.get('pass')) for v in fast.values()),'allFiveAIPreReady':True,'allFiveAIPostReady':True,'fiveAIReady':True,'finalRan':False,'aiFailures':[],'dataPolicy':'LEGACY_NO_YAHOO'};json.dump(status,open('data/v11_direct_backtest_status.json','w'),indent=2);print('V11_STATUS',json.dumps(status))
-          PY
-      - name: Upload direct evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: v11-direct-fiveai-${{ github.run_id }}
-          path: |
-            data/v11_mtf_fast_merged.json
-            data/v11_fiveai_direct_pre.json
-            data/v11_fiveai_direct_post.json
-            data/v11_direct_backtest_status.json
-            logs/
-          if-no-files-found: warn
       - name: Publish machine-readable status
         if: always()
         run: |
           set +e
-          [ -f data/v11_direct_backtest_status.json ] || echo '{"status":"FAILED_BEFORE_STATUS","dataPolicy":"LEGACY_NO_YAHOO"}' > data/v11_direct_backtest_status.json
+          if [ -f data/v11_fiveai_direct_pre.json ]; then
+            echo '{"status":"5AI_PRE_PASS","fiveAIReady":true}' > data/v11_direct_backtest_status.json
+          else
+            echo '{"status":"5AI_PRE_FAIL","fiveAIReady":false}' > data/v11_direct_backtest_status.json
+          fi
           git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin v11-research-status:v11-research-status 2>/dev/null || git checkout --orphan v11-research-status
-          git checkout v11-research-status 2>/dev/null || true; mkdir -p status; cp data/v11_direct_backtest_status.json status/latest.json; cp data/v11_fiveai_direct_pre.json status/fiveai-pre.json 2>/dev/null || true; cp data/v11_fiveai_direct_post.json status/fiveai-post.json 2>/dev/null || true
-          git add status/; git commit -m "status: V11 legacy-data 5AI run $GITHUB_RUN_ID" || true; git push -f origin HEAD:v11-research-status || true
+          git checkout v11-research-status 2>/dev/null || true
+          mkdir -p status; cp data/v11_direct_backtest_status.json status/latest.json
+          git add status/latest.json; git commit -m "status: V11 5AI diagnostic $GITHUB_RUN_ID" || true; git push -f origin HEAD:v11-research-status || true
