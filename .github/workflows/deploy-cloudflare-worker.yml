@@ -53,15 +53,15 @@ jobs:
       - name: Prepare Wrangler with existing KV and VPC Service
         working-directory: cloudflare-worker
         run: npm run prepare:wrangler
-      - name: Sync Binance bridge secret
+      - name: Deploy V11 production Worker
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy
+      - name: Apply Binance bridge secret to active Worker
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
           printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
-      - name: Deploy V11 production Worker
-        working-directory: cloudflare-worker
-        run: npx wrangler deploy
       - name: Deployment summary
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
@@ -69,4 +69,5 @@ jobs:
           echo 'RUNTIME=CLOUDFLARE_NATIVE'
           echo 'VPC_AI_BRIDGE=AI_BRIDGE'
           echo 'BINANCE_HEALTH=VPS_BRIDGE'
+          echo 'BINANCE_BRIDGE_SECRET=APPLIED_AFTER_DEPLOY'
           echo 'BINANCE_AUTO=SEPARATE_EXECUTION_AUTHORITY'
