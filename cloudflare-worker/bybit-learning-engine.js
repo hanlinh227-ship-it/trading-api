@@ -1,5 +1,6 @@
 const PREFIX="bybit:learning:v1";
 const K={events:`${PREFIX}:events`,state:`${PREFIX}:state`,champion:`${PREFIX}:champion`,challenger:`${PREFIX}:challenger`};
+const PROVIDERS=["claude","codex","deepseek","qwen","openrouter"];
 const now=()=>Date.now();
 async function get(env,key,def){try{return await env.TRADING_STATE?.get(key,{type:"json"})??def;}catch{return def;}}
 async function put(env,key,val){if(env.TRADING_STATE)await env.TRADING_STATE.put(key,JSON.stringify(val));}
@@ -24,7 +25,10 @@ function boundedEvent(x={}){return {
 function summarize(events=[]){
   const closed=events.filter(e=>e.outcome&&Number.isFinite(e.outcome.rMultiple)),wins=closed.filter(e=>e.outcome.rMultiple>0),losses=closed.filter(e=>e.outcome.rMultiple<0),sumR=closed.reduce((s,e)=>s+e.outcome.rMultiple,0),avgR=closed.length?sumR/closed.length:null,winRate=closed.length?wins.length/closed.length:null;
   const byStrategy={};for(const e of closed){const k=e.strategy||"UNKNOWN",b=byStrategy[k]||{trades:0,wins:0,sumR:0};b.trades++;if(e.outcome.rMultiple>0)b.wins++;b.sumR+=e.outcome.rMultiple;byStrategy[k]=b;}for(const b of Object.values(byStrategy)){b.winRate=b.trades?b.wins/b.trades:null;b.avgR=b.trades?b.sumR/b.trades:null;}
-  return {sampleSize:closed.length,wins:wins.length,losses:losses.length,winRate,avgR,sumR,byStrategy,updatedAt:now()};
+  const providers={};for(const p of PROVIDERS)providers[p]={samples:0,passOnWins:0,passOnLosses:0,rejectOnWins:0,rejectOnLosses:0,blocked:0,unavailable:0};
+  for(const e of closed){for(const p of PROVIDERS){const v=String(e.ai?.verdicts?.[p]||"UNAVAILABLE").toUpperCase(),s=providers[p];s.samples++;if(v==="PASS"){if(e.outcome.rMultiple>0)s.passOnWins++;else if(e.outcome.rMultiple<0)s.passOnLosses++;}else if(v==="REJECT"){if(e.outcome.rMultiple>0)s.rejectOnWins++;else if(e.outcome.rMultiple<0)s.rejectOnLosses++;}else if(v==="BLOCKED")s.blocked++;else s.unavailable++;}}
+  for(const s of Object.values(providers)){const useful=s.passOnWins+s.rejectOnLosses,bad=s.passOnLosses+s.rejectOnWins,den=useful+bad;s.directionalAccuracy=den?useful/den:null;s.falsePassRate=(s.passOnWins+s.passOnLosses)?s.passOnLosses/(s.passOnWins+s.passOnLosses):null;s.falseRejectRate=(s.rejectOnWins+s.rejectOnLosses)?s.rejectOnWins/(s.rejectOnWins+s.rejectOnLosses):null;}
+  return {sampleSize:closed.length,wins:wins.length,losses:losses.length,winRate,avgR,sumR,byStrategy,providers,updatedAt:now()};
 }
 export async function recordBybitLearningEvent(env,event){
   const store=await get(env,K.events,{events:[]}),e=boundedEvent(event);store.events=[...(store.events||[]),e].slice(-500);await put(env,K.events,store);const summary=summarize(store.events);await put(env,K.state,{summary,lastEvent:e,updatedAt:now()});return e;
