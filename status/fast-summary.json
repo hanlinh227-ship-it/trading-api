@@ -1,0 +1,3538 @@
+{
+  "catalogCount": 95,
+  "resultCount": 95,
+  "passCount": 0,
+  "failCount": 95,
+  "dataUnavailable": 64,
+  "allValidationPass": false,
+  "symbols": {
+    "AAVEUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ADAUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "AIXBTUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ALGOUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "APTUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ARBUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ASTERUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ATOMUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "AUDCAD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "AUDCAD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "26cf63b6944f261b345c8522f127d2d8857096762ae5c7880654516de6a7eba6",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:AUDCAD",
+        "exact": true,
+        "seal": "6bc1d6cceb0af8c8f931257f58b97c52646895d6102a9ef233575ab7fc759185"
+      },
+      "dev": {
+        "trades": 277,
+        "eligibleDays": 154,
+        "coveragePct": 91.56,
+        "zeroExecutionDays": 13,
+        "winRate": 41.16,
+        "meanR": -0.1661,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 41.07,
+        "meanR": -0.1696,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "AUDCHF": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "AUDCHF",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "8aaacb4dc456eadd8059cb9893827669cafdbe2670f1ebee432399bfacd89852",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:AUDCHF",
+        "exact": true,
+        "seal": "85e04faa1c33d8504881e72fa8128dfb3be3533c8ead430927f0348918d153f9"
+      },
+      "dev": {
+        "trades": 279,
+        "eligibleDays": 154,
+        "coveragePct": 92.86,
+        "zeroExecutionDays": 11,
+        "winRate": 37.28,
+        "meanR": -0.2473,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 111,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 43.24,
+        "meanR": -0.1261,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      }
+    },
+    "AUDJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "AUDJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "b80f84e6a4db64015bba0db17c00879c36876860f81873adf979428c24ef894e",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:AUDJPY",
+        "exact": true,
+        "seal": "bd35447dd03648a73af8aeb514c0678a4a6e325c4b4224b4007a1da8ba97fe99"
+      },
+      "dev": {
+        "trades": 301,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 45.51,
+        "meanR": -0.0698,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 111,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 57.66,
+        "meanR": 0.1712,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      }
+    },
+    "AUDNZD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "AUDNZD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "90f97fa3af665ceb4ceae736ed738bb1a7537c096c7f91821701c60b748f5db4",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:AUDNZD",
+        "exact": true,
+        "seal": "760e8fef14330fdb13cfbe9522c4258eb5e609aab82608b4000ae358220a6279"
+      },
+      "dev": {
+        "trades": 427,
+        "eligibleDays": 154,
+        "coveragePct": 96.1,
+        "zeroExecutionDays": 6,
+        "winRate": 44.73,
+        "meanR": -0.089,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 164,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 46.95,
+        "meanR": -0.0427,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      }
+    },
+    "AUDUSD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "AUDUSD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "134c2337a4ee1f3026072c095051bf7789a4c9d23960d666efc5af6364094f5e",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:AUDUSD",
+        "exact": true,
+        "seal": "3b88d4294ac43008e2486c986a3c74d868c2c9c8b31e0b531e85f317e0885f2f"
+      },
+      "dev": {
+        "trades": 445,
+        "eligibleDays": 154,
+        "coveragePct": 99.35,
+        "zeroExecutionDays": 1,
+        "winRate": 46.97,
+        "meanR": -0.0494,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 168,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 45.24,
+        "meanR": -0.0536,
+        "minTradesInDay": 3,
+        "maxTradesInDay": 3
+      }
+    },
+    "AVAXUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "BCHUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "BONKUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "BTCUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "CADCHF": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "CADCHF",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "ff8e4fbed5c7c0bae85b4627f8ff9308f393f440439f98c38012a42a0e6a2474",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:CADCHF",
+        "exact": true,
+        "seal": "f090173e2fe172900075d75958955a9e3c7bb7d5d1609dab58a35e4472b4c03a"
+      },
+      "dev": {
+        "trades": 390,
+        "eligibleDays": 154,
+        "coveragePct": 90.91,
+        "zeroExecutionDays": 14,
+        "winRate": 34.36,
+        "meanR": -0.2795,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 164,
+        "eligibleDays": 56,
+        "coveragePct": 98.21,
+        "zeroExecutionDays": 1,
+        "winRate": 46.34,
+        "meanR": -0.0366,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 3
+      }
+    },
+    "CADJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "CADJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "ffbd34f4fd10173fcc005885b9f57cc88b9c25ac3d47b5b63202b7782e1ccdb7",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:CADJPY",
+        "exact": true,
+        "seal": "6ad499555b0cc566dc7c863df4c8401dc91595da1d530ca32fbddd51d1eeb4fb"
+      },
+      "dev": {
+        "trades": 295,
+        "eligibleDays": 154,
+        "coveragePct": 97.4,
+        "zeroExecutionDays": 4,
+        "winRate": 51.19,
+        "meanR": 0.0373,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 45.54,
+        "meanR": -0.0804,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "CHFJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "CHFJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 1,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "f1e770728b93db0acf063ce3cb94ca01217c21f4a7d81b1d8c245a536585fa81",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:CHFJPY",
+        "exact": true,
+        "seal": "16f97dc8bf5669981115d3a7a4caa18c377606d3e197ae749af15724d0256d40"
+      },
+      "dev": {
+        "trades": 152,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 48.68,
+        "meanR": -0.0197,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      },
+      "validation": {
+        "trades": 56,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 48.21,
+        "meanR": -0.0357,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      }
+    },
+    "CRVUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "DEX": {
+      "market": "index",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "DOGEUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "DOTUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ETCUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ETHUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "EURAUD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURAUD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "8bd7a3dda786a0f0d1219b8d9a62a814e573d89ea3e40145ddd417b33381dbf0",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURAUD",
+        "exact": true,
+        "seal": "f3964f0b1e80335a325d2f4d4e0b05cbd99f3309a986102b229b9f14a5ef3114"
+      },
+      "dev": {
+        "trades": 292,
+        "eligibleDays": 154,
+        "coveragePct": 96.75,
+        "zeroExecutionDays": 5,
+        "winRate": 45.89,
+        "meanR": -0.0651,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 44.64,
+        "meanR": -0.0893,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "EURCAD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURCAD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "bd3d81ae32e0673e0f3d79a81fc86f03b07afe3614dbceba5308a3aa4839c07a",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURCAD",
+        "exact": true,
+        "seal": "42779f9506752755a3d68f49198f91d478c08fe63489b1b455f8cdc9b6b6f00f"
+      },
+      "dev": {
+        "trades": 425,
+        "eligibleDays": 154,
+        "coveragePct": 96.75,
+        "zeroExecutionDays": 5,
+        "winRate": 48.0,
+        "meanR": -0.0282,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 165,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 67.88,
+        "meanR": 0.3697,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      }
+    },
+    "EURCHF": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURCHF",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 1,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "74aa1b5148d79121f34a2c608e96e49be370814bb799618d6c8635102e609485",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURCHF",
+        "exact": true,
+        "seal": "8aae59df850a08d627c9e6fb0b2d3a0e9bc339bf4e5df844e00fc57795d8d239"
+      },
+      "dev": {
+        "trades": 136,
+        "eligibleDays": 154,
+        "coveragePct": 88.31,
+        "zeroExecutionDays": 18,
+        "winRate": 42.65,
+        "meanR": -0.1324,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      },
+      "validation": {
+        "trades": 56,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 50.0,
+        "meanR": 0.0,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      }
+    },
+    "EURGBP": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURGBP",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "5c8b4ee1e94e345092ada68da4ffe023f563b52a3b8cc7d069411218854e8c8b",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURGBP",
+        "exact": true,
+        "seal": "d2ab1ffc86db2cb134c2559f571e97f0af6ad4051544f3456718765efccf74e5"
+      },
+      "dev": {
+        "trades": 445,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 44.94,
+        "meanR": -0.0719,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 164,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 44.51,
+        "meanR": -0.0854,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 3
+      }
+    },
+    "EURJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "0c69a2961db19a979c09fbeeb806ab6cce84a9316055ce5f61508c1ef479a0e8",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURJPY",
+        "exact": true,
+        "seal": "32e648331f36c4bc87999e497cfb734a66dc285fda714f9c05ae0988a2d2a037"
+      },
+      "dev": {
+        "trades": 300,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 51.33,
+        "meanR": 0.0367,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 50.89,
+        "meanR": 0.0179,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "EURNZD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURNZD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "1313274ef214fa22fcf72eda80becb99dcec4998f0f206148565eb33277a4967",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURNZD",
+        "exact": true,
+        "seal": "3fd6910f95da79fdfda5448f4248b1f0f31ce44a39edc70f2ec638d3eb87226f"
+      },
+      "dev": {
+        "trades": 293,
+        "eligibleDays": 154,
+        "coveragePct": 98.05,
+        "zeroExecutionDays": 3,
+        "winRate": 44.37,
+        "meanR": -0.1092,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 111,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 46.85,
+        "meanR": -0.0541,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      }
+    },
+    "EURUSD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "EURUSD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "af5e62c25020390065086ba772183ac00c13eeebc2c039b348b5774102e12823",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:EURUSD",
+        "exact": true,
+        "seal": "87f86a8e52f916a6f4c3c8d01135f9bf194e83ce2f8385f4fb8a151277479312"
+      },
+      "dev": {
+        "trades": 302,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 50.66,
+        "meanR": 0.0298,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 50.0,
+        "meanR": 0.0089,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "FARTCOINUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "FILUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "FLOKIUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "GBPAUD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "GBPAUD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "e290d41a3ff155451cc1932db3ee88eca33109de96182e4ab072df283cfc5d9d",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:GBPAUD",
+        "exact": true,
+        "seal": "c66b74ed004006d3aa4aeb996803b0260052603bb8b37aaa57d7e3ff0d845f51"
+      },
+      "dev": {
+        "trades": 300,
+        "eligibleDays": 154,
+        "coveragePct": 98.05,
+        "zeroExecutionDays": 3,
+        "winRate": 44.33,
+        "meanR": -0.1133,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 51.79,
+        "meanR": 0.0536,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "GBPCAD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "GBPCAD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.55,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "67cd9c09e9647294a194b97e9021d0f3ee15ba49d3f75a304e453a7607a05fc9",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:GBPCAD",
+        "exact": true,
+        "seal": "5dd4851ebee548a6f7c7194872d1b8d725909e6397d5084fb93e073c586ef27a"
+      },
+      "dev": {
+        "trades": 438,
+        "eligibleDays": 154,
+        "coveragePct": 98.05,
+        "zeroExecutionDays": 3,
+        "winRate": 50.91,
+        "meanR": 0.0434,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 164,
+        "eligibleDays": 56,
+        "coveragePct": 98.21,
+        "zeroExecutionDays": 1,
+        "winRate": 54.88,
+        "meanR": 0.1098,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 3
+      }
+    },
+    "GBPCHF": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "GBPCHF",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "5b6ea2804057f2ecc4095f75567acdb60892e3ca415143038a79351879c4fec4",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:GBPCHF",
+        "exact": true,
+        "seal": "e56f53c85b0450adf1b6b39939e2cb828e0fd88742e1f804f4b7b378ff407352"
+      },
+      "dev": {
+        "trades": 403,
+        "eligibleDays": 154,
+        "coveragePct": 94.16,
+        "zeroExecutionDays": 9,
+        "winRate": 38.71,
+        "meanR": -0.201,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 166,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 39.16,
+        "meanR": -0.1988,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 3
+      }
+    },
+    "GBPJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "GBPJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 1,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "5772192e88a353e42225e1a2a9598b71d4b24fa5f7bef0cd511d54b2fcc18f07",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:GBPJPY",
+        "exact": true,
+        "seal": "8c27ee23e7a67e7fc1d15d11557a1ab6af1c50e1b16977f532c855ad7de682e2"
+      },
+      "dev": {
+        "trades": 153,
+        "eligibleDays": 154,
+        "coveragePct": 99.35,
+        "zeroExecutionDays": 1,
+        "winRate": 50.33,
+        "meanR": 0.0131,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      },
+      "validation": {
+        "trades": 56,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 53.57,
+        "meanR": 0.0893,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      }
+    },
+    "GBPNZD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "GBPNZD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "2643d7b28d670f9b1876070870569481354bdc65ea6e67b755342f5e055e0b86",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:GBPNZD",
+        "exact": true,
+        "seal": "f21a23918f04f03a56798f25c0f3b7fd563c2d75a74b091356355f392e2e0ef9"
+      },
+      "dev": {
+        "trades": 444,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 47.52,
+        "meanR": -0.0383,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 163,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 51.53,
+        "meanR": 0.0552,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      }
+    },
+    "GBPUSD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "GBPUSD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "dff9c1fd3f43f0c62199d30076650639b5e07b72e87b8cc6d23fd4e830109f53",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:GBPUSD",
+        "exact": true,
+        "seal": "d27c8e247e46e7c932eb133e9f3b7239a14ee517690dbae38aa5f8decdf0f84c"
+      },
+      "dev": {
+        "trades": 301,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 52.16,
+        "meanR": 0.0465,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 110,
+        "eligibleDays": 56,
+        "coveragePct": 98.21,
+        "zeroExecutionDays": 1,
+        "winRate": 53.64,
+        "meanR": 0.0818,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "GRASSUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "HBARUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "HYPEUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "INJUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "IPUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "JP225": {
+      "market": "index",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "JTOUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "JUPUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "KAITOUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "LDOUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "LINKUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "LITUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "LTCUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "MOODENGUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "NAS100": {
+      "market": "index",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "NAS100",
+        "market": "index",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756684800,
+        "devEnd": 1773878400,
+        "validationStart": 1773878400,
+        "validationEnd": 1780272000,
+        "finalStart": 1780272000,
+        "finalEnd": 1785456000,
+        "partitionDays": {
+          "total": 239,
+          "dev": 143,
+          "validation": 52,
+          "final": 44
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "6257993e82dd8c290b7c70cbbb5eb031ecbaf56e079e7f149bd8bb2b38054450",
+        "source": "Dukascopy USATECHIDXUSD BID Spot/Index H1",
+        "instrument": "BID:USATECHIDXUSD",
+        "exact": true,
+        "seal": "9ca6bbc3f92b4924111a6fa23fb2397ac0d7e4e2b8c825280fdf66322704b3bb"
+      },
+      "dev": {
+        "trades": 70,
+        "eligibleDays": 143,
+        "coveragePct": 33.57,
+        "zeroExecutionDays": 95,
+        "winRate": 27.14,
+        "meanR": -0.2,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 24,
+        "eligibleDays": 52,
+        "coveragePct": 30.77,
+        "zeroExecutionDays": 36,
+        "winRate": 41.67,
+        "meanR": 0.3333,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      }
+    },
+    "NEARUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "NZDCAD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "NZDCAD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.55,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "16292d5782785c62bc7356fd161e0e3ef155699ac4ce046e169b8df68d7abaf7",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:NZDCAD",
+        "exact": true,
+        "seal": "16c1fdb17961b304a86bc1bfc4cf20dc15f5e8e5644367ec1ef9f75c3e0c40a5"
+      },
+      "dev": {
+        "trades": 294,
+        "eligibleDays": 154,
+        "coveragePct": 99.35,
+        "zeroExecutionDays": 1,
+        "winRate": 50.0,
+        "meanR": 0.0136,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 109,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 44.95,
+        "meanR": -0.0734,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      }
+    },
+    "NZDCHF": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "NZDCHF",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "12790d4d1e819b55531ce143a860380d5fa5bf95cfecc8d83b14ab8fafa885e2",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:NZDCHF",
+        "exact": true,
+        "seal": "a2fb7092258eab48b0c617ee395ba9613b71a461a86abe59efa05d14df6f0aed"
+      },
+      "dev": {
+        "trades": 422,
+        "eligibleDays": 154,
+        "coveragePct": 96.75,
+        "zeroExecutionDays": 5,
+        "winRate": 47.16,
+        "meanR": -0.045,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 167,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 44.91,
+        "meanR": -0.1018,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 3
+      }
+    },
+    "NZDJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "NZDJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "a9367d64dbed378cfb750027c676dc346663c102490e6c6d387c4a97f29ccfa0",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:NZDJPY",
+        "exact": true,
+        "seal": "33c30b27154d266e45c9b65d5bb0f28e4ff0fbca9d5662ee3c2849e8a43d1827"
+      },
+      "dev": {
+        "trades": 295,
+        "eligibleDays": 154,
+        "coveragePct": 97.4,
+        "zeroExecutionDays": 4,
+        "winRate": 49.49,
+        "meanR": 0.0034,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 111,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 48.65,
+        "meanR": -0.009,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      }
+    },
+    "NZDUSD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "NZDUSD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 1,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "ee59ba2bf884dded00df3da1f3324a399379577b6cacfe657f0912f69898afa0",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:NZDUSD",
+        "exact": true,
+        "seal": "1f2f7f4f04130b86856ef559645148cb625d29cca58c315c0a67348d6427f8c5"
+      },
+      "dev": {
+        "trades": 151,
+        "eligibleDays": 154,
+        "coveragePct": 98.05,
+        "zeroExecutionDays": 3,
+        "winRate": 52.32,
+        "meanR": 0.053,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      },
+      "validation": {
+        "trades": 56,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 42.86,
+        "meanR": -0.1071,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      }
+    },
+    "ONDOUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "OPUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ORDIUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "PENGUUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "PEPEUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "PNUTUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "POLUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "POPCATUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "PUMPUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "RENDERUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "SHIBUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "SOLUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "STXUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "SUIUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "SUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "TAOUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "TIAUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "TRUMPUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "TRXUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "UNIUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "US30": {
+      "market": "index",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "US500": {
+      "market": "index",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "USDCAD": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "USDCAD",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 1,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "a61b1f8434bceb79006645a8546750b73e603789b4156c0a6a2af09e002f9b25",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:USDCAD",
+        "exact": true,
+        "seal": "503667f75188b8119862fabab9d03efd91132489ce36bc047c669f4eff67061c"
+      },
+      "dev": {
+        "trades": 149,
+        "eligibleDays": 154,
+        "coveragePct": 96.75,
+        "zeroExecutionDays": 5,
+        "winRate": 44.3,
+        "meanR": -0.094,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      },
+      "validation": {
+        "trades": 55,
+        "eligibleDays": 56,
+        "coveragePct": 98.21,
+        "zeroExecutionDays": 1,
+        "winRate": 65.45,
+        "meanR": 0.3091,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      }
+    },
+    "USDCHF": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "USDCHF",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 2,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "df2a2c7e21d3f153a8fc66a798118b4f9b486da22a04fc28ed8dde6dac31185b",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:USDCHF",
+        "exact": true,
+        "seal": "0b3a55b8faa84ca54f1200fbb2b23a5c67f9ea27d3fdcdbeefd4685008999d75"
+      },
+      "dev": {
+        "trades": 295,
+        "eligibleDays": 154,
+        "coveragePct": 96.75,
+        "zeroExecutionDays": 5,
+        "winRate": 48.14,
+        "meanR": -0.0305,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 2
+      },
+      "validation": {
+        "trades": 112,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 43.75,
+        "meanR": -0.0982,
+        "minTradesInDay": 2,
+        "maxTradesInDay": 2
+      }
+    },
+    "USDJPY": {
+      "market": "forex",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "USDJPY",
+        "market": "forex",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 1,
+        "devStart": 1756252800,
+        "devEnd": 1774915200,
+        "validationStart": 1774915200,
+        "validationEnd": 1781654400,
+        "finalStart": 1781654400,
+        "finalEnd": 1787270400,
+        "partitionDays": {
+          "total": 257,
+          "dev": 154,
+          "validation": 56,
+          "final": 47
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "cd9ddbeaa54e965e0fb384253e1ebd463ea6dd36afae56f69248ca9268466700",
+        "source": "Twelve Data Forex M5",
+        "instrument": "FOREX:USDJPY",
+        "exact": true,
+        "seal": "a588be062f5628ab010078334313026282e3a97d2d7e211fefd95b2e86acf119"
+      },
+      "dev": {
+        "trades": 152,
+        "eligibleDays": 154,
+        "coveragePct": 98.7,
+        "zeroExecutionDays": 2,
+        "winRate": 51.97,
+        "meanR": 0.0526,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      },
+      "validation": {
+        "trades": 56,
+        "eligibleDays": 56,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 50.0,
+        "meanR": 0.0,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 1
+      }
+    },
+    "VIRTUALUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "WIFUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "WLDUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "XAGUSD": {
+      "market": "metal",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "XAGUSD",
+        "market": "metal",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756684800,
+        "devEnd": 1773878400,
+        "validationStart": 1773878400,
+        "validationEnd": 1780272000,
+        "finalStart": 1780272000,
+        "finalEnd": 1785456000,
+        "partitionDays": {
+          "total": 239,
+          "dev": 143,
+          "validation": 52,
+          "final": 44
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "fbe8a003029da72050bdfe1e50cd1936e870722d3251eaf3a471a1edf50a316b",
+        "source": "Dukascopy XAGUSD BID Spot/Index H1",
+        "instrument": "BID:XAGUSD",
+        "exact": true,
+        "seal": "0852c74cc7416034d9e63a3558a0f96fc55961b326c707d386e8450d43c613e4"
+      },
+      "dev": {
+        "trades": 66,
+        "eligibleDays": 143,
+        "coveragePct": 32.87,
+        "zeroExecutionDays": 96,
+        "winRate": 30.3,
+        "meanR": 0.0,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 23,
+        "eligibleDays": 52,
+        "coveragePct": 30.77,
+        "zeroExecutionDays": 36,
+        "winRate": 30.43,
+        "meanR": -0.0435,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      }
+    },
+    "XAUUSD": {
+      "market": "metal",
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
+      ],
+      "profile": {
+        "symbol": "XAUUSD",
+        "market": "metal",
+        "rr": 1.0,
+        "threshold": 0.45,
+        "maxTrades": 3,
+        "devStart": 1756684800,
+        "devEnd": 1773878400,
+        "validationStart": 1773878400,
+        "validationEnd": 1780272000,
+        "finalStart": 1780272000,
+        "finalEnd": 1785456000,
+        "partitionDays": {
+          "total": 239,
+          "dev": 143,
+          "validation": 52,
+          "final": 44
+        },
+        "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
+        "directVersion": "V11-DIRECT-RESEARCH-R3",
+        "engineVersion": "V11-MTF-ENGINE-R1-LEGACYDATA",
+        "featureSchema": "v11-mtf-features-v1",
+        "dataHash": "97afbf3d5ea6acafe70c36c4f2fbfa9915dae619a75e44ab5561593db28878d0",
+        "source": "Dukascopy XAUUSD BID Spot/Index H1",
+        "instrument": "BID:XAUUSD",
+        "exact": true,
+        "seal": "bfe44648a58cf872c8c7ff47c3d8430f4304413997200127e52c8bba0d3afb01"
+      },
+      "dev": {
+        "trades": 50,
+        "eligibleDays": 143,
+        "coveragePct": 26.57,
+        "zeroExecutionDays": 105,
+        "winRate": 22.0,
+        "meanR": -0.12,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      },
+      "validation": {
+        "trades": 24,
+        "eligibleDays": 52,
+        "coveragePct": 32.69,
+        "zeroExecutionDays": 35,
+        "winRate": 54.17,
+        "meanR": 0.4583,
+        "minTradesInDay": 1,
+        "maxTradesInDay": 3
+      }
+    },
+    "XPLUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "XRPUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    },
+    "ZECUSDT": {
+      "market": "crypto",
+      "pass": false,
+      "reasons": [
+        "DATA_UNAVAILABLE"
+      ],
+      "profile": null,
+      "dev": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      },
+      "validation": {
+        "trades": null,
+        "eligibleDays": null,
+        "coveragePct": null,
+        "zeroExecutionDays": null,
+        "winRate": null,
+        "meanR": null,
+        "minTradesInDay": null,
+        "maxTradesInDay": null
+      }
+    }
+  }
+}

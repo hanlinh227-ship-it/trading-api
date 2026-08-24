@@ -1,9 +1,9 @@
 {
-  "status": "HARD_BLOCKER_RUN_INCOMPLETE",
-  "runId": "32707047988",
-  "commit": "061339ec6031b0a8a7c2f2265f23ff338e14e247",
+  "status": "FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE",
+  "runId": "32708069018",
+  "commit": "bdf139b547a740e82b20c8043ae2ab6b738ff5b1",
   "fiveAiPre": {
-    "claude": "ERROR",
+    "claude": "TIMEOUT",
     "codex": "OK",
     "deepseek": "OK",
     "qwen": "OK",
@@ -17,12 +17,12 @@
     "openrouter": "MISSING"
   },
   "fast": {
-    "catalogCount": null,
-    "resultCount": null,
-    "passCount": null,
-    "failCount": null,
-    "dataUnavailable": null,
-    "allValidationPass": null
+    "catalogCount": 95,
+    "resultCount": 95,
+    "passCount": 0,
+    "failCount": 95,
+    "dataUnavailable": 64,
+    "allValidationPass": false
   },
   "final": {
     "catalogCount": null,
