@@ -24,6 +24,7 @@ export function bybitV5(env={}){
     instruments:(cursor="")=>pub("/v5/market/instruments-info",{category:"linear",limit:1000,cursor}),
     tickers:()=>pub("/v5/market/tickers",{category:"linear"}),
     kline:(symbol,interval="1",limit=200)=>pub("/v5/market/kline",{category:"linear",symbol,interval,limit}),
+    klineRange:(symbol,{interval="1",start,end,limit=200}={})=>pub("/v5/market/kline",{category:"linear",symbol,interval,start,end,limit}),
     ticker:(symbol)=>pub("/v5/market/tickers",{category:"linear",symbol}),
     order:body=>signed("POST","/v5/order/create",{category:"linear",...body}),
     orderStatus:(symbol,orderId)=>signed("GET","/v5/order/realtime",{category:"linear",symbol,orderId,limit:1}),
