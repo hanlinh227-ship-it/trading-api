@@ -12,7 +12,7 @@ export function bybitV5(env={}){
   async function pub(path,params={}){const q=qs(params),r=await fetch(`${BASE}${path}${q?`?${q}`:""}`,{headers:{accept:"application/json"}});return parse(r,path);}
   async function signed(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
-    const ts=String(Date.now()),upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${BASE}${path}${upper==="GET"&&payload?`?`?${payload}`:""}`;
+    const ts=String(Date.now()),upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${BASE}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
     const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json"},body:upper==="GET"?undefined:payload});return parse(r,path);
   }
   return {
