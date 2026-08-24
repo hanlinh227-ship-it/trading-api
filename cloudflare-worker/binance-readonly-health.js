@@ -12,9 +12,12 @@ export async function handleBinanceReadonlyHealth(req,env){
 
   const base=String(env.BINANCE_FUTURES_BASE_URL||"https://fapi.binance.com").replace(/\/$/,"");
   const live=envBool(env.BINANCE_AUTO_LIVE),liveAck=envBool(env.BINANCE_AUTO_LIVE_ACK),testnet=envBool(env.BINANCE_AUTO_TESTNET);
-  const credentialsPresent=!!(env.BINANCE_FUTURES_API_KEY&&env.BINANCE_FUTURES_API_SECRET);
+  const apiKeyPresent=!!env.BINANCE_FUTURES_API_KEY;
+  const apiSecretPresent=!!env.BINANCE_FUTURES_API_SECRET;
+  const credentialsPresent=apiKeyPresent&&apiSecretPresent;
+  const credentialBindings={apiKeyPresent,apiSecretPresent};
 
-  if(!credentialsPresent)return json({ok:false,readOnly:true,reason:"BINANCE_FUTURES_CREDENTIALS_MISSING",base,mode:{live,liveAck,testnet}},503);
+  if(!credentialsPresent)return json({ok:false,readOnly:true,reason:"BINANCE_FUTURES_CREDENTIALS_MISSING",base,mode:{live,liveAck,testnet},credentialBindings},503);
 
   const api=binanceUsdm(env);
   try{
@@ -39,6 +42,7 @@ export async function handleBinanceReadonlyHealth(req,env){
       authenticated:true,
       base,
       mode:{live,liveAck,testnet},
+      credentialBindings,
       account:{
         totalWalletBalance:safeNum(account?.totalWalletBalance),
         totalMarginBalance:safeNum(account?.totalMarginBalance),
@@ -52,6 +56,6 @@ export async function handleBinanceReadonlyHealth(req,env){
       guarantees:["NO_ORDER_SUBMISSION","NO_LEVERAGE_CHANGE","NO_MARGIN_CHANGE","NO_CANCEL"]
     });
   }catch(e){
-    return json({ok:false,readOnly:true,authenticated:false,base,mode:{live,liveAck,testnet},reason:"BINANCE_READONLY_HEALTH_FAILED",error:String(e?.message||e),checkedAt:new Date().toISOString()},502);
+    return json({ok:false,readOnly:true,authenticated:false,base,mode:{live,liveAck,testnet},credentialBindings,reason:"BINANCE_READONLY_HEALTH_FAILED",error:String(e?.message||e),checkedAt:new Date().toISOString()},502);
   }
 }
