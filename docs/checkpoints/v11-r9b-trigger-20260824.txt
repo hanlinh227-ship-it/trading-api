@@ -1,0 +1,5 @@
+V11 R9B owner-authorized restart after 94-symbol migration consistency verification.
+Catalog contract: 94 symbols; IPUSDT removed.
+Method: current bounded round-4 DEV/VALIDATION refinement on current GitHub main.
+Require Claude, Codex, DeepSeek, Qwen, OpenRouter all OK; batched post-review; FINAL remains sealed unless fully eligible.
+No production Signal V11 behavior change is authorized by this trigger.
