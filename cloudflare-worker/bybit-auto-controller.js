@@ -100,5 +100,21 @@ export async function runBybitAutoControlled(env,opts={}){
   }
 
   const out=await runBybitAutoV1(innerEnv,opts);
-  return {...out,controller:{entrySpacingSec:300,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,pauseState:pause.controller,paperEquitySource:paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK",paperEquityUsd:paperEquity,executionMode:mode}};
+  const controller={
+    executionMode:mode,
+    entrySpacingSec:300,
+    lossStreakTrigger:3,
+    lossPauseMinutes:30,
+    unlimitedDailyEntries:true,
+    pauseState:pause.controller,
+    runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")
+  };
+  if(mode==="PAPER"){
+    controller.equitySource=paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK";
+    controller.equityUsd=paperEquity;
+  }else{
+    controller.equitySource="BYBIT_LIVE_WALLET";
+    controller.equityUsd=Number(out?.equity||0)||null;
+  }
+  return {...out,controller};
 }
