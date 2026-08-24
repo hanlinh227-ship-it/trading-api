@@ -15,9 +15,15 @@ import {
 import {
   handleBinanceReadonlyHealth
 } from "./binance-readonly-health.js";
+import {
+  handleBybitReadonlyHealth
+} from "./bybit-readonly-health.js";
+import {
+  handleBybitControlApi
+} from "./bybit-control-plane.js";
 
 const VERSION="V11";
-const SERVICE="Trading Unified Hub • Signal V11 + Separate Binance Auto";
+const SERVICE="Trading Unified Hub • Signal V11 + Separate Bybit Auto";
 
 function isTelegramWebhook(req){
   try{return new URL(req.url).pathname==="/telegram/webhook"&&req.method==="POST";}catch{return false;}
@@ -28,12 +34,18 @@ async function telegramOwner(req){
   try{
     const u=await req.clone().json();
     const cb=String(u?.callback_query?.data||"");
-    return cb==="binance"||cb.startsWith("binance:")?"BINANCE":"SIGNAL_V11";
+    return cb==="binance"||cb.startsWith("binance:")?"BINANCE_LEGACY":"SIGNAL_V11";
   }catch{return "SIGNAL_V11";}
 }
 
 export default {
   async fetch(req,env,ctx){
+    const bybitHealth=await handleBybitReadonlyHealth(req,env);
+    if(bybitHealth)return bybitHealth;
+
+    const bybitControl=await handleBybitControlApi(req,env);
+    if(bybitControl)return bybitControl;
+
     const binanceHealth=await handleBinanceReadonlyHealth(req,env);
     if(binanceHealth)return binanceHealth;
 
@@ -50,7 +62,7 @@ export default {
     if(control)return control;
 
     const owner=await telegramOwner(req);
-    if(owner==="BINANCE"){
+    if(owner==="BINANCE_LEGACY"){
       const b=await handleUnifiedTelegram(req,env);
       if(b)return b;
     }
@@ -68,11 +80,15 @@ export default {
       service:SERVICE,
       signalOnlySourceOfTruth:"V11",
       telegramRootOwner:"SIGNAL_V11",
-      binanceAutoProjectSeparate:true,
+      bybitAutoProjectSeparate:true,
+      bybitReadonlyHealth:"/bybit/health",
+      bybitScan:"/bybit/scan",
+      bybitAutoRun:"/bybit/auto/run",
+      binanceAutoLegacy:true,
+      binanceReadonlyHealth:"/binance/health",
       multiAiGateway:"VPC_OIDC_CONTROL_PLANE",
       chatgptMcp:"/mcp",
-      gpt5AiCouncil:"/api/5ai/council",
-      binanceReadonlyHealth:"/binance/health"
+      gpt5AiCouncil:"/api/5ai/council"
     },null,2),{
       status:r.status,
       headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}
