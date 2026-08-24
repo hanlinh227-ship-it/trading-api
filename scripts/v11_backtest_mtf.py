@@ -16,9 +16,10 @@ FUSION_VERSION='V11-FUSION-V77-V78-5AI-R1'
 _src=inspect.getsource(_m._candidate_days).replace("if i<75 or not is_market_day", "if i<14 or not is_market_day")
 exec(_src,_m.__dict__)
 
-# Round 0 starts from the proven legacy per-symbol priors. Later rounds only expand
-# predeclared DEV/VALIDATION search space; FINAL is never inspected or tuned here.
-_round=max(0,min(4,int(os.environ.get('V11_RESEARCH_ROUND','0') or 0)))
+# Direct research defaults to the widest predeclared bounded DEV/VALIDATION search (round 4).
+# The multi-round controller still sets V11_RESEARCH_ROUND explicitly per round.
+# FINAL remains sealed and is never inspected or tuned here.
+_round=max(0,min(4,int(os.environ.get('V11_RESEARCH_ROUND','4') or 4)))
 _search_src=inspect.getsource(_m._search_style)
 
 # Preserve R7 execution-base alignment: search and execution must use the same base.
