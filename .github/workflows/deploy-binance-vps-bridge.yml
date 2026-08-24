@@ -41,13 +41,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          repo=/opt/trading/trading-api-main
           sudo mkdir -p /opt/trading
-          if [ ! -d /opt/trading/trading-api-main/.git ]; then
-            sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git /opt/trading/trading-api-main
+          if sudo git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            echo 'Canonical repo already exists; refreshing main.'
+          else
+            if [ -e "$repo" ]; then
+              backup="${repo}.pre-binance-bridge.$(date +%Y%m%d%H%M%S)"
+              echo "Existing non-git path detected; preserving it at $backup"
+              sudo mv "$repo" "$backup"
+            fi
+            sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git "$repo"
           fi
-          sudo git -C /opt/trading/trading-api-main fetch origin main
-          sudo git -C /opt/trading/trading-api-main checkout -f main
-          sudo git -C /opt/trading/trading-api-main reset --hard origin/main
+          sudo git -C "$repo" remote set-url origin https://github.com/hanlinh227-ship-it/trading-api.git
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" checkout -B main origin/main
+          sudo git -C "$repo" reset --hard origin/main
       - name: Install protected environment
         shell: bash
         run: |
