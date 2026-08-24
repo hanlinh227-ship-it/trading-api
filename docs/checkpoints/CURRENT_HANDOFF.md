@@ -50,7 +50,7 @@ Do not recreate old V73/V75/V77/V78/V10 workflows, duplicate V11 backtests, AUTO
 
 ## RESEARCH CONTRACT
 Unless current main explicitly changes the catalog/contract:
-- 95 symbols independently evaluated;
+- 94 symbols independently evaluated;
 - every eligible symbol/day has 1-3 real executions;
 - zero or >3 executions on an eligible day = FAIL;
 - RR exactly 1:1 or 1:2;
