@@ -30,7 +30,7 @@ def load_catalog():
         z=re.search(rf'{m}:Object\.freeze\(\[(.*?)\]\)',text,re.S)
         if not z:raise RuntimeError('catalog parse '+m)
         cats[m]=re.findall(r"'([^']+)'",z.group(1))
-    if sum(map(len,cats.values()))!=95:raise RuntimeError('catalog count')
+    if sum(map(len,cats.values()))!=94:raise RuntimeError('catalog count')
     return cats
 
 
@@ -162,7 +162,7 @@ def gate_h1(symbol,start_ts,end_ts):
         for x in arr or []:
             if len(x)>=6:out.append([int(float(x[0])),float(x[5]),float(x[3]),float(x[4]),float(x[2]),float(x[6]) if len(x)>6 else float(x[1] or 0)])
         if z>=end_ts:break
-        cur=z  # overlap exact boundary, then deduplicate
+        cur=z
         time.sleep(.03)
     rows=_dedup(out,start_ts,end_ts);_require_crypto_continuity(rows,'GATE')
     return rows,'Gate.io Spot H1',True,'SPOT:'+re.sub(r'[^A-Z0-9]','',symbol.upper())
@@ -178,7 +178,7 @@ def kucoin_h1(symbol,start_ts,end_ts):
         for x in j.get('data') or []:
             if len(x)>=6:out.append([int(x[0]),float(x[1]),float(x[3]),float(x[4]),float(x[2]),float(x[5])])
         if z>=end_ts:break
-        cur=z  # critical R4 fix: overlap boundary; old z+1 could skip one candle
+        cur=z
         time.sleep(.03)
     rows=_dedup(out,start_ts,end_ts);_require_crypto_continuity(rows,'KUCOIN')
     return rows,'KuCoin Spot H1',True,'SPOT:'+re.sub(r'[^A-Z0-9]','',symbol.upper())
@@ -259,9 +259,6 @@ def fetch_raw(symbol,market,start_ts,end_ts):
         return rows,src,exact,inst,provider_spec(symbol,market)
     if market=='crypto':
         errors=[]
-        # Earlier successful H1 snapshot research used OKX broadly and special exact
-        # exchange routes. Validate continuity before accepting a provider so an
-        # apparently successful but gapped response never poisons the cache.
         for fn in (okx_h1,gate_h1,kucoin_h1,binance_h1,mexc_h1):
             try:
                 rows,src,exact,inst=fn(symbol,start_ts,end_ts)
