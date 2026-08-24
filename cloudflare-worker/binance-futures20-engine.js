@@ -61,10 +61,17 @@ export async function scanBinance20(env){
 
 export function sizeBinance20(setup,filters,cfg,equityUsd=50){
   const equity=Math.max(0,Number(equityUsd||0));
-  const basePct=Math.max(1,Math.min(Number(cfg.risk.maxRiskPct||10),Number(cfg.risk.perTradePct||10)));
-  const weight=Math.max(.25,Math.min(1,Number(setup.riskWeight||1)));
-  const riskUsd=Math.max(Number(cfg.risk.minRiskUsd||5),equity*(basePct/100)*weight);
+  const start=Math.max(1,Number(cfg.startingCapitalUsd||50));
+  const equityStep=Math.max(1,Number(cfg.risk.equityStepUsd||50));
+  const baseRisk=Math.max(1,Number(cfg.risk.baseRiskUsd||10));
+  const riskStep=Math.max(1,Number(cfg.risk.riskStepUsd||10));
+  const steps=Math.max(0,Math.floor((equity-start)/equityStep));
+  const ladderRisk=baseRisk+steps*riskStep;
+  const pctCap=Math.max(5,Number(cfg.risk.maxRiskPctOfEquity||25));
+  const maxByEquity=equity*(pctCap/100);
+  const riskUsd=Math.min(ladderRisk,maxByEquity);
   const dist=Math.abs(setup.entry-setup.sl),raw=riskUsd/dist,step=filters.marketStepSize||filters.stepSize,qty=floorStep(raw,step),notional=qty*setup.entry,minNotional=Math.max(5,filters.minNotional||5);
+  if(!(riskUsd>0))return {ok:false,reason:"RISK_BUDGET_ZERO",riskUsd,equityUsd:equity};
   if(!(qty>=filters.minQty)||notional<minNotional)return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,minNotional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null};
-  return {ok:true,qty,notional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null,baseRiskPct:basePct,riskWeight:weight,leverage:cfg.leverage,equityUsd:equity};
+  return {ok:true,qty,notional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null,riskMode:"EQUITY_LADDER",riskLadderStep:steps,ladderRiskUsd:ladderRisk,maxRiskPctOfEquity:pctCap,leverage:cfg.leverage,equityUsd:equity};
 }
