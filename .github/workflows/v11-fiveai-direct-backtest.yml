@@ -129,47 +129,93 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
+          rm -rf /tmp/v11-post-batches
+          mkdir -p /tmp/v11-post-batches
           python - <<'PY'
           import json,os
-          try:summary=json.load(open('data/v11_fast_summary.json'))
-          except Exception:summary={'error':'DETERMINISTIC_EVIDENCE_MISSING'}
-          compact={'catalogCount':summary.get('catalogCount'),'resultCount':summary.get('resultCount'),'passCount':summary.get('passCount'),'failCount':summary.get('failCount'),'dataUnavailable':summary.get('dataUnavailable'),'symbols':{}}
-          for s,r in (summary.get('symbols') or {}).items():
+          try: summary=json.load(open('data/v11_fast_summary.json'))
+          except Exception: summary={'error':'DETERMINISTIC_EVIDENCE_MISSING','symbols':{}}
+          rows=[]
+          for s,r in sorted((summary.get('symbols') or {}).items()):
             d=r.get('dev') or {};v=r.get('validation') or {};p=r.get('profile') or {}
-            compact['symbols'][s]={'m':r.get('market'),'ok':r.get('pass'),'rr':p.get('rr'),'d':[d.get('coveragePct'),d.get('winRate'),d.get('meanR'),d.get('zeroExecutionDays')],'v':[v.get('coveragePct'),v.get('winRate'),v.get('meanR'),v.get('zeroExecutionDays')]}
-          instruction='V11 post-VALIDATION evidence review. All five AIs independently analyze failing symbols and data failures using DEV/VALIDATION only. Compare against V64/V69/V73 only as exposed-development hypothesis history. Propose bounded next per-symbol/regime/geometry refinements while preserving 1-3 executions per eligible day, RR only 1 or 2, WR>=80%, positive expectancy, exact data, no pooling/deletion/fabrication/leakage. FINAL is forbidden for learning.'
-          open('/tmp/post.json','w').write(json.dumps({'task_id':'v11-post-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':{'text':json.dumps(compact,separators=(',',':'))[:40000]}}))
+            rows.append([s,r.get('market'),bool(r.get('pass')),r.get('reasons') or [],p.get('rr'),
+                         d.get('coveragePct'),d.get('winRate'),d.get('meanR'),d.get('zeroExecutionDays'),
+                         v.get('coveragePct'),v.get('winRate'),v.get('meanR'),v.get('zeroExecutionDays')])
+          # Claude consistently completed the small PRE payload (~33s) but hit the
+          # bridge's ~60s limit on one monolithic 95-symbol POST. Keep all evidence,
+          # but split it into five deterministic chunks of at most 19 symbols.
+          size=19
+          batches=[rows[i:i+size] for i in range(0,len(rows),size)]
+          manifest={'catalogCount':summary.get('catalogCount'),'resultCount':summary.get('resultCount'),
+                    'passCount':summary.get('passCount'),'failCount':summary.get('failCount'),
+                    'dataUnavailable':summary.get('dataUnavailable'),'batchCount':len(batches),
+                    'schema':['symbol','market','pass','reasons','rr','devCoverage','devWR','devMeanR','devZeroDays','valCoverage','valWR','valMeanR','valZeroDays']}
+          json.dump(manifest,open('/tmp/v11-post-batches/manifest.json','w'),indent=2)
+          instruction=('V11 post-VALIDATION evidence review, deterministic batch {batch}/{total}. '
+                       'Claude, Codex, DeepSeek, Qwen and OpenRouter must independently analyze every symbol in this batch. '
+                       'Use DEV/VALIDATION only. V64/V69/V73 are exposed-development hypothesis history only. '
+                       'Propose bounded per-symbol/regime/geometry refinements preserving 1-3 real executions per eligible day, '
+                       'RR only 1 or 2, WR>=80%, positive expectancy, exact data, and no pooling, deletion, fabrication or leakage. '
+                       'FINAL is forbidden for learning. Do not infer missing evidence.')
+          common={'catalogSummary':{k:manifest.get(k) for k in ('catalogCount','resultCount','passCount','failCount','dataUnavailable')},
+                  'schema':manifest['schema'],
+                  'priorEvidence':{'V64_V69_V73':'EXPOSED DEVELOPMENT ONLY','knownThrough':'2026-07-31','use':'hypothesis seed only'},
+                  'integrity':{'sameBar':'SL conservative','final':'sealed','dailyExecutions':'1..3'}}
+          for n,b in enumerate(batches,1):
+            body={'task_id':f"v11-post-{os.environ['GITHUB_RUN_ID']}-b{n}",
+                  'instruction':instruction.format(batch=n,total=len(batches)),
+                  'context':{**common,'batch':n,'totalBatches':len(batches),'symbols':b}}
+            json.dump(body,open(f'/tmp/v11-post-batches/request-{n}.json','w'),separators=(',',':'))
+          print('5AI_POST_BATCHES',len(batches),'SYMBOLS',len(rows))
           PY
-          rm -f /tmp/post-result.json
-          for ATTEMPT in 1 2 3; do
-            # Mint a NEW short-lived GitHub OIDC token immediately before every
-            # post-review attempt. Reusing the pre token caused the old 401.
-            OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
-            echo "::add-mask::$OIDC"
-            CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/post-attempt.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/post.json || echo CURL_FAIL)"
-            cp /tmp/post-attempt.json /tmp/post-result.json 2>/dev/null || true
-            echo "5AI_POST_ATTEMPT=$ATTEMPT HTTP=$CODE"
-            if python - <<'PY'
+
+          BATCH_COUNT="$(python -c "import json;print(json.load(open('/tmp/v11-post-batches/manifest.json'))['batchCount'])")"
+          ALL_COMPLETE=1
+          for BATCH in $(seq 1 "$BATCH_COUNT"); do
+            rm -f "/tmp/v11-post-batches/result-$BATCH.json"
+            BATCH_OK=0
+            for ATTEMPT in 1 2 3; do
+              OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
+              echo "::add-mask::$OIDC"
+              CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o "/tmp/v11-post-batches/attempt-$BATCH.json" -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $OIDC" -H 'Content-Type: application/json' --data-binary "@/tmp/v11-post-batches/request-$BATCH.json" || echo CURL_FAIL)"
+              cp "/tmp/v11-post-batches/attempt-$BATCH.json" "/tmp/v11-post-batches/result-$BATCH.json" 2>/dev/null || true
+              echo "5AI_POST_BATCH=$BATCH ATTEMPT=$ATTEMPT HTTP=$CODE"
+              if python - "$BATCH" <<'PY'
           import json,sys
-          e=['claude','codex','deepseek','qwen','openrouter']
-          try:d=json.load(open('/tmp/post-attempt.json'))
+          n=sys.argv[1];expected=['claude','codex','deepseek','qwen','openrouter']
+          try:d=json.load(open(f'/tmp/v11-post-batches/attempt-{n}.json'))
           except Exception:sys.exit(1)
           p=d.get('providers') or {}
-          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in e) else 1)
+          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected) else 1)
           PY
-            then break; fi
-            sleep $((ATTEMPT*8))
+              then BATCH_OK=1; break; fi
+              sleep $((ATTEMPT*8))
+            done
+            if [ "$BATCH_OK" != "1" ]; then ALL_COMPLETE=0; fi
           done
+
           python - <<'PY'
           import json,os
-          e=['claude','codex','deepseek','qwen','openrouter']
-          try:d=json.load(open('/tmp/post-result.json'))
-          except Exception:d={'ok':False,'error':'NO_VALID_RESPONSE','providers':{}}
-          json.dump(d,open('data/v11_fiveai_post.json','w'),indent=2)
-          p=d.get('providers') or {};complete=all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in e)
-          for x in e:print('5AI_POST',x,(p.get(x) or {}).get('status'))
-          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('FIVE_AI_POST_COMPLETE='+('1' if complete else '0')+'\n')
-          print('FIVE_AI_POST_COMPLETE',complete)
+          expected=['claude','codex','deepseek','qwen','openrouter']
+          manifest=json.load(open('/tmp/v11-post-batches/manifest.json'))
+          batches=[]
+          aggregate={p:{'status':'OK','batchStatuses':[]} for p in expected}
+          all_complete=True
+          for n in range(1,int(manifest['batchCount'])+1):
+            try:d=json.load(open(f'/tmp/v11-post-batches/result-{n}.json'))
+            except Exception:d={'ok':False,'error':'NO_VALID_RESPONSE','providers':{}}
+            batches.append({'batch':n,'task_id':d.get('task_id'),'ok':bool(d.get('ok')),'providers':d.get('providers') or {}})
+            for p in expected:
+              st=str((((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING')).upper()
+              aggregate[p]['batchStatuses'].append(st)
+              if st!='OK': aggregate[p]['status']=st
+            if not all(str((((d.get('providers') or {}).get(p) or {}).get('status') or '')).upper()=='OK' for p in expected):
+              all_complete=False
+          out={'ok':all_complete,'mode':'BATCHED_5AI_POST_REVIEW','manifest':manifest,'providers':aggregate,'batches':batches}
+          json.dump(out,open('data/v11_fiveai_post.json','w'),indent=2)
+          for p in expected:print('5AI_POST',p,aggregate[p]['status'],aggregate[p]['batchStatuses'])
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('FIVE_AI_POST_COMPLETE='+('1' if all_complete else '0')+'\n')
+          print('FIVE_AI_POST_COMPLETE',all_complete)
           PY
 
       - name: Seal FINAL eligibility
@@ -211,13 +257,17 @@ jobs:
             try:return json.load(open(p))
             except Exception:return default
           fast=load('data/v11_fast_summary.json',{}) or {};final=load('data/v11_final_summary.json',{}) or {};pre=load('data/v11_fiveai_direct_pre.json',{}) or {};post=load('data/v11_fiveai_post.json',{}) or {}
-          providers=['claude','codex','deepseek','qwen','openrouter'];pstat=lambda d:{p:str(((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING') for p in providers};preok=all(v=='OK' for v in pstat(pre).values());postok=all(v=='OK' for v in pstat(post).values())
+          providers=['claude','codex','deepseek','qwen','openrouter']
+          pstat=lambda d:{p:str(((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING') for p in providers}
+          preok=all(v=='OK' for v in pstat(pre).values())
+          postok=bool(post.get('ok')) and all(v=='OK' for v in pstat(post).values())
           if final.get('allFinalPass') and preok and postok:status='COMPLETE_ALL_95_PASS'
           elif fast.get('allValidationPass') and not (preok and postok):status='FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE'
           elif fast.get('allValidationPass'):status='FINAL_INCOMPLETE_OR_FAIL'
           elif fast:status='REFINEMENT_REQUIRED'
           else:status='HARD_BLOCKER_RUN_INCOMPLETE'
-          out={'status':status,'runId':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),'fiveAiPre':pstat(pre),'fiveAiPost':pstat(post),'fast':{k:fast.get(k) for k in ('catalogCount','resultCount','passCount','failCount','dataUnavailable','allValidationPass')},'final':{k:final.get(k) for k in ('catalogCount','resultCount','passCount','failCount','allFinalPass')}};json.dump(out,open('data/v11_direct_backtest_status.json','w'),indent=2)
+          out={'status':status,'runId':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),'fiveAiPre':pstat(pre),'fiveAiPost':pstat(post),'fiveAiPostMode':post.get('mode'),'fiveAiPostComplete':postok,'fast':{k:fast.get(k) for k in ('catalogCount','resultCount','passCount','failCount','dataUnavailable','allValidationPass')},'final':{k:final.get(k) for k in ('catalogCount','resultCount','passCount','failCount','allFinalPass')}}
+          json.dump(out,open('data/v11_direct_backtest_status.json','w'),indent=2)
           PY
           git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin v11-research-status:v11-research-status 2>/dev/null || git checkout --orphan v11-research-status
