@@ -1,1 +1,34 @@
-{"status":"5AI_PRE_PASS","fiveAIReady":true}
+{
+  "status": "HARD_BLOCKER_RUN_INCOMPLETE",
+  "runId": "32706176336",
+  "commit": "2f2de737b3893a7ad3b77a37b957f54b5a776f0a",
+  "fiveAiPre": {
+    "claude": "MISSING",
+    "codex": "MISSING",
+    "deepseek": "MISSING",
+    "qwen": "MISSING",
+    "openrouter": "MISSING"
+  },
+  "fiveAiPost": {
+    "claude": "MISSING",
+    "codex": "MISSING",
+    "deepseek": "MISSING",
+    "qwen": "MISSING",
+    "openrouter": "MISSING"
+  },
+  "fast": {
+    "catalogCount": null,
+    "resultCount": null,
+    "passCount": null,
+    "failCount": null,
+    "dataUnavailable": null,
+    "allValidationPass": null
+  },
+  "final": {
+    "catalogCount": null,
+    "resultCount": null,
+    "passCount": null,
+    "failCount": null,
+    "allFinalPass": null
+  }
+}
