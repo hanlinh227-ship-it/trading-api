@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import json,os,subprocess,time,urllib.request,urllib.error,shutil
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
-from concurrent.futures import ThreadPoolExecutor,as_completed
+from concurrent.futures import ThreadPoolExecutor,as_completed,wait
 
 SECRET=os.environ.get('V11_AI_BRIDGE_SECRET','').strip()
 HOST=os.environ.get('V11_AI_BRIDGE_HOST','127.0.0.1')
 PORT=int(os.environ.get('V11_AI_BRIDGE_PORT','8789'))
 TIMEOUT=int(os.environ.get('V11_AI_TIMEOUT','120'))
+SCALP_PROVIDER_TIMEOUT=max(5,min(20,int(os.environ.get('V11_SCALP_PROVIDER_TIMEOUT','18'))))
+SCALP_BRIDGE_BUDGET=max(8,min(23,int(os.environ.get('V11_SCALP_BRIDGE_BUDGET','20'))))
 CLAUDE_MODEL=os.environ.get('V11_CLAUDE_MODEL','sonnet')
 CODEX_MODEL=os.environ.get('V11_CODEX_MODEL','gpt-5.6-sol')
 DEEPSEEK_API_KEY=os.environ.get('DEEPSEEK_API_KEY','').strip()
@@ -79,30 +81,33 @@ def configured(provider):
     if provider=='openrouter':return bool(OPENROUTER_API_KEY and OPENROUTER_BASE_URL)
     return False
 
-def local_run(cmd,prompt,cwd='/tmp'):
-    p=subprocess.run(cmd,capture_output=True,text=True,input=prompt,timeout=TIMEOUT,cwd=cwd)
+def local_run(cmd,prompt,cwd='/tmp',timeout=None):
+    t=max(1,int(timeout or TIMEOUT))
+    p=subprocess.run(cmd,capture_output=True,text=True,input=prompt,timeout=t,cwd=cwd)
     if p.returncode:raise RuntimeError((p.stderr or p.stdout)[-1000:])
     return extract(p.stdout)
 
-def api_run(base,key,model,prompt):
+def api_run(base,key,model,prompt,timeout=None):
     if not base or not key:raise RuntimeError('PROVIDER_NOT_CONFIGURED')
+    t=max(1,int(timeout or TIMEOUT))
     url=base if base.endswith('/chat/completions') else base+'/chat/completions'
     payload=json.dumps({'model':model,'messages':[{'role':'user','content':prompt}],'temperature':0.1,'max_tokens':1400}).encode()
     req=urllib.request.Request(url,data=payload,method='POST',headers={'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'application/json'})
     try:
-        with urllib.request.urlopen(req,timeout=TIMEOUT) as r:raw=r.read(2_000_000)
+        with urllib.request.urlopen(req,timeout=t) as r:raw=r.read(2_000_000)
     except urllib.error.HTTPError as e:raise RuntimeError('HTTP_'+str(e.code)+':'+e.read(1000).decode(errors='replace'))
     j=json.loads(raw);return extract(((j.get('choices') or [{}])[0].get('message') or {}).get('content') or '')
 
 def review(provider,evidence):
     prompt=role_for(evidence)+'\nPROVIDER_ROLE='+provider+'\nEVIDENCE='+json.dumps(evidence,ensure_ascii=False,separators=(',',':'))
-    if provider=='claude':result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt,'/tmp')
+    t=SCALP_PROVIDER_TIMEOUT if scalp(evidence) else TIMEOUT
+    if provider=='claude':result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt,'/tmp',t)
     elif provider=='codex':
         exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex'
-        result=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt,'/tmp')
-    elif provider=='deepseek':result=api_run(DEEPSEEK_BASE_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL,prompt)
-    elif provider=='qwen':result=api_run(QWEN_BASE_URL,QWEN_API_KEY,QWEN_MODEL,prompt)
-    elif provider=='openrouter':result=api_run(OPENROUTER_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_MODEL,prompt)
+        result=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt,'/tmp',t)
+    elif provider=='deepseek':result=api_run(DEEPSEEK_BASE_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL,prompt,t)
+    elif provider=='qwen':result=api_run(QWEN_BASE_URL,QWEN_API_KEY,QWEN_MODEL,prompt,t)
+    elif provider=='openrouter':result=api_run(OPENROUTER_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_MODEL,prompt,t)
     else:raise ValueError('UNKNOWN_PROVIDER')
     return validate_result(result,evidence)
 
@@ -113,8 +118,30 @@ def run_provider(provider,evidence):
         result=review(provider,evidence);now=int(time.time()*1000);LAST[provider]={'state':'ONLINE','last_seen':now};return provider,{'status':'OK','latencySeconds':round(time.time()-t,2),'review':result,'last_seen':now}
     except subprocess.TimeoutExpired:
         LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'TIMEOUT','latencySeconds':round(time.time()-t,2),'error':'LOCAL_PROVIDER_TIMEOUT'}
+    except TimeoutError:
+        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'TIMEOUT','latencySeconds':round(time.time()-t,2),'error':'PROVIDER_TIMEOUT'}
     except Exception as x:
         LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'ERROR','latencySeconds':round(time.time()-t,2),'error':str(x)[:300]}
+
+def run_selected(selected,evidence):
+    out={}
+    pool=ThreadPoolExecutor(max_workers=max(1,len(selected)))
+    futures={pool.submit(run_provider,p,evidence):p for p in selected}
+    try:
+        if scalp(evidence):
+            done,pending=wait(tuple(futures),timeout=SCALP_BRIDGE_BUDGET)
+            for f in done:
+                p,r=f.result();out[p]=r
+            for f in pending:
+                p=futures[f]
+                out[p]={'status':'TIMEOUT','latencySeconds':SCALP_BRIDGE_BUDGET,'error':'BRIDGE_BUDGET_EXCEEDED'}
+                f.cancel()
+            return out
+        for f in as_completed(tuple(futures)):
+            p,r=f.result();out[p]=r
+        return out
+    finally:
+        pool.shutdown(wait=False,cancel_futures=True)
 
 def bybit_proxy(body):
     method=str(body.get('method') or 'GET').upper()
@@ -161,7 +188,7 @@ class H(BaseHTTPRequestHandler):
         now=int(time.time()*1000);providers={};meta={'claude':(CLAUDE_MODEL,'architecture_reasoning'),'codex':(CODEX_MODEL,'technical_review'),'deepseek':(DEEPSEEK_MODEL,'implementation_repair'),'qwen':(QWEN_MODEL,'independent_repair_test'),'openrouter':(OPENROUTER_MODEL,'adversarial_fallback')}
         for p in PROVIDERS:
             model,role=meta[p];last=LAST[p];providers[p]={'configured':configured(p),'model':model,'role':role,'state':last['state'] if configured(p) else 'OFFLINE','last_seen':last['last_seen']}
-        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'PARALLEL','providerCount':sum(1 for p in PROVIDERS if configured(p)),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitBases':list(BYBIT_BASES),'timestamp':now,'providers':providers})
+        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'PARALLEL','providerCount':sum(1 for p in PROVIDERS if configured(p)),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitBases':list(BYBIT_BASES),'scalpProviderTimeoutSec':SCALP_PROVIDER_TIMEOUT,'scalpBridgeBudgetSec':SCALP_BRIDGE_BUDGET,'timestamp':now,'providers':providers})
     def do_POST(self):
         if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
         try:
@@ -171,9 +198,7 @@ class H(BaseHTTPRequestHandler):
             if self.path!='/review':return self.sendj(404,{'ok':False})
             e=body.get('evidence') or {}
             if not isinstance(e,dict):return self.sendj(400,{'ok':False,'error':'EVIDENCE_OBJECT_REQUIRED'})
-            selected=requested_providers(e);out={}
-            with ThreadPoolExecutor(max_workers=max(1,len(selected))) as pool:
-                for f in as_completed([pool.submit(run_provider,p,e) for p in selected]):p,r=f.result();out[p]=r
+            selected=requested_providers(e);out=run_selected(selected,e)
             ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in selected};usable=sum(1 for x in ordered.values() if x.get('status')=='OK')
             if scalp(e):ok=usable>=1
             else:ok=usable==len(selected)
@@ -183,4 +208,4 @@ class H(BaseHTTPRequestHandler):
 
 if __name__=='__main__':
     if not SECRET:raise SystemExit('V11_AI_BRIDGE_SECRET required')
-    print(f'V11 multi-AI + Bybit private bridge listening {HOST}:{PORT} providers={",".join(PROVIDERS)}',flush=True);ThreadingHTTPServer((HOST,PORT),H).serve_forever()
+    print(f'V11 multi-AI + Bybit private bridge listening {HOST}:{PORT} providers={",".join(PROVIDERS)} scalpBudget={SCALP_BRIDGE_BUDGET}s',flush=True);ThreadingHTTPServer((HOST,PORT),H).serve_forever()
