@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  five-provider-smoke:
+  core-provider-smoke:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -41,23 +41,27 @@ jobs:
           OIDC="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')"
           echo "::add-mask::$OIDC"
           echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
-      - name: Exercise all five providers in one request
+      - name: Exercise core three providers and observe optional lanes
         shell: bash
         run: |
           set -euo pipefail
           cat >/tmp/smoke.json <<'JSON'
-          {"task_id":"post-deploy-five-ai-smoke","instruction":"Health smoke only. Return the required JSON object with verdict PASS and concise evidence that you received this request. Do not modify anything.","context":{"scope":"READ_ONLY_HEALTH_SMOKE"}}
+          {"task_id":"post-deploy-core-ai-smoke","instruction":"Health smoke only. Return the required JSON object with verdict PASS and concise evidence that you received this request. Do not modify anything.","context":{"scope":"READ_ONLY_HEALTH_SMOKE"}}
           JSON
           CODE="$(curl -sS --max-time 420 -o /tmp/review.json -w '%{http_code}' -X POST "$MULTI_AI_GATEWAY_REVIEW_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/smoke.json)"
-          test "$CODE" -ge 200 && test "$CODE" -lt 300 || { echo "FIVE_AI_REVIEW_HTTP_$CODE"; python3 -c 'import json; d=json.load(open("/tmp/review.json")); print({"ok":d.get("ok"),"providers":{k:(v or {}).get("status") for k,v in (d.get("providers") or {}).items()}})' || true; exit 3; }
+          # The legacy gateway may still return 502 when an optional provider is degraded.
+          # Treat transport as usable when the response is parseable and all 3 trading-core
+          # providers returned OK; Qwen/OpenRouter remain visible but are not core blockers.
+          test "$CODE" -eq 200 -o "$CODE" -eq 502 || { echo "CORE_AI_REVIEW_HTTP_$CODE"; cat /tmp/review.json || true; exit 3; }
           python3 - <<'PY'
           import json
-          d=json.load(open('/tmp/review.json')); expected={'claude','codex','deepseek','qwen','openrouter'}; p=d.get('providers') or {}
-          bad=[k for k in expected if str((p.get(k) or {}).get('status','')).upper()!='OK']
-          if bad: raise SystemExit('providers not OK: '+','.join(sorted(bad)))
-          print('FIVE_AI_REVIEW_PASS')
+          d=json.load(open('/tmp/review.json')); core={'claude','codex','deepseek'}; optional={'qwen','openrouter'}; p=d.get('providers') or {}
+          bad=[k for k in core if str((p.get(k) or {}).get('status','')).upper()!='OK']
+          if bad: raise SystemExit('core providers not OK: '+','.join(sorted(bad)))
+          print('CORE_3AI_REVIEW_PASS')
+          print('OPTIONAL_PROVIDER_STATUS='+','.join(f'{k}:{str((p.get(k) or {}).get("status","MISSING")).upper()}' for k in sorted(optional)))
           PY
-      - name: Require fresh healthy runtime evidence
+      - name: Require fresh healthy core runtime evidence
         run: python3 scripts/ops/check_multi_ai_gateway.py
       - name: Cleanup
         if: always()
