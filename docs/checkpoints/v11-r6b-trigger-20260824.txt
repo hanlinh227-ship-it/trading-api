@@ -1,0 +1,4 @@
+V11 R6B owner trigger after stale concurrency cleanup.
+Catalog: 94 symbols (IPUSDT removed).
+5AI post-review: bounded batches of 8, hard timeout, max 2 attempts per batch.
+Do not alter FINAL; DEV/VALIDATION research only until eligible.
