@@ -58,4 +58,12 @@ export async function scanBinance20(env){
   return {version:BINANCE20_VERSION,capitalUsd:cfg.startingCapitalUsd,best:out[0]||null,candidates:out,universe:{...universe,metrics:undefined},analyzed:universe.symbols.length,qualified:out.length,errors:errors.slice(0,20),scannedAt:Date.now()};
 }
 
-export function sizeBinance20(setup,filters,cfg,equityUsd=20){const baseRisk=Math.min(cfg.risk.perTradeUsd,Math.max(.05,equityUsd*.01)),riskUsd=baseRisk*Math.max(.25,Math.min(1,Number(setup.riskWeight||1))),dist=Math.abs(setup.entry-setup.sl),raw=riskUsd/dist,step=filters.marketStepSize||filters.stepSize,qty=floorStep(raw,step),notional=qty*setup.entry,minNotional=Math.max(5,filters.minNotional||5);if(!(qty>=filters.minQty)||notional<minNotional)return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,minNotional};return {ok:true,qty,notional,riskUsd,leverage:cfg.leverage};}
+export function sizeBinance20(setup,filters,cfg,equityUsd=50){
+  const equity=Math.max(0,Number(equityUsd||0));
+  const basePct=Math.max(.25,Math.min(Number(cfg.risk.maxRiskPct||1.25),Number(cfg.risk.perTradePct||1)));
+  const weight=Math.max(.25,Math.min(1,Number(setup.riskWeight||1)));
+  const riskUsd=Math.max(Number(cfg.risk.minRiskUsd||.25),equity*(basePct/100)*weight);
+  const dist=Math.abs(setup.entry-setup.sl),raw=riskUsd/dist,step=filters.marketStepSize||filters.stepSize,qty=floorStep(raw,step),notional=qty*setup.entry,minNotional=Math.max(5,filters.minNotional||5);
+  if(!(qty>=filters.minQty)||notional<minNotional)return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,minNotional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null};
+  return {ok:true,qty,notional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null,baseRiskPct:basePct,riskWeight:weight,leverage:cfg.leverage,equityUsd:equity};
+}
