@@ -22,6 +22,7 @@ PROVIDERS=('claude','codex','deepseek','qwen','openrouter')
 LAST={p:{'state':'UNKNOWN','last_seen':None} for p in PROVIDERS}
 TRADING_ROLE='''V11 MANUAL WHOLE-MARKET MARKET HUNTER. Review only supplied fresh candidates. This is an on-demand second opinion, not an automatic signal authority and not execution. Pick immediate MARKET suitability only. Never invent missing data. Return JSON: {"direction":"LONG|SHORT|WAIT","confidence":0-100,"hardRisk":[],"evidence":[],"reason":"..."}. If current evidence is insufficient for immediate MARKET, return WAIT.'''
 ENGINEERING_ROLE='''You are one independent lane in the Trading Multi-AI engineering pool. Work only from supplied task/context. Never invent repository/runtime evidence. Do not execute trades or change deployment authority. Return one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. Missing evidence means BLOCKED, not assumption.'''
+SCALP_ROLE='''You are one independent reviewer for a 1-5 minute Bybit USDT perpetual scalp. Use only the supplied setup/context. Do not change size, leverage, SL or TP. Do not require a daily profit target. Return exactly one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. PASS means the supplied direction is reasonable for a scalp, REJECT means the thesis is materially weak/contradictory, BLOCKED means data is unsafe or insufficient.'''
 
 def extract(s):
     s=(s or '').strip();a=s.find('{');b=s.rfind('}')
@@ -30,10 +31,19 @@ def extract(s):
     if not isinstance(x,dict):raise ValueError('JSON_OBJECT_REQUIRED')
     return x
 
-def validate_result(x,engineering):
-    if engineering:
-        if x.get('verdict') not in ('PASS','REJECT','BLOCKED'):raise ValueError('ENGINEERING_VERDICT_REQUIRED')
-        if not isinstance(x.get('findings'),list) or not isinstance(x.get('evidence'),list) or not isinstance(x.get('proposal'),str):raise ValueError('ENGINEERING_SCHEMA_INVALID')
+def mode(evidence):return str(evidence.get('mode') or '').upper()
+def engineering(evidence):return mode(evidence)=='MULTI_AI_ENGINEERING_TASK'
+def scalp(evidence):return mode(evidence)=='BYBIT_SCALP_DECISION'
+def verdict_mode(evidence):return engineering(evidence) or scalp(evidence)
+def role_for(evidence):
+    if engineering(evidence):return ENGINEERING_ROLE
+    if scalp(evidence):return SCALP_ROLE
+    return TRADING_ROLE
+
+def validate_result(x,evidence):
+    if verdict_mode(evidence):
+        if x.get('verdict') not in ('PASS','REJECT','BLOCKED'):raise ValueError('VERDICT_REQUIRED')
+        if not isinstance(x.get('findings'),list) or not isinstance(x.get('evidence'),list) or not isinstance(x.get('proposal'),str):raise ValueError('VERDICT_SCHEMA_INVALID')
     else:
         if x.get('direction') not in ('LONG','SHORT','WAIT'):raise ValueError('TRADING_DIRECTION_REQUIRED')
         if not isinstance(x.get('confidence'),(int,float)) or not 0<=x['confidence']<=100:raise ValueError('TRADING_CONFIDENCE_INVALID')
@@ -47,9 +57,6 @@ def configured(provider):
     if provider=='qwen':return bool(QWEN_API_KEY and QWEN_BASE_URL)
     if provider=='openrouter':return bool(OPENROUTER_API_KEY and OPENROUTER_BASE_URL)
     return False
-
-def engineering(evidence):return str(evidence.get('mode') or '').upper()=='MULTI_AI_ENGINEERING_TASK'
-def role_for(evidence):return ENGINEERING_ROLE if engineering(evidence) else TRADING_ROLE
 
 def local_run(cmd,prompt,cwd='/tmp'):
     p=subprocess.run(cmd,capture_output=True,text=True,input=prompt,timeout=TIMEOUT,cwd=cwd)
@@ -68,28 +75,23 @@ def api_run(base,key,model,prompt):
 
 def review(provider,evidence):
     prompt=role_for(evidence)+'\nPROVIDER_ROLE='+provider+'\nEVIDENCE='+json.dumps(evidence,ensure_ascii=False,separators=(',',':'))
-    if provider=='claude':
-        # Claude CLI parses tool-deny values positionally; keep the prompt on stdin
-        # so user task text can never be interpreted as additional CLI arguments.
-        result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt,'/tmp')
+    if provider=='claude':result=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt,'/tmp')
     elif provider=='codex':
         exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex'
-        # Bridge intentionally runs outside a repo for containment, so opt out of
-        # Codex's repository trust check while retaining read-only sandboxing.
         result=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt,'/tmp')
     elif provider=='deepseek':result=api_run(DEEPSEEK_BASE_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL,prompt)
     elif provider=='qwen':result=api_run(QWEN_BASE_URL,QWEN_API_KEY,QWEN_MODEL,prompt)
     elif provider=='openrouter':result=api_run(OPENROUTER_BASE_URL,OPENROUTER_API_KEY,OPENROUTER_MODEL,prompt)
     else:raise ValueError('UNKNOWN_PROVIDER')
-    return validate_result(result,engineering(evidence))
+    return validate_result(result,evidence)
 
 def run_provider(provider,evidence):
     t=time.time()
-    if not configured(provider):return provider,{'status':'UNAVAILABLE','latencySeconds':0}
+    if not configured(provider):return provider,{'status':'UNAVAILABLE','latencySeconds':0,'error':'PROVIDER_NOT_CONFIGURED'}
     try:
         result=review(provider,evidence);now=int(time.time()*1000);LAST[provider]={'state':'ONLINE','last_seen':now};return provider,{'status':'OK','latencySeconds':round(time.time()-t,2),'review':result,'last_seen':now}
     except subprocess.TimeoutExpired:
-        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'TIMEOUT','latencySeconds':round(time.time()-t,2)}
+        LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'TIMEOUT','latencySeconds':round(time.time()-t,2),'error':'LOCAL_PROVIDER_TIMEOUT'}
     except Exception as x:
         LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'ERROR','latencySeconds':round(time.time()-t,2),'error':str(x)[:300]}
 
@@ -113,7 +115,10 @@ class H(BaseHTTPRequestHandler):
             out={}
             with ThreadPoolExecutor(max_workers=5) as pool:
                 for f in as_completed([pool.submit(run_provider,p,e) for p in PROVIDERS]):p,r=f.result();out[p]=r
-            ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in PROVIDERS};ok=all(x.get('status')=='OK' for x in ordered.values());self.sendj(200 if ok else 502,{'ok':ok,'providers':ordered,'timestamp':int(time.time()*1000)})
+            ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in PROVIDERS};usable=sum(1 for x in ordered.values() if x.get('status')=='OK')
+            if scalp(e):ok=usable>=1
+            else:ok=usable==len(PROVIDERS)
+            self.sendj(200 if ok else 502,{'ok':ok,'usableProviderCount':usable,'providers':ordered,'timestamp':int(time.time()*1000),'mode':mode(e)})
         except Exception as x:self.sendj(400,{'ok':False,'error':str(x)[:300]})
     def log_message(self,*args):pass
 
