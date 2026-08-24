@@ -129,7 +129,7 @@ The preferred iteration is method-as-config. Do not redesign workflow/infra for 
 ## RESEARCH CONTRACT PRESERVED
 
 Unless current `main` changes the catalog/contract:
-- 95 symbols independently evaluated;
+- 94 symbols independently evaluated;
 - every eligible symbol/day: 1-3 real executions;
 - zero or >3 on an eligible day = FAIL;
 - RR exactly 1:1 or 1:2;
