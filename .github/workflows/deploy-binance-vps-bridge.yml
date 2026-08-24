@@ -1,0 +1,78 @@
+name: Deploy Binance VPS Bridge
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'vps/binance-execution-bridge/**'
+      - '.github/workflows/deploy-binance-vps-bridge.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    env:
+      BINANCE_FUTURES_API_KEY: ${{ secrets.BINANCE_FUTURES_API_KEY }}
+      BINANCE_FUTURES_API_SECRET: ${{ secrets.BINANCE_FUTURES_API_SECRET }}
+      BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Guard secrets and runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${BINANCE_FUTURES_API_KEY:-}"
+          test -n "${BINANCE_FUTURES_API_SECRET:-}"
+          test -n "${BINANCE_BRIDGE_SECRET:-}"
+          command -v node >/dev/null
+          command -v systemctl >/dev/null
+      - name: Sync canonical repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /opt/trading
+          if [ ! -d /opt/trading/trading-api-main/.git ]; then
+            sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git /opt/trading/trading-api-main
+          fi
+          sudo git -C /opt/trading/trading-api-main fetch origin main
+          sudo git -C /opt/trading/trading-api-main checkout -f main
+          sudo git -C /opt/trading/trading-api-main reset --hard origin/main
+      - name: Install protected environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 700 /etc/trading
+          umask 077
+          tmp="$(mktemp)"
+          printf '%s\n' \
+            "BINANCE_FUTURES_API_KEY=${BINANCE_FUTURES_API_KEY}" \
+            "BINANCE_FUTURES_API_SECRET=${BINANCE_FUTURES_API_SECRET}" \
+            "BINANCE_BRIDGE_SECRET=${BINANCE_BRIDGE_SECRET}" \
+            "BINANCE_FUTURES_BASE_URL=https://fapi.binance.com" \
+            "BINANCE_BRIDGE_HOST=127.0.0.1" \
+            "BINANCE_BRIDGE_PORT=8790" > "$tmp"
+          sudo install -m 600 "$tmp" /etc/trading/binance-execution-bridge.env
+          rm -f "$tmp"
+      - name: Install and start service
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -m 644 /opt/trading/trading-api-main/vps/binance-execution-bridge/binance-execution-bridge.service /etc/systemd/system/binance-execution-bridge.service
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now binance-execution-bridge.service
+          sleep 2
+          sudo systemctl is-active binance-execution-bridge.service
+      - name: Read-only local smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:8790/health
+          curl -fsS -H "Authorization: Bearer ${BINANCE_BRIDGE_SECRET}" http://127.0.0.1:8790/binance/health
