@@ -11,6 +11,24 @@ on:
         options:
           - smoke
           - v11-preflight
+          - v11-backtest
+      mode:
+        description: 'V11 backtest mode'
+        required: true
+        default: 'fast'
+        type: choice
+        options:
+          - fast
+          - final
+      history_days:
+        description: 'Historical window in days'
+        required: true
+        default: '400'
+        type: choice
+        options:
+          - '120'
+          - '240'
+          - '400'
 
 permissions:
   contents: read
@@ -22,7 +40,7 @@ concurrency:
 jobs:
   control:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 360
     steps:
       - name: Configure SSH
         env:
@@ -64,3 +82,30 @@ jobs:
           set -euo pipefail
           PORT="${VPS_PORT:-22}"
           ssh -i ~/.ssh/vps_control -p "$PORT" "$VPS_USER@$VPS_HOST" 'set -euo pipefail; cd /opt/trading/trading-api-v11; git fetch origin main; git reset --hard origin/main; python3 -m py_compile scripts/v11_direct_backtest.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_backtest_mtf_engine_r1.py scripts/v11_mtf_data_cache.py; systemctl is-active v11-manual-ai-bridge.service; echo V11_REMOTE_PREFLIGHT=PASS'
+
+      - name: V11 backtest on VPS
+        if: inputs.command == 'v11-backtest'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          V11_MODE: ${{ inputs.mode }}
+          V11_HISTORY_DAYS: ${{ inputs.history_days }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          printf -v REMOTE 'set -euo pipefail; cd /opt/trading/trading-api-v11; git fetch origin main; git reset --hard origin/main; systemctl is-active v11-manual-ai-bridge.service; rm -rf data/v11_mtf_out; mkdir -p data/v11_mtf_out; for i in 0 1 2 3; do echo ===== SHARD_$i =====; python3 scripts/v11_direct_backtest.py --mode %q --history-days %q --shard-index "$i" --shard-count 4; done; python3 scripts/v11_direct_backtest.py --mode %q --history-days %q --shard-count 4 --merge; python3 - <<'\''PY'\''
+import json
+from pathlib import Path
+p=Path("data/v11_mtf_merged.json")
+d=json.loads(p.read_text())
+s=d.get("symbols",{})
+passed=[k for k,v in s.items() if v.get("pass")]
+failed=[k for k,v in s.items() if not v.get("pass")]
+print("V11_BACKTEST_MERGED=PASS")
+print("SYMBOLS_TOTAL="+str(len(s)))
+print("SYMBOLS_PASS="+str(len(passed)))
+print("SYMBOLS_FAIL="+str(len(failed)))
+print("PASS_SYMBOLS="+",".join(passed))
+PY' "$V11_MODE" "$V11_HISTORY_DAYS" "$V11_MODE" "$V11_HISTORY_DAYS"
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -i ~/.ssh/vps_control -p "$PORT" "$VPS_USER@$VPS_HOST" "$REMOTE"
