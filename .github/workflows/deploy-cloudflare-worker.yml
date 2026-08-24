@@ -1,4 +1,4 @@
-name: Deploy Cloudflare Signal V11
+name: Deploy Bybit Auto Hub
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: trading-signal-v11-cloudflare-production
+  group: bybit-auto-hub-cloudflare-production
   cancel-in-progress: false
 
 jobs:
@@ -48,13 +48,13 @@ jobs:
       - name: Install pinned Wrangler
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
-      - name: Validate V11 source of truth
+      - name: Validate Bybit Auto Hub source of truth
         working-directory: cloudflare-worker
         run: npm run check
       - name: Prepare Wrangler with existing KV and VPC Service
         working-directory: cloudflare-worker
         run: npm run prepare:wrangler
-      - name: Deploy V11 production Worker
+      - name: Deploy Bybit Auto Hub production Worker
         working-directory: cloudflare-worker
         run: npx wrangler deploy
       - name: Apply Binance bridge secret to active Worker
@@ -99,10 +99,10 @@ jobs:
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
           echo "RUNTIME_REVISION=$GITHUB_SHA"
-          echo 'SIGNAL_ONLY_VERSION=V11'
+          echo 'HUB=BYBIT_AUTO_TRADE_ONLY'
+          echo 'SIGNAL_V11_RUNTIME=OFF'
+          echo 'TELEGRAM_ENTRY_ALERTS=ON'
           echo 'RUNTIME=CLOUDFLARE_NATIVE'
           echo 'VPC_AI_BRIDGE=AI_BRIDGE'
-          echo 'BINANCE_HEALTH=VPS_BRIDGE'
-          echo 'BINANCE_BRIDGE_SECRET=APPLIED_AFTER_DEPLOY'
           echo 'BYBIT_RUNTIME_PREFLIGHT=/bybit/runtime/preflight'
-          echo 'BYBIT_AUTO=SEPARATE_EXECUTION_AUTHORITY'
+          echo 'BYBIT_AUTO=PRIMARY_EXECUTION_AUTHORITY'
