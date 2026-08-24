@@ -13,12 +13,15 @@ return {
   markPrice:symbol=>req("/fapi/v1/premiumIndex",{params:{symbol}}),
   account:()=>req("/fapi/v3/account",{signed:true}),
   positions:()=>req("/fapi/v3/positionRisk",{signed:true}),
+  openOrders:symbol=>req("/fapi/v1/openOrders",{signed:true,params:symbol?{symbol}:{}}),
   income:({startTime,endTime,limit=1000,incomeType}={})=>req("/fapi/v1/income",{signed:true,params:{startTime,endTime,limit,incomeType}}),
   userTrades:({symbol,startTime,endTime,limit=1000}={})=>req("/fapi/v1/userTrades",{signed:true,params:{symbol,startTime,endTime,limit}}),
   setLeverage:(symbol,leverage)=>req("/fapi/v1/leverage",{method:"POST",signed:true,params:{symbol,leverage}}),
   setMarginType:(symbol,marginType)=>req("/fapi/v1/marginType",{method:"POST",signed:true,params:{symbol,marginType}}),
   order:params=>req("/fapi/v1/order",{method:"POST",signed:true,params}),
+  cancelOrder:(symbol,orderId)=>req("/fapi/v1/order",{method:"DELETE",signed:true,params:{symbol,orderId}}),
   cancelAll:symbol=>req("/fapi/v1/allOpenOrders",{method:"DELETE",signed:true,params:{symbol}})
 };}
 export function symbolFilters(exchangeInfo,symbol){const s=exchangeInfo?.symbols?.find(x=>x.symbol===symbol);if(!s)return null;const f=Object.fromEntries((s.filters||[]).map(x=>[x.filterType,x]));return {status:s.status,contractType:s.contractType,pricePrecision:s.pricePrecision,quantityPrecision:s.quantityPrecision,tickSize:Number(f.PRICE_FILTER?.tickSize||0),stepSize:Number(f.LOT_SIZE?.stepSize||0),marketStepSize:Number(f.MARKET_LOT_SIZE?.stepSize||f.LOT_SIZE?.stepSize||0),minQty:Number(f.LOT_SIZE?.minQty||0),minNotional:Number(f.MIN_NOTIONAL?.notional||5)};}
 export function floorStep(v,step){if(!(step>0))return v;return Math.floor(v/step+1e-12)*step;}
+export function roundTick(v,tick){if(!(tick>0))return v;return Math.round(v/tick)*tick;}
