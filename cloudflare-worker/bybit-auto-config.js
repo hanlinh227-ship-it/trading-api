@@ -5,7 +5,7 @@ export const BYBIT_AUTO_CONFIG={
   maxLeverage:5,
   scanEverySec:60,
   maxOpenPositions:3,
-  maxTradesPerDay:24,
+  maxTradesPerDay:null,
   risk:{
     mode:"BALANCE_DOLLAR_LADDER",
     baseBalanceUsd:50,
@@ -24,7 +24,7 @@ export const BYBIT_AUTO_CONFIG={
     maxSameDirectionPositions:2
   },
   filters:{minScore:72,maxSpreadBps:8,maxChaseAtr:.55,minAtrPct:.08,maxAtrPct:2.8},
-  execution:{recvWindow:5000,cooldownSec:90,positionIdx:0}
+  execution:{recvWindow:5000,cooldownSec:300,positionIdx:0}
 };
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 export function bybitAutoConfig(env={}){
@@ -43,6 +43,10 @@ export function bybitAutoConfig(env={}){
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(4,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(5,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
   c.maxOpenPositions=Math.max(1,Math.min(3,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
+  c.maxTradesPerDay=null;
+  c.risk.maxLossStreak=3;
+  c.risk.pauseMinutes=30;
+  c.execution.cooldownSec=Math.max(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
   return c;
 }
 export function bybitExecutionMode(env={}){
