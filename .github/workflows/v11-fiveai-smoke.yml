@@ -1,0 +1,54 @@
+name: V11 5AI Gateway Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Resolve gateway and OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUBDOMAIN="$(curl -fsS --connect-timeout 5 --max-time 10 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json;print((json.load(sys.stdin).get("result") or {}).get("subdomain") or "")')"
+          test -n "$SUBDOMAIN"
+          OIDC="$(curl -fsS --connect-timeout 5 --max-time 10 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC"
+          echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
+          echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
+          echo GATEWAY_RESOLVE_OK
+      - name: Call five AI once
+        shell: bash
+        run: |
+          set -uo pipefail
+          printf '%s' '{"task_id":"github-fiveai-smoke","instruction":"Connectivity smoke only. Each configured provider should return a minimal acknowledgement.","context":{"text":"smoke"}}' >/tmp/body.json
+          CODE="$(curl -sS --connect-timeout 5 --max-time 75 -o /tmp/result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/body.json || echo CURL_FAIL)"
+          echo "HTTP=$CODE"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          f=Path('/tmp/result.json')
+          if not f.exists(): raise SystemExit('NO_GATEWAY_RESPONSE')
+          raw=f.read_text(errors='replace'); print('RESPONSE='+raw[:12000])
+          try: d=json.loads(raw)
+          except Exception as e: raise SystemExit('INVALID_JSON '+repr(e))
+          p=d.get('providers') or {}
+          names=['claude','codex','deepseek','qwen','openrouter']
+          bad=[]
+          for n in names:
+              x=p.get(n) or {}; status=str(x.get('status','')).upper()
+              print(f"PROVIDER={n} STATUS={status or 'MISSING'} ERROR={x.get('error') or x.get('message') or ''}")
+              if status!='OK': bad.append(n)
+          if bad: raise SystemExit('FIVEAI_FAIL '+','.join(bad))
+          print('FIVEAI_SMOKE_PASS')
+          PY
+          [[ "$CODE" =~ ^2[0-9][0-9]$ ]] || exit 20
