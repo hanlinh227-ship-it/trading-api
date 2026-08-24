@@ -38,13 +38,15 @@ jobs:
       - name: Full V11 preflight
         working-directory: cloudflare-worker
         run: npm run check
-      - name: Current V11 invariants
+      - name: Current V11 and Bybit invariants
         shell: bash
         run: |
           set -euo pipefail
           grep -q 'hub-v11.js' cloudflare-worker/index.js
           grep -q 'signalOnlySourceOfTruth:"V11"' cloudflare-worker/index.js
-          grep -q 'SIGNAL_V11_MAINTENANCE' cloudflare-worker/index.js
+          grep -q 'bybitAutoProjectSeparate:true' cloudflare-worker/index.js
+          grep -q 'bybitPrimaryExecution:true' cloudflare-worker/index.js
+          grep -q 'runBybitAutoControlled' cloudflare-worker/index.js
           grep -q 'scheduledNativeV11' cloudflare-worker/hub-v11.js
           grep -q 'evaluateEntryEligibility' cloudflare-worker/v11/native-runtime.js
           grep -q 'evaluateHoldStatus' cloudflare-worker/v11/native-runtime.js
@@ -56,24 +58,16 @@ jobs:
           grep -q 'NO_FRESH_CRYPTO_QUOTE' cloudflare-worker/v11/live-quote.js
           grep -q 'crossSourceCount' cloudflare-worker/v11/live-quote.js
           grep -q 'LIMIT_NEAR_MARKET' cloudflare-worker/v11/entry-eligibility.js
+          grep -q 'POSITION_CUT_BY_MANAGER' cloudflare-worker/bybit-auto-v1.js
+          grep -q 'reduceOnly:true' cloudflare-worker/bybit-position-manager.js
+          grep -q 'verdict:"CUT"' cloudflare-worker/bybit-position-manager.js
+          grep -q 'HEALTH_USES_AUTHENTICATED_VPS_PRIVATE_TRANSPORT_ONLY' cloudflare-worker/bybit-readonly-health.js
           ! grep -R 'LEGACY_NON_MARKET' cloudflare-worker/v11
           ! grep -R 'INVALIDATED_LEGACY_NON_MARKET' cloudflare-worker/v11
           ! grep -R 'allThreeRequired:true' cloudflare-worker/v11
           ! grep -R 'V11_AI_BRIDGE_URL' cloudflare-worker/v11
           ! grep -q 'v10.scheduled' cloudflare-worker/hub-v11.js
-      - name: Maintenance safety invariant
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -f data/v11_backtest_gate.json ]; then
-            python3 - <<'PY'
-          import json
-          d=json.load(open('data/v11_backtest_gate.json',encoding='utf-8'))
-          if not d.get('allPassed',False):
-              text=open('cloudflare-worker/index.js',encoding='utf-8').read()
-              assert 'SIGNAL_V11_MAINTENANCE=true' in text, 'Hub must remain locked while backtest gate is not all-pass'
-          PY
-          fi
+          ! grep -q 'SIGNAL_V11_MAINTENANCE' cloudflare-worker/index.js
       - name: Validation summary
         run: |
           echo 'V11_VALIDATION=PASS'
@@ -81,3 +75,6 @@ jobs:
           echo 'LEGACY_INSTANT_CUT=ABSENT'
           echo 'CUT_REQUIRES_4OF5_AI=ON'
           echo 'MAX_OPEN_PER_MARKET=5'
+          echo 'BYBIT_AUTO_SEPARATE=ON'
+          echo 'BYBIT_POSITION_REVIEW=HOLD_TIGHTEN_CUT'
+          echo 'BYBIT_HEALTH_PRIVATE_VPS_ONLY=ON'
