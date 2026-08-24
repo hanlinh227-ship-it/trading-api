@@ -14,6 +14,7 @@ return {
   account:()=>req("/fapi/v3/account",{signed:true}),
   positions:()=>req("/fapi/v3/positionRisk",{signed:true}),
   openOrders:symbol=>req("/fapi/v1/openOrders",{signed:true,params:symbol?{symbol}:{}}),
+  queryOrder:(symbol,orderId)=>req("/fapi/v1/order",{signed:true,params:{symbol,orderId}}),
   income:({startTime,endTime,limit=1000,incomeType}={})=>req("/fapi/v1/income",{signed:true,params:{startTime,endTime,limit,incomeType}}),
   userTrades:({symbol,startTime,endTime,limit=1000}={})=>req("/fapi/v1/userTrades",{signed:true,params:{symbol,startTime,endTime,limit}}),
   setLeverage:(symbol,leverage)=>req("/fapi/v1/leverage",{method:"POST",signed:true,params:{symbol,leverage}}),
