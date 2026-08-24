@@ -4,7 +4,7 @@ const EXCLUDE_BASES=new Set(["USDC","FDUSD","TUSD","USDP","DAI","BUSD"]);
 const n=v=>Number(v);
 const good=x=>Number.isFinite(x)&&x>0;
 
-export async function buildBinanceLiquidUniverse(env,{minCount=50,maxCount=70,minQuoteVolumeUsd=5_000_000,maxSpreadBps=12}={}){
+export async function buildBinanceLiquidUniverse(env,{minCount=50,minQuoteVolumeUsd=5_000_000,maxSpreadBps=12}={}){
   const api=binanceUsdm(env);
   const [info,tickers,books]=await Promise.all([api.exchangeInfo(),api.ticker24h(),api.bookTicker()]);
   const tMap=new Map((Array.isArray(tickers)?tickers:[tickers]).map(x=>[x.symbol,x]));
@@ -18,6 +18,5 @@ export async function buildBinanceLiquidUniverse(env,{minCount=50,maxCount=70,mi
     rows.push({symbol:s.symbol,baseAsset:s.baseAsset,quoteVolume,spreadBps,trades:Number.isFinite(trades)?trades:0});
   }
   rows.sort((a,b)=>b.quoteVolume-a.quoteVolume||a.spreadBps-b.spreadBps||b.trades-a.trades);
-  const picked=rows.slice(0,Math.max(minCount,Math.min(maxCount,rows.length)));
-  return {ok:picked.length>=minCount,requestedMin:minCount,eligible:rows.length,count:picked.length,symbols:picked.map(x=>x.symbol),metrics:picked,reason:picked.length>=minCount?"OK":"INSUFFICIENT_LIQUID_UNIVERSE"};
+  return {ok:rows.length>=minCount,requestedMin:minCount,eligible:rows.length,count:rows.length,symbols:rows.map(x=>x.symbol),metrics:rows,reason:rows.length>=minCount?"OK":"INSUFFICIENT_LIQUID_UNIVERSE"};
 }
