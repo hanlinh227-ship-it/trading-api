@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "authority": "V11_DIRECT_5AI",
   "requestedBy": "chatgpt-prompt-control",
-  "requestedAt": "2026-08-24T09:32:00+07:00",
-  "requestNonce": "20260824-0932-force-fiveai",
+  "requestedAt": "2026-08-24T10:00:00+07:00",
+  "requestNonce": "20260824-1000-trigger-repair",
   "mode": "FULL_MARKET_RESEARCH",
   "catalogSymbols": 95,
   "targetPerSymbolWinRate": 0.80,
@@ -19,5 +19,5 @@
     "metal": "Dukascopy BID H1",
     "index": "Dukascopy mapped BID H1"
   },
-  "note": "Force fresh canonical Direct 5AI activation. All five AI required pre and post deterministic evidence."
+  "note": "Trigger repaired: any main push creates workflow run; [V11-RUN] gates the heavy 5AI job."
 }
