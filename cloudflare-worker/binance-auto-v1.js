@@ -2,6 +2,7 @@ import {binance20Config} from "./binance-futures20-config.js";
 import {scanBinance20,sizeBinance20} from "./binance-futures20-engine.js";
 import {binanceUsdm} from "./binance-usdm-client.js";
 import {getDailySession,dailySessionPolicy} from "./binance-daily-session.js";
+import {reconcileDailyPnl} from "./binance-pnl-reconciliation.js";
 
 const KEY="binance:auto:v1:state";
 const now=()=>Date.now();
@@ -16,11 +17,17 @@ function executionMode(env){if(envBool(env.BINANCE_AUTO_LIVE))return "LIVE";if(e
 function validateExecutionTarget(env,mode){const base=String(env.BINANCE_FUTURES_BASE_URL||"https://fapi.binance.com").toLowerCase(),looksTestnet=base.includes("testnet")||base.includes("demo");if(mode==="TESTNET"&&!looksTestnet)return "TESTNET_BASE_URL_REQUIRED";if(mode==="LIVE"&&looksTestnet)return "LIVE_BASE_URL_MISMATCH";if(mode==="LIVE"&&!envBool(env.BINANCE_AUTO_LIVE_ACK))return "LIVE_ACK_REQUIRED";return null;}
 
 export async function runBinanceAutoV1(env){
-  const cfg=binance20Config(env),mode=executionMode(env),targetErr=validateExecutionTarget(env,mode),state=resetDaily(await get(env)),session=await getDailySession(env),target=dailySessionPolicy(session,state),stop=hardStop(state,cfg);
-  if(targetErr)return {ok:true,executed:false,mode,reason:targetErr,session,target,state};
-  if(!target.active){await put(env,state);return {ok:true,executed:false,mode,reason:"WAITING_FOR_DAILY_TARGET",session,target,state};}
-  if(target.reached){await put(env,state);return {ok:true,executed:false,mode,reason:"DAILY_TARGET_REACHED",session,target,state};}
-  if(stop){await put(env,state);return {ok:true,executed:false,mode,reason:stop,session,target,state};}
+  const cfg=binance20Config(env),mode=executionMode(env),targetErr=validateExecutionTarget(env,mode);
+  let state=resetDaily(await get(env));
+  let pnl=null;
+  if(mode!=="PAPER"){
+    try{pnl=await reconcileDailyPnl(env,state);state=pnl.state;await put(env,state);}catch(e){return {ok:true,executed:false,mode,reason:"PNL_RECONCILIATION_FAILED",error:String(e?.message||e),state};}
+  }
+  const session=await getDailySession(env),target=dailySessionPolicy(session,state),stop=hardStop(state,cfg);
+  if(targetErr)return {ok:true,executed:false,mode,reason:targetErr,session,target,pnl,state};
+  if(!target.active){await put(env,state);return {ok:true,executed:false,mode,reason:"WAITING_FOR_DAILY_TARGET",session,target,pnl,state};}
+  if(target.reached){await put(env,state);return {ok:true,executed:false,mode,reason:"DAILY_TARGET_REACHED",session,target,pnl,state};}
+  if(stop){await put(env,state);return {ok:true,executed:false,mode,reason:stop,session,target,pnl,state};}
 
   const api=binanceUsdm(env);let equity=cfg.startingCapitalUsd,positions=[];
   if(mode!=="PAPER"){
@@ -28,22 +35,22 @@ export async function runBinanceAutoV1(env){
     equity=Number(acct.totalWalletBalance||acct.totalMarginBalance||cfg.startingCapitalUsd);
     positions=(pos||[]).filter(x=>Math.abs(Number(x.positionAmt||0))>0);
   }
-  if(mode!=="PAPER"&&positions.length>=cfg.maxOpenPositions)return {ok:true,executed:false,mode,reason:"MAX_OPEN_POSITIONS",positions:positions.length,session,target,state};
+  if(mode!=="PAPER"&&positions.length>=cfg.maxOpenPositions)return {ok:true,executed:false,mode,reason:"MAX_OPEN_POSITIONS",positions:positions.length,session,target,pnl,state};
 
   const scan=await scanBinance20(env),setup=scan.best;
-  if(!setup)return {ok:true,executed:false,mode,reason:scan.reason||"NO_SETUP",scan,session,target,state};
-  if(Number(setup.rr||0)<cfg.risk.minRR)return {ok:true,executed:false,mode,reason:"RR_TOO_LOW",setup,scan,session,target,state};
+  if(!setup)return {ok:true,executed:false,mode,reason:scan.reason||"NO_SETUP",scan,session,target,pnl,state};
+  if(Number(setup.rr||0)<cfg.risk.minRR)return {ok:true,executed:false,mode,reason:"RR_TOO_LOW",setup,scan,session,target,pnl,state};
 
   const sizing=sizeBinance20(setup,setup.filters,cfg,equity);
-  if(!sizing.ok)return {ok:true,executed:false,mode,reason:sizing.reason,setup,sizing,scan,session,target,state};
+  if(!sizing.ok)return {ok:true,executed:false,mode,reason:sizing.reason,setup,sizing,scan,session,target,pnl,state};
 
   const fingerprint=`${setup.symbol}:${setup.side}:${setup.strategy}:${Math.round(Number(setup.entry||0)*1e6)}`;
-  if(state.lastFingerprint===fingerprint&&now()-Number(state.lastTradeAt||0)<cfg.execution.cooldownSec*1000)return {ok:true,executed:false,mode,reason:"DUPLICATE_COOLDOWN",setup,scan,session,target,state};
+  if(state.lastFingerprint===fingerprint&&now()-Number(state.lastTradeAt||0)<cfg.execution.cooldownSec*1000)return {ok:true,executed:false,mode,reason:"DUPLICATE_COOLDOWN",setup,scan,session,target,pnl,state};
 
   const plan={symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,tp:setup.tp,rr:setup.rr,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,targetMode:target.mode,targetRemainingUsd:target.remainingUsd,universeCount:Number(scan?.universe?.count||0),createdAt:iso()};
   if(mode==="PAPER"){
     state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fingerprint;state.lastPlan=plan;await put(env,state);
-    return {ok:true,executed:true,paper:true,mode,reason:"PAPER_ORDER_ACCEPTED",plan,scan,session,target,state};
+    return {ok:true,executed:true,paper:true,mode,reason:"PAPER_ORDER_ACCEPTED",plan,scan,session,target,pnl,state};
   }
 
   await api.setLeverage(setup.symbol,cfg.leverage).catch(()=>{});
@@ -56,7 +63,7 @@ export async function runBinanceAutoV1(env){
   }catch(e){try{await api.order({symbol:setup.symbol,side:closeSide,type:"MARKET",quantity:sizing.qty,reduceOnly:true});}catch{}throw new Error("PROTECTION_ORDER_FAILED:"+String(e?.message||e));}
 
   state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fingerprint;state.lastPlan={...plan,orderId:entry.orderId};await put(env,state);
-  return {ok:true,executed:true,mode,reason:"ORDER_SUBMITTED_AND_PROTECTED",plan:{...plan,orderId:entry.orderId},scan,session,target,state};
+  return {ok:true,executed:true,mode,reason:"ORDER_SUBMITTED_AND_PROTECTED",plan:{...plan,orderId:entry.orderId},scan,session,target,pnl,state};
 }
 
 export async function getBinanceAutoV1State(env){return get(env);}
