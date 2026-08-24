@@ -5,7 +5,7 @@ export const BYBIT_AUTO_CONFIG={
   maxLeverage:5,
   scanEverySec:60,
   maxOpenPositions:3,
-  maxTradesPerDay:null,
+  maxTradesPerDay:1000000000,
   risk:{
     mode:"BALANCE_DOLLAR_LADDER",
     baseBalanceUsd:50,
@@ -43,9 +43,9 @@ export function bybitAutoConfig(env={}){
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(4,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(5,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
   c.maxOpenPositions=Math.max(1,Math.min(3,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
-  c.maxTradesPerDay=null;
-  c.risk.maxLossStreak=3;
-  c.risk.pauseMinutes=30;
+  c.maxTradesPerDay=1000000000;
+  c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
+  c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
   c.execution.cooldownSec=Math.max(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
   return c;
 }
