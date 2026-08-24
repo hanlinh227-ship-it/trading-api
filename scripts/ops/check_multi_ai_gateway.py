@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Fail-closed runtime health validator for the Trading Multi-AI gateway."""
+"""Runtime health validator for the Trading Multi-AI gateway.
+
+Claude, Codex and DeepSeek are the required trading core. Qwen/OpenRouter remain
+observable optional lanes and may be degraded without marking the trading core down.
+"""
 from __future__ import annotations
 import json,os,subprocess,time
 URL=os.environ.get('MULTI_AI_GATEWAY_HEALTH_URL','').strip()
 OIDC=os.environ.get('GATEWAY_OIDC','').strip()
 TIMEOUT=float(os.environ.get('MULTI_AI_GATEWAY_TIMEOUT_SECONDS','10'))
 MAX_AGE_MS=int(os.environ.get('MULTI_AI_GATEWAY_MAX_AGE_MS','300000'))
-EXPECTED=('claude','codex','deepseek','qwen','openrouter')
+CORE=('claude','codex','deepseek')
+OPTIONAL=('qwen','openrouter')
 GOOD={'ONLINE','PASS','ACCEPT'}
 def fail(message,code=2):print(json.dumps({'ok':False,'error':message},ensure_ascii=False));raise SystemExit(code)
 def ms(v):
@@ -27,23 +32,29 @@ def fetch_json():
     if code!=200:fail(f'gateway returned HTTP {code}: {body[:500]}')
     try:return json.loads(body)
     except json.JSONDecodeError:fail('gateway returned invalid JSON')
+def inspect(name,x,now,required):
+    if not isinstance(x,dict):return {'configured':False,'state':'MISSING','age_ms':None}, (name+':MISSING' if required else None)
+    state=str(x.get('state') or x.get('status') or 'UNKNOWN').upper();seen=ms(x.get('last_seen') or x.get('last_updated') or x.get('timestamp'));age=None if seen is None else max(0,now-seen)
+    detail={'configured':x.get('configured') is True,'state':state,'age_ms':age}
+    if not required:return detail,None
+    if x.get('configured') is not True:return detail,name+':NOT_CONFIGURED'
+    if state not in GOOD:return detail,name+':'+state
+    if seen is None:return detail,name+':NO_RUNTIME_TIMESTAMP'
+    if seen>now+30000:return detail,name+':FUTURE_TIMESTAMP'
+    if age>MAX_AGE_MS:return detail,name+':STALE'
+    return detail,None
 def main():
     if not URL:fail('MULTI_AI_GATEWAY_HEALTH_URL is required')
     if not (URL.startswith('https://') or URL.startswith('http://127.0.0.1') or URL.startswith('http://localhost')):fail('gateway health URL must use HTTPS unless localhost')
     p=fetch_json()
     if not isinstance(p,dict) or not isinstance(p.get('providers'),dict):fail('gateway payload missing providers object')
     now=int(time.time()*1000);bad=[];details={}
-    for name in EXPECTED:
-        x=p['providers'].get(name)
-        if not isinstance(x,dict):bad.append(name+':MISSING');continue
-        state=str(x.get('state') or x.get('status') or 'UNKNOWN').upper();seen=ms(x.get('last_seen') or x.get('last_updated') or x.get('timestamp'));age=None if seen is None else max(0,now-seen)
-        details[name]={'configured':x.get('configured') is True,'state':state,'age_ms':age}
-        if x.get('configured') is not True:bad.append(name+':NOT_CONFIGURED')
-        elif state not in GOOD:bad.append(name+':'+state)
-        elif seen is None:bad.append(name+':NO_RUNTIME_TIMESTAMP')
-        elif seen>now+30000:bad.append(name+':FUTURE_TIMESTAMP')
-        elif age>MAX_AGE_MS:bad.append(name+':STALE')
-    result={'ok':bool(p.get('ok')) and not bad,'service':str(p.get('service') or 'unknown')[:120],'mode':str(p.get('mode') or 'unknown')[:80],'providers':details,'failures':bad}
+    for name in CORE:
+        details[name],failure=inspect(name,p['providers'].get(name),now,True)
+        if failure:bad.append(failure)
+    for name in OPTIONAL:
+        details[name],_=inspect(name,p['providers'].get(name),now,False)
+    result={'ok':not bad,'service':str(p.get('service') or 'unknown')[:120],'mode':str(p.get('mode') or 'unknown')[:80],'requiredProviders':list(CORE),'optionalProviders':list(OPTIONAL),'providers':details,'failures':bad}
     print(json.dumps(result,ensure_ascii=False,indent=2))
     if not result['ok']:raise SystemExit(3)
 if __name__=='__main__':main()
