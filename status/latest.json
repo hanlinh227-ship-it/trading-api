@@ -1,13 +1,13 @@
 {
   "status": "HARD_BLOCKER_RUN_INCOMPLETE",
-  "runId": "32706176336",
-  "commit": "2f2de737b3893a7ad3b77a37b957f54b5a776f0a",
+  "runId": "32707047988",
+  "commit": "061339ec6031b0a8a7c2f2265f23ff338e14e247",
   "fiveAiPre": {
-    "claude": "MISSING",
-    "codex": "MISSING",
-    "deepseek": "MISSING",
-    "qwen": "MISSING",
-    "openrouter": "MISSING"
+    "claude": "ERROR",
+    "codex": "OK",
+    "deepseek": "OK",
+    "qwen": "OK",
+    "openrouter": "OK"
   },
   "fiveAiPost": {
     "claude": "MISSING",

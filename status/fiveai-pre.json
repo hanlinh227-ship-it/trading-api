@@ -1,21 +1,98 @@
 {
-  "allFiveReady": false,
+  "ok": false,
+  "task_id": "v11-pre-32707047988",
   "providers": {
     "claude": {
-      "status": "TIMEOUT"
+      "status": "ERROR",
+      "latencySeconds": 50.7,
+      "error": "Invalid control character at: line 6 column 346 (char 800)"
     },
     "codex": {
-      "status": "OK"
+      "status": "OK",
+      "latencySeconds": 24.23,
+      "review": {
+        "verdict": "PASS",
+        "findings": [
+          "Integrity risks: ambiguous eligible-day definition, regime labels, threshold/RR search bounds, tie-breaking, transaction-cost model, session/timezone rules, and same-bar stop/target resolution could enable hidden discretion or leakage.",
+          "Independent per-symbol tuning must retain every symbol and every eligible day; zero-signal days cannot be silently excluded.",
+          "Regimes and candidate grids must be frozen before DEV replay. VALIDATION may select only by a deterministic predeclared rule; FINAL remains sealed.",
+          "Warm-up may precede a partition, but signals and outcome horizons must not cross partition boundaries. Costs, gaps, missing bars, and duplicate timestamps require deterministic handling.",
+          "The 80% win-rate and positive-expectancy requirements must be checked from deterministic replay with sample counts and uncertainty disclosed; no performance conclusion is supported yet."
+        ],
+        "proposal": "For each symbol, predeclare a small finite grid: RR={1,2}; breakout lookback={3,5,8}; RSI bands from a fixed set; EMA20 location buffer={0,0.25,0.5} ATR; maxTrades/day={1,2,3}. Test separately in frozen trend-strength and volatility regimes derived only from information available at signal time, such as EMA-slope/ATR-quantile bins computed using trailing partition-safe windows. Use identical next-bar entry, cost, stop/target, and collision rules. Select one configuration per symbol using DEV, confirm unchanged on VALIDATION with deterministic tie-breaking favoring fewer parameters and lower turnover, then lock before FINAL. Preserve fallback behavior for sparse regimes and report all symbols, eligible days, executions, skipped-data reasons, and rejection reasons.",
+        "evidence": [
+          "Supplied contract fixes 95 independent symbols, RR choices, execution-count constraints, exact-instrument data, prohibited practices, and DEV/VALIDATION-only selection.",
+          "Supplied method defines base timeframes, feature families, deterministic next-bar entry, and ATR/structure stops.",
+          "Supplied integrity statement specifies fixed warm-up, day-aligned partitions, partition-safe horizons, seals, and inaccessible FINAL.",
+          "No deterministic replay results were supplied; therefore this verdict approves only the bounded pre-research design, not performance or contract attainment."
+        ]
+      },
+      "last_seen": 1787560536357
     },
     "deepseek": {
-      "status": "OK"
+      "status": "OK",
+      "latencySeconds": 5.75,
+      "review": {
+        "verdict": "PASS",
+        "findings": [
+          "The contract and method are clearly defined with explicit integrity constraints (no pooling, no fabrication, no lookahead, no silent eligible-day deletion, FINAL inaccessible for tuning).",
+          "The method is deterministic and bounded: fixed base timeframes, fixed feature set, deterministic next-bar entry, ATR/structure stop, RR 1 or 2, and per-symbol selection using only DEV+VALIDATION.",
+          "The research wrapper enforces fixed warm-up, day-aligned partitions, partition-safe outcome horizons, and 1..3 executions per eligible day, which prevents leakage and supports deterministic replay.",
+          "No performance claims are made from code; the task explicitly requires performance truth only from deterministic replay, which is correctly stated."
+        ],
+        "proposal": "Proceed with deterministic replay on DEV/VALIDATION to generate per-symbol evidence. Then test bounded per-symbol/per-regime refinements only if they are derived from that evidence and remain within the contract's constraints. Suggested hypotheses to test after evidence: (1) For each symbol, test RR=1 vs RR=2 with a bounded threshold sweep (e.g., 3-5 values) on DEV, validate on VALIDATION, and select the best per-symbol configuration only if it maintains minWinRatePct>=80 and positive expectancy. (2) For each regime (trending vs ranging, identified by HTF EMA alignment and RSI filter), test a bounded set of maxTrades (e.g., 1, 2, 3) per eligible day, ensuring 1..3 executions. (3) Test ATR stop multiplier variations (e.g., 1.0, 1.5, 2.0) per symbol, but only if DEV evidence shows sensitivity. All refinements must be pre-registered, use only DEV/VALIDATION, and be frozen before FINAL. No FINAL tuning is allowed.",
+        "evidence": [
+          "Contract specifies 95 symbols, independent, 1..3 eligible-day executions, RR 1 or 2, minWinRatePct 80, positive expectancy, exact instrument data, and forbidden practices.",
+          "Method defines base timeframes, features, risk rules, and per-symbol selection using DEV+VALIDATION only.",
+          "Integrity wrapper ensures fixed warm-up, day-aligned partitions, partition-safe horizons, and FINAL inaccessibility for tuning."
+        ]
+      },
+      "last_seen": 1787560517878
     },
     "qwen": {
-      "status": "OK"
+      "status": "OK",
+      "latencySeconds": 3.91,
+      "review": {
+        "verdict": "PASS",
+        "findings": [
+          "Contract defines 95 independent symbols with exact instrument data, supporting bounded deterministic refinement per symbol.",
+          "Method specifies HTF EMA trend alignment, EMA20 ATR location, 5-bar breakout trigger, and RSI regime filter\u2014clear, testable features.",
+          "Risk management includes ATR/structure stops, deterministic next-bar entries, and fixed RR (1 or 2), ensuring reproducible execution logic.",
+          "Selection mechanism uses per-symbol bounded RR/threshold/maxTrades via DEV+VALIDATION only, aligning with integrity constraints.",
+          "Integrity checks confirm fixed warm-up, day-aligned partitions, and partition-safe horizons, enabling deterministic replay."
+        ],
+        "proposal": "Proceed with bounded per-symbol/per-regime hypothesis testing using DEV/VALIDATION partitions. Focus on feature impact within each regime (forex/M5, crypto/H4, metal/H1, index/H1) under fixed RR and threshold constraints. No FINAL tuning allowed.",
+        "evidence": [
+          "Contract symbols = 95, independent=true, exactInstrumentData=true",
+          "Method features = ['HTF EMA trend alignment', 'EMA20 ATR location', '5-bar breakout trigger', 'RSI regime filter']",
+          "Risk = ATR/structure stop; deterministic next-bar entry; RR 1 or 2",
+          "Selection = per-symbol bounded RR/threshold/maxTrades using DEV+VALIDATION only",
+          "Integrity = fixed warm-up, day-aligned DEV/VALIDATION/FINAL partitions, partition-safe horizons"
+        ]
+      },
+      "last_seen": 1787560516037
     },
     "openrouter": {
-      "status": "ERROR"
+      "status": "OK",
+      "latencySeconds": 10.35,
+      "review": {
+        "verdict": "PASS",
+        "findings": [
+          "Integrity constraints are explicitly defined: no pooling, no symbol deletion, no fabrication, no lookahead/leakage, no silent eligible-day deletion, and FINAL is inaccessible for tuning.",
+          "Partitioning is day-aligned with fixed warm-up and partition-safe outcome horizons, which mitigates temporal leakage.",
+          "Eligible-day execution is bounded to 1..3 trades, and per-symbol parameters are tuned only on DEV+VALIDATION, not FINAL.",
+          "Potential risk: 'minWinRatePct':80 is a target, not a guarantee; performance must be validated via deterministic replay only.",
+          "The method's feature set (HTF EMA, EMA20/ATR, 5-bar breakout, RSI regime) is well-defined but may require per-symbol calibration to avoid overfitting."
+        ],
+        "proposal": "After deterministic DEV/VALIDATION evidence, test bounded per-symbol/per-regime hypotheses: (1) For each symbol, compare RR=1 vs RR=2 conditioned on ATR percentile (e.g., high volatility favors RR=2) and trend strength (EMA slope). (2) Vary RSI overbought/oversold thresholds (e.g., 70/30 vs 80/20) based on whether the market is trending or ranging (using ADX or EMA distance). (3) Adjust maxTrades per day (1 vs 2 vs 3) based on volatility regime (ATR percentile) to control risk. All hypotheses must be pre-registered and evaluated only on FINAL after DEV/VALIDATION selection, with no further tuning.",
+        "evidence": [
+          "Contract specifies 95 symbols, independent, 1..3 eligible-day executions, RR 1 or 2, minWinRatePct 80, positive expectancy, exact instrument data.",
+          "Method uses HTF EMA trend alignment, EMA20/ATR location, 5-bar breakout trigger, RSI regime filter; risk via ATR/structure stop, deterministic next-bar entry.",
+          "Selection uses per-symbol bounded RR/threshold/maxTrades from DEV+VALIDATION only.",
+          "Integrity wrapper includes fixed warm-up, day-aligned partitions, partition-safe outcome horizons, profile/data/source seal, and FINAL inaccessible for tuning."
+        ]
+      },
+      "last_seen": 1787560522486
     }
-  },
-  "error": null
+  }
 }
