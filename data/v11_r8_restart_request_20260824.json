@@ -1,0 +1,7 @@
+{
+  "requestedAt": "2026-08-24T17:55:00+07:00",
+  "action": "RESTART_V11_LEGACY_STYLE_MULTIROUND_5AI_BACKTEST",
+  "catalogCount": 94,
+  "reason": "Owner requested clean restart while live-entry prompts are prepared separately.",
+  "productionChanged": false
+}
