@@ -1,27 +1,27 @@
 {
-  "status": "FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE",
-  "runId": "32708069018",
-  "commit": "bdf139b547a740e82b20c8043ae2ab6b738ff5b1",
+  "status": "REFINEMENT_REQUIRED",
+  "runId": "32712850435",
+  "commit": "32d56df6c8ca48ee0cd19cf9ef32c03b9b182ac1",
   "fiveAiPre": {
-    "claude": "TIMEOUT",
+    "claude": "OK",
     "codex": "OK",
     "deepseek": "OK",
     "qwen": "OK",
     "openrouter": "OK"
   },
   "fiveAiPost": {
-    "claude": "MISSING",
-    "codex": "MISSING",
-    "deepseek": "MISSING",
-    "qwen": "MISSING",
-    "openrouter": "MISSING"
+    "claude": "TIMEOUT",
+    "codex": "OK",
+    "deepseek": "OK",
+    "qwen": "OK",
+    "openrouter": "OK"
   },
   "fast": {
     "catalogCount": 95,
     "resultCount": 95,
-    "passCount": 0,
-    "failCount": 95,
-    "dataUnavailable": 64,
+    "passCount": 7,
+    "failCount": 88,
+    "dataUnavailable": 1,
     "allValidationPass": false
   },
   "final": {

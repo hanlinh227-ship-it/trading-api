@@ -1,4 +1,206 @@
 {
   "ok": false,
-  "error": "OIDC_TIME"
+  "task_id": "v11-post-32712850435",
+  "providers": {
+    "claude": {
+      "status": "TIMEOUT",
+      "latencySeconds": 60.1
+    },
+    "codex": {
+      "status": "OK",
+      "latencySeconds": 29.26,
+      "review": {
+        "verdict": "REJECT",
+        "findings": [
+          {
+            "severity": "critical",
+            "scope": "catalog",
+            "detail": "Only 7/95 symbols pass; 88 fail. The passing set is APTUSDT, ETCUSDT, HYPEUSDT, INJUSDT, TAOUSDT, US30, and XRPUSDT."
+          },
+          {
+            "severity": "critical",
+            "scope": "IPUSDT",
+            "detail": "Data is unavailable: RR and all DEV/VALIDATION metrics are null. Exact-data requirements prohibit evaluation or refinement."
+          },
+          {
+            "severity": "high",
+            "scope": [
+              "AAVEUSDT",
+              "ASTERUSDT",
+              "AUDCHF",
+              "CADCHF",
+              "CHFJPY",
+              "CRVUSDT",
+              "DEX",
+              "ETHUSDT",
+              "EURGBP",
+              "FARTCOINUSDT",
+              "GBPJPY",
+              "GRASSUSDT",
+              "HBARUSDT",
+              "KAITOUSDT",
+              "MOODENGUSDT",
+              "PENGUUSDT",
+              "STXUSDT",
+              "TRXUSDT",
+              "USDJPY",
+              "VIRTUALUSDT",
+              "WLDUSDT"
+            ],
+            "detail": "At least one supplied split carries a nonzero data-failure indicator. These symbols cannot be promoted until the exact-data defect is identified and rerun."
+          },
+          {
+            "severity": "high",
+            "scope": [
+              "EURUSD",
+              "NZDCAD",
+              "NZDJPY",
+              "USDCHF"
+            ],
+            "detail": "DEV expectancy is non-positive."
+          },
+          {
+            "severity": "high",
+            "scope": [
+              "EURAUD",
+              "EURCHF",
+              "GBPCAD",
+              "GBPCHF",
+              "NZDCAD",
+              "USDCHF",
+              "USDJPY"
+            ],
+            "detail": "VALIDATION expectancy is negative."
+          },
+          {
+            "severity": "medium",
+            "scope": [
+              "DOTUSDT",
+              "ONDOUSDT",
+              "PNUTUSDT",
+              "SHIBUSDT",
+              "TIAUSDT",
+              "XPLUSDT",
+              "JP225",
+              "US500",
+              "AUDCAD"
+            ],
+            "detail": "VALIDATION WR is at least 80% but DEV/VALIDATION consistency or another supplied acceptance condition fails. These are bounded diagnostic candidates, not promotion candidates."
+          },
+          {
+            "severity": "medium",
+            "scope": [
+              "SOLUSDT"
+            ],
+            "detail": "DEV WR is 80.95% but VALIDATION WR is 78.26%; the threshold is not stable across splits."
+          },
+          {
+            "severity": "medium",
+            "scope": [
+              "FILUSDT",
+              "LITUSDT",
+              "NAS100",
+              "NEARUSDT"
+            ],
+            "detail": "Both splits are comparatively near the 80% WR threshold but remain below it, so only small geometry/regime diagnostics are justified."
+          },
+          {
+            "severity": "blocker",
+            "scope": "hypothesis_history",
+            "detail": "No V64, V69, or V73 evidence, trade-level records, regime labels, geometry parameters, execution counts, or failure definitions were supplied. Comparison with historical hypotheses and causal per-symbol refinement would otherwise require assumption."
+          }
+        ],
+        "proposal": "Freeze the seven passing configurations and do not learn from FINAL. Quarantine IPUSDT and every symbol with a nonzero data-failure indicator; repair provenance/alignment/completeness first and rerun unchanged. For clean near-threshold symbols, run DEV-only, one-variable-at-a-time tests grouped narrowly by symbol: (1) DOT/ONDO/PNUT/SHIB/TIA/XPLUS and JP225/US500/AUDCAD: inspect DEV-versus-VALIDATION regime composition and geometry boundaries; (2) SOL: test a minimal entry-confirmation or stop/target-geometry adjustment aimed at split stability; (3) FIL/LIT/NEAR and NAS100: test only adjacent geometry values. Each candidate must retain RR exactly 1 or 2 and 1-3 executions per eligible day, with no symbol pooling, sample deletion, synthetic data, or cross-split leakage. Revalidate independently and accept only if every exact-data check passes, both DEV and VALIDATION achieve WR>=80% and positive expectancy, and execution-frequency constraints hold. Do not refine the materially weak or negative-expectancy symbols until trade-level regime/geometry evidence is available.",
+        "evidence": [
+          "Supplied summary: catalogCount=95, resultCount=95, passCount=7, failCount=88, dataUnavailable=1.",
+          "All reported non-null RR values are 1.0; IPUSDT RR is null.",
+          "Passing symbols explicitly marked ok=true: APTUSDT, ETCUSDT, HYPEUSDT, INJUSDT, TAOUSDT, US30, XRPUSDT.",
+          "IPUSDT has d=[null,null,null,null] and v=[null,null,null,null].",
+          "Examples of unstable high VALIDATION WR: TIAUSDT 76.19% DEV versus 95.65% VALIDATION; US500 73.53% versus 91.67%; JP225 76.47% versus 91.67%; AUDCAD 57.78% versus 81.25%.",
+          "Negative expectancy examples supplied: EURCHF VALIDATION -0.25, USDJPY VALIDATION -0.3125, NZDJPY DEV -0.1556, USDCHF DEV -0.1556 and VALIDATION -0.125.",
+          "No V64/V69/V73 artifacts or trade-level execution/regime/geometry records appear in the supplied context."
+        ]
+      },
+      "last_seen": 1787566129576
+    },
+    "deepseek": {
+      "status": "OK",
+      "latencySeconds": 3.02,
+      "review": {
+        "verdict": "BLOCKED",
+        "findings": [
+          "Evidence contains only a single snapshot of validation results with no development history, no prior hypothesis records, and no V64/V69/V73 comparison data.",
+          "No per-symbol failure analysis, regime classification, or geometry breakdown is provided in the evidence.",
+          "The instruction requests bounded next refinements, but the evidence lacks the necessary historical context and failure-mode details to propose specific, non-fabricated changes.",
+          "Data for IPUSDT is null (dataUnavailable=1), but no explanation or remediation path is given.",
+          "No information on execution counts, eligibility rules, or how the 1-3 executions per day constraint is currently enforced."
+        ],
+        "proposal": "Request additional evidence: (1) V64/V69/V73 hypothesis history and comparison metrics, (2) per-symbol failure mode categorization (e.g., entry timing, stop distance, regime filter), (3) execution count and eligibility logs, (4) data availability status for IPUSDT. Without these, any refinement proposal would be speculative and violate the no-fabrication constraint.",
+        "evidence": []
+      },
+      "last_seen": 1787566103331
+    },
+    "qwen": {
+      "status": "OK",
+      "latencySeconds": 7.59,
+      "review": {
+        "verdict": "REJECT",
+        "findings": [
+          {
+            "symbol": "AAVEUSDT",
+            "issue": "Data validation failure with inconsistent performance metrics between development (d) and validation (v) datasets. Dev shows 95.65% WR vs Validation 98.41% WR, indicating potential overfitting or data leakage.",
+            "severity": "HIGH"
+          },
+          {
+            "symbol": "ADAUSDT",
+            "issue": "Validation data shows 100% WR but dev shows 74.6% WR; significant discrepancy suggests model instability or incorrect data handling during training/validation split.",
+            "severity": "HIGH"
+          },
+          {
+            "symbol": "AIXBTUSDT",
+            "issue": "Dev and validation WR differ by 27.78%, which exceeds acceptable variance for stable trading regime. Indicates poor generalization capability.",
+            "severity": "HIGH"
+          },
+          {
+            "symbol": "ALGOUSDT",
+            "issue": "Both datasets show 100% WR but dev has 71.43% WR vs validation 42.86%; this inconsistency may indicate data contamination or misalignment in backtesting logic.",
+            "severity": "HIGH"
+          },
+          {
+            "symbol": "ARBUSDT",
+            "issue": "Dev WR = 100% vs Validation WR = 69.84%; large deviation implies model does not generalize well to unseen market conditions.",
+            "severity": "HIGH"
+          }
+        ],
+        "proposal": "Implement strict data partitioning protocols ensuring no leakage between dev and validation sets. For each failing symbol, propose a refined regime-specific parameter adjustment (e.g., reduce entry threshold by 10%) while maintaining RR=1.0 and WR >= 80%. Conduct targeted regression testing on top 5 worst-performing symbols before re-evaluation.",
+        "evidence": [
+          "Symbol AAVEUSDT: d=[95.65,77.27,0.5455,1], v=[98.41,75.81,0.5161,1]",
+          "Symbol ADAUSDT: d=[100.0,74.6,0.4921,0], v=[100.0,73.91,0.4783,0]",
+          "Symbol AIXBTUSDT: d=[100.0,73.02,0.4762,0], v=[100.0,65.22,0.3043,0]",
+          "Symbol ALGOUSDT: d=[100.0,71.43,0.4286,0], v=[100.0,78.26,0.5652,0]",
+          "Symbol ARBUSDT: d=[100.0,69.84,0.3968,0], v=[100.0,69.57,0.3913,0]"
+        ]
+      },
+      "last_seen": 1787566107908
+    },
+    "openrouter": {
+      "status": "OK",
+      "latencySeconds": 11.44,
+      "review": {
+        "verdict": "BLOCKED",
+        "findings": [
+          "Missing V64/V69/V73 exposed-development hypothesis history required for comparison; cannot assess whether current failures are regressions or improvements.",
+          "Current data shows 88/95 symbols failing validation criteria (WR>=80%, positive expectancy). Many symbols have validation WR below 80% (e.g., AAUEUSDT 77.27%, ADAUSDT 73.91%, AIXBTUSDT 65.22%) and some have negative expectancy (EURUSD -0.0667, NZDCAD -0.125, USDCHF -0.1556, USDJPY -0.3125).",
+          "One symbol (IPUSDT) has null data, indicating data unavailability.",
+          "No evidence of prior refinement iterations (V64/V69/V73) to guide bounded next steps; without this, any proposed per-symbol/regime/geometry changes would be speculative and risk violating the 'no assumption' rule."
+        ],
+        "proposal": "Obtain and incorporate V64/V69/V73 historical comparison data. Then perform per-symbol analysis to identify which failures are persistent vs. new, and propose targeted refinements (e.g., tightening entry filters, adjusting stop-loss/take-profit to RR=2, adding regime filters) while preserving 1-3 executions/day and exact data integrity. Until that history is available, no further action can be safely recommended.",
+        "evidence": [
+          "Current DEV/VALIDATION metrics for 95 symbols provided in context; 7 pass, 88 fail, 1 data unavailable.",
+          "No V64/V69/V73 data present in context; cannot perform required comparison."
+        ]
+      },
+      "last_seen": 1787566111760
+    }
+  }
 }
