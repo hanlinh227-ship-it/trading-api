@@ -19,7 +19,19 @@ OPENROUTER_API_KEY=os.environ.get('OPENROUTER_API_KEY','').strip()
 OPENROUTER_BASE_URL=os.environ.get('OPENROUTER_BASE_URL','https://openrouter.ai/api/v1').rstrip('/')
 OPENROUTER_MODEL=os.environ.get('OPENROUTER_MODEL','openrouter/auto')
 PROVIDERS=('claude','codex','deepseek','qwen','openrouter')
+SCALP_PROVIDERS=('claude','codex','deepseek')
 LAST={p:{'state':'UNKNOWN','last_seen':None} for p in PROVIDERS}
+BYBIT_BASES=('https://api.bybit.com','https://api.bytick.com')
+BYBIT_PRIVATE_PATHS=(
+    '/v5/account/wallet-balance',
+    '/v5/position/list',
+    '/v5/order/realtime',
+    '/v5/position/closed-pnl',
+    '/v5/order/create',
+    '/v5/position/set-leverage',
+    '/v5/position/trading-stop',
+    '/v5/order/cancel-all',
+)
 TRADING_ROLE='''V11 MANUAL WHOLE-MARKET MARKET HUNTER. Review only supplied fresh candidates. This is an on-demand second opinion, not an automatic signal authority and not execution. Pick immediate MARKET suitability only. Never invent missing data. Return JSON: {"direction":"LONG|SHORT|WAIT","confidence":0-100,"hardRisk":[],"evidence":[],"reason":"..."}. If current evidence is insufficient for immediate MARKET, return WAIT.'''
 ENGINEERING_ROLE='''You are one independent lane in the Trading Multi-AI engineering pool. Work only from supplied task/context. Never invent repository/runtime evidence. Do not execute trades or change deployment authority. Return one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. Missing evidence means BLOCKED, not assumption.'''
 SCALP_ROLE='''You are one independent reviewer for a 1-5 minute Bybit USDT perpetual scalp. Use only the supplied setup/context. Do not change size, leverage, SL or TP. Do not require a daily profit target. Return exactly one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. PASS means the supplied direction is reasonable for a scalp, REJECT means the thesis is materially weak/contradictory, BLOCKED means data is unsafe or insufficient.'''
@@ -39,6 +51,15 @@ def role_for(evidence):
     if engineering(evidence):return ENGINEERING_ROLE
     if scalp(evidence):return SCALP_ROLE
     return TRADING_ROLE
+
+def requested_providers(evidence):
+    raw=evidence.get('requestedProviders') if isinstance(evidence,dict) else None
+    if not isinstance(raw,list):return SCALP_PROVIDERS if scalp(evidence) else PROVIDERS
+    out=[]
+    for p in raw:
+        p=str(p or '').lower().strip()
+        if p in PROVIDERS and p not in out:out.append(p)
+    return tuple(out) if out else (SCALP_PROVIDERS if scalp(evidence) else PROVIDERS)
 
 def validate_result(x,evidence):
     if verdict_mode(evidence):
@@ -95,33 +116,71 @@ def run_provider(provider,evidence):
     except Exception as x:
         LAST[provider]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return provider,{'status':'ERROR','latencySeconds':round(time.time()-t,2),'error':str(x)[:300]}
 
+def bybit_proxy(body):
+    method=str(body.get('method') or 'GET').upper()
+    path=str(body.get('path') or '')
+    query=str(body.get('query') or '')
+    raw_body=body.get('body')
+    hdr=body.get('headers') or {}
+    if method not in ('GET','POST'):return 400,{'ok':False,'error':'BYBIT_METHOD_NOT_ALLOWED'}
+    if path not in BYBIT_PRIVATE_PATHS:return 403,{'ok':False,'error':'BYBIT_PATH_NOT_ALLOWED','path':path}
+    allowed_headers={}
+    for k in ('X-BAPI-API-KEY','X-BAPI-TIMESTAMP','X-BAPI-RECV-WINDOW','X-BAPI-SIGN','Content-Type','Accept'):
+        if k in hdr:allowed_headers[k]=str(hdr[k])
+    if not all(allowed_headers.get(k) for k in ('X-BAPI-API-KEY','X-BAPI-TIMESTAMP','X-BAPI-RECV-WINDOW','X-BAPI-SIGN')):
+        return 400,{'ok':False,'error':'BYBIT_SIGNED_HEADERS_MISSING'}
+    data=None if method=='GET' else str(raw_body or '').encode()
+    attempts=[]
+    for base in BYBIT_BASES:
+        url=base+path+(('?'+query) if method=='GET' and query else '')
+        req=urllib.request.Request(url,data=data,method=method,headers=allowed_headers)
+        try:
+            with urllib.request.urlopen(req,timeout=15) as r:
+                raw=r.read(2_000_000).decode(errors='replace');status=r.status
+        except urllib.error.HTTPError as e:
+            status=e.code;raw=e.read(2_000_000).decode(errors='replace')
+        except Exception as e:
+            attempts.append({'base':base,'error':str(e)[:300]});continue
+        attempts.append({'base':base,'httpStatus':status})
+        try:upstream=json.loads(raw)
+        except Exception:upstream={'retCode':None,'retMsg':raw[:500]}
+        if status!=403:
+            return 200,{'ok':200<=status<300,'transport':'VPS_BYBIT_PRIVATE_PROXY','base':base,'httpStatus':status,'upstream':upstream,'attempts':attempts}
+    return 502,{'ok':False,'error':'BYBIT_PRIVATE_PROXY_ALL_BASES_FAILED','transport':'VPS_BYBIT_PRIVATE_PROXY','attempts':attempts}
+
 class H(BaseHTTPRequestHandler):
     def sendj(self,code,obj):
         raw=json.dumps(obj,ensure_ascii=False).encode();self.send_response(code);self.send_header('content-type','application/json');self.send_header('cache-control','no-store');self.send_header('content-length',str(len(raw)));self.end_headers();self.wfile.write(raw)
+    def authorized(self):return bool(SECRET and self.headers.get('authorization','')=='Bearer '+SECRET)
+    def read_json(self,limit=1_000_000):
+        n=int(self.headers.get('content-length','0'))
+        if n<=0 or n>limit:raise ValueError('BODY_SIZE')
+        return json.loads(self.rfile.read(n))
     def do_GET(self):
         if self.path!='/health':return self.sendj(404,{'ok':False})
         now=int(time.time()*1000);providers={};meta={'claude':(CLAUDE_MODEL,'architecture_reasoning'),'codex':(CODEX_MODEL,'technical_review'),'deepseek':(DEEPSEEK_MODEL,'implementation_repair'),'qwen':(QWEN_MODEL,'independent_repair_test'),'openrouter':(OPENROUTER_MODEL,'adversarial_fallback')}
         for p in PROVIDERS:
             model,role=meta[p];last=LAST[p];providers[p]={'configured':configured(p),'model':model,'role':role,'state':last['state'] if configured(p) else 'OFFLINE','last_seen':last['last_seen']}
-        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'PARALLEL','providerCount':sum(1 for p in PROVIDERS if configured(p)),'onDemandOnly':True,'timestamp':now,'providers':providers})
+        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'PARALLEL','providerCount':sum(1 for p in PROVIDERS if configured(p)),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitBases':list(BYBIT_BASES),'timestamp':now,'providers':providers})
     def do_POST(self):
-        if self.path!='/review':return self.sendj(404,{'ok':False})
-        if not SECRET or self.headers.get('authorization','')!='Bearer '+SECRET:return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
+        if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
         try:
-            n=int(self.headers.get('content-length','0'))
-            if n<=0 or n>1_000_000:return self.sendj(413,{'ok':False,'error':'BODY_SIZE'})
-            body=json.loads(self.rfile.read(n));e=body.get('evidence') or {}
+            body=self.read_json()
+            if self.path=='/bybit/private':
+                code,obj=bybit_proxy(body);return self.sendj(code,obj)
+            if self.path!='/review':return self.sendj(404,{'ok':False})
+            e=body.get('evidence') or {}
             if not isinstance(e,dict):return self.sendj(400,{'ok':False,'error':'EVIDENCE_OBJECT_REQUIRED'})
-            out={}
-            with ThreadPoolExecutor(max_workers=5) as pool:
-                for f in as_completed([pool.submit(run_provider,p,e) for p in PROVIDERS]):p,r=f.result();out[p]=r
-            ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in PROVIDERS};usable=sum(1 for x in ordered.values() if x.get('status')=='OK')
+            selected=requested_providers(e);out={}
+            with ThreadPoolExecutor(max_workers=max(1,len(selected))) as pool:
+                for f in as_completed([pool.submit(run_provider,p,e) for p in selected]):p,r=f.result();out[p]=r
+            ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in selected};usable=sum(1 for x in ordered.values() if x.get('status')=='OK')
             if scalp(e):ok=usable>=1
-            else:ok=usable==len(PROVIDERS)
-            self.sendj(200 if ok else 502,{'ok':ok,'usableProviderCount':usable,'providers':ordered,'timestamp':int(time.time()*1000),'mode':mode(e)})
+            else:ok=usable==len(selected)
+            self.sendj(200 if ok else 502,{'ok':ok,'requestedProviders':list(selected),'usableProviderCount':usable,'providers':ordered,'timestamp':int(time.time()*1000),'mode':mode(e)})
         except Exception as x:self.sendj(400,{'ok':False,'error':str(x)[:300]})
     def log_message(self,*args):pass
 
 if __name__=='__main__':
     if not SECRET:raise SystemExit('V11_AI_BRIDGE_SECRET required')
-    print(f'V11 multi-AI bridge listening {HOST}:{PORT} providers={",".join(PROVIDERS)}',flush=True);ThreadingHTTPServer((HOST,PORT),H).serve_forever()
+    print(f'V11 multi-AI + Bybit private bridge listening {HOST}:{PORT} providers={",".join(PROVIDERS)}',flush=True);ThreadingHTTPServer((HOST,PORT),H).serve_forever()
