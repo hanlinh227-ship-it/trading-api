@@ -23,6 +23,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
+      BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
 
     steps:
       - name: Checkout current main
@@ -41,6 +42,7 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           test -n "${TRADING_KV_NAMESPACE_ID:-}"
+          test -n "${BINANCE_BRIDGE_SECRET:-}"
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
       - name: Install pinned Wrangler
         working-directory: cloudflare-worker
@@ -51,6 +53,12 @@ jobs:
       - name: Prepare Wrangler with existing KV and VPC Service
         working-directory: cloudflare-worker
         run: npm run prepare:wrangler
+      - name: Sync Binance bridge secret
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
       - name: Deploy V11 production Worker
         working-directory: cloudflare-worker
         run: npx wrangler deploy
@@ -60,5 +68,5 @@ jobs:
           echo 'SIGNAL_ONLY_VERSION=V11'
           echo 'RUNTIME=CLOUDFLARE_NATIVE'
           echo 'VPC_AI_BRIDGE=AI_BRIDGE'
-          echo 'THREE_AI_HUNTER=ON_DEMAND_ONLY'
+          echo 'BINANCE_HEALTH=VPS_BRIDGE'
           echo 'BINANCE_AUTO=SEPARATE_EXECUTION_AUTHORITY'
