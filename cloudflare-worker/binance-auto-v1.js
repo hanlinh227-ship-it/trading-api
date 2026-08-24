@@ -19,6 +19,7 @@ function hardStop(state,cfg){if(Number(state.realizedUsd||0)<=-Math.abs(cfg.risk
 function executionMode(env){if(envBool(env.BINANCE_AUTO_LIVE))return "LIVE";if(envBool(env.BINANCE_AUTO_TESTNET))return "TESTNET";return "PAPER";}
 function validateExecutionTarget(env,mode){const base=String(env.BINANCE_FUTURES_BASE_URL||"https://fapi.binance.com").toLowerCase(),looksTestnet=base.includes("testnet")||base.includes("demo");if(mode==="TESTNET"&&!looksTestnet)return "TESTNET_BASE_URL_REQUIRED";if(mode==="LIVE"&&looksTestnet)return "LIVE_BASE_URL_MISMATCH";if(mode==="LIVE"&&!envBool(env.BINANCE_AUTO_LIVE_ACK))return "LIVE_ACK_REQUIRED";return null;}
 async function emergencyFlat(api,setup,qty){const closeSide=setup.side==="BUY"?"SELL":"BUY";try{return await api.order({symbol:setup.symbol,side:closeSide,type:"MARKET",quantity:qty,reduceOnly:true,newOrderRespType:"RESULT"});}catch{return null;}}
+function tpForReward(side,entry,qty,rewardUsd){const q=Math.abs(Number(qty||0)),r=Math.max(0,Number(rewardUsd||0));if(!(q>0)||!(r>0))return null;const d=r/q;return side==="BUY"?Number(entry)+d:Number(entry)-d;}
 
 async function manageOpenPlans(env,state,positions){
   const plans={...(state.openPlans||{})},liveSymbols=new Set((positions||[]).filter(x=>Math.abs(Number(x.positionAmt||0))>0).map(x=>String(x.symbol||"").toUpperCase())),results=[];
@@ -56,10 +57,13 @@ export async function runBinanceAutoV1(env){
   if(Number(setup.rr||0)<cfg.risk.minRR)return {ok:true,executed:false,mode,reason:"RR_TOO_LOW",setup,slot,scan,lifecycles,session,target,pnl,state};
   const sizing=sizeBinance20(setup,setup.filters,cfg,equity);
   if(!sizing.ok)return {ok:true,executed:false,mode,reason:sizing.reason,setup,sizing,slot,scan,lifecycles,session,target,pnl,state};
+  const plannedLadderTp=tpForReward(setup.side,setup.entry,sizing.qty,sizing.rewardUsd);
+  if(!(plannedLadderTp>0))return {ok:true,executed:false,mode,reason:"TP_LADDER_INVALID",setup,sizing,slot,scan,lifecycles,session,target,pnl,state};
+  setup.structureTp=setup.tp;setup.tp=plannedLadderTp;setup.rr=Number(sizing.targetRR||setup.rr);
   const fingerprint=`${setup.symbol}:${setup.side}:${setup.strategy}:${Math.round(Number(setup.entry||0)*1e6)}`;
   if(state.lastFingerprint===fingerprint&&now()-Number(state.lastTradeAt||0)<cfg.execution.cooldownSec*1000)return {ok:true,executed:false,mode,reason:"DUPLICATE_COOLDOWN",setup,slot,scan,lifecycles,session,target,pnl,state};
 
-  const plan={symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,tp:setup.tp,rr:setup.rr,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,exitPlan:setup.exitPlan,context:setup.context,targetMode:target.mode,targetRemainingUsd:target.remainingUsd,universeCount:Number(scan?.universe?.count||0),createdAt:iso()};
+  const plan={symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,tp:setup.tp,structureTp:setup.structureTp,rr:setup.rr,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,riskLadderStep:sizing.riskLadderStep,exitPlan:setup.exitPlan,context:setup.context,targetMode:target.mode,targetRemainingUsd:target.remainingUsd,universeCount:Number(scan?.universe?.count||0),createdAt:iso()};
   if(mode==="PAPER"){
     state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fingerprint;state.openPlans={...(state.openPlans||{}),[setup.symbol]:plan};await put(env,state);
     return {ok:true,executed:true,paper:true,mode,reason:"PAPER_ORDER_ACCEPTED",plan,slot,scan,session,target,pnl,state};
@@ -67,17 +71,20 @@ export async function runBinanceAutoV1(env){
 
   const preflight=await preflightExecution(api,setup,env);
   if(!preflight.ok)return {ok:true,executed:false,mode,reason:preflight.reason,preflight,setup,slot,scan,lifecycles,session,target,pnl,state};
-  const info=await api.exchangeInfo(),filters=symbolFilters(info,setup.symbol),sl=roundTick(setup.sl,filters?.tickSize||0),tp=roundTick(setup.tp,filters?.tickSize||0);
-  setup.sl=sl;setup.tp=tp;
+  const info=await api.exchangeInfo(),filters=symbolFilters(info,setup.symbol),sl=roundTick(setup.sl,filters?.tickSize||0),plannedTp=roundTick(setup.tp,filters?.tickSize||0);
+  setup.sl=sl;setup.tp=plannedTp;
   await api.setLeverage(setup.symbol,cfg.leverage).catch(()=>{});await api.setMarginType(setup.symbol,cfg.execution.marginType).catch(()=>{});
   const closeSide=setup.side==="BUY"?"SELL":"BUY",orderResult=await api.order({symbol:setup.symbol,side:setup.side,type:"MARKET",quantity:sizing.qty,newOrderRespType:"RESULT"}),fill=await resolveMarketFill(api,setup.symbol,orderResult);
   if(!fill.ok){await emergencyFlat(api,setup,sizing.qty);return {ok:false,executed:false,mode,reason:fill.reason,preflight,fill,setup,slot,scan,session,target,pnl,state};}
   const fillCheck=validateFillAgainstPlan({setup,preflight,fill,env});
   if(!fillCheck.ok){const emergency=await emergencyFlat(api,setup,fill.executedQty||sizing.qty);state.lastExecutionGuard={preflight,fill,fillCheck,emergencyFlat:!!emergency,at:iso()};await put(env,state);return {ok:true,executed:false,mode,reason:fillCheck.reason,emergencyFlat:!!emergency,preflight,fill,fillCheck,setup,slot,scan,session,target,pnl,state};}
+  const actualTpRaw=tpForReward(setup.side,fill.avgPrice,fill.executedQty||sizing.qty,sizing.rewardUsd),tp=roundTick(actualTpRaw,filters?.tickSize||0);
+  const actualRiskUsd=Math.abs(Number(fill.avgPrice)-sl)*Number(fill.executedQty||sizing.qty),actualRewardUsd=Math.abs(tp-Number(fill.avgPrice))*Number(fill.executedQty||sizing.qty),actualRR=actualRiskUsd>0?actualRewardUsd/actualRiskUsd:null;
+  if(!(tp>0)||!(actualRR>=Number(cfg.risk.minRR||1))){await emergencyFlat(api,setup,fill.executedQty||sizing.qty);return {ok:true,executed:false,mode,reason:"ACTUAL_LADDER_RR_INVALID",actualRR,actualRiskUsd,actualRewardUsd,preflight,fill,setup,slot,scan,session,target,pnl,state};}
   try{await api.order({symbol:setup.symbol,side:closeSide,type:"STOP_MARKET",stopPrice:sl,closePosition:true,workingType:"MARK_PRICE"});await api.order({symbol:setup.symbol,side:closeSide,type:"TAKE_PROFIT_MARKET",stopPrice:tp,closePosition:true,workingType:"MARK_PRICE"});}
   catch(e){await emergencyFlat(api,setup,fill.executedQty||sizing.qty);throw new Error("PROTECTION_ORDER_FAILED:"+String(e?.message||e));}
 
-  const actualPlan={...plan,entry:fill.avgPrice,sl,tp,rr:fillCheck.actualRR,qty:fill.executedQty,orderId:fill.orderId,execution:{preflight,fill:{avgPrice:fill.avgPrice,executedQty:fill.executedQty,orderId:fill.orderId},slippageBps:fillCheck.slippageBps,actualRR:fillCheck.actualRR}};
+  const actualPlan={...plan,entry:fill.avgPrice,sl,tp,rr:actualRR,qty:fill.executedQty,orderId:fill.orderId,riskUsd:actualRiskUsd,rewardUsd:actualRewardUsd,requestedRiskUsd:sizing.riskUsd,requestedRewardUsd:sizing.rewardUsd,execution:{preflight,fill:{avgPrice:fill.avgPrice,executedQty:fill.executedQty,orderId:fill.orderId},slippageBps:fillCheck.slippageBps,actualRR}};
   state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fingerprint;state.openPlans={...(state.openPlans||{}),[setup.symbol]:actualPlan};state.lastExecutionGuard=actualPlan.execution;await put(env,state);
   return {ok:true,executed:true,mode,reason:"ORDER_SUBMITTED_AND_PROTECTED",plan:actualPlan,slot,scan,lifecycles,session,target,pnl,state};
 }
