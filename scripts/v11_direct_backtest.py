@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Owner-authorized direct V11 backtest wrapper.
+"""Owner-authorized direct V11 research wrapper.
 
-Keeps the R5 engine isolated while correcting the mandatory daily execution gate:
-eligible days come from exact cached market-data days, not from threshold-passing
-candidate days, and the 1..3 cap is applied to actual next-bar execution date.
+Research-only guarantees added here without changing production authority:
+- eligible days come from exact cached market-data days after a fixed warm-up;
+- every eligible execution day must contain 1..3 real executions;
+- DEV, VALIDATION and untouched FINAL are chronologically disjoint;
+- profile selection uses DEV/VALIDATION only;
+- FINAL is replayed only with an already-frozen profile;
+- Twelve Data paging is rate-limited for the serial research runner.
 """
 from __future__ import annotations
 
 import statistics
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,8 +36,6 @@ def _market_day(ts: int, market: str) -> bool:
 
 
 def evaluate_candidates_direct(candidates, base_frame, rr, threshold, max_trades, market, start_ts, end_ts):
-    # Eligible days are defined from the exact cached feed itself, independently
-    # of the strategy threshold. This prevents zero-candidate days disappearing.
     eligible_days = {
         _day(r["ts"])
         for r in base_frame.rows
@@ -47,9 +50,7 @@ def evaluate_candidates_direct(candidates, base_frame, rr, threshold, max_trades
         if i < 0 or i + 1 >= len(base_frame.rows):
             continue
         exec_ts = int(base_frame.rows[i + 1]["ts"])
-        if not (start_ts <= exec_ts < end_ts):
-            continue
-        if not _market_day(exec_ts, market):
+        if not (start_ts <= exec_ts < end_ts) or not _market_day(exec_ts, market):
             continue
         item = dict(c)
         item["executionTs"] = exec_ts
@@ -70,11 +71,9 @@ def evaluate_candidates_direct(candidates, base_frame, rr, threshold, max_trades
             if not res:
                 continue
             signal_day = c.get("day") or _day(c.get("ts", c["executionTs"]))
-            # Preserve <=3 on signal date too; execution-date cap is the primary user contract.
             if signal_day_counts[signal_day] >= 3:
                 continue
-            trade = {**c, **res, "signalDay": signal_day}
-            trades.append(trade)
+            trades.append({**c, **res, "signalDay": signal_day})
             day_counts[day] += 1
             signal_day_counts[signal_day] += 1
             traded_days.add(day)
@@ -101,7 +100,7 @@ def evaluate_candidates_direct(candidates, base_frame, rr, threshold, max_trades
         "meanR": round(mean_r, 4),
         "maxTradesInDay": max(day_counts.values(), default=0),
         "maxSignalsInDay": max(signal_day_counts.values(), default=0),
-        "dailyExecutionIntegrity": bool(eligible_days) and len(zero_days) == 0 and max(day_counts.values(), default=0) <= 3,
+        "dailyExecutionIntegrity": bool(eligible_days) and len(zero_days) == 0 and 1 <= max(day_counts.values(), default=0) <= 3,
     }
 
 
@@ -118,10 +117,136 @@ def stats_ok_direct(s):
     )
 
 
-# Patch only the research scoring surface used by select_profile/run_final.
+def _boundaries(base_rows):
+    # Fixed warm-up is eligibility logic, not strategy-dependent candidate filtering.
+    warm = 61
+    if len(base_rows) <= warm + 30:
+        return None
+    usable = len(base_rows) - warm
+    dev_end_i = warm + max(1, int(usable * 0.60))
+    val_end_i = warm + max(2, int(usable * 0.82))
+    dev_end_i = min(dev_end_i, len(base_rows) - 2)
+    val_end_i = min(max(val_end_i, dev_end_i + 1), len(base_rows) - 1)
+    return {
+        "devStart": int(base_rows[warm]["ts"]),
+        "devEnd": int(base_rows[dev_end_i]["ts"]),
+        "validationStart": int(base_rows[dev_end_i]["ts"]),
+        "validationEnd": int(base_rows[val_end_i]["ts"]),
+        "finalStart": int(base_rows[val_end_i]["ts"]),
+        "finalEnd": int(base_rows[-1]["ts"]) + 1,
+    }
+
+
+def select_profile_direct(symbol, market, rows, cache_dir=None):
+    if len(rows) < engine.MIN_BARS[engine.BASE_TF[market]]:
+        return None, {"reason": "INSUFFICIENT_BARS", "bars": len(rows)}
+    frames, btf, _ = engine.build_frames(market, rows)
+    base = frames[btf]
+    bounds = _boundaries(base.rows)
+    if not bounds:
+        return None, {"reason": "INSUFFICIENT_PARTITION_BARS", "bars": len(base.rows)}
+    candidates = engine.build_or_load_candidates(symbol, market, rows, cache_dir)
+    best = None
+    for rr in engine.ALLOWED_RR:
+        for threshold in engine.THRESHOLDS:
+            for max_trades in engine.MAX_TRADES_OPTIONS:
+                dev = evaluate_candidates_direct(candidates, base, rr, threshold, max_trades, market, bounds["devStart"], bounds["devEnd"])
+                val = evaluate_candidates_direct(candidates, base, rr, threshold, max_trades, market, bounds["validationStart"], bounds["validationEnd"])
+                rank = (
+                    1 if stats_ok_direct(val) else 0,
+                    float(val.get("coveragePct", 0)),
+                    -int(val.get("zeroExecutionDays", 10**9)),
+                    float(val.get("winRate", 0)),
+                    float(val.get("meanR", -9)),
+                    float(dev.get("coveragePct", 0)),
+                    float(dev.get("winRate", 0)),
+                    float(dev.get("meanR", -9)),
+                )
+                profile = {
+                    "rr": float(rr),
+                    "threshold": float(threshold),
+                    "maxTrades": int(max_trades),
+                    **bounds,
+                    "partitionPolicy": "DEV_60_VALIDATION_22_FINAL_18_AFTER_FIXED_WARMUP",
+                }
+                if best is None or rank > best[0]:
+                    best = (rank, profile, dev, val)
+    if not best:
+        return None, {"reason": "NO_CANDIDATE"}
+    return best[1], {"dev": best[2], "validation": best[3]}
+
+
+def run_fast_direct(symbol, market, rows, cache_dir=None):
+    profile, ev = select_profile_direct(symbol, market, rows, cache_dir)
+    val = ev.get("validation") or {}
+    ok = bool(profile) and stats_ok_direct(val)
+    return {
+        "symbol": symbol,
+        "market": market,
+        "mode": "fast",
+        "pass": ok,
+        "reasons": [] if ok else ["NO_DEV_PROFILE" if not profile else "VALIDATION_FAIL"],
+        "profile": profile,
+        "dev": ev.get("dev"),
+        "validation": val,
+    }
+
+
+def run_final_direct(symbol, market, rows, cache_dir, profile):
+    required = ("rr", "threshold", "maxTrades", "finalStart", "finalEnd", "validationEnd")
+    if not profile or any(k not in profile for k in required):
+        return {"symbol": symbol, "market": market, "mode": "final", "pass": False, "reasons": ["UNSEALED_PROFILE"], "profile": profile, "oos": {}}
+    if int(profile["finalStart"]) != int(profile["validationEnd"]):
+        return {"symbol": symbol, "market": market, "mode": "final", "pass": False, "reasons": ["FINAL_BOUNDARY_MISMATCH"], "profile": profile, "oos": {}}
+    frames, btf, _ = engine.build_frames(market, rows)
+    base = frames[btf]
+    candidates = engine.build_or_load_candidates(symbol, market, rows, cache_dir)
+    oos = evaluate_candidates_direct(
+        candidates,
+        base,
+        float(profile["rr"]),
+        float(profile["threshold"]),
+        int(profile["maxTrades"]),
+        market,
+        int(profile["finalStart"]),
+        int(profile["finalEnd"]),
+    )
+    ok = stats_ok_direct(oos)
+    return {"symbol": symbol, "market": market, "mode": "final", "pass": ok, "reasons": [] if ok else ["OOS_FAIL"], "profile": profile, "oos": oos}
+
+
+# Twelve Data Grow-plan-safe serial paging. The workflow intentionally uses one shard
+# while cache is being populated, so this limiter is process-global and deterministic.
+_original_get_json = runner.dcache.get_json
+_last_td_call = 0.0
+
+
+def _research_get_json(url, timeout=45, retries=4, headers=None):
+    global _last_td_call
+    if "api.twelvedata.com" not in str(url):
+        return _original_get_json(url, timeout, retries, headers)
+    for attempt in range(4):
+        elapsed = time.monotonic() - _last_td_call
+        if elapsed < 1.35:
+            time.sleep(1.35 - elapsed)
+        _last_td_call = time.monotonic()
+        try:
+            return _original_get_json(url, timeout, retries, headers)
+        except Exception as e:
+            if "429" not in str(e) or attempt == 3:
+                raise
+            time.sleep(15.0 * (attempt + 1))
+    raise RuntimeError("TWELVEDATA_RATE_LIMIT_EXHAUSTED")
+
+
+runner.dcache.get_json = _research_get_json
+engine.dcache.get_json = _research_get_json
 engine.evaluate_candidates = evaluate_candidates_direct
 engine.stats_ok = stats_ok_direct
+engine.select_profile = select_profile_direct
+engine.run_fast = run_fast_direct
+engine.run_final = run_final_direct
 
 if __name__ == "__main__":
-    print("DIRECT_INTEGRITY_PATCH active eligible=data-days cap=actual-execution-day min=1 max=3", flush=True)
+    print("DIRECT_RESEARCH_R2 integrity=1..3_per_eligible_day partitions=DEV/VALIDATION/UNTOUCHED_FINAL td_serial_rate_limit=on", flush=True)
     raise SystemExit(runner.main())
