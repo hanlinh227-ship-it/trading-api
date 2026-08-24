@@ -23,8 +23,11 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
       PYTHONUNBUFFERED: '1'
-      V11_DATASET_START: '2025-08-26T16:00:00Z'
-      V11_DATASET_END: '2026-08-23T16:00:00Z'
+      # Legacy V64/V69/V73 development evidence used data through 2026-07-31.
+      # Starting here makes the wrapper's last ~18% begin in early August, so
+      # those old priors cannot contaminate the untouched FINAL period.
+      V11_DATASET_START: '2026-05-07T00:00:00Z'
+      V11_DATASET_END: '2026-08-23T23:00:00Z'
       V11_SHARD_COUNT: '1'
     steps:
       - uses: actions/checkout@v4
@@ -36,12 +39,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/v11_mtf_cache
-          key: v11-exact-r4-${{ hashFiles('scripts/v11_mtf_data_cache.py') }}-20250826-20260823
+          key: v11-exact-r4-${{ hashFiles('scripts/v11_mtf_data_cache.py') }}-20260507-20260823
 
       - name: Preflight exact research contract
         run: |
           set -euo pipefail
-          python -m py_compile scripts/v11_mtf_data_cache.py scripts/v11_backtest_mtf_engine_r1.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_direct_backtest.py
+          python -m py_compile scripts/v11_mtf_data_cache.py scripts/v11_backtest_geometry_r4.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_direct_backtest.py
           test -n "${TWELVEDATA_API_KEY:-}" || { echo TWELVEDATA_API_KEY_MISSING; exit 2; }
           python - <<'PY'
           import sys
@@ -66,14 +69,14 @@ jobs:
           import json,os
           context={
             'contract':{'symbols':95,'independent':True,'eligibleDayExecutions':'1..3','rr':[1,2],'minWinRatePct':80.0,'positiveExpectancy':True,'exactInstrumentData':True,'forbidden':['pooling','symbol deletion','fabrication','lookahead/leakage','silent eligible-day deletion','FINAL tuning']},
-            'priorEvidence':{'V73':'EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS','use':'hypothesis seed only'},
-            'task':'Audit exact data routing and bounded per-symbol/per-regime refinements. Deterministic replay is performance truth.'
+            'priorEvidence':{'V64_V69_V73':'EXPOSED DEVELOPMENT; NOT UNTOUCHED OOS','use':'bounded hypothesis seed only','knownThrough':'2026-07-31'},
+            'currentResearch':{'data':'exact exchange/provider history; crypto H1 OKX-first with continuity-checked fallbacks; forex Twelve Data M5','method':'per-symbol H1 family/hour/entry-geometry coordinate search; conservative same-bar SL','final':'early-August onward untouched by legacy priors'},
+            'task':'Audit integrity and propose bounded DEV/VALIDATION-only refinements. Deterministic replay is performance truth.'
           }
-          instruction='V11 95-symbol pre-research. Independently review data integrity, the earlier V64/V69/V73 per-symbol geometry hypotheses, and current V11 research contract. Propose bounded DEV/VALIDATION-only refinements. Never claim performance without deterministic replay; never use FINAL for tuning.'
+          instruction='V11 95-symbol pre-research. Claude, Codex, DeepSeek, Qwen and OpenRouter must independently review data integrity and the bounded per-symbol geometry research plan. Earlier V64/V69/V73 evidence is hypothesis material only. Never use FINAL for tuning and never claim performance without deterministic replay.'
           open('/tmp/pre.json','w').write(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':context}))
           PY
           rm -f /tmp/pre-result.json
-          COMPLETE=0
           for ATTEMPT in 1 2 3; do
             OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
             echo "::add-mask::$OIDC"
@@ -82,23 +85,23 @@ jobs:
             echo "5AI_PRE_ATTEMPT=$ATTEMPT HTTP=$CODE"
             if python - <<'PY'
           import json,sys
-          expected=['claude','codex','deepseek','qwen','openrouter']
+          e=['claude','codex','deepseek','qwen','openrouter']
           try:d=json.load(open('/tmp/pre-attempt.json'))
           except Exception:sys.exit(1)
           p=d.get('providers') or {}
-          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected) else 1)
+          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in e) else 1)
           PY
-            then COMPLETE=1; break; fi
+            then break; fi
             sleep $((ATTEMPT*8))
           done
           python - <<'PY'
           import json,os
-          expected=['claude','codex','deepseek','qwen','openrouter']
+          e=['claude','codex','deepseek','qwen','openrouter']
           try:d=json.load(open('/tmp/pre-result.json'))
           except Exception:d={'ok':False,'error':'NO_VALID_RESPONSE','providers':{}}
           json.dump(d,open('data/v11_fiveai_direct_pre.json','w'),indent=2)
-          p=d.get('providers') or {}; complete=all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected)
-          for x in expected: print('5AI_PRE',x,(p.get(x) or {}).get('status'))
+          p=d.get('providers') or {};complete=all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in e)
+          for x in e:print('5AI_PRE',x,(p.get(x) or {}).get('status'))
           with open(os.environ['GITHUB_ENV'],'a') as f:f.write('FIVE_AI_PRE_COMPLETE='+('1' if complete else '0')+'\n')
           print('FIVE_AI_PRE_COMPLETE',complete)
           PY
@@ -113,15 +116,13 @@ jobs:
           sha256sum data/v11_mtf_profiles.json > data/v11_profiles.sha256
           python - <<'PY'
           import json
-          d=json.load(open('data/v11_mtf_fast_merged.json')); sy=d.get('symbols') or {}
-          per={}
+          d=json.load(open('data/v11_mtf_fast_merged.json'));sy=d.get('symbols') or {};per={}
           for s,r in sorted(sy.items()):
-            v=r.get('validation') or {}; dev=r.get('dev') or {}
-            per[s]={'market':r.get('market'),'pass':bool(r.get('pass')),'reasons':r.get('reasons') or [],'profile':r.get('profile'),'dev':{k:dev.get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','minTradesInDay','maxTradesInDay')},'validation':{k:v.get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','minTradesInDay','maxTradesInDay')}}
-          passed=sum(1 for r in sy.values() if r.get('pass')); unavailable=sum(1 for r in sy.values() if 'DATA_UNAVAILABLE' in (r.get('reasons') or []))
+            v=r.get('validation') or {};dev=r.get('dev') or {};p=r.get('profile') or {}
+            per[s]={'market':r.get('market'),'pass':bool(r.get('pass')),'reasons':r.get('reasons') or [],'profile':p,'dev':{k:dev.get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','minTradesInDay','maxTradesInDay')},'validation':{k:v.get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','minTradesInDay','maxTradesInDay')}}
+          passed=sum(1 for r in sy.values() if r.get('pass'));unavailable=sum(1 for r in sy.values() if 'DATA_UNAVAILABLE' in (r.get('reasons') or []))
           out={'catalogCount':95,'resultCount':len(sy),'passCount':passed,'failCount':95-passed,'dataUnavailable':unavailable,'allValidationPass':len(sy)==95 and passed==95 and unavailable==0,'symbols':per}
-          json.dump(out,open('data/v11_fast_summary.json','w'),indent=2)
-          print('FAST_SUMMARY',passed,'/95','DATA_UNAVAILABLE',unavailable)
+          json.dump(out,open('data/v11_fast_summary.json','w'),indent=2);print('FAST_SUMMARY',passed,'/95','DATA_UNAVAILABLE',unavailable)
           PY
 
       - name: Five-AI evidence review
@@ -130,18 +131,19 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json,os
-          try: summary=json.load(open('data/v11_fast_summary.json'))
-          except Exception: summary={'error':'DETERMINISTIC_EVIDENCE_MISSING'}
+          try:summary=json.load(open('data/v11_fast_summary.json'))
+          except Exception:summary={'error':'DETERMINISTIC_EVIDENCE_MISSING'}
           compact={'catalogCount':summary.get('catalogCount'),'resultCount':summary.get('resultCount'),'passCount':summary.get('passCount'),'failCount':summary.get('failCount'),'dataUnavailable':summary.get('dataUnavailable'),'symbols':{}}
           for s,r in (summary.get('symbols') or {}).items():
-            d=r.get('dev') or {}; v=r.get('validation') or {}; p=r.get('profile') or {}
-            compact['symbols'][s]={'m':r.get('market'),'ok':r.get('pass'),'rr':p.get('rr'),'th':p.get('threshold'),'mt':p.get('maxTrades'),'d':[d.get('coveragePct'),d.get('winRate'),d.get('meanR'),d.get('zeroExecutionDays')],'v':[v.get('coveragePct'),v.get('winRate'),v.get('meanR'),v.get('zeroExecutionDays')]}
-          instruction='V11 post-VALIDATION evidence review. Analyze failures independently using DEV/VALIDATION only. Compare current evidence against older V64/V69/V73 hypothesis families without treating exposed development as OOS proof. Propose bounded next refinements that preserve 1-3 executions on every eligible day, RR only 1 or 2, WR>=80%, positive expectancy, exact data, no pooling, and no leakage. Do not use FINAL.'
+            d=r.get('dev') or {};v=r.get('validation') or {};p=r.get('profile') or {}
+            compact['symbols'][s]={'m':r.get('market'),'ok':r.get('pass'),'rr':p.get('rr'),'d':[d.get('coveragePct'),d.get('winRate'),d.get('meanR'),d.get('zeroExecutionDays')],'v':[v.get('coveragePct'),v.get('winRate'),v.get('meanR'),v.get('zeroExecutionDays')]}
+          instruction='V11 post-VALIDATION evidence review. All five AIs independently analyze failing symbols and data failures using DEV/VALIDATION only. Compare against V64/V69/V73 only as exposed-development hypothesis history. Propose bounded next per-symbol/regime/geometry refinements while preserving 1-3 executions per eligible day, RR only 1 or 2, WR>=80%, positive expectancy, exact data, no pooling/deletion/fabrication/leakage. FINAL is forbidden for learning.'
           open('/tmp/post.json','w').write(json.dumps({'task_id':'v11-post-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':{'text':json.dumps(compact,separators=(',',':'))[:40000]}}))
           PY
           rm -f /tmp/post-result.json
-          COMPLETE=0
           for ATTEMPT in 1 2 3; do
+            # Mint a NEW short-lived GitHub OIDC token immediately before every
+            # post-review attempt. Reusing the pre token caused the old 401.
             OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
             echo "::add-mask::$OIDC"
             CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/post-attempt.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/post.json || echo CURL_FAIL)"
@@ -149,23 +151,23 @@ jobs:
             echo "5AI_POST_ATTEMPT=$ATTEMPT HTTP=$CODE"
             if python - <<'PY'
           import json,sys
-          expected=['claude','codex','deepseek','qwen','openrouter']
+          e=['claude','codex','deepseek','qwen','openrouter']
           try:d=json.load(open('/tmp/post-attempt.json'))
           except Exception:sys.exit(1)
           p=d.get('providers') or {}
-          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected) else 1)
+          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in e) else 1)
           PY
-            then COMPLETE=1; break; fi
+            then break; fi
             sleep $((ATTEMPT*8))
           done
           python - <<'PY'
           import json,os
-          expected=['claude','codex','deepseek','qwen','openrouter']
+          e=['claude','codex','deepseek','qwen','openrouter']
           try:d=json.load(open('/tmp/post-result.json'))
           except Exception:d={'ok':False,'error':'NO_VALID_RESPONSE','providers':{}}
           json.dump(d,open('data/v11_fiveai_post.json','w'),indent=2)
-          p=d.get('providers') or {}; complete=all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected)
-          for x in expected: print('5AI_POST',x,(p.get(x) or {}).get('status'))
+          p=d.get('providers') or {};complete=all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in e)
+          for x in e:print('5AI_POST',x,(p.get(x) or {}).get('status'))
           with open(os.environ['GITHUB_ENV'],'a') as f:f.write('FIVE_AI_POST_COMPLETE='+('1' if complete else '0')+'\n')
           print('FIVE_AI_POST_COMPLETE',complete)
           PY
@@ -194,10 +196,9 @@ jobs:
           cp data/v11_mtf_merged.json data/v11_mtf_final_merged.json
           python - <<'PY'
           import json
-          d=json.load(open('data/v11_mtf_final_merged.json')); sy=d.get('symbols') or {}; passed=sum(1 for r in sy.values() if r.get('pass'))
+          d=json.load(open('data/v11_mtf_final_merged.json'));sy=d.get('symbols') or {};passed=sum(1 for r in sy.values() if r.get('pass'))
           per={s:{'market':r.get('market'),'pass':bool(r.get('pass')),'reasons':r.get('reasons') or [],'oos':{k:(r.get('oos') or {}).get(k) for k in ('trades','eligibleDays','coveragePct','zeroExecutionDays','winRate','meanR','minTradesInDay','maxTradesInDay')}} for s,r in sorted(sy.items())}
-          json.dump({'catalogCount':95,'resultCount':len(sy),'passCount':passed,'failCount':95-passed,'allFinalPass':len(sy)==95 and passed==95,'symbols':per},open('data/v11_final_summary.json','w'),indent=2)
-          print('FINAL_SUMMARY',passed,'/95')
+          json.dump({'catalogCount':95,'resultCount':len(sy),'passCount':passed,'failCount':95-passed,'allFinalPass':len(sy)==95 and passed==95,'symbols':per},open('data/v11_final_summary.json','w'),indent=2);print('FINAL_SUMMARY',passed,'/95')
           PY
 
       - name: Publish machine-readable research status
@@ -209,25 +210,21 @@ jobs:
           def load(p,default=None):
             try:return json.load(open(p))
             except Exception:return default
-          fast=load('data/v11_fast_summary.json',{}) or {}; final=load('data/v11_final_summary.json',{}) or {}; pre=load('data/v11_fiveai_direct_pre.json',{}) or {}; post=load('data/v11_fiveai_post.json',{}) or {}
-          providers=['claude','codex','deepseek','qwen','openrouter']
-          pstat=lambda d:{p:str(((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING') for p in providers}
-          preok=all(v=='OK' for v in pstat(pre).values()); postok=all(v=='OK' for v in pstat(post).values())
-          if final.get('allFinalPass') and preok and postok: status='COMPLETE_ALL_95_PASS'
-          elif fast.get('allValidationPass') and not (preok and postok): status='FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE'
-          elif fast.get('allValidationPass'): status='FINAL_INCOMPLETE_OR_FAIL'
-          elif fast: status='REFINEMENT_REQUIRED'
-          else: status='HARD_BLOCKER_RUN_INCOMPLETE'
-          out={'status':status,'runId':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),'fiveAiPre':pstat(pre),'fiveAiPost':pstat(post),'fast':{k:fast.get(k) for k in ('catalogCount','resultCount','passCount','failCount','dataUnavailable','allValidationPass')},'final':{k:final.get(k) for k in ('catalogCount','resultCount','passCount','failCount','allFinalPass')}}
-          json.dump(out,open('data/v11_direct_backtest_status.json','w'),indent=2)
+          fast=load('data/v11_fast_summary.json',{}) or {};final=load('data/v11_final_summary.json',{}) or {};pre=load('data/v11_fiveai_direct_pre.json',{}) or {};post=load('data/v11_fiveai_post.json',{}) or {}
+          providers=['claude','codex','deepseek','qwen','openrouter'];pstat=lambda d:{p:str(((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING') for p in providers};preok=all(v=='OK' for v in pstat(pre).values());postok=all(v=='OK' for v in pstat(post).values())
+          if final.get('allFinalPass') and preok and postok:status='COMPLETE_ALL_95_PASS'
+          elif fast.get('allValidationPass') and not (preok and postok):status='FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE'
+          elif fast.get('allValidationPass'):status='FINAL_INCOMPLETE_OR_FAIL'
+          elif fast:status='REFINEMENT_REQUIRED'
+          else:status='HARD_BLOCKER_RUN_INCOMPLETE'
+          out={'status':status,'runId':os.environ.get('GITHUB_RUN_ID'),'commit':os.environ.get('GITHUB_SHA'),'fiveAiPre':pstat(pre),'fiveAiPost':pstat(post),'fast':{k:fast.get(k) for k in ('catalogCount','resultCount','passCount','failCount','dataUnavailable','allValidationPass')},'final':{k:final.get(k) for k in ('catalogCount','resultCount','passCount','failCount','allFinalPass')}};json.dump(out,open('data/v11_direct_backtest_status.json','w'),indent=2)
           PY
-          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin v11-research-status:v11-research-status 2>/dev/null || git checkout --orphan v11-research-status
           git checkout v11-research-status 2>/dev/null || true
-          mkdir -p status
-          cp data/v11_direct_backtest_status.json status/latest.json
+          mkdir -p status;cp data/v11_direct_backtest_status.json status/latest.json
           test -f data/v11_fast_summary.json && cp data/v11_fast_summary.json status/fast-summary.json
           test -f data/v11_final_summary.json && cp data/v11_final_summary.json status/final-summary.json
           test -f data/v11_fiveai_direct_pre.json && cp data/v11_fiveai_direct_pre.json status/fiveai-pre.json
           test -f data/v11_fiveai_post.json && cp data/v11_fiveai_post.json status/fiveai-post.json
-          git add status; git commit -m "status: V11 direct research $GITHUB_RUN_ID" || true; git push -f origin HEAD:v11-research-status || true
+          git add status;git commit -m "status: V11 direct research $GITHUB_RUN_ID" || true;git push -f origin HEAD:v11-research-status || true
