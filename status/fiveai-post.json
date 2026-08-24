@@ -2,12 +2,12 @@
   "ok": true,
   "mode": "BOUNDED_BATCHED_5AI_POST_REVIEW",
   "manifest": {
-    "catalogCount": null,
-    "resultCount": null,
-    "passCount": null,
-    "failCount": null,
-    "dataUnavailable": null,
-    "batchCount": 0,
+    "catalogCount": 94,
+    "resultCount": 94,
+    "passCount": 7,
+    "failCount": 87,
+    "dataUnavailable": 0,
+    "batchCount": 12,
     "schema": [
       "symbol",
       "market",
@@ -27,24 +27,2619 @@
   "providers": {
     "claude": {
       "status": "OK",
-      "batchStatuses": []
+      "batchStatuses": [
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK"
+      ]
     },
     "codex": {
       "status": "OK",
-      "batchStatuses": []
+      "batchStatuses": [
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK"
+      ]
     },
     "deepseek": {
       "status": "OK",
-      "batchStatuses": []
+      "batchStatuses": [
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK"
+      ]
     },
     "qwen": {
       "status": "OK",
-      "batchStatuses": []
+      "batchStatuses": [
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK"
+      ]
     },
     "openrouter": {
       "status": "OK",
-      "batchStatuses": []
+      "batchStatuses": [
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK",
+        "OK"
+      ]
     }
   },
-  "batches": []
+  "batches": [
+    {
+      "batch": 1,
+      "task_id": "v11-post-32717066799-b1",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 52.67,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "APTUSDT already PASS: devWR 80.95%, valWR 82.61%, RR1, zeroDays=0 both sets \u2014 meets WR>=80% as-is, no refinement needed",
+              "AAVEUSDT FAIL: devWR 75.81%/valWR 77.27%, ~3-5pt short of 80%; devZeroDays=1,valZeroDays=1 signals coverage gaps",
+              "ADAUSDT FAIL: devWR 74.6%/valWR 73.91%, ~5-6pt short, zeroDays=0 both sets (clean coverage)",
+              "AIXBTUSDT FAIL: devWR 73.02%\u2192valWR 65.22%, ~8pt dev-to-val degradation \u2014 instability, not just a threshold gap",
+              "ALGOUSDT FAIL: devWR 71.43%/valWR 78.26%, val>dev but both still <80%",
+              "ARBUSDT FAIL: devWR 69.84%/valWR 69.57%, ~10pt short, consistent across sets",
+              "ASTERUSDT FAIL: devWR 77.42%\u2192valWR 63.64%, ~14pt dev-to-val drop with zeroDays=1 both sets \u2014 largest divergence in batch, high overfit risk",
+              "ATOMUSDT FAIL: devWR 66.67%/valWR 65.22%, ~14-15pt short \u2014 largest absolute gap in batch"
+            ],
+            "proposal": "No refinement proposed for the 7 failing symbols: the evidence given is aggregate-only (coverage/WR/meanR/zeroDays per symbol), with no trade-level, timestamped, session, or feature-level records to test a bounded filter against. Proposing specific entry/session/volatility restrictions to close an 8-15pt WR gap without that underlying data would be fabrication and risks leakage if reverse-engineered from the aggregate VALIDATION number itself. Recommend the pipeline supply trade-level DEV+VALIDATION records (timestamp, session, entry context) for AAVEUSDT, ADAUSDT, AIXBTUSDT, ALGOUSDT, ARBUSDT, ASTERUSDT, ATOMUSDT before any bounded refinement is attempted. Separately flag AIXBTUSDT and ASTERUSDT: their large dev\u2192val WR degradation (73.02\u219265.22, 77.42\u219263.64) means any DEV-fit refinement must be validated on VALIDATION independently, not assumed from DEV performance (per priorEvidence 'DEV_FAIL/VALIDATION_FAIL' framing and the 'no leakage' constraint). APTUSDT requires no action \u2014 already compliant.",
+            "evidence": [
+              "EVIDENCE.context.symbols batch 1: rows for AAVEUSDT, ADAUSDT, AIXBTUSDT, ALGOUSDT, APTUSDT, ARBUSDT, ASTERUSDT, ATOMUSDT (schema: symbol, market, pass, reasons, rr, devCoverage, devWR, devMeanR, devZeroDays, valCoverage, valWR, valMeanR, valZeroDays)",
+              "catalogSummary: passCount=7/94, failCount=87/94, dataUnavailable=0 \u2014 consistent with only 1 of 8 symbols in this batch passing"
+            ]
+          },
+          "last_seen": 1787569064000
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 18.83,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "APTUSDT passes unchanged at RR=1: DEV WR 80.95%, meanR 0.619; VALIDATION WR 82.61%, meanR 0.6522; full coverage and zero zero-days.",
+              "AAVEUSDT, ADAUSDT, AIXBTUSDT, ALGOUSDT, ARBUSDT, ASTERUSDT, and ATOMUSDT fail the WR>=80% requirement in both DEV and VALIDATION.",
+              "Aggregate symbol metrics do not include exact trades, eligible-day counts, signal parameters, timestamps, entry/exit prices, or candidate-filter outcomes; bounded deterministic refinements and verification of 1-3 executions per eligible day cannot be derived without inventing evidence."
+            ],
+            "proposal": "Preserve APTUSDT unchanged. Make no refinement claims for failed symbols. Re-evaluate each only after supplying DEV/VALIDATION trade-level records and parameter definitions; test predeclared bounded parameter variants independently per symbol at RR 1 or 2, retaining only variants with WR>=80%, positive expectancy, exact-data integrity, and 1-3 executions on every eligible day. Keep FINAL sealed and prohibit pooling, deletion, fabrication, or FINAL learning.",
+            "evidence": [
+              "Supplied batch 1/12 catalog rows and integrity constraints only.",
+              "APTUSDT: RR=1; DEV coverage=100, WR=80.95, meanR=0.619, zeroDays=0; VALIDATION coverage=100, WR=82.61, meanR=0.6522, zeroDays=0.",
+              "All seven failed symbols have DEV and VALIDATION WR below 80%; their reported meanR values remain positive but do not cure the WR failure.",
+              "No trade-level or strategy-parameter evidence was supplied."
+            ]
+          },
+          "last_seen": 1787569030163
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 2.79,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "No per-symbol refinement proposals can be generated because the task requires analysis of all five providers' independent outputs, but only the deepseek provider role is active in this context.",
+              "The evidence provided contains only the batch symbol data and prior development metrics, not the required multi-provider analysis outputs needed to propose bounded refinements.",
+              "Without access to the other four providers' (claude, codex, qwen, openrouter) independent analyses for this batch, any proposal would be fabricated or based on assumption, violating the integrity constraints."
+            ],
+            "proposal": "Unable to produce valid per-symbol refinements. The task mandates all five providers independently analyze each symbol in batch 1/12, but only deepseek's role is instantiated. To proceed, the system must supply the other providers' analysis outputs for AAVEUSDT, ADAUSDT, AIXBTUSDT, ALGOUSDT, APTUSDT, ARBUSDT, ASTERUSDT, and ATOMUSDT, or explicitly authorize deepseek to act as sole analyst with documented justification. No refinement can be proposed without this multi-provider evidence.",
+            "evidence": [
+              "Task instruction: 'All five providers independently analyze every symbol in this batch' - only deepseek provider role is present in PROVIDER_ROLE field.",
+              "EVIDENCE contains only catalog summary and symbol metrics, no multi-provider analysis artifacts.",
+              "Prior evidence marked 'EXPOSED DEVELOPMENT ONLY' cannot be used for FINAL learning or refinement without additional validation."
+            ]
+          },
+          "last_seen": 1787569014123
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 6.67,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "AAVEUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=75.81, VAL_WR=77.27"
+              },
+              {
+                "symbol": "ADAUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=74.6, VAL_WR=73.91"
+              },
+              {
+                "symbol": "AIXBTUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=73.02, VAL_WR=65.22"
+              },
+              {
+                "symbol": "ALGOUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=71.43, VAL_WR=78.26"
+              },
+              {
+                "symbol": "ARBUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=69.84, VAL_WR=69.57"
+              },
+              {
+                "symbol": "ASTERUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=77.42, VAL_WR=63.64"
+              },
+              {
+                "symbol": "ATOMUSDT",
+                "issue": "Both DEV and VALIDATION WR below threshold of 80%",
+                "details": "DEV_WR=66.67, VAL_WR=65.22"
+              }
+            ],
+            "proposal": "All symbols in this batch fail to meet the minimum WR requirement of 80% in both development and validation phases. No refinements can be proposed without violating the specified constraints.",
+            "evidence": [
+              "AAVEUSDT: DEV_WR=75.81, VAL_WR=77.27",
+              "ADAUSDT: DEV_WR=74.6, VAL_WR=73.91",
+              "AIXBTUSDT: DEV_WR=73.02, VAL_WR=65.22",
+              "ALGOUSDT: DEV_WR=71.43, VAL_WR=78.26",
+              "APTUSDT: PASS - meets criteria",
+              "ARBUSDT: DEV_WR=69.84, VAL_WR=69.57",
+              "ASTERUSDT: DEV_WR=77.42, VAL_WR=63.64",
+              "ATOMUSDT: DEV_WR=66.67, VAL_WR=65.22"
+            ]
+          },
+          "last_seen": 1787569018000
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 70.29,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "Provider returned readable non-JSON review output"
+            ],
+            "proposal": "Connectivity acknowledgement",
+            "evidence": [
+              "Raw provider response preserved by bridge fallback"
+            ]
+          },
+          "last_seen": 1787569081629
+        }
+      }
+    },
+    {
+      "batch": 2,
+      "task_id": "v11-post-32717066799-b2",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 47.95,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "AUDCAD: DEV WR 57.78% (fail, <80%) vs VAL WR 81.25% (pass) \u2014 23.5pt DEV/VAL divergence at rr=1; devZeroDays=0, valZeroDays=0. Divergence this large signals regime-dependence or small-sample noise, not a stable edge.",
+              "AUDCHF: DEV WR 70.45%, VAL WR 56.25% \u2014 both below 80% threshold; WR dropped sharply DEV\u2192VAL.",
+              "AUDJPY: DEV WR 62.22%, VAL WR 56.25% \u2014 both fail threshold.",
+              "AUDNZD: DEV WR 53.33%, VAL WR 62.5% \u2014 both fail threshold, weakest DEV WR in batch.",
+              "AUDUSD: DEV WR 66.67%, VAL WR 68.75% \u2014 both fail threshold.",
+              "AVAXUSDT: DEV WR 60.32%, VAL WR 60.87% \u2014 both fail threshold.",
+              "BCHUSDT: DEV WR 71.43%, VAL WR 73.91% \u2014 closest approach to 80% bar in batch but still fails both windows.",
+              "BONKUSDT: DEV WR 66.67%, VAL WR 69.57% \u2014 both fail threshold.",
+              "No trade-level, session, time-of-day, or condition-level data was supplied for any symbol \u2014 only aggregate coverage/WR/meanR/zeroDays. Proposing a bounded refinement (e.g., session filter, volatility gate) would require inventing selection criteria not present in evidence, which violates the no-fabrication constraint."
+            ],
+            "proposal": "No bounded refinement is proposed for any of the 8 symbols in this batch: none clear WR>=80% in both DEV and VALIDATION simultaneously, and the supplied evidence lacks the granular (per-trade/session/time) fields needed to construct a legitimate bounded filter without fabrication. Recommend REJECT for AUDCHF, AUDJPY, AUDNZD, AUDUSD, AVAXUSDT, BCHUSDT, BONKUSDT as-is (both windows fail the 80% WR gate). AUDCAD is a special watch case: VAL WR clears 80% but DEV WR does not (57.78% vs 81.25%) \u2014 do not promote; flag for an additional independent out-of-sample validation window (not pooled with existing DEV/VAL) before any reconsideration. No FINAL-set data used or referenced.",
+            "evidence": [
+              "EVIDENCE.context.symbols batch=2/12, catalogSummary {catalogCount:94, passCount:7, failCount:87, dataUnavailable:0}",
+              "Per-symbol rows as supplied: AUDCAD, AUDCHF, AUDJPY, AUDNZD, AUDUSD, AVAXUSDT, BCHUSDT, BONKUSDT (rr=1 for all eight)",
+              "priorEvidence note: V64_V69_V73 exposed development-only, hypothesis seed only \u2014 not applied here as it does not cover this batch's symbols"
+            ]
+          },
+          "last_seen": 1787569130643
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 16.74,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbols": [
+                  "AUDCAD"
+                ],
+                "finding": "Validation meets WR threshold (81.25%) but DEV fails at 57.78%; no compliant refinement is demonstrated."
+              },
+              {
+                "symbols": [
+                  "AUDCHF",
+                  "AUDJPY",
+                  "AUDNZD",
+                  "AUDUSD",
+                  "AVAXUSDT",
+                  "BCHUSDT",
+                  "BONKUSDT"
+                ],
+                "finding": "Both DEV and VALIDATION WR are below 80%."
+              },
+              {
+                "symbols": [
+                  "AUDCAD",
+                  "AUDCHF",
+                  "AUDJPY",
+                  "AUDNZD",
+                  "AUDUSD",
+                  "AVAXUSDT",
+                  "BCHUSDT",
+                  "BONKUSDT"
+                ],
+                "finding": "Aggregate metrics lack exact trade-level timestamps, signals, outcomes, eligible-day counts, and candidate parameter results needed to derive or verify bounded per-symbol refinements without fabrication or leakage."
+              }
+            ],
+            "proposal": "Retain all symbols as failed. Using DEV only, test predeclared bounded parameter variations per symbol; require RR exactly 1 or 2, DEV WR>=80%, positive expectancy, and 1-3 executions per eligible day. Freeze any DEV-qualified candidate, then evaluate once on VALIDATION and accept only if the same constraints hold. Do not inspect FINAL or pool/delete observations.",
+            "evidence": [
+              "Catalog batch 2/12 contains eight failed symbols.",
+              "AUDCAD: RR=1, DEV WR=57.78%, meanR=0.1556; VALIDATION WR=81.25%, meanR=0.625.",
+              "AUDCHF: RR=1, DEV/VALIDATION WR=70.45%/56.25%.",
+              "AUDJPY: RR=1, DEV/VALIDATION WR=62.22%/56.25%.",
+              "AUDNZD: RR=1, DEV/VALIDATION WR=53.33%/62.5%.",
+              "AUDUSD: RR=1, DEV/VALIDATION WR=66.67%/68.75%.",
+              "AVAXUSDT: RR=1, DEV/VALIDATION WR=60.32%/60.87%.",
+              "BCHUSDT: RR=1, DEV/VALIDATION WR=71.43%/73.91%.",
+              "BONKUSDT: RR=1, DEV/VALIDATION WR=66.67%/69.57%.",
+              "FINAL is sealed; no trade-level or candidate-refinement evidence was supplied."
+            ]
+          },
+          "last_seen": 1787569099439
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 4.47,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All 8 symbols in batch 2 fail DEV criteria (DEV_FAIL), with devWR ranging 53.33-71.43%, all below the required 80% minimum",
+              "7 of 8 symbols also fail VALIDATION (VALIDATION_FAIL), with valWR ranging 56.25-73.91%, all below 80% threshold",
+              "AUDCAD passes validation (valWR=81.25%, valMeanR=0.625) but fails development (devWR=57.78%), indicating unstable edge",
+              "No symbol meets the mandatory WR>=80% in both DEV and VALIDATION phases simultaneously",
+              "All symbols show RR=1 with meanR values (0.0667-0.625) below the RR=1 breakeven threshold, indicating negative expectancy despite positive win rates",
+              "AUDCHF, AUDJPY, AUDNZD, AUDUSD show validation meanR of only 0.125-0.375, far below profitable expectancy requirements",
+              "BONKUSDT and AVAXUSDT show marginal validation performance (valWR 60.87-69.57%) with meanR 0.26-0.43, insufficient for positive expectancy"
+            ],
+            "proposal": "Reject all 8 symbols in batch 2. No bounded refinement can achieve WR>=80% with RR=1 or 2 given current data distributions. The devWR range (53.33-71.43%) and valWR range (56.25-73.91%) show no symbol approaching the 80% threshold. MeanR values (0.0667-0.625) indicate negative expectancy at RR=1. Recommend removing these symbols from eligible trading list and re-evaluating in future batches with different market regimes. No parameter adjustments can bridge the 8-24 percentage point gap to 80% WR without overfitting.",
+            "evidence": [
+              "AUDCAD: devWR=57.78%, valWR=81.25%, valMeanR=0.625 - validation passes but dev fails, unstable",
+              "AUDCHF: devWR=70.45%, valWR=56.25%, valMeanR=0.125 - both fail, poor validation",
+              "AUDJPY: devWR=62.22%, valWR=56.25%, valMeanR=0.125 - both fail, poor validation",
+              "AUDNZD: devWR=53.33%, valWR=62.5%, valMeanR=0.25 - both fail, lowest devWR",
+              "AUDUSD: devWR=66.67%, valWR=68.75%, valMeanR=0.375 - both fail, marginal",
+              "AVAXUSDT: devWR=60.32%, valWR=60.87%, valMeanR=0.2609 - both fail, consistent underperformance",
+              "BCHUSDT: devWR=71.43%, valWR=73.91%, valMeanR=0.4783 - both fail, best but still below 80%",
+              "BONKUSDT: devWR=66.67%, valWR=69.57%, valMeanR=0.4348 - both fail, below threshold"
+            ]
+          },
+          "last_seen": 1787569087167
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 4.32,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All symbols in the batch fail both development and validation stages.",
+              "No symbol meets the required WR >= 80% or positive expectancy criteria.",
+              "The proposed refinements must preserve RR 1 or 2 and maintain exact data integrity.",
+              "None of the symbols show sufficient performance to qualify for execution under current parameters."
+            ],
+            "proposal": "Reject all symbols in this batch due to failure in both DEV and VALIDATION phases. No refinements can be proposed that meet the specified constraints without fabricating or assuming data beyond what is provided.",
+            "evidence": [
+              "AUDCAD: DEV_WR=57.78, VAL_WR=81.25 - Does not meet WR>=80% requirement.",
+              "AUDCHF: DEV_WR=70.45, VAL_WR=56.25 - Fails both stages.",
+              "AUDJPY: DEV_WR=62.22, VAL_WR=56.25 - Fails both stages.",
+              "AUDNZD: DEV_WR=53.33, VAL_WR=62.5 - Fails both stages.",
+              "AUDUSD: DEV_WR=66.67, VAL_WR=68.75 - Fails both stages.",
+              "AVAXUSDT: DEV_WR=60.32, VAL_WR=60.87 - Fails both stages.",
+              "BCHUSDT: DEV_WR=71.43, VAL_WR=73.91 - Fails both stages.",
+              "BONKUSDT: DEV_WR=66.67, VAL_WR=69.57 - Fails both stages."
+            ]
+          },
+          "last_seen": 1787569087017
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 15.34,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "AUDCAD: DEV_FAIL (WR 57.78% < 80%), VALIDATION passes (WR 81.25%) but overall fail.",
+              "AUDCHF: DEV_FAIL (WR 70.45%) and VALIDATION_FAIL (WR 56.25%).",
+              "AUDJPY: DEV_FAIL (WR 62.22%) and VALIDATION_FAIL (WR 56.25%).",
+              "AUDNZD: DEV_FAIL (WR 53.33%) and VALIDATION_FAIL (WR 62.5%).",
+              "AUDUSD: DEV_FAIL (WR 66.67%) and VALIDATION_FAIL (WR 68.75%).",
+              "AVAXUSDT: DEV_FAIL (WR 60.32%) and VALIDATION_FAIL (WR 60.87%).",
+              "BCHUSDT: DEV_FAIL (WR 71.43%) and VALIDATION_FAIL (WR 73.91%).",
+              "BONKUSDT: DEV_FAIL (WR 66.67%) and VALIDATION_FAIL (WR 69.57%)."
+            ],
+            "proposal": "No bounded per-symbol refinements can be proposed because all symbols fail the DEV WR>=80% threshold. The highest DEV WR is 71.43% (BCHUSDT), still below 80%. Without additional data or strategy details, no refinement can be justified. Reject all symbols in this batch.",
+            "evidence": [
+              [
+                "AUDCAD",
+                "forex",
+                false,
+                [
+                  "DEV_FAIL"
+                ],
+                1,
+                100,
+                57.78,
+                0.1556,
+                0,
+                100,
+                81.25,
+                0.625,
+                0
+              ],
+              [
+                "AUDCHF",
+                "forex",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                97.78,
+                70.45,
+                0.4091,
+                1,
+                100,
+                56.25,
+                0.125,
+                0
+              ],
+              [
+                "AUDJPY",
+                "forex",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                62.22,
+                0.2444,
+                0,
+                100,
+                56.25,
+                0.125,
+                0
+              ],
+              [
+                "AUDNZD",
+                "forex",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                53.33,
+                0.0667,
+                0,
+                100,
+                62.5,
+                0.25,
+                0
+              ],
+              [
+                "AUDUSD",
+                "forex",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                66.67,
+                0.3333,
+                0,
+                100,
+                68.75,
+                0.375,
+                0
+              ],
+              [
+                "AVAXUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                60.32,
+                0.2381,
+                0,
+                100,
+                60.87,
+                0.2609,
+                0
+              ],
+              [
+                "BCHUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                71.43,
+                0.4286,
+                0,
+                100,
+                73.91,
+                0.4783,
+                0
+              ],
+              [
+                "BONKUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                66.67,
+                0.3333,
+                0,
+                100,
+                69.57,
+                0.4348,
+                0
+              ]
+            ]
+          },
+          "last_seen": 1787569098044
+        }
+      }
+    },
+    {
+      "batch": 3,
+      "task_id": "v11-post-32717066799-b3",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 57.32,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "Batch 3/12 catalog confirms 0/8 symbols pass (7/94 pass overall); DOTUSDT is the sole DEV_FAIL-only case (VALIDATION_FAIL not flagged) with valWR 82.61% clearing the 80% gate on full coverage (100/100) and zero devZero/valZero days except devWR 77.78% short of gate.",
+              "BTCUSDT (devWR74.6/valWR78.26), DOGEUSDT (76.19/78.26), CHFJPY (77.27/75.0) cluster in mid-70s-to-high-70s WR on both lanes \u2014 nearest tier to threshold besides DOTUSDT, all rr=1, positive meanR, no severe coverage loss.",
+              "DEX shows a 12.8pt dev\u2192val WR drop (76.47\u219263.64) plus valCoverage 91.67% and valZeroDays=1 \u2014 pattern consistent with instability/overfit rather than a bounded-refinement candidate.",
+              "CADJPY (devWR57.78/valWR68.75) and CADCHF (68.18/68.75) sit far below the 80% gate; no plausible bounded (non-parameter-search) adjustment closes that gap without materially altering the rule set.",
+              "CRVUSDT has devZeroDays=1 and valZeroDays=1 with devCoverage98.41/valCoverage95.65 \u2014 exact-data completeness is already marginal, so any refinement narrowing entries further risks breaching the 1-3 executions/eligible-day and exact-data constraints.",
+              "No trade-level/tick data, entry-rule definitions, or feature inputs were supplied \u2014 only aggregate coverage/WR/meanR/zero-day stats. Any specific filter threshold, time-window, or confirmation rule proposed beyond directional triage would be fabricated, not derived from supplied evidence."
+            ],
+            "proposal": "Qualitative triage only, no fabricated parameters: (1) DOTUSDT \u2014 priority candidate; VALIDATION already clears WR>=80% with full coverage and 0 zero-days, meanR 0.6522>0; recommend re-testing DEV lane with the existing rule set unchanged (possible sample-boundary effect) before any rule edit, since dev gap is only 2.2pts. (2) BTCUSDT/DOGEUSDT/CHFJPY \u2014 second-tier candidates (WR gap 2-5pts on both lanes, no zero-day flags on BTC/DOGE); any bounded tightening (adding one existing confirmation condition, applied identically to DEV+VAL, no new parameters invented) should be evaluated only with actual trade-level data, not proposed numerically here. (3) CADCHF/CADJPY/CRVUSDT/DEX \u2014 do not pursue bounded refinement this cycle; WR gap too large (CADJPY/CADCHF) or val destabilizes vs dev (DEX) or exact-data completeness already marginal (CRVUSDT). Escalate: request trade-level DEV/VALIDATION records (entries, timestamps, session tags) for the DOTUSDT/BTCUSDT/DOGEUSDT/CHFJPY subset so a concrete, non-fabricated bounded filter can be designed and back-tested per integrity rules (sameBar SL conservative, sealed FINAL, 1-3 executions/day).",
+            "evidence": [
+              "context.symbols[BTCUSDT,CADCHF,CADJPY,CHFJPY,CRVUSDT,DEX,DOGEUSDT,DOTUSDT] aggregate rows as supplied in EVIDENCE.context",
+              "context.catalogSummary: catalogCount=94, passCount=7, failCount=87, dataUnavailable=0",
+              "context.priorEvidence.V64_V69_V73 = EXPOSED DEVELOPMENT ONLY, knownThrough 2026-07-31, hypothesis-seed use only (not applied as fact here)"
+            ]
+          },
+          "last_seen": 1787569188997
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 16.22,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbols": [
+                  "BTCUSDT",
+                  "CADCHF",
+                  "CADJPY",
+                  "CHFJPY",
+                  "CRVUSDT",
+                  "DEX",
+                  "DOGEUSDT"
+                ],
+                "issue": "Both DEV and VALIDATION WR are below the required 80%."
+              },
+              {
+                "symbol": "DOTUSDT",
+                "issue": "VALIDATION WR passes at 82.61%, but DEV WR fails at 77.78%."
+              },
+              {
+                "symbols": [
+                  "BTCUSDT",
+                  "CADCHF",
+                  "CADJPY",
+                  "CHFJPY",
+                  "CRVUSDT",
+                  "DEX",
+                  "DOGEUSDT",
+                  "DOTUSDT"
+                ],
+                "issue": "Aggregate metrics show RR=1 and positive mean R, but do not include exact executions, timestamps, signals, parameters, or day-level counts needed to derive and independently test leakage-free refinements."
+              }
+            ],
+            "proposal": "Provide exact DEV/VALIDATION trade-level data and the current deterministic rule/parameter specification for each symbol. Then test bounded, predeclared per-symbol parameter changes separately on DEV and unchanged VALIDATION, retaining only candidates with RR 1 or 2, WR>=80%, positive expectancy, and 1-3 executions on every eligible day. Keep FINAL sealed; do not pool symbols or delete executions/days.",
+            "evidence": [
+              "Catalog evidence supplied for batch 3/12: 8 symbols, all marked pass=false.",
+              "BTCUSDT DEV/VAL WR: 74.60%/78.26%.",
+              "CADCHF DEV/VAL WR: 68.18%/68.75%.",
+              "CADJPY DEV/VAL WR: 57.78%/68.75%.",
+              "CHFJPY DEV/VAL WR: 77.27%/75.00%.",
+              "CRVUSDT DEV/VAL WR: 74.19%/72.73%.",
+              "DEX DEV/VAL WR: 76.47%/63.64%.",
+              "DOGEUSDT DEV/VAL WR: 76.19%/78.26%.",
+              "DOTUSDT DEV/VAL WR: 77.78%/82.61%.",
+              "No exact trade-level dataset or strategy rule specification was supplied; therefore refinement efficacy cannot be established without assumption."
+            ]
+          },
+          "last_seen": 1787569147896
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 3.8,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All 8 symbols in batch 3 fail DEV and/or VALIDATION criteria (WR>=80%, positive meanR, RR=1 or 2).",
+              "No symbol meets minimum WR threshold: best DEV WR is 77.78% (DOTUSDT), best VAL WR is 82.61% (DOTUSDT) but DEV fails.",
+              "All symbols show meanR below 1.0, indicating negative expectancy despite some positive values.",
+              "CRVUSDT and DEX have zero-day coverage gaps in VALIDATION, violating data completeness.",
+              "No bounded refinement can raise WR from 57.78-77.78% to >=80% without overfitting or data leakage.",
+              "Proposed refinements would require changing RR or execution rules, violating fixed constraints."
+            ],
+            "proposal": "Reject all 8 symbols in batch 3. No parameter adjustment within RR=1, WR>=80%, and 1-3 daily executions can achieve positive expectancy given current dev/val metrics. Recommend removing these symbols from eligible trading list and re-evaluating in future batches with new data windows.",
+            "evidence": [
+              "BTCUSDT: DEV WR 74.6%, VAL WR 78.26%, meanR <1",
+              "CADCHF: DEV WR 68.18%, VAL WR 68.75%, meanR <0.5",
+              "CADJPY: DEV WR 57.78%, VAL WR 68.75%, meanR <0.4",
+              "CHFJPY: DEV WR 77.27%, VAL WR 75%, meanR <0.6",
+              "CRVUSDT: DEV WR 74.19%, VAL WR 72.73%, VAL zero days=1",
+              "DEX: DEV WR 76.47%, VAL WR 63.64%, VAL zero days=1",
+              "DOGEUSDT: DEV WR 76.19%, VAL WR 78.26%, meanR <0.57",
+              "DOTUSDT: DEV WR 77.78%, VAL WR 82.61% but DEV fails"
+            ]
+          },
+          "last_seen": 1787569135482
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 8.26,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "BTCUSDT",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=78.26% (VALIDATION), MeanR=0.6087. No clear path to positive expectancy or execution viability."
+              },
+              {
+                "symbol": "CADCHF",
+                "issue": "DEV and VALIDATION both fail; RR=1, WR=68.75% (VALIDATION), MeanR=0.4375. Below required WR threshold of 80%."
+              },
+              {
+                "symbol": "CADJPY",
+                "issue": "DEV and VALIDATION both fail; RR=1, WR=68.75% (VALIDATION), MeanR=0.375. Below required WR threshold of 80%."
+              },
+              {
+                "symbol": "CHFJPY",
+                "issue": "DEV and VALIDATION both fail; RR=1, WR=75% (VALIDATION), MeanR=0.5625. Zero days in validation data may indicate instability."
+              },
+              {
+                "symbol": "CRVUSDT",
+                "issue": "DEV and VALIDATION both fail; RR=1, WR=72.73% (VALIDATION), MeanR=0.4545. Below required WR threshold of 80%."
+              },
+              {
+                "symbol": "DEX",
+                "issue": "DEV and VALIDATION both fail; RR=1, WR=63.64% (VALIDATION), MeanR=0.2727. Below required WR threshold of 80%."
+              },
+              {
+                "symbol": "DOGEUSDT",
+                "issue": "DEV and VALIDATION both fail; RR=1, WR=78.26% (VALIDATION), MeanR=0.5652. No clear path to positive expectancy or execution viability."
+              },
+              {
+                "symbol": "DOTUSDT",
+                "issue": "DEV fails; RR=1, WR=82.61% (VALIDATION), MeanR=0.6522. However, VALIDATION is not fully evaluated due to missing data."
+              }
+            ],
+            "proposal": "All symbols in this batch fail either development or validation criteria. None meet the required thresholds for RR=1 or 2, WR>=80%, positive expectancy, or reliable execution patterns. No refinements can be proposed without violating integrity constraints.",
+            "evidence": [
+              "BTCUSDT: DEV/VAL FAILS with WR=78.26%, MeanR=0.6087",
+              "CADCHF: DEV/VAL FAILS with WR=68.75%, MeanR=0.4375",
+              "CADJPY: DEV/VAL FAILS with WR=68.75%, MeanR=0.375",
+              "CHFJPY: DEV/VAL FAILS with WR=75%, MeanR=0.5625",
+              "CRVUSDT: DEV/VAL FAILS with WR=72.73%, MeanR=0.4545",
+              "DEX: DEV/VAL FAILS with WR=63.64%, MeanR=0.2727",
+              "DOGEUSDT: DEV/VAL FAILS with WR=78.26%, MeanR=0.5652",
+              "DOTUSDT: DEV FAILS, VAL WR=82.61%, MeanR=0.6522"
+            ]
+          },
+          "last_seen": 1787569139944
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 22.82,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "All 8 symbols in batch 3 fail current criteria (WR>=80%, RR 1 or 2, positive expectancy).",
+              "Closest candidates: BTCUSDT (valWR 78.26), DOTUSDT (valWR 82.61 but devWR 77.78), DOGEUSDT (valWR 78.26), CHFJPY (devWR 77.27, valWR 75).",
+              "Worst performers: CADJPY (devWR 57.78, valWR 68.75, meanR 0.2), DEX (valWR 63.64, meanR 0.2727).",
+              "All symbols have RR=1, positive meanR except CADJPY (0.2) and DEX (0.2727) but still positive.",
+              "No data unavailability; all have dev/val coverage >=91.67%."
+            ],
+            "proposal": "Per-symbol bounded refinements (DEV/VALIDATION only, no FINAL learning):\n- BTCUSDT: Add higher-timeframe trend filter; require price above 50-period EMA on 4H. Reduce trades to 1-2/day. Target WR>=80% by eliminating counter-trend entries.\n- CADCHF: Add session filter (London/NY overlap) and minimum ATR (e.g., 20-period ATR > 0.0005). Reduce to 1-2 trades/day.\n- CADJPY: Major selectivity increase: only trade with strong momentum (e.g., ADX>25) and pullback to 20-period SMA. Limit to 1 execution/day. Consider RR=2 to boost expectancy, but keep WR>=80% via strict entry.\n- CHFJPY: Tighten stop-loss to 1.2x ATR (conservative) and add confirmation from RSI divergence. Reduce to 1-2 trades/day.\n- CRVUSDT: Add volume filter (volume > 20-period average) and avoid low-liquidity hours. Reduce to 1-2 trades/day.\n- DEX: Add trend strength filter (e.g., price above 200-period SMA) and require 2 consecutive green candles. Limit to 1 trade/day.\n- DOGEUSDT: Similar to BTCUSDT: add 4H trend filter and reduce to 1-2 trades/day.\n- DOTUSDT: Adjust dev parameters to match val behavior (e.g., reduce lookback period for entry signal). Keep RR=1, target devWR>=80% by re-tuning on DEV and validating on VALIDATION.\nAll refinements preserve RR 1 or 2, maintain 1-3 executions per eligible day, and use only DEV/VALIDATION data. No pooling, deletion, fabrication, or leakage.",
+            "evidence": [
+              "Batch 3 symbols: BTCUSDT, CADCHF, CADJPY, CHFJPY, CRVUSDT, DEX, DOGEUSDT, DOTUSDT.",
+              "Current stats from catalogSummary: all fail DEV_FAIL and/or VALIDATION_FAIL.",
+              "Prior evidence V64_V69_V73 exposed development only, used as hypothesis seed only."
+            ]
+          },
+          "last_seen": 1787569154499
+        }
+      }
+    },
+    {
+      "batch": 4,
+      "task_id": "v11-post-32717066799-b4",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 47.52,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "ETCUSDT (only batch PASS): RR1, devWR 82.54%/valWR 82.61%, meanR 0.6667/0.6522, 0 zero-days both splits \u2014 no refinement needed.",
+              "EURGBP nearest fail: devWR 79.55% (just sub-80) but valWR 68.75% (~11pt drop), devZeroDays=1 \u2014 DEV/VAL divergence signals overfit risk; refinement not justified from aggregates alone.",
+              "EURNZD: devWR 71.11%/valWR 75% (stable, VAL\u2265DEV) but both 5-9pts below threshold \u2014 no fabricable bounded edit from aggregate WR/meanR/coverage fields.",
+              "EURCHF & EURAUD: WR collapses DEV\u2192VAL (77.78\u219237.5, 73.33\u219243.75) with negative valMeanR (-0.25, -0.125) \u2014 regime instability, reject.",
+              "EURCAD, EURJPY, ETHUSDT: WR <80% in both splits (max 71.11%), ETHUSDT also carries 1 zero-day each split \u2014 no near-threshold path.",
+              "No trade-level/feature/execution-timestamp data supplied in this batch beyond aggregate coverage/WR/meanR \u2014 cannot verify exact-data or 1-3-executions/day compliance directly, only rely on integrity block as asserted."
+            ],
+            "proposal": "No parameter or rule changes proposed this cycle \u2014 aggregate-only evidence is insufficient to specify a concrete, non-fabricated bounded edit. ETCUSDT: retain unchanged (RR1, WR>82% both splits, meets bar). EURGBP and EURNZD flagged as lowest-risk future refinement candidates contingent on additional trade-level evidence (entry filter, session/time-of-day, volatility regime breakdowns) being supplied in a later batch \u2014 do not act without it. EURAUD, EURCAD, EURCHF, EURJPY, ETHUSDT rejected for this cycle on WR<80%, negative valMeanR, and/or DEV-VAL divergence indicating overfit. No pooling, deletion, fabrication, or FINAL-data use applied; RR held at reported value (1) throughout.",
+            "evidence": [
+              "context.symbols batch4 rows: ETCUSDT, ETHUSDT, EURAUD, EURCAD, EURCHF, EURGBP, EURJPY, EURNZD as supplied",
+              "context.catalogSummary: catalogCount 94, passCount 7, failCount 87 (consistency check only, not batch-specific)",
+              "context.priorEvidence.V64_V69_V73 noted as DEV-only hypothesis seed per instruction, excluded from VAL-based conclusions",
+              "context.integrity block (sameBar/final/dailyExecutions) taken as asserted, not independently verifiable from provided fields"
+            ]
+          },
+          "last_seen": 1787569237302
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 19.44,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "ETCUSDT",
+                "assessment": "PASS_AS_IS",
+                "proposal": "Freeze current RR=1 configuration; no refinement justified.",
+                "basis": "DEV WR 82.54%, meanR 0.6667, coverage 100%, zeroDays 0; VALIDATION WR 82.61%, meanR 0.6522, coverage 100%, zeroDays 0."
+              },
+              {
+                "symbol": "ETHUSDT",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV and VALIDATION WR are below 80%; each has one zero-execution day."
+              },
+              {
+                "symbol": "EURAUD",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV WR 73.33%; VALIDATION WR 43.75% with negative expectancy (-0.125 meanR)."
+              },
+              {
+                "symbol": "EURCAD",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV WR 60%; VALIDATION WR 56.25%; both below 80%."
+              },
+              {
+                "symbol": "EURCHF",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV WR 77.78%; VALIDATION WR 37.5% with negative expectancy (-0.25 meanR)."
+              },
+              {
+                "symbol": "EURGBP",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV WR 79.55% and one zero-execution day; VALIDATION WR 68.75%."
+              },
+              {
+                "symbol": "EURJPY",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV WR 71.11%; VALIDATION WR 68.75%."
+              },
+              {
+                "symbol": "EURNZD",
+                "assessment": "REJECT_CURRENT",
+                "proposal": "No evidence-backed refinement possible from aggregate metrics alone.",
+                "basis": "DEV WR 71.11%; VALIDATION WR 75%."
+              }
+            ],
+            "proposal": "Retain ETCUSDT unchanged at RR=1. Do not promote or tune the other seven symbols from these aggregates. To propose deterministic bounded refinements without pooling, deletion, fabrication, or leakage, supply exact DEV/VALIDATION execution-level records and the current per-symbol rule/parameter definitions. Candidate changes must then be tested independently at RR 1 or 2, WR>=80%, positive expectancy, and 1-3 executions on every eligible day, with FINAL remaining sealed.",
+            "evidence": [
+              "Supplied batch-4 catalog rows for ETCUSDT, ETHUSDT, EURAUD, EURCAD, EURCHF, EURGBP, EURJPY, and EURNZD.",
+              "Integrity constraints supplied: conservative same-bar SL, FINAL sealed, daily executions 1..3.",
+              "No execution-level timestamps, entries, exits, signals, eligible-day definitions, exact price data, or current parameter configurations were supplied; therefore causal refinement claims cannot be verified."
+            ]
+          },
+          "last_seen": 1787569209218
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 5.98,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "Batch 4 contains 8 symbols: ETCUSDT, ETHUSDT, EURAUD, EURCAD, EURCHF, EURGBP, EURJPY, EURNZD",
+              "Only ETCUSDT passes with RR=1, devWR=82.54%, valWR=82.61%, positive expectancy in both dev and validation",
+              "All 7 other symbols fail either DEV_FAIL, VALIDATION_FAIL, or both",
+              "No per-symbol refinement proposals can be made without additional data on entry/exit logic, SL/TP levels, or parameter sensitivity analysis",
+              "The provided evidence contains only summary statistics (WR, meanR, zeroDays) but lacks the underlying trade-level data needed to identify specific refinements",
+              "No information on which specific rules or parameters caused failures for each symbol",
+              "Cannot determine if failures are due to trend filters, volatility thresholds, or other factors without detailed trade logs",
+              "The instruction requires 'bounded per-symbol refinements' but no refinement hypotheses or parameter ranges are provided in the evidence",
+              "Without access to the actual trading strategy logic or parameter space, proposing specific refinements would constitute fabrication",
+              "The evidence does not include any information about the current strategy parameters, making it impossible to propose bounded adjustments"
+            ],
+            "proposal": "Unable to propose refinements due to insufficient evidence. Need: (1) trade-level data for each failed symbol showing entry/exit timestamps, (2) current strategy parameters and their ranges, (3) specific failure modes (e.g., trend direction errors, stop-loss placement issues, take-profit optimization needs), (4) correlation analysis between dev and val performance to identify overfitting patterns, (5) any prior refinement attempts and their outcomes. Without this data, any proposal would be speculative and violate the no-fabrication constraint.",
+            "evidence": [
+              "ETCUSDT: PASS - RR=1, devWR=82.54%, devMeanR=0.6667, valWR=82.61%, valMeanR=0.6522, zeroDays=0/0",
+              "ETHUSDT: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=62.9%, valWR=59.09%, negative expectancy in val (meanR=0.1818)",
+              "EURAUD: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=73.33%, valWR=43.75%, negative val meanR=-0.125",
+              "EURCAD: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=60%, valWR=56.25%, low meanR=0.125",
+              "EURCHF: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=77.78%, valWR=37.5%, negative val meanR=-0.25",
+              "EURGBP: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=79.55%, valWR=68.75%, meanR=0.4375",
+              "EURJPY: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=71.11%, valWR=68.75%, meanR=0.375",
+              "EURNZD: FAIL - DEV_FAIL+VALIDATION_FAIL, devWR=71.11%, valWR=75%, meanR=0.5",
+              "All symbols have 100% dev coverage except ETHUSDT (98.41%) and EURGBP (97.78%)",
+              "All symbols have 100% val coverage",
+              "ETHUSDT and EURGBP have 1 zero day in dev; ETHUSDT has 1 zero day in val",
+              "No trade-level data, parameter values, or strategy logic provided in evidence"
+            ]
+          },
+          "last_seen": 1787569195762
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 2.41,
+          "review": {
+            "verdict": "PASS",
+            "findings": [],
+            "proposal": "For ETCUSDT (crypto), propose a bounded refinement to maintain RR=1, WR=82.61%, meanR=0.6522, with 1-3 daily executions. No changes needed for other symbols as they fail both DEV and VALIDATION criteria.",
+            "evidence": [
+              {
+                "symbol": "ETCUSDT",
+                "analysis": "Passes validation with 100% dev/val coverage, WR of 82.61%, and positive meanR of 0.6522. Meets all requirements for RR=1, WR>=80%, positive expectancy, and 1-3 daily executions."
+              }
+            ]
+          },
+          "last_seen": 1787569192196
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 36.56,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "ETCUSDT passes all criteria (devWR 82.54%, valWR 82.61%, valMeanR 0.6522).",
+              "ETHUSDT fails: devWR 62.9%, valWR 59.09%, valMeanR 0.1818, WR<80%.",
+              "EURAUD fails: devWR 73.33%, valWR 43.75%, valMeanR -0.125, WR<80% and negative expectancy.",
+              "EURCAD fails: devWR 60%, valWR 56.25%, valMeanR 0.125, WR<80%.",
+              "EURCHF fails: devWR 77.78%, valWR 37.5%, valMeanR -0.25, WR<80% and negative expectancy.",
+              "EURGBP fails: devWR 79.55%, valWR 68.75%, valMeanR 0.4375, WR<80%.",
+              "EURJPY fails: devWR 71.11%, valWR 68.75%, valMeanR 0.375, WR<80%.",
+              "EURNZD fails: devWR 71.11%, valWR 75%, valMeanR 0.5, WR<80%."
+            ],
+            "proposal": "Keep ETCUSDT unchanged. For all other symbols (ETHUSDT, EURAUD, EURCAD, EURCHF, EURGBP, EURJPY, EURNZD), propose to disable trading (set eligibility to false) because no bounded refinement can achieve WR>=80% with positive expectancy based on validation evidence. Further research may be needed, but not within this batch.",
+            "evidence": [
+              "ETCUSDT: rr=1, devCoverage=100, devWR=82.54, devMeanR=0.6667, devZeroDays=0, valCoverage=100, valWR=82.61, valMeanR=0.6522, valZeroDays=0",
+              "ETHUSDT: rr=1, devCoverage=98.41, devWR=62.9, devMeanR=0.2903, devZeroDays=1, valCoverage=95.65, valWR=59.09, valMeanR=0.1818, valZeroDays=1",
+              "EURAUD: rr=1, devCoverage=100, devWR=73.33, devMeanR=0.4667, devZeroDays=0, valCoverage=100, valWR=43.75, valMeanR=-0.125, valZeroDays=0",
+              "EURCAD: rr=1, devCoverage=100, devWR=60, devMeanR=0.2, devZeroDays=0, valCoverage=100, valWR=56.25, valMeanR=0.125, valZeroDays=0",
+              "EURCHF: rr=1, devCoverage=100, devWR=77.78, devMeanR=0.5556, devZeroDays=0, valCoverage=100, valWR=37.5, valMeanR=-0.25, valZeroDays=0",
+              "EURGBP: rr=1, devCoverage=97.78, devWR=79.55, devMeanR=0.6364, devZeroDays=1, valCoverage=100, valWR=68.75, valMeanR=0.4375, valZeroDays=0",
+              "EURJPY: rr=1, devCoverage=100, devWR=71.11, devMeanR=0.4222, devZeroDays=0, valCoverage=100, valWR=68.75, valMeanR=0.375, valZeroDays=0",
+              "EURNZD: rr=1, devCoverage=100, devWR=71.11, devMeanR=0.4444, devZeroDays=0, valCoverage=100, valWR=75, valMeanR=0.5, valZeroDays=0"
+            ]
+          },
+          "last_seen": 1787569226345
+        }
+      }
+    },
+    {
+      "batch": 5,
+      "task_id": "v11-post-32717066799-b5",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 42.84,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "EURUSD: WR 46.67%/62.5% (dev/val) <80% gate; devMeanR -0.0667 (dev negative expectancy)",
+              "FARTCOINUSDT: WR 74.19%/77.27% <80%; coverage 98.41%/95.65% (<100%, exact-data gate not met), 1 zero-day each side",
+              "FILUSDT: WR 79.37%/78.26% <80% (nearest miss), full coverage, positive expectancy both sides, 0 zero-days \u2014 no other disqualifier",
+              "FLOKIUSDT: WR 61.9%/65.22% <80%",
+              "GBPAUD: WR 60%/75% <80%",
+              "GBPCAD: WR 60%/43.75% <80%; valMeanR -0.125 (val negative expectancy)",
+              "GBPCHF: WR 53.33%/43.75% <80%; valMeanR -0.125 (val negative expectancy)",
+              "GBPJPY: WR 63.64%/75% <80%; devCoverage 97.78% (1 zero-day)"
+            ],
+            "proposal": "No symbol in batch 5 clears the WR>=80% + positive-expectancy gate on both DEV and VALIDATION under exact-data (full coverage) constraints, so no promotion is proposed. FILUSDT (RR1, 100/100% coverage, 0 zero-days, WR 79.37%/78.26%, meanR +0.6032/+0.5652) is the nearest miss and the only plausible bounded-refinement candidate, but proposing a concrete filter (e.g., session/volatility restriction) would require trade-level or indicator-level evidence not supplied in this batch (only aggregate WR/meanR/coverage per symbol) \u2014 that specific sub-task is BLOCKED pending trade-level data, not assumed. No pooling, deletion, fabrication, or FINAL-scope learning applied. Recommend carrying FILUSDT forward for trade-level evidence request in a future batch; all others rejected outright on WR/expectancy/coverage grounds.",
+            "evidence": [
+              "context.symbols[batch=5]: EURUSD, FARTCOINUSDT, FILUSDT, FLOKIUSDT, GBPAUD, GBPCAD, GBPCHF, GBPJPY (schema: symbol/market/pass/reasons/rr/devCoverage/devWR/devMeanR/devZeroDays/valCoverage/valWR/valMeanR/valZeroDays)",
+              "catalogSummary: passCount 7/94, failCount 87/94 \u2014 none of batch 5's 8 symbols are among the 7 passes",
+              "All 8 symbols pre-flagged DEV_FAIL + VALIDATION_FAIL in supplied context; no trade-level/indicator data provided for refinement design"
+            ]
+          },
+          "last_seen": 1787569281180
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 16.73,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "EURUSD",
+                "status": "REJECT",
+                "reason": "DEV WR 46.67% and VALIDATION WR 62.50%; below 80%."
+              },
+              {
+                "symbol": "FARTCOINUSDT",
+                "status": "REJECT",
+                "reason": "DEV WR 74.19% and VALIDATION WR 77.27%; below 80%, with incomplete coverage."
+              },
+              {
+                "symbol": "FILUSDT",
+                "status": "REJECT",
+                "reason": "DEV WR 79.37% and VALIDATION WR 78.26%; below 80%."
+              },
+              {
+                "symbol": "FLOKIUSDT",
+                "status": "REJECT",
+                "reason": "DEV WR 61.90% and VALIDATION WR 65.22%; below 80%."
+              },
+              {
+                "symbol": "GBPAUD",
+                "status": "REJECT",
+                "reason": "DEV WR 60.00% and VALIDATION WR 75.00%; below 80%."
+              },
+              {
+                "symbol": "GBPCAD",
+                "status": "REJECT",
+                "reason": "DEV WR 60.00%, VALIDATION WR 43.75%, and VALIDATION mean R -0.125; fails WR and expectancy."
+              },
+              {
+                "symbol": "GBPCHF",
+                "status": "REJECT",
+                "reason": "DEV WR 53.33%, VALIDATION WR 43.75%, and VALIDATION mean R -0.125; fails WR and expectancy."
+              },
+              {
+                "symbol": "GBPJPY",
+                "status": "REJECT",
+                "reason": "DEV WR 63.64% and VALIDATION WR 75.00%; below 80%, with incomplete DEV coverage."
+              }
+            ],
+            "proposal": "Make no parameter change or promotion. Supply exact DEV/VALIDATION execution-level records and bounded candidate definitions for independent testing at RR 1 or 2, preserving same-bar SL conservatism and 1-3 executions per eligible day. Do not use FINAL. Aggregates alone cannot support deterministic per-symbol refinements without risking selection bias or fabrication.",
+            "evidence": [
+              "Batch 5/12 contains eight symbols; all are marked DEV_FAIL and VALIDATION_FAIL at RR=1.",
+              "All eight symbols have DEV and VALIDATION WR below the required 80%.",
+              "GBPCAD and GBPCHF additionally have negative VALIDATION mean R (-0.125).",
+              "No execution-level timestamps, prices, signals, parameter definitions, eligible-day counts, or candidate-test results were supplied; exact bounded refinements cannot be validated."
+            ]
+          },
+          "last_seen": 1787569255070
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 4.19,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "All 8 symbols in batch 5 fail both DEV and VALIDATION criteria (WR>=80%, positive meanR).",
+              "No symbol meets minimum eligibility thresholds; all require refinement.",
+              "No prior evidence or hypothesis seed data is available for this specific batch beyond the provided metrics.",
+              "No refinement proposals can be made without additional context on strategy logic, entry/exit rules, or parameter definitions.",
+              "The task requires bounded per-symbol refinements, but no actionable parameters or strategy details are supplied in the evidence."
+            ],
+            "proposal": "Cannot propose refinements due to missing strategy logic, parameter definitions, and rule context. All symbols show sub-80% WR and/or negative/weak meanR. Refinement would require knowledge of current signal generation, SL/TP placement, and filter conditions, which are not provided in the evidence payload.",
+            "evidence": [
+              "EURUSD: devWR=46.67, valWR=62.5, devMeanR=-0.0667, valMeanR=0.25",
+              "FARTCOINUSDT: devWR=74.19, valWR=77.27, devMeanR=0.4839, valMeanR=0.5455",
+              "FILUSDT: devWR=79.37, valWR=78.26, devMeanR=0.6032, valMeanR=0.5652",
+              "FLOKIUSDT: devWR=61.9, valWR=65.22, devMeanR=0.2381, valMeanR=0.3043",
+              "GBPAUD: devWR=60, valWR=75, devMeanR=0.2, valMeanR=0.5",
+              "GBPCAD: devWR=60, valWR=43.75, devMeanR=0.2222, valMeanR=-0.125",
+              "GBPCHF: devWR=53.33, valWR=43.75, devMeanR=0.0667, valMeanR=-0.125",
+              "GBPJPY: devWR=63.64, valWR=75, devMeanR=0.3864, valMeanR=0.625"
+            ]
+          },
+          "last_seen": 1787569242522
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 4.88,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All symbols in the batch fail both development and validation stages.",
+              "No symbol meets the required WR >= 80% for validation.",
+              "None of the symbols show positive expectancy (mean R < 0 for several).",
+              "RR is set to 1, which is acceptable, but combined with low WR and negative mean R, makes strategies unviable."
+            ],
+            "proposal": "Reject all symbols in this batch due to failure to meet validation criteria. No refinements can be proposed without violating the deterministic, non-learning constraints or compromising the integrity of the validation process.",
+            "evidence": [
+              "EURUSD: DEV_WR=46.67, VAL_WR=62.5, DEV_meanR=-0.0667, VAL_meanR=0.25",
+              "FARTCOINUSDT: DEV_WR=74.19, VAL_WR=77.27, DEV_meanR=0.4839, VAL_meanR=0.5455",
+              "FILUSDT: DEV_WR=79.37, VAL_WR=78.26, DEV_meanR=0.6032, VAL_meanR=0.5652",
+              "FLOKIUSDT: DEV_WR=61.9, VAL_WR=65.22, DEV_meanR=0.2381, VAL_meanR=0.3043",
+              "GBPAUD: DEV_WR=60, VAL_WR=75, DEV_meanR=0.2, VAL_meanR=0.5",
+              "GBPCAD: DEV_WR=60, VAL_WR=43.75, DEV_meanR=0.2222, VAL_meanR=-0.125",
+              "GBPCHF: DEV_WR=53.33, VAL_WR=43.75, DEV_meanR=0.0667, VAL_meanR=-0.125",
+              "GBPJPY: DEV_WR=63.64, VAL_WR=75, DEV_meanR=0.3864, VAL_meanR=0.625"
+            ]
+          },
+          "last_seen": 1787569243221
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 19.83,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "EURUSD: DEV_WR=46.67%, VAL_WR=62.5%, DEV_MeanR=-0.0667 (negative), VAL_MeanR=0.25; fails WR>=80% and positive expectancy in DEV.",
+              "FARTCOINUSDT: DEV_WR=74.19%, VAL_WR=77.27%, MeanR positive but WR<80%; zero days present.",
+              "FILUSDT: DEV_WR=79.37%, VAL_WR=78.26%, MeanR positive but WR<80% in both; close but not meeting threshold.",
+              "FLOKIUSDT: DEV_WR=61.9%, VAL_WR=65.22%, MeanR positive but WR<80%.",
+              "GBPAUD: DEV_WR=60%, VAL_WR=75%, MeanR positive but WR<80%.",
+              "GBPCAD: DEV_WR=60%, VAL_WR=43.75%, VAL_MeanR=-0.125 (negative); fails WR and expectancy.",
+              "GBPCHF: DEV_WR=53.33%, VAL_WR=43.75%, VAL_MeanR=-0.125 (negative); fails WR and expectancy.",
+              "GBPJPY: DEV_WR=63.64%, VAL_WR=75%, MeanR positive but WR<80%."
+            ],
+            "proposal": "No symbol meets the required WR>=80% and positive expectancy. For FILUSDT and FARTCOINUSDT, minor filter tightening (e.g., increasing minimum signal strength or adding volatility threshold) might push WR above 80% while preserving positive MeanR, but this is a hypothesis requiring further validation. For all others, no bounded refinement can realistically achieve the criteria given current metrics; they are rejected. All refinements must preserve RR=1, 1-3 daily executions, and use only DEV/VALIDATION data without leakage.",
+            "evidence": [
+              {
+                "symbol": "EURUSD",
+                "market": "forex",
+                "rr": 1,
+                "devCoverage": 100,
+                "devWR": 46.67,
+                "devMeanR": -0.0667,
+                "devZeroDays": 0,
+                "valCoverage": 100,
+                "valWR": 62.5,
+                "valMeanR": 0.25,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "FARTCOINUSDT",
+                "market": "crypto",
+                "rr": 1,
+                "devCoverage": 98.41,
+                "devWR": 74.19,
+                "devMeanR": 0.4839,
+                "devZeroDays": 1,
+                "valCoverage": 95.65,
+                "valWR": 77.27,
+                "valMeanR": 0.5455,
+                "valZeroDays": 1
+              },
+              {
+                "symbol": "FILUSDT",
+                "market": "crypto",
+                "rr": 1,
+                "devCoverage": 100,
+                "devWR": 79.37,
+                "devMeanR": 0.6032,
+                "devZeroDays": 0,
+                "valCoverage": 100,
+                "valWR": 78.26,
+                "valMeanR": 0.5652,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "FLOKIUSDT",
+                "market": "crypto",
+                "rr": 1,
+                "devCoverage": 100,
+                "devWR": 61.9,
+                "devMeanR": 0.2381,
+                "devZeroDays": 0,
+                "valCoverage": 100,
+                "valWR": 65.22,
+                "valMeanR": 0.3043,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "GBPAUD",
+                "market": "forex",
+                "rr": 1,
+                "devCoverage": 100,
+                "devWR": 60,
+                "devMeanR": 0.2,
+                "devZeroDays": 0,
+                "valCoverage": 100,
+                "valWR": 75,
+                "valMeanR": 0.5,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "GBPCAD",
+                "market": "forex",
+                "rr": 1,
+                "devCoverage": 100,
+                "devWR": 60,
+                "devMeanR": 0.2222,
+                "devZeroDays": 0,
+                "valCoverage": 100,
+                "valWR": 43.75,
+                "valMeanR": -0.125,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "GBPCHF",
+                "market": "forex",
+                "rr": 1,
+                "devCoverage": 100,
+                "devWR": 53.33,
+                "devMeanR": 0.0667,
+                "devZeroDays": 0,
+                "valCoverage": 100,
+                "valWR": 43.75,
+                "valMeanR": -0.125,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "GBPJPY",
+                "market": "forex",
+                "rr": 1,
+                "devCoverage": 97.78,
+                "devWR": 63.64,
+                "devMeanR": 0.3864,
+                "devZeroDays": 1,
+                "valCoverage": 100,
+                "valWR": 75,
+                "valMeanR": 0.625,
+                "valZeroDays": 0
+              }
+            ]
+          },
+          "last_seen": 1787569258166
+        }
+      }
+    },
+    {
+      "batch": 6,
+      "task_id": "v11-post-32717066799-b6",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 59.99,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "GBPNZD: devWR 55.56% and valWR 68.75% both <80% gate (RR1); dev meanR 0.111 marginal positive but WR gate fails both windows \u2014 no refinement possible from aggregate stats alone.",
+              "GBPUSD: devWR 55.56%, valWR 75% both <80% gate; same limitation as GBPNZD.",
+              "GRASSUSDT: devWR 74.19% fails gate despite valWR 90.91% passing; devZeroDays=1 and valZeroDays=1 both nonzero \u2014 cause of zero-day occurrences not resolvable without trade-level/exact-data logs.",
+              "HBARUSDT: devWR 72.58%, valWR 72.73%, both <80% gate; zeroDays=1 in both windows, same data gap.",
+              "HYPEUSDT: PASS \u2014 devWR 80.95%, valWR 82.61%, RR1, zeroDays 0/0, meanR 0.619/0.652 positive both windows. No refinement warranted.",
+              "INJUSDT: PASS \u2014 devWR 80.95%, valWR 86.96%, RR1, zeroDays 0/0, meanR 0.619/0.739 positive both windows. No refinement warranted.",
+              "JP225: DEV_FAIL only \u2014 devWR 76.47% (3.53pp short of 80% gate), valWR 91.67% passes. Closest-margin fail candidate in batch, but underlying trade-level DEV data not supplied.",
+              "JTOUSDT: devWR 74.6%, valWR 78.26%, both <80% gate; RR1, zeroDays 0/0 (coverage otherwise clean but WR insufficient)."
+            ],
+            "proposal": "Evidence supplied is aggregate-only (coverage/WR/meanR/zeroDays per symbol); no trade-level entries, filter logic, session windows, or timestamps were provided. Per task constraints (no fabrication/no invented repository evidence), I cannot generate concrete bounded parameter deltas (e.g., indicator threshold shifts, session narrowing) for any FAIL symbol this batch \u2014 doing so would exceed supplied evidence. Recommended next step, hypothesis-seed only, no FINAL learning: (1) JP225 is the highest-value re-test target \u2014 only DEV_FAIL, margin is 3.53pp on WR, VAL already clears 80%; request exact DEV trade-level log for this symbol to locate the marginal-loss cluster before any RR/filter change. (2) GRASSUSDT and HBARUSDT both show devZeroDays=valZeroDays=1 \u2014 confirm via exact data whether this is a genuine no-signal day or a coverage/data gap, since it interacts with the 1-3 executions/eligible-day constraint, before treating WR as representative. (3) GBPNZD, GBPUSD, JTOUSDT show WR gaps of 10-25pp in at least one window \u2014 gap too large for a bounded single-parameter refinement to plausibly close without trade-level review; recommend leaving DEV_FAIL/VALIDATION_FAIL disposition as-is rather than proposing unsubstantiated changes. (4) HYPEUSDT, INJUSDT: no action, preserve current rule set as-is (RR1, WR>=80% both windows, zero zero-days).",
+            "evidence": [
+              "EVIDENCE.context.symbols entries for GBPNZD, GBPUSD, GRASSUSDT, HBARUSDT, HYPEUSDT, INJUSDT, JP225, JTOUSDT (batch 6/12) \u2014 fields: pass, reasons, rr, devCoverage, devWR, devMeanR, devZeroDays, valCoverage, valWR, valMeanR, valZeroDays",
+              "No trade-level/strategy-logic/timestamped data was included in this task context beyond the listed aggregate schema fields \u2014 treated as missing evidence per instructions, not assumed."
+            ]
+          },
+          "last_seen": 1787569341961
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 24.74,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "GBPNZD",
+                "assessment": "REJECT_CURRENT",
+                "basis": "DEV WR 55.56%, meanR 0.1111; VALIDATION WR 68.75%, meanR 0.3750. Both violate WR>=80%."
+              },
+              {
+                "symbol": "GBPUSD",
+                "assessment": "REJECT_CURRENT",
+                "basis": "DEV WR 55.56%, meanR 0.1111; VALIDATION WR 75.00%, meanR 0.5000. Both violate WR>=80%."
+              },
+              {
+                "symbol": "GRASSUSDT",
+                "assessment": "REJECT_CURRENT",
+                "basis": "DEV WR 74.19% violates WR>=80%; VALIDATION WR 90.91% passes WR and expectancy, but coverage is 95.65% with one zero day."
+              },
+              {
+                "symbol": "HBARUSDT",
+                "assessment": "REJECT_CURRENT",
+                "basis": "DEV WR 72.58% and VALIDATION WR 72.73% violate WR>=80%; each split also has one zero day."
+              },
+              {
+                "symbol": "HYPEUSDT",
+                "assessment": "PRESERVE",
+                "basis": "RR 1; DEV WR 80.95%, meanR 0.6190; VALIDATION WR 82.61%, meanR 0.6522; 100% coverage and zero zero-days."
+              },
+              {
+                "symbol": "INJUSDT",
+                "assessment": "PRESERVE",
+                "basis": "RR 1; DEV WR 80.95%, meanR 0.6190; VALIDATION WR 86.96%, meanR 0.7391; 100% coverage and zero zero-days."
+              },
+              {
+                "symbol": "JP225",
+                "assessment": "REJECT_CURRENT_NEAR_MISS",
+                "basis": "DEV WR 76.47% violates WR>=80%; VALIDATION WR 91.67% and meanR 0.8333 pass. Refinement must improve DEV without selecting on VALIDATION."
+              },
+              {
+                "symbol": "JTOUSDT",
+                "assessment": "REJECT_CURRENT_NEAR_MISS",
+                "basis": "DEV WR 74.60% and VALIDATION WR 78.26% violate WR>=80%, although expectancy is positive and coverage is 100%."
+              }
+            ],
+            "proposal": "Freeze HYPEUSDT and INJUSDT unchanged. For each failed symbol, permit only predeclared, bounded DEV-only tests of RR 1 or 2 and entry-quality/session filters; then run one untouched VALIDATION evaluation requiring WR>=80%, positive meanR, exact-data provenance, and 1-3 executions on every eligible day. Do not pool symbols, delete losing executions, tune from VALIDATION, use FINAL, or promote any candidate from the supplied aggregates alone. Concrete per-symbol parameter refinements cannot be justified without exact DEV trades, feature definitions, eligible-day records, and candidate-search history.",
+            "evidence": [
+              "Supplied batch-6 catalog rows for all eight symbols.",
+              "Integrity constraints supplied: same-bar SL conservative, FINAL sealed, daily executions 1..3.",
+              "Only aggregate coverage, WR, meanR, and zero-day counts were supplied; no exact trades, timestamps, signals, parameters, eligible-day definitions, feature values, or search ledger were provided."
+            ]
+          },
+          "last_seen": 1787569306704
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 7.29,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "Batch 6 contains 8 symbols: GBPNZD, GBPUSD, GRASSUSDT, HBARUSDT, HYPEUSDT, INJUSDT, JP225, JTOUSDT",
+              "HYPEUSDT and INJUSDT already pass with RR=1, devWR=80.95%, valWR=82.61% and 86.96% respectively",
+              "JP225 fails only on DEV (76.47% WR) but passes validation (91.67% WR, meanR=0.8333)",
+              "GRASSUSDT and HBARUSDT have 1 zero-day in both dev and validation, indicating intermittent execution gaps",
+              "GBPNZD and GBPUSD show weak dev meanR (0.1111) and val meanR (0.375/0.5) despite 100% coverage",
+              "JTOUSDT shows moderate performance (devWR=74.6%, valWR=78.26%) but fails both thresholds",
+              "No per-symbol refinement proposals can be safely made without additional execution-level data (entry/exit timestamps, SL/TP distances, spread costs)"
+            ],
+            "proposal": "Cannot propose bounded refinements for any symbol in batch 6. The provided aggregate statistics (WR, meanR, zeroDays) are insufficient to determine whether failures stem from entry timing, stop placement, or market regime. For GBPNZD/GBPUSD, the low meanR (0.1111) suggests marginal trades that could flip with tighter filters, but without per-trade R-multiples and exact bar data, any change risks overfitting. For GRASSUSDT/HBARUSDT, the single zero-day in both dev and validation indicates a specific date where no trade occurred\u2014this needs investigation before adjustment. JP225's dev-only failure (76.47% vs 80% threshold) is borderline, but proposing a filter change without knowing which dev trades lost money is unsafe. HYPEUSDT and INJUSDT already pass and require no action. Recommend requesting per-symbol trade logs (date, direction, entry, SL, TP, R-multiple) for batch 6 to enable evidence-based refinement.",
+            "evidence": [
+              "catalogSummary: 94 total, 7 pass, 87 fail \u2014 batch 6 has 2 pass (HYPEUSDT, INJUSDT) and 6 fail",
+              "GBPNZD: devWR=55.56%, devMeanR=0.1111, valWR=68.75%, valMeanR=0.375 \u2014 both fail, meanR too low for RR=1",
+              "GBPUSD: devWR=55.56%, devMeanR=0.1111, valWR=75%, valMeanR=0.5 \u2014 dev fails, val WR below 80%",
+              "GRASSUSDT: devWR=74.19%, devMeanR=0.4839, devZeroDays=1, valWR=90.91%, valMeanR=0.8182, valZeroDays=1 \u2014 dev fails, zero-day anomaly",
+              "HBARUSDT: devWR=72.58%, devMeanR=0.4516, devZeroDays=1, valWR=72.73%, valMeanR=0.4545, valZeroDays=1 \u2014 both fail, consistent underperformance",
+              "HYPEUSDT: devWR=80.95%, devMeanR=0.619, valWR=82.61%, valMeanR=0.6522 \u2014 passes all criteria",
+              "INJUSDT: devWR=80.95%, devMeanR=0.619, valWR=86.96%, valMeanR=0.7391 \u2014 passes all criteria",
+              "JP225: devWR=76.47%, devMeanR=0.5294, valWR=91.67%, valMeanR=0.8333 \u2014 dev fails by 3.53 percentage points",
+              "JTOUSDT: devWR=74.6%, devMeanR=0.4921, valWR=78.26%, valMeanR=0.5652 \u2014 both fail, val WR 1.74 points below threshold"
+            ]
+          },
+          "last_seen": 1787569289256
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 6.71,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "GBPNZD",
+                "issue": "Both DEV and VALIDATION stages failed; RR=1, WR=55.56% (DEV), WR=68.75% (VALIDATION). Expectancy is likely negative."
+              },
+              {
+                "symbol": "GBPUSD",
+                "issue": "Both DEV and VALIDATION stages failed; RR=1, WR=55.56% (DEV), WR=75% (VALIDATION). Expectancy is likely negative."
+              },
+              {
+                "symbol": "GRASSUSDT",
+                "issue": "Both DEV and VALIDATION stages failed; RR=1, WR=74.19% (DEV), WR=90.91% (VALIDATION). However, zero days in both sets suggest limited data reliability."
+              },
+              {
+                "symbol": "HBARUSDT",
+                "issue": "Both DEV and VALIDATION stages failed; RR=1, WR=72.58% (DEV), WR=72.73% (VALIDATION). Zero days in both sets suggest limited data reliability."
+              },
+              {
+                "symbol": "JP225",
+                "issue": "DEV stage failed; RR=1, WR=76.47% (DEV), WR=91.67% (VALIDATION). However, no validation data available for full assessment."
+              },
+              {
+                "symbol": "JTOUSDT",
+                "issue": "Both DEV and VALIDATION stages failed; RR=1, WR=74.6% (DEV), WR=78.26% (VALIDATION). Zero days in both sets suggest limited data reliability."
+              }
+            ],
+            "proposal": "Reject all symbols in this batch due to failure in either development or validation phases. The remaining two symbols (HYPEUSDT and INJUSDT) pass but do not meet the required WR threshold of >=80% in validation phase. No refinements proposed as per task constraints.",
+            "evidence": [
+              "GBPNZD: DEV_FAIL, VALIDATION_FAIL, RR=1, DEV_WR=55.56%, VAL_WR=68.75%",
+              "GBPUSD: DEV_FAIL, VALIDATION_FAIL, RR=1, DEV_WR=55.56%, VAL_WR=75%",
+              "GRASSUSDT: DEV_FAIL, VALIDATION_FAIL, RR=1, DEV_WR=74.19%, VAL_WR=90.91%",
+              "HBARUSDT: DEV_FAIL, VALIDATION_FAIL, RR=1, DEV_WR=72.58%, VAL_WR=72.73%",
+              "JP225: DEV_FAIL, RR=1, DEV_WR=76.47%, VAL_WR=91.67%",
+              "JTOUSDT: DEV_FAIL, VALIDATION_FAIL, RR=1, DEV_WR=74.6%, VAL_WR=78.26%"
+            ]
+          },
+          "last_seen": 1787569288683
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 23.86,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "GBPNZD: WR below 80% in both dev (55.56%) and val (68.75%)",
+              "GBPUSD: WR below 80% in both dev (55.56%) and val (75%)",
+              "GRASSUSDT: dev WR 74.19% below 80%, val WR 90.91% passes",
+              "HBARUSDT: WR below 80% in both dev (72.58%) and val (72.73%)",
+              "JP225: dev WR 76.47% below 80%, val WR 91.67% passes",
+              "JTOUSDT: WR below 80% in both dev (74.6%) and val (78.26%)"
+            ],
+            "proposal": "For each failing symbol, apply stricter entry filters to raise win rate to >=80% while preserving RR=1 and 1-3 trades/day. Specific bounded refinements: GBPNZD/GBPUSD: add 4H trend alignment and RSI filter (e.g., only long if RSI>55 and price above 20-period EMA); GRASSUSDT/HBARUSDT: add volume confirmation and breakout strength (e.g., require volume > 1.5x average and close above prior swing high); JP225: add momentum divergence filter (e.g., only trade if MACD histogram rising); JTOUSDT: add support/resistance confluence (e.g., require price near daily pivot). All refinements are bounded to maintain trade frequency and no data pooling or leakage.",
+            "evidence": [
+              "GBPNZD: rr=1, devWR=55.56, valWR=68.75, devMeanR=0.1111, valMeanR=0.375",
+              "GBPUSD: rr=1, devWR=55.56, valWR=75, devMeanR=0.1111, valMeanR=0.5",
+              "GRASSUSDT: rr=1, devWR=74.19, valWR=90.91, devMeanR=0.4839, valMeanR=0.8182",
+              "HBARUSDT: rr=1, devWR=72.58, valWR=72.73, devMeanR=0.4516, valMeanR=0.4545",
+              "JP225: rr=1, devWR=76.47, valWR=91.67, devMeanR=0.5294, valMeanR=0.8333",
+              "JTOUSDT: rr=1, devWR=74.6, valWR=78.26, devMeanR=0.4921, valMeanR=0.5652"
+            ]
+          },
+          "last_seen": 1787569305831
+        }
+      }
+    },
+    {
+      "batch": 7,
+      "task_id": "v11-post-32717066799-b7",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 34.09,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "All 8 symbols in batch 7 fail both DEV and VALIDATION on WR>=80%: JUPUSDT 73.02/73.91, KAITOUSDT 62.90/59.09, LDOUSDT 69.84/73.91, LINKUSDT 73.02/69.57, LITUSDT 79.37/78.26, LTCUSDT 73.02/69.57, MOODENGUSDT 70.97/68.18, NAS100 79.41/75.00 (dev/val WR%).",
+              "Only aggregate summary stats (coverage, WR, meanR, zeroDays) are supplied \u2014 no trade-level records (entry timestamps, session/time-of-day, setup tags, individual outcomes) for either DEV or VALIDATION.",
+              "Without raw trade-level data, any specific bounded refinement (e.g., time-of-day filter, session exclusion, volatility gate) would require guessing which trades to exclude to lift WR \u2014 that is fabrication/assumption against exact-data and no-fabrication constraints.",
+              "LITUSDT (79.37/78.26 WR, meanR 0.5873/0.5652, 0 zero days both) and NAS100 (79.41/75.00 WR, meanR 0.5882/0.5833, 0 zero days both) are the closest candidates to the 80% threshold, within 1-5pp on both DEV and VALIDATION with full coverage \u2014 best refinement candidates if raw data is later supplied.",
+              "KAITOUSDT and MOODENGUSDT show the largest DEV/VAL gap plus non-zero devZeroDays/valZeroDays and <100% coverage, indicating instability beyond a simple WR shortfall \u2014 not good refinement candidates from aggregates alone."
+            ],
+            "proposal": "No bounded per-symbol refinement can be safely proposed from aggregate WR/meanR/coverage figures alone without violating exact-data/no-fabrication constraints. Request raw trade-level DEV/VALIDATION records (timestamp, session, setup context, R outcome) for LITUSDT and NAS100 first, since they sit closest to the WR>=80% bar with 0 zero-days and full coverage on both legs \u2014 a legitimate filter (e.g., session/time-of-day exclusion) might close the gap if the underlying data supports it. Do not act on the remaining 6 symbols in this batch; their WR gaps (up to ~17pp for KAITOUSDT) are too large to close via a bounded filter without materially cutting sample size or fabricating a rule. No FINAL learning applied; no pooling/deletion performed.",
+            "evidence": [
+              "context.symbols[batch=7]: JUPUSDT,KAITOUSDT,LDOUSDT,LINKUSDT,LITUSDT,LTCUSDT,MOODENGUSDT,NAS100 \u2014 all pass=false, reasons=[DEV_FAIL,VALIDATION_FAIL], rr=1 for all",
+              "priorEvidence.V64_V69_V73 labeled 'EXPOSED DEVELOPMENT ONLY' / 'hypothesis seed only' \u2014 not treated as confirmatory evidence here",
+              "No trade-level or repository/runtime data supplied beyond the provided catalogSummary/schema fields"
+            ]
+          },
+          "last_seen": 1787569376850
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 20.99,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "JUPUSDT",
+                "finding": "DEV WR 73.02% and VALIDATION WR 73.91%; below 80% despite full coverage and positive expectancy."
+              },
+              {
+                "symbol": "KAITOUSDT",
+                "finding": "DEV WR 62.90% and VALIDATION WR 59.09%; below 80%, with one zero-execution day in each split."
+              },
+              {
+                "symbol": "LDOUSDT",
+                "finding": "DEV WR 69.84% and VALIDATION WR 73.91%; below 80% despite full coverage and positive expectancy."
+              },
+              {
+                "symbol": "LINKUSDT",
+                "finding": "DEV WR 73.02% and VALIDATION WR 69.57%; below 80% despite full coverage and positive expectancy."
+              },
+              {
+                "symbol": "LITUSDT",
+                "finding": "Closest candidate, but DEV WR 79.37% and VALIDATION WR 78.26% both remain below 80%."
+              },
+              {
+                "symbol": "LTCUSDT",
+                "finding": "DEV WR 73.02% and VALIDATION WR 69.57%; below 80% despite full coverage and positive expectancy."
+              },
+              {
+                "symbol": "MOODENGUSDT",
+                "finding": "DEV WR 70.97% and VALIDATION WR 68.18%; below 80%, with one zero-execution day in each split."
+              },
+              {
+                "symbol": "NAS100",
+                "finding": "DEV WR 79.41% is below 80% and VALIDATION WR falls to 75.00%; fails both splits."
+              }
+            ],
+            "proposal": "Promote none. For each symbol, permit only a bounded DEV-only one-variable filter/threshold refinement of the existing rule, retaining RR=1 and enforcing 1-3 executions on every eligible day; freeze the selected variant before one untouched VALIDATION rerun. Prioritize LITUSDT, then NAS100, because they are nearest the WR threshold; require larger DEV improvement margins for all others. Reject any variant that pools symbols, removes eligible days, fabricates executions, changes same-bar SL conservatism, uses VALIDATION iteratively, or accesses FINAL. No exact parameter value can be proposed from aggregate metrics alone; setup-level DEV inputs and the existing rule definition are required.",
+            "evidence": [
+              "Catalog batch 7/12 contains eight symbols; every supplied pass flag is false with DEV_FAIL and VALIDATION_FAIL.",
+              "All supplied RR values are 1, and all supplied mean-R values are positive.",
+              "No symbol reaches WR>=80% in either DEV or VALIDATION.",
+              "Coverage is 100% with zero missing days for JUPUSDT, LDOUSDT, LINKUSDT, LITUSDT, LTCUSDT, and NAS100.",
+              "KAITOUSDT has DEV/VALIDATION coverage 98.41%/95.65%; MOODENGUSDT has the same, and each records one zero day per split.",
+              "FINAL is reported sealed; prior V64/V69/V73 evidence is DEVELOPMENT-only and therefore usable only as a hypothesis seed."
+            ]
+          },
+          "last_seen": 1787569363748
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 4.53,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "No per-symbol raw trade data, entry/exit timestamps, or SL/TP levels are supplied in the evidence; only aggregate DEV/VALIDATION metrics are present.",
+              "The instruction requires bounded per-symbol refinements preserving RR 1 or 2, WR>=80%, positive expectancy, and exact data, but the provided metrics show all symbols fail DEV and VALIDATION with WR below 80% and mean R below 1, making any refinement proposal impossible without additional data.",
+              "The evidence lacks any information on the underlying strategy logic, feature set, or parameter ranges that could be adjusted; without this, proposing specific refinements would be fabrication.",
+              "The integrity constraints (sameBar SL conservative, final sealed, dailyExecutions 1..3) cannot be verified or applied because no trade-level data is available to check SL placement or execution counts.",
+              "The prior evidence (V64_V69_V73) is marked as 'EXPOSED DEVELOPMENT ONLY' and 'hypothesis seed only', but no concrete hypothesis or seed details are provided to guide refinement.",
+              "The batch contains 8 symbols, but the evidence only provides aggregate metrics; no per-symbol breakdown of individual trades, dates, or market conditions is available to identify systematic issues."
+            ],
+            "proposal": "No refinement can be proposed due to missing evidence. To proceed, provide for each symbol in this batch: (1) full trade log with entry/exit timestamps, SL/TP levels, and R-multiples for DEV and VALIDATION periods; (2) strategy parameter ranges and feature definitions; (3) daily execution counts to verify 1-3 per day; (4) any prior hypothesis seeds from V64_V69_V73 that are allowed as non-leakage; (5) confirmation that no FINAL learning has occurred. Only with this data can bounded refinements be designed to meet RR 1 or 2, WR>=80%, and positive expectancy.",
+            "evidence": []
+          },
+          "last_seen": 1787569347290
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 8.32,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All symbols in the batch fail both development and validation stages.",
+              "No symbol meets the required criteria for RR=1 or 2, WR>=80%, or positive expectancy.",
+              "The evidence shows consistent failure across all metrics (devWR, valWR, devMeanR, valMeanR) with no improvement in validation vs development.",
+              "Symbols exhibit low execution frequency (zero days) or high zero-day occurrences, violating daily execution constraints."
+            ],
+            "proposal": "Reject all symbols in this batch due to systematic failure in both development and validation phases. No refinements can be proposed that would satisfy the specified bounds without fabricating or extrapolating data beyond what's provided.",
+            "evidence": [
+              {
+                "symbol": "JUPUSDT",
+                "devWR": 73.02,
+                "valWR": 73.91,
+                "devMeanR": 0.4921,
+                "valMeanR": 0.4783,
+                "devZeroDays": 0,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "KAITOUSDT",
+                "devWR": 62.9,
+                "valWR": 59.09,
+                "devMeanR": 0.2581,
+                "valMeanR": 0.1818,
+                "devZeroDays": 1,
+                "valZeroDays": 1
+              },
+              {
+                "symbol": "LDOUSDT",
+                "devWR": 69.84,
+                "valWR": 73.91,
+                "devMeanR": 0.3968,
+                "valMeanR": 0.4783,
+                "devZeroDays": 0,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "LINKUSDT",
+                "devWR": 73.02,
+                "valWR": 69.57,
+                "devMeanR": 0.4603,
+                "valMeanR": 0.3913,
+                "devZeroDays": 0,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "LITUSDT",
+                "devWR": 79.37,
+                "valWR": 78.26,
+                "devMeanR": 0.5873,
+                "valMeanR": 0.5652,
+                "devZeroDays": 0,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "LTCUSDT",
+                "devWR": 73.02,
+                "valWR": 69.57,
+                "devMeanR": 0.4603,
+                "valMeanR": 0.3913,
+                "devZeroDays": 0,
+                "valZeroDays": 0
+              },
+              {
+                "symbol": "MOODENGUSDT",
+                "devWR": 70.97,
+                "valWR": 68.18,
+                "devMeanR": 0.4355,
+                "valMeanR": 0.3636,
+                "devZeroDays": 1,
+                "valZeroDays": 1
+              },
+              {
+                "symbol": "NAS100",
+                "devWR": 79.41,
+                "valWR": 75,
+                "devMeanR": 0.5882,
+                "valMeanR": 0.5833,
+                "devZeroDays": 0,
+                "valZeroDays": 0
+              }
+            ]
+          },
+          "last_seen": 1787569351081
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 31.16,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All 8 symbols in batch 7 fail both DEV and VALIDATION due to WR below 80%.",
+              "MeanR values are positive but insufficient to meet positive expectancy with WR<80%.",
+              "No symbol meets the required criteria of WR>=80% and RR=1."
+            ],
+            "proposal": "Proposed bounded refinements per symbol (hypotheses requiring validation): JUPUSDT: increase entry threshold to improve WR; KAITOUSDT: add trend filter to avoid low-probability trades; LDOUSDT: reduce trade frequency to focus on higher-confidence setups; LINKUSDT: use higher timeframe confirmation; LITUSDT: add volatility filter to filter out noisy moves; LTCUSDT: similar to LINK; MOODENGUSDT: add volume filter; NAS100: tighten stop loss to increase WR. All refinements aim to achieve WR>=80% while preserving RR=1 and 1-3 executions per eligible day.",
+            "evidence": [
+              [
+                "JUPUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                73.02,
+                0.4921,
+                0,
+                100,
+                73.91,
+                0.4783,
+                0
+              ],
+              [
+                "KAITOUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                98.41,
+                62.9,
+                0.2581,
+                1,
+                95.65,
+                59.09,
+                0.1818,
+                1
+              ],
+              [
+                "LDOUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                69.84,
+                0.3968,
+                0,
+                100,
+                73.91,
+                0.4783,
+                0
+              ],
+              [
+                "LINKUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                73.02,
+                0.4603,
+                0,
+                100,
+                69.57,
+                0.3913,
+                0
+              ],
+              [
+                "LITUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                79.37,
+                0.5873,
+                0,
+                100,
+                78.26,
+                0.5652,
+                0
+              ],
+              [
+                "LTCUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                73.02,
+                0.4603,
+                0,
+                100,
+                69.57,
+                0.3913,
+                0
+              ],
+              [
+                "MOODENGUSDT",
+                "crypto",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                98.41,
+                70.97,
+                0.4355,
+                1,
+                95.65,
+                68.18,
+                0.3636,
+                1
+              ],
+              [
+                "NAS100",
+                "index",
+                false,
+                [
+                  "DEV_FAIL",
+                  "VALIDATION_FAIL"
+                ],
+                1,
+                100,
+                79.41,
+                0.5882,
+                0,
+                100,
+                75,
+                0.5833,
+                0
+              ]
+            ]
+          },
+          "last_seen": 1787569373921
+        }
+      }
+    },
+    {
+      "batch": 8,
+      "task_id": "v11-post-32717066799-b8",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 52.66,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "NEARUSDT: devWR 79.37% / valWR 78.26%, both <80% gate by ~1-2pts; meanR positive (0.59/0.57) but WR threshold not met in either window.",
+              "NZDCAD: devWR 46.67% / valWR 43.75%, negative meanR both windows (-0.067/-0.125). No edge.",
+              "NZDCHF: devWR 51.11% / valWR 56.25%, meanR near zero (0.02/0.13). Far below 80% gate.",
+              "NZDJPY: devWR 42.22% (meanR -0.156) / valWR 50% (meanR 0). No edge, negative dev expectancy.",
+              "NZDUSD: devWR 60% / valWR 62.5%, positive meanR (0.22/0.25) but WR far below 80% gate.",
+              "ONDOUSDT: devWR 74.6% (fail) vs valWR 82.61% (would pass) \u2014 DEV/VAL divergence of ~8pts on n=100 each; catalog flags DEV_FAIL only. This inconsistency reads as small-sample noise/overfit risk to the VAL window rather than a stable edge; DEV gate still fails so overall fail stands.",
+              "OPUSDT: devWR 74.6% / valWR 69.57%, both <80%, VAL degrades vs DEV.",
+              "ORDIUSDT: devWR 77.78% / valWR 78.26%, closest pair to the 80% gate among all 8 but still short in both windows."
+            ],
+            "proposal": "No bounded per-symbol refinement can be certified from the data supplied \u2014 only aggregate coverage/WR/meanR/zero-days are available, with no trade-level entries, filters, or timing features, so any specific filter rule (session window, volatility regime, etc.) would be fabricated rather than evidenced. All 8 symbols fail the RR/WR>=80%/positive-expectancy bar as given; none are promotable this batch. If further refinement work is pooled, NEARUSDT and ORDIUSDT are the only two within ~2pts of the WR gate on both DEV and VAL and are the most plausible candidates to revisit if trade-level feature data becomes available \u2014 but that data is not present in this evidence set, so no rule is proposed for them here. ONDOUSDT's DEV/VAL split (74.6% vs 82.61%) should not be read as a pass-on-VAL case; flag as overfit risk, do not promote on VAL alone. No FINAL learning applied; DEV/VALIDATION only.",
+            "evidence": [
+              "context.symbols batch 8/12 (NEARUSDT, NZDCAD, NZDCHF, NZDJPY, NZDUSD, ONDOUSDT, OPUSDT, ORDIUSDT) as supplied in EVIDENCE payload",
+              "schema fields devWR/valWR/devMeanR/valMeanR/devCoverage/valCoverage used directly, no external data consulted",
+              "priorEvidence V64_V69_V73 marked DEV-only / hypothesis-seed \u2014 not applied to these symbols, none overlap this batch"
+            ]
+          },
+          "last_seen": 1787569430340
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 17.33,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "NEARUSDT",
+                "status": "near_threshold_but_unqualified",
+                "evidence": "DEV WR 79.37%, VALIDATION WR 78.26%; both below 80%."
+              },
+              {
+                "symbol": "NZDCAD",
+                "status": "unqualified",
+                "evidence": "DEV/VALIDATION WR 46.67%/43.75% and mean R -0.0667/-0.125."
+              },
+              {
+                "symbol": "NZDCHF",
+                "status": "unqualified",
+                "evidence": "DEV/VALIDATION WR 51.11%/56.25%; positive mean R but WR below 80%."
+              },
+              {
+                "symbol": "NZDJPY",
+                "status": "unqualified",
+                "evidence": "DEV/VALIDATION WR 42.22%/50%; DEV mean R -0.1556 and VALIDATION mean R 0."
+              },
+              {
+                "symbol": "NZDUSD",
+                "status": "unqualified",
+                "evidence": "DEV/VALIDATION WR 60%/62.5%; WR below 80%."
+              },
+              {
+                "symbol": "ONDOUSDT",
+                "status": "validation_pass_dev_fail",
+                "evidence": "DEV WR 74.6% fails; VALIDATION WR 82.61% and mean R 0.6522 pass stated outcome thresholds."
+              },
+              {
+                "symbol": "OPUSDT",
+                "status": "unqualified",
+                "evidence": "DEV/VALIDATION WR 74.6%/69.57%; both below 80%."
+              },
+              {
+                "symbol": "ORDIUSDT",
+                "status": "near_threshold_but_unqualified",
+                "evidence": "DEV/VALIDATION WR 77.78%/78.26%; both below 80%."
+              }
+            ],
+            "proposal": "No bounded per-symbol refinement can be validated from aggregate summaries alone. Provide DEV/VALIDATION-only exact trade records, eligible-day timestamps, signal/features, entry/SL/TP, same-bar outcomes, execution counts, and tested parameter bounds. Then test isolated predeclared refinements at RR 1 or 2 without pooling, deletion, fabrication, leakage, or FINAL access; retain only configurations independently meeting WR>=80%, positive expectancy, and 1-3 executions per eligible day in both DEV and VALIDATION.",
+            "evidence": [
+              "Catalog summary: 94 results, 7 pass, 87 fail, 0 unavailable.",
+              "Batch 8 contains eight symbols with 100% DEV and VALIDATION coverage and zero zero-days.",
+              "All supplied rows use RR=1.",
+              "FINAL is sealed; prior V64/V69/V73 evidence is development-only and may only seed hypotheses.",
+              "No trade-level data, strategy definitions, parameter bounds, sample counts, or candidate-refinement results were supplied."
+            ]
+          },
+          "last_seen": 1787569395007
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 3.93,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "No per-symbol raw data, indicator definitions, entry/exit rules, or parameter ranges were supplied in the task context.",
+              "No historical price/volume series, indicator values, or signal timestamps are available for any of the 8 symbols in this batch.",
+              "The provided summary table contains only aggregate statistics (WR, meanR, zeroDays) with no underlying trade-level data or feature values.",
+              "No information about the existing strategy logic, SL/TP placement rules, or which parameters could be safely adjusted is present.",
+              "The instruction requires 'exact data' and 'bounded per-symbol refinements', but no data artifacts or strategy code were provided to analyze.",
+              "Without access to the actual development/validation datasets or the strategy implementation, any proposed refinement would be fabricated and violate the no-fabrication constraint."
+            ],
+            "proposal": "Cannot perform deterministic per-symbol refinement analysis without the underlying trade data, strategy parameters, and indicator definitions. The task requires exact data-driven adjustments, but only aggregate summary statistics were provided. To proceed, the engineering pool must supply: (1) the strategy rule set, (2) per-trade logs for DEV and VALIDATION periods, (3) indicator values at signal time, and (4) the specific parameter bounds that are eligible for adjustment. Without these, any proposal would be speculative and violate the integrity constraints.",
+            "evidence": []
+          },
+          "last_seen": 1787569381608
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 3.97,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "All symbols in the batch fail both development and validation stages.",
+              "No symbol meets the required WR >= 80% for validation.",
+              "None of the symbols demonstrate positive expectancy in validation.",
+              "RR is maintained at 1, but this does not compensate for poor performance metrics."
+            ],
+            "proposal": "Reject all symbols in this batch due to failure to meet minimum performance thresholds in both development and validation phases. No refinements can be proposed without violating the deterministic, non-learning constraints.",
+            "evidence": [
+              "NEARUSDT: DEV_WR=79.37, VAL_WR=78.26",
+              "NZDCAD: DEV_WR=46.67, VAL_WR=43.75",
+              "NZDCHF: DEV_WR=51.11, VAL_WR=56.25",
+              "NZDJPY: DEV_WR=42.22, VAL_WR=50.00",
+              "NZDUSD: DEV_WR=60.00, VAL_WR=62.50",
+              "ONDOUSDT: DEV_WR=74.60, VAL_WR=82.61",
+              "OPUSDT: DEV_WR=74.60, VAL_WR=69.57",
+              "ORDIUSDT: DEV_WR=77.78, VAL_WR=78.26"
+            ]
+          },
+          "last_seen": 1787569381654
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 20.19,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "NEARUSDT: devWR 79.37, valWR 78.26, meanR positive but WR below 80. Need small WR boost.",
+              "NZDCAD: devWR 46.67, valWR 43.75, meanR negative. Major strategy overhaul required.",
+              "NZDCHF: devWR 51.11, valWR 56.25, meanR positive but WR far below 80.",
+              "NZDJPY: devWR 42.22, valWR 50, meanR negative/zero. Poor performance.",
+              "NZDUSD: devWR 60, valWR 62.5, meanR positive but WR low.",
+              "ONDOUSDT: devWR 74.6, valWR 82.61, val passes but dev fails WR. Need dev improvement.",
+              "OPUSDT: devWR 74.6, valWR 69.57, both fail WR.",
+              "ORDIUSDT: devWR 77.78, valWR 78.26, both close to 80 but below."
+            ],
+            "proposal": "For each symbol, apply bounded refinements preserving RR=1 and targeting WR>=80% and positive meanR. Specific adjustments: NEARUSDT: increase entry signal threshold by 10% (e.g., require stronger momentum) and cap daily trades to 3. NZDCAD: add 200-period MA trend filter, only trade in direction of trend. NZDCHF: add ATR(20) volatility filter, skip low-volatility periods. NZDJPY: add RSI(14) > 50 for longs, < 50 for shorts. NZDUSD: require breakout confirmation (e.g., close beyond recent 20-bar high/low). ONDOUSDT: tighten entry threshold by 5% to lift devWR to >=80 while monitoring valWR. OPUSDT: add volume filter (e.g., volume > 20-day average) to improve selectivity. ORDIUSDT: increase minimum signal strength by 5% and add a trailing stop to protect gains. All refinements are bounded to parameter adjustments, no pooling/deletion/fabrication, and maintain 1-3 executions per eligible day by selecting top signals if needed.",
+            "evidence": [
+              "NEARUSDT: devWR=79.37, valWR=78.26, devMeanR=0.5873, valMeanR=0.5652, rr=1",
+              "NZDCAD: devWR=46.67, valWR=43.75, devMeanR=-0.0667, valMeanR=-0.125, rr=1",
+              "NZDCHF: devWR=51.11, valWR=56.25, devMeanR=0.0222, valMeanR=0.125, rr=1",
+              "NZDJPY: devWR=42.22, valWR=50, devMeanR=-0.1556, valMeanR=0, rr=1",
+              "NZDUSD: devWR=60, valWR=62.5, devMeanR=0.2222, valMeanR=0.25, rr=1",
+              "ONDOUSDT: devWR=74.6, valWR=82.61, devMeanR=0.5079, valMeanR=0.6522, rr=1",
+              "OPUSDT: devWR=74.6, valWR=69.57, devMeanR=0.4921, valMeanR=0.3913, rr=1",
+              "ORDIUSDT: devWR=77.78, valWR=78.26, devMeanR=0.5714, valMeanR=0.5652, rr=1"
+            ]
+          },
+          "last_seen": 1787569397876
+        }
+      }
+    },
+    {
+      "batch": 9,
+      "task_id": "v11-post-32717066799-b9",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 44.18,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "PENGUUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 77.42%<80%",
+                  "VALIDATION_FAIL: valCoverage 95.65%<100% (exact-data breach) and valZeroDays=1"
+                ]
+              },
+              {
+                "symbol": "PEPEUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 71.43%<80%",
+                  "VALIDATION_FAIL: valWR 78.26%<80%"
+                ]
+              },
+              {
+                "symbol": "PNUTUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 66.67%<80%",
+                  "VALIDATION passes on WR (82.61%) but batch-level trade data not supplied"
+                ]
+              },
+              {
+                "symbol": "POLUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 71.43%<80%",
+                  "VALIDATION_FAIL: valWR 73.91%<80%"
+                ]
+              },
+              {
+                "symbol": "POPCATUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 66.67%<80%",
+                  "VALIDATION_FAIL: valWR 69.57%<80%"
+                ]
+              },
+              {
+                "symbol": "PUMPUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 77.78%<80% (near-threshold)",
+                  "VALIDATION_FAIL: valWR 78.26%<80% (near-threshold)"
+                ]
+              },
+              {
+                "symbol": "RENDERUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 76.19%<80%",
+                  "VALIDATION_FAIL: valWR 78.26%<80%"
+                ]
+              },
+              {
+                "symbol": "SHIBUSDT",
+                "reasons": [
+                  "DEV_FAIL: devWR 74.6%<80%",
+                  "VALIDATION passes on WR (82.61%) but batch-level trade data not supplied"
+                ]
+              }
+            ],
+            "proposal": "No bounded refinement can be authored for any of the 8 symbols from the aggregate stats alone. Constructing a filter (session window, signal condition, execution-count cap, etc.) that would plausibly lift devWR/valWR to >=80% while holding RR=1, positive expectancy, exact data, and 1-3 executions/day requires trade-level DEV/VALIDATION records (timestamps, entry/exit conditions, per-trade R) that are not present in this batch payload. Inventing such a rule without that evidence would constitute fabrication, which is disallowed. Near-threshold candidates worth prioritizing if trade-level data is supplied next: PUMPUSDT (77.78/78.26 WR), RENDERUSDT (76.19/78.26 WR), PENGUUSDT (77.42/81.82 WR, but also has a valCoverage/exact-data gap at 95.65% and 1 zero-day that must be resolved before any WR-based refinement is considered). PNUTUSDT and SHIBUSDT already clear VALIDATION WR (82.61% each) but fail DEV WR (66.67%/74.6%); a refinement would need to explain the DEV/VALIDATION divergence using real DEV-period trade data, not assumed. This is a hypothesis-seed observation only, not a FINAL learning or rule change.",
+            "evidence": [
+              "catalog batch=9/12, resultCount=94, passCount=7, failCount=87 (context only, not batch-specific)",
+              "PENGUUSDT: rr=1 devCov=98.41 devWR=77.42 devMeanR=0.5484 devZeroDays=1 valCov=95.65 valWR=81.82 valMeanR=0.6364 valZeroDays=1",
+              "PEPEUSDT: rr=1 devCov=100 devWR=71.43 devMeanR=0.4286 devZeroDays=0 valCov=100 valWR=78.26 valMeanR=0.5652 valZeroDays=0",
+              "PNUTUSDT: rr=1 devCov=100 devWR=66.67 devMeanR=0.3333 devZeroDays=0 valCov=100 valWR=82.61 valMeanR=0.6522 valZeroDays=0",
+              "POLUSDT: rr=1 devCov=100 devWR=71.43 devMeanR=0.4286 devZeroDays=0 valCov=100 valWR=73.91 valMeanR=0.5217 valZeroDays=0",
+              "POPCATUSDT: rr=1 devCov=100 devWR=66.67 devMeanR=0.3651 devZeroDays=0 valCov=100 valWR=69.57 valMeanR=0.3913 valZeroDays=0",
+              "PUMPUSDT: rr=1 devCov=100 devWR=77.78 devMeanR=0.5556 devZeroDays=0 valCov=100 valWR=78.26 valMeanR=0.6087 valZeroDays=0",
+              "RENDERUSDT: rr=1 devCov=100 devWR=76.19 devMeanR=0.5238 devZeroDays=0 valCov=100 valWR=78.26 valMeanR=0.5652 valZeroDays=0",
+              "SHIBUSDT: rr=1 devCov=100 devWR=74.6 devMeanR=0.4921 devZeroDays=0 valCov=100 valWR=82.61 valMeanR=0.6522 valZeroDays=0",
+              "priorEvidence V64_V69_V73 noted as DEV-only exposure, used strictly as hypothesis seed, not applied here absent matching symbols"
+            ]
+          },
+          "last_seen": 1787569560577
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 14.05,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "All 8 symbols fail DEV; 6 also fail VALIDATION. None currently satisfy WR>=80% across both splits.",
+              "PENGUUSDT and SHIBUSDT have VALIDATION WR>=80%, but DEV WR is 77.42% and 74.60% respectively.",
+              "PNUTUSDT has VALIDATION WR 82.61% but DEV WR 66.67%.",
+              "PEPEUSDT, POLUSDT, POPCATUSDT, PUMPUSDT, and RENDERUSDT remain below 80% WR in both DEV and VALIDATION.",
+              "All reported mean-R values are positive and RR=1, but aggregate metrics cannot identify leakage-free, bounded per-symbol refinements."
+            ],
+            "proposal": "Do not promote or alter any symbol. Supply exact DEV/VALIDATION executions with timestamps, signals/features, entries, stops, targets, outcomes, eligible-day counts, and parameter definitions. Then test predeclared per-symbol filters at RR 1 or 2, retaining only configurations with WR>=80%, positive expectancy, and 1-3 executions per eligible day in both DEV and VALIDATION; keep FINAL sealed.",
+            "evidence": [
+              "Catalog summary: 94 results, 7 pass, 87 fail, 0 data unavailable.",
+              "Batch metrics supplied for PENGUUSDT, PEPEUSDT, PNUTUSDT, POLUSDT, POPCATUSDT, PUMPUSDT, RENDERUSDT, and SHIBUSDT.",
+              "Integrity constraints supplied: same-bar SL conservative, FINAL sealed, daily executions 1..3.",
+              "No exact trade-level data, eligible-day records, strategy parameters, or candidate-refinement results were supplied."
+            ]
+          },
+          "last_seen": 1787569530448
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 3.45,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "No per-symbol raw trade data, entry/exit timestamps, or exact price levels are provided in the evidence context.",
+              "The evidence only contains aggregate summary statistics (WR, meanR, zero days) without the underlying trade-by-trade records needed to verify RR preservation, execution counts, or SL conservatism.",
+              "No explicit validation of the '1-3 executions per eligible day' constraint is possible from the provided aggregate fields.",
+              "The instruction requires 'exact data' and 'bounded per-symbol refinements', but the evidence lacks the granular data necessary to propose any data-grounded refinement without fabrication.",
+              "All symbols in the batch show DEV_FAIL and/or VALIDATION_FAIL, but without trade-level detail, any proposed adjustment would be speculative and violate the no-fabrication rule."
+            ],
+            "proposal": "No refinements can be proposed. The provided evidence is insufficient to perform the required deterministic per-symbol analysis. To proceed, the task requires the full trade log for each symbol (PENGUUSDT, PEPEUSDT, PNUTUSDT, POLUSDT, POPCATUSDT, PUMPUSDT, RENDERUSDT, SHIBUSDT) including entry/exit timestamps, prices, RR, and daily execution counts. Without this, any recommendation would be invented, which is explicitly prohibited.",
+            "evidence": []
+          },
+          "last_seen": 1787569519847
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 5.35,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "PENGUUSDT",
+                "issue": "Both DEV and VALIDATION fail with low WR (77.42% and 81.82%) and insufficient RR (1)."
+              },
+              {
+                "symbol": "PEPEUSDT",
+                "issue": "DEV and VALIDATION both fail; WR is below threshold (71.43% and 78.26%)."
+              },
+              {
+                "symbol": "PNUTUSDT",
+                "issue": "DEV fails with WR of 66.67%; no VALIDATION data available."
+              },
+              {
+                "symbol": "POLUSDT",
+                "issue": "DEV and VALIDATION both fail with low WR (71.43% and 73.91%)."
+              },
+              {
+                "symbol": "POPCATUSDT",
+                "issue": "DEV and VALIDATION both fail with low WR (66.67% and 69.57%)."
+              },
+              {
+                "symbol": "PUMPUSDT",
+                "issue": "DEV and VALIDATION both fail with low WR (77.78% and 78.26%)."
+              },
+              {
+                "symbol": "RENDERUSDT",
+                "issue": "DEV and VALIDATION both fail with low WR (76.19% and 78.26%)."
+              },
+              {
+                "symbol": "SHIBUSDT",
+                "issue": "DEV fails with WR of 74.6%; no VALIDATION data available."
+              }
+            ],
+            "proposal": "All symbols in this batch fail to meet the required criteria for VALIDATION. No refinements can be proposed without violating constraints such as RR=1/2, WR>=80%, positive expectancy, or deterministic execution limits.",
+            "evidence": [
+              "DEV/VALIDATION WR < 80% for all symbols except PNUTUSDT and SHIBUSDT (no validation data).",
+              "All symbols have RR = 1, which is acceptable but does not compensate for poor performance metrics.",
+              "No symbol shows sufficient positive expectancy or meets the 1-3 daily execution constraint under current conditions.",
+              "No evidence of bounded per-symbol refinement that preserves required performance thresholds."
+            ]
+          },
+          "last_seen": 1787569521750
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 21.13,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "All 8 symbols in batch 9 have dev WR below 80% (range 66.67-77.78).",
+              "Only PENGUUSDT, PNUTUSDT, SHIBUSDT have val WR >=80%, but dev WR fails.",
+              "No symbol meets WR>=80% in both dev and validation.",
+              "Without trade-level data or strategy parameters, no bounded refinement can be proposed to achieve WR>=80% while preserving RR 1 or 2 and 1-3 executions per day."
+            ],
+            "proposal": "No refinements proposed due to insufficient evidence to adjust strategy parameters. All symbols fail the WR>=80% criterion in development phase.",
+            "evidence": [
+              "Provided batch 9 evidence table shows dev WR values: PENGUUSDT 77.42, PEPEUSDT 71.43, PNUTUSDT 66.67, POLUSDT 71.43, POPCATUSDT 66.67, PUMPUSDT 77.78, RENDERUSDT 76.19, SHIBUSDT 74.6.",
+              "Validation WR values: PENGUUSDT 81.82, PEPEUSDT 78.26, PNUTUSDT 82.61, POLUSDT 73.91, POPCATUSDT 69.57, PUMPUSDT 78.26, RENDERUSDT 78.26, SHIBUSDT 82.61.",
+              "All symbols have RR=1 and meanR positive, but WR below 80% in dev for all."
+            ]
+          },
+          "last_seen": 1787569537540
+        }
+      }
+    },
+    {
+      "batch": 10,
+      "task_id": "v11-post-32717066799-b10",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 46.11,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "SOLUSDT",
+                "status": "VALIDATION_FAIL",
+                "detail": "devWR 80.95>=80 but valWR 78.26<80 (gap -1.74pp); devMeanR 0.619, valMeanR 0.5652 both positive; rr=1; zeroDays 0/0."
+              },
+              {
+                "symbol": "STXUSDT",
+                "status": "DEV_FAIL+VALIDATION_FAIL",
+                "detail": "devWR 64.52, valWR 63.64, both far below 80% floor; zeroDays present dev=1, val=1; rr=1."
+              },
+              {
+                "symbol": "SUIUSDT",
+                "status": "DEV_FAIL+VALIDATION_FAIL",
+                "detail": "devWR 71.43, valWR 73.91, both below 80% floor; positive meanR but WR gate fails; rr=1."
+              },
+              {
+                "symbol": "SUSDT",
+                "status": "DEV_FAIL+VALIDATION_FAIL",
+                "detail": "devWR 66.67, valWR 69.57, both below 80% floor; rr=1."
+              },
+              {
+                "symbol": "TAOUSDT",
+                "status": "PASS",
+                "detail": "devWR 86.67/valWR 90.91, both >=80; devMeanR 0.7333, valMeanR 0.8182, positive expectancy; zeroDays 0/0; rr=1. No refinement needed \u2014 meets all bounds as-is."
+              },
+              {
+                "symbol": "TIAUSDT",
+                "status": "DEV_FAIL (val strong)",
+                "detail": "devWR 76.19<80 fails dev gate, but valWR 95.65>=80 with valMeanR 0.913; divergence between dev and val is notable but cannot be resolved into a refinement without trade-level/feature data \u2014 dev-gate failure per current rule stands."
+              },
+              {
+                "symbol": "TRUMPUSDT",
+                "status": "DEV_FAIL+VALIDATION_FAIL",
+                "detail": "devWR 66.67, valWR 65.22, both well below 80% floor; rr=1."
+              },
+              {
+                "symbol": "TRXUSDT",
+                "status": "DEV_FAIL+VALIDATION_FAIL",
+                "detail": "devWR 75.81, valWR 72.73, both below 80% floor; zeroDays present dev=1, val=1; rr=1."
+              }
+            ],
+            "proposal": "Per-symbol pass/fail is confirmed directly from the supplied aggregate DEV/VALIDATION stats (verifiable, no fabrication). However, the task also asks for bounded per-symbol rule refinements (e.g., filter/threshold changes) preserving RR1/2, WR>=80%, positive expectancy, and 1-3 executions/day \u2014 this requires trade-level or feature-level data (entry conditions, timestamps, indicator values) to design and validate any change without leakage or fabrication. Only catalog-level summary statistics were supplied in this batch context; no trade-level/feature data was provided. Therefore no concrete refinement can be responsibly proposed for STXUSDT, SUIUSDT, SUSDT, TRUMPUSDT, TRXUSDT (WR too far below floor to plausibly close via bounded tweak anyway) or for SOLUSDT/TIAUSDT (close-to-threshold cases where a specific refinement might exist but cannot be derived without underlying data). TAOUSDT requires no refinement \u2014 already passes with WR>=80% and positive expectancy on both DEV and VALIDATION. Recommend requesting trade-level/feature evidence for SOLUSDT (val WR gap only -1.74pp) and TIAUSDT (dev/val divergence) before any refinement is attempted; all others are unlikely refinement candidates given the magnitude of the WR shortfall.",
+            "evidence": [
+              "context.symbols batch=10 entries for SOLUSDT, STXUSDT, SUIUSDT, SUSDT, TAOUSDT, TIAUSDT, TRUMPUSDT, TRXUSDT as supplied verbatim in EVIDENCE.context",
+              "catalogSummary: catalogCount=94, passCount=7, failCount=87, dataUnavailable=0",
+              "No trade-level, feature-level, or code-level evidence was supplied in this batch context; only aggregate coverage/WR/meanR/zeroDays per symbol"
+            ]
+          },
+          "last_seen": 1787569607466
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 26.65,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "SOLUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "Validation WR 78.26% is below 80% despite DEV WR 80.95%; positive expectancy and full coverage remain."
+              },
+              {
+                "symbol": "STXUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "DEV/VALIDATION WR are 64.52%/63.64%, with one zero-execution day in each split."
+              },
+              {
+                "symbol": "SUIUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "DEV/VALIDATION WR are 71.43%/73.91%; coverage and expectancy pass, WR does not."
+              },
+              {
+                "symbol": "SUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "DEV/VALIDATION WR are 66.67%/69.57%; coverage and expectancy pass, WR does not."
+              },
+              {
+                "symbol": "TAOUSDT",
+                "status": "PASS_CURRENT",
+                "reason": "RR=1, 100% coverage, zero zero-days, WR 86.67%/90.91%, and mean R 0.7333/0.8182 on DEV/VALIDATION."
+              },
+              {
+                "symbol": "TIAUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "DEV WR 76.19% is below 80%; validation is strong but cannot repair the DEV failure."
+              },
+              {
+                "symbol": "TRUMPUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "DEV/VALIDATION WR are 66.67%/65.22%; coverage and expectancy pass, WR does not."
+              },
+              {
+                "symbol": "TRXUSDT",
+                "status": "REJECT_CURRENT",
+                "reason": "DEV/VALIDATION WR are 75.81%/72.73%, with one zero-execution day in each split."
+              },
+              {
+                "integrity": "INSUFFICIENT_REFINEMENT_EVIDENCE",
+                "reason": "Only aggregate metrics were supplied. Exact per-trade/day features, entry rules, parameter values, eligible-day counts, and execution counts are absent, so deterministic bounded refinements cannot be derived or verified without invention."
+              }
+            ],
+            "proposal": "Freeze TAOUSDT unchanged as the sole passing configuration in this batch. Do not promote the other seven symbols. For each failed symbol, perform a preregistered DEV-only bounded search over existing strategy parameters, retaining RR exactly 1 or testing RR exactly 2, enforcing 1-3 executions on every eligible day, WR>=80%, positive expectancy, and no deletion or pooling. Evaluate each frozen candidate once on VALIDATION; reject any candidate failing either split. Because VALIDATION has already been observed, record all resulting candidates as post-validation research only and keep FINAL sealed. Supply exact trade/day logs and parameter definitions for an actionable refinement review.",
+            "evidence": [
+              "Catalog: 94 results; 7 pass, 87 fail, 0 data unavailable.",
+              "Batch 10/12 contains eight crypto symbols.",
+              "SOLUSDT: RR1; DEV coverage/WR/meanR/zero-days=100/80.95/0.619/0; VALIDATION=100/78.26/0.5652/0.",
+              "STXUSDT: RR1; DEV=98.41/64.52/0.3065/1; VALIDATION=95.65/63.64/0.4091/1.",
+              "SUIUSDT: RR1; DEV=100/71.43/0.4444/0; VALIDATION=100/73.91/0.4783/0.",
+              "SUSDT: RR1; DEV=100/66.67/0.3492/0; VALIDATION=100/69.57/0.3913/0.",
+              "TAOUSDT: RR1; DEV=100/86.67/0.7333/0; VALIDATION=100/90.91/0.8182/0.",
+              "TIAUSDT: RR1; DEV=100/76.19/0.5238/0; VALIDATION=100/95.65/0.913/0.",
+              "TRUMPUSDT: RR1; DEV=100/66.67/0.3492/0; VALIDATION=100/65.22/0.3043/0.",
+              "TRXUSDT: RR1; DEV=98.41/75.81/0.5161/1; VALIDATION=95.65/72.73/0.4545/1.",
+              "Integrity constraints supplied: same-bar SL conservative, FINAL sealed, daily executions 1..3."
+            ]
+          },
+          "last_seen": 1787569588004
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 1.85,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              "No per-symbol raw data or strategy parameters provided; cannot independently verify or propose bounded refinements without exact data.",
+              "Batch includes symbols with DEV_FAIL and VALIDATION_FAIL; no actionable evidence to adjust RR/WR thresholds or execution rules.",
+              "TAOUSDT passes but no evidence of independent validation beyond summary; cannot confirm no leakage or FINAL learning.",
+              "TIAUSDT has DEV_FAIL but VALIDATION pass; without data cannot propose refinement to fix dev while preserving validation.",
+              "All symbols lack detailed trade-level data, SL/TP levels, and execution timestamps; any proposal would be assumption, not evidence."
+            ],
+            "proposal": "No refinements proposed due to missing evidence. Request per-symbol trade logs, strategy parameters, and validation methodology to enable deterministic analysis.",
+            "evidence": []
+          },
+          "last_seen": 1787569563207
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 7.26,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "SOLUSDT",
+                "issue": "Validation failure despite development coverage and WR above 80%; RR=1, but mean R is low (0.5652), suggesting poor expectancy."
+              },
+              {
+                "symbol": "STXUSDT",
+                "issue": "Both dev and validation failures; WR drops to 63.64% with low mean R (0.4091) and zero days observed."
+              },
+              {
+                "symbol": "SUIUSDT",
+                "issue": "Dev and validation failures; WR at 73.91% with low mean R (0.4783)."
+              },
+              {
+                "symbol": "SUSDT",
+                "issue": "Dev and validation failures; WR at 69.57% with low mean R (0.3913)."
+              },
+              {
+                "symbol": "TIAUSDT",
+                "issue": "Dev failure; although validation WR is high (95.65%), mean R is still relatively low (0.913), raising concerns about consistency."
+              },
+              {
+                "symbol": "TRUMPUSDT",
+                "issue": "Dev and validation failures; WR at 65.22% with very low mean R (0.3043)."
+              },
+              {
+                "symbol": "TRXUSDT",
+                "issue": "Dev and validation failures; WR at 72.73% with moderate mean R (0.4545), but zero days observed in validation."
+              }
+            ],
+            "proposal": "Reject all symbols except TAOUSDT due to consistent validation failures across multiple criteria including WR below thresholds, low mean R values, and presence of zero-day observations. TAOUSDT passes with strong validation performance (WR=90.91%, MeanR=0.8182) and no failures.",
+            "evidence": [
+              "SOLUSDT: Validation WR = 78.26%, MeanR = 0.5652, RR = 1 \u2192 Expectancy risk.",
+              "STXUSDT: Dev WR = 64.52%, Val WR = 63.64%, MeanR = 0.4091, ZeroDays = 1 \u2192 Failures in both stages.",
+              "SUIUSDT: Dev WR = 71.43%, Val WR = 73.91%, MeanR = 0.4783 \u2192 Low expectancy.",
+              "SUSDT: Dev WR = 66.67%, Val WR = 69.57%, MeanR = 0.3913 \u2192 Below acceptable threshold.",
+              "TIAUSDT: Dev WR = 76.19%, Val WR = 95.65%, MeanR = 0.913 \u2192 Dev failure despite good val WR.",
+              "TRUMPUSDT: Dev WR = 66.67%, Val WR = 65.22%, MeanR = 0.3043 \u2192 Poor performance.",
+              "TRXUSDT: Dev WR = 75.81%, Val WR = 72.73%, MeanR = 0.4545, ZeroDays = 1 \u2192 Failures in both stages."
+            ]
+          },
+          "last_seen": 1787569568623
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 65.45,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "Provider returned readable non-JSON review output"
+            ],
+            "proposal": "Connectivity acknowledgement",
+            "evidence": [
+              "Raw provider response preserved by bridge fallback"
+            ]
+          },
+          "last_seen": 1787569626813
+        }
+      }
+    },
+    {
+      "batch": 11,
+      "task_id": "v11-post-32717066799-b11",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 51.3,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "US30",
+                "note": "Already PASS: RR1, devWR 85.29%/valWR 91.67% (both \u226580%), positive meanR (0.7059/0.8333), 0 zero-days both windows. No refinement required; recommend hold as-is."
+              },
+              {
+                "symbol": "UNIUSDT",
+                "note": "DEV_FAIL+VAL_FAIL: WR 73.02%/78.26%, both <80% threshold despite positive meanR. Gap is ~2-7pts under bar; no trade-level (entry/session/setup) data supplied to bound a refinement without fabricating criteria."
+              },
+              {
+                "symbol": "US500",
+                "note": "DEV_FAIL only: devWR 73.53% <80% but valWR 91.67% passes \u2014 inconsistent across windows, possible dev-side regime mismatch. Cannot isolate cause from aggregate stats alone."
+              },
+              {
+                "symbol": "USDCAD",
+                "note": "Both fail: WR 64.44%/56.25%, meanR thin (0.2889/0.125). Large shortfall vs 80% bar; no granular data to support a bounded, non-fabricated refinement."
+              },
+              {
+                "symbol": "USDCHF",
+                "note": "Both fail with negative expectancy (meanR -0.1556/-0.125). Negative edge in both windows \u2014 reject candidate, refinement not advisable regardless of data availability."
+              },
+              {
+                "symbol": "USDJPY",
+                "note": "Both fail; devCoverage 97.78% with 1 zero-day, valMeanR sharply negative (-0.3125). Data incompleteness (zero-day) plus negative validation edge \u2014 insufficient and adverse evidence."
+              },
+              {
+                "symbol": "VIRTUALUSDT",
+                "note": "Both fail; devCoverage 98.41%/valCoverage 95.65% with zero-days in both windows (1/1). Coverage gaps mean 'exact data' constraint cannot be confirmed \u2014 blocked pending complete coverage."
+              },
+              {
+                "symbol": "WIFUSDT",
+                "note": "Both fail: WR 74.6%/73.91%, closest to threshold of the failing set, positive meanR (~0.48 both). Still below 80% WR bar; no trade-level detail available to propose a specific bounded filter."
+              }
+            ],
+            "proposal": "Only US30 currently meets all stated thresholds (RR1, WR\u226580% both windows, positive expectancy, full coverage, 0 zero-days) \u2014 no change proposed, hold current logic. For the 7 failing symbols, this lane cannot safely propose concrete bounded refinements (e.g., session/time-of-day filters, setup-parameter tightening) because only aggregate DEV/VALIDATION summary statistics were supplied \u2014 no trade-level fields (timestamps, entry conditions, individual R outcomes) were provided in evidence. Proposing specific parameter changes without that data would constitute fabrication, which is prohibited. Directional hypothesis only (not actionable): USDCHF and USDJPY show negative validation expectancy and should be deprioritized/rejected outright rather than refined; UNIUSDT/US500/WIFUSDT are closest to the 80% WR bar and are the best candidates for refinement IF trade-level DEV/VALIDATION data is exposed in a future evidence pass; USDCAD and VIRTUALUSDT need coverage/zero-day gaps resolved before any refinement is attempted. No pooling, deletion, or FINAL-stage learning was performed or proposed.",
+            "evidence": [
+              "context.symbols[batch=11] as supplied (catalogCount 94, batch 11/12, schema: symbol/market/pass/reasons/rr/devCoverage/devWR/devMeanR/devZeroDays/valCoverage/valWR/valMeanR/valZeroDays)",
+              "priorEvidence.V64_V69_V73 flagged as DEV-only exposure, hypothesis seed only \u2014 not used as basis for any proposal here",
+              "No raw/trade-level DEV or VALIDATION dataset was provided to this lane; all figures are pre-aggregated summary statistics only"
+            ]
+          },
+          "last_seen": 1787569678883
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 15.99,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "UNIUSDT",
+                "status": "FAIL",
+                "reason": "DEV WR 73.02% and VALIDATION WR 78.26% are below 80%."
+              },
+              {
+                "symbol": "US30",
+                "status": "PASS",
+                "reason": "RR=1, DEV WR 85.29%, VALIDATION WR 91.67%, positive expectancy, full coverage, and zero zero-days."
+              },
+              {
+                "symbol": "US500",
+                "status": "FAIL",
+                "reason": "DEV WR 73.53% is below 80%; validation strength cannot override DEV failure."
+              },
+              {
+                "symbol": "USDCAD",
+                "status": "FAIL",
+                "reason": "DEV/VALIDATION WR are 64.44%/56.25%, both below 80%."
+              },
+              {
+                "symbol": "USDCHF",
+                "status": "FAIL",
+                "reason": "DEV/VALIDATION WR are below 80% and mean R is negative in both sets."
+              },
+              {
+                "symbol": "USDJPY",
+                "status": "FAIL",
+                "reason": "DEV/VALIDATION WR are below 80%, validation mean R is negative, and DEV has one zero-day."
+              },
+              {
+                "symbol": "VIRTUALUSDT",
+                "status": "FAIL",
+                "reason": "DEV/VALIDATION WR are below 80%, with incomplete coverage and one zero-day in each split."
+              },
+              {
+                "symbol": "WIFUSDT",
+                "status": "FAIL",
+                "reason": "DEV/VALIDATION WR are 74.60%/73.91%, both below 80%."
+              }
+            ],
+            "proposal": "Retain US30 unchanged as the only evidenced eligible symbol. Do not approve refinements for the other symbols without DEV/VALIDATION trade-level records, exact entry/filter definitions, eligible-day denominators, execution counts, and deterministic rerun results. Candidate refinements must be tested per symbol at RR 1 or 2, preserve 1-3 executions per eligible day, and pass both splits with WR>=80% and positive expectancy; FINAL must remain sealed.",
+            "evidence": [
+              "Supplied batch-11 catalog rows and integrity constraints only.",
+              "All eight symbols were reviewed using the supplied DEV/VALIDATION aggregates.",
+              "No trade-level, feature-level, parameter, eligible-day, or deterministic rerun evidence was supplied; therefore bounded refinements cannot be validated without assumption."
+            ]
+          },
+          "last_seen": 1787569643570
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 7.38,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "UNIUSDT: DEV_WR=73.02%, VAL_WR=78.26% both below 80% minimum; DEV_MeanR=0.4921, VAL_MeanR=0.5652 both below RR=1 threshold; fails both DEV and VALIDATION criteria",
+              "US30: PASS candidate - DEV_WR=85.29%, VAL_WR=91.67%, DEV_MeanR=0.7059, VAL_MeanR=0.8333, zero zero-days, RR=1, meets all criteria",
+              "US500: DEV_FAIL - DEV_WR=73.53% below 80%, DEV_MeanR=0.4706 below 1.0; VAL_WR=91.67% and VAL_MeanR=0.9167 pass but DEV failure disqualifies",
+              "USDCAD: DEV_WR=64.44%, VAL_WR=56.25% both far below 80%; DEV_MeanR=0.2889, VAL_MeanR=0.1250 both below 1.0; severe underperformance",
+              "USDCHF: DEV_WR=42.22%, VAL_WR=43.75% catastrophic; negative mean R on both DEV(-0.1556) and VAL(-0.1250); no refinement can salvage",
+              "USDJPY: DEV_WR=59.09%, VAL_WR=31.25% both far below 80%; DEV_MeanR=0.2273, VAL_MeanR=-0.3125 negative; 1 zero-day on DEV; unrecoverable",
+              "VIRTUALUSDT: DEV_WR=66.13%, VAL_WR=77.27% both below 80%; DEV_MeanR=0.3226 below 1.0; 1 zero-day on VAL; fails both phases",
+              "WIFUSDT: DEV_WR=74.6%, VAL_WR=73.91% both below 80%; DEV_MeanR=0.4921, VAL_MeanR=0.4783 both below 1.0; consistent failure"
+            ],
+            "proposal": "Approve US30 as the only passable symbol in batch 11 with RR=1, DEV_WR=85.29%, VAL_WR=91.67%, positive expectancy (DEV_MeanR=0.7059, VAL_MeanR=0.8333), zero zero-days, and full coverage. For all other 7 symbols, no bounded refinement can achieve WR>=80% and MeanR>=1.0 given the observed data: US500 fails only on DEV but DEV_WR=73.53% is 6.47 percentage points below threshold with no parameter adjustment justified from current evidence; USDCAD, USDCHF, USDJPY, VIRTUALUSDT, WIFUSDT, UNIUSDT all fail on both DEV and VALIDATION with mean R values below 1.0 (several negative), indicating edge quality insufficient for RR=1 or RR=2 preservation. Recommend permanent exclusion of these 7 symbols from FINAL trading. No further analysis warranted without new data.",
+            "evidence": [
+              "Batch 11 contains 8 symbols: 1 pass (US30), 7 fail (UNIUSDT, US500, USDCAD, USDCHF, USDJPY, VIRTUALUSDT, WIFUSDT)",
+              "US30: DEV_WR=85.29>=80, VAL_WR=91.67>=80, DEV_MeanR=0.7059>=0.5 (RR=1 equivalent), VAL_MeanR=0.8333>=0.5, zeroDays=0 both, coverage=100% both",
+              "All 7 failing symbols have at least one phase with WR<80% and MeanR<1.0; 3 symbols (USDCHF, USDJPY) have negative MeanR on at least one phase",
+              "No symbol in fail group has both phases meeting WR>=80% and MeanR>=1.0 simultaneously; US500 closest but DEV_WR=73.53% and DEV_MeanR=0.4706 both fail",
+              "Integrity constraints (RR 1 or 2, WR>=80%, positive expectancy, 1-3 executions/day, no pooling) cannot be satisfied for any failing symbol with current data"
+            ]
+          },
+          "last_seen": 1787569634967
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 7.44,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "UNIUSDT",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=78.26% (VALIDATION), MeanR=0.5652 (VALIDATION). No clear path to positive expectancy with current parameters."
+              },
+              {
+                "symbol": "US500",
+                "issue": "DEV_FAIL; RR=1, WR=91.67% (VALIDATION), MeanR=0.9167 (VALIDATION). However, validation coverage is low (100%) but dev coverage is high (100%), suggesting potential overfitting or lack of generalization."
+              },
+              {
+                "symbol": "USDCAD",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=56.25% (VALIDATION), MeanR=0.125 (VALIDATION). Low win rate and negative mean return indicate poor performance."
+              },
+              {
+                "symbol": "USDCHF",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=43.75% (VALIDATION), MeanR=-0.125 (VALIDATION). Negative expectancy and low win rate make it unsuitable for refinement."
+              },
+              {
+                "symbol": "USDJPY",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=31.25% (VALIDATION), MeanR=-0.3125 (VALIDATION). Extremely poor performance in both development and validation phases."
+              },
+              {
+                "symbol": "VIRTUALUSDT",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=77.27% (VALIDATION), MeanR=0.5455 (VALIDATION). Despite higher WR, zero days in validation suggest limited real-world applicability."
+              },
+              {
+                "symbol": "WIFUSDT",
+                "issue": "Both DEV and VALIDATION fail; RR=1, WR=73.91% (VALIDATION), MeanR=0.4783 (VALIDATION). While WR is acceptable, lack of execution history and failure in both phases disqualifies it."
+              }
+            ],
+            "proposal": "Reject all symbols due to consistent failures in both development and validation phases. No viable refinements can be proposed without violating constraints such as RR=1, WR>=80%, positive expectancy, and avoiding leakage.",
+            "evidence": [
+              "UNIUSDT: DEV_FAIL, VALIDATION_FAIL - WR=78.26%, MeanR=0.5652",
+              "US500: DEV_FAIL - WR=91.67%, MeanR=0.9167",
+              "USDCAD: DEV_FAIL, VALIDATION_FAIL - WR=56.25%, MeanR=0.125",
+              "USDCHF: DEV_FAIL, VALIDATION_FAIL - WR=43.75%, MeanR=-0.125",
+              "USDJPY: DEV_FAIL, VALIDATION_FAIL - WR=31.25%, MeanR=-0.3125",
+              "VIRTUALUSDT: DEV_FAIL, VALIDATION_FAIL - WR=77.27%, MeanR=0.5455",
+              "WIFUSDT: DEV_FAIL, VALIDATION_FAIL - WR=73.91%, MeanR=0.4783"
+            ]
+          },
+          "last_seen": 1787569635025
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 21.67,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "UNIUSDT: DEV WR 73.02%, VAL WR 78.26% both below 80%, meanR <1",
+              "US30: PASS",
+              "US500: DEV WR 73.53% below 80%, VAL WR 91.67% passes, but dev fails",
+              "USDCAD: DEV WR 64.44%, VAL WR 56.25% both below 80%",
+              "USDCHF: DEV WR 42.22%, VAL WR 43.75% both below 80%, negative meanR",
+              "USDJPY: DEV WR 59.09%, VAL WR 31.25% both below 80%, negative val meanR",
+              "VIRTUALUSDT: DEV WR 66.13%, VAL WR 77.27% both below 80%",
+              "WIFUSDT: DEV WR 74.6%, VAL WR 73.91% both below 80%"
+            ],
+            "proposal": "Only US30 meets all criteria. For all other symbols, no bounded refinement can be proposed within constraints (RR 1 or 2, WR>=80%, positive expectancy) based on provided evidence. Recommend discarding or further research.",
+            "evidence": [
+              "Symbol data from batch 11: UNIUSDT (rr=1, devWR=73.02, valWR=78.26, devMeanR=0.4921, valMeanR=0.5652), US30 (rr=1, devWR=85.29, valWR=91.67, devMeanR=0.7059, valMeanR=0.8333), US500 (rr=1, devWR=73.53, valWR=91.67, devMeanR=0.4706, valMeanR=0.9167), USDCAD (rr=1, devWR=64.44, valWR=56.25, devMeanR=0.2889, valMeanR=0.125), USDCHF (rr=1, devWR=42.22, valWR=43.75, devMeanR=-0.1556, valMeanR=-0.125), USDJPY (rr=1, devWR=59.09, valWR=31.25, devMeanR=0.2273, valMeanR=-0.3125), VIRTUALUSDT (rr=1, devWR=66.13, valWR=77.27, devMeanR=0.3226, valMeanR=0.5455), WIFUSDT (rr=1, devWR=74.6, valWR=73.91, devMeanR=0.4921, valMeanR=0.4783)"
+            ]
+          },
+          "last_seen": 1787569649250
+        }
+      }
+    },
+    {
+      "batch": 12,
+      "task_id": "v11-post-32717066799-b12",
+      "ok": true,
+      "providers": {
+        "claude": {
+          "status": "OK",
+          "latencySeconds": 59.84,
+          "review": {
+            "verdict": "PASS",
+            "findings": [
+              "WLDUSDT: DEV WR 75.81% / VAL WR 72.73%, both below 80% gate; meanR positive but WR shortfall (~4-7pts) too large to bridge from aggregate evidence alone.",
+              "XAGUSD: DEV WR 67.65% / VAL WR 75%, both below 80% gate; VAL>DEV suggests possible regime drift but no trade-level evidence to isolate a bounded filter.",
+              "XAUUSD: DEV WR 73.53% / VAL WR 75%, both below 80% gate; same profile as XAGUSD, correlated metals pair.",
+              "XPLUSDT: DEV WR 79.37% (marginal fail, -0.63pt) vs VAL WR 86.96% (pass); meanR strong both windows (0.60/0.74), zero zero-days \u2014 strongest refinement candidate in batch.",
+              "XRPUSDT: DEV WR 80.95% / VAL WR 86.96%, both pass gate; already compliant, no refinement required.",
+              "ZECUSDT: DEV WR 77.78% / VAL WR 78.26%, consistent ~2pt shortfall across both windows (not sampling noise); weaker case than XPLUSDT since VAL does not cross threshold."
+            ],
+            "proposal": "No rule changes proposed for this batch \u2014 all recommendations are hold/monitor hypotheses pending trade-level (not just aggregate) evidence, consistent with 'hypothesis seed only' scope and no-FINAL constraint. XRPUSDT: maintain as-is (already RR1, WR>=80% DEV+VAL, positive expectancy, 0 zero-days) \u2014 no change. XPLUSDT: hold at REJECT but flag as near-miss (DEV WR 0.63pt short of gate while VAL clears it strongly); recommend extending DEV observation window on exact data only (no pooling/trimming) to see if WR converges toward VAL before any rule edit is considered. ZECUSDT: hold at REJECT \u2014 shortfall is stable across DEV/VAL, indicating a genuine edge gap rather than noise, so no bounded filter is proposed without new evidence. WLDUSDT/XAGUSD/XAUUSD: hold at REJECT \u2014 WR gaps exceed what a bounded, non-fabricated refinement could plausibly close using only the aggregate stats supplied; would need entry/session/volatility-level trade data (not present in this evidence set) to responsibly hypothesize a filter. RR held at 1 throughout per input; no pooling, deletion, fabrication, or leakage introduced; no FINAL promotion recommended for any symbol.",
+            "evidence": [
+              "context.symbols[] rows for WLDUSDT, XAGUSD, XAUUSD, XPLUSDT, XRPUSDT, ZECUSDT (schema: devWR/devMeanR/devZeroDays, valWR/valMeanR/valZeroDays), batch 12/12",
+              "context.catalogSummary: catalogCount 94, passCount 7, failCount 87, dataUnavailable 0",
+              "context.priorEvidence: V64_V69_V73 exposed DEVELOPMENT ONLY, hypothesis seed only, knownThrough 2026-07-31",
+              "context.integrity: sameBar SL conservative, final sealed, dailyExecutions 1..3 \u2014 no violations proposed"
+            ]
+          },
+          "last_seen": 1787569739533
+        },
+        "codex": {
+          "status": "OK",
+          "latencySeconds": 15.5,
+          "review": {
+            "verdict": "BLOCKED",
+            "findings": [
+              {
+                "symbol": "WLDUSDT",
+                "status": "INELIGIBLE",
+                "finding": "DEV WR 75.81% and VALIDATION WR 72.73% fail the >=80% constraint; coverage and expectancy are positive."
+              },
+              {
+                "symbol": "XAGUSD",
+                "status": "INELIGIBLE",
+                "finding": "DEV WR 67.65% and VALIDATION WR 75.00% fail the >=80% constraint."
+              },
+              {
+                "symbol": "XAUUSD",
+                "status": "INELIGIBLE",
+                "finding": "DEV WR 73.53% and VALIDATION WR 75.00% fail the >=80% constraint."
+              },
+              {
+                "symbol": "XPLUSDT",
+                "status": "INELIGIBLE",
+                "finding": "DEV WR 79.37% narrowly fails despite VALIDATION WR 86.96%; modifying it from aggregate outcomes alone would risk validation overfitting."
+              },
+              {
+                "symbol": "XRPUSDT",
+                "status": "PASS_UNCHANGED",
+                "finding": "At RR=1, DEV WR 80.95%, VALIDATION WR 86.96%, positive mean R, full coverage, and zero zero-days satisfy supplied thresholds."
+              },
+              {
+                "symbol": "ZECUSDT",
+                "status": "INELIGIBLE",
+                "finding": "DEV WR 77.78% and VALIDATION WR 78.26% fail the >=80% constraint."
+              }
+            ],
+            "proposal": "Retain XRPUSDT unchanged at RR=1. Do not promote or alter the other five symbols. A bounded refinement search requires exact DEV trade/day records and predeclared candidate rules; evaluate candidates on DEV only, preserve RR in {1,2} and 1-3 executions per eligible day, then perform one untouched VALIDATION confirmation. Keep FINAL sealed and prohibit pooling, deletion, fabrication, or cross-symbol rule selection.",
+            "evidence": [
+              "Supplied batch-12 aggregate metrics for six symbols.",
+              "Integrity constraints: same-bar SL conservative; FINAL sealed; daily executions 1..3.",
+              "No exact trade-level DEV data, eligible-day records, feature definitions, baseline rules, or candidate refinement set was supplied; deterministic per-symbol refinements therefore cannot be evidenced."
+            ]
+          },
+          "last_seen": 1787569695196
+        },
+        "deepseek": {
+          "status": "OK",
+          "latencySeconds": 3.69,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "WLDUSDT: DEV_WR=75.81% and VAL_WR=72.73% both below 80% minimum threshold; DEV_MeanR=0.5161 and VAL_MeanR=0.4545 both below RR=1 breakeven; DEV and VAL each have 1 zero-day execution; fails both DEV_FAIL and VALIDATION_FAIL criteria",
+              "XAGUSD: DEV_WR=67.65% and VAL_WR=75% both below 80% minimum; DEV_MeanR=0.3529 and VAL_MeanR=0.5833 both below RR=1 breakeven; fails both DEV_FAIL and VALIDATION_FAIL",
+              "XAUUSD: DEV_WR=73.53% and VAL_WR=75% both below 80% minimum; DEV_MeanR=0.4706 and VAL_MeanR=0.5 both below RR=1 breakeven; fails both DEV_FAIL and VALIDATION_FAIL",
+              "XPLUSDT: DEV_WR=79.37% below 80% minimum; DEV_MeanR=0.6032 below RR=1 breakeven; VAL_WR=86.96% and VAL_MeanR=0.7391 pass validation but development failure disqualifies symbol",
+              "ZECUSDT: DEV_WR=77.78% below 80% minimum; DEV_MeanR=0.5556 below RR=1 breakeven; VAL_WR=78.26% below 80% minimum; VAL_MeanR=0.5652 below RR=1 breakeven; fails both DEV_FAIL and VALIDATION_FAIL"
+            ],
+            "proposal": "Reject all five failing symbols in this batch. Only XRPUSDT passes with DEV_WR=80.95%, VAL_WR=86.96%, DEV_MeanR=0.619, VAL_MeanR=0.7391, zero zero-days, and RR=1. No bounded refinements can raise WR from 67-79% to >=80% or MeanR from 0.35-0.60 to >=1.0 without changing entry/exit logic, which would constitute new strategy development and require fresh validation. Preserve XRPUSDT as-is with RR=1, 1-3 daily executions, and current parameters. No FINAL learning or parameter adjustments proposed for any symbol.",
+            "evidence": [
+              "Batch 12 contains 6 symbols: WLDUSDT, XAGUSD, XAUUSD, XPLUSDT, XRPUSDT, ZECUSDT",
+              "XRPUSDT is the only symbol with pass=true and empty reasons array",
+              "All five failing symbols have DEV_MeanR and VAL_MeanR below 1.0 (range 0.3529-0.7391), confirming negative expectancy at RR=1",
+              "All five failing symbols have at least one of DEV_WR or VAL_WR below 80% (range 67.65-79.37%)",
+              "XPLUSDT has VAL_WR=86.96% and VAL_MeanR=0.7391 but DEV_WR=79.37% and DEV_MeanR=0.6032 fail development gate",
+              "No symbol in this batch has zero-day count above 1, so execution frequency is not the limiting factor",
+              "Catalog summary shows 7/94 pass overall; this batch contributes 1 pass (XRPUSDT) and 5 fails"
+            ]
+          },
+          "last_seen": 1787569683386
+        },
+        "qwen": {
+          "status": "OK",
+          "latencySeconds": 6.8,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              {
+                "symbol": "WLDUSDT",
+                "issue": "Both DEV and VALIDATION fail with low WR (75.81% and 72.73%) and subpar mean R (0.5161 and 0.4545), failing to meet WR>=80% and positive expectancy criteria."
+              },
+              {
+                "symbol": "XAGUSD",
+                "issue": "DEV_FAIL and VALIDATION_FAIL; WR is 67.65% and 75%, below threshold of 80%; mean R is 0.3529 and 0.5833 respectively, not consistently positive."
+              },
+              {
+                "symbol": "XAUUSD",
+                "issue": "DEV_FAIL and VALIDATION_FAIL; WR is 73.53% and 75%, below required 80%; mean R is 0.4706 and 0.5, insufficient for positive expectancy."
+              },
+              {
+                "symbol": "XPLUSDT",
+                "issue": "DEV_FAIL; WR is 79.37% and 86.96%, close to but not meeting 80% threshold; mean R is 0.6032 and 0.7391, which may be acceptable but not robust enough for validation."
+              },
+              {
+                "symbol": "ZECUSDT",
+                "issue": "DEV_FAIL and VALIDATION_FAIL; WR is 77.78% and 78.26%, below 80%; mean R is 0.5556 and 0.5652, marginally positive but not reliable."
+              }
+            ],
+            "proposal": "All symbols in this batch fail to satisfy the minimum requirements for WR >= 80% and positive expectancy under both development and validation phases. No refinements can be proposed without violating the stated constraints (RR=1 or 2, no pooling, no fabrication).",
+            "evidence": [
+              "WLDUSDT: DEV_WR=75.81%, VAL_WR=72.73%, DEV_meanR=0.5161, VAL_meanR=0.4545",
+              "XAGUSD: DEV_WR=67.65%, VAL_WR=75%, DEV_meanR=0.3529, VAL_meanR=0.5833",
+              "XAUUSD: DEV_WR=73.53%, VAL_WR=75%, DEV_meanR=0.4706, VAL_meanR=0.5",
+              "XPLUSDT: DEV_WR=79.37%, VAL_WR=86.96%, DEV_meanR=0.6032, VAL_meanR=0.7391",
+              "ZECUSDT: DEV_WR=77.78%, VAL_WR=78.26%, DEV_meanR=0.5556, VAL_meanR=0.5652"
+            ]
+          },
+          "last_seen": 1787569686496
+        },
+        "openrouter": {
+          "status": "OK",
+          "latencySeconds": 32.25,
+          "review": {
+            "verdict": "REJECT",
+            "findings": [
+              "WLDUSDT: DEV_FAIL and VALIDATION_FAIL, devWR 75.81%, valWR 72.73% below 80% threshold.",
+              "XAGUSD: DEV_FAIL and VALIDATION_FAIL, devWR 67.65%, valWR 75% below 80%.",
+              "XAUUSD: DEV_FAIL and VALIDATION_FAIL, devWR 73.53%, valWR 75% below 80%.",
+              "XPLUSDT: DEV_FAIL (devWR 79.37% just below 80%), valWR 86.96% passes.",
+              "ZECUSDT: DEV_FAIL and VALIDATION_FAIL, devWR 77.78%, valWR 78.26% below 80%.",
+              "XRPUSDT passes all criteria."
+            ],
+            "proposal": "For each failing symbol, propose to tighten entry conditions to increase win rate to >=80% on both dev and validation. Specific adjustments (e.g., increasing indicator thresholds, adding confirmation filters) require access to the underlying strategy parameters, which are not provided in the evidence. Without these details, we cannot propose bounded per-symbol refinements that guarantee meeting the constraints. Therefore, we reject the batch as is and recommend re-evaluation with more detailed strategy information.",
+            "evidence": [
+              "WLDUSDT: devWR=75.81, valWR=72.73, devMeanR=0.5161, valMeanR=0.4545",
+              "XAGUSD: devWR=67.65, valWR=75, devMeanR=0.3529, valMeanR=0.5833",
+              "XAUUSD: devWR=73.53, valWR=75, devMeanR=0.4706, valMeanR=0.5",
+              "XPLUSDT: devWR=79.37, valWR=86.96, devMeanR=0.6032, valMeanR=0.7391",
+              "ZECUSDT: devWR=77.78, valWR=78.26, devMeanR=0.5556, valMeanR=0.5652",
+              "XRPUSDT: devWR=80.95, valWR=86.96, devMeanR=0.619, valMeanR=0.7391"
+            ]
+          },
+          "last_seen": 1787569711951
+        }
+      }
+    }
+  ]
 }

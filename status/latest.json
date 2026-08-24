@@ -1,7 +1,7 @@
 {
-  "status": "HARD_BLOCKER_RUN_INCOMPLETE",
-  "runId": "32716612254",
-  "commit": "445a40fcc427fbe42d3e062868d086caf4797100",
+  "status": "REFINEMENT_REQUIRED",
+  "runId": "32717066799",
+  "commit": "0b7c1df96430c6aa1b6d17746bd8871a2009bd9b",
   "fiveAiPre": {
     "claude": "OK",
     "codex": "OK",
@@ -19,12 +19,12 @@
   "fiveAiPostMode": "BOUNDED_BATCHED_5AI_POST_REVIEW",
   "fiveAiPostComplete": true,
   "fast": {
-    "catalogCount": null,
-    "resultCount": null,
-    "passCount": null,
-    "failCount": null,
-    "dataUnavailable": null,
-    "allValidationPass": null
+    "catalogCount": 94,
+    "resultCount": 94,
+    "passCount": 7,
+    "failCount": 87,
+    "dataUnavailable": 0,
+    "allValidationPass": false
   },
   "final": {
     "catalogCount": null,

@@ -1,9 +1,9 @@
 {
-  "catalogCount": 95,
-  "resultCount": 95,
+  "catalogCount": 94,
+  "resultCount": 94,
   "passCount": 7,
-  "failCount": 88,
-  "dataUnavailable": 1,
+  "failCount": 87,
+  "dataUnavailable": 0,
   "allValidationPass": false,
   "symbols": {
     "AAVEUSDT": {
@@ -2566,34 +2566,6 @@
         "meanR": 0.7391,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
-      }
-    },
-    "IPUSDT": {
-      "market": "crypto",
-      "pass": false,
-      "reasons": [
-        "DATA_UNAVAILABLE"
-      ],
-      "profile": {},
-      "dev": {
-        "trades": null,
-        "eligibleDays": null,
-        "coveragePct": null,
-        "zeroExecutionDays": null,
-        "winRate": null,
-        "meanR": null,
-        "minTradesInDay": null,
-        "maxTradesInDay": null
-      },
-      "validation": {
-        "trades": null,
-        "eligibleDays": null,
-        "coveragePct": null,
-        "zeroExecutionDays": null,
-        "winRate": null,
-        "meanR": null,
-        "minTradesInDay": null,
-        "maxTradesInDay": null
       }
     },
     "JP225": {
