@@ -16,7 +16,7 @@ export async function scanBybitAuto(env){const cfg=bybitAutoConfig(env),api=bybi
 export function sizeBybitAuto(setup,cfg,equityUsd=50){
   const f=setup.filters||{},equity=Math.max(0,Number(equityUsd||0));
   const base=Math.max(1,Number(cfg.risk.baseBalanceUsd||50)),stepUsd=Math.max(1,Number(cfg.risk.balanceStepUsd||10));
-  const signedSteps=Math.trunc((equity-base)/stepUsd);
+  const signedSteps=Math.floor((equity-base)/stepUsd);
   const minRisk=Math.max(.5,Number(cfg.risk.minRiskUsd||1)),minReward=Math.max(.5,Number(cfg.risk.minRewardUsd||1));
   const ladderRisk=Math.max(minRisk,Number(cfg.risk.baseRiskUsd||5)+signedSteps*Number(cfg.risk.riskStepUsd||1));
   const ladderReward=Math.max(minReward,Number(cfg.risk.baseRewardUsd||10)+signedSteps*Number(cfg.risk.rewardStepUsd||1));
