@@ -78,13 +78,14 @@ jobs:
             "BINANCE_BRIDGE_PORT=8790" > "$tmp"
           sudo install -m 600 "$tmp" /etc/trading/binance-execution-bridge.env
           rm -f "$tmp"
-      - name: Install and start service
+      - name: Install and restart service
         shell: bash
         run: |
           set -euo pipefail
           sudo install -m 644 /opt/trading/trading-api-main/vps/binance-execution-bridge/binance-execution-bridge.service /etc/systemd/system/binance-execution-bridge.service
           sudo systemctl daemon-reload
-          sudo systemctl enable --now binance-execution-bridge.service
+          sudo systemctl enable binance-execution-bridge.service
+          sudo systemctl restart binance-execution-bridge.service
           sleep 2
           sudo systemctl is-active binance-execution-bridge.service
       - name: Read-only local smoke
