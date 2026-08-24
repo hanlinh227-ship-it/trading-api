@@ -29,12 +29,23 @@ export function computeOpenRiskUsd(openPlans={}){
   return total;
 }
 
+function profitTargetGate(state={}){
+  const t=state?.profitTarget;
+  if(!t||String(t.status||"").toUpperCase()==="EXPIRED")return null;
+  const target=num(t.targetUsd),baseline=num(t.baselineRealizedUsd),realized=num(state?.realizedUsd),pnl=realized-baseline,start=Date.parse(t.startAt||""),end=Date.parse(t.endAt||""),ts=Date.now();
+  if(!(target>0)||!Number.isFinite(start)||!Number.isFinite(end)||ts<start||ts>end)return null;
+  if(pnl+1e-9>=target)return {ok:false,reason:"PROFIT_TARGET_REACHED",targetUsd:target,baselineRealizedUsd:baseline,realizedUsd:realized,targetPnlUsd:pnl,remainingUsd:0,targetEndAt:t.endAt,policy:t.policy||"STOP_NEW_ENTRIES_ONLY"};
+  return {ok:true,targetUsd:target,baselineRealizedUsd:baseline,realizedUsd:realized,targetPnlUsd:pnl,remainingUsd:Math.max(0,target-pnl),targetEndAt:t.endAt};
+}
+
 export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd}){
   const equity=Math.max(0,num(equityUsd));
   if(!(equity>0))return {ok:false,reason:"EQUITY_INVALID"};
+  const target=profitTargetGate(state);
+  if(target?.ok===false)return target;
   const realized=num(state?.realizedUsd),openRiskUsd=computeOpenRiskUsd(state?.openPlans||{}),candidate=Math.max(0,num(candidateRiskUsd)),capUsd=equity*Math.max(0,num(cfg?.risk?.maxTotalOpenRiskPct))/100;
-  if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,realizedUsd:realized};
-  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,dailyLossStopEnabled:false,riskAccounting:"MANAGED_STOP_AWARE"};
+  if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,realizedUsd:realized,profitTarget:target};
+  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,dailyLossStopEnabled:false,riskAccounting:"MANAGED_STOP_AWARE",profitTarget:target};
 }
 
 export function validateProtectionGeometry({side,entry,sl,tp}){
