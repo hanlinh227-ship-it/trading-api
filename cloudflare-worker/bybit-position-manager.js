@@ -24,20 +24,19 @@ export async function manageBybitScalpPosition(env,api,plan,position,cfg){
   const beOffsetR=clamp(Number(env.BYBIT_BE_OFFSET_R||0.05),0,.20);
   const lockR=clamp(Number(env.BYBIT_PROFIT_LOCK_R||0.35),.10,.80);
   const trailDistanceR=clamp(Number(env.BYBIT_TRAIL_DISTANCE_R||0.55),.25,1.20);
-  let phase="INITIAL",nextSl=currentSl,trailingStop=0,activePrice=0;
+  let phase="INITIAL",nextSl=currentSl,trailingStop=0;
 
   if(r>=beAt){phase="BREAKEVEN";nextSl=side==="Buy"?entry+initialRisk*beOffsetR:entry-initialRisk*beOffsetR;}
   if(r>=lockAt){phase="PROFIT_LOCK";const lock=side==="Buy"?entry+initialRisk*lockR:entry-initialRisk*lockR;if(betterStop(side,lock,nextSl))nextSl=lock;}
-  if(r>=trailAt){phase="TRAIL";trailingStop=initialRisk*trailDistanceR;activePrice=side==="Buy"?entry+initialRisk*trailAt:entry-initialRisk*trailAt;}
+  if(r>=trailAt){phase="TRAIL";trailingStop=initialRisk*trailDistanceR;}
 
   nextSl=roundTick(nextSl,tick);
   trailingStop=roundTick(trailingStop,tick);
-  activePrice=roundTick(activePrice,tick);
   if(!betterStop(side,nextSl,currentSl)&&phase!=="TRAIL")return {managed:false,reason:"NO_TIGHTENING_NEEDED",phase,r,currentSl};
 
   const body={symbol:plan.symbol,tpslMode:"Full",positionIdx:Number(position?.positionIdx??cfg.execution.positionIdx??0),stopLoss:String(betterStop(side,nextSl,currentSl)?nextSl:currentSl),slTriggerBy:"MarkPrice"};
   if(tp>0){body.takeProfit=String(tp);body.tpTriggerBy="MarkPrice";}
-  if(phase==="TRAIL"&&trailingStop>0){body.trailingStop=String(trailingStop);body.activePrice=String(activePrice);}
+  if(phase==="TRAIL"&&trailingStop>0)body.trailingStop=String(trailingStop);
   await api.tradingStop(body);
-  return {managed:true,phase,r,previousSl:currentSl,nextSl:Number(body.stopLoss),trailingStop:trailingStop||null,activePrice:activePrice||null,markPrice:mark};
+  return {managed:true,phase,r,previousSl:currentSl,nextSl:Number(body.stopLoss),trailingStop:trailingStop||null,markPrice:mark};
 }
