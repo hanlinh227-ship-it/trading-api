@@ -12,9 +12,11 @@ function envBool(v){return String(v||"").toLowerCase()==="true";}
 function resetDaily(s){if(s.day===day())return s;return {...s,day:day(),trades:0,realizedUsd:0,lossStreak:0,pauseUntil:0,lastTradeAt:0};}
 function hardStop(state,cfg){if(Number(state.realizedUsd||0)<=-Math.abs(cfg.risk.dailyStopUsd))return "DAILY_STOP";if(Number(state.trades||0)>=cfg.maxTradesPerDay)return "MAX_TRADES_PER_DAY";if(Number(state.pauseUntil||0)>now())return "LOSS_STREAK_PAUSE";return null;}
 function executionMode(env){if(envBool(env.BINANCE_AUTO_LIVE))return "LIVE";if(envBool(env.BINANCE_AUTO_TESTNET))return "TESTNET";return "PAPER";}
+function validateExecutionTarget(env,mode){const base=String(env.BINANCE_FUTURES_BASE_URL||"https://fapi.binance.com").toLowerCase(),looksTestnet=base.includes("testnet")||base.includes("demo");if(mode==="TESTNET"&&!looksTestnet)return "TESTNET_BASE_URL_REQUIRED";if(mode==="LIVE"&&looksTestnet)return "LIVE_BASE_URL_MISMATCH";if(mode==="LIVE"&&!envBool(env.BINANCE_AUTO_LIVE_ACK))return "LIVE_ACK_REQUIRED";return null;}
 
 export async function runBinanceAutoV1(env){
-  const cfg=binance20Config(env),mode=executionMode(env),state=resetDaily(await get(env)),stop=hardStop(state,cfg);
+  const cfg=binance20Config(env),mode=executionMode(env),targetErr=validateExecutionTarget(env,mode),state=resetDaily(await get(env)),stop=hardStop(state,cfg);
+  if(targetErr)return {ok:true,executed:false,mode,reason:targetErr,state};
   if(stop){await put(env,state);return {ok:true,executed:false,mode,reason:stop,state};}
 
   const scan=await scanBinance20(env),setup=scan.best;
