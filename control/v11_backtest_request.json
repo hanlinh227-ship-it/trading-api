@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "authority": "V11_DIRECT_5AI",
   "requestedBy": "chatgpt-prompt-control",
-  "requestedAt": "2026-08-24T15:43:00+07:00",
-  "requestNonce": "20260824-1543-owner-full95",
+  "requestedAt": "2026-08-24T16:44:00+07:00",
+  "requestNonce": "20260824-1644-fiveai-geometry-r4",
   "mode": "FULL_MARKET_RESEARCH",
   "catalogSymbols": 95,
   "targetPerSymbolWinRate": 0.80,
@@ -12,12 +12,13 @@
   "fiveAIRequired": ["claude", "codex", "deepseek", "qwen", "openrouter"],
   "requireAllFiveBeforeBacktest": true,
   "requireAllFiveAfterBacktest": true,
-  "dataPolicy": "LEGACY_NO_YAHOO",
+  "dataPolicy": "EXACT_ONLY_NO_PROXY_NO_FABRICATION",
   "routes": {
-    "forex": "Twelve Data exact M5",
-    "crypto": "KuCoin->Gate.io->OKX->MEXC exact spot 4H",
-    "metal": "Dukascopy BID H1",
-    "index": "Dukascopy mapped BID H1"
+    "forex": "Twelve Data exact M5, H1 geometry derived from completed M5",
+    "crypto": "OKX->Gate.io->KuCoin->Binance->MEXC exact spot H1 with provider-level continuity validation",
+    "metal": "Dukascopy BID H1 with bounded retries",
+    "index": "Dukascopy mapped BID H1 with bounded retries"
   },
-  "note": "Owner-triggered full 95-symbol V11 research loop. Deterministic DEV/VALIDATION only for tuning; FINAL untouched; no pooling, deletion, fabrication, proxy promotion, lookahead, or silent eligible-day deletion."
+  "researchMethod": "V11-GEOMETRY-R4 per-symbol family/hour/entry-geometry coordinate search seeded only by exposed-development priors; deterministic DEV+VALIDATION; RR 1 or 2; conservative same-bar SL; no CUT; 1 trade/day candidate; early-August FINAL remains untouched by legacy priors.",
+  "note": "Owner-authorized full 95-symbol 5AI research loop. Keep iterating only on DEV/VALIDATION until target or verified non-retryable hard blocker. FINAL is never used for tuning. No pooling, symbol deletion, fabrication, lookahead, proxy promotion, or silent eligible-day deletion. Do not report intermediate performance to owner."
 }
