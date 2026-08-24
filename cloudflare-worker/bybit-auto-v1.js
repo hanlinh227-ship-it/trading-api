@@ -3,6 +3,7 @@ import {bybitV5,roundTick} from "./bybit-v5-client.js";
 import {scanBybitAuto,sizeBybitAuto} from "./bybit-scalp-engine.js";
 import {reviewBybitScalp,revalidateBybitScalpAfterAi} from "./bybit-ai-scalp-gate.js";
 import {recordBybitLearningEvent} from "./bybit-learning-engine.js";
+import {reconcileBybitPaperPlans} from "./bybit-shadow-lifecycle.js";
 
 const KEY="bybit:auto:v1:state";
 const now=()=>Date.now(),iso=()=>new Date().toISOString(),envBool=v=>String(v||"").toLowerCase()==="true";
@@ -17,7 +18,10 @@ async function emergencyFlat(api,setup,qty){try{return await api.order({symbol:s
 async function learn(env,event){try{await recordBybitLearningEvent(env,event);}catch{}}
 
 export async function runBybitAutoV1(env,{forceScan=false}={}){
-  const cfg=bybitAutoConfig(env),mode=bybitExecutionMode(env),guard=liveGuard(env,mode),api=bybitV5(env),state=reset(await get(env));
+  const cfg=bybitAutoConfig(env),mode=bybitExecutionMode(env),guard=liveGuard(env,mode),api=bybitV5(env);let state=reset(await get(env));
+  if(mode==="PAPER"){
+    try{const rec=await reconcileBybitPaperPlans(env,state);state.openPlans=rec.plans;state.lastShadowReconcile={at:iso(),closed:rec.closed};if(rec.closed.length)await put(env,state);}catch(e){state.lastShadowReconcile={at:iso(),error:String(e?.message||e)};}
+  }
   if(guard)return {ok:true,executed:false,mode,reason:guard,state};
   if(Number(state.trades||0)>=cfg.maxTradesPerDay)return {ok:true,executed:false,mode,reason:"MAX_TRADES_PER_DAY",state};
   if(Number(state.pauseUntil||0)>now())return {ok:true,executed:false,mode,reason:"LOSS_STREAK_PAUSE",state};
@@ -47,11 +51,11 @@ export async function runBybitAutoV1(env,{forceScan=false}={}){
   if(!postAi.ok){await learn(env,{stage:"POST_AI_REJECT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:setup.rr,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,entry:setup.entry,sl:setup.sl,tp:setup.tp,ai,postAi,reason:postAi.reason});await put(env,state);return {ok:true,executed:false,mode,reason:postAi.reason||"POST_AI_REVALIDATION_FAILED",ai,postAi,setup,sizing,scan,state};}
 
   const rewardTp=tpForReward(setup.side,setup.entry,sizing.qty,sizing.rewardUsd),plan={
-    symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,tp:rewardTp||setup.tp,structureTp:setup.tp,
+    mode,symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,tp:rewardTp||setup.tp,structureTp:setup.tp,
     rr:sizing.targetRR,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,
     ai:{mode:ai.mode,reason:ai.reason,pass:ai.pass,reject:ai.reject,blocked:ai.blocked,unavailable:ai.unavailable,verdicts:ai.verdicts},
     postAiQuote:{px:postAi.px,spreadBps:postAi.spreadBps,driftBps:postAi.driftBps,checkedAt:postAi.checkedAt},
-    createdAt:iso()
+    createdAt:iso(),createdAtMs:now()
   };
 
   if(mode==="PAPER"){
