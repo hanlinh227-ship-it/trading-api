@@ -26,11 +26,17 @@ ENGINEERING_ROLE='''You are one independent lane in the Trading Multi-AI enginee
 SCALP_ROLE='''You are one independent reviewer for a 1-5 minute Bybit USDT perpetual scalp. Use only supplied setup/context. Do not change size, leverage, SL or TP. Do not require a daily target. Return exactly one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. PASS=direction reasonable, REJECT=materially weak/contradictory, BLOCKED=data unsafe/insufficient.'''
 
 def extract(s):
-    s=(s or '').strip();a=s.find('{');b=s.rfind('}')
-    if a<0 or b<=a:raise ValueError('JSON_NOT_FOUND')
-    x=json.loads(s[a:b+1])
-    if not isinstance(x,dict):raise ValueError('JSON_OBJECT_REQUIRED')
-    return x
+    s=(s or '').strip()
+    if not s:raise ValueError('JSON_NOT_FOUND')
+    dec=json.JSONDecoder();saw_non_object=False
+    for i,ch in enumerate(s):
+        if ch!='{':continue
+        try:x,_=dec.raw_decode(s[i:])
+        except json.JSONDecodeError:continue
+        if isinstance(x,dict):return x
+        saw_non_object=True
+    if saw_non_object:raise ValueError('JSON_OBJECT_REQUIRED')
+    raise ValueError('JSON_NOT_FOUND')
 
 def mode(e):return str(e.get('mode') or '').upper()
 def engineering(e):return mode(e)=='MULTI_AI_ENGINEERING_TASK'
