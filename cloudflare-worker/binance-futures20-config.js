@@ -2,7 +2,7 @@
 // NON_PRODUCTION / QUARANTINED — see docs/ai-coengineer/DECISIONS.md DECISION-005
 // ============================================================================
 
-export const BINANCE20_VERSION="BF20-1.5.0";
+export const BINANCE20_VERSION="BF20-1.6.0";
 export const BINANCE20_CONFIG={
   startingCapitalUsd:50,
   symbols:["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT"],
@@ -17,6 +17,7 @@ export const BINANCE20_CONFIG={
     riskStepUsd:1.00,
     rewardStepUsd:1.00,
     maxRiskPctOfEquity:25.00,
+    maxTotalOpenRiskPct:30.00,
     dailyStopPct:20.00,
     maxLossStreak:3,
     pauseMinutes:30,
@@ -40,6 +41,7 @@ export function binance20Config(env={}){
   c.risk.riskStepUsd=Math.max(.1,n("BINANCE_RISK_STEP_USD",c.risk.riskStepUsd));
   c.risk.rewardStepUsd=Math.max(.1,n("BINANCE_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.maxRiskPctOfEquity=Math.max(5,Math.min(50,n("BINANCE_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
+  c.risk.maxTotalOpenRiskPct=Math.max(5,Math.min(60,n("BINANCE_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
   c.risk.dailyStopPct=Math.max(5,Math.min(50,n("BINANCE_DAILY_STOP_PCT",c.risk.dailyStopPct)));
   c.risk.minRR=Math.max(1,Math.min(2,n("BINANCE_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(4,n("BINANCE_PREFERRED_RR",c.risk.preferredRR)));
