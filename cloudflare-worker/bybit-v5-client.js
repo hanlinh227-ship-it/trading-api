@@ -1,22 +1,47 @@
 import {hmacHex} from "./providers/bybit-signed-client.js";
 import {bybitCredentials} from "./bybit-auto-config.js";
 
-const BASE="https://api.bybit.com";
+const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const RECV_WINDOW="5000";
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
-function bybitError(path,status,p){const e=new Error(`${path}: ${p?.retMsg||`HTTP ${status}`}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null};return e;}
-async function parse(r,path){const p=await r.json().catch(()=>null);if(!r.ok||Number(p?.retCode)!==0)throw bybitError(path,r.status,p);return p;}
+function bases(env={}){
+  const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
+  return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
+}
+function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null};return e;}
+async function parseResponse(r,path,meta={}){
+  const text=await r.text();let p=null;try{p=text?JSON.parse(text):null;}catch{}
+  const bodySnippet=!p&&text?String(text).replace(/\s+/g," ").slice(0,240):null;
+  if(!r.ok||Number(p?.retCode)!==0)throw bybitError(path,r.status,p,{...meta,bodySnippet});
+  return p;
+}
 export function bybitV5(env={}){
-  const c=bybitCredentials(env);
-  async function pub(path,params={}){const q=qs(params),r=await fetch(`${BASE}${path}${q?`?${q}`:""}`,{headers:{accept:"application/json"}});return parse(r,path);}
+  const c=bybitCredentials(env),baseList=bases(env);
+  async function pub(path,params={}){
+    const q=qs(params),attempted=[];let lastErr;
+    for(const base of baseList){
+      attempted.push(base);
+      try{const r=await fetch(`${base}${path}${q?`?${q}`:""}`,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted]});}
+      catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
+    }
+    if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
+  }
   async function signed(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
-    const ts=String(Date.now()),upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${BASE}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
-    const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json"},body:upper==="GET"?undefined:payload});return parse(r,path);
+    const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),attempted=[];let lastErr;
+    for(const base of baseList){
+      attempted.push(base);
+      try{
+        const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${base}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
+        const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json"},body:upper==="GET"?undefined:payload});
+        return await parseResponse(r,path,{base,attemptedBases:[...attempted]});
+      }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
+    }
+    if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,
     serverTime:()=>pub("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
