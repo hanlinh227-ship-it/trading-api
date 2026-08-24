@@ -12,6 +12,9 @@ import {
 import {
   handleGpt5AiAction
 } from "./gpt-5ai-action.js";
+import {
+  handleBinanceReadonlyHealth
+} from "./binance-readonly-health.js";
 
 const VERSION = "V78.027";
 const SERVICE = "Trading Unified Hub • Signal V78 + Separate Binance Approval";
@@ -37,6 +40,9 @@ async function telegramOwner(req) {
 
 export default {
   async fetch(req, env, ctx) {
+    const binanceHealth = await handleBinanceReadonlyHealth(req, env);
+    if (binanceHealth) return binanceHealth;
+
     const mcp = await handleChatGptMcp(req, env);
     if (mcp) return mcp;
 
@@ -76,7 +82,8 @@ export default {
       binanceAutoProjectSeparate: true,
       multiAiGateway: "VPC_OIDC_CONTROL_PLANE",
       chatgptMcp: "/mcp",
-      gpt5AiCouncil: "/api/5ai/council"
+      gpt5AiCouncil: "/api/5ai/council",
+      binanceReadonlyHealth: "/binance/health"
     }, null, 2), {
       status: r.status,
       headers: {
