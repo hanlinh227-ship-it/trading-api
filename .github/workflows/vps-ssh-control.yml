@@ -1,0 +1,66 @@
+name: VPS SSH Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Safe control command'
+        required: true
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - v11-preflight
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-ssh-control
+  cancel-in-progress: false
+
+jobs:
+  control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$VPS_SSH_KEY"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/vps_control
+          chmod 600 ~/.ssh/vps_control
+          PORT="${VPS_PORT:-22}"
+          ssh-keyscan -p "$PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: VPS smoke
+        if: inputs.command == 'smoke'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -i ~/.ssh/vps_control -p "$PORT" "$VPS_USER@$VPS_HOST" 'set -e; echo SSH_CONTROL=PASS; id; hostname; systemctl is-active v11-manual-ai-bridge.service; curl -fsS http://127.0.0.1:8789/health | python3 -c '\''import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert {"claude","codex","deepseek","qwen","openrouter"}.issubset(d.get("providers",{})); print("FIVEAI_BRIDGE=PASS")'\'''
+
+      - name: V11 preflight
+        if: inputs.command == 'v11-preflight'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          PORT="${VPS_PORT:-22}"
+          ssh -i ~/.ssh/vps_control -p "$PORT" "$VPS_USER@$VPS_HOST" 'set -euo pipefail; cd /opt/trading/trading-api-v11; git fetch origin main; git reset --hard origin/main; python3 -m py_compile scripts/v11_direct_backtest.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_backtest_mtf_engine_r1.py scripts/v11_mtf_data_cache.py; systemctl is-active v11-manual-ai-bridge.service; echo V11_REMOTE_PREFLIGHT=PASS'
