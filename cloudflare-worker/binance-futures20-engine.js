@@ -36,7 +36,8 @@ function analyze(symbol,r1,r5,bid,ask,cfg,metrics){
   if(ctx.distanceFromVwapAtr>2.4)return null;
   if(score<profile.minScore)return null;
 
-  const entry=side==="BUY"?ask:bid,exitPlan=buildScalpExitPlan({side,entry,atr:a1,r1,rrFloor:Math.max(1.2,Number(cfg.risk.minRR||1.2)),rrCap:Math.min(2.0,Number(profile.rr||1.6)+.25)});if(!exitPlan)return null;
+  const entry=side==="BUY"?ask:bid,exitPlan=buildScalpExitPlan({side,entry,atr:a1,r1,rrFloor:Number(cfg.risk.minRR||1),preferredRR:Number(cfg.risk.preferredRR||2),rrCap:Number(cfg.risk.maxRR||3)});if(!exitPlan)return null;
+  if(Number(exitPlan.rr||0)<Number(cfg.risk.minRR||1))return null;
   return {symbol,side,strategy,profile:profile.family,score:Math.round(score),entry,sl:exitPlan.sl,tp:exitPlan.tp,rr:exitPlan.rr,atr1:a1,spreadBps,riskWeight:profile.riskWeight,exitPlan,context:{...ctx,vwapAligned,confluence:conf.reasons},liquidity:{quoteVolume:Number(metrics?.quoteVolume||0),universeSpreadBps:Number(metrics?.spreadBps||spreadBps)}};
 }
 
@@ -60,9 +61,9 @@ export async function scanBinance20(env){
 
 export function sizeBinance20(setup,filters,cfg,equityUsd=50){
   const equity=Math.max(0,Number(equityUsd||0));
-  const basePct=Math.max(.25,Math.min(Number(cfg.risk.maxRiskPct||1.25),Number(cfg.risk.perTradePct||1)));
+  const basePct=Math.max(1,Math.min(Number(cfg.risk.maxRiskPct||10),Number(cfg.risk.perTradePct||10)));
   const weight=Math.max(.25,Math.min(1,Number(setup.riskWeight||1)));
-  const riskUsd=Math.max(Number(cfg.risk.minRiskUsd||.25),equity*(basePct/100)*weight);
+  const riskUsd=Math.max(Number(cfg.risk.minRiskUsd||5),equity*(basePct/100)*weight);
   const dist=Math.abs(setup.entry-setup.sl),raw=riskUsd/dist,step=filters.marketStepSize||filters.stepSize,qty=floorStep(raw,step),notional=qty*setup.entry,minNotional=Math.max(5,filters.minNotional||5);
   if(!(qty>=filters.minQty)||notional<minNotional)return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,minNotional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null};
   return {ok:true,qty,notional,riskUsd,riskPctOfEquity:equity>0?riskUsd/equity*100:null,baseRiskPct:basePct,riskWeight:weight,leverage:cfg.leverage,equityUsd:equity};
