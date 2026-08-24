@@ -79,7 +79,7 @@ export async function revalidateBybitScalpAfterAi(env,api,setup){
   const maxDriftBps=Math.max(2,Math.min(30,Number(env.BYBIT_AI_MAX_POST_REVIEW_DRIFT_BPS||12)));
   const maxSpreadBps=Math.max(1,Math.min(25,Number(env.BYBIT_MAX_UNIVERSE_SPREAD_BPS||12)));
   try{
-    const t=await api.tickers(setup.symbol),x=t?.result?.list?.[0]||{},bid=Number(x.bid1Price||0),ask=Number(x.ask1Price||0);
+    const t=await api.ticker(setup.symbol),x=t?.result?.list?.[0]||{},bid=Number(x.bid1Price||0),ask=Number(x.ask1Price||0);
     if(!(bid>0&&ask>0&&ask>=bid))return {ok:false,reason:"POST_AI_QUOTE_INVALID"};
     const px=setup.side==="Buy"?ask:bid,mid=(bid+ask)/2,spreadBps=(ask-bid)/mid*10000,driftBps=Math.abs(px-Number(setup.entry||0))/Math.max(Number(setup.entry||0),1e-12)*10000;
     if(spreadBps>maxSpreadBps)return {ok:false,reason:"POST_AI_SPREAD_TOO_WIDE",bid,ask,px,spreadBps,driftBps};
