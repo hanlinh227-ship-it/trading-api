@@ -31,11 +31,12 @@ jobs:
         with: {ref: main, fetch-depth: 1}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Restore immutable legacy-route market-data cache
+
+      - name: Restore immutable research market-data cache
         uses: actions/cache@v4
         with:
           path: data/v11_mtf_cache
-          key: v11-legacy-no-yahoo-v2-20250826-20260823
+          key: v11-exact-r4-${{ hashFiles('scripts/v11_mtf_data_cache.py') }}-20250826-20260823
 
       - name: Preflight exact research contract
         run: |
@@ -43,8 +44,11 @@ jobs:
           python -m py_compile scripts/v11_mtf_data_cache.py scripts/v11_backtest_mtf_engine_r1.py scripts/v11_backtest_mtf.py scripts/v11_backtest_mtf_run.py scripts/v11_direct_backtest.py
           test -n "${TWELVEDATA_API_KEY:-}" || { echo TWELVEDATA_API_KEY_MISSING; exit 2; }
           python - <<'PY'
-          import sys;sys.path.insert(0,'scripts');import v11_mtf_data_cache as d
-          cats=d.load_catalog(); assert sum(map(len,cats.values()))==95
+          import sys
+          sys.path.insert(0,'scripts')
+          import v11_mtf_data_cache as d
+          cats=d.load_catalog()
+          assert sum(map(len,cats.values()))==95
           print('V11_CONTRACT_PREFLIGHT_OK symbols=95 markets='+','.join(cats))
           PY
 
@@ -53,10 +57,7 @@ jobs:
           set -euo pipefail
           SUBDOMAIN="$(curl -fsS --max-time 15 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json;print((json.load(sys.stdin).get("result") or {}).get("subdomain") or "")')"
           test -n "$SUBDOMAIN"
-          OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
-          echo "::add-mask::$OIDC"
           echo "GATEWAY_URL=https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai/review" >> "$GITHUB_ENV"
-          echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
 
       - name: Five-AI pre-research review
         run: |
@@ -65,15 +66,31 @@ jobs:
           import json,os
           context={
             'contract':{'symbols':95,'independent':True,'eligibleDayExecutions':'1..3','rr':[1,2],'minWinRatePct':80.0,'positiveExpectancy':True,'exactInstrumentData':True,'forbidden':['pooling','symbol deletion','fabrication','lookahead/leakage','silent eligible-day deletion','FINAL tuning']},
-            'method':{'baseTF':{'forex':'M5','crypto':'H4','metal':'H1','index':'H1'},'features':['HTF EMA trend alignment','EMA20 ATR location','5-bar breakout trigger','RSI regime filter'],'risk':'ATR/structure stop; deterministic next-bar entry; RR 1 or 2','selection':'per-symbol bounded RR/threshold/maxTrades using DEV+VALIDATION only'},
-            'integrity':'Research wrapper uses fixed warm-up, day-aligned DEV/VALIDATION/FINAL partitions, partition-safe outcome horizons, profile/data/source seal, and 1..3 executions per eligible execution day. FINAL is inaccessible for tuning.',
-            'task':'Find bounded per-symbol/per-regime hypotheses to test after deterministic DEV/VALIDATION evidence. Do not claim performance from code.'
+            'priorEvidence':{'V73':'EXPOSED DEVELOPMENT ALL-PASS; NOT UNTOUCHED OOS','use':'hypothesis seed only'},
+            'task':'Audit exact data routing and bounded per-symbol/per-regime refinements. Deterministic replay is performance truth.'
           }
-          instruction='V11 95-symbol pre-research. Review this contract/method. Identify integrity risk and bounded deterministic per-symbol/regime refinements. Performance truth must come only from deterministic replay. Keep response concise.'
+          instruction='V11 95-symbol pre-research. Independently review data integrity, the earlier V64/V69/V73 per-symbol geometry hypotheses, and current V11 research contract. Propose bounded DEV/VALIDATION-only refinements. Never claim performance without deterministic replay; never use FINAL for tuning.'
           open('/tmp/pre.json','w').write(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':context}))
           PY
-          CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/pre-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json || echo CURL_FAIL)"
-          echo "5AI_PRE_HTTP=$CODE"
+          rm -f /tmp/pre-result.json
+          COMPLETE=0
+          for ATTEMPT in 1 2 3; do
+            OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
+            echo "::add-mask::$OIDC"
+            CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/pre-attempt.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json || echo CURL_FAIL)"
+            cp /tmp/pre-attempt.json /tmp/pre-result.json 2>/dev/null || true
+            echo "5AI_PRE_ATTEMPT=$ATTEMPT HTTP=$CODE"
+            if python - <<'PY'
+          import json,sys
+          expected=['claude','codex','deepseek','qwen','openrouter']
+          try:d=json.load(open('/tmp/pre-attempt.json'))
+          except Exception:sys.exit(1)
+          p=d.get('providers') or {}
+          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected) else 1)
+          PY
+            then COMPLETE=1; break; fi
+            sleep $((ATTEMPT*8))
+          done
           python - <<'PY'
           import json,os
           expected=['claude','codex','deepseek','qwen','openrouter']
@@ -119,11 +136,28 @@ jobs:
           for s,r in (summary.get('symbols') or {}).items():
             d=r.get('dev') or {}; v=r.get('validation') or {}; p=r.get('profile') or {}
             compact['symbols'][s]={'m':r.get('market'),'ok':r.get('pass'),'rr':p.get('rr'),'th':p.get('threshold'),'mt':p.get('maxTrades'),'d':[d.get('coveragePct'),d.get('winRate'),d.get('meanR'),d.get('zeroExecutionDays')],'v':[v.get('coveragePct'),v.get('winRate'),v.get('meanR'),v.get('zeroExecutionDays')]}
-          instruction='V11 post-VALIDATION evidence review. Analyze each failing symbol independently. Learn ONLY from DEV/VALIDATION. Propose bounded deterministic per-symbol/regime refinements while preserving 1-3 executions on every eligible day, RR only 1 or 2, WR>=80%, positive expectancy, exact data, and no leakage. Do not pool or use FINAL. If evidence shows the contract is structurally incompatible with the method/data, say BLOCKED and why. Do not fabricate.'
+          instruction='V11 post-VALIDATION evidence review. Analyze failures independently using DEV/VALIDATION only. Compare current evidence against older V64/V69/V73 hypothesis families without treating exposed development as OOS proof. Propose bounded next refinements that preserve 1-3 executions on every eligible day, RR only 1 or 2, WR>=80%, positive expectancy, exact data, no pooling, and no leakage. Do not use FINAL.'
           open('/tmp/post.json','w').write(json.dumps({'task_id':'v11-post-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':{'text':json.dumps(compact,separators=(',',':'))[:40000]}}))
           PY
-          CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/post-result.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/post.json || echo CURL_FAIL)"
-          echo "5AI_POST_HTTP=$CODE"
+          rm -f /tmp/post-result.json
+          COMPLETE=0
+          for ATTEMPT in 1 2 3; do
+            OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
+            echo "::add-mask::$OIDC"
+            CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/post-attempt.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/post.json || echo CURL_FAIL)"
+            cp /tmp/post-attempt.json /tmp/post-result.json 2>/dev/null || true
+            echo "5AI_POST_ATTEMPT=$ATTEMPT HTTP=$CODE"
+            if python - <<'PY'
+          import json,sys
+          expected=['claude','codex','deepseek','qwen','openrouter']
+          try:d=json.load(open('/tmp/post-attempt.json'))
+          except Exception:sys.exit(1)
+          p=d.get('providers') or {}
+          sys.exit(0 if all(str((p.get(x) or {}).get('status','')).upper()=='OK' for x in expected) else 1)
+          PY
+            then COMPLETE=1; break; fi
+            sleep $((ATTEMPT*8))
+          done
           python - <<'PY'
           import json,os
           expected=['claude','codex','deepseek','qwen','openrouter']
@@ -180,7 +214,7 @@ jobs:
           pstat=lambda d:{p:str(((d.get('providers') or {}).get(p) or {}).get('status') or 'MISSING') for p in providers}
           preok=all(v=='OK' for v in pstat(pre).values()); postok=all(v=='OK' for v in pstat(post).values())
           if final.get('allFinalPass') and preok and postok: status='COMPLETE_ALL_95_PASS'
-          elif fast and not (preok and postok): status='FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE'
+          elif fast.get('allValidationPass') and not (preok and postok): status='FIVE_AI_BLOCKED_WITH_DETERMINISTIC_EVIDENCE'
           elif fast.get('allValidationPass'): status='FINAL_INCOMPLETE_OR_FAIL'
           elif fast: status='REFINEMENT_REQUIRED'
           else: status='HARD_BLOCKER_RUN_INCOMPLETE'
