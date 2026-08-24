@@ -14,12 +14,10 @@ export function computeOpenRiskUsd(openPlans={}){
 export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd}){
   const equity=Math.max(0,num(equityUsd));
   if(!(equity>0))return {ok:false,reason:"EQUITY_INVALID"};
-  const dailyStopUsd=equity*Math.max(0,num(cfg?.risk?.dailyStopPct))/100;
   const realized=num(state?.realizedUsd);
-  if(realized<=-dailyStopUsd)return {ok:false,reason:"DAILY_STOP_REACHED",dailyStopUsd,realizedUsd:realized};
   const openRiskUsd=computeOpenRiskUsd(state?.openPlans||{}),candidate=Math.max(0,num(candidateRiskUsd)),capUsd=equity*Math.max(0,num(cfg?.risk?.maxTotalOpenRiskPct))/100;
-  if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd};
-  return {ok:true,dailyStopUsd,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd};
+  if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,realizedUsd:realized};
+  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,dailyLossStopEnabled:false};
 }
 
 export function validateProtectionGeometry({side,entry,sl,tp}){
