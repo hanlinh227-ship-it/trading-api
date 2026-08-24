@@ -4,6 +4,7 @@ import {binanceUsdm,symbolFilters,roundTick} from "./binance-usdm-client.js";
 import {getDailySession,dailySessionPolicy} from "./binance-daily-session.js";
 import {reconcileDailyPnl} from "./binance-pnl-reconciliation.js";
 import {manageScalpPosition} from "./binance-dynamic-stop-manager.js";
+import {preflightExecution,resolveMarketFill,validateFillAgainstPlan} from "./binance-execution-guard.js";
 
 const KEY="binance:auto:v1:state";
 const now=()=>Date.now();
@@ -16,6 +17,12 @@ function resetDaily(s){if(s.day===day())return s;return {...s,day:day(),trades:0
 function hardStop(state,cfg){if(Number(state.realizedUsd||0)<=-Math.abs(cfg.risk.dailyStopUsd))return "DAILY_STOP";if(Number(state.trades||0)>=cfg.maxTradesPerDay)return "MAX_TRADES_PER_DAY";if(Number(state.pauseUntil||0)>now())return "LOSS_STREAK_PAUSE";return null;}
 function executionMode(env){if(envBool(env.BINANCE_AUTO_LIVE))return "LIVE";if(envBool(env.BINANCE_AUTO_TESTNET))return "TESTNET";return "PAPER";}
 function validateExecutionTarget(env,mode){const base=String(env.BINANCE_FUTURES_BASE_URL||"https://fapi.binance.com").toLowerCase(),looksTestnet=base.includes("testnet")||base.includes("demo");if(mode==="TESTNET"&&!looksTestnet)return "TESTNET_BASE_URL_REQUIRED";if(mode==="LIVE"&&looksTestnet)return "LIVE_BASE_URL_MISMATCH";if(mode==="LIVE"&&!envBool(env.BINANCE_AUTO_LIVE_ACK))return "LIVE_ACK_REQUIRED";return null;}
+
+async function emergencyFlat(api,setup,qty){
+  const closeSide=setup.side==="BUY"?"SELL":"BUY";
+  try{return await api.order({symbol:setup.symbol,side:closeSide,type:"MARKET",quantity:qty,reduceOnly:true,newOrderRespType:"RESULT"});}
+  catch{return null;}
+}
 
 export async function runBinanceAutoV1(env){
   const cfg=binance20Config(env),mode=executionMode(env),targetErr=validateExecutionTarget(env,mode);
@@ -55,18 +62,29 @@ export async function runBinanceAutoV1(env){
     return {ok:true,executed:true,paper:true,mode,reason:"PAPER_ORDER_ACCEPTED",plan,scan,session,target,pnl,state};
   }
 
+  const preflight=await preflightExecution(api,setup,env);
+  if(!preflight.ok)return {ok:true,executed:false,mode,reason:preflight.reason,preflight,setup,scan,session,target,pnl,state};
+
   const info=await api.exchangeInfo(),filters=symbolFilters(info,setup.symbol),sl=roundTick(setup.sl,filters?.tickSize||0),tp=roundTick(setup.tp,filters?.tickSize||0);
+  setup.sl=sl;setup.tp=tp;
   await api.setLeverage(setup.symbol,cfg.leverage).catch(()=>{});
   await api.setMarginType(setup.symbol,cfg.execution.marginType).catch(()=>{});
   const closeSide=setup.side==="BUY"?"SELL":"BUY";
-  const entry=await api.order({symbol:setup.symbol,side:setup.side,type:"MARKET",quantity:sizing.qty,newOrderRespType:"RESULT"});
+  const orderResult=await api.order({symbol:setup.symbol,side:setup.side,type:"MARKET",quantity:sizing.qty,newOrderRespType:"RESULT"});
+  const fill=await resolveMarketFill(api,setup.symbol,orderResult);
+  if(!fill.ok){await emergencyFlat(api,setup,sizing.qty);return {ok:false,executed:false,mode,reason:fill.reason,preflight,fill,setup,scan,session,target,pnl,state};}
+
+  const fillCheck=validateFillAgainstPlan({setup,preflight,fill,env});
+  if(!fillCheck.ok){const emergency=await emergencyFlat(api,setup,fill.executedQty||sizing.qty);state.lastExecutionGuard={preflight,fill,fillCheck,emergencyFlat:!!emergency,at:iso()};await put(env,state);return {ok:true,executed:false,mode,reason:fillCheck.reason,emergencyFlat:!!emergency,preflight,fill,fillCheck,setup,scan,session,target,pnl,state};}
+
   try{
     await api.order({symbol:setup.symbol,side:closeSide,type:"STOP_MARKET",stopPrice:sl,closePosition:true,workingType:"MARK_PRICE"});
     await api.order({symbol:setup.symbol,side:closeSide,type:"TAKE_PROFIT_MARKET",stopPrice:tp,closePosition:true,workingType:"MARK_PRICE"});
-  }catch(e){try{await api.order({symbol:setup.symbol,side:closeSide,type:"MARKET",quantity:sizing.qty,reduceOnly:true});}catch{}throw new Error("PROTECTION_ORDER_FAILED:"+String(e?.message||e));}
+  }catch(e){await emergencyFlat(api,setup,fill.executedQty||sizing.qty);throw new Error("PROTECTION_ORDER_FAILED:"+String(e?.message||e));}
 
-  state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fingerprint;state.lastPlan={...plan,sl,tp,orderId:entry.orderId};await put(env,state);
-  return {ok:true,executed:true,mode,reason:"ORDER_SUBMITTED_AND_PROTECTED",plan:{...plan,sl,tp,orderId:entry.orderId},scan,session,target,pnl,state};
+  const actualPlan={...plan,entry:fill.avgPrice,sl,tp,rr:fillCheck.actualRR,qty:fill.executedQty,orderId:fill.orderId,execution:{preflight,fill:{avgPrice:fill.avgPrice,executedQty:fill.executedQty,orderId:fill.orderId},slippageBps:fillCheck.slippageBps,actualRR:fillCheck.actualRR}};
+  state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fingerprint;state.lastPlan=actualPlan;state.lastExecutionGuard=actualPlan.execution;await put(env,state);
+  return {ok:true,executed:true,mode,reason:"ORDER_SUBMITTED_AND_PROTECTED",plan:actualPlan,scan,session,target,pnl,state};
 }
 
 export async function getBinanceAutoV1State(env){return get(env);}
