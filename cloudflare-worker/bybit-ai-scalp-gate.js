@@ -25,7 +25,7 @@ export async function probeBybitAiBridge(env){
     const j=await r.json().catch(()=>({}));
     const providers={};let configured=0,online=0;
     for(const p of PROVIDERS){const x=j?.providers?.[p]||{};providers[p]={configured:!!x.configured,state:upper(x.state||x.status||"UNKNOWN"),model:String(x.model||"").slice(0,80),last_seen:num(x.last_seen)};if(providers[p].configured)configured++;if(["ONLINE","PASS","RUNNING"].includes(providers[p].state))online++;}
-    return {ok:r.ok&&configured===PROVIDERS.length,httpStatus:r.status,latencyMs:Date.now()-started,configured,online,requiredProviders:PROVIDERS,allRequiredOnline:online===PROVIDERS.length,providers,error:r.ok?null:String(j?.error||"AI_BRIDGE_HEALTH_HTTP_"+r.status)};
+    return {ok:r.ok&&configured>0,httpStatus:r.status,latencyMs:Date.now()-started,configured,online,requiredProviders:PROVIDERS,allRequiredOnline:online===PROVIDERS.length,atLeastOneOnline:online>0,providers,error:r.ok?null:String(j?.error||"AI_BRIDGE_HEALTH_HTTP_"+r.status)};
   }catch(e){return {ok:false,latencyMs:Date.now()-started,error:"AI_BRIDGE_HEALTH_FETCH:"+String(e?.message||e),providers:{},requiredProviders:PROVIDERS};}
 }
 
@@ -69,18 +69,24 @@ export async function reviewBybitScalp(env,setup){
   for(const p of PROVIDERS){const v=providerVerdict(raw.providers?.[p],setup);verdicts[p]=v;if(v==="PASS")pass++;else if(v==="REJECT")reject++;else if(v==="BLOCKED")blocked++;else unavailable++;}
   const usable=pass+reject+blocked;
 
-  // If any required provider is unavailable/rate-limited/out of tokens, do not use
-  // the partial council. Trading may continue under deterministic strategy/risk/quote
-  // gates, while AI state explicitly waits for all 3 providers to recover.
-  if(usable<PROVIDERS.length){
-    return {enabled:true,allow:true,mode:"WAIT_AI_PROVIDER",reason:"AI_PARTIAL_UNAVAILABLE_BYPASS",score,rr,evaluationUsed:false,requiredProviders:PROVIDERS,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
+  // Any responding provider may evaluate the setup. Missing/rate-limited/token-exhausted
+  // providers are marked waiting and excluded from the vote. Only when all 3 are unavailable
+  // does trading bypass AI entirely and rely on deterministic strategy/risk/quote gates.
+  if(usable===0){
+    return {enabled:true,allow:true,mode:"WAIT_AI_PROVIDER",reason:"AI_ALL_UNAVAILABLE_BYPASS",score,rr,evaluationUsed:false,requiredProviders:PROVIDERS,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
   }
 
-  let allow=false,reason="AI_3WAY_REJECT";
-  if(score>=86){allow=(reject+blocked)<2;reason=allow?"HIGH_QUALITY_3AI_PASS":"HIGH_QUALITY_3AI_VETO";}
-  else if(score>=80){allow=pass>=2&&pass>=reject&&blocked<2;reason=allow?"MID_QUALITY_3AI_PASS":"MID_QUALITY_3AI_INSUFFICIENT";}
-  else{allow=pass===3&&blocked===0;reason=allow?"LOW_QUALITY_3AI_UNANIMOUS":"LOW_QUALITY_3AI_INSUFFICIENT";}
-  return {enabled:true,allow,mode:"THREE_AI_SCALP",reason,score,rr,evaluationUsed:true,requiredProviders:PROVIDERS,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
+  const activeProviders=PROVIDERS.filter(p=>verdicts[p]!=="UNAVAILABLE");
+  const waitingProviders=PROVIDERS.filter(p=>verdicts[p]==="UNAVAILABLE");
+  let allow=false,reason="AI_AVAILABLE_VOTE_REJECT";
+  // BLOCKED is a safety veto among providers that actually responded. Otherwise majority
+  // of available reviewers decides; ties require at least one PASS and no REJECT majority.
+  if(blocked>0){allow=false;reason="AI_AVAILABLE_BLOCKED";}
+  else if(pass>reject){allow=true;reason=usable===3?"THREE_AI_PASS":"PARTIAL_AI_PASS";}
+  else if(reject>pass){allow=false;reason=usable===3?"THREE_AI_REJECT":"PARTIAL_AI_REJECT";}
+  else{allow=pass>0;reason=allow?"PARTIAL_AI_TIE_PASS":"AI_AVAILABLE_NO_PASS";}
+
+  return {enabled:true,allow,mode:usable===3?"THREE_AI_SCALP":"PARTIAL_AI_SCALP",reason,score,rr,evaluationUsed:true,requiredProviders:PROVIDERS,activeProviders,waitingProviders,usable,pass,reject,blocked,unavailable,verdicts,providerDiagnostics:raw.diagnostics||{},bridgeOk:raw.ok,bridgeStatus:raw.bridgeStatus??null,bridgeLatencyMs:raw.latencyMs??null,timeoutMs:raw.timeoutMs??null,error:raw.error||null};
 }
 
 export async function revalidateBybitScalpAfterAi(env,api,setup){
