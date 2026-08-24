@@ -32,9 +32,16 @@ async function manageLivePositions(env,api,state,positions,cfg){
   const live=new Map((positions||[]).map(p=>[String(p.symbol||""),p])),results=[];
   for(const [symbol,plan] of Object.entries(state.openPlans||{})){
     const p=live.get(symbol);
-    if(!p){delete state.openPlans[symbol];results.push({symbol,managed:false,reason:"POSITION_CLOSED"});continue;}
-    try{const r=await manageBybitScalpPosition(env,api,plan,p,cfg);if(r?.nextSl>0)plan.managedSl=r.nextSl;if(r?.phase)plan.managementPhase=r.phase;results.push({symbol,...r});}
-    catch(e){results.push({symbol,managed:false,reason:"MANAGER_FAILED",error:String(e?.message||e)});}
+    if(!p){delete state.openPlans[symbol];results.push({symbol,managed:false,verdict:"CLOSED",reason:"POSITION_CLOSED"});continue;}
+    try{
+      const r=await manageBybitScalpPosition(env,api,plan,p,cfg);
+      if(r?.nextSl>0)plan.managedSl=r.nextSl;
+      if(r?.phase)plan.managementPhase=r.phase;
+      if(Number.isFinite(Number(r?.peakR)))plan.peakR=Number(r.peakR);
+      if(r?.cutExecuted){plan.exitRequestedAt=iso();plan.exitReason=r.reason||"MANAGER_CUT";}
+      results.push({symbol,...r});
+    }
+    catch(e){results.push({symbol,managed:false,verdict:"ERROR",reason:"MANAGER_FAILED",error:String(e?.message||e)});}
   }
   state.lastPositionManagement={at:iso(),results};return results;
 }
@@ -63,6 +70,8 @@ export async function runBybitAutoV1(env,{forceScan=false}={}){
     positions=(pos?.result?.list||[]).filter(x=>Number(x.size||0)>0);
     try{await reconcileLivePnl(api,state,cfg);}catch(e){return {ok:true,executed:false,mode,reason:"DAILY_PNL_RECONCILIATION_FAILED",error:String(e?.message||e),state};}
     lifecycles=await manageLivePositions(env,api,state,positions,cfg);await put(env,state);
+    const managerCut=lifecycles.find(x=>x.cutExecuted===true||x.verdict==="CUT");
+    if(managerCut)return {ok:true,executed:false,mode,reason:"POSITION_CUT_BY_MANAGER",managerCut,lifecycles,equity,state};
     const untracked=positions.filter(p=>!state.openPlans?.[String(p.symbol||"")]);
     if(untracked.length)return {ok:true,executed:false,mode,reason:"UNTRACKED_LIVE_POSITION",symbols:untracked.map(x=>x.symbol),lifecycles,state};
     const managerFailure=lifecycles.find(x=>x.reason==="MANAGER_FAILED"||x.reason==="POSITION_DATA_INVALID");
@@ -89,7 +98,7 @@ export async function runBybitAutoV1(env,{forceScan=false}={}){
   const postAi=await revalidateBybitScalpAfterAi(env,api,setup);state.lastPostAiQuote={symbol:setup.symbol,side:setup.side,at:iso(),...postAi};
   if(!postAi.ok){await learn(env,{stage:"POST_AI_REJECT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:setup.rr,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,entry:setup.entry,sl:setup.sl,tp:setup.tp,ai,postAi,reason:postAi.reason});await put(env,state);return {ok:true,executed:false,mode,reason:postAi.reason||"POST_AI_REVALIDATION_FAILED",ai,postAi,setup,sizing,scan,lifecycles,state};}
 
-  const rewardTp=tpForReward(setup.side,setup.entry,sizing.qty,sizing.rewardUsd),plan={mode,symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,initialSl:setup.sl,tp:rewardTp||setup.tp,structureTp:setup.tp,tickSize:Number(setup.filters?.tickSize||0),filters:setup.filters,rr:sizing.targetRR,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,riskPreflight,ai:{mode:ai.mode,reason:ai.reason,pass:ai.pass,reject:ai.reject,blocked:ai.blocked,unavailable:ai.unavailable,verdicts:ai.verdicts},postAiQuote:{px:postAi.px,spreadBps:postAi.spreadBps,driftBps:postAi.driftBps,checkedAt:postAi.checkedAt},createdAt:iso(),createdAtMs:now()};
+  const rewardTp=tpForReward(setup.side,setup.entry,sizing.qty,sizing.rewardUsd),plan={mode,symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,sl:setup.sl,initialSl:setup.sl,tp:rewardTp||setup.tp,structureTp:setup.tp,tickSize:Number(setup.filters?.tickSize||0),filters:setup.filters,rr:sizing.targetRR,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,riskPreflight,ai:{mode:ai.mode,reason:ai.reason,pass:ai.pass,reject:ai.reject,blocked:ai.blocked,unavailable:ai.unavailable,verdicts:ai.verdicts},postAiQuote:{px:postAi.px,spreadBps:postAi.spreadBps,driftBps:postAi.driftBps,checkedAt:postAi.checkedAt},peakR:0,lastReview:null,createdAt:iso(),createdAtMs:now()};
   if(mode==="PAPER"){state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fp;state.openPlans={...(state.openPlans||{}),[setup.symbol]:plan};await learn(env,{stage:"PAPER_ACCEPT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.sl,tp:plan.tp,ai,postAi,reason:"PAPER_ORDER_ACCEPTED_AFTER_AI"});await put(env,state);return {ok:true,executed:true,paper:true,mode,reason:"PAPER_ORDER_ACCEPTED_AFTER_AI",plan,ai,postAi,risk:riskPreflight,scan,state};}
 
   try{await api.setLeverage(setup.symbol,cfg.leverage);}catch{}
@@ -99,7 +108,7 @@ export async function runBybitAutoV1(env,{forceScan=false}={}){
   const tick=Number(setup.filters?.tickSize||0),sl=roundTick(setup.sl,tick),tp=roundTick(tpForReward(setup.side,f.avgPrice,f.executedQty,sizing.rewardUsd),tick),actualRiskPerUnit=Math.abs(f.avgPrice-sl),actualRisk=actualRiskPerUnit*f.executedQty,actualReward=Math.abs(tp-f.avgPrice)*f.executedQty,actualRR=actualRisk>0?actualReward/actualRisk:null;
   const geometry=validateProtectionGeometry({side:setup.side,entry:f.avgPrice,sl,tp});if(!geometry.ok||!(actualRR>=cfg.risk.minRR)){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:geometry.ok?"ACTUAL_RR_INVALID":geometry.reason,actualRR,fill:f,setup,scan,state};}
   const actualRiskGuard=bybitRiskPreflight({cfg,equityUsd:equity,state,candidateRiskUsd:actualRisk});if(!actualRiskGuard.ok){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:"ACTUAL_"+actualRiskGuard.reason,risk:actualRiskGuard,actualRisk,fill:f,setup,scan,state};}
-  const trailAtR=Math.max(1.15,Number(env.BYBIT_TRAIL_TRIGGER_R||1.25)),trailDistanceR=Math.max(.25,Math.min(1.2,Number(env.BYBIT_TRAIL_DISTANCE_R||.55))),trailingStop=roundTick(actualRiskPerUnit*trailDistanceR,tick),activePrice=roundTick(setup.side==="Buy"?f.avgPrice+actualRiskPerUnit*trailAtR:f.avgPrice-actualRiskPerUnit*trailAtR,tick);
+  const trailAtR=Math.max(1.05,Number(env.BYBIT_TRAIL_TRIGGER_R||1.15)),trailDistanceR=Math.max(.25,Math.min(1.0,Number(env.BYBIT_TRAIL_DISTANCE_R||.50))),trailingStop=roundTick(actualRiskPerUnit*trailDistanceR,tick),activePrice=roundTick(setup.side==="Buy"?f.avgPrice+actualRiskPerUnit*trailAtR:f.avgPrice-actualRiskPerUnit*trailAtR,tick);
   try{await api.tradingStop({symbol:setup.symbol,tpslMode:"Full",positionIdx:cfg.execution.positionIdx,takeProfit:String(tp),stopLoss:String(sl),trailingStop:String(trailingStop),activePrice:String(activePrice),tpTriggerBy:"MarkPrice",slTriggerBy:"MarkPrice"});}
   catch(e){await emergencyFlat(api,setup,f.executedQty);return {ok:false,executed:false,mode,reason:"PROTECTION_SET_FAILED",error:String(e?.message||e),fill:f,ai,postAi,setup,scan,state};}
   let protection;try{protection=await verifyProtection(api,setup.symbol,sl,tp);}catch(e){protection={ok:false,reason:"PROTECTION_VERIFY_FAILED",error:String(e?.message||e)};}
