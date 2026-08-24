@@ -9,7 +9,7 @@ function bases(env={}){
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
-function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null};return e;}
+function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null,transport:meta.transport||null};return e;}
 async function parseResponse(r,path,meta={}){
   const text=await r.text();let p=null;try{p=text?JSON.parse(text):null;}catch{}
   const bodySnippet=!p&&text?String(text).replace(/\s+/g," ").slice(0,240):null;
@@ -22,12 +22,31 @@ export function bybitV5(env={}){
     const q=qs(params),attempted=[];let lastErr;
     for(const base of baseList){
       attempted.push(base);
-      try{const r=await fetch(`${base}${path}${q?`?${q}`:""}`,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted]});}
+      try{const r=await fetch(`${base}${path}${q?`?${q}`:""}`,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
       catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
-  async function signed(method,path,paramsOrBody={}){
+  async function signedViaVps(method,path,paramsOrBody={}){
+    if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
+    if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")throw new Error("BYBIT_VPS_BRIDGE_BINDING_MISSING");
+    const bridgeSecret=String(env.V11_AI_BRIDGE_SECRET||"");
+    if(!bridgeSecret)throw new Error("BYBIT_VPS_BRIDGE_SECRET_MISSING");
+    const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody));
+    const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload);
+    const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json"};
+    const requestBody={method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers};
+    let r,j;
+    try{
+      r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/bybit/private",{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+bridgeSecret},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(20000)}));
+      j=await r.json().catch(()=>null);
+    }catch(e){throw bybitError(path,502,null,{bodySnippet:"VPS bridge fetch failed: "+String(e?.message||e).slice(0,180),transport:"VPS_BYBIT_PRIVATE_PROXY"});}
+    if(!r.ok||!j)throw bybitError(path,r?.status||502,j?.upstream||null,{bodySnippet:j?.error||"VPS bridge invalid response",transport:"VPS_BYBIT_PRIVATE_PROXY",attemptedBases:j?.attempts||[]});
+    const up=j.upstream||null,status=Number(j.httpStatus||0)||502;
+    if(!j.ok||Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:j.base||null,attemptedBases:j.attempts||[],transport:"VPS_BYBIT_PRIVATE_PROXY"});
+    return up;
+  }
+  async function signedDirect(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),attempted=[];let lastErr;
     for(const base of baseList){
@@ -35,13 +54,20 @@ export function bybitV5(env={}){
       try{
         const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${base}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
         const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json"},body:upper==="GET"?undefined:payload});
-        return await parseResponse(r,path,{base,attemptedBases:[...attempted]});
+        return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PRIVATE_DIRECT"});
       }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
+  async function signed(method,path,paramsOrBody={}){
+    try{return await signedViaVps(method,path,paramsOrBody);}
+    catch(e){
+      if(String(env.BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK||"").toLowerCase()==="true")return signedDirect(method,path,paramsOrBody);
+      throw e;
+    }
+  }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:"VPS_BYBIT_PRIVATE_PROXY",
     serverTime:()=>pub("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
