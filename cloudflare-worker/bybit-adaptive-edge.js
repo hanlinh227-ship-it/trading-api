@@ -2,7 +2,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
 const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 
-export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_2_NET_PNL";
+export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_3_SHRUNK_NET_PNL";
 export const REGIMES=["TREND_UP","TREND_DOWN","RANGE","BREAKOUT_EXPANSION","HIGH_VOL_CHAOS","LOW_VOL_COMPRESSION"];
 
 function returns(closes=[]){const out=[];for(let i=1;i<closes.length;i++){const a=Number(closes[i-1]),b=Number(closes[i]);if(a>0&&b>0)out.push((b-a)/a);}return out;}
@@ -39,19 +39,26 @@ export function parseRegimeFromStrategy(strategy=""){
 }
 
 export function learningConfidence(trades=0){const n=Math.max(0,Number(trades)||0);if(n<10)return 0;if(n<30)return .25;if(n<80)return .60;return 1;}
+function shrunkEdge(edge=null,priorTrades=20){
+ const n=Math.max(0,Number(edge?.trades||0)),prior=Math.max(10,Number(priorTrades||20)),wins=Math.max(0,Number(edge?.wins||0));
+ const rawWr=Number(edge?.netWinRate??edge?.winRate??.5),rawNet=Number(edge?.avgNetR??0),weight=n/(n+prior);
+ const wr=Number.isFinite(wins)&&n>0?(wins+prior*.5)/(n+prior):.5+(Number.isFinite(rawWr)?rawWr-.5:0)*weight;
+ const avgNetR=(Number.isFinite(rawNet)?rawNet:0)*weight;
+ return {trades:n,priorTrades:prior,weight,rawWinRate:Number.isFinite(rawWr)?rawWr:null,shrunkWinRate:wr,rawAvgNetR:Number.isFinite(rawNet)?rawNet:null,shrunkAvgNetR:avgNetR};
+}
 
-export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,spreadBps=0}){
+export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,spreadBps=0,priorTrades=20}){
  let penalty=0;
  if(regime==="HIGH_VOL_CHAOS")penalty+=6;
  else if(regime==="RANGE"&&String(strategy).includes("BREAKOUT"))penalty+=4;
  else if(regime==="LOW_VOL_COMPRESSION"&&String(strategy).includes("TREND_PULLBACK"))penalty+=2;
  else if(regime==="BREAKOUT_EXPANSION"&&String(strategy).includes("BREAKOUT"))penalty-=2;
  const spread=Number(spreadBps||0);if(spread>10)penalty+=3;else if(spread>8)penalty+=1;
- const conf=learningConfidence(edge?.trades||0),avgNetR=Number(edge?.avgNetR??0),wr=Number(edge?.netWinRate??edge?.winRate??.5);
+ const conf=learningConfidence(edge?.trades||0),shrunk=shrunkEdge(edge,priorTrades),avgNetR=shrunk.shrunkAvgNetR,wr=shrunk.shrunkWinRate;
  let edgeModifier=0;
  if(conf>0){edgeModifier+=clamp(-avgNetR*4,-4,4)*conf;edgeModifier+=clamp((.5-wr)*6,-2,2)*conf;}
  const threshold=clamp(Math.round((Number(base)||68)+penalty+edgeModifier),66,84);
- return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"NET_PNL_V2"};
+ return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"STRICT_NET_PNL_V2",shrinkage:shrunk};
 }
 
 export function edgeKey(symbol,strategy,regime){return `${String(symbol||"").toUpperCase()}|${String(strategy||"")}|${String(regime||"")}`;}
@@ -60,12 +67,12 @@ export function edgeStatsFor(summary={},symbol,strategy,regime){
  return summary?.bySymbol?.[String(symbol||"").toUpperCase()]||null;
 }
 
-export function selectExitProfile(edge=null,regime="RANGE"){
- const conf=learningConfidence(edge?.trades||0);if(conf<.25)return {profile:"BALANCED",confidence:conf,reason:"INSUFFICIENT_SAMPLE"};
- const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),wr=Number(edge?.netWinRate??edge?.winRate??0);
- if(["TREND_UP","TREND_DOWN","BREAKOUT_EXPANSION"].includes(regime)&&mfe>=1.7&&mae<=.8)return {profile:"TREND_RUNNER",confidence:conf,reason:"PROVEN_MFE"};
- if((mfe>0&&mfe<1.05)||(wr>0&&wr<.44))return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_NET_EXTENSION"};
- return {profile:"BALANCED",confidence:conf,reason:"DEFAULT_BOUNDED"};
+export function selectExitProfile(edge=null,regime="RANGE",minSamples=30){
+ const n=Math.max(0,Number(edge?.trades||0)),conf=learningConfidence(n);if(n<Math.max(20,Number(minSamples||30)))return {profile:"BALANCED",confidence:conf,reason:"INSUFFICIENT_ROBUST_SAMPLE"};
+ const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),shrunk=shrunkEdge(edge,20),wr=shrunk.shrunkWinRate;
+ if(["TREND_UP","TREND_DOWN","BREAKOUT_EXPANSION"].includes(regime)&&mfe>=1.7&&mae<=.8)return {profile:"TREND_RUNNER",confidence:conf,reason:"PROVEN_MFE",shrinkage:shrunk};
+ if((mfe>0&&mfe<1.05)||(wr>0&&wr<.44))return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_NET_EXTENSION",shrinkage:shrunk};
+ return {profile:"BALANCED",confidence:conf,reason:"DEFAULT_BOUNDED",shrinkage:shrunk};
 }
 
 export async function loadAdaptiveLearning(env){
