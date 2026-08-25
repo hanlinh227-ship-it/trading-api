@@ -17,7 +17,10 @@ if(!index.includes('handleBybitControlApi'))errors.push('BYBIT control plane mus
 if(!index.includes('runBybitAutoControlled'))errors.push('BYBIT global auto controller must own scheduler execution');
 for(const needle of ['ENTRY_SPACING_MS=5*60*1000','LOSS_PAUSE_MS=30*60*1000','LOSS_STREAK_TRIGGER=3','runBybitAutoV1','notifyLiveEntry','telegramApiRequest'])if(!controller.includes(needle))errors.push(`BYBIT controller invariant missing ${needle}`);
 for(const needle of ['bybitRiskPreflight','manageBybitScalpPosition','PROTECTION_MISSING_AFTER_SET','UNTRACKED_LIVE_POSITION'])if(!auto.includes(needle))errors.push(`BYBIT hard protection invariant missing ${needle}`);
-for(const needle of ['BYBIT_AUTO_TRADE_HUB','auto:dashboard','auto:positions','auto:target','auto:ai','auto:risk','telegramEntryAlerts','compactPrices'])if(!hub.includes(needle))errors.push(`AUTO HUB invariant missing ${needle}`);
+for(const needle of ['BYBIT_AUTO_TRADE_HUB','auto:dashboard','auto:positions','auto:ai','auto:risk','telegramEntryAlerts','compactPrices'])if(!hub.includes(needle))errors.push(`AUTO HUB invariant missing ${needle}`);
+if(hub.includes('auto:target'))errors.push('AUTO HUB daily target UI must stay removed for continuous trading');
+if(!hub.includes('Continuous trading')||!hub.includes('Daily target OFF'))errors.push('AUTO HUB must expose continuous trading with daily target OFF');
+if(!controller.includes('profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY"'))errors.push('BYBIT controller must keep daily target disabled and canonical risk gates only');
 if(!hub.includes('/telegram/webhook'))errors.push('AUTO HUB Telegram webhook missing');
 if(!controller.includes('SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}'))errors.push('Telegram LIVE entry alert must expose compact SL and USD risk');
 if(!controller.includes('TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}'))errors.push('Telegram LIVE entry alert must expose compact TP and USD reward');
@@ -25,4 +28,4 @@ if(multi.includes('V11_AI_BRIDGE_URL'))errors.push('Legacy public AI bridge URL 
 for(const needle of ["/internal/multi-ai/health","/internal/multi-ai/review","token.actions.githubusercontent.com","refs/heads/main","workflow_dispatch","env.AI_BRIDGE.fetch"]){if(!multi.includes(needle))errors.push(`MULTI_AI invariant missing ${needle}`);}
 if(multi.includes('api_key')||multi.includes('API_KEY'))errors.push('MULTI_AI control plane must not embed provider API keys');
 if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
-console.log('Worker AUTO preflight PASS: Bybit Auto Hub only + Telegram entry alerts + 3AI + global spacing/loss pause + hard protection locked.');
+console.log('Worker AUTO preflight PASS: Bybit Auto Hub only + Telegram entry alerts + 3AI + continuous trading + daily target OFF + global spacing/loss pause + hard protection locked.');
