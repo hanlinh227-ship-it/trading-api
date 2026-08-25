@@ -1,8 +1,8 @@
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.4.1";
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.4.2";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
-  leverage:5,
-  maxLeverage:5,
+  leverage:8,
+  maxLeverage:8,
   scanEverySec:60,
   maxOpenPositions:3,
   maxTradesPerDay:1000000000,
@@ -18,7 +18,7 @@ export const BYBIT_AUTO_CONFIG={
     minRewardUsd:1,
     maxRiskPctOfEquity:4,
     maxTotalOpenRiskPct:10,
-    maxMarginPerPositionPct:20,
+    maxMarginPerPositionPct:22,
     minFreeReservePct:30,
     feeBufferPct:5,
     maxPortfolioMarginPct:65,
