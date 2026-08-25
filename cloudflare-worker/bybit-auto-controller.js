@@ -23,16 +23,6 @@ function compactPrice(v,tick=0){
 }
 const usd=v=>`$${Math.abs(Number(v||0)).toFixed(2)}`;
 
-const LIVE_TARGET_SPEC={
-  id:"2026-08-25T06:01+07:+100USD",
-  day:"2026-08-25",
-  targetUsd:100,
-  baselineRealizedUsd:0.9529275799999999,
-  startAt:"2026-08-25T06:01:00+07:00",
-  endAt:"2026-08-25T23:59:59.999+07:00",
-  policy:"STOP_NEW_ENTRIES_ONLY_KEEP_MANAGING_OPEN_POSITIONS"
-};
-
 async function notifyLiveEntry(env,out){
   const p=out?.plan;if(!out?.executed||out?.mode!=="LIVE"||!p?.orderId)return {sent:false,reason:"NO_NEW_LIVE_ENTRY"};
   const s=await kvGet(env,AUTO_KEY,{});
@@ -55,32 +45,13 @@ async function notifyLiveEntry(env,out){
   }
 }
 
-async function ensureLiveProfitTarget(env,mode){
-  if(mode!=="LIVE")return null;
-  const s=await kvGet(env,AUTO_KEY,{}),spec=LIVE_TARGET_SPEC;
-  if(day()!==spec.day)return s.profitTarget||null;
-  const existing=s.profitTarget;
-  if(existing?.id!==spec.id){
-    s.profitTarget={...spec,status:"ACTIVE",targetPnlUsd:Number(s.realizedUsd||0)-spec.baselineRealizedUsd,createdAt:iso(),updatedAt:iso(),baselineSource:"LIVE_RUNTIME_SNAPSHOT"};
+async function clearLegacyProfitTarget(env){
+  const s=await kvGet(env,AUTO_KEY,{});
+  if(s.profitTarget){
+    s.lastRetiredProfitTarget={...s.profitTarget,retiredAt:iso(),retiredReason:"DATE_SCOPED_OVERRIDE_REMOVED_FROM_PRODUCTION"};
+    delete s.profitTarget;
     await kvPut(env,AUTO_KEY,s);
-    return s.profitTarget;
   }
-  return existing;
-}
-
-async function syncLiveProfitTarget(env){
-  const s=await kvGet(env,AUTO_KEY,{}),t=s.profitTarget;
-  if(!t||t.id!==LIVE_TARGET_SPEC.id)return t||null;
-  const current=Number(s.realizedUsd||0)-Number(t.baselineRealizedUsd||0),endMs=Date.parse(t.endAt),startMs=Date.parse(t.startAt);
-  t.targetPnlUsd=current;
-  t.remainingUsd=Math.max(0,Number(t.targetUsd||0)-current);
-  t.updatedAt=iso();
-  if(current>=Number(t.targetUsd||0)){if(t.status!=="REACHED")t.reachedAt=iso();t.status="REACHED";}
-  else if(now()>endMs){t.status="EXPIRED";}
-  else if(now()>=startMs){t.status="ACTIVE";}
-  s.profitTarget=t;
-  await kvPut(env,AUTO_KEY,s);
-  return t;
 }
 
 async function isolateModeState(env,mode){
@@ -149,7 +120,7 @@ async function resolvePaperEquity(env){
 export async function runBybitAutoControlled(env,opts={}){
   const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
   await isolateModeState(env,mode);
-  await ensureLiveProfitTarget(env,mode);
+  await clearLegacyProfitTarget(env);
   const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
   const spacingActive=lastTradeAt>0&&elapsed<ENTRY_SPACING_MS,spacingReason=spacingActive?"ENTRY_SPACING_3M":null;
 
@@ -171,7 +142,6 @@ export async function runBybitAutoControlled(env,opts={}){
 
   const out=await runBybitAutoV1(innerEnv,{...opts,entryBlockReason});
   const telegramNotification=await notifyLiveEntry(env,out);
-  const profitTarget=mode==="LIVE"?await syncLiveProfitTarget(env):null;
   const controller={
     executionMode:mode,
     entrySpacingSec:180,
@@ -182,9 +152,10 @@ export async function runBybitAutoControlled(env,opts={}){
     lossPauseMinutes:30,
     unlimitedDailyEntries:true,
     managementAlwaysOn:true,
+    profitTarget:null,
+    profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",
     pauseState:pause.controller,
     pauseError:pause.error||null,
-    profitTarget,
     telegramNotification,
     runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")
   };
