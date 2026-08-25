@@ -1,0 +1,1 @@
+{"ok":true,"tests":["margin-aware","margin-cap","leverage-idempotent","leverage-fail-closed","cut-default-off","cut-explicit-severe-only"],"holdReason":"HOLD_NO_CUT_CONFIRMATION","cutReason":"CONFIRMED_THESIS_INVALIDATION"}
