@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """PAPER_ONLY multi-method Forex walk-forward research engine.
 Reuses the tested V4 data/features/outcome/KNN primitives, but replaces strategy selection.
+Hard coverage rule: every valid OOS day must contain at least one entry per symbol.
 """
 import ast,json,math,os,random,time
 from pathlib import Path
@@ -36,7 +37,7 @@ fetch,enrich,day_groups,features,outcome,samples_for_day,predict,metrics=N['fetc
 def profile():
     raw=os.environ.get('FOREX_STRATEGY_PROFILE_JSON','').strip()
     if not raw:return {'defaults':{'1':dict(DEFAULT_CELL),'2':dict(DEFAULT_CELL)},'symbols':{}}
-    p=json.loads(raw); return p
+    return json.loads(raw)
 PROFILE=profile()
 
 def cell(sym,rr):
@@ -73,6 +74,12 @@ def quality(x,pr,local,c,rr):
     if m=='MEAN_REVERSION': return edge-.07*x[6]-.05*x[5]-.04*x[7]+.02*local
     return edge+.04*x[0]+.04*x[2]+.03*x[3]-.02*abs(x[6])+.03*local
 
+def make_trade(rows,i,side,stop,rr,c,pr,local,q,forced=False,reason=None):
+    y,r,mfe,mae,why=outcome(rows,i,side,stop,rr); e=rows[i]
+    return {'day':e['t'].date().isoformat(),'entry_time':e['t'].isoformat(),'side':'BUY' if side>0 else 'SELL','rr':rr,'method':c['method'],'stopAtr':stop,
+            'predictedWinProb':round(pr,4),'localConsensus':round(local,4),'quality':round(q,4),'forcedDaily':bool(forced),'forcedReason':reason,
+            'result':'WIN' if y else 'LOSS','r':r,'mfeR':round(mfe,3),'maeR':round(mae,3),'exitReason':why}
+
 def choose(rows,train,sym,rr):
     c=cell(sym,rr); cand=[]
     for h in c['sessions']:
@@ -83,14 +90,34 @@ def choose(rows,train,sym,rr):
                 if not (c['stopMin']<=stop<=c['stopMax']): continue
                 x=features(rows,i,side,stop,rr)
                 if not method_ok(x,c,rr): continue
-                pr,local,n=predict(x,train); q=quality(x,pr,local,c,rr); cand.append((q,pr,local,n,i,side,stop,x))
+                pr,local,n=predict(x,train); q=quality(x,pr,local,c,rr); cand.append((q,pr,local,n,i,side,stop,x,c))
     if not cand:return None,'NO_METHOD_CANDIDATE'
-    q,pr,local,n,i,side,stop,x=max(cand,key=lambda z:z[0])
+    q,pr,local,n,i,side,stop,x,c=max(cand,key=lambda z:z[0])
     if pr<c['minProb'] or local<c['minLocal']:return None,f'CONFIDENCE_GATE pr={pr:.3f} local={local:.3f}'
-    y,r,mfe,mae,why=outcome(rows,i,side,stop,rr); e=rows[i]
-    return {'day':e['t'].date().isoformat(),'entry_time':e['t'].isoformat(),'side':'BUY' if side>0 else 'SELL','rr':rr,'method':c['method'],'stopAtr':stop,
-            'predictedWinProb':round(pr,4),'localConsensus':round(local,4),'quality':round(q,4),'result':'WIN' if y else 'LOSS','r':r,
-            'mfeR':round(mfe,3),'maeR':round(mae,3),'exitReason':why},None
+    return make_trade(rows,i,side,stop,rr,c,pr,local,q),None
+
+def force_daily_entry(rows,train,sym):
+    """Pre-outcome deterministic fallback: guarantee >=1 entry per valid OOS day.
+    It may relax method/confidence gates, but never inspects the outcome before selection.
+    """
+    cand=[]
+    for rr in RRS:
+        c=cell(sym,rr)
+        hours=c['sessions'] or DEFAULT_CELL['sessions']
+        for h in hours:
+            i=N['idx_for_hour'](rows,h)
+            if i is None: continue
+            for side in (-1,1):
+                for stop in STOPS:
+                    if not (c['stopMin']<=stop<=c['stopMax']): continue
+                    x=features(rows,i,side,stop,rr); pr,local,n=predict(x,train)
+                    q=quality(x,pr,local,c,rr)
+                    # Penalty for breaking the preferred method gate, but never use outcome.
+                    if not method_ok(x,c,rr): q-=0.18
+                    cand.append((q,pr,local,n,i,side,stop,rr,c))
+    if not cand:return None
+    q,pr,local,n,i,side,stop,rr,c=max(cand,key=lambda z:z[0])
+    return make_trade(rows,i,side,stop,rr,c,pr,local,q,forced=True,reason='DAILY_MIN_ENTRY_FALLBACK')
 
 def random_windows():
     span=(END-START).days-DAYS; chosen=[]
@@ -102,31 +129,43 @@ def random_windows():
     if len(chosen)<WINDOWS:raise RuntimeError('cannot sample non-overlapping windows')
     return sorted(chosen)
 
-windows=random_windows(); report={'version':'FOREX-TWELVEDATA-WALKFORWARD-5-MULTI-METHOD','mode':MODE,'sourceSha':SOURCE_SHA,'seed':SEED,'generatedAt':datetime.now(timezone.utc).isoformat(),
- 'strategyProfile':PROFILE,'rules':{'source':'Twelve Data 5min','noLookahead':True,'methods':sorted(ALLOWED),'allowNoTrade':True,'sameBarSLTP':'SL_FIRST_PESSIMISTIC','timeouts':'LOSS',
- 'targetWinrateStrictlyGreaterThan':TARGET,'minimumTradesPerSymbolRR':MIN_TRADES,'antiCherryPick':'method/session/filter selected before outcome; every accepted trade, abstention and failed round persisted'},
+windows=random_windows(); report={'version':'FOREX-TWELVEDATA-WALKFORWARD-5-MULTI-METHOD-DAILY-ENTRY','mode':MODE,'sourceSha':SOURCE_SHA,'seed':SEED,'generatedAt':datetime.now(timezone.utc).isoformat(),
+ 'strategyProfile':PROFILE,'rules':{'source':'Twelve Data 5min','noLookahead':True,'methods':sorted(ALLOWED),'allowNoTradePerRR':True,'minimumEntriesPerSymbolPerValidOOSDay':1,
+ 'dailyFallbackPreOutcome':True,'sameBarSLTP':'SL_FIRST_PESSIMISTIC','timeouts':'LOSS','targetWinrateStrictlyGreaterThan':TARGET,'minimumTradesPerSymbolRR':MIN_TRADES,
+ 'antiCherryPick':'method/session/filter and any daily fallback are selected before outcome; every trade, forcedDaily flag, window and failed round persisted'},
  'windows':[{'start':a.isoformat(),'end':b.isoformat()} for a,b in windows],'symbols':{},'pass':False}
 allpass=True
 for sym in SYMS:
-    trades=[]; src=[]; err=None
+    trades=[]; src=[]; err=None; total_test_days=0; days_with_entry=0; forced_days=0
     try:
         for wi,(a,b) in enumerate(windows):
             rows=enrich(fetch(sym,a,b)); g=day_groups(rows); days=sorted(g); cut=max(3,int(len(days)*.60)); tr=days[:cut]; te=days[cut:]; train=[]
             for d in tr: train.extend(samples_for_day(g[d]))
-            wt=[]; abst={'1':0,'2':0}; reasons=defaultdict(int)
+            wt=[]; abst={'1':0,'2':0}; reasons=defaultdict(int); window_days_with_entry=0; window_forced=0
             for d in te:
+                total_test_days+=1; day_trades=[]
                 for rr in RRS:
                     t,why=choose(g[d],train,sym,rr)
-                    if t:trades.append(t); wt.append(t)
+                    if t:trades.append(t); wt.append(t); day_trades.append(t)
                     else:abst[str(rr)]+=1; reasons[why]+=1
+                if not day_trades:
+                    ft=force_daily_entry(g[d],train,sym)
+                    if ft is None: raise RuntimeError(f'{sym} {d}: DAILY_ENTRY_UNAVAILABLE')
+                    trades.append(ft); wt.append(ft); day_trades.append(ft); forced_days+=1; window_forced+=1
+                if day_trades: days_with_entry+=1; window_days_with_entry+=1
                 train.extend(samples_for_day(g[d]))
-            src.append({'window':wi,'trainDays':len(tr),'testDays':len(te),'abstentionsByRR':abst,'abstentionReasons':dict(reasons),
+            src.append({'window':wi,'trainDays':len(tr),'testDays':len(te),'daysWithEntry':window_days_with_entry,'forcedDailyDays':window_forced,
+                        'dailyEntryCoveragePct':round(100*window_days_with_entry/len(te),2) if te else 0,'abstentionsByRR':abst,'abstentionReasons':dict(reasons),
                         'testMetrics':{'RR1':metrics([x for x in wt if x['rr']==1]),'RR2':metrics([x for x in wt if x['rr']==2])}})
             time.sleep(float(os.environ.get('TWELVEDATA_INTER_REQUEST_SLEEP','8.2')))
     except Exception as e:err=str(e)
     by={str(rr):metrics([x for x in trades if x['rr']==rr]) for rr in RRS}
-    rp={str(rr):(err is None and by[str(rr)]['trades']>=MIN_TRADES and by[str(rr)]['winrate']>TARGET and by[str(rr)]['avgR']>0) for rr in RRS}; passed=all(rp.values()); allpass &= passed
-    report['symbols'][sym.replace('/','')]={'pass':passed,'rrPass':rp,'holdout':{'all':metrics(trades),'byRR':by},'activeProfiles':{'1':cell(sym,1),'2':cell(sym,2)},'source':src,'dataError':err,'trades':trades}
-    print(sym,by,'PASS' if passed else 'FAIL',err or '',flush=True)
+    daily_cov=round(100*days_with_entry/total_test_days,2) if total_test_days else 0
+    daily_pass=(err is None and total_test_days>0 and days_with_entry==total_test_days)
+    rp={str(rr):(err is None and by[str(rr)]['trades']>=MIN_TRADES and by[str(rr)]['winrate']>TARGET and by[str(rr)]['avgR']>0) for rr in RRS}
+    passed=daily_pass and all(rp.values()); allpass &= passed
+    report['symbols'][sym.replace('/','')]={'pass':passed,'rrPass':rp,'dailyEntryPass':daily_pass,'validOOSTestDays':total_test_days,'daysWithEntry':days_with_entry,
+        'dailyEntryCoveragePct':daily_cov,'forcedDailyDays':forced_days,'holdout':{'all':metrics(trades),'byRR':by},'activeProfiles':{'1':cell(sym,1),'2':cell(sym,2)},'source':src,'dataError':err,'trades':trades}
+    print(sym,by,'dailyCoverage',daily_cov,'forcedDays',forced_days,'PASS' if passed else 'FAIL',err or '',flush=True)
     os.makedirs('data',exist_ok=True); json.dump(report,open(OUT,'w'),indent=2)
 report['pass']=allpass; json.dump(report,open(OUT,'w'),indent=2); print('FINAL_PASS',allpass,'seed',SEED)
