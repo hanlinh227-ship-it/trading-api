@@ -1,4 +1,4 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.2.0-PAPER";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.3.0-PAPER";
 export const FOREX_AUTO_MODE="PAPER_ONLY";
 
 export const FOREX_AUTO_CONFIG={
@@ -13,6 +13,7 @@ export const FOREX_AUTO_CONFIG={
     maxDailyLossPct:5,
     maxTotalLossPct:10,
     internalDailyStopPct:4.0,
+    projectedDailyStopPct:4.0,
     emergencyDailyStopPct:4.0,
     profitableDayPct:.5,
     minProfitableDays:3,
@@ -30,22 +31,46 @@ export const FOREX_AUTO_CONFIG={
     alternationScope:"ACCOUNT_GLOBAL",
     alternationNoForceEntry:true
   },
+  target:{
+    enabled:true,
+    requiredForLive:true,
+    targetPct:null,
+    stopNewEntriesWhenReached:true,
+    neverIncreaseRiskToChaseTarget:true,
+    progressRiskMultipliers:[
+      {from:0,to:.50,multiplier:1.00},
+      {from:.50,to:.80,multiplier:.90},
+      {from:.80,to:.95,multiplier:.75},
+      {from:.95,to:1.00,multiplier:.55},
+      {from:1.00,to:999,multiplier:0}
+    ]
+  },
   risk:{
     normalRiskPct:.30,
     premiumRiskPct:.45,
     hardMaxRiskPct:.50,
     maxTotalOpenRiskPct:1.00,
+    minExecutableRiskPct:.10,
     minRR:1.5,
     preferredRR:2.0,
     minStopAtr:1.20,
     normalStopAtr:1.60,
     maxStopAtr:3.20,
     structureBufferAtr:.20,
+    maxChaseAtr:.45,
     maxSpreadPips:{FX:2.2,JPY:2.5,XAU:35},
     maxLossStreak:3,
     lossPauseMinutes:60,
     noAveragingDown:true,
-    noMartingale:true
+    noMartingale:true,
+    dailyDrawdownMultipliers:[
+      {from:0,to:1.0,multiplier:1.00},
+      {from:1.0,to:2.0,multiplier:.80},
+      {from:2.0,to:3.0,multiplier:.55},
+      {from:3.0,to:3.5,multiplier:.30},
+      {from:3.5,to:4.0,multiplier:.15},
+      {from:4.0,to:999,multiplier:0}
+    ]
   },
   management:{
     breakEvenAtR:1.0,
@@ -75,6 +100,10 @@ export const FOREX_AUTO_CONFIG={
     perSymbol:true,
     perSetup:true,
     learnFromClosedTradesOnly:true,
+    recentWindow:8,
+    degradationMinSamples:6,
+    degradationAvgR:-.35,
+    degradationRiskMultiplier:.70,
     mayChangeHardRules:false,
     mayChangeDailyLossLimit:false,
     mayChangeNewsRules:false,
@@ -88,6 +117,7 @@ export const FOREX_AUTO_CONFIG={
     maxClockSkewSec:30,
     duplicateCooldownSec:300,
     defaultSlippagePoints:20,
+    maxEntryDriftAtr:.45,
     magicNumber:560501
   }
 };
@@ -100,5 +130,8 @@ export function forexAutoConfig(env={}){
   c.risk.hardMaxRiskPct=.5;
   c.risk.maxTotalOpenRiskPct=Math.max(.5,Math.min(1.25,Number(env.FOREX_MAX_OPEN_RISK_PCT||c.risk.maxTotalOpenRiskPct)));
   c.ai.minFinalConfidence=Math.max(65,Math.min(90,Number(env.FOREX_MIN_AI_CONFIDENCE||c.ai.minFinalConfidence)));
+  const target=Number(env.FOREX_TARGET_PCT);
+  c.target.targetPct=Number.isFinite(target)&&target>0?target:null;
+  if(c.execution.liveEnabled&&c.target.requiredForLive&&!c.target.targetPct)c.execution.liveEnabled=false;
   return c;
 }
