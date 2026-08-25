@@ -8,35 +8,54 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   review:
     runs-on: [self-hosted, trading-vps]
     timeout-minutes: 8
+    env:
+      REPORT: /tmp/vps-auto-e2e-report.txt
     steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Initialize report
+        shell: bash
+        run: |
+          : > "$REPORT"
+          echo "VPS_AUTO_E2E_RUN_ID=$GITHUB_RUN_ID" | tee -a "$REPORT"
+          echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$REPORT"
+          echo "SOURCE_SHA=$GITHUB_SHA" | tee -a "$REPORT"
+
       - name: VPS service and network health
         shell: bash
         run: |
           set -euo pipefail
           systemctl is-active --quiet v11-manual-ai-bridge.service
-          echo 'VPS_AI_BRIDGE_SERVICE=ACTIVE'
+          echo 'VPS_AI_BRIDGE_SERVICE=ACTIVE' | tee -a "$REPORT"
           curl -fsS --max-time 10 'https://api.bybit.com/v5/market/time' \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("retCode")==0,d; print("BYBIT_PUBLIC_NETWORK=PASS")'
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("retCode")==0,d; print("BYBIT_PUBLIC_NETWORK=PASS")' \
+            | tee -a "$REPORT"
 
       - name: Cloudflare Auto Hub public health
         shell: bash
         run: |
           set -euo pipefail
           curl -fsS --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health' \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("exchange")=="BYBIT",d; ex=d.get("execution") or {}; print("WORKER_HEALTH=PASS mode=%s liveAck=%s scheduled=%s ready=%s transport=%s"%(d.get("mode"),ex.get("liveAck"),ex.get("scheduled"),ex.get("ready"),d.get("privateTransport")))'
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("exchange")=="BYBIT",d; ex=d.get("execution") or {}; print("WORKER_HEALTH=PASS mode=%s liveAck=%s scheduled=%s ready=%s transport=%s"%(d.get("mode"),ex.get("liveAck"),ex.get("scheduled"),ex.get("ready"),d.get("privateTransport")))' \
+            | tee -a "$REPORT"
 
       - name: Local AI bridge health
         shell: bash
         run: |
           set -euo pipefail
           curl -fsS --max-time 5 http://127.0.0.1:8789/health \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; req=("claude","codex","deepseek"); assert all((p.get(x) or {}).get("configured") for x in req),d; print("AI_HEALTH=PASS mode=%s claude=%s codex=%s deepseek=%s claudeTimeout=%s budget=%s grace=%s"%(d.get("mode"),(p.get("claude") or {}).get("state"),(p.get("codex") or {}).get("state"),(p.get("deepseek") or {}).get("state"),d.get("claudeScalpTimeoutSec"),d.get("scalpBridgeBudgetSec"),d.get("scalpFastFirstGraceSec")))'
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; req=("claude","codex","deepseek"); assert all((p.get(x) or {}).get("configured") for x in req),d; print("AI_HEALTH=PASS mode=%s claude=%s codex=%s deepseek=%s claudeTimeout=%s budget=%s grace=%s"%(d.get("mode"),(p.get("claude") or {}).get("state"),(p.get("codex") or {}).get("state"),(p.get("deepseek") or {}).get("state"),d.get("claudeScalpTimeoutSec"),d.get("scalpBridgeBudgetSec"),d.get("scalpFastFirstGraceSec")))' \
+            | tee -a "$REPORT"
 
       - name: Claude single-provider parser and response test
         shell: bash
@@ -47,7 +66,7 @@ jobs:
           set +a
           BODY='{"evidence":{"mode":"BYBIT_SCALP_DECISION","task_id":"vps-claude-readonly-test","requestedProviders":["claude"],"instruction":"Diagnostic only. Review supplied synthetic setup and return required JSON. Do not trade.","context":{"setup":{"symbol":"BTCUSDT","side":"Buy","strategy":"DIAGNOSTIC_ONLY","score":90,"entry":100000,"sl":99500,"tp":101000,"rr":2,"spreadBps":1},"horizon":"1-5m","exchange":"BYBIT"}}}'
           OUT="$(curl -sS --max-time 25 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
-          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("requestedProviders")==["claude"],d; c=(d.get("providers") or {}).get("claude") or {}; assert c.get("status")=="OK",d; print("CLAUDE_SINGLE=PASS latency=%s verdict=%s"%(c.get("latencySeconds"),(c.get("review") or {}).get("verdict")))'
+          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("requestedProviders")==["claude"],d; c=(d.get("providers") or {}).get("claude") or {}; assert c.get("status")=="OK",d; print("CLAUDE_SINGLE=PASS latency=%s verdict=%s"%(c.get("latencySeconds"),(c.get("review") or {}).get("verdict")))' | tee -a "$REPORT"
 
       - name: Three-AI final-entry review test
         shell: bash
@@ -58,13 +77,33 @@ jobs:
           set +a
           BODY='{"evidence":{"mode":"BYBIT_SCALP_DECISION","task_id":"vps-3ai-readonly-test","requestedProviders":["claude","codex","deepseek"],"instruction":"FINAL_ENTRY_REVIEW_ONLY synthetic diagnostic. Do not search symbols. Do not trade.","context":{"reviewPolicy":"FINAL_ENTRY_REVIEW_ONLY","setup":{"symbol":"BTCUSDT","side":"Buy","strategy":"DIAGNOSTIC_ONLY","score":95,"entry":100000,"sl":99500,"tp":101000,"rr":2,"spreadBps":1,"quoteAgeMs":100},"horizon":"1-5m","exchange":"BYBIT"}}}'
           OUT="$(curl -sS --max-time 20 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
-          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); req=d.get("requestedProviders") or []; assert set(req)=={"claude","codex","deepseek"},d; assert int(d.get("usableProviderCount") or 0)>=1,d; p=d.get("providers") or {}; print("THREE_AI=PASS usable=%s returnedEarly=%s decisionMs=%s claude=%s codex=%s deepseek=%s"%(d.get("usableProviderCount"),d.get("returnedEarly"),d.get("decisionLatencyMs"),(p.get("claude") or {}).get("status"),(p.get("codex") or {}).get("status"),(p.get("deepseek") or {}).get("status")))'
+          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); req=d.get("requestedProviders") or []; assert set(req)=={"claude","codex","deepseek"},d; assert int(d.get("usableProviderCount") or 0)>=1,d; p=d.get("providers") or {}; print("THREE_AI=PASS usable=%s returnedEarly=%s decisionMs=%s claude=%s codex=%s deepseek=%s"%(d.get("usableProviderCount"),d.get("returnedEarly"),d.get("decisionLatencyMs"),(p.get("claude") or {}).get("status"),(p.get("codex") or {}).get("status"),(p.get("deepseek") or {}).get("status")))' | tee -a "$REPORT"
 
       - name: Confirm no execution was invoked
         shell: bash
         run: |
-          echo 'REVIEW_ONLY=PASS'
-          echo 'ORDER_CREATE_CALLED=NO'
-          echo 'AUTO_RUN_CALLED=NO'
-          echo 'LEVERAGE_CHANGE_CALLED=NO'
-          echo 'ORDER_CANCEL_CALLED=NO'
+          {
+            echo 'REVIEW_ONLY=PASS'
+            echo 'ORDER_CREATE_CALLED=NO'
+            echo 'AUTO_RUN_CALLED=NO'
+            echo 'LEVERAGE_CHANGE_CALLED=NO'
+            echo 'ORDER_CANCEL_CALLED=NO'
+            echo "FINISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } | tee -a "$REPORT"
+
+      - name: Persist diagnostic report to main
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s "$REPORT" ]; then echo 'REPORT_MISSING=TRUE' > "$REPORT"; fi
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          cp "$REPORT" docs/diagnostics/LATEST_VPS_AUTO_E2E.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_VPS_AUTO_E2E.txt
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record latest VPS auto trade E2E diagnostic'
+          git push origin HEAD:main
