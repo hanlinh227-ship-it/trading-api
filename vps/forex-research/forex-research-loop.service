@@ -1,0 +1,21 @@
+[Unit]
+Description=Forex PAPER_ONLY Continuous 3AI Research Loop
+After=network-online.target v11-manual-ai-bridge.service
+Wants=network-online.target
+Requires=v11-manual-ai-bridge.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/trading/trading-api-main
+EnvironmentFile=/etc/trading/forex-research.env
+ExecStart=/usr/bin/python3 /usr/local/bin/forex-research-loop
+Restart=on-failure
+RestartSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/trading/forex-research /opt/trading/trading-api-main/data
+
+[Install]
+WantedBy=multi-user.target
