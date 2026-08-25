@@ -1,4 +1,4 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.1.0-PAPER";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.1.1-PAPER";
 export const FOREX_AUTO_MODE="PAPER_ONLY";
 
 export const FOREX_AUTO_CONFIG={
@@ -25,7 +25,10 @@ export const FOREX_AUTO_CONFIG={
     prohibitMartingale:true,
     prohibitGridRecovery:true,
     prohibitCopyTrading:true,
-    requireOwnedSource:true
+    requireOwnedSource:true,
+    alternateTradeSide:true,
+    alternationScope:"ACCOUNT_GLOBAL",
+    alternationNoForceEntry:true
   },
   risk:{
     normalRiskPct:.30,
