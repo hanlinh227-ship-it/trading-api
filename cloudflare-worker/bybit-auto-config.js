@@ -1,22 +1,27 @@
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.2.8";
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.3.0";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
-  leverage:3,
+  leverage:5,
   maxLeverage:5,
   scanEverySec:60,
   maxOpenPositions:3,
   maxTradesPerDay:1000000000,
   risk:{
-    mode:"BALANCE_DOLLAR_LADDER",
+    mode:"CONTINUOUS_CAPITAL_ALLOCATOR",
     baseBalanceUsd:50,
     balanceStepUsd:10,
-    baseRiskUsd:5,
-    baseRewardUsd:10,
-    riskStepUsd:1,
-    rewardStepUsd:1,
-    maxRiskPctOfEquity:25,
-    maxTotalOpenRiskPct:30,
-    marginUsePct:80,
+    baseRiskUsd:1.5,
+    baseRewardUsd:3,
+    riskStepUsd:.25,
+    rewardStepUsd:.5,
+    minRiskUsd:.5,
+    minRewardUsd:1,
+    maxRiskPctOfEquity:4,
+    maxTotalOpenRiskPct:10,
+    maxMarginPerPositionPct:20,
+    minFreeReservePct:30,
+    feeBufferPct:5,
+    maxPortfolioMarginPct:65,
     minRR:1,
     preferredRR:2,
     maxRR:3,
@@ -38,13 +43,18 @@ export function bybitAutoConfig(env={}){
   c.leverage=Math.max(1,Math.min(c.maxLeverage,Math.round(n(env,"BYBIT_AUTO_LEVERAGE",c.leverage))));
   c.risk.baseBalanceUsd=Math.max(10,n(env,"BYBIT_BASE_BALANCE_USD",c.risk.baseBalanceUsd));
   c.risk.balanceStepUsd=Math.max(1,n(env,"BYBIT_BALANCE_STEP_USD",c.risk.balanceStepUsd));
-  c.risk.baseRiskUsd=Math.max(1,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
+  c.risk.baseRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
   c.risk.baseRewardUsd=Math.max(1,n(env,"BYBIT_BASE_REWARD_USD",c.risk.baseRewardUsd));
   c.risk.riskStepUsd=Math.max(.1,n(env,"BYBIT_RISK_STEP_USD",c.risk.riskStepUsd));
   c.risk.rewardStepUsd=Math.max(.1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
-  c.risk.maxRiskPctOfEquity=Math.max(5,Math.min(50,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
-  c.risk.maxTotalOpenRiskPct=Math.max(5,Math.min(60,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.marginUsePct=Math.max(30,Math.min(85,n(env,"BYBIT_MARGIN_USE_PCT",c.risk.marginUsePct)));
+  c.risk.minRiskUsd=Math.max(.25,n(env,"BYBIT_MIN_RISK_USD",c.risk.minRiskUsd));
+  c.risk.minRewardUsd=Math.max(.5,n(env,"BYBIT_MIN_REWARD_USD",c.risk.minRewardUsd));
+  c.risk.maxRiskPctOfEquity=Math.max(2,Math.min(8,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
+  c.risk.maxTotalOpenRiskPct=Math.max(6,Math.min(18,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.maxMarginPerPositionPct=Math.max(12,Math.min(25,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
+  c.risk.minFreeReservePct=Math.max(20,Math.min(45,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
+  c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
+  c.risk.maxPortfolioMarginPct=Math.max(45,Math.min(75,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
   c.risk.minRR=Math.max(1,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(4,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(5,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
