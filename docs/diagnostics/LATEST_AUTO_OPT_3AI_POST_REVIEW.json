@@ -1,0 +1,104 @@
+{
+  "providers": {
+    "claude": {
+      "httpCode": "502",
+      "body": {
+        "ok": false,
+        "requestedProviders": [
+          "claude"
+        ],
+        "usableProviderCount": 0,
+        "providers": {
+          "claude": {
+            "status": "TIMEOUT",
+            "latencySeconds": 60.1,
+            "error": "LOCAL_PROVIDER_TIMEOUT"
+          }
+        },
+        "fastFirst": false,
+        "returnedEarly": false,
+        "decisionLatencyMs": null,
+        "timestamp": 1787621429974,
+        "mode": "MULTI_AI_ENGINEERING_TASK"
+      }
+    },
+    "codex": {
+      "httpCode": "200",
+      "body": {
+        "ok": true,
+        "requestedProviders": [
+          "codex"
+        ],
+        "usableProviderCount": 1,
+        "providers": {
+          "codex": {
+            "status": "OK",
+            "latencySeconds": 14.28,
+            "review": {
+              "verdict": "BLOCKED",
+              "findings": [
+                "The supplied evidence contains only an implementation summary, diff statistics, and aggregate PASS claims; no patch, relevant code excerpts, test output, or runtime traces are available to independently verify production-critical behavior.",
+                "Static and syntax checks do not demonstrate fail-closed execution across partial fills, protection-placement failures, rollover/restart recovery, duplicate retries, stale position data, or leverage-setting error paths.",
+                "No evidence shows that emergency-flat, TP/SL/trailing verification, and idempotent management were exercised against representative Bybit responses, including timeouts and ambiguous API outcomes."
+              ],
+              "proposal": "Provide the exact protected-branch diff plus test logs covering sizing and leverage boundaries, rollover with open plans, manager continuity under every entry gate, duplicate-entry prevention, partial/ambiguous fills, protection verification and emergency flattening, restart/idempotency, and AI/token-policy enforcement. Keep the release off LIVE until those artifacts confirm unchanged maximum dollar loss and fail-closed entry protection.",
+              "evidence": [
+                "Implemented summary asserts unchanged risk dollars, margin reserve, 1\u20135x leverage bounds, manager continuity, actual-RR validation, verified protections, emergency-flat behavior, idempotent trailing, and reduced learning catalog.",
+                "Diffstat reports 119 insertions and 71 deletions across eight production files but does not expose the changed logic.",
+                "Validation is reported only as 'node syntax + static invariants + npm run check PASS'; no test identities, assertions, outputs, or exchange-response simulations were supplied.",
+                "Scope is REVIEW_ONLY_NO_ORDER and the implementation is explicitly not LIVE."
+              ]
+            },
+            "last_seen": 1787621444414
+          }
+        },
+        "fastFirst": false,
+        "returnedEarly": false,
+        "decisionLatencyMs": null,
+        "timestamp": 1787621444416,
+        "mode": "MULTI_AI_ENGINEERING_TASK"
+      }
+    },
+    "deepseek": {
+      "httpCode": "200",
+      "body": {
+        "ok": true,
+        "requestedProviders": [
+          "deepseek"
+        ],
+        "usableProviderCount": 1,
+        "providers": {
+          "deepseek": {
+            "status": "OK",
+            "latencySeconds": 3.98,
+            "review": {
+              "verdict": "PASS",
+              "findings": [
+                "No production-blocking defects found in the supplied implementation evidence.",
+                "Sizing/leverage: margin-aware sizing with 20% equity reserve and auto leverage 1-5x; fail-closed on leverage errors except idempotent 110043; skip entry if required leverage exceeds limits.",
+                "Rollover: day rollover preserves openPlans; no regression in management continuity.",
+                "Management continuity: controller never suppresses manager during entry spacing/loss pause; manager runs before wallet/PnL gating using positions if available.",
+                "Post-fill TP/SL/trailing: actual TP capped to structural TP, RR rechecked, SL/TP and native trailing verified, emergency-flat on protection failure, trailing writes idempotent/tightening-only.",
+                "State/idempotency: symbol already open blocks duplicate new entry; scanner one-shot reanchor retained; trailing writes idempotent.",
+                "AI/token policy and learning: learning catalog reduced to Claude/Codex/DeepSeek with versioned shadow telemetry; hub shows corrected learning count/leverage/manager.",
+                "Validation: npm run check and node syntax/static invariants PASS."
+              ],
+              "proposal": "Proceed with production deployment of BYBIT-AUTO-1.1.0 as the implemented changes resolve prior blockers without increasing dollar risk or weakening entry safety. No further code changes required.",
+              "evidence": [
+                "implementedSummary: risk dollars unchanged, margin-aware sizing with 20% reserve, auto leverage 1-5x, fail-closed leverage handling, rollover preserves openPlans, manager continuity, post-fill TP/SL/trailing verified, idempotent state, AI policy reduced, validation PASS.",
+                "diffStat: 8 files changed with 119 insertions and 71 deletions, consistent with described changes.",
+                "validation: node syntax + static invariants + npm run check PASS."
+              ]
+            },
+            "last_seen": 1787621448535
+          }
+        },
+        "fastFirst": false,
+        "returnedEarly": false,
+        "decisionLatencyMs": null,
+        "timestamp": 1787621448538,
+        "mode": "MULTI_AI_ENGINEERING_TASK"
+      }
+    }
+  }
+}
