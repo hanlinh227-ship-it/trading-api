@@ -10,11 +10,22 @@ if not _ENGINE.exists():raise RuntimeError('V11_GEOMETRY_R4_MISSING')
 spec=importlib.util.spec_from_file_location('v11_geometry_r4_body',_ENGINE)
 _m=importlib.util.module_from_spec(spec);spec.loader.exec_module(_m)
 
-FUSION_VERSION='V11-FUSION-V77-V78-5AI-R2'
+FUSION_VERSION='V11-FUSION-V77-V78-5AI-R3'
 
 # Keep the direct-wrapper warm-up integrity fix.
 _src=inspect.getsource(_m._candidate_days).replace("if i<75 or not is_market_day", "if i<14 or not is_market_day")
 exec(_src,_m.__dict__)
+
+# R14 bounded refinement: add explicitly inverted variants of directional families.
+# This expands only the DEV/VALIDATION hypothesis space. It never reads FINAL and
+# does not change RR, execution-count, exact-data, or holdout integrity gates.
+_base_side=_m._side
+_inverse_families=('INV_FAST','INV_MED','INV_SLOW','INV_H1','INV_H4','INV_D1','INV_MOM','INV_SESSION','INV_HYBRID')
+_m.FAMILIES=tuple(dict.fromkeys(list(_m.FAMILIES)+list(_inverse_families)))
+def _fusion_side(f,m):
+    f=str(f or '')
+    return -_base_side(f[4:],m) if f.startswith('INV_') else _base_side(f,m)
+_m._side=_fusion_side
 
 # Direct research defaults to the widest predeclared bounded DEV/VALIDATION search (round 4).
 # The multi-round controller still sets V11_RESEARCH_ROUND explicitly per round.
@@ -74,7 +85,7 @@ _search_src=_search_src.replace(
 
 exec(_search_src,_m.__dict__)
 # Cache identity must change whenever bounded candidate-generation/search behavior changes.
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2'
-_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2'
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14'
+_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
