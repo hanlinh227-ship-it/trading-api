@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.1 scaled trade band + VPS market routing fix: at $50 equity TP $5-$10 and max SL $5; each +$10 equity scales all three by +$1.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.1";
+// BYBIT-AUTO-1.6.2: VPS market proxy + capital-aware scalp reward band. Keep max SL/risk controls, but stop requiring an unrealistic $5 minimum profit on a ~$50 account.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.2";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -12,10 +12,10 @@ export const BYBIT_AUTO_CONFIG={
     baseBalanceUsd:50,
     balanceStepUsd:10,
     baseRiskUsd:5,
-    baseMinRewardUsd:5,
-    baseRewardUsd:10,
+    baseMinRewardUsd:1,
+    baseRewardUsd:5,
     riskStepUsd:1,
-    minRewardStepUsd:1,
+    minRewardStepUsd:.5,
     rewardStepUsd:1,
     minRiskUsd:.5,
     minRewardUsd:.5,
