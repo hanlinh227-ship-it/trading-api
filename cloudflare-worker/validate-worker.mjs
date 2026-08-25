@@ -8,8 +8,6 @@ const required=['index.js','bybit-auto-hub.js','meme-auto-design.js','meme-paper
 for(const f of required)if(!fs.existsSync(path.join(root,f)))errors.push(`REQUIRED missing ${f}`);
 const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 const index=read('index.js'),hub=read('bybit-auto-hub.js'),meme=read('meme-auto-design.js'),paper=read('meme-paper-engine.js'),multi=read('multi-ai-control-plane.js'),auto=read('bybit-auto-v1.js'),controller=read('bybit-auto-controller.js'),manager=read('bybit-position-manager.js'),config=read('bybit-auto-config.js'),engine=read('bybit-scalp-engine.js'),adaptive=read('bybit-adaptive-edge.js'),learning=read('bybit-learning-engine.js'),risk=read('bybit-risk-guard.js');
-
-// Unified source-of-truth and execution authority.
 if(!index.includes('bybit-auto-hub.js'))errors.push('SOURCE_OF_TRUTH index.js must import bybit-auto-hub.js');
 if(!index.includes('BYBIT_AUTO_TRADE_ONLY'))errors.push('SOURCE_OF_TRUTH status must preserve Bybit as sole real-money execution authority');
 if(!index.includes('signalV11Enabled:false'))errors.push('Signal V11 must stay disabled');
@@ -17,8 +15,6 @@ if(index.includes('signalHub.scheduled'))errors.push('Signal scheduler must stay
 for(const needle of ['handleMultiAiControl','handleBybitReadonlyHealth','handleBybitControlApi','runBybitAutoControlled'])if(!index.includes(needle))errors.push(`INDEX invariant missing ${needle}`);
 if(!index.includes('runMemePaperCycle'))errors.push('MEME paper scheduler must remain wired');
 if(index.includes('MEME_AUTO_ENABLED')||index.includes('runMemeAuto('))errors.push('MEME real execution scheduler is forbidden before wallet phase');
-
-// Bybit hard locks: preserve current LIVE bot unchanged.
 for(const needle of ['ENTRY_SPACING_MS=5*60*1000','LOSS_PAUSE_MS=30*60*1000','LOSS_STREAK_TRIGGER=3','runBybitAutoV1','notifyLiveEntry','telegramApiRequest'])if(!controller.includes(needle))errors.push(`BYBIT controller invariant missing ${needle}`);
 for(const needle of ['bybitRiskPreflight','manageBybitScalpPosition','PROTECTION_MISSING_AFTER_SET','UNTRACKED_LIVE_POSITION'])if(!auto.includes(needle))errors.push(`BYBIT hard protection invariant missing ${needle}`);
 for(const needle of ['BYBIT-AUTO-1.6.0','SCALED_TRADE_BAND_ALLOCATOR','leverage:10','maxLeverage:10','baseRiskUsd:5','baseMinRewardUsd:5','baseRewardUsd:10','riskStepUsd:1','minRewardStepUsd:1','rewardStepUsd:1','preferredRR:2','maxRR:5','maxRiskPctOfEquity:10','maxTotalOpenRiskPct:20','maxMarginPerPositionPct:22','minFreeReservePct:30','feeBufferPct:5','maxPortfolioMarginPct:65'])if(!config.includes(needle))errors.push(`BYBIT scaled-band invariant missing ${needle}`);
@@ -32,23 +28,16 @@ for(const needle of ['smartCutAssessment','dynamicCutThresholdR','STRUCTURE_BREA
 if(engine.includes('cfg.risk.marginUsePct||80'))errors.push('Legacy 80% Bybit single-position margin is forbidden');
 if(risk.includes('PROFIT_TARGET_REACHED'))errors.push('BYBIT daily profit target gate must stay removed');
 if(!controller.includes('profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY"'))errors.push('BYBIT daily target policy must remain disabled');
-
-// Unified Telegram must retain complete Bybit telemetry and new MEME Paper controls.
 for(const needle of ['UNIFIED_TRADING_HUB','hub:bybit','hub:meme','auto:dashboard','auto:positions','auto:ai','auto:risk','meme:dashboard','meme:scan','meme:positions','meme:watch','meme:pnl','meme:safety','meme:trade','meme:capital','meme:learning'])if(!hub.includes(needle))errors.push(`UNIFIED HUB invariant missing ${needle}`);
 for(const needle of ['Continuous trading','Daily target OFF','Capital allocator','Initial Margin','Available','Adaptive Edge ON','regime + coin edge + correlation','auto-promote OFF','Smart CUT ON'])if(!hub.includes(needle))errors.push(`BYBIT Telegram telemetry missing ${needle}`);
 for(const needle of ['NO WALLET','NO SIGNING','NO EXECUTION','PAPER'])if(!hub.includes(needle))errors.push(`MEME Telegram safety telemetry missing ${needle}`);
 if(hub.includes('auto:target'))errors.push('AUTO HUB daily target UI must stay removed');
 if(!hub.includes('/telegram/webhook'))errors.push('UNIFIED HUB Telegram webhook missing');
-
-// MEME 0.3.1 PAPER design: simulated positions only, never wallet authority.
-for(const needle of ['MEME-AUTO-0.3.1-PAPER','MEME_AUTO_MODE="PAPER_ONLY"','executionEnabled:false','walletConnected:false','signingEnabled:false','BALANCE_AWARE_CONTINUOUS_ALLOCATOR','autoScaleWithBalance:true','autoDeRiskWithDrawdown:true','computeMemeCapitalPlan','allocationTiers','maxOpenPositionsHard:5','{maxEquityUsd:29.999999,targetPct:20,maxPct:23.5,maxOpenPositions:1}','{maxEquityUsd:99.999999,targetPct:18,maxPct:21,maxOpenPositions:3}','{maxEquityUsd:250,targetPct:14,maxPct:18,maxOpenPositions:5}','drawdownMultipliers','liquidityParticipationCapPct:0.05','minimumOperatingBalanceUsd:20','scaleDownImmediatelyOnBalanceLoss:true','scaleUpOnlyFromCurrentConfirmedEquity:true','blindLaunchSniping:false','requireExecutableSellRouteBeforeEntry:true','minLiquidityUsd:30000','maxTop10HolderPct:35','watchScore:78','entryScore:85','premiumScore:92','MOMENTUM_RETEST','FRESH_BREAKOUT','EARLY_ROTATION','principalRecovery:true','runner:true','autoPromote:false','JUPITER_LITE_FREE','DEXSCREENER_FREE'])if(!meme.includes(needle))errors.push(`MEME paper design invariant missing ${needle}`);
-for(const needle of ['MEME-AUTO-0.3.1-PAPER','meme:paper:state:v1','DEXSCREENER_FREE','JUPITER_LITE_FREE','getTokenSupply','getAccountInfo','getTokenLargestAccounts','mintSafe','freezeSafe','top10Pct','sellRoute','HARD_STOP','SMART_CUT','TP1','TP2','TRAIL','noWallet:true','noSigning:true','noRealExecution:true'])if(!paper.includes(needle))errors.push(`MEME paper engine invariant missing ${needle}`);
+for(const needle of ['MEME-AUTO-0.3.2-PAPER','MEME_AUTO_MODE="PAPER_ONLY"','executionEnabled:false','walletConnected:false','signingEnabled:false','BALANCE_AWARE_CONTINUOUS_ALLOCATOR','autoScaleWithBalance:true','autoDeRiskWithDrawdown:true','computeMemeCapitalPlan','allocationTiers','maxOpenPositionsHard:5','{maxEquityUsd:29.999999,targetPct:20,maxPct:23.5,maxOpenPositions:1}','{maxEquityUsd:99.999999,targetPct:18,maxPct:21,maxOpenPositions:3}','{maxEquityUsd:250,targetPct:14,maxPct:18,maxOpenPositions:5}','drawdownMultipliers','liquidityParticipationCapPct:0.05','minimumOperatingBalanceUsd:20','scaleDownImmediatelyOnBalanceLoss:true','scaleUpOnlyFromCurrentConfirmedEquity:true','blindLaunchSniping:false','requireExecutableSellRouteBeforeEntry:true','minLiquidityUsd:30000','maxTop10HolderPct:35','watchScore:78','entryScore:85','premiumScore:92','MOMENTUM_RETEST','FRESH_BREAKOUT','EARLY_ROTATION','principalRecovery:true','runner:true','autoPromote:false','JUPITER_LITE_FREE','DEXSCREENER_FREE','GECKOTERMINAL_FREE'])if(!meme.includes(needle))errors.push(`MEME paper design invariant missing ${needle}`);
+for(const needle of ['MEME-AUTO-0.3.2-PAPER','meme:paper:state:v1','DEXSCREENER_FREE','GECKOTERMINAL_FREE','JUPITER_LITE_FREE','getTokenSupply','getAccountInfo','getTokenLargestAccounts','mintSafe','freezeSafe','top10Pct','sellRoute','discoverySources','sourceErrors','HARD_STOP','SMART_CUT','TP1','TP2','TRAIL','noWallet:true','noSigning:true','noRealExecution:true'])if(!paper.includes(needle))errors.push(`MEME paper engine invariant missing ${needle}`);
 for(const forbidden of ['privateKey','seedPhrase','secretKey','sendTransaction(','signTransaction(','executionEnabled:true','walletConnected:true','signingEnabled:true','martingale:true','averagingDown:true','dca:true'])if((meme+paper).includes(forbidden))errors.push(`MEME paper-only forbidden capability/config detected ${forbidden}`);
-
-// AI bridge remains secret-free in source.
 if(multi.includes('V11_AI_BRIDGE_URL'))errors.push('Legacy public AI bridge URL is forbidden');
 for(const needle of ['/internal/multi-ai/health','/internal/multi-ai/review','token.actions.githubusercontent.com','refs/heads/main','workflow_dispatch','env.AI_BRIDGE.fetch'])if(!multi.includes(needle))errors.push(`MULTI_AI invariant missing ${needle}`);
 if(multi.includes('api_key')||multi.includes('API_KEY'))errors.push('MULTI_AI control plane must not embed provider API keys');
-
 if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
-console.log('Worker AUTO preflight PASS: Bybit Auto 1.6.0 LIVE locks preserved + MEME-AUTO 0.3.1 PAPER (DexScreener + Solana RPC + Jupiter quote), no wallet/signing/real execution.');
+console.log('Worker AUTO preflight PASS: Bybit Auto 1.6.0 LIVE locks preserved + MEME-AUTO 0.3.2 PAPER multi-source free discovery (DexScreener + GeckoTerminal + Solana RPC + Jupiter quote), no wallet/signing/real execution.');
