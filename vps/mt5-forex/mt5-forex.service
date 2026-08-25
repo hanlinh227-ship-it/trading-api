@@ -1,0 +1,25 @@
+[Unit]
+Description=MT5 Forex Auto Trading Terminal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mt5forex
+Group=mt5forex
+Environment=HOME=/var/lib/trading/mt5-forex
+ExecStart=/opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
+Restart=always
+RestartSec=10
+TimeoutStartSec=120
+TimeoutStopSec=30
+KillMode=control-group
+SendSIGKILL=yes
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/trading/mt5-forex /opt/trading/mt5-forex-terminal
+
+[Install]
+WantedBy=multi-user.target
