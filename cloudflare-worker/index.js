@@ -8,6 +8,7 @@ import {runBybitAutoControlled} from "./bybit-auto-controller.js";
 import {BYBIT_AUTO_VERSION} from "./bybit-auto-config.js";
 import {MEME_AUTO_VERSION,MEME_AUTO_MODE} from "./meme-auto-design.js";
 import {runMemePaperCycle,getMemePaperState} from "./meme-paper-engine.js";
+import {getMemeJupiterQuoteHealth} from "./meme-quote-health.js";
 
 const VERSION=BYBIT_AUTO_VERSION;
 const SERVICE="Unified Trading Hub";
@@ -26,12 +27,13 @@ export default {
     const url=new URL(req.url);
     if(url.pathname==="/meme-auto/paper/state")return json(await getMemePaperState(env));
     if(url.pathname==="/meme-auto/paper/run")return json(await runMemePaperCycle(env));
+    if(url.pathname==="/meme-auto/quote-health")return json(await getMemeJupiterQuoteHealth(env));
     if(url.pathname==="/status")return json({
       ok:true,version:VERSION,service:SERVICE,hub:EXECUTION_AUTHORITY,
       telegramHub:"UNIFIED_BYBIT_MEME",telegramBranches:["BYBIT","MEME"],
       signalV11Enabled:false,signalSchedulerEnabled:false,
       bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,readonlyHealth:"/bybit/health"},
-      meme:{version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,paperEnabled:true,executionEnabled:false,walletConnected:false,signingEnabled:false,paperState:"/meme-auto/paper/state",paperRun:"/meme-auto/paper/run"},
+      meme:{version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,paperEnabled:true,executionEnabled:false,walletConnected:false,signingEnabled:false,paperState:"/meme-auto/paper/state",paperRun:"/meme-auto/paper/run",quoteHealth:"/meme-auto/quote-health"},
       telegramWebhook:"/telegram/webhook"
     });
     if(url.pathname.startsWith("/v11/"))return json({ok:false,error:"SIGNAL_V11_DISABLED",replacement:"BYBIT_AUTO_TRADE_HUB"},410);
