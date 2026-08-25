@@ -62,7 +62,7 @@ export function edgeStatsFor(summary={},symbol,strategy,regime){
 
 export function selectExitProfile(edge=null,regime="RANGE"){
  const conf=learningConfidence(edge?.trades||0);if(conf<.25)return {profile:"BALANCED",confidence:conf,reason:"INSUFFICIENT_SAMPLE"};
- const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),wr=Number(edge?.netWinRate??edge?.winRate||0);
+ const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),wr=Number(edge?.netWinRate??edge?.winRate??0);
  if(["TREND_UP","TREND_DOWN","BREAKOUT_EXPANSION"].includes(regime)&&mfe>=1.7&&mae<=.8)return {profile:"TREND_RUNNER",confidence:conf,reason:"PROVEN_MFE"};
  if((mfe>0&&mfe<1.05)||(wr>0&&wr<.44))return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_NET_EXTENSION"};
  return {profile:"BALANCED",confidence:conf,reason:"DEFAULT_BOUNDED"};
