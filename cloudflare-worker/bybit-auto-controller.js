@@ -1,6 +1,7 @@
 import {runBybitAutoV1,getBybitAutoV1State} from "./bybit-auto-v1.js";
 import {bybitV5} from "./bybit-v5-client.js";
 import {telegramApiRequest} from "./providers/telegram-client.js";
+import {BYBIT_AUTO_VERSION} from "./bybit-auto-config.js";
 
 const AUTO_KEY="bybit:auto:v1:state";
 const CONTROL_KEY="bybit:auto:v1:controller";
@@ -33,7 +34,8 @@ async function notifyLiveEntry(env,out){
     `Entry ${compactPrice(p.entry,tick)}`,
     `SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}`,
     `TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}`,
-    `RR ${Number(p.rr||0).toFixed(2)} • ${Number(p.leverage||0)>0?`${Number(p.leverage)}x • `:""}AUTO LIVE`
+    `RR ${Number(p.rr||0).toFixed(2)} • ${Number(p.leverage||0)>0?`${Number(p.leverage)}x • `:""}AUTO LIVE`,
+    `${BYBIT_AUTO_VERSION} • LIVE`
   ].join("\n");
   try{
     await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});
