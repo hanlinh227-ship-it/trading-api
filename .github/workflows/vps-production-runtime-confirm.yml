@@ -19,10 +19,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-      - name: Wait for adaptive production revision
+      - name: Wait for BYBIT-AUTO 1.1.0 production revision
         shell: bash
         env:
-          EXPECTED_REVISION: c14839f34ea66e6a419d828acfb2d7c2dad4ed8d
+          EXPECTED_REVISION: 155471aa4b31b4d3d899591289398721ed50ba45
           REPORT: /tmp/production-runtime-confirm.json
         run: |
           set -euo pipefail
