@@ -4,7 +4,7 @@ import {bybitCredentials} from "./bybit-auto-config.js";
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const RECV_WINDOW="5000";
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
-const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
+const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)]).toString());
 function bases(env={}){
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
@@ -49,8 +49,6 @@ export function bybitV5(env={}){
   async function market(path,params={}){
     try{return await signedViaVps("GET",path,params);}
     catch(vpsError){
-      // VPS is authoritative for Bybit market data. Direct Cloudflare egress is disabled by default
-      // because Bybit/CloudFront can geo-block it and silently turn a healthy scanner into 502s.
       if(String(env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK||"").toLowerCase()==="true"){
         try{return await pub(path,params);}catch(directError){directError.cause=vpsError;throw directError;}
       }
@@ -90,7 +88,7 @@ export function bybitV5(env={}){
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
     openOrders:()=>signed("GET","/v5/order/realtime",{category:"linear",settleCoin:"USDT",openOnly:0,limit:50}),
-    closedPnl:(startTime,endTime)=>signed("GET","/v5/position/closed-pnl",{category:"linear",startTime,endTime,limit:100}),
+    closedPnl:(startTime,endTime,cursor="")=>signed("GET","/v5/position/closed-pnl",{category:"linear",startTime,endTime,limit:100,cursor}),
     instruments:(cursor="")=>market("/v5/market/instruments-info",{category:"linear",limit:1000,cursor}),
     tickers:()=>market("/v5/market/tickers",{category:"linear"}),
     kline:(symbol,interval="1",limit=200)=>market("/v5/market/kline",{category:"linear",symbol,interval,limit}),
