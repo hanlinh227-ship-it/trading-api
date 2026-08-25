@@ -1,124 +1,93 @@
 # MASTER TRADING STATE
 
-Updated: 2026-08-22 UTC+7
+Updated: 2026-08-25 UTC+7
 Purpose: single canonical state for the Trading project.
 
-## CURRENT CANONICAL VERSION — SIGNAL V11
+## CURRENT PRODUCTION AUTHORITY — BYBIT AUTO 1.2.0
 
-GitHub `main` is authoritative. Signal V11 is the sole public signal authority.
+GitHub `main` + deployed Cloudflare runtime are authoritative.
 
 Current production contract:
-- `publicSignalAuthority = V11_ONLY`;
+- production hub = `BYBIT_AUTO_TRADE_ONLY`;
+- production version = `BYBIT-AUTO-1.2.0`;
+- exchange execution authority = Bybit Auto LIVE;
+- Signal V11 runtime/scheduler on this Worker = OFF;
 - runtime = `CLOUDFLARE_NATIVE`;
-- scheduler = `V11_NATIVE`;
-- execution authority = `SIGNAL_ONLY`;
-- canonical markets = Forex, Crypto, Metal, Index Cash;
-- Hyro/Futures legacy execution remains removed;
-- Binance Auto remains separate execution authority.
+- private authenticated Bybit transport = `VPS_BYBIT_PRIVATE_PROXY`;
+- state store = existing `TRADING_STATE` KV; never reset it;
+- Telegram = automatic entry notification and AUTO status/management visibility.
 
-## AUTOMATED PRODUCTION TOPOLOGY
+Historical Signal V11 research/backtest material remains research/history only unless current `main` explicitly restores a non-execution research path. It must not compete with Bybit Auto production authority.
 
-`GitHub main -> GitHub Actions preflight/deploy -> Cloudflare Worker trading-v77-scanner -> TRADING_STATE KV -> Telegram`
+## LIVE AUTO PIPELINE
 
-Automatic runtime behavior:
-1. Cloudflare V11 scheduler scans markets continuously;
-2. only upstream `MARKET` / `MARKET_SIGNAL` may reach automatic V11 approval;
-3. LIMIT/WATCH/MARKET_PLAN are never promoted into immediate MARKET;
-4. new stored `APPROVED_SIGNAL` sends Telegram automatically;
-5. TP / SL / EXPIRED lifecycle transition sends Telegram automatically;
-6. duplicate OPEN market/symbol/side signals are blocked;
-7. retained legacy non-market approvals are invalidated into history without resetting KV.
-
-Telegram dashboard exposes LIVE, WATCH, market scans, V11 official signals, history, statistics and on-demand 3-AI MARKET hunter.
-
-## V11 NATIVE SIGNAL FUNNEL
-
-Primary files:
-- `cloudflare-worker/v11/native-runtime.js`
-- `cloudflare-worker/v11/entry-plan.js`
-- `cloudflare-worker/v11/market-policies.js`
-- `cloudflare-worker/v11/store.js`
-- `cloudflare-worker/v11/manual-market-hunter.js`
-- `cloudflare-worker/v11/ai-gateway.js`
-- `cloudflare-worker/engine-v77168.js`
-- `cloudflare-worker/hub-v11.js`
+`Cloudflare scheduler -> Bybit public scan -> deterministic candidate ranking -> one-shot fresh/re-anchor gate -> margin-aware sizing -> risk preflight -> Claude/Codex/DeepSeek final-entry review -> post-AI fresh quote -> Bybit LIVE order -> verified SL/TP/native trailing -> HOLD/BE/profit-lock/trailing management -> Telegram -> learning telemetry`
 
 Hard behavior:
-- real M5/M15/H1/H4/D1 ATR14 + close evidence;
-- fresh provider timestamp required;
-- deterministic structure/risk/quality gates;
-- fail closed on stale/unverified evidence;
-- `reason`, `gateReasons`, `planReason` remain distinct;
-- XPL/executable crypto MARKET output retains timeframe evidence;
-- native runtime reuses already-fresh run-now analysis before any unnecessary re-analysis.
+- scanner finds candidates deterministically; AI does not search the market;
+- 3 AI are final-entry reviewers only;
+- quote freshness and post-AI drift remain mandatory;
+- re-anchor is bounded to one attempt per candidate; never chase indefinitely;
+- leverage is adaptive but capped at 5x;
+- sizing is margin-aware and fail-closed;
+- total open-risk and max-position limits remain enforced;
+- protection must be verified after fill;
+- discretionary CUT is OFF by default;
+- normal exits are SL, BE stop, profit-lock stop, trailing stop, or TP;
+- manager remains active even while new entries are blocked by cooldown/loss pause.
 
-## MANUAL THREE-AI HUNTER
+## FREQUENCY PROFILE — BALANCED-FREQUENT
 
-Review-only and on-demand.
-- DeepSeek: API-native when configured;
-- Claude: VPC/VPS bridge;
-- Codex: VPC/VPS bridge;
-- all three required for positive consensus;
-- any WAIT, error, unavailable provider, conflict or hard risk prevents a positive result;
-- `automaticSignalAuthority = false`.
+Current intended production profile:
+- scan every 60s;
+- new-entry spacing/cooldown = 180s;
+- global config floor score = 70;
+- max configured spread gate = 9 bps, with symbol/profile-specific limits still authoritative where stricter;
+- max configured chase = 0.60 ATR, with profile-specific limits still authoritative where stricter;
+- max open positions = 3;
+- max same-direction positions = 2;
+- max leverage = 5x;
+- margin usage budget = 80% of equity;
+- risk ladder starts at $5 risk / $10 reward around $50 balance, bounded by equity/risk caps.
 
-VPC service: `v11-ai-bridge`.
-VPS systemd service: `v11-manual-ai-bridge`.
+## POSITION MANAGEMENT
 
-## TELEGRAM AUTOMATION
+Default path:
+`HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`
 
-Automatic signal message includes:
-- market + side + symbol;
-- Entry / SL / TP / RR;
-- quality;
-- quote freshness/source;
-- setup and concise WHY NOW;
-- explicit SIGNAL ONLY notice.
+Discretionary CUT is disabled unless `BYBIT_DISCRETIONARY_CUT_ENABLED=true` is explicitly configured. Stale-time and profit-giveback alone must never trigger a market-close. If discretionary CUT is explicitly enabled, only confirmed severe thesis invalidation may close early.
 
-Automatic lifecycle messages are emitted on TP / SL / EXPIRED.
+## AI CORE
 
-WATCH remains informational and is available from Telegram/dashboard without being promoted to MARKET.
+AUTO production core providers:
+- Claude
+- Codex
+- DeepSeek
+
+AUTO policy: `FINAL_ENTRY_REVIEW_ONLY`. Qwen/OpenRouter are not required for AUTO execution.
 
 ## CI / DEPLOYMENT
 
 Production deploy workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
-Validation workflow: `.github/workflows/v11-signal-validation.yml` runs on `main` and checks V11 source, syntax, market-ready guard, auto Telegram signal/lifecycle hooks, duplicate prevention and three-AI fail-closed invariants.
-
-Deployment preparation must preserve:
-- existing `TRADING_STATE` KV;
-- `AI_BRIDGE` VPC binding;
-- `keep_vars:true`;
-- minute V11 cron;
-- `npm run check` before deploy.
+It validates source with `npm run check`, deploys Worker, and verifies `/bybit/health` runtime revision against the deployment commit before declaring success.
 
 ## PERMANENT INVARIANTS
 
 Never:
 - reset `TRADING_STATE`;
-- fabricate provider values, ATR, bid/ask, spread, P/L or execution state;
-- weaken freshness, structural SL, RR or deterministic market gates merely to increase trade count;
-- promote LIMIT/WATCH into MARKET;
-- restore Futures Signal or Hyro/TK2 execution;
-- merge Binance Auto execution authority into Signal V11;
-- let AI review bypass deterministic gates;
-- commit secrets/API tokens/private keys.
-
-V73 remains an exposed-development prior, not untouched OOS proof. V76 Forex R2 remains research-only.
-
-## NEXT PHASE
-
-Infrastructure/plumbing is considered complete unless new runtime evidence proves otherwise.
-Future work is evidence-driven signal-quality refinement:
-- monitor funnel distributions and actual lifecycle outcomes;
-- improve market-specific ranking/discrimination without weakening hard gates;
-- verify provider freshness behavior during active market sessions;
-- tune Telegram presentation only when it improves clarity and does not alter signal authority.
+- fabricate quote, PnL, provider, execution or protection state;
+- bypass fresh quote, structural SL, RR, risk, margin or protection gates merely to increase trade count;
+- increase leverage above the configured 5x cap to force an entry;
+- enable discretionary CUT implicitly;
+- let AI bypass deterministic entry/risk gates;
+- commit secrets/API tokens/private keys;
+- allow retired Signal V11/legacy execution paths to compete with Bybit Auto production.
 
 ## STARTUP / HANDOFF ORDER
 
 1. fresh-read GitHub `main`;
-2. read `MASTER_TRADING_STATE.md`;
+2. read this file;
 3. read `CURRENT_HANDOFF.md`;
-4. read `SHARED_STATE.md`;
-5. read `WRITE_LOCK.md`;
-6. inspect current V11 source before any write.
+4. read `WRITE_LOCK.md`;
+5. inspect current `cloudflare-worker/index.js`, `bybit-auto-config.js`, `bybit-auto-controller.js`, `bybit-auto-v1.js`, `bybit-scalp-engine.js`, `bybit-position-manager.js`, `bybit-v5-client.js` before any production write;
+6. verify deployed runtime via `/bybit/health` before claiming LIVE state.
