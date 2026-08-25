@@ -35,7 +35,7 @@ apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common
 
-if ! command -v wine >/dev/null 2>&1; then
+if ! command -v wine >/dev/null 2>&1 && ! command -v wine64 >/dev/null 2>&1; then
   apt-get install -y --no-install-recommends wine wine64 wine32 || \
     apt-get install -y --no-install-recommends wine64
 fi
@@ -51,8 +51,9 @@ chmod 0640 "$INSTALLER"
 
 echo "MT5_INSTALLER_SHA256=$(sha256sum "$INSTALLER" | awk '{print $1}')"
 
-WINE_BIN="$(command -v wine64 || command -v wine)"
+WINE_BIN="$(command -v wine64 || command -v wine || true)"
 WINEBOOT_BIN="$(command -v wineboot || true)"
+WINEPATH_BIN="$(command -v winepath || true)"
 if [[ -z "$WINE_BIN" ]]; then
   echo "ERROR: wine executable not found" >&2
   exit 5
@@ -87,19 +88,25 @@ MT5_DIR="$(dirname "$TERMINAL")"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
   "$MT5_DIR/MQL5/Experts" "$MT5_DIR/MQL5/Presets" "$MT5_DIR/Config"
 
+EA_DST="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
 if [[ -f "$EA_SRC" ]]; then
-  install -o "$APP_USER" -g "$APP_USER" -m 0640 "$EA_SRC" "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
+  install -o "$APP_USER" -g "$APP_USER" -m 0640 "$EA_SRC" "$EA_DST"
 fi
 
 METAEDITOR=""
 for candidate in "$MT5_DIR/metaeditor64.exe" "$MT5_DIR/MetaEditor64.exe"; do
   if [[ -f "$candidate" ]]; then METAEDITOR="$candidate"; break; fi
 done
-if [[ -n "$METAEDITOR" && -f "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5" ]]; then
+if [[ -n "$METAEDITOR" && -f "$EA_DST" ]]; then
+  EA_WIN='C:\MT5Forex\MQL5\Experts\ForexAutoThe5ers.mq5'
+  LOG_WIN='C:\MT5Forex\metaeditor-compile.log'
+  if [[ -n "$WINEPATH_BIN" ]]; then
+    EA_WIN="$(sudo -u "$APP_USER" env HOME="$APP_HOME" WINEPREFIX="$WINEPREFIX_DIR" "$WINEPATH_BIN" -w "$EA_DST" 2>/dev/null || echo "$EA_WIN")"
+    LOG_WIN="$(sudo -u "$APP_USER" env HOME="$APP_HOME" WINEPREFIX="$WINEPREFIX_DIR" "$WINEPATH_BIN" -w "$MT5_DIR/metaeditor-compile.log" 2>/dev/null || echo "$LOG_WIN")"
+  fi
   sudo -u "$APP_USER" env HOME="$APP_HOME" WINEPREFIX="$WINEPREFIX_DIR" WINEDEBUG=-all \
     xvfb-run -a -s '-screen 0 1280x1024x24' \
-    "$WINE_BIN" "$METAEDITOR" /compile:'C:\MT5Forex\MQL5\Experts\ForexAutoThe5ers.mq5' \
-    /log:'C:\MT5Forex\metaeditor-compile.log' >/tmp/mt5-compile.log 2>&1 || true
+    "$WINE_BIN" "$METAEDITOR" "/compile:$EA_WIN" "/log:$LOG_WIN" >/tmp/mt5-compile.log 2>&1 || true
 fi
 
 cat >"$APP_HOME/runtime.env" <<EOF
@@ -115,9 +122,10 @@ ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
 
 echo "MT5_FOREX_INSTALL=PASS"
 echo "MT5_FOREX_TERMINAL=$TERMINAL"
-echo "MT5_FOREX_EA_SOURCE=$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
+echo "MT5_FOREX_EA_SOURCE=$EA_DST"
 if [[ -f "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5" ]]; then
   echo "MT5_FOREX_EA_COMPILE=PASS"
 else
   echo "MT5_FOREX_EA_COMPILE=NOT_CONFIRMED"
+  if [[ -f "$MT5_DIR/metaeditor-compile.log" ]]; then tail -80 "$MT5_DIR/metaeditor-compile.log" || true; fi
 fi
