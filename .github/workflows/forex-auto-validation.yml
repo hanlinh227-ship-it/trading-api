@@ -6,6 +6,7 @@ on:
     paths:
       - 'cloudflare-worker/forex-*.js'
       - 'cloudflare-worker/validate-forex-auto.mjs'
+      - 'cloudflare-worker/validate-worker.mjs'
       - 'mt5/ForexAutoThe5ers.mq5'
       - '.github/workflows/forex-auto-validation.yml'
   workflow_dispatch:
