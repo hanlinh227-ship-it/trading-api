@@ -28,7 +28,7 @@ assert.equal(far.ok,false);assert(["PRICE_TOO_EXTENDED_WAIT_RETEST","NO_HEALTHY_
 
 class KV{constructor(){this.m=new Map()}async get(k,o){const v=this.m.get(k);if(v==null)return null;return o?.type==="json"?JSON.parse(v):v}async put(k,v){this.m.set(k,v)}}
 const TRADING_STATE=new KV(),lenv={TRADING_STATE};
-for(let i=1;i<=12;i++){await recordForexEntry(lenv,"T1",{ticket:i,symbol:"EURUSD",side:i%2?"BUY":"SELL",riskUsd:100,setup:"TREND_PULLBACK",regime:"TREND"});await recordForexOutcome(lenv,"T1",{ticket:i,pnl:i<=8?-60:20,mfeR:.4,maeR:.7,exitReason:"TEST"});}
+for(let i=1;i<=12;i++){await recordForexEntry(lenv,"T1",{ticket:i,symbol:"EURUSD",side:i%2?"BUY":"SELL",riskUsd:100,setup:"TREND_PULLBACK",regime:"TREND"});await recordForexOutcome(lenv,"T1",{ticket:i,pnl:i<=10?-60:10,mfeR:.4,maeR:.7,exitReason:"TEST"});}
 const lc=await getForexLearningContext(lenv,"T1",{symbol:"EURUSD"});
 assert.equal(lc.active,true);assert.equal(lc.degraded,true);assert(lc.riskMultiplier<=.7);assert(lc.scoreDelta<=-3);
 
