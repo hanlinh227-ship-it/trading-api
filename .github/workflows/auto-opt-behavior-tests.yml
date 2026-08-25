@@ -1,0 +1,88 @@
+name: Auto Opt Behavior Tests
+on:
+  push:
+    branches: [auto-opt-20260825]
+    paths: ['.github/workflows/auto-opt-behavior-tests.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: auto-opt-20260825, fetch-depth: 1}
+      - name: Run deterministic mocked behavior tests
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          cat > /tmp/auto-behavior.mjs <<'JS'
+          import assert from 'node:assert/strict';
+          import {sizeBybitAuto} from './bybit-scalp-engine.js';
+          import {bybitAutoConfig} from './bybit-auto-config.js';
+          import {bybitV5} from './bybit-v5-client.js';
+          import {manageBybitScalpPosition} from './bybit-position-manager.js';
+          import {runBybitAutoV1} from './bybit-auto-v1.js';
+
+          const results=[];const ok=(name,detail={})=>results.push({name,ok:true,...detail});
+          const jsonResponse=(x,status=200)=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json'}});
+          class KV{constructor(initial={}){this.m=new Map(Object.entries(initial).map(([k,v])=>[k,JSON.stringify(v)]));}async get(k,o){const v=this.m.get(k);if(v==null)return null;return o?.type==='json'?JSON.parse(v):v;}async put(k,v){this.m.set(k,String(v));}}
+          function upstream(path,{walletFail=false,pnlFail=false,position=null}={}){
+            if(path==='/v5/account/wallet-balance')return walletFail?{ok:false,httpStatus:500,upstream:{retCode:10001,retMsg:'wallet fail'}}:{ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{list:[{totalEquity:'50',coin:[{coin:'USDT',equity:'50'}]}]}}};
+            if(path==='/v5/position/list')return {ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{list:position?[position]:[]}}};
+            if(path==='/v5/position/closed-pnl')return pnlFail?{ok:false,httpStatus:500,upstream:{retCode:10001,retMsg:'pnl fail'}}:{ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{list:[]}}};
+            if(path==='/v5/position/trading-stop')return {ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{}}};
+            if(path==='/v5/position/set-leverage')return {ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{}}};
+            return {ok:true,httpStatus:200,upstream:{retCode:0,retMsg:'OK',result:{list:[]}}};
+          }
+          function envFor({state,walletFail=false,pnlFail=false,position=null}={}){
+            const kv=new KV({'bybit:auto:v1:state':state});
+            return {BYBIT_AUTO_LIVE:'true',BYBIT_AUTO_LIVE_ACK:'true',BYBIT_AUTO_API_KEY:'k',BYBIT_AUTO_API_SECRET:'s',V11_AI_BRIDGE_SECRET:'bridge',TRADING_STATE:kv,AI_BRIDGE:{fetch:async req=>{const b=JSON.parse(await req.text());return jsonResponse(upstream(b.path,{walletFail,pnlFail,position}));}}};
+          }
+          const basePlan={mode:'LIVE',symbol:'TESTUSDT',side:'Buy',qty:10,entry:100,sl:99,initialSl:99,tp:102,tickSize:.01,filters:{tickSize:.01},riskUsd:10,rewardUsd:20,createdAtMs:Date.now()-120000,peakR:0,exitPlan:{breakEvenTriggerR:.6,positiveTrailTriggerR:1.15,positiveTrailLockR:.35,trailAtr:.5},atr1:1};
+          const pos={symbol:'TESTUSDT',side:'Buy',size:'10',avgPrice:'100',markPrice:'100.3',stopLoss:'99',takeProfit:'102',trailingStop:'0',positionIdx:0};
+
+          // Sizing keeps dollar risk bounded while selecting minimum leverage needed for margin.
+          const cfg=bybitAutoConfig({BYBIT_MARGIN_USE_PCT:'80'}),setup={entry:100,sl:99,tp:102,filters:{minQty:.001,maxQty:100,qtyStep:.001,minNotional:5,minLeverage:1,maxLeverage:5}};
+          const sz=sizeBybitAuto(setup,cfg,50);assert.equal(sz.ok,true);assert.ok(sz.riskUsd<=5.001);assert.ok(sz.leverage>=1&&sz.leverage<=5);assert.ok(sz.initialMarginUsd<=sz.marginBudgetUsd+1e-9);ok('margin-aware-sizing',{riskUsd:sz.riskUsd,leverage:sz.leverage,margin:sz.initialMarginUsd,budget:sz.marginBudgetUsd});
+          const tooBig=sizeBybitAuto({...setup,sl:99.9},cfg,50);assert.equal(tooBig.ok,false);assert.equal(tooBig.reason,'MARGIN_CAP_EXCEEDED');ok('margin-cap-fail-closed',{reason:tooBig.reason,requiredLeverage:tooBig.requiredLeverage});
+
+          // Bybit 110043 is idempotent success; another leverage error throws.
+          const leverageEnv={BYBIT_AUTO_API_KEY:'k',BYBIT_AUTO_API_SECRET:'s',V11_AI_BRIDGE_SECRET:'bridge',AI_BRIDGE:{fetch:async req=>{const b=JSON.parse(await req.text());return jsonResponse({ok:false,httpStatus:400,upstream:{retCode:110043,retMsg:'Set leverage has not been modified.'}});}}};
+          const lev=await bybitV5(leverageEnv).setLeverage('BTCUSDT',3);assert.equal(lev.idempotent,true);ok('leverage-110043-idempotent');
+          const badEnv={...leverageEnv,AI_BRIDGE:{fetch:async req=>jsonResponse({ok:false,httpStatus:400,upstream:{retCode:110045,retMsg:'bad leverage'}})}};let threw=false;try{await bybitV5(badEnv).setLeverage('BTCUSDT',3);}catch{threw=true;}assert.equal(threw,true);ok('leverage-other-error-fails');
+
+          // Entry block still runs manager and preserves openPlans across a day rollover.
+          const oldDay='2026-08-24',state={day:oldDay,trades:4,realizedUsd:2,lossStreak:0,pauseUntil:0,lastTradeAt:Date.now()-1000,lastFingerprint:'x',openPlans:{TESTUSDT:{...basePlan}}};
+          let env=envFor({state,position:pos});let out=await runBybitAutoV1(env,{entryBlockReason:'ENTRY_SPACING_5M'});assert.equal(out.managementOnly,true);assert.equal(out.reason,'ENTRY_SPACING_5M');assert.ok(out.state.openPlans.TESTUSDT);assert.ok(out.state.lastPositionManagement?.results?.length===1);ok('management-during-entry-block',{verdict:out.state.lastPositionManagement.results[0].verdict,openPlans:Object.keys(out.state.openPlans)});
+
+          // PnL failure happens after management and only blocks new entry.
+          env=envFor({state:{...state,day:'2026-08-25'},position:pos,pnlFail:true});out=await runBybitAutoV1(env,{});assert.equal(out.reason,'DAILY_PNL_RECONCILIATION_FAILED');assert.equal(out.managementOnly,true);assert.ok(out.state.lastPositionManagement?.results?.length===1);ok('pnl-failure-management-first');
+          // Wallet failure also permits manager first and blocks entry.
+          env=envFor({state:{...state,day:'2026-08-25'},position:pos,walletFail:true});out=await runBybitAutoV1(env,{});assert.equal(out.reason,'LIVE_EQUITY_INVALID');assert.equal(out.managementOnly,true);assert.ok(out.state.lastPositionManagement?.results?.length===1);ok('wallet-failure-management-first');
+
+          // Manager does not spam a trailing write if current trailing is already tighter.
+          let writes=0;const mockApi={kline:async()=>({result:{list:Array.from({length:12},(_,i)=>[String(Date.now()-i*60000),'100','101','99','100','1'])}}),tradingStop:async()=>{writes++;}};
+          const trailPos={...pos,markPrice:'101.5',stopLoss:'100.35',trailingStop:'0.30'};const mr=await manageBybitScalpPosition({},mockApi,{...basePlan,managedSl:100.35,peakR:1.5},trailPos,cfg);assert.equal(writes,0);assert.equal(mr.verdict,'HOLD');ok('trailing-idempotent',{reason:mr.reason,currentTrailing:mr.currentTrailing});
+
+          console.log(JSON.stringify({ok:true,count:results.length,results},null,2));
+          JS
+          node /tmp/auto-behavior.mjs | tee /tmp/auto-behavior-report.json
+      - name: Full source preflight
+        working-directory: cloudflare-worker
+        run: npm install --no-audit --no-fund && npm run check
+      - name: Persist evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin auto-opt-20260825
+          git reset --hard origin/auto-opt-20260825
+          mkdir -p docs/diagnostics
+          cp /tmp/auto-behavior-report.json docs/diagnostics/LATEST_AUTO_OPT_BEHAVIOR_TESTS.json || echo '{"ok":false,"reason":"MISSING"}' > docs/diagnostics/LATEST_AUTO_OPT_BEHAVIOR_TESTS.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_AUTO_OPT_BEHAVIOR_TESTS.json
+          git commit -m 'Record AUTO optimization behavior tests' || exit 0
+          git push origin HEAD:auto-opt-20260825
