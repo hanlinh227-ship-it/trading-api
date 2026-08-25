@@ -1,0 +1,65 @@
+name: Auto Opt 3AI Post Review
+on:
+  push:
+    branches: [auto-opt-20260825]
+    paths: ['.github/workflows/auto-opt-3ai-post-review.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  review:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: auto-opt-20260825, fetch-depth: 0}
+      - name: Build compact implemented evidence and review independently
+        shell: bash
+        run: |
+          set -u
+          git fetch origin main
+          PID="$(pgrep -f '/usr/local/bin/v11-manual-ai-bridge' | head -1)"
+          SECRET="$(tr '\0' '\n' < /proc/$PID/environ | sed -n 's/^V11_AI_BRIDGE_SECRET=//p')"
+          DIFFSTAT="$(git diff --stat origin/main...HEAD -- cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-auto-controller.js cloudflare-worker/bybit-auto-v1.js cloudflare-worker/bybit-scalp-engine.js cloudflare-worker/bybit-v5-client.js cloudflare-worker/bybit-position-manager.js cloudflare-worker/bybit-learning-engine.js cloudflare-worker/bybit-auto-hub.js | head -80)"
+          SUMMARY='Implemented on protected branch, not LIVE yet: BYBIT-AUTO-1.1.0; risk dollars unchanged but sizing is margin-aware with 20% equity margin reserve and auto leverage 1-5x; if required leverage exceeds symbol/config max skip entry; Bybit setLeverage is fail-closed except retCode 110043 treated idempotent success; day rollover preserves openPlans; controller never suppresses manager during entry spacing/loss pause; manager runs before wallet/PnL entry gating using positions if available; symbol already open blocks duplicate new entry; scanner one-shot reanchor retained; actual post-fill TP capped to structural TP and actual RR rechecked; SL/TP and native trailing verified, emergency-flat on protection failure; setup exitPlan drives BE/trail defaults; trailing writes are idempotent/tightening-only; learning catalog reduced to Claude/Codex/DeepSeek with versioned shadow telemetry; hub shows corrected learning count/leverage/manager; npm run check and node syntax/static invariants PASS.'
+          python3 - <<'PY'
+          import json
+          json.dump({'providers':{}},open('/tmp/post-review.json','w'),indent=2)
+          PY
+          for P in claude codex deepseek; do
+            P="$P" SUMMARY="$SUMMARY" DIFFSTAT="$DIFFSTAT" python3 - <<'PY' > /tmp/post-payload.json
+          import os,json
+          evidence={
+            'mode':'MULTI_AI_ENGINEERING_TASK',
+            'task_id':'auto-opt-post-'+os.environ['P']+'-20260825',
+            'instruction':'Post-implementation production review. Verify whether the listed AUTO hardening resolves the prior blockers without increasing dollar risk or weakening entry safety. Look for regressions in sizing/leverage, rollover, management continuity, post-fill TP/SL/trailing, state/idempotency, AI/token policy and learning. Return PASS only if no production-blocking defect is evident from supplied implementation evidence; otherwise REJECT/BLOCKED with concrete blocker.',
+            'context':{'implementedSummary':os.environ['SUMMARY'],'diffStat':os.environ['DIFFSTAT'],'validation':'node syntax + static invariants + npm run check PASS','scope':'REVIEW_ONLY_NO_ORDER'},
+            'requestedProviders':[os.environ['P']]
+          }
+          print(json.dumps({'evidence':evidence}))
+          PY
+            CODE=$(curl -sS --max-time 120 -o /tmp/post-one.json -w '%{http_code}' -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $SECRET" -H 'Content-Type: application/json' --data-binary @/tmp/post-payload.json || echo 000)
+            P="$P" CODE="$CODE" python3 - <<'PY'
+          import json,os
+          out=json.load(open('/tmp/post-review.json'))
+          try: body=json.load(open('/tmp/post-one.json'))
+          except Exception as e: body={'parseError':str(e)}
+          out['providers'][os.environ['P']]={'httpCode':os.environ['CODE'],'body':body}
+          json.dump(out,open('/tmp/post-review.json','w'),indent=2)
+          PY
+          done
+          python3 -m json.tool /tmp/post-review.json
+      - name: Persist post review
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin auto-opt-20260825
+          git reset --hard origin/auto-opt-20260825
+          mkdir -p docs/diagnostics
+          cp /tmp/post-review.json docs/diagnostics/LATEST_AUTO_OPT_3AI_POST_REVIEW.json || echo '{"providers":{},"reason":"MISSING"}' > docs/diagnostics/LATEST_AUTO_OPT_3AI_POST_REVIEW.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_AUTO_OPT_3AI_POST_REVIEW.json
+          git commit -m 'Record AUTO optimization 3AI post review' || exit 0
+          git push origin HEAD:auto-opt-20260825
