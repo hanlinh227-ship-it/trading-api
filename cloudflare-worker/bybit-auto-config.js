@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.4: balanced effective-risk sizing + complete lifecycle notifications + anti-sweep structural stops.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.4";
+// BYBIT-AUTO-1.6.5: anti-sweep stops + hard profit floor + balanced effective-risk sizing + complete lifecycle notifications.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.5";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -14,20 +14,24 @@ export const BYBIT_AUTO_CONFIG={
     baseRiskUsd:5,
     baseMinEffectiveRiskUsd:2,
     effectiveRiskStepUsd:.5,
-    baseMinRewardUsd:1,
+    // Hard policy: planned TP P&L may never be below $3.
+    // We require $3.50 gross at the sizing gate to leave a conservative execution/fee/slippage cushion.
+    netProfitFloorUsd:3,
+    executionCostBufferUsd:.5,
+    baseMinRewardUsd:3.5,
     baseRewardUsd:5,
     riskStepUsd:1,
     minRewardStepUsd:.5,
     rewardStepUsd:1,
     minRiskUsd:.5,
-    minRewardUsd:.5,
+    minRewardUsd:3.5,
     maxRiskPctOfEquity:10,
     maxTotalOpenRiskPct:20,
     maxMarginPerPositionPct:40,
     minFreeReservePct:20,
     feeBufferPct:5,
     maxPortfolioMarginPct:80,
-    minRR:1,
+    minRR:1.5,
     preferredRR:2,
     maxRR:5,
     maxLossStreak:3,
@@ -66,20 +70,23 @@ export function bybitAutoConfig(env={}){
   c.risk.baseRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
   c.risk.baseMinEffectiveRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_MIN_EFFECTIVE_RISK_USD",c.risk.baseMinEffectiveRiskUsd));
   c.risk.effectiveRiskStepUsd=Math.max(.1,n(env,"BYBIT_EFFECTIVE_RISK_STEP_USD",c.risk.effectiveRiskStepUsd));
-  c.risk.baseMinRewardUsd=Math.max(.5,n(env,"BYBIT_BASE_MIN_REWARD_USD",c.risk.baseMinRewardUsd));
+  c.risk.netProfitFloorUsd=Math.max(3,n(env,"BYBIT_NET_PROFIT_FLOOR_USD",c.risk.netProfitFloorUsd));
+  c.risk.executionCostBufferUsd=Math.max(.25,n(env,"BYBIT_EXECUTION_COST_BUFFER_USD",c.risk.executionCostBufferUsd));
+  const hardGrossFloor=c.risk.netProfitFloorUsd+c.risk.executionCostBufferUsd;
+  c.risk.baseMinRewardUsd=Math.max(hardGrossFloor,n(env,"BYBIT_BASE_MIN_REWARD_USD",c.risk.baseMinRewardUsd));
   c.risk.baseRewardUsd=Math.max(c.risk.baseMinRewardUsd,n(env,"BYBIT_BASE_REWARD_USD",c.risk.baseRewardUsd));
   c.risk.riskStepUsd=Math.max(.1,n(env,"BYBIT_RISK_STEP_USD",c.risk.riskStepUsd));
   c.risk.minRewardStepUsd=Math.max(.1,n(env,"BYBIT_MIN_REWARD_STEP_USD",c.risk.minRewardStepUsd));
   c.risk.rewardStepUsd=Math.max(.1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.minRiskUsd=Math.max(.25,n(env,"BYBIT_MIN_RISK_USD",c.risk.minRiskUsd));
-  c.risk.minRewardUsd=Math.max(.25,n(env,"BYBIT_MIN_REWARD_USD",c.risk.minRewardUsd));
+  c.risk.minRewardUsd=Math.max(hardGrossFloor,n(env,"BYBIT_MIN_REWARD_USD",c.risk.minRewardUsd));
   c.risk.maxRiskPctOfEquity=Math.max(4,Math.min(12,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.maxTotalOpenRiskPct=Math.max(10,Math.min(25,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
   c.risk.maxMarginPerPositionPct=Math.max(15,Math.min(45,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
   c.risk.minFreeReservePct=Math.max(15,Math.min(40,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
   c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
   c.risk.maxPortfolioMarginPct=Math.max(55,Math.min(85,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
-  c.risk.minRR=Math.max(1,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
+  c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
   c.maxOpenPositions=Math.max(1,Math.min(3,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
