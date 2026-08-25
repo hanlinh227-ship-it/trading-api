@@ -17,22 +17,24 @@ export function sizeBybitAuto(setup,cfg,equityUsd=50){
   const f=setup.filters||{},equity=Math.max(0,Number(equityUsd||0)),entry=Number(setup.entry||0),sl=Number(setup.sl||0),structureTp=Number(setup.tp||0);
   const base=Math.max(1,Number(cfg.risk.baseBalanceUsd||50)),stepUsd=Math.max(1,Number(cfg.risk.balanceStepUsd||10));
   const signedSteps=Math.floor((equity-base)/stepUsd);
-  const minRisk=Math.max(.5,Number(cfg.risk.minRiskUsd||1)),minReward=Math.max(.5,Number(cfg.risk.minRewardUsd||1));
-  const ladderRisk=Math.max(minRisk,Number(cfg.risk.baseRiskUsd||5)+signedSteps*Number(cfg.risk.riskStepUsd||1));
-  const ladderReward=Math.max(minReward,Number(cfg.risk.baseRewardUsd||10)+signedSteps*Number(cfg.risk.rewardStepUsd||1));
-  const riskBudgetUsd=Math.min(ladderRisk,equity*cfg.risk.maxRiskPctOfEquity/100),dist=Math.abs(entry-sl);
+  const minRisk=Math.max(.25,Number(cfg.risk.minRiskUsd||.5)),minReward=Math.max(.5,Number(cfg.risk.minRewardUsd||1));
+  const ladderRisk=Math.max(minRisk,Number(cfg.risk.baseRiskUsd||1.5)+signedSteps*Number(cfg.risk.riskStepUsd||.25));
+  const ladderReward=Math.max(minReward,Number(cfg.risk.baseRewardUsd||3)+signedSteps*Number(cfg.risk.rewardStepUsd||.5));
+  const riskBudgetUsd=Math.min(ladderRisk,equity*Number(cfg.risk.maxRiskPctOfEquity||4)/100),dist=Math.abs(entry-sl);
   if(!(equity>0&&entry>0&&dist>0&&riskBudgetUsd>0))return {ok:false,reason:"RISK_BUDGET_OR_GEOMETRY_INVALID",riskBudgetUsd,equityUsd:equity,riskLadderStep:signedSteps};
-  const riskQty=riskBudgetUsd/dist,qty=floorStep(Math.min(riskQty,Number(f.maxQty||Infinity)),Number(f.qtyStep||0)),notional=qty*entry;
-  if(!(qty>=Number(f.minQty||0))||notional<Math.max(5,Number(f.minNotional||5)))return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,riskBudgetUsd,riskLadderStep:signedSteps};
 
   const configuredMax=Math.max(1,Number(cfg.maxLeverage||5)),symbolMax=Number(f.maxLeverage||0)>0?Math.min(configuredMax,Number(f.maxLeverage)):configuredMax,symbolMin=Math.max(1,Number(f.minLeverage||1));
-  const marginUsePct=clamp(Number(cfg.risk.marginUsePct||80),30,85),marginBudgetUsd=equity*marginUsePct/100;
-  const requiredLeverage=Math.max(symbolMin,Math.ceil(notional/Math.max(marginBudgetUsd,1e-9)-1e-12));
-  if(requiredLeverage>symbolMax)return {ok:false,reason:"MARGIN_CAP_EXCEEDED",qty,notional,riskBudgetUsd,equityUsd:equity,marginUsePct,marginBudgetUsd,requiredLeverage,maxLeverage:symbolMax,riskLadderStep:signedSteps};
-  const leverage=Math.max(symbolMin,Math.min(symbolMax,requiredLeverage)),initialMarginUsd=notional/leverage;
-  if(initialMarginUsd>marginBudgetUsd+1e-9)return {ok:false,reason:"MARGIN_BUFFER_INSUFFICIENT",qty,notional,leverage,initialMarginUsd,marginBudgetUsd,equityUsd:equity};
+  const leverage=Math.max(symbolMin,symbolMax);
+  const reservePct=clamp(Number(cfg.risk.minFreeReservePct||30),20,45),feeBufferPct=clamp(Number(cfg.risk.feeBufferPct||5),2,12);
+  const slotCeilingPct=Math.min(Number(cfg.risk.maxMarginPerPositionPct||20),(100-reservePct)/Math.max(1,Number(cfg.maxOpenPositions||3)));
+  const grossMarginBudgetUsd=equity*slotCeilingPct/100,marginBudgetUsd=grossMarginBudgetUsd*(1-feeBufferPct/100);
+  const riskQty=riskBudgetUsd/dist,capitalQty=marginBudgetUsd*leverage/entry;
+  const qty=floorStep(Math.min(riskQty,capitalQty,Number(f.maxQty||Infinity)),Number(f.qtyStep||0)),notional=qty*entry;
+  if(!(qty>=Number(f.minQty||0))||notional<Math.max(5,Number(f.minNotional||5)))return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,riskBudgetUsd,marginBudgetUsd,riskLadderStep:signedSteps};
+  const initialMarginUsd=notional/leverage;
+  if(initialMarginUsd>marginBudgetUsd+1e-9)return {ok:false,reason:"PER_POSITION_MARGIN_CAP",qty,notional,leverage,initialMarginUsd,marginBudgetUsd,equityUsd:equity};
 
   const riskUsd=qty*dist,structureRewardUsd=structureTp>0?qty*Math.abs(structureTp-entry):Infinity,rewardBudgetUsd=ladderReward,rewardUsd=Math.min(rewardBudgetUsd,structureRewardUsd),targetRR=riskUsd>0?rewardUsd/riskUsd:null;
   if(!(riskUsd>0&&rewardUsd>0&&targetRR>=Number(cfg.risk.minRR||1)))return {ok:false,reason:"SIZED_RR_BELOW_MIN",qty,notional,riskUsd,rewardUsd,targetRR,structureRewardUsd,rewardBudgetUsd};
-  return {ok:true,qty,notional,riskUsd,riskBudgetUsd,rewardUsd,rewardBudgetUsd,structureRewardUsd,targetRR,riskLadderStep:signedSteps,ladderRiskUsd:ladderRisk,ladderRewardUsd:ladderReward,equityUsd:equity,leverage,requiredLeverage,maxLeverage:symbolMax,marginUsePct,marginBudgetUsd,initialMarginUsd,riskUtilizationPct:riskBudgetUsd>0?riskUsd/riskBudgetUsd*100:null};
+  return {ok:true,qty,notional,riskUsd,riskBudgetUsd,rewardUsd,rewardBudgetUsd,structureRewardUsd,targetRR,riskLadderStep:signedSteps,ladderRiskUsd:ladderRisk,ladderRewardUsd:ladderReward,equityUsd:equity,leverage,requiredLeverage:leverage,maxLeverage:symbolMax,capitalMode:"CONTINUOUS_SLOT_ALLOCATOR",reservePct,feeBufferPct,slotMarginPct:slotCeilingPct,grossMarginBudgetUsd,marginBudgetUsd,initialMarginUsd,capitalLimited:capitalQty<riskQty,riskUtilizationPct:riskBudgetUsd>0?riskUsd/riskBudgetUsd*100:null,marginUtilizationPct:marginBudgetUsd>0?initialMarginUsd/marginBudgetUsd*100:null};
 }
