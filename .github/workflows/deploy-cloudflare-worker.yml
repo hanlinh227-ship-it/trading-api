@@ -40,13 +40,13 @@ jobs:
       - name: Prepare Wrangler with existing KV and VPC Service
         working-directory: cloudflare-worker
         run: npm run prepare:wrangler
-      - name: Deploy Unified Bybit + MEME Paper production Worker
-        working-directory: cloudflare-worker
-        run: npx wrangler deploy
-      - name: Apply Binance bridge secret to active Worker
+      - name: Apply Binance bridge secret before final deploy
         working-directory: cloudflare-worker
         shell: bash
         run: printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
+      - name: Deploy Unified Bybit + MEME Paper production Worker
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy
       - name: Verify active runtime revision and Bybit mode visibility
         shell: bash
         run: |
