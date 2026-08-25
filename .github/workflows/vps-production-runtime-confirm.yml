@@ -1,0 +1,66 @@
+name: VPS Production Runtime Confirm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vps-production-runtime-confirm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  confirm:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Wait for adaptive production revision
+        shell: bash
+        env:
+          EXPECTED_REVISION: c14839f34ea66e6a419d828acfb2d7c2dad4ed8d
+          REPORT: /tmp/production-runtime-confirm.json
+        run: |
+          set -euo pipefail
+          URL='https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health'
+          LAST=''
+          MATCH=false
+          for i in $(seq 1 20); do
+            LAST="$(curl -fsS --max-time 15 "$URL" || true)"
+            if [ -n "$LAST" ]; then
+              ACTIVE="$(printf '%s' "$LAST" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("runtimeRevision", ""))' 2>/dev/null || true)"
+              if [ "$ACTIVE" = "$EXPECTED_REVISION" ]; then MATCH=true; break; fi
+            fi
+            sleep 12
+          done
+          printf '%s' "$LAST" | python3 -c 'import json,sys,os; d=json.load(sys.stdin); out={"ok":os.environ.get("MATCH","false")=="true","expectedRevision":os.environ["EXPECTED_REVISION"],"runtimeRevision":d.get("runtimeRevision"),"exchange":d.get("exchange"),"mode":d.get("mode"),"execution":d.get("execution"),"privateTransport":d.get("privateTransport")}; print(json.dumps(out,indent=2))' > "$REPORT" || true
+          python3 - <<'PY'
+          import json,os
+          p='/tmp/production-runtime-confirm.json'
+          try:d=json.load(open(p))
+          except Exception:d={}
+          d['ok']=str(os.environ.get('MATCH','false')).lower()=='true'
+          json.dump(d,open(p,'w'),indent=2)
+          PY
+          test "$MATCH" = true
+        env:
+          MATCH: ${{ env.MATCH }}
+      - name: Persist runtime confirmation
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          cp /tmp/production-runtime-confirm.json docs/diagnostics/LATEST_PRODUCTION_RUNTIME_CONFIRM.json || echo '{"ok":false,"reason":"REPORT_MISSING"}' > docs/diagnostics/LATEST_PRODUCTION_RUNTIME_CONFIRM.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_PRODUCTION_RUNTIME_CONFIRM.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record production runtime confirmation'
+          git push origin HEAD:main
