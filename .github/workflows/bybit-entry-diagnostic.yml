@@ -1,3 +1,4 @@
+# BYBIT-AUTO-1.6.1 post-deploy scanner diagnostic
 name: Bybit Entry Diagnostic
 on:
   push:
