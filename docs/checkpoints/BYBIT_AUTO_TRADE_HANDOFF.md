@@ -19,16 +19,29 @@ Fast handoff for any new chat receiving **"chỉnh sửa auto trade Bybit"**, **
 
 ## CURRENT CANONICAL PRODUCTION BASELINE
 - Bybit production execution authority: **Bybit Auto only**.
-- Version: `BYBIT-AUTO-1.4.1`.
+- Version: `BYBIT-AUTO-1.6.0`.
 - Exchange: Bybit LIVE.
 - Private authenticated transport: `VPS_BYBIT_PRIVATE_PROXY`.
 - Signal V11 execution/scheduler: OFF.
 - Daily target: OFF; continuous scanning/trading with safety/risk/capital/adaptive gates.
 - AI: Claude + Codex + DeepSeek are final-entry reviewers only.
-- Telegram surface is now a Unified Trading Hub with top-level BYBIT and MEME buttons. MEME is a separate DESIGN_ONLY branch and has no wallet/signing/execution authority.
+- Telegram surface: Unified Trading Hub with BYBIT and MEME branches. MEME remains DESIGN_ONLY with no wallet/signing/execution authority.
 
 ## LIVE DECISION PIPELINE
-`Scheduler -> liquid universe -> deterministic setup -> Regime Engine -> Per-Coin Edge Memory -> Adaptive Threshold -> correlation/beta portfolio gate -> fresh/re-anchor -> Continuous Capital Allocation -> risk + portfolio-margin preflight -> Claude/Codex/DeepSeek final review -> post-AI fresh quote -> LIVE order -> verified SL/TP -> HOLD/BE/LOCK/TRAIL/SMART_CUT -> Telegram -> bounded learning`
+`Scheduler -> liquid universe -> deterministic setup -> Regime Engine -> Per-Coin Edge Memory -> Adaptive Threshold -> correlation/beta portfolio gate -> fresh/re-anchor -> Scaled Trade Band Allocator -> risk + portfolio-margin preflight -> Claude/Codex/DeepSeek final review -> post-AI fresh quote -> LIVE order -> verified SL/TP -> HOLD/BE/LOCK/TRAIL/SMART_CUT -> Telegram -> bounded learning`
+
+## SCALED TRADE BAND — 1.6.0
+- Base equity: $50.
+- Scale step: every +$10 confirmed equity.
+- At $50: TP minimum $5, TP maximum $10, max SL/risk ceiling $5.
+- At $60: TP $6-$11, max SL $6.
+- At $70: TP $7-$12, max SL $7.
+- Continue +$1 to TP minimum, TP maximum and SL ceiling for every +$10 equity step.
+- Below the base balance, the same ladder scales down symmetrically, subject to absolute floors.
+- The SL ladder is a maximum loss ceiling, not a requirement to force a wider stop. Structural SL remains authoritative and actual risk may be smaller because of structure, capital, quantity-step or margin constraints.
+- A candidate whose structural reward cannot reach the current TP minimum is rejected with `STRUCTURE_REWARD_BELOW_LADDER_MIN`; TP is never stretched beyond valid structure merely to hit the dollar target.
+- Single-trade hard risk cap: 10% equity, matching the $5-at-$50 ceiling.
+- Total managed open-risk cap: 20% equity, so multiple positions cannot all consume full individual SL ceilings simultaneously.
 
 ## ADAPTIVE EDGE
 - Regimes: TREND_UP / TREND_DOWN / RANGE / BREAKOUT_EXPANSION / HIGH_VOL_CHAOS / LOW_VOL_COMPRESSION.
@@ -41,15 +54,12 @@ Fast handoff for any new chat receiving **"chỉnh sửa auto trade Bybit"**, **
 - Auto-promote permanently OFF.
 - Learning cannot weaken deterministic freshness, spread/chase, structural SL/TP, RR, risk, capital or protection gates.
 
-## CAPITAL / RISK
-- Risk is a ceiling, never a target that must be filled.
-- Near $50 equity planned baseline ≈ $1.50 risk / $3 reward; actual size may be smaller.
-- Max risk/trade 4% equity; total managed open risk 10%.
-- Max initial-margin budget/new position 20% before fee buffer.
-- Reserve target 30%; fee/cost buffer 5%; portfolio initial-margin target 65%.
-- Max leverage 5x for margin efficiency only.
+## CAPITAL / MARGIN
+- Max leverage 10x for margin efficiency only; leverage does not override risk caps.
+- Max initial-margin budget/new position 22% before fee buffer.
+- Reserve target 30%; fee/cost buffer 5%; portfolio initial-margin ceiling 65%.
 - Max positions 3; max same direction 2.
-- Legacy oversized positions remain managed; `PORTFOLIO_MARGIN_HEADROOM` may block only new entries.
+- Legacy positions remain managed; `PORTFOLIO_MARGIN_HEADROOM` may block only new entries.
 
 ## ENTRY / FREQUENCY
 - Scan every 60 seconds.
@@ -57,7 +67,7 @@ Fast handoff for any new chat receiving **"chỉnh sửa auto trade Bybit"**, **
 - Spread ceiling 9 bps unless stricter symbol profile.
 - Chase ceiling 0.60 ATR unless stricter profile.
 - One-shot bounded re-anchor + mandatory post-AI fresh quote.
-- No forced trade quota. `NO_ENTRY` is correct when edge is insufficient.
+- No forced trade quota. `NO_ENTRY` is correct when edge or current TP minimum is unsupported.
 
 ## POSITION MANAGEMENT
 Normal path: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`.
@@ -66,9 +76,10 @@ Smart CUT is ON as exceptional multi-signal thesis invalidation and always close
 
 ## TELEGRAM
 Unified root -> BYBIT branch -> dashboard/positions/3AI/risk/learning/runtime. BYBIT dashboard must expose current version + LIVE, Balance, Equity, Available, Initial Margin, Adaptive Edge, score/correlation bounds, capital limits, Smart CUT, positions/orders, PnL, AI and learning sample size.
+Entry alert exposes compact SL price + USD risk and TP price + USD reward.
 
 ## DO NOT REGRESS
-Do not resurrect retired V11 execution, old 80% single-position margin model, fixed dollar-risk forcing, daily profit targets, arbitrary AI execution authority, unbounded self-learning or stale-price entry.
+Do not resurrect retired V11 execution, old 80% single-position margin model, daily profit targets, arbitrary AI execution authority, unbounded self-learning or stale-price entry. Do not convert the scaled SL ceiling into a forced wider technical stop.
 
 ## NEXT-CHAT SHORT COMMAND
 If the user says only **"chỉnh sửa auto trade Bybit"**, fresh-read this checkpoint and current GitHub `main`, recover the latest production state, inspect actual source before editing, preserve live state/open positions, version every update, and verify deployment before reporting completion.
