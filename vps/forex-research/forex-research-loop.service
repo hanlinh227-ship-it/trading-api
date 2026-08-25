@@ -1,5 +1,5 @@
 [Unit]
-Description=Forex PAPER_ONLY Continuous 3AI Research Loop
+Description=Forex PAPER_ONLY Continuous 3AI Strategy Research Loop
 After=network-online.target v11-manual-ai-bridge.service
 Wants=network-online.target
 Requires=v11-manual-ai-bridge.service
@@ -9,7 +9,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/trading/trading-api-main
 EnvironmentFile=/etc/trading/forex-research.env
-ExecStart=/usr/bin/python3 /usr/local/bin/forex-research-loop
+ExecStart=/usr/bin/python3 /opt/trading/trading-api-main/scripts/forex_research_loop_v3.py
 Restart=on-failure
 RestartSec=20
 NoNewPrivileges=true
