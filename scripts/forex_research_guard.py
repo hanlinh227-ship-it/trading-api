@@ -84,6 +84,7 @@ def guarded_run(profile, mode, seed, start, end, windows, days):
 lab.run = guarded_run
 
 import forex_research_loop_v5 as controller
+lab.BACKTEST = lab.REPO / 'scripts/forex_twelvedata_walkforward_v7_runtime.py'
 
 
 def compact_round_report(state):
