@@ -4,7 +4,7 @@ import {bybitCredentials} from "./bybit-auto-config.js";
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const RECV_WINDOW="5000";
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
-const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)]).toString());
+const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 function bases(env={}){
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
