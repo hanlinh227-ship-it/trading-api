@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os,json,math,random,time,urllib.parse,urllib.request,http.client
+import os,json,math,random,time,urllib.parse,urllib.request
 from datetime import datetime,timedelta,timezone
 from collections import defaultdict
 
@@ -8,8 +8,8 @@ if not KEY: raise SystemExit('TWELVEDATA_API_KEY missing')
 OUT='data/forex-twelvedata-walkforward-latest.json'
 SYMS=['EUR/USD','GBP/USD','USD/JPY','USD/CHF','AUD/USD','NZD/USD','USD/CAD','EUR/JPY','GBP/JPY','EUR/GBP','XAU/USD']
 SEED=int(os.environ.get('BACKTEST_SEED') or random.SystemRandom().randrange(1,2**31-1)); RNG=random.Random(SEED)
-WINDOWS=int(os.environ.get('BACKTEST_WINDOWS','2')); DAYS=int(os.environ.get('BACKTEST_WINDOW_DAYS','16'))
-MIN_TEST_DAYS=int(os.environ.get('BACKTEST_MIN_TEST_DAYS','8')); TARGET=float(os.environ.get('BACKTEST_TARGET_WR','80'))
+WINDOWS=int(os.environ.get('BACKTEST_WINDOWS','6')); DAYS=int(os.environ.get('BACKTEST_WINDOW_DAYS','24'))
+MIN_TEST_DAYS=int(os.environ.get('BACKTEST_MIN_TEST_DAYS','18')); TARGET=float(os.environ.get('BACKTEST_TARGET_WR','80'))
 START=datetime(2025,1,6,tzinfo=timezone.utc); END=datetime(2026,7,31,tzinfo=timezone.utc)
 HOURS=(6,7,8,9,10,12,13,14,15,16); STOPS=(0.8,1.0,1.2,1.5,1.8,2.2); RRS=(1,2)
 
@@ -44,7 +44,7 @@ def fetch(sym,a,b):
  err=None
  for attempt in range(5):
   try:
-   req=urllib.request.Request(url,headers={'User-Agent':'TradingProjectWalkForward/2.0','Accept':'application/json'})
+   req=urllib.request.Request(url,headers={'User-Agent':'TradingProjectWalkForward/3.0','Accept':'application/json'})
    with urllib.request.urlopen(req,timeout=60) as r: raw=r.read()
    j=json.loads(raw.decode('utf-8'))
    if j.get('status')=='error' or 'values' not in j: raise RuntimeError(f'{sym}: {j}')
@@ -122,32 +122,39 @@ def predict(x,train,k=21):
   w=1/(0.08+d);num+=w*y;den+=w
  return num/den
 
-def choose_trade(rows,train):
+def choose_trade(rows,train,forced_rr):
  candidates=[]
  for h in HOURS:
   i=idx_for_hour(rows,h)
   if i is None:continue
   for side in (-1,1):
    for stop in STOPS:
-    for rr in RRS:
-     x=features(rows,i,side,stop,rr);pr=predict(x,train)
-     # Require positive model edge preference, but always choose one due quota.
-     edge=pr*(rr+1)-1
-     trend_align=x[1]
-     quality=edge+.055*trend_align-.02*abs(x[5])+.012*(rr==2)
-     candidates.append((quality,pr,i,side,stop,rr,x))
+    rr=forced_rr
+    x=features(rows,i,side,stop,rr);pr=predict(x,train)
+    edge=pr*(rr+1)-1
+    trend_align=x[1]
+    quality=edge+.055*trend_align-.02*abs(x[5])
+    candidates.append((quality,pr,i,side,stop,rr,x))
  if not candidates:return None
  quality,pr,i,side,stop,rr,x=max(candidates,key=lambda q:q[0]);y,r,mfe,mae,why=outcome(rows,i,side,stop,rr);e=rows[i]
  return {'day':e['t'].date().isoformat(),'entry_time':e['t'].isoformat(),'side':'BUY' if side>0 else 'SELL','rr':rr,'stopAtr':stop,'predictedWinProb':round(pr,4),'modelEdge':round(pr*(rr+1)-1,4),'result':'WIN' if y else 'LOSS','r':r,'mfeR':round(mfe,3),'maeR':round(mae,3),'exitReason':why}
 
 def metrics(ts):
- n=len(ts);w=sum(x['result']=='WIN' for x in ts);return {'trades':n,'wins':w,'losses':n-w,'winrate':round(100*w/n,2) if n else 0,'avgR':round(sum(x['r'] for x in ts)/n,3) if n else 0,'rr1Trades':sum(x['rr']==1 for x in ts),'rr2Trades':sum(x['rr']==2 for x in ts)}
+ n=len(ts);w=sum(x['result']=='WIN' for x in ts)
+ return {'trades':n,'wins':w,'losses':n-w,'winrate':round(100*w/n,2) if n else 0,'avgR':round(sum(x['r'] for x in ts)/n,3) if n else 0}
 
-def random_window():
- span=(END-START).days-DAYS;a=START+timedelta(days=RNG.randint(0,max(1,span)));return a,a+timedelta(days=DAYS)
+def random_windows():
+ span=(END-START).days-DAYS
+ chosen=[];attempts=0
+ while len(chosen)<WINDOWS and attempts<20000:
+  attempts+=1;a=START+timedelta(days=RNG.randint(0,max(1,span)));b=a+timedelta(days=DAYS)
+  if any(not (b<=x or a>=y) for x,y in chosen):continue
+  chosen.append((a,b))
+ if len(chosen)<WINDOWS:raise RuntimeError(f'could not sample {WINDOWS} non-overlapping windows')
+ return sorted(chosen,key=lambda z:z[0])
 
-windows=sorted([random_window() for _ in range(WINDOWS)],key=lambda z:z[0])
-report={'version':'FOREX-TWELVEDATA-WALKFORWARD-2','seed':SEED,'generatedAt':datetime.now(timezone.utc).isoformat(),'rules':{'source':'Twelve Data 5min','noLookahead':True,'learner':'per-symbol expanding KNN pattern learner','sameBarSLTP':'SL_FIRST_PESSIMISTIC','timeouts':'LOSS','rrAllowed':[1,2],'minOneTradePerTestDay':True,'targetWinratePctStrictlyGreaterThan':TARGET,'holdout':'each random window uses only its own 60% prefix for initial training; test days are sequential and become learnable only after that day closes'},'windows':[{'start':a.isoformat(),'end':b.isoformat()} for a,b in windows],'symbols':{},'pass':False}
+windows=random_windows()
+report={'version':'FOREX-TWELVEDATA-WALKFORWARD-3-STRICT-RR','seed':SEED,'generatedAt':datetime.now(timezone.utc).isoformat(),'rules':{'source':'Twelve Data 5min','noLookahead':True,'learner':'per-symbol expanding KNN pattern learner','sameBarSLTP':'SL_FIRST_PESSIMISTIC','timeouts':'LOSS','rrEvaluatedIndependently':[1,2],'oneHypotheticalTradePerRRPerTestDay':True,'randomWindowsNonOverlappingWithinRound':True,'targetWinratePctStrictlyGreaterThanPerSymbolPerRR':TARGET,'minimumTestTradesPerSymbolPerRR':MIN_TEST_DAYS,'holdout':'each random window uses only its own 60% prefix for initial training; test days are sequential and become learnable only after that day closes','antiCherryPick':'all windows, symbols, RR profiles and failures are persisted; PASS requires every symbol to pass both RR profiles'},'windows':[{'start':a.isoformat(),'end':b.isoformat()} for a,b in windows],'symbols':{},'pass':False}
 allpass=True
 for sym in SYMS:
  trades=[];source=[];data_error=None
@@ -157,18 +164,21 @@ for sym in SYMS:
    for d in tr:train.extend(samples_for_day(g[d]))
    wintr=[]
    for d in te:
-    t=choose_trade(g[d],train)
-    if t:trades.append(t);wintr.append(t)
-    # Online learning becomes available only after the entire day has completed.
+    day_trades=[]
+    for forced_rr in RRS:
+     t=choose_trade(g[d],train,forced_rr)
+     if t:trades.append(t);wintr.append(t);day_trades.append(t)
     train.extend(samples_for_day(g[d]))
-   source.append({'window':wi,'bars':len(rows),'trainDays':len(tr),'testDays':len(te),'testMetrics':metrics(wintr)})
+   source.append({'window':wi,'bars':len(rows),'trainDays':len(tr),'testDays':len(te),'testMetrics':{'all':metrics(wintr),'RR1':metrics([x for x in wintr if x['rr']==1]),'RR2':metrics([x for x in wintr if x['rr']==2])}})
    time.sleep(8.2)
  except Exception as e:data_error=str(e)
- m=metrics(trades);test_days=sum(x['testDays'] for x in source);coverage=100*len(trades)/test_days if test_days else 0
- passed=(data_error is None and len(trades)>=MIN_TEST_DAYS and coverage>=99.9 and m['winrate']>TARGET and all(x['rr'] in (1,2) for x in trades))
- report['symbols'][sym.replace('/','')]={'pass':passed,'holdout':m,'coveragePct':round(coverage,2),'source':source,'dataError':data_error,'trades':trades}
- allpass &= passed;print(sym,m,'coverage',round(coverage,1),'PASS' if passed else 'FAIL',data_error or '',flush=True)
- # persist partial evidence so a later API fault cannot erase completed symbols
+ by_rr={str(rr):metrics([x for x in trades if x['rr']==rr]) for rr in RRS}
+ test_days=sum(x['testDays'] for x in source)
+ coverage={str(rr):round(100*by_rr[str(rr)]['trades']/test_days,2) if test_days else 0 for rr in RRS}
+ rr_pass={str(rr):(data_error is None and by_rr[str(rr)]['trades']>=MIN_TEST_DAYS and coverage[str(rr)]>=99.9 and by_rr[str(rr)]['winrate']>TARGET) for rr in RRS}
+ passed=all(rr_pass.values())
+ report['symbols'][sym.replace('/','')]={'pass':passed,'rrPass':rr_pass,'holdout':{'all':metrics(trades),'byRR':by_rr},'coveragePctByRR':coverage,'source':source,'dataError':data_error,'trades':trades}
+ allpass &= passed;print(sym,by_rr,'coverage',coverage,'PASS' if passed else 'FAIL',data_error or '',flush=True)
  report['pass']=False;os.makedirs(os.path.dirname(OUT),exist_ok=True)
  with open(OUT,'w') as fh:json.dump(report,fh,indent=2)
 report['pass']=allpass
