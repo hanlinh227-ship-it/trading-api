@@ -23,7 +23,7 @@ if(hub.includes('auto:target'))errors.push('AUTO HUB daily target UI must stay r
 if(!hub.includes('Continuous trading')||!hub.includes('Daily target OFF'))errors.push('BYBIT branch must expose continuous trading with daily target OFF');
 if(!hub.includes('NO WALLET')||!hub.includes('NO SIGNING')||!hub.includes('NO EXECUTION'))errors.push('MEME branch must visibly remain design-only with no wallet/signing/execution');
 if(!controller.includes('profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY"'))errors.push('BYBIT controller must keep daily target disabled and canonical risk gates only');
-for(const needle of ['BYBIT-AUTO-1.4.2','CONTINUOUS_CAPITAL_ALLOCATOR','leverage:8','maxLeverage:8','baseRiskUsd:1.5','maxRiskPctOfEquity:4','maxTotalOpenRiskPct:10','maxMarginPerPositionPct:22','minFreeReservePct:30','feeBufferPct:5','maxPortfolioMarginPct:65'])if(!config.includes(needle))errors.push(`CAPITAL config invariant missing ${needle}`);
+for(const needle of ['BYBIT-AUTO-1.5.0','CONTINUOUS_CAPITAL_ALLOCATOR','leverage:10','maxLeverage:10','baseRiskUsd:2','baseRewardUsd:10','riskStepUsd:.25','rewardStepUsd:1','preferredRR:5','maxRR:5','maxRiskPctOfEquity:4','maxTotalOpenRiskPct:10','maxMarginPerPositionPct:22','minFreeReservePct:30','feeBufferPct:5','maxPortfolioMarginPct:65'])if(!config.includes(needle))errors.push(`CAPITAL/profit-ladder invariant missing ${needle}`);
 for(const needle of ['adaptive:{','minScore:68','maxScore:85','correlationSoft:0.80','correlationHard:0.90','autoPromote:false'])if(!config.includes(needle))errors.push(`ADAPTIVE config invariant missing ${needle}`);
 for(const needle of ['CONTINUOUS_SLOT_ALLOCATOR','capitalQty','slotMarginPct','capitalLimited','marginUtilizationPct','adaptiveThreshold','assessPortfolioCorrelation','loadAdaptiveLearning','rankingScore'])if(!engine.includes(needle))errors.push(`ADAPTIVE sizing/scanner invariant missing ${needle}`);
 if(engine.includes('cfg.risk.marginUsePct||80'))errors.push('Legacy 80% single-position margin budget is forbidden');
@@ -46,4 +46,4 @@ if(multi.includes('V11_AI_BRIDGE_URL'))errors.push('Legacy public AI bridge URL 
 for(const needle of ["/internal/multi-ai/health","/internal/multi-ai/review","token.actions.githubusercontent.com","refs/heads/main","workflow_dispatch","env.AI_BRIDGE.fetch"]){if(!multi.includes(needle))errors.push(`MULTI_AI invariant missing ${needle}`);}
 if(multi.includes('api_key')||multi.includes('API_KEY'))errors.push('MULTI_AI control plane must not embed provider API keys');
 if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const x of errors)console.error(`- ${x}`);process.exit(1);}
-console.log('Worker AUTO preflight PASS: Unified Hub + Bybit Auto 1.4.2 LIVE + MEME-AUTO 0.2.1 balance-aware design-only allocator + safety/execution locks.');
+console.log('Worker AUTO preflight PASS: Unified Hub + Bybit Auto 1.5.0 LIVE profit ladder ($10@$50, +$1/$10 equity) + MEME-AUTO 0.2.1 design-only.');
