@@ -5,6 +5,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 const now=()=>Date.now();
 const envBool=(v,d=false)=>v===undefined||v===null||v===""?d:String(v).toLowerCase()==="true";
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 function favorableR(side,entry,mark,initialRisk){
   if(!(initialRisk>0))return 0;
@@ -73,6 +74,20 @@ function smartCutAssessment({env,cfg,r,ageSec,momentum,plan}){
   const previous=Number(plan?.smartCutCandidateCount||0),confirmations=candidate?previous+1:0,required=Math.max(2,Math.min(3,Number(env.BYBIT_SMART_CUT_CONFIRMATIONS||cfg?.risk?.smartCutConfirmations||2)));
   return {enabled,eligible:emergency||(candidate&&confirmations>=required),candidate,emergency,score,scoreNeed,signals,thresholdR,minAge,confirmations,required};
 }
+function pendingCut(plan,cfg,env){
+  const ts=Date.parse(String(plan?.cutRequestedAt||""));if(!Number.isFinite(ts)||ts<=0)return null;
+  const waitSec=Math.max(60,Math.min(300,Number(env.BYBIT_SMART_CUT_REISSUE_SEC||cfg?.risk?.smartCutReissueSec||120))),ageSec=(now()-ts)/1000;
+  if(ageSec<waitSec)return {pending:true,ageSec,waitSec,orderId:plan?.cutOrderId||null,reason:plan?.cutReason||"SMART_CUT_PENDING_FILL"};
+  return null;
+}
+async function verifyCloseFill(api,symbol,orderId){
+  if(!orderId)return {ok:false,status:"NO_ORDER_ID"};
+  for(let i=0;i<5;i++){
+    try{const p=await api.orderStatus(symbol,orderId),x=p?.result?.list?.[0],status=String(x?.orderStatus||"");if(["Filled","PartiallyFilled"].includes(status)&&Number(x?.cumExecQty||0)>0)return {ok:true,status,executedQty:Number(x.cumExecQty||0),avgPrice:Number(x.avgPrice||0)};if(["Cancelled","Rejected","Deactivated"].includes(status))return {ok:false,status};}catch{}
+    await sleep(200);
+  }
+  return {ok:false,status:"PENDING_OR_UNKNOWN"};
+}
 
 export async function manageBybitScalpPosition(env,api,plan,position,cfg){
   const side=String(position?.side||plan?.side||""),entry=num(position?.avgPrice||position?.entryPrice||plan?.entry),mark=num(position?.markPrice),tick=num(plan?.filters?.tickSize||plan?.tickSize),initialSl=num(plan?.initialSl||plan?.sl),currentSl=num(position?.stopLoss||plan?.managedSl||plan?.sl),currentTrailing=num(position?.trailingStop),tp=num(position?.takeProfit||plan?.tp),qty=Math.abs(num(position?.size||plan?.qty));
@@ -81,6 +96,8 @@ export async function manageBybitScalpPosition(env,api,plan,position,cfg){
 
   const r=favorableR(side,entry,mark,initialRisk),peakR=Math.max(num(plan?.peakR),r),createdAtMs=num(plan?.createdAtMs)||now(),ageSec=Math.max(0,(now()-createdAtMs)/1000);
   plan.peakR=peakR;
+  const pending=pendingCut(plan,cfg,env);
+  if(pending){plan.lastReview={at:new Date().toISOString(),verdict:"CUT_PENDING",reason:"SMART_CUT_ORDER_PENDING",r,peakR,ageSec,pending};return {managed:false,verdict:"CUT_PENDING",reason:"SMART_CUT_ORDER_PENDING",r,peakR,ageSec,markPrice:mark,pending};}
   let momentum={available:false,aligned:null,adverseTrend:false,adverseBars:0,momentumR:0,structureBroken:false};
   try{momentum=momentumReview(side,parseKlines(await api.kline(plan.symbol,"1",14)),initialRisk);}catch{}
 
@@ -92,9 +109,11 @@ export async function manageBybitScalpPosition(env,api,plan,position,cfg){
     const order=await api.order({symbol:plan.symbol,side:closeSide,orderType:"Market",qty:String(qty),reduceOnly:true,positionIdx,timeInForce:"IOC"});
     const orderId=String(order?.result?.orderId||"");
     const cutReason=cut.emergency?"SMART_CUT_EMERGENCY_INVALIDATION":"SMART_CUT_CONFIRMED_INVALIDATION";
-    plan.cutRequestedAt=new Date().toISOString();plan.cutReason=cutReason;plan.smartCutCandidateCount=0;
-    plan.lastReview={at:plan.cutRequestedAt,verdict:"CUT",reason:cutReason,r,peakR,ageSec,momentum,smartCut:cut,discretionaryCutEnabled:true};
-    return {managed:true,verdict:"CUT",cutExecuted:true,reason:cutReason,r,peakR,ageSec,markPrice:mark,orderId,momentum,smartCut:cut};
+    plan.cutRequestedAt=new Date().toISOString();plan.cutReason=cutReason;plan.cutOrderId=orderId||null;plan.smartCutCandidateCount=0;
+    const fill=await verifyCloseFill(api,plan.symbol,orderId);
+    plan.cutFillVerification={at:new Date().toISOString(),...fill};
+    plan.lastReview={at:plan.cutRequestedAt,verdict:fill.ok?"CUT":"CUT_PENDING",reason:fill.ok?cutReason:"SMART_CUT_ORDER_PENDING",r,peakR,ageSec,momentum,smartCut:cut,closeFill:fill,discretionaryCutEnabled:true};
+    return {managed:true,verdict:fill.ok?"CUT":"CUT_PENDING",cutExecuted:fill.ok,cutRequested:true,reason:fill.ok?cutReason:"SMART_CUT_ORDER_PENDING",r,peakR,ageSec,markPrice:mark,orderId,momentum,smartCut:cut,closeFill:fill};
   }
 
   const plannedBe=num(plan?.exitPlan?.breakEvenTriggerR),plannedTrailAt=num(plan?.exitPlan?.positiveTrailTriggerR),plannedLockR=num(plan?.exitPlan?.positiveTrailLockR),plannedTrailAtr=num(plan?.exitPlan?.trailAtr),atr1=num(plan?.atr1);
