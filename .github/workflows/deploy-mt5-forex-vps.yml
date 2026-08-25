@@ -1,0 +1,159 @@
+name: Deploy MT5 Forex VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mt5/ForexAutoThe5ers.mq5'
+      - 'vps/mt5-forex/**'
+      - '.github/workflows/deploy-mt5-forex-vps.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-forex-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 35
+    env:
+      MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_FOREX_LOGIN }}
+      MT5_ACCOUNT_PASSWORD: ${{ secrets.MT5_FOREX_PASSWORD }}
+      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_FOREX_SERVER }}
+      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_FOREX_BRIDGE_TOKEN }}
+      MT5_HUB_URL: ${{ secrets.MT5_FOREX_HUB_URL }}
+      MT5_ALLOW_LIVE: ${{ secrets.MT5_FOREX_ALLOW_LIVE }}
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Sync canonical repository on VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          sudo mkdir -p /opt/trading
+          if sudo git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            if [ -n "$(sudo git -C "$repo" status --porcelain --untracked-files=all)" ]; then
+              stamp="$(date +%Y%m%d%H%M%S)"
+              sudo git -C "$repo" stash push --include-untracked -m "pre-mt5-forex-sync-${stamp}"
+            fi
+          else
+            if [ -e "$repo" ]; then sudo mv "$repo" "${repo}.pre-mt5.$(date +%Y%m%d%H%M%S)"; fi
+            sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git "$repo"
+          fi
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" reset --hard origin/main
+          sudo git -C "$repo" checkout -B main origin/main
+
+      - name: Inspect trading VPS platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          echo "MT5_VPS_OS=${ID}-${VERSION_ID}"
+          echo "MT5_VPS_ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)"
+          uname -a
+
+      - name: Install or repair MetaTrader 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo chmod +x /opt/trading/trading-api-main/vps/mt5-forex/install-mt5-forex.sh
+          sudo FOREX_RESEARCH_REPO=/opt/trading/trading-api-main \
+            /opt/trading/trading-api-main/vps/mt5-forex/install-mt5-forex.sh
+
+      - name: Install protected MT5 runtime configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 700 /etc/trading
+          tmp="$(mktemp)"
+          HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
+          LIVE="${MT5_ALLOW_LIVE:-false}"
+          # LIVE is fail-closed unless every credential and bridge secret is present.
+          if [[ "${LIVE,,}" =~ ^(true|1|yes)$ ]]; then
+            test -n "${MT5_ACCOUNT_LOGIN:-}"
+            test -n "${MT5_ACCOUNT_PASSWORD:-}"
+            test -n "${MT5_ACCOUNT_SERVER:-}"
+            test -n "${MT5_BRIDGE_TOKEN:-}"
+          else
+            LIVE=false
+          fi
+          {
+            printf 'MT5_ACCOUNT_LOGIN=%q\n' "${MT5_ACCOUNT_LOGIN:-}"
+            printf 'MT5_ACCOUNT_PASSWORD=%q\n' "${MT5_ACCOUNT_PASSWORD:-}"
+            printf 'MT5_ACCOUNT_SERVER=%q\n' "${MT5_ACCOUNT_SERVER:-}"
+            printf 'MT5_HUB_URL=%q\n' "$HUB"
+            printf 'MT5_BRIDGE_TOKEN=%q\n' "${MT5_BRIDGE_TOKEN:-}"
+            printf 'MT5_ALLOW_LIVE=%q\n' "$LIVE"
+          } > "$tmp"
+          sudo install -o root -g mt5forex -m 0640 "$tmp" /etc/trading/mt5-forex.env
+          rm -f "$tmp"
+          echo "MT5_FOREX_PRIVATE_ENV=PASS"
+          echo "MT5_FOREX_LOGIN=$([[ -n "${MT5_ACCOUNT_LOGIN:-}" ]] && echo CONFIGURED || echo MISSING)"
+          echo "MT5_FOREX_SERVER=$([[ -n "${MT5_ACCOUNT_SERVER:-}" ]] && echo CONFIGURED || echo MISSING)"
+          echo "MT5_FOREX_BRIDGE=$([[ -n "${MT5_BRIDGE_TOKEN:-}" ]] && echo CONFIGURED || echo MISSING)"
+          echo "MT5_FOREX_LIVE_REQUESTED=$LIVE"
+
+      - name: Install and start MT5 systemd service
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo chmod +x /opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
+          sudo install -m 0644 /opt/trading/trading-api-main/vps/mt5-forex/mt5-forex.service /etc/systemd/system/mt5-forex.service
+          sudo systemctl daemon-reload
+          sudo systemctl enable mt5-forex.service
+          sudo systemctl restart mt5-forex.service
+          for i in $(seq 1 30); do
+            sudo systemctl is-active --quiet mt5-forex.service && break
+            sleep 2
+          done
+          sudo systemctl is-active --quiet mt5-forex.service
+
+      - name: Verify MT5 terminal and EA runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /var/lib/trading/mt5-forex/runtime.env
+          test -f "$MT5_TERMINAL"
+          test -f "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
+          echo "MT5_TERMINAL_FILE=PASS"
+          if test -f "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"; then
+            echo "MT5_EA_COMPILED=PASS"
+          else
+            echo "MT5_EA_COMPILED=FAIL"
+            test -f "$MT5_INSTALL_DIR/metaeditor-compile.log" && tail -120 "$MT5_INSTALL_DIR/metaeditor-compile.log" || true
+            exit 31
+          fi
+          MAINPID="$(sudo systemctl show -p MainPID --value mt5-forex.service)"
+          test "${MAINPID:-0}" -gt 1
+          sleep 8
+          sudo systemctl is-active --quiet mt5-forex.service
+          pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' || {
+            sudo journalctl -u mt5-forex.service -n 120 --no-pager
+            exit 32
+          }
+          echo "MT5_TERMINAL_PROCESS=PASS"
+          echo "MT5_SYSTEMD_SERVICE=PASS"
+
+      - name: Runtime readiness summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          . /etc/trading/mt5-forex.env
+          echo 'MT5_FOREX_VPS_INSTALL=PASS'
+          echo 'MT5_FOREX_SERVICE=active'
+          echo 'MT5_FOREX_EA=ForexAutoThe5ers'
+          echo "MT5_FOREX_BROKER_LOGIN=$([[ -n "${MT5_ACCOUNT_LOGIN:-}" ]] && echo CONFIGURED || echo NEEDS_SECRET)"
+          echo "MT5_FOREX_BROKER_SERVER=$([[ -n "${MT5_ACCOUNT_SERVER:-}" ]] && echo CONFIGURED || echo NEEDS_SECRET)"
+          echo "MT5_FOREX_BRIDGE_TOKEN=$([[ -n "${MT5_BRIDGE_TOKEN:-}" ]] && echo CONFIGURED || echo NEEDS_SECRET)"
+          echo "MT5_FOREX_LIVE=$([[ "${MT5_ALLOW_LIVE:-false}" =~ ^(true|1|yes)$ ]] && echo REQUESTED || echo OFF_SAFE)"
+          echo 'MT5_FOREX_NOTE=WebRequest destination must be whitelisted once inside MT5 Expert Advisors settings before the cloud bridge can exchange signals.'
