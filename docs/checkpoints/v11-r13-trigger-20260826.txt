@@ -1,0 +1,6 @@
+V11 R13 owner-authorized research trigger after fresh-main verification.
+Catalog contract: 94 symbols; IPUSDT already removed and research load_catalog/preflight/status/FINAL assertions are 94.
+Research refinement: bounded DEV/VALIDATION-only MKT hold sweep 4/6/8/10/12h; candidate cache schema bumped so R12 candidates cannot be silently reused.
+Integrity remains exact-data only; RR exactly 1 or 2; WR>=80%; positive expectancy; 1-3 real executions per eligible day; no pooling, fabrication, lookahead, symbol deletion, silent eligible-day deletion, or FINAL tuning.
+All Claude + Codex + DeepSeek + Qwen + OpenRouter reviews remain mandatory; post-review remains batched.
+Untouched FINAL remains sealed until deterministic 94/94 VALIDATION and complete five-AI review make it eligible.
