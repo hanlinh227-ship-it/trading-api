@@ -8,6 +8,7 @@ HOST=os.environ.get('V11_AI_BRIDGE_HOST','127.0.0.1')
 PORT=int(os.environ.get('V11_AI_BRIDGE_PORT','8789'))
 TIMEOUT=int(os.environ.get('V11_AI_TIMEOUT','120'))
 SCALP_PROVIDER_TIMEOUT=max(5,min(15,int(os.environ.get('V11_SCALP_PROVIDER_TIMEOUT','12'))))
+CLAUDE_SCALP_TIMEOUT=max(SCALP_PROVIDER_TIMEOUT,min(20,int(os.environ.get('V11_CLAUDE_SCALP_TIMEOUT','20'))))
 SCALP_BRIDGE_BUDGET=max(6,min(15,int(os.environ.get('V11_SCALP_BRIDGE_BUDGET','12'))))
 SCALP_FAST_FIRST_GRACE=max(0.2,min(3.0,float(os.environ.get('V11_SCALP_FAST_FIRST_GRACE','1.5'))))
 CLAUDE_MODEL=os.environ.get('V11_CLAUDE_MODEL','sonnet')
@@ -86,7 +87,8 @@ def api_run(base,key,model,prompt,timeout=None):
 
 def review(p,e):
     prompt=role_for(e)+'\nPROVIDER_ROLE='+p+'\nEVIDENCE='+json.dumps(e,ensure_ascii=False,separators=(',',':'))
-    t=SCALP_PROVIDER_TIMEOUT if scalp(e) else TIMEOUT
+    if scalp(e):t=CLAUDE_SCALP_TIMEOUT if p=='claude' else SCALP_PROVIDER_TIMEOUT
+    else:t=TIMEOUT
     if p=='claude':r=local_run(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt,'/tmp',t)
     elif p=='codex':
         exe='/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex';r=local_run([exe,'exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt,'/tmp',t)
@@ -114,6 +116,9 @@ def run_selected(selected,e):
         with ThreadPoolExecutor(max_workers=max(1,len(selected))) as pool:
             for f in as_completed([pool.submit(run_provider,p,e) for p in selected]):p,r=f.result();out[p]=r
         return out,False,None
+    if len(selected)==1:
+        started=time.monotonic();p=selected[0];_,r=run_provider(p,e)
+        return {p:r},False,round((time.monotonic()-started)*1000)
     started=time.monotonic();out={};pool=ThreadPoolExecutor(max_workers=max(1,len(selected)));futures={pool.submit(run_provider,p,e):p for p in selected};pending=set(futures);first_ok_at=None;returned_early=False
     try:
         while pending:
@@ -169,7 +174,7 @@ class H(BaseHTTPRequestHandler):
         meta={'claude':(CLAUDE_MODEL,'architecture_reasoning'),'codex':(CODEX_MODEL,'technical_review'),'deepseek':(DEEPSEEK_MODEL,'implementation_repair'),'qwen':(QWEN_MODEL,'independent_repair_test'),'openrouter':(OPENROUTER_MODEL,'adversarial_fallback')};providers={}
         for p in PROVIDERS:
             model,role=meta[p];last=LAST[p];providers[p]={'configured':configured(p),'model':model,'role':role,'state':last['state'] if configured(p) else 'OFFLINE','last_seen':last['last_seen']}
-        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'FAST_FIRST_PARALLEL','providerCount':sum(configured(p) for p in PROVIDERS),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitBases':list(BYBIT_BASES),'scalpProviderTimeoutSec':SCALP_PROVIDER_TIMEOUT,'scalpBridgeBudgetSec':SCALP_BRIDGE_BUDGET,'scalpFastFirstGraceSec':SCALP_FAST_FIRST_GRACE,'timestamp':int(time.time()*1000),'providers':providers})
+        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'FAST_FIRST_PARALLEL','providerCount':sum(configured(p) for p in PROVIDERS),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitBases':list(BYBIT_BASES),'scalpProviderTimeoutSec':SCALP_PROVIDER_TIMEOUT,'claudeScalpTimeoutSec':CLAUDE_SCALP_TIMEOUT,'scalpBridgeBudgetSec':SCALP_BRIDGE_BUDGET,'scalpFastFirstGraceSec':SCALP_FAST_FIRST_GRACE,'timestamp':int(time.time()*1000),'providers':providers})
     def do_POST(self):
         if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
         try:
@@ -179,7 +184,7 @@ class H(BaseHTTPRequestHandler):
             e=body.get('evidence') or {}
             if not isinstance(e,dict):return self.sendj(400,{'ok':False,'error':'EVIDENCE_OBJECT_REQUIRED'})
             selected=requested_providers(e);out,returned_early,decision_ms=run_selected(selected,e);ordered={p:out.get(p,{'status':'UNAVAILABLE'}) for p in selected};usable=sum(1 for x in ordered.values() if x.get('status')=='OK');ok=usable>=1 if scalp(e) else usable==len(selected)
-            self.sendj(200 if ok else 502,{'ok':ok,'requestedProviders':list(selected),'usableProviderCount':usable,'providers':ordered,'fastFirst':bool(scalp(e)),'returnedEarly':returned_early,'decisionLatencyMs':decision_ms,'timestamp':int(time.time()*1000),'mode':mode(e)})
+            self.sendj(200 if ok else 502,{'ok':ok,'requestedProviders':list(selected),'usableProviderCount':usable,'providers':ordered,'fastFirst':bool(scalp(e) and len(selected)>1),'returnedEarly':returned_early,'decisionLatencyMs':decision_ms,'timestamp':int(time.time()*1000),'mode':mode(e)})
         except Exception as x:self.sendj(400,{'ok':False,'error':str(x)[:300]})
     def log_message(self,*args):pass
 
