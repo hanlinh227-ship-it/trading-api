@@ -62,21 +62,27 @@ jobs:
           STATUS="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/status")"
           DESIGN="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/design")"
           BEFORE="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
+          QUOTE="$(curl -fsS --max-time 60 "$WORKER_BASE_URL/meme-auto/quote-health")"
           RUN="$(curl -fsS --max-time 150 "$WORKER_BASE_URL/meme-auto/paper/run")"
           AFTER="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
-          STATUS="$STATUS" DESIGN="$DESIGN" BEFORE="$BEFORE" RUN="$RUN" AFTER="$AFTER" node <<'NODE'
-          const S=JSON.parse(process.env.STATUS),D=JSON.parse(process.env.DESIGN),R=JSON.parse(process.env.RUN),A=JSON.parse(process.env.AFTER),x=R.state?.lastScan||{};const must=(v,m)=>{if(!v)throw Error(m)};
+          STATUS="$STATUS" DESIGN="$DESIGN" BEFORE="$BEFORE" QUOTE="$QUOTE" RUN="$RUN" AFTER="$AFTER" node <<'NODE'
+          const S=JSON.parse(process.env.STATUS),D=JSON.parse(process.env.DESIGN),Q=JSON.parse(process.env.QUOTE),R=JSON.parse(process.env.RUN),A=JSON.parse(process.env.AFTER),x=R.state?.lastScan||{};const must=(v,m)=>{if(!v)throw Error(m)};
+          console.log('MEME_QUOTE_DIAGNOSTICS='+JSON.stringify({ok:Q.ok,solToUsdc:Q.solToUsdc,usdcToSol:Q.usdcToSol}));
           console.log('MEME_SCAN_DIAGNOSTICS='+JSON.stringify({discovered:x.discovered,evaluated:x.evaluated,eligible:x.eligible,onchain:x.onchainProbes,routes:x.jupiterRouteProbes,sources:x.discoverySources,sourceErrors:x.sourceErrors,evaluationErrors:x.evaluationErrors}));
           must(S.hub==='BYBIT_AUTO_TRADE_ONLY','BYBIT_AUTHORITY'); must(S.signalV11Enabled===false,'V11');
           must(S.meme?.version==='MEME-AUTO-0.3.3-PAPER'&&S.meme?.mode==='PAPER_ONLY','MEME_STATUS');
           must(S.meme.executionEnabled===false&&S.meme.walletConnected===false&&S.meme.signingEnabled===false,'MEME_AUTH');
+          must(S.meme.quoteHealth==='/meme-auto/quote-health','QUOTE_HEALTH_ROUTE_MISSING');
           must(D.version==='MEME-AUTO-0.3.3-PAPER'&&D.paperReady===true,'DESIGN');
+          must(Q.ok===true&&Q.readOnly===true&&Q.noSigning===true&&Q.noExecution===true,'JUPITER_QUOTE_HEALTH');
+          must(Q.solToUsdc?.ok===true&&Q.usdcToSol?.ok===true,'JUPITER_TWO_WAY_QUOTE');
+          must(Number(Q.solToUsdc.routePlanCount)>0&&Number(Q.usdcToSol.routePlanCount)>0,'JUPITER_ROUTE_PLAN_EMPTY');
           must(R.ok&&R.version==='MEME-AUTO-0.3.3-PAPER'&&R.mode==='PAPER'&&R.noWallet&&R.noSigning&&R.noRealExecution,'PAPER_FLAGS');
           must(x.data==='JUPITER_TOKENS_FREE+DEXSCREENER_FREE+GECKOTERMINAL_FREE+SOLANA_RPC_FREE'&&x.quote==='JUPITER_FREE_QUOTE','DATA_ROUTES');
           must(Number(x.discovered)>0&&Array.isArray(x.discoverySources)&&x.discoverySources.length>0,'REAL_DISCOVERY');
           must(Number(x.evaluated)>0,'REAL_EVALUATION'); must(Number(x.onchainProbes)>0,'ONCHAIN_NOT_PROBED');
           must(A.lastScan?.at===x.at&&A.equityUsd===R.state.equityUsd&&A.cashUsd===R.state.cashUsd,'KV_PERSIST'); must(A.version==='MEME-AUTO-0.3.3-PAPER','STATE_VERSION');
-          console.log(`MEME_PAPER_E2E=PASS discovered=${x.discovered} evaluated=${x.evaluated} eligible=${x.eligible} onchain=${x.onchainProbes} routes=${x.jupiterRouteProbes} positions=${Object.keys(A.positions||{}).length} equity=${A.equityUsd}`);
+          console.log(`MEME_PAPER_E2E=PASS quotes=2/2 discovered=${x.discovered} evaluated=${x.evaluated} eligible=${x.eligible} onchain=${x.onchainProbes} candidateRoutes=${x.jupiterRouteProbes} positions=${Object.keys(A.positions||{}).length} equity=${A.equityUsd}`);
           NODE
       - name: Deployment summary
         run: |
@@ -85,6 +91,7 @@ jobs:
           echo 'HUB=BYBIT_AUTO_TRADE_ONLY'
           echo 'BYBIT_AUTO=PRIMARY_EXECUTION_AUTHORITY'
           echo 'MEME_AUTO=PAPER_ONLY'
+          echo 'MEME_JUPITER_TWO_WAY_QUOTE=PASS'
           echo 'MEME_PAPER_E2E=PASS'
           echo 'MEME_WALLET=OFF'
           echo 'MEME_SIGNING=OFF'
