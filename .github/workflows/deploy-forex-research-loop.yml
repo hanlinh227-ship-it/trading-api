@@ -1,13 +1,11 @@
 name: Deploy Forex Continuous Research Loop
 
-# Wake marker: 2026-08-25T20:00+07:00 — re-run deploy to restore protected env and service.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'scripts/forex_research_loop.py'
-      - 'scripts/forex_research_loop_v3.py'
       - 'scripts/forex_research_loop_v4.py'
       - 'scripts/forex_twelvedata_walkforward_v4.py'
       - 'scripts/forex_twelvedata_walkforward_v5.py'
@@ -35,15 +33,13 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Validate research sources and VPS prerequisites
+      - name: Validate VPS and 3AI bridge
         shell: bash
         run: |
           set -euo pipefail
           python3 -m py_compile scripts/forex_research_loop.py scripts/forex_research_loop_v4.py scripts/forex_twelvedata_walkforward_v4.py scripts/forex_twelvedata_walkforward_v5.py scripts/forex_twelvedata_walkforward_v6.py
           test -n "${TWELVEDATA_API_KEY:-}"
           test -f /etc/trading-v11-ai.env
-          command -v python3 >/dev/null
-          command -v systemctl >/dev/null
           systemctl is-active --quiet v11-manual-ai-bridge.service
           PID="$(pgrep -f '/usr/local/bin/v11-manual-ai-bridge' | head -1)"
           test -n "$PID"
@@ -64,81 +60,80 @@ jobs:
               sudo git -C "$repo" stash push --include-untracked -m "pre-forex-research-sync-${stamp}"
             fi
           else
-            [ ! -e "$repo" ] || sudo mv "$repo" "${repo}.pre-forex-research.$(date +%Y%m%d%H%M%S)"
+            if [ -e "$repo" ]; then sudo mv "$repo" "${repo}.pre-forex-research.$(date +%Y%m%d%H%M%S)"; fi
             sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git "$repo"
           fi
-          sudo git -C "$repo" remote set-url origin https://github.com/hanlinh227-ship-it/trading-api.git
           sudo git -C "$repo" fetch --prune origin main
           sudo git -C "$repo" reset --hard origin/main
           sudo git -C "$repo" checkout -B main origin/main
 
-      - name: Install protected PAPER_ONLY Forex environment
+      - name: Restore protected Forex environment
         shell: bash
         run: |
           set -euo pipefail
           sudo install -d -m 700 /etc/trading /var/lib/trading/forex-research
-          umask 077
           tmp="$(mktemp)"
-          cat > "$tmp" <<EOF
-TWELVEDATA_API_KEY=${TWELVEDATA_API_KEY}
-FOREX_RESEARCH_REPO=/opt/trading/trading-api-main
-FOREX_RESEARCH_STATE_DIR=/var/lib/trading/forex-research
-FOREX_AI_BRIDGE_URL=http://127.0.0.1:8789/review
-BACKTEST_RANDOM_BLOCKS=10
-BACKTEST_BLOCK_DAYS=24
-BACKTEST_TEST_DAYS_PER_BLOCK=10
-BACKTEST_TRAIN_DAYS_PER_BLOCK=6
-BACKTEST_REQUIRED_RANDOM_DAYS=100
-BACKTEST_MIN_TEST_DAYS=18
-BACKTEST_TARGET_WR=80
-FOREX_RESEARCH_ROUND_PAUSE_SECONDS=3
-FOREX_RESEARCH_AI_RETRIES=5
-FOREX_MAX_DEV_RESEARCH_ATTEMPTS=8
-FOREX_DEV_START=2025-01-06
-FOREX_DEV_END=2025-12-31
-FOREX_ACCEPT_START=2025-01-06
-FOREX_ACCEPT_END=2026-07-31
-FOREX_BACKTEST_TIMEOUT_SECONDS=10800
-EOF
+          printf '%s\n' \
+            "TWELVEDATA_API_KEY=${TWELVEDATA_API_KEY}" \
+            'FOREX_RESEARCH_REPO=/opt/trading/trading-api-main' \
+            'FOREX_RESEARCH_STATE_DIR=/var/lib/trading/forex-research' \
+            'FOREX_AI_BRIDGE_URL=http://127.0.0.1:8789/review' \
+            'BACKTEST_RANDOM_BLOCKS=10' \
+            'BACKTEST_BLOCK_DAYS=24' \
+            'BACKTEST_TEST_DAYS_PER_BLOCK=10' \
+            'BACKTEST_TRAIN_DAYS_PER_BLOCK=6' \
+            'BACKTEST_REQUIRED_RANDOM_DAYS=100' \
+            'BACKTEST_MIN_TEST_DAYS=18' \
+            'BACKTEST_TARGET_WR=80' \
+            'FOREX_RESEARCH_ROUND_PAUSE_SECONDS=3' \
+            'FOREX_RESEARCH_AI_RETRIES=5' \
+            'FOREX_MAX_DEV_RESEARCH_ATTEMPTS=8' \
+            'FOREX_DEV_START=2025-01-06' \
+            'FOREX_DEV_END=2025-12-31' \
+            'FOREX_ACCEPT_START=2025-01-06' \
+            'FOREX_ACCEPT_END=2026-07-31' \
+            'FOREX_BACKTEST_TIMEOUT_SECONDS=10800' > "$tmp"
           sudo install -m 600 "$tmp" /etc/trading/forex-research.env
           rm -f "$tmp"
+          sudo test -s /etc/trading/forex-research.env
 
-      - name: Install and start continuous research service
+      - name: Install and self-heal Forex service
         shell: bash
         run: |
           set -euo pipefail
           sudo install -m 0644 /opt/trading/trading-api-main/vps/forex-research/forex-research-loop.service /etc/systemd/system/forex-research-loop.service
+          sudo systemctl stop forex-research-loop.service 2>/dev/null || true
+          sudo rm -f /var/lib/trading/forex-research/running.lock
           sudo systemctl daemon-reload
+          sudo systemctl reset-failed forex-research-loop.service || true
           sudo systemctl enable forex-research-loop.service
-          sudo systemctl restart forex-research-loop.service
-          sleep 4
+          sudo systemctl start forex-research-loop.service
+          for i in $(seq 1 20); do
+            if sudo systemctl is-active --quiet forex-research-loop.service; then break; fi
+            sleep 1
+          done
           sudo systemctl is-active --quiet forex-research-loop.service
 
-      - name: Verify loop state and safety
+      - name: Verify 100 day research loop is alive
         shell: bash
         run: |
           set -euo pipefail
-          test -f /var/lib/trading/forex-research/state.json
-          python3 - <<'PY'
-import json
-p='/var/lib/trading/forex-research/state.json'; d=json.load(open(p))
-assert d.get('mode')=='PAPER_ONLY', d
-assert d.get('version')=='FOREX-RESEARCH-LOOP-4-100-DAYS', d
-assert int(d.get('requiredRandomDays') or 0)==100, d
-assert d.get('status') in {'INIT','ACCEPTANCE_RUNNING','3AI_RESEARCH','DEV_VALIDATION','DEV_REJECTED_RESEARCH_AGAIN','NEXT_FRESH_100_DAY_OOS','TARGET_ACHIEVED_ALL_SYMBOLS','BLOCKED'}, d
-print('FOREX_100_DAY_LOOP=ACTIVE','status='+str(d.get('status')),'round='+str(d.get('round')))
-PY
-          sudo systemctl --no-pager --full status forex-research-loop.service | head -30
+          for i in $(seq 1 30); do
+            if [ -s /var/lib/trading/forex-research/state.json ]; then
+              if python3 -c 'import json; d=json.load(open("/var/lib/trading/forex-research/state.json")); assert d.get("mode")=="PAPER_ONLY"; assert d.get("version")=="FOREX-RESEARCH-LOOP-4-100-DAYS"; assert int(d.get("requiredRandomDays") or 0)==100; assert d.get("status") in {"INIT","ACCEPTANCE_RUNNING","3AI_RESEARCH","DEV_VALIDATION","DEV_REJECTED_RESEARCH_AGAIN","NEXT_FRESH_100_DAY_OOS","TARGET_ACHIEVED_ALL_SYMBOLS"}; print("FOREX_100_DAY_LOOP=ACTIVE", "status="+str(d.get("status")), "round="+str(d.get("round")))'; then exit 0; fi
+            fi
+            sleep 1
+          done
+          sudo systemctl --no-pager --full status forex-research-loop.service || true
+          sudo journalctl -u forex-research-loop.service -n 80 --no-pager || true
+          exit 1
 
       - name: Deployment summary
         shell: bash
         run: |
           echo 'FOREX_RESEARCH_RUNNER=self-hosted,trading-vps'
-          echo 'FOREX_RESEARCH_SERVICE=forex-research-loop.service'
-          echo 'FOREX_RESEARCH_ENGINE=FOREX-TWELVEDATA-WALKFORWARD-6-100-RANDOM-DAYS'
-          echo 'FOREX_RESEARCH_CONTROLLER=FOREX-RESEARCH-LOOP-4-100-DAYS'
-          echo 'FOREX_RANDOM_OOS_DAYS_PER_SYMBOL=100'
-          echo 'FOREX_MIN_ENTRY_PER_SYMBOL_PER_DAY=1'
-          echo 'FOREX_RESEARCH_MODE=PAPER_ONLY'
+          echo 'FOREX_RESEARCH_SERVICE=active'
+          echo 'FOREX_RESEARCH_ENGINE=V6_100_RANDOM_DAYS'
+          echo 'FOREX_RESEARCH_CONTROLLER=LOOP_V4_100_DAYS'
           echo 'FOREX_RESEARCH_AI=claude,codex,deepseek'
-          echo 'FOREX_TARGET=>80pct_each_symbol_each_RR1_RR2'
+          echo 'FOREX_RESEARCH_MODE=PAPER_ONLY'
