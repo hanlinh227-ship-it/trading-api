@@ -8,6 +8,7 @@ on:
       - 'scripts/forex_research_loop.py'
       - 'scripts/forex_research_loop_v4.py'
       - 'scripts/forex_research_loop_v5.py'
+      - 'scripts/forex_research_guard.py'
       - 'scripts/forex_twelvedata_walkforward_v4.py'
       - 'scripts/forex_twelvedata_walkforward_v5.py'
       - 'scripts/forex_twelvedata_walkforward_v6.py'
@@ -39,7 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/forex_research_loop.py scripts/forex_research_loop_v4.py scripts/forex_research_loop_v5.py scripts/forex_twelvedata_walkforward_v4.py scripts/forex_twelvedata_walkforward_v5.py scripts/forex_twelvedata_walkforward_v6.py scripts/forex_twelvedata_walkforward_v7.py
+          python3 -m py_compile scripts/forex_research_loop.py scripts/forex_research_loop_v4.py scripts/forex_research_loop_v5.py scripts/forex_research_guard.py scripts/forex_twelvedata_walkforward_v4.py scripts/forex_twelvedata_walkforward_v5.py scripts/forex_twelvedata_walkforward_v6.py scripts/forex_twelvedata_walkforward_v7.py
           test -n "${TWELVEDATA_API_KEY:-}"
           test -f /etc/trading-v11-ai.env
           systemctl is-active --quiet v11-manual-ai-bridge.service
@@ -117,7 +118,7 @@ jobs:
           sudo systemctl is-active --quiet forex-research-loop.service
           MAINPID="$(sudo systemctl show -p MainPID --value forex-research-loop.service)"
           test "${MAINPID:-0}" -gt 1
-          tr '\0' ' ' < "/proc/${MAINPID}/cmdline" | grep -q 'forex_research_loop_v5.py'
+          tr '\0' ' ' < "/proc/${MAINPID}/cmdline" | grep -q 'forex_research_guard.py'
 
       - name: Verify genuinely active 100 day open-strategy loop
         shell: bash
@@ -126,13 +127,42 @@ jobs:
           for i in $(seq 1 60); do
             sudo systemctl is-active --quiet forex-research-loop.service || break
             if [ -s /var/lib/trading/forex-research/state.json ]; then
-              if python3 -c 'import json; d=json.load(open("/var/lib/trading/forex-research/state.json")); active={"ACCEPTANCE_RUNNING","3AI_OPEN_STRATEGY_RESEARCH","DEV_MULTI_CANDIDATE_VALIDATION","DEV_REJECTED_RESEARCH_AGAIN","NEXT_FRESH_100_DAY_OOS","TARGET_ACHIEVED_ALL_SYMBOLS"}; assert d.get("mode")=="PAPER_ONLY"; assert d.get("version")=="FOREX-RESEARCH-LOOP-5-OPEN-DSL"; assert d.get("engine")=="V7_DSL_100_RANDOM_DAYS"; assert int(d.get("requiredRandomDays") or 0)==100; assert d.get("status") in active; print("FOREX_100_DAY_LOOP=ACTIVE", "status="+str(d.get("status")), "round="+str(d.get("round")), "engine="+str(d.get("engine")))'; then exit 0; fi
+              if python3 -c 'import json; d=json.load(open("/var/lib/trading/forex-research/state.json")); active={"ACCEPTANCE_RUNNING","3AI_OPEN_STRATEGY_RESEARCH","DEV_MULTI_CANDIDATE_VALIDATION","DEV_REJECTED_RESEARCH_AGAIN","NEXT_FRESH_100_DAY_OOS","TARGET_ACHIEVED_ALL_SYMBOLS"}; assert d.get("mode")=="PAPER_ONLY"; assert d.get("version")=="FOREX-RESEARCH-LOOP-5-OPEN-DSL"; assert d.get("engine")=="V7_DSL_100_RANDOM_DAYS"; assert int(d.get("requiredRandomDays") or 0)==100; assert d.get("status") in active; assert not d.get("lastError"); print("FOREX_100_DAY_LOOP=ACTIVE", "status="+str(d.get("status")), "round="+str(d.get("round")), "engine="+str(d.get("engine")))'; then exit 0; fi
             fi
             sleep 1
           done
           sudo systemctl --no-pager --full status forex-research-loop.service || true
-          sudo journalctl -u forex-research-loop.service -n 120 --no-pager || true
+          sudo journalctl -u forex-research-loop.service -n 160 --no-pager || true
           exit 1
+
+      - name: Runtime integrity diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('/var/lib/trading/forex-research/state.json')
+          d=json.loads(p.read_text())
+          assert d.get('status')!='BLOCKED', d.get('lastError')
+          assert not d.get('lastError'), d.get('lastError')
+          h=d.get('history') or []
+          print('FOREX_RUNTIME_STATUS='+str(d.get('status')))
+          print('FOREX_RUNTIME_ROUND='+str(d.get('round')))
+          print('FOREX_RUNTIME_UPDATED_AT='+str(d.get('updatedAt')))
+          print('FOREX_RUNTIME_ACTIVE_SEED='+str(d.get('activeSeed')))
+          print('FOREX_RUNTIME_HISTORY_COUNT='+str(len(h)))
+          if h:
+              x=h[-1]
+              print('FOREX_LAST_COMPLETED_ROUND='+str(x.get('round')))
+              print('FOREX_LAST_COMPLETED_PASS='+str(x.get('pass')))
+              print('FOREX_LAST_COMPLETED_SCORE='+json.dumps(x.get('score') or {},sort_keys=True,separators=(',',':')))
+              print('FOREX_LAST_COMPLETED_EVIDENCE='+str(x.get('evidence')))
+          print('FOREX_PENDING_FAILED_EVIDENCE='+str(d.get('pendingFailedEvidence')))
+          print('FOREX_RESEARCH_CYCLE='+str(d.get('researchCycle')))
+          PY
+          sudo systemctl is-active forex-research-loop.service
+          sudo journalctl -u forex-research-loop.service -n 80 --no-pager | tail -80
 
       - name: Deployment summary
         shell: bash
@@ -140,6 +170,6 @@ jobs:
           echo 'FOREX_RESEARCH_RUNNER=self-hosted,trading-vps'
           echo 'FOREX_RESEARCH_SERVICE=active'
           echo 'FOREX_RESEARCH_ENGINE=V7_DSL_100_RANDOM_DAYS'
-          echo 'FOREX_RESEARCH_CONTROLLER=LOOP_V5_OPEN_DSL'
+          echo 'FOREX_RESEARCH_CONTROLLER=LOOP_V5_OPEN_DSL+INTEGRITY_GUARD'
           echo 'FOREX_RESEARCH_AI=claude,codex,deepseek'
           echo 'FOREX_RESEARCH_MODE=PAPER_ONLY'
