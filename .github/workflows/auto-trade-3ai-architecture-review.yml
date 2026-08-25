@@ -1,0 +1,79 @@
+name: Auto Trade 3AI Architecture Review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/auto-trade-3ai-architecture-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Build evidence and call Claude Codex DeepSeek
+        shell: bash
+        run: |
+          set -euo pipefail
+          PID="$(pgrep -f '/usr/local/bin/v11-manual-ai-bridge' | head -1)"
+          SECRET="$(tr '\0' '\n' < /proc/$PID/environ | sed -n 's/^V11_AI_BRIDGE_SECRET=//p')"
+          python3 - <<'PY' > /tmp/auto-review-payload.json
+          import json, pathlib
+          files=[
+            'cloudflare-worker/bybit-auto-config.js',
+            'cloudflare-worker/bybit-auto-controller.js',
+            'cloudflare-worker/bybit-auto-v1.js',
+            'cloudflare-worker/bybit-scalp-engine.js',
+            'cloudflare-worker/bybit-ai-scalp-gate.js',
+            'cloudflare-worker/bybit-position-manager.js',
+            'cloudflare-worker/bybit-risk-guard.js',
+            'cloudflare-worker/bybit-learning-engine.js',
+            'cloudflare-worker/bybit-v5-client.js',
+            'cloudflare-worker/index.js'
+          ]
+          src={p:pathlib.Path(p).read_text()[:18000] for p in files}
+          instruction='''Review the current Bybit AUTO trading architecture as a protected production engineering task. Do not search for trades and do not propose increasing risk merely to increase trade count. Evaluate entry discovery and one-shot reanchor, sizing/risk ladder, total open risk, leverage selection and verification, fill/protection fail-closed behavior, SL/TP geometry, break-even, profit lock, native/adaptive trailing, HOLD/TIGHTEN/CUT, scheduler/restart/day rollover behavior, AI final-entry review/token efficiency, learning telemetry, Telegram observability, and VPS/private transport. Identify concrete defects and bounded improvements. Prefer deterministic safety, idempotency, measurable telemetry, and no secret exposure. Return the required engineering JSON with PASS/REJECT/BLOCKED, findings, proposal, evidence.'''
+          evidence={
+            'mode':'MULTI_AI_ENGINEERING_TASK',
+            'task_id':'auto-trade-full-architecture-review-20260825',
+            'instruction':instruction,
+            'context':{
+              'scope':'BYBIT_AUTO_PRODUCTION_REVIEW_ONLY',
+              'constraints':['keep risk bounded','no forced trades','3 core AI only for entry review','preserve LIVE safety gates','no order execution in this review'],
+              'source':src,
+              'recentRuntime':{
+                'mode':'LIVE','ready':True,'privateTransport':'VPS_BYBIT_PRIVATE_PROXY','adaptiveEntryGate':'ONE_SHOT_REANCHOR','aiCore':['claude','codex','deepseek']
+              }
+            },
+            'requestedProviders':['claude','codex','deepseek']
+          }
+          print(json.dumps({'evidence':evidence},ensure_ascii=False))
+          PY
+          curl -fsS --max-time 150 -X POST http://127.0.0.1:8789/review \
+            -H "Authorization: Bearer $SECRET" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/auto-review-payload.json > /tmp/auto-review-result.json
+          python3 -m json.tool /tmp/auto-review-result.json
+      - name: Persist review report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          if [ -s /tmp/auto-review-result.json ]; then cp /tmp/auto-review-result.json docs/diagnostics/LATEST_AUTO_TRADE_3AI_REVIEW.json; else echo '{"ok":false,"reason":"REVIEW_RESULT_MISSING"}' > docs/diagnostics/LATEST_AUTO_TRADE_3AI_REVIEW.json; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_AUTO_TRADE_3AI_REVIEW.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record latest auto trade 3AI architecture review'
+          git push origin HEAD:main
