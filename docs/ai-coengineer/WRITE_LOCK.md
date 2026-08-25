@@ -1,19 +1,17 @@
 # AI WRITE LOCK
 
 LOCKED: true
-OWNER: DEEPSEEK
 SCOPE: Bybit Auto production quality/runtime + protected trading authority
 UPDATED: 2026-08-25
 
-GitHub `main` is authoritative. Current production execution authority is **Bybit Auto Trade Hub**, version `BYBIT-AUTO-1.2.0`. Signal V11 material is historical/research-only unless current `main` explicitly restores a non-execution research path.
+GitHub `main` is authoritative. Current production execution authority is **Bybit Auto Trade Hub**, version `BYBIT-AUTO-1.3.0`. Signal V11 material is historical/research-only unless current `main` explicitly restores a non-execution research path.
 
 ## Production/orchestration authority
 
-- DeepSeek remains the default source-writer lane for protected production strategy/runtime changes.
-- Codex/Claude remain independent review lanes where appropriate.
 - Deterministic validation is mandatory for production changes.
 - Research/backtest results do not directly unlock production.
 - No secret/token/private-key material may be committed.
+- Every production behavior change must increment `BYBIT_AUTO_VERSION`.
 
 ## Hard production trading invariants
 
@@ -24,52 +22,54 @@ Preserve:
 - fresh public quote checks and bounded one-shot re-anchor;
 - structural/volatility-aware SL and TP;
 - deterministic score/liquidity/spread/chase gates;
-- margin-aware sizing and max 5x leverage;
-- total open-risk and position-count caps;
+- Continuous Capital Allocation sizing;
+- risk is a ceiling, never a target that forces larger position size;
+- max leverage 5x; leverage may be used for margin efficiency but never to increase allowed loss;
+- max initial-margin budget per new position = 20% of equity before fee buffer;
+- minimum capital reserve target = 30% of equity;
+- portfolio margin target ceiling = 65% of equity;
+- single-trade risk ceiling = 4% equity;
+- total managed open-risk ceiling = 10% equity;
+- max 3 positions and max 2 same-direction positions;
 - 3-AI `FINAL_ENTRY_REVIEW_ONLY` policy for Claude/Codex/DeepSeek;
 - post-AI quote validation;
 - verified exchange-side SL/TP/native trailing protection;
 - automatic BE/profit-lock/trailing management;
-- management continuity during entry cooldown/loss pause;
-- discretionary CUT OFF by default;
+- Smart CUT enabled only through the canonical config and requiring multi-signal thesis invalidation;
+- management continuity during entry spacing/loss pause;
+- daily profit target OFF; continuous trading is controlled by safety/risk/capital gates instead;
 - Telegram AUTO notifications and learning telemetry.
 
-Never weaken freshness, SL geometry, RR, risk, margin, protection or max leverage merely to increase trade count. If higher frequency is desired, prefer better candidate coverage, bounded score/profile tuning, shorter safe cooldown and/or reduced safe size rather than bypassing protection.
+Never weaken freshness, SL geometry, RR, risk, capital reserve, protection or max leverage merely to increase trade count.
 
-## CUT invariant
+## Smart CUT invariant
 
-An already-open position must not be market-closed merely because:
-- a later scan no longer likes the setup;
-- the trade is slow;
-- short-term M1 momentum is noisy;
-- unrealized profit gives back.
+Smart CUT must never market-close merely because a trade is slow, a later scan dislikes it, M1 is noisy, or profit gives back. It requires the canonical multi-signal invalidation score/confirmation logic. Emergency CUT is reserved for severe confirmed thesis invalidation and must always use `reduceOnly`.
 
-Normal exits are SL, BE stop, profit-lock stop, trailing stop and TP.
+Normal path remains:
+`HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`, with Smart CUT as a protected exceptional exit.
 
-Discretionary CUT is only available when `BYBIT_DISCRETIONARY_CUT_ENABLED=true` is explicitly configured and current source requires severe confirmed thesis invalidation. It must never become implicitly enabled by a deploy or missing environment value.
+## Current production profile
 
-## Current frequency profile
-
-Production intent is `BALANCED_FREQUENT`:
 - scan every 60s;
-- entry cooldown/spacing 180s;
-- config floor score 70;
-- config spread ceiling 9 bps, subject to stricter symbol-profile limits;
-- config chase ceiling 0.60 ATR, subject to stricter symbol-profile limits;
-- maximum 3 open positions;
-- maximum 2 same-direction positions;
-- maximum leverage 5x;
-- margin-use budget 80% equity.
+- global new-entry spacing = 300s;
+- floor score 70;
+- configured spread ceiling 9 bps, subject to stricter symbol-profile limits;
+- configured chase ceiling 0.60 ATR, subject to stricter symbol-profile limits;
+- max positions 3;
+- max same-direction 2;
+- leverage cap 5x;
+- capital allocator = slot-based, reserve-aware;
+- base planned risk around $50 equity = $1.50, but actual risk may be lower when capital-limited;
+- base planned reward around $50 equity = $3.00;
+- daily target OFF;
+- 3 consecutive losses trigger a 30-minute new-entry pause while position management stays active.
 
 ## Historical/research hygiene
 
 Historical V11/V77/V78/V10/Hyro/Futures files may remain read-only for evidence/history, but they must not execute, write production state, dispatch competing jobs or be described as current execution authority.
 
-Any workflow/source that can compete with the Bybit Auto production Worker must be removed or disabled unless current `main` explicitly re-authorizes it.
-
 ## Deployment contract
 
 Production deploy path is `.github/workflows/deploy-cloudflare-worker.yml`.
 A deployment is not considered complete until source validation passes and `/bybit/health` reports the deployment revision with valid LIVE visibility.
-
-Current `main` always outranks stale checkpoints, branch experiments and old diagnostics.
