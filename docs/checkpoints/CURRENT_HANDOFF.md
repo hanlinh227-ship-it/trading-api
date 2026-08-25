@@ -15,98 +15,80 @@ GitHub `main` outranks stale historical checkpoints.
 
 The production Worker is **Bybit Auto Trade Hub only**.
 
-Canonical production state:
-- version: `BYBIT-AUTO-1.2.1`;
-- execution: Bybit LIVE;
-- Signal V11 runtime/scheduler on this Worker: disabled;
-- Cloudflare native scheduler: enabled for Bybit Auto;
-- private authenticated exchange transport: VPS Bybit proxy;
-- AI core: Claude + Codex + DeepSeek, final-entry review only;
-- Telegram: automatic AUTO entry/status notifications;
-- state: existing `TRADING_STATE` KV preserved.
+Canonical source version: `BYBIT-AUTO-1.3.0`.
+Execution: Bybit LIVE.
+Signal V11 scheduler/execution: disabled.
+State: existing `TRADING_STATE` KV preserved.
+Daily profit target: OFF.
+Trading mode: continuous, controlled by risk/capital/safety gates.
+AI core: Claude + Codex + DeepSeek final-entry review only.
 
-Do not resurrect or treat historical Signal V11, V77/V78/V10, Hyro/TK2 or retired debug workflows as current execution authority.
+## 1.3.0 CAPITAL POLICY
 
-## VERSIONING RULE — REQUIRED ON EVERY PRODUCTION UPDATE
+The old model that could allow one position to consume ~80% equity margin is retired.
 
-Current version source of truth:
-`cloudflare-worker/bybit-auto-config.js` -> `BYBIT_AUTO_VERSION`.
+New sizing order:
+`equity -> risk ceiling -> slot margin ceiling -> fee buffer -> leverage for margin efficiency -> final qty -> RR/risk validation`.
 
-Every production change must bump the version in the same change set:
-- PATCH for fixes/cleanup/hygiene;
-- MINOR for backward-compatible behavior/risk/strategy/execution-policy changes;
-- MAJOR for incompatible architecture or execution-authority changes.
+Canonical defaults:
+- base planned risk near $50 equity: $1.50;
+- base planned reward near $50 equity: $3.00;
+- max risk per trade: 4% equity;
+- max total managed open risk: 10% equity;
+- max initial-margin budget per new position: 20% equity before fee buffer;
+- minimum reserve target: 30% equity;
+- fee/cost buffer: 5% of slot margin budget;
+- portfolio margin target ceiling: 65% equity;
+- leverage cap: 5x;
+- max positions: 3;
+- max same direction: 2.
 
-Use only the `BYBIT-AUTO-MAJOR.MINOR.PATCH` naming family for current Bybit Auto production. `/status`, checkpoints and runtime reports must match it.
+Important: risk is a ceiling, not a compulsory target. If the slot/margin cap is tighter than the risk-derived quantity, the bot accepts the smaller quantity and lower actual dollar risk instead of consuming more capital.
 
-Each update must leave an auditable record containing version, date/time, commit SHA, change summary and deployment-verification state. Never call a version LIVE only because it exists on `main`; `/bybit/health` must verify the deployed commit revision.
+## ENTRY POLICY
 
-Latest source version: `BYBIT-AUTO-1.2.1`.
-Reason: mandatory explicit versioning + conflict-cleanup bookkeeping.
-
-## CURRENT FREQUENCY / ENTRY POLICY
-
-Profile: `BALANCED_FREQUENT`.
-
-Current intent:
-- scan every minute;
-- entry spacing 180 seconds;
-- global floor score 70;
-- configured spread ceiling 9 bps, subject to stricter symbol-profile gates;
-- configured chase ceiling 0.60 ATR, subject to stricter symbol-profile gates;
-- one-shot adaptive fresh/re-anchor before AI;
-- no infinite refresh/re-anchor loop;
-- 3 AI only review a final candidate;
-- post-AI quote gate remains mandatory.
-
-## RISK / LEVERAGE / MARGIN
-
-- risk ladder remains balance-based;
-- starting ladder around $50 balance = $5 planned risk / $10 planned reward;
-- max total open risk = 30% equity;
-- max open positions = 3;
-- max same-direction positions = 2;
-- adaptive leverage is capped at 5x;
-- margin-use budget = 80% equity;
-- leverage and margin failures are fail-closed;
-- do not increase leverage or weaken protection merely to create more trades.
+- scan every 60s;
+- global entry spacing = 300s;
+- score floor 70;
+- spread ceiling 9 bps unless symbol profile is stricter;
+- chase ceiling 0.60 ATR unless symbol profile is stricter;
+- bounded one-shot fresh/re-anchor before AI;
+- post-AI fresh quote validation remains mandatory;
+- no daily target and no fixed daily trade quota.
 
 ## POSITION MANAGEMENT
 
-Normal exit path:
-`SL -> BE -> PROFIT_LOCK -> TRAILING -> TP/STOP`.
+Normal path:
+`HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`.
 
-Discretionary CUT is **OFF by default**. The bot must not market-close because a trade is merely slow or because profit gives back. Manager stays active even while new entries are blocked by cooldown or loss-streak pause.
+Smart CUT is ON as an exceptional multi-signal thesis-invalidation exit. It must not fire merely because a trade is slow, a later scan changes opinion, M1 is noisy, or unrealized profit gives back. Emergency CUT is reserved for severe confirmed invalidation and must use `reduceOnly`.
 
-## PRODUCTION FILES
+## LOSS CONTROL
 
-Primary files:
-- `cloudflare-worker/index.js`
-- `cloudflare-worker/bybit-auto-config.js`
-- `cloudflare-worker/bybit-auto-controller.js`
-- `cloudflare-worker/bybit-auto-v1.js`
-- `cloudflare-worker/bybit-scalp-engine.js`
-- `cloudflare-worker/bybit-position-manager.js`
-- `cloudflare-worker/bybit-v5-client.js`
-- `cloudflare-worker/bybit-learning-engine.js`
-- `cloudflare-worker/bybit-auto-hub.js`
+3 consecutive realized losses -> 30-minute new-entry pause.
+Open-position management remains active during the pause.
+
+## TELEGRAM
+
+Dashboard must expose:
+- `BYBIT-AUTO-1.3.0 • LIVE` when deployed;
+- Balance;
+- Equity;
+- Available;
+- Initial Margin / IM rate;
+- continuous trading / daily target OFF;
+- capital allocator reserve + slot limits;
+- Smart CUT state;
+- positions/orders, realized PnL, AI and loss streak.
 
 ## DEPLOYMENT CONTRACT
 
 Canonical workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
-
 A production claim is valid only when:
-1. current `main` contains the intended source;
+1. current `main` contains intended source;
 2. `npm run check` passes;
 3. Cloudflare deploy succeeds;
-4. `/bybit/health` reports the expected runtime revision;
-5. mode/ack/scheduler/ready state is visible and valid.
+4. `/bybit/health` reports the expected deployment revision;
+5. mode/auth/ack/scheduler/ready remain valid.
 
-## HYGIENE RULE
-
-Remove or retire anything that can execute, write, dispatch, duplicate authority, contradict current thresholds or mislead future startup. Historical evidence may remain read-only, but it must be clearly non-authoritative.
-
-## OWNER EXPERIENCE
-
-Do not ask the owner to manually run GitHub/VPS/Cloudflare steps when available tools can perform or verify them. Desired flow:
-`PROMPT -> INTERNAL WORK -> VALIDATION -> LIVE CONFIRMATION -> FINAL RESULT`.
+Do not call source-only changes LIVE.
