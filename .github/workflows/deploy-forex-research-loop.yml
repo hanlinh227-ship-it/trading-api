@@ -1,5 +1,6 @@
 name: Deploy Forex Continuous Research Loop
 
+# Wake marker: 2026-08-25T20:00+07:00 — re-run deploy to restore protected env and service.
 on:
   workflow_dispatch:
   push:
