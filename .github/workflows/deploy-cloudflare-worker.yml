@@ -2,12 +2,14 @@ name: Deploy Bybit Auto Hub
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json'
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: bybit-auto-hub-cloudflare-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest
