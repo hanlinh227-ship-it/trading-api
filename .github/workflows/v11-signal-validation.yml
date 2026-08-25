@@ -30,7 +30,7 @@ jobs:
       - name: Full Auto Hub preflight
         working-directory: cloudflare-worker
         run: npm run check
-      - name: Bybit Auto Hub invariants
+      - name: Unified Auto Hub invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -48,16 +48,24 @@ jobs:
           grep -q 'telegramEntryAlerts:true' cloudflare-worker/bybit-auto-hub.js
           grep -q 'compactPrices:true' cloudflare-worker/bybit-auto-hub.js
           grep -q 'auto:positions' cloudflare-worker/bybit-auto-hub.js
-          grep -q 'auto:target' cloudflare-worker/bybit-auto-hub.js
+          ! grep -q 'auto:target' cloudflare-worker/bybit-auto-hub.js
           grep -q 'auto:ai' cloudflare-worker/bybit-auto-hub.js
           grep -q 'auto:risk' cloudflare-worker/bybit-auto-hub.js
+          grep -q 'hub:bybit' cloudflare-worker/bybit-auto-hub.js
+          grep -q 'hub:meme' cloudflare-worker/bybit-auto-hub.js
+          grep -q 'meme:capital' cloudflare-worker/bybit-auto-hub.js
+          grep -q 'NO EXECUTION' cloudflare-worker/bybit-auto-hub.js
+          grep -q 'MEME-AUTO-0.2.0-DESIGN' cloudflare-worker/meme-auto-design.js
+          grep -q 'BALANCE_AWARE_CONTINUOUS_ALLOCATOR' cloudflare-worker/meme-auto-design.js
+          grep -q 'computeMemeCapitalPlan' cloudflare-worker/meme-auto-design.js
           ! grep -q 'SIGNAL_V11_MAINTENANCE' cloudflare-worker/index.js
       - name: Validation summary
         run: |
-          echo 'BYBIT_AUTO_HUB_VALIDATION=PASS'
-          echo 'SIGNAL_V11_RUNTIME=OFF'
+          echo 'UNIFIED_AUTO_HUB_VALIDATION=PASS'
+          echo 'BYBIT_LIVE_AUTHORITY=ON'
+          echo 'BYBIT_DAILY_TARGET=OFF'
+          echo 'MEME_DESIGN_ONLY=ON'
+          echo 'MEME_BALANCE_AWARE_ALLOCATOR=ON'
+          echo 'MEME_WALLET_SIGNING_EXECUTION=OFF'
           echo 'TELEGRAM_ENTRY_ALERTS=ON'
-          echo 'COMPACT_PRICE_FORMAT=ON'
-          echo 'USD_RISK_REWARD_IN_ALERT=ON'
-          echo 'POSITION_REVIEW=HOLD_TIGHTEN_CUT'
           echo 'BYBIT_HEALTH_PRIVATE_VPS_ONLY=ON'
