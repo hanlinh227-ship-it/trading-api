@@ -19,11 +19,13 @@ jobs:
           curl -fsS --max-time 30 "$BASE/bybit/health" | tee /tmp/health.json
           echo
           echo '=== SCAN ==='
-          curl -fsS --max-time 120 "$BASE/bybit/scan" | tee /tmp/scan.json
+          CODE="$(curl -sS --max-time 120 -o /tmp/scan.json -w '%{http_code}' "$BASE/bybit/scan" || true)"
+          echo "SCAN_HTTP=$CODE"
+          cat /tmp/scan.json || true
           echo
           node <<'NODE'
           const fs=require('fs');
           const h=JSON.parse(fs.readFileSync('/tmp/health.json'));
-          const s=JSON.parse(fs.readFileSync('/tmp/scan.json'));
-          console.log('DIAG='+JSON.stringify({revision:h.runtimeRevision,mode:h.mode,positions:h.positions?.openCount??h.live?.positions?.length??null,orders:h.openOrdersCount??h.live?.openOrdersCount??null,equity:h.account?.totalEquity??null,scanReason:s.reason??null,universe:s.universe?.count??null,rawCandidates:s.rawCandidates??null,qualified:s.qualified??null,best:s.best?{symbol:s.best.symbol,side:s.best.side,score:s.best.score,threshold:s.best.adaptiveThreshold,rr:s.best.rr,regime:s.best.regime,spread:s.best.spreadBps}:null,correlationRejected:(s.correlationRejected||[]).slice(0,5),errors:(s.errors||[]).slice(0,5)}));
+          let s={};try{s=JSON.parse(fs.readFileSync('/tmp/scan.json'))}catch{}
+          console.log('DIAG='+JSON.stringify({revision:h.runtimeRevision,mode:h.mode,positions:h.positions?.openCount??h.live?.positions?.length??null,orders:h.openOrdersCount??h.live?.openOrdersCount??null,equity:h.account?.totalEquity??null,scanOk:s.ok??null,scanReason:s.reason??s.error??null,scanError:s.error??null,universe:s.universe?.count??null,rawCandidates:s.rawCandidates??null,qualified:s.qualified??null,best:s.best?{symbol:s.best.symbol,side:s.best.side,score:s.best.score,threshold:s.best.adaptiveThreshold,rr:s.best.rr,regime:s.best.regime,spread:s.best.spreadBps}:null,correlationRejected:(s.correlationRejected||[]).slice(0,5),errors:(s.errors||[]).slice(0,5)}));
           NODE
