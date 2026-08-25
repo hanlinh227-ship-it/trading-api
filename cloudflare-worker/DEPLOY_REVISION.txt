@@ -1,6 +1,6 @@
 V10
 SIGNAL-ONLY-V10-SOURCE-OF-TRUTH
-Revision: BYBIT-AUTO-1.7.1-RESILIENCE-2026-08-26
+Revision: BYBIT-AUTO-1.7.1-RESILIENCE-2026-08-26-R2
 GitHub source entry: cloudflare-worker/index.js.
 Bybit Auto production authority: BYBIT-AUTO-1.7.1.
 Bybit resilience: duplicate controller closed-PnL gate removed; canonical reconciliation remains authoritative.
@@ -8,6 +8,7 @@ Bybit PnL reconciliation: transient closed-PnL failure may use a maximum 15-minu
 Bybit loss-streak pause: canonical Bybit closed-PnL outcome source with one-shot trigger per newest loss, preventing repeated pauses from the same historical streak.
 Bybit scheduler telemetry: exceptions are persisted instead of swallowed; last cycle reason, entry blocker and scan telemetry are retained.
 Bybit entry quality gates remain intact: liquidity, regime, adaptive score, correlation, pre-AI freshness/reanchor, sizing, risk preflight, AI review, post-AI revalidation, actual RR and verified protection.
+Validator upgraded for BYBIT-AUTO-1.7.1 resilience invariants; legacy duplicate-gate literals are no longer required.
 Cron: one minute.
 Forex, Meme and other execution authorities remain unchanged.
 NOTE: GitHub source commits are not proof of successful Cloudflare/VPS runtime deployment; workflow/runtime evidence must confirm production state.
