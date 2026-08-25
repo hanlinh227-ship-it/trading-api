@@ -1,5 +1,8 @@
 name: Bybit Entry Diagnostic
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/bybit-entry-diagnostic.yml']
   workflow_dispatch:
 permissions:
   contents: read
