@@ -67,18 +67,22 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
 
   let equity=cfg.startingCapitalUsd,positions=[],lifecycles=[];
   if(mode==="LIVE"){
-    const [wallet,pos]=await Promise.all([api.wallet(),api.positions()]),acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};
-    equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);
-    if(!(equity>0))return {ok:true,executed:false,mode,reason:"LIVE_EQUITY_INVALID",equity,state};
-    positions=(pos?.result?.list||[]).filter(x=>Number(x.size||0)>0);
-    try{await reconcileLivePnl(api,state,cfg);}catch(e){return {ok:true,executed:false,mode,reason:"DAILY_PNL_RECONCILIATION_FAILED",error:String(e?.message||e),state};}
+    const [walletResult,posResult]=await Promise.allSettled([api.wallet(),api.positions()]);
+    if(posResult.status!=="fulfilled")return {ok:true,executed:false,mode,reason:"LIVE_POSITION_FETCH_FAILED",managementOnly:true,error:String(posResult.reason?.message||posResult.reason||"POSITION_FETCH_FAILED"),state};
+    positions=(posResult.value?.result?.list||[]).filter(x=>Number(x.size||0)>0);
     lifecycles=await manageLivePositions(env,api,state,positions,cfg);await put(env,state);
+    const wallet=walletResult.status==="fulfilled"?walletResult.value:null,acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};
+    equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);
     const managerCut=lifecycles.find(x=>x.cutExecuted===true||x.verdict==="CUT");
     if(managerCut)return {ok:true,executed:false,mode,reason:"POSITION_CUT_BY_MANAGER",managerCut,lifecycles,equity,state};
     const untracked=positions.filter(p=>!state.openPlans?.[String(p.symbol||"")]);
     if(untracked.length)return {ok:true,executed:false,mode,reason:"UNTRACKED_LIVE_POSITION",symbols:untracked.map(x=>x.symbol),lifecycles,state};
     const managerFailure=lifecycles.find(x=>x.reason==="MANAGER_FAILED"||x.reason==="POSITION_DATA_INVALID");
     if(managerFailure)return {ok:true,executed:false,mode,reason:"POSITION_MANAGEMENT_DEGRADED",managerFailure,lifecycles,state};
+    if(walletResult.status!=="fulfilled"||!(equity>0))return {ok:true,executed:false,mode,reason:"LIVE_EQUITY_INVALID",managementOnly:true,equity,lifecycles,error:walletResult.status==="rejected"?String(walletResult.reason?.message||walletResult.reason):null,state};
+    let pnlReconcileError=null;try{await reconcileLivePnl(api,state,cfg);}catch(e){pnlReconcileError=String(e?.message||e);}
+    await put(env,state);
+    if(pnlReconcileError)return {ok:true,executed:false,mode,reason:"DAILY_PNL_RECONCILIATION_FAILED",managementOnly:true,error:pnlReconcileError,lifecycles,equity,state};
     if(entryBlockReason)return {ok:true,executed:false,mode,reason:entryBlockReason,managementOnly:true,lifecycles,equity,state};
     if(Number(state.pauseUntil||0)>now())return {ok:true,executed:false,mode,reason:"LOSS_STREAK_PAUSE",managementOnly:true,pauseUntil:state.pauseUntil,lifecycles,equity,state};
     const baseRisk=bybitRiskPreflight({cfg,equityUsd:equity,state,candidateRiskUsd:0});
@@ -122,7 +126,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
   const order=await api.order({symbol:setup.symbol,side:setup.side,orderType:"Market",qty:String(sizing.qty),positionIdx:cfg.execution.positionIdx,timeInForce:"IOC"}),orderId=order?.result?.orderId;
   if(!orderId)return {ok:false,executed:false,mode,reason:"BYBIT_ORDER_ID_MISSING",order,preparation,ai,postAi,setup,scan,state};
   const f=await fill(api,setup.symbol,orderId);if(!f.ok){await emergencyFlat(api,setup,sizing.qty);return {ok:false,executed:false,mode,reason:f.reason,fill:f,preparation,ai,postAi,setup,scan,state};}
-  const tick=Number(setup.filters?.tickSize||0),sl=roundTick(setup.sl,tick),tp=roundTick(tpForReward(setup.side,f.avgPrice,f.executedQty,sizing.rewardUsd),tick),actualRiskPerUnit=Math.abs(f.avgPrice-sl),actualRisk=actualRiskPerUnit*f.executedQty,actualReward=Math.abs(tp-f.avgPrice)*f.executedQty,actualRR=actualRisk>0?actualReward/actualRisk:null;
+  const tick=Number(setup.filters?.tickSize||0),sl=roundTick(setup.sl,tick),actualRewardTp=tpForReward(setup.side,f.avgPrice,f.executedQty,sizing.rewardUsd),structureTp=Number(setup.tp||0),boundedTp=setup.side==="Buy"?Math.min(Number(actualRewardTp||Infinity),structureTp):Math.max(Number(actualRewardTp||-Infinity),structureTp),tp=roundTick(boundedTp,tick),actualRiskPerUnit=Math.abs(f.avgPrice-sl),actualRisk=actualRiskPerUnit*f.executedQty,actualReward=Math.abs(tp-f.avgPrice)*f.executedQty,actualRR=actualRisk>0?actualReward/actualRisk:null;
   const geometry=validateProtectionGeometry({side:setup.side,entry:f.avgPrice,sl,tp});if(!geometry.ok||!(actualRR>=cfg.risk.minRR)){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:geometry.ok?"ACTUAL_RR_INVALID":geometry.reason,actualRR,fill:f,preparation,setup,scan,state};}
   const actualRiskGuard=bybitRiskPreflight({cfg,equityUsd:equity,state,candidateRiskUsd:actualRisk});if(!actualRiskGuard.ok){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:"ACTUAL_"+actualRiskGuard.reason,risk:actualRiskGuard,actualRisk,fill:f,preparation,setup,scan,state};}
 
