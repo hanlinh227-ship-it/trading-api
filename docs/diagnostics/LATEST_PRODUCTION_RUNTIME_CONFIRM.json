@@ -1,13 +1,8 @@
 {
-  "ok": true,
-  "expectedRevision": "155471aa4b31b4d3d899591289398721ed50ba45",
-  "runtimeRevision": "155471aa4b31b4d3d899591289398721ed50ba45",
-  "exchange": "BYBIT",
-  "mode": "LIVE",
-  "execution": {
-    "liveAck": true,
-    "scheduled": true,
-    "ready": true
-  },
-  "privateTransport": "VPS_BYBIT_PRIVATE_PROXY"
+  "ok": false,
+  "superseded": true,
+  "reason": "HISTORICAL_1_1_0_CONFIRMATION_RETIRED",
+  "authoritativeVerification": ".github/workflows/deploy-cloudflare-worker.yml",
+  "currentSourceVersion": "BYBIT-AUTO-1.2.0",
+  "note": "Do not use this historical file to infer current production revision. The deploy workflow verifies /bybit/health against the deployment commit."
 }
