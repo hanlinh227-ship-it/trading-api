@@ -22,7 +22,7 @@ export function bybitV5(env={}){
     const q=qs(params),attempted=[];let lastErr;
     for(const base of baseList){
       attempted.push(base);
-      try{const r=await fetch(`${base}${path}${q?`?${q}:""}`,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
+      try{const url=`${base}${path}${q?`?${q}`:""}`;const r=await fetch(url,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
       catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
