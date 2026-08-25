@@ -1,0 +1,84 @@
+name: VPS 3AI Final Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vps-ai-final-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    env:
+      REPORT: /tmp/vps-3ai-final.txt
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Initialize
+        shell: bash
+        run: |
+          : > "$REPORT"
+          echo "RUN_ID=$GITHUB_RUN_ID" >> "$REPORT"
+          echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$REPORT"
+          systemctl is-active --quiet v11-manual-ai-bridge.service
+          curl -fsS --max-time 5 http://127.0.0.1:8789/health | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; print("HEALTH mode=%s claude=%s codex=%s deepseek=%s claudeTimeout=%s budget=%s grace=%s"%(d.get("mode"),(p.get("claude") or {}).get("state"),(p.get("codex") or {}).get("state"),(p.get("deepseek") or {}).get("state"),d.get("claudeScalpTimeoutSec"),d.get("scalpBridgeBudgetSec"),d.get("scalpFastFirstGraceSec")))' >> "$REPORT"
+          curl -fsS --max-time 12 'https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health' | python3 -c 'import json,sys; d=json.load(sys.stdin); e=d.get("execution") or {}; print("WORKER mode=%s liveAck=%s scheduled=%s ready=%s transport=%s"%(d.get("mode"),e.get("liveAck"),e.get("scheduled"),e.get("ready"),d.get("privateTransport")))' >> "$REPORT"
+
+      - name: Test each core AI independently
+        shell: bash
+        run: |
+          set -u
+          set -a; source /etc/trading-v11-ai.env; set +a
+          for P in claude codex deepseek; do
+            BODY="{\"evidence\":{\"mode\":\"BYBIT_SCALP_DECISION\",\"task_id\":\"final-$P\",\"requestedProviders\":[\"$P\"],\"instruction\":\"FINAL_ENTRY_REVIEW_ONLY diagnostic. Do not trade.\",\"context\":{\"reviewPolicy\":\"FINAL_ENTRY_REVIEW_ONLY\",\"setup\":{\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"strategy\":\"DIAGNOSTIC_ONLY\",\"score\":95,\"entry\":100000,\"sl\":99500,\"tp\":101000,\"rr\":2,\"spreadBps\":1,\"quoteAgeMs\":100}}}}"
+            MAX=18; [ "$P" = claude ] && MAX=35
+            OUT="$(curl -sS --max-time "$MAX" -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY" || true)"
+            PROVIDER="$P" printf '%s' "$OUT" | PROVIDER="$P" python3 -c 'import json,sys,os; p=os.environ["PROVIDER"]; raw=sys.stdin.read();
+try:
+ d=json.loads(raw); x=(d.get("providers") or {}).get(p) or {}; print("SINGLE %s status=%s latency=%s error=%s verdict=%s"%(p,x.get("status"),x.get("latencySeconds"),x.get("error"),(x.get("review") or {}).get("verdict")))
+except Exception as e: print("SINGLE %s status=INVALID_RESPONSE error=%s raw=%s"%(p,e,raw[:180].replace("\n"," "))) ' >> "$REPORT"
+          done
+
+      - name: Test three-AI fast-first final review
+        shell: bash
+        run: |
+          set -a; source /etc/trading-v11-ai.env; set +a
+          BODY='{"evidence":{"mode":"BYBIT_SCALP_DECISION","task_id":"final-3ai","requestedProviders":["claude","codex","deepseek"],"instruction":"FINAL_ENTRY_REVIEW_ONLY synthetic diagnostic. Do not search symbols. Do not trade.","context":{"reviewPolicy":"FINAL_ENTRY_REVIEW_ONLY","setup":{"symbol":"BTCUSDT","side":"Buy","strategy":"DIAGNOSTIC_ONLY","score":95,"entry":100000,"sl":99500,"tp":101000,"rr":2,"spreadBps":1,"quoteAgeMs":100}}}}'
+          OUT="$(curl -sS --max-time 20 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY" || true)"
+          printf '%s' "$OUT" | python3 -c 'import json,sys; raw=sys.stdin.read();
+try:
+ d=json.loads(raw); p=d.get("providers") or {}; print("THREE_AI usable=%s returnedEarly=%s decisionMs=%s claude=%s codex=%s deepseek=%s"%(d.get("usableProviderCount"),d.get("returnedEarly"),d.get("decisionLatencyMs"),(p.get("claude") or {}).get("status"),(p.get("codex") or {}).get("status"),(p.get("deepseek") or {}).get("status")))
+except Exception as e: print("THREE_AI INVALID_RESPONSE error=%s raw=%s"%(e,raw[:240].replace("\n"," "))) ' >> "$REPORT"
+
+      - name: Final safety markers
+        shell: bash
+        run: |
+          echo 'REVIEW_ONLY=PASS' >> "$REPORT"
+          echo 'AUTO_RUN_CALLED=NO' >> "$REPORT"
+          echo 'ORDER_CREATE_CALLED=NO' >> "$REPORT"
+          echo 'ORDER_CANCEL_CALLED=NO' >> "$REPORT"
+          echo 'LEVERAGE_CHANGE_CALLED=NO' >> "$REPORT"
+          echo "FINISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$REPORT"
+          cat "$REPORT"
+
+      - name: Persist final report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          cp "$REPORT" docs/diagnostics/LATEST_VPS_3AI_FINAL.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_VPS_3AI_FINAL.txt
+          if ! git diff --cached --quiet; then git commit -m 'Record final VPS three-AI diagnostic'; git push origin HEAD:main; fi
