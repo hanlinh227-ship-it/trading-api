@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.6: balance-scaled TP/SL bands + anti-sweep stops + hard profit floor + complete lifecycle notifications.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.6";
+// BYBIT-AUTO-1.6.7: relaxed quality flow + balance-scaled TP/SL bands + anti-sweep stops + complete lifecycle notifications.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.7";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -11,13 +11,9 @@ export const BYBIT_AUTO_CONFIG={
     mode:"BALANCE_SCALED_TP_SL_BAND_ALLOCATOR",
     baseBalanceUsd:50,
     balanceStepUsd:10,
-    // At $50 equity the maximum planned SL loss is $5 and scales +$1 per $10 balance.
-    // The stop PRICE itself is still structure/ATR/wick based; position size adapts to fit this USD band.
     baseRiskUsd:5,
-    baseMinEffectiveRiskUsd:2,
+    baseMinEffectiveRiskUsd:1.75,
     effectiveRiskStepUsd:.5,
-    // Hard policy: planned TP net P&L may never be below $3.
-    // Require $3.50 gross at $50 to leave execution/fee/slippage cushion; minimum and maximum TP both scale with balance.
     netProfitFloorUsd:3,
     executionCostBufferUsd:.5,
     baseMinRewardUsd:3.5,
@@ -29,12 +25,12 @@ export const BYBIT_AUTO_CONFIG={
     minRewardUsd:3.5,
     maxRiskPctOfEquity:10,
     maxTotalOpenRiskPct:20,
-    maxMarginPerPositionPct:40,
-    minFreeReservePct:20,
+    maxMarginPerPositionPct:42,
+    minFreeReservePct:18,
     feeBufferPct:5,
-    maxPortfolioMarginPct:80,
+    maxPortfolioMarginPct:82,
     minRR:1.5,
-    preferredRR:2,
+    preferredRR:1.8,
     maxRR:5,
     maxLossStreak:3,
     pauseMinutes:30,
@@ -46,21 +42,21 @@ export const BYBIT_AUTO_CONFIG={
   },
   adaptive:{
     enabled:true,
-    baseScore:70,
-    minScore:68,
-    maxScore:85,
+    baseScore:68,
+    minScore:66,
+    maxScore:84,
     minLearningSamples:10,
     fullLearningSamples:80,
-    correlationSoft:0.80,
-    correlationHard:0.90,
+    correlationSoft:0.84,
+    correlationHard:0.94,
     regimeGate:true,
     perSymbolEdge:true,
     netExpectancy:true,
     exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
     autoPromote:false
   },
-  filters:{minScore:70,maxSpreadBps:9,maxChaseAtr:.60,minAtrPct:.08,maxAtrPct:2.8},
-  execution:{recvWindow:5000,cooldownSec:180,positionIdx:0}
+  filters:{minScore:68,maxSpreadBps:12,maxChaseAtr:.80,minAtrPct:.06,maxAtrPct:3.2},
+  execution:{recvWindow:5000,cooldownSec:150,positionIdx:0}
 };
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 export function bybitAutoConfig(env={}){
@@ -100,11 +96,11 @@ export function bybitAutoConfig(env={}){
   c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
   c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
   c.adaptive.enabled=String(env.BYBIT_ADAPTIVE_EDGE_ENABLED??String(c.adaptive.enabled)).toLowerCase()==="true";
-  c.adaptive.baseScore=Math.max(68,Math.min(78,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
-  c.adaptive.correlationSoft=Math.max(.70,Math.min(.90,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
-  c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.05,Math.min(.97,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
+  c.adaptive.baseScore=Math.max(66,Math.min(76,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
+  c.adaptive.correlationSoft=Math.max(.78,Math.min(.92,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
+  c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.04,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
   c.adaptive.autoPromote=false;
-  c.execution.cooldownSec=Math.max(180,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
+  c.execution.cooldownSec=Math.max(120,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
   return c;
 }
 export function bybitExecutionMode(env={}){
