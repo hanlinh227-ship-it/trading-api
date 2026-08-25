@@ -22,6 +22,8 @@ PROVIDERS=('claude','codex','deepseek','qwen','openrouter');SCALP_PROVIDERS=('cl
 LAST={p:{'state':'UNKNOWN','last_seen':None} for p in PROVIDERS}
 BYBIT_BASES=('https://api.bybit.com','https://api.bytick.com')
 BYBIT_PRIVATE_PATHS=('/v5/account/wallet-balance','/v5/position/list','/v5/order/realtime','/v5/position/closed-pnl','/v5/order/create','/v5/position/set-leverage','/v5/position/trading-stop','/v5/order/cancel-all')
+BYBIT_PUBLIC_PATHS=('/v5/market/time','/v5/market/instruments-info','/v5/market/tickers','/v5/market/kline')
+BYBIT_PROXY_PATHS=BYBIT_PRIVATE_PATHS+BYBIT_PUBLIC_PATHS
 TRADING_ROLE='''V11 MANUAL WHOLE-MARKET MARKET HUNTER. Review only supplied fresh candidates. Never invent missing data. Return JSON: {"direction":"LONG|SHORT|WAIT","confidence":0-100,"hardRisk":[],"evidence":[],"reason":"..."}.'''
 ENGINEERING_ROLE='''You are one independent lane in the Trading Multi-AI engineering pool. Work only from supplied task/context. Return one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}.'''
 SCALP_ROLE='''You are one independent reviewer for a 1-5 minute Bybit USDT perpetual scalp. Use only supplied setup/context. Do not change size, leverage, SL or TP. Do not require a daily target. Return exactly one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}. PASS=direction reasonable, REJECT=materially weak/contradictory, BLOCKED=data unsafe/insufficient.'''
@@ -145,10 +147,13 @@ def run_selected(selected,e):
 def bybit_proxy(body):
     method=str(body.get('method') or 'GET').upper();path=str(body.get('path') or '');query=str(body.get('query') or '');raw_body=body.get('body');hdr=body.get('headers') or {}
     if method not in ('GET','POST'):return 400,{'ok':False,'error':'BYBIT_METHOD_NOT_ALLOWED'}
-    if path not in BYBIT_PRIVATE_PATHS:return 403,{'ok':False,'error':'BYBIT_PATH_NOT_ALLOWED','path':path}
-    allowed={k:str(hdr[k]) for k in ('X-BAPI-API-KEY','X-BAPI-TIMESTAMP','X-BAPI-RECV-WINDOW','X-BAPI-SIGN','Content-Type','Accept') if k in hdr}
-    if not all(allowed.get(k) for k in ('X-BAPI-API-KEY','X-BAPI-TIMESTAMP','X-BAPI-RECV-WINDOW','X-BAPI-SIGN')):return 400,{'ok':False,'error':'BYBIT_SIGNED_HEADERS_MISSING'}
+    if path not in BYBIT_PROXY_PATHS:return 403,{'ok':False,'error':'BYBIT_PATH_NOT_ALLOWED','path':path}
+    is_public=path in BYBIT_PUBLIC_PATHS
+    signed_headers={k:str(hdr[k]) for k in ('X-BAPI-API-KEY','X-BAPI-TIMESTAMP','X-BAPI-RECV-WINDOW','X-BAPI-SIGN','Content-Type','Accept') if k in hdr}
+    if not is_public and not all(signed_headers.get(k) for k in ('X-BAPI-API-KEY','X-BAPI-TIMESTAMP','X-BAPI-RECV-WINDOW','X-BAPI-SIGN')):return 400,{'ok':False,'error':'BYBIT_SIGNED_HEADERS_MISSING'}
+    allowed={'Accept':'application/json'} if is_public else signed_headers
     data=None if method=='GET' else str(raw_body or '').encode();attempts=[]
+    transport='VPS_BYBIT_MARKET_PROXY' if is_public else 'VPS_BYBIT_PRIVATE_PROXY'
     for base in BYBIT_BASES:
         url=base+path+(('?'+query) if method=='GET' and query else '');req=urllib.request.Request(url,data=data,method=method,headers=allowed)
         try:
@@ -158,8 +163,8 @@ def bybit_proxy(body):
         attempts.append({'base':base,'httpStatus':status})
         try:upstream=json.loads(raw)
         except Exception:upstream={'retCode':None,'retMsg':raw[:400]}
-        if status!=403:return 200,{'ok':200<=status<300,'transport':'VPS_BYBIT_PRIVATE_PROXY','base':base,'httpStatus':status,'upstream':upstream,'attempts':attempts}
-    return 502,{'ok':False,'error':'BYBIT_PRIVATE_PROXY_ALL_BASES_FAILED','transport':'VPS_BYBIT_PRIVATE_PROXY','attempts':attempts}
+        if status!=403:return 200,{'ok':200<=status<300,'transport':transport,'base':base,'httpStatus':status,'upstream':upstream,'attempts':attempts}
+    return 502,{'ok':False,'error':'BYBIT_PROXY_ALL_BASES_FAILED','transport':transport,'attempts':attempts}
 
 class H(BaseHTTPRequestHandler):
     def sendj(self,code,obj):
@@ -174,7 +179,7 @@ class H(BaseHTTPRequestHandler):
         meta={'claude':(CLAUDE_MODEL,'architecture_reasoning'),'codex':(CODEX_MODEL,'technical_review'),'deepseek':(DEEPSEEK_MODEL,'implementation_repair'),'qwen':(QWEN_MODEL,'independent_repair_test'),'openrouter':(OPENROUTER_MODEL,'adversarial_fallback')};providers={}
         for p in PROVIDERS:
             model,role=meta[p];last=LAST[p];providers[p]={'configured':configured(p),'model':model,'role':role,'state':last['state'] if configured(p) else 'OFFLINE','last_seen':last['last_seen']}
-        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'FAST_FIRST_PARALLEL','providerCount':sum(configured(p) for p in PROVIDERS),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitBases':list(BYBIT_BASES),'scalpProviderTimeoutSec':SCALP_PROVIDER_TIMEOUT,'claudeScalpTimeoutSec':CLAUDE_SCALP_TIMEOUT,'scalpBridgeBudgetSec':SCALP_BRIDGE_BUDGET,'scalpFastFirstGraceSec':SCALP_FAST_FIRST_GRACE,'timestamp':int(time.time()*1000),'providers':providers})
+        self.sendj(200,{'ok':True,'service':'V11_MULTI_AI_BRIDGE','mode':'FAST_FIRST_PARALLEL','providerCount':sum(configured(p) for p in PROVIDERS),'onDemandOnly':True,'bybitPrivateProxy':True,'bybitMarketProxy':True,'bybitBases':list(BYBIT_BASES),'bybitPublicPaths':list(BYBIT_PUBLIC_PATHS),'scalpProviderTimeoutSec':SCALP_PROVIDER_TIMEOUT,'claudeScalpTimeoutSec':CLAUDE_SCALP_TIMEOUT,'scalpBridgeBudgetSec':SCALP_BRIDGE_BUDGET,'scalpFastFirstGraceSec':SCALP_FAST_FIRST_GRACE,'timestamp':int(time.time()*1000),'providers':providers})
     def do_POST(self):
         if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
         try:
