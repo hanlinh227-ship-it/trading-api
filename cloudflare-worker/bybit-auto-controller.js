@@ -23,6 +23,17 @@ function compactPrice(v,tick=0){
   return n.toFixed(Math.min(8,d)).replace(/(\.\d*?[1-9])0+$|\.0+$/,"$1");
 }
 const usd=v=>`$${Math.abs(Number(v||0)).toFixed(2)}`;
+const signedUsd=v=>`${Number(v||0)>=0?"+":"-"}$${Math.abs(Number(v||0)).toFixed(2)}`;
+
+async function sendOnce(env,fingerprint,text,meta={}){
+  const ctl=await kvGet(env,CONTROL_KEY,{}),seen=Array.isArray(ctl.tradeActionNotifications)?ctl.tradeActionNotifications:[];
+  if(seen.some(x=>x?.fingerprint===fingerprint))return {sent:false,reason:"ALREADY_NOTIFIED",fingerprint};
+  try{
+    await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});
+    ctl.tradeActionNotifications=[{fingerprint,at:iso(),...meta},...seen].slice(0,120);
+    ctl.lastTradeActionNotifyError=null;await kvPut(env,CONTROL_KEY,ctl);return {sent:true,fingerprint};
+  }catch(e){ctl.lastTradeActionNotifyError={at:iso(),fingerprint,error:String(e?.message||e),...meta};await kvPut(env,CONTROL_KEY,ctl);return {sent:false,reason:"TELEGRAM_SEND_FAILED",error:String(e?.message||e)};}
+}
 
 async function notifyLiveEntry(env,out){
   const p=out?.plan;if(!out?.executed||out?.mode!=="LIVE"||!p?.orderId)return {sent:false,reason:"NO_NEW_LIVE_ENTRY"};
@@ -35,6 +46,7 @@ async function notifyLiveEntry(env,out){
     `SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}`,
     `TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}`,
     `RR ${Number(p.rr||0).toFixed(2)} • ${Number(p.leverage||0)>0?`${Number(p.leverage)}x • `:""}AUTO LIVE`,
+    `🛡️ SL/TP/Trailing đã bảo vệ`,
     `${BYBIT_AUTO_VERSION} • LIVE`
   ].join("\n");
   try{
@@ -45,6 +57,51 @@ async function notifyLiveEntry(env,out){
     s.lastTelegramNotifyError={at:iso(),symbol:p.symbol,orderId:String(p.orderId),error:String(e?.message||e)};
     await kvPut(env,AUTO_KEY,s);return {sent:false,reason:"TELEGRAM_SEND_FAILED",error:String(e?.message||e)};
   }
+}
+
+async function latestClosed(env,symbol,plan={}){
+  try{
+    const api=bybitV5(env),start=Math.max(dayStartMs(),Number(plan.createdAtMs||0)-60000),p=await api.closedPnl(start,now()),list=(p?.result?.list||[]).filter(x=>String(x.symbol||"")===String(symbol)).sort((a,b)=>eventTime(b)-eventTime(a));
+    return list[0]||null;
+  }catch{return null;}
+}
+function classifyClose(plan={},closed={}){
+  const pnl=Number(closed?.closedPnl||0),exit=Number(closed?.avgExitPrice||0),entry=Number(plan.entry||0),tp=Number(plan.tp||0),sl=Number(plan.managedSl||plan.sl||0),tick=Number(plan.tickSize||plan.filters?.tickSize||0),tol=Math.max(tick*3,Math.abs(entry)*0.0008,1e-10),side=String(plan.side||"");
+  if(plan.exitReason||plan.cutReason)return {kind:"SMART CUT",icon:"✂️"};
+  if(exit>0&&tp>0&&Math.abs(exit-tp)<=tol)return {kind:"TP",icon:"🎯"};
+  if(exit>0&&sl>0&&Math.abs(exit-sl)<=tol){if((side==="Buy"&&sl>=entry)||(side==="Sell"&&sl<=entry))return {kind:"BE / PROFIT STOP",icon:"🛡️"};return {kind:"SL",icon:"🛑"};}
+  if(pnl>0)return {kind:"CLOSED PROFIT",icon:"✅"};
+  if(pnl<0)return {kind:"CLOSED LOSS",icon:"🛑"};
+  return {kind:"CLOSED",icon:"⚪"};
+}
+
+async function notifyLifecycleActions(env,out,prePlans={}){
+  if(out?.mode!=="LIVE")return [];
+  const sent=[];
+  for(const x of out?.lifecycles||[]){
+    const symbol=String(x?.symbol||""),plan=prePlans?.[symbol]||{};
+    if(!symbol)continue;
+    if(x.cutExecuted===true||x.verdict==="CUT"){
+      const fp=`CUT:${symbol}:${x.orderId||x.reason||"manager"}`;
+      sent.push(await sendOnce(env,fp,[`✂️ SMART CUT ${symbol}`,`Mark ${compactPrice(x.markPrice,plan.tickSize)} • R ${Number(x.r||0).toFixed(2)}`,`${x.reason||"MANAGER_CUT"}`,`${BYBIT_AUTO_VERSION} • LIVE`].join("\n"),{symbol,action:"CUT"}));
+      continue;
+    }
+    if(x.managed===true&&x.verdict==="TIGHTEN"){
+      const phase=String(x.phase||"PROTECT"),label=phase==="BREAKEVEN"?"BE":phase==="PROFIT_LOCK"?"PROFIT LOCK":phase==="TRAIL"?"TRAILING":"SL UPDATE",icon=phase==="BREAKEVEN"?"🟰":phase==="PROFIT_LOCK"?"🔒":phase==="TRAIL"?"🧲":"🛡️",next=Number(x.nextSl||0),trail=Number(x.trailingStop||0),fp=`TIGHTEN:${symbol}:${phase}:${next}:${trail}`;
+      sent.push(await sendOnce(env,fp,[`${icon} ${label} ${symbol}`,`SL ${compactPrice(x.previousSl,plan.tickSize)} → ${compactPrice(next,plan.tickSize)}`,trail>0?`Trailing ${compactPrice(trail,plan.tickSize)}`:null,`R ${Number(x.r||0).toFixed(2)} • ${BYBIT_AUTO_VERSION}`].filter(Boolean).join("\n"),{symbol,action:phase}));
+      continue;
+    }
+    if(x.verdict==="CLOSED"){
+      const c=await latestClosed(env,symbol,plan),cls=classifyClose(plan,c||{}),eid=String(c?.orderId||eventTime(c)||plan.orderId||"closed"),fp=`CLOSED:${symbol}:${eid}`;
+      sent.push(await sendOnce(env,fp,[`${cls.icon} ${cls.kind} ${symbol}`,c?`PnL ${signedUsd(c.closedPnl)} • Exit ${compactPrice(c.avgExitPrice,plan.tickSize)}`:"Position đã đóng trên Bybit",`${BYBIT_AUTO_VERSION} • LIVE`].join("\n"),{symbol,action:cls.kind}));
+      continue;
+    }
+    if(x.verdict==="ERROR"){
+      const fp=`ERROR:${symbol}:${x.reason}:${String(x.error||"").slice(0,80)}`;
+      sent.push(await sendOnce(env,fp,[`⚠️ MANAGER ERROR ${symbol}`,`${x.reason||"UNKNOWN"}`,String(x.error||"").slice(0,140),`${BYBIT_AUTO_VERSION} • LIVE`].filter(Boolean).join("\n"),{symbol,action:"ERROR"}));
+    }
+  }
+  return sent;
 }
 
 async function clearLegacyProfitTarget(env){
@@ -61,18 +118,10 @@ async function isolateModeState(env,mode){
   if(mode==="LIVE"&&previous!=="LIVE"){
     const paperPlans=Object.fromEntries(Object.entries(s.openPlans||{}).filter(([,p])=>String(p?.mode||"").toUpperCase()==="PAPER"));
     s.openPlans=Object.fromEntries(Object.entries(s.openPlans||{}).filter(([,p])=>String(p?.mode||"").toUpperCase()==="LIVE"));
-    s.lastTradeAt=0;
-    s.lastFingerprint=null;
-    s.trades=0;
-    s.pauseUntil=0;
-    s.lossStreak=0;
-    s.executionMode="LIVE";
-    s.lastModeTransition={at:iso(),from:previous||"UNKNOWN",to:"LIVE",discardedPaperPlans:Object.keys(paperPlans)};
-    await kvPut(env,AUTO_KEY,s);
+    s.lastTradeAt=0;s.lastFingerprint=null;s.trades=0;s.pauseUntil=0;s.lossStreak=0;s.executionMode="LIVE";
+    s.lastModeTransition={at:iso(),from:previous||"UNKNOWN",to:"LIVE",discardedPaperPlans:Object.keys(paperPlans)};await kvPut(env,AUTO_KEY,s);
   }else if(mode==="PAPER"&&previous!=="PAPER"){
-    s.executionMode="PAPER";
-    s.lastModeTransition={at:iso(),from:previous||"UNKNOWN",to:"PAPER"};
-    await kvPut(env,AUTO_KEY,s);
+    s.executionMode="PAPER";s.lastModeTransition={at:iso(),from:previous||"UNKNOWN",to:"PAPER"};await kvPut(env,AUTO_KEY,s);
   }
   return s;
 }
@@ -81,92 +130,30 @@ async function lossPauseGate(env){
   const ctl=await kvGet(env,CONTROL_KEY,{day:day(),pauseUntil:0,lastPauseTriggerAt:0});
   if(ctl.day!==day()){ctl.day=day();ctl.pauseUntil=0;ctl.lastPauseTriggerAt=0;}
   if(Number(ctl.pauseUntil||0)>now())return {ok:false,reason:"LOSS_STREAK_PAUSE",pauseUntil:ctl.pauseUntil,remainingMs:ctl.pauseUntil-now(),controller:ctl};
-
   const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
   if(mode!=="LIVE"){ctl.pauseUntil=0;await kvPut(env,CONTROL_KEY,ctl);return {ok:true,controller:ctl};}
-
-  const api=bybitV5(env),p=await api.closedPnl(dayStartMs(),now()),list=[...(p?.result?.list||[])].sort((a,b)=>eventTime(b)-eventTime(a));
-  let streak=0,newestLossAt=0;
-  for(const x of list){
-    const t=eventTime(x);
-    if(!(t>Number(ctl.lastPauseTriggerAt||0)))continue;
-    const pnl=Number(x.closedPnl||0);
-    if(pnl<0){streak++;if(!newestLossAt)newestLossAt=t;}
-    else break;
-  }
-  ctl.currentLossStreak=streak;
-  ctl.checkedAt=iso();
-  if(streak>=LOSS_STREAK_TRIGGER&&newestLossAt>Number(ctl.lastPauseTriggerAt||0)){
-    ctl.pauseUntil=now()+LOSS_PAUSE_MS;
-    ctl.lastPauseTriggerAt=newestLossAt;
-    ctl.lastPauseReason="THREE_CONSECUTIVE_LOSSES";
-    await kvPut(env,CONTROL_KEY,ctl);
-    return {ok:false,reason:"LOSS_STREAK_PAUSE",pauseUntil:ctl.pauseUntil,remainingMs:LOSS_PAUSE_MS,lossStreak:streak,controller:ctl};
-  }
+  const api=bybitV5(env),p=await api.closedPnl(dayStartMs(),now()),list=[...(p?.result?.list||[])].sort((a,b)=>eventTime(b)-eventTime(a));let streak=0,newestLossAt=0;
+  for(const x of list){const t=eventTime(x);if(!(t>Number(ctl.lastPauseTriggerAt||0)))continue;const pnl=Number(x.closedPnl||0);if(pnl<0){streak++;if(!newestLossAt)newestLossAt=t;}else break;}
+  ctl.currentLossStreak=streak;ctl.checkedAt=iso();
+  if(streak>=LOSS_STREAK_TRIGGER&&newestLossAt>Number(ctl.lastPauseTriggerAt||0)){ctl.pauseUntil=now()+LOSS_PAUSE_MS;ctl.lastPauseTriggerAt=newestLossAt;ctl.lastPauseReason="THREE_CONSECUTIVE_LOSSES";await kvPut(env,CONTROL_KEY,ctl);return {ok:false,reason:"LOSS_STREAK_PAUSE",pauseUntil:ctl.pauseUntil,remainingMs:LOSS_PAUSE_MS,lossStreak:streak,controller:ctl};}
   ctl.pauseUntil=0;await kvPut(env,CONTROL_KEY,ctl);return {ok:true,lossStreak:streak,controller:ctl};
 }
 
-async function clearLegacyPause(env){
-  const s=await kvGet(env,AUTO_KEY,{});
-  if(Number(s.pauseUntil||0)>0||Number(s.lossStreak||0)>0){s.pauseUntil=0;s.lossStreak=0;await kvPut(env,AUTO_KEY,s);}
-}
-
-async function resolvePaperEquity(env){
-  try{
-    const api=bybitV5(env),wallet=await api.wallet(),acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};
-    const equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);
-    return equity>0?equity:null;
-  }catch{return null;}
-}
+async function clearLegacyPause(env){const s=await kvGet(env,AUTO_KEY,{});if(Number(s.pauseUntil||0)>0||Number(s.lossStreak||0)>0){s.pauseUntil=0;s.lossStreak=0;await kvPut(env,AUTO_KEY,s);}}
+async function resolvePaperEquity(env){try{const api=bybitV5(env),wallet=await api.wallet(),acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};const equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);return equity>0?equity:null;}catch{return null;}}
 
 export async function runBybitAutoControlled(env,opts={}){
   const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
-  await isolateModeState(env,mode);
-  await clearLegacyProfitTarget(env);
-  const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
+  await isolateModeState(env,mode);await clearLegacyProfitTarget(env);
+  const state=await getBybitAutoV1State(env),prePlans=structuredClone(state?.openPlans||{}),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
   const spacingActive=lastTradeAt>0&&elapsed<ENTRY_SPACING_MS,spacingReason=spacingActive?"ENTRY_SPACING_5M":null;
-
-  let pause;
-  try{pause=await lossPauseGate(env);}catch(e){pause={ok:false,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),controller:null};}
-  if(pause.ok)await clearLegacyPause(env);
-  const entryBlockReason=!pause.ok?pause.reason:spacingReason;
-
-  const innerEnv=Object.create(env);
-  innerEnv.BYBIT_MAX_LOSS_STREAK_INTERNAL="1000000000";
-  innerEnv.BYBIT_LOSS_PAUSE_MINUTES_INTERNAL="30";
-  innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="180";
-
-  let paperEquity=null;
-  if(mode==="PAPER"){
-    paperEquity=await resolvePaperEquity(env);
-    if(paperEquity>0)innerEnv.BYBIT_STARTING_CAPITAL_USD=String(paperEquity);
-  }
-
+  let pause;try{pause=await lossPauseGate(env);}catch(e){pause={ok:false,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),controller:null};}
+  if(pause.ok)await clearLegacyPause(env);const entryBlockReason=!pause.ok?pause.reason:spacingReason;
+  const innerEnv=Object.create(env);innerEnv.BYBIT_MAX_LOSS_STREAK_INTERNAL="1000000000";innerEnv.BYBIT_LOSS_PAUSE_MINUTES_INTERNAL="30";innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="180";
+  let paperEquity=null;if(mode==="PAPER"){paperEquity=await resolvePaperEquity(env);if(paperEquity>0)innerEnv.BYBIT_STARTING_CAPITAL_USD=String(paperEquity);}
   const out=await runBybitAutoV1(innerEnv,{...opts,entryBlockReason});
-  const telegramNotification=await notifyLiveEntry(env,out);
-  const controller={
-    executionMode:mode,
-    entrySpacingSec:300,
-    entryBlockReason,
-    nextEntryAt:spacingActive?lastTradeAt+ENTRY_SPACING_MS:null,
-    entrySpacingRemainingMs:spacingActive?ENTRY_SPACING_MS-elapsed:0,
-    lossStreakTrigger:3,
-    lossPauseMinutes:30,
-    unlimitedDailyEntries:true,
-    managementAlwaysOn:true,
-    profitTarget:null,
-    profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",
-    pauseState:pause.controller,
-    pauseError:pause.error||null,
-    telegramNotification,
-    runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")
-  };
-  if(mode==="PAPER"){
-    controller.equitySource=paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK";
-    controller.equityUsd=paperEquity;
-  }else{
-    controller.equitySource="BYBIT_LIVE_WALLET";
-    controller.equityUsd=Number(out?.equity||0)||null;
-  }
+  const telegramNotification=await notifyLiveEntry(env,out),lifecycleNotifications=await notifyLifecycleActions(env,out,prePlans);
+  const controller={executionMode:mode,entrySpacingSec:300,entryBlockReason,nextEntryAt:spacingActive?lastTradeAt+ENTRY_SPACING_MS:null,entrySpacingRemainingMs:spacingActive?ENTRY_SPACING_MS-elapsed:0,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,managementAlwaysOn:true,allTradeActionsNotify:true,profitTarget:null,profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",pauseState:pause.controller,pauseError:pause.error||null,telegramNotification,lifecycleNotifications,runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")};
+  if(mode==="PAPER"){controller.equitySource=paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK";controller.equityUsd=paperEquity;}else{controller.equitySource="BYBIT_LIVE_WALLET";controller.equityUsd=Number(out?.equity||0)||null;}
   return {...out,controller};
 }
