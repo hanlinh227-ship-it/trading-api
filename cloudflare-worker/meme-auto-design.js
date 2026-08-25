@@ -1,4 +1,4 @@
-export const MEME_AUTO_VERSION="MEME-AUTO-0.2.0-DESIGN";
+export const MEME_AUTO_VERSION="MEME-AUTO-0.2.1-DESIGN";
 export const MEME_AUTO_MODE="DESIGN_ONLY";
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -19,16 +19,17 @@ export const MEME_AUTO_DESIGN={
     minimumOperatingBalanceUsd:20,
     reserve:{minUsd:5,targetPct:15,maxPct:25},
     allocationTiers:[
-      {maxEquityUsd:50,targetPct:20,maxPct:23.5,maxOpenPositions:1},
-      {maxEquityUsd:100,targetPct:18,maxPct:21,maxOpenPositions:1},
-      {maxEquityUsd:250,targetPct:14,maxPct:18,maxOpenPositions:2},
-      {maxEquityUsd:500,targetPct:11,maxPct:15,maxOpenPositions:2},
-      {maxEquityUsd:1000,targetPct:8,maxPct:12,maxOpenPositions:3},
-      {maxEquityUsd:Infinity,targetPct:6,maxPct:10,maxOpenPositions:3}
+      {maxEquityUsd:29.999999,targetPct:20,maxPct:23.5,maxOpenPositions:1},
+      {maxEquityUsd:50,targetPct:20,maxPct:23.5,maxOpenPositions:3},
+      {maxEquityUsd:99.999999,targetPct:18,maxPct:21,maxOpenPositions:3},
+      {maxEquityUsd:250,targetPct:14,maxPct:18,maxOpenPositions:5},
+      {maxEquityUsd:500,targetPct:11,maxPct:15,maxOpenPositions:5},
+      {maxEquityUsd:1000,targetPct:8,maxPct:12,maxOpenPositions:5},
+      {maxEquityUsd:Infinity,targetPct:6,maxPct:10,maxOpenPositions:5}
     ],
     minimumPositionUsd:4,
     liquidityParticipationCapPct:0.05,
-    maxOpenPositionsHard:3,
+    maxOpenPositionsHard:5,
     drawdownMultipliers:[
       {maxDrawdownPct:5,sizeMultiplier:1,positionCapMultiplier:1},
       {maxDrawdownPct:10,sizeMultiplier:.80,positionCapMultiplier:1},
@@ -40,7 +41,7 @@ export const MEME_AUTO_DESIGN={
     riskRules:{neverScaleSafetyLimits:true,neverScaleSlippageCaps:true,neverScaleSecurityTolerance:true,neverForceFullAllocation:true,reduceSizeWhenLiquidityLimited:true,reduceSizeWhenDrawdown:true,scaleDownImmediatelyOnBalanceLoss:true,scaleUpOnlyFromCurrentConfirmedEquity:true},
     reserveUsd:5,
     tradableUsd:25,
-    maxOpenPositions:1,
+    maxOpenPositions:3,
     targetPositionUsd:6,
     minPositionUsd:4,
     maxPositionUsd:7,
@@ -83,4 +84,4 @@ export function computeMemeCapitalPlan({equityUsd=30,peakEquityUsd=equityUsd,ava
   return {ok:true,mode:c.mode,equityUsd:equity,peakEquityUsd:peak,drawdownPct,reserveUsd,reservePct,usableUsd,targetAllocationPct:tier.targetPct,maxAllocationPct:tier.maxPct,positionUsd,maxOpenPositions,setup,setupMultiplier,qualityMultiplier,liquidityCapUsd:Number.isFinite(liquidityCap)?liquidityCap:null,balanceAutoScaled:true,drawdownDeRisked:dd.sizeMultiplier<1};
 }
 
-export function getMemeAutoDesignStatus(){return {ok:true,service:"MEME_AUTO",version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,executionEnabled:false,walletConnected:false,signingEnabled:false,readyForWalletIntegration:false,sampleCapitalPlans:[30,50,100,250,500,1000].map(equityUsd=>computeMemeCapitalPlan({equityUsd,peakEquityUsd:equityUsd,availableUsd:equityUsd,qualityScore:92})),design:MEME_AUTO_DESIGN};}
+export function getMemeAutoDesignStatus(){return {ok:true,service:"MEME_AUTO",version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,executionEnabled:false,walletConnected:false,signingEnabled:false,readyForWalletIntegration:false,sampleCapitalPlans:[25,30,50,100,250,500,1000].map(equityUsd=>computeMemeCapitalPlan({equityUsd,peakEquityUsd:equityUsd,availableUsd:equityUsd,qualityScore:92})),design:MEME_AUTO_DESIGN};}
