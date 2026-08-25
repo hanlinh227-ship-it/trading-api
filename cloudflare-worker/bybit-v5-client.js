@@ -40,16 +40,18 @@ export function bybitV5(env={}){
     try{
       r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/bybit/private",{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+bridgeSecret},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(20000)}));
       j=await r.json().catch(()=>null);
-    }catch(e){throw bybitError(path,502,null,{bodySnippet:"VPS bridge fetch failed: "+String(e?.message||e).slice(0,180),transport:"VPS_BYBIT_PRIVATE_PROXY"});}
-    if(!r.ok||!j)throw bybitError(path,r?.status||502,j?.upstream||null,{bodySnippet:j?.error||"VPS bridge invalid response",transport:"VPS_BYBIT_PRIVATE_PROXY",attemptedBases:j?.attempts||[]});
-    const up=j.upstream||null,status=Number(j.httpStatus||0)||502;
-    if(!j.ok||Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:j.base||null,attemptedBases:j.attempts||[],transport:"VPS_BYBIT_PRIVATE_PROXY"});
+    }catch(e){throw bybitError(path,502,null,{bodySnippet:"VPS bridge fetch failed: "+String(e?.message||e).slice(0,180),transport:"VPS_BYBIT_PROXY"});}
+    if(!r.ok||!j)throw bybitError(path,r?.status||502,j?.upstream||null,{bodySnippet:j?.error||"VPS bridge invalid response",transport:j?.transport||"VPS_BYBIT_PROXY",attemptedBases:j?.attempts||[]});
+    const up=j.upstream||null,status=Number(j.httpStatus||0)||502,transport=j.transport||"VPS_BYBIT_PROXY";
+    if(!j.ok||Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:j.base||null,attemptedBases:j.attempts||[],transport});
     return up;
   }
   async function market(path,params={}){
     try{return await signedViaVps("GET",path,params);}
     catch(vpsError){
-      if(String(env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK??"true").toLowerCase()==="true"){
+      // VPS is authoritative for Bybit market data. Direct Cloudflare egress is disabled by default
+      // because Bybit/CloudFront can geo-block it and silently turn a healthy scanner into 502s.
+      if(String(env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK||"").toLowerCase()==="true"){
         try{return await pub(path,params);}catch(directError){directError.cause=vpsError;throw directError;}
       }
       throw vpsError;
