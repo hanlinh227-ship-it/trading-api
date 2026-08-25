@@ -1,0 +1,80 @@
+name: VPS Live Market Review Only
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vps-live-market-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Scan live market and review best candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source /etc/trading-v11-ai.env
+          set +a
+          cd cloudflare-worker
+          node --input-type=module <<'NODE' > /tmp/live-market-review.json
+          import {scanBybitAuto,sizeBybitAuto} from './bybit-scalp-engine.js';
+          import {bybitAutoConfig} from './bybit-auto-config.js';
+          import {bybitV5} from './bybit-v5-client.js';
+
+          const env={};
+          const scan=await scanBybitAuto(env);
+          const best=scan.best;
+          if(!best){console.log(JSON.stringify({ok:true,result:'NO_MARKET_ENTRY',reason:scan.reason||'NO_SETUP',analyzed:scan.analyzed||0,qualified:scan.qualified||0,scannedAt:scan.scannedAt},null,2));process.exit(0)}
+
+          const health=await fetch('https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health').then(r=>r.json()).catch(()=>({}));
+          const equity=Number(health?.account?.totalEquity||health?.account?.walletBalance||50);
+          const sizing=sizeBybitAuto(best,bybitAutoConfig(env),equity>0?equity:50);
+          const api=bybitV5(env);
+          const quote=async()=>{
+            const t=await api.ticker(best.symbol),x=t?.result?.list?.[0]||{},bid=Number(x.bid1Price||0),ask=Number(x.ask1Price||0),px=best.side==='Buy'?ask:bid,mid=(bid+ask)/2;
+            return {bid,ask,px,spreadBps:mid>0?(ask-bid)/mid*10000:null,driftBps:Math.abs(px-best.entry)/Math.max(best.entry,1e-12)*10000,checkedAt:Date.now()};
+          };
+          const pre=await quote();
+          const preOk=pre.spreadBps<=12&&pre.driftBps<=12;
+          if(!preOk){console.log(JSON.stringify({ok:true,result:'NO_MARKET_ENTRY',reason:pre.spreadBps>12?'PRE_AI_SPREAD_TOO_WIDE':'PRE_AI_ENTRY_DRIFT',best,sizing,equity,preAiQuote:pre,analyzed:scan.analyzed,qualified:scan.qualified},null,2));process.exit(0)}
+
+          const compact={symbol:best.symbol,side:best.side,strategy:best.strategy,score:best.score,entry:best.entry,sl:best.sl,tp:best.tp,rr:best.rr,spreadBps:best.spreadBps,atr1:best.atr1,profile:best.profile,context:{vwapAligned:!!best.context?.vwapAligned,volumeRatio:best.context?.volumeRatio,distanceFromVwapAtr:best.context?.distanceFromVwapAtr,confluence:(best.context?.confluence||[]).slice(0,6)},liquidity:{turnover24h:best.liquidity?.turnover24h,spreadBps:best.liquidity?.spreadBps}};
+          const body={evidence:{mode:'BYBIT_SCALP_DECISION',task_id:'live-review-'+Date.now(),instruction:'FINAL ENTRY REVIEW ONLY for one prepared 1-5 minute Bybit USDT perpetual scalp. Do not search for symbols, alternatives, or new entries. Use only supplied evidence. PASS when direction/context/liquidity are acceptable. REJECT when materially weak or contradictory. BLOCKED only for unsafe/stale/inconsistent evidence. Do not trade.',context:{reviewPolicy:'FINAL_ENTRY_REVIEW_ONLY',reviewStage:'FINAL_PRE_EXECUTION',setup:compact,freshQuote:pre,horizon:'1-5m',exchange:'BYBIT'},requestedProviders:['claude','codex','deepseek']}};
+          const secret=process.env.V11_AI_BRIDGE_SECRET||'';
+          const council=await fetch('http://127.0.0.1:8789/review',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+secret},body:JSON.stringify(body)}).then(r=>r.json()).catch(e=>({ok:false,error:String(e)}));
+          const post=await quote();
+          const postOk=post.spreadBps<=12&&post.driftBps<=12;
+          const providers=council.providers||{};
+          const verdicts={};let pass=0,reject=0,blocked=0,unavailable=0;
+          for(const p of ['claude','codex','deepseek']){const x=providers[p]||{},v=String(x?.review?.verdict||'').toUpperCase();const out=x.status==='OK'&&['PASS','REJECT','BLOCKED'].includes(v)?v:'UNAVAILABLE';verdicts[p]=out;if(out==='PASS')pass++;else if(out==='REJECT')reject++;else if(out==='BLOCKED')blocked++;else unavailable++;}
+          const usable=pass+reject+blocked;const aiAllow=usable===0?true:(blocked===0&&pass>=reject&&pass>0);
+          const result=preOk&&postOk&&aiAllow?'MARKET_CANDIDATE_READY':'NO_MARKET_ENTRY';
+          console.log(JSON.stringify({ok:true,result,reason:!postOk?(post.spreadBps>12?'POST_AI_SPREAD_TOO_WIDE':'POST_AI_ENTRY_DRIFT'):(!aiAllow?'AI_REJECT':'READY'),best,sizing,equity,preAiQuote:pre,postAiQuote:post,ai:{usable,pass,reject,blocked,unavailable,verdicts,returnedEarly:council.returnedEarly,decisionLatencyMs:council.decisionLatencyMs},analyzed:scan.analyzed,qualified:scan.qualified,scannedAt:scan.scannedAt,reviewOnly:true,orderCreateCalled:false},null,2));
+          NODE
+
+      - name: Persist report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          cp /tmp/live-market-review.json docs/diagnostics/LATEST_LIVE_MARKET_REVIEW.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_LIVE_MARKET_REVIEW.json
+          git commit -m 'Record latest live market review' || exit 0
+          git push origin HEAD:main
