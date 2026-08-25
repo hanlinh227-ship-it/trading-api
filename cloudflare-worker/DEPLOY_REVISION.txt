@@ -1,14 +1,15 @@
 V10
 SIGNAL-ONLY-V10-SOURCE-OF-TRUTH
-Revision: BYBIT-AUTO-1.7.1-RESILIENCE-2026-08-26-R2
+Revision: BYBIT-AUTO-1.7.2-ENTRY-CONFLICT-CLEANUP-2026-08-26
 GitHub source entry: cloudflare-worker/index.js.
-Bybit Auto production authority: BYBIT-AUTO-1.7.1.
-Bybit resilience: duplicate controller closed-PnL gate removed; canonical reconciliation remains authoritative.
-Bybit PnL reconciliation: transient closed-PnL failure may use a maximum 15-minute last-known-healthy grace window while account/position/risk safety remains healthy; stale reconciliation remains fail-closed.
-Bybit loss-streak pause: canonical Bybit closed-PnL outcome source with one-shot trigger per newest loss, preventing repeated pauses from the same historical streak.
-Bybit scheduler telemetry: exceptions are persisted instead of swallowed; last cycle reason, entry blocker and scan telemetry are retained.
+Bybit Auto production authority: BYBIT-AUTO-1.7.2.
+Entry timing authority: BYBIT_AUTO_CONFIG.execution.cooldownSec, default 180 seconds; retired hard-coded controller 5-minute spacing and hidden inner-engine cooldown override are forbidden.
+Loss-streak pause authority remains canonical engine state with one-shot trigger per newest realized loss streak; controller reports but does not duplicate the decision.
+Bybit PnL reconciliation: transient closed-PnL failure may use a maximum 15-minute last-known-healthy grace window; stale reconciliation remains fail-closed.
+LIVE risk/margin accounting authority: BYBIT_LIVE_POSITIONS_ONLY. Plans retained only for closed-PnL reconciliation/learning do not count as live exposure when Bybit positions confirms the position is absent.
+Pending closed plan may block same-symbol re-entry until reconciliation completes, but must not block unrelated symbols through ghost risk/margin.
+Bybit scheduler telemetry persists exceptions, last cycle reason, entry blocker, scan telemetry and live-risk-accounting diagnostics.
 Bybit entry quality gates remain intact: liquidity, regime, adaptive score, correlation, pre-AI freshness/reanchor, sizing, risk preflight, AI review, post-AI revalidation, actual RR and verified protection.
-Validator upgraded for BYBIT-AUTO-1.7.1 resilience invariants; legacy duplicate-gate literals are no longer required.
 Cron: one minute.
 Forex, Meme and other execution authorities remain unchanged.
 NOTE: GitHub source commits are not proof of successful Cloudflare/VPS runtime deployment; workflow/runtime evidence must confirm production state.
