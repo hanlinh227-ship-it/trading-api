@@ -1,7 +1,7 @@
 {
   "ok": true,
-  "expectedRevision": "c14839f34ea66e6a419d828acfb2d7c2dad4ed8d",
-  "runtimeRevision": "c14839f34ea66e6a419d828acfb2d7c2dad4ed8d",
+  "expectedRevision": "155471aa4b31b4d3d899591289398721ed50ba45",
+  "runtimeRevision": "155471aa4b31b4d3d899591289398721ed50ba45",
   "exchange": "BYBIT",
   "mode": "LIVE",
   "execution": {
