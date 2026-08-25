@@ -3,169 +3,110 @@
 Updated: 2026-08-25 UTC+7
 
 ## STATUS
-- Version: `MEME-AUTO-0.1.0-DESIGN`.
+- Version: `MEME-AUTO-0.2.0-DESIGN`.
 - Chain: Solana.
 - State: `DESIGN_ONLY`.
 - Wallet: NOT CONNECTED.
 - Signing: DISABLED.
 - Execution: DISABLED.
-- No BUY/SELL route is allowed to submit transactions yet.
-- Telegram is integrated only as a read-only design branch inside the Unified Trading Hub.
-
-## PURPOSE
-Design the meme-coin decision/risk/exit/learning system as completely as practical before adding wallet credentials, Solana transaction signing, live data subscriptions or Jupiter transaction submission.
+- Telegram: read-only MEME branch inside Unified Trading Hub.
 
 ## PHILOSOPHY
 `CONFIRMED_MOMENTUM_NOT_BLIND_SNIPING`.
-The bot must not buy simply because a token is new or pumping. Safety and sellability are hard gates before quality scoring. The desired edge is early-but-confirmed momentum, not first-block sniping.
+Safety and sellability are hard gates before quality scoring. No blind launch sniping, leverage, DCA, averaging down or martingale.
 
-## TARGET CAPITAL MODEL — $30 START
-- Starting capital: $30.
-- Reserve: $5.
-- Tradable pool: about $25.
-- Max simultaneous positions initially: 1.
-- Target position: $6.
-- Allowed position range: $4–$7.
-- Max allocation/token: about 23.5% of wallet equity.
-- Spot only; leverage OFF.
-- DCA OFF; averaging down OFF; martingale OFF.
+## BALANCE-AWARE CONTINUOUS CAPITAL ALLOCATOR
+Starting capital is $30, but $30 is only the initial balance, not a fixed sizing profile. Capital sizing automatically recalculates from current confirmed equity on every future decision.
 
-## FUTURE DATA / EXECUTION ROLES
-Discovery/intelligence design:
-- Birdeye new listings / meme screen as primary discovery/intelligence candidate source.
-- Birdeye token security, wallet-level holder distribution, holder profile and holder history for safety/ownership/flow intelligence.
-- DexScreener may be used as a cross-check/discovery supplement, not execution authority.
-- Jupiter is the future executable quote/router layer only after wallet integration.
-- Phantom is a user-facing wallet link/view layer; the bot must not depend on UI clicking.
+Canonical rules:
+- allocator mode: `BALANCE_AWARE_CONTINUOUS_ALLOCATOR`;
+- auto scale with current balance = ON;
+- auto de-risk with drawdown = ON;
+- minimum operating equity = $20;
+- reserve = max($5, 15% of equity);
+- hard reserve policy is never consumed to force an entry;
+- position size scales up when equity rises and scales down immediately when equity falls;
+- safety/security/slippage limits never loosen because balance is larger;
+- liquidity capacity can cap position size below the balance-derived target;
+- maximum liquidity participation reference = 0.05% of pool liquidity;
+- no forced use of full allocation.
+
+### Equity tiers
+- <= $50: target 20%, hard allocation cap 23.5%, max 1 position.
+- <= $100: target 18%, hard cap 21%, max 1 position.
+- <= $250: target 14%, hard cap 18%, max 2 positions.
+- <= $500: target 11%, hard cap 15%, max 2 positions.
+- <= $1,000: target 8%, hard cap 12%, max 3 positions.
+- > $1,000: target 6%, hard cap 10%, max 3 positions.
+
+The percentage intentionally decreases as capital grows so dollar size may grow without linearly increasing portfolio fragility.
+
+### Drawdown de-risking
+Measured from peak confirmed equity:
+- drawdown <=5%: normal size.
+- >5% to 10%: size x0.80.
+- >10% to 15%: size x0.60 and reduce position capacity.
+- >15%: size x0.40 and effectively return to one-position defensive mode.
+
+The bot may not keep an old larger size after balance falls.
+
+### Setup/quality sizing
+- `MOMENTUM_RETEST`: x1.00.
+- `FRESH_BREAKOUT`: x0.85.
+- `EARLY_ROTATION`: x0.70.
+- entry-quality but non-premium candidate: x0.85.
+- premium candidate: x1.00.
+
+Final theoretical position size is the minimum of balance-derived target, hard equity cap, available capital after reserve, drawdown-adjusted capacity and liquidity participation cap.
 
 ## HARD SAFETY GATE
-Safety is evaluated before momentum score and cannot be overridden by AI or learning.
-Canonical design thresholds:
+Before any momentum score:
 - executable SELL route must exist before BUY;
-- critical security/mint/freeze risk -> reject;
+- critical mint/freeze/security risk -> reject;
 - liquidity >= $30k; fast-breakout preference >= $50k;
 - wallet-level top-10 concentration <=35%;
-- dev+insider supply <=8%;
-- bundler supply <=12%;
-- sniper supply <=18%;
-- holder profile required;
-- wallet-level distribution required;
-- fresh sell quote required.
-These thresholds are initial theoretical guards and must later be validated against live/paper samples before execution activation.
+- dev+insider <=8%; bundler <=12%; sniper <=18%;
+- wallet-level distribution and holder profile required;
+- fresh SELL quote required.
 
-## QUALITY SCORE 0–100
-Hard safety gates run first. Only safe candidates are scored.
-Weights:
-- Safety quality 30
-- Holder quality 20
-- Liquidity quality 15
-- Real flow 20
-- Momentum/setup quality 15
+Safety cannot be relaxed by AI, learning or larger account balance.
 
-Thresholds:
-- <78: reject
-- 78–84: watch
-- >=85: entry-quality candidate
-- >=92: premium candidate
+## QUALITY SCORE
+Weights: Safety 30, Holders 20, Liquidity 15, Real Flow 20, Momentum 15.
+- <78 reject
+- 78–84 watch
+- >=85 entry-quality
+- >=92 premium
+Learning may only move effective entry threshold within 82–92 after sufficient closed samples.
 
-Future learning may only move the effective entry threshold within 82–92, with no influence before 20 closed samples and full weight only after 100+ samples.
-
-## HOLDER / FLOW INTELLIGENCE
-Use wallet-level ownership rather than token-account-only views where possible.
-Track labeled cohorts: bundler, sniper, insider, dev, smart_trader.
-Penalize concentration, coordinated early buying, insider/dev selling, wash-like concentration and narrow buyer breadth.
-Reward healthy holder growth, broad unique buyer participation and smart-trader participation only when not concentrated.
-
-## MEME REGIME ENGINE
-Regimes:
-- EARLY_DISCOVERY
-- MOMENTUM_BUILD
-- BREAKOUT_EXPANSION
-- HEALTHY_PULLBACK
-- EUPHORIA
-- DISTRIBUTION
-- LIQUIDITY_DECAY
-
-Allowed entry regimes:
-- MOMENTUM_BUILD
-- BREAKOUT_EXPANSION
-- HEALTHY_PULLBACK
-
-Blocked entry regimes:
-- EUPHORIA
-- DISTRIBUTION
-- LIQUIDITY_DECAY
-
-## ENTRY SETUPS
-Priority order:
-1. `MOMENTUM_RETEST` — preferred full design size.
-2. `FRESH_BREAKOUT` — reduced size, requires premium real-flow confirmation.
-3. `EARLY_ROTATION` — smaller size, requires especially high safety quality.
-
-No forced trade quota. Continuous scanning does not mean forced ownership.
+## REGIME / ENTRY
+Regimes: EARLY_DISCOVERY, MOMENTUM_BUILD, BREAKOUT_EXPANSION, HEALTHY_PULLBACK, EUPHORIA, DISTRIBUTION, LIQUIDITY_DECAY.
+Allowed entry regimes: MOMENTUM_BUILD, BREAKOUT_EXPANSION, HEALTHY_PULLBACK.
+Setups: `MOMENTUM_RETEST` > `FRESH_BREAKOUT` > `EARLY_ROTATION`.
+No forced trade quota.
 
 ## FUTURE EXECUTION DESIGN
-Future router: Jupiter.
-Before BUY:
-- fresh executable BUY quote;
-- fresh executable SELL quote;
-- quote age target <=2.5s;
-- target price impact <=1.5%; hard cap 3%;
-- target slippage about 1%; hard cap 4%;
-- reject if price drifts/chases >2.5% after quote preparation;
-- transaction must confirm before state is considered OPEN.
-No implementation of signing/submission is allowed in DESIGN_ONLY phase.
+Future router: Jupiter. Phantom is only the user wallet/link/view layer.
+Before BUY: fresh BUY quote + fresh SELL quote, quote age target <=2.5s, target impact <=1.5%, hard impact cap 3%, target slippage ~1%, hard cap 4%, no chase beyond 2.5% drift, transaction confirmation required before OPEN.
+No signing or submission is allowed in DESIGN_ONLY.
 
 ## EXIT ENGINE
-Normal loss control:
-- adaptive Smart CUT design around -8% to -12% depending on flow/volatility;
-- hard loss reference 16% for theoretical sizing/validation, recognizing live slippage can exceed it.
-
-Profit path:
-- TP1 around +18% -> sell 25%;
-- TP2 around +35% -> sell another 25%;
-- principal recovery logic then prioritizes recovering original capital when feasible;
-- remaining quantity can become volatility-managed runner.
-
-Smart CUT evidence can include momentum collapse, buyer/seller flip, holder-growth stall, dev/insider selling, failed breakout and distribution flow.
-Emergency exit bypasses normal confirmation when sell route is lost/deteriorating, liquidity shocks, token security deteriorates, dev dump occurs or exit price impact becomes extreme.
+- Smart CUT design around -8% to -12% depending on flow/volatility.
+- hard loss reference 16%.
+- TP1 +18% sell 25%.
+- TP2 +35% sell another 25%.
+- then principal recovery + volatility-managed runner.
+Emergency exit for lost/deteriorating sell route, liquidity shock, security deterioration, dev dump or extreme exit impact.
 
 ## LEARNING
-Memory dimensions:
-- token
-- launch/source
-- token age bucket
-- regime
-- setup
-- liquidity bucket
-
-Metrics:
-- net PnL / net R after costs
-- MFE / MAE
-- hold duration
-- entry/exit impact
-- fees
-- exit reason
-
-Learning may only tune bounded entry score, setup priority, bounded size multiplier and bounded exit profile. It may never change hard safety, wallet authority, max allocation, emergency exit rules or no-martingale policy. Auto-promote remains OFF.
-
-## AI ROLE
-AI is not required for execution and may never override deterministic safety or sign transactions. Future optional use is narrative/social-context review only after deterministic gates.
+Memory now also records equity bucket and drawdown bucket in addition to token/source/age/regime/setup/liquidity.
+Metrics include net PnL/R, MFE/MAE, hold time, impact, fees, exit reason, equity at entry and position percentage.
+Learning may tune only bounded entry score, setup priority, bounded size multiplier and exit profile. It may never modify hard safety, wallet authority, max allocation caps, emergency exit, drawdown de-risking or no-martingale policy. Auto-promote remains OFF.
 
 ## TELEGRAM HUB
-Unified root menu has two top-level buttons:
-- `BYBIT` — current LIVE production execution branch.
-- `MEME` — DESIGN_ONLY branch.
-MEME submenu exposes DESIGN, SAFETY, ENTRY/EXIT, CAPITAL and LEARNING. It must clearly display NO WALLET / NO SIGNING / NO EXECUTION until the dedicated integration phase is explicitly approved and designed.
+Top level remains `BYBIT` and `MEME`. BYBIT is current LIVE execution authority. MEME remains DESIGN_ONLY and must visibly state NO WALLET / NO SIGNING / NO EXECUTION.
 
-## NEXT PHASE — NOT YET ACTIVE
-Before activating real trading, separately design and validate:
-1. Birdeye/DexScreener data adapters and freshness/rate-limit handling.
-2. Solana RPC and transaction simulation.
-3. Dedicated trading wallet / Phantom linking model without exposing seed phrase to GitHub or chat.
-4. Jupiter quote + swap construction, slippage/impact limits and sell-route verification.
-5. Paper/shadow mode with historical/live replay and outcome telemetry.
-6. Emergency transaction/rpc fallback and failed-sell handling.
-7. Explicit production enable gate and independent MEME state namespace.
+## NEXT PHASE — NOT ACTIVE
+Build data adapters + Paper/Shadow engine first, then Solana RPC simulation, dedicated trading wallet/Phantom link, Jupiter execution, failed-sell fallback and an explicit independent MEME production-enable gate.
 
 Do not connect wallet or enable execution merely because this design checkpoint exists.
