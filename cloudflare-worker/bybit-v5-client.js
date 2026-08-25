@@ -46,6 +46,15 @@ export function bybitV5(env={}){
     if(!j.ok||Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:j.base||null,attemptedBases:j.attempts||[],transport:"VPS_BYBIT_PRIVATE_PROXY"});
     return up;
   }
+  async function market(path,params={}){
+    try{return await signedViaVps("GET",path,params);}
+    catch(vpsError){
+      if(String(env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK??"true").toLowerCase()==="true"){
+        try{return await pub(path,params);}catch(directError){directError.cause=vpsError;throw directError;}
+      }
+      throw vpsError;
+    }
+  }
   async function signedDirect(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody)),attempted=[];let lastErr;
@@ -74,23 +83,23 @@ export function bybitV5(env={}){
     }
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:"VPS_BYBIT_PRIVATE_PROXY",
-    serverTime:()=>pub("/v5/market/time"),
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:"VPS_BYBIT_PRIVATE_PROXY",marketTransport:"VPS_BYBIT_MARKET_PROXY",
+    serverTime:()=>market("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
     openOrders:()=>signed("GET","/v5/order/realtime",{category:"linear",settleCoin:"USDT",openOnly:0,limit:50}),
     closedPnl:(startTime,endTime)=>signed("GET","/v5/position/closed-pnl",{category:"linear",startTime,endTime,limit:100}),
-    instruments:(cursor="")=>pub("/v5/market/instruments-info",{category:"linear",limit:1000,cursor}),
-    tickers:()=>pub("/v5/market/tickers",{category:"linear"}),
-    kline:(symbol,interval="1",limit=200)=>pub("/v5/market/kline",{category:"linear",symbol,interval,limit}),
-    klineRange:(symbol,{interval="1",start,end,limit=200}={})=>pub("/v5/market/kline",{category:"linear",symbol,interval,start,end,limit}),
-    ticker:(symbol)=>pub("/v5/market/tickers",{category:"linear",symbol}),
+    instruments:(cursor="")=>market("/v5/market/instruments-info",{category:"linear",limit:1000,cursor}),
+    tickers:()=>market("/v5/market/tickers",{category:"linear"}),
+    kline:(symbol,interval="1",limit=200)=>market("/v5/market/kline",{category:"linear",symbol,interval,limit}),
+    klineRange:(symbol,{interval="1",start,end,limit=200}={})=>market("/v5/market/kline",{category:"linear",symbol,interval,start,end,limit}),
+    ticker:(symbol)=>market("/v5/market/tickers",{category:"linear",symbol}),
     order:body=>signed("POST","/v5/order/create",{category:"linear",...body}),
     orderStatus:(symbol,orderId)=>signed("GET","/v5/order/realtime",{category:"linear",symbol,orderId,limit:1}),
     setLeverage,
     tradingStop:(body)=>signed("POST","/v5/position/trading-stop",{category:"linear",...body}),
     cancelAll:(symbol)=>signed("POST","/v5/order/cancel-all",{category:"linear",symbol}),
-    public:pub,signed
+    public:pub,market,signed
   };
 }
 export function normalizeBybitFilter(x={}){const lot=x.lotSizeFilter||{},price=x.priceFilter||{},lev=x.leverageFilter||{};return {symbol:x.symbol,status:x.status,contractType:x.contractType,settleCoin:x.settleCoin,minQty:Number(lot.minOrderQty||0),maxQty:Number(lot.maxOrderQty||0),qtyStep:Number(lot.qtyStep||0),minNotional:Number(lot.minNotionalValue||5),tickSize:Number(price.tickSize||0),minLeverage:Number(lev.minLeverage||1),maxLeverage:Number(lev.maxLeverage||0),leverageStep:Number(lev.leverageStep||1)};}
