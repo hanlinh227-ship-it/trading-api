@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'scripts/forex_twelvedata_walkforward.py'
+      - 'scripts/forex_twelvedata_walkforward_v4.py'
       - '.github/workflows/forex-twelvedata-walkforward.yml'
 permissions:
   contents: write
@@ -22,17 +22,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {fetch-depth: 0}
-      - name: Run strict random walk-forward validation
-        run: python3 scripts/forex_twelvedata_walkforward.py
+      - name: Run strict selective random walk-forward validation
+        run: python3 scripts/forex_twelvedata_walkforward_v4.py
       - name: Assert evidence exists
         run: test -s data/forex-twelvedata-walkforward-latest.json
-      - name: Commit all evidence including failures
+      - name: Commit all evidence including failures without rebase conflicts
         if: always()
         run: |
+          test -s data/forex-twelvedata-walkforward-latest.json || exit 1
+          cp data/forex-twelvedata-walkforward-latest.json /tmp/forex-evidence.json
           git config user.name 'forex-backtest-bot'
           git config user.email 'forex-backtest-bot@users.noreply.github.com'
-          git add data/forex-twelvedata-walkforward-latest.json || true
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p data/forex-walkforward-runs
+          cp /tmp/forex-evidence.json data/forex-twelvedata-walkforward-latest.json
+          cp /tmp/forex-evidence.json "data/forex-walkforward-runs/run-${GITHUB_RUN_ID}.json"
+          git add data/forex-twelvedata-walkforward-latest.json data/forex-walkforward-runs/
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'test: update strict Twelve Data FOREX walk-forward evidence'
-          git pull --rebase origin main
+          git commit -m "test: persist Forex walk-forward evidence run ${GITHUB_RUN_ID}"
           git push origin HEAD:main
