@@ -1,0 +1,242 @@
+{
+  "ok": true,
+  "reviewOnly": true,
+  "orderCalled": false,
+  "scannedAt": 1787619253828,
+  "analyzed": 109,
+  "qualified": 3,
+  "original": {
+    "symbol": "ONGUSDT",
+    "side": "Buy",
+    "score": 95,
+    "entry": 0.08599,
+    "sl": 0.08388467857142858,
+    "tp": 0.09023023999999999,
+    "rr": 2.0140582537447655,
+    "atr1": 0.0009007142857142834,
+    "spreadBps": 3.4893864495495492,
+    "volumeRatio": 0.07939836404160057,
+    "vwapAligned": true,
+    "confluence": [
+      "VWAP_NOT_EXTENDED"
+    ]
+  },
+  "preparation": {
+    "ok": true,
+    "reason": "PRE_AI_FRESHENED",
+    "setup": {
+      "symbol": "ONGUSDT",
+      "side": "Buy",
+      "strategy": "SCALP:LIQUID_FILTERED_BREAKOUT:TREND_PULLBACK",
+      "profile": "LIQUID_FILTERED_BREAKOUT",
+      "score": 95,
+      "entry": 0.08586,
+      "sl": 0.08388467857142858,
+      "tp": 0.09023023999999999,
+      "rr": 2.2124196785333203,
+      "atr1": 0.0009007142857142834,
+      "spreadBps": 1.1647545279843925,
+      "exitPlan": {
+        "sl": 0.08388467857142858,
+        "tp": 0.09023023999999999,
+        "rr": 2.0140582537447655,
+        "targetSource": "FIB_1.272",
+        "preferredRR": 2,
+        "minRR": 1,
+        "volatilityClass": "HIGH",
+        "breakEvenTriggerR": 1.05,
+        "positiveTrailTriggerR": 1.45,
+        "positiveTrailLockR": 0.2,
+        "trailAtr": 1.15,
+        "requireStructureConfirmationForBE": true,
+        "requireStructureConfirmationForPositiveTrail": true,
+        "structure": {
+          "swingHigh": 0.08896,
+          "swingLow": 0.08429,
+          "fib": {
+            "r382": 0.08717606,
+            "r5": 0.08662500000000001,
+            "r618": 0.08607394,
+            "e1272": 0.09023023999999999,
+            "e1618": 0.09184606,
+            "s1272": 0.08301976000000001,
+            "s1618": 0.08140394000000001
+          },
+          "slBufferAtr": 0.45
+        }
+      },
+      "context": {
+        "vwap": 0.08546249760701538,
+        "rsi": 31.715771230502668,
+        "volumeRatio": 0.07939836404160057,
+        "distanceFromVwapAtr": 0.44131907230648404,
+        "vwapAligned": true,
+        "confluence": [
+          "VWAP_NOT_EXTENDED"
+        ]
+      },
+      "liquidity": {
+        "turnover24h": 14989116.4431,
+        "spreadBps": 3.4893864495495492
+      },
+      "filters": {
+        "symbol": "ONGUSDT",
+        "status": "Trading",
+        "contractType": "LinearPerpetual",
+        "settleCoin": "USDT",
+        "minQty": 1,
+        "maxQty": 192100,
+        "qtyStep": 1,
+        "minNotional": 5,
+        "tickSize": 0.00001
+      },
+      "originalEntry": 0.08599,
+      "entryState": "FRESHENED",
+      "reanchorCount": 0,
+      "reanchor": {
+        "originalEntry": 0.08599,
+        "currentEntry": 0.08586,
+        "absDriftBps": 15.118036981043288,
+        "adverseBps": 0,
+        "favorableBps": 15.118036981043288,
+        "driftAtr": 0.14432989690720713,
+        "structureR": 2.2124196785333203,
+        "normalBps": 12,
+        "softBps": 20,
+        "hardBps": 30,
+        "checkedAt": 1787619253894
+      }
+    },
+    "quote": {
+      "ok": true,
+      "bid": 0.08585,
+      "ask": 0.08586,
+      "px": 0.08586,
+      "spreadBps": 1.1647545279843925,
+      "maxSpreadBps": 12,
+      "checkedAt": 1787619253894,
+      "absDriftBps": 15.118036981043288,
+      "adverseBps": 0,
+      "favorableBps": 15.118036981043288,
+      "driftAtr": 0.14432989690720713,
+      "structureR": 2.2124196785333203,
+      "entryState": "FRESHENED",
+      "reanchorCount": 0
+    }
+  },
+  "sizing": {
+    "ok": true,
+    "qty": 2531,
+    "notional": 217.31166000000002,
+    "riskUsd": 5,
+    "rewardUsd": 10,
+    "targetRR": 2,
+    "riskLadderStep": 0,
+    "ladderRiskUsd": 5,
+    "ladderRewardUsd": 10,
+    "equityUsd": 50.64917926
+  },
+  "ai": {
+    "enabled": true,
+    "allow": true,
+    "mode": "PARTIAL_AI_SCALP",
+    "reason": "PARTIAL_AI_PASS",
+    "score": 95,
+    "rr": 2.2124196785333203,
+    "evaluationUsed": true,
+    "reviewPolicy": "FINAL_ENTRY_REVIEW_ONLY",
+    "aiCalled": true,
+    "preAiQuote": {
+      "ok": true,
+      "bid": 0.08585,
+      "ask": 0.08586,
+      "px": 0.08586,
+      "spreadBps": 1.1647545279843925,
+      "maxSpreadBps": 12,
+      "checkedAt": 1787619253894,
+      "absDriftBps": 15.118036981043288,
+      "adverseBps": 0,
+      "favorableBps": 15.118036981043288,
+      "driftAtr": 0.14432989690720713,
+      "structureR": 2.2124196785333203,
+      "entryState": "FRESHENED",
+      "reanchorCount": 0
+    },
+    "requiredProviders": [
+      "claude",
+      "codex",
+      "deepseek"
+    ],
+    "activeProviders": [
+      "deepseek"
+    ],
+    "waitingProviders": [
+      "claude",
+      "codex"
+    ],
+    "usable": 1,
+    "pass": 1,
+    "reject": 0,
+    "blocked": 0,
+    "unavailable": 2,
+    "verdicts": {
+      "claude": "UNAVAILABLE",
+      "codex": "UNAVAILABLE",
+      "deepseek": "PASS"
+    },
+    "providerDiagnostics": {
+      "claude": {
+        "status": "UNAVAILABLE",
+        "latencySeconds": 4.85,
+        "error": "FAST_FIRST_NOT_WAITED",
+        "hasReview": false
+      },
+      "codex": {
+        "status": "UNAVAILABLE",
+        "latencySeconds": 4.85,
+        "error": "FAST_FIRST_NOT_WAITED",
+        "hasReview": false
+      },
+      "deepseek": {
+        "status": "OK",
+        "latencySeconds": 3.35,
+        "error": null,
+        "hasReview": true
+      }
+    },
+    "bridgeOk": true,
+    "bridgeStatus": 200,
+    "bridgeLatencyMs": 4884,
+    "decisionLatencyMs": 4854,
+    "fastFirst": true,
+    "returnedEarly": true,
+    "timeoutMs": 16000,
+    "error": null
+  },
+  "postAi": {
+    "ok": true,
+    "reason": "POST_AI_ENTRY_DRIFT",
+    "bid": 0.08596,
+    "ask": 0.08598,
+    "px": 0.08598,
+    "spreadBps": 2.326392927766212,
+    "maxSpreadBps": 12,
+    "checkedAt": 1787619258945,
+    "driftBps": 13.97624039133416,
+    "maxDriftBps": 12
+  },
+  "result": "MARKET_READY_REVIEW_ONLY",
+  "reason": "ALL_REVIEW_GATES_PASS",
+  "finalSetup": {
+    "symbol": "ONGUSDT",
+    "side": "Buy",
+    "entry": 0.08586,
+    "originalEntry": 0.08599,
+    "entryState": "FRESHENED",
+    "reanchorCount": 0,
+    "sl": 0.08388467857142858,
+    "tp": 0.09023023999999999,
+    "rr": 2.2124196785333203,
+    "score": 95
+  }
+}
