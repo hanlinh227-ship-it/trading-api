@@ -91,12 +91,16 @@ export async function prepareBybitScalpForReview(env,setup,api=bybitV5(env)){
 }
 
 async function validateQuote(env,api,setup,phase){
-  const maxDriftBps=Math.max(2,Math.min(25,Number(env.BYBIT_AI_MAX_POST_REVIEW_DRIFT_BPS||12)));
+  const maxAdverseBps=Math.max(2,Math.min(25,Number(env.BYBIT_AI_MAX_POST_REVIEW_DRIFT_BPS||12))),maxFavorableBps=Math.max(maxAdverseBps,Math.min(25,Number(env.BYBIT_AI_MAX_POST_FAVORABLE_DRIFT_BPS||18)));
   const q=await liveQuote(env,api,setup);
-  if(!q.ok)return {ok:false,reason:`${phase}_${q.reason}`,...q};
-  const px=Number(q.px||0),entry=Number(setup.entry||0),driftBps=Math.abs(px-entry)/Math.max(entry,1e-12)*10000;
-  if(driftBps>maxDriftBps)return {ok:false,reason:`${phase}_ENTRY_DRIFT`,...q,driftBps,maxDriftBps};
-  return {ok:true,...q,driftBps,maxDriftBps};
+  if(!q.ok)return {...q,ok:false,reason:`${phase}_${q.reason}`};
+  const px=Number(q.px||0),entry=Number(setup.entry||0),atr=Math.abs(Number(setup.atr1||0)),side=String(setup.side||""),sl=Number(setup.sl||0),tp=Number(setup.tp||0),signedMoveBps=(px-entry)/Math.max(entry,1e-12)*10000;
+  const adverseBps=side==="Buy"?Math.max(0,signedMoveBps):Math.max(0,-signedMoveBps),favorableBps=side==="Buy"?Math.max(0,-signedMoveBps):Math.max(0,signedMoveBps),driftBps=Math.abs(signedMoveBps),driftAtr=atr>0?Math.abs(px-entry)/atr:Infinity;
+  const geometryOk=side==="Buy"?sl<px&&tp>px:side==="Sell"?sl>px&&tp<px:false;
+  if(!geometryOk)return {...q,ok:false,reason:`${phase}_GEOMETRY_INVALID`,driftBps,adverseBps,favorableBps,driftAtr,maxAdverseBps,maxFavorableBps};
+  if(adverseBps>maxAdverseBps)return {...q,ok:false,reason:`${phase}_ENTRY_DRIFT`,driftBps,adverseBps,favorableBps,driftAtr,maxAdverseBps,maxFavorableBps};
+  if(favorableBps>maxFavorableBps||driftAtr>.40)return {...q,ok:false,reason:`${phase}_PRICE_MOVE_TOO_LARGE`,driftBps,adverseBps,favorableBps,driftAtr,maxAdverseBps,maxFavorableBps};
+  return {...q,ok:true,driftBps,adverseBps,favorableBps,driftAtr,maxAdverseBps,maxFavorableBps};
 }
 
 async function callCouncil(env,setup,preAiQuote){if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")return {ok:false,error:"AI_BRIDGE_BINDING_MISSING",providers:{},diagnostics:{}};const secret=String(env.V11_AI_BRIDGE_SECRET||"");if(!secret)return {ok:false,error:"AI_BRIDGE_SECRET_MISSING",providers:{},diagnostics:{}};const timeoutMs=Math.max(9000,Math.min(20000,Number(env.BYBIT_AI_TIMEOUT_MS||16000))),started=Date.now();const instruction=["FINAL ENTRY REVIEW ONLY for one prepared 1-5 minute Bybit USDT perpetual scalp.","Do not search for symbols, alternatives, or new entries.","This candidate already passed deterministic market scan, one-shot price preparation, sizing and risk preflight.","Use only supplied evidence.","PASS when direction/context/liquidity are acceptable.","REJECT when materially weak or contradictory.","BLOCKED only for unsafe/stale/inconsistent evidence.","Do not change size, leverage, SL or TP.","Do not require any daily profit target.","Return only the required concise JSON."].join(" ");try{const r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/review",{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret},body:JSON.stringify({evidence:{mode:"BYBIT_SCALP_DECISION",task_id:"bybit-scalp-"+Date.now()+"-"+crypto.randomUUID().slice(0,8),instruction,context:{reviewPolicy:AI_REVIEW_POLICY,reviewStage:"FINAL_PRE_EXECUTION",setup:compactSetup(setup),freshQuote:{px:num(preAiQuote?.px),spreadBps:num(preAiQuote?.spreadBps),absDriftBps:num(preAiQuote?.absDriftBps),adverseBps:num(preAiQuote?.adverseBps),driftAtr:num(preAiQuote?.driftAtr),checkedAt:num(preAiQuote?.checkedAt)},horizon:"1-5m",exchange:"BYBIT"},requestedProviders:PROVIDERS}}),signal:AbortSignal.timeout(timeoutMs)}));const j=await r.json().catch(()=>({})),providers=j?.providers||{};return {ok:r.ok,providers,diagnostics:safeProviderDiagnostics(providers),bridgeStatus:r.status,latencyMs:Date.now()-started,timeoutMs,fastFirst:!!j?.fastFirst,returnedEarly:!!j?.returnedEarly,decisionLatencyMs:num(j?.decisionLatencyMs),error:r.ok?null:(j?.error||"AI_BRIDGE_HTTP_"+r.status)};}catch(e){return {ok:false,error:"AI_BRIDGE_TIMEOUT_OR_FETCH:"+String(e?.message||e),providers:{},diagnostics:{},latencyMs:Date.now()-started,timeoutMs};}}
