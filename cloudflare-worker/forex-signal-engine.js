@@ -1,0 +1,22 @@
+import {forexAutoConfig} from "./forex-auto-config.js";
+const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
+const ema=(a,p)=>{if(!a.length)return 0;const k=2/(p+1);let e=a[0];for(const x of a.slice(1))e=x*k+e*(1-k);return e};
+function atr(rows,p=14){if(rows.length<2)return 0;const tr=[];for(let i=1;i<rows.length;i++){const h=n(rows[i].high),l=n(rows[i].low),pc=n(rows[i-1].close);tr.push(Math.max(h-l,Math.abs(h-pc),Math.abs(l-pc)));}return avg(tr.slice(-p));}
+function rsi(rows,p=14){const c=rows.map(x=>n(x.close));if(c.length<p+1)return 50;let g=0,l=0;for(let i=c.length-p;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)g+=d;else l-=d;}if(l===0)return 100;const rs=(g/p)/(l/p);return 100-100/(1+rs);}
+function swing(rows,side,look=12){const x=rows.slice(-look);return side==="Buy"?Math.min(...x.map(r=>n(r.low,Infinity))):Math.max(...x.map(r=>n(r.high,-Infinity)));}
+function pipSize(symbol){return /JPY$/.test(symbol)?.01:.0001;}
+function spreadPips(s){const pip=pipSize(s.symbol);return pip>0?(n(s.ask)-n(s.bid))/pip:999;}
+function bars(s,tf){return Array.isArray(s?.bars?.[tf])?s.bars[tf]:[];}
+export function buildForexCandidate(env,s){
+ const c=forexAutoConfig(env),m5=bars(s,"M5"),m15=bars(s,"M15"),h1=bars(s,"H1");if(m5.length<30||m15.length<30||h1.length<30)return {ok:false,reason:"INSUFFICIENT_BARS",symbol:s.symbol};
+ const p=n(s.bid||s.last),a5=atr(m5),a15=atr(m15),a1h=atr(h1),h1c=h1.map(x=>n(x.close)),m15c=m15.map(x=>n(x.close)),fast=ema(h1c.slice(-40),20),slow=ema(h1c.slice(-60),50),mfast=ema(m15c.slice(-30),12),mslow=ema(m15c.slice(-40),26),rrsi=rsi(m5),trend=fast>slow&&mfast>mslow?"Buy":fast<slow&&mfast<mslow?"Sell":null;
+ if(!trend)return {ok:false,reason:"NO_ALIGNED_TREND",symbol:s.symbol};
+ const sp=spreadPips(s),spCap=/XAU/.test(s.symbol)?c.risk.maxSpreadPips.XAU:/JPY$/.test(s.symbol)?c.risk.maxSpreadPips.JPY:c.risk.maxSpreadPips.FX;if(sp>spCap)return {ok:false,reason:"SPREAD_TOO_WIDE",symbol:s.symbol,spreadPips:sp};
+ const pullback=trend==="Buy"?rrsi>=42&&rrsi<=64:rrsi>=36&&rrsi<=58;if(!pullback)return {ok:false,reason:"NO_HEALTHY_PULLBACK",symbol:s.symbol,rsi:rrsi};
+ const rawSwing=swing(m15,trend),buffer=Math.max(a5*c.risk.structureBufferAtr,a15*.10),minStop=Math.max(a5*c.risk.minStopAtr,a15*.55),maxStop=Math.max(a5*c.risk.maxStopAtr,a15*1.8),entry=trend==="Buy"?n(s.ask):n(s.bid);let sl=trend==="Buy"?rawSwing-buffer:rawSwing+buffer;let stopDist=Math.abs(entry-sl);if(stopDist<minStop){sl=trend==="Buy"?entry-minStop:entry+minStop;stopDist=minStop;}if(stopDist>maxStop)return {ok:false,reason:"STOP_TOO_WIDE",symbol:s.symbol,stopAtr:stopDist/Math.max(a5,1e-12)};
+ const structureTarget=trend==="Buy"?Math.max(...m15.slice(-20).map(x=>n(x.high))):Math.min(...m15.slice(-20).map(x=>n(x.low)));const rrStruct=Math.abs(structureTarget-entry)/Math.max(stopDist,1e-12),rr=Math.max(c.risk.minRR,Math.min(2.6,rrStruct));if(rrStruct<c.risk.minRR)return {ok:false,reason:"STRUCTURE_RR_TOO_LOW",symbol:s.symbol,rrStruct};const tp=trend==="Buy"?entry+stopDist*rr:entry-stopDist*rr;
+ let score=68;score+=Math.min(8,Math.abs(fast-slow)/Math.max(a1h,1e-12)*6);score+=Math.min(6,Math.abs(mfast-mslow)/Math.max(a15,1e-12)*5);score+=rr>=2?5:2;score+=sp<spCap*.5?4:1;score+=trend==="Buy"?(rrsi>48?3:0):(rrsi<52?3:0);score=Math.round(Math.min(95,score));
+ return {ok:true,symbol:s.symbol,side:trend,entry,sl,tp,rr,score,quality:score>=84?"PREMIUM":"NORMAL",spreadPips:sp,rsi:rrsi,atrM5:a5,atrM15:a15,atrH1:a1h,stopAtr:stopDist/Math.max(a5,1e-12),thesis:`${trend} H1+M15 aligned, M5 pullback, structural invalidation outside M15 swing`,timestamp:s.timestamp||Date.now()};
+}
+export function rankForexCandidates(env,snapshots=[]){return snapshots.map(s=>buildForexCandidate(env,s)).filter(x=>x.ok).sort((a,b)=>b.score-a.score||b.rr-a.rr);}
