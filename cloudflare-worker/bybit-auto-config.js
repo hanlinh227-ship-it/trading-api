@@ -1,4 +1,4 @@
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.0.0";
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.1.0";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:3,
@@ -16,11 +16,12 @@ export const BYBIT_AUTO_CONFIG={
     rewardStepUsd:1,
     maxRiskPctOfEquity:25,
     maxTotalOpenRiskPct:30,
-    maxLossStreak:3,
-    pauseMinutes:30,
+    marginUsePct:80,
     minRR:1,
     preferredRR:2,
     maxRR:3,
+    maxLossStreak:3,
+    pauseMinutes:30,
     maxSameDirectionPositions:2
   },
   filters:{minScore:72,maxSpreadBps:8,maxChaseAtr:.55,minAtrPct:.08,maxAtrPct:2.8},
@@ -39,6 +40,7 @@ export function bybitAutoConfig(env={}){
   c.risk.rewardStepUsd=Math.max(.1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.maxRiskPctOfEquity=Math.max(5,Math.min(50,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.maxTotalOpenRiskPct=Math.max(5,Math.min(60,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.marginUsePct=Math.max(30,Math.min(85,n(env,"BYBIT_MARGIN_USE_PCT",c.risk.marginUsePct)));
   c.risk.minRR=Math.max(1,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(4,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(5,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));

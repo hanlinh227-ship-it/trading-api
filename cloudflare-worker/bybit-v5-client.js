@@ -22,7 +22,7 @@ export function bybitV5(env={}){
     const q=qs(params),attempted=[];let lastErr;
     for(const base of baseList){
       attempted.push(base);
-      try{const r=await fetch(`${base}${path}${q?`?${q}`:""}`,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
+      try{const url=`${base}${path}${q?`?${q}`:""}`;const r=await fetch(url,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
       catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
@@ -66,6 +66,13 @@ export function bybitV5(env={}){
       throw e;
     }
   }
+  async function setLeverage(symbol,leverage){
+    try{return await signed("POST","/v5/position/set-leverage",{category:"linear",symbol,buyLeverage:String(leverage),sellLeverage:String(leverage)});}
+    catch(e){
+      if(Number(e?.bybit?.retCode)===110043)return {retCode:0,retMsg:"LEVERAGE_UNCHANGED",result:{},idempotent:true,requestedLeverage:Number(leverage)};
+      throw e;
+    }
+  }
   return {
     credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:"VPS_BYBIT_PRIVATE_PROXY",
     serverTime:()=>pub("/v5/market/time"),
@@ -80,12 +87,12 @@ export function bybitV5(env={}){
     ticker:(symbol)=>pub("/v5/market/tickers",{category:"linear",symbol}),
     order:body=>signed("POST","/v5/order/create",{category:"linear",...body}),
     orderStatus:(symbol,orderId)=>signed("GET","/v5/order/realtime",{category:"linear",symbol,orderId,limit:1}),
-    setLeverage:(symbol,leverage)=>signed("POST","/v5/position/set-leverage",{category:"linear",symbol,buyLeverage:String(leverage),sellLeverage:String(leverage)}),
+    setLeverage,
     tradingStop:(body)=>signed("POST","/v5/position/trading-stop",{category:"linear",...body}),
     cancelAll:(symbol)=>signed("POST","/v5/order/cancel-all",{category:"linear",symbol}),
     public:pub,signed
   };
 }
-export function normalizeBybitFilter(x={}){const lot=x.lotSizeFilter||{},price=x.priceFilter||{};return {symbol:x.symbol,status:x.status,contractType:x.contractType,settleCoin:x.settleCoin,minQty:Number(lot.minOrderQty||0),maxQty:Number(lot.maxOrderQty||0),qtyStep:Number(lot.qtyStep||0),minNotional:Number(lot.minNotionalValue||5),tickSize:Number(price.tickSize||0)};}
+export function normalizeBybitFilter(x={}){const lot=x.lotSizeFilter||{},price=x.priceFilter||{},lev=x.leverageFilter||{};return {symbol:x.symbol,status:x.status,contractType:x.contractType,settleCoin:x.settleCoin,minQty:Number(lot.minOrderQty||0),maxQty:Number(lot.maxOrderQty||0),qtyStep:Number(lot.qtyStep||0),minNotional:Number(lot.minNotionalValue||5),tickSize:Number(price.tickSize||0),minLeverage:Number(lev.minLeverage||1),maxLeverage:Number(lev.maxLeverage||0),leverageStep:Number(lev.leverageStep||1)};}
 export function floorStep(v,step){if(!(step>0))return Number(v);return Math.floor((Number(v)+1e-12)/step)*step;}
 export function roundTick(v,tick){if(!(tick>0))return Number(v);return Math.round(Number(v)/tick)*tick;}

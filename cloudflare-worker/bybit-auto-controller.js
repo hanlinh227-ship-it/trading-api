@@ -23,9 +23,6 @@ function compactPrice(v,tick=0){
 }
 const usd=v=>`$${Math.abs(Number(v||0)).toFixed(2)}`;
 
-// One-day operational target requested for the current LIVE session. This is deliberately
-// separate from daily PnL reconciliation: baselineRealizedUsd is the already-realized PnL at
-// the request snapshot, so historical PnL is never reset or rewritten.
 const LIVE_TARGET_SPEC={
   id:"2026-08-25T06:01+07:+100USD",
   day:"2026-08-25",
@@ -46,7 +43,7 @@ async function notifyLiveEntry(env,out){
     `Entry ${compactPrice(p.entry,tick)}`,
     `SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}`,
     `TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}`,
-    `RR ${Number(p.rr||0).toFixed(2)} • AUTO LIVE`
+    `RR ${Number(p.rr||0).toFixed(2)} • ${Number(p.leverage||0)>0?`${Number(p.leverage)}x • `:""}AUTO LIVE`
   ].join("\n");
   try{
     await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});
@@ -154,13 +151,13 @@ export async function runBybitAutoControlled(env,opts={}){
   await isolateModeState(env,mode);
   await ensureLiveProfitTarget(env,mode);
   const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
-  if(lastTradeAt>0&&elapsed<ENTRY_SPACING_MS)return {ok:true,executed:false,mode,reason:"ENTRY_SPACING_5M",nextEntryAt:lastTradeAt+ENTRY_SPACING_MS,remainingMs:ENTRY_SPACING_MS-elapsed,state};
+  const spacingActive=lastTradeAt>0&&elapsed<ENTRY_SPACING_MS,spacingReason=spacingActive?"ENTRY_SPACING_5M":null;
 
   let pause;
-  try{pause=await lossPauseGate(env);}catch(e){return {ok:true,executed:false,mode,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),state};}
-  if(!pause.ok)return {ok:true,executed:false,mode,...pause,state};
+  try{pause=await lossPauseGate(env);}catch(e){pause={ok:false,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),controller:null};}
+  if(pause.ok)await clearLegacyPause(env);
+  const entryBlockReason=!pause.ok?pause.reason:spacingReason;
 
-  await clearLegacyPause(env);
   const innerEnv=Object.create(env);
   innerEnv.BYBIT_MAX_LOSS_STREAK_INTERNAL="1000000000";
   innerEnv.BYBIT_LOSS_PAUSE_MINUTES_INTERNAL="30";
@@ -172,16 +169,21 @@ export async function runBybitAutoControlled(env,opts={}){
     if(paperEquity>0)innerEnv.BYBIT_STARTING_CAPITAL_USD=String(paperEquity);
   }
 
-  const out=await runBybitAutoV1(innerEnv,opts);
+  const out=await runBybitAutoV1(innerEnv,{...opts,entryBlockReason});
   const telegramNotification=await notifyLiveEntry(env,out);
   const profitTarget=mode==="LIVE"?await syncLiveProfitTarget(env):null;
   const controller={
     executionMode:mode,
     entrySpacingSec:300,
+    entryBlockReason,
+    nextEntryAt:spacingActive?lastTradeAt+ENTRY_SPACING_MS:null,
+    entrySpacingRemainingMs:spacingActive?ENTRY_SPACING_MS-elapsed:0,
     lossStreakTrigger:3,
     lossPauseMinutes:30,
     unlimitedDailyEntries:true,
+    managementAlwaysOn:true,
     pauseState:pause.controller,
+    pauseError:pause.error||null,
     profitTarget,
     telegramNotification,
     runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")
