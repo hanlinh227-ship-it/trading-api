@@ -2,7 +2,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
 const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 
-export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_1";
+export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_2_NET_PNL";
 export const REGIMES=["TREND_UP","TREND_DOWN","RANGE","BREAKOUT_EXPANSION","HIGH_VOL_CHAOS","LOW_VOL_COMPRESSION"];
 
 function returns(closes=[]){const out=[];for(let i=1;i<closes.length;i++){const a=Number(closes[i-1]),b=Number(closes[i]);if(a>0&&b>0)out.push((b-a)/a);}return out;}
@@ -47,11 +47,11 @@ export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,
  else if(regime==="LOW_VOL_COMPRESSION"&&String(strategy).includes("TREND_PULLBACK"))penalty+=2;
  else if(regime==="BREAKOUT_EXPANSION"&&String(strategy).includes("BREAKOUT"))penalty-=2;
  const spread=Number(spreadBps||0);if(spread>10)penalty+=3;else if(spread>8)penalty+=1;
- const conf=learningConfidence(edge?.trades||0),avgNetR=Number(edge?.avgNetR??edge?.avgR??0),wr=Number(edge?.winRate??.5);
+ const conf=learningConfidence(edge?.trades||0),avgNetR=Number(edge?.avgNetR??0),wr=Number(edge?.netWinRate??edge?.winRate??.5);
  let edgeModifier=0;
  if(conf>0){edgeModifier+=clamp(-avgNetR*4,-4,4)*conf;edgeModifier+=clamp((.5-wr)*6,-2,2)*conf;}
  const threshold=clamp(Math.round((Number(base)||68)+penalty+edgeModifier),66,84);
- return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84]};
+ return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"NET_PNL_V2"};
 }
 
 export function edgeKey(symbol,strategy,regime){return `${String(symbol||"").toUpperCase()}|${String(strategy||"")}|${String(regime||"")}`;}
@@ -62,14 +62,14 @@ export function edgeStatsFor(summary={},symbol,strategy,regime){
 
 export function selectExitProfile(edge=null,regime="RANGE"){
  const conf=learningConfidence(edge?.trades||0);if(conf<.25)return {profile:"BALANCED",confidence:conf,reason:"INSUFFICIENT_SAMPLE"};
- const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),wr=Number(edge?.winRate||0);
+ const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),wr=Number(edge?.netWinRate??edge?.winRate||0);
  if(["TREND_UP","TREND_DOWN","BREAKOUT_EXPANSION"].includes(regime)&&mfe>=1.7&&mae<=.8)return {profile:"TREND_RUNNER",confidence:conf,reason:"PROVEN_MFE"};
- if(mfe>0&&mfe<1.05||wr>0&&wr<.44)return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_EXTENSION"};
+ if((mfe>0&&mfe<1.05)||(wr>0&&wr<.44))return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_NET_EXTENSION"};
  return {profile:"BALANCED",confidence:conf,reason:"DEFAULT_BOUNDED"};
 }
 
 export async function loadAdaptiveLearning(env){
- try{return await env.TRADING_STATE?.get("bybit:learning:v1:state",{type:"json"})||{summary:{}};}catch{return {summary:{}};}
+ try{return await env.TRADING_STATE?.get("bybit:learning:v2:state",{type:"json"})||{summary:{},dataIntegrityVersion:"BYBIT_LEARNING_NET_PNL_V2"};}catch{return {summary:{},dataIntegrityVersion:"BYBIT_LEARNING_NET_PNL_V2"};}
 }
 
 export async function assessPortfolioCorrelation(api,candidate,positions=[],opts={}){
