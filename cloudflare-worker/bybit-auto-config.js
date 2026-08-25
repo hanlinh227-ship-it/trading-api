@@ -1,4 +1,4 @@
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.2.5";
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.2.6";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:3,
