@@ -27,6 +27,11 @@ const planCreated=plan=>Number(plan?.createdAtMs||Date.parse(plan?.createdAt||""
 function oldestTrackedLivePlan(state){const ts=Object.values(state?.openPlans||{}).filter(p=>String(p?.mode||"").toUpperCase()==="LIVE").map(planCreated).filter(x=>x>0);return ts.length?Math.min(...ts):null;}
 function closedHistoryStart(state,t=now()){const d=dayStartMs(),oldest=oldestTrackedLivePlan(state),wanted=oldest?Math.min(d,oldest-60000):d;return Math.max(t-MAX_CLOSED_LOOKBACK_MS,wanted);}
 function lastPnlHealthyMs(state){const direct=Number(state?.lastPnlReconcileHealthyAtMs||0);if(direct>0)return direct;const parsed=Date.parse(state?.lastPnlReconcile?.at||"");return Number.isFinite(parsed)?parsed:0;}
+function livePositionRiskState(state,positions=[]){
+  const live=new Set((positions||[]).filter(x=>Number(x?.size||0)>0).map(x=>String(x.symbol||"")));
+  const source=state?.openPlans||{},openPlans=Object.fromEntries(Object.entries(source).filter(([symbol,p])=>String(p?.mode||"").toUpperCase()!=="LIVE"||live.has(symbol)));
+  return {...state,openPlans};
+}
 async function fetchClosedPnlAll(api,startTime,endTime){
   const rows=[],seen=new Set(),seenCursor=new Set();let cursor="",requests=0,truncated=false;
   for(let i=0;i<20;i++){
@@ -78,7 +83,7 @@ async function manageLivePositions(env,api,state,positions,cfg){
   const live=new Map((positions||[]).map(p=>[String(p.symbol||""),p])),results=[];
   for(const [symbol,plan] of Object.entries(state.openPlans||{})){
     if(String(plan?.mode||"").toUpperCase()!=="LIVE")continue;const p=live.get(symbol);
-    if(!p){results.push({symbol,managed:false,verdict:"PENDING_RECONCILE",reason:plan.closeReconcileStatus||"CLOSED_PENDING_RECONCILE"});continue;}
+    if(!p){plan.closeReconcilePendingSince=plan.closeReconcilePendingSince||iso();plan.closeReconcileStatus=plan.closeReconcileStatus||"CLOSED_PENDING_RECONCILE";results.push({symbol,managed:false,verdict:"PENDING_RECONCILE",reason:plan.closeReconcileStatus});continue;}
     try{const r=await manageBybitScalpPosition(env,api,plan,p,cfg);if(r?.nextSl>0)plan.managedSl=r.nextSl;if(r?.phase)plan.managementPhase=r.phase;if(Number.isFinite(Number(r?.peakR)))plan.peakR=Number(r.peakR);if(r?.cutExecuted){plan.exitRequestedAt=iso();plan.exitReason=r.reason||"MANAGER_CUT";}results.push({symbol,...r});}
     catch(e){results.push({symbol,managed:false,verdict:"ERROR",reason:"MANAGER_FAILED",error:String(e?.message||e)});}
   }
@@ -97,7 +102,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
   if(mode==="PAPER"){try{const rec=await reconcileBybitPaperPlans(env,state);state.openPlans=rec.plans;state.lastShadowReconcile={at:iso(),closed:rec.closed};if(rec.closed.length)await put(env,state);}catch(e){state.lastShadowReconcile={at:iso(),error:String(e?.message||e)};}}
   if(guard)return {ok:true,executed:false,mode,reason:guard,state};
 
-  let equity=cfg.startingCapitalUsd,positions=[],lifecycles=[];
+  let equity=cfg.startingCapitalUsd,positions=[],lifecycles=[],riskState=state;
   if(mode==="LIVE"){
     const [walletResult,posResult]=await Promise.allSettled([api.wallet(),api.positions()]);
     if(posResult.status!=="fulfilled")return {ok:true,executed:false,mode,reason:"LIVE_POSITION_FETCH_FAILED",managementOnly:true,error:String(posResult.reason?.message||posResult.reason||"POSITION_FETCH_FAILED"),state};
@@ -114,7 +119,9 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
       state.lastPnlReconcileDegraded=pnlGraceActive?{at:iso(),reason:"TRANSIENT_CLOSED_PNL_FAILURE_WITHIN_GRACE",ageMs:pnlReconcileAgeMs}:null;
       state.lastLiveOutcomeReconcile={at:iso(),error:pnlReconcileError};
     }
-    lifecycles=await manageLivePositions(env,api,state,positions,cfg);await put(env,state);
+    lifecycles=await manageLivePositions(env,api,state,positions,cfg);riskState=livePositionRiskState(state,positions);
+    state.lastLiveRiskAccounting={at:iso(),authority:"BYBIT_LIVE_POSITIONS_ONLY",liveSymbols:positions.map(x=>String(x.symbol||"")),trackedPlans:Object.keys(state.openPlans||{}),riskCountedPlans:Object.keys(riskState.openPlans||{}),pendingClosedPlans:Object.entries(state.openPlans||{}).filter(([symbol,p])=>String(p?.mode||"").toUpperCase()==="LIVE"&&!positions.some(x=>String(x.symbol||"")===symbol)).map(([symbol])=>symbol)};
+    await put(env,state);
     const wallet=walletResult.status==="fulfilled"?walletResult.value:null,acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);
     const managerCut=lifecycles.find(x=>x.cutExecuted===true||x.verdict==="CUT");if(managerCut)return {ok:true,executed:false,mode,reason:"POSITION_CUT_BY_MANAGER",managerCut,lifecycles,equity,state};
     const untracked=positions.filter(p=>!state.openPlans?.[String(p.symbol||"")]);if(untracked.length)return {ok:true,executed:false,mode,reason:"UNTRACKED_LIVE_POSITION",symbols:untracked.map(x=>x.symbol),lifecycles,state};
@@ -125,7 +132,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
     const stalePlan=Object.entries(state.openPlans||{}).find(([,p])=>String(p?.mode||"").toUpperCase()==="LIVE"&&p?.closeReconcileStatus==="CLOSED_PNL_LOOKBACK_EXCEEDED");if(stalePlan)return {ok:true,executed:false,mode,reason:"CLOSED_PNL_LOOKBACK_EXCEEDED",managementOnly:true,symbol:stalePlan[0],lifecycles,equity,state};
     if(entryBlockReason)return {ok:true,executed:false,mode,reason:entryBlockReason,managementOnly:true,lifecycles,equity,state};
     if(Number(state.pauseUntil||0)>now())return {ok:true,executed:false,mode,reason:"LOSS_STREAK_PAUSE",managementOnly:true,pauseUntil:state.pauseUntil,lifecycles,equity,state};
-    const baseRisk=bybitRiskPreflight({cfg,equityUsd:equity,state,candidateRiskUsd:0});if(!baseRisk.ok)return {ok:true,executed:false,mode,reason:baseRisk.reason,risk:baseRisk,equity,lifecycles,state};
+    const baseRisk=bybitRiskPreflight({cfg,equityUsd:equity,state:riskState,candidateRiskUsd:0});if(!baseRisk.ok)return {ok:true,executed:false,mode,reason:baseRisk.reason,risk:baseRisk,equity,lifecycles,state};
     if(positions.length>=cfg.maxOpenPositions)return {ok:true,executed:false,mode,reason:"MAX_OPEN_POSITIONS",positions:positions.length,equity,lifecycles,state};
   }else{
     if(entryBlockReason)return {ok:true,executed:false,mode,reason:entryBlockReason,managementOnly:true,state};if(Number(state.pauseUntil||0)>now())return {ok:true,executed:false,mode,reason:"LOSS_STREAK_PAUSE",managementOnly:true,state};
@@ -143,7 +150,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
   const setup=preparation.setup;
   const sameDir=positions.filter(p=>String(p.side)===setup.side).length;if(sameDir>=cfg.risk.maxSameDirectionPositions)return {ok:true,executed:false,mode,reason:"SAME_DIRECTION_CAP",preparation,setup,scan,lifecycles,state};
   const sizing=sizeBybitAuto(setup,cfg,equity);if(!sizing.ok)return {ok:true,executed:false,mode,reason:sizing.reason,preparation,setup,sizing,scan,lifecycles,state};
-  const riskPreflight=bybitRiskPreflight({cfg,equityUsd:equity,state,candidateRiskUsd:sizing.riskUsd});if(!riskPreflight.ok)return {ok:true,executed:false,mode,reason:riskPreflight.reason,risk:riskPreflight,preparation,setup,sizing,scan,lifecycles,state};
+  const riskPreflight=bybitRiskPreflight({cfg,equityUsd:equity,state:riskState,candidateRiskUsd:sizing.riskUsd});if(!riskPreflight.ok)return {ok:true,executed:false,mode,reason:riskPreflight.reason,risk:riskPreflight,preparation,setup,sizing,scan,lifecycles,state};
   const fp=`${setup.symbol}:${setup.side}:${setup.strategy}:${Math.round(setup.entry*1e6)}`;if(!forceScan&&state.lastFingerprint===fp&&now()-Number(state.lastTradeAt||0)<cfg.execution.cooldownSec*1000)return {ok:true,executed:false,mode,reason:"DUPLICATE_COOLDOWN",preparation,setup,scan,lifecycles,state};
 
   const ai=await reviewBybitScalp(env,setup,preparation.quote);state.lastAiReview={symbol:setup.symbol,side:setup.side,at:iso(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...ai};
@@ -160,7 +167,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
   const f=await fill(api,setup.symbol,orderId);if(!f.ok){await emergencyFlat(api,setup,sizing.qty);return {ok:false,executed:false,mode,reason:f.reason,fill:f,preparation,ai,postAi,setup,scan,state};}
   const tick=Number(setup.filters?.tickSize||0),sl=roundTick(setup.sl,tick),actualRewardTp=tpForReward(setup.side,f.avgPrice,f.executedQty,sizing.rewardUsd),structureTp=Number(setup.tp||0),boundedTp=setup.side==="Buy"?Math.min(Number(actualRewardTp||Infinity),structureTp):Math.max(Number(actualRewardTp||-Infinity),structureTp),tp=roundTick(boundedTp,tick),actualRiskPerUnit=Math.abs(f.avgPrice-sl),actualRisk=actualRiskPerUnit*f.executedQty,actualReward=Math.abs(tp-f.avgPrice)*f.executedQty,actualRR=actualRisk>0?actualReward/actualRisk:null;
   const geometry=validateProtectionGeometry({side:setup.side,entry:f.avgPrice,sl,tp});if(!geometry.ok||!(actualRR>=cfg.risk.minRR)){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:geometry.ok?"ACTUAL_RR_INVALID":geometry.reason,actualRR,fill:f,preparation,setup,scan,state};}
-  const actualRiskGuard=bybitRiskPreflight({cfg,equityUsd:equity,state,candidateRiskUsd:actualRisk});if(!actualRiskGuard.ok){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:"ACTUAL_"+actualRiskGuard.reason,risk:actualRiskGuard,actualRisk,fill:f,preparation,setup,scan,state};}
+  const actualRiskGuard=bybitRiskPreflight({cfg,equityUsd:equity,state:riskState,candidateRiskUsd:actualRisk});if(!actualRiskGuard.ok){await emergencyFlat(api,setup,f.executedQty);return {ok:true,executed:false,mode,reason:"ACTUAL_"+actualRiskGuard.reason,risk:actualRiskGuard,actualRisk,fill:f,preparation,setup,scan,state};}
   const plannedTrailAt=Number(setup.exitPlan?.positiveTrailTriggerR||0),plannedTrailAtr=Number(setup.exitPlan?.trailAtr||0),trailAtR=Math.max(1.05,Number(env.BYBIT_TRAIL_TRIGGER_R||plannedTrailAt||1.15));
   const plannedDistanceR=plannedTrailAtr>0&&Number(setup.atr1||0)>0?plannedTrailAtr*Number(setup.atr1)/Math.max(actualRiskPerUnit,1e-12):.50,trailDistanceR=Math.max(.25,Math.min(1.0,Number(env.BYBIT_TRAIL_DISTANCE_R||plannedDistanceR||.50))),trailingStop=roundTick(actualRiskPerUnit*trailDistanceR,tick),activePrice=roundTick(setup.side==="Buy"?f.avgPrice+actualRiskPerUnit*trailAtR:f.avgPrice-actualRiskPerUnit*trailAtR,tick);
   try{await api.tradingStop({symbol:setup.symbol,tpslMode:"Full",positionIdx:cfg.execution.positionIdx,takeProfit:String(tp),stopLoss:String(sl),trailingStop:String(trailingStop),activePrice:String(activePrice),tpTriggerBy:"MarkPrice",slTriggerBy:"MarkPrice"});}
