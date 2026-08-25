@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.0 scaled trade band: at $50 equity TP $5-$10 and max SL $5; each +$10 equity scales all three by +$1.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.0";
+// BYBIT-AUTO-1.6.1 scaled trade band + VPS market routing fix: at $50 equity TP $5-$10 and max SL $5; each +$10 equity scales all three by +$1.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.1";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
