@@ -25,15 +25,32 @@ export function computeOpenRiskUsd(openPlans={}){
   return total;
 }
 
+export function computeOpenInitialMarginUsd(openPlans={}){
+  let total=0;
+  for(const p of Object.values(openPlans||{})){
+    const explicit=num(p?.margin?.initialMarginUsd);
+    if(explicit>0){total+=explicit;continue;}
+    const notional=num(p?.margin?.notional)||Math.abs(num(p?.qty))*num(p?.entry),lev=num(p?.leverage);
+    if(notional>0&&lev>0)total+=notional/lev;
+  }
+  return total;
+}
+
 export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd}){
   const equity=Math.max(0,num(equityUsd));
   if(!(equity>0))return {ok:false,reason:"EQUITY_INVALID"};
-  const realized=num(state?.realizedUsd),openRiskUsd=computeOpenRiskUsd(state?.openPlans||{}),candidate=Math.max(0,num(candidateRiskUsd));
+  const realized=num(state?.realizedUsd),openPlans=state?.openPlans||{},openRiskUsd=computeOpenRiskUsd(openPlans),candidate=Math.max(0,num(candidateRiskUsd));
   const singleCapUsd=equity*Math.max(0,num(cfg?.risk?.maxRiskPctOfEquity))/100;
   if(candidate>singleCapUsd+1e-9)return {ok:false,reason:"SINGLE_TRADE_RISK_CAP",candidateRiskUsd:candidate,singleCapUsd,equityUsd:equity};
   const capUsd=equity*Math.max(0,num(cfg?.risk?.maxTotalOpenRiskPct))/100;
   if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,realizedUsd:realized};
-  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,dailyLossStopEnabled:false,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE"};
+
+  const openInitialMarginUsd=computeOpenInitialMarginUsd(openPlans),portfolioMarginCapUsd=equity*Math.max(0,num(cfg?.risk?.maxPortfolioMarginPct))/100;
+  const newSlotReserveUsd=candidate>0?equity*Math.max(0,num(cfg?.risk?.maxMarginPerPositionPct))/100:0;
+  if(newSlotReserveUsd>0&&openInitialMarginUsd+newSlotReserveUsd>portfolioMarginCapUsd+1e-9){
+    return {ok:false,reason:"PORTFOLIO_MARGIN_HEADROOM",openInitialMarginUsd,newSlotReserveUsd,projectedInitialMarginUsd:openInitialMarginUsd+newSlotReserveUsd,portfolioMarginCapUsd,equityUsd:equity,legacyPositionCompatible:true,managementOnly:true};
+  }
+  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,openInitialMarginUsd,newSlotReserveUsd,portfolioMarginCapUsd,dailyLossStopEnabled:false,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE",marginAccounting:"OPEN_PLAN_INITIAL_MARGIN_AWARE"};
 }
 
 export function validateProtectionGeometry({side,entry,sl,tp}){
