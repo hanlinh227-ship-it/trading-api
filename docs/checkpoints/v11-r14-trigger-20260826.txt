@@ -1,0 +1,6 @@
+V11 R14 owner-authorized research trigger after fresh-main verification.
+Catalog contract remains 94 symbols; IPUSDT is absent and research load_catalog/preflight/status/FINAL assertions remain 94.
+Research refinement: bounded DEV/VALIDATION-only inverse-family sweep for directional families, preserving the R13 MKT hold sweep and bumping candidate cache identity.
+Integrity remains exact-data only; RR exactly 1 or 2; WR>=80%; positive expectancy; 1-3 real executions per eligible day; no pooling, fabrication, lookahead, symbol deletion, silent eligible-day deletion, or FINAL tuning.
+Claude + Codex + DeepSeek + Qwen + OpenRouter must all be OK; post-review remains batched to bound provider latency.
+Untouched FINAL remains sealed until deterministic 94/94 VALIDATION and complete five-AI review make it eligible.
