@@ -32,6 +32,7 @@ function dashboard(s){const ai=s.ai||{};return [
  `${BYBIT_AUTO_VERSION} • ${s.mode}`,
  `🟢 ${s.mode} • ${String(s.state?.executionMode||"UNKNOWN")} • ${Number(s.state?.pauseUntil||0)>Date.now()?"PAUSED":"RUNNING"}`,
  `♾️ Continuous trading • Daily target OFF`,
+ `✂️ Smart CUT ON • multi-signal confirmation`,
  `💰 Equity $${fmt(s.account.equity)} • Free $${fmt(s.account.available)}`,
  `📌 Position ${s.positions.length} • Orders ${s.openOrders.length}`,
  `📈 Realized ${money(s.state?.realizedUsd||0)}`,
@@ -40,14 +41,14 @@ function dashboard(s){const ai=s.ai||{};return [
  `🕒 ${s.checkedAt}`
  ].join("\n");}
 function aiText(s){const a=s.ai||{},ps=a.providers||{};return ["🧠 3 AI CORE",`Bridge: ${a.ok?"✅ READY":"⚠️ DEGRADED"} • ${a.bridgeMode||"—"}`,`Claude: ${ps.claude?.state||"—"}`,`Codex/ChatGPT: ${ps.codex?.state||"—"}`,`DeepSeek: ${ps.deepseek?.state||"—"}`,`Grace ${a.fastFirstGraceSec??"—"}s • budget ${a.bridgeBudgetSec??"—"}s`,s.state?.lastAiReview?`Last: ${s.state.lastAiReview.symbol} ${s.state.lastAiReview.side} • ${s.state.lastAiReview.mode} • usable ${s.state.lastAiReview.usable}`:"Last review: —"].join("\n");}
-function riskText(s){const lp=s.state?.lastPnlReconcile||{},pm=s.state?.lastPositionManagement||{};return ["🛡️ RISK / SAFETY",`Mode ${s.mode} • ${Number(s.state?.pauseUntil||0)>Date.now()?"⏸ PAUSED":"▶️ RUNNING"}`,"Daily target: OFF • continuous trading",`Loss streak ${Number(s.state?.lossStreak||0)}`,`Realized ${money(s.state?.realizedUsd||0)}`,`Open plans ${Object.keys(s.state?.openPlans||{}).length}`,`PnL reconcile ${lp.at||"—"}`,`Position review ${pm.at||"—"}`,"post-AI drift • risk-by-balance • native SL/TP • HOLD/BREAKEVEN/PROFIT_LOCK/TRAIL"].join("\n");}
+function riskText(s){const lp=s.state?.lastPnlReconcile||{},pm=s.state?.lastPositionManagement||{},last=pm.results?.at?.(-1)||{};return ["🛡️ RISK / SAFETY",`Mode ${s.mode} • ${Number(s.state?.pauseUntil||0)>Date.now()?"⏸ PAUSED":"▶️ RUNNING"}`,"Daily target: OFF • continuous trading","Smart CUT: ON • score 7 • 2 confirmations • emergency invalidation",`Loss streak ${Number(s.state?.lossStreak||0)}`,`Realized ${money(s.state?.realizedUsd||0)}`,`Open plans ${Object.keys(s.state?.openPlans||{}).length}`,`PnL reconcile ${lp.at||"—"}`,`Position review ${pm.at||"—"}${last.smartCut?.score!==undefined?` • CUT score ${last.smartCut.score}/${last.smartCut.scoreNeed}`:""}`,"post-AI drift • risk-by-balance • native SL/TP • HOLD/BREAKEVEN/PROFIT_LOCK/TRAIL/SMART_CUT"].join("\n");}
 async function statsText(env,s){let l={};try{l=await getBybitLearningState(env)||{};}catch{}return ["📈 PNL / LEARNING",`Realized ${money(s.state?.realizedUsd||0)} • Trades ${Number(s.state?.trades||0)}`,`Closed ${Number(s.state?.lastPnlReconcile?.closedTrades||0)}`,`Learning ${Number(l.summary?.sampleSize||0)} • ${l.providerSet||"AUTO_CORE_3"}`,`Last trade ${s.state?.lastTradeAt?new Date(Number(s.state.lastTradeAt)).toISOString():"—"}`].join("\n");}
-function runtimeText(s){const pm=s.state?.lastPositionManagement?.results||[],last=pm.at?.(-1)||{};return ["⚙️ AUTO RUNTIME",`${BYBIT_AUTO_VERSION} • ${s.mode}`,"Continuous trading • daily target OFF",`Execution ${s.mode} / ${s.state?.executionMode||"UNKNOWN"}`,`Positions ${s.positions.length} • orders ${s.openOrders.length}`,`AI ${s.ai?.ok?"OK":"DEGRADED"}`,`Leverage ${s.state?.lastLeverageSet?.requested?`${s.state.lastLeverageSet.requested}x`:"AUTO 1-5x"}`,`Last AI ${s.state?.lastAiReview?.at||"—"}`,`Last quote ${s.state?.lastPostAiQuote?.at||"—"}`,`Last manager ${s.state?.lastPositionManagement?.at||"—"}${last.verdict?` • ${last.verdict}`:""}`,`Telegram entry ${s.state?.lastTelegramEntryAt||"—"}`,`Checked ${s.checkedAt}`].join("\n");}
+function runtimeText(s){const pm=s.state?.lastPositionManagement?.results||[],last=pm.at?.(-1)||{};return ["⚙️ AUTO RUNTIME",`${BYBIT_AUTO_VERSION} • ${s.mode}`,"Continuous trading • daily target OFF","Smart CUT ON • adaptive thesis invalidation",`Execution ${s.mode} / ${s.state?.executionMode||"UNKNOWN"}`,`Positions ${s.positions.length} • orders ${s.openOrders.length}`,`AI ${s.ai?.ok?"OK":"DEGRADED"}`,`Leverage ${s.state?.lastLeverageSet?.requested?`${s.state.lastLeverageSet.requested}x`:"AUTO 1-5x"}`,`Last AI ${s.state?.lastAiReview?.at||"—"}`,`Last quote ${s.state?.lastPostAiQuote?.at||"—"}`,`Last manager ${s.state?.lastPositionManagement?.at||"—"}${last.verdict?` • ${last.verdict}`:""}`,`Telegram entry ${s.state?.lastTelegramEntryAt||"—"}`,`Checked ${s.checkedAt}`].join("\n");}
 
 export default {
  async fetch(req,env){
   const u=new URL(req.url);
-  if(u.pathname==="/auto-hub/status")return json({ok:true,service:"BYBIT_AUTO_TRADE_HUB",version:BYBIT_AUTO_VERSION,mode:bybitExecutionMode(env),continuousTrading:true,dailyTarget:false,readOnly:true,signalHub:false,telegramEntryAlerts:true,compactPrices:true});
+  if(u.pathname==="/auto-hub/status")return json({ok:true,service:"BYBIT_AUTO_TRADE_HUB",version:BYBIT_AUTO_VERSION,mode:bybitExecutionMode(env),continuousTrading:true,dailyTarget:false,smartCut:true,readOnly:true,signalHub:false,telegramEntryAlerts:true,compactPrices:true});
   if(u.pathname==="/telegram/webhook"&&req.method==="POST"){
    let update;try{update=await req.json();}catch{return json({ok:false,error:"BAD_JSON"},400);}if(!auth(update,env))return json({ok:false,error:"FORBIDDEN"},403);
    const cb=String(update?.callback_query?.data||""),msg=String(update?.message?.text||"");
@@ -59,9 +60,9 @@ export default {
    else if(cb==="auto:stats")await send(env,id,await statsText(env,s));
    else if(cb==="auto:runtime")await send(env,id,runtimeText(s));
    else await send(env,id,dashboard(s));
-   return json({ok:true,owner:"BYBIT_AUTO_TRADE_HUB",version:BYBIT_AUTO_VERSION,mode:s.mode,continuousTrading:true,dailyTarget:false,readOnly:true});
+   return json({ok:true,owner:"BYBIT_AUTO_TRADE_HUB",version:BYBIT_AUTO_VERSION,mode:s.mode,continuousTrading:true,dailyTarget:false,smartCut:true,readOnly:true});
   }
-  if(u.pathname==="/"||u.pathname==="/hub"||u.pathname==="/auto-hub")return json({ok:true,service:"BYBIT_AUTO_TRADE_HUB",version:BYBIT_AUTO_VERSION,mode:bybitExecutionMode(env),continuousTrading:true,dailyTarget:false,readOnly:true,signalHub:false,telegram:"/telegram/webhook",telegramEntryAlerts:true,compactPrices:true,dashboardButtons:["AUTO_DASHBOARD","LIVE_POSITIONS","3_AI","RISK_SAFETY","PNL_LEARNING","RUNTIME"]});
+  if(u.pathname==="/"||u.pathname==="/hub"||u.pathname==="/auto-hub")return json({ok:true,service:"BYBIT_AUTO_TRADE_HUB",version:BYBIT_AUTO_VERSION,mode:bybitExecutionMode(env),continuousTrading:true,dailyTarget:false,smartCut:true,readOnly:true,signalHub:false,telegram:"/telegram/webhook",telegramEntryAlerts:true,compactPrices:true,dashboardButtons:["AUTO_DASHBOARD","LIVE_POSITIONS","3_AI","RISK_SAFETY","PNL_LEARNING","RUNTIME"]});
   return null;
  }
 };
