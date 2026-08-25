@@ -4,7 +4,7 @@ import {telegramApiRequest} from "./providers/telegram-client.js";
 
 const AUTO_KEY="bybit:auto:v1:state";
 const CONTROL_KEY="bybit:auto:v1:controller";
-const ENTRY_SPACING_MS=5*60*1000;
+const ENTRY_SPACING_MS=3*60*1000;
 const LOSS_PAUSE_MS=30*60*1000;
 const LOSS_STREAK_TRIGGER=3;
 const now=()=>Date.now();
@@ -151,7 +151,7 @@ export async function runBybitAutoControlled(env,opts={}){
   await isolateModeState(env,mode);
   await ensureLiveProfitTarget(env,mode);
   const state=await getBybitAutoV1State(env),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
-  const spacingActive=lastTradeAt>0&&elapsed<ENTRY_SPACING_MS,spacingReason=spacingActive?"ENTRY_SPACING_5M":null;
+  const spacingActive=lastTradeAt>0&&elapsed<ENTRY_SPACING_MS,spacingReason=spacingActive?"ENTRY_SPACING_3M":null;
 
   let pause;
   try{pause=await lossPauseGate(env);}catch(e){pause={ok:false,reason:"LOSS_STREAK_CHECK_FAILED",error:String(e?.message||e),controller:null};}
@@ -161,7 +161,7 @@ export async function runBybitAutoControlled(env,opts={}){
   const innerEnv=Object.create(env);
   innerEnv.BYBIT_MAX_LOSS_STREAK_INTERNAL="1000000000";
   innerEnv.BYBIT_LOSS_PAUSE_MINUTES_INTERNAL="30";
-  innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="300";
+  innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="180";
 
   let paperEquity=null;
   if(mode==="PAPER"){
@@ -174,7 +174,7 @@ export async function runBybitAutoControlled(env,opts={}){
   const profitTarget=mode==="LIVE"?await syncLiveProfitTarget(env):null;
   const controller={
     executionMode:mode,
-    entrySpacingSec:300,
+    entrySpacingSec:180,
     entryBlockReason,
     nextEntryAt:spacingActive?lastTradeAt+ENTRY_SPACING_MS:null,
     entrySpacingRemainingMs:spacingActive?ENTRY_SPACING_MS-elapsed:0,
