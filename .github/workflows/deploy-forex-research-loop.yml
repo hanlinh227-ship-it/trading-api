@@ -7,8 +7,10 @@ on:
     paths:
       - 'scripts/forex_research_loop.py'
       - 'scripts/forex_research_loop_v3.py'
+      - 'scripts/forex_research_loop_v4.py'
       - 'scripts/forex_twelvedata_walkforward_v4.py'
       - 'scripts/forex_twelvedata_walkforward_v5.py'
+      - 'scripts/forex_twelvedata_walkforward_v6.py'
       - 'vps/forex-research/**'
       - '.github/workflows/deploy-forex-research-loop.yml'
 
@@ -36,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/forex_research_loop.py scripts/forex_research_loop_v3.py scripts/forex_twelvedata_walkforward_v4.py scripts/forex_twelvedata_walkforward_v5.py
+          python3 -m py_compile scripts/forex_research_loop.py scripts/forex_research_loop_v4.py scripts/forex_twelvedata_walkforward_v4.py scripts/forex_twelvedata_walkforward_v5.py scripts/forex_twelvedata_walkforward_v6.py
           test -n "${TWELVEDATA_API_KEY:-}"
           test -f /etc/trading-v11-ai.env
           command -v python3 >/dev/null
@@ -81,20 +83,21 @@ TWELVEDATA_API_KEY=${TWELVEDATA_API_KEY}
 FOREX_RESEARCH_REPO=/opt/trading/trading-api-main
 FOREX_RESEARCH_STATE_DIR=/var/lib/trading/forex-research
 FOREX_AI_BRIDGE_URL=http://127.0.0.1:8789/review
-BACKTEST_WINDOWS=6
-BACKTEST_WINDOW_DAYS=24
+BACKTEST_RANDOM_BLOCKS=10
+BACKTEST_BLOCK_DAYS=24
+BACKTEST_TEST_DAYS_PER_BLOCK=10
+BACKTEST_TRAIN_DAYS_PER_BLOCK=6
+BACKTEST_REQUIRED_RANDOM_DAYS=100
 BACKTEST_MIN_TEST_DAYS=18
 BACKTEST_TARGET_WR=80
 FOREX_RESEARCH_ROUND_PAUSE_SECONDS=3
 FOREX_RESEARCH_AI_RETRIES=5
 FOREX_MAX_DEV_RESEARCH_ATTEMPTS=8
-FOREX_DEV_WINDOWS=4
-FOREX_DEV_WINDOW_DAYS=20
 FOREX_DEV_START=2025-01-06
 FOREX_DEV_END=2025-12-31
 FOREX_ACCEPT_START=2025-01-06
 FOREX_ACCEPT_END=2026-07-31
-FOREX_BACKTEST_TIMEOUT_SECONDS=5400
+FOREX_BACKTEST_TIMEOUT_SECONDS=10800
 EOF
           sudo install -m 600 "$tmp" /etc/trading/forex-research.env
           rm -f "$tmp"
@@ -103,7 +106,6 @@ EOF
         shell: bash
         run: |
           set -euo pipefail
-          sudo install -m 0755 /opt/trading/trading-api-main/scripts/forex_research_loop_v3.py /usr/local/bin/forex-research-loop
           sudo install -m 0644 /opt/trading/trading-api-main/vps/forex-research/forex-research-loop.service /etc/systemd/system/forex-research-loop.service
           sudo systemctl daemon-reload
           sudo systemctl enable forex-research-loop.service
@@ -120,9 +122,10 @@ EOF
 import json
 p='/var/lib/trading/forex-research/state.json'; d=json.load(open(p))
 assert d.get('mode')=='PAPER_ONLY', d
-assert str(d.get('version','')).startswith('FOREX-RESEARCH-LOOP-'), d
-assert d.get('status') in {'INIT','ACCEPTANCE_RUNNING','3AI_RESEARCH','DEV_VALIDATION','DEV_REJECTED_RESEARCH_AGAIN','NEXT_FRESH_ACCEPTANCE_OOS','TARGET_ACHIEVED','BLOCKED'}, d
-print('FOREX_RESEARCH_LOOP=ACTIVE','version='+str(d.get('version')),'status='+str(d.get('status')),'round='+str(d.get('round')))
+assert d.get('version')=='FOREX-RESEARCH-LOOP-4-100-DAYS', d
+assert int(d.get('requiredRandomDays') or 0)==100, d
+assert d.get('status') in {'INIT','ACCEPTANCE_RUNNING','3AI_RESEARCH','DEV_VALIDATION','DEV_REJECTED_RESEARCH_AGAIN','NEXT_FRESH_100_DAY_OOS','TARGET_ACHIEVED_ALL_SYMBOLS','BLOCKED'}, d
+print('FOREX_100_DAY_LOOP=ACTIVE','status='+str(d.get('status')),'round='+str(d.get('round')))
 PY
           sudo systemctl --no-pager --full status forex-research-loop.service | head -30
 
@@ -131,10 +134,10 @@ PY
         run: |
           echo 'FOREX_RESEARCH_RUNNER=self-hosted,trading-vps'
           echo 'FOREX_RESEARCH_SERVICE=forex-research-loop.service'
-          echo 'FOREX_RESEARCH_ENGINE=FOREX-TWELVEDATA-WALKFORWARD-5-MULTI-METHOD'
-          echo 'FOREX_RESEARCH_CONTROLLER=FOREX-RESEARCH-LOOP-3'
-          echo 'FOREX_RESEARCH_STATE=/var/lib/trading/forex-research/state.json'
+          echo 'FOREX_RESEARCH_ENGINE=FOREX-TWELVEDATA-WALKFORWARD-6-100-RANDOM-DAYS'
+          echo 'FOREX_RESEARCH_CONTROLLER=FOREX-RESEARCH-LOOP-4-100-DAYS'
+          echo 'FOREX_RANDOM_OOS_DAYS_PER_SYMBOL=100'
+          echo 'FOREX_MIN_ENTRY_PER_SYMBOL_PER_DAY=1'
           echo 'FOREX_RESEARCH_MODE=PAPER_ONLY'
           echo 'FOREX_RESEARCH_AI=claude,codex,deepseek'
-          echo 'FOREX_METHODS=trend,breakout,pullback,mean-reversion,hybrid'
           echo 'FOREX_TARGET=>80pct_each_symbol_each_RR1_RR2'
