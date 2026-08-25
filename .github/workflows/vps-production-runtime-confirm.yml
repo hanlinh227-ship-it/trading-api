@@ -29,6 +29,7 @@ jobs:
           URL='https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health'
           LAST=''
           MATCH=false
+          ACTIVE=''
           for i in $(seq 1 20); do
             LAST="$(curl -fsS --max-time 15 "$URL" || true)"
             if [ -n "$LAST" ]; then
@@ -37,18 +38,13 @@ jobs:
             fi
             sleep 12
           done
-          printf '%s' "$LAST" | python3 -c 'import json,sys,os; d=json.load(sys.stdin); out={"ok":os.environ.get("MATCH","false")=="true","expectedRevision":os.environ["EXPECTED_REVISION"],"runtimeRevision":d.get("runtimeRevision"),"exchange":d.get("exchange"),"mode":d.get("mode"),"execution":d.get("execution"),"privateTransport":d.get("privateTransport")}; print(json.dumps(out,indent=2))' > "$REPORT" || true
-          python3 - <<'PY'
-          import json,os
-          p='/tmp/production-runtime-confirm.json'
-          try:d=json.load(open(p))
-          except Exception:d={}
-          d['ok']=str(os.environ.get('MATCH','false')).lower()=='true'
-          json.dump(d,open(p,'w'),indent=2)
-          PY
+          export MATCH ACTIVE
+          if [ -n "$LAST" ]; then
+            printf '%s' "$LAST" | python3 -c 'import json,sys,os; d=json.load(sys.stdin); out={"ok":os.environ.get("MATCH")=="true","expectedRevision":os.environ["EXPECTED_REVISION"],"runtimeRevision":d.get("runtimeRevision"),"exchange":d.get("exchange"),"mode":d.get("mode"),"execution":d.get("execution"),"privateTransport":d.get("privateTransport")}; print(json.dumps(out,indent=2))' > "$REPORT"
+          else
+            python3 -c 'import json,os; print(json.dumps({"ok":False,"expectedRevision":os.environ["EXPECTED_REVISION"],"runtimeRevision":None,"reason":"HEALTH_UNAVAILABLE"},indent=2))' > "$REPORT"
+          fi
           test "$MATCH" = true
-        env:
-          MATCH: ${{ env.MATCH }}
       - name: Persist runtime confirmation
         if: always()
         shell: bash
