@@ -10,7 +10,7 @@ if not _ENGINE.exists():raise RuntimeError('V11_GEOMETRY_R4_MISSING')
 spec=importlib.util.spec_from_file_location('v11_geometry_r4_body',_ENGINE)
 _m=importlib.util.module_from_spec(spec);spec.loader.exec_module(_m)
 
-FUSION_VERSION='V11-FUSION-V77-V78-5AI-R1'
+FUSION_VERSION='V11-FUSION-V77-V78-5AI-R2'
 
 # Keep the direct-wrapper warm-up integrity fix.
 _src=inspect.getsource(_m._candidate_days).replace("if i<75 or not is_market_day", "if i<14 or not is_market_day")
@@ -60,8 +60,21 @@ if _round>=4:
     # Extra bounded family/hour sweep; RR remains exactly 1 or 2 in the base engine.
     _search_src=_search_src.replace("families=tuple(dict.fromkeys(pf+list(FAMILIES)))","families=tuple(dict.fromkeys(list(FAMILIES)+pf))")
 
+# R13 bounded refinement: the base R4 timing loop accidentally pinned MKT to 12h
+# regardless of the timing sweep. Explore 4/6/8/10/12h MKT holds on DEV/VALIDATION
+# only, while preserving the existing bounded pending-entry timing grid.
+_search_src=_search_src.replace(
+    "for ex,hold in ((1,10),(1,8),(2,10),(2,8),(2,6),(3,9),(3,6),(4,8),(4,6),(5,6)):test({**style,'expiry':0 if style['mode']=='MKT' else ex,'hold':12 if style['mode']=='MKT' else hold})",
+    "for ex,hold in (((0,4),(0,6),(0,8),(0,10),(0,12)) if style['mode']=='MKT' else ((1,10),(1,8),(2,10),(2,8),(2,6),(3,9),(3,6),(4,8),(4,6),(5,6))):test({**style,'expiry':ex,'hold':hold})"
+)
+_search_src=_search_src.replace(
+    "for ex,hold in ((1,10),(2,10),(2,8),(4,8),(4,6)):test({**style,'expiry':0 if style['mode']=='MKT' else ex,'hold':12 if style['mode']=='MKT' else hold})",
+    "for ex,hold in (((0,4),(0,6),(0,8),(0,10),(0,12)) if style['mode']=='MKT' else ((1,10),(2,10),(2,8),(4,8),(4,6))):test({**style,'expiry':ex,'hold':hold})"
+)
+
 exec(_search_src,_m.__dict__)
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}'
-_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}'
+# Cache identity must change whenever bounded candidate-generation/search behavior changes.
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2'
+_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
