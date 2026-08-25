@@ -1,0 +1,111 @@
+name: Install MetaTrader 5 on Trading VPS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/install-mt5-vps.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-vps-install
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 30
+    steps:
+      - name: Prepare MT5 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          id mt5
+          sudo apt-get update -y
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xvfb xauth wget ca-certificates
+          command -v wine || command -v wine64
+          sudo install -d -o mt5 -g mt5 -m 755 /home/mt5/.mt5 /home/mt5/Downloads
+
+      - name: Download official MetaTrader 5 installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u mt5 wget -q --show-progress -O /home/mt5/Downloads/mt5setup.exe \
+            https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe
+          test -s /home/mt5/Downloads/mt5setup.exe
+          echo "MT5_INSTALLER=DOWNLOADED"
+
+      - name: Install MetaTrader 5 unattended under Wine
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -u mt5 env \
+            HOME=/home/mt5 \
+            USER=mt5 \
+            WINEPREFIX=/home/mt5/.mt5 \
+            WINEDEBUG=-all \
+            xvfb-run -a -s '-screen 0 1280x800x24' \
+            wine /home/mt5/Downloads/mt5setup.exe /auto || rc=$?
+          rc="${rc:-0}"
+          echo "MT5_INSTALLER_EXIT=${rc}"
+          # Web installer can leave the terminal running; installation proof is the executable below.
+          for i in $(seq 1 60); do
+            if [ -f '/home/mt5/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe' ]; then
+              break
+            fi
+            sleep 5
+          done
+          test -f '/home/mt5/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe'
+          sudo chown -R mt5:mt5 /home/mt5/.mt5
+          echo 'MT5_INSTALL=PASS'
+
+      - name: Verify MT5 and remote desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          MT5='/home/mt5/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe'
+          test -s "$MT5"
+          echo "MT5_PATH=$MT5"
+          stat -c 'MT5_SIZE=%s MT5_OWNER=%U:%G' "$MT5"
+          wine --version || true
+          if systemctl list-unit-files | grep -q '^xrdp.service'; then
+            sudo systemctl enable xrdp >/dev/null 2>&1 || true
+            sudo systemctl restart xrdp
+            sudo systemctl is-active --quiet xrdp
+            ss -lnt | grep -q ':3389 '
+            echo 'XRDP=PASS'
+          else
+            echo 'XRDP=NOT_INSTALLED'
+          fi
+
+      - name: MT5 smoke start on headless display
+        shell: bash
+        run: |
+          set -euo pipefail
+          MT5='/home/mt5/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe'
+          sudo -u mt5 env HOME=/home/mt5 USER=mt5 WINEPREFIX=/home/mt5/.mt5 WINEDEBUG=-all \
+            xvfb-run -a -s '-screen 0 1280x800x24' \
+            timeout 25s wine "$MT5" /portable >/tmp/mt5-smoke.log 2>&1 || rc=$?
+          rc="${rc:-0}"
+          # timeout 124 means terminal stayed alive for the smoke window, which is a PASS.
+          if [ "$rc" != "0" ] && [ "$rc" != "124" ]; then
+            cat /tmp/mt5-smoke.log || true
+            exit "$rc"
+          fi
+          if grep -Eqi 'nodrv_CreateWindow|no driver could be loaded|failed to create window' /tmp/mt5-smoke.log; then
+            cat /tmp/mt5-smoke.log
+            exit 1
+          fi
+          echo "MT5_SMOKE=PASS exit=$rc"
+
+      - name: Summary
+        shell: bash
+        run: |
+          echo 'MT5_VPS_INSTALL=SUCCESS'
+          echo 'MT5_USER=mt5'
+          echo 'MT5_PREFIX=/home/mt5/.mt5'
+          echo 'MT5_TERMINAL=/home/mt5/.mt5/drive_c/Program Files/MetaTrader 5/terminal64.exe'
+          echo 'BROKER_CREDENTIALS=NOT_CONFIGURED'
