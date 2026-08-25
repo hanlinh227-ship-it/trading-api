@@ -16,7 +16,7 @@ export const BYBIT_AUTO_CONFIG={
     rewardStepUsd:1,
     maxRiskPctOfEquity:25,
     maxTotalOpenRiskPct:30,
-    marginUsePct:70,
+    marginUsePct:80,
     minRR:1,
     preferredRR:2,
     maxRR:3,
