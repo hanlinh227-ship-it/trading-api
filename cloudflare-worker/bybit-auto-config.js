@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.7.1: strict net learning + resilient PnL reconciliation + scheduler telemetry.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.1";
+// BYBIT-AUTO-1.7.2: entry-gate conflict cleanup + live-position risk accounting.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.2";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -60,7 +60,7 @@ export const BYBIT_AUTO_CONFIG={
     autoPromote:false
   },
   filters:{minScore:68,maxSpreadBps:12,maxChaseAtr:.80,minAtrPct:.06,maxAtrPct:3.2},
-  execution:{recvWindow:5000,cooldownSec:150,positionIdx:0}
+  execution:{recvWindow:5000,cooldownSec:180,positionIdx:0}
 };
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 export function bybitAutoConfig(env={}){
@@ -107,7 +107,7 @@ export function bybitAutoConfig(env={}){
   c.adaptive.correlationSoft=Math.max(.78,Math.min(.92,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
   c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.04,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
   c.adaptive.autoPromote=false;
-  c.execution.cooldownSec=Math.max(120,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
+  c.execution.cooldownSec=Math.max(120,Math.min(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
   return c;
 }
 export function bybitExecutionMode(env={}){if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";return "PAPER";}
