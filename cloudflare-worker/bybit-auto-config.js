@@ -1,3 +1,4 @@
+// BYBIT-AUTO-1.5.0 canonical profit ladder: $10 target at $50 equity, +$1 per +$10 equity.
 export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.5.0";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
