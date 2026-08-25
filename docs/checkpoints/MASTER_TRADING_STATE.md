@@ -3,13 +3,13 @@
 Updated: 2026-08-25 UTC+7
 Purpose: single canonical state for the Trading project.
 
-## CURRENT PRODUCTION AUTHORITY — BYBIT AUTO 1.2.0
+## CURRENT PRODUCTION AUTHORITY — BYBIT AUTO 1.2.1
 
 GitHub `main` + deployed Cloudflare runtime are authoritative.
 
 Current production contract:
 - production hub = `BYBIT_AUTO_TRADE_ONLY`;
-- production version = `BYBIT-AUTO-1.2.0`;
+- production version = `BYBIT-AUTO-1.2.1`;
 - exchange execution authority = Bybit Auto LIVE;
 - Signal V11 runtime/scheduler on this Worker = OFF;
 - runtime = `CLOUDFLARE_NATIVE`;
@@ -18,6 +18,37 @@ Current production contract:
 - Telegram = automatic entry notification and AUTO status/management visibility.
 
 Historical Signal V11 research/backtest material remains research/history only unless current `main` explicitly restores a non-execution research path. It must not compete with Bybit Auto production authority.
+
+## VERSIONING — MANDATORY
+
+Every production Bybit Auto update must increment `BYBIT_AUTO_VERSION` in `cloudflare-worker/bybit-auto-config.js` in the same production change.
+
+Version format:
+`BYBIT-AUTO-MAJOR.MINOR.PATCH`
+
+Rules:
+- PATCH: bug fix, conflict cleanup, runtime/status/deployment hygiene, or behavior-preserving production change;
+- MINOR: backward-compatible trading behavior, risk, scanning, management, provider, or execution-policy change;
+- MAJOR: incompatible architecture/execution authority change.
+
+Single source of version truth:
+`cloudflare-worker/bybit-auto-config.js` -> `BYBIT_AUTO_VERSION`.
+
+`/status`, checkpoints and deployment/runtime reports must consume or mirror that exact version. They must never introduce a competing version label such as V11/V77/V78/V10 for current Bybit Auto production.
+
+For every production update, record at minimum:
+- version;
+- date/time;
+- Git commit SHA;
+- concise change summary;
+- deployment verification state.
+
+A source version is not considered LIVE until `/bybit/health` reports the deployment commit revision and production readiness is valid.
+
+## VERSION HISTORY
+
+- `BYBIT-AUTO-1.2.1` — 2026-08-25 UTC+7 — introduced mandatory per-update versioning and aligned canonical checkpoints. Source commit begins at `5cf777ef`; deployment verification remains separate.
+- `BYBIT-AUTO-1.2.0` — previous production baseline; balanced-frequent Bybit Auto authority.
 
 ## LIVE AUTO PIPELINE
 
@@ -81,7 +112,8 @@ Never:
 - enable discretionary CUT implicitly;
 - let AI bypass deterministic entry/risk gates;
 - commit secrets/API tokens/private keys;
-- allow retired Signal V11/legacy execution paths to compete with Bybit Auto production.
+- allow retired Signal V11/legacy execution paths to compete with Bybit Auto production;
+- change production behavior without incrementing `BYBIT_AUTO_VERSION`.
 
 ## STARTUP / HANDOFF ORDER
 
