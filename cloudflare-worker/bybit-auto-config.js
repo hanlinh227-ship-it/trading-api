@@ -1,4 +1,4 @@
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.2.7";
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.2.8";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:3,
@@ -22,7 +22,11 @@ export const BYBIT_AUTO_CONFIG={
     maxRR:3,
     maxLossStreak:3,
     pauseMinutes:30,
-    maxSameDirectionPositions:2
+    maxSameDirectionPositions:2,
+    smartCutEnabled:true,
+    smartCutMinAgeSec:180,
+    smartCutScore:7,
+    smartCutConfirmations:2
   },
   filters:{minScore:70,maxSpreadBps:9,maxChaseAtr:.60,minAtrPct:.08,maxAtrPct:2.8},
   execution:{recvWindow:5000,cooldownSec:180,positionIdx:0}
@@ -48,6 +52,10 @@ export function bybitAutoConfig(env={}){
   c.maxTradesPerDay=1000000000;
   c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
   c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
+  c.risk.smartCutEnabled=String(env.BYBIT_DISCRETIONARY_CUT_ENABLED??String(c.risk.smartCutEnabled)).toLowerCase()==="true";
+  c.risk.smartCutMinAgeSec=Math.max(180,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec)));
+  c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
+  c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
   c.execution.cooldownSec=Math.max(180,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
   return c;
 }
