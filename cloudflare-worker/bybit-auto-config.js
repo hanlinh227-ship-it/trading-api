@@ -1,4 +1,4 @@
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.3.1";
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.4.0";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:5,
@@ -33,6 +33,21 @@ export const BYBIT_AUTO_CONFIG={
     smartCutScore:7,
     smartCutConfirmations:2
   },
+  adaptive:{
+    enabled:true,
+    baseScore:70,
+    minScore:68,
+    maxScore:85,
+    minLearningSamples:10,
+    fullLearningSamples:80,
+    correlationSoft:0.80,
+    correlationHard:0.90,
+    regimeGate:true,
+    perSymbolEdge:true,
+    netExpectancy:true,
+    exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
+    autoPromote:false
+  },
   filters:{minScore:70,maxSpreadBps:9,maxChaseAtr:.60,minAtrPct:.08,maxAtrPct:2.8},
   execution:{recvWindow:5000,cooldownSec:180,positionIdx:0}
 };
@@ -66,6 +81,11 @@ export function bybitAutoConfig(env={}){
   c.risk.smartCutMinAgeSec=Math.max(180,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec)));
   c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
   c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
+  c.adaptive.enabled=String(env.BYBIT_ADAPTIVE_EDGE_ENABLED??String(c.adaptive.enabled)).toLowerCase()==="true";
+  c.adaptive.baseScore=Math.max(68,Math.min(78,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
+  c.adaptive.correlationSoft=Math.max(.70,Math.min(.90,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
+  c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.05,Math.min(.97,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
+  c.adaptive.autoPromote=false;
   c.execution.cooldownSec=Math.max(180,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
   return c;
 }
