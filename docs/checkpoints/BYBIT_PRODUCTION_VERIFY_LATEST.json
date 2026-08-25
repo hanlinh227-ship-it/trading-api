@@ -1,0 +1,42 @@
+{
+  "verifiedAt": "2026-08-25T07:39:43.547Z",
+  "expectedRevision": "d227c9a02b49ca75560731cec79033597a8e0c03",
+  "runtimeRevision": "d227c9a02b49ca75560731cec79033597a8e0c03",
+  "pass": true,
+  "health": {
+    "http": 200,
+    "ok": true,
+    "exchange": "BYBIT",
+    "mode": "LIVE",
+    "executionReady": true,
+    "privateTransport": "VPS_BYBIT_PRIVATE_PROXY",
+    "marketTransport": "VPS_BYBIT_MARKET_PROXY",
+    "serverTimeMs": 1787643562051,
+    "revisionOk": true
+  },
+  "scan": {
+    "http": 200,
+    "ok": true,
+    "version": "BYBIT-AUTO-1.6.2",
+    "universeCount": 113,
+    "analyzed": 113,
+    "qualified": 5,
+    "rawCandidates": 5,
+    "errorCount": 0,
+    "reason": null,
+    "best": {
+      "symbol": "JTOUSDT",
+      "side": "Sell",
+      "score": 96,
+      "rr": 2,
+      "spreadBps": 1.7499343774606524,
+      "regime": "TREND_DOWN"
+    }
+  },
+  "checks": {
+    "privateVpsTransport": true,
+    "marketVpsTransport": true,
+    "runtimeRevision": true,
+    "readOnlyScan": true
+  }
+}
