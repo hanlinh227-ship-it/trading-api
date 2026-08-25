@@ -24,12 +24,12 @@ jobs:
           echo "SCAN_HTTP=$CODE"
           cat /tmp/scan.json || true
           echo
+          [ "$CODE" = 200 ]
           node <<'NODE'
           const fs=require('fs');
           const h=JSON.parse(fs.readFileSync('/tmp/health.json'));
           let s={};try{s=JSON.parse(fs.readFileSync('/tmp/scan.json'))}catch{}
           console.log('DIAG='+JSON.stringify({revision:h.runtimeRevision,mode:h.mode,executionReady:h.execution?.ready??null,privateTransport:h.privateTransport??null,marketTransport:h.marketTransport??null,positions:h.positions?.openCount??h.live?.positions?.length??null,orders:h.openOrdersCount??h.live?.openOrdersCount??null,equity:h.account?.totalEquity??null,scanOk:s.ok??null,scanVersion:s.version??null,scanReason:s.reason??s.error??null,scanError:s.error??null,universe:s.universe?.count??null,analyzed:s.analyzed??null,rawCandidates:s.rawCandidates??null,qualified:s.qualified??null,best:s.best?{symbol:s.best.symbol,side:s.best.side,score:s.best.score,threshold:s.best.adaptiveThreshold,rr:s.best.rr,regime:s.best.regime,spread:s.best.spreadBps}:null,correlationRejected:(s.correlationRejected||[]).slice(0,5),errors:(s.errors||[]).slice(0,5)}));
           if(h.mode!=="LIVE"||h.execution?.ready!==true||h.privateTransport!=="VPS_BYBIT_PRIVATE_PROXY"||h.marketTransport!=="VPS_BYBIT_MARKET_PROXY")process.exit(7);
-          if(CODE!==undefined){}
           if(s.ok!==true||s.version!=="BYBIT-AUTO-1.6.2"||!(Number(s.scannedAt)>0)||!Array.isArray(s.errors)||s.errors.length>0)process.exit(8);
           NODE
