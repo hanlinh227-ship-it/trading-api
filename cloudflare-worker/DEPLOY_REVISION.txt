@@ -1,20 +1,13 @@
 V10
 SIGNAL-ONLY-V10-SOURCE-OF-TRUTH
-Revision: V10-FINAL-CRYPTO-SCALP-COMPLETION-2026-08-21
-GitHub source entry: cloudflare-worker/index.js -> hub-v10-unified-entry.js.
-Telegram UX: hub-v10-unified-v2.js.
-Cron: signal-v10-scheduled-v2.js.
-Crypto opportunity target cadence: 1 minute; Forex 10 minutes; Metal 10 minutes; Index 15 minutes.
-Crypto Signal-only admission policy: quality >=64, structural RR >=1.10, all three AI reviews present, at least 2/3 aligned, no opposite-direction reviewer, aligned confidence >=60.
-Crypto accepted-signal TTL: 2 hours, matching scalp intent instead of the previous 8-hour horizon.
-Verified-fresh quote is explicit: quote price must be positive and fresh === true. Unknown freshness is not treated as fresh.
-Weak learned Crypto symbols (n>=8 and observed WR<45%) receive a +6 quality penalty, preserving adaptive selectivity despite the lower base scalp threshold.
-Signal lifecycle: scan -> verified-fresh candidate quote -> Entry Intelligence -> market-specific pre-gate -> VPS 3-AI council -> accepted signal -> verified-fresh TP/SL lifecycle -> history -> per-market/per-symbol learning.
-Missing/stale quote, incomplete Entry/SL/TP, invalid geometry and directional AI opposition remain fail-closed.
-Forex, Metal and Index thresholds are unchanged.
-Binance Auto execution authority and real-capital hard-risk controls are unchanged and remain separate.
-Unified Live preserves V10 OPEN rows until lifecycle closes them and also includes active compatibility books.
-Rejected candidates are not official BUY/SELL signals.
-Legacy V77/V78 files remain compatibility scanner internals only; they are not public version authority.
-Cloudflare deployment workflow validates Unified V10 V2, one-minute Crypto cadence, final Crypto scalp thresholds and verified-fresh protection before deploy.
+Revision: BYBIT-AUTO-1.7.1-RESILIENCE-2026-08-26
+GitHub source entry: cloudflare-worker/index.js.
+Bybit Auto production authority: BYBIT-AUTO-1.7.1.
+Bybit resilience: duplicate controller closed-PnL gate removed; canonical reconciliation remains authoritative.
+Bybit PnL reconciliation: transient closed-PnL failure may use a maximum 15-minute last-known-healthy grace window while account/position/risk safety remains healthy; stale reconciliation remains fail-closed.
+Bybit loss-streak pause: canonical Bybit closed-PnL outcome source with one-shot trigger per newest loss, preventing repeated pauses from the same historical streak.
+Bybit scheduler telemetry: exceptions are persisted instead of swallowed; last cycle reason, entry blocker and scan telemetry are retained.
+Bybit entry quality gates remain intact: liquidity, regime, adaptive score, correlation, pre-AI freshness/reanchor, sizing, risk preflight, AI review, post-AI revalidation, actual RR and verified protection.
+Cron: one minute.
+Forex, Meme and other execution authorities remain unchanged.
 NOTE: GitHub source commits are not proof of successful Cloudflare/VPS runtime deployment; workflow/runtime evidence must confirm production state.
