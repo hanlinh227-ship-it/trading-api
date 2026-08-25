@@ -61,7 +61,18 @@ jobs:
           set -euo pipefail
           sleep 2
           HEALTH="$(curl -fsS --max-time 5 http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); req={"claude","codex","deepseek"}; p=d.get("providers") or {}; assert req<=set(p); assert all(bool((p[n] or {}).get("configured")) for n in req); assert d.get("service")=="V11_MULTI_AI_BRIDGE"; assert d.get("mode")=="FAST_FIRST_PARALLEL"; assert d.get("bybitPrivateProxy") is True; assert 5<=int(d.get("scalpProviderTimeoutSec") or 0)<=15; assert 6<=int(d.get("scalpBridgeBudgetSec") or 0)<=15; assert 0<float(d.get("scalpFastFirstGraceSec") or 0)<=3; print("V11_FAST_FIRST_HEALTH=PASS")'
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); req={"claude","codex","deepseek"}; p=d.get("providers") or {}; assert req<=set(p); assert all(bool((p[n] or {}).get("configured")) for n in req); assert d.get("service")=="V11_MULTI_AI_BRIDGE"; assert d.get("mode")=="FAST_FIRST_PARALLEL"; assert d.get("bybitPrivateProxy") is True; assert d.get("bybitMarketProxy") is True; assert "/v5/market/time" in (d.get("bybitPublicPaths") or []); assert 5<=int(d.get("scalpProviderTimeoutSec") or 0)<=15; assert 6<=int(d.get("scalpBridgeBudgetSec") or 0)<=15; assert 0<float(d.get("scalpFastFirstGraceSec") or 0)<=3; print("V11_FAST_FIRST_HEALTH=PASS")'
+
+      - name: Smoke Bybit market proxy through installed bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source /etc/trading-v11-ai.env
+          set +a
+          BODY='{"method":"GET","path":"/v5/market/time","query":"","body":"","headers":{}}'
+          OUT="$(curl -fsS --max-time 15 -X POST http://127.0.0.1:8789/bybit/private -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
+          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); u=d.get("upstream") or {}; assert d.get("ok") is True, d; assert d.get("transport")=="VPS_BYBIT_MARKET_PROXY", d; assert u.get("retCode")==0, d; assert int(u.get("time") or 0)>0, d; print("VPS_BYBIT_MARKET_PROXY=PASS")'
 
       - name: Smoke fast-first scalp review
         shell: bash
@@ -86,6 +97,8 @@ jobs:
           echo "V11_AI_BRIDGE_ROUTE=localhost:8789"
           echo "BYBIT_PRIVATE_PROXY=enabled"
           echo "BYBIT_PRIVATE_EGRESS=VPS"
+          echo "BYBIT_MARKET_PROXY=enabled"
+          echo "BYBIT_MARKET_EGRESS=VPS"
           echo "BYBIT_SCALP_AI=claude,codex,deepseek"
           echo "BYBIT_SCALP_AI_MODE=FAST_FIRST_PARALLEL"
           echo "BYBIT_SCALP_PARTIAL_AI=allowed_when_at_least_one_provider_responds"
