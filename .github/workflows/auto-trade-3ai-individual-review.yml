@@ -1,0 +1,68 @@
+name: Auto Trade 3AI Individual Review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/auto-trade-3ai-individual-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Call each core AI independently
+        shell: bash
+        run: |
+          set -u
+          PID="$(pgrep -f '/usr/local/bin/v11-manual-ai-bridge' | head -1)"
+          SECRET="$(tr '\0' '\n' < /proc/$PID/environ | sed -n 's/^V11_AI_BRIDGE_SECRET=//p')"
+          SUMMARY='LIVE Bybit AUTO: deterministic scanner; one-shot fresh/reanchor winner; risk-distance sizing currently $5/$10 ladder from $50 equity; max total open risk 30%; max 3 positions; leverage config 3x max5 and setLeverage failure currently ignored; sizing currently not margin-aware; post-fill actual SL/TP/RR checked; Full TP/SL + native trailing then protection verify/emergency-flat; manager does BE ~0.60R, lock ~0.90R, trail ~1.15R, deterministic CUT; controller currently returns before inner engine during 5m entry spacing or loss pause; state reset on day change currently clears openPlans; 3AI only final-entry; learning shadow-only but provider catalog still 5 legacy providers. Bybit docs: set leverage retCode110043 means unchanged/idempotent; trailingStop is price distance and activePrice activation price.'
+          QUESTION='Review for production defects and bounded improvements. Do not increase dollar risk or force trades. Focus on: margin-aware sizing and adaptive leverage 1-5x, fail-closed leverage with 110043 idempotent success, management continuing during entry pauses, preserving openPlans across day rollover/restart, SL/TP/BE/trailing/CUT reliability, AI token efficiency, and learning telemetry. Return required engineering JSON.'
+          python3 - <<'PY'
+          import json
+          open('/tmp/individual-results.json','w').write(json.dumps({'providers':{}},indent=2))
+          PY
+          for P in claude codex deepseek; do
+            P="$P" SUMMARY="$SUMMARY" QUESTION="$QUESTION" python3 - <<'PY' > /tmp/payload.json
+          import json,os
+          p=os.environ['P']
+          evidence={'mode':'MULTI_AI_ENGINEERING_TASK','task_id':'auto-opt-'+p+'-20260825','instruction':os.environ['QUESTION'],'context':{'architectureSummary':os.environ['SUMMARY'],'scope':'PROTECTED_REVIEW_ONLY'},'requestedProviders':[p]}
+          print(json.dumps({'evidence':evidence}))
+          PY
+            CODE=$(curl -sS --max-time 120 -o /tmp/one.json -w '%{http_code}' -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $SECRET" -H 'Content-Type: application/json' --data-binary @/tmp/payload.json || echo 000)
+            P="$P" CODE="$CODE" python3 - <<'PY'
+          import json,os
+          path='/tmp/individual-results.json'
+          try: out=json.load(open(path))
+          except: out={'providers':{}}
+          try: body=json.load(open('/tmp/one.json'))
+          except Exception as e: body={'parseError':str(e)}
+          out['providers'][os.environ['P']]={'httpCode':os.environ['CODE'],'body':body}
+          json.dump(out,open(path,'w'),indent=2)
+          PY
+          done
+          python3 -m json.tool /tmp/individual-results.json
+      - name: Persist individual reviews
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          cp /tmp/individual-results.json docs/diagnostics/LATEST_AUTO_TRADE_3AI_INDIVIDUAL_REVIEW.json || echo '{"providers":{},"reason":"RESULT_MISSING"}' > docs/diagnostics/LATEST_AUTO_TRADE_3AI_INDIVIDUAL_REVIEW.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_AUTO_TRADE_3AI_INDIVIDUAL_REVIEW.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record individual auto trade 3AI reviews'
+          git push origin HEAD:main
