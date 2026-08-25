@@ -2,56 +2,74 @@
 
 LOCKED: true
 OWNER: DEEPSEEK
-SCOPE: V11 production quality/runtime + protected trading authority
-ACQUIRED: 2026-08-22
+SCOPE: Bybit Auto production quality/runtime + protected trading authority
+UPDATED: 2026-08-25
 
-Signal V11 is the sole public signal authority on GitHub `main` and remains SIGNAL_ONLY.
-
-## Owner-authorized direct research mode (2026-08-23)
-
-The owner explicitly cancelled the PR/Issue/job-gated orchestration for V11 backtest research and requested the normal direct-backtest workflow used in earlier research versions, with all five AI lanes participating.
-
-For **research-only backtest files and evidence** (`scripts/v11_backtest_mtf.py`, `scripts/v11_backtest_mtf_run.py`, `scripts/v11_mtf_data_cache.py`, `data/v11_mtf_*`, and the dedicated direct research workflow), ChatGPT/orchestrator may make bounded direct changes on current GitHub `main` and run deterministic backtests without opening an implementation PR or waiting for an Issue gate. The five AI lanes Claude, Codex, DeepSeek, Qwen and OpenRouter must participate in the research council for a compliant five-AI round; deterministic replay/evidence remains the performance authority. This exception exists to remove orchestration latency, not to weaken evidence standards.
-
-This direct-research exception does **not** authorize production deployment or changes to Signal V11 execution authority, Telegram signal activation, exchange execution, Cloudflare production trading runtime, TRADING_STATE, risk gates, quote freshness, lifecycle rules, or secrets. Those remain protected and fail-closed.
+GitHub `main` is authoritative. Current production execution authority is **Bybit Auto Trade Hub**, version `BYBIT-AUTO-1.2.0`. Signal V11 material is historical/research-only unless current `main` explicitly restores a non-execution research path.
 
 ## Production/orchestration authority
 
-- DeepSeek remains the default source writer for protected production strategy/runtime changes.
-- Codex/Claude remain independent review lanes for protected production changes where required.
-- Qwen/OpenRouter remain advisory/adversarial lanes.
-- Deterministic validation remains mandatory for all trading evidence and production changes.
-- Research backtest evidence may never be promoted to production merely because a direct run finishes or reports a high win rate.
-
-## Scheduling invariants
-
-- no repository-wide writer queue;
-- direct V11 research backtests do not require PR/Issue scheduling;
-- unrelated protected production tasks serialize only where paths overlap;
-- stale output is never force-overwritten;
-- provider/data failure is surfaced explicitly;
-- no secrets in source/comments/logs.
-
-## Research backtest invariants
-
-- all current catalog symbols remain present and independently evaluated;
-- required win rate is inclusive >=80.00% per symbol;
-- RR is exactly 1:1 or 1:2;
-- every eligible symbol/day must contain 1-3 real actual executions; zero or >3 is FAIL;
-- closed-market days are excluded explicitly;
-- missing exact history is a surfaced data failure, never silently made non-eligible;
-- no pooling, symbol deletion, fabricated trade, blind last-bar fill, proxy promotion, lookahead/future leakage, silent eligible-day deletion, or repeated final-holdout tuning;
-- DEV/VALIDATION learning may be reused; untouched final-holdout outcomes may not tune later parameters;
-- full multi-timeframe research should derive higher frames from the finest exact practical base feed with closed-bar alignment.
+- DeepSeek remains the default source-writer lane for protected production strategy/runtime changes.
+- Codex/Claude remain independent review lanes where appropriate.
+- Deterministic validation is mandatory for production changes.
+- Research/backtest results do not directly unlock production.
+- No secret/token/private-key material may be committed.
 
 ## Hard production trading invariants
 
-Preserve `TRADING_STATE`, V11 native scheduler, VPC AI bridge, SIGNAL_ONLY authority, canonical quote freshness, structural/volatility-aware SL, deterministic market gates, max-five-open-per-market enforcement, weekend market closures, and 4/5 AI confirmation for discretionary CUT.
+Preserve:
+- `TRADING_STATE` KV without reset;
+- Cloudflare native Bybit Auto scheduler;
+- private VPC/VPS authenticated Bybit transport;
+- fresh public quote checks and bounded one-shot re-anchor;
+- structural/volatility-aware SL and TP;
+- deterministic score/liquidity/spread/chase gates;
+- margin-aware sizing and max 5x leverage;
+- total open-risk and position-count caps;
+- 3-AI `FINAL_ENTRY_REVIEW_ONLY` policy for Claude/Codex/DeepSeek;
+- post-AI quote validation;
+- verified exchange-side SL/TP/native trailing protection;
+- automatic BE/profit-lock/trailing management;
+- management continuity during entry cooldown/loss pause;
+- discretionary CUT OFF by default;
+- Telegram AUTO notifications and learning telemetry.
 
-New-entry state must be evaluated by the single V11 entry-eligibility authority. A `LIMIT`/`LIMIT_PLAN` may be promoted to MARKET only when canonical LIVE price has actually reached the configured symbol/market near-entry threshold and drift/chase gates pass. A `MARKET_PLAN` may be actionable only under the same fresh-price and deterministic execution gates. `WATCH`, stale quotes, invalid geometry, hard news blackout, volatility shock, extreme chase, and price-source divergence must never be promoted.
+Never weaken freshness, SL geometry, RR, risk, margin, protection or max leverage merely to increase trade count. If higher frequency is desired, prefer better candidate coverage, bounded score/profile tuning, shorter safe cooldown and/or reduced safe size rather than bypassing protection.
 
-An already-open signal must never be CUT merely because a later scan relabels it `LIMIT`, `LIMIT_PLAN`, `MARKET_PLAN`, or `WATCH`. TP/SL are deterministic; discretionary CUT requires the current hold-invalidation logic plus the configured 4/5 AI confirmation path.
+## CUT invariant
 
-For a symbol that has independently passed the current four-month calibration gate, target RR is locked to exactly 1:1 or 1:2 as recorded by its generated backtest profile. Do not fabricate backtest, quote, deployment, or performance evidence. Do not restore Futures Signal or Hyro/TK2 execution, merge Binance Auto authority into V11, or commit secrets/private keys.
+An already-open position must not be market-closed merely because:
+- a later scan no longer likes the setup;
+- the trade is slow;
+- short-term M1 momentum is noisy;
+- unrealized profit gives back.
 
-ChatGPT is orchestrator/controller and may maintain direct research methodology/routing under explicit owner authorization; current GitHub `main` is authoritative.
+Normal exits are SL, BE stop, profit-lock stop, trailing stop and TP.
+
+Discretionary CUT is only available when `BYBIT_DISCRETIONARY_CUT_ENABLED=true` is explicitly configured and current source requires severe confirmed thesis invalidation. It must never become implicitly enabled by a deploy or missing environment value.
+
+## Current frequency profile
+
+Production intent is `BALANCED_FREQUENT`:
+- scan every 60s;
+- entry cooldown/spacing 180s;
+- config floor score 70;
+- config spread ceiling 9 bps, subject to stricter symbol-profile limits;
+- config chase ceiling 0.60 ATR, subject to stricter symbol-profile limits;
+- maximum 3 open positions;
+- maximum 2 same-direction positions;
+- maximum leverage 5x;
+- margin-use budget 80% equity.
+
+## Historical/research hygiene
+
+Historical V11/V77/V78/V10/Hyro/Futures files may remain read-only for evidence/history, but they must not execute, write production state, dispatch competing jobs or be described as current execution authority.
+
+Any workflow/source that can compete with the Bybit Auto production Worker must be removed or disabled unless current `main` explicitly re-authorizes it.
+
+## Deployment contract
+
+Production deploy path is `.github/workflows/deploy-cloudflare-worker.yml`.
+A deployment is not considered complete until source validation passes and `/bybit/health` reports the deployment revision with valid LIVE visibility.
+
+Current `main` always outranks stale checkpoints, branch experiments and old diagnostics.
