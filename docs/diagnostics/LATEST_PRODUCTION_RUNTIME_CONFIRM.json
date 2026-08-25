@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "expectedRevision": "c14839f34ea66e6a419d828acfb2d7c2dad4ed8d",
+  "runtimeRevision": "c14839f34ea66e6a419d828acfb2d7c2dad4ed8d",
+  "exchange": "BYBIT",
+  "mode": "LIVE",
+  "execution": {
+    "liveAck": true,
+    "scheduled": true,
+    "ready": true
+  },
+  "privateTransport": "VPS_BYBIT_PRIVATE_PROXY"
+}
