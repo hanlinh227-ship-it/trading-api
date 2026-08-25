@@ -22,8 +22,10 @@ export async function reconcileBybitPaperPlans(env,state){
     const age=now()-created;if(age<60000)continue;const start=Math.max(created-60000,now()-12*60*60*1000);let rows=[];
     try{rows=parseRows(await api.klineRange(symbol,{interval:"1",start,end:now(),limit:720}));}catch{continue;}
     const out=evaluate(plan,rows);if(out.status==="OPEN"||out.status==="INVALID_PLAN")continue;
-    const holdSec=Math.max(0,Math.round(((out.closedAt||now())-created)/1000));await recordBybitLearningEvent(env,{stage:"OUTCOME",mode:"PAPER",symbol,side:plan.side,strategy:plan.strategy,score:plan.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.sl,tp:plan.tp,ai:plan.ai,postAi:plan.postAiQuote,outcome:{...out,holdSec},reason:out.status});
-    delete plans[symbol];closed.push({symbol,...out,holdSec});
+    const holdSec=Math.max(0,Math.round(((out.closedAt||now())-created)/1000)),riskUsd=Math.abs(Number(plan.riskUsd)||0),netPnlUsd=Number(out.pnlUsd),netR=riskUsd>0&&Number.isFinite(netPnlUsd)?netPnlUsd/riskUsd:Number(out.rMultiple);
+    const sourceId=`PAPER:${symbol}:${created}`;
+    await recordBybitLearningEvent(env,{id:`BYBIT_OUTCOME:${sourceId}`,stage:"OUTCOME",mode:"PAPER",symbol,side:plan.side,strategy:plan.strategy,score:plan.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.sl,tp:plan.tp,ai:plan.ai,postAi:plan.postAiQuote,outcome:{...out,authority:"PAPER_CANDLE_PESSIMISTIC",sourceId,netPnlUsd,netR,holdSec},reason:out.status});
+    delete plans[symbol];closed.push({symbol,...out,netPnlUsd,netR,holdSec});
   }
   return {plans,closed};
 }
