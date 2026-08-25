@@ -115,19 +115,23 @@ jobs:
             sleep 1
           done
           sudo systemctl is-active --quiet forex-research-loop.service
+          MAINPID="$(sudo systemctl show -p MainPID --value forex-research-loop.service)"
+          test "${MAINPID:-0}" -gt 1
+          tr '\0' ' ' < "/proc/${MAINPID}/cmdline" | grep -q 'forex_research_loop_v5.py'
 
-      - name: Verify 100 day open-strategy research loop is alive
+      - name: Verify genuinely active 100 day open-strategy loop
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
+            sudo systemctl is-active --quiet forex-research-loop.service || break
             if [ -s /var/lib/trading/forex-research/state.json ]; then
-              if python3 -c 'import json; d=json.load(open("/var/lib/trading/forex-research/state.json")); assert d.get("mode")=="PAPER_ONLY"; assert d.get("version")=="FOREX-RESEARCH-LOOP-5-OPEN-DSL"; assert d.get("engine")=="V7_DSL_100_RANDOM_DAYS"; assert int(d.get("requiredRandomDays") or 0)==100; assert d.get("status") in {"INIT","ACCEPTANCE_RUNNING","3AI_OPEN_STRATEGY_RESEARCH","DEV_MULTI_CANDIDATE_VALIDATION","DEV_REJECTED_RESEARCH_AGAIN","NEXT_FRESH_100_DAY_OOS","TARGET_ACHIEVED_ALL_SYMBOLS","STOPPED","BLOCKED"}; print("FOREX_100_DAY_LOOP=ACTIVE", "status="+str(d.get("status")), "round="+str(d.get("round")), "engine="+str(d.get("engine")))'; then exit 0; fi
+              if python3 -c 'import json; d=json.load(open("/var/lib/trading/forex-research/state.json")); active={"ACCEPTANCE_RUNNING","3AI_OPEN_STRATEGY_RESEARCH","DEV_MULTI_CANDIDATE_VALIDATION","DEV_REJECTED_RESEARCH_AGAIN","NEXT_FRESH_100_DAY_OOS","TARGET_ACHIEVED_ALL_SYMBOLS"}; assert d.get("mode")=="PAPER_ONLY"; assert d.get("version")=="FOREX-RESEARCH-LOOP-5-OPEN-DSL"; assert d.get("engine")=="V7_DSL_100_RANDOM_DAYS"; assert int(d.get("requiredRandomDays") or 0)==100; assert d.get("status") in active; print("FOREX_100_DAY_LOOP=ACTIVE", "status="+str(d.get("status")), "round="+str(d.get("round")), "engine="+str(d.get("engine")))'; then exit 0; fi
             fi
             sleep 1
           done
           sudo systemctl --no-pager --full status forex-research-loop.service || true
-          sudo journalctl -u forex-research-loop.service -n 100 --no-pager || true
+          sudo journalctl -u forex-research-loop.service -n 120 --no-pager || true
           exit 1
 
       - name: Deployment summary
