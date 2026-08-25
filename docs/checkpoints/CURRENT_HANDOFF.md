@@ -16,7 +16,7 @@ GitHub `main` outranks stale historical checkpoints.
 The production Worker is **Bybit Auto Trade Hub only**.
 
 Canonical production state:
-- version: `BYBIT-AUTO-1.2.0`;
+- version: `BYBIT-AUTO-1.2.1`;
 - execution: Bybit LIVE;
 - Signal V11 runtime/scheduler on this Worker: disabled;
 - Cloudflare native scheduler: enabled for Bybit Auto;
@@ -26,6 +26,23 @@ Canonical production state:
 - state: existing `TRADING_STATE` KV preserved.
 
 Do not resurrect or treat historical Signal V11, V77/V78/V10, Hyro/TK2 or retired debug workflows as current execution authority.
+
+## VERSIONING RULE — REQUIRED ON EVERY PRODUCTION UPDATE
+
+Current version source of truth:
+`cloudflare-worker/bybit-auto-config.js` -> `BYBIT_AUTO_VERSION`.
+
+Every production change must bump the version in the same change set:
+- PATCH for fixes/cleanup/hygiene;
+- MINOR for backward-compatible behavior/risk/strategy/execution-policy changes;
+- MAJOR for incompatible architecture or execution-authority changes.
+
+Use only the `BYBIT-AUTO-MAJOR.MINOR.PATCH` naming family for current Bybit Auto production. `/status`, checkpoints and runtime reports must match it.
+
+Each update must leave an auditable record containing version, date/time, commit SHA, change summary and deployment-verification state. Never call a version LIVE only because it exists on `main`; `/bybit/health` must verify the deployed commit revision.
+
+Latest source version: `BYBIT-AUTO-1.2.1`.
+Reason: mandatory explicit versioning + conflict-cleanup bookkeeping.
 
 ## CURRENT FREQUENCY / ENTRY POLICY
 
