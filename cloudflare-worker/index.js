@@ -4,7 +4,7 @@ import {handleChatGptMcp} from "./chatgpt-mcp.js";
 import {handleGpt5AiAction} from "./gpt-5ai-action.js";
 import {handleBybitReadonlyHealth} from "./bybit-readonly-health.js";
 import {handleBybitControlApi} from "./bybit-control-plane.js";
-import {runBybitAutoControlled} from "./bybit-auto-controller.js";
+import {runBybitAutoControlled,recordBybitAutoSchedulerError} from "./bybit-auto-controller.js";
 import {BYBIT_AUTO_VERSION} from "./bybit-auto-config.js";
 import {MEME_AUTO_VERSION,MEME_AUTO_MODE} from "./meme-auto-design.js";
 import {runMemePaperCycle,getMemePaperState} from "./meme-paper-engine.js";
@@ -44,7 +44,7 @@ export default {
     return json({ok:false,error:"AUTO_HUB_ENDPOINT_NOT_FOUND"},404);
   },
   async scheduled(event,env,ctx){
-    if(envBool(env.BYBIT_AUTO_ENABLED))ctx.waitUntil(Promise.resolve(runBybitAutoControlled(env)).catch(()=>null));
+    if(envBool(env.BYBIT_AUTO_ENABLED))ctx.waitUntil(Promise.resolve(runBybitAutoControlled(env)).catch(e=>recordBybitAutoSchedulerError(env,e).catch(()=>null)));
     ctx.waitUntil(Promise.resolve(runMemePaperCycle(env)).catch(()=>null));
     // FOREX is pull-driven by MT5 Windows pulses; no Cloudflare execution scheduler is permitted.
   }
