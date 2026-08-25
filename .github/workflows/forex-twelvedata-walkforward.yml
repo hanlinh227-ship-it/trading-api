@@ -1,0 +1,38 @@
+name: FOREX TwelveData WalkForward
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/forex_twelvedata_walkforward.py'
+      - '.github/workflows/forex-twelvedata-walkforward.yml'
+permissions:
+  contents: write
+concurrency:
+  group: twelvedata-api
+  cancel-in-progress: false
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    env:
+      TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+      BACKTEST_WINDOWS: '2'
+      BACKTEST_WINDOW_DAYS: '16'
+      BACKTEST_MIN_TEST_DAYS: '8'
+      BACKTEST_TARGET_WR: '80'
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Run random walk-forward optimizer
+        run: python3 scripts/forex_twelvedata_walkforward.py
+      - name: Assert evidence exists
+        run: test -s data/forex-twelvedata-walkforward-latest.json
+      - name: Commit evidence
+        if: always()
+        run: |
+          git config user.name 'forex-backtest-bot'
+          git config user.email 'forex-backtest-bot@users.noreply.github.com'
+          git add data/forex-twelvedata-walkforward-latest.json || true
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'test: update Twelve Data FOREX walk-forward evidence'
+          git pull --rebase origin main
+          git push origin HEAD:main
