@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.3: balanced effective-risk sizing + complete trade-action notification policy.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.3";
+// BYBIT-AUTO-1.6.4: balanced effective-risk sizing + complete lifecycle notifications + anti-sweep structural stops.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.4";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
