@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.7: relaxed quality flow + balance-scaled TP/SL bands + anti-sweep stops + complete lifecycle notifications.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.7";
+// BYBIT-AUTO-1.7.0: strict net learning authority + small-sample shrinkage + idempotent Smart CUT close guard.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.0";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -38,7 +38,8 @@ export const BYBIT_AUTO_CONFIG={
     smartCutEnabled:true,
     smartCutMinAgeSec:180,
     smartCutScore:7,
-    smartCutConfirmations:2
+    smartCutConfirmations:2,
+    smartCutReissueSec:120
   },
   adaptive:{
     enabled:true,
@@ -47,11 +48,14 @@ export const BYBIT_AUTO_CONFIG={
     maxScore:84,
     minLearningSamples:10,
     fullLearningSamples:80,
+    shrinkagePriorTrades:20,
+    minExitProfileSamples:30,
     correlationSoft:0.84,
     correlationHard:0.94,
     regimeGate:true,
     perSymbolEdge:true,
     netExpectancy:true,
+    strictNetAuthority:true,
     exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
     autoPromote:false
   },
@@ -95,8 +99,11 @@ export function bybitAutoConfig(env={}){
   c.risk.smartCutMinAgeSec=Math.max(180,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec)));
   c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
   c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
+  c.risk.smartCutReissueSec=Math.max(60,Math.min(300,Math.round(n(env,"BYBIT_SMART_CUT_REISSUE_SEC",c.risk.smartCutReissueSec))));
   c.adaptive.enabled=String(env.BYBIT_ADAPTIVE_EDGE_ENABLED??String(c.adaptive.enabled)).toLowerCase()==="true";
   c.adaptive.baseScore=Math.max(66,Math.min(76,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
+  c.adaptive.shrinkagePriorTrades=Math.max(10,Math.min(60,Math.round(n(env,"BYBIT_ADAPTIVE_SHRINKAGE_PRIOR_TRADES",c.adaptive.shrinkagePriorTrades))));
+  c.adaptive.minExitProfileSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_MIN_EXIT_PROFILE_SAMPLES",c.adaptive.minExitProfileSamples))));
   c.adaptive.correlationSoft=Math.max(.78,Math.min(.92,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
   c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.04,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
   c.adaptive.autoPromote=false;
