@@ -1,0 +1,26 @@
+import {FOREX_AUTO_VERSION,FOREX_AUTO_MODE,forexAutoConfig} from "./forex-auto-config.js";
+import {rankForexCandidates} from "./forex-signal-engine.js";
+import {evaluateThe5ersRules,sizeRiskPct} from "./forex-the5ers-rule-engine.js";
+import {runForex3AiCouncil,forex3AiHealth} from "./forex-3ai-council.js";
+const json=(b,s=200)=>new Response(JSON.stringify(b,null,2),{status:s,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+const key=id=>`forex:mt5:${String(id||"default").slice(0,80)}`;
+const stateStore=env=>env.TRADING_STATE||null;
+const auth=(req,env)=>{const expected=String(env.FOREX_MT5_BRIDGE_TOKEN||"");if(!expected)return {ok:false,error:"FOREX_MT5_BRIDGE_TOKEN_MISSING"};const got=String(req.headers.get("authorization")||"");return got===`Bearer ${expected}`?{ok:true}:{ok:false,error:"UNAUTHORIZED"};};
+async function put(env,k,v){if(stateStore(env))await stateStore(env).put(k,JSON.stringify(v));}
+async function get(env,k){try{return await stateStore(env)?.get(k,{type:"json"})||null}catch{return null}}
+function publicHealth(env){const c=forexAutoConfig(env),ai=forex3AiHealth(env);return {ok:true,service:"FOREX_AUTO",version:FOREX_AUTO_VERSION,mode:c.execution.liveEnabled?"LIVE":"PAPER",executionTerminal:"MT5_WINDOWS",brokerProfile:c.brokerProfile,ai,all3AiConfigured:Object.values(ai).every(x=>x.configured),bridgeTokenConfigured:!!env.FOREX_MT5_BRIDGE_TOKEN,liveEnabled:c.execution.liveEnabled};}
+export async function handleForexMt5Bridge(req,env){const u=new URL(req.url);if(!u.pathname.startsWith("/forex/"))return null;
+ if(u.pathname==="/forex/health"&&req.method==="GET")return json(publicHealth(env));
+ const a=auth(req,env);if(!a.ok)return json({ok:false,error:a.error},a.error==="UNAUTHORIZED"?401:503);
+ if(u.pathname==="/forex/mt5/pulse"&&req.method==="POST"){
+  let body;try{body=await req.json()}catch{return json({ok:false,error:"INVALID_JSON"},400)}
+  const terminalId=String(body?.terminalId||"").slice(0,80);if(!terminalId)return json({ok:false,error:"TERMINAL_ID_REQUIRED"},400);
+  const account=body?.account&&typeof body.account==="object"?body.account:{};const snapshots=Array.isArray(body?.snapshots)?body.snapshots:[];const ranked=rankForexCandidates(env,snapshots);const candidate=ranked[0]||null;let decision={action:"NO_TRADE",reason:candidate?"PENDING_RULES":"NO_QUALIFIED_CANDIDATE"},rules=null,council=null;
+  if(candidate){const snap=snapshots.find(x=>x.symbol===candidate.symbol)||{};rules=evaluateThe5ersRules(env,{...account,newsBlocked:Boolean(snap.newsBlocked)});if(rules.ok){council=await runForex3AiCouncil(env,candidate,{...account,rules:rules.metrics});const cfg=forexAutoConfig(env);const conf=Number(council?.finalDecision?.confidence||0);if(council.ok&&council.consensus&&conf>=cfg.ai.minFinalConfidence){const riskPct=sizeRiskPct(env,{quality:candidate.quality,correlated:Boolean(body?.correlatedExposure),dailyLossPct:rules.metrics.dailyLossPct});decision={action:cfg.execution.liveEnabled?"TRADE":"PAPER_TRADE",symbol:candidate.symbol,side:candidate.side,entry:candidate.entry,sl:candidate.sl,tp:candidate.tp,rr:candidate.rr,score:candidate.score,riskPct,confidence:conf,expiresAt:Date.now()+cfg.execution.decisionTtlSec*1000,magic:cfg.execution.magicNumber,reason:"3AI_CONSENSUS_AND_RULES_PASS"};}else decision={action:"NO_TRADE",reason:!council.ok?"3AI_NOT_HEALTHY":"3AI_NO_CONSENSUS",council};}else decision={action:"NO_TRADE",reason:"THE5ERS_RULE_BLOCK",rules};}
+  const state={version:FOREX_AUTO_VERSION,terminalId,receivedAt:new Date().toISOString(),account,candidate,ranked:ranked.slice(0,5),rules,council,decision,mt5:body?.mt5||{},executionAck:null};await put(env,key(terminalId),state);return json({ok:true,version:FOREX_AUTO_VERSION,mode:forexAutoConfig(env).execution.liveEnabled?"LIVE":"PAPER",decision,ranked:ranked.slice(0,3),rules,council});
+ }
+ if(u.pathname==="/forex/mt5/decision"&&req.method==="GET"){const id=String(u.searchParams.get("terminal_id")||"");const s=await get(env,key(id));if(!s)return json({ok:false,error:"STATE_NOT_FOUND"},404);return json({ok:true,version:FOREX_AUTO_VERSION,decision:s.decision,receivedAt:s.receivedAt});}
+ if(u.pathname==="/forex/mt5/ack"&&req.method==="POST"){let b;try{b=await req.json()}catch{return json({ok:false,error:"INVALID_JSON"},400)}const id=String(b?.terminalId||"");const s=await get(env,key(id));if(!s)return json({ok:false,error:"STATE_NOT_FOUND"},404);s.executionAck={at:new Date().toISOString(),status:String(b.status||"UNKNOWN"),ticket:b.ticket||null,symbol:b.symbol||null,detail:b.detail||null};await put(env,key(id),s);return json({ok:true});}
+ if(u.pathname==="/forex/mt5/state"&&req.method==="GET"){const id=String(u.searchParams.get("terminal_id")||"");const s=await get(env,key(id));return json({ok:true,state:s});}
+ return json({ok:false,error:"FOREX_ENDPOINT_NOT_FOUND"},404);
+}
