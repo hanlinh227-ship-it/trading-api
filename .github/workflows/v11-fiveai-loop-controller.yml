@@ -10,12 +10,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: v11-direct-fiveai-backtest
+  group: v11-legacy-fiveai-loop
   cancel-in-progress: true
 
 jobs:
   loop:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-LOOP]') || contains(github.event.head_commit.message, '[V11-RUN]')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-LOOP]')
     runs-on: ubuntu-latest
     timeout-minutes: 240
     env:
