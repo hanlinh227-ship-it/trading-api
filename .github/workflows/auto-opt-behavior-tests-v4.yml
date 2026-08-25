@@ -5,7 +5,7 @@ on:
     paths: ['.github/workflows/auto-opt-behavior-tests-v4.yml']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -31,10 +31,8 @@ jobs:
           const levEnv={BYBIT_AUTO_API_KEY:'k',BYBIT_AUTO_API_SECRET:'s',V11_AI_BRIDGE_SECRET:'b',AI_BRIDGE:{fetch:async()=>json({ok:false,httpStatus:400,upstream:{retCode:110043,retMsg:'unchanged'}})}};
           const lev=await bybitV5(levEnv).setLeverage('BTCUSDT',3);assert.equal(lev.idempotent,true);
           const badEnv={...levEnv,AI_BRIDGE:{fetch:async()=>json({ok:false,httpStatus:400,upstream:{retCode:110045,retMsg:'bad'}})}};let threw=false;try{await bybitV5(badEnv).setLeverage('BTCUSDT',3);}catch{threw=true;}assert.equal(threw,true);
-          const rows=[
-            [1,'100','100','99.8','99.8','1'],[2,'99.8','99.8','99.6','99.6','1'],[3,'99.6','99.6','99.4','99.4','1'],[4,'99.4','99.4','99.2','99.2','1'],[5,'99.2','99.2','99','99','1'],[6,'99','99','98.8','98.8','1'],[7,'98.8','98.8','98.6','98.6','1'],[8,'98.6','98.6','98.4','98.4','1'],[9,'98.4','98.4','98.2','98.2','1'],[10,'98.2','98.2','98','98','1'],[11,'98','98','97.8','97.8','1'],[12,'97.8','97.8','97.6','97.6','1']
-          ];
-          let closes=0,writes=0;const api={kline:async()=>({result:{list:[...rows].reverse()}}),order:async()=>{closes++;return {result:{orderId:'x'}};},tradingStop:async()=>{writes++;}};
+          const rows=[[1,'100','100','99.8','99.8','1'],[2,'99.8','99.8','99.6','99.6','1'],[3,'99.6','99.6','99.4','99.4','1'],[4,'99.4','99.4','99.2','99.2','1'],[5,'99.2','99.2','99','99','1'],[6,'99','99','98.8','98.8','1'],[7,'98.8','98.8','98.6','98.6','1'],[8,'98.6','98.6','98.4','98.4','1'],[9,'98.4','98.4','98.2','98.2','1'],[10,'98.2','98.2','98','98','1'],[11,'98','98','97.8','97.8','1'],[12,'97.8','97.8','97.6','97.6','1']];
+          let closes=0;const api={kline:async()=>({result:{list:[...rows].reverse()}}),order:async()=>{closes++;return {result:{orderId:'x'}};},tradingStop:async()=>{}};
           const plan={symbol:'TESTUSDT',side:'Buy',qty:10,entry:100,sl:99,initialSl:99,tp:102,tickSize:.01,filters:{tickSize:.01},createdAtMs:Date.now()-600000,peakR:0,exitPlan:{breakEvenTriggerR:.6,positiveTrailTriggerR:1.15,positiveTrailLockR:.35,trailAtr:.5},atr1:1};
           const pos={symbol:'TESTUSDT',side:'Buy',size:'10',avgPrice:'100',markPrice:'99.2',stopLoss:'99',takeProfit:'102',trailingStop:'0',positionIdx:0};
           const hold=await manageBybitScalpPosition({},api,{...plan},pos,cfg);assert.equal(closes,0);assert.notEqual(hold.verdict,'CUT');
@@ -42,7 +40,18 @@ jobs:
           console.log(JSON.stringify({ok:true,tests:['margin-aware','margin-cap','leverage-idempotent','leverage-fail-closed','cut-default-off','cut-explicit-severe-only'],holdReason:hold.reason,cutReason:cut.reason}));
           JS
           trap 'rm -f .auto-v4.mjs' EXIT
-          node .auto-v4.mjs
+          node .auto-v4.mjs | tee /tmp/auto-v4.json
       - name: Full worker preflight
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund && npm run check
+      - name: Persist green evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/diagnostics
+          cp /tmp/auto-v4.json docs/diagnostics/LATEST_AUTO_OPT_BEHAVIOR_V4.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_AUTO_OPT_BEHAVIOR_V4.json
+          git commit -m 'Record green AUTO V4 behavior evidence'
+          git push origin HEAD:auto-opt-20260825
