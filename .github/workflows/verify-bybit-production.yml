@@ -1,0 +1,62 @@
+name: Verify Bybit Production
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-production-verify-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: verify-bybit-production
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify production health and read-only market scan
+        id: verify
+        shell: bash
+        run: |
+          set -uo pipefail
+          EXPECTED="$GITHUB_SHA"
+          mkdir -p docs/checkpoints
+          HEALTH_FILE="$(mktemp)"; SCAN_FILE="$(mktemp)"
+          HC=0
+          for i in $(seq 1 30); do
+            HC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$HEALTH_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || echo 000)"
+            REV="$(node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(String(j.runtimeRevision||""))}catch{}' "$HEALTH_FILE")"
+            if [ "$HC" = 200 ] && [ "$REV" = "$EXPECTED" ]; then break; fi
+            sleep 15
+          done
+          SC=0
+          if [ "$HC" = 200 ]; then SC="$(curl -sS --connect-timeout 10 --max-time 300 -o "$SCAN_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/scan" || echo 000)"; fi
+          EXPECTED="$EXPECTED" HC="$HC" SC="$SC" HEALTH_FILE="$HEALTH_FILE" SCAN_FILE="$SCAN_FILE" node <<'NODE'
+          const fs=require('fs');
+          const read=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
+          const h=read(process.env.HEALTH_FILE),s=read(process.env.SCAN_FILE),expected=process.env.EXPECTED;
+          const privateOk=h.privateTransport==='VPS_BYBIT_PRIVATE_PROXY';
+          const marketOk=h.marketTransport==='VPS_BYBIT_MARKET_PROXY'&&Number(h.serverTime?.ms)>0;
+          const revisionOk=h.runtimeRevision===expected;
+          const healthOk=process.env.HC==='200'&&h.ok===true&&privateOk&&marketOk&&revisionOk;
+          const scanOk=process.env.SC==='200'&&s.ok===true&&Number(s.scannedAt)>0&&s.version==='BYBIT-AUTO-1.6.2';
+          const best=s.best||null;
+          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&scanOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,exchange:h.exchange||null,mode:h.mode||null,executionReady:!!h.execution?.ready,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,serverTimeMs:Number(h.serverTime?.ms)||null,revisionOk},scan:{http:Number(process.env.SC)||0,ok:!!s.ok,version:s.version||null,universeCount:Number(s.universe?.count)||0,analyzed:Number(s.analyzed)||0,qualified:Number(s.qualified)||0,rawCandidates:Number(s.rawCandidates)||0,errorCount:Array.isArray(s.errors)?s.errors.length:0,reason:s.reason||null,best:best?{symbol:best.symbol,side:best.side,score:best.score,rr:best.rr,spreadBps:best.spreadBps,regime:best.regime}:null},checks:{privateVpsTransport:privateOk,marketVpsTransport:marketOk,runtimeRevision:revisionOk,readOnlyScan:scanOk}};
+          fs.writeFileSync('docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json',JSON.stringify(out,null,2)+'\n');
+          console.log(JSON.stringify(out));
+          process.exitCode=out.pass?0:7;
+          NODE
+          VERIFY_RC=$?
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json
+          git commit -m "chore: record Bybit production verification $EXPECTED" || true
+          git push origin HEAD:main
+          exit "$VERIFY_RC"
