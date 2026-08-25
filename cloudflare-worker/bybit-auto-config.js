@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.6.5: anti-sweep stops + hard profit floor + balanced effective-risk sizing + complete lifecycle notifications.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.5";
+// BYBIT-AUTO-1.6.6: balance-scaled TP/SL bands + anti-sweep stops + hard profit floor + complete lifecycle notifications.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.6.6";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -8,18 +8,20 @@ export const BYBIT_AUTO_CONFIG={
   maxOpenPositions:3,
   maxTradesPerDay:1000000000,
   risk:{
-    mode:"BALANCED_EFFECTIVE_RISK_BAND_ALLOCATOR",
+    mode:"BALANCE_SCALED_TP_SL_BAND_ALLOCATOR",
     baseBalanceUsd:50,
     balanceStepUsd:10,
+    // At $50 equity the maximum planned SL loss is $5 and scales +$1 per $10 balance.
+    // The stop PRICE itself is still structure/ATR/wick based; position size adapts to fit this USD band.
     baseRiskUsd:5,
     baseMinEffectiveRiskUsd:2,
     effectiveRiskStepUsd:.5,
-    // Hard policy: planned TP P&L may never be below $3.
-    // We require $3.50 gross at the sizing gate to leave a conservative execution/fee/slippage cushion.
+    // Hard policy: planned TP net P&L may never be below $3.
+    // Require $3.50 gross at $50 to leave execution/fee/slippage cushion; minimum and maximum TP both scale with balance.
     netProfitFloorUsd:3,
     executionCostBufferUsd:.5,
     baseMinRewardUsd:3.5,
-    baseRewardUsd:5,
+    baseRewardUsd:10,
     riskStepUsd:1,
     minRewardStepUsd:.5,
     rewardStepUsd:1,
