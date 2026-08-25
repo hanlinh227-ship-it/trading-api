@@ -5,8 +5,9 @@ import {handleGpt5AiAction} from "./gpt-5ai-action.js";
 import {handleBybitReadonlyHealth} from "./bybit-readonly-health.js";
 import {handleBybitControlApi} from "./bybit-control-plane.js";
 import {runBybitAutoControlled} from "./bybit-auto-controller.js";
+import {BYBIT_AUTO_VERSION} from "./bybit-auto-config.js";
 
-const VERSION="V11-AUTO";
+const VERSION=BYBIT_AUTO_VERSION;
 const SERVICE="Bybit Auto Trade Hub";
 const envBool=v=>String(v||"").toLowerCase()==="true";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
@@ -47,7 +48,8 @@ export default {
       bybitAutoState:"/bybit/auto/state",
       bybitLearningState:"/bybit/learning/state",
       telegramHub:"/telegram/webhook",
-      management:"HOLD_TIGHTEN_CUT",
+      management:"HOLD_BREAKEVEN_PROFIT_LOCK_TRAIL_TP_STOP",
+      discretionaryCutEnabled:envBool(env.BYBIT_DISCRETIONARY_CUT_ENABLED),
       aiCore:["claude","codex","deepseek"]
     });
 
