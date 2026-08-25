@@ -1,4 +1,4 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.1.1-PAPER";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.2.0-PAPER";
 export const FOREX_AUTO_MODE="PAPER_ONLY";
 
 export const FOREX_AUTO_CONFIG={
@@ -12,8 +12,8 @@ export const FOREX_AUTO_CONFIG={
   rules:{
     maxDailyLossPct:5,
     maxTotalLossPct:10,
-    internalDailyStopPct:1.25,
-    emergencyDailyStopPct:1.75,
+    internalDailyStopPct:4.0,
+    emergencyDailyStopPct:4.0,
     profitableDayPct:.5,
     minProfitableDays:3,
     maxInactivityDays:30,
@@ -59,10 +59,27 @@ export const FOREX_AUTO_CONFIG={
     requireAllThree:true,
     finalDecisionProvider:"chatgpt",
     minFinalConfidence:72,
-    claudeRole:"MARKET_CONTEXT_AND_RISK_CRITIC",
-    deepseekRole:"TECHNICAL_EXECUTION_CRITIC",
-    chatgptRole:"LEAD_TRADER_FINAL_DECISION",
+    claudeRole:"MARKET_SCOUT_CONTEXT_REGIME",
+    deepseekRole:"ENTRY_STRUCTURE_EXECUTION_CRITIC",
+    chatgptRole:"LEAD_TRADER_SYNTHESIS_FINAL_DECISION",
+    requireIndependentReviews:true,
     noAiOverrideOfHardRules:true
+  },
+  learning:{
+    enabled:true,
+    mode:"BOUNDED_ADAPTIVE_MEMORY",
+    minClosedSamples:12,
+    maxScoreDelta:5,
+    minRiskMultiplier:.70,
+    maxRiskMultiplier:1.05,
+    perSymbol:true,
+    perSetup:true,
+    learnFromClosedTradesOnly:true,
+    mayChangeHardRules:false,
+    mayChangeDailyLossLimit:false,
+    mayChangeNewsRules:false,
+    mayChangeMinRR:false,
+    autoModifySourceCode:false
   },
   execution:{
     liveEnabled:false,
