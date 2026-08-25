@@ -1,60 +1,37 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-25 UTC+7
+Updated: 2026-08-26 UTC+7
 
 ## ACTIVE PRODUCTION AUTHORITY
 Production Worker execution authority: **Bybit Auto only**.
-Canonical Bybit source version: `BYBIT-AUTO-1.4.1`.
-Execution: Bybit LIVE. Signal V11 execution/scheduler: disabled. Existing `TRADING_STATE` KV: preserved. Daily target: OFF. AI core: Claude + Codex + DeepSeek final-entry review only.
+Canonical source target: `BYBIT-AUTO-1.7.2`.
+Execution: Bybit LIVE. Signal V11 execution/scheduler: disabled. Existing `TRADING_STATE` KV: preserved. Daily target/quota: OFF. AI core: Claude + Codex + DeepSeek final-entry review only.
 
-Telegram is now a **Unified Trading Hub** with two top-level branches:
-- `BYBIT` — LIVE execution branch.
-- `MEME` — `MEME-AUTO-0.1.0-DESIGN`, DESIGN_ONLY, NO WALLET, NO SIGNING, NO EXECUTION.
+## 1.7.2 CONFLICT CLEANUP
+The old controller-level 5-minute entry spacing has been removed. Entry spacing now has one config authority: `BYBIT_AUTO_CONFIG.execution.cooldownSec`, default 180 seconds. The controller no longer injects an inner-engine cooldown override and no longer duplicates the loss-streak pause decision before the engine runs.
 
-## BYBIT 1.4.x ADAPTIVE EDGE ENGINE
-Selection order:
-`liquid universe -> setup -> regime -> per-coin/per-strategy/per-regime edge memory -> adaptive threshold -> correlation/beta gate -> fresh/re-anchor -> sizing/risk -> 3AI -> post-AI quote -> execution`.
+Closed or missing live positions may leave `openPlans` temporarily pending while Bybit closed-PnL is reconciled. Those plans remain for lifecycle/learning integrity but are excluded from current LIVE risk and margin capacity when the authoritative Bybit positions endpoint confirms the position is absent. Risk accounting authority is `BYBIT_LIVE_POSITIONS_ONLY`.
 
-Canonical adaptive defaults:
-- regimes: TREND_UP / TREND_DOWN / RANGE / BREAKOUT_EXPANSION / HIGH_VOL_CHAOS / LOW_VOL_COMPRESSION;
-- base score 70; adaptive hard bounds 68–85;
-- learning influence = 0 below 10 closed samples; confidence increases gradually and is bounded;
-- correlation soft 0.80, hard 0.90 for same-direction live exposure;
-- beta-cluster stacking protected;
-- per-symbol and symbol+strategy+regime expectancy memory;
-- net expectancy after known fees/costs preferred over gross R;
-- exit profile bounded to DEFENSIVE / BALANCED / TREND_RUNNER;
-- auto-promote = OFF permanently.
+A pending plan can still prevent re-entry into the same symbol until reconciliation completes, but it must not block unrelated symbols through false open-risk or portfolio-margin calculations.
 
-Learning never bypasses deterministic freshness, spread/chase, structural SL/TP, RR, risk, margin or protection gates.
+## LIVE SAFETY
+- closed-PnL healthy grace: maximum 15 minutes; stale beyond grace remains fail-closed;
+- 3 consecutive realized losses: one-shot 30-minute new-entry pause;
+- untracked real Bybit position: hard block;
+- max positions 3; max same direction 2;
+- min RR 1.5; preferred 1.8;
+- max risk/trade 10% equity; max total live managed risk 20%;
+- max margin/new position 42%; min free reserve 18%; portfolio margin cap 82%;
+- leverage cap 10x;
+- Smart CUT remains reduce-only with verified fill lifecycle;
+- freshness, spread/chase, structural protection, post-AI quote, actual RR and verified SL/TP/trailing remain mandatory.
 
-## CONTINUOUS CAPITAL ALLOCATION
-Sizing order:
-`equity -> risk ceiling -> slot margin ceiling -> fee buffer -> leverage for margin efficiency -> final qty -> RR/risk validation`.
+## PIPELINE
+`Scheduler -> account/positions -> PnL reconcile -> management -> canonical entry spacing -> scan -> regime/adaptive edge -> correlation -> freshness/re-anchor -> sizing/risk -> 3AI -> post-AI validation -> order -> actual risk/RR -> verified protection -> lifecycle -> learning`.
 
-Defaults remain:
-- planned risk/reward near $50 equity $1.50 / $3.00;
-- max risk/trade 4%; total managed open risk 10%;
-- max initial-margin budget/new position 20% before buffer;
-- reserve target 30%; fee buffer 5%; portfolio IM target 65%;
-- leverage cap 5x; max positions 3; max same direction 2;
-- legacy oversized positions remain managed and may block new slots through `PORTFOLIO_MARGIN_HEADROOM`.
-
-## BYBIT ENTRY / MANAGEMENT
-Scan 60s; global new-entry spacing 300s; base score 70 with adaptive 68–85 bound; spread ceiling 9 bps unless stricter profile; chase ceiling 0.60 ATR unless stricter profile; one-shot re-anchor; mandatory post-AI quote; no daily target/trade quota.
-
-Normal position management: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`.
-Smart CUT ON only for canonical multi-signal thesis invalidation; severe emergency invalidation only; always `reduceOnly`.
-
-## MEME DESIGN BRANCH
-Canonical checkpoint: `docs/checkpoints/MEME_AUTO_DESIGN_CHECKPOINT.md`.
-Current theoretical design is for Solana meme spot trading starting from about $30: $5 reserve, 1 position, $4–$7 position range, no leverage/DCA/martingale, hard token safety before score, wallet-level holder/bundler/sniper/insider/dev intelligence, confirmed momentum regimes/setups, future Jupiter execution, Smart CUT + partial TP + principal recovery + runner, bounded learning with auto-promote OFF.
-
-This branch MUST remain read-only/design-only until a separate wallet/data/execution integration phase is explicitly designed, validated and enabled.
-
-## TELEGRAM
-Root menu must expose exactly the two conceptual systems `BYBIT` and `MEME`. BYBIT submenu retains dashboard/positions/AI/risk/stats/runtime. MEME submenu exposes design/safety/entry-exit/capital/learning and clearly states NO WALLET / NO SIGNING / NO EXECUTION.
+## TELEMETRY
+Controller persists last cycle reason, last entry blocker, scan summary, scheduler exceptions and runtime revision. Engine persists `lastLiveRiskAccounting` including live symbols, tracked plans, risk-counted plans and pending closed plans so ghost-plan blocking can be diagnosed directly.
 
 ## DEPLOYMENT CONTRACT
 Canonical workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
-Do not claim a production update LIVE until `npm run check`, Cloudflare deploy and `/bybit/health` revision verification all pass.
+Do not claim 1.7.2 LIVE until source validation, Cloudflare deployment, `/bybit/health` revision match and both VPS Bybit transports pass.
