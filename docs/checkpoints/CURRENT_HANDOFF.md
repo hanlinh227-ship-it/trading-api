@@ -1,79 +1,95 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-24 UTC+7
+Updated: 2026-08-25 UTC+7
 
 ## READ FIRST
 1. Fresh-read GitHub `main`.
 2. Read `docs/checkpoints/MASTER_TRADING_STATE.md`.
 3. Read this file.
-4. Read `docs/checkpoints/V11_DIRECT_5AI_FINAL_LOCK_20260824.md`.
-5. Read `docs/checkpoints/V11_SYSTEM_CLEANUP_LOCK_20260824.md`.
-6. Read `docs/ai-coengineer/WRITE_LOCK.md` and current V11 source relevant to the task.
-7. For ChatGPT 5AI work, inspect current `cloudflare-worker/mcp-server.js`, `cloudflare-worker/multi-ai-control-plane.js`, `cloudflare-worker/index.js` before changing infrastructure.
+4. Read `docs/ai-coengineer/WRITE_LOCK.md`.
+5. Inspect current Bybit AUTO source before changing production.
 
 GitHub `main` outranks stale historical checkpoints.
 
-## ACTIVE AUTHORITY
-Signal V11 is the sole public signal authority and remains SIGNAL_ONLY.
+## ACTIVE PRODUCTION AUTHORITY
 
-V11 research/backtest has one canonical path:
-`owner prompt -> five-AI research -> deterministic cached/sharded backtest -> five-AI evidence review -> bounded method/config refinement -> replay -> untouched FINAL when eligible -> owner final result`.
+The production Worker is **Bybit Auto Trade Hub only**.
 
-Required research lanes: Claude, Codex, DeepSeek, Qwen, OpenRouter. AI accelerates research; deterministic evidence is performance truth. A transient AI transport failure must not idle safe deterministic research, but a claimed compliant five-AI round requires provider-status evidence for all five.
+Canonical production state:
+- version: `BYBIT-AUTO-1.2.0`;
+- execution: Bybit LIVE;
+- Signal V11 runtime/scheduler on this Worker: disabled;
+- Cloudflare native scheduler: enabled for Bybit Auto;
+- private authenticated exchange transport: VPS Bybit proxy;
+- AI core: Claude + Codex + DeepSeek, final-entry review only;
+- Telegram: automatic AUTO entry/status notifications;
+- state: existing `TRADING_STATE` KV preserved.
 
-## CHATGPT TRADING 5AI MCP — 2026-08-24
-A ChatGPT developer plugin named `Trading 5AI` has been created and connected.
+Do not resurrect or treat historical Signal V11, V77/V78/V10, Hyro/TK2 or retired debug workflows as current execution authority.
 
-Canonical MCP URL:
-`https://trading-v77-scanner.hanlinh227.workers.dev/mcp`
+## CURRENT FREQUENCY / ENTRY POLICY
 
-MCP tool:
-`run_5ai_task`
+Profile: `BALANCED_FREQUENT`.
 
-Purpose:
-`ChatGPT -> Trading 5AI MCP -> Cloudflare Worker -> private AI_BRIDGE VPC -> VPS v11-manual-ai-bridge -> Claude + Codex + DeepSeek + Qwen + OpenRouter -> ChatGPT synthesis`.
+Current intent:
+- scan every minute;
+- entry spacing 180 seconds;
+- global floor score 70;
+- configured spread ceiling 9 bps, subject to stricter symbol-profile gates;
+- configured chase ceiling 0.60 ATR, subject to stricter symbol-profile gates;
+- one-shot adaptive fresh/re-anchor before AI;
+- no infinite refresh/re-anchor loop;
+- 3 AI only review a final candidate;
+- post-AI quote gate remains mandatory.
 
-The five-provider bridge was smoke-tested successfully before MCP integration. The ChatGPT plugin was subsequently recognized by the ChatGPT UI with `run_5ai_task` and connected successfully. Plugin-specific ChatGPT permission was set to `full_access` where supported.
+## RISK / LEVERAGE / MARGIN
 
-Important ChatGPT runtime constraint discovered during handoff:
-- the old/current Project conversation returned `FORBIDDEN: This conversation does not support developer MCPs` when attempting the developer MCP;
-- this is a ChatGPT conversation/runtime capability restriction, not evidence that Cloudflare/VPS/5AI is broken;
-- use a NEW conversation that supports Developer MCP, attach/select `@Trading 5AI` at conversation start, and then invoke `run_5ai_task`;
-- never fabricate five-AI opinions if the tool did not actually execute. State the blocker instead.
+- risk ladder remains balance-based;
+- starting ladder around $50 balance = $5 planned risk / $10 planned reward;
+- max total open risk = 30% equity;
+- max open positions = 3;
+- max same-direction positions = 2;
+- adaptive leverage is capped at 5x;
+- margin-use budget = 80% equity;
+- leverage and margin failures are fail-closed;
+- do not increase leverage or weaken protection merely to create more trades.
 
-For realtime market requests, five-AI reasoning does not replace fresh quote validation. Refresh current market data immediately before issuing a MARKET entry; fail closed rather than label stale/invalid data realtime.
+## POSITION MANAGEMENT
 
-## ACTIVE GITHUB ACTIONS — CLEAN SURFACE
-Only the intentionally retained canonical workflows on current `main` may be used. Fresh-read `.github/workflows` before relying on names because main is authoritative.
+Normal exit path:
+`SL -> BE -> PROFIT_LOCK -> TRAILING -> TP/STOP`.
 
-Do not recreate old V73/V75/V77/V78/V10 workflows, duplicate V11 backtests, AUTO_TASK, Issue/PR AI dispatch, continuous-watch jobs, one-shot patch workflows, legacy watcher services, or retired debug/rollout workflows.
+Discretionary CUT is **OFF by default**. The bot must not market-close because a trade is merely slow or because profit gives back. Manager stays active even while new entries are blocked by cooldown or loss-streak pause.
 
-## RESEARCH CONTRACT
-Unless current main explicitly changes the catalog/contract:
-- 94 symbols independently evaluated;
-- every eligible symbol/day has 1-3 real executions;
-- zero or >3 executions on an eligible day = FAIL;
-- RR exactly 1:1 or 1:2;
-- per-symbol WR target is inclusive `>=80.00%`;
-- positive expectancy;
-- exact instrument data;
-- no pooling, symbol deletion, fabricated trades, proxy promotion, lookahead, silent eligible-day deletion or final-holdout retuning.
+## PRODUCTION FILES
 
-Historical old-version source/data may remain read-only for learning. Old workflows must not execute or compete for authority.
+Primary files:
+- `cloudflare-worker/index.js`
+- `cloudflare-worker/bybit-auto-config.js`
+- `cloudflare-worker/bybit-auto-controller.js`
+- `cloudflare-worker/bybit-auto-v1.js`
+- `cloudflare-worker/bybit-scalp-engine.js`
+- `cloudflare-worker/bybit-position-manager.js`
+- `cloudflare-worker/bybit-v5-client.js`
+- `cloudflare-worker/bybit-learning-engine.js`
+- `cloudflare-worker/bybit-auto-hub.js`
 
-## OWNER CONTRACT
-Owner is prompt-only and final-result-only. Never ask the owner to open Actions, provide run IDs, copy logs, send screenshots, execute commands, edit GitHub, Cloudflare or VPS, or troubleshoot infrastructure unless a platform-level interaction cannot be performed by available tools.
+## DEPLOYMENT CONTRACT
 
-Ordinary tasks have infrastructure repair budget zero. Start the requested work immediately. Only a proven hard blocker permits the smallest necessary repair, then resume the original task.
+Canonical workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
 
-Desired experience:
-`PROMPT -> IMMEDIATE WORK -> INTERNAL ITERATION -> FINAL RESULT`
+A production claim is valid only when:
+1. current `main` contains the intended source;
+2. `npm run check` passes;
+3. Cloudflare deploy succeeds;
+4. `/bybit/health` reports the expected runtime revision;
+5. mode/ack/scheduler/ready state is visible and valid.
 
 ## HYGIENE RULE
-For every future task, if an obsolete component can execute, write, dispatch, duplicate authority, contradict current thresholds, or create misleading state, remove/retire it during the task. Do not delete historical evidence merely because it is old.
 
-## PRODUCTION INVARIANTS
-Preserve V11 SIGNAL_ONLY authority, TRADING_STATE, native scheduler, quote freshness gates, structural/volatility-aware SL, deterministic market gates, lifecycle TP/SL/EXPIRED handling, Telegram V11, separate Binance Auto authority, and protected risk rules. Research evidence never unlocks production by itself.
+Remove or retire anything that can execute, write, dispatch, duplicate authority, contradict current thresholds or mislead future startup. Historical evidence may remain read-only, but it must be clearly non-authoritative.
 
-## NEW CHAT PROMPT
-Use the full prompt supplied below by the current handoff response. Minimum startup contract: fresh-read GitHub main; read MASTER_TRADING_STATE, CURRENT_HANDOFF, V11_DIRECT_5AI_FINAL_LOCK_20260824, V11_SYSTEM_CLEANUP_LOCK_20260824, WRITE_LOCK; preserve V11 SIGNAL_ONLY and separate Binance Auto; use `@Trading 5AI` / `run_5ai_task` only when actually available; never invent provider outputs; realtime MARKET requires a fresh quote immediately before final entry.
+## OWNER EXPERIENCE
+
+Do not ask the owner to manually run GitHub/VPS/Cloudflare steps when available tools can perform or verify them. Desired flow:
+`PROMPT -> INTERNAL WORK -> VALIDATION -> LIVE CONFIRMATION -> FINAL RESULT`.
