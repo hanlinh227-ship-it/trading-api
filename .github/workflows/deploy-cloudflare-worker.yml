@@ -53,9 +53,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          H=""; C=""
-          for i in 1 2 3 4 5 6; do F="$(mktemp)"; C="$(curl -sS --connect-timeout 5 --max-time 20 -o "$F" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"; H="$(cat "$F")"; rm -f "$F"; [ "$C" = 200 ] && break; sleep $((i*3)); done
+          H=""; C=""; MATCH="false"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            F="$(mktemp)"
+            C="$(curl -sS --connect-timeout 5 --max-time 20 -o "$F" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"
+            H="$(cat "$F")"; rm -f "$F"
+            if [ "$C" = 200 ]; then
+              REV="$(printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).runtimeRevision||""))}catch{}})' || true)"
+              if [ "$REV" = "$GITHUB_SHA" ]; then MATCH="true"; break; fi
+              echo "Waiting for Cloudflare revision propagation: got=${REV:-none} want=$GITHUB_SHA attempt=$i"
+            fi
+            sleep $((i*3))
+          done
           [ "$C" = 200 ] || { echo "$H" >&2; exit 22; }
+          [ "$MATCH" = true ] || { echo "RUNTIME_REVISION_NOT_PROPAGATED" >&2; echo "$H" >&2; exit 23; }
           printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s),w=process.env.GITHUB_SHA;if(j.runtimeRevision!==w)throw Error(`REVISION ${j.runtimeRevision} != ${w}`);if(j.exchange!=="BYBIT"||!j.execution)throw Error("BYBIT_VISIBILITY");if(j.privateTransport!=="VPS_BYBIT_PRIVATE_PROXY")throw Error(`PRIVATE_TRANSPORT ${j.privateTransport}`);if(j.marketTransport!=="VPS_BYBIT_MARKET_PROXY")throw Error(`MARKET_TRANSPORT ${j.marketTransport}`);if(!(Number(j.serverTime?.ms)>0))throw Error("BYBIT_MARKET_TIME");console.log(`RUNTIME_REVISION=PASS ${w}`);console.log(`BYBIT_VPS_TRANSPORTS=PASS private=${j.privateTransport} market=${j.marketTransport}`)})'
       - name: Verify MEME paper production runtime E2E
         shell: bash
