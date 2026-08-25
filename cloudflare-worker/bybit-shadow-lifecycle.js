@@ -10,7 +10,10 @@ function evaluate(plan,rows){
   for(const c of rows){
     const tpHit=plan.side==="Buy"?c.high>=tp:c.low<=tp,slHit=plan.side==="Buy"?c.low<=sl:c.high>=sl;
     const fav=plan.side==="Buy"?(c.high-entry):(entry-c.low),adv=plan.side==="Buy"?(entry-c.low):(c.high-entry);mfe=Math.max(mfe,fav/risk);mae=Math.max(mae,adv/risk);
-    if(tpHit&&slHit)return {status:"AMBIGUOUS_SAME_CANDLE",closedAt:c.ts,mfeR:mfe,maeR:mae};
+    // 1m candles do not reveal hit order. For research integrity, resolve a
+    // same-candle TP+SL collision as the loss side instead of recording an
+    // uncounted "ambiguous" history row that makes history and win rate diverge.
+    if(tpHit&&slHit)return {status:"SL_SAME_CANDLE_PESSIMISTIC",closedAt:c.ts,rMultiple:-1,pnlUsd:-Math.abs(num(plan.riskUsd)||0),mfeR:mfe,maeR:mae};
     if(tpHit)return {status:"TP",closedAt:c.ts,rMultiple:Math.abs(tp-entry)/risk,pnlUsd:num(plan.rewardUsd),mfeR:mfe,maeR:mae};
     if(slHit)return {status:"SL",closedAt:c.ts,rMultiple:-1,pnlUsd:-Math.abs(num(plan.riskUsd)||0),mfeR:mfe,maeR:mae};
   }
@@ -24,7 +27,7 @@ export async function reconcileBybitPaperPlans(env,state){
     const out=evaluate(plan,rows);if(out.status==="OPEN"||out.status==="INVALID_PLAN")continue;
     const holdSec=Math.max(0,Math.round(((out.closedAt||now())-created)/1000)),riskUsd=Math.abs(Number(plan.riskUsd)||0),netPnlUsd=Number(out.pnlUsd),netR=riskUsd>0&&Number.isFinite(netPnlUsd)?netPnlUsd/riskUsd:Number(out.rMultiple);
     const sourceId=`PAPER:${symbol}:${created}`;
-    await recordBybitLearningEvent(env,{id:`BYBIT_OUTCOME:${sourceId}`,stage:"OUTCOME",mode:"PAPER",symbol,side:plan.side,strategy:plan.strategy,score:plan.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.sl,tp:plan.tp,ai:plan.ai,postAi:plan.postAiQuote,outcome:{...out,authority:"PAPER_CANDLE_PESSIMISTIC",sourceId,netPnlUsd,netR,holdSec},reason:out.status});
+    await recordBybitLearningEvent(env,{id:`BYBIT_OUTCOME:${sourceId}`,at:Number(out.closedAt||now()),stage:"OUTCOME",mode:"PAPER",symbol,side:plan.side,strategy:plan.strategy,score:plan.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.sl,tp:plan.tp,ai:plan.ai,postAi:plan.postAiQuote,outcome:{...out,authority:"PAPER_CANDLE_PESSIMISTIC",sourceId,netPnlUsd,netR,holdSec},reason:out.status});
     delete plans[symbol];closed.push({symbol,...out,netPnlUsd,netR,holdSec});
   }
   return {plans,closed};
