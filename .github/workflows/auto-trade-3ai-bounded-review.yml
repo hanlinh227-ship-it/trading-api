@@ -1,0 +1,78 @@
+name: Auto Trade 3AI Bounded Review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/auto-trade-3ai-bounded-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  review:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Review bounded architecture summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          PID="$(pgrep -f '/usr/local/bin/v11-manual-ai-bridge' | head -1)"
+          SECRET="$(tr '\0' '\n' < /proc/$PID/environ | sed -n 's/^V11_AI_BRIDGE_SECRET=//p')"
+          cat > /tmp/auto-bounded.json <<'JSON'
+          {
+            "evidence": {
+              "mode": "MULTI_AI_ENGINEERING_TASK",
+              "task_id": "auto-trade-bounded-architecture-20260825",
+              "instruction": "Independently review this LIVE Bybit auto-trade architecture. Do not search for trades and do not increase risk to force trades. Return the required engineering JSON. Prioritize concrete production defects and bounded improvements for reliability, risk, leverage, SL/TP, BE/trailing, HOLD/TIGHTEN/CUT, AI usage and learning telemetry. State which changes should be implemented now versus only measured first.",
+              "context": {
+                "architecture": {
+                  "entry": "deterministic Bybit scanner -> one-shot winning-candidate refresh/reanchor -> sizing/risk -> final-entry 3AI FAST_FIRST -> post-AI quote -> market fill",
+                  "risk": "balance dollar ladder $5 risk/$10 reward at $50 base; +$1/+1 each +$10 balance; max total open risk 30% equity; max 3 positions; max 2 same direction; 3-loss 30m pause",
+                  "leverage": "config default 3x max 5x; current code calls setLeverage before order but catches and ignores failure; sizing is risk-distance based and does not explicitly cap notional by available margin/leverage",
+                  "protection": "after fill recompute actual SL/TP/RR; set Full TP/SL + native trailing; verify SL/TP; emergency flat if protection invalid",
+                  "manager": "each scheduler cycle reviews M1 momentum; BE around +0.60R +0.05R offset; profit lock around +0.90R; trailing around +1.15R with tightening distance; deterministic early/stale/giveback CUT",
+                  "ai": "Claude/Codex/DeepSeek only final-entry review; at least one usable vote can decide; DeepSeek often FAST_FIRST; Claude/Codex may finish later; broad scan consumes no AI tokens",
+                  "learning": "shadow-only event store up to 500; strategy/provider outcome summaries; provider catalog still contains qwen/openrouter although AUTO core is 3 AI; no auto-promotion",
+                  "runtime": "LIVE ready scheduled; private Bybit signed calls via VPS proxy; Telegram on new LIVE entry",
+                  "known_recent_fix": "post-AI fail-open object-spread bug fixed; production revision confirmed",
+                  "bybit_docs": "set-leverage accepts 1..max leverage; error 110043 means leverage not modified; trading-stop trailingStop is price distance and activePrice is activation price"
+                },
+                "questions": [
+                  "Should sizing become margin-aware and output recommended leverage 1-5x while never increasing dollar risk?",
+                  "Should leverage set be fail-closed except idempotent 110043?",
+                  "Should manager cadence/state persistence be hardened for restart/day rollover?",
+                  "Should learning provider catalog be reduced to the 3 AUTO core providers and add entryState/reanchor/manager telemetry?",
+                  "Any protection/trailing or AI-vote defect that should block production?"
+                ],
+                "constraints": ["no order execution in review","no risk increase","no forced trades","preserve one-shot reanchor","preserve total-risk cap","preserve emergency-flat protection"]
+              },
+              "requestedProviders": ["claude","codex","deepseek"]
+            }
+          }
+          JSON
+          curl -fsS --max-time 140 -X POST http://127.0.0.1:8789/review \
+            -H "Authorization: Bearer $SECRET" -H 'Content-Type: application/json' \
+            --data-binary @/tmp/auto-bounded.json > /tmp/auto-bounded-result.json
+          python3 -m json.tool /tmp/auto-bounded-result.json
+      - name: Persist bounded review
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/diagnostics
+          if [ -s /tmp/auto-bounded-result.json ]; then cp /tmp/auto-bounded-result.json docs/diagnostics/LATEST_AUTO_TRADE_3AI_BOUNDED_REVIEW.json; else echo '{"ok":false,"reason":"REVIEW_RESULT_MISSING"}' > docs/diagnostics/LATEST_AUTO_TRADE_3AI_BOUNDED_REVIEW.json; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/diagnostics/LATEST_AUTO_TRADE_3AI_BOUNDED_REVIEW.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record bounded auto trade 3AI review'
+          git push origin HEAD:main
