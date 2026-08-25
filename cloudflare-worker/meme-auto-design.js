@@ -37,112 +37,30 @@ export const MEME_AUTO_DESIGN={
     ],
     setupSizeMultipliers:{MOMENTUM_RETEST:1,FRESH_BREAKOUT:.85,EARLY_ROTATION:.70},
     qualitySizeMultipliers:{ENTRY:.85,PREMIUM:1},
-    riskRules:{
-      neverScaleSafetyLimits:true,
-      neverScaleSlippageCaps:true,
-      neverScaleSecurityTolerance:true,
-      neverForceFullAllocation:true,
-      reduceSizeWhenLiquidityLimited:true,
-      reduceSizeWhenDrawdown:true,
-      scaleDownImmediatelyOnBalanceLoss:true,
-      scaleUpOnlyFromCurrentConfirmedEquity:true
-    },
+    riskRules:{neverScaleSafetyLimits:true,neverScaleSlippageCaps:true,neverScaleSecurityTolerance:true,neverForceFullAllocation:true,reduceSizeWhenLiquidityLimited:true,reduceSizeWhenDrawdown:true,scaleDownImmediatelyOnBalanceLoss:true,scaleUpOnlyFromCurrentConfirmedEquity:true},
+    reserveUsd:5,
+    tradableUsd:25,
+    maxOpenPositions:1,
+    targetPositionUsd:6,
+    minPositionUsd:4,
+    maxPositionUsd:7,
+    maxAllocationPct:23.5,
     dca:false,
     averagingDown:false,
     martingale:false
   },
-  discovery:{
-    sources:["BIRDEYE_NEW_LISTINGS","BIRDEYE_MEME_SCREEN","DEXSCREENER_CROSSCHECK"],
-    preferredAgeMin:5,
-    preferredAgeMaxHours:24,
-    blindLaunchSniping:false,
-    requireExecutableSellRouteBeforeEntry:true
-  },
-  hardSafety:{
-    enabled:true,
-    rejectUnknownSellability:true,
-    rejectFreezeRisk:true,
-    rejectMintRisk:true,
-    rejectCriticalSecurityFlags:true,
-    minLiquidityUsd:30000,
-    minLiquidityForFastBreakoutUsd:50000,
-    maxTop10HolderPct:35,
-    maxDevInsiderSupplyPct:8,
-    maxBundlerSupplyPct:12,
-    maxSniperSupplyPct:18,
-    requireWalletLevelHolderView:true,
-    requireHolderProfile:true,
-    requireFreshSellQuote:true
-  },
-  qualityScore:{
-    hardGateBeforeScore:true,
-    weights:{safety:30,holders:20,liquidity:15,flow:20,momentum:15},
-    watchScore:78,
-    entryScore:85,
-    premiumScore:92,
-    maxScore:100,
-    learningBounds:{minEntryScore:82,maxEntryScore:92,minClosedSamples:20,fullWeightSamples:100}
-  },
-  holderIntelligence:{
-    useWalletDistribution:true,
-    labels:["bundler","sniper","insider","dev","smart_trader"],
-    penalizeConcentration:true,
-    penalizeCoordinatedEarlyBuying:true,
-    rewardHealthyHolderGrowth:true,
-    rewardSmartTraderParticipationOnlyWhenNotConcentrated:true
-  },
-  flow:{
-    useUniqueBuyers:true,
-    useBuySellCounts:true,
-    useNetBuyVolume:true,
-    useVolumeAcceleration:true,
-    useHolderAcceleration:true,
-    useInsiderSelling:true,
-    useBundlerDominance:true,
-    washLikeConcentrationPenalty:true,
-    requireBuyerBreadth:true
-  },
-  regimes:[
-    "EARLY_DISCOVERY","MOMENTUM_BUILD","BREAKOUT_EXPANSION","HEALTHY_PULLBACK","EUPHORIA","DISTRIBUTION","LIQUIDITY_DECAY"
-  ],
+  discovery:{sources:["BIRDEYE_NEW_LISTINGS","BIRDEYE_MEME_SCREEN","DEXSCREENER_CROSSCHECK"],preferredAgeMin:5,preferredAgeMaxHours:24,blindLaunchSniping:false,requireExecutableSellRouteBeforeEntry:true},
+  hardSafety:{enabled:true,rejectUnknownSellability:true,rejectFreezeRisk:true,rejectMintRisk:true,rejectCriticalSecurityFlags:true,minLiquidityUsd:30000,minLiquidityForFastBreakoutUsd:50000,maxTop10HolderPct:35,maxDevInsiderSupplyPct:8,maxBundlerSupplyPct:12,maxSniperSupplyPct:18,requireWalletLevelHolderView:true,requireHolderProfile:true,requireFreshSellQuote:true},
+  qualityScore:{hardGateBeforeScore:true,weights:{safety:30,holders:20,liquidity:15,flow:20,momentum:15},watchScore:78,entryScore:85,premiumScore:92,maxScore:100,learningBounds:{minEntryScore:82,maxEntryScore:92,minClosedSamples:20,fullWeightSamples:100}},
+  holderIntelligence:{useWalletDistribution:true,labels:["bundler","sniper","insider","dev","smart_trader"],penalizeConcentration:true,penalizeCoordinatedEarlyBuying:true,rewardHealthyHolderGrowth:true,rewardSmartTraderParticipationOnlyWhenNotConcentrated:true},
+  flow:{useUniqueBuyers:true,useBuySellCounts:true,useNetBuyVolume:true,useVolumeAcceleration:true,useHolderAcceleration:true,useInsiderSelling:true,useBundlerDominance:true,washLikeConcentrationPenalty:true,requireBuyerBreadth:true},
+  regimes:["EARLY_DISCOVERY","MOMENTUM_BUILD","BREAKOUT_EXPANSION","HEALTHY_PULLBACK","EUPHORIA","DISTRIBUTION","LIQUIDITY_DECAY"],
   allowedEntryRegimes:["MOMENTUM_BUILD","BREAKOUT_EXPANSION","HEALTHY_PULLBACK"],
   blockedEntryRegimes:["EUPHORIA","DISTRIBUTION","LIQUIDITY_DECAY"],
-  setups:{
-    MOMENTUM_RETEST:{priority:1,sizeMultiplier:1},
-    FRESH_BREAKOUT:{priority:2,sizeMultiplier:.85,requirePremiumFlow:true},
-    EARLY_ROTATION:{priority:3,sizeMultiplier:.70,requireHighSafety:true}
-  },
-  executionDesign:{
-    futureRouter:"JUPITER",
-    freshQuoteRequired:true,
-    freshSellQuoteBeforeBuy:true,
-    maxQuoteAgeMs:2500,
-    targetMaxPriceImpactPct:1.5,
-    hardMaxPriceImpactPct:3,
-    targetSlippagePct:1,
-    hardMaxSlippagePct:4,
-    noChaseAfterQuoteDriftPct:2.5,
-    confirmationRequired:true
-  },
-  exits:{
-    initialCutPctRange:[8,12],
-    hardLossPct:16,
-    tp1:{gainPct:18,sellPct:25},
-    tp2:{gainPct:35,sellPct:25},
-    principalRecovery:true,
-    runner:true,
-    volatilityTrailing:true,
-    smartCutSignals:["MOMENTUM_COLLAPSE","BUYER_SELLER_FLIP","HOLDER_GROWTH_STALL","DEV_INSIDER_SELLING","BREAKOUT_FAILURE","DISTRIBUTION_FLOW"],
-    emergencyExitSignals:["SELL_ROUTE_LOST","LIQUIDITY_SHOCK","SECURITY_STATE_DETERIORATION","DEV_DUMP","EXTREME_EXIT_PRICE_IMPACT"]
-  },
-  learning:{
-    enabledDesign:true,
-    autoPromote:false,
-    keys:["TOKEN","LAUNCH_SOURCE","AGE_BUCKET","REGIME","SETUP","LIQUIDITY_BUCKET","EQUITY_BUCKET","DRAWDOWN_BUCKET"],
-    metrics:["NET_PNL","NET_R","MFE","MAE","HOLD_SEC","ENTRY_IMPACT","EXIT_IMPACT","FEES","EXIT_REASON","EQUITY_AT_ENTRY","POSITION_PCT"],
-    mayAdjust:["ENTRY_SCORE_WITHIN_BOUNDS","SETUP_PRIORITY","SIZE_MULTIPLIER_WITHIN_BOUNDS","EXIT_PROFILE"],
-    mayNeverAdjust:["HARD_SAFETY","WALLET_AUTHORITY","MAX_ALLOCATION_CAPS","EMERGENCY_EXIT","NO_MARTINGALE","DRAWDOWN_DERISK"]
-  },
+  setups:{MOMENTUM_RETEST:{priority:1,sizeMultiplier:1},FRESH_BREAKOUT:{priority:2,sizeMultiplier:.85,requirePremiumFlow:true},EARLY_ROTATION:{priority:3,sizeMultiplier:.70,requireHighSafety:true}},
+  executionDesign:{futureRouter:"JUPITER",freshQuoteRequired:true,freshSellQuoteBeforeBuy:true,maxQuoteAgeMs:2500,targetMaxPriceImpactPct:1.5,hardMaxPriceImpactPct:3,targetSlippagePct:1,hardMaxSlippagePct:4,noChaseAfterQuoteDriftPct:2.5,confirmationRequired:true},
+  exits:{initialCutPctRange:[8,12],hardLossPct:16,tp1:{gainPct:18,sellPct:25},tp2:{gainPct:35,sellPct:25},principalRecovery:true,runner:true,volatilityTrailing:true,smartCutSignals:["MOMENTUM_COLLAPSE","BUYER_SELLER_FLIP","HOLDER_GROWTH_STALL","DEV_INSIDER_SELLING","BREAKOUT_FAILURE","DISTRIBUTION_FLOW"],emergencyExitSignals:["SELL_ROUTE_LOST","LIQUIDITY_SHOCK","SECURITY_STATE_DETERIORATION","DEV_DUMP","EXTREME_EXIT_PRICE_IMPACT"]},
+  learning:{enabledDesign:true,autoPromote:false,keys:["TOKEN","LAUNCH_SOURCE","AGE_BUCKET","REGIME","SETUP","LIQUIDITY_BUCKET","EQUITY_BUCKET","DRAWDOWN_BUCKET"],metrics:["NET_PNL","NET_R","MFE","MAE","HOLD_SEC","ENTRY_IMPACT","EXIT_IMPACT","FEES","EXIT_REASON","EQUITY_AT_ENTRY","POSITION_PCT"],mayAdjust:["ENTRY_SCORE_WITHIN_BOUNDS","SETUP_PRIORITY","SIZE_MULTIPLIER_WITHIN_BOUNDS","EXIT_PROFILE"],mayNeverAdjust:["HARD_SAFETY","WALLET_AUTHORITY","MAX_ALLOCATION_CAPS","EMERGENCY_EXIT","NO_MARTINGALE","DRAWDOWN_DERISK"]},
   ai:{requiredForExecution:false,allowedRole:"OPTIONAL_NARRATIVE_REVIEW_ONLY",mayOverrideSafety:false,maySignTransactions:false}
 };
 
@@ -165,6 +83,4 @@ export function computeMemeCapitalPlan({equityUsd=30,peakEquityUsd=equityUsd,ava
   return {ok:true,mode:c.mode,equityUsd:equity,peakEquityUsd:peak,drawdownPct,reserveUsd,reservePct,usableUsd,targetAllocationPct:tier.targetPct,maxAllocationPct:tier.maxPct,positionUsd,maxOpenPositions,setup,setupMultiplier,qualityMultiplier,liquidityCapUsd:Number.isFinite(liquidityCap)?liquidityCap:null,balanceAutoScaled:true,drawdownDeRisked:dd.sizeMultiplier<1};
 }
 
-export function getMemeAutoDesignStatus(){
-  return {ok:true,service:"MEME_AUTO",version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,executionEnabled:false,walletConnected:false,signingEnabled:false,readyForWalletIntegration:false,sampleCapitalPlans:[30,50,100,250,500,1000].map(equityUsd=>computeMemeCapitalPlan({equityUsd,peakEquityUsd:equityUsd,availableUsd:equityUsd,qualityScore:92})),design:MEME_AUTO_DESIGN};
-}
+export function getMemeAutoDesignStatus(){return {ok:true,service:"MEME_AUTO",version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,executionEnabled:false,walletConnected:false,signingEnabled:false,readyForWalletIntegration:false,sampleCapitalPlans:[30,50,100,250,500,1000].map(equityUsd=>computeMemeCapitalPlan({equityUsd,peakEquityUsd:equityUsd,availableUsd:equityUsd,qualityScore:92})),design:MEME_AUTO_DESIGN};}
