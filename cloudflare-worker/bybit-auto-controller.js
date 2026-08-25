@@ -1,11 +1,10 @@
 import {runBybitAutoV1,getBybitAutoV1State} from "./bybit-auto-v1.js";
 import {bybitV5} from "./bybit-v5-client.js";
 import {telegramApiRequest} from "./providers/telegram-client.js";
-import {BYBIT_AUTO_VERSION} from "./bybit-auto-config.js";
+import {BYBIT_AUTO_VERSION,bybitAutoConfig} from "./bybit-auto-config.js";
 
 const AUTO_KEY="bybit:auto:v1:state";
 const CONTROL_KEY="bybit:auto:v1:controller";
-const ENTRY_SPACING_MS=5*60*1000;
 const now=()=>Date.now();
 const iso=()=>new Date().toISOString();
 function day(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
@@ -96,16 +95,16 @@ export async function recordBybitAutoSchedulerError(env,error){
 }
 
 export async function runBybitAutoControlled(env,opts={}){
-  const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
+  const mode=String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER",cfg=bybitAutoConfig(env),entrySpacingMs=cfg.execution.cooldownSec*1000;
   await isolateModeState(env,mode);await clearLegacyProfitTarget(env);
   const state=await getBybitAutoV1State(env),prePlans=structuredClone(state?.openPlans||{}),lastTradeAt=Number(state?.lastTradeAt||0),elapsed=now()-lastTradeAt;
-  const spacingActive=lastTradeAt>0&&elapsed<ENTRY_SPACING_MS,spacingReason=spacingActive?"ENTRY_SPACING_5M":null,existingPause=Number(state?.pauseUntil||0)>now()?"LOSS_STREAK_PAUSE":null;
-  const entryBlockReason=existingPause||spacingReason;
-  const innerEnv=Object.create(env);innerEnv.BYBIT_ENTRY_COOLDOWN_SEC="180";
+  const spacingActive=lastTradeAt>0&&elapsed<entrySpacingMs,spacingReason=spacingActive?`ENTRY_SPACING_${cfg.execution.cooldownSec}S`:null;
+  const entryBlockReason=spacingReason;
+  const innerEnv=Object.create(env);
   let paperEquity=null;if(mode==="PAPER"){paperEquity=await resolvePaperEquity(env);if(paperEquity>0)innerEnv.BYBIT_STARTING_CAPITAL_USD=String(paperEquity);}
   const out=await runBybitAutoV1(innerEnv,{...opts,entryBlockReason});
   const telegramNotification=await notifyLiveEntry(env,out),lifecycleNotifications=await notifyLifecycleActions(env,out,prePlans),finalState=out?.state||state;
-  const controller={executionMode:mode,entrySpacingSec:300,entryBlockReason:out?.reason==="LOSS_STREAK_PAUSE"?"LOSS_STREAK_PAUSE":entryBlockReason,nextEntryAt:spacingActive?lastTradeAt+ENTRY_SPACING_MS:null,entrySpacingRemainingMs:spacingActive?Math.max(0,ENTRY_SPACING_MS-elapsed):0,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,managementAlwaysOn:true,allTradeActionsNotify:true,profitTarget:null,profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",pauseState:{pauseUntil:Number(finalState?.pauseUntil||0),lossStreak:Number(finalState?.lossStreak||0),lastLossPauseTriggerAt:Number(finalState?.lastLossPauseTriggerAt||0)||null},telegramNotification,lifecycleNotifications,runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")};
+  const controller={executionMode:mode,entrySpacingSec:cfg.execution.cooldownSec,entryGateAuthority:"BYBIT_AUTO_CONFIG.execution.cooldownSec",entryBlockReason:out?.reason==="LOSS_STREAK_PAUSE"?"LOSS_STREAK_PAUSE":entryBlockReason,nextEntryAt:spacingActive?lastTradeAt+entrySpacingMs:null,entrySpacingRemainingMs:spacingActive?Math.max(0,entrySpacingMs-elapsed):0,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,managementAlwaysOn:true,allTradeActionsNotify:true,profitTarget:null,profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",pauseState:{pauseUntil:Number(finalState?.pauseUntil||0),lossStreak:Number(finalState?.lossStreak||0),lastLossPauseTriggerAt:Number(finalState?.lastLossPauseTriggerAt||0)||null},telegramNotification,lifecycleNotifications,runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")};
   if(mode==="PAPER"){controller.equitySource=paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK";controller.equityUsd=paperEquity;}else{controller.equitySource="BYBIT_LIVE_WALLET";controller.equityUsd=Number(out?.equity||0)||null;}
   const oldCtl=await kvGet(env,CONTROL_KEY,{}),telemetry={...oldCtl,...controller,lastCycleAt:iso(),lastCycleReason:String(out?.reason||"UNKNOWN"),lastCycleExecuted:!!out?.executed,lastEntryBlockReason:controller.entryBlockReason||null,lastScan:scanTelemetry(out?.scan||{}),consecutiveSchedulerErrors:0,lastSchedulerError:null};
   await kvPut(env,CONTROL_KEY,telemetry);
