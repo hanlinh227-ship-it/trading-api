@@ -1,0 +1,33 @@
+name: FOREX Auto Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-worker/forex-*.js'
+      - 'cloudflare-worker/validate-forex-auto.mjs'
+      - 'mt5/ForexAutoThe5ers.mq5'
+      - '.github/workflows/forex-auto-validation.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate FOREX AUTO invariants
+        run: node validate-forex-auto.mjs
+      - name: Validate worker source
+        run: node validate-worker.mjs
+      - name: Guard LIVE default
+        run: |
+          grep -q 'FOREX_AUTO_MODE="PAPER_ONLY"' forex-auto-config.js
+          grep -q 'liveEnabled:false' forex-auto-config.js
+          grep -q 'internalDailyStopPct:4.0' forex-auto-config.js
+          grep -q 'projectedDailyStopPct:4.0' forex-auto-config.js
