@@ -64,13 +64,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          HEALTH=""
-          HTTP=""
+          HEALTH=""; HTTP=""
           for attempt in 1 2 3 4 5 6; do
             BODY_FILE="$(mktemp)"
             HTTP="$(curl -sS --connect-timeout 5 --max-time 15 -o "$BODY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"
-            HEALTH="$(cat "$BODY_FILE")"
-            rm -f "$BODY_FILE"
+            HEALTH="$(cat "$BODY_FILE")"; rm -f "$BODY_FILE"
             echo "health attempt=$attempt http=$HTTP"
             if [ "$HTTP" = "200" ]; then break; fi
             if [ "$attempt" -lt 6 ]; then sleep $((attempt * 3)); fi
@@ -91,25 +89,29 @@ jobs:
           STATUS="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/status")"
           DESIGN="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/meme-auto/design")"
           BEFORE="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
-          RUN="$(curl -fsS --connect-timeout 5 --max-time 90 "$WORKER_BASE_URL/meme-auto/paper/run")"
+          RUN="$(curl -fsS --connect-timeout 5 --max-time 120 "$WORKER_BASE_URL/meme-auto/paper/run")"
           AFTER="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
           STATUS="$STATUS" DESIGN="$DESIGN" BEFORE="$BEFORE" RUN="$RUN" AFTER="$AFTER" node <<'NODE'
           const status=JSON.parse(process.env.STATUS),design=JSON.parse(process.env.DESIGN),before=JSON.parse(process.env.BEFORE),run=JSON.parse(process.env.RUN),after=JSON.parse(process.env.AFTER);
+          const scan=run.state?.lastScan||{};
+          console.log('MEME_SCAN_DIAGNOSTICS='+JSON.stringify({discovered:scan.discovered,evaluated:scan.evaluated,eligible:scan.eligible,sources:scan.discoverySources,sourceErrors:scan.sourceErrors,evaluationErrors:scan.evaluationErrors}));
           const must=(x,m)=>{if(!x)throw new Error(m)};
           must(status.hub==='BYBIT_AUTO_TRADE_ONLY','BYBIT_EXECUTION_AUTHORITY_CHANGED');
           must(status.signalV11Enabled===false,'SIGNAL_V11_NOT_OFF');
-          must(status.meme?.version==='MEME-AUTO-0.3.1-PAPER','MEME_STATUS_VERSION');
+          must(status.meme?.version==='MEME-AUTO-0.3.2-PAPER','MEME_STATUS_VERSION');
           must(status.meme?.mode==='PAPER_ONLY','MEME_STATUS_MODE');
           must(status.meme?.executionEnabled===false&&status.meme?.walletConnected===false&&status.meme?.signingEnabled===false,'MEME_AUTHORITY_LOCK_FAILED');
-          must(design.version==='MEME-AUTO-0.3.1-PAPER'&&design.mode==='PAPER_ONLY'&&design.paperReady===true,'MEME_DESIGN_NOT_READY');
-          must(run.ok===true&&run.version==='MEME-AUTO-0.3.1-PAPER'&&run.mode==='PAPER','MEME_PAPER_RUN_FAILED');
+          must(design.version==='MEME-AUTO-0.3.2-PAPER'&&design.mode==='PAPER_ONLY'&&design.paperReady===true,'MEME_DESIGN_NOT_READY');
+          must(run.ok===true&&run.version==='MEME-AUTO-0.3.2-PAPER'&&run.mode==='PAPER','MEME_PAPER_RUN_FAILED');
           must(run.noWallet===true&&run.noSigning===true&&run.noRealExecution===true,'MEME_PAPER_SAFETY_FLAGS_FAILED');
-          must(run.state?.lastScan?.data==='DEXSCREENER_FREE+SOLANA_RPC_FREE','MEME_DATA_ROUTE_FAILED');
-          must(run.state?.lastScan?.quote==='JUPITER_LITE_FREE','MEME_QUOTE_ROUTE_FAILED');
-          must(typeof run.state?.lastScan?.discovered==='number'&&typeof run.state?.lastScan?.evaluated==='number','MEME_SCAN_TELEMETRY_FAILED');
-          must(after.lastScan?.at===run.state?.lastScan?.at,'MEME_KV_PERSIST_FAILED');
+          must(scan.data==='DEXSCREENER_FREE+GECKOTERMINAL_FREE+SOLANA_RPC_FREE','MEME_DATA_ROUTE_FAILED');
+          must(scan.quote==='JUPITER_LITE_FREE','MEME_QUOTE_ROUTE_FAILED');
+          must(Number(scan.discovered)>0,'MEME_REAL_DISCOVERY_EMPTY');
+          must(Array.isArray(scan.discoverySources)&&scan.discoverySources.length>0,'MEME_DISCOVERY_SOURCE_NOT_CONFIRMED');
+          must(typeof scan.evaluated==='number'&&Array.isArray(run.state?.watch),'MEME_SCAN_TELEMETRY_FAILED');
+          must(after.lastScan?.at===scan.at,'MEME_KV_PERSIST_FAILED');
           must(after.equityUsd===run.state.equityUsd&&after.cashUsd===run.state.cashUsd,'MEME_KV_BALANCE_PERSIST_FAILED');
-          must(after.version==='MEME-AUTO-0.3.1-PAPER','MEME_STATE_VERSION_FAILED');
+          must(after.version==='MEME-AUTO-0.3.2-PAPER','MEME_STATE_VERSION_FAILED');
           console.log(`MEME_PAPER_E2E=PASS discovered=${after.lastScan.discovered} evaluated=${after.lastScan.evaluated} eligible=${after.lastScan.eligible} positions=${Object.keys(after.positions||{}).length} equity=${after.equityUsd}`);
           NODE
       - name: Deployment summary
