@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.7.0: strict net learning authority + small-sample shrinkage + idempotent Smart CUT close guard.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.0";
+// BYBIT-AUTO-1.7.1: strict net learning + resilient PnL reconciliation + scheduler telemetry.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.1";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -110,14 +110,5 @@ export function bybitAutoConfig(env={}){
   c.execution.cooldownSec=Math.max(120,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec)));
   return c;
 }
-export function bybitExecutionMode(env={}){
-  if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";
-  return "PAPER";
-}
-export function bybitCredentials(env={}){
-  return {
-    apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||"",
-    apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||"",
-    source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?"BYBIT_AUTO":"HYRO_BYBIT_LIVE_FALLBACK"
-  };
-}
+export function bybitExecutionMode(env={}){if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";return "PAPER";}
+export function bybitCredentials(env={}){return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||"",apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||"",source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?"BYBIT_AUTO":"HYRO_BYBIT_LIVE_FALLBACK"};}
