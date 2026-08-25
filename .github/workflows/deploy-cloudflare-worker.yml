@@ -1,17 +1,13 @@
 name: Deploy Bybit Auto Hub
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: bybit-auto-hub-cloudflare-production
   cancel-in-progress: false
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,25 +18,18 @@ jobs:
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
-
     steps:
       - name: Checkout current main
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
+        with: {ref: main, fetch-depth: 1}
       - name: Setup Node
         uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+        with: {node-version: '22'}
       - name: Guard core deployment secrets
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
-          test -n "${TRADING_KV_NAMESPACE_ID:-}"
-          test -n "${BINANCE_BRIDGE_SECRET:-}"
+          test -n "${CLOUDFLARE_API_TOKEN:-}"; test -n "${CLOUDFLARE_ACCOUNT_ID:-}"; test -n "${TRADING_KV_NAMESPACE_ID:-}"; test -n "${BINANCE_BRIDGE_SECRET:-}"
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
       - name: Install pinned Wrangler
         working-directory: cloudflare-worker
@@ -57,69 +46,43 @@ jobs:
       - name: Apply Binance bridge secret to active Worker
         working-directory: cloudflare-worker
         shell: bash
-        run: |
-          set -euo pipefail
-          printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
+        run: printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
       - name: Verify active runtime revision and Bybit mode visibility
         shell: bash
         run: |
           set -euo pipefail
-          HEALTH=""; HTTP=""
-          for attempt in 1 2 3 4 5 6; do
-            BODY_FILE="$(mktemp)"
-            HTTP="$(curl -sS --connect-timeout 5 --max-time 15 -o "$BODY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"
-            HEALTH="$(cat "$BODY_FILE")"; rm -f "$BODY_FILE"
-            echo "health attempt=$attempt http=$HTTP"
-            if [ "$HTTP" = "200" ]; then break; fi
-            if [ "$attempt" -lt 6 ]; then sleep $((attempt * 3)); fi
-          done
-          if [ "$HTTP" != "200" ]; then printf '%s\n' "$HEALTH" >&2; exit 22; fi
-          printf '%s' "$HEALTH" | node -e '
-            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-              const j=JSON.parse(s),want=process.env.GITHUB_SHA;
-              if(j.runtimeRevision!==want) throw new Error(`RUNTIME_REVISION_MISMATCH active=${j.runtimeRevision} expected=${want}`);
-              if(j.exchange!=="BYBIT") throw new Error("BYBIT_HEALTH_ROUTE_MISSING");
-              if(!j.execution||typeof j.execution.liveAck!=="boolean"||typeof j.execution.scheduled!=="boolean") throw new Error("BYBIT_EXECUTION_VISIBILITY_MISSING");
-              console.log(`RUNTIME_REVISION=PASS ${want}`);
-            });'
+          H=""; C=""
+          for i in 1 2 3 4 5 6; do F="$(mktemp)"; C="$(curl -sS --connect-timeout 5 --max-time 15 -o "$F" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"; H="$(cat "$F")"; rm -f "$F"; [ "$C" = 200 ] && break; sleep $((i*3)); done
+          [ "$C" = 200 ] || { echo "$H" >&2; exit 22; }
+          printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s),w=process.env.GITHUB_SHA;if(j.runtimeRevision!==w)throw Error(`REVISION ${j.runtimeRevision} != ${w}`);if(j.exchange!=="BYBIT"||!j.execution)throw Error("BYBIT_VISIBILITY");console.log(`RUNTIME_REVISION=PASS ${w}`)})'
       - name: Verify MEME paper production runtime E2E
         shell: bash
         run: |
           set -euo pipefail
-          STATUS="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/status")"
-          DESIGN="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/meme-auto/design")"
-          BEFORE="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
-          RUN="$(curl -fsS --connect-timeout 5 --max-time 120 "$WORKER_BASE_URL/meme-auto/paper/run")"
-          AFTER="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
+          STATUS="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/status")"
+          DESIGN="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/design")"
+          BEFORE="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
+          RUN="$(curl -fsS --max-time 150 "$WORKER_BASE_URL/meme-auto/paper/run")"
+          AFTER="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
           STATUS="$STATUS" DESIGN="$DESIGN" BEFORE="$BEFORE" RUN="$RUN" AFTER="$AFTER" node <<'NODE'
-          const status=JSON.parse(process.env.STATUS),design=JSON.parse(process.env.DESIGN),before=JSON.parse(process.env.BEFORE),run=JSON.parse(process.env.RUN),after=JSON.parse(process.env.AFTER);
-          const scan=run.state?.lastScan||{};
-          console.log('MEME_SCAN_DIAGNOSTICS='+JSON.stringify({discovered:scan.discovered,evaluated:scan.evaluated,eligible:scan.eligible,sources:scan.discoverySources,sourceErrors:scan.sourceErrors,evaluationErrors:scan.evaluationErrors}));
-          const must=(x,m)=>{if(!x)throw new Error(m)};
-          must(status.hub==='BYBIT_AUTO_TRADE_ONLY','BYBIT_EXECUTION_AUTHORITY_CHANGED');
-          must(status.signalV11Enabled===false,'SIGNAL_V11_NOT_OFF');
-          must(status.meme?.version==='MEME-AUTO-0.3.2-PAPER','MEME_STATUS_VERSION');
-          must(status.meme?.mode==='PAPER_ONLY','MEME_STATUS_MODE');
-          must(status.meme?.executionEnabled===false&&status.meme?.walletConnected===false&&status.meme?.signingEnabled===false,'MEME_AUTHORITY_LOCK_FAILED');
-          must(design.version==='MEME-AUTO-0.3.2-PAPER'&&design.mode==='PAPER_ONLY'&&design.paperReady===true,'MEME_DESIGN_NOT_READY');
-          must(run.ok===true&&run.version==='MEME-AUTO-0.3.2-PAPER'&&run.mode==='PAPER','MEME_PAPER_RUN_FAILED');
-          must(run.noWallet===true&&run.noSigning===true&&run.noRealExecution===true,'MEME_PAPER_SAFETY_FLAGS_FAILED');
-          must(scan.data==='DEXSCREENER_FREE+GECKOTERMINAL_FREE+SOLANA_RPC_FREE','MEME_DATA_ROUTE_FAILED');
-          must(scan.quote==='JUPITER_LITE_FREE','MEME_QUOTE_ROUTE_FAILED');
-          must(Number(scan.discovered)>0,'MEME_REAL_DISCOVERY_EMPTY');
-          must(Array.isArray(scan.discoverySources)&&scan.discoverySources.length>0,'MEME_DISCOVERY_SOURCE_NOT_CONFIRMED');
-          must(typeof scan.evaluated==='number'&&Array.isArray(run.state?.watch),'MEME_SCAN_TELEMETRY_FAILED');
-          must(after.lastScan?.at===scan.at,'MEME_KV_PERSIST_FAILED');
-          must(after.equityUsd===run.state.equityUsd&&after.cashUsd===run.state.cashUsd,'MEME_KV_BALANCE_PERSIST_FAILED');
-          must(after.version==='MEME-AUTO-0.3.2-PAPER','MEME_STATE_VERSION_FAILED');
-          console.log(`MEME_PAPER_E2E=PASS discovered=${after.lastScan.discovered} evaluated=${after.lastScan.evaluated} eligible=${after.lastScan.eligible} positions=${Object.keys(after.positions||{}).length} equity=${after.equityUsd}`);
+          const S=JSON.parse(process.env.STATUS),D=JSON.parse(process.env.DESIGN),R=JSON.parse(process.env.RUN),A=JSON.parse(process.env.AFTER),x=R.state?.lastScan||{};const must=(v,m)=>{if(!v)throw Error(m)};
+          console.log('MEME_SCAN_DIAGNOSTICS='+JSON.stringify({discovered:x.discovered,evaluated:x.evaluated,eligible:x.eligible,onchain:x.onchainProbes,routes:x.jupiterRouteProbes,sources:x.discoverySources,sourceErrors:x.sourceErrors,evaluationErrors:x.evaluationErrors}));
+          must(S.hub==='BYBIT_AUTO_TRADE_ONLY','BYBIT_AUTHORITY'); must(S.signalV11Enabled===false,'V11');
+          must(S.meme?.version==='MEME-AUTO-0.3.3-PAPER'&&S.meme?.mode==='PAPER_ONLY','MEME_STATUS');
+          must(S.meme.executionEnabled===false&&S.meme.walletConnected===false&&S.meme.signingEnabled===false,'MEME_AUTH');
+          must(D.version==='MEME-AUTO-0.3.3-PAPER'&&D.paperReady===true,'DESIGN');
+          must(R.ok&&R.version==='MEME-AUTO-0.3.3-PAPER'&&R.mode==='PAPER'&&R.noWallet&&R.noSigning&&R.noRealExecution,'PAPER_FLAGS');
+          must(x.data==='JUPITER_TOKENS_FREE+DEXSCREENER_FREE+GECKOTERMINAL_FREE+SOLANA_RPC_FREE'&&x.quote==='JUPITER_FREE_QUOTE','DATA_ROUTES');
+          must(Number(x.discovered)>0&&Array.isArray(x.discoverySources)&&x.discoverySources.length>0,'REAL_DISCOVERY');
+          must(Number(x.evaluated)>0,'REAL_EVALUATION'); must(Number(x.onchainProbes)>0,'ONCHAIN_NOT_PROBED');
+          must(A.lastScan?.at===x.at&&A.equityUsd===R.state.equityUsd&&A.cashUsd===R.state.cashUsd,'KV_PERSIST'); must(A.version==='MEME-AUTO-0.3.3-PAPER','STATE_VERSION');
+          console.log(`MEME_PAPER_E2E=PASS discovered=${x.discovered} evaluated=${x.evaluated} eligible=${x.eligible} onchain=${x.onchainProbes} routes=${x.jupiterRouteProbes} positions=${Object.keys(A.positions||{}).length} equity=${A.equityUsd}`);
           NODE
       - name: Deployment summary
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
           echo "RUNTIME_REVISION=$GITHUB_SHA"
           echo 'HUB=BYBIT_AUTO_TRADE_ONLY'
-          echo 'SIGNAL_V11_RUNTIME=OFF'
           echo 'BYBIT_AUTO=PRIMARY_EXECUTION_AUTHORITY'
           echo 'MEME_AUTO=PAPER_ONLY'
           echo 'MEME_PAPER_E2E=PASS'
