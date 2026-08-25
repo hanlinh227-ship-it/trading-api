@@ -1,0 +1,222 @@
+{
+  "providers": {
+    "claude": {
+      "httpCode": "200",
+      "body": {
+        "ok": true,
+        "requestedProviders": [
+          "claude"
+        ],
+        "usableProviderCount": 1,
+        "providers": {
+          "claude": {
+            "status": "OK",
+            "latencySeconds": 57.66,
+            "review": {
+              "verdict": "REJECT",
+              "findings": [
+                {
+                  "id": "F1-leverage-fail-open",
+                  "severity": "critical",
+                  "area": "fail-closed leverage / setLeverage",
+                  "summary": "setLeverage failures are currently ignored, so entries can proceed with an unknown/unintended leverage state instead of failing closed.",
+                  "detail": "Only Bybit retCode 110043 (leverage unchanged \u2014 already set to requested value) should be treated as idempotent success. Any other error/timeout from setLeverage must abort the entry for that symbol rather than silently continuing, since proceeding risks trading at stale or default leverage (over- or under-margined vs. the sizing calc).",
+                  "recommendation": "Wrap setLeverage: on 110043 \u2192 treat as success and continue; on any other non-zero retCode or transport error \u2192 hard-fail the entry attempt (log + skip), do not fall through to order placement."
+                },
+                {
+                  "id": "F2-sizing-not-margin-aware",
+                  "severity": "critical",
+                  "area": "margin-aware sizing / adaptive leverage 1-5x",
+                  "summary": "Risk-distance sizing (fixed $5/$10 ladder off $50 equity) computes position size from stop distance only, without checking required margin at the selected leverage against available balance.",
+                  "detail": "At low leverage (e.g. 1x-2x) a $5-10 risk position can require margin exceeding free equity even though 30% max total risk and 3-position caps are respected, causing order rejects or forced smaller fills that silently understate real risk-adjusted exposure. This is a correctness/reliability defect, not a risk-appetite change: the dollar-risk ladder should stay fixed, only leverage selection (1-5x) and the resulting margin requirement should be checked.",
+                  "recommendation": "Before placing an entry, compute requiredMargin = notional/leverage; select the lowest leverage in [1,5] that keeps requiredMargin within a safety fraction of free equity while notional still matches the risk-distance sizing; if no leverage in range satisfies margin, skip the entry rather than under-filling or erroring at the exchange."
+                },
+                {
+                  "id": "F3-management-blocked-by-entry-pause",
+                  "severity": "critical",
+                  "area": "position management continuity during entry pauses",
+                  "summary": "Controller currently returns before the inner engine during 5m entry spacing or loss-pause windows, which \u2014 if management (BE/lock/trail/CUT) lives inside that same inner engine call \u2014 means open positions stop being managed whenever new entries are paused.",
+                  "detail": "Entry-gating (spacing/loss-pause) is a new-trade concern and must not suppress protective management of already-open positions. If BE (~0.60R), lock (~0.90R), trail (~1.15R), and deterministic CUT checks share the gated code path, a paused period could let a winning trade give back gains or a losing trade miss its CUT rule.",
+                  "recommendation": "Split the controller so entry-gating only short-circuits the new-entry branch; always execute the management/exit branch (BE/lock/trail/CUT/protection-verify) on every cycle regardless of entry-pause state."
+                },
+                {
+                  "id": "F4-openplans-cleared-on-rollover",
+                  "severity": "critical",
+                  "area": "openPlans persistence across day rollover/restart",
+                  "summary": "Day-change state reset currently clears openPlans, which appears to discard tracking for live/pending brackets across midnight rollover or process restart.",
+                  "detail": "If openPlans is the in-memory record linking local state to exchange-side SL/TP/trailing orders, clearing it on rollover/restart orphans those orders from the bot's perspective \u2014 management logic (BE/trail/CUT) would no longer know a position exists to manage, even though it's still live on the exchange.",
+                  "recommendation": "Exclude openPlans from the day-rollover reset; persist it (or reconcile it against live exchange positions/orders) across both day change and process restart so management continuity isn't lost mid-trade."
+                },
+                {
+                  "id": "F5-legacy-provider-catalog-token-waste",
+                  "severity": "moderate",
+                  "area": "AI token efficiency / learning telemetry",
+                  "summary": "Provider catalog still carries 5 legacy providers even though only 3AI is used for final-entry decisions and learning is shadow-only, which risks unnecessary token spend and noisy/ambiguous telemetry if any legacy provider path is still reachable.",
+                  "detail": "Shadow-only learning against a stale 5-provider catalog makes it harder to attribute learning signal correctly and may invoke providers that no longer inform trading decisions, wasting tokens without improving the model.",
+                  "recommendation": "Trim the active provider catalog to the 3 providers actually used for final-entry, and tag shadow-mode learning telemetry records with an explicit provider-set/version so historical shadow data doesn't get silently mixed with the current 3AI set."
+                }
+              ],
+              "proposal": "Do not increase dollar risk or force trades. Apply four bounded, targeted fixes: (1) make setLeverage fail-closed \u2014 treat only retCode 110043 as idempotent success, abort entry on any other failure; (2) add a margin-aware leverage selection step (1-5x) ahead of order placement that keeps the existing $5/$10 risk-distance sizing but rejects/skips entries where no leverage in range keeps required margin within available equity; (3) decouple entry-gating (5m spacing, loss-pause) from position management so BE/lock/trail/CUT and protection-verify always run every cycle regardless of entry-pause state; (4) exclude openPlans from day-rollover reset and reconcile it against live exchange state on restart instead of clearing it. As a lower-priority cleanup, trim the provider catalog to the 3 active final-entry providers and version-tag shadow learning telemetry. Each fix is localized (no sizing-ladder or risk-cap changes, no new trade-forcing logic) and directly closes a fail-open/data-loss/telemetry gap described in the architecture summary.",
+              "evidence": [
+                "architectureSummary: 'leverage config 3x max5 and setLeverage failure currently ignored'",
+                "architectureSummary: 'sizing currently not margin-aware'",
+                "architectureSummary: 'controller currently returns before inner engine during 5m entry spacing or loss pause'",
+                "architectureSummary: 'state reset on day change currently clears openPlans'",
+                "architectureSummary: 'learning shadow-only but provider catalog still 5 legacy providers'",
+                "Bybit docs note supplied: 'set leverage retCode110043 means unchanged/idempotent'",
+                "instruction: 'Focus on: margin-aware sizing and adaptive leverage 1-5x, fail-closed leverage with 110043 idempotent success, management continuing during entry pauses, preserving openPlans across day rollover/restart, SL/TP/BE/trailing/CUT reliability, AI token efficiency, and learning telemetry.'"
+              ]
+            },
+            "last_seen": 1787620461982
+          }
+        },
+        "fastFirst": false,
+        "returnedEarly": false,
+        "decisionLatencyMs": null,
+        "timestamp": 1787620461982,
+        "mode": "MULTI_AI_ENGINEERING_TASK"
+      }
+    },
+    "codex": {
+      "httpCode": "200",
+      "body": {
+        "ok": true,
+        "requestedProviders": [
+          "codex"
+        ],
+        "usableProviderCount": 1,
+        "providers": {
+          "codex": {
+            "status": "OK",
+            "latencySeconds": 29.39,
+            "review": {
+              "verdict": "REJECT",
+              "findings": [
+                {
+                  "severity": "CRITICAL",
+                  "area": "position_management",
+                  "defect": "The controller returns before invoking the inner engine during entry-spacing or loss pauses, so existing positions may miss SL/TP verification, break-even, trailing, lock, and CUT management.",
+                  "bounded_improvement": "Separate entry eligibility from management scheduling. Always run reconciliation and position management; apply pauses only to new-entry evaluation and submission."
+                },
+                {
+                  "severity": "CRITICAL",
+                  "area": "state_persistence",
+                  "defect": "Day rollover clears openPlans, breaking management continuity for positions held across UTC rollover; restart behavior is also unsafe unless plans are durably restored or reconstructed.",
+                  "bounded_improvement": "Reset only daily counters. Persist openPlans atomically and reconcile them with live positions and orders at startup and rollover. Reconstruct missing plans conservatively from exchange state; block new entries when protection cannot be proven."
+                },
+                {
+                  "severity": "HIGH",
+                  "area": "leverage",
+                  "defect": "setLeverage failures are ignored, so sizing can proceed under an unverified leverage configuration.",
+                  "bounded_improvement": "Treat retCode 0 and 110043 as success, then read back effective leverage. Fail closed for all other results or mismatches: continue managing positions but submit no new trade. Select leverage adaptively within 1-5x using required margin and configured exposure constraints, never to increase dollar risk."
+                },
+                {
+                  "severity": "HIGH",
+                  "area": "sizing",
+                  "defect": "Risk-distance sizing is not margin-aware; a quantity satisfying the $5/$10 risk ladder can exceed available margin after leverage, fees, slippage buffers, or concurrent reservations.",
+                  "bounded_improvement": "Compute risk-capped quantity, then cap it by free-margin capacity using verified leverage, entry price, contract rules, fee/slippage buffers, existing initial margin, and pending-order reservations. Round down to exchange increments and skip entries below minimum size. Preserve the 30% total-open-risk and three-position limits."
+                },
+                {
+                  "severity": "HIGH",
+                  "area": "protection",
+                  "defect": "Post-fill checks and emergency-flat logic are directionally sound, but reliability requires explicit handling of partial fills, reduce-only quantities, stale or missing conditional orders, precision errors, and uncertain API outcomes.",
+                  "bounded_improvement": "Use an idempotent protection state machine: reconcile filled quantity, place or amend full-quantity reduce-only SL/TP, configure native trailing with trailingStop as price distance and activePrice as activation price, read back and verify every protection order, retry boundedly, and emergency-flat if protection cannot be confirmed. Reconcile after reconnects and partial closes."
+                },
+                {
+                  "severity": "HIGH",
+                  "area": "risk_accounting",
+                  "defect": "The stated 30% open-risk limit can be bypassed if risk is calculated from intended plans rather than live remaining quantity and effective stop prices, especially after partial fills or missing plans.",
+                  "bounded_improvement": "Calculate aggregate worst-case loss from reconciled live positions, remaining quantities, effective stops, fees, and slippage. Reserve risk for pending entries atomically and release reservations on terminal order states."
+                },
+                {
+                  "severity": "MEDIUM",
+                  "area": "manager_transitions",
+                  "defect": "BE, lock, trail, and CUT thresholds can race or regress protection when multiple manager cycles or stale responses overlap.",
+                  "bounded_improvement": "Make stop transitions monotonic by position side, version plans, serialize amendments per position, quantize prices correctly, reject any amendment that loosens protection, and verify exchange state after each transition."
+                },
+                {
+                  "severity": "MEDIUM",
+                  "area": "ai_efficiency",
+                  "defect": "Using 3AI only at final entry is efficient, but the five-provider legacy catalog creates unnecessary configuration and routing surface.",
+                  "bounded_improvement": "Remove or disable unused legacy providers, send one compact structured feature payload only for deterministic finalists, enforce token and latency budgets, cache by setup snapshot, and fail closed to no entry on timeout or malformed output without affecting management."
+                },
+                {
+                  "severity": "MEDIUM",
+                  "area": "learning_telemetry",
+                  "defect": "Shadow-only learning is appropriately bounded, but the supplied context does not establish decision-quality and execution telemetry sufficient for safe evaluation.",
+                  "bounded_improvement": "Record versioned, redacted events for scan rejection reasons, sizing caps, leverage selection/readback, AI input hash and verdict, order lifecycle, fills, protection verification, manager transitions, CUT triggers, realized R, slippage, fees, and restart reconciliation. Keep learning outputs non-authoritative."
+                }
+              ],
+              "proposal": "Refactor each cycle into unconditional reconcile-and-manage followed by a separately gated entry phase. Before any entry, require healthy persisted state, reconciled risk, sufficient buffered margin, verified 1-5x leverage, and successful atomic risk reservation. After fills, drive protection through an idempotent verified state machine; on uncertainty, prevent new entries and emergency-flat only the affected unprotected exposure. Preserve dollar-risk limits and never use leverage adaptation to enlarge risk quantity.",
+              "evidence": [
+                "Architecture states that the controller returns before the inner engine during five-minute entry spacing or loss pause.",
+                "Architecture states that day-change reset clears openPlans.",
+                "Architecture states that setLeverage failure is currently ignored; Bybit retCode 110043 denotes unchanged/idempotent success.",
+                "Architecture states sizing uses a $5/$10 risk-distance ladder from $50 equity but is not margin-aware.",
+                "Architecture caps total open risk at 30%, positions at three, and leverage at 5x, with 3x configured.",
+                "Architecture states post-fill SL/TP/RR checks, full TP/SL, native trailing, protection verification, and emergency-flat behavior.",
+                "Architecture states manager thresholds near 0.60R, 0.90R, and 1.15R plus deterministic CUT.",
+                "Supplied Bybit semantics specify trailingStop as price distance and activePrice as activation price.",
+                "Architecture states AI is used only for final entry, learning is shadow-only, and five legacy providers remain cataloged."
+              ]
+            },
+            "last_seen": 1787620491505
+          }
+        },
+        "fastFirst": false,
+        "returnedEarly": false,
+        "decisionLatencyMs": null,
+        "timestamp": 1787620491506,
+        "mode": "MULTI_AI_ENGINEERING_TASK"
+      }
+    },
+    "deepseek": {
+      "httpCode": "200",
+      "body": {
+        "ok": true,
+        "requestedProviders": [
+          "deepseek"
+        ],
+        "usableProviderCount": 1,
+        "providers": {
+          "deepseek": {
+            "status": "OK",
+            "latencySeconds": 4.74,
+            "review": {
+              "verdict": "REJECT",
+              "findings": [
+                "Controller returns before inner engine during 5m entry spacing or loss pause, blocking management actions (BE/trailing/CUT) and entry resumption.",
+                "State reset on day change clears openPlans, losing active trade management context across rollover.",
+                "setLeverage failure ignored; must treat retCode 110043 as success and fail-closed on other errors.",
+                "Sizing not margin-aware; can exceed available margin or leverage limits, risking liquidation.",
+                "Leverage config 3x max5 not enforced adaptively; should scale 1-5x based on margin and risk.",
+                "Post-fill SL/TP/RR check exists but no explicit fail-closed if SL/TP not set correctly.",
+                "Learning telemetry shadow-only; no active feedback loop for improvement.",
+                "Provider catalog still lists 5 legacy providers despite 3AI-only final-entry; token waste.",
+                "Trailing stop implementation must use price distance and activePrice per Bybit docs; verify current logic.",
+                "No explicit idempotent handling for setLeverage retCode 110043 in code path."
+              ],
+              "proposal": "Refactor controller to always invoke inner engine for management during pauses; persist openPlans across day rollover; implement fail-closed leverage with 110043 success; add margin-aware sizing with adaptive leverage 1-5x; enforce SL/TP fail-closed; trim provider catalog to active 3AI; add active learning telemetry; verify trailing stop parameters.",
+              "evidence": [
+                "architectureSummary: 'controller currently returns before inner engine during 5m entry spacing or loss pause'",
+                "architectureSummary: 'state reset on day change currently clears openPlans'",
+                "architectureSummary: 'setLeverage failure currently ignored'",
+                "architectureSummary: 'sizing currently not margin-aware'",
+                "architectureSummary: 'leverage config 3x max5'",
+                "architectureSummary: 'learning shadow-only but provider catalog still 5 legacy providers'",
+                "Bybit docs: 'set leverage retCode110043 means unchanged/idempotent'",
+                "Bybit docs: 'trailingStop is price distance and activePrice activation price'"
+              ]
+            },
+            "last_seen": 1787620496376
+          }
+        },
+        "fastFirst": false,
+        "returnedEarly": false,
+        "decisionLatencyMs": null,
+        "timestamp": 1787620496376,
+        "mode": "MULTI_AI_ENGINEERING_TASK"
+      }
+    }
+  }
+}
