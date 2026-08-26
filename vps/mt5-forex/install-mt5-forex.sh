@@ -37,23 +37,17 @@ apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils
 
-# IMPORTANT: never mix WineHQ executables with Ubuntu libwine packages.
-# The previous mixed Wine 11 wrapper + Ubuntu Wine 9 libraries caused c0000135.
+# Never mix WineHQ executables with Ubuntu libwine packages.
 WINE_STACK=""
 if apt-cache policy winehq-stable 2>/dev/null | grep -Eq 'Candidate: [^()]'; then
   WINE_STACK="WINEHQ"
-
-  # Purge distro Wine packages that can shadow/mix with WineHQ. WineHQ packages
-  # use wine-stable* names and are reinstalled immediately below.
   apt-get remove -y \
     wine wine64 wine32:i386 libwine:amd64 libwine:i386 2>/dev/null || true
   apt-get -f install -y || true
-
   apt-get install -y --install-recommends --reinstall \
     winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386
 else
   WINE_STACK="DISTRO"
-  # Fallback only when WineHQ is unavailable. Do not install WineHQ in this path.
   if [[ "$(dpkg --print-architecture)" == "amd64" ]]; then
     apt-get install -y --install-recommends wine wine64 wine32:i386
   else
@@ -74,7 +68,8 @@ install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
 WINE_BIN="$(command -v wine || true)"
 WINEBOOT_BIN="$(command -v wineboot || true)"
 WINEPATH_BIN="$(command -v winepath || true)"
-if [[ -z "$WINE_BIN" || -z "$WINEBOOT_BIN" ]]; then
+WINESERVER_BIN="$(command -v wineserver || true)"
+if [[ -z "$WINE_BIN" || -z "$WINEBOOT_BIN" || -z "$WINESERVER_BIN" ]]; then
   echo "ERROR: complete Wine runtime not found" >&2
   exit 5
 fi
@@ -82,7 +77,6 @@ fi
 WINE_VERSION="$($WINE_BIN --version 2>/dev/null || true)"
 echo "MT5_WINE_VERSION=${WINE_VERSION:-UNKNOWN}"
 
-# Detect a mixed installation before touching the prefix.
 if [[ "$WINE_STACK" == "WINEHQ" ]]; then
   if dpkg-query -W -f='${Status}\n' libwine:amd64 2>/dev/null | grep -q 'install ok installed'; then
     echo "ERROR: Ubuntu libwine:amd64 still installed alongside WineHQ" >&2
@@ -105,8 +99,33 @@ run_as_mt5() {
     "$@"
 }
 
+stop_mt5_wine() {
+  run_as_mt5 "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
+  sleep 2
+}
+
+prefix_ready() {
+  [[ -f "$WINEPREFIX_DIR/system.reg" ]] || return 1
+  find "$WINEPREFIX_DIR/drive_c/windows" -type f -iname kernel32.dll -print -quit 2>/dev/null | grep -q .
+}
+
 wineboot_once() {
-  run_as_mt5 timeout 120 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -u >/tmp/mt5-wineboot.log 2>&1
+  local rc=0
+  stop_mt5_wine
+  set +e
+  run_as_mt5 timeout 75 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -i >/tmp/mt5-wineboot.log 2>&1
+  rc=$?
+  set -e
+  # Wineboot can leave explorer/wineserver alive under headless X even though the
+  # prefix is fully initialized. The prefix artifacts are the authoritative test.
+  stop_mt5_wine
+  if prefix_ready; then
+    echo "MT5_WINEBOOT_EXIT=$rc"
+    echo "MT5_WINEBOOT_ARTIFACTS=PASS"
+    return 0
+  fi
+  echo "MT5_WINEBOOT_EXIT=$rc"
+  return 1
 }
 
 find_terminal() {
@@ -123,25 +142,31 @@ find_terminal() {
   [[ -n "$found" ]] && printf '%s\n' "$found"
 }
 
-# Any prefix created by the previously mixed stack is untrusted. Preserve an
-# already working MT5 installation only if wineboot succeeds; otherwise rebuild.
-if [[ -d "$WINEPREFIX_DIR" ]]; then
-  if ! wineboot_once; then
-    stamp="$(date +%Y%m%d%H%M%S)"
+# Prefixes created by the previously mixed Wine stack are accepted only when
+# their actual registry/core DLL artifacts validate under the consistent stack.
+if [[ -d "$WINEPREFIX_DIR" ]] && prefix_ready; then
+  if wineboot_once; then
+    echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
+  else
     echo "MT5_WINE_PREFIX_REPAIR=RECREATE"
+    stamp="$(date +%Y%m%d%H%M%S)"
+    stop_mt5_wine
     mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.broken-${stamp}" || rm -rf "$WINEPREFIX_DIR"
     install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
-  else
-    echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
   fi
 else
+  if [[ -d "$WINEPREFIX_DIR" ]]; then
+    echo "MT5_WINE_PREFIX_REPAIR=RECREATE"
+    stamp="$(date +%Y%m%d%H%M%S)"
+    stop_mt5_wine
+    mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.broken-${stamp}" || rm -rf "$WINEPREFIX_DIR"
+  fi
   install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
 fi
 
-# If the prefix is new/recreated, initialize it now.
-if [[ ! -f "$WINEPREFIX_DIR/system.reg" ]]; then
+if ! prefix_ready; then
   if ! wineboot_once; then
-    echo "ERROR: Wine prefix initialization failed after clean rebuild" >&2
+    echo "ERROR: Wine prefix artifacts missing after initialization" >&2
     tail -160 /tmp/mt5-wineboot.log >&2 || true
     exit 51
   fi
@@ -162,11 +187,13 @@ echo "MT5_INSTALLER_SHA256=$(sha256sum "$INSTALLER" | awk '{print $1}')"
 
 TERMINAL="$(find_terminal || true)"
 if [[ -z "$TERMINAL" ]]; then
+  stop_mt5_wine
   set +e
   run_as_mt5 timeout 900 xvfb-run -a -s "$SCREEN" \
     "$WINE_BIN" "$INSTALLER" /auto /path:'C:\MT5Forex' >/tmp/mt5-install.log 2>&1
   INSTALL_RC=$?
   set -e
+  stop_mt5_wine
   echo "MT5_INSTALLER_EXIT=$INSTALL_RC"
   TERMINAL="$(find_terminal || true)"
 fi
@@ -208,11 +235,13 @@ if [[ -n "$WINEPATH_BIN" ]]; then
 fi
 
 rm -f "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
+stop_mt5_wine
 set +e
 run_as_mt5 timeout 180 xvfb-run -a -s "$SCREEN" \
   "$WINE_BIN" "$METAEDITOR" "/compile:$EA_WIN" "/log:$LOG_WIN" >/tmp/mt5-compile.log 2>&1
 COMPILE_RC=$?
 set -e
+stop_mt5_wine
 echo "MT5_METAEDITOR_EXIT=$COMPILE_RC"
 
 EA_EX5="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
