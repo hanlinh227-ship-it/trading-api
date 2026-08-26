@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.7.2: entry-gate conflict cleanup + live-position risk accounting.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.2";
+// BYBIT-AUTO-1.7.3: canonical entry authority + stale lifecycle quarantine.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.3";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
