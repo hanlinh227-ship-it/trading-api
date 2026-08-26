@@ -175,8 +175,11 @@ jobs:
           sleep 10
           sudo systemctl is-active --quiet mt5-forex.service
           sudo systemctl is-active --quiet mt5-forex-bridge.service
-          ps -u mt5forex -o comm=,args= | awk 'index($0,"terminal64.exe") && $1!="bash" && $1!="sh" && $1!="xvfb-run" {ok=1} END{exit !ok}'
-          if ps -u root -o comm=,args= | awk 'index($0,"terminal64.exe") && $1!="bash" && $1!="sh" && $1!="xvfb-run" {bad=1} END{exit !bad}'; then echo 'ERROR: MT5 must not run as root' >&2; exit 33; fi
+          ps -u mt5forex -o comm=,args= | awk '$1=="main" && index($0,"terminal64.exe") {ok=1} END{exit !ok}'
+          # Only a real PE terminal process (Wine exposes it as comm=main) counts.
+          # Wrapper/start.exe command lines can contain terminal64.exe and must not
+          # create a false root-runtime failure.
+          if ps -u root -o comm=,args= | awk '$1=="main" && index($0,"terminal64.exe") {bad=1} END{exit !bad}'; then echo 'ERROR: MT5 real terminal must not run as root' >&2; exit 33; fi
           echo 'MT5_REAL_TERMINAL_PROCESS=PASS'
           echo 'MT5_TERMINAL_USER=mt5forex'
 
