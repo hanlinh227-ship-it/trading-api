@@ -1,0 +1,3 @@
+trigger=FOREX_MT5_VPS_DEPLOY
+requested_at=2026-08-26
+purpose=sync_latest_main_to_trading_vps_and_verify_mt5_runtime
