@@ -29,10 +29,9 @@ apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils xz-utils
 
-# MT5 installer compatibility lock: WineHQ 11 lets the Wine runtime itself pass
-# but the current MetaTrader bootstrapper can stall before terminal64.exe is
-# produced. Prefer the WineHQ 10 stable baseline for unattended MT5 on Noble.
-# Keep all four WineHQ packages at exactly one version to avoid mixed runtimes.
+# Use the newest coherent WineHQ stable runtime. Wine 11 has already passed the
+# VPS wineboot/cmd smoke tests. The MT5 bootstrapper is handled separately below
+# by recovering a preserved MetaQuotes installation before attempting setup.
 CODENAME="${VERSION_CODENAME:-noble}"
 install -d -m 0755 /etc/apt/keyrings
 wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
@@ -40,17 +39,7 @@ wget -qO "/etc/apt/sources.list.d/winehq-${CODENAME}.sources" \
   "https://dl.winehq.org/wine-builds/ubuntu/dists/${CODENAME}/winehq-${CODENAME}.sources"
 apt-get update -y
 
-PINNED_WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-10.0.0.0~${CODENAME}-1}"
-if apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | grep -Fxq "$PINNED_WINEHQ_VERSION"; then
-  WINEHQ_VERSION="$PINNED_WINEHQ_VERSION"
-  echo "MT5_WINE_COMPAT_PIN=ACTIVE version=$WINEHQ_VERSION"
-else
-  WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | awk '$0 ~ /^10\./ {print; exit}' || true)"
-  if [[ -z "$WINEHQ_VERSION" ]]; then
-    WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)"
-  fi
-  echo "MT5_WINE_COMPAT_PIN=FALLBACK version=${WINEHQ_VERSION:-MISSING}"
-fi
+WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)}"
 if [[ -z "$WINEHQ_VERSION" ]]; then
   echo "ERROR: WineHQ stable is not available for ${CODENAME}" >&2
   exit 56
@@ -78,9 +67,6 @@ apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i38
   winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
   winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
 
-# Recover a half-upgraded WineHQ stable family before trying to install the new
-# coherent set. Purge the stable family only when the installed version differs
-# or dpkg reports an incomplete state; this keeps normal redeploys idempotent.
 dpkg --configure -a >/tmp/mt5-dpkg-configure.log 2>&1 || true
 INSTALLED_STABLE="$(dpkg-query -W -f='${Version}' winehq-stable 2>/dev/null || true)"
 STABLE_STATUS="$(dpkg-query -W -f='${Status}' winehq-stable 2>/dev/null || true)"
@@ -137,9 +123,6 @@ install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
   "$APP_HOME/.local" "$APP_HOME/.local/share" "$APP_HOME/.local/share/applications" \
   "$APP_HOME/.config" "$APP_HOME/.cache" "$APP_HOME/.cache/wine"
 
-# MetaQuotes' Linux documentation requires Wine Mono and Gecko. Install their
-# shared runtime trees into the WineHQ prefix location before wineboot so Wine
-# does not need interactive addon dialogs under Xvfb.
 MONO_ROOT="/opt/wine-stable/share/wine/mono"
 GECKO_ROOT="/opt/wine-stable/share/wine/gecko"
 if [[ ! -d "$MONO_ROOT/wine-mono-${MONO_VERSION}" ]]; then
@@ -172,8 +155,6 @@ fi
 echo "MT5_WINE_MONO=PASS version=$MONO_VERSION"
 echo "MT5_WINE_GECKO=PASS version=$GECKO_VERSION"
 
-# WINEARCH is pinned so a previous architecture cannot leak into the prefix.
-# Do not disable mscoree/mshtml: MT5 relies on the Mono/Gecko runtime above.
 run_as_mt5() {
   sudo -u "$APP_USER" env \
     HOME="$APP_HOME" \
@@ -258,14 +239,7 @@ else
 fi
 
 echo "MT5_WINE_PREFIX=PASS"
-
-# MT5 targets Windows 10+ semantics; make that explicit before launching setup.
 run_as_mt5 "$WINE_BIN" reg add 'HKCU\Software\Wine' /v Version /t REG_SZ /d win10 /f >/tmp/mt5-wine-winver.log 2>&1 || true
-
-wget -q --https-only --show-progress -O "$INSTALLER" "$INSTALLER_URL"
-chown "$APP_USER:$APP_USER" "$INSTALLER"
-chmod 0640 "$INSTALLER"
-echo "MT5_INSTALLER_SHA256=$(sha256sum "$INSTALLER" | awk '{print $1}')"
 
 find_terminal() {
   local found=""
@@ -278,8 +252,42 @@ find_terminal() {
   [[ -n "$found" ]] && printf '%s\n' "$found"
 }
 
+recover_preserved_mt5() {
+  local source_terminal="" source_dir="" target_dir=""
+  source_terminal="$(find "$APP_HOME" -maxdepth 14 -type f -iname terminal64.exe \
+    ! -path "$WINEPREFIX_DIR/*" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2- || true)"
+  if [[ -z "$source_terminal" ]]; then
+    echo "MT5_PRESERVED_INSTALL=NOT_FOUND"
+    return 1
+  fi
+  source_dir="$(dirname "$source_terminal")"
+  if [[ ! -f "$source_dir/metaeditor64.exe" && ! -f "$source_dir/MetaEditor64.exe" ]]; then
+    echo "MT5_PRESERVED_INSTALL=REJECT_NO_METAEDITOR source=$source_dir"
+    return 1
+  fi
+  target_dir="$WINEPREFIX_DIR/drive_c/Program Files/MetaTrader 5"
+  rm -rf "$target_dir"
+  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$(dirname "$target_dir")"
+  cp -a "$source_dir" "$target_dir"
+  chown -R "$APP_USER:$APP_USER" "$target_dir"
+  if [[ -f "$target_dir/terminal64.exe" ]]; then
+    echo "MT5_PRESERVED_INSTALL=RECOVERED source=$source_dir"
+    return 0
+  fi
+  return 1
+}
+
 TERMINAL="$(find_terminal || true)"
 if [[ -z "$TERMINAL" ]]; then
+  recover_preserved_mt5 || true
+  TERMINAL="$(find_terminal || true)"
+fi
+
+if [[ -z "$TERMINAL" ]]; then
+  wget -q --https-only --show-progress -O "$INSTALLER" "$INSTALLER_URL"
+  chown "$APP_USER:$APP_USER" "$INSTALLER"
+  chmod 0640 "$INSTALLER"
+  echo "MT5_INSTALLER_SHA256=$(sha256sum "$INSTALLER" | awk '{print $1}')"
   stop_mt5_wine
   STANDARD_TERMINAL="$WINEPREFIX_DIR/drive_c/Program Files/MetaTrader 5/terminal64.exe"
   set +e
@@ -311,8 +319,9 @@ if [[ -z "$TERMINAL" ]]; then
 fi
 
 if [[ -z "$TERMINAL" || ! -f "$TERMINAL" ]]; then
-  echo "ERROR: MT5 terminal64.exe not found after installer" >&2
+  echo "ERROR: MT5 terminal64.exe not found after preserved-install recovery or installer" >&2
   echo "MT5_INSTALL_DIAGNOSTICS_BEGIN" >&2
+  find "$APP_HOME" -maxdepth 14 -type f \( -iname terminal64.exe -o -iname metaeditor64.exe \) -print 2>/dev/null | tail -100 >&2 || true
   pgrep -a -f 'mt5setup|terminal64|wine|wineserver' >&2 || true
   find "$WINEPREFIX_DIR/drive_c" -maxdepth 7 -type f -mmin -10 -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' 2>/dev/null | tail -200 >&2 || true
   tail -240 /tmp/mt5-install.log >&2 || true
