@@ -1,0 +1,38 @@
+name: MT5 Runtime Diagnose
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-runtime-diagnose.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect MT5 EA startup and bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          source /var/lib/trading/mt5-forex/runtime.env
+          echo '=== SERVICES ==='
+          sudo systemctl status mt5-forex.service mt5-forex-bridge.service --no-pager -l || true
+          echo '=== PROCESSES ==='
+          ps -u mt5forex -o pid=,comm=,args= | tail -n 120 || true
+          echo '=== BRIDGE DIR ==='
+          sudo -u mt5forex find "$MT5_INSTALL_DIR/MQL5/Files/FOREX_BRIDGE" -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %f\n' 2>/dev/null | sort || true
+          echo '=== STARTUP CONFIG ==='
+          sed -E 's/^(Password=).*/\1[REDACTED]/' "$MT5_INSTALL_DIR/mt5-forex-start.ini" || true
+          echo '=== PRESET KEYS ==='
+          sed -E 's/^(InpBridgeToken=).*/\1[REDACTED]/' "$MT5_INSTALL_DIR/MQL5/Presets/ForexAutoThe5ers.set" || true
+          echo '=== TERMINAL LOGS ==='
+          find "$MT5_INSTALL_DIR/Logs" -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 4 | cut -d' ' -f2- | while IFS= read -r f; do echo "--- $f ---"; iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tail -n 220 || tail -n 220 "$f" || true; done
+          echo '=== MQL5 LOGS ==='
+          find "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 4 | cut -d' ' -f2- | while IFS= read -r f; do echo "--- $f ---"; iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tail -n 260 || tail -n 260 "$f" || true; done
+          echo '=== EXPERT FILES ==='
+          ls -l "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers."* || true
