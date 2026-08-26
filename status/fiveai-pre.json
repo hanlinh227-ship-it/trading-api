@@ -1,82 +1,89 @@
 {
   "ok": false,
-  "task_id": "v11-pre-32924975040",
+  "task_id": "v11-pre-32928511004",
   "providers": {
     "claude": {
       "status": "OK",
-      "latencySeconds": 46.95,
-      "review": {
-        "verdict": "BLOCKED",
-        "findings": [
-          "No actual artifacts were supplied to this lane \u2014 no data files, code, hash manifests, or deterministic-replay logs \u2014 only a textual plan description. A genuine 'data integrity' audit cannot be performed on prose alone; this response evaluates the plan's methodology on paper only.",
-          "Per-symbol H1 family/hour/entry-geometry coordinate search across 94 symbols is a large per-symbol search space. 'Independent, no pooling' avoids cross-symbol leakage but does not remove within-symbol multiplicity risk \u2014 each symbol still runs many candidate configurations, so a corrected significance threshold (e.g., per-symbol deflated Sharpe / FDR across the geometry grid) is needed or the 80% win-rate / positive-expectancy results can be overfit noise even without touching FINAL.",
-          "80% minimum win rate at RR 1:2 with only 1-3 eligible executions/day is a tight statistical bar; the plan doesn't state a minimum eligible-day/trade-count floor per symbol. Small-sample symbols could clear the 80% threshold by chance. Need an explicit minimum-N gate before a symbol's result is trusted.",
-          "Crypto H1 OKX-first with 'continuity-checked fallbacks' and Forex Twelve Data M5 are two different provider/timeframe pipelines feeding the same research process. Provider fallback and any M5\u2192H1 handling are common sources of look-ahead/leakage (differing bar-close conventions, gap-fill using future data). No description of how continuity checks are validated as strictly causal (only past bars used).",
-          "'Same-bar SL' is stated as conservative, but conservatism should be verified against worst-case intrabar path (e.g., using available lower-timeframe data to confirm SL-before-TP ordering within the bar), not just asserted.",
-          "Good practice: V64/V69/V73 are correctly downgraded to 'hypothesis seed only, not untouched OOS,' and the forbidden list (pooling, symbol deletion, fabrication, lookahead/leakage, silent eligible-day deletion, FINAL tuning) is appropriate and specific. This should be preserved unchanged in any refinement."
-        ],
-        "proposal": "Do not advance to FINAL or claim performance from this plan as-is. Before any PASS: (1) supply the actual per-symbol data manifests (provider, timestamps, continuity-check logs) and a deterministic replay artifact (fixed seed/config hash + reproducible output) for at least a sample of symbols so integrity can be verified rather than asserted; (2) add and report a per-symbol minimum trade-count/eligible-day floor gating win-rate claims; (3) apply a multiplicity correction (deflated Sharpe, per-symbol FDR, or holdout split within DEV/VALIDATION) across the family/hour/geometry grid search to bound overfitting risk that survives even under 'no pooling'; (4) document the causal/no-lookahead proof for the OKX-fallback and Twelve Data M5 pipelines (e.g., bar-close alignment, no future-bar gap-fill); (5) keep FINAL strictly frozen and untouched by this or prior (V64/V69/V73) evidence, with an explicit hash/timestamp lock proving early-August-onward data was never used to tune the geometry search.",
-        "evidence": []
-      },
-      "last_seen": 1787713579250
-    },
-    "codex": {
-      "status": "OK",
-      "latencySeconds": 22.75,
-      "review": {
-        "verdict": "BLOCKED",
-        "findings": [
-          "The proposed per-symbol DEV/VALIDATION search respects independence and avoids pooling or symbol deletion in principle.",
-          "Data integrity cannot be verified from narrative claims alone; no symbol roster, provider-response hashes, timestamps, timezone rules, fallback logs, gap reports, duplicate checks, or corporate/instrument metadata were supplied.",
-          "The search space is not fully bounded: H1 families, candidate hours, entry geometries, coordinate-search order, tie-breaking, stopping rules, and parameter limits are unspecified.",
-          "Eligible-day handling needs a deterministic definition and an audit log covering every excluded or zero-execution day; the 1..3 execution constraint must be checked per symbol and eligible day.",
-          "Conservative same-bar SL handling is directionally sound but incomplete without explicit precedence for SL/TP collisions, gaps, spread, fees, slippage, and order-fill timing.",
-          "The untouched FINAL boundary must be fixed before research. 'Early-August onward' is ambiguous, and all legacy-prior knowledge through 2026-07-31 must remain excluded from FINAL tuning and selection.",
-          "The 80% minimum win-rate and positive-expectancy requirements need prespecified estimators, minimum sample sizes, uncertainty treatment, and acceptance logic to prevent selection on noise.",
-          "Earlier V64/V69/V73 results are correctly classified as exposed hypothesis material and cannot support performance claims."
-        ],
-        "proposal": "Before execution, freeze a protocol containing: the exact 94-symbol roster and instrument identifiers; immutable raw-data manifests with provider, retrieval time, coverage, checksums, timezone/session normalization, gaps, duplicates, and fallback provenance; a fixed DEV/VALIDATION/FINAL date split with FINAL beginning on an exact timestamp; a finite per-symbol search grid with deterministic coordinate order, seeds, tie-breakers, and stopping rules; precise eligible-day and 1..3-execution accounting; explicit fill, spread, fee, slippage, gap, and same-bar SL/TP rules; and per-symbol acceptance criteria including RR in {1,2}, win rate >=80%, positive net expectancy, minimum trade/day counts, and uncertainty thresholds. Permit hypothesis refinement only on DEV, use VALIDATION once for selection, lock all configurations before FINAL, and report performance only from deterministic replay with configuration and data hashes. Preserve every symbol and publish failures rather than deleting or pooling them.",
-        "evidence": [
-          "Supplied contract specifies 94 independent symbols, 1..3 eligible-day executions, RR values 1 and 2, minimum 80% win rate, positive expectancy, exact-instrument data, and explicit prohibitions on pooling, symbol deletion, fabrication, leakage, silent eligible-day deletion, and FINAL tuning.",
-          "Supplied prior-evidence statement labels V64/V69/V73 as exposed development evidence, known through 2026-07-31, usable only as bounded hypothesis seeds.",
-          "Supplied current plan identifies OKX-first crypto H1 data with continuity-checked fallbacks, Twelve Data M5 forex data, per-symbol H1 family/hour/entry-geometry coordinate search, and conservative same-bar SL handling.",
-          "No replay outputs, raw-data manifests, hashes, symbol list, split timestamps, search-grid specification, or integrity audit artifacts were supplied; therefore neither data integrity nor performance can presently be certified."
-        ]
-      },
-      "last_seen": 1787713555044
-    },
-    "deepseek": {
-      "status": "OK",
-      "latencySeconds": 6.06,
+      "latencySeconds": 56.76,
       "review": {
         "verdict": "PASS",
         "findings": [
-          "Data integrity requirements are explicit: exact instrument data, no fabrication, no lookahead/leakage, and continuity-checked fallbacks for crypto H1 (OKX-first) and forex M5 (Twelve Data). This aligns with deterministic replay as the only performance truth.",
-          "The 94-symbol scope is bounded and per-symbol independent, with eligible day executions limited to 1..3, RR fixed at 1 and 2, and a minimum win rate of 80% plus positive expectancy. These constraints prevent overfitting and ensure statistical relevance.",
-          "Prior V64/V69/V73 evidence is correctly labeled as hypothesis material only, not untouched OOS, and is restricted to bounded hypothesis seeding. This prevents contamination of final performance claims.",
-          "The research plan is bounded to per-symbol H1 family/hour/entry-geometry coordinate search with conservative same-bar SL, which is a well-defined search space. No pooling, symbol deletion, or silent eligible-day deletion is permitted.",
-          "Final evaluation is scheduled for early-August onward, untouched by legacy priors, ensuring a clean OOS period. The instruction explicitly forbids using FINAL for tuning, which is a critical safeguard."
+          "No repository/data artifacts were supplied to this lane (cwd is /tmp, no git repo, no files) \u2014 this review is a methodology/contract audit only, not a code or data audit. Cannot independently verify OKX/Twelve Data pull scripts, continuity-check logic, or the coordinate-search implementation.",
+          "RR 1:2 combined with an 80% min-win-rate target is a statistically extreme bar (breakeven win rate at RR 1:2 is ~33%). Chasing 80% via per-symbol family/hour/entry-geometry coordinate search across 94 symbols is a classic multiple-comparisons setup \u2014 high risk that any symbol clearing the bar does so by overfitting a low trade count rather than a genuine edge.",
+          "Eligible day executions of 1..3 implies low trade frequency per symbol. No minimum trade-count / statistical-significance (e.g., Wilson/Clopper-Pearson interval on win rate, or minimum N before a symbol is accepted) is specified. A point-estimate 80% win rate on N=10 trades is not evidence; on N=100+ it starts to mean something.",
+          "V64/V69/V73 are correctly labeled 'exposed development, not OOS' and restricted to hypothesis-seed use \u2014 good practice \u2014 but the plan doesn't state a technical enforcement mechanism (e.g., hash-locking the seed set, logging which parameters originated from legacy priors vs. fresh search) to prevent silent leakage of tuned values from exposed data into the 'untouched' early-August-onward FINAL set.",
+          "'Never use FINAL for tuning' is stated as a rule but not as an enforced mechanism. Recommend an immutable, checksummed FINAL dataset with access logging, and a hard separation between the DEV/coordinate-search harness and any process that can read FINAL bars.",
+          "No mention of transaction costs, spread/slippage, funding rates (crypto perps), or weekend gap handling (forex) in the expectancy calculation \u2014 same-bar conservative SL is good, but positive expectancy claims are meaningless without cost modeling folded into the per-symbol backtest.",
+          "Mixed granularity (crypto H1 vs forex M5) is acceptable given symbol independence, but the continuity-checked OKX fallback path needs an explicit rule for what happens on a fallback-source switch mid-history (e.g., a symbol partly OKX, partly fallback) \u2014 a silent splice across sources is a leakage/discontinuity risk equivalent to 'silent eligible-day deletion' and should be logged, not silently patched.",
+          "Symbol independence claim (94 symbols, independent) should be verified against portfolio-level correlation (e.g., correlated crypto pairs, correlated forex crosses) \u2014 'independent' per-symbol optimization can still produce correlated failure modes in live/replay if underlying assets co-move, even though the contract treats them as independent for research purposes."
         ],
-        "proposal": "Proceed with the bounded per-symbol geometry research plan as specified. For DEV/VALIDATION-only refinements, consider: (1) implement a deterministic replay harness that logs all parameter coordinates and outcomes to ensure reproducibility; (2) add a data integrity audit step that verifies exact symbol counts, no missing eligible days, and fallback continuity for crypto/forex; (3) use a conservative same-bar SL with explicit slippage/commission modeling to avoid optimistic bias; (4) restrict any parameter tuning to DEV/VALIDATION sets only, with FINAL reserved for untouched OOS evaluation; (5) document all prior evidence as hypothesis seeds without influencing final selection. No changes to the core constraints are proposed.",
+        "proposal": "Approve the bounded per-symbol H1 geometry-search plan for DEV/VALIDATION only, conditioned on: (1) hard, checksum-enforced separation between DEV (coordinate search + legacy-hypothesis seeding) and FINAL (early-August-onward, untouched) datasets, with all reads of FINAL logged and FINAL never touched until a deterministic replay run; (2) a minimum-trade-count and confidence-interval gate per symbol before any win-rate/expectancy claim is accepted \u2014 reject symbols whose 80%+ win rate isn't distinguishable from chance at reasonable N (e.g., lower bound of a 95% CI still clears breakeven for RR 1:2, not just the point estimate); (3) explicit cost modeling (spread, slippage, funding/rollover) included in every per-symbol expectancy calculation, not added post-hoc; (4) an explicit, logged rule for OKX-to-fallback source splices per crypto symbol, treated with the same rigor as 'no silent eligible-day deletion'; (5) any performance number cited outside this process must come from a deterministic replay against the untouched FINAL set \u2014 point estimates from the DEV coordinate search are hypotheses, never performance claims. No pooling, no symbol deletion, and no FINAL-set tuning at any stage.",
         "evidence": [
-          "Instruction explicitly states: 'Never use FINAL for tuning and never claim performance without deterministic replay.'",
-          "Contract forbids pooling, symbol deletion, fabrication, lookahead/leakage, silent eligible-day deletion, and FINAL tuning.",
-          "Prior evidence V64/V69/V73 is marked as 'EXPOSED DEVELOPMENT; NOT UNTOUCHED OOS' and limited to 'bounded hypothesis seed only'.",
-          "Current research specifies exact data sources (crypto H1 OKX-first with continuity-checked fallbacks; forex M5 Twelve Data) and a bounded per-symbol search method.",
-          "Final evaluation is scheduled for early-August onward, untouched by legacy priors, ensuring clean OOS."
+          "task_id=v11-pre-32928511004 EVIDENCE payload supplied in-conversation (contract, priorEvidence, currentResearch fields) \u2014 no external files, repo, or dataset was accessible to this lane to cross-check against.",
+          "RR/win-rate math: breakeven win rate for RR=1:2 (risk 1, reward 2) is 1/(1+2)=33.3%; an 80% target implies a very large edge or overfitting risk given 94-symbol/coordinate-search multiple comparisons.",
+          "Environment check: pwd=/tmp, not a git repository, no supplied code/data artifacts \u2014 stated explicitly as a limitation of this review's scope."
         ]
       },
-      "last_seen": 1787713538357
+      "last_seen": 1787716986464
+    },
+    "codex": {
+      "status": "OK",
+      "latencySeconds": 26.98,
+      "review": {
+        "verdict": "REJECT",
+        "findings": [
+          "The proposal lacks immutable DEV/VALIDATION/FINAL date boundaries; \u201cearly-August onward\u201d is not a reproducible split.",
+          "OKX-first fallbacks may violate exact-instrument continuity unless venue, contract, quote currency, timestamp convention, and adjustment rules are fixed per symbol. Splicing providers can create synthetic history.",
+          "The bounded search space is underspecified: H1 families, hours, entry geometries, parameter grids, tie-breaking, and maximum trial count must be declared before replay.",
+          "The plan does not specify causal H1/M5 bar construction, timezone/DST handling, missing/duplicate-bar policy, or whether signals execute only after source bars close.",
+          "Conservative same-bar SL is directionally sound but incomplete without deterministic rules for bars containing both entry and stop/target, gaps, spread, fees, slippage, and order priority.",
+          "Eligibility must be computed deterministically for every symbol-day. Days cannot disappear because of missing data, unavailable signals, or failed execution simulation; each exclusion needs a reason code.",
+          "The 1..3 eligible-day execution constraint needs an explicit selection/ranking rule fixed without FINAL information.",
+          "The 80% win-rate and positive-expectancy requirements need predefined denominators, minimum sample sizes, cost assumptions, and statistical uncertainty treatment. Observed DEV metrics alone cannot establish robustness.",
+          "Searching independently across 94 symbols creates substantial multiple-testing risk; no validation selection or multiplicity control is specified.",
+          "Legacy V64/V69/V73 evidence is correctly limited to hypothesis generation, but configurations derived from knowledge through 2026-07-31 must not be described as untouched on overlapping data.",
+          "No performance claim is auditable until the full pipeline passes deterministic replay and produces identical artifacts from frozen inputs."
+        ],
+        "proposal": "Before research, freeze a machine-readable manifest containing all 94 symbols, canonical instrument and venue identifiers, provider priority, permitted fallback segments, hashes, timestamps, bar-construction rules, costs, and missing-data reason codes. Pre-register non-overlapping DEV, VALIDATION, and FINAL intervals; quarantine FINAL and prohibit all parameter choice, symbol filtering, debugging decisions, and threshold revision from its results. Define a finite per-symbol coordinate-search grid with trial caps, deterministic order, tie-breaking, and fixed eligibility/execution rules. Permit only DEV fitting and VALIDATION selection, retain all 94 symbols, and record zero-execution and data-failure days explicitly. Add deterministic adverse intrabar resolution, causal signal timing, and reproducible spread/fee/slippage modeling. Require exact rerun equality for trades, daily eligibility, metrics, and artifact hashes. Evaluate FINAL exactly once only after specification and code freeze; report every symbol and aggregate distributions without pooling for tuning or deleting failures.",
+        "evidence": [
+          "Supplied contract: 94 independent symbols; 1..3 eligible-day executions; RR in {1,2}; minimum win rate 80%; positive expectancy; exact-instrument data; no pooling, symbol deletion, fabrication, leakage, silent eligible-day deletion, or FINAL tuning.",
+          "Supplied prior-evidence classification: V64/V69/V73 are exposed development evidence known through 2026-07-31 and are hypothesis seeds only.",
+          "Supplied current method states per-symbol H1 family/hour/entry-geometry coordinate search and conservative same-bar SL, but provides no frozen grid, split dates, execution semantics, cost model, or replay manifest.",
+          "Supplied instruction explicitly establishes deterministic replay\u2014not prior results or research impressions\u2014as performance truth."
+        ]
+      },
+      "last_seen": 1787716956683
+    },
+    "deepseek": {
+      "status": "OK",
+      "latencySeconds": 4.82,
+      "review": {
+        "verdict": "PASS",
+        "findings": [
+          "Data integrity requirements are explicit: exact exchange/provider history, crypto H1 OKX-first with continuity-checked fallbacks, forex Twelve Data M5, and no fabrication or silent deletion.",
+          "Research plan is bounded per-symbol: H1 family/hour/entry-geometry coordinate search with conservative same-bar SL, and prior V64/V69/V73 evidence is correctly labeled as hypothesis seed only.",
+          "Performance claims are correctly gated on deterministic replay, with FINAL reserved for early-August onward untouched by legacy priors.",
+          "No pooling, symbol deletion, lookahead, or leakage is permitted; eligible-day executions are fixed at 1..3 with RR 1 and 2, and minWinRatePct 80 with positive expectancy."
+        ],
+        "proposal": "Proceed with the bounded per-symbol geometry research plan. Ensure all data sources are logged with exact timestamps and provider metadata, and implement automated continuity checks for crypto fallbacks. For validation, use only deterministic replay on the early-August onward window, and treat any deviation from the 1..3 eligible-day execution rule as a hard failure. Refine the coordinate search grid to avoid overfitting by limiting the number of geometry parameters per symbol and using a fixed random seed for any stochastic elements. Document all hypothesis seeds from V64/V69/V73 but never use them for tuning or performance claims.",
+        "evidence": [
+          "Contract enforces 94 symbols, independent lanes, eligibleDayExecutions 1..3, RR 1 and 2, minWinRatePct 80, positive expectancy, exact instrument data, and forbidden practices.",
+          "Prior evidence V64/V69/V73 is explicitly marked as exposed development and not untouched OOS, limiting its use to bounded hypothesis seed.",
+          "Current research specifies exact data sources and a per-symbol bounded search method, with FINAL reserved for early-August onward untouched by legacy priors.",
+          "Deterministic replay is stated as the sole performance truth, preventing any unverified performance claims."
+        ]
+      },
+      "last_seen": 1787716934531
     },
     "qwen": {
       "status": "ERROR",
-      "latencySeconds": 0.57,
-      "error": "HTTP_403:{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"72e6d766-e90b-91bd-9b18-ede207d9ff80\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+      "latencySeconds": 0.63,
+      "error": "HTTP_403:{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"8dd6b01a-d4d5-961a-bc29-10d9a57c346a\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
     },
     "openrouter": {
       "status": "ERROR",
-      "latencySeconds": 1.16,
-      "error": "HTTP_402:{\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 900 tokens, but can only afford 22. To increase, visit https://openrouter.ai/settings/credits and upgrade to a paid account\",\"code\":402,\"metadata\":{\"limit_source\":\"openrouter_credits\",\"remedy_h"
+      "latencySeconds": 0.68,
+      "error": "HTTP_402:{\"error\":{\"message\":\"This request requires more credits, or fewer max_tokens. You requested up to 900 tokens, but can only afford 24. To increase, visit https://openrouter.ai/settings/credits and upgrade to a paid account\",\"code\":402,\"metadata\":{\"limit_source\":\"openrouter_credits\",\"remedy_h"
     }
   }
 }
