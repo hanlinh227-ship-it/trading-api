@@ -1,0 +1,3 @@
+Trigger MT5 Forex VPS redeploy after live-control and MetaEditor EX5 recovery fixes.
+Expected controls: FOREX_AUTO_LIVE and MT5_ALLOW_LIVE supplied by GitHub Actions Variables.
+Target defaults: 500 USD / 3 days / CYCLE_001 unless repository variables override.
