@@ -27,13 +27,12 @@ jobs:
       MT5_ALLOW_LIVE: 'false'
 
     steps:
-      - name: Lock to authorized VPS and PAPER
+      - name: Lock authorized VPS and PAPER mode
         shell: bash
         run: |
           set -euo pipefail
           test "${RUNNER_NAME:-}" = "trading-vps"
-          HOST="$(hostname)"
-          FQDN="$(hostname -f 2>/dev/null || hostname)"
+          HOST="$(hostname)"; FQDN="$(hostname -f 2>/dev/null || hostname)"
           [[ "$HOST" = "59670" || "$FQDN" = "59670.vpsvinahost.vn" ]]
           test -n "${MT5_ACCOUNT_LOGIN:-}"
           test -n "${MT5_ACCOUNT_PASSWORD:-}"
@@ -55,20 +54,18 @@ jobs:
         run: |
           set -euo pipefail
           repo=/opt/trading/trading-api-main
-          sudo mkdir -p /opt/trading
           sudo git -C "$repo" fetch --prune origin main
           sudo git -C "$repo" reset --hard origin/main
           sudo git -C "$repo" checkout -B main origin/main
           echo 'MT5_CANONICAL_SYNC=PASS'
 
-      - name: Recover compiled EA into canonical MT5 directory
+      - name: Compile current EA using dedicated portable path
         shell: bash
         run: |
           set -euo pipefail
           APP_HOME=/var/lib/trading/mt5-forex
           PREFIX="$APP_HOME/wine"
           WINE=/opt/wine-stable/bin/wine
-          WINEPATH=/opt/wine-stable/bin/winepath
           WINESERVER=/opt/wine-stable/bin/wineserver
           test -x "$WINE"
           VERSION="$($WINE --version)"
@@ -85,39 +82,39 @@ jobs:
           sudo pkill -u mt5forex -f 'terminal64.exe|MetaTrader|metaeditor|wineserver' 2>/dev/null || true
           sleep 2
 
-          sudo install -d -o mt5forex -g mt5forex -m 0750 "$MT5_DIR/MQL5/Experts" "$MT5_DIR/MQL5/Presets" "$MT5_DIR/MQL5/Files/FOREX_BRIDGE" "$MT5_DIR/Config"
-          sudo install -o mt5forex -g mt5forex -m 0640 /opt/trading/trading-api-main/mt5/ForexAutoThe5ers.mq5 "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
-
-          EA_DST="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
-          EA_EX5="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
-          LOG="$MT5_DIR/metaeditor-recovery.log"
-          sudo rm -f "$EA_EX5" "$LOG"
-
-          EA_WIN="$(sudo -u mt5forex env HOME="$APP_HOME" WINEPREFIX="$PREFIX" WINEARCH=win64 WINEDEBUG=-all "$WINEPATH" -w "$EA_DST")"
-          LOG_WIN="$(sudo -u mt5forex env HOME="$APP_HOME" WINEPREFIX="$PREFIX" WINEARCH=win64 WINEDEBUG=-all "$WINEPATH" -w "$LOG")"
+          BUILD_DIR="$PREFIX/drive_c/MT5Forex"
+          BUILD_EA_DIR="$BUILD_DIR/MQL5/Experts"
+          BUILD_EA="$BUILD_EA_DIR/ForexAutoThe5ers.mq5"
+          BUILD_EX5="$BUILD_EA_DIR/ForexAutoThe5ers.ex5"
+          BUILD_LOG="$BUILD_DIR/metaeditor-compile.log"
+          sudo install -d -o mt5forex -g mt5forex -m 0750 "$BUILD_EA_DIR"
+          sudo install -o mt5forex -g mt5forex -m 0640 /opt/trading/trading-api-main/mt5/ForexAutoThe5ers.mq5 "$BUILD_EA"
+          sudo sed -i 's/#property version   "0\.311"/#property version   "1.311"/' "$BUILD_EA"
+          sudo chown mt5forex:mt5forex "$BUILD_EA"
+          sudo rm -f "$BUILD_EX5" "$BUILD_LOG"
 
           set +e
           sudo -u mt5forex env HOME="$APP_HOME" WINEPREFIX="$PREFIX" WINEARCH=win64 WINEDEBUG=-all \
-            timeout 240 xvfb-run -a -s '-screen 0 1280x1024x24' "$WINE" "$METAEDITOR" "/compile:$EA_WIN" "/log:$LOG_WIN" >/tmp/mt5-recovery-compile.log 2>&1
+            timeout 240 xvfb-run -a -s '-screen 0 1280x1024x24' "$WINE" "$METAEDITOR" /portable \
+            '/compile:C:\MT5Forex\MQL5\Experts\ForexAutoThe5ers.mq5' \
+            '/log:C:\MT5Forex\metaeditor-compile.log' >/tmp/mt5-recovery-compile.log 2>&1
           RC=$?
           set -e
           sudo -u mt5forex env HOME="$APP_HOME" WINEPREFIX="$PREFIX" "$WINESERVER" -k >/dev/null 2>&1 || true
           echo "MT5_RECOVERY_METAEDITOR_EXIT=$RC"
 
-          if [ ! -f "$EA_EX5" ]; then
-            FOUND="$(find "$PREFIX/drive_c" -type f -iname ForexAutoThe5ers.ex5 -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2- || true)"
-            if [ -n "$FOUND" ] && [ -f "$FOUND" ]; then
-              sudo install -o mt5forex -g mt5forex -m 0640 "$FOUND" "$EA_EX5"
-              echo "MT5_RECOVERY_EX5_SOURCE=$FOUND"
-            fi
-          fi
-
-          if [ ! -f "$EA_EX5" ]; then
-            echo 'ERROR: compiled EX5 still not found' >&2
-            iconv -f UTF-16LE -t UTF-8 "$LOG" 2>/dev/null | tail -120 >&2 || tail -120 "$LOG" >&2 || true
-            find "$PREFIX/drive_c" -type f -iname '*ForexAutoThe5ers*' -print >&2 || true
+          if [ ! -f "$BUILD_EX5" ]; then
+            echo 'MT5_COMPILE_LOG_BEGIN'
+            iconv -f UTF-16LE -t UTF-8 "$BUILD_LOG" 2>/dev/null | tail -160 || tail -160 "$BUILD_LOG" 2>/dev/null || true
+            tail -120 /tmp/mt5-recovery-compile.log || true
+            echo 'MT5_COMPILE_LOG_END'
+            find "$PREFIX/drive_c" -type f -iname 'ForexAutoThe5ers.ex5' -print || true
             exit 41
           fi
+
+          sudo install -d -o mt5forex -g mt5forex -m 0750 "$MT5_DIR/MQL5/Experts" "$MT5_DIR/MQL5/Presets" "$MT5_DIR/MQL5/Files/FOREX_BRIDGE" "$MT5_DIR/Config"
+          sudo install -o mt5forex -g mt5forex -m 0640 /opt/trading/trading-api-main/mt5/ForexAutoThe5ers.mq5 "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
+          sudo install -o mt5forex -g mt5forex -m 0640 "$BUILD_EX5" "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
 
           sudo tee "$APP_HOME/runtime.env" >/dev/null <<EOF
           MT5_WINEPREFIX=$PREFIX
@@ -125,7 +122,7 @@ jobs:
           MT5_INSTALL_DIR=$MT5_DIR
           MT5_WINE_BIN=$WINE
           MT5_WINESERVER_BIN=$WINESERVER
-          MT5_WINEPATH_BIN=$WINEPATH
+          MT5_WINEPATH_BIN=/opt/wine-stable/bin/winepath
           MT5_WINE_STACK=WINEHQ_STABLE_RECOVERED
           MT5_WINE_VERSION=$VERSION
           EOF
@@ -134,15 +131,13 @@ jobs:
           sudo ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
           echo 'MT5_RECOVERY_EA_COMPILE=PASS'
           echo "MT5_RECOVERY_WINE=$VERSION"
-          echo "MT5_RECOVERY_TERMINAL=$TERMINAL"
 
       - name: Install protected The5ers PAPER configuration
         shell: bash
         run: |
           set -euo pipefail
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
-          tmp="$(mktemp)"
-          trap 'rm -f "$tmp"' EXIT
+          tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
           umask 077
           {
             printf 'MT5_ACCOUNT_LOGIN=%q\n' "$MT5_ACCOUNT_LOGIN"
@@ -185,8 +180,7 @@ jobs:
         run: |
           set -euo pipefail
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
-          BODY="$(mktemp)"
-          trap 'rm -f "$BODY"' EXIT
+          BODY="$(mktemp)"; trap 'rm -f "$BODY"' EXIT
           PASS=false
           for i in $(seq 1 40); do
             CODE="$(curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w '%{http_code}' "$HUB/forex/health" || true)"
