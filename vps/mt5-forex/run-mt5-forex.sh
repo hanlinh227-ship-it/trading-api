@@ -84,8 +84,6 @@ write_config(){
   chmod 0600 "$out"
 }
 write_config "$CONFIG"
-# Keep a canonical default config too. This prevents a fresh/repaired Wine prefix
-# from losing broker authorization when MT5 falls back from /config to common.ini.
 write_config "$DEFAULT_CONFIG"
 
 if [[ "$LIVE_BOOL" == true ]]; then
@@ -114,9 +112,34 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   set +e
   args=("$MT5_TERMINAL" /portable "/config:$CONFIG_WIN")
   if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
+
   HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" "${args[@]}"
   launcher_rc=$?
   echo "MT5_FOREX_WINE_LAUNCHER_EXIT=$launcher_rc"
+
+  # MT5 under Wine can detach terminal64.exe and return 69 from the launcher.
+  # A live detached terminal is authoritative; do not tear it down just because
+  # the parent Wine launcher returned a non-zero compatibility code.
+  terminal_alive=false
+  for i in $(seq 1 20); do
+    if pgrep -u "$(id -u)" -f "terminal64.exe|MetaTrader" >/dev/null 2>&1; then
+      terminal_alive=true
+      break
+    fi
+    sleep 1
+  done
+
+  if [ "$terminal_alive" = true ]; then
+    echo "MT5_FOREX_DETACHED_TERMINAL=PASS"
+    echo "MT5_FOREX_LAUNCHER_RC_IGNORED=$launcher_rc"
+    while pgrep -u "$(id -u)" -f "terminal64.exe|MetaTrader" >/dev/null 2>&1; do
+      sleep 5
+    done
+    echo "MT5_FOREX_TERMINAL_EXITED=1"
+    HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
+    exit 69
+  fi
+
   if [ "$launcher_rc" -ne 0 ]; then
     echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
     find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 6 | cut -d" " -f2- | while IFS= read -r f; do
@@ -125,6 +148,7 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     done
     echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
   fi
+
   HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -w
   wait_rc=$?
   if [ "$wait_rc" -ne 0 ]; then exit "$wait_rc"; fi
