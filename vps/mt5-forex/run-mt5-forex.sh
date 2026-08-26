@@ -116,6 +116,11 @@ fi
 if [[ -z "$CONFIG_WIN" ]]; then
   CONFIG_WIN='C:\MT5Forex\mt5-forex-start.ini'
 fi
+WINESERVER_BIN="$(command -v wineserver || true)"
+if [[ -z "$WINESERVER_BIN" ]]; then
+  echo "ERROR: wineserver missing" >&2
+  exit 13
+fi
 
 # Deliberately do not print account number, password, broker server or bridge token.
 echo "MT5_FOREX_START=PASS"
@@ -124,6 +129,19 @@ echo "MT5_FOREX_HOST_AUTHORIZED=PASS"
 echo "MT5_FOREX_MODE=$([[ "$LIVE_BOOL" == true ]] && echo LIVE || echo PAPER)"
 echo "MT5_FOREX_CREDENTIALS=$([[ -n "$MT5_ACCOUNT_LOGIN" && -n "$MT5_ACCOUNT_PASSWORD" && -n "$MT5_ACCOUNT_SERVER" ]] && echo CONFIGURED || echo INCOMPLETE)"
 
-exec xvfb-run -a -s '-screen 0 1280x1024x24' env \
+# Under Wine, terminal64.exe can hand off to a persistent Wine child and return
+# a non-zero launcher code even though MT5 remains alive. Keep the systemd main
+# process attached to the dedicated Wine prefix until every Wine child exits.
+export APP_HOME MT5_WINEPREFIX MT5_WINE_BIN MT5_TERMINAL CONFIG_WIN WINESERVER_BIN
+exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
+  set +e
   HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEARCH=win64 WINEDEBUG=-all \
-  "$MT5_WINE_BIN" "$MT5_TERMINAL" /portable "/config:$CONFIG_WIN"
+    "$MT5_WINE_BIN" "$MT5_TERMINAL" /portable "/config:$CONFIG_WIN"
+  launcher_rc=$?
+  echo "MT5_FOREX_WINE_LAUNCHER_EXIT=$launcher_rc"
+  # If MT5 handed off to Wine children, this blocks for the lifetime of MT5.
+  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -w
+  wait_rc=$?
+  if [ "$wait_rc" -ne 0 ]; then exit "$wait_rc"; fi
+  exit "$launcher_rc"
+'
