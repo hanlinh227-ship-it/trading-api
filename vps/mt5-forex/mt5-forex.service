@@ -11,6 +11,11 @@ User=mt5forex
 Group=mt5forex
 Environment=HOME=/var/lib/trading/mt5-forex
 Environment=MT5_EXPECTED_HOST=59670.vpsvinahost.vn
+# The deployment writes /etc/trading as root-only while creating secrets. Before
+# dropping into the mt5forex runtime, grant directory traversal only to the MT5
+# group; individual secret files remain 0640 root:mt5forex and are never public.
+ExecStartPre=+/usr/bin/chown root:mt5forex /etc/trading
+ExecStartPre=+/usr/bin/chmod 0750 /etc/trading
 ExecStartPre=/usr/bin/test -r /etc/trading/mt5-forex-vps-only
 ExecStartPre=/usr/bin/test -r /var/lib/trading/mt5-forex/runtime.env
 ExecStart=/opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
