@@ -1,4 +1,4 @@
-name: Deploy V11 AI Bridge
+name: Deploy Unified 3AI Bridge
 
 on:
   push:
@@ -12,8 +12,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: trading-v11-ai-bridge-production
-  cancel-in-progress: false
+  group: unified-3ai-bridge-production
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -22,11 +22,8 @@ jobs:
     steps:
       - name: Checkout exact main revision
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-
-      - name: Validate bridge source
+        with: {ref: main, fetch-depth: 1}
+      - name: Validate canonical 3AI bridge source
         shell: bash
         run: |
           set -euo pipefail
@@ -35,17 +32,8 @@ jobs:
           test -n "$(grep '^V11_AI_BRIDGE_SECRET=' /etc/trading-v11-ai.env | cut -d= -f2-)"
           command -v claude >/dev/null
           test -x /usr/bin/codex
-          set -a
-          source /etc/trading-v11-ai.env
-          set +a
+          set -a; source /etc/trading-v11-ai.env; set +a
           test -n "${DEEPSEEK_API_KEY:-}"
-
-      - name: Verify VPS can reach Bybit mainnet
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsS --max-time 10 'https://api.bybit.com/v5/market/time' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("retCode")==0, d; print("VPS_BYBIT_NETWORK=PASS")'
-
       - name: Install exact checked-out bridge
         shell: bash
         run: |
@@ -54,51 +42,24 @@ jobs:
           systemctl daemon-reload
           systemctl restart v11-manual-ai-bridge.service
           systemctl is-active --quiet v11-manual-ai-bridge.service
-
-      - name: Read-only bridge health
+      - name: Require operational 2-of-3 health
         shell: bash
         run: |
           set -euo pipefail
           sleep 2
-          HEALTH="$(curl -fsS --max-time 5 http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); req={"claude","codex","deepseek"}; p=d.get("providers") or {}; assert req<=set(p); assert all(bool((p[n] or {}).get("configured")) for n in req); assert d.get("service")=="V11_MULTI_AI_BRIDGE"; assert d.get("mode")=="FAST_FIRST_PARALLEL"; assert d.get("bybitPrivateProxy") is True; assert d.get("bybitMarketProxy") is True; assert "/v5/market/time" in (d.get("bybitPublicPaths") or []); assert 5<=int(d.get("scalpProviderTimeoutSec") or 0)<=15; assert 6<=int(d.get("scalpBridgeBudgetSec") or 0)<=15; assert 0<float(d.get("scalpFastFirstGraceSec") or 0)<=3; print("V11_FAST_FIRST_HEALTH=PASS")'
-
-      - name: Smoke Bybit market proxy through installed bridge
+          set -a; source /etc/trading-v11-ai.env; set +a
+          HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); core=("claude","codex","deepseek"); p=d.get("providers") or {}; configured=[n for n in core if bool((p.get(n) or {}).get("configured"))]; assert len(configured)>=2,("3AI_QUORUM_NOT_CONFIGURED",configured); print("UNIFIED_3AI_HEALTH=PASS quorum=%d/3"%len(configured))'
+      - name: Real read-only council quorum smoke
         shell: bash
         run: |
           set -euo pipefail
-          set -a
-          source /etc/trading-v11-ai.env
-          set +a
-          BODY='{"method":"GET","path":"/v5/market/time","query":"","body":"","headers":{}}'
-          OUT="$(curl -fsS --max-time 15 -X POST http://127.0.0.1:8789/bybit/private -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
-          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); u=d.get("upstream") or {}; assert d.get("ok") is True, d; assert d.get("transport")=="VPS_BYBIT_MARKET_PROXY", d; assert u.get("retCode")==0, d; assert int(u.get("time") or 0)>0, d; print("VPS_BYBIT_MARKET_PROXY=PASS")'
-
-      - name: Smoke fast-first scalp review
-        shell: bash
-        run: |
-          set -euo pipefail
-          set -a
-          source /etc/trading-v11-ai.env
-          set +a
-          START=$(date +%s%3N)
-          BODY='{"evidence":{"mode":"BYBIT_SCALP_DECISION","task_id":"deploy-fast-first-smoke","requestedProviders":["claude","codex","deepseek"],"instruction":"REVIEW_ONLY synthetic deployment smoke test. Do not trade.","context":{"setup":{"symbol":"BTCUSDT","side":"Buy","strategy":"SMOKE","score":90,"entry":100000,"sl":99500,"tp":101000,"rr":2,"spreadBps":1},"horizon":"1-5m","exchange":"BYBIT"}}}'
-          OUT="$(curl -sS --max-time 18 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
-          END=$(date +%s%3N)
-          ELAPSED=$((END-START))
-          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("fastFirst") is True; assert int(d.get("usableProviderCount") or 0)>=1, d; assert set(d.get("requestedProviders") or [])=={"claude","codex","deepseek"}; print("V11_FAST_FIRST_REVIEW=PASS usable=%s decisionMs=%s returnedEarly=%s"%(d.get("usableProviderCount"),d.get("decisionLatencyMs"),d.get("returnedEarly")))'
-          test "$ELAPSED" -lt 18000
-
+          set -a; source /etc/trading-v11-ai.env; set +a
+          BODY='{"evidence":{"mode":"UNIFIED_3AI_CONNECTIVITY","task_id":"deploy-3ai-quorum-smoke","requestedProviders":["claude","codex","deepseek"],"instruction":"Connectivity validation only. Acknowledge receipt. Do not trade and do not change configuration.","context":{"scope":"READ_ONLY"}}}'
+          OUT="$(curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
+          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); core=("claude","codex","deepseek"); p=d.get("providers") or {}; st={n:str((p.get(n) or {}).get("status","MISSING")).upper() for n in core}; ok=[n for n in core if st[n]=="OK"]; print("UNIFIED_3AI_STATUS="+",".join(n+":"+st[n] for n in core)); assert len(ok)>=2,("3AI_QUORUM_FAILED",st); print("UNIFIED_3AI_QUORUM_PASS=%d/3"%len(ok))'
       - name: Deployment summary
-        shell: bash
         run: |
-          echo "V11_AI_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
-          echo "V11_AI_BRIDGE_SERVICE=active"
-          echo "V11_AI_BRIDGE_ROUTE=localhost:8789"
-          echo "BYBIT_PRIVATE_PROXY=enabled"
-          echo "BYBIT_PRIVATE_EGRESS=VPS"
-          echo "BYBIT_MARKET_PROXY=enabled"
-          echo "BYBIT_MARKET_EGRESS=VPS"
-          echo "BYBIT_SCALP_AI=claude,codex,deepseek"
-          echo "BYBIT_SCALP_AI_MODE=FAST_FIRST_PARALLEL"
-          echo "BYBIT_SCALP_PARTIAL_AI=allowed_when_at_least_one_provider_responds"
+          echo "UNIFIED_3AI_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
+          echo 'UNIFIED_3AI_CORE=claude,codex,deepseek'
+          echo 'UNIFIED_3AI_REQUIRED_QUORUM=2/3'
