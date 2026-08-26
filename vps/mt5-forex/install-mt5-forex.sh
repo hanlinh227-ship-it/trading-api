@@ -4,13 +4,14 @@ set -euo pipefail
 APP_USER="mt5forex"
 APP_HOME="/var/lib/trading/mt5-forex"
 WINEPREFIX_DIR="${APP_HOME}/wine"
-STACK_MARKER="${WINEPREFIX_DIR}/.trading-wine-stack"
 INSTALL_ROOT="${WINEPREFIX_DIR}/drive_c/MT5Forex"
 REPO="${FOREX_RESEARCH_REPO:-/opt/trading/trading-api-main}"
 EA_SRC="${REPO}/mt5/ForexAutoThe5ers.mq5"
 INSTALLER_URL="https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe"
 INSTALLER="${APP_HOME}/mt5setup.exe"
 SCREEN="-screen 0 1280x1024x24"
+MONO_VERSION="10.4.1"
+GECKO_VERSION="2.47.4"
 
 [[ ${EUID} -eq 0 ]] || { echo "ERROR: run as root" >&2; exit 2; }
 [[ -f /etc/os-release ]] || { echo "ERROR: unsupported OS" >&2; exit 3; }
@@ -26,7 +27,7 @@ fi
 apt-get update -y
 apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 \
-  fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils
+  fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils xz-utils
 
 # MetaQuotes requires a recent supported Wine runtime. Select the newest stable
 # WineHQ package available for this OS, require major >=10, and install all four
@@ -48,7 +49,8 @@ if [[ -z "$TARGET_MAJOR" || "$TARGET_MAJOR" -lt 10 ]]; then
   echo "ERROR: WineHQ stable >=10 required, candidate=$WINEHQ_VERSION" >&2
   exit 57
 fi
-EXPECTED_STACK="WINEHQ_STABLE_${WINEHQ_VERSION}"
+EXPECTED_STACK="WINEHQ_STABLE_${WINEHQ_VERSION}_MONO_${MONO_VERSION}_GECKO_${GECKO_VERSION}"
+STACK_MARKER="${WINEPREFIX_DIR}/.trading-wine-stack"
 
 for pkg in winehq-stable wine-stable wine-stable-amd64 'wine-stable-i386:i386'; do
   if ! apt-cache madison "$pkg" 2>/dev/null | awk '{print $3}' | grep -Fxq "$WINEHQ_VERSION"; then
@@ -64,6 +66,17 @@ sleep 1
 apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
   winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
   winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
+
+# Recover a half-upgraded WineHQ stable family before trying to install the new
+# coherent set. Purge the stable family only when the installed version differs
+# or dpkg reports an incomplete state; this keeps normal redeploys idempotent.
+dpkg --configure -a >/tmp/mt5-dpkg-configure.log 2>&1 || true
+INSTALLED_STABLE="$(dpkg-query -W -f='${Version}' winehq-stable 2>/dev/null || true)"
+STABLE_STATUS="$(dpkg-query -W -f='${Status}' winehq-stable 2>/dev/null || true)"
+if [[ -n "$INSTALLED_STABLE" && ( "$INSTALLED_STABLE" != "$WINEHQ_VERSION" || "$STABLE_STATUS" != "install ok installed" ) ]]; then
+  dpkg --remove --force-remove-reinstreq winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 2>/dev/null || true
+  dpkg --purge --force-all winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 2>/dev/null || true
+fi
 
 apt-get purge -y \
   wine wine64 wine32:i386 libwine:amd64 libwine:i386 \
@@ -111,17 +124,50 @@ fi
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$APP_HOME"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
   "$APP_HOME/.local" "$APP_HOME/.local/share" "$APP_HOME/.local/share/applications" \
-  "$APP_HOME/.config" "$APP_HOME/.cache"
+  "$APP_HOME/.config" "$APP_HOME/.cache" "$APP_HOME/.cache/wine"
 
-# Disable Mono/Gecko install dialogs during unattended Xvfb initialization.
-# MT5 core trading/MetaEditor do not require those dialogs to initialize the
-# Windows prefix. WINEARCH is pinned so a previous arch cannot leak in.
+# MetaQuotes' Linux documentation requires Wine Mono and Gecko. Install their
+# shared runtime trees into the WineHQ prefix location before wineboot so Wine
+# does not need interactive addon dialogs under Xvfb.
+MONO_ROOT="/opt/wine-stable/share/wine/mono"
+GECKO_ROOT="/opt/wine-stable/share/wine/gecko"
+if [[ ! -d "$MONO_ROOT/wine-mono-${MONO_VERSION}" ]]; then
+  mono_tmp="$(mktemp -d)"
+  wget -q --https-only -O "$mono_tmp/mono.tar.xz" \
+    "https://dl.winehq.org/wine/wine-mono/${MONO_VERSION}/wine-mono-${MONO_VERSION}-x86.tar.xz"
+  mkdir -p "$MONO_ROOT"
+  tar -xJf "$mono_tmp/mono.tar.xz" -C "$MONO_ROOT"
+  rm -rf "$mono_tmp"
+fi
+if [[ ! -d "$GECKO_ROOT/wine-gecko-${GECKO_VERSION}-x86" ]]; then
+  gecko32_tmp="$(mktemp -d)"
+  wget -q --https-only -O "$gecko32_tmp/gecko.tar.xz" \
+    "https://dl.winehq.org/wine/wine-gecko/${GECKO_VERSION}/wine-gecko-${GECKO_VERSION}-x86.tar.xz"
+  mkdir -p "$GECKO_ROOT"
+  tar -xJf "$gecko32_tmp/gecko.tar.xz" -C "$GECKO_ROOT"
+  rm -rf "$gecko32_tmp"
+fi
+if [[ ! -d "$GECKO_ROOT/wine-gecko-${GECKO_VERSION}-x86_64" ]]; then
+  gecko64_tmp="$(mktemp -d)"
+  wget -q --https-only -O "$gecko64_tmp/gecko.tar.xz" \
+    "https://dl.winehq.org/wine/wine-gecko/${GECKO_VERSION}/wine-gecko-${GECKO_VERSION}-x86_64.tar.xz"
+  mkdir -p "$GECKO_ROOT"
+  tar -xJf "$gecko64_tmp/gecko.tar.xz" -C "$GECKO_ROOT"
+  rm -rf "$gecko64_tmp"
+fi
+[[ -d "$MONO_ROOT/wine-mono-${MONO_VERSION}" ]] || { echo "ERROR: Wine Mono shared runtime missing" >&2; exit 60; }
+[[ -d "$GECKO_ROOT/wine-gecko-${GECKO_VERSION}-x86" ]] || { echo "ERROR: Wine Gecko x86 runtime missing" >&2; exit 61; }
+[[ -d "$GECKO_ROOT/wine-gecko-${GECKO_VERSION}-x86_64" ]] || { echo "ERROR: Wine Gecko x86_64 runtime missing" >&2; exit 62; }
+echo "MT5_WINE_MONO=PASS version=$MONO_VERSION"
+echo "MT5_WINE_GECKO=PASS version=$GECKO_VERSION"
+
+# WINEARCH is pinned so a previous architecture cannot leak into the prefix.
+# Do not disable mscoree/mshtml: MT5 relies on the Mono/Gecko runtime above.
 run_as_mt5() {
   sudo -u "$APP_USER" env \
     HOME="$APP_HOME" \
     WINEPREFIX="$WINEPREFIX_DIR" \
     WINEARCH=win64 \
-    WINEDLLOVERRIDES='mscoree,mshtml=' \
     WINEDEBUG=-all \
     "$@"
 }
@@ -202,6 +248,9 @@ fi
 
 echo "MT5_WINE_PREFIX=PASS"
 
+# MT5 targets Windows 10+ semantics; make that explicit before launching setup.
+run_as_mt5 "$WINE_BIN" reg add 'HKCU\Software\Wine' /v Version /t REG_SZ /d win10 /f >/tmp/mt5-wine-winver.log 2>&1 || true
+
 wget -q --https-only --show-progress -O "$INSTALLER" "$INSTALLER_URL"
 chown "$APP_USER:$APP_USER" "$INSTALLER"
 chmod 0640 "$INSTALLER"
@@ -221,9 +270,28 @@ find_terminal() {
 TERMINAL="$(find_terminal || true)"
 if [[ -z "$TERMINAL" ]]; then
   stop_mt5_wine
+  STANDARD_TERMINAL="$WINEPREFIX_DIR/drive_c/Program Files/MetaTrader 5/terminal64.exe"
   set +e
-  run_as_mt5 timeout 900 xvfb-run -a -s "$SCREEN" \
-    "$WINE_BIN" "$INSTALLER" /auto /path:'C:\MT5Forex' >/tmp/mt5-install.log 2>&1
+  run_as_mt5 timeout 360 xvfb-run -a -s "$SCREEN" bash -c '
+    set +e
+    wine_bin="$1"
+    installer="$2"
+    terminal="$3"
+    "$wine_bin" "$installer" /auto >/tmp/mt5-installer-wine.log 2>&1 &
+    installer_pid=$!
+    for i in $(seq 1 150); do
+      if [ -f "$terminal" ]; then
+        sleep 12
+        kill "$installer_pid" 2>/dev/null || true
+        wait "$installer_pid" 2>/dev/null || true
+        exit 0
+      fi
+      sleep 2
+    done
+    kill "$installer_pid" 2>/dev/null || true
+    wait "$installer_pid" 2>/dev/null || true
+    exit 124
+  ' _ "$WINE_BIN" "$INSTALLER" "$STANDARD_TERMINAL" >/tmp/mt5-install.log 2>&1
   INSTALL_RC=$?
   set -e
   stop_mt5_wine
@@ -234,6 +302,7 @@ fi
 if [[ -z "$TERMINAL" || ! -f "$TERMINAL" ]]; then
   echo "ERROR: MT5 terminal64.exe not found after installer" >&2
   tail -240 /tmp/mt5-install.log >&2 || true
+  tail -240 /tmp/mt5-installer-wine.log >&2 || true
   exit 6
 fi
 
