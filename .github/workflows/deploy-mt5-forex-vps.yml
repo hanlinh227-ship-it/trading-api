@@ -26,7 +26,7 @@ jobs:
       MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
       MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
       MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
-      MT5_ALLOW_LIVE: ${{ secrets.MT5_ALLOW_LIVE }}
+      MT5_ALLOW_LIVE: ${{ vars.MT5_ALLOW_LIVE || secrets.MT5_ALLOW_LIVE || 'false' }}
 
     steps:
       - name: Assert authorized VPS-only runner
