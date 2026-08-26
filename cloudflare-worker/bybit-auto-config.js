@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.7.4: canonical learning recovery + simplified operator dashboard.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.4";
+// BYBIT-AUTO-1.7.5: bounded trade postmortem intelligence + canonical learning recovery.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.5";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -56,6 +56,9 @@ export const BYBIT_AUTO_CONFIG={
     perSymbolEdge:true,
     netExpectancy:true,
     strictNetAuthority:true,
+    postMortemEnabled:true,
+    postMortemMinSamples:20,
+    postMortemMaxThresholdPenalty:2,
     exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
     autoPromote:false
   },
@@ -106,6 +109,9 @@ export function bybitAutoConfig(env={}){
   c.adaptive.minExitProfileSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_MIN_EXIT_PROFILE_SAMPLES",c.adaptive.minExitProfileSamples))));
   c.adaptive.correlationSoft=Math.max(.78,Math.min(.92,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
   c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.04,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
+  c.adaptive.postMortemEnabled=true;
+  c.adaptive.postMortemMinSamples=20;
+  c.adaptive.postMortemMaxThresholdPenalty=2;
   c.adaptive.autoPromote=false;
   c.execution.cooldownSec=Math.max(120,Math.min(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
   return c;
