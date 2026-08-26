@@ -2,7 +2,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
 const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 
-export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_4_POSTMORTEM_NET_PNL";
+export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_5_BALANCED_OPPORTUNITY_POSTMORTEM";
 export const REGIMES=["TREND_UP","TREND_DOWN","RANGE","BREAKOUT_EXPANSION","HIGH_VOL_CHAOS","LOW_VOL_COMPRESSION"];
 
 function returns(closes=[]){const out=[];for(let i=1;i<closes.length;i++){const a=Number(closes[i-1]),b=Number(closes[i]);if(a>0&&b>0)out.push((b-a)/a);}return out;}
@@ -57,19 +57,29 @@ function postMortemAdjustment(edge=null,confidence=0,spreadBps=0){
  const modifier=clamp(Math.round(raw*confidence),0,2);
  return {modifier,reasons,sampleSize:n,authority:"BOUNDED_POSTMORTEM_V1",rawModifier:raw,confidence};
 }
+function opportunityAdjustment({edge=null,confidence=0,regime="RANGE",strategy="",spreadBps=0}={}){
+ const n=Math.max(0,Number(edge?.trades||0)),shrunk=shrunkEdge(edge,20),reasons=[];
+ if(n<30||confidence<.25||Number(spreadBps||0)>8)return {modifier:0,reasons,sampleSize:n,authority:"NO_OPPORTUNITY_BONUS"};
+ const alignedTrend=(regime==="TREND_UP"||regime==="TREND_DOWN")&&String(strategy).includes("TREND_PULLBACK");
+ const alignedBreakout=regime==="BREAKOUT_EXPANSION"&&String(strategy).includes("BREAKOUT");
+ const proven=shrunk.shrunkAvgNetR>=.18&&shrunk.shrunkWinRate>=.48;
+ if(proven&&(alignedTrend||alignedBreakout)){reasons.push(alignedTrend?"PROVEN_TREND_PULLBACK_EDGE":"PROVEN_BREAKOUT_EXPANSION_EDGE");return {modifier:-1,reasons,sampleSize:n,authority:"BOUNDED_OPPORTUNITY_V1",shrinkage:shrunk};}
+ return {modifier:0,reasons,sampleSize:n,authority:"NO_PROVEN_EDGE",shrinkage:shrunk};
+}
 
 export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,spreadBps=0,priorTrades=20}){
  let penalty=0;
- if(regime==="HIGH_VOL_CHAOS")penalty+=6;
+ if(regime==="HIGH_VOL_CHAOS")penalty+=5;
  else if(regime==="RANGE"&&String(strategy).includes("BREAKOUT"))penalty+=4;
  else if(regime==="LOW_VOL_COMPRESSION"&&String(strategy).includes("TREND_PULLBACK"))penalty+=2;
  else if(regime==="BREAKOUT_EXPANSION"&&String(strategy).includes("BREAKOUT"))penalty-=2;
+ else if((regime==="TREND_UP"||regime==="TREND_DOWN")&&String(strategy).includes("TREND_PULLBACK"))penalty-=1;
  const spread=Number(spreadBps||0);if(spread>10)penalty+=3;else if(spread>8)penalty+=1;
  const conf=learningConfidence(edge?.trades||0),shrunk=shrunkEdge(edge,priorTrades),avgNetR=shrunk.shrunkAvgNetR,wr=shrunk.shrunkWinRate;
  let edgeModifier=0;
  if(conf>0){edgeModifier+=clamp(-avgNetR*4,-4,4)*conf;edgeModifier+=clamp((.5-wr)*6,-2,2)*conf;}
- const postMortem=postMortemAdjustment(edge,conf,spreadBps),threshold=clamp(Math.round((Number(base)||68)+penalty+edgeModifier+postMortem.modifier),66,84);
- return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,postMortemModifier:postMortem.modifier,postMortem,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"STRICT_NET_PNL_V2_POSTMORTEM_BOUNDED",shrinkage:shrunk};
+ const postMortem=postMortemAdjustment(edge,conf,spreadBps),opportunity=opportunityAdjustment({edge,confidence:conf,regime,strategy,spreadBps}),threshold=clamp(Math.round((Number(base)||68)+penalty+edgeModifier+postMortem.modifier+opportunity.modifier),66,84);
+ return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,postMortemModifier:postMortem.modifier,opportunityModifier:opportunity.modifier,postMortem,opportunity,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"STRICT_NET_PNL_V2_POSTMORTEM_OPPORTUNITY_BOUNDED",shrinkage:shrunk};
 }
 
 export function edgeKey(symbol,strategy,regime){return `${String(symbol||"").toUpperCase()}|${String(strategy||"")}|${String(regime||"")}`;}
