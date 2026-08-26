@@ -16,15 +16,40 @@ FUSION_VERSION='V11-FUSION-V77-V78-5AI-R3'
 _src=inspect.getsource(_m._candidate_days).replace("if i<75 or not is_market_day", "if i<14 or not is_market_day")
 exec(_src,_m.__dict__)
 
-# R14 bounded refinement: add explicitly inverted variants of directional families.
-# This expands only the DEV/VALIDATION hypothesis space. It never reads FINAL and
-# does not change RR, execution-count, exact-data, or holdout integrity gates.
+# R17 bounded refinement: keep the R14 inverse families and add a small set of
+# deterministic ensemble-side hypotheses built only from already-available H1/H4/D1
+# trend and momentum features. These are searched independently per symbol on
+# DEV/VALIDATION only. No FINAL values, labels, future bars, contract relaxation,
+# symbol pooling, or fabricated executions are introduced.
 _base_side=_m._side
 _inverse_families=('INV_FAST','INV_MED','INV_SLOW','INV_H1','INV_H4','INV_D1','INV_MOM','INV_SESSION','INV_HYBRID')
-_m.FAMILIES=tuple(dict.fromkeys(list(_m.FAMILIES)+list(_inverse_families)))
+_ensemble_families=('VOTE_TREND','VOTE_MOM','VOTE_ALL','REGIME_SWITCH')
+_m.FAMILIES=tuple(dict.fromkeys(list(_m.FAMILIES)+list(_inverse_families)+list(_ensemble_families)))
+def _sgn(x):
+    return 1 if float(x or 0)>=0 else -1
 def _fusion_side(f,m):
     f=str(f or '')
-    return -_base_side(f[4:],m) if f.startswith('INV_') else _base_side(f,m)
+    if f.startswith('INV_'):
+        return -_base_side(f[4:],m)
+    if f=='VOTE_TREND':
+        vote=_sgn(m.get('h1'))+_sgn(m.get('h4'))+_sgn(m.get('d1'))
+        return 1 if vote>=1 else -1
+    if f=='VOTE_MOM':
+        vote=_sgn(m.get('g3'))+_sgn(m.get('g6'))+_sgn(m.get('g12'))+_sgn(m.get('g24'))
+        if vote==0:return _base_side('MOM',m)
+        return 1 if vote>0 else -1
+    if f=='VOTE_ALL':
+        vote=2*_sgn(m.get('h4'))+2*_sgn(m.get('d1'))+_sgn(m.get('h1'))+_sgn(m.get('g6'))+_sgn(m.get('g24'))+_sgn(m.get('mom'))
+        return 1 if vote>=0 else -1
+    if f=='REGIME_SWITCH':
+        h1=_sgn(m.get('h1'));h4=_sgn(m.get('h4'));d1=_sgn(m.get('d1'))
+        # Follow aligned higher-timeframe trend; when H4/D1 disagree, use a
+        # bounded mean-reversion hypothesis from distance to H1 EMA20.
+        if h4==d1:return h4
+        dev=float(m.get('dev') or 0)
+        if abs(dev)>=0.35:return -_sgn(dev)
+        return h1
+    return _base_side(f,m)
 _m._side=_fusion_side
 
 # Direct research defaults to the widest predeclared bounded DEV/VALIDATION search (round 4).
@@ -83,11 +108,9 @@ _search_src=_search_src.replace(
     "for ex,hold in (((0,4),(0,6),(0,8),(0,10),(0,12)) if style['mode']=='MKT' else ((1,10),(2,10),(2,8),(4,8),(4,6))):test({**style,'expiry':ex,'hold':hold})"
 )
 
-# R16 bounded refinement: R15 proved that family/hour must be chosen jointly with
-# entry geometry, but its coarse joint pass omitted PB and BRK. Include all five
-# predeclared entry modes in that joint DEV/VALIDATION sweep, then retain the
-# existing offset/risk/timing refinements. FINAL remains sealed; RR, exact-data,
-# execution-count, WR and expectancy gates are unchanged.
+# R16/R17 bounded refinement: choose family/hour jointly with all five predeclared
+# entry geometries so ensemble families are evaluated on equal footing. FINAL remains
+# sealed; RR, exact-data, execution-count, WR and expectancy gates are unchanged.
 _search_src=_search_src.replace(
     "for f in families:\n        for hr in hours:test({**style,'family':f,'hour':hr})",
     "for f in families:\n        for hr in hours:\n            for coarse_mode in ('MKT','PB','BRK','DUAL_FADE','DUAL_BRK'):\n                test({**style,'family':f,'hour':hr,'mode':coarse_mode,'expiry':0 if coarse_mode=='MKT' else 2,'hold':8 if coarse_mode=='MKT' else 10})"
@@ -95,7 +118,7 @@ _search_src=_search_src.replace(
 
 exec(_search_src,_m.__dict__)
 # Cache identity must change whenever bounded candidate-generation/search behavior changes.
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16'
-_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16'
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16-ensemble-side-r17'
+_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16-ENSEMBLE-SIDE-R17'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
