@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import glob
+import hashlib
 import json
 import os
 import pathlib
@@ -17,6 +18,7 @@ HUB = (os.environ.get('MT5_HUB_URL') or 'https://trading-v77-scanner.hanlinh227.
 TOKEN = os.environ.get('MT5_BRIDGE_TOKEN', '')
 PULSE = BRIDGE_DIR / 'pulse.json'
 DECISION = BRIDGE_DIR / 'decision.json'
+PULSE_REFRESH_SECONDS = 5.0
 
 
 def now_iso():
@@ -36,6 +38,7 @@ def write_health(**extra):
         'updatedAt': now_iso(),
         'hub': HUB,
         'bridgeDir': str(BRIDGE_DIR),
+        'pulsePath': str(PULSE),
         'tokenConfigured': bool(TOKEN),
     }
     base.update(extra)
@@ -50,7 +53,7 @@ def post(path: str, body: bytes):
         headers={
             'Authorization': 'Bearer ' + TOKEN,
             'Content-Type': 'application/json',
-            'User-Agent': 'trading-mt5-sidecar/1.0',
+            'User-Agent': 'trading-mt5-sidecar/1.1',
         },
     )
     with urllib.request.urlopen(req, timeout=20) as resp:
@@ -58,44 +61,85 @@ def post(path: str, body: bytes):
         return resp.status, data
 
 
-def valid_json_bytes(path: pathlib.Path):
+def read_json_bytes(path: pathlib.Path):
     raw = path.read_bytes()
-    json.loads(raw.decode('utf-8'))
-    return raw
+    if not raw:
+        raise ValueError(f'{path.name} is empty')
+    parsed = json.loads(raw.decode('utf-8'))
+    return raw, parsed
+
+
+def pulse_signature(path: pathlib.Path, raw: bytes):
+    st = path.stat()
+    return (st.st_mtime_ns, st.st_size, hashlib.sha256(raw).hexdigest())
 
 
 def main():
     if not TOKEN:
-        write_health(ok=False, error='MT5_BRIDGE_TOKEN_MISSING')
+        write_health(ok=False, state='CONFIG_ERROR', error='MT5_BRIDGE_TOKEN_MISSING')
         return 12
+
     BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
     last_pulse_sig = None
+    last_forward_monotonic = 0.0
     last_success = None
     last_error = None
-    write_health(ok=True, state='STARTED')
+    write_health(ok=True, state='WAITING_FOR_PULSE', pulseExists=PULSE.exists())
 
     while True:
         did_work = False
         try:
             if PULSE.exists():
-                st = PULSE.stat()
-                sig = (st.st_mtime_ns, st.st_size)
-                if sig != last_pulse_sig:
-                    body = valid_json_bytes(PULSE)
+                body, pulse_obj = read_json_bytes(PULSE)
+                sig = pulse_signature(PULSE, body)
+                now_mono = time.monotonic()
+                refresh_due = (now_mono - last_forward_monotonic) >= PULSE_REFRESH_SECONDS
+
+                # Forward immediately on startup/change and periodically thereafter.
+                # Periodic forwarding prevents a valid terminal from becoming stale at
+                # the Hub if MT5's file timestamp granularity or timer cadence stalls.
+                if sig != last_pulse_sig or refresh_due:
+                    write_health(
+                        ok=True,
+                        state='PULSE_SEEN',
+                        pulseExists=True,
+                        terminalId=str(pulse_obj.get('terminalId') or ''),
+                        lastSuccessAt=last_success,
+                    )
                     code, response = post('/forex/mt5/pulse', body)
-                    if 200 <= code < 300:
-                        json.loads(response.decode('utf-8'))
-                        atomic_write(DECISION, response.decode('utf-8'))
-                        last_pulse_sig = sig
-                        last_success = now_iso()
-                        last_error = None
-                        did_work = True
-                        write_health(ok=True, state='PULSE_FORWARDED', lastPulseAt=last_success, lastHttpStatus=code)
+                    if not (200 <= code < 300):
+                        raise RuntimeError(f'PULSE_HTTP_{code}')
+
+                    decision_text = response.decode('utf-8')
+                    json.loads(decision_text)
+                    atomic_write(DECISION, decision_text)
+                    last_pulse_sig = sig
+                    last_forward_monotonic = now_mono
+                    last_success = now_iso()
+                    last_error = None
+                    did_work = True
+                    write_health(
+                        ok=True,
+                        state='PULSE_FORWARDED',
+                        pulseExists=True,
+                        terminalId=str(pulse_obj.get('terminalId') or ''),
+                        lastPulseAt=last_success,
+                        lastSuccessAt=last_success,
+                        lastHttpStatus=code,
+                    )
+            else:
+                write_health(
+                    ok=True,
+                    state='WAITING_FOR_PULSE',
+                    pulseExists=False,
+                    lastSuccessAt=last_success,
+                    error=last_error,
+                )
 
             for ack_name in sorted(glob.glob(str(BRIDGE_DIR / 'ack_*.json'))):
                 ack = pathlib.Path(ack_name)
                 try:
-                    body = valid_json_bytes(ack)
+                    body, _ = read_json_bytes(ack)
                     code, _ = post('/forex/mt5/ack', body)
                     if 200 <= code < 300:
                         ack.unlink(missing_ok=True)
@@ -107,14 +151,22 @@ def main():
                     last_error = f'ACK:{type(exc).__name__}:{exc}'[:500]
                     write_health(ok=False, state='ACK_ERROR', error=last_error, lastSuccessAt=last_success)
                     break
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+
+        except urllib.error.HTTPError as exc:
+            try:
+                detail = exc.read().decode('utf-8', 'replace')[:300]
+            except Exception:
+                detail = ''
+            last_error = f'HTTPError:{exc.code}:{detail}'[:500]
+            write_health(ok=False, state='RETRYING', pulseExists=PULSE.exists(), error=last_error, lastSuccessAt=last_success)
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError, OSError, ValueError) as exc:
             last_error = f'{type(exc).__name__}:{exc}'[:500]
-            write_health(ok=False, state='RETRYING', error=last_error, lastSuccessAt=last_success)
+            write_health(ok=False, state='RETRYING', pulseExists=PULSE.exists(), error=last_error, lastSuccessAt=last_success)
         except Exception as exc:
             last_error = f'UNEXPECTED:{type(exc).__name__}:{exc}'[:500]
-            write_health(ok=False, state='RETRYING', error=last_error, lastSuccessAt=last_success)
+            write_health(ok=False, state='RETRYING', pulseExists=PULSE.exists(), error=last_error, lastSuccessAt=last_success)
 
-        time.sleep(0.5 if did_work else 1.0)
+        time.sleep(0.25 if did_work else 0.5)
 
 
 if __name__ == '__main__':
