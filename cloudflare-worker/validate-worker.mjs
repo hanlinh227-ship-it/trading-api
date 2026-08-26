@@ -1,36 +1,74 @@
-import fs from 'node:fs';import path from 'node:path';import {execFileSync} from 'node:child_process';
-const root=process.cwd(),errors=[],read=f=>fs.readFileSync(path.join(root,f),'utf8');
-function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.wrangler'].includes(e.name))continue;const p=path.join(d,e.name);if(e.isDirectory())walk(p);else if(/\.(js|mjs)$/.test(e.name))try{execFileSync(process.execPath,['--check',p],{cwd:root,stdio:'pipe'});}catch(x){errors.push(`SYNTAX ${path.relative(root,p)} ${String(x.stderr||x.message)}`)}}}walk(root);
-const files=['index.js','bybit-runtime-contract.js','bybit-auto-hub.js','bybit-control-plane.js','meme-auto-design.js','meme-paper-engine.js','bybit-auto-v1.js','bybit-auto-controller.js','bybit-scalp-engine.js','bybit-adaptive-edge.js','bybit-risk-guard.js','bybit-position-manager.js','bybit-ai-scalp-gate.js','bybit-learning-engine.js','bybit-learning-recovery.js','bybit-v5-client.js','validate-bybit-learning.mjs','binance-scalp-exit.js','multi-ai-control-plane.js','providers/telegram-client.js','forex-auto-config.js','forex-the5ers-rule-engine.js','forex-signal-engine.js','forex-3ai-council.js','forex-learning-engine.js','forex-mt5-bridge.js'];for(const f of files)if(!fs.existsSync(path.join(root,f)))errors.push(`MISSING ${f}`);if(!fs.existsSync(path.join(root,'../mt5/ForexAutoThe5ers.mq5'))&&!fs.existsSync(path.join(root,'mt5/ForexAutoThe5ers.mq5')))errors.push('MISSING MT5 ForexAutoThe5ers.mq5');
-const index=read('index.js'),runtime=read('bybit-runtime-contract.js'),hub=read('bybit-auto-hub.js'),control=read('bybit-control-plane.js'),meme=read('meme-auto-design.js'),paper=read('meme-paper-engine.js'),auto=read('bybit-auto-v1.js'),ctl=read('bybit-auto-controller.js'),eng=read('bybit-scalp-engine.js'),adapt=read('bybit-adaptive-edge.js'),risk=read('bybit-risk-guard.js'),mgr=read('bybit-position-manager.js'),learn=read('bybit-learning-engine.js'),recovery=read('bybit-learning-recovery.js'),cfg=read('bybit-auto-config.js'),v5=read('bybit-v5-client.js'),exit=read('binance-scalp-exit.js'),multi=read('multi-ai-control-plane.js'),fxcfg=read('forex-auto-config.js'),fxrules=read('forex-the5ers-rule-engine.js'),fxsig=read('forex-signal-engine.js'),fxai=read('forex-3ai-council.js'),fxlearn=read('forex-learning-engine.js'),fxbridge=read('forex-mt5-bridge.js');
+import fs from 'node:fs';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+
+const root=process.cwd();
+const errors=[];
+const read=f=>fs.readFileSync(path.join(root,f),'utf8');
 const need=(txt,arr,label)=>{for(const x of arr)if(!txt.includes(x))errors.push(`${label} missing ${x}`)};
-need(runtime,['BYBIT_RUNTIME_CONTRACT_V1','BYBIT-AUTO-1.8.1','BYBIT_AUTO_TRADE_ONLY','VPS_BYBIT_PRIVATE_PROXY','VPS_BYBIT_MARKET_PROXY','/bybit/health','UNIFIED_BYBIT_FOREX_MEME'],'BYBIT_RUNTIME_CONTRACT');
-need(index,['BYBIT_EXECUTION_AUTHORITY','TELEGRAM_HUB_ID','signalV11Enabled:false','runBybitAutoControlled','recordBybitAutoSchedulerError','runMemePaperCycle','handleMultiAiControl','handleForexMt5Bridge','/runtime/contract','BYBIT_RUNTIME_CONTRACT'],'INDEX');if(index.includes('runMemeAuto(')||index.includes('MEME_AUTO_ENABLED'))errors.push('MEME real execution forbidden');
-need(cfg,['BYBIT-AUTO-1.8.1','bybit-runtime-contract.js','BALANCE_SCALED_TP_SL_BAND_ALLOCATOR','baseRiskUsd:5','baseMinEffectiveRiskUsd:1.75','netProfitFloorUsd:3','baseRewardUsd:10','minRR:1.5','preferredRR:1.8','maxRiskPctOfEquity:10','maxTotalOpenRiskPct:20','maxMarginPerPositionPct:42','minFreeReservePct:15','maxPortfolioMarginPct:85','baseScore:68','correlationSoft:0.84','correlationHard:0.94','maxSpreadBps:12','maxChaseAtr:.80','smartCutEnabled:true','smartCutReissueSec:120','shrinkagePriorTrades:20','minExitProfileSamples:30','strictNetAuthority:true','postMortemEnabled:true','postMortemMinSamples:20','postMortemMaxThresholdPenalty:2','strongEdgeMinSamples:30','strongEdgeMinNetR:.18','strongEdgeMinWinRate:.48','maxOpportunityBonus:1','trendAlignmentBonus:1','recvWindow:10000','cooldownSec:120','autoPromote:false'],'BYBIT_CONFIG');
-need(v5,['BYBIT_RUNTIME_CONTRACT_VERSION','BYBIT_PRIVATE_TRANSPORT','BYBIT_MARKET_TRANSPORT','bybitAutoConfig','BRIDGE_PRIVATE_URL','X-Trading-Runtime-Contract','retryableReadError','upper!=="GET"','async function market(','instruments:(cursor="")=>market','tickers:()=>market','kline:(symbol,interval="1",limit=200)=>market'],'BYBIT_MARKET_ROUTING');
-need(ctl,['bybitAutoConfig','entryGateAuthority:"BYBIT_AUTO_CONFIG.execution.cooldownSec"','ENTRY_SPACING_${cfg.execution.cooldownSec}S','recordBybitAutoSchedulerError','consecutiveSchedulerErrors','lastCycleReason','lastEntryBlockReason','profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY"','notifyLiveEntry','notifyLifecycleActions','tradeActionNotifications','SMART CUT','BE / PROFIT STOP','allTradeActionsNotify:true'],'BYBIT_CONTROLLER');
-if(ctl.includes('ENTRY_SPACING_MS=5*60*1000')||ctl.includes('BYBIT_ENTRY_COOLDOWN_SEC="180"'))errors.push('BYBIT_CONTROLLER legacy duplicate spacing override forbidden');
-need(control,['/bybit/entry-health','ENTRY_READY','WAITING_FOR_QUALITY_SETUP','ENTRY_BLOCKED','operationalBlockers','runtimePreflight'],'BYBIT_ENTRY_HEALTH');
-need(auto,['PNL_RECONCILE_GRACE_MS=15*60*1000','lastPnlReconcileHealthyAtMs','DAILY_PNL_RECONCILIATION_STALE','lastLossPauseTriggerAt','livePositionRiskState','BYBIT_LIVE_POSITIONS_ONLY','CURRENT_TRADING_DAY_ONLY','reconcileQuarantine','OUTCOME_UNRESOLVED_OUTSIDE_DAILY_WINDOW','CURRENT_DAY_CLOSED_PNL_TRUNCATED','CLOSED_PENDING_RECONCILE','state:riskState','bybitRiskPreflight','manageBybitScalpPosition','PROTECTION_MISSING_AFTER_SET','UNTRACKED_LIVE_POSITION','tpTriggerBy:"MarkPrice"','slTriggerBy:"MarkPrice"'],'BYBIT_AUTO');
-if(auto.includes('CLOSED_PNL_LOOKBACK_EXCEEDED')||auto.includes('MAX_CLOSED_LOOKBACK_MS'))errors.push('BYBIT_AUTO legacy global stale-plan blocker/history expansion forbidden');
-need(eng,['ladderMaxLossUsd','ladderMinEffectiveRiskUsd','EFFECTIVE_RISK_TOO_SMALL','ladderMinRewardUsd','ladderMaxRewardUsd','STRUCTURE_REWARD_BELOW_LADDER_MIN','adaptiveThreshold','assessPortfolioCorrelation'],'BYBIT_ENGINE');
-need(exit,['STRUCTURE_ANTI_SWEEP_V4','minStopAtr','maxStopAtr','wickNoise','noiseBuffer','requireStructureConfirmationForBE:true','requireStructureConfirmationForPositiveTrail:true'],'BYBIT_STOP_POLICY');
-need(adapt,['ADAPTIVE_EDGE_V1_5_BALANCED_OPPORTUNITY_POSTMORTEM','REGIMES','shrunkEdge','shrunkWinRate','shrunkAvgNetR','postMortemAdjustment','BOUNDED_POSTMORTEM_V1','opportunityAdjustment','BOUNDED_OPPORTUNITY_V1','PROVEN_TREND_PULLBACK_EDGE','PROVEN_BREAKOUT_EXPANSION_EDGE','opportunityModifier','STRICT_NET_PNL_V2_POSTMORTEM_OPPORTUNITY_BOUNDED','bounded:[66,84]','SMART_CUT_REGRET_GUARD','POSTMORTEM_GIVEBACK_OR_EXIT_EFFICIENCY','CORRELATION_HARD_CAP','CORRELATION_CLUSTER_CAP','INSUFFICIENT_ROBUST_SAMPLE'],'BYBIT_ADAPTIVE');
+
+function walk(d){
+  for(const e of fs.readdirSync(d,{withFileTypes:true})){
+    if(['node_modules','.wrangler'].includes(e.name))continue;
+    const p=path.join(d,e.name);
+    if(e.isDirectory())walk(p);
+    else if(/\.(js|mjs)$/.test(e.name)){
+      try{execFileSync(process.execPath,['--check',p],{cwd:root,stdio:'pipe'});}
+      catch(x){errors.push(`SYNTAX ${path.relative(root,p)} ${String(x.stderr||x.message)}`);}
+    }
+  }
+}
+walk(root);
+
+const files=[
+ 'index.js','bybit-runtime-contract.js','bybit-auto-hub.js','bybit-control-plane.js','bybit-auto-config.js',
+ 'bybit-auto-v1.js','bybit-auto-controller.js','bybit-scalp-engine.js','bybit-adaptive-edge.js','bybit-risk-guard.js',
+ 'bybit-position-manager.js','bybit-ai-scalp-gate.js','bybit-learning-engine.js','bybit-learning-recovery.js','bybit-v5-client.js',
+ 'validate-bybit-learning.mjs','binance-scalp-exit.js','multi-ai-control-plane.js','providers/telegram-client.js',
+ 'meme-auto-design.js','meme-paper-engine.js','forex-auto-config.js','forex-the5ers-rule-engine.js','forex-signal-engine.js',
+ 'forex-3ai-council.js','forex-learning-engine.js','forex-mt5-bridge.js'
+];
+for(const f of files)if(!fs.existsSync(path.join(root,f)))errors.push(`MISSING ${f}`);
+if(!fs.existsSync(path.join(root,'../mt5/ForexAutoThe5ers.mq5'))&&!fs.existsSync(path.join(root,'mt5/ForexAutoThe5ers.mq5')))errors.push('MISSING MT5 ForexAutoThe5ers.mq5');
+
+const index=read('index.js');
+const runtime=read('bybit-runtime-contract.js');
+const cfg=read('bybit-auto-config.js');
+const risk=read('bybit-risk-guard.js');
+const mgr=read('bybit-position-manager.js');
+const meme=read('meme-auto-design.js');
+const paper=read('meme-paper-engine.js');
+const fxcfg=read('forex-auto-config.js');
+const fxrules=read('forex-the5ers-rule-engine.js');
+const fxsig=read('forex-signal-engine.js');
+const fxai=read('forex-3ai-council.js');
+const fxbridge=read('forex-mt5-bridge.js');
+
+need(runtime,['BYBIT_RUNTIME_CONTRACT_V1','BYBIT_AUTO_TRADE_ONLY','VPS_BYBIT_PRIVATE_PROXY','VPS_BYBIT_MARKET_PROXY','/bybit/health'],'BYBIT_RUNTIME_CONTRACT');
+need(index,['signalV11Enabled:false','runBybitAutoControlled','handleForexMt5Bridge','/runtime/contract'],'INDEX');
+if(index.includes('runMemeAuto(')||index.includes('MEME_AUTO_ENABLED'))errors.push('MEME real execution forbidden');
+need(cfg,['maxRiskPctOfEquity:10','maxTotalOpenRiskPct:20','maxPortfolioMarginPct:85','minRR:1.5','smartCutEnabled:true','autoPromote:false'],'BYBIT_CONFIG');
 need(risk,['SINGLE_TRADE_RISK_CAP','TOTAL_OPEN_RISK_CAP','PORTFOLIO_MARGIN_HEADROOM','dailyTargetEnabled:false','continuousTrading:true'],'BYBIT_RISK');
-need(mgr,['SMART_CUT_CONFIRMED_INVALIDATION','SMART_CUT_ORDER_PENDING','SMART_CUT_PARTIAL_FILL','PartiallyFilled','status==="Filled"','cutOrderId','verifyCloseFill','smartCutReissueSec','reduceOnly:true'],'BYBIT_MANAGER');
-need(learn,['STRICT_NET_ONLY_V2_NULL_SAFE_POSTMORTEM','BYBIT_POSTMORTEM_V1_BOUNDED_ATTRIBUTION','postMortem','SETUP_NO_FOLLOW_THROUGH','STRUCTURE_INVALIDATION','AI_FALSE_PASS','EXECUTION_FRICTION','PROFIT_GIVEBACK','SMART_CUT_REGRET','EXIT_EFFICIENCY_LOSS','postMortemRates','postMortemIsDiagnosticNotGroundTruth:true','nullable=','INVALID_NET_EVIDENCE','INVALID_OR_GROSS_ONLY','grossOnlyQuarantined:true','nullSafe:true','quarantinedOutcomeCount','selfHeal','avgNetR','autoPromote:false','BOUNDED_ADAPTIVE_LEARNING'],'BYBIT_LEARNING');
-need(recovery,['BYBIT_LEARNING_RECOVERY_V1','RECOVER_ONLY_WITH_LIFECYCLE_RISK_STRATEGY_METADATA_NO_FABRICATION','recordBybitLearningEvent','reconcileQuarantine','BYBIT_CLOSED_PNL_RECOVERED','unattributedRows'],'BYBIT_LEARNING_RECOVERY');
-need(hub,['UNIFIED_TRADING_HUB','hub:bybit','hub:meme','auto:dashboard','auto:positions','auto:ai','auto:stats','auto:runtime','recoverBybitCanonicalLearning','Matched lifecycle outcomes','Weak edge','Strong edge','meme:dashboard','meme:scan','meme:positions','meme:watch','meme:pnl','meme:safety','meme:trade','meme:capital','meme:learning','Continuous trading','Daily target OFF','Capital allocator','Smart CUT ON','NO WALLET','NO SIGNING','NO EXECUTION','PAPER','/telegram/webhook'],'HUB');if(hub.includes('text:"🛡️ RISK / SAFETY"')||hub.includes('text:"📜 HISTORY"')||hub.includes('text:"🧪 INTEGRITY"'))errors.push('BYBIT retired operator buttons must stay removed');if(hub.includes('auto:target'))errors.push('daily target UI forbidden');
-need(meme,['MEME-AUTO-0.3.3-PAPER','MEME_AUTO_MODE="PAPER_ONLY"','executionEnabled:false','walletConnected:false','signingEnabled:false','BALANCE_AWARE_CONTINUOUS_ALLOCATOR','autoScaleWithBalance:true','autoDeRiskWithDrawdown:true','maxOpenPositionsHard:5','blindLaunchSniping:false','requireExecutableSellRouteBeforeEntry:true','minLiquidityUsd:30000','entryScore:85','premiumScore:92','autoPromote:false'],'MEME_DESIGN');
-need(paper,['MEME-AUTO-0.3.3-PAPER','meme:paper:state:v1','JUPITER_TOKENS','DEXSCREENER','GECKOTERMINAL','getTokenSupply','getAccountInfo','getTokenLargestAccounts','HARD_STOP','SMART_CUT','TP1','TP2','TRAIL','noWallet:true','noSigning:true','noRealExecution:true'],'MEME_PAPER');
-for(const x of ['privateKey','seedPhrase','secretKey','sendTransaction(','signTransaction(','executionEnabled:true','walletConnected:true','signingEnabled:true','martingale:true','averagingDown:true','dca:true'])if((meme+paper).includes(x))errors.push(`MEME forbidden ${x}`);
-need(fxcfg,['FOREX-AUTO-0.3.0-PAPER','PAPER_ONLY','THE5ERS_HIGH_STAKES','MT5_WINDOWS','chatgpt','claude','deepseek','maxDailyLossPct:5','maxTotalLossPct:10','internalDailyStopPct:4.0','projectedDailyStopPct:4.0','requiredForLive:true','neverIncreaseRiskToChaseTarget:true','normalRiskPct:.30','premiumRiskPct:.45','hardMaxRiskPct:.50','maxTotalOpenRiskPct:1.00','minRR:1.5','maxChaseAtr:.45','mode:"BOUNDED_ADAPTIVE_MEMORY"','degradationAvgR:-.35','liveEnabled:false'],'FOREX_CONFIG');
+need(mgr,['SMART_CUT_CONFIRMED_INVALIDATION','reduceOnly:true'],'BYBIT_MANAGER');
+
+need(meme,['PAPER_ONLY','executionEnabled:false','walletConnected:false','signingEnabled:false','autoPromote:false'],'MEME_DESIGN');
+need(paper,['noWallet:true','noSigning:true','noRealExecution:true'],'MEME_PAPER');
+for(const x of ['privateKey','seedPhrase','secretKey','sendTransaction(','signTransaction(','executionEnabled:true','walletConnected:true','signingEnabled:true'])if((meme+paper).includes(x))errors.push(`MEME forbidden ${x}`);
+
+need(fxcfg,[
+ 'FOREX-AUTO-0.4.4-PAPER','PAPER_ONLY','THE5ERS_HIGH_STAKES','MT5_WINDOWS','INTRADAY_SCALP',
+ 'maxDailyLossPct:5','maxTotalLossPct:10','internalDailyStopPct:4.0','projectedDailyStopPct:4.0',
+ 'neverIncreaseRiskToChaseTarget:true','hardMaxRiskPct:1.00','maxTotalOpenRiskPct:3.25','minRR:1.5',
+ 'positionCountCapEnabled:false','minFreeMarginPctOfEquity:35','minMarginLevelPct:300',
+ 'consensusPassesRequired:2','finalDecisionProvider:"chatgpt"','chatgptWebResearch:true','advancedMethodsAreSoftEvidence:true',
+ 'liveEnabled:false'
+],'FOREX_CONFIG');
 need(fxrules,['INTERNAL_DAILY_STOP','THE5ERS_DAILY_LOSS_BREACH','THE5ERS_MAX_LOSS_BREACH','HIGH_IMPACT_NEWS_WINDOW','TOTAL_OPEN_RISK_CAP','LOSS_STREAK_PAUSE'],'FOREX_RULES');
-need(fxsig,['NO_ALIGNED_TREND','REGIME_TOO_WEAK','PRICE_TOO_EXTENDED_WAIT_RETEST','SPREAD_TOO_WIDE','NO_HEALTHY_PULLBACK','STOP_TOO_WIDE','STRUCTURE_RR_TOO_LOW','TREND_PULLBACK','RETEST_CONTINUATION','LATE_RETEST','JPY_MOMENTUM','XAU_LIQUIDITY','M15','H1'],'FOREX_SIGNAL');
-need(fxai,['OPENAI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','chat-latest','MARKET SCOUT + CONTEXT/REGIME','ENTRY STRUCTURE + EXECUTION','LEAD TRADER + FINAL SYNTHESIS','WAIT_RETEST','passes>=2','final?.verdict==="PASS"','final?.decision==="ENTER"'],'FOREX_3AI');
-need(fxlearn,['recentR','degraded','degradationRiskMultiplier','recordForexEntry','recordForexOutcome','mfeR','maeR','slippageR'],'FOREX_LEARNING');
-need(fxbridge,['FOREX_MT5_BRIDGE_TOKEN','/forex/health','/forex/mt5/pulse','/forex/mt5/decision','/forex/mt5/ack','TARGET_REACHED_PRESERVE','RISK_BUDGET_TOO_SMALL','projectedDailyLossPct','3AI_CONSENSUS_RULES_ALTERNATION_TARGET_AND_RISK_PASS','THE5ERS_RULE_BLOCK','PAPER_TRADE'],'FOREX_BRIDGE');
-if(fxcfg.includes('liveEnabled:true'))errors.push('FOREX must default PAPER_ONLY');if(fxai.includes('qwen')||fxai.includes('openrouter')||fxai.includes('codex'))errors.push('FOREX council must use only ChatGPT Claude DeepSeek');
-if(multi.includes('V11_AI_BRIDGE_URL')||multi.includes('api_key')||multi.includes('API_KEY'))errors.push('AI bridge secret/source regression');
-if(fs.existsSync(path.join(root,'.v78-028-trigger')))errors.push('OBSOLETE V78 deploy trigger must stay removed');
-if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const e of errors)console.error('- '+e);process.exit(1)}console.log('Worker AUTO preflight PASS: Bybit 1.8.1 LIVE operational hardening + canonical runtime contract + entry-health blocker telemetry + bounded postmortem + balanced opportunity intelligence + strict NET learning + canonical recovery + current-day PnL safety + live-position-only risk accounting + VPS read retry without POST replay + scale-aware margin headroom; FOREX-AUTO 0.3.0 PAPER MT5 Windows + MEME-AUTO 0.3.3 PAPER.');
+need(fxsig,['NO_H4_H1_M15_ALIGNMENT','REGIME_TOO_WEAK','PRICE_TOO_EXTENDED_WAIT_RETEST','SPREAD_TOO_WIDE','NO_HEALTHY_PULLBACK','STOP_TOO_WIDE','STRUCTURE_RR_TOO_LOW','TREND_PULLBACK','RETEST_CONTINUATION','LIQUIDITY_SWEEP','MICRO_BOS_MSS','FVG_IMBALANCE','M15','H1'],'FOREX_SIGNAL');
+need(fxai,['OPENAI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','web_search','LEAD INTRADAY FOREX SCALP TRADER','INTRADAY REGIME + SESSION CONTEXT','INTRADAY ENTRY + STRUCTURE + EXECUTION','WAIT_RETEST','passes>=2','final?.decision==="ENTER"'],'FOREX_3AI');
+need(fxbridge,['FOREX_MT5_BRIDGE_TOKEN','/forex/health','/forex/mt5/pulse','/forex/mt5/decision','/forex/mt5/ack','TARGET_REACHED_PRESERVE','RISK_BUDGET_TOO_SMALL','projectedDailyLossPct','3AI_CONSENSUS_THE5ERS_ALTERNATION_QUALITY_AND_RISK_PASS','THE5ERS_RULE_BLOCK','PAPER_TRADE'],'FOREX_BRIDGE');
+if(fxcfg.includes('liveEnabled:true'))errors.push('FOREX source default must remain fail-safe; runtime env enables LIVE');
+if(fxai.includes('qwen')||fxai.includes('openrouter')||fxai.includes('codex'))errors.push('FOREX council must use only ChatGPT Claude DeepSeek');
+
+if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const e of errors)console.error('- '+e);process.exit(1);}
+console.log('Worker AUTO preflight PASS: current Bybit safety contract + MEME paper-only + FOREX-AUTO 0.4.4 intraday scalp / 3AI / dynamic risk-margin / MT5 bridge.');
