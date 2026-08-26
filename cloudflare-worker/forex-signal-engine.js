@@ -10,6 +10,19 @@ function spreadPips(s){const pip=pipSize(String(s.symbol||"").toUpperCase());ret
 function bars(s,tf){return Array.isArray(s?.bars?.[tf])?s.bars[tf]:[];}
 function profile(symbol){if(symbol==="EURGBP")return {family:"RANGE_FX",minTrend:.18,maxChase:.35};if(/GBPJPY|EURJPY/.test(symbol))return {family:"JPY_MOMENTUM",minTrend:.24,maxChase:.55};if(symbol==="XAUUSD")return {family:"XAU_LIQUIDITY",minTrend:.22,maxChase:.60};if(/AUDUSD|NZDUSD/.test(symbol))return {family:"ASIA_COMMODITY_FX",minTrend:.18,maxChase:.45};if(/GBPUSD|USDJPY|USDCAD/.test(symbol))return {family:"MOMENTUM_MAJOR",minTrend:.20,maxChase:.50};return {family:"STABLE_MAJOR",minTrend:.16,maxChase:.42};}
 function sideFrom(fast,slow){return fast>slow?"Buy":fast<slow?"Sell":null;}
+function priceAction(rows,side,a){
+ const x=rows.slice(-20);if(x.length<8)return {score:0,tags:[]};const last=x[x.length-1],prev=x[x.length-2],prior=x.slice(0,-2),tags=[];let score=0;
+ const priorLow=Math.min(...prior.map(r=>n(r.low))),priorHigh=Math.max(...prior.map(r=>n(r.high))),body=Math.abs(n(last.close)-n(last.open)),range=Math.max(n(last.high)-n(last.low),1e-12);
+ const bullSweep=n(last.low)<priorLow&&n(last.close)>priorLow,bearSweep=n(last.high)>priorHigh&&n(last.close)<priorHigh;
+ if((side==="Buy"&&bullSweep)||(side==="Sell"&&bearSweep)){score+=5;tags.push("LIQUIDITY_SWEEP");}
+ const displacement=body/Math.max(a,1e-12)>.55&&body/range>.55&&((side==="Buy"&&n(last.close)>n(last.open))||(side==="Sell"&&n(last.close)<n(last.open)));
+ if(displacement){score+=4;tags.push("DISPLACEMENT");}
+ const bos=side==="Buy"?n(last.close)>n(prev.high):n(last.close)<n(prev.low);if(bos){score+=4;tags.push("MICRO_BOS_MSS");}
+ if(x.length>=3){const a0=x[x.length-3],gap=side==="Buy"?n(last.low)>n(a0.high):n(last.high)<n(a0.low);if(gap){score+=3;tags.push("FVG_IMBALANCE");}}
+ const rejection=side==="Buy"?(Math.min(n(last.open),n(last.close))-n(last.low))/range:(n(last.high)-Math.max(n(last.open),n(last.close)))/range;if(rejection>.35){score+=2;tags.push("REJECTION_WICK");}
+ return {score:Math.min(12,score),tags};
+}
+function locationContext(rows,side,entry){const x=rows.slice(-30);if(!x.length)return {score:0,tags:[]};const hi=Math.max(...x.map(r=>n(r.high))),lo=Math.min(...x.map(r=>n(r.low))),mid=(hi+lo)/2,tags=[];let score=0;if(side==="Buy"&&entry<=mid){score+=2;tags.push("DISCOUNT_LOCATION");}if(side==="Sell"&&entry>=mid){score+=2;tags.push("PREMIUM_LOCATION");}return {score,tags,rangeHigh:hi,rangeLow:lo,rangeMid:mid};}
 export function buildForexCandidate(env,s){
  const c=forexAutoConfig(env),m5=bars(s,"M5"),m15=bars(s,"M15"),h1=bars(s,"H1"),h4=bars(s,"H4"),symbol=String(s.symbol||"").toUpperCase(),pf=profile(symbol);
  if(m5.length<30||m15.length<30||h1.length<30||(c.marketData.requireH4&&h4.length<30))return {ok:false,reason:"INSUFFICIENT_BARS",symbol:s.symbol};
@@ -24,7 +37,10 @@ export function buildForexCandidate(env,s){
  const pullback=trend==="Buy"?rrsi>=42&&rrsi<=64:rrsi>=36&&rrsi<=58;if(!pullback)return {ok:false,reason:"NO_HEALTHY_PULLBACK",symbol:s.symbol,rsi:rrsi};
  const rawSwing=swing(m15,trend),buffer=Math.max(a5*c.risk.structureBufferAtr,a15*.10),minStop=Math.max(a5*c.risk.minStopAtr,a15*.55),maxStop=Math.max(a5*c.risk.maxStopAtr,a15*1.8);let sl=trend==="Buy"?rawSwing-buffer:rawSwing+buffer;let stopDist=Math.abs(entry-sl);if(stopDist<minStop){sl=trend==="Buy"?entry-minStop:entry+minStop;stopDist=minStop;}if(stopDist>maxStop)return {ok:false,reason:"STOP_TOO_WIDE",symbol:s.symbol,stopAtr:stopDist/Math.max(a5,1e-12)};
  const structureTarget=trend==="Buy"?Math.max(...m15.slice(-20).map(x=>n(x.high))):Math.min(...m15.slice(-20).map(x=>n(x.low))),rrStruct=Math.abs(structureTarget-entry)/Math.max(stopDist,1e-12);if(rrStruct<c.risk.minRR)return {ok:false,reason:"STRUCTURE_RR_TOO_LOW",symbol:s.symbol,rrStruct};const rr=Math.max(c.risk.minRR,Math.min(2.6,rrStruct)),tp=trend==="Buy"?entry+stopDist*rr:entry-stopDist*rr;
- const regime=trendStrength>=.55?"STRONG_TREND":trendStrength>=.30?"TREND":"SOFT_TREND",setup=chaseAtr<=.18?"TREND_PULLBACK":chaseAtr<=.32?"RETEST_CONTINUATION":"LATE_RETEST";let score=65;score+=Math.min(12,trendStrength*15);score+=rr>=2?6:2;score+=sp<spCap*.5?4:1;score+=trend==="Buy"?(rrsi>48?3:0):(rrsi<52?3:0);score-=Math.max(0,(chaseAtr-.18)*12);if(setup==="LATE_RETEST")score-=4;if(regime==="STRONG_TREND")score+=2;score=Math.round(Math.min(95,Math.max(0,score)));
- return {ok:true,symbol:s.symbol,side:trend,entry,sl,tp,rr,score,quality:score>=84?"PREMIUM":"NORMAL",spreadPips:sp,rsi:rrsi,atrM5:a5,atrM15:a15,atrH1:a1h,atrH4:a4h,stopAtr:stopDist/Math.max(a5,1e-12),chaseAtr,trendStrength,h4Trend,h1Trend,m15Trend,quoteAgeSec:ageSec,regime,setup,family:pf.family,thesis:`${trend} ${regime} ${setup}; H4+H1+M15 aligned; structural invalidation outside M15 swing`,timestamp:s.timestamp||Date.now()};
+ const regime=trendStrength>=.55?"STRONG_TREND":trendStrength>=.30?"TREND":"SOFT_TREND",setup=chaseAtr<=.18?"TREND_PULLBACK":chaseAtr<=.32?"RETEST_CONTINUATION":"LATE_RETEST";
+ // Advanced concepts are SOFT EVIDENCE: they improve ranking/confidence but never become mandatory gates.
+ const pa5=priceAction(m5,trend,a5),pa15=priceAction(m15,trend,a15),loc=locationContext(m15,trend,entry),advancedTags=[...new Set([...pa5.tags,...pa15.tags,...loc.tags])],advancedScore=Math.min(14,Math.round(pa5.score*.55+pa15.score*.65+loc.score));
+ let score=65;score+=Math.min(12,trendStrength*15);score+=rr>=2?6:2;score+=sp<spCap*.5?4:1;score+=trend==="Buy"?(rrsi>48?3:0):(rrsi<52?3:0);score-=Math.max(0,(chaseAtr-.18)*12);if(setup==="LATE_RETEST")score-=4;if(regime==="STRONG_TREND")score+=2;score+=advancedScore;score=Math.round(Math.min(95,Math.max(0,score)));
+ return {ok:true,symbol:s.symbol,side:trend,entry,sl,tp,rr,score,quality:score>=84?"PREMIUM":"NORMAL",spreadPips:sp,rsi:rrsi,atrM5:a5,atrM15:a15,atrH1:a1h,atrH4:a4h,stopAtr:stopDist/Math.max(a5,1e-12),chaseAtr,trendStrength,h4Trend,h1Trend,m15Trend,quoteAgeSec:ageSec,regime,setup,family:pf.family,advancedEvidence:{score:advancedScore,tags:advancedTags,m5:pa5,m15:pa15,location:loc},thesis:`${trend} ${regime} ${setup}; H4+H1+M15 aligned; structural invalidation outside M15 swing; soft PA/liquidity evidence=${advancedTags.join("|")||"neutral"}`,timestamp:s.timestamp||Date.now()};
 }
 export function rankForexCandidates(env,snapshots=[]){return snapshots.map(s=>buildForexCandidate(env,s)).filter(x=>x.ok).sort((a,b)=>b.score-a.score||b.rr-a.rr);}
