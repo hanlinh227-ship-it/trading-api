@@ -21,8 +21,8 @@ jobs:
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
       AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-      BYBIT_AUTO_ENABLED: 'false'
-      BYBIT_AUTO_LIVE: 'false'
+      BYBIT_AUTO_ENABLED: 'true'
+      BYBIT_AUTO_LIVE: 'true'
       FOREX_AUTO_LIVE: 'true'
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
@@ -58,10 +58,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Deployment verification must test the Worker revision itself, not an external
-          # exchange dependency. /runtime/contract is local/read-only and always exposes
-          # RUNTIME_REVISION; /bybit/health may legitimately be 502 when Bybit/VPS market
-          # transport is degraded even though the Cloudflare deployment succeeded.
           for i in 1 2 3 4 5 6; do
             H="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
             if printf '%s' "$H" | grep -q "$GITHUB_SHA"; then
