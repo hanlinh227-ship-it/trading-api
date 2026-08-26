@@ -1,0 +1,77 @@
+name: Deploy MT5 Forex Windows Native
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-forex-windows-native
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Windows, X64, trading-mt5-windows]
+    timeout-minutes: 20
+    env:
+      MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_ACCOUNT_LOGIN }}
+      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
+      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
+      MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
+      MT5_ALLOW_LIVE: ${{ vars.MT5_ALLOW_LIVE || secrets.MT5_ALLOW_LIVE || 'false' }}
+      MT5_APP_HOME: C:\Trading\MT5Forex
+      FOREX_RESEARCH_REPO: C:\Trading\trading-api-main
+
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: source
+
+      - name: Sync native execution source
+        shell: powershell
+        run: |
+          $dest = 'C:\Trading\trading-api-main'
+          New-Item -ItemType Directory -Force -Path 'C:\Trading' | Out-Null
+          if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+          Copy-Item "$env:GITHUB_WORKSPACE\source" $dest -Recurse -Force
+          Write-Output 'MT5_WINDOWS_SOURCE_SYNC=PASS'
+
+      - name: Install or refresh EA without touching broker session
+        shell: powershell
+        run: |
+          & 'C:\Trading\trading-api-main\windows\mt5-forex\install-native-mt5.ps1'
+
+      - name: Start native MT5 persistent session
+        shell: powershell
+        run: |
+          & 'C:\Trading\trading-api-main\windows\mt5-forex\start-native-mt5.ps1'
+
+      - name: Verify native broker pulse
+        shell: powershell
+        run: |
+          $runtime = Get-Content 'C:\Trading\MT5Forex\runtime.json' -Raw | ConvertFrom-Json
+          $pulse = Join-Path $runtime.bridgeDir 'pulse.json'
+          $deadline = (Get-Date).AddMinutes(5)
+          do {
+            if (Test-Path $pulse) {
+              try {
+                $p = Get-Content $pulse -Raw | ConvertFrom-Json
+                $loginOk = [string]$p.account.login -eq [string]$env:MT5_ACCOUNT_LOGIN
+                $serverOk = [string]$p.account.server -eq [string]$env:MT5_ACCOUNT_SERVER
+                $connected = [bool]$p.mt5.connected
+                $balanceOk = [double]$p.account.balance -gt 0
+                $equityOk = [double]$p.account.equity -gt 0
+                if ($loginOk -and $serverOk -and $connected -and $balanceOk -and $equityOk) {
+                  Write-Output 'MT5_WINDOWS_CONNECTED=PASS'
+                  Write-Output 'MT5_WINDOWS_ACCOUNT_MATCH=PASS'
+                  Write-Output 'MT5_WINDOWS_BALANCE_EQUITY=PASS'
+                  exit 0
+                }
+              } catch {}
+            }
+            Start-Sleep -Seconds 5
+          } while ((Get-Date) -lt $deadline)
+          throw 'Native Windows MT5 did not produce a connected The5ers pulse within 5 minutes. Confirm the broker account has been logged in once under this same Windows user.'
