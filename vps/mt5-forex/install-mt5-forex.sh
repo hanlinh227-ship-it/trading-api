@@ -12,6 +12,7 @@ EA_SRC="${REPO}/mt5/ForexAutoThe5ers.mq5"
 INSTALLER_URL="https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe"
 INSTALLER="${APP_HOME}/mt5setup.exe"
 SCREEN="-screen 0 1280x1024x24"
+EXPECTED_EA_VERSION="0.402"
 
 [[ ${EUID} -eq 0 ]] || { echo "ERROR: run as root" >&2; exit 2; }
 [[ -f /etc/os-release ]] || { echo "ERROR: unsupported OS" >&2; exit 3; }
@@ -27,9 +28,6 @@ wait_dpkg
 apt_retry apt-get update -y
 apt_retry apt-get install -y --no-install-recommends ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils xz-utils
 
-# Runtime regression evidence: this VPS completed the canonical MT5 workflow with
-# Ubuntu's internally-consistent Wine stack. WineHQ 10/11 compiles MetaEditor but
-# terminal64 exits 69 before a broker pulse. Keep one Wine family only.
 apt_retry apt-get purge -y winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 || true
 apt_retry apt-get -f install -y
 apt_retry apt-get install -y --install-recommends wine wine64 wine32:i386 libwine:amd64 libwine:i386
@@ -103,7 +101,7 @@ install -o "$APP_USER" -g "$APP_USER" -m 0640 "$EA_SRC" "$EA_DST"
 SRC_SHA="$(sha256sum "$EA_SRC" | awk '{print $1}')"; DST_SHA="$(sha256sum "$EA_DST" | awk '{print $1}')"
 [[ "$SRC_SHA" = "$DST_SHA" ]] || { echo "ERROR: EA source sync mismatch" >&2; exit 71; }
 echo "MT5_EA_SOURCE_SHA256=$SRC_SHA"
-grep -q '#property version   "0.401"' "$EA_DST" || { echo "ERROR: expected EA version 0.401 not present" >&2; exit 72; }
+grep -q "#property version   \"${EXPECTED_EA_VERSION}\"" "$EA_DST" || { echo "ERROR: expected EA version ${EXPECTED_EA_VERSION} not present" >&2; exit 72; }
 METAEDITOR=""; for c in "$MT5_DIR/metaeditor64.exe" "$MT5_DIR/MetaEditor64.exe"; do [[ -f "$c" ]] && { METAEDITOR="$c"; break; }; done
 [[ -n "$METAEDITOR" ]] || { echo "ERROR: MetaEditor not found" >&2; exit 8; }
 
