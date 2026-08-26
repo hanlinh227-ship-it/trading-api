@@ -1,0 +1,5 @@
+{
+  "task_id": "chatgpt-e2e-smoke-20260826",
+  "instruction": "Connectivity smoke test only. Independently confirm you received this task and return a concise assessment that the 3AI research channel is operational. Do not trade, do not place orders, and do not modify any configuration.",
+  "context": "End-to-end validation of ChatGPT -> GitHub -> self-hosted trading-vps -> existing authenticated 3AI bridge. Core providers are Claude, OpenAI/Codex, and DeepSeek; quorum is at least 2 of 3."
+}
