@@ -8,14 +8,13 @@ import {bybitRiskPreflight,validateProtectionGeometry} from "./bybit-risk-guard.
 import {manageBybitScalpPosition} from "./bybit-position-manager.js";
 
 const KEY="bybit:auto:v1:state";
-const MAX_CLOSED_LOOKBACK_MS=7*24*60*60*1000;
 const PNL_RECONCILE_GRACE_MS=15*60*1000;
 const now=()=>Date.now(),iso=()=>new Date().toISOString(),envBool=v=>String(v||"").toLowerCase()==="true";
 async function get(env){try{return await env.TRADING_STATE?.get(KEY,{type:"json"})||{};}catch{return {};}}
 async function put(env,x){if(env.TRADING_STATE)await env.TRADING_STATE.put(KEY,JSON.stringify(x));}
 function day(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
 function dayStartMs(){return Date.parse(`${day()}T00:00:00+07:00`);}
-function reset(s){if(s.day===day())return s;return {...s,day:day(),trades:0,realizedUsd:0,lossStreak:0,pauseUntil:0,exchangeClosedTrades:0,openPlans:s.openPlans||{},dayRolloverAt:iso()};}
+function reset(s){if(s.day===day())return s;return {...s,day:day(),trades:0,realizedUsd:0,lossStreak:0,pauseUntil:0,exchangeClosedTrades:0,openPlans:s.openPlans||{},reconcileQuarantine:s.reconcileQuarantine||[],dayRolloverAt:iso()};}
 function liveGuard(env,mode){if(mode!=="LIVE")return null;if(!envBool(env.BYBIT_AUTO_LIVE_ACK))return "LIVE_ACK_REQUIRED";return null;}
 function tpForReward(side,entry,qty,rewardUsd){const q=Math.abs(Number(qty||0));if(!(q>0))return null;const d=Number(rewardUsd||0)/q;return side==="Buy"?entry+d:entry-d;}
 async function fill(api,symbol,orderId){for(let i=0;i<8;i++){const p=await api.orderStatus(symbol,orderId),x=p?.result?.list?.[0],qty=Number(x?.cumExecQty||0),avg=Number(x?.avgPrice||0);if(qty>0&&avg>0)return {ok:true,orderId,executedQty:qty,avgPrice:avg,status:x.orderStatus};await new Promise(r=>setTimeout(r,250));}return {ok:false,reason:"MARKET_FILL_TIMEOUT",orderId};}
@@ -24,13 +23,19 @@ async function learn(env,event){try{await recordBybitLearningEvent(env,event);}c
 const closedAt=x=>Number(x?.updatedTime||x?.createdTime||0);
 const closedKey=x=>String(x?.orderId||x?.execId||`${x?.symbol||""}:${closedAt(x)}:${x?.closedPnl||""}:${x?.closedSize||x?.qty||""}`);
 const planCreated=plan=>Number(plan?.createdAtMs||Date.parse(plan?.createdAt||"")||0);
-function oldestTrackedLivePlan(state){const ts=Object.values(state?.openPlans||{}).filter(p=>String(p?.mode||"").toUpperCase()==="LIVE").map(planCreated).filter(x=>x>0);return ts.length?Math.min(...ts):null;}
-function closedHistoryStart(state,t=now()){const d=dayStartMs(),oldest=oldestTrackedLivePlan(state),wanted=oldest?Math.min(d,oldest-60000):d;return Math.max(t-MAX_CLOSED_LOOKBACK_MS,wanted);}
+function closedHistoryStart(){return dayStartMs();}
 function lastPnlHealthyMs(state){const direct=Number(state?.lastPnlReconcileHealthyAtMs||0);if(direct>0)return direct;const parsed=Date.parse(state?.lastPnlReconcile?.at||"");return Number.isFinite(parsed)?parsed:0;}
 function livePositionRiskState(state,positions=[]){
   const live=new Set((positions||[]).filter(x=>Number(x?.size||0)>0).map(x=>String(x.symbol||"")));
   const source=state?.openPlans||{},openPlans=Object.fromEntries(Object.entries(source).filter(([symbol,p])=>String(p?.mode||"").toUpperCase()!=="LIVE"||live.has(symbol)));
   return {...state,openPlans};
+}
+function quarantineUnresolvedPlan(state,symbol,plan,reason,historyStart){
+  const row={symbol,mode:"LIVE",reason,quarantinedAt:iso(),createdAtMs:planCreated(plan)||null,historyStart,orderId:plan?.orderId||null,side:plan?.side||null,entry:plan?.entry||null,riskUsd:plan?.riskUsd||null,rewardUsd:plan?.rewardUsd||null,plan:{...plan,closeReconcileStatus:reason}};
+  const previous=Array.isArray(state.reconcileQuarantine)?state.reconcileQuarantine:[];
+  state.reconcileQuarantine=[row,...previous.filter(x=>!(x?.symbol===symbol&&String(x?.orderId||"")===String(row.orderId||"")))].slice(0,100);
+  delete state.openPlans[symbol];
+  return row;
 }
 async function fetchClosedPnlAll(api,startTime,endTime){
   const rows=[],seen=new Set(),seenCursor=new Set();let cursor="",requests=0,truncated=false;
@@ -61,12 +66,16 @@ async function reconcileLiveClosedPlans(env,state,positions,closedRows,historySt
   for(const [symbol,plan] of Object.entries(state.openPlans||{})){
     if(String(plan?.mode||"").toUpperCase()!=="LIVE"||live.has(symbol))continue;
     const out=aggregateLiveOutcome(symbol,plan,closedRows);
-    if(!out){plan.closeReconcilePendingSince=plan.closeReconcilePendingSince||iso();const created=planCreated(plan),outside=created>0&&created<historyStart;plan.closeReconcileStatus=outside?"CLOSED_PNL_LOOKBACK_EXCEEDED":"CLOSED_PENDING_RECONCILE";results.push({symbol,reconciled:false,reason:plan.closeReconcileStatus,createdAtMs:created||null,historyStart});continue;}
+    if(!out){
+      plan.closeReconcilePendingSince=plan.closeReconcilePendingSince||iso();const created=planCreated(plan),outside=created>0&&created<historyStart;
+      if(outside){const q=quarantineUnresolvedPlan(state,symbol,plan,"OUTCOME_UNRESOLVED_OUTSIDE_DAILY_WINDOW",historyStart);results.push({symbol,reconciled:false,quarantined:true,reason:q.reason,createdAtMs:created||null,historyStart});continue;}
+      plan.closeReconcileStatus="CLOSED_PENDING_RECONCILE";results.push({symbol,reconciled:false,reason:plan.closeReconcileStatus,createdAtMs:created||null,historyStart});continue;
+    }
     const lifecycleId=String(plan.orderId||`${symbol}:${planCreated(plan)||0}`),eventId=`BYBIT_OUTCOME:LIVE:${lifecycleId}`;
     await recordBybitLearningEvent(env,{id:eventId,stage:"OUTCOME",mode:"LIVE",symbol,side:plan.side,strategy:plan.strategy,score:plan.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.initialSl||plan.sl,tp:plan.tp,leverage:plan.leverage,ai:plan.ai,postAi:plan.postAiQuote,execution:plan.execution,outcome:out,reason:`BYBIT_${out.status}`});
     delete state.openPlans[symbol];results.push({symbol,reconciled:true,status:out.status,netPnlUsd:out.netPnlUsd,netR:out.netR,closedRows:out.closedRows});
   }
-  state.lastLiveOutcomeReconcile={at:iso(),historyStart,historyEnd:now(),results};return results;
+  state.lastLiveOutcomeReconcile={at:iso(),historyStart,historyEnd:now(),results,quarantineCount:Array.isArray(state.reconcileQuarantine)?state.reconcileQuarantine.length:0};return results;
 }
 function reconcileLivePnlRows(state,cfg,list,meta={}){
   state.realizedUsd=list.reduce((s,x)=>s+Number(x.closedPnl||0),0);state.exchangeClosedTrades=list.length;
@@ -109,10 +118,10 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
     positions=(posResult.value?.result?.list||[]).filter(x=>Number(x.size||0)>0);
     let closedHistory=null,pnlReconcileError=null,pnlReconcileAgeMs=Infinity,pnlGraceActive=false;
     try{
-      const t=now(),start=closedHistoryStart(state,t);closedHistory=await fetchClosedPnlAll(api,start,t);
+      const t=now(),start=closedHistoryStart();closedHistory=await fetchClosedPnlAll(api,start,t);
       await reconcileLiveClosedPlans(env,state,positions,closedHistory.rows,start);
-      const currentDayStart=dayStartMs(),dailyRows=closedHistory.rows.filter(x=>closedAt(x)>=currentDayStart);reconcileLivePnlRows(state,cfg,dailyRows,closedHistory);
-      state.lastClosedHistoryWindow={at:iso(),start,end:t,lookbackHours:Math.round((t-start)/3600000*10)/10,totalRows:closedHistory.rows.length,dailyRows:dailyRows.length,pages:closedHistory.pages,truncated:closedHistory.truncated};
+      const dailyRows=closedHistory.rows;reconcileLivePnlRows(state,cfg,dailyRows,closedHistory);
+      state.lastClosedHistoryWindow={at:iso(),start,end:t,scope:"CURRENT_TRADING_DAY_ONLY",lookbackHours:Math.round((t-start)/3600000*10)/10,totalRows:closedHistory.rows.length,dailyRows:dailyRows.length,pages:closedHistory.pages,truncated:closedHistory.truncated};
     }catch(e){
       pnlReconcileError=String(e?.message||e);const healthy=lastPnlHealthyMs(state);pnlReconcileAgeMs=healthy>0?Math.max(0,now()-healthy):Infinity;pnlGraceActive=Number.isFinite(pnlReconcileAgeMs)&&pnlReconcileAgeMs<=PNL_RECONCILE_GRACE_MS;
       state.lastPnlReconcileError={at:iso(),error:pnlReconcileError,lastHealthyAtMs:healthy||null,ageMs:Number.isFinite(pnlReconcileAgeMs)?pnlReconcileAgeMs:null,graceActive:pnlGraceActive,graceMs:PNL_RECONCILE_GRACE_MS};
@@ -120,7 +129,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
       state.lastLiveOutcomeReconcile={at:iso(),error:pnlReconcileError};
     }
     lifecycles=await manageLivePositions(env,api,state,positions,cfg);riskState=livePositionRiskState(state,positions);
-    state.lastLiveRiskAccounting={at:iso(),authority:"BYBIT_LIVE_POSITIONS_ONLY",liveSymbols:positions.map(x=>String(x.symbol||"")),trackedPlans:Object.keys(state.openPlans||{}),riskCountedPlans:Object.keys(riskState.openPlans||{}),pendingClosedPlans:Object.entries(state.openPlans||{}).filter(([symbol,p])=>String(p?.mode||"").toUpperCase()==="LIVE"&&!positions.some(x=>String(x.symbol||"")===symbol)).map(([symbol])=>symbol)};
+    state.lastLiveRiskAccounting={at:iso(),authority:"BYBIT_LIVE_POSITIONS_ONLY",liveSymbols:positions.map(x=>String(x.symbol||"")),trackedPlans:Object.keys(state.openPlans||{}),riskCountedPlans:Object.keys(riskState.openPlans||{}),pendingClosedPlans:Object.entries(state.openPlans||{}).filter(([symbol,p])=>String(p?.mode||"").toUpperCase()==="LIVE"&&!positions.some(x=>String(x.symbol||"")===symbol)).map(([symbol])=>symbol),quarantinedUnresolvedPlans:Array.isArray(state.reconcileQuarantine)?state.reconcileQuarantine.length:0};
     await put(env,state);
     const wallet=walletResult.status==="fulfilled"?walletResult.value:null,acct=wallet?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{};equity=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);
     const managerCut=lifecycles.find(x=>x.cutExecuted===true||x.verdict==="CUT");if(managerCut)return {ok:true,executed:false,mode,reason:"POSITION_CUT_BY_MANAGER",managerCut,lifecycles,equity,state};
@@ -128,8 +137,7 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
     const managerFailure=lifecycles.find(x=>x.reason==="MANAGER_FAILED"||x.reason==="POSITION_DATA_INVALID");if(managerFailure)return {ok:true,executed:false,mode,reason:"POSITION_MANAGEMENT_DEGRADED",managerFailure,lifecycles,state};
     if(walletResult.status!=="fulfilled"||!(equity>0))return {ok:true,executed:false,mode,reason:"LIVE_EQUITY_INVALID",managementOnly:true,equity,lifecycles,error:walletResult.status==="rejected"?String(walletResult.reason?.message||walletResult.reason):null,state};
     if(pnlReconcileError&&!pnlGraceActive)return {ok:true,executed:false,mode,reason:"DAILY_PNL_RECONCILIATION_STALE",managementOnly:true,error:pnlReconcileError,pnlReconcileAgeMs:Number.isFinite(pnlReconcileAgeMs)?pnlReconcileAgeMs:null,pnlReconcileGraceMs:PNL_RECONCILE_GRACE_MS,lifecycles,equity,state};
-    if(closedHistory?.truncated)return {ok:true,executed:false,mode,reason:"CLOSED_PNL_HISTORY_TRUNCATED",managementOnly:true,lifecycles,equity,state};
-    const stalePlan=Object.entries(state.openPlans||{}).find(([,p])=>String(p?.mode||"").toUpperCase()==="LIVE"&&p?.closeReconcileStatus==="CLOSED_PNL_LOOKBACK_EXCEEDED");if(stalePlan)return {ok:true,executed:false,mode,reason:"CLOSED_PNL_LOOKBACK_EXCEEDED",managementOnly:true,symbol:stalePlan[0],lifecycles,equity,state};
+    if(closedHistory?.truncated)return {ok:true,executed:false,mode,reason:"CURRENT_DAY_CLOSED_PNL_TRUNCATED",managementOnly:true,lifecycles,equity,state};
     if(entryBlockReason)return {ok:true,executed:false,mode,reason:entryBlockReason,managementOnly:true,lifecycles,equity,state};
     if(Number(state.pauseUntil||0)>now())return {ok:true,executed:false,mode,reason:"LOSS_STREAK_PAUSE",managementOnly:true,pauseUntil:state.pauseUntil,lifecycles,equity,state};
     const baseRisk=bybitRiskPreflight({cfg,equityUsd:equity,state:riskState,candidateRiskUsd:0});if(!baseRisk.ok)return {ok:true,executed:false,mode,reason:baseRisk.reason,risk:baseRisk,equity,lifecycles,state};
