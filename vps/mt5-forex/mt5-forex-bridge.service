@@ -5,6 +5,8 @@ Wants=network-online.target
 Requires=mt5-forex.service
 PartOf=mt5-forex.service
 ConditionPathExists=/etc/trading/mt5-forex-vps-only
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -15,8 +17,6 @@ EnvironmentFile=/etc/trading/mt5-forex.env
 ExecStart=/usr/bin/python3 /opt/trading/trading-api-main/vps/mt5-forex/forex-mt5-sidecar.py
 Restart=on-failure
 RestartSec=5
-StartLimitIntervalSec=120
-StartLimitBurst=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
