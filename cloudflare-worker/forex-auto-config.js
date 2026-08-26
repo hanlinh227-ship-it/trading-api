@@ -1,7 +1,8 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.3.0-PAPER";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.4.0-PAPER";
 export const FOREX_AUTO_MODE="PAPER_ONLY";
 
 export const FOREX_AUTO_CONFIG={
+  branchId:"FOREX_THE5ERS_INDEPENDENT",
   brokerProfile:"THE5ERS_HIGH_STAKES",
   executionTerminal:"MT5_WINDOWS",
   aiProviders:["chatgpt","claude","deepseek"],
@@ -18,17 +19,26 @@ export const FOREX_AUTO_CONFIG={
     profitableDayPct:.5,
     minProfitableDays:3,
     maxInactivityDays:30,
+    officialNewsBlockBeforeSec:120,
+    officialNewsBlockAfterSec:120,
     newsBlockBeforeSec:180,
     newsBlockAfterSec:180,
+    newsCalendarFailClosed:true,
     prohibitNewsBracketing:true,
     prohibitHft:true,
+    prohibitTickScalping:true,
     prohibitArbitrage:true,
+    prohibitLatencyArbitrage:true,
+    prohibitReverseArbitrage:true,
+    prohibitHedgeArbitrage:true,
+    prohibitEmulators:true,
     prohibitMartingale:true,
     prohibitGridRecovery:true,
     prohibitCopyTrading:true,
+    requireVisibleBrokerStop:true,
     requireOwnedSource:true,
-    alternateTradeSide:true,
-    alternationScope:"ACCOUNT_GLOBAL",
+    alternateTradeSide:false,
+    alternationScope:"DISABLED",
     alternationNoForceEntry:true
   },
   target:{
@@ -72,6 +82,13 @@ export const FOREX_AUTO_CONFIG={
       {from:4.0,to:999,multiplier:0}
     ]
   },
+  marketData:{
+    maxQuoteAgeSec:75,
+    requireH4:true,
+    requireM5:true,
+    requireM15:true,
+    requireH1:true
+  },
   management:{
     breakEvenAtR:1.0,
     profitLockAtR:1.35,
@@ -83,12 +100,13 @@ export const FOREX_AUTO_CONFIG={
   ai:{
     requireAllThree:true,
     finalDecisionProvider:"chatgpt",
-    minFinalConfidence:72,
-    claudeRole:"MARKET_SCOUT_CONTEXT_REGIME",
+    minFinalConfidence:74,
+    claudeRole:"HTF_REGIME_SESSION_MACRO_CONTEXT",
     deepseekRole:"ENTRY_STRUCTURE_EXECUTION_CRITIC",
     chatgptRole:"LEAD_TRADER_SYNTHESIS_FINAL_DECISION",
     requireIndependentReviews:true,
-    noAiOverrideOfHardRules:true
+    noAiOverrideOfHardRules:true,
+    noForcedTrade:true
   },
   learning:{
     enabled:true,
@@ -129,7 +147,7 @@ export function forexAutoConfig(env={}){
   c.risk.premiumRiskPct=Math.max(c.risk.normalRiskPct,Math.min(.5,Number(env.FOREX_PREMIUM_RISK_PCT||c.risk.premiumRiskPct)));
   c.risk.hardMaxRiskPct=.5;
   c.risk.maxTotalOpenRiskPct=Math.max(.5,Math.min(1.25,Number(env.FOREX_MAX_OPEN_RISK_PCT||c.risk.maxTotalOpenRiskPct)));
-  c.ai.minFinalConfidence=Math.max(65,Math.min(90,Number(env.FOREX_MIN_AI_CONFIDENCE||c.ai.minFinalConfidence)));
+  c.ai.minFinalConfidence=Math.max(68,Math.min(90,Number(env.FOREX_MIN_AI_CONFIDENCE||c.ai.minFinalConfidence)));
   const target=Number(env.FOREX_TARGET_PCT);
   c.target.targetPct=Number.isFinite(target)&&target>0?target:null;
   if(c.execution.liveEnabled&&c.target.requiredForLive&&!c.target.targetPct)c.execution.liveEnabled=false;
