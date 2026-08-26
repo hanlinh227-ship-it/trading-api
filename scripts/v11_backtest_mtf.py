@@ -83,20 +83,19 @@ _search_src=_search_src.replace(
     "for ex,hold in (((0,4),(0,6),(0,8),(0,10),(0,12)) if style['mode']=='MKT' else ((1,10),(2,10),(2,8),(4,8),(4,6))):test({**style,'expiry':ex,'hold':hold})"
 )
 
-# R15 bounded refinement: the legacy coordinate search chose family/hour while
-# pinned to one default entry geometry, then optimized mode afterward. That can
-# miss a family/hour whose edge only appears with a different coarse geometry.
-# Jointly sweep three materially distinct coarse modes on DEV/VALIDATION only.
-# This does not inspect FINAL, change RR choices, fabricate executions, or relax
-# any 1..3/day / WR / expectancy gate.
+# R16 bounded refinement: R15 proved that family/hour must be chosen jointly with
+# entry geometry, but its coarse joint pass omitted PB and BRK. Include all five
+# predeclared entry modes in that joint DEV/VALIDATION sweep, then retain the
+# existing offset/risk/timing refinements. FINAL remains sealed; RR, exact-data,
+# execution-count, WR and expectancy gates are unchanged.
 _search_src=_search_src.replace(
     "for f in families:\n        for hr in hours:test({**style,'family':f,'hour':hr})",
-    "for f in families:\n        for hr in hours:\n            for coarse_mode in ('MKT','DUAL_FADE','DUAL_BRK'):\n                test({**style,'family':f,'hour':hr,'mode':coarse_mode,'expiry':0 if coarse_mode=='MKT' else 2,'hold':8 if coarse_mode=='MKT' else 10})"
+    "for f in families:\n        for hr in hours:\n            for coarse_mode in ('MKT','PB','BRK','DUAL_FADE','DUAL_BRK'):\n                test({**style,'family':f,'hour':hr,'mode':coarse_mode,'expiry':0 if coarse_mode=='MKT' else 2,'hold':8 if coarse_mode=='MKT' else 10})"
 )
 
 exec(_search_src,_m.__dict__)
 # Cache identity must change whenever bounded candidate-generation/search behavior changes.
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15'
-_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15'
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16'
+_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
