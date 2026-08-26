@@ -1,15 +1,18 @@
 import {hmacHex} from "./providers/bybit-signed-client.js";
 import {bybitCredentials} from "./bybit-auto-config.js";
+import {BYBIT_PRIVATE_TRANSPORT,BYBIT_MARKET_TRANSPORT,BYBIT_RUNTIME_CONTRACT_VERSION} from "./bybit-runtime-contract.js";
 
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
 const RECV_WINDOW="5000";
+const BRIDGE_PRIVATE_URL="http://127.0.0.1:8789/bybit/private";
+const BRIDGE_TIMEOUT_MS=20000;
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 function bases(env={}){
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
-function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null,transport:meta.transport||null};return e;}
+function bybitError(path,status,p,meta={}){const msg=p?.retMsg||meta.bodySnippet||`HTTP ${status}`;const e=new Error(`${path}: ${msg}`);e.bybit={path,httpStatus:status,retCode:Number.isFinite(Number(p?.retCode))?Number(p.retCode):null,retMsg:p?.retMsg||null,base:meta.base||null,attemptedBases:meta.attemptedBases||[],bodySnippet:meta.bodySnippet||null,transport:meta.transport||null,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION};return e;}
 async function parseResponse(r,path,meta={}){
   const text=await r.text();let p=null;try{p=text?JSON.parse(text):null;}catch{}
   const bodySnippet=!p&&text?String(text).replace(/\s+/g," ").slice(0,240):null;
@@ -22,8 +25,8 @@ export function bybitV5(env={}){
     const q=qs(params),attempted=[];let lastErr;
     for(const base of baseList){
       attempted.push(base);
-      try{const url=`${base}${path}${q?`?${q}`:""}`;const r=await fetch(url,{headers:{accept:"application/json"}});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
-      catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
+      try{const url=`${base}${path}${q?`?${q}`:""}`;const r=await fetch(url,{headers:{accept:"application/json"},signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PUBLIC_DIRECT"});}
+      catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
@@ -34,15 +37,15 @@ export function bybitV5(env={}){
     if(!bridgeSecret)throw new Error("BYBIT_VPS_BRIDGE_SECRET_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody));
     const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload);
-    const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json"};
+    const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION};
     const requestBody={method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers};
     let r,j;
     try{
-      r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/bybit/private",{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+bridgeSecret},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(20000)}));
+      r=await env.AI_BRIDGE.fetch(new Request(BRIDGE_PRIVATE_URL,{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+bridgeSecret,"x-trading-runtime-contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)}));
       j=await r.json().catch(()=>null);
-    }catch(e){throw bybitError(path,502,null,{bodySnippet:"VPS bridge fetch failed: "+String(e?.message||e).slice(0,180),transport:"VPS_BYBIT_PROXY"});}
-    if(!r.ok||!j)throw bybitError(path,r?.status||502,j?.upstream||null,{bodySnippet:j?.error||"VPS bridge invalid response",transport:j?.transport||"VPS_BYBIT_PROXY",attemptedBases:j?.attempts||[]});
-    const up=j.upstream||null,status=Number(j.httpStatus||0)||502,transport=j.transport||"VPS_BYBIT_PROXY";
+    }catch(e){throw bybitError(path,502,null,{bodySnippet:"VPS bridge fetch failed: "+String(e?.message||e).slice(0,180),transport:BYBIT_PRIVATE_TRANSPORT});}
+    if(!r.ok||!j)throw bybitError(path,r?.status||502,j?.upstream||null,{bodySnippet:j?.error||"VPS bridge invalid response",transport:j?.transport||BYBIT_PRIVATE_TRANSPORT,attemptedBases:j?.attempts||[]});
+    const up=j.upstream||null,status=Number(j.httpStatus||0)||502,transport=j.transport||BYBIT_PRIVATE_TRANSPORT;
     if(!j.ok||Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:j.base||null,attemptedBases:j.attempts||[],transport});
     return up;
   }
@@ -62,9 +65,9 @@ export function bybitV5(env={}){
       attempted.push(base);
       try{
         const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${base}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
-        const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json"},body:upper==="GET"?undefined:payload});
+        const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:upper==="GET"?undefined:payload,signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
         return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PRIVATE_DIRECT"});
-      }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403)throw e;}
+      }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
@@ -83,7 +86,7 @@ export function bybitV5(env={}){
     }
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:"VPS_BYBIT_PRIVATE_PROXY",marketTransport:"VPS_BYBIT_MARKET_PROXY",
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:BYBIT_PRIVATE_TRANSPORT,marketTransport:BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,
     serverTime:()=>market("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
