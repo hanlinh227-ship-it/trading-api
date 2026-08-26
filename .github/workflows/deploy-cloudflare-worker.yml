@@ -48,24 +48,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --version
-          npm --version
           npm install --no-audit --no-fund
           npm run check
           npm run prepare:wrangler
+          grep -q '"BYBIT_AUTO_ENABLED": "true"' wrangler.jsonc
+          grep -q '"BYBIT_AUTO_LIVE": "true"' wrangler.jsonc
           npx wrangler deploy
-      - name: Verify deployed revision
+      - name: Fast verify deployed LIVE runtime
         shell: bash
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5 6; do
-            H="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
-            if printf '%s' "$H" | grep -q "$GITHUB_SHA"; then
-              echo 'UNIFIED_HUB_DEPLOY=PASS'
-              printf '%s\n' "$H" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok') is True; assert d.get('runtimeRevision')=='$GITHUB_SHA'; print('RUNTIME_REVISION='+d['runtimeRevision'])"
-              exit 0
-            fi
-            sleep $((i*2))
-          done
-          echo 'DEPLOY_REVISION_VERIFY_FAILED' >&2
-          exit 1
+          sleep 4
+          CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract")"
+          printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA)process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision)})"
+          HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health")"
+          printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(!x.execution?.scheduled)process.exit(5);if(!x.execution?.ready)process.exit(6);})"
+          echo 'BYBIT_LIVE_RUNTIME=PASS'
