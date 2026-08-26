@@ -4,6 +4,20 @@ set -euo pipefail
 APP_HOME="/var/lib/trading/mt5-forex"
 RUNTIME_ENV="$APP_HOME/runtime.env"
 PRIVATE_ENV="/etc/trading/mt5-forex.env"
+VPS_ONLY_MARKER="/etc/trading/mt5-forex-vps-only"
+EXPECTED_HOST="${MT5_EXPECTED_HOST:-59670.vpsvinahost.vn}"
+
+if [[ ! -r "$VPS_ONLY_MARKER" ]]; then
+  echo "ERROR: VPS-only marker missing; MT5 launch refused" >&2
+  exit 9
+fi
+
+CURRENT_FQDN="$(hostname -f 2>/dev/null || hostname)"
+CURRENT_HOST="$(hostname 2>/dev/null || true)"
+if [[ "$CURRENT_FQDN" != "$EXPECTED_HOST" && "$CURRENT_HOST" != "${EXPECTED_HOST%%.*}" ]]; then
+  echo "ERROR: MT5 launch refused outside authorized trading VPS" >&2
+  exit 91
+fi
 
 if [[ ! -r "$RUNTIME_ENV" ]]; then
   echo "ERROR: MT5 runtime.env missing; run install-mt5-forex.sh first" >&2
@@ -21,10 +35,14 @@ fi
 : "${MT5_INSTALL_DIR:?missing MT5_INSTALL_DIR}"
 : "${MT5_WINE_BIN:?missing MT5_WINE_BIN}"
 
+test -d "$MT5_WINEPREFIX"
+test -f "$MT5_TERMINAL"
+test -d "$MT5_INSTALL_DIR"
+
 MT5_ACCOUNT_LOGIN="${MT5_ACCOUNT_LOGIN:-}"
 MT5_ACCOUNT_PASSWORD="${MT5_ACCOUNT_PASSWORD:-}"
 MT5_ACCOUNT_SERVER="${MT5_ACCOUNT_SERVER:-}"
-MT5_HUB_URL="${MT5_HUB_URL:-https://trading-v77-scanner.workers.dev}"
+MT5_HUB_URL="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
 MT5_BRIDGE_TOKEN="${MT5_BRIDGE_TOKEN:-}"
 MT5_ALLOW_LIVE="${MT5_ALLOW_LIVE:-false}"
 MT5_SYMBOLS="${MT5_SYMBOLS:-EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,NZDUSD,USDCAD,EURJPY,GBPJPY,EURGBP,XAUUSD}"
@@ -81,7 +99,7 @@ chmod 0600 "$CONFIG"
 
 if [[ "$LIVE_BOOL" == true ]]; then
   if [[ -z "$MT5_ACCOUNT_LOGIN" || -z "$MT5_ACCOUNT_PASSWORD" || -z "$MT5_ACCOUNT_SERVER" ]]; then
-    echo "ERROR: LIVE requested but broker login/password/server are incomplete" >&2
+    echo "ERROR: LIVE requested but broker credentials are incomplete" >&2
     exit 11
   fi
   if [[ -z "$MT5_BRIDGE_TOKEN" || -z "$MT5_HUB_URL" ]]; then
@@ -90,12 +108,22 @@ if [[ "$LIVE_BOOL" == true ]]; then
   fi
 fi
 
-CONFIG_WIN="$(WINEPREFIX="$MT5_WINEPREFIX" winepath -w "$CONFIG" 2>/dev/null || true)"
+WINEPATH_BIN="$(command -v winepath || true)"
+CONFIG_WIN=""
+if [[ -n "$WINEPATH_BIN" ]]; then
+  CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
+fi
 if [[ -z "$CONFIG_WIN" ]]; then
   CONFIG_WIN='C:\MT5Forex\mt5-forex-start.ini'
 fi
 
-echo "MT5_FOREX_START mode=$([[ "$LIVE_BOOL" == true ]] && echo LIVE || echo PAPER) login=$([[ -n "$MT5_ACCOUNT_LOGIN" ]] && echo CONFIGURED || echo MISSING) server=${MT5_ACCOUNT_SERVER:-MISSING}"
+# Deliberately do not print account number, password, broker server or bridge token.
+echo "MT5_FOREX_START=PASS"
+echo "MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY"
+echo "MT5_FOREX_HOST_AUTHORIZED=PASS"
+echo "MT5_FOREX_MODE=$([[ "$LIVE_BOOL" == true ]] && echo LIVE || echo PAPER)"
+echo "MT5_FOREX_CREDENTIALS=$([[ -n "$MT5_ACCOUNT_LOGIN" && -n "$MT5_ACCOUNT_PASSWORD" && -n "$MT5_ACCOUNT_SERVER" ]] && echo CONFIGURED || echo INCOMPLETE)"
+
 exec xvfb-run -a -s '-screen 0 1280x1024x24' env \
-  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all \
+  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEARCH=win64 WINEDEBUG=-all \
   "$MT5_WINE_BIN" "$MT5_TERMINAL" /portable "/config:$CONFIG_WIN"
