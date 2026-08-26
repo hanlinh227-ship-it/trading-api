@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          repo=/opt/trading/trading-api-main
           sudo install -d -m 700 /etc/trading /var/lib/trading/crypto-50d
           tmp=$(mktemp)
           cat > "$tmp" <<'EOF'
