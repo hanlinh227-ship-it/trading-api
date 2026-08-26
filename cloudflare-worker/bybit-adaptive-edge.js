@@ -2,7 +2,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number.isFinite(Number(v))?Number(v):null;
 const avg=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 
-export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_3_SHRUNK_NET_PNL";
+export const ADAPTIVE_EDGE_VERSION="ADAPTIVE_EDGE_V1_4_POSTMORTEM_NET_PNL";
 export const REGIMES=["TREND_UP","TREND_DOWN","RANGE","BREAKOUT_EXPANSION","HIGH_VOL_CHAOS","LOW_VOL_COMPRESSION"];
 
 function returns(closes=[]){const out=[];for(let i=1;i<closes.length;i++){const a=Number(closes[i-1]),b=Number(closes[i]);if(a>0&&b>0)out.push((b-a)/a);}return out;}
@@ -46,6 +46,17 @@ function shrunkEdge(edge=null,priorTrades=20){
  const avgNetR=(Number.isFinite(rawNet)?rawNet:0)*weight;
  return {trades:n,priorTrades:prior,weight,rawWinRate:Number.isFinite(rawWr)?rawWr:null,shrunkWinRate:wr,rawAvgNetR:Number.isFinite(rawNet)?rawNet:null,shrunkAvgNetR:avgNetR};
 }
+function postMortemAdjustment(edge=null,confidence=0,spreadBps=0){
+ const n=Math.max(0,Number(edge?.trades||0));if(n<20||confidence<=0)return {modifier:0,reasons:[],sampleSize:n,authority:"DIAGNOSTIC_ONLY_UNTIL_20"};
+ const r=edge?.postMortemRates||{},reasons=[];let raw=0;
+ const noFollow=Number(r.SETUP_NO_FOLLOW_THROUGH||0),invalid=Number(r.STRUCTURE_INVALIDATION||0),falsePass=Number(r.AI_FALSE_PASS||0),friction=Number(r.EXECUTION_FRICTION||0);
+ if(noFollow>=.35){raw+=1;reasons.push("SETUP_NO_FOLLOW_THROUGH");}
+ if(invalid>=.30){raw+=1;reasons.push("STRUCTURE_INVALIDATION");}
+ if(falsePass>=.45){raw+=1;reasons.push("AI_FALSE_PASS");}
+ if(friction>=.25&&Number(spreadBps||0)>8){raw+=1;reasons.push("EXECUTION_FRICTION_WITH_WIDE_SPREAD");}
+ const modifier=clamp(Math.round(raw*confidence),0,2);
+ return {modifier,reasons,sampleSize:n,authority:"BOUNDED_POSTMORTEM_V1",rawModifier:raw,confidence};
+}
 
 export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,spreadBps=0,priorTrades=20}){
  let penalty=0;
@@ -57,8 +68,8 @@ export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,
  const conf=learningConfidence(edge?.trades||0),shrunk=shrunkEdge(edge,priorTrades),avgNetR=shrunk.shrunkAvgNetR,wr=shrunk.shrunkWinRate;
  let edgeModifier=0;
  if(conf>0){edgeModifier+=clamp(-avgNetR*4,-4,4)*conf;edgeModifier+=clamp((.5-wr)*6,-2,2)*conf;}
- const threshold=clamp(Math.round((Number(base)||68)+penalty+edgeModifier),66,84);
- return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"STRICT_NET_PNL_V2",shrinkage:shrunk};
+ const postMortem=postMortemAdjustment(edge,conf,spreadBps),threshold=clamp(Math.round((Number(base)||68)+penalty+edgeModifier+postMortem.modifier),66,84);
+ return {threshold,base:Number(base)||68,regimePenalty:penalty,edgeModifier,postMortemModifier:postMortem.modifier,postMortem,confidence:conf,sampleSize:Number(edge?.trades||0),bounded:[66,84],learningAuthority:"STRICT_NET_PNL_V2_POSTMORTEM_BOUNDED",shrinkage:shrunk};
 }
 
 export function edgeKey(symbol,strategy,regime){return `${String(symbol||"").toUpperCase()}|${String(strategy||"")}|${String(regime||"")}`;}
@@ -69,14 +80,17 @@ export function edgeStatsFor(summary={},symbol,strategy,regime){
 
 export function selectExitProfile(edge=null,regime="RANGE",minSamples=30){
  const n=Math.max(0,Number(edge?.trades||0)),conf=learningConfidence(n);if(n<Math.max(20,Number(minSamples||30)))return {profile:"BALANCED",confidence:conf,reason:"INSUFFICIENT_ROBUST_SAMPLE"};
- const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),shrunk=shrunkEdge(edge,20),wr=shrunk.shrunkWinRate;
- if(["TREND_UP","TREND_DOWN","BREAKOUT_EXPANSION"].includes(regime)&&mfe>=1.7&&mae<=.8)return {profile:"TREND_RUNNER",confidence:conf,reason:"PROVEN_MFE",shrinkage:shrunk};
- if((mfe>0&&mfe<1.05)||(wr>0&&wr<.44))return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_NET_EXTENSION",shrinkage:shrunk};
- return {profile:"BALANCED",confidence:conf,reason:"DEFAULT_BOUNDED",shrinkage:shrunk};
+ const mfe=Number(edge?.avgMfeR||0),mae=Number(edge?.avgMaeR||0),shrunk=shrunkEdge(edge,20),wr=shrunk.shrunkWinRate,r=edge?.postMortemRates||{},giveback=Number(r.PROFIT_GIVEBACK||0),exitLoss=Number(r.EXIT_EFFICIENCY_LOSS||0),cutRegret=Number(r.SMART_CUT_REGRET||0);
+ if(cutRegret>=.20)return {profile:"BALANCED",confidence:conf,reason:"SMART_CUT_REGRET_GUARD",shrinkage:shrunk,postMortem:{giveback,exitLoss,cutRegret}};
+ if((giveback>=.25||exitLoss>=.35)&&mfe>0)return {profile:"DEFENSIVE",confidence:conf,reason:"POSTMORTEM_GIVEBACK_OR_EXIT_EFFICIENCY",shrinkage:shrunk,postMortem:{giveback,exitLoss,cutRegret}};
+ if(["TREND_UP","TREND_DOWN","BREAKOUT_EXPANSION"].includes(regime)&&mfe>=1.7&&mae<=.8)return {profile:"TREND_RUNNER",confidence:conf,reason:"PROVEN_MFE",shrinkage:shrunk,postMortem:{giveback,exitLoss,cutRegret}};
+ if((mfe>0&&mfe<1.05)||(wr>0&&wr<.44))return {profile:"DEFENSIVE",confidence:conf,reason:"LOW_NET_EXTENSION",shrinkage:shrunk,postMortem:{giveback,exitLoss,cutRegret}};
+ return {profile:"BALANCED",confidence:conf,reason:"DEFAULT_BOUNDED",shrinkage:shrunk,postMortem:{giveback,exitLoss,cutRegret}};
 }
 
 export async function loadAdaptiveLearning(env){
- try{return await env.TRADING_STATE?.get("bybit:learning:v2:state",{type:"json"})||{summary:{},dataIntegrityVersion:"BYBIT_LEARNING_NET_PNL_V2"};}catch{return {summary:{},dataIntegrityVersion:"BYBIT_LEARNING_NET_PNL_V2"};}
+ try{return await env.TRADING_STATE?.get("bybit:learning:v2:state",{type:"json"})||{summary:{},dataIntegrityVersion:"BYBIT_LEARNING_NET_PNL_V2"};}catch{return {summary:{},dataIntegrityVersion:"BYBIT_LEARNING_NET_PNL_V2"};
+ }
 }
 
 export async function assessPortfolioCorrelation(api,candidate,positions=[],opts={}){
