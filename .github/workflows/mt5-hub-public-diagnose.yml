@@ -1,0 +1,53 @@
+name: MT5 Hub Public Diagnose
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-hub-public-diagnose.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Inspect Forex Hub persisted terminal state
+        shell: bash
+        run: |
+          set -euo pipefail
+          body=$(mktemp)
+          trap 'rm -f "$body"' EXIT
+          code=$(curl -sS --connect-timeout 5 --max-time 20 -o "$body" -w '%{http_code}' https://trading-v77-scanner.hanlinh227.workers.dev/forex/health)
+          echo "HTTP_STATUS=$code"
+          [[ "$code" = 200 ]]
+          python3 - "$body" <<'PY'
+          import json, sys
+          d=json.load(open(sys.argv[1]))
+          last=d.get('lastTerminal') or {}
+          m=last.get('mt5') if isinstance(last.get('mt5'),dict) else {}
+          a=last.get('account') if isinstance(last.get('account'),dict) else {}
+          connected=last.get('connected') if 'connected' in last else m.get('connected')
+          trade=last.get('tradeAllowed') if 'tradeAllowed' in last else m.get('tradeAllowed')
+          balance=last.get('balance') if 'balance' in last else a.get('balance')
+          equity=last.get('equity') if 'equity' in last else a.get('equity')
+          tid=str(last.get('terminalId') or '')
+          if '-' in tid:
+              account,server=tid.split('-',1)
+              tid='[REDACTED_ACCOUNT]-'+server
+          def positive(v):
+              try:return float(v or 0)>0
+              except:return False
+          print('LAST_TERMINAL_PRESENT='+str(bool(last)))
+          print('TERMINAL_ID='+tid)
+          print('RECEIVED_AT='+str(last.get('receivedAt')))
+          print('CONNECTED='+str(connected))
+          print('TRADE_ALLOWED='+str(trade))
+          print('BALANCE_POSITIVE='+str(positive(balance)))
+          print('EQUITY_POSITIVE='+str(positive(equity)))
+          print('MT5_KEYS='+','.join(sorted(m.keys())))
+          print('ACCOUNT_KEYS='+','.join(sorted(a.keys())))
+          PY
