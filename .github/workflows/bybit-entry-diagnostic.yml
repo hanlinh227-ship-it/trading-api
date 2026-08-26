@@ -29,8 +29,11 @@ jobs:
           console.log('SCALE_RISK_TEST='+JSON.stringify(x));
           if(x.ok && Number(x.riskUsd)+1e-9<Number(x.ladderMinEffectiveRiskUsd)) throw Error('UNDER_SIZED_TRADE_ALLOWED');
           if(!x.ok && x.reason!=='EFFECTIVE_RISK_TOO_SMALL' && x.reason!=='STRUCTURE_REWARD_BELOW_LADDER_MIN' && x.reason!=='SIZED_RR_BELOW_MIN') throw Error('UNEXPECTED_RISK_REJECT_'+x.reason);
+          const stepOf=e=>Number(sizeBybitAuto(setup,cfg,e).riskLadderStep);
+          if(stepOf(50)!==0||stepOf(49.99)!==0||stepOf(40)!==-1||stepOf(39.99)!==-1||stepOf(60)!==1||stepOf(69.99)!==1||stepOf(70)!==2) throw Error('ASYMMETRIC_SCALE_STEP');
           if(Number(cfg.risk.maxMarginPerPositionPct)!==42||Number(cfg.risk.minFreeReservePct)!==15||Number(cfg.risk.maxPortfolioMarginPct)!==85) throw Error('RISK_CONFIG_MISMATCH');
           if(Number(cfg.execution.cooldownSec)!==120||Number(cfg.execution.recvWindow)!==10000) throw Error('EXECUTION_CONFIG_MISMATCH');
+          console.log('SCALE_STEP_SYMMETRY=PASS');
           console.log('EFFECTIVE_RISK_BAND=PASS');
           console.log('OPERATIONAL_ENTRY_BAND=PASS');
           NODE
