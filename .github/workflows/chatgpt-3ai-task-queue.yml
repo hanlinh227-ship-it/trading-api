@@ -1,0 +1,91 @@
+name: ChatGPT 3AI Task Queue
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'runtime/3ai-queue/requests/**.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chatgpt-3ai-task-queue
+  cancel-in-progress: false
+
+jobs:
+  process-3ai-request:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify VPS 3AI bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRET="$(systemctl show v11-ai-bridge.service -p Environment --value | tr ' ' '\n' | sed -n 's/^V11_AI_BRIDGE_SECRET=//p' | head -n1)"
+          test -n "$SECRET" || { echo 'AI_BRIDGE_SECRET_MISSING'; exit 20; }
+          curl --fail --silent --show-error --max-time 20 \
+            -H "Authorization: Bearer $SECRET" \
+            http://127.0.0.1:8789/health > /tmp/3ai-health.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/3ai-health.json'))
+          p=d.get('providers',{})
+          core=['claude','codex','deepseek']
+          configured=[x for x in core if bool((p.get(x) or {}).get('configured'))]
+          print(json.dumps({'core':core,'configured':configured,'health':d},ensure_ascii=False))
+          if len(configured)<2: raise SystemExit('3AI_QUORUM_NOT_CONFIGURED')
+          PY
+
+      - name: Process newest request through real VPS council
+        shell: bash
+        run: |
+          set -euo pipefail
+          REQ="$(find runtime/3ai-queue/requests -maxdepth 1 -type f -name '*.json' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)"
+          test -n "$REQ" || { echo 'NO_3AI_REQUEST'; exit 21; }
+          python3 - "$REQ" > /tmp/3ai-evidence.json <<'PY'
+          import json,sys,os
+          path=sys.argv[1]; d=json.load(open(path))
+          instruction=str(d.get('instruction','')).strip()
+          if not instruction: raise SystemExit('instruction required')
+          task_id=str(d.get('task_id') or os.path.basename(path).removesuffix('.json'))
+          context=d.get('context','')
+          print(json.dumps({'evidence':{'mode':'CHATGPT_GITHUB_VPS_3AI','task_id':task_id,'instruction':instruction[:20000],'context':{'text':str(context)[:50000]},'requestedProviders':['claude','codex','deepseek']}},ensure_ascii=False))
+          PY
+          SECRET="$(systemctl show v11-ai-bridge.service -p Environment --value | tr ' ' '\n' | sed -n 's/^V11_AI_BRIDGE_SECRET=//p' | head -n1)"
+          curl --fail --silent --show-error --max-time 140 \
+            -X POST http://127.0.0.1:8789/review \
+            -H "Authorization: Bearer $SECRET" \
+            -H 'Content-Type: application/json' \
+            --data-binary @/tmp/3ai-evidence.json > /tmp/3ai-result-raw.json
+          python3 - <<'PY'
+          import json,datetime
+          d=json.load(open('/tmp/3ai-result-raw.json'))
+          core=['claude','codex','deepseek']; p=d.get('providers',{})
+          outp={x:p.get(x,{'status':'MISSING'}) for x in core}
+          ok=[x for x in core if str(outp[x].get('status','')).upper()=='OK']
+          out={'ok':len(ok)>=2,'quorum':len(ok),'requiredQuorum':2,'providers':outp,'timestamp':datetime.datetime.now(datetime.timezone.utc).isoformat(),'source':'VPS_REAL_3AI_BRIDGE'}
+          json.dump(out,open('/tmp/3ai-result.json','w'),ensure_ascii=False,indent=2)
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          if len(ok)<2: raise SystemExit('3AI_QUORUM_FAILED')
+          PY
+
+      - name: Upload auditable 3AI result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-3ai-result-${{ github.run_id }}
+          path: |
+            /tmp/3ai-health.json
+            /tmp/3ai-evidence.json
+            /tmp/3ai-result-raw.json
+            /tmp/3ai-result.json
+          if-no-files-found: warn
+          retention-days: 7
