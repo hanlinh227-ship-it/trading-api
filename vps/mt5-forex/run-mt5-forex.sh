@@ -98,23 +98,21 @@ WINESERVER_BIN="${MT5_WINESERVER_BIN:-$(dirname "$MT5_WINE_BIN")/wineserver}"
 CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
 [[ -n "$CONFIG_WIN" ]] || { echo "ERROR: winepath failed for MT5 config" >&2; exit 15; }
 
-# A Wine server/session from an older package stack can survive package changes
-# and make a new terminal return EX_UNAVAILABLE(69) before terminal64.exe exists.
-# Kill the whole prefix session before every canonical launch.
+# Kill the complete stale Wine PE session first. The Unix account is dedicated
+# exclusively to this MT5 runtime, so exact-name cleanup cannot affect other apps.
 HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
-for _ in $(seq 1 20); do
-  if ! pgrep -u "$(id -u)" -x services.exe >/dev/null 2>&1 \
-     && ! pgrep -u "$(id -u)" -x explorer.exe >/dev/null 2>&1 \
-     && ! pgrep -u "$(id -u)" -x winedevice.exe >/dev/null 2>&1; then break; fi
+for proc in terminal64.exe metaeditor64.exe services.exe explorer.exe winedevice.exe svchost.exe plugplay.exe; do
+  pkill -u "$(id -u)" -x "$proc" 2>/dev/null || true
+done
+for _ in $(seq 1 5); do
+  stale=false
+  for proc in terminal64.exe services.exe explorer.exe winedevice.exe; do
+    if pgrep -u "$(id -u)" -x "$proc" >/dev/null 2>&1; then stale=true; break; fi
+  done
+  [[ "$stale" == false ]] && break
   sleep 1
 done
-# Last-resort cleanup is scoped to the dedicated mt5forex Unix user only.
-pkill -u "$(id -u)" -x services.exe 2>/dev/null || true
-pkill -u "$(id -u)" -x explorer.exe 2>/dev/null || true
-pkill -u "$(id -u)" -x winedevice.exe 2>/dev/null || true
-pkill -u "$(id -u)" -x svchost.exe 2>/dev/null || true
-pkill -u "$(id -u)" -x plugplay.exe 2>/dev/null || true
-HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -w >/dev/null 2>&1 || true
+HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
 
 echo "MT5_FOREX_START=PASS"
 echo "MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY"
@@ -131,20 +129,13 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   LOG="$APP_HOME/wine-terminal-launch.log"
   : > "$LOG"
 
-  real_terminal_alive() {
-    pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1
-  }
-
+  real_terminal_alive() { pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1; }
   stop_prefix() {
     HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
-    for i in $(seq 1 10); do
-      real_terminal_alive || break
-      sleep 1
+    for proc in terminal64.exe services.exe explorer.exe winedevice.exe svchost.exe plugplay.exe; do
+      pkill -u "$(id -u)" -x "$proc" 2>/dev/null || true
     done
   }
-
-  # Run one mode in the background. A true terminal64.exe process, not the Wine
-  # wrapper exit code, is the only launch-success authority.
   try_mode() {
     mode="$1"; shift
     echo "MT5_FOREX_LAUNCH_MODE_TRY=$mode"
@@ -159,8 +150,7 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
       if ! kill -0 "$wine_pid" >/dev/null 2>&1; then
         wait "$wine_pid"; rc=$?
         echo "MT5_FOREX_LAUNCH_MODE_EXIT=$mode:$rc"
-        # Give detached PE processes a short grace period.
-        for j in $(seq 1 4); do
+        for j in $(seq 1 3); do
           real_terminal_alive && { echo "MT5_FOREX_LAUNCH_MODE=$mode"; echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"; return 0; }
           sleep 1
         done
@@ -174,15 +164,12 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     return 1
   }
 
-  # Preferred canonical mode: explicit portable config and login.
   args=("$MT5_TERMINAL" /portable "/config:$CONFIG_WIN")
   if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
   if ! try_mode CONFIG_LOGIN "${args[@]}"; then
     stop_prefix
-    # Fallback 1: MT5 reads Config/common.ini and StartUp from portable dir.
     if ! try_mode PORTABLE_COMMON "$MT5_TERMINAL" /portable; then
       stop_prefix
-      # Fallback 2: retain CLI login but let common.ini own server/password/startup.
       args=("$MT5_TERMINAL" /portable)
       if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
       if ! try_mode PORTABLE_LOGIN "${args[@]}"; then
@@ -201,7 +188,6 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     fi
   fi
 
-  # Keep systemd service authoritative while the real terminal exists.
   while real_terminal_alive; do sleep 5; done
   echo "MT5_FOREX_TERMINAL_EXITED=1"
   stop_prefix
