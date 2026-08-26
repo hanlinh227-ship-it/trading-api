@@ -11,9 +11,10 @@ const kv=explicitKv()||discoverKv();if(!kv)throw new Error(`Unable to resolve ex
 const vpc=explicitVpc()||discoverVpc();if(!vpc)throw new Error(`Unable to resolve existing ${VPC_NAME} VPC Service. Set V11_AI_BRIDGE_SERVICE_ID or grant Connectivity Directory Read/Bind to the Cloudflare deploy token. Deployment aborted to prevent dropping AI_BRIDGE.`);
 const revision=String(process.env.GITHUB_SHA||process.env.RUNTIME_REVISION||'LOCAL').trim();
 const forexLive=/^(true|1|yes)$/i.test(String(process.env.FOREX_AUTO_LIVE||'false'))?'true':'false';
+const bybitLive=/^(true|1|yes)$/i.test(String(process.env.BYBIT_AUTO_LIVE||'false'))?'true':'false';
 const forexTargetUsd=String(process.env.FOREX_TARGET_USD||'500').trim();
 const forexTargetDays=String(process.env.FOREX_TARGET_DAYS||'3').trim();
 const forexTargetCycle=String(process.env.FOREX_TARGET_CYCLE_ID||'CYCLE_001').trim().slice(0,80)||'CYCLE_001';
-const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars:{RUNTIME_REVISION:revision,FOREX_AUTO_LIVE:forexLive,FOREX_TARGET_USD:forexTargetUsd,FOREX_TARGET_DAYS:forexTargetDays,FOREX_TARGET_CYCLE_ID:forexTargetCycle},kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:vpc.id,remote:true}],triggers:{crons:['* * * * *']}};
+const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars:{RUNTIME_REVISION:revision,BYBIT_AUTO_LIVE:bybitLive,FOREX_AUTO_LIVE:forexLive,FOREX_TARGET_USD:forexTargetUsd,FOREX_TARGET_DAYS:forexTargetDays,FOREX_TARGET_CYCLE_ID:forexTargetCycle},kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:vpc.id,remote:true}],triggers:{crons:['* * * * *']}};
 fs.writeFileSync('wrangler.jsonc',`${JSON.stringify(config,null,2)}\n`,'utf8');
-console.log(`Prepared wrangler.jsonc: TRADING_STATE=${kv.source}, AI_BRIDGE=${vpc.source}, RUNTIME_REVISION=${revision}, FOREX_AUTO_LIVE=${forexLive}, FOREX_TARGET=${forexTargetUsd}/${forexTargetDays}d, FOREX_TARGET_CYCLE_ID=${forexTargetCycle}.`);
+console.log(`Prepared wrangler.jsonc: TRADING_STATE=${kv.source}, AI_BRIDGE=${vpc.source}, RUNTIME_REVISION=${revision}, BYBIT_AUTO_LIVE=${bybitLive}, FOREX_AUTO_LIVE=${forexLive}, FOREX_TARGET=${forexTargetUsd}/${forexTargetDays}d, FOREX_TARGET_CYCLE_ID=${forexTargetCycle}.`);
