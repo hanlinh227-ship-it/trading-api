@@ -16,29 +16,22 @@ jobs:
         run: |
           set -euo pipefail
           echo '=== 3AI BRIDGE SERVICE ==='
-          systemctl is-active v11-manual-ai-bridge.service
+          systemctl is-active --quiet v11-manual-ai-bridge.service
+          echo 'active'
+          echo '=== LOAD CANONICAL 3AI ENV ==='
+          test -f /etc/trading-v11-ai.env || { echo 'canonical /etc/trading-v11-ai.env missing'; exit 1; }
+          set -a
+          source /etc/trading-v11-ai.env
+          set +a
+          test -n "${V11_AI_BRIDGE_SECRET:-}" || { echo 'V11_AI_BRIDGE_SECRET missing in canonical env'; exit 1; }
+          test -n "${DEEPSEEK_API_KEY:-}" || { echo 'DEEPSEEK_API_KEY missing in canonical env'; exit 1; }
+          command -v claude >/dev/null || { echo 'claude CLI missing'; exit 1; }
+          test -x /usr/bin/codex || { echo '/usr/bin/codex missing'; exit 1; }
           echo '=== 3AI BRIDGE HEALTH ==='
-          SECRET="${V11_AI_BRIDGE_SECRET:-}"
-          if [ -z "$SECRET" ] && [ -f /etc/trading-v11-ai-bridge.env ]; then
-            SECRET="$(sudo awk -F= '/^V11_AI_BRIDGE_SECRET=/{sub(/^[^=]*=/,""); print; exit}' /etc/trading-v11-ai-bridge.env | tr -d '\r\n')"
-          fi
-          test -n "$SECRET" || { echo 'V11_AI_BRIDGE_SECRET unavailable'; exit 1; }
-          HEALTH="$(curl -fsS --max-time 10 -H "Authorization: Bearer $SECRET" http://127.0.0.1:8789/health)"
-          python3 - "$HEALTH" <<'PY'
-          import json,sys
-          j=json.loads(sys.argv[1]); ps=j.get('providers',{})
-          names=('claude','codex','deepseek')
-          configured=sum(bool(ps.get(n,{}).get('configured')) for n in names)
-          print(json.dumps({'service':j.get('service'),'mode':j.get('mode'),'configured':configured,'providers':{n:{'configured':bool(ps.get(n,{}).get('configured')),'state':ps.get(n,{}).get('state') or ps.get(n,{}).get('status'),'model':ps.get(n,{}).get('model')} for n in names}},ensure_ascii=False))
-          if configured < 3: raise SystemExit('3AI configured quorum incomplete')
-          PY
+          HEALTH="$(curl -fsS --max-time 10 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; names=("claude","codex","deepseek"); configured=[n for n in names if bool((ps.get(n) or {}).get("configured"))]; print("3AI_CONFIGURED="+",".join(configured)); assert len(configured)>=2,("3AI_CONFIGURED_QUORUM_FAILED",configured)'
           echo '=== REAL 3AI REVIEW ==='
-          REVIEW="$(curl -fsS --max-time 125 -H "Authorization: Bearer $SECRET" -H 'Content-Type: application/json' http://127.0.0.1:8789/review --data '{"evidence":{"mode":"RUNTIME_DIAGNOSTIC_REVIEW_ONLY","task_id":"runtime-diagnostic","instruction":"Connectivity diagnostic only. Review supplied evidence and return the required response. Do not trade.","context":{"executionAllowed":false,"diagnostic":true},"requestedProviders":["claude","codex","deepseek"]}}')"
-          python3 - "$REVIEW" <<'PY'
-          import json,sys
-          j=json.loads(sys.argv[1]); ps=j.get('providers',{}); names=('claude','codex','deepseek')
-          ok=[n for n in names if str(ps.get(n,{}).get('status','')).upper()=='OK']
-          print(json.dumps({'okProviders':ok,'quorum':len(ok),'required':2,'returnedEarly':j.get('returnedEarly'),'decisionLatencyMs':j.get('decisionLatencyMs')},ensure_ascii=False))
-          if len(ok)<2: raise SystemExit('3AI real review quorum failed')
-          PY
+          BODY='{"evidence":{"mode":"RUNTIME_DIAGNOSTIC_REVIEW_ONLY","task_id":"runtime-diagnostic","instruction":"Connectivity diagnostic only. Acknowledge supplied evidence. Do not trade and do not change configuration.","context":{"executionAllowed":false,"diagnostic":true},"requestedProviders":["claude","codex","deepseek"]}}'
+          REVIEW="$(curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
+          printf '%s\n' "$REVIEW" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; names=("claude","codex","deepseek"); st={n:str((ps.get(n) or {}).get("status","MISSING")).upper() for n in names}; ok=[n for n in names if st[n]=="OK"]; print("3AI_STATUS="+",".join(n+":"+st[n] for n in names)); print("3AI_QUORUM=%d/3"%len(ok)); assert len(ok)>=2,("3AI_REAL_REVIEW_QUORUM_FAILED",st)'
           echo 'RUNTIME_3AI_DIAGNOSTIC_PASS'
