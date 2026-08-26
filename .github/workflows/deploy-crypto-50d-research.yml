@@ -56,23 +56,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 180); do
+          for i in $(seq 1 300); do
             sudo systemctl is-active --quiet crypto-50d.service || { sudo journalctl -u crypto-50d.service -n 120 --no-pager; exit 1; }
             if [ -s /var/lib/trading/crypto-50d-v3/state.json ]; then
-              python3 - <<'PY'
-          import json
-          p='/var/lib/trading/crypto-50d-v3/state.json'; d=json.load(open(p))
-          assert d.get('version')=='CRYPTO-50D-V3', d.get('version')
-          assert int(d.get('round') or 0)>=1
-          assert int(d.get('minTradesPer50d') or 0)>=50
-          assert int(d.get('validationWindows') or 0)>=3
-          assert d.get('aiLearning',{}).get('rule')=='DEV_ONLY'
+              if sudo python3 - <<'PY'
+          import json, sys
+          d=json.load(open('/var/lib/trading/crypto-50d-v3/state.json'))
+          ok=(d.get('version')=='CRYPTO-50D-V3' and int(d.get('round') or 0)>=1 and int(d.get('minTradesPer50d') or 0)>=50 and int(d.get('validationWindows') or 0)>=3 and d.get('aiLearning',{}).get('rule')=='DEV_ONLY')
+          if not ok:
+              print('V3 state exists but first completed round is not ready yet:', {k:d.get(k) for k in ('version','round','status','currentSymbol','minTradesPer50d','validationWindows')})
+              sys.exit(2)
           print('CRYPTO_50D_V3=ACTIVE round='+str(d['round'])+' symbol='+str(d.get('currentSymbol')))
           PY
-              sudo cat /var/lib/trading/crypto-50d-v3/universe.json
-              exit 0
+              then
+                sudo cat /var/lib/trading/crypto-50d-v3/universe.json
+                exit 0
+              fi
             fi
             sleep 2
           done
+          echo 'V3 did not complete a verifiable first round in time'
+          sudo cat /var/lib/trading/crypto-50d-v3/state.json 2>/dev/null || true
           sudo journalctl -u crypto-50d.service -n 150 --no-pager
           exit 1
