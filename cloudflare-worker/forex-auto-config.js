@@ -1,4 +1,4 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.4.0-PAPER";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.4.1-PAPER";
 export const FOREX_AUTO_MODE="PAPER_ONLY";
 
 export const FOREX_AUTO_CONFIG={
@@ -37,8 +37,8 @@ export const FOREX_AUTO_CONFIG={
     prohibitCopyTrading:true,
     requireVisibleBrokerStop:true,
     requireOwnedSource:true,
-    alternateTradeSide:false,
-    alternationScope:"DISABLED",
+    alternateTradeSide:true,
+    alternationScope:"ACCOUNT_FILLED_ENTRY_SEQUENCE",
     alternationNoForceEntry:true
   },
   target:{
@@ -58,7 +58,7 @@ export const FOREX_AUTO_CONFIG={
   risk:{
     normalRiskPct:.30,
     premiumRiskPct:.45,
-    hardMaxRiskPct:.50,
+    hardMaxRiskPct:1.00,
     maxTotalOpenRiskPct:1.00,
     minExecutableRiskPct:.10,
     minRR:1.5,
@@ -143,10 +143,10 @@ export const FOREX_AUTO_CONFIG={
 export function forexAutoConfig(env={}){
   const c=structuredClone(FOREX_AUTO_CONFIG);
   c.execution.liveEnabled=String(env.FOREX_AUTO_LIVE||"").toLowerCase()==="true";
-  c.risk.normalRiskPct=Math.max(.1,Math.min(.5,Number(env.FOREX_NORMAL_RISK_PCT||c.risk.normalRiskPct)));
-  c.risk.premiumRiskPct=Math.max(c.risk.normalRiskPct,Math.min(.5,Number(env.FOREX_PREMIUM_RISK_PCT||c.risk.premiumRiskPct)));
-  c.risk.hardMaxRiskPct=.5;
-  c.risk.maxTotalOpenRiskPct=Math.max(.5,Math.min(1.25,Number(env.FOREX_MAX_OPEN_RISK_PCT||c.risk.maxTotalOpenRiskPct)));
+  c.risk.normalRiskPct=Math.max(.1,Math.min(1.0,Number(env.FOREX_NORMAL_RISK_PCT||c.risk.normalRiskPct)));
+  c.risk.premiumRiskPct=Math.max(c.risk.normalRiskPct,Math.min(1.0,Number(env.FOREX_PREMIUM_RISK_PCT||c.risk.premiumRiskPct)));
+  c.risk.hardMaxRiskPct=1.0;
+  c.risk.maxTotalOpenRiskPct=Math.max(.5,Math.min(2.0,Number(env.FOREX_MAX_OPEN_RISK_PCT||c.risk.maxTotalOpenRiskPct)));
   c.ai.minFinalConfidence=Math.max(68,Math.min(90,Number(env.FOREX_MIN_AI_CONFIDENCE||c.ai.minFinalConfidence)));
   const target=Number(env.FOREX_TARGET_PCT);
   c.target.targetPct=Number.isFinite(target)&&target>0?target:null;
