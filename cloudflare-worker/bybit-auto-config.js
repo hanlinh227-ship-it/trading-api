@@ -1,5 +1,5 @@
-// BYBIT-AUTO-1.7.3: canonical entry authority + stale lifecycle quarantine.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.3";
+// BYBIT-AUTO-1.7.4: canonical learning recovery + simplified operator dashboard.
+export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.4";
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
