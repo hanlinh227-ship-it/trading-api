@@ -5,7 +5,6 @@ APP_USER="mt5forex"
 APP_HOME="/var/lib/trading/mt5-forex"
 WINEPREFIX_DIR="${APP_HOME}/wine"
 STACK_MARKER="${WINEPREFIX_DIR}/.trading-wine-stack"
-EXPECTED_STACK="UBUNTU_DISTRO_WINE"
 INSTALL_ROOT="${WINEPREFIX_DIR}/drive_c/MT5Forex"
 REPO="${FOREX_RESEARCH_REPO:-/opt/trading/trading-api-main}"
 EA_SRC="${REPO}/mt5/ForexAutoThe5ers.mq5"
@@ -26,51 +25,74 @@ fi
 
 apt-get update -y
 apt-get install -y --no-install-recommends \
-  ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc \
+  ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils
 
-# MT5 on this Ubuntu 24.04 VPS fails before process startup with WineHQ 11 even
-# after a clean prefix. Use one self-consistent Ubuntu Wine stack instead. The
-# original c0000135 incident was caused by mixing WineHQ executables with distro
-# libwine, not by the distro stack itself.
+# MT5 build 6140 explicitly rejects the Ubuntu 24.04 Wine 9 runtime as
+# unsupported. Use a single, pinned WineHQ 10 stable family. Do not mix WineHQ
+# executables with Ubuntu libwine packages: that was the source of the historic
+# c0000135 loader conflict on this VPS.
+CODENAME="${VERSION_CODENAME:-noble}"
+install -d -m 0755 /etc/apt/keyrings
+wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+wget -qO "/etc/apt/sources.list.d/winehq-${CODENAME}.sources" \
+  "https://dl.winehq.org/wine-builds/ubuntu/dists/${CODENAME}/winehq-${CODENAME}.sources"
+apt-get update -y
+
+WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | grep -E '^10\.' | head -n1 || true)"
+if [[ -z "$WINEHQ_VERSION" ]]; then
+  echo "ERROR: WineHQ stable 10.x is not available for ${CODENAME}; refusing unsupported Wine 9 or unvalidated Wine 11 fallback" >&2
+  apt-cache madison winehq-stable >&2 || true
+  exit 56
+fi
+EXPECTED_STACK="WINEHQ_STABLE_${WINEHQ_VERSION}"
+
+# Stop any package-family processes before changing loaders. Runtime service is
+# already stopped by the deploy workflow; these are defensive cleanup only.
+pkill -u "$APP_USER" -f 'terminal64.exe|MetaTrader|wineserver' 2>/dev/null || true
+sleep 1
+
 apt-get purge -y \
+  wine wine64 wine32:i386 libwine:amd64 libwine:i386 \
   winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
   winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
   winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
 apt-get -f install -y
-apt-get install -y --install-recommends \
-  wine wine64 wine32:i386 libwine:amd64 libwine:i386
+apt-get install -y --allow-downgrades --install-recommends "winehq-stable=${WINEHQ_VERSION}"
 
-WINE_BIN="/usr/bin/wine"
-WINEBOOT_BIN="/usr/bin/wineboot"
-WINEPATH_BIN="/usr/bin/winepath"
-WINESERVER_BIN="/usr/bin/wineserver"
-[[ -x "$WINE_BIN" && -x "$WINEBOOT_BIN" && -x "$WINESERVER_BIN" ]] || {
-  echo "ERROR: complete Ubuntu Wine runtime not found" >&2
+WINE_BIN="/opt/wine-stable/bin/wine"
+WINEBOOT_BIN="/opt/wine-stable/bin/wineboot"
+WINEPATH_BIN="/opt/wine-stable/bin/winepath"
+WINESERVER_BIN="/opt/wine-stable/bin/wineserver"
+[[ -x "$WINE_BIN" && -x "$WINEBOOT_BIN" && -x "$WINEPATH_BIN" && -x "$WINESERVER_BIN" ]] || {
+  echo "ERROR: complete WineHQ 10 runtime not found" >&2
   exit 5
 }
 
-# Fail if any WineHQ runtime package survived and could contaminate loaders/DLLs.
-for pkg in \
-  winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
-  winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
-  winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386; do
+WINE_VERSION_TEXT="$($WINE_BIN --version 2>/dev/null || true)"
+WINE_MAJOR="$(printf '%s' "$WINE_VERSION_TEXT" | sed -nE 's/.*wine-([0-9]+).*/\1/p' | head -n1)"
+if [[ "$WINE_MAJOR" != "10" ]]; then
+  echo "ERROR: expected Wine 10.x, got ${WINE_VERSION_TEXT:-UNKNOWN}" >&2
+  exit 57
+fi
+
+# Fail if any other Wine family survived and could contaminate loaders/DLLs.
+for pkg in wine wine64 wine32:i386 libwine:amd64 libwine:i386 winehq-staging winehq-devel; do
   if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
-    echo "ERROR: WineHQ package still installed: $pkg" >&2
+    echo "ERROR: conflicting Wine package still installed: $pkg" >&2
     exit 53
   fi
 done
 
-for pkg in wine wine64 wine32:i386 libwine:amd64 libwine:i386; do
-  dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed' || {
-    echo "ERROR: required Ubuntu Wine package missing: $pkg" >&2
-    exit 54
-  }
-done
+dpkg-query -W -f='${Status}' winehq-stable 2>/dev/null | grep -q 'install ok installed' || {
+  echo "ERROR: winehq-stable missing after install" >&2
+  exit 54
+}
 
 echo "MT5_WINE_STACK=$EXPECTED_STACK"
 echo "MT5_WINE_BIN=$WINE_BIN"
-echo "MT5_WINE_VERSION=$($WINE_BIN --version 2>/dev/null || echo UNKNOWN)"
+echo "MT5_WINE_VERSION=$WINE_VERSION_TEXT"
+echo "MT5_WINE_MAJOR=10"
 echo "MT5_WINE_STACK_CONSISTENCY=PASS"
 
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
@@ -81,9 +103,6 @@ install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
   "$APP_HOME/.local" "$APP_HOME/.local/share" "$APP_HOME/.local/share/applications" \
   "$APP_HOME/.config" "$APP_HOME/.cache"
 
-# Do not force WINEARCH. Ubuntu Wine on amd64 will create its native default
-# prefix; forcing an architecture across different Wine families can make an old
-# prefix unusable. All Wine calls use only HOME + WINEPREFIX.
 run_as_mt5() {
   sudo -u "$APP_USER" env HOME="$APP_HOME" WINEPREFIX="$WINEPREFIX_DIR" WINEDEBUG=-all "$@"
 }
@@ -122,7 +141,7 @@ recreate_prefix() {
   stamp="$(date +%Y%m%d%H%M%S)"
   stop_mt5_wine
   if [[ -d "$WINEPREFIX_DIR" ]]; then
-    mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.broken-${stamp}" || rm -rf "$WINEPREFIX_DIR"
+    mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.pre-wine10-${stamp}" || rm -rf "$WINEPREFIX_DIR"
   fi
   install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
   echo "MT5_WINE_PREFIX_REPAIR=RECREATE"
@@ -142,18 +161,17 @@ recreate_prefix() {
   return 1
 }
 
-# Stack change is an unconditional prefix boundary. Never reuse a prefix created
-# by WineHQ 11/staging under Ubuntu Wine 9.
+# Changing Wine family/version is an unconditional prefix boundary.
 if prefix_artifacts_ready && wine_runtime_smoke; then
   echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
 else
   recreate_prefix || {
-    echo "ERROR: Ubuntu Wine prefix artifacts missing after rebuild" >&2
+    echo "ERROR: WineHQ 10 prefix artifacts missing after rebuild" >&2
     tail -200 /tmp/mt5-wineboot.log >&2 || true
     exit 51
   }
   wine_runtime_smoke || {
-    echo "ERROR: Ubuntu Wine cannot execute cmd.exe after clean rebuild" >&2
+    echo "ERROR: WineHQ 10 cannot execute cmd.exe after clean rebuild" >&2
     exit 55
   }
 fi
@@ -198,7 +216,7 @@ fi
 MT5_DIR="$(dirname "$TERMINAL")"
 chown -R "$APP_USER:$APP_USER" "$MT5_DIR"
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
-  "$MT5_DIR/MQL5/Experts" "$MT5_DIR/MQL5/Presets" "$MT5_DIR/Config"
+  "$MT5_DIR/MQL5/Experts" "$MT5_DIR/MQL5/Presets" "$MT5_DIR/MQL5/Files/FOREX_BRIDGE" "$MT5_DIR/Config"
 echo "MT5_FOREX_TERMINAL=$TERMINAL"
 
 EA_DST="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
@@ -241,7 +259,10 @@ MT5_WINEPREFIX=$WINEPREFIX_DIR
 MT5_TERMINAL=$TERMINAL
 MT5_INSTALL_DIR=$MT5_DIR
 MT5_WINE_BIN=$WINE_BIN
+MT5_WINESERVER_BIN=$WINESERVER_BIN
+MT5_WINEPATH_BIN=$WINEPATH_BIN
 MT5_WINE_STACK=$EXPECTED_STACK
+MT5_WINE_VERSION=$WINE_VERSION_TEXT
 EOF
 chown "$APP_USER:$APP_USER" "$APP_HOME/runtime.env"
 chmod 0640 "$APP_HOME/runtime.env"
@@ -252,3 +273,4 @@ ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
 echo "MT5_FOREX_INSTALL=PASS"
 echo "MT5_FOREX_EA_SOURCE=$EA_DST"
 echo "MT5_FOREX_EA_COMPILE=PASS"
+echo "MT5_FOREX_LOCAL_BRIDGE_DIR=PASS"
