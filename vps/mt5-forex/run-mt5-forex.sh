@@ -117,12 +117,11 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   launcher_rc=$?
   echo "MT5_FOREX_WINE_LAUNCHER_EXIT=$launcher_rc"
 
-  # MT5 under Wine can detach terminal64.exe and return 69 from the launcher.
-  # A live detached terminal is authoritative; do not tear it down just because
-  # the parent Wine launcher returned a non-zero compatibility code.
+  # Never use pgrep -f here: the supervisor command line itself contains the
+  # string terminal64.exe and can create a false-positive detached-terminal PASS.
   terminal_alive=false
   for i in $(seq 1 20); do
-    if pgrep -u "$(id -u)" -f "terminal64.exe|MetaTrader" >/dev/null 2>&1; then
+    if pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1; then
       terminal_alive=true
       break
     fi
@@ -132,7 +131,7 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   if [ "$terminal_alive" = true ]; then
     echo "MT5_FOREX_DETACHED_TERMINAL=PASS"
     echo "MT5_FOREX_LAUNCHER_RC_IGNORED=$launcher_rc"
-    while pgrep -u "$(id -u)" -f "terminal64.exe|MetaTrader" >/dev/null 2>&1; do
+    while pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1; do
       sleep 5
     done
     echo "MT5_FOREX_TERMINAL_EXITED=1"
@@ -142,9 +141,11 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
 
   if [ "$launcher_rc" -ne 0 ]; then
     echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
-    find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 6 | cut -d" " -f2- | while IFS= read -r f; do
+    echo "MT5_FOREX_REAL_TERMINAL_PROCESS=ABSENT"
+    ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | tail -n 80 || true
+    find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
       echo "--- ${f##*/} ---"
-      tail -n 80 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+      tail -n 120 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
     done
     echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
   fi
