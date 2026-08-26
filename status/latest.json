@@ -1,30 +1,30 @@
 {
-  "status": "HARD_BLOCKER_RUN_INCOMPLETE",
-  "runId": "32957308906",
-  "commit": "c79c62be9a8c529c9779c317624933beb3c1d52e",
+  "status": "REFINEMENT_REQUIRED",
+  "runId": "32967196530",
+  "commit": "46f8a3f1184903bef70522da909bd37d2bd670dd",
   "fiveAiPre": {
-    "claude": "TIMEOUT",
+    "claude": "OK",
     "codex": "OK",
     "deepseek": "OK",
     "qwen": "ERROR",
     "openrouter": "ERROR"
   },
   "fiveAiPost": {
-    "claude": "OK",
-    "codex": "OK",
-    "deepseek": "OK",
-    "qwen": "OK",
-    "openrouter": "OK"
+    "claude": "MISSING",
+    "codex": "MISSING",
+    "deepseek": "MISSING",
+    "qwen": "MISSING",
+    "openrouter": "MISSING"
   },
   "fiveAiPostMode": "BOUNDED_BATCHED_5AI_POST_REVIEW",
-  "fiveAiPostComplete": true,
+  "fiveAiPostComplete": false,
   "fast": {
-    "catalogCount": null,
-    "resultCount": null,
-    "passCount": null,
-    "failCount": null,
-    "dataUnavailable": null,
-    "allValidationPass": null
+    "catalogCount": 94,
+    "resultCount": 94,
+    "passCount": 9,
+    "failCount": 85,
+    "dataUnavailable": 0,
+    "allValidationPass": false
   },
   "final": {
     "catalogCount": null,

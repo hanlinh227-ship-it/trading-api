@@ -1,13 +1,13 @@
 {
-  "ok": true,
+  "ok": false,
   "mode": "BOUNDED_BATCHED_5AI_POST_REVIEW",
   "manifest": {
-    "catalogCount": null,
-    "resultCount": null,
-    "passCount": null,
-    "failCount": null,
-    "dataUnavailable": null,
-    "batchCount": 0,
+    "catalogCount": 94,
+    "resultCount": 94,
+    "passCount": 9,
+    "failCount": 85,
+    "dataUnavailable": 0,
+    "batchCount": 12,
     "schema": [
       "symbol",
       "market",
@@ -26,25 +26,163 @@
   },
   "providers": {
     "claude": {
-      "status": "OK",
-      "batchStatuses": []
+      "status": "MISSING",
+      "batchStatuses": [
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING"
+      ]
     },
     "codex": {
-      "status": "OK",
-      "batchStatuses": []
+      "status": "MISSING",
+      "batchStatuses": [
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING"
+      ]
     },
     "deepseek": {
-      "status": "OK",
-      "batchStatuses": []
+      "status": "MISSING",
+      "batchStatuses": [
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING"
+      ]
     },
     "qwen": {
-      "status": "OK",
-      "batchStatuses": []
+      "status": "MISSING",
+      "batchStatuses": [
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING"
+      ]
     },
     "openrouter": {
-      "status": "OK",
-      "batchStatuses": []
+      "status": "MISSING",
+      "batchStatuses": [
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING",
+        "MISSING"
+      ]
     }
   },
-  "batches": []
+  "batches": [
+    {
+      "batch": 1,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 2,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 3,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 4,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 5,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 6,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 7,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 8,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 9,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 10,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 11,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    },
+    {
+      "batch": 12,
+      "task_id": null,
+      "ok": false,
+      "providers": {}
+    }
+  ]
 }
