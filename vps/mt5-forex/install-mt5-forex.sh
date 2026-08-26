@@ -145,41 +145,30 @@ METAEDITOR=""
 for candidate in "$MT5_DIR/metaeditor64.exe" "$MT5_DIR/MetaEditor64.exe"; do [[ -f "$candidate" ]] && { METAEDITOR="$candidate"; break; }; done
 [[ -n "$METAEDITOR" ]] || { echo "ERROR: MetaEditor not found" >&2; exit 8; }
 
-wine_path(){ run_as_mt5 "$WINEPATH_BIN" -w "$1" 2>/dev/null || true; }
-wait_for_file(){ local f="$1" i; for i in $(seq 1 80); do [[ -s "$f" ]] && return 0; sleep 0.25; done; return 1; }
+DOSDEV="$WINEPREFIX_DIR/dosdevices"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$DOSDEV"
+ln -sfn "$MT5_DIR" "$DOSDEV/t:"
+chown -h "$APP_USER:$APP_USER" "$DOSDEV/t:" || true
 
-compile_direct(){
-  local src="$1" out="$2" log="$3" src_win log_win rc
-  src_win="$(wine_path "$src")"; log_win="$(wine_path "$log")"
-  [[ -n "$src_win" && -n "$log_win" ]] || return 90
+wait_for_file(){ local f="$1" i; for i in $(seq 1 120); do [[ -s "$f" ]] && return 0; sleep 0.25; done; return 1; }
+compile_metaeditor(){
+  local src_name="$1" out="$2" log="$3" rc
   rm -f "$out" "$log" /tmp/mt5-compile.log
+  stop_mt5_wine
   set +e
-  run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINE_BIN" "$METAEDITOR" /portable "/compile:$src_win" "/log:$log_win" >/tmp/mt5-compile.log 2>&1
+  run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINE_BIN" "$METAEDITOR" \
+    "/compile:T:\\MQL5\\Experts\\${src_name}" \
+    "/include:T:\\MQL5" /log >/tmp/mt5-compile.log 2>&1
   rc=$?
   set -e
-  echo "MT5_METAEDITOR_DIRECT_EXIT=$rc"
-  wait_for_file "$out" && return 0
-  return 1
-}
-
-compile_cmd_wait(){
-  local src="$1" out="$2" log="$3" src_win log_win editor_win cmd rc
-  src_win="$(wine_path "$src")"; log_win="$(wine_path "$log")"; editor_win="$(wine_path "$METAEDITOR")"
-  [[ -n "$src_win" && -n "$log_win" && -n "$editor_win" ]] || return 90
-  rm -f "$out" "$log" /tmp/mt5-compile-cmd.log
-  cmd="start /wait \"\" \"$editor_win\" /portable /compile:\"$src_win\" /log:\"$log_win\""
-  set +e
-  run_as_mt5 timeout 260 xvfb-run -a -s "$SCREEN" "$WINE_BIN" cmd.exe /d /s /c "$cmd" >/tmp/mt5-compile-cmd.log 2>&1
-  rc=$?
-  set -e
-  echo "MT5_METAEDITOR_CMD_EXIT=$rc"
+  echo "MT5_METAEDITOR_EXIT=$rc source=$src_name"
   wait_for_file "$out" && return 0
   return 1
 }
 
 PROBE_SRC="$MT5_DIR/MQL5/Experts/CompileProbe.mq5"
 PROBE_EX5="$MT5_DIR/MQL5/Experts/CompileProbe.ex5"
-PROBE_LOG="$MT5_DIR/metaeditor-probe.log"
+PROBE_LOG="$MT5_DIR/MQL5/Experts/CompileProbe.log"
 cat >"$PROBE_SRC" <<'EOF'
 #property strict
 #property version "1.000"
@@ -188,39 +177,21 @@ void OnTick(){}
 EOF
 chown "$APP_USER:$APP_USER" "$PROBE_SRC"; chmod 0640 "$PROBE_SRC"
 find "$WINEPREFIX_DIR" "$APP_HOME" -type f \( -iname 'CompileProbe.ex5' -o -iname 'ForexAutoThe5ers.ex5' \) -delete 2>/dev/null || true
-stop_mt5_wine
-if ! compile_direct "$PROBE_SRC" "$PROBE_EX5" "$PROBE_LOG"; then
-  stop_mt5_wine
-  compile_cmd_wait "$PROBE_SRC" "$PROBE_EX5" "$PROBE_LOG" || true
-fi
-if [[ ! -s "$PROBE_EX5" ]]; then
+if ! compile_metaeditor 'CompileProbe.mq5' "$PROBE_EX5" "$PROBE_LOG"; then
   echo "ERROR: MetaEditor compile probe did not produce EX5" >&2
   [[ -f "$PROBE_LOG" ]] && { iconv -f UTF-16LE -t UTF-8 "$PROBE_LOG" 2>/dev/null || cat "$PROBE_LOG"; } | tail -160 >&2 || true
   tail -160 /tmp/mt5-compile.log >&2 || true
-  tail -160 /tmp/mt5-compile-cmd.log >&2 || true
   stop_mt5_wine
   exit 75
 fi
 echo "MT5_METAEDITOR_PROBE=PASS"
 rm -f "$PROBE_SRC" "$PROBE_EX5" "$PROBE_LOG"
 
-LOG_HOST="$MT5_DIR/metaeditor-compile.log"
-stop_mt5_wine
-if ! compile_direct "$EA_DST" "$EA_EX5" "$LOG_HOST"; then
-  stop_mt5_wine
-  compile_cmd_wait "$EA_DST" "$EA_EX5" "$LOG_HOST" || true
-fi
-
-if [[ ! -s "$EA_EX5" ]]; then
-  FOUND_EX5="$(find "$WINEPREFIX_DIR" "$APP_HOME" -type f -iname 'ForexAutoThe5ers.ex5' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2- || true)"
-  if [[ -n "$FOUND_EX5" && -s "$FOUND_EX5" ]]; then install -o "$APP_USER" -g "$APP_USER" -m 0640 "$FOUND_EX5" "$EA_EX5"; fi
-fi
-
-if [[ ! -s "$EA_EX5" ]]; then
+LOG_HOST="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.log"
+if ! compile_metaeditor 'ForexAutoThe5ers.mq5' "$EA_EX5" "$LOG_HOST"; then
   echo "ERROR: canonical ForexAutoThe5ers.ex5 was not produced" >&2
   [[ -f "$LOG_HOST" ]] && { iconv -f UTF-16LE -t UTF-8 "$LOG_HOST" 2>/dev/null || cat "$LOG_HOST"; } | tail -200 >&2 || true
   tail -160 /tmp/mt5-compile.log >&2 || true
-  tail -160 /tmp/mt5-compile-cmd.log >&2 || true
   find "$WINEPREFIX_DIR" "$APP_HOME" -type f \( -iname '*.ex5' -o -iname 'ForexAutoThe5ers.mq5' \) -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' 2>/dev/null | tail -160 >&2 || true
   stop_mt5_wine
   exit 9
