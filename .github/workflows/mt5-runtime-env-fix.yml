@@ -1,0 +1,68 @@
+name: Fix MT5 Runtime Env Quoting
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-runtime-env-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch runtime env writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('vps/mt5-forex/install-mt5-forex.sh')
+          s=p.read_text()
+          old='''cat >"$APP_HOME/runtime.env" <<EOF
+MT5_WINEPREFIX=$WINEPREFIX_DIR
+MT5_TERMINAL=$TERMINAL
+MT5_INSTALL_DIR=$MT5_DIR
+MT5_WINE_BIN=$WINE_BIN
+MT5_WINESERVER_BIN=$WINESERVER_BIN
+MT5_WINEPATH_BIN=$WINEPATH_BIN
+MT5_WINE_VERSION=$WINE_VERSION_TEXT
+EOF
+chown "$APP_USER:$APP_USER" "$APP_HOME/runtime.env"; chmod 0640 "$APP_HOME/runtime.env"
+mkdir -p /opt/trading
+ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
+'''
+          new='''mkdir -p /opt/trading
+ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
+{
+  printf 'MT5_WINEPREFIX=%q\\n' "$WINEPREFIX_DIR"
+  printf 'MT5_TERMINAL=%q\\n' "$TERMINAL"
+  printf 'MT5_INSTALL_DIR=%q\\n' "$MT5_DIR"
+  printf 'MT5_WINE_BIN=%q\\n' "$WINE_BIN"
+  printf 'MT5_WINESERVER_BIN=%q\\n' "$WINESERVER_BIN"
+  printf 'MT5_WINEPATH_BIN=%q\\n' "$WINEPATH_BIN"
+  printf 'MT5_WINE_VERSION=%q\\n' "$WINE_VERSION_TEXT"
+} >"$APP_HOME/runtime.env"
+chown "$APP_USER:$APP_USER" "$APP_HOME/runtime.env"; chmod 0640 "$APP_HOME/runtime.env"
+'''
+          if old not in s:
+              raise SystemExit('runtime.env block not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+          bash -n vps/mt5-forex/install-mt5-forex.sh
+      - name: Commit fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add vps/mt5-forex/install-mt5-forex.sh
+          git diff --cached --check
+          git commit -m 'mt5: quote runtime env paths safely'
+          git push origin HEAD:main
