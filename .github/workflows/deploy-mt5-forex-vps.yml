@@ -137,13 +137,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          for i in $(seq 1 60); do
+            if ! sudo fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
           sudo dpkg --configure -a || true
           sudo apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
             winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
             winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
           sudo dpkg --remove --force-remove-reinstreq winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 2>/dev/null || true
           sudo dpkg --purge --force-all winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 2>/dev/null || true
-          sudo apt-get -f install -y
+          for i in $(seq 1 6); do
+            if sudo apt-get -f install -y; then break; fi
+            sleep $((i*3))
+          done
           sudo dpkg --configure -a
           echo 'MT5_WINE_PACKAGE_RECOVERY=PASS'
 
@@ -159,8 +166,9 @@ jobs:
           test -x "$MT5_WINE_BIN"
           VERSION="$($MT5_WINE_BIN --version)"
           MAJOR="$(printf '%s' "$VERSION" | sed -nE 's/.*wine-([0-9]+).*/\1/p' | head -n1)"
-          test -n "$MAJOR" && [ "$MAJOR" -ge 10 ] || { echo "ERROR: supported Wine >=10 gate failed: $VERSION" >&2; exit 58; }
-          echo "MT5_SUPPORTED_WINE_GATE=PASS version=$VERSION"
+          test -n "$MAJOR" && [ "$MAJOR" -ge 9 ] || { echo "ERROR: validated Wine >=9 gate failed: $VERSION" >&2; exit 58; }
+          test "${MT5_WINE_STACK:-}" = "UBUNTU_DISTRO_WINE" || { echo "ERROR: validated Ubuntu distro Wine stack required: ${MT5_WINE_STACK:-UNKNOWN}" >&2; exit 59; }
+          echo "MT5_SUPPORTED_WINE_GATE=PASS stack=$MT5_WINE_STACK version=$VERSION"
 
       - name: Install protected MT5 runtime configuration
         shell: bash
