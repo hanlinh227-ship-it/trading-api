@@ -54,6 +54,9 @@ esac
 
 PRESET="$MT5_INSTALL_DIR/MQL5/Presets/ForexAutoThe5ers.set"
 CONFIG="$MT5_INSTALL_DIR/mt5-forex-start.ini"
+BRIDGE_DIR="$MT5_INSTALL_DIR/MQL5/Files/FOREX_BRIDGE"
+install -d -o mt5forex -g mt5forex -m 0750 "$BRIDGE_DIR"
+rm -f "$BRIDGE_DIR/decision.json" "$BRIDGE_DIR/decision.json.tmp" "$BRIDGE_DIR/pulse.json" 2>/dev/null || true
 
 cat >"$PRESET" <<EOF
 InpHubUrl=$MT5_HUB_URL
@@ -108,18 +111,16 @@ if [[ "$LIVE_BOOL" == true ]]; then
   fi
 fi
 
-WINEPATH_BIN="$(command -v winepath || true)"
-CONFIG_WIN=""
-if [[ -n "$WINEPATH_BIN" ]]; then
-  CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
-fi
+# Never rediscover Wine binaries through PATH after installation. runtime.env is
+# the contract that keeps wine/winepath/wineserver from one package family.
+WINEPATH_BIN="${MT5_WINEPATH_BIN:-$(dirname "$MT5_WINE_BIN")/winepath}"
+WINESERVER_BIN="${MT5_WINESERVER_BIN:-$(dirname "$MT5_WINE_BIN")/wineserver}"
+[[ -x "$WINEPATH_BIN" ]] || { echo "ERROR: pinned winepath missing" >&2; exit 13; }
+[[ -x "$WINESERVER_BIN" ]] || { echo "ERROR: pinned wineserver missing" >&2; exit 14; }
+
+CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
 if [[ -z "$CONFIG_WIN" ]]; then
   CONFIG_WIN='C:\MT5Forex\mt5-forex-start.ini'
-fi
-WINESERVER_BIN="$(command -v wineserver || true)"
-if [[ -z "$WINESERVER_BIN" ]]; then
-  echo "ERROR: wineserver missing" >&2
-  exit 13
 fi
 
 # Deliberately do not print account number, password, broker server or bridge token.
@@ -128,6 +129,9 @@ echo "MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY"
 echo "MT5_FOREX_HOST_AUTHORIZED=PASS"
 echo "MT5_FOREX_MODE=$([[ "$LIVE_BOOL" == true ]] && echo LIVE || echo PAPER)"
 echo "MT5_FOREX_CREDENTIALS=$([[ -n "$MT5_ACCOUNT_LOGIN" && -n "$MT5_ACCOUNT_PASSWORD" && -n "$MT5_ACCOUNT_SERVER" ]] && echo CONFIGURED || echo INCOMPLETE)"
+echo "MT5_FOREX_WINE_STACK=${MT5_WINE_STACK:-UNKNOWN}"
+echo "MT5_FOREX_WINE_VERSION=${MT5_WINE_VERSION:-UNKNOWN}"
+echo "MT5_FOREX_TRANSPORT=LOCAL_SIDECAR"
 
 # Under Wine, terminal64.exe can hand off to a persistent Wine child and return
 # a non-zero launcher code even though MT5 remains alive. Keep the systemd main
@@ -135,11 +139,10 @@ echo "MT5_FOREX_CREDENTIALS=$([[ -n "$MT5_ACCOUNT_LOGIN" && -n "$MT5_ACCOUNT_PAS
 export APP_HOME MT5_WINEPREFIX MT5_WINE_BIN MT5_TERMINAL CONFIG_WIN WINESERVER_BIN
 exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   set +e
-  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEARCH=win64 WINEDEBUG=-all \
+  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all \
     "$MT5_WINE_BIN" "$MT5_TERMINAL" /portable "/config:$CONFIG_WIN"
   launcher_rc=$?
   echo "MT5_FOREX_WINE_LAUNCHER_EXIT=$launcher_rc"
-  # If MT5 handed off to Wine children, this blocks for the lifetime of MT5.
   HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -w
   wait_rc=$?
   if [ "$wait_rc" -ne 0 ]; then exit "$wait_rc"; fi
