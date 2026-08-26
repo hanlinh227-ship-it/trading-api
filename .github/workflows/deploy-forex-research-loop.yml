@@ -27,7 +27,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: [self-hosted, trading-vps]
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
     steps:
@@ -51,6 +51,37 @@ jobs:
           test -n "$SECRET"
           HEALTH="$(curl -fsS --max-time 5 http://127.0.0.1:8789/health)"
           printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; req={"claude","codex","deepseek"}; assert req<=set(p); assert all(bool((p[n] or {}).get("configured")) for n in req); print("FOREX_3AI_BRIDGE=PASS")'
+
+      - name: Smoke canonical Forex V7 before VPS restart
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f data/forex-twelvedata-walkforward-latest.json
+          BACKTEST_SYMBOLS='EUR/USD' \
+          BACKTEST_RANDOM_BLOCKS=1 \
+          BACKTEST_BLOCK_DAYS=35 \
+          BACKTEST_TEST_DAYS_PER_BLOCK=1 \
+          BACKTEST_TRAIN_DAYS_PER_BLOCK=1 \
+          BACKTEST_MIN_TEST_DAYS=1 \
+          BACKTEST_START=2026-01-05 \
+          BACKTEST_END=2026-07-31 \
+          TWELVEDATA_INTER_REQUEST_SLEEP=0 \
+          FOREX_RESEARCH_MODE=SMOKE \
+          timeout 300 python3 scripts/forex_twelvedata_walkforward_v7_runtime.py
+          python3 - <<'PY'
+          import json
+          p='data/forex-twelvedata-walkforward-latest.json'
+          d=json.load(open(p))
+          assert d.get('mode')=='SMOKE', d.get('mode')
+          assert set(d.get('symbols') or {})=={'EURUSD'}
+          x=d['symbols']['EURUSD']
+          assert not x.get('dataError'), x.get('dataError')
+          assert int(x.get('requiredOOSDays') or 0)==1
+          assert int(x.get('actualOOSDays') or 0)==1
+          assert int(x.get('daysWithEntry') or 0)==1
+          print('FOREX_V7_CANONICAL_SMOKE=PASS seed='+str(d.get('seed')))
+          PY
+          rm -f data/forex-twelvedata-walkforward-latest.json
 
       - name: Sync canonical repo on VPS
         shell: bash
@@ -83,7 +114,7 @@ jobs:
             'FOREX_RESEARCH_STATE_DIR=/var/lib/trading/forex-research' \
             'FOREX_AI_BRIDGE_URL=http://127.0.0.1:8789/review' \
             'BACKTEST_RANDOM_BLOCKS=10' \
-            'BACKTEST_BLOCK_DAYS=24' \
+            'BACKTEST_BLOCK_DAYS=35' \
             'BACKTEST_TEST_DAYS_PER_BLOCK=10' \
             'BACKTEST_TRAIN_DAYS_PER_BLOCK=6' \
             'BACKTEST_REQUIRED_RANDOM_DAYS=100' \
@@ -106,7 +137,6 @@ jobs:
         run: |
           set -euo pipefail
           sudo install -m 0644 /opt/trading/trading-api-main/vps/forex-research/forex-research-loop.service /etc/systemd/system/forex-research-loop.service
-          # Reload first so this very deployment uses the new graceful-stop timeout.
           sudo systemctl daemon-reload
           sudo systemctl stop forex-research-loop.service 2>/dev/null || true
           sudo rm -f /var/lib/trading/forex-research/running.lock
@@ -178,7 +208,7 @@ jobs:
           done
           echo 'FOREX_FRESH_100_DAY_ENGINE=FAIL'
           sudo systemctl --no-pager --full status forex-research-loop.service || true
-          sudo journalctl -u forex-research-loop.service -n 160 --no-pager || true
+          sudo journalctl -u forex-research-loop.service -n 200 --no-pager || true
           python3 - <<'PY'
           import json
           d=json.load(open('/var/lib/trading/forex-research/state.json'))
@@ -220,7 +250,7 @@ jobs:
         run: |
           echo 'FOREX_RESEARCH_RUNNER=self-hosted,trading-vps'
           echo 'FOREX_RESEARCH_SERVICE=active'
-          echo 'FOREX_RESEARCH_ENGINE=V7_DSL_100_RANDOM_DAYS+RUNTIME_FIX'
+          echo 'FOREX_RESEARCH_ENGINE=V7_DSL_100_RANDOM_DAYS+CANONICAL_ONLY'
           echo 'FOREX_RESEARCH_CONTROLLER=LOOP_V5_OPEN_DSL+INTEGRITY_GUARD'
           echo 'FOREX_RESEARCH_AI=claude,codex,deepseek'
           echo 'FOREX_RESEARCH_MODE=PAPER_ONLY'
