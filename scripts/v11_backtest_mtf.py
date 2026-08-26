@@ -52,6 +52,36 @@ def _fusion_side(f,m):
     return _base_side(f,m)
 _m._side=_fusion_side
 
+# R18 integrity refinement: style search must rank the same execution-day contract
+# that the direct wrapper later seals. Earlier rounds ranked only trade WR/meanR and
+# could prefer a style with a missing eligible execution day; forex also derived the
+# tuning boundaries from H1 while executing on M5. This remains DEV/VALIDATION-only.
+def _contract_style_stats(cands,base,rr,market,a,b):
+    hold=max(6,int(12*3600/base.seconds));slots=set()
+    for k,row in enumerate(base.rows):
+        ts=int(row['ts'])
+        if not (a<=ts<b) or not _m.is_market_day(ts,market) or k<61:continue
+        last=k+hold-1
+        if last>=len(base.rows):continue
+        if int(base.rows[last]['ts'])+int(base.seconds)<=b:slots.add(k)
+    eligible={_m.daykey(base.rows[k]['ts']) for k in slots};by={}
+    for c in cands:
+        k=int(c.get('i',-1))+1
+        if k not in slots:continue
+        day=_m.daykey(base.rows[k]['ts']);by.setdefault(day,[]).append(c)
+    trades=[];traded=set()
+    for day in sorted(eligible):
+        arr=sorted(by.get(day,[]),key=lambda x:x.get('score',0),reverse=True)
+        if not arr:continue
+        z=_m.simulate_trade(base,arr[0],rr,market)
+        if z:trades.append(z);traded.add(day)
+    n=len(trades);tp=sum(x.get('outcome')=='TP' for x in trades);zero=len(eligible-traded)
+    return {'trades':n,'eligibleDays':len(eligible),'coveragePct':100.0*len(traded)/len(eligible) if eligible else 0.0,'zeroExecutionDays':zero,'winRate':100.0*tp/n if n else 0.0,'meanR':_m.statistics.mean([float(x.get('r',0.0)) for x in trades]) if n else -9.0}
+def _contract_rank_pair(dev,val):
+    return (min(dev.get('coveragePct',0),val.get('coveragePct',0)),-int(dev.get('zeroExecutionDays',10**9))-int(val.get('zeroExecutionDays',10**9)),min(dev.get('winRate',0),val.get('winRate',0)),min(dev.get('meanR',-9),val.get('meanR',-9)),val.get('winRate',0),dev.get('winRate',0))
+_m._style_stats=_contract_style_stats
+_m._rank_pair=_contract_rank_pair
+
 # Direct research defaults to the widest predeclared bounded DEV/VALIDATION search (round 4).
 # The multi-round controller still sets V11_RESEARCH_ROUND explicitly per round.
 # FINAL remains sealed and is never inspected or tuned here.
@@ -59,9 +89,10 @@ _round=max(0,min(4,int(os.environ.get('V11_RESEARCH_ROUND','4') or 4)))
 _search_src=inspect.getsource(_m._search_style)
 
 # Preserve R7 execution-base alignment: search and execution must use the same base.
+# R18 also aligns the DEV/VALIDATION day boundaries to that same execution base.
 _search_src=_search_src.replace(
     "h1=frames['h1'];bounds=_research_bounds(h1,market);prior=load_registry_prior(symbol)",
-    "h1=frames['h1'];target=frames[BASE_TF[market]];bounds=_research_bounds(h1,market);prior=load_registry_prior(symbol)"
+    "h1=frames['h1'];target=frames[BASE_TF[market]];bounds=_research_bounds(target,market);prior=load_registry_prior(symbol)"
 )
 _search_src=_search_src.replace("c=_candidate_days(frames,market,st,h1)","c=_candidate_days(frames,market,st,target)")
 _search_src=_search_src.replace(
@@ -108,7 +139,7 @@ _search_src=_search_src.replace(
     "for ex,hold in (((0,4),(0,6),(0,8),(0,10),(0,12)) if style['mode']=='MKT' else ((1,10),(2,10),(2,8),(4,8),(4,6))):test({**style,'expiry':ex,'hold':hold})"
 )
 
-# R16/R17 bounded refinement: choose family/hour jointly with all five predeclared
+# R16/R17/R18 bounded refinement: choose family/hour jointly with all five predeclared
 # entry geometries so ensemble families are evaluated on equal footing. FINAL remains
 # sealed; RR, exact-data, execution-count, WR and expectancy gates are unchanged.
 _search_src=_search_src.replace(
@@ -118,7 +149,7 @@ _search_src=_search_src.replace(
 
 exec(_search_src,_m.__dict__)
 # Cache identity must change whenever bounded candidate-generation/search behavior changes.
-_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16-ensemble-side-r17'
-_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16-ENSEMBLE-SIDE-R17'
+_m.FEATURE_SCHEMA=str(_m.FEATURE_SCHEMA)+f'-fusion-v77v78-priors-warmup14-executionbase-r{_round}-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16-ensemble-side-r17-contract-rank-r18'
+_m.VERSION=str(_m.VERSION)+f'-FUSION-V77V78-R{_round}-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16-ENSEMBLE-SIDE-R17-CONTRACT-RANK-R18'
 for _k in dir(_m):
     if not _k.startswith('__'):globals()[_k]=getattr(_m,_k)
