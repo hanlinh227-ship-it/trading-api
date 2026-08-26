@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.8.0: canonical runtime contract + bounded postmortem + balanced opportunity intelligence.
+// BYBIT-AUTO-1.8.1: operational hardening without weakening setup/AI quality gates.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
@@ -27,9 +27,9 @@ export const BYBIT_AUTO_CONFIG={
     maxRiskPctOfEquity:10,
     maxTotalOpenRiskPct:20,
     maxMarginPerPositionPct:42,
-    minFreeReservePct:18,
+    minFreeReservePct:15,
     feeBufferPct:5,
-    maxPortfolioMarginPct:82,
+    maxPortfolioMarginPct:85,
     minRR:1.5,
     preferredRR:1.8,
     maxRR:5,
@@ -69,7 +69,7 @@ export const BYBIT_AUTO_CONFIG={
     autoPromote:false
   },
   filters:{minScore:68,maxSpreadBps:12,maxChaseAtr:.80,minAtrPct:.06,maxAtrPct:3.2},
-  execution:{recvWindow:5000,cooldownSec:180,positionIdx:0}
+  execution:{recvWindow:10000,cooldownSec:120,positionIdx:0}
 };
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 export function bybitAutoConfig(env={}){
@@ -124,7 +124,8 @@ export function bybitAutoConfig(env={}){
   c.adaptive.maxOpportunityBonus=1;
   c.adaptive.trendAlignmentBonus=1;
   c.adaptive.autoPromote=false;
-  c.execution.cooldownSec=Math.max(120,Math.min(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
+  c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,"BYBIT_RECV_WINDOW_MS",c.execution.recvWindow))));
+  c.execution.cooldownSec=Math.max(60,Math.min(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
   return c;
 }
 export function bybitExecutionMode(env={}){if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";return "PAPER";}
