@@ -1,0 +1,112 @@
+name: MT5 Wine11 Terminal Recover
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-wine11-terminal-recover.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-forex-vps
+  cancel-in-progress: true
+
+jobs:
+  recover:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 35
+    env:
+      MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_ACCOUNT_LOGIN }}
+      MT5_ACCOUNT_PASSWORD: ${{ secrets.MT5_ACCOUNT_PASSWORD }}
+      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
+      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
+      MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
+      MT5_ALLOW_LIVE: ${{ vars.MT5_ALLOW_LIVE || secrets.MT5_ALLOW_LIVE || 'false' }}
+    steps:
+      - name: Recover MT5 files and verify Wine11
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${RUNNER_NAME:-}" = trading-vps
+          repo=/opt/trading/trading-api-main
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" reset --hard origin/main
+          sudo systemctl stop mt5-forex-bridge.service 2>/dev/null || true
+          sudo systemctl stop mt5-forex.service 2>/dev/null || true
+          prefix=/var/lib/trading/mt5-forex/wine
+          test -f "$prefix/system.reg"
+          test "$(cat "$prefix/.trading-wine-stack")" = WINEHQ_STABLE_11
+          test "$(/usr/bin/wine --version | sed -nE 's/.*wine-([0-9]+).*/\1/p')" -ge 11
+          if ! find "$prefix/drive_c" -type f -iname terminal64.exe -print -quit | grep -q .; then
+            backup=$(find /var/lib/trading/mt5-forex -maxdepth 1 -type d -name 'wine.pre-wine11-*' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)
+            test -n "$backup"
+            src=$(find "$backup/drive_c" -type f -iname terminal64.exe -printf '%h\n' | head -1)
+            test -n "$src"
+            echo "MT5_WINE11_FILE_SOURCE=BACKUP"
+            sudo rm -rf "$prefix/drive_c/MT5Forex"
+            sudo cp -a "$src" "$prefix/drive_c/MT5Forex"
+            sudo chown -R mt5forex:mt5forex "$prefix/drive_c/MT5Forex"
+          fi
+          test -f "$prefix/drive_c/MT5Forex/terminal64.exe"
+          echo 'MT5_WINE11_TERMINAL_FILES=PASS'
+          sudo chmod +x "$repo/vps/mt5-forex/install-mt5-forex.sh"
+          sudo FOREX_RESEARCH_REPO="$repo" "$repo/vps/mt5-forex/install-mt5-forex.sh"
+          source /var/lib/trading/mt5-forex/runtime.env
+          echo "MT5_RUNTIME_WINE=$MT5_WINE_VERSION"
+          echo "MT5_RUNTIME_STACK=$MT5_WINE_STACK"
+          test "$MT5_WINE_STACK" = WINEHQ_STABLE_11
+          test -f "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
+
+      - name: Install LIVE config and start runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
+          HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
+          LIVE="${MT5_ALLOW_LIVE:-false}"
+          case "${LIVE,,}" in true|1|yes) LIVE=true ;; *) LIVE=false ;; esac
+          umask 077
+          {
+            printf 'MT5_ACCOUNT_LOGIN=%q\n' "$MT5_ACCOUNT_LOGIN"
+            printf 'MT5_ACCOUNT_PASSWORD=%q\n' "$MT5_ACCOUNT_PASSWORD"
+            printf 'MT5_ACCOUNT_SERVER=%q\n' "$MT5_ACCOUNT_SERVER"
+            printf 'MT5_HUB_URL=%q\n' "$HUB"
+            printf 'MT5_BRIDGE_TOKEN=%q\n' "$MT5_BRIDGE_TOKEN"
+            printf 'MT5_ALLOW_LIVE=%q\n' "$LIVE"
+          } > "$tmp"
+          sudo install -o root -g mt5forex -m 0640 "$tmp" /etc/trading/mt5-forex.env
+          sudo chmod +x "$repo/vps/mt5-forex/run-mt5-forex.sh" "$repo/vps/mt5-forex/forex-mt5-sidecar.py" "$repo/vps/mt5-forex/verify-hub-pulse.py" "$repo/vps/mt5-forex/verify-local-pulse.py" "$repo/vps/mt5-forex/verify-live-readiness.sh"
+          sudo install -m 0644 "$repo/vps/mt5-forex/mt5-forex.service" /etc/systemd/system/mt5-forex.service
+          sudo install -m 0644 "$repo/vps/mt5-forex/mt5-forex-bridge.service" /etc/systemd/system/mt5-forex-bridge.service
+          sudo systemctl daemon-reload
+          sudo systemctl reset-failed mt5-forex.service mt5-forex-bridge.service || true
+          sudo systemctl restart mt5-forex.service
+          sleep 12
+          sudo systemctl restart mt5-forex-bridge.service
+          sudo systemctl is-active --quiet mt5-forex.service
+          sudo systemctl is-active --quiet mt5-forex-bridge.service
+          echo 'MT5_WINE11_RUNTIME_START=PASS'
+
+      - name: Verify connected broker end-to-end
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          sudo -u mt5forex env \
+            FOREX_RESEARCH_REPO="$repo" \
+            MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" \
+            MT5_ACCOUNT_SERVER="$MT5_ACCOUNT_SERVER" \
+            MT5_BRIDGE_TOKEN="$MT5_BRIDGE_TOKEN" \
+            MT5_HUB_URL="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}" \
+            MT5_ALLOW_LIVE="${MT5_ALLOW_LIVE:-false}" \
+            MT5_LOCAL_READY_TIMEOUT_SECONDS=480 \
+            MT5_SIDECAR_READY_TIMEOUT_SECONDS=120 \
+            MT5_HUB_READY_TIMEOUT_SECONDS=180 \
+            "$repo/vps/mt5-forex/verify-live-readiness.sh"
+          echo 'MT5_CONNECTED=PASS'
+          echo 'MT5_BALANCE_EQUITY=PASS'
+          echo 'MT5_FOREX_RUNTIME_READINESS=PASS'
