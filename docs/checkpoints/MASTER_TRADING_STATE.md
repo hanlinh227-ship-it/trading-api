@@ -3,13 +3,13 @@
 Updated: 2026-08-26 UTC+7
 Purpose: single canonical state for the Trading project.
 
-## CURRENT PRODUCTION AUTHORITY — BYBIT AUTO 1.7.2
+## CURRENT PRODUCTION AUTHORITY — BYBIT AUTO 1.7.3
 
 GitHub `main` + successfully verified Cloudflare runtime are authoritative.
 
 Current production contract:
 - production execution authority = Bybit Auto LIVE only;
-- canonical source version = `BYBIT-AUTO-1.7.2`;
+- canonical source version = `BYBIT-AUTO-1.7.3`;
 - Signal V11 execution/scheduler on this Worker = OFF;
 - private authenticated Bybit transport = `VPS_BYBIT_PRIVATE_PROXY`;
 - market transport = `VPS_BYBIT_MARKET_PROXY`;
@@ -20,25 +20,27 @@ Current production contract:
 - Forex remains PAPER_ONLY unless separately promoted by its own validated authority.
 
 ## BYBIT LIVE PIPELINE
-`Scheduler -> live positions/account -> canonical PnL reconciliation -> position management -> single-source entry spacing -> liquid universe -> deterministic setup -> Regime Engine -> Adaptive Edge -> correlation gate -> fresh/re-anchor -> sizing -> live-position-only risk preflight -> 3AI review -> post-AI fresh quote -> LIVE order -> actual RR/risk verification -> verified SL/TP/trailing -> lifecycle management -> Telegram -> bounded learning`.
+`Scheduler -> live positions/account -> current-day canonical PnL safety reconciliation -> stale lifecycle quarantine -> position management -> single-source entry spacing -> liquid universe -> deterministic setup -> Regime Engine -> Adaptive Edge -> correlation gate -> fresh/re-anchor -> sizing -> live-position-only risk preflight -> 3AI review -> post-AI fresh quote -> LIVE order -> actual RR/risk verification -> verified SL/TP/trailing -> lifecycle management -> Telegram -> bounded learning`.
 
-## ENTRY-GATE CONFLICT LOCK — 1.7.2
-- Global entry spacing no longer has a separate hard-coded 5-minute controller authority.
-- Controller and engine derive entry timing from `BYBIT_AUTO_CONFIG.execution.cooldownSec`; default is 180 seconds.
-- Controller no longer injects a hidden `BYBIT_ENTRY_COOLDOWN_SEC=180` override into the inner engine.
-- Loss-streak pause authority lives in the canonical engine state; controller only reports it.
-- `maxTradesPerDay` remains effectively unlimited; there is no daily target/quota gate.
+## CANONICAL ENTRY-GATE LOCK — 1.7.3
+- Global entry spacing has exactly one authority: `BYBIT_AUTO_CONFIG.execution.cooldownSec`, default 180 seconds.
+- Controller has no hard-coded 5-minute spacing and cannot inject a hidden inner-engine cooldown override.
+- Loss-streak pause authority lives in canonical engine state; controller only reports it.
+- `maxTradesPerDay` is effectively unlimited; no daily profit target/quota gate exists.
 - Quality, freshness, RR, risk, correlation, live-account and protection gates remain mandatory.
 
-## CLOSED-PNL / GHOST-PLAN RESILIENCE — 1.7.2
-- Closed-PnL reconciliation remains canonical and fail-closed when stale beyond the 15-minute healthy grace window.
-- If Bybit live positions confirm a symbol is no longer open, its retained plan may remain in state for reconciliation/learning but MUST NOT count toward current open risk or initial-margin capacity.
-- Live entry risk accounting authority is `BYBIT_LIVE_POSITIONS_ONLY`.
-- A pending closed plan may still block re-entry into the same symbol until outcome reconciliation completes, preventing duplicate lifecycle ambiguity, but it must not block unrelated symbols through false `TOTAL_OPEN_RISK_CAP` or `PORTFOLIO_MARGIN_HEADROOM`.
+## CLOSED-PNL / LEGACY STATE QUARANTINE — 1.7.3
+- Global PnL safety reconciliation is scoped to `CURRENT_TRADING_DAY_ONLY` so old ghost plans cannot expand the safety query window.
+- Transient closed-PnL failure may use a maximum 15-minute last-known-healthy grace window. Stale current-day safety reconciliation remains fail-closed.
+- If a LIVE plan is absent from authoritative Bybit positions and its outcome cannot be resolved inside the current-day window, an older plan is moved to `reconcileQuarantine` with unresolved outcome rather than treated as WIN/LOSS.
+- Quarantined plans are removed from `openPlans`; they cannot consume risk/margin, cannot block unrelated symbols, and cannot block same-symbol re-entry.
+- Same-day pending closed plans may temporarily block only that same symbol until reconciliation completes.
+- Live entry risk accounting authority remains `BYBIT_LIVE_POSITIONS_ONLY`.
 - Untracked real Bybit positions remain a hard safety block.
+- `CLOSED_PNL_LOOKBACK_EXCEEDED` global blocking and ghost-driven `MAX_CLOSED_LOOKBACK_MS` history expansion are retired and forbidden.
 
 ## LOSS-STREAK SAFETY
-- Canonical Bybit closed-PnL history computes loss streak.
+- Canonical current-day Bybit closed-PnL history computes loss streak.
 - 3 consecutive realized losses trigger a 30-minute new-entry pause once per newest loss event.
 - The same historical streak cannot repeatedly re-arm the pause every scheduler cycle.
 - Position management remains active during the pause.
@@ -56,7 +58,7 @@ Current production contract:
 - Smart CUT enabled with verified reduce-only/full-fill lifecycle.
 
 ## PERMANENT INVARIANTS
-Never reset state, fabricate live data, bypass freshness/SL/RR/risk/capital/protection gates, count closed ghost plans as live exposure, resurrect a second controller-level loss-pause authority, resurrect hard-coded 5-minute spacing, enable adaptive auto-promote, or allow retired Signal V11 execution to compete with Bybit Auto.
+Never reset state, fabricate live data, bypass freshness/SL/RR/risk/capital/protection gates, count closed ghost plans as live exposure, allow unresolved historical plans to globally block entry, expand current-day PnL safety history because of ghost plans, resurrect a second controller-level loss-pause authority, resurrect hard-coded 5-minute spacing, enable adaptive auto-promote, or allow retired Signal V11 execution to compete with Bybit Auto.
 
 ## DEPLOYMENT
 Canonical workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
