@@ -20,7 +20,7 @@ jobs:
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
       FOREX_MT5_BRIDGE_TOKEN: ${{ secrets.FOREX_MT5_BRIDGE_TOKEN }}
-      FOREX_AUTO_LIVE: ${{ vars.FOREX_AUTO_LIVE || 'false' }}
+      FOREX_AUTO_LIVE: 'true'
       FOREX_TARGET_USD: ${{ vars.FOREX_TARGET_USD || '500' }}
       FOREX_TARGET_DAYS: ${{ vars.FOREX_TARGET_DAYS || '3' }}
       FOREX_TARGET_CYCLE_ID: ${{ vars.FOREX_TARGET_CYCLE_ID || 'CYCLE_001' }}
@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           H="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/forex/health")"
-          printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.ok)throw Error("FOREX_HEALTH");if(j.bridgeTokenConfigured!==true)throw Error("FOREX_BRIDGE_TOKEN");console.log("FOREX_BRIDGE_HEALTH=PASS")})'
+          printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.ok)throw Error("FOREX_HEALTH");if(j.bridgeTokenConfigured!==true)throw Error("FOREX_BRIDGE_TOKEN");if(j.liveEnabled!==true||j.mode!=="LIVE")throw Error("FOREX_LIVE_NOT_ACTIVE");console.log("FOREX_BRIDGE_HEALTH=PASS");console.log("FOREX_LIVE_RUNTIME=PASS")})'
       - name: Verify active runtime revision and Bybit VPS transports
         shell: bash
         run: |
