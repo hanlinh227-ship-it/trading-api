@@ -1,5 +1,5 @@
 #property strict
-#property version   "0.310"
+#property version   "0.311"
 #property description "FOREX AUTO The5ers - 3AI learning bridge with local hard-risk, alternation and protection."
 
 input string InpHubUrl="https://YOUR-WORKER.workers.dev";
@@ -58,11 +58,37 @@ string AccountJson(){
   return "{\"balance\":"+D(bal,2)+",\"equity\":"+D(eq,2)+",\"openRiskPct\":"+D(riskPct,3)+",\"openPositions\":"+(string)count+"}";
 }
 
+bool BridgeWrite(string name,string body){
+  ResetLastError();
+  FolderCreate("FOREX_BRIDGE");
+  int h=FileOpen("FOREX_BRIDGE\\"+name,FILE_WRITE|FILE_TXT|FILE_ANSI|FILE_SHARE_READ);
+  if(h==INVALID_HANDLE){Print("FOREX local bridge write failed ",name," err=",GetLastError());return false;}
+  FileWriteString(h,body);FileFlush(h);FileClose(h);return true;
+}
+
+bool BridgeReadDecision(string &resp){
+  resp="";ResetLastError();
+  int h=FileOpen("FOREX_BRIDGE\\decision.json",FILE_READ|FILE_TXT|FILE_ANSI|FILE_SHARE_READ|FILE_SHARE_WRITE);
+  if(h==INVALID_HANDLE)return false;
+  while(!FileIsEnding(h))resp+=FileReadString(h);
+  FileClose(h);
+  if(resp=="")return false;
+  FileDelete("FOREX_BRIDGE\\decision.json");
+  return true;
+}
+
 bool HttpPost(string path,string body,string &resp){
-  char data[],result[];StringToCharArray(body,data,0,WHOLE_ARRAY,CP_UTF8);
-  string headers="Content-Type: application/json\r\nAuthorization: Bearer "+InpBridgeToken+"\r\n",rh="";
-  int code=WebRequest("POST",InpHubUrl+path,headers,15000,data,result,rh);resp=CharArrayToString(result,0,-1,CP_UTF8);
-  if(code<200||code>=300){Print("FOREX hub HTTP ",code," ",resp);return false;}return true;
+  resp="";
+  if(path=="/forex/mt5/pulse"){
+    if(!BridgeWrite("pulse.json",body))return false;
+    return BridgeReadDecision(resp);
+  }
+  if(path=="/forex/mt5/ack"){
+    string name="ack_"+(string)TimeLocal()+"_"+(string)GetTickCount64()+".json";
+    return BridgeWrite(name,body);
+  }
+  Print("FOREX local bridge rejected path ",path);
+  return false;
 }
 
 string JsonString(string j,string k){string ptn="\""+k+"\":\"";int p=StringFind(j,ptn);if(p<0)return "";p+=StringLen(ptn);int e=StringFind(j,"\"",p);return e<0?"":StringSubstr(j,p,e-p);}
@@ -176,6 +202,6 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &
   Ack("CLOSED",pos,sym,detail,"EXIT",pnl,"",mfe,mae);GlobalVariableDel(RiskKey(pos));GlobalVariableDel(MfeKey(pos));GlobalVariableDel(MaeKey(pos));
 }
 
-int OnInit(){TerminalId=StringFormat("%I64d-%s",AccountInfoInteger(ACCOUNT_LOGIN),AccountInfoString(ACCOUNT_SERVER));EventSetTimer(MathMax(10,InpPulseSeconds));Print("FOREX AUTO 0.310 ready: ",TerminalId," LIVE=",InpAllowLiveTrading," lastSide=",LocalLastSide());return INIT_SUCCEEDED;}
+int OnInit(){TerminalId=StringFormat("%I64d-%s",AccountInfoInteger(ACCOUNT_LOGIN),AccountInfoString(ACCOUNT_SERVER));EventSetTimer(MathMax(10,InpPulseSeconds));Print("FOREX AUTO 0.311 local-bridge ready: ",TerminalId," LIVE=",InpAllowLiveTrading," lastSide=",LocalLastSide());return INIT_SUCCEEDED;}
 void OnDeinit(const int reason){EventKillTimer();}
 void OnTimer(){ManagePositions();Pulse();}
