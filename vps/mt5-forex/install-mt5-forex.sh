@@ -203,18 +203,18 @@ if [[ -f "$LOG_HOST" ]]; then
 fi
 stop_mt5_wine
 
-cat >"$APP_HOME/runtime.env" <<EOF
-MT5_WINEPREFIX=$WINEPREFIX_DIR
-MT5_TERMINAL=$TERMINAL
-MT5_INSTALL_DIR=$MT5_DIR
-MT5_WINE_BIN=$WINE_BIN
-MT5_WINESERVER_BIN=$WINESERVER_BIN
-MT5_WINEPATH_BIN=$WINEPATH_BIN
-MT5_WINE_VERSION=$WINE_VERSION_TEXT
-EOF
-chown "$APP_USER:$APP_USER" "$APP_HOME/runtime.env"; chmod 0640 "$APP_HOME/runtime.env"
 mkdir -p /opt/trading
 ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
+{
+  printf 'MT5_WINEPREFIX=%q\n' "$WINEPREFIX_DIR"
+  printf 'MT5_TERMINAL=%q\n' "$TERMINAL"
+  printf 'MT5_INSTALL_DIR=%q\n' "$MT5_DIR"
+  printf 'MT5_WINE_BIN=%q\n' "$WINE_BIN"
+  printf 'MT5_WINESERVER_BIN=%q\n' "$WINESERVER_BIN"
+  printf 'MT5_WINEPATH_BIN=%q\n' "$WINEPATH_BIN"
+  printf 'MT5_WINE_VERSION=%q\n' "$WINE_VERSION_TEXT"
+} >"$APP_HOME/runtime.env"
+chown "$APP_USER:$APP_USER" "$APP_HOME/runtime.env"; chmod 0640 "$APP_HOME/runtime.env"
 
 echo "MT5_FOREX_INSTALL=PASS"
 echo "MT5_FOREX_TERMINAL=$TERMINAL"
