@@ -1,3 +1,4 @@
+# trigger: apply Wine10 compatibility repair now
 name: MT5 Wine10 Repair Once
 
 on:
