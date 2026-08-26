@@ -99,26 +99,15 @@ CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "
 [[ -n "$CONFIG_WIN" ]] || { echo "ERROR: winepath failed for MT5 config" >&2; exit 15; }
 
 HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
-pkill -u "$(id -u)" -f 'C:\\MT5Forex\\metaeditor64\.exe' 2>/dev/null || true
-pkill -u "$(id -u)" -f 'C:\\MT5Forex\\terminal64\.exe' 2>/dev/null || true
-for proc in main terminal64.exe metaeditor64.exe services.exe explorer.exe winedevice.exe svchost.exe plugplay.exe; do
-  pkill -u "$(id -u)" -x "$proc" 2>/dev/null || true
-done
-for _ in $(seq 1 5); do
-  stale=false
-  for proc in main terminal64.exe services.exe explorer.exe winedevice.exe; do
-    if pgrep -u "$(id -u)" -x "$proc" >/dev/null 2>&1; then stale=true; break; fi
-  done
-  [[ "$stale" == false ]] && break
-  sleep 1
-done
-HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
+pkill -u "$(id -u)" -f 'terminal64.exe|metaeditor64.exe' 2>/dev/null || true
+sleep 2
 
 echo "MT5_FOREX_START=PASS"
 echo "MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY"
 echo "MT5_FOREX_HOST_AUTHORIZED=PASS"
 echo "MT5_FOREX_MODE=$([[ "$LIVE_BOOL" == true ]] && echo LIVE || echo PAPER)"
 echo "MT5_FOREX_CREDENTIALS=$([[ -n "$MT5_ACCOUNT_LOGIN" && -n "$MT5_ACCOUNT_PASSWORD" && -n "$MT5_ACCOUNT_SERVER" ]] && echo CONFIGURED || echo INCOMPLETE)"
+echo "MT5_FOREX_AUTH_MODE=CANONICAL_CONFIG"
 echo "MT5_FOREX_WINE_STACK=${MT5_WINE_STACK:-UNKNOWN}"
 echo "MT5_FOREX_WINE_VERSION=${MT5_WINE_VERSION:-UNKNOWN}"
 echo "MT5_FOREX_TRANSPORT=LOCAL_SIDECAR"
@@ -128,25 +117,13 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   set +e
   LOG="$APP_HOME/wine-terminal-launch.log"
   : > "$LOG"
-
-  # Wine versions expose Windows PE processes with different comm names.
-  # Track the real terminal by argv and explicitly exclude launcher/shell
-  # processes whose command text can also contain terminal64.exe.
   real_terminal_pids() {
-    ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | awk '\''
-      index($0,"terminal64.exe") &&
-      $2!="bash" && $2!="sh" && $2!="xvfb-run" && $2!="start.exe" &&
-      $2!="wine" && $2!="wine64" {print $1}
-    '\''
+    ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | awk '\''index($0,"terminal64.exe") && $2!="bash" && $2!="sh" && $2!="xvfb-run" && $2!="start.exe" && $2!="wine" && $2!="wine64" {print $1}'\''
   }
   real_terminal_alive() { [ -n "$(real_terminal_pids)" ]; }
   stop_prefix() {
     HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
-    pkill -u "$(id -u)" -f "C:\\\\MT5Forex\\\\metaeditor64\\.exe" 2>/dev/null || true
-    pkill -u "$(id -u)" -f "C:\\\\MT5Forex\\\\terminal64\\.exe" 2>/dev/null || true
-    for proc in main terminal64.exe metaeditor64.exe services.exe explorer.exe winedevice.exe svchost.exe plugplay.exe; do
-      pkill -u "$(id -u)" -x "$proc" 2>/dev/null || true
-    done
+    pkill -u "$(id -u)" -f "terminal64.exe|metaeditor64.exe" 2>/dev/null || true
     sleep 1
   }
   try_mode() {
@@ -155,72 +132,36 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" "$@" >>"$LOG" 2>&1 &
     wine_pid=$!
     appeared=false
-    for i in $(seq 1 20); do
+    for i in $(seq 1 30); do
       if real_terminal_alive; then appeared=true; break; fi
-      if ! kill -0 "$wine_pid" >/dev/null 2>&1; then
-        wait "$wine_pid"; rc=$?
-        echo "MT5_FOREX_LAUNCH_MODE_EXIT=$mode:$rc"
-        for j in $(seq 1 5); do
-          if real_terminal_alive; then appeared=true; break; fi
-          sleep 1
-        done
-        break
-      fi
+      if ! kill -0 "$wine_pid" >/dev/null 2>&1; then wait "$wine_pid"; echo "MT5_FOREX_LAUNCH_MODE_EXIT=$mode:$?"; fi
       sleep 1
     done
-    if [ "$appeared" != true ]; then
-      echo "MT5_FOREX_LAUNCH_MODE_NO_TERMINAL=$mode"
-      return 1
-    fi
-
+    [ "$appeared" = true ] || { echo "MT5_FOREX_LAUNCH_MODE_NO_TERMINAL=$mode"; return 1; }
     echo "MT5_FOREX_LAUNCH_MODE_APPEARED=$mode"
-    for i in $(seq 1 20); do
-      if ! real_terminal_alive; then
-        echo "MT5_FOREX_LAUNCH_MODE_UNSTABLE=$mode:${i}s"
-        return 1
-      fi
-      sleep 1
-    done
+    for i in $(seq 1 20); do real_terminal_alive || { echo "MT5_FOREX_LAUNCH_MODE_UNSTABLE=$mode:${i}s"; return 1; }; sleep 1; done
     echo "MT5_FOREX_LAUNCH_MODE=$mode"
     echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"
     echo "MT5_FOREX_TERMINAL_STABLE_20S=PASS"
-    echo "MT5_FOREX_TERMINAL_PIDS=$(real_terminal_pids | tr '\''\n'\'' '\'', '\'' | sed '\''s/, $//'\'')"
     return 0
   }
 
-  args=("$MT5_TERMINAL" /portable "/config:$CONFIG_WIN")
-  if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
-  if ! try_mode CONFIG_LOGIN "${args[@]}"; then
+  # MetaQuotes documents /config as the supported way to supply Login, Server,
+  # Password and KeepPrivate. Do not combine it with /portable: portable changes
+  # the terminal data-directory semantics and can separate authentication state.
+  if ! try_mode CONFIG_AUTH "$MT5_TERMINAL" "/config:$CONFIG_WIN"; then
     stop_prefix
-    if ! try_mode PORTABLE_COMMON "$MT5_TERMINAL" /portable; then
-      stop_prefix
-      args=("$MT5_TERMINAL" /portable)
-      if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
-      if ! try_mode PORTABLE_LOGIN "${args[@]}"; then
-        echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
-        echo "MT5_FOREX_REAL_TERMINAL_PROCESS=ABSENT_OR_UNSTABLE"
-        echo "--- wine-terminal-launch.log ---"
-        tail -n 200 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
-        ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" | tail -n 80 || true
-        find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
-          echo "--- ${f##*/} ---"
-          tail -n 160 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
-        done
-        echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
-        exit 69
-      fi
+    # Fallback uses the default Config/common.ini written above, same data dir/user.
+    if ! try_mode DEFAULT_COMMON "$MT5_TERMINAL"; then
+      echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
+      tail -n 200 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+      echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
+      exit 69
     fi
   fi
 
   while real_terminal_alive; do sleep 5; done
   echo "MT5_FOREX_TERMINAL_EXITED=1"
-  echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
-  tail -n 200 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
-  find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
-    echo "--- ${f##*/} ---"
-    tail -n 160 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
-  done
-  echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
   stop_prefix
   exit 69
 '
