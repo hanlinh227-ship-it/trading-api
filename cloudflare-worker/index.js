@@ -6,15 +6,15 @@ import {handleBybitReadonlyHealth} from "./bybit-readonly-health.js";
 import {handleBybitControlApi} from "./bybit-control-plane.js";
 import {runBybitAutoControlled,recordBybitAutoSchedulerError} from "./bybit-auto-controller.js";
 import {BYBIT_AUTO_VERSION} from "./bybit-auto-config.js";
+import {BYBIT_RUNTIME_CONTRACT,BYBIT_EXECUTION_AUTHORITY,TELEGRAM_HUB_ID,BYBIT_HEALTH_ROUTE} from "./bybit-runtime-contract.js";
 import {MEME_AUTO_VERSION,MEME_AUTO_MODE} from "./meme-auto-design.js";
 import {runMemePaperCycle,getMemePaperState} from "./meme-paper-engine.js";
 import {getMemeJupiterQuoteHealth} from "./meme-quote-health.js";
 import {handleForexMt5Bridge} from "./forex-mt5-bridge.js";
-import {FOREX_AUTO_VERSION,FOREX_AUTO_MODE} from "./forex-auto-config.js";
+import {FOREX_AUTO_VERSION} from "./forex-auto-config.js";
 
 const VERSION=BYBIT_AUTO_VERSION;
 const SERVICE="Unified Trading Hub";
-const EXECUTION_AUTHORITY="BYBIT_AUTO_TRADE_ONLY";
 const envBool=v=>String(v||"").toLowerCase()==="true";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
@@ -28,20 +28,21 @@ export default {
     const multi=await handleMultiAiControl(req,env); if(multi)return multi;
     const hub=await autoHub.fetch(req,env,ctx); if(hub)return hub;
     const url=new URL(req.url);
+    if(url.pathname==="/runtime/contract")return json({ok:true,...BYBIT_RUNTIME_CONTRACT,runtimeRevision:String(env.RUNTIME_REVISION||"")});
     if(url.pathname==="/meme-auto/paper/state")return json(await getMemePaperState(env));
     if(url.pathname==="/meme-auto/paper/run")return json(await runMemePaperCycle(env));
     if(url.pathname==="/meme-auto/quote-health")return json(await getMemeJupiterQuoteHealth(env));
     if(url.pathname==="/status")return json({
-      ok:true,version:VERSION,service:SERVICE,hub:EXECUTION_AUTHORITY,
-      telegramHub:"UNIFIED_BYBIT_FOREX_MEME",telegramBranches:["BYBIT","FOREX","MEME"],
+      ok:true,version:VERSION,service:SERVICE,hub:BYBIT_EXECUTION_AUTHORITY,runtimeContract:BYBIT_RUNTIME_CONTRACT,
+      telegramHub:TELEGRAM_HUB_ID,telegramBranches:["BYBIT","FOREX","MEME"],
       signalV11Enabled:false,signalSchedulerEnabled:false,
-      bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,readonlyHealth:"/bybit/health"},
+      bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,readonlyHealth:BYBIT_HEALTH_ROUTE,runtimeContract:"/runtime/contract"},
       forex:{version:FOREX_AUTO_VERSION,mode:envBool(env.FOREX_AUTO_LIVE)?"LIVE":"PAPER",mt5Windows:true,threeAi:["chatgpt","claude","deepseek"],health:"/forex/health",liveEnabled:envBool(env.FOREX_AUTO_LIVE)},
       meme:{version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,paperEnabled:true,executionEnabled:false,walletConnected:false,signingEnabled:false,paperState:"/meme-auto/paper/state",paperRun:"/meme-auto/paper/run",quoteHealth:"/meme-auto/quote-health"},
       telegramWebhook:"/telegram/webhook"
     });
-    if(url.pathname.startsWith("/v11/"))return json({ok:false,error:"SIGNAL_V11_DISABLED",replacement:"BYBIT_AUTO_TRADE_HUB"},410);
-    return json({ok:false,error:"AUTO_HUB_ENDPOINT_NOT_FOUND"},404);
+    if(url.pathname.startsWith("/v11/"))return json({ok:false,error:"SIGNAL_V11_DISABLED",replacement:"BYBIT_AUTO_TRADE_HUB",runtimeContract:"/runtime/contract"},410);
+    return json({ok:false,error:"AUTO_HUB_ENDPOINT_NOT_FOUND",runtimeContract:"/runtime/contract"},404);
   },
   async scheduled(event,env,ctx){
     if(envBool(env.BYBIT_AUTO_ENABLED))ctx.waitUntil(Promise.resolve(runBybitAutoControlled(env)).catch(e=>recordBybitAutoSchedulerError(env,e).catch(()=>null)));
