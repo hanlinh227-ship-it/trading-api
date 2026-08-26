@@ -1,4 +1,4 @@
-# BYBIT-AUTO-1.6.3 post-deploy scanner + risk-band diagnostic
+# Canonical Bybit entry + scale-band diagnostic. Version follows /runtime/contract.
 name: Bybit Entry Diagnostic
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
-      - name: Verify effective-risk sizing locally
+      - name: Verify effective-risk sizing and operational bands locally
         shell: bash
         run: |
           set -euo pipefail
@@ -26,29 +26,30 @@ jobs:
           const cfg=bybitAutoConfig({});
           const setup={entry:.4947,sl:.4901,tp:.5021,filters:{maxLeverage:100,minLeverage:1,maxQty:1e9,minQty:1,qtyStep:1,minNotional:5}};
           const x=sizeBybitAuto(setup,cfg,56.77);
-          console.log('SPX_STYLE_RISK_TEST='+JSON.stringify(x));
+          console.log('SCALE_RISK_TEST='+JSON.stringify(x));
           if(x.ok && Number(x.riskUsd)+1e-9<Number(x.ladderMinEffectiveRiskUsd)) throw Error('UNDER_SIZED_TRADE_ALLOWED');
           if(!x.ok && x.reason!=='EFFECTIVE_RISK_TOO_SMALL' && x.reason!=='STRUCTURE_REWARD_BELOW_LADDER_MIN' && x.reason!=='SIZED_RR_BELOW_MIN') throw Error('UNEXPECTED_RISK_REJECT_'+x.reason);
-          if(Number(cfg.risk.maxMarginPerPositionPct)!==40||Number(cfg.risk.minFreeReservePct)!==20||Number(cfg.risk.maxPortfolioMarginPct)!==80) throw Error('RISK_CONFIG_MISMATCH');
+          if(Number(cfg.risk.maxMarginPerPositionPct)!==42||Number(cfg.risk.minFreeReservePct)!==15||Number(cfg.risk.maxPortfolioMarginPct)!==85) throw Error('RISK_CONFIG_MISMATCH');
+          if(Number(cfg.execution.cooldownSec)!==120||Number(cfg.execution.recvWindow)!==10000) throw Error('EXECUTION_CONFIG_MISMATCH');
           console.log('EFFECTIVE_RISK_BAND=PASS');
+          console.log('OPERATIONAL_ENTRY_BAND=PASS');
           NODE
-      - name: Inspect public Bybit scan and health
+      - name: Inspect public Bybit contract, entry health, scan and health
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
-          echo '=== HEALTH ==='
-          curl -fsS --max-time 30 "$BASE/bybit/health" | tee /tmp/health.json
-          echo
-          echo '=== SCAN ==='
+          curl -fsS --max-time 30 "$BASE/bybit/health" > /tmp/health.json
+          curl -fsS --max-time 30 "$BASE/runtime/contract" > /tmp/contract.json
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > /tmp/entry.json
           CODE="$(curl -sS --max-time 300 -o /tmp/scan.json -w '%{http_code}' "$BASE/bybit/scan" || true)"
-          echo "SCAN_HTTP=$CODE"
           [ "$CODE" = 200 ]
           node <<'NODE'
           const fs=require('fs');
-          const h=JSON.parse(fs.readFileSync('/tmp/health.json'));
+          const h=JSON.parse(fs.readFileSync('/tmp/health.json')),c=JSON.parse(fs.readFileSync('/tmp/contract.json')),e=JSON.parse(fs.readFileSync('/tmp/entry.json'));
           let s={};try{s=JSON.parse(fs.readFileSync('/tmp/scan.json'))}catch{}
-          console.log('DIAG='+JSON.stringify({revision:h.runtimeRevision,mode:h.mode,executionReady:h.execution?.ready??null,privateTransport:h.privateTransport??null,marketTransport:h.marketTransport??null,positions:h.positions?.openCount??h.live?.positions?.length??null,positionItems:h.positions?.items??[],orders:h.openOrdersCount??h.live?.openOrdersCount??null,equity:h.account?.totalEquity??null,scanOk:s.ok??null,scanVersion:s.version??null,universe:s.universe?.count??null,analyzed:s.analyzed??null,rawCandidates:s.rawCandidates??null,qualified:s.qualified??null,best:s.best?{symbol:s.best.symbol,side:s.best.side,score:s.best.score,threshold:s.best.adaptiveThreshold,rr:s.best.rr,regime:s.best.regime,spread:s.best.spreadBps}:null,errors:(s.errors||[]).slice(0,5)}));
+          console.log('DIAG='+JSON.stringify({revision:h.runtimeRevision,version:c.autoVersion,entryStatus:e.status,entryReady:e.entryReady,lastCycleReason:e.lastCycleReason,operationalBlockers:e.operationalBlockers,mode:h.mode,executionReady:h.execution?.ready??null,privateTransport:h.privateTransport??null,marketTransport:h.marketTransport??null,equity:h.account?.totalEquity??null,scanOk:s.ok??null,scanVersion:s.version??null,universe:s.universe?.count??null,analyzed:s.analyzed??null,rawCandidates:s.rawCandidates??null,qualified:s.qualified??null,best:s.best?{symbol:s.best.symbol,side:s.best.side,score:s.best.score,threshold:s.best.adaptiveThreshold,rr:s.best.rr,regime:s.best.regime,spread:s.best.spreadBps}:null,errors:(s.errors||[]).slice(0,5)}));
           if(h.mode!=="LIVE"||h.execution?.ready!==true||h.privateTransport!=="VPS_BYBIT_PRIVATE_PROXY"||h.marketTransport!=="VPS_BYBIT_MARKET_PROXY")process.exit(7);
-          if(s.ok!==true||s.version!=="BYBIT-AUTO-1.6.3"||!(Number(s.scannedAt)>0)||!Array.isArray(s.errors)||s.errors.length>0)process.exit(8);
+          if(!c.autoVersion||s.ok!==true||s.version!==c.autoVersion||!(Number(s.scannedAt)>0)||!Array.isArray(s.errors))process.exit(8);
+          if(!e.ok||!['ENTRY_READY','ENTRY_BLOCKED','WAITING_FOR_QUALITY_SETUP'].includes(String(e.status)))process.exit(9);
           NODE
