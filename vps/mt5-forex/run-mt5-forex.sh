@@ -98,8 +98,6 @@ WINESERVER_BIN="${MT5_WINESERVER_BIN:-$(dirname "$MT5_WINE_BIN")/wineserver}"
 CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
 [[ -n "$CONFIG_WIN" ]] || { echo "ERROR: winepath failed for MT5 config" >&2; exit 15; }
 
-# Kill the complete stale Wine PE session first. The Unix account is dedicated
-# exclusively to this MT5 runtime, so exact-name cleanup cannot affect other apps.
 HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
 for proc in terminal64.exe metaeditor64.exe services.exe explorer.exe winedevice.exe svchost.exe plugplay.exe; do
   pkill -u "$(id -u)" -x "$proc" 2>/dev/null || true
@@ -135,33 +133,47 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     for proc in terminal64.exe services.exe explorer.exe winedevice.exe svchost.exe plugplay.exe; do
       pkill -u "$(id -u)" -x "$proc" 2>/dev/null || true
     done
+    sleep 1
   }
   try_mode() {
     mode="$1"; shift
     echo "MT5_FOREX_LAUNCH_MODE_TRY=$mode"
     HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" "$@" >>"$LOG" 2>&1 &
     wine_pid=$!
+    appeared=false
     for i in $(seq 1 15); do
-      if real_terminal_alive; then
-        echo "MT5_FOREX_LAUNCH_MODE=$mode"
-        echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"
-        return 0
-      fi
+      if real_terminal_alive; then appeared=true; break; fi
       if ! kill -0 "$wine_pid" >/dev/null 2>&1; then
         wait "$wine_pid"; rc=$?
         echo "MT5_FOREX_LAUNCH_MODE_EXIT=$mode:$rc"
         for j in $(seq 1 3); do
-          real_terminal_alive && { echo "MT5_FOREX_LAUNCH_MODE=$mode"; echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"; return 0; }
+          if real_terminal_alive; then appeared=true; break; fi
           sleep 1
         done
+        break
+      fi
+      sleep 1
+    done
+    if [ "$appeared" != true ]; then
+      echo "MT5_FOREX_LAUNCH_MODE_NO_TERMINAL=$mode"
+      return 1
+    fi
+
+    echo "MT5_FOREX_LAUNCH_MODE_APPEARED=$mode"
+    # A five-second terminal was the previous false success. Require a real
+    # stability window before accepting a launch mode and allowing the bridge
+    # verification to proceed.
+    for i in $(seq 1 20); do
+      if ! real_terminal_alive; then
+        echo "MT5_FOREX_LAUNCH_MODE_UNSTABLE=$mode:${i}s"
         return 1
       fi
       sleep 1
     done
-    real_terminal_alive && { echo "MT5_FOREX_LAUNCH_MODE=$mode"; echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"; return 0; }
-    kill "$wine_pid" >/dev/null 2>&1 || true
-    wait "$wine_pid" >/dev/null 2>&1 || true
-    return 1
+    echo "MT5_FOREX_LAUNCH_MODE=$mode"
+    echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"
+    echo "MT5_FOREX_TERMINAL_STABLE_20S=PASS"
+    return 0
   }
 
   args=("$MT5_TERMINAL" /portable "/config:$CONFIG_WIN")
@@ -174,13 +186,13 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
       if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
       if ! try_mode PORTABLE_LOGIN "${args[@]}"; then
         echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
-        echo "MT5_FOREX_REAL_TERMINAL_PROCESS=ABSENT"
+        echo "MT5_FOREX_REAL_TERMINAL_PROCESS=ABSENT_OR_UNSTABLE"
         echo "--- wine-terminal-launch.log ---"
-        tail -n 160 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+        tail -n 200 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
         ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" | tail -n 80 || true
         find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
           echo "--- ${f##*/} ---"
-          tail -n 120 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+          tail -n 160 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
         done
         echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
         exit 69
@@ -190,6 +202,13 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
 
   while real_terminal_alive; do sleep 5; done
   echo "MT5_FOREX_TERMINAL_EXITED=1"
+  echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
+  tail -n 200 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+  find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
+    echo "--- ${f##*/} ---"
+    tail -n 160 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+  done
+  echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
   stop_prefix
   exit 69
 '
