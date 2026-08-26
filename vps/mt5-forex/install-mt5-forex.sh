@@ -5,7 +5,7 @@ APP_USER="mt5forex"
 APP_HOME="/var/lib/trading/mt5-forex"
 WINEPREFIX_DIR="${APP_HOME}/wine"
 STACK_MARKER="${WINEPREFIX_DIR}/.trading-wine-stack"
-EXPECTED_STACK="UBUNTU_DISTRO_WINE"
+EXPECTED_STACK="WINEHQ_STABLE_11"
 INSTALL_ROOT="${WINEPREFIX_DIR}/drive_c/MT5Forex"
 REPO="${FOREX_RESEARCH_REPO:-/opt/trading/trading-api-main}"
 EA_SRC="${REPO}/mt5/ForexAutoThe5ers.mq5"
@@ -28,20 +28,31 @@ wait_dpkg
 apt_retry apt-get update -y
 apt_retry apt-get install -y --no-install-recommends ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils xz-utils
 
-apt_retry apt-get purge -y winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 || true
+# MT5 build 6140 explicitly rejects the old Ubuntu Wine 9 runtime on this VPS.
+# MetaQuotes' current Linux guidance recommends an up-to-date Wine environment.
+# Pin to the current WineHQ stable major (11.x) and rebuild the prefix when the
+# stack marker changes, so old Wine registry/runtime state cannot leak forward.
+apt_retry apt-get purge -y wine wine64 wine32:i386 libwine:amd64 libwine:i386 winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 || true
 apt_retry apt-get -f install -y
-apt_retry apt-get install -y --install-recommends wine wine64 wine32:i386 libwine:amd64 libwine:i386
+install -d -m 0755 /etc/apt/keyrings
+wget -qO- https://dl.winehq.org/wine-builds/winehq.key | gpg --dearmor --yes -o /etc/apt/keyrings/winehq-archive.key
+chmod 0644 /etc/apt/keyrings/winehq-archive.key
+if [[ "${VERSION_CODENAME:-}" == "noble" ]]; then
+  wget -qO /etc/apt/sources.list.d/winehq-noble.sources https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources
+elif [[ -n "${VERSION_CODENAME:-}" ]]; then
+  wget -qO "/etc/apt/sources.list.d/winehq-${VERSION_CODENAME}.sources" "https://dl.winehq.org/wine-builds/ubuntu/dists/${VERSION_CODENAME}/winehq-${VERSION_CODENAME}.sources"
+fi
+apt_retry apt-get update -y
+apt_retry apt-get install -y --install-recommends winehq-stable
 
 WINE_BIN="/usr/bin/wine"
 WINEBOOT_BIN="/usr/bin/wineboot"
 WINEPATH_BIN="/usr/bin/winepath"
 WINESERVER_BIN="/usr/bin/wineserver"
-[[ -x "$WINE_BIN" && -x "$WINEBOOT_BIN" && -x "$WINEPATH_BIN" && -x "$WINESERVER_BIN" ]] || { echo "ERROR: Ubuntu Wine runtime incomplete" >&2; exit 5; }
-for pkg in winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386; do
-  if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then echo "ERROR: WineHQ package still installed: $pkg" >&2; exit 53; fi
-done
-for pkg in wine wine64 wine32:i386 libwine:amd64 libwine:i386; do dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed' || { echo "ERROR: required Ubuntu Wine package missing: $pkg" >&2; exit 54; }; done
+[[ -x "$WINE_BIN" && -x "$WINEBOOT_BIN" && -x "$WINEPATH_BIN" && -x "$WINESERVER_BIN" ]] || { echo "ERROR: WineHQ runtime incomplete" >&2; exit 5; }
 WINE_VERSION_TEXT="$($WINE_BIN --version 2>/dev/null || true)"
+WINE_MAJOR="$(printf '%s' "$WINE_VERSION_TEXT" | sed -nE 's/.*wine-([0-9]+).*/\1/p' | head -n1)"
+[[ -n "$WINE_MAJOR" && "$WINE_MAJOR" -ge 11 ]] || { echo "ERROR: WineHQ 11+ required, got $WINE_VERSION_TEXT" >&2; exit 56; }
 echo "MT5_WINE_STACK=$EXPECTED_STACK"
 echo "MT5_WINE_VERSION=$WINE_VERSION_TEXT"
 echo "MT5_WINE_STACK_CONSISTENCY=PASS"
@@ -60,20 +71,20 @@ prefix_ready(){
 wine_smoke(){
   local rc=0
   stop_mt5_wine; set +e
-  run_as_mt5 timeout 45 xvfb-run -a -s "$SCREEN" "$WINE_BIN" cmd /d /c "echo WINE_RUNTIME_OK" >/tmp/mt5-wine-smoke.log 2>&1
+  run_as_mt5 timeout 60 xvfb-run -a -s "$SCREEN" "$WINE_BIN" cmd /d /c "echo WINE_RUNTIME_OK" >/tmp/mt5-wine-smoke.log 2>&1
   rc=$?; set -e; stop_mt5_wine
   [[ $rc -eq 0 ]] && grep -q 'WINE_RUNTIME_OK' /tmp/mt5-wine-smoke.log
 }
 recreate_prefix(){
   local stamp rc=0; stamp="$(date +%Y%m%d%H%M%S)"; stop_mt5_wine
-  if [[ -d "$WINEPREFIX_DIR" ]]; then mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.pre-distro-${stamp}" || rm -rf "$WINEPREFIX_DIR"; fi
+  if [[ -d "$WINEPREFIX_DIR" ]]; then mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.pre-wine11-${stamp}" || rm -rf "$WINEPREFIX_DIR"; fi
   install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
-  set +e; run_as_mt5 timeout 180 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -i >/tmp/mt5-wineboot.log 2>&1; rc=$?; set -e; stop_mt5_wine
+  set +e; run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -i >/tmp/mt5-wineboot.log 2>&1; rc=$?; set -e; stop_mt5_wine
   echo "MT5_WINEBOOT_EXIT=$rc"
   [[ -f "$WINEPREFIX_DIR/system.reg" ]] || return 1
   printf '%s\n' "$EXPECTED_STACK" >"$STACK_MARKER"; chown "$APP_USER:$APP_USER" "$STACK_MARKER"; chmod 0600 "$STACK_MARKER"
 }
-if prefix_ready && wine_smoke; then echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"; else recreate_prefix || { echo "ERROR: Ubuntu Wine prefix rebuild failed" >&2; tail -200 /tmp/mt5-wineboot.log >&2 || true; exit 51; }; wine_smoke || { echo "ERROR: Ubuntu Wine runtime smoke failed" >&2; tail -160 /tmp/mt5-wine-smoke.log >&2 || true; exit 55; }; fi
+if prefix_ready && wine_smoke; then echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"; else recreate_prefix || { echo "ERROR: WineHQ prefix rebuild failed" >&2; tail -200 /tmp/mt5-wineboot.log >&2 || true; exit 51; }; wine_smoke || { echo "ERROR: WineHQ runtime smoke failed" >&2; tail -160 /tmp/mt5-wine-smoke.log >&2 || true; exit 55; }; fi
 echo "MT5_WINE_PREFIX=PASS"
 
 wget -q --https-only -O "$INSTALLER" "$INSTALLER_URL"
