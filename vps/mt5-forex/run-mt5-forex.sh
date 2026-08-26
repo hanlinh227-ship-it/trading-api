@@ -98,6 +98,24 @@ WINESERVER_BIN="${MT5_WINESERVER_BIN:-$(dirname "$MT5_WINE_BIN")/wineserver}"
 CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
 [[ -n "$CONFIG_WIN" ]] || { echo "ERROR: winepath failed for MT5 config" >&2; exit 15; }
 
+# A Wine server/session from an older package stack can survive package changes
+# and make a new terminal return EX_UNAVAILABLE(69) before terminal64.exe exists.
+# Kill the whole prefix session before every canonical launch.
+HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
+for _ in $(seq 1 20); do
+  if ! pgrep -u "$(id -u)" -x services.exe >/dev/null 2>&1 \
+     && ! pgrep -u "$(id -u)" -x explorer.exe >/dev/null 2>&1 \
+     && ! pgrep -u "$(id -u)" -x winedevice.exe >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+# Last-resort cleanup is scoped to the dedicated mt5forex Unix user only.
+pkill -u "$(id -u)" -x services.exe 2>/dev/null || true
+pkill -u "$(id -u)" -x explorer.exe 2>/dev/null || true
+pkill -u "$(id -u)" -x winedevice.exe 2>/dev/null || true
+pkill -u "$(id -u)" -x svchost.exe 2>/dev/null || true
+pkill -u "$(id -u)" -x plugplay.exe 2>/dev/null || true
+HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -w >/dev/null 2>&1 || true
+
 echo "MT5_FOREX_START=PASS"
 echo "MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY"
 echo "MT5_FOREX_HOST_AUTHORIZED=PASS"
@@ -110,48 +128,82 @@ echo "MT5_FOREX_TRANSPORT=LOCAL_SIDECAR"
 export APP_HOME MT5_WINEPREFIX MT5_WINE_BIN MT5_TERMINAL CONFIG_WIN WINESERVER_BIN MT5_ACCOUNT_LOGIN MT5_INSTALL_DIR
 exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   set +e
+  LOG="$APP_HOME/wine-terminal-launch.log"
+  : > "$LOG"
+
+  real_terminal_alive() {
+    pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1
+  }
+
+  stop_prefix() {
+    HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
+    for i in $(seq 1 10); do
+      real_terminal_alive || break
+      sleep 1
+    done
+  }
+
+  # Run one mode in the background. A true terminal64.exe process, not the Wine
+  # wrapper exit code, is the only launch-success authority.
+  try_mode() {
+    mode="$1"; shift
+    echo "MT5_FOREX_LAUNCH_MODE_TRY=$mode"
+    HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" "$@" >>"$LOG" 2>&1 &
+    wine_pid=$!
+    for i in $(seq 1 15); do
+      if real_terminal_alive; then
+        echo "MT5_FOREX_LAUNCH_MODE=$mode"
+        echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"
+        return 0
+      fi
+      if ! kill -0 "$wine_pid" >/dev/null 2>&1; then
+        wait "$wine_pid"; rc=$?
+        echo "MT5_FOREX_LAUNCH_MODE_EXIT=$mode:$rc"
+        # Give detached PE processes a short grace period.
+        for j in $(seq 1 4); do
+          real_terminal_alive && { echo "MT5_FOREX_LAUNCH_MODE=$mode"; echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"; return 0; }
+          sleep 1
+        done
+        return 1
+      fi
+      sleep 1
+    done
+    real_terminal_alive && { echo "MT5_FOREX_LAUNCH_MODE=$mode"; echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"; return 0; }
+    kill "$wine_pid" >/dev/null 2>&1 || true
+    wait "$wine_pid" >/dev/null 2>&1 || true
+    return 1
+  }
+
+  # Preferred canonical mode: explicit portable config and login.
   args=("$MT5_TERMINAL" /portable "/config:$CONFIG_WIN")
   if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
-
-  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" "${args[@]}"
-  launcher_rc=$?
-  echo "MT5_FOREX_WINE_LAUNCHER_EXIT=$launcher_rc"
-
-  # Never use pgrep -f here: the supervisor command line itself contains the
-  # string terminal64.exe and can create a false-positive detached-terminal PASS.
-  terminal_alive=false
-  for i in $(seq 1 20); do
-    if pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1; then
-      terminal_alive=true
-      break
+  if ! try_mode CONFIG_LOGIN "${args[@]}"; then
+    stop_prefix
+    # Fallback 1: MT5 reads Config/common.ini and StartUp from portable dir.
+    if ! try_mode PORTABLE_COMMON "$MT5_TERMINAL" /portable; then
+      stop_prefix
+      # Fallback 2: retain CLI login but let common.ini own server/password/startup.
+      args=("$MT5_TERMINAL" /portable)
+      if [ -n "$MT5_ACCOUNT_LOGIN" ]; then args+=("/login:$MT5_ACCOUNT_LOGIN"); fi
+      if ! try_mode PORTABLE_LOGIN "${args[@]}"; then
+        echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
+        echo "MT5_FOREX_REAL_TERMINAL_PROCESS=ABSENT"
+        echo "--- wine-terminal-launch.log ---"
+        tail -n 160 "$LOG" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+        ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" | tail -n 80 || true
+        find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
+          echo "--- ${f##*/} ---"
+          tail -n 120 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
+        done
+        echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
+        exit 69
+      fi
     fi
-    sleep 1
-  done
-
-  if [ "$terminal_alive" = true ]; then
-    echo "MT5_FOREX_DETACHED_TERMINAL=PASS"
-    echo "MT5_FOREX_LAUNCHER_RC_IGNORED=$launcher_rc"
-    while pgrep -u "$(id -u)" -x terminal64.exe >/dev/null 2>&1; do
-      sleep 5
-    done
-    echo "MT5_FOREX_TERMINAL_EXITED=1"
-    HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
-    exit 69
   fi
 
-  if [ "$launcher_rc" -ne 0 ]; then
-    echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_BEGIN"
-    echo "MT5_FOREX_REAL_TERMINAL_PROCESS=ABSENT"
-    ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | tail -n 80 || true
-    find "$MT5_INSTALL_DIR/Logs" "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f 2>/dev/null -printf "%T@ %p\n" | sort -nr | head -n 8 | cut -d" " -f2- | while IFS= read -r f; do
-      echo "--- ${f##*/} ---"
-      tail -n 120 "$f" 2>/dev/null | sed -E "s/[0-9]{6,}/[REDACTED_NUMBER]/g" || true
-    done
-    echo "MT5_FOREX_RUNTIME_DIAGNOSTICS_END"
-  fi
-
-  HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -w
-  wait_rc=$?
-  if [ "$wait_rc" -ne 0 ]; then exit "$wait_rc"; fi
-  exit "$launcher_rc"
+  # Keep systemd service authoritative while the real terminal exists.
+  while real_terminal_alive; do sleep 5; done
+  echo "MT5_FOREX_TERMINAL_EXITED=1"
+  stop_prefix
+  exit 69
 '
