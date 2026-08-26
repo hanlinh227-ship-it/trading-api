@@ -58,9 +58,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Deployment verification must test the Worker revision itself, not an external
+          # exchange dependency. /runtime/contract is local/read-only and always exposes
+          # RUNTIME_REVISION; /bybit/health may legitimately be 502 when Bybit/VPS market
+          # transport is degraded even though the Cloudflare deployment succeeded.
           for i in 1 2 3 4 5 6; do
-            H="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/bybit/health" || true)"
-            if printf '%s' "$H" | grep -q "$GITHUB_SHA"; then echo 'UNIFIED_HUB_DEPLOY=PASS'; exit 0; fi
+            H="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
+            if printf '%s' "$H" | grep -q "$GITHUB_SHA"; then
+              echo 'UNIFIED_HUB_DEPLOY=PASS'
+              printf '%s\n' "$H" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d.get('ok') is True; assert d.get('runtimeRevision')=='$GITHUB_SHA'; print('RUNTIME_REVISION='+d['runtimeRevision'])"
+              exit 0
+            fi
             sleep $((i*2))
           done
+          echo 'DEPLOY_REVISION_VERIFY_FAILED' >&2
           exit 1
