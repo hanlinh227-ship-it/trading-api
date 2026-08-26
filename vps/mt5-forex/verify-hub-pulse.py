@@ -53,11 +53,20 @@ def main():
     max_age = float(os.environ.get("MT5_HUB_PULSE_MAX_AGE_SECONDS") or "300")
     if age < -30 or age > max_age:
         fail(f"pulse stale age_seconds={age:.1f}", 8)
-    if last.get("connected") is not True:
-        fail("MT5 connected=false", 9)
 
-    as_positive_number(last.get("balance"), "balance", 10)
-    as_positive_number(last.get("equity"), "equity", 11)
+    # Support both the canonical nested EA payload and a Hub-normalized flat record.
+    mt5 = last.get("mt5") if isinstance(last.get("mt5"), dict) else {}
+    account = last.get("account") if isinstance(last.get("account"), dict) else {}
+    connected = last.get("connected") if "connected" in last else mt5.get("connected")
+    trade_allowed = last.get("tradeAllowed") if "tradeAllowed" in last else mt5.get("tradeAllowed")
+    balance = last.get("balance") if "balance" in last else account.get("balance")
+    equity = last.get("equity") if "equity" in last else account.get("equity")
+
+    if connected is not True:
+        fail(f"MT5 connected={connected!r}", 9)
+
+    as_positive_number(balance, "balance", 10)
+    as_positive_number(equity, "equity", 11)
 
     terminal_id = str(last.get("terminalId") or "")
     expected_prefix = expected_login + "-"
@@ -68,6 +77,7 @@ def main():
 
     print(f"MT5_PULSE_AGE_SECONDS={age:.1f}")
     print(f"MT5_HUB_TERMINAL_ID={terminal_id}")
+    print(f"MT5_HUB_TRADE_ALLOWED={str(trade_allowed).lower()}")
     print("MT5_HUB_CONNECTED=PASS")
     print("MT5_HUB_BALANCE_EQUITY=PASS")
     print("MT5_PULSE_VERIFY=PASS")
