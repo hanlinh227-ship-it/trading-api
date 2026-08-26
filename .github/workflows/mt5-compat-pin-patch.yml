@@ -1,4 +1,4 @@
-# trigger: compatibility patch registration
+# trigger: current installer Wine10 compatibility repair
 name: Apply MT5 Wine Compatibility Pin
 
 on:
@@ -24,30 +24,18 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Pin MT5 to compatible WineHQ 10 stable and improve diagnostics
+      - name: Pin current MT5 installer to WineHQ 10
         shell: python
         run: |
           from pathlib import Path
-          p = Path('vps/mt5-forex/install-mt5-forex.sh')
-          s = p.read_text()
-
-          old_comment = '''# MetaQuotes requires a recent supported Wine runtime. Select the newest stable
-# WineHQ package available for this OS, require major >=10, and install all four
-# WineHQ packages at exactly the same version so no distro/WineHQ mixing occurs.'''
-          new_comment = '''# MT5 installer compatibility lock: WineHQ 11 currently lets Wine itself pass
-# but the MetaTrader bootstrapper can stall before terminal64.exe is produced.
-# Prefer the last stable 10.x baseline for unattended MT5 on Noble. Fall back
-# to another supported stable only if the pinned package has disappeared.
-# Keep all four WineHQ packages at exactly one version to avoid mixed runtimes.'''
-          if old_comment in s:
-              s = s.replace(old_comment, new_comment, 1)
-
-          old = '''WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)"
-if [[ -z "$WINEHQ_VERSION" ]]; then
-  echo "ERROR: WineHQ stable is not available for ${CODENAME}" >&2
-  exit 56
-fi'''
-          new = '''PINNED_WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-10.0.0.0~${CODENAME}-1}"
+          p=Path('vps/mt5-forex/install-mt5-forex.sh')
+          s=p.read_text()
+          if 'PINNED_WINEHQ_VERSION=' in s:
+              print('MT5_COMPAT_PATCH=ALREADY_APPLIED')
+          else:
+              old='''WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)}"
+[[ -n "$WINEHQ_VERSION" ]] || { echo "ERROR: WineHQ stable unavailable" >&2; exit 56; }'''
+              new='''PINNED_WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-10.0.0.0~${CODENAME}-1}"
 if apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | grep -Fxq "$PINNED_WINEHQ_VERSION"; then
   WINEHQ_VERSION="$PINNED_WINEHQ_VERSION"
   echo "MT5_WINE_COMPAT_PIN=ACTIVE version=$WINEHQ_VERSION"
@@ -58,34 +46,10 @@ else
   fi
   echo "MT5_WINE_COMPAT_PIN=FALLBACK version=${WINEHQ_VERSION:-MISSING}"
 fi
-if [[ -z "$WINEHQ_VERSION" ]]; then
-  echo "ERROR: WineHQ stable is not available for ${CODENAME}" >&2
-  exit 56
-fi'''
-          if old not in s:
-              raise SystemExit('expected WineHQ selector block not found')
-          s = s.replace(old, new, 1)
-
-          old_fail = '''if [[ -z "$TERMINAL" || ! -f "$TERMINAL" ]]; then
-  echo "ERROR: MT5 terminal64.exe not found after installer" >&2
-  tail -240 /tmp/mt5-install.log >&2 || true
-  tail -240 /tmp/mt5-installer-wine.log >&2 || true
-  exit 6
-fi'''
-          new_fail = '''if [[ -z "$TERMINAL" || ! -f "$TERMINAL" ]]; then
-  echo "ERROR: MT5 terminal64.exe not found after installer" >&2
-  echo "MT5_INSTALL_DIAGNOSTICS_BEGIN" >&2
-  pgrep -a -f 'mt5setup|terminal64|wine|wineserver' >&2 || true
-  find "$WINEPREFIX_DIR/drive_c" -maxdepth 7 -type f -mmin -10 -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\\n' 2>/dev/null | tail -200 >&2 || true
-  tail -240 /tmp/mt5-install.log >&2 || true
-  tail -240 /tmp/mt5-installer-wine.log >&2 || true
-  echo "MT5_INSTALL_DIAGNOSTICS_END" >&2
-  exit 6
-fi'''
-          if old_fail in s:
-              s = s.replace(old_fail, new_fail, 1)
-
-          p.write_text(s)
+[[ -n "$WINEHQ_VERSION" ]] || { echo "ERROR: WineHQ stable unavailable" >&2; exit 56; }'''
+              if old not in s:
+                  raise SystemExit('current Wine selector block not found')
+              p.write_text(s.replace(old,new,1))
 
       - name: Commit compatibility patch
         shell: bash
@@ -99,6 +63,6 @@ fi'''
             echo 'MT5_COMPAT_PATCH=ALREADY_APPLIED'
             exit 0
           fi
-          git commit -m 'fix: pin unattended MT5 installer to compatible Wine 10'
+          git commit -m 'mt5: pin MetaEditor runtime to WineHQ 10'
           git push origin HEAD:main
           echo 'MT5_COMPAT_PATCH=PUSHED'
