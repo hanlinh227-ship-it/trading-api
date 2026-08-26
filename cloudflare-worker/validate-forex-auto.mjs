@@ -7,11 +7,17 @@ import {recordForexEntry,recordForexOutcome,getForexLearningContext} from "./for
 const mkBars=(start,step,count,noise=.00025,seconds=300)=>Array.from({length:count},(_,i)=>{const close=start+step*i+(i%3-1)*noise,open=close-step*.35;return {time:1700000000+i*seconds,open,high:Math.max(open,close)+noise,low:Math.min(open,close)-noise,close,volume:100+i};});
 const env={};
 const cfg=forexAutoConfig(env);
-assert.equal(FOREX_AUTO_VERSION,"FOREX-AUTO-0.4.0-PAPER");
+assert.equal(FOREX_AUTO_VERSION,"FOREX-AUTO-0.4.1-PAPER");
 assert.equal(cfg.branchId,"FOREX_THE5ERS_INDEPENDENT");
 assert.equal(cfg.rules.internalDailyStopPct,4);
 assert.equal(cfg.rules.projectedDailyStopPct,4);
-assert.equal(cfg.rules.alternateTradeSide,false);
+assert.equal(cfg.rules.alternateTradeSide,true);
+assert.equal(cfg.rules.alternationScope,"ACCOUNT_FILLED_ENTRY_SEQUENCE");
+assert.equal(cfg.rules.alternationNoForceEntry,true);
+assert.equal(cfg.risk.hardMaxRiskPct,1);
+assert.equal(forexAutoConfig({FOREX_NORMAL_RISK_PCT:"1",FOREX_PREMIUM_RISK_PCT:"1"}).risk.hardMaxRiskPct,1);
+assert.equal(forexAutoConfig({FOREX_NORMAL_RISK_PCT:"1.5",FOREX_PREMIUM_RISK_PCT:"2"}).risk.normalRiskPct,1);
+assert.equal(forexAutoConfig({FOREX_NORMAL_RISK_PCT:"1.5",FOREX_PREMIUM_RISK_PCT:"2"}).risk.premiumRiskPct,1);
 assert.equal(cfg.execution.liveEnabled,false);
 assert.equal(forexAutoConfig({FOREX_AUTO_LIVE:"true"}).execution.liveEnabled,false,"LIVE must remain disabled without target config");
 assert.equal(forexAutoConfig({FOREX_AUTO_LIVE:"true",FOREX_TARGET_PCT:"8"}).execution.liveEnabled,true);
@@ -38,4 +44,4 @@ for(let i=1;i<=12;i++){await recordForexEntry(lenv,"T1",{ticket:i,symbol:"EURUSD
 const lc=await getForexLearningContext(lenv,"T1",{symbol:"EURUSD"});
 assert.equal(lc.active,true);assert.equal(lc.degraded,true);assert(lc.riskMultiplier<=.7);assert(lc.scoreDelta<=-3);
 
-console.log(JSON.stringify({ok:true,version:FOREX_AUTO_VERSION,checks:{dailyStop4:true,liveTargetLock:true,h4Freshness:true,newsFailClosed:true,noForcedAlternation:true,boundedLearning:true}},null,2));
+console.log(JSON.stringify({ok:true,version:FOREX_AUTO_VERSION,checks:{dailyStop4:true,liveTargetLock:true,h4Freshness:true,newsFailClosed:true,qualityOnlySideAlternation:true,noForcedOppositeEntry:true,maxRiskPerTrade1Pct:true,boundedLearning:true}},null,2));
