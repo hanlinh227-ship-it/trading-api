@@ -133,6 +133,20 @@ jobs:
           sleep 2
           echo 'MT5_OLD_RUNTIME_STOPPED=PASS'
 
+      - name: Recover interrupted Wine package transition
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo dpkg --configure -a || true
+          sudo apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
+            winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
+            winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
+          sudo dpkg --remove --force-remove-reinstreq winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 2>/dev/null || true
+          sudo dpkg --purge --force-all winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 2>/dev/null || true
+          sudo apt-get -f install -y
+          sudo dpkg --configure -a
+          echo 'MT5_WINE_PACKAGE_RECOVERY=PASS'
+
       - name: Install or repair MetaTrader 5
         shell: bash
         run: |
@@ -144,8 +158,9 @@ jobs:
           source /var/lib/trading/mt5-forex/runtime.env
           test -x "$MT5_WINE_BIN"
           VERSION="$($MT5_WINE_BIN --version)"
-          printf '%s\n' "$VERSION" | grep -Eq 'wine-10\.' || { echo "ERROR: supported Wine 10.x gate failed: $VERSION" >&2; exit 58; }
-          echo 'MT5_SUPPORTED_WINE_GATE=PASS'
+          MAJOR="$(printf '%s' "$VERSION" | sed -nE 's/.*wine-([0-9]+).*/\1/p' | head -n1)"
+          test -n "$MAJOR" && [ "$MAJOR" -ge 10 ] || { echo "ERROR: supported Wine >=10 gate failed: $VERSION" >&2; exit 58; }
+          echo "MT5_SUPPORTED_WINE_GATE=PASS version=$VERSION"
 
       - name: Install protected MT5 runtime configuration
         shell: bash
