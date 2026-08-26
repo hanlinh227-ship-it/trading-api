@@ -27,6 +27,7 @@ jobs:
       MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
       MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
       MT5_ALLOW_LIVE: ${{ secrets.MT5_ALLOW_LIVE }}
+
     steps:
       - name: Assert authorized VPS-only runner
         shell: bash
@@ -58,7 +59,7 @@ jobs:
           echo 'MT5_ACCOUNT_PASSWORD=CONFIGURED'
           echo 'MT5_ACCOUNT_SERVER=CONFIGURED'
           echo 'MT5_BRIDGE_TOKEN=CONFIGURED'
-          echo "MT5_ALLOW_LIVE=$([[ "${MT5_ALLOW_LIVE:-false}" =~ ^(true|1|yes)$ ]] && echo REQUESTED || echo OFF_SAFE)"
+          case "${MT5_ALLOW_LIVE:-false}" in true|TRUE|1|yes|YES) echo 'MT5_ALLOW_LIVE=REQUESTED' ;; *) echo 'MT5_ALLOW_LIVE=OFF_SAFE' ;; esac
 
       - name: Checkout exact main
         uses: actions/checkout@v4
@@ -119,10 +120,7 @@ jobs:
             echo "Waiting for Forex Hub bridge auth propagation attempt=$i http=$LAST_CODE"
             sleep 5
           done
-          if [ "$PASS" != true ]; then
-            echo "ERROR: Forex Hub bridge auth preflight failed http=$LAST_CODE" >&2
-            exit 15
-          fi
+          [ "$PASS" = true ] || { echo "ERROR: Forex Hub bridge auth preflight failed http=$LAST_CODE" >&2; exit 15; }
           echo 'MT5_FOREX_BRIDGE_AUTH=PASS'
 
       - name: Stop old MT5 runtime before package repair
@@ -146,10 +144,7 @@ jobs:
           source /var/lib/trading/mt5-forex/runtime.env
           test -x "$MT5_WINE_BIN"
           VERSION="$($MT5_WINE_BIN --version)"
-          printf '%s\n' "$VERSION" | grep -Eq 'wine-10\.' || {
-            echo "ERROR: supported Wine 10.x gate failed: $VERSION" >&2
-            exit 58
-          }
+          printf '%s\n' "$VERSION" | grep -Eq 'wine-10\.' || { echo "ERROR: supported Wine 10.x gate failed: $VERSION" >&2; exit 58; }
           echo 'MT5_SUPPORTED_WINE_GATE=PASS'
 
       - name: Install protected MT5 runtime configuration
@@ -163,7 +158,7 @@ jobs:
           trap 'rm -f "$tmp"' EXIT
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
           LIVE="${MT5_ALLOW_LIVE:-false}"
-          if [[ "${LIVE,,}" =~ ^(true|1|yes)$ ]]; then LIVE=true; else LIVE=false; fi
+          case "${LIVE,,}" in true|1|yes) LIVE=true ;; *) LIVE=false ;; esac
           umask 077
           {
             printf 'MT5_ACCOUNT_LOGIN=%q\n' "$MT5_ACCOUNT_LOGIN"
@@ -186,26 +181,21 @@ jobs:
           test -r /etc/trading/mt5-forex-vps-only
           sudo chmod +x /opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
           sudo chmod +x /opt/trading/trading-api-main/vps/mt5-forex/forex-mt5-sidecar.py
+          sudo chmod +x /opt/trading/trading-api-main/vps/mt5-forex/verify-hub-pulse.py
           sudo install -m 0644 /opt/trading/trading-api-main/vps/mt5-forex/mt5-forex.service /etc/systemd/system/mt5-forex.service
           sudo install -m 0644 /opt/trading/trading-api-main/vps/mt5-forex/mt5-forex-bridge.service /etc/systemd/system/mt5-forex-bridge.service
           sudo systemctl daemon-reload
           sudo systemctl reset-failed mt5-forex.service mt5-forex-bridge.service || true
           sudo systemctl enable mt5-forex.service mt5-forex-bridge.service
           sudo systemctl restart mt5-forex.service
-          for i in $(seq 1 30); do
-            sudo systemctl is-active --quiet mt5-forex.service && break
-            sleep 2
-          done
+          for i in $(seq 1 30); do sudo systemctl is-active --quiet mt5-forex.service && break; sleep 2; done
           sudo systemctl is-active --quiet mt5-forex.service || {
             sudo systemctl status mt5-forex.service --no-pager -l || true
             sudo journalctl -u mt5-forex.service -n 160 --no-pager || true
             exit 30
           }
           sudo systemctl restart mt5-forex-bridge.service
-          for i in $(seq 1 20); do
-            sudo systemctl is-active --quiet mt5-forex-bridge.service && break
-            sleep 1
-          done
+          for i in $(seq 1 20); do sudo systemctl is-active --quiet mt5-forex-bridge.service && break; sleep 1; done
           sudo systemctl is-active --quiet mt5-forex-bridge.service || {
             sudo systemctl status mt5-forex-bridge.service --no-pager -l || true
             sudo journalctl -u mt5-forex-bridge.service -n 120 --no-pager || true
@@ -218,7 +208,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -r /etc/trading/mt5-forex-vps-only
           source /var/lib/trading/mt5-forex/runtime.env
           test -f "$MT5_TERMINAL"
           test -f "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
@@ -253,26 +242,10 @@ jobs:
           PASS=false
           for i in $(seq 1 36); do
             CODE="$(curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w '%{http_code}' "$HUB/forex/health" || true)"
-            if [ "$CODE" = 200 ] && MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" python3 - "$BODY" <<'PY'
-import json, os, sys
-from datetime import datetime, timezone
-with open(sys.argv[1], encoding='utf-8') as f:
-    d=json.load(f)
-last=d.get('lastTerminal') or {}
-if not last: raise SystemExit(1)
-received=last.get('receivedAt')
-if not received: raise SystemExit(1)
-ts=datetime.fromisoformat(received.replace('Z','+00:00'))
-age=(datetime.now(timezone.utc)-ts).total_seconds()
-if age > 180: raise SystemExit(1)
-if last.get('connected') is not True: raise SystemExit(1)
-if float(last.get('balance') or 0) <= 0: raise SystemExit(1)
-if float(last.get('equity') or 0) <= 0: raise SystemExit(1)
-expected=str(os.environ.get('MT5_ACCOUNT_LOGIN') or '').strip()
-if not str(last.get('terminalId') or '').startswith(expected+'-'): raise SystemExit(1)
-print('MT5_PULSE_AGE_SECONDS='+str(round(age,1)))
-PY
-            then PASS=true; break; fi
+            if [ "$CODE" = 200 ] && MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" python3 /opt/trading/trading-api-main/vps/mt5-forex/verify-hub-pulse.py "$BODY"; then
+              PASS=true
+              break
+            fi
             echo "Waiting for real MT5 account pulse attempt=$i http=$CODE"
             sleep 5
           done
@@ -305,5 +278,5 @@ PY
           echo 'MT5_FOREX_BRIDGE_TOKEN=CONFIGURED'
           echo "MT5_FOREX_WINE_VERSION=${MT5_WINE_VERSION:-UNKNOWN}"
           echo 'MT5_FOREX_END_TO_END_PULSE=PASS'
-          echo "MT5_FOREX_LIVE=$([[ "${MT5_ALLOW_LIVE:-false}" =~ ^(true|1|yes)$ ]] && echo REQUESTED || echo OFF_SAFE)"
-          echo 'MT5_FOREX_NOTE=No WebRequest allowlist dependency; no hosted-runner fallback; runtime host-locked to trading-vps.'
+          case "${MT5_ALLOW_LIVE:-false}" in true|TRUE|1|yes|YES) echo 'MT5_FOREX_LIVE=REQUESTED' ;; *) echo 'MT5_FOREX_LIVE=OFF_SAFE' ;; esac
+          echo 'MT5_FOREX_NOTE=Local sidecar transport; no MT5 WebRequest allowlist dependency; host-locked to trading-vps.'
