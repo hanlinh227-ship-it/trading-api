@@ -103,14 +103,24 @@ jobs:
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
           BODY="$(mktemp)"
           trap 'rm -f "$BODY"' EXIT
-          CODE="$(curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w '%{http_code}' \
-            -X POST "$HUB/forex/mt5/pulse" \
-            -H "Authorization: Bearer $MT5_BRIDGE_TOKEN" \
-            -H 'Content-Type: application/json' \
-            --data '{}')"
-          RESP="$(cat "$BODY")"
-          if [ "$CODE" != 400 ] || ! printf '%s' "$RESP" | grep -q 'TERMINAL_ID_REQUIRED'; then
-            echo "ERROR: Forex Hub bridge auth preflight failed http=$CODE" >&2
+          PASS=false
+          LAST_CODE=000
+          for i in $(seq 1 18); do
+            LAST_CODE="$(curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w '%{http_code}' \
+              -X POST "$HUB/forex/mt5/pulse" \
+              -H "Authorization: Bearer $MT5_BRIDGE_TOKEN" \
+              -H 'Content-Type: application/json' \
+              --data '{}' || true)"
+            RESP="$(cat "$BODY")"
+            if [ "$LAST_CODE" = 400 ] && printf '%s' "$RESP" | grep -q 'TERMINAL_ID_REQUIRED'; then
+              PASS=true
+              break
+            fi
+            echo "Waiting for Forex Hub bridge auth propagation attempt=$i http=$LAST_CODE"
+            sleep 5
+          done
+          if [ "$PASS" != true ]; then
+            echo "ERROR: Forex Hub bridge auth preflight failed http=$LAST_CODE" >&2
             exit 15
           fi
           echo 'MT5_FOREX_BRIDGE_AUTH=PASS'
