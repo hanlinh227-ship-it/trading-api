@@ -1,0 +1,52 @@
+name: MT5 Discover Existing The5ers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-discover-existing-the5ers.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-broker-connect-diagnose
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - name: Discover broker metadata and prior successful connection
+        shell: bash
+        run: |
+          set +e
+          echo '=== MT5 TERMINALS ON VPS ==='
+          sudo find /root /home /opt /var/lib /srv -type f -iname terminal64.exe -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
+          echo '=== SERVER DATABASES ON VPS ==='
+          sudo find /root /home /opt /var/lib /srv -type f -iname servers.dat -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
+          echo '=== FILES WITH FIVEPERCENT STRING ==='
+          sudo find /root /home /opt /var/lib /srv -type f \( -iname '*.dat' -o -iname '*.ini' -o -iname '*.log' -o -iname '*.txt' -o -iname '*.cfg' -o -iname '*.srv' \) -size -20M -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            m="$( { strings -el "$f" 2>/dev/null; strings "$f" 2>/dev/null; } | grep -Eai 'FivePercentOnline-Real|Five Percent Online|FivePercentOnline' | head -n 20 )"
+            if [ -n "$m" ]; then
+              echo "--- $f size=$(stat -c %s "$f" 2>/dev/null) sha=$(sha256sum "$f" 2>/dev/null | awk '{print $1}') ---"
+              printf '%s\n' "$m" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g'
+            fi
+          done
+          echo '=== PRIOR AUTHORIZED ON FIVEPERCENT ==='
+          sudo find /root /home /opt /var/lib /srv -type f -iname '*.log' -size -30M -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            out=$(mktemp)
+            iconv -f UTF-16LE -t UTF-8 "$f" >"$out" 2>/dev/null || cp "$f" "$out" 2>/dev/null
+            m=$(grep -Eai "authorized on FivePercentOnline-Real|connected to FivePercentOnline-Real|terminal synchronized with Five Percent Online|FivePercentOnline-Real through|authorization failed.*FivePercent|invalid account.*FivePercent" "$out" | tail -n 60)
+            if [ -n "$m" ]; then
+              echo "--- $f ---"
+              printf '%s\n' "$m" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g'
+            fi
+            rm -f "$out"
+          done
+          echo '=== CURRENT MT5 SOCKETS ==='
+          pid=$(ps -u mt5forex -o pid=,comm=,args= 2>/dev/null | awk 'index($0,"terminal64.exe") && $2!="bash" && $2!="sh" && $2!="xvfb-run" && $2!="start.exe" && $2!="wine" && $2!="wine64" {print $1; exit}')
+          echo "terminal_pid=${pid:-none}"
+          if [ -n "$pid" ]; then sudo ss -tpn 2>/dev/null | grep -E "pid=$pid[,)]" | sed -E 's/users:\(\([^)]*\)\)/users:([REDACTED])/g' || true; fi
