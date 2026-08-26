@@ -27,8 +27,12 @@ jobs:
         run: |
           set -euo pipefail
           test "${RUNNER_NAME:-}" = "trading-vps"
+          FQDN="$(hostname -f 2>/dev/null || hostname)"
           HOST="$(hostname)"
-          test "$HOST" = "59670"
+          if [[ "$FQDN" != "59670.vpsvinahost.vn" && "$HOST" != "59670" && "$HOST" != "59670.vpsvinahost.vn" ]]; then
+            echo 'ERROR: verification landed on unauthorized VPS' >&2
+            exit 90
+          fi
           echo 'VERIFY_RUNNER=PASS'
 
       - name: Verify MT5 service and terminal process
@@ -57,7 +61,7 @@ jobs:
           p=sys.argv[1]
           with open(p,'r',encoding='utf-8') as f:
               d=json.load(f)
-          assert d.get('ok') is True, d
+          assert d.get('ok') is True, 'Forex Hub health is not OK'
           last=d.get('lastTerminal') or {}
           assert last, 'lastTerminal missing: MT5 has not produced a Hub pulse'
           received=last.get('receivedAt')
