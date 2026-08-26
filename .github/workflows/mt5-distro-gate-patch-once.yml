@@ -24,14 +24,21 @@ jobs:
           from pathlib import Path
           p=Path('.github/workflows/deploy-mt5-forex-vps.yml')
           s=p.read_text()
-          old='''          test -n "$MAJOR" && [ "$MAJOR" -ge 10 ] || { echo "ERROR: supported Wine >=10 gate failed: $VERSION" >&2; exit 58; }
-          echo "MT5_SUPPORTED_WINE_GATE=PASS version=$VERSION"'''
-          new='''          test -n "$MAJOR" && [ "$MAJOR" -ge 9 ] || { echo "ERROR: validated Wine >=9 gate failed: $VERSION" >&2; exit 58; }
-          test "${MT5_WINE_STACK:-}" = "UBUNTU_DISTRO_WINE" || { echo "ERROR: validated Ubuntu distro Wine stack required: ${MT5_WINE_STACK:-UNKNOWN}" >&2; exit 59; }
-          echo "MT5_SUPPORTED_WINE_GATE=PASS stack=$MT5_WINE_STACK version=$VERSION"'''
-          if old not in s:
-              raise SystemExit('canonical Wine gate not found')
-          s=s.replace(old,new,1)
+          a='[ "$MAJOR" -ge 10 ]'
+          b='[ "$MAJOR" -ge 9 ]'
+          if a not in s:
+              raise SystemExit('Wine major gate not found')
+          s=s.replace(a,b,1)
+          a='ERROR: supported Wine >=10 gate failed:'
+          b='ERROR: validated Wine >=9 gate failed:'
+          if a not in s:
+              raise SystemExit('Wine gate message not found')
+          s=s.replace(a,b,1)
+          a='          echo "MT5_SUPPORTED_WINE_GATE=PASS version=$VERSION"'
+          b='          test "${MT5_WINE_STACK:-}" = "UBUNTU_DISTRO_WINE" || { echo "ERROR: validated Ubuntu distro Wine stack required: ${MT5_WINE_STACK:-UNKNOWN}" >&2; exit 59; }\n          echo "MT5_SUPPORTED_WINE_GATE=PASS stack=$MT5_WINE_STACK version=$VERSION"'
+          if a not in s:
+              raise SystemExit('Wine gate success line not found')
+          s=s.replace(a,b,1)
           p.write_text(s)
       - name: Commit canonical gate and remove one-shot
         shell: bash
