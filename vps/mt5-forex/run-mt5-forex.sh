@@ -23,12 +23,8 @@ if [[ ! -r "$RUNTIME_ENV" ]]; then
   echo "ERROR: MT5 runtime.env missing; run install-mt5-forex.sh first" >&2
   exit 10
 fi
-# shellcheck disable=SC1090
 source "$RUNTIME_ENV"
-if [[ -r "$PRIVATE_ENV" ]]; then
-  # shellcheck disable=SC1090
-  source "$PRIVATE_ENV"
-fi
+if [[ -r "$PRIVATE_ENV" ]]; then source "$PRIVATE_ENV"; fi
 
 : "${MT5_WINEPREFIX:?missing MT5_WINEPREFIX}"
 : "${MT5_TERMINAL:?missing MT5_TERMINAL}"
@@ -47,10 +43,7 @@ MT5_BRIDGE_TOKEN="${MT5_BRIDGE_TOKEN:-}"
 MT5_ALLOW_LIVE="${MT5_ALLOW_LIVE:-false}"
 MT5_SYMBOLS="${MT5_SYMBOLS:-EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,NZDUSD,USDCAD,EURJPY,GBPJPY,EURGBP,XAUUSD}"
 
-case "${MT5_ALLOW_LIVE,,}" in
-  true|1|yes) LIVE_BOOL=true; LIVE_INI=1 ;;
-  *) LIVE_BOOL=false; LIVE_INI=0 ;;
-esac
+case "${MT5_ALLOW_LIVE,,}" in true|1|yes) LIVE_BOOL=true; LIVE_INI=1 ;; *) LIVE_BOOL=false; LIVE_INI=0 ;; esac
 
 PRESET="$MT5_INSTALL_DIR/MQL5/Presets/ForexAutoThe5ers.set"
 CONFIG="$MT5_INSTALL_DIR/mt5-forex-start.ini"
@@ -63,7 +56,9 @@ InpHubUrl=$MT5_HUB_URL
 InpBridgeToken=$MT5_BRIDGE_TOKEN
 InpAllowLiveTrading=$LIVE_BOOL
 InpPulseSeconds=60
-InpMaxRiskPct=0.50
+InpMaxRiskPct=1.00
+InpMinFreeMarginPct=35.0
+InpMinMarginLevelPct=300.0
 InpMagic=560501
 InpSymbols=$MT5_SYMBOLS
 InpBreakEvenR=1.00
@@ -101,29 +96,18 @@ chmod 0600 "$PRESET"
 chmod 0600 "$CONFIG"
 
 if [[ "$LIVE_BOOL" == true ]]; then
-  if [[ -z "$MT5_ACCOUNT_LOGIN" || -z "$MT5_ACCOUNT_PASSWORD" || -z "$MT5_ACCOUNT_SERVER" ]]; then
-    echo "ERROR: LIVE requested but broker credentials are incomplete" >&2
-    exit 11
-  fi
-  if [[ -z "$MT5_BRIDGE_TOKEN" || -z "$MT5_HUB_URL" ]]; then
-    echo "ERROR: LIVE requested but MT5 bridge configuration is incomplete" >&2
-    exit 12
-  fi
+  if [[ -z "$MT5_ACCOUNT_LOGIN" || -z "$MT5_ACCOUNT_PASSWORD" || -z "$MT5_ACCOUNT_SERVER" ]]; then echo "ERROR: LIVE requested but broker credentials are incomplete" >&2; exit 11; fi
+  if [[ -z "$MT5_BRIDGE_TOKEN" || -z "$MT5_HUB_URL" ]]; then echo "ERROR: LIVE requested but MT5 bridge configuration is incomplete" >&2; exit 12; fi
 fi
 
-# Never rediscover Wine binaries through PATH after installation. runtime.env is
-# the contract that keeps wine/winepath/wineserver from one package family.
 WINEPATH_BIN="${MT5_WINEPATH_BIN:-$(dirname "$MT5_WINE_BIN")/winepath}"
 WINESERVER_BIN="${MT5_WINESERVER_BIN:-$(dirname "$MT5_WINE_BIN")/wineserver}"
 [[ -x "$WINEPATH_BIN" ]] || { echo "ERROR: pinned winepath missing" >&2; exit 13; }
 [[ -x "$WINESERVER_BIN" ]] || { echo "ERROR: pinned wineserver missing" >&2; exit 14; }
 
 CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
-if [[ -z "$CONFIG_WIN" ]]; then
-  CONFIG_WIN='C:\MT5Forex\mt5-forex-start.ini'
-fi
+[[ -n "$CONFIG_WIN" ]] || { echo "ERROR: winepath failed for MT5 config" >&2; exit 15; }
 
-# Deliberately do not print account number, password, broker server or bridge token.
 echo "MT5_FOREX_START=PASS"
 echo "MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY"
 echo "MT5_FOREX_HOST_AUTHORIZED=PASS"
@@ -133,9 +117,6 @@ echo "MT5_FOREX_WINE_STACK=${MT5_WINE_STACK:-UNKNOWN}"
 echo "MT5_FOREX_WINE_VERSION=${MT5_WINE_VERSION:-UNKNOWN}"
 echo "MT5_FOREX_TRANSPORT=LOCAL_SIDECAR"
 
-# Under Wine, terminal64.exe can hand off to a persistent Wine child and return
-# a non-zero launcher code even though MT5 remains alive. Keep the systemd main
-# process attached to the dedicated Wine prefix until every Wine child exits.
 export APP_HOME MT5_WINEPREFIX MT5_WINE_BIN MT5_TERMINAL CONFIG_WIN WINESERVER_BIN
 exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   set +e
