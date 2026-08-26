@@ -1,13 +1,13 @@
 import {hmacHex} from "./providers/bybit-signed-client.js";
-import {bybitCredentials} from "./bybit-auto-config.js";
+import {bybitCredentials,bybitAutoConfig} from "./bybit-auto-config.js";
 import {BYBIT_PRIVATE_TRANSPORT,BYBIT_MARKET_TRANSPORT,BYBIT_RUNTIME_CONTRACT_VERSION} from "./bybit-runtime-contract.js";
 
 const DEFAULT_BASES=["https://api.bybit.com","https://api.bytick.com"];
-const RECV_WINDOW="5000";
 const BRIDGE_PRIVATE_URL="http://127.0.0.1:8789/bybit/private";
-const BRIDGE_TIMEOUT_MS=20000;
+const BRIDGE_TIMEOUT_MS=25000;
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function bases(env={}){
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
@@ -19,8 +19,12 @@ async function parseResponse(r,path,meta={}){
   if(!r.ok||Number(p?.retCode)!==0)throw bybitError(path,r.status,p,{...meta,bodySnippet});
   return p;
 }
+function retryableReadError(e){
+  const h=Number(e?.bybit?.httpStatus||0),r=Number(e?.bybit?.retCode);
+  return [408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(r)||(!h&&!Number.isFinite(r));
+}
 export function bybitV5(env={}){
-  const c=bybitCredentials(env),baseList=bases(env);
+  const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=bases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
   async function pub(path,params={}){
     const q=qs(params),attempted=[];let lastErr;
     for(const base of baseList){
@@ -30,14 +34,14 @@ export function bybitV5(env={}){
     }
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
-  async function signedViaVps(method,path,paramsOrBody={}){
+  async function signedViaVpsOnce(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")throw new Error("BYBIT_VPS_BRIDGE_BINDING_MISSING");
     const bridgeSecret=String(env.V11_AI_BRIDGE_SECRET||"");
     if(!bridgeSecret)throw new Error("BYBIT_VPS_BRIDGE_SECRET_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody));
-    const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload);
-    const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION};
+    const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+recvWindow+payload);
+    const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":recvWindow,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION};
     const requestBody={method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers};
     let r,j;
     try{
@@ -48,6 +52,15 @@ export function bybitV5(env={}){
     const up=j.upstream||null,status=Number(j.httpStatus||0)||502,transport=j.transport||BYBIT_PRIVATE_TRANSPORT;
     if(!j.ok||Number(up?.retCode)!==0)throw bybitError(path,status,up,{base:j.base||null,attemptedBases:j.attempts||[],transport});
     return up;
+  }
+  async function signedViaVps(method,path,paramsOrBody={}){
+    const upper=String(method).toUpperCase();
+    if(upper!=="GET")return signedViaVpsOnce(upper,path,paramsOrBody);
+    let last;
+    for(let attempt=0;attempt<2;attempt++){
+      try{return await signedViaVpsOnce(upper,path,paramsOrBody);}catch(e){last=e;if(attempt===1||!retryableReadError(e))throw e;await sleep(250+attempt*250);}
+    }
+    throw last;
   }
   async function market(path,params={}){
     try{return await signedViaVps("GET",path,params);}
@@ -64,8 +77,8 @@ export function bybitV5(env={}){
     for(const base of baseList){
       attempted.push(base);
       try{
-        const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+RECV_WINDOW+payload),url=`${base}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
-        const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":RECV_WINDOW,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:upper==="GET"?undefined:payload,signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
+        const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+recvWindow+payload),url=`${base}${path}${upper==="GET"&&payload?`?${payload}`:""}`;
+        const r=await fetch(url,{method:upper,headers:{"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":recvWindow,"X-BAPI-SIGN":sig,"Content-Type":"application/json",accept:"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:upper==="GET"?undefined:payload,signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)});
         return await parseResponse(r,path,{base,attemptedBases:[...attempted],transport:"CLOUDFLARE_PRIVATE_DIRECT"});
       }catch(e){lastErr=e;if(Number(e?.bybit?.httpStatus)!==403&&Number(e?.bybit?.httpStatus)!==429)throw e;}
     }
@@ -86,7 +99,7 @@ export function bybitV5(env={}){
     }
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:BYBIT_PRIVATE_TRANSPORT,marketTransport:BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:BYBIT_PRIVATE_TRANSPORT,marketTransport:BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
     serverTime:()=>market("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),
