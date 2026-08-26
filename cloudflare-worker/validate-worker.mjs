@@ -24,7 +24,7 @@ const files=[
  'index.js','bybit-runtime-contract.js','bybit-auto-hub.js','bybit-control-plane.js','bybit-auto-config.js',
  'bybit-auto-v1.js','bybit-auto-controller.js','bybit-scalp-engine.js','bybit-adaptive-edge.js','bybit-risk-guard.js',
  'bybit-position-manager.js','bybit-ai-scalp-gate.js','bybit-learning-engine.js','bybit-learning-recovery.js','bybit-v5-client.js',
- 'validate-bybit-learning.mjs','binance-scalp-exit.js','multi-ai-control-plane.js','providers/telegram-client.js',
+ 'validate-bybit-learning.mjs','binance-scalp-exit.js','multi-ai-control-plane.js','chatgpt-mcp.js','gpt-5ai-action.js','providers/telegram-client.js',
  'meme-auto-design.js','meme-paper-engine.js','forex-auto-config.js','forex-the5ers-rule-engine.js','forex-signal-engine.js',
  'forex-3ai-council.js','forex-learning-engine.js','forex-mt5-bridge.js'
 ];
@@ -36,6 +36,8 @@ const runtime=read('bybit-runtime-contract.js');
 const cfg=read('bybit-auto-config.js');
 const risk=read('bybit-risk-guard.js');
 const mgr=read('bybit-position-manager.js');
+const mcp=read('chatgpt-mcp.js');
+const multi=read('multi-ai-control-plane.js');
 const meme=read('meme-auto-design.js');
 const paper=read('meme-paper-engine.js');
 const fxcfg=read('forex-auto-config.js');
@@ -45,7 +47,10 @@ const fxai=read('forex-3ai-council.js');
 const fxbridge=read('forex-mt5-bridge.js');
 
 need(runtime,['BYBIT_RUNTIME_CONTRACT_V1','BYBIT_AUTO_TRADE_ONLY','VPS_BYBIT_PRIVATE_PROXY','VPS_BYBIT_MARKET_PROXY','/bybit/health'],'BYBIT_RUNTIME_CONTRACT');
-need(index,['signalV11Enabled:false','runBybitAutoControlled','handleForexMt5Bridge','/runtime/contract'],'INDEX');
+need(index,['signalV11Enabled:false','runBybitAutoControlled','handleForexMt5Bridge','handleChatGptMcp','/runtime/contract'],'INDEX');
+need(mcp,['review_crypto_trade_3ai','CHATGPT_MCP_TRADING_REVIEW_ONLY','executionAllowed:false','requestedProviders:PROVIDERS','consensus','requiredQuorum:2'],'CHATGPT_3AI_MCP');
+need(multi,["const PROVIDERS=['claude','codex','deepseek']",'requiredQuorum:2'],'UNIFIED_3AI_CONTROL');
+if(mcp.includes('executionAllowed:true'))errors.push('CHATGPT 3AI review must never execute trades');
 if(index.includes('runMemeAuto(')||index.includes('MEME_AUTO_ENABLED'))errors.push('MEME real execution forbidden');
 need(cfg,['maxRiskPctOfEquity:10','maxTotalOpenRiskPct:20','maxPortfolioMarginPct:85','minRR:1.5','smartCutEnabled:true','autoPromote:false'],'BYBIT_CONFIG');
 need(risk,['SINGLE_TRADE_RISK_CAP','TOTAL_OPEN_RISK_CAP','PORTFOLIO_MARGIN_HEADROOM','dailyTargetEnabled:false','continuousTrading:true'],'BYBIT_RISK');
@@ -71,4 +76,4 @@ if(fxcfg.includes('liveEnabled:true'))errors.push('FOREX source default must rem
 if(fxai.includes('qwen')||fxai.includes('openrouter')||fxai.includes('codex'))errors.push('FOREX council must use only ChatGPT Claude DeepSeek');
 
 if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const e of errors)console.error('- '+e);process.exit(1);}
-console.log('Worker AUTO preflight PASS: current Bybit safety contract + MEME paper-only + FOREX-AUTO 0.4.4 intraday scalp / 3AI / dynamic risk-margin / MT5 bridge.');
+console.log('Worker AUTO preflight PASS: Bybit safety + ChatGPT review-only 3AI MCP + MEME paper-only + FOREX-AUTO 0.4.4.');
