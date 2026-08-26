@@ -49,7 +49,17 @@ install -d -m 0755 /etc/apt/keyrings
 wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
 wget -qO "/etc/apt/sources.list.d/winehq-${CODENAME}.sources" "https://dl.winehq.org/wine-builds/ubuntu/dists/${CODENAME}/winehq-${CODENAME}.sources"
 apt_retry apt-get update -y
-WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)}"
+PINNED_WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-10.0.0.0~${CODENAME}-1}"
+if apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | grep -Fxq "$PINNED_WINEHQ_VERSION"; then
+  WINEHQ_VERSION="$PINNED_WINEHQ_VERSION"
+  echo "MT5_WINE_COMPAT_PIN=ACTIVE version=$WINEHQ_VERSION"
+else
+  WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | awk '$0 ~ /^10\./ {print; exit}' || true)"
+  if [[ -z "$WINEHQ_VERSION" ]]; then
+    WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)"
+  fi
+  echo "MT5_WINE_COMPAT_PIN=FALLBACK version=${WINEHQ_VERSION:-MISSING}"
+fi
 [[ -n "$WINEHQ_VERSION" ]] || { echo "ERROR: WineHQ stable unavailable" >&2; exit 56; }
 
 INSTALLED_WINE="$(dpkg-query -W -f='${Version}' winehq-stable 2>/dev/null || true)"
@@ -148,8 +158,6 @@ compile_direct(){
   rc=$?
   set -e
   echo "MT5_METAEDITOR_DIRECT_EXIT=$rc"
-  # Do not kill wineserver immediately. MetaEditor can return before its compiler
-  # worker has flushed the EX5 under Wine. Wait for the artifact first.
   wait_for_file "$out" && return 0
   return 1
 }
@@ -169,7 +177,6 @@ compile_cmd_wait(){
   return 1
 }
 
-# First prove this MetaEditor/Wine stack can emit any EX5 at all.
 PROBE_SRC="$MT5_DIR/MQL5/Experts/CompileProbe.mq5"
 PROBE_EX5="$MT5_DIR/MQL5/Experts/CompileProbe.ex5"
 PROBE_LOG="$MT5_DIR/metaeditor-probe.log"
@@ -204,7 +211,6 @@ if ! compile_direct "$EA_DST" "$EA_EX5" "$LOG_HOST"; then
   compile_cmd_wait "$EA_DST" "$EA_EX5" "$LOG_HOST" || true
 fi
 
-# Search alternate MT5 data roots before failing, then normalize to canonical path.
 if [[ ! -s "$EA_EX5" ]]; then
   FOUND_EX5="$(find "$WINEPREFIX_DIR" "$APP_HOME" -type f -iname 'ForexAutoThe5ers.ex5' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2- || true)"
   if [[ -n "$FOUND_EX5" && -s "$FOUND_EX5" ]]; then install -o "$APP_USER" -g "$APP_USER" -m 0640 "$FOUND_EX5" "$EA_EX5"; fi
