@@ -116,19 +116,23 @@ jobs:
           sudo install -o mt5forex -g mt5forex -m 0640 /opt/trading/trading-api-main/mt5/ForexAutoThe5ers.mq5 "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
           sudo install -o mt5forex -g mt5forex -m 0640 "$BUILD_EX5" "$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
 
-          sudo tee "$APP_HOME/runtime.env" >/dev/null <<EOF
-          MT5_WINEPREFIX=$PREFIX
-          MT5_TERMINAL=$TERMINAL
-          MT5_INSTALL_DIR=$MT5_DIR
-          MT5_WINE_BIN=$WINE
-          MT5_WINESERVER_BIN=$WINESERVER
-          MT5_WINEPATH_BIN=/opt/wine-stable/bin/winepath
-          MT5_WINE_STACK=WINEHQ_STABLE_RECOVERED
-          MT5_WINE_VERSION=$VERSION
-          EOF
-          sudo chown mt5forex:mt5forex "$APP_HOME/runtime.env"
-          sudo chmod 0640 "$APP_HOME/runtime.env"
+          RUNTIME_TMP="$(mktemp)"
+          {
+            printf 'MT5_WINEPREFIX=%q\n' "$PREFIX"
+            printf 'MT5_TERMINAL=%q\n' "$TERMINAL"
+            printf 'MT5_INSTALL_DIR=%q\n' "$MT5_DIR"
+            printf 'MT5_WINE_BIN=%q\n' "$WINE"
+            printf 'MT5_WINESERVER_BIN=%q\n' "$WINESERVER"
+            printf 'MT5_WINEPATH_BIN=%q\n' '/opt/wine-stable/bin/winepath'
+            printf 'MT5_WINE_STACK=%q\n' 'WINEHQ_STABLE_RECOVERED'
+            printf 'MT5_WINE_VERSION=%q\n' "$VERSION"
+          } > "$RUNTIME_TMP"
+          sudo install -o mt5forex -g mt5forex -m 0640 "$RUNTIME_TMP" "$APP_HOME/runtime.env"
+          rm -f "$RUNTIME_TMP"
+          sudo -u mt5forex bash -n "$APP_HOME/runtime.env"
+          sudo -u mt5forex bash -c 'source "$1"; test -f "$MT5_TERMINAL"; test -d "$MT5_INSTALL_DIR"; test -f "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"' _ "$APP_HOME/runtime.env"
           sudo ln -sfn "$MT5_DIR" /opt/trading/mt5-forex-terminal
+          echo 'MT5_RUNTIME_ENV_QUOTING=PASS'
           echo 'MT5_RECOVERY_EA_COMPILE=PASS'
           echo "MT5_RECOVERY_WINE=$VERSION"
 
@@ -164,13 +168,16 @@ jobs:
           sudo systemctl reset-failed mt5-forex.service mt5-forex-bridge.service || true
           sudo systemctl enable mt5-forex.service mt5-forex-bridge.service
           sudo systemctl restart mt5-forex.service
-          for i in $(seq 1 30); do sudo systemctl is-active --quiet mt5-forex.service && break; sleep 2; done
-          sudo systemctl is-active --quiet mt5-forex.service || { sudo journalctl -u mt5-forex.service -n 180 --no-pager; exit 42; }
+          for i in $(seq 1 30); do sudo systemctl is-active --quiet mt5-forex.service && pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' >/dev/null && break; sleep 2; done
+          if ! sudo systemctl is-active --quiet mt5-forex.service || ! pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' >/dev/null; then
+            sudo systemctl status mt5-forex.service --no-pager -l || true
+            sudo journalctl -u mt5-forex.service -n 220 --no-pager || true
+            exit 42
+          fi
           sudo systemctl restart mt5-forex-bridge.service
           for i in $(seq 1 20); do sudo systemctl is-active --quiet mt5-forex-bridge.service && break; sleep 1; done
           sudo systemctl is-active --quiet mt5-forex-bridge.service || { sudo journalctl -u mt5-forex-bridge.service -n 180 --no-pager; exit 43; }
           sleep 10
-          pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' >/dev/null
           ! pgrep -a -u root -f 'terminal64.exe|MetaTrader' >/dev/null
           echo 'MT5_THE5ERS_TERMINAL_PROCESS=PASS'
           echo 'MT5_LOCAL_BRIDGE=PASS'
