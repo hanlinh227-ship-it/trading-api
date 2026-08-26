@@ -24,6 +24,10 @@ jobs:
         run: |
           set +e
           source /var/lib/trading/mt5-forex/runtime.env
+          echo '=== RUNTIME ==='
+          echo "wine=$($MT5_WINE_BIN --version 2>/dev/null)"
+          echo "stack=${MT5_WINE_STACK:-UNKNOWN}"
+          echo "install=$MT5_INSTALL_DIR"
           echo '=== SERVICES ==='
           systemctl is-active mt5-forex.service mt5-forex-bridge.service || true
           echo '=== REAL MT5 PROCESS ==='
@@ -38,23 +42,46 @@ jobs:
               print('pulse=missing'); raise SystemExit
           try: d=json.loads(p.read_text())
           except Exception as e: print('pulse_json_error='+repr(e)); raise SystemExit
-          print('terminalId='+str(d.get('terminalId','')).replace(str(d.get('account','')),'[ACCOUNT]'))
-          print('connected='+str(d.get('connected')))
-          print('tradeAllowed='+str(d.get('tradeAllowed')))
-          print('balance_positive='+str(float(d.get('balance') or 0)>0))
-          print('equity_positive='+str(float(d.get('equity') or 0)>0))
-          print('server='+str(d.get('server','')))
+          for k in ('terminalId','connected','tradeAllowed','balance','equity','server','account','company','name','pingMs'):
+              v=d.get(k)
+              if k in ('account','terminalId') and v is not None: v='[REDACTED_ACCOUNT]'
+              if k in ('balance','equity') and v is not None:
+                  try: v='positive' if float(v)>0 else 'zero_or_negative'
+                  except: v='invalid'
+              print(f'{k}={v}')
           PY
           echo '=== BRIDGE HEALTH ==='
           cat /var/lib/trading/mt5-forex/bridge-health.json 2>/dev/null | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g' || true
           echo
+          echo '=== SERVER/CACHE INVENTORY ==='
+          find "$MT5_INSTALL_DIR" -maxdepth 5 -type f \( -iname 'servers.dat' -o -iname '*.srv' -o -iname 'accounts.dat' -o -iname 'origin.txt' -o -iname 'common.ini' -o -iname '*.ini' \) -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
+          echo '=== FIVEPERCENT PATH MATCHES ==='
+          find "$MT5_WINEPREFIX" -maxdepth 12 \( -type f -o -type d \) -iname '*FivePercent*' -print 2>/dev/null | head -n 100
+          echo '=== ROAMING METAQUOTES ==='
+          find "$MT5_WINEPREFIX/drive_c/users/mt5forex/AppData/Roaming/MetaQuotes" -maxdepth 5 -type f -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
           echo '=== ALL RECENT MT5 LOG FILES ==='
-          find "$MT5_WINEPREFIX" -type f \( -iname '*.log' -o -iname '*.txt' \) -mmin -180 -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 40 | cut -d' ' -f2-
+          find "$MT5_WINEPREFIX" -type f \( -iname '*.log' -o -iname '*.txt' \) -mmin -180 -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 60 | cut -d' ' -f2-
+          echo '=== TERMINAL LOG TAIL DECODED ==='
+          latest=$(find "$MT5_INSTALL_DIR/logs" -maxdepth 1 -type f -iname '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+          if [ -n "$latest" ]; then
+            out=$(mktemp)
+            iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out"
+            tail -n 250 "$out" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
+            rm -f "$out"
+          fi
+          echo '=== MQL5 LOG TAIL DECODED ==='
+          latest=$(find "$MT5_INSTALL_DIR/MQL5/logs" -maxdepth 1 -type f -iname '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+          if [ -n "$latest" ]; then
+            out=$(mktemp)
+            iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out"
+            tail -n 250 "$out" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
+            rm -f "$out"
+          fi
           echo '=== CONNECTION/AUTH LOG MATCHES ==='
           find "$MT5_WINEPREFIX" -type f -iname '*.log' -mmin -180 -print0 2>/dev/null | while IFS= read -r -d '' f; do
             out=$(mktemp)
             if iconv -f UTF-16LE -t UTF-8 "$f" >"$out" 2>/dev/null; then :; else cp "$f" "$out" 2>/dev/null; fi
-            m=$(grep -Eai 'connect|authoriz|login|account|server|network|socket|proxy|certificate|invalid|failed|error|no connection|trade' "$out" | tail -n 120)
+            m=$(grep -Eai 'connect|authoriz|login|account|server|network|socket|proxy|certificate|invalid|failed|error|no connection|trade|build|linux|wine|update' "$out" | tail -n 160)
             if [ -n "$m" ]; then
               echo "--- $f ---"
               printf '%s\n' "$m" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
