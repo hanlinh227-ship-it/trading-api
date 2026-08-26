@@ -18,7 +18,6 @@ concurrency:
 
 jobs:
   deploy:
-    # Hard requirement: this workflow has no hosted-runner or Windows fallback.
     runs-on: [self-hosted, trading-vps]
     timeout-minutes: 35
     env:
@@ -141,7 +140,8 @@ jobs:
             sleep 2
           done
           sudo systemctl is-active --quiet mt5-forex.service || {
-            sudo journalctl -u mt5-forex.service -n 120 --no-pager
+            sudo systemctl status mt5-forex.service --no-pager -l || true
+            sudo journalctl -u mt5-forex.service -n 160 --no-pager || true
             exit 30
           }
           echo 'MT5_SYSTEMD_START=PASS'
@@ -151,7 +151,6 @@ jobs:
         run: |
           set -euo pipefail
           test -r /etc/trading/mt5-forex-vps-only
-          # shellcheck disable=SC1091
           source /var/lib/trading/mt5-forex/runtime.env
           test -f "$MT5_TERMINAL"
           test -f "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
@@ -161,11 +160,18 @@ jobs:
           MAINPID="$(sudo systemctl show -p MainPID --value mt5-forex.service)"
           test "${MAINPID:-0}" -gt 1
           sleep 8
-          sudo systemctl is-active --quiet mt5-forex.service
-          pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' >/dev/null || {
-            sudo journalctl -u mt5-forex.service -n 120 --no-pager
+          if ! sudo systemctl is-active --quiet mt5-forex.service; then
+            echo 'ERROR: MT5 service did not remain active after startup' >&2
+            sudo systemctl status mt5-forex.service --no-pager -l || true
+            sudo journalctl -u mt5-forex.service -n 200 --no-pager || true
+            exit 31
+          fi
+          if ! pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' >/dev/null; then
+            echo 'ERROR: terminal64 process is not alive under mt5forex' >&2
+            sudo systemctl status mt5-forex.service --no-pager -l || true
+            sudo journalctl -u mt5-forex.service -n 200 --no-pager || true
             exit 32
-          }
+          fi
           if pgrep -a -u root -f 'terminal64.exe|MetaTrader' >/dev/null; then
             echo 'ERROR: MT5 process must never run as root' >&2
             exit 33
@@ -179,7 +185,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # shellcheck disable=SC1091
           . /etc/trading/mt5-forex.env
           echo 'MT5_FOREX_VPS_INSTALL=PASS'
           echo 'MT5_FOREX_SERVICE=active'
