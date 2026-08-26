@@ -1,12 +1,40 @@
+import {scanBybitAuto,sizeBybitAuto} from "./bybit-scalp-engine.js";
+import {prepareBybitScalpForReview,reviewBybitScalp,revalidateBybitScalpAfterAi} from "./bybit-ai-scalp-gate.js";
+import {bybitAutoConfig} from "./bybit-auto-config.js";
+import {bybitV5} from "./bybit-v5-client.js";
+
 const AUTO_KEY="bybit:auto:v1:state";
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 async function state(env){try{return await env.TRADING_STATE?.get(AUTO_KEY,{type:"json"})||{};}catch{return {};}}
+async function save(env,s){if(env.TRADING_STATE)await env.TRADING_STATE.put(AUTO_KEY,JSON.stringify(s));}
 function compactProvider(x={}){return {status:String(x.status||"UNAVAILABLE").toUpperCase(),latencySeconds:Number.isFinite(Number(x.latencySeconds))?Number(x.latencySeconds):null,error:x.error?String(x.error).slice(0,180):null,review:x.review&&typeof x.review==="object"?x.review:null};}
+function auth(req,env){const want=String(env.GPT_5AI_ACTION_KEY||"");const raw=String(req.headers.get("x-action-key")||req.headers.get("authorization")||"").replace(/^Bearer\s+/i,"");return !!want&&raw===want;}
+async function equity(api,cfg){try{const w=await api.wallet(),acct=w?.result?.list?.[0]||{},coin=(acct.coin||[]).find(x=>x.coin==="USDT")||{},v=Number(acct.totalEquity||coin.equity||coin.walletBalance||0);if(v>0)return {usd:v,source:"BYBIT_WALLET"};}catch{}return {usd:Number(cfg.startingCapitalUsd||0),source:"CONFIG_FALLBACK"};}
+async function reviewNow(env){
+  const cfg=bybitAutoConfig(env),api=bybitV5(env),s=await state(env),scan=await scanBybitAuto(env),scannedSetup=scan.best;
+  if(!scannedSetup)return {ok:true,exchange:"BYBIT",reviewOnly:true,executionAllowed:false,available:false,reason:scan.reason||"NO_SETUP",scan};
+  const preparation=await prepareBybitScalpForReview(env,scannedSetup,api);
+  s.lastPreAiPreparation={symbol:scannedSetup.symbol,side:scannedSetup.side,at:new Date().toISOString(),reason:preparation.reason,ok:preparation.ok,quote:preparation.quote||null,entryState:preparation.setup?.entryState||"DISCARDED",reanchorCount:Number(preparation.setup?.reanchorCount||0)};
+  if(!preparation.ok){await save(env,s);return {ok:true,exchange:"BYBIT",reviewOnly:true,executionAllowed:false,available:false,reason:preparation.reason,preparation,setup:scannedSetup,scan};}
+  const setup=preparation.setup,eq=await equity(api,cfg),sizing=sizeBybitAuto(setup,cfg,eq.usd);
+  if(!sizing.ok){await save(env,s);return {ok:true,exchange:"BYBIT",reviewOnly:true,executionAllowed:false,available:false,reason:sizing.reason,preparation,setup,sizing,equity:eq,scan};}
+  const ai=await reviewBybitScalp(env,setup,preparation.quote);
+  s.lastAiReview={symbol:setup.symbol,side:setup.side,at:new Date().toISOString(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...ai};
+  let postAi=null;if(ai.allow){postAi=await revalidateBybitScalpAfterAi(env,api,setup);s.lastPostAiQuote={symbol:setup.symbol,side:setup.side,at:new Date().toISOString(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...postAi};}
+  s.lastReviewOnlyRun={at:new Date().toISOString(),symbol:setup.symbol,side:setup.side,allow:!!ai.allow,reason:ai.reason||null,executionAllowed:false};await save(env,s);
+  return {ok:true,exchange:"BYBIT",reviewOnly:true,executionAllowed:false,available:true,source:"BYBIT_AUTO_CANONICAL_3AI_GATE",setup,sizing,equity:eq,preparation,ai,postAi,scan,decision:ai.allow&&postAi?.ok?"REVIEW_PASS":"NO_MARKET_ENTRY"};
+}
 export async function handleBybitAiReviewApi(req,env){
-  const u=new URL(req.url);if(u.pathname!=="/bybit/ai/latest-review")return null;
+  const u=new URL(req.url);
+  if(u.pathname==="/bybit/ai/review-now"){
+    if(req.method!=="POST")return json({ok:false,error:"METHOD_NOT_ALLOWED"},405);
+    if(!auth(req,env))return json({ok:false,error:"UNAUTHORIZED"},401);
+    try{return json({runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN"),...(await reviewNow(env))});}catch(e){return json({ok:false,exchange:"BYBIT",reviewOnly:true,executionAllowed:false,reason:"REVIEW_ONLY_RUN_FAILED",error:String(e?.message||e),runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")},502);}
+  }
+  if(u.pathname!=="/bybit/ai/latest-review")return null;
   if(req.method!=="GET")return json({ok:false,error:"METHOD_NOT_ALLOWED"},405);
   const s=await state(env),a=s.lastAiReview||null,p=s.lastPreAiPreparation||null,q=s.lastPostAiQuote||null;
   if(!a)return json({ok:true,exchange:"BYBIT",available:false,reason:"NO_AI_REVIEW_RECORDED",runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN"),executionAllowed:false});
   const raw=a.providers||{},providers={claude:compactProvider(raw.claude),codex:compactProvider(raw.codex),deepseek:compactProvider(raw.deepseek)};
-  return json({ok:true,exchange:"BYBIT",available:true,source:"BYBIT_AUTO_CANONICAL_3AI_GATE",runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN"),executionAllowed:false,review:{symbol:a.symbol,side:a.side,at:a.at,mode:a.mode||null,reason:a.reason||null,allow:!!a.allow,pass:Number(a.pass||0),reject:Number(a.reject||0),blocked:Number(a.blocked||0),unavailable:Number(a.unavailable||0),verdicts:a.verdicts||null,providers,entryState:a.entryState||null,reanchorCount:Number(a.reanchorCount||0)},preAiPreparation:p,postAiQuote:q,readOnly:true});
+  return json({ok:true,exchange:"BYBIT",available:true,source:"BYBIT_AUTO_CANONICAL_3AI_GATE",runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN"),executionAllowed:false,review:{symbol:a.symbol,side:a.side,at:a.at,mode:a.mode||null,reason:a.reason||null,allow:!!a.allow,pass:Number(a.pass||0),reject:Number(a.reject||0),blocked:Number(a.blocked||0),unavailable:Number(a.unavailable||0),verdicts:a.verdicts||null,providers,entryState:a.entryState||null,reanchorCount:Number(a.reanchorCount||0)},preAiPreparation:p,postAiQuote:q,lastReviewOnlyRun:s.lastReviewOnlyRun||null,readOnly:true});
 }
