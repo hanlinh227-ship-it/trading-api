@@ -1,14 +1,13 @@
 name: VPS Auto Trade E2E Review
 
+# Manual diagnostic only. Production authority is the canonical Cloudflare deploy workflow
+# plus /runtime/contract and /bybit/health. This prevents stale self-hosted runner state
+# from creating false red checks on normal main deployments.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/vps-auto-e2e-review.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   review:
@@ -31,15 +30,16 @@ jobs:
           echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" | tee -a "$REPORT"
           echo "SOURCE_SHA=$GITHUB_SHA" | tee -a "$REPORT"
 
-      - name: VPS and Worker health
+      - name: VPS and canonical Worker health
         shell: bash
         run: |
           set -euo pipefail
           systemctl is-active --quiet v11-manual-ai-bridge.service
           echo 'VPS_AI_BRIDGE_SERVICE=ACTIVE' | tee -a "$REPORT"
           curl -fsS --max-time 10 'https://api.bybit.com/v5/market/time' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("retCode")==0,d; print("BYBIT_PUBLIC_NETWORK=PASS")' | tee -a "$REPORT"
-          curl -fsS --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("exchange")=="BYBIT",d; ex=d.get("execution") or {}; print("WORKER_HEALTH=PASS mode=%s liveAck=%s scheduled=%s ready=%s transport=%s"%(d.get("mode"),ex.get("liveAck"),ex.get("scheduled"),ex.get("ready"),d.get("privateTransport")))' | tee -a "$REPORT"
-          curl -fsS --max-time 5 http://127.0.0.1:8789/health | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; print("AI_HEALTH mode=%s claude=%s codex=%s deepseek=%s claudeTimeout=%s budget=%s grace=%s"%(d.get("mode"),(p.get("claude") or {}).get("state"),(p.get("codex") or {}).get("state"),(p.get("deepseek") or {}).get("state"),d.get("claudeScalpTimeoutSec"),d.get("scalpBridgeBudgetSec"),d.get("scalpFastFirstGraceSec")))' | tee -a "$REPORT"
+          curl -fsS --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/runtime/contract' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("autoVersion")=="BYBIT-AUTO-1.8.0",d; assert d.get("executionAuthority")=="BYBIT_AUTO_TRADE_ONLY",d; print("RUNTIME_CONTRACT=PASS version=%s contract=%s"%(d.get("autoVersion"),d.get("version")))' | tee -a "$REPORT"
+          curl -fsS --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("exchange")=="BYBIT",d; ex=d.get("execution") or {}; print("WORKER_HEALTH=PASS mode=%s liveAck=%s scheduled=%s ready=%s private=%s market=%s"%(d.get("mode"),ex.get("liveAck"),ex.get("scheduled"),ex.get("ready"),d.get("privateTransport"),d.get("marketTransport")))' | tee -a "$REPORT"
+          curl -fsS --max-time 5 http://127.0.0.1:8789/health | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; print("AI_HEALTH mode=%s claude=%s codex=%s deepseek=%s"%(d.get("mode"),(p.get("claude") or {}).get("state"),(p.get("codex") or {}).get("state"),(p.get("deepseek") or {}).get("state")))' | tee -a "$REPORT"
 
       - name: Test each core AI independently
         shell: bash
@@ -79,20 +79,3 @@ except Exception as e: print("THREE_AI status=INVALID_RESPONSE error=%s"%e)' | t
             echo 'LEVERAGE_CHANGE_CALLED=NO'
             echo "FINISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } | tee -a "$REPORT"
-
-      - name: Persist diagnostic report to main
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -s "$REPORT" ]; then echo 'REPORT_MISSING=TRUE' > "$REPORT"; fi
-          git fetch origin main
-          git reset --hard origin/main
-          mkdir -p docs/diagnostics
-          cp "$REPORT" docs/diagnostics/LATEST_VPS_AUTO_E2E.txt
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/diagnostics/LATEST_VPS_AUTO_E2E.txt
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Record latest VPS auto trade E2E diagnostic'
-          git push origin HEAD:main
