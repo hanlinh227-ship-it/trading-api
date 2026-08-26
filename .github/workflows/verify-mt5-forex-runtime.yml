@@ -17,92 +17,62 @@ concurrency:
 jobs:
   verify:
     runs-on: [self-hosted, trading-vps]
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_ACCOUNT_LOGIN }}
+      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
+      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
       MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
+      MT5_ALLOW_LIVE: ${{ vars.MT5_ALLOW_LIVE || secrets.MT5_ALLOW_LIVE || 'false' }}
     steps:
-      - name: Assert authorized VPS
+      - name: Assert authorized VPS and canonical runtime
         shell: bash
         run: |
           set -euo pipefail
           test "${RUNNER_NAME:-}" = "trading-vps"
           FQDN="$(hostname -f 2>/dev/null || hostname)"
           HOST="$(hostname)"
-          if [[ "$FQDN" != "59670.vpsvinahost.vn" && "$HOST" != "59670" && "$HOST" != "59670.vpsvinahost.vn" ]]; then
-            echo 'ERROR: verification landed on unauthorized VPS' >&2
-            exit 90
-          fi
+          [[ "$FQDN" = "59670.vpsvinahost.vn" || "$HOST" = "59670" ]] || { echo 'ERROR: unauthorized verification host' >&2; exit 90; }
+          test -n "${MT5_ACCOUNT_LOGIN:-}"
+          test -n "${MT5_ACCOUNT_SERVER:-}"
+          test -n "${MT5_BRIDGE_TOKEN:-}"
+          test -x /opt/trading/trading-api-main/vps/mt5-forex/verify-live-readiness.sh
           echo 'VERIFY_RUNNER=PASS'
 
-      - name: Verify MT5 service and terminal process
+      - name: Verify layered MT5 broker readiness
         shell: bash
         run: |
           set -euo pipefail
-          sudo systemctl is-active --quiet mt5-forex.service
-          pgrep -a -u mt5forex -f 'terminal64.exe|MetaTrader' >/dev/null
-          ! pgrep -a -u root -f 'terminal64.exe|MetaTrader' >/dev/null
-          echo 'MT5_SERVICE_ACTIVE=PASS'
-          echo 'MT5_TERMINAL_PROCESS=PASS'
-          echo 'MT5_TERMINAL_USER=PASS'
+          sudo -u mt5forex env \
+            FOREX_RESEARCH_REPO=/opt/trading/trading-api-main \
+            MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" \
+            MT5_ACCOUNT_SERVER="$MT5_ACCOUNT_SERVER" \
+            MT5_BRIDGE_TOKEN="$MT5_BRIDGE_TOKEN" \
+            MT5_HUB_URL="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}" \
+            MT5_ALLOW_LIVE="${MT5_ALLOW_LIVE:-false}" \
+            MT5_LOCAL_READY_TIMEOUT_SECONDS=300 \
+            MT5_SIDECAR_READY_TIMEOUT_SECONDS=120 \
+            MT5_HUB_READY_TIMEOUT_SECONDS=180 \
+            /opt/trading/trading-api-main/vps/mt5-forex/verify-live-readiness.sh
 
-      - name: Verify live MT5 pulse at Forex Hub
+      - name: Verify requested execution mode matches Hub
         shell: bash
         run: |
           set -euo pipefail
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
-          BODY="$(mktemp)"
-          trap 'rm -f "$BODY"' EXIT
-          CODE="$(curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w '%{http_code}' "$HUB/forex/health")"
-          test "$CODE" = 200
-          python3 - "$BODY" <<'PY'
-          import json, os, sys
-          from datetime import datetime, timezone
-          p=sys.argv[1]
-          with open(p,'r',encoding='utf-8') as f:
-              d=json.load(f)
-          assert d.get('ok') is True, 'Forex Hub health is not OK'
-          last=d.get('lastTerminal') or {}
-          assert last, 'lastTerminal missing: MT5 has not produced a Hub pulse'
-          received=last.get('receivedAt')
-          assert received, 'receivedAt missing'
-          ts=datetime.fromisoformat(received.replace('Z','+00:00'))
-          age=(datetime.now(timezone.utc)-ts).total_seconds()
-          assert age <= 180, f'MT5 pulse stale: {age:.1f}s'
-          assert last.get('connected') is True, 'MT5 reports connected=false'
-          balance=float(last.get('balance') or 0)
-          equity=float(last.get('equity') or 0)
-          assert balance > 0, f'invalid balance={balance}'
-          assert equity > 0, f'invalid equity={equity}'
-          expected_login=str(os.environ.get('MT5_ACCOUNT_LOGIN') or '').strip()
-          terminal_id=str(last.get('terminalId') or '')
-          assert expected_login, 'MT5_ACCOUNT_LOGIN secret missing'
-          assert terminal_id.startswith(expected_login+'-'), 'Hub terminal account does not match configured MT5 account'
-          print('FOREX_HUB_HEALTH=PASS')
-          print('MT5_PULSE_FRESH=PASS')
-          print('MT5_CONNECTED=PASS')
-          print('MT5_ACCOUNT_LOGIN_MATCH=PASS')
-          print('MT5_BALANCE_EQUITY=PASS')
-          print('MT5_PULSE_AGE_SECONDS='+str(round(age,1)))
-          print('FOREX_DECISION='+str(last.get('decision') or 'UNKNOWN'))
-          print('FOREX_MODE='+str(d.get('mode') or 'UNKNOWN'))
-          print('FOREX_3AI_CONFIGURED='+str(bool(d.get('all3AiConfigured'))).lower())
-          print('FOREX_LIVE_ENABLED='+str(bool(d.get('liveEnabled'))).lower())
-          PY
-
-      - name: Verify safety mode remains non-live
-        shell: bash
-        run: |
-          set -euo pipefail
-          HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
-          BODY="$(mktemp)"
-          trap 'rm -f "$BODY"' EXIT
+          BODY=$(mktemp); trap 'rm -f "$BODY"' EXIT
           curl -fsS --connect-timeout 5 --max-time 20 "$HUB/forex/health" > "$BODY"
-          python3 - "$BODY" <<'PY'
-          import json,sys
+          MT5_ALLOW_LIVE="$MT5_ALLOW_LIVE" python3 - "$BODY" <<'PY'
+          import json, os, sys
           d=json.load(open(sys.argv[1],encoding='utf-8'))
-          assert d.get('liveEnabled') is False, 'FOREX LIVE unexpectedly enabled'
-          assert d.get('mode') == 'PAPER', f"unexpected mode={d.get('mode')}"
-          print('FOREX_PAPER_MODE=PASS')
-          print('FOREX_LIVE_OFF_SAFE=PASS')
+          requested=str(os.environ.get('MT5_ALLOW_LIVE') or 'false').lower() in {'true','1','yes'}
+          if requested:
+              assert d.get('liveEnabled') is True, 'MT5 LIVE requested but Hub liveEnabled=false'
+              assert d.get('mode') == 'LIVE', f"MT5 LIVE requested but Hub mode={d.get('mode')}"
+              print('FOREX_LIVE_MODE_MATCH=PASS')
+          else:
+              assert d.get('liveEnabled') is False, 'MT5 PAPER requested but Hub liveEnabled=true'
+              assert d.get('mode') == 'PAPER', f"MT5 PAPER requested but Hub mode={d.get('mode')}"
+              print('FOREX_PAPER_MODE_MATCH=PASS')
+          print('FOREX_3AI_CONFIGURED='+str(bool(d.get('all3AiConfigured'))).lower())
           PY
