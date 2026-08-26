@@ -1,13 +1,18 @@
 [Unit]
-Description=MT5 Forex Auto Trading Terminal
+Description=MT5 Forex Auto Trading Terminal (VPS Only)
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists=/etc/trading/mt5-forex-vps-only
+ConditionPathExists=/var/lib/trading/mt5-forex/runtime.env
 
 [Service]
 Type=simple
 User=mt5forex
 Group=mt5forex
 Environment=HOME=/var/lib/trading/mt5-forex
+Environment=MT5_EXPECTED_HOST=59670.vpsvinahost.vn
+ExecStartPre=/usr/bin/test -r /etc/trading/mt5-forex-vps-only
+ExecStartPre=/usr/bin/test -r /var/lib/trading/mt5-forex/runtime.env
 ExecStart=/opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
 Restart=always
 RestartSec=10
@@ -19,6 +24,11 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
 ReadWritePaths=/var/lib/trading/mt5-forex /opt/trading/mt5-forex-terminal
 
 [Install]
