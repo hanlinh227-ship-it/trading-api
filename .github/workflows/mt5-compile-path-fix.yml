@@ -1,0 +1,104 @@
+name: Apply MT5 Compiler Path Fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-compile-path-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch MetaEditor compile invocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('vps/mt5-forex/install-mt5-forex.sh')
+          s=p.read_text()
+          start=s.index('wine_path(){')
+          end=s.index('cat >"$APP_HOME/runtime.env"', start)
+          replacement=r'''# MetaEditor command-line compilation under Wine is sensitive to spaces in
+# source paths. Map the MT5 installation to a dedicated no-space T: drive and
+# use MetaQuotes' documented /compile:<path> /include:<MQL5> /log syntax.
+          DOSDEV="$WINEPREFIX_DIR/dosdevices"
+          install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$DOSDEV"
+          ln -sfn "$MT5_DIR" "$DOSDEV/t:"
+          chown -h "$APP_USER:$APP_USER" "$DOSDEV/t:" || true
+
+          wait_for_file(){ local f="$1" i; for i in $(seq 1 120); do [[ -s "$f" ]] && return 0; sleep 0.25; done; return 1; }
+          compile_metaeditor(){
+            local src_name="$1" out="$2" log="$3" rc
+            rm -f "$out" "$log" /tmp/mt5-compile.log
+            stop_mt5_wine
+            set +e
+            run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINE_BIN" "$METAEDITOR" \
+              "/compile:T:\\MQL5\\Experts\\${src_name}" \
+              "/include:T:\\MQL5" /log >/tmp/mt5-compile.log 2>&1
+            rc=$?
+            set -e
+            echo "MT5_METAEDITOR_EXIT=$rc source=$src_name"
+            wait_for_file "$out" && return 0
+            return 1
+          }
+
+          PROBE_SRC="$MT5_DIR/MQL5/Experts/CompileProbe.mq5"
+          PROBE_EX5="$MT5_DIR/MQL5/Experts/CompileProbe.ex5"
+          PROBE_LOG="$MT5_DIR/MQL5/Experts/CompileProbe.log"
+          cat >"$PROBE_SRC" <<'EOF'
+          #property strict
+          #property version "1.000"
+          int OnInit(){return(INIT_SUCCEEDED);}
+          void OnTick(){}
+          EOF
+          sed -i 's/^          //' "$PROBE_SRC"
+          chown "$APP_USER:$APP_USER" "$PROBE_SRC"; chmod 0640 "$PROBE_SRC"
+          find "$WINEPREFIX_DIR" "$APP_HOME" -type f \( -iname 'CompileProbe.ex5' -o -iname 'ForexAutoThe5ers.ex5' \) -delete 2>/dev/null || true
+          if ! compile_metaeditor 'CompileProbe.mq5' "$PROBE_EX5" "$PROBE_LOG"; then
+            echo "ERROR: MetaEditor compile probe did not produce EX5" >&2
+            [[ -f "$PROBE_LOG" ]] && { iconv -f UTF-16LE -t UTF-8 "$PROBE_LOG" 2>/dev/null || cat "$PROBE_LOG"; } | tail -160 >&2 || true
+            tail -160 /tmp/mt5-compile.log >&2 || true
+            stop_mt5_wine
+            exit 75
+          fi
+          echo "MT5_METAEDITOR_PROBE=PASS"
+          rm -f "$PROBE_SRC" "$PROBE_EX5" "$PROBE_LOG"
+
+          LOG_HOST="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.log"
+          if ! compile_metaeditor 'ForexAutoThe5ers.mq5' "$EA_EX5" "$LOG_HOST"; then
+            echo "ERROR: canonical ForexAutoThe5ers.ex5 was not produced" >&2
+            [[ -f "$LOG_HOST" ]] && { iconv -f UTF-16LE -t UTF-8 "$LOG_HOST" 2>/dev/null || cat "$LOG_HOST"; } | tail -200 >&2 || true
+            tail -160 /tmp/mt5-compile.log >&2 || true
+            stop_mt5_wine
+            exit 9
+          fi
+          if [[ -f "$LOG_HOST" ]]; then
+            LOG_TEXT="$(iconv -f UTF-16LE -t UTF-8 "$LOG_HOST" 2>/dev/null || cat "$LOG_HOST")"
+            printf '%s' "$LOG_TEXT" | grep -Eq 'Result:[[:space:]]+0 errors' || { echo "ERROR: MetaEditor log did not confirm 0 errors" >&2; printf '%s\n' "$LOG_TEXT" | tail -160 >&2; stop_mt5_wine; exit 74; }
+          fi
+          stop_mt5_wine
+
+          '''
+          p.write_text(s[:start]+replacement+s[end:])
+          PY
+          bash -n vps/mt5-forex/install-mt5-forex.sh
+      - name: Commit compiler fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add vps/mt5-forex/install-mt5-forex.sh
+          git diff --cached --check
+          git commit -m 'mt5: compile through no-space Wine drive mapping'
+          git push origin HEAD:main
