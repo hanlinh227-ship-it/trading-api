@@ -2,12 +2,13 @@
 """Integrity guard for the PAPER_ONLY Forex research controller.
 
 Hard guarantees around every DEV/ACCEPTANCE handoff:
-- stale latest evidence can never be reused
-- subprocess must exit cleanly
-- evidence seed/mode/profile/symbol set must match the requested run
-- market-data/infrastructure failures are retried, never learned as strategy failures
-- legacy pending evidence containing data errors is quarantined before research resumes
-- intentional systemd shutdown is translated to InterruptedError for clean STOPPED state
+- stale latest evidence can never be reused;
+- subprocess must exit cleanly;
+- evidence seed/mode/profile/symbol set must match the requested run;
+- transient market-data failures may retry, deterministic code/data-window faults do not;
+- infrastructure failures are never learned as strategy failures;
+- invalid pending evidence is quarantined before research resumes;
+- intentional systemd shutdown becomes a clean STOPPED state.
 """
 import json
 import sys
@@ -32,6 +33,29 @@ def evidence_data_errors(rep):
         for sym, x in (rep.get('symbols') or {}).items()
         if x.get('dataError')
     }
+
+
+def is_transient_infra_error(exc):
+    """Retry only errors that can plausibly recover without changing seed/source."""
+    s = str(exc).lower()
+    transient = (
+        'timeout', 'timed out', 'temporarily unavailable', 'connection reset',
+        'connection aborted', 'connection refused', 'remote disconnected',
+        'http 429', 'status 429', 'too many requests', 'rate limit',
+        'http 500', 'http 502', 'http 503', 'http 504',
+        'bad gateway', 'service unavailable', 'gateway timeout',
+        'name resolution', 'dns', 'network is unreachable',
+    )
+    deterministic = (
+        'nameerror:', 'syntaxerror:', 'typeerror:', 'attributeerror:',
+        'v7_canonical_integrity_fail', 'version_drift',
+        'insufficient valid days', 'daily_entry_unavailable',
+        'evidence seed mismatch', 'evidence mode mismatch',
+        'evidence strategyprofile mismatch', 'evidence symbol set mismatch',
+    )
+    if any(x in s for x in deterministic):
+        return False
+    return any(x in s for x in transient)
 
 
 def validate_evidence(rep, proc, profile, mode, seed):
@@ -61,7 +85,6 @@ def guarded_run(profile, mode, seed, start, end, windows, days):
         if shutting_down():
             raise InterruptedError('shutdown requested before backtest')
         try:
-            # A prior partial or successful run must never satisfy this run's evidence check.
             try:
                 lab.LATEST.unlink()
             except FileNotFoundError:
@@ -75,10 +98,17 @@ def guarded_run(profile, mode, seed, start, end, windows, days):
             raise
         except Exception as exc:
             last = f'{type(exc).__name__}: {exc}'
-            print(f'FOREX_INFRA_RETRY attempt={attempt}/{MAX_INFRA_RETRIES} mode={mode} seed={seed} error={last}', flush=True)
+            retryable = is_transient_infra_error(exc)
+            print(
+                f'FOREX_INFRA_FAILURE attempt={attempt}/{MAX_INFRA_RETRIES} '
+                f'mode={mode} seed={seed} retryable={retryable} error={last}',
+                flush=True,
+            )
+            if not retryable:
+                raise RuntimeError('Forex deterministic backtest fault; retry suppressed: ' + last) from exc
             if attempt < MAX_INFRA_RETRIES:
                 time.sleep(min(30, 5 * attempt))
-    raise RuntimeError('Forex backtest infrastructure failed after retries: ' + str(last))
+    raise RuntimeError('Forex transient infrastructure failed after retries: ' + str(last))
 
 
 lab.run = guarded_run
@@ -88,7 +118,6 @@ lab.BACKTEST = lab.REPO / 'scripts/forex_twelvedata_walkforward_v7_runtime.py'
 
 
 def compact_round_report(state):
-    """Emit compact immutable evidence diagnostics for the latest rounds into journal."""
     for h in (state.get('history') or [])[-3:]:
         path = Path(str(h.get('evidence') or ''))
         if not path.is_file():
