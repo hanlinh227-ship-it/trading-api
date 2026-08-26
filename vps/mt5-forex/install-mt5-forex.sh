@@ -29,9 +29,10 @@ apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils xz-utils
 
-# MetaQuotes requires a recent supported Wine runtime. Select the newest stable
-# WineHQ package available for this OS, require major >=10, and install all four
-# WineHQ packages at exactly the same version so no distro/WineHQ mixing occurs.
+# MT5 installer compatibility lock: WineHQ 11 lets the Wine runtime itself pass
+# but the current MetaTrader bootstrapper can stall before terminal64.exe is
+# produced. Prefer the WineHQ 10 stable baseline for unattended MT5 on Noble.
+# Keep all four WineHQ packages at exactly one version to avoid mixed runtimes.
 CODENAME="${VERSION_CODENAME:-noble}"
 install -d -m 0755 /etc/apt/keyrings
 wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
@@ -39,7 +40,17 @@ wget -qO "/etc/apt/sources.list.d/winehq-${CODENAME}.sources" \
   "https://dl.winehq.org/wine-builds/ubuntu/dists/${CODENAME}/winehq-${CODENAME}.sources"
 apt-get update -y
 
-WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)"
+PINNED_WINEHQ_VERSION="${MT5_WINE_COMPAT_VERSION:-10.0.0.0~${CODENAME}-1}"
+if apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | grep -Fxq "$PINNED_WINEHQ_VERSION"; then
+  WINEHQ_VERSION="$PINNED_WINEHQ_VERSION"
+  echo "MT5_WINE_COMPAT_PIN=ACTIVE version=$WINEHQ_VERSION"
+else
+  WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | awk '$0 ~ /^10\./ {print; exit}' || true)"
+  if [[ -z "$WINEHQ_VERSION" ]]; then
+    WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)"
+  fi
+  echo "MT5_WINE_COMPAT_PIN=FALLBACK version=${WINEHQ_VERSION:-MISSING}"
+fi
 if [[ -z "$WINEHQ_VERSION" ]]; then
   echo "ERROR: WineHQ stable is not available for ${CODENAME}" >&2
   exit 56
@@ -301,8 +312,12 @@ fi
 
 if [[ -z "$TERMINAL" || ! -f "$TERMINAL" ]]; then
   echo "ERROR: MT5 terminal64.exe not found after installer" >&2
+  echo "MT5_INSTALL_DIAGNOSTICS_BEGIN" >&2
+  pgrep -a -f 'mt5setup|terminal64|wine|wineserver' >&2 || true
+  find "$WINEPREFIX_DIR/drive_c" -maxdepth 7 -type f -mmin -10 -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' 2>/dev/null | tail -200 >&2 || true
   tail -240 /tmp/mt5-install.log >&2 || true
   tail -240 /tmp/mt5-installer-wine.log >&2 || true
+  echo "MT5_INSTALL_DIAGNOSTICS_END" >&2
   exit 6
 fi
 
