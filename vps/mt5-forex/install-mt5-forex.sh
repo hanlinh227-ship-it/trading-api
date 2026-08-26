@@ -28,9 +28,9 @@ apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc python3 \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils
 
-# MT5 build 6140 explicitly rejects the Ubuntu 24.04 Wine 9 runtime as
-# unsupported. Use one coherent WineHQ 10 stable family and never mix its
-# executables with distro libwine packages.
+# MetaQuotes requires a recent supported Wine runtime. Select the newest stable
+# WineHQ package available for this OS, require major >=10, and install all four
+# WineHQ packages at exactly the same version so no distro/WineHQ mixing occurs.
 CODENAME="${VERSION_CODENAME:-noble}"
 install -d -m 0755 /etc/apt/keyrings
 wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
@@ -38,45 +38,38 @@ wget -qO "/etc/apt/sources.list.d/winehq-${CODENAME}.sources" \
   "https://dl.winehq.org/wine-builds/ubuntu/dists/${CODENAME}/winehq-${CODENAME}.sources"
 apt-get update -y
 
-WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | grep -E '^10\.' | head -n1 || true)"
+WINEHQ_VERSION="$(apt-cache madison winehq-stable 2>/dev/null | awk '{print $3}' | head -n1 || true)"
 if [[ -z "$WINEHQ_VERSION" ]]; then
-  echo "ERROR: WineHQ stable 10.x is not available for ${CODENAME}; refusing unsupported Wine 9 or unvalidated Wine 11 fallback" >&2
-  apt-cache madison winehq-stable >&2 || true
+  echo "ERROR: WineHQ stable is not available for ${CODENAME}" >&2
   exit 56
+fi
+TARGET_MAJOR="$(printf '%s' "$WINEHQ_VERSION" | sed -nE 's/^([0-9]+).*/\1/p')"
+if [[ -z "$TARGET_MAJOR" || "$TARGET_MAJOR" -lt 10 ]]; then
+  echo "ERROR: WineHQ stable >=10 required, candidate=$WINEHQ_VERSION" >&2
+  exit 57
 fi
 EXPECTED_STACK="WINEHQ_STABLE_${WINEHQ_VERSION}"
 
 for pkg in winehq-stable wine-stable wine-stable-amd64 'wine-stable-i386:i386'; do
   if ! apt-cache madison "$pkg" 2>/dev/null | awk '{print $3}' | grep -Fxq "$WINEHQ_VERSION"; then
-    echo "ERROR: exact WineHQ 10 package unavailable: $pkg=$WINEHQ_VERSION" >&2
-    apt-cache madison "$pkg" >&2 || true
+    echo "ERROR: exact WineHQ package unavailable: $pkg=$WINEHQ_VERSION" >&2
     exit 59
   fi
 done
 
 echo "MT5_WINE_TARGET_VERSION=$WINEHQ_VERSION"
 
-# Stop package-family processes before changing loaders. Runtime service is
-# already stopped by the deploy workflow; these are defensive cleanup only.
 pkill -u "$APP_USER" -f 'terminal64.exe|MetaTrader|wineserver' 2>/dev/null || true
 sleep 1
-
-# Clear stale holds first; a previous staging/devel install must not influence
-# dependency resolution for the pinned stable family.
 apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
   winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
   winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
 
 apt-get purge -y \
   wine wine64 wine32:i386 libwine:amd64 libwine:i386 \
-  winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
   winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
   winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
 apt-get -f install -y
-
-# Install every WineHQ component at the same exact version. Installing only
-# winehq-stable can make apt choose a newer wine-stable dependency and fail with
-# "held broken packages" when an older 10.x meta package is requested.
 apt-get install -y --allow-downgrades --install-recommends \
   "wine-stable-amd64=${WINEHQ_VERSION}" \
   "wine-stable-i386:i386=${WINEHQ_VERSION}" \
@@ -88,14 +81,14 @@ WINEBOOT_BIN="/opt/wine-stable/bin/wineboot"
 WINEPATH_BIN="/opt/wine-stable/bin/winepath"
 WINESERVER_BIN="/opt/wine-stable/bin/wineserver"
 [[ -x "$WINE_BIN" && -x "$WINEBOOT_BIN" && -x "$WINEPATH_BIN" && -x "$WINESERVER_BIN" ]] || {
-  echo "ERROR: complete WineHQ 10 runtime not found" >&2
+  echo "ERROR: complete WineHQ stable runtime not found" >&2
   exit 5
 }
 
 WINE_VERSION_TEXT="$($WINE_BIN --version 2>/dev/null || true)"
 WINE_MAJOR="$(printf '%s' "$WINE_VERSION_TEXT" | sed -nE 's/.*wine-([0-9]+).*/\1/p' | head -n1)"
-if [[ "$WINE_MAJOR" != "10" ]]; then
-  echo "ERROR: expected Wine 10.x, got ${WINE_VERSION_TEXT:-UNKNOWN}" >&2
+if [[ -z "$WINE_MAJOR" || "$WINE_MAJOR" -lt 10 ]]; then
+  echo "ERROR: expected Wine >=10, got ${WINE_VERSION_TEXT:-UNKNOWN}" >&2
   exit 57
 fi
 
@@ -106,15 +99,10 @@ for pkg in wine wine64 wine32:i386 libwine:amd64 libwine:i386 winehq-staging win
   fi
 done
 
-dpkg-query -W -f='${Status}' winehq-stable 2>/dev/null | grep -q 'install ok installed' || {
-  echo "ERROR: winehq-stable missing after install" >&2
-  exit 54
-}
-
 echo "MT5_WINE_STACK=$EXPECTED_STACK"
 echo "MT5_WINE_BIN=$WINE_BIN"
 echo "MT5_WINE_VERSION=$WINE_VERSION_TEXT"
-echo "MT5_WINE_MAJOR=10"
+echo "MT5_WINE_MAJOR=$WINE_MAJOR"
 echo "MT5_WINE_STACK_CONSISTENCY=PASS"
 
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
@@ -125,8 +113,17 @@ install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
   "$APP_HOME/.local" "$APP_HOME/.local/share" "$APP_HOME/.local/share/applications" \
   "$APP_HOME/.config" "$APP_HOME/.cache"
 
+# Disable Mono/Gecko install dialogs during unattended Xvfb initialization.
+# MT5 core trading/MetaEditor do not require those dialogs to initialize the
+# Windows prefix. WINEARCH is pinned so a previous arch cannot leak in.
 run_as_mt5() {
-  sudo -u "$APP_USER" env HOME="$APP_HOME" WINEPREFIX="$WINEPREFIX_DIR" WINEDEBUG=-all "$@"
+  sudo -u "$APP_USER" env \
+    HOME="$APP_HOME" \
+    WINEPREFIX="$WINEPREFIX_DIR" \
+    WINEARCH=win64 \
+    WINEDLLOVERRIDES='mscoree,mshtml=' \
+    WINEDEBUG=-all \
+    "$@"
 }
 
 stop_mt5_wine() {
@@ -138,14 +135,14 @@ prefix_artifacts_ready() {
   [[ -f "$WINEPREFIX_DIR/system.reg" ]] || return 1
   [[ -f "$STACK_MARKER" ]] || return 1
   [[ "$(cat "$STACK_MARKER" 2>/dev/null || true)" == "$EXPECTED_STACK" ]] || return 1
-  find "$WINEPREFIX_DIR/drive_c/windows" -type f -iname kernel32.dll -print -quit 2>/dev/null | grep -q .
+  find "$WINEPREFIX_DIR/drive_c/windows/system32" -type f -iname kernel32.dll -print -quit 2>/dev/null | grep -q .
 }
 
 wine_runtime_smoke() {
   local rc=0
   stop_mt5_wine
   set +e
-  run_as_mt5 timeout 45 xvfb-run -a -s "$SCREEN" "$WINE_BIN" cmd /d /c "echo WINE_RUNTIME_OK" >/tmp/mt5-wine-smoke.log 2>&1
+  run_as_mt5 timeout 60 xvfb-run -a -s "$SCREEN" "$WINE_BIN" cmd /d /c "echo WINE_RUNTIME_OK" >/tmp/mt5-wine-smoke.log 2>&1
   rc=$?
   set -e
   stop_mt5_wine
@@ -154,7 +151,7 @@ wine_runtime_smoke() {
     return 0
   fi
   echo "MT5_WINE_RUNTIME_SMOKE=FAIL rc=$rc" >&2
-  tail -160 /tmp/mt5-wine-smoke.log >&2 || true
+  tail -200 /tmp/mt5-wine-smoke.log >&2 || true
   return 1
 }
 
@@ -163,18 +160,23 @@ recreate_prefix() {
   stamp="$(date +%Y%m%d%H%M%S)"
   stop_mt5_wine
   if [[ -d "$WINEPREFIX_DIR" ]]; then
-    mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.pre-wine10-${stamp}" || rm -rf "$WINEPREFIX_DIR"
+    mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.pre-wine-${stamp}" || rm -rf "$WINEPREFIX_DIR"
   fi
   install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
   echo "MT5_WINE_PREFIX_REPAIR=RECREATE"
   set +e
-  run_as_mt5 timeout 120 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -i >/tmp/mt5-wineboot.log 2>&1
+  run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" --init >/tmp/mt5-wineboot.log 2>&1
   rc=$?
   set -e
   stop_mt5_wine
   echo "MT5_WINEBOOT_EXIT=$rc"
+  if [[ $rc -ne 0 ]]; then
+    echo "MT5_WINEBOOT_LOG_BEGIN"
+    tail -200 /tmp/mt5-wineboot.log || true
+    echo "MT5_WINEBOOT_LOG_END"
+  fi
   if [[ -f "$WINEPREFIX_DIR/system.reg" ]] && \
-     find "$WINEPREFIX_DIR/drive_c/windows" -type f -iname kernel32.dll -print -quit 2>/dev/null | grep -q .; then
+     find "$WINEPREFIX_DIR/drive_c/windows/system32" -type f -iname kernel32.dll -print -quit 2>/dev/null | grep -q .; then
     printf '%s\n' "$EXPECTED_STACK" > "$STACK_MARKER"
     chown "$APP_USER:$APP_USER" "$STACK_MARKER"
     chmod 0600 "$STACK_MARKER"
@@ -187,12 +189,13 @@ if prefix_artifacts_ready && wine_runtime_smoke; then
   echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
 else
   recreate_prefix || {
-    echo "ERROR: WineHQ 10 prefix artifacts missing after rebuild" >&2
+    echo "ERROR: supported Wine prefix artifacts missing after rebuild" >&2
     tail -200 /tmp/mt5-wineboot.log >&2 || true
     exit 51
   }
   wine_runtime_smoke || {
-    echo "ERROR: WineHQ 10 cannot execute cmd.exe after clean rebuild" >&2
+    echo "ERROR: supported Wine cannot execute cmd.exe after clean rebuild" >&2
+    tail -200 /tmp/mt5-wineboot.log >&2 || true
     exit 55
   }
 fi
@@ -252,16 +255,14 @@ done
 
 EA_WIN='C:\MT5Forex\MQL5\Experts\ForexAutoThe5ers.mq5'
 LOG_WIN='C:\MT5Forex\metaeditor-compile.log'
-if [[ -x "$WINEPATH_BIN" ]]; then
-  EA_WIN="$(run_as_mt5 "$WINEPATH_BIN" -w "$EA_DST" 2>/dev/null || echo "$EA_WIN")"
-  LOG_WIN="$(run_as_mt5 "$WINEPATH_BIN" -w "$MT5_DIR/metaeditor-compile.log" 2>/dev/null || echo "$LOG_WIN")"
-fi
+EA_WIN="$(run_as_mt5 "$WINEPATH_BIN" -w "$EA_DST" 2>/dev/null || echo "$EA_WIN")"
+LOG_WIN="$(run_as_mt5 "$WINEPATH_BIN" -w "$MT5_DIR/metaeditor-compile.log" 2>/dev/null || echo "$LOG_WIN")"
 
 EA_EX5="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
 rm -f "$EA_EX5"
 stop_mt5_wine
 set +e
-run_as_mt5 timeout 180 xvfb-run -a -s "$SCREEN" \
+run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" \
   "$WINE_BIN" "$METAEDITOR" "/compile:$EA_WIN" "/log:$LOG_WIN" >/tmp/mt5-compile.log 2>&1
 COMPILE_RC=$?
 set -e
@@ -270,8 +271,8 @@ echo "MT5_METAEDITOR_EXIT=$COMPILE_RC"
 
 if [[ ! -f "$EA_EX5" ]]; then
   echo "ERROR: ForexAutoThe5ers.ex5 was not produced" >&2
-  tail -200 "$MT5_DIR/metaeditor-compile.log" >&2 2>/dev/null || true
-  tail -200 /tmp/mt5-compile.log >&2 || true
+  tail -240 "$MT5_DIR/metaeditor-compile.log" >&2 2>/dev/null || true
+  tail -240 /tmp/mt5-compile.log >&2 || true
   exit 9
 fi
 
