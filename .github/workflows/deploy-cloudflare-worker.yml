@@ -20,6 +20,10 @@ jobs:
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
       FOREX_MT5_BRIDGE_TOKEN: ${{ secrets.FOREX_MT5_BRIDGE_TOKEN }}
+      FOREX_AUTO_LIVE: ${{ vars.FOREX_AUTO_LIVE || 'false' }}
+      FOREX_TARGET_USD: ${{ vars.FOREX_TARGET_USD || '500' }}
+      FOREX_TARGET_DAYS: ${{ vars.FOREX_TARGET_DAYS || '3' }}
+      FOREX_TARGET_CYCLE_ID: ${{ vars.FOREX_TARGET_CYCLE_ID || 'CYCLE_001' }}
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - name: Checkout current main
@@ -28,7 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - name: Guard core deployment secrets
+      - name: Guard core deployment secrets and Forex controls
         shell: bash
         run: |
           set -euo pipefail
@@ -38,14 +42,22 @@ jobs:
           test -n "${BINANCE_BRIDGE_SECRET:-}"
           test -n "${FOREX_MT5_BRIDGE_TOKEN:-}"
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
+          [[ "$FOREX_TARGET_USD" =~ ^[0-9]+([.][0-9]+)?$ ]]
+          [[ "$FOREX_TARGET_DAYS" =~ ^[0-9]+$ ]]
+          test -n "$FOREX_TARGET_CYCLE_ID"
+          case "${FOREX_AUTO_LIVE,,}" in true|false|1|0|yes|no) ;; *) echo 'FOREX_AUTO_LIVE_INVALID' >&2; exit 18 ;; esac
           echo 'FOREX_MT5_BRIDGE_TOKEN=CONFIGURED'
+          echo "FOREX_AUTO_LIVE_REQUESTED=$FOREX_AUTO_LIVE"
+          echo "FOREX_TARGET_USD=$FOREX_TARGET_USD"
+          echo "FOREX_TARGET_DAYS=$FOREX_TARGET_DAYS"
+          echo "FOREX_TARGET_CYCLE_ID=$FOREX_TARGET_CYCLE_ID"
       - name: Install pinned Wrangler
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
       - name: Validate Unified Auto Hub source of truth
         working-directory: cloudflare-worker
         run: npm run check
-      - name: Prepare Wrangler with existing KV and VPC Service
+      - name: Prepare Wrangler with existing KV, VPC and Forex controls
         working-directory: cloudflare-worker
         run: npm run prepare:wrangler
       - name: Deploy latest Worker code first
@@ -115,5 +127,8 @@ jobs:
           echo 'CLOUDFLARE_DEPLOY=PASS'
           echo "RUNTIME_REVISION=$GITHUB_SHA"
           echo 'FOREX_MT5_BRIDGE=CONFIGURED'
+          echo "FOREX_AUTO_LIVE=$FOREX_AUTO_LIVE"
+          echo "FOREX_TARGET=${FOREX_TARGET_USD}/${FOREX_TARGET_DAYS}d"
+          echo "FOREX_TARGET_CYCLE_ID=$FOREX_TARGET_CYCLE_ID"
           echo 'BYBIT_AUTO=PRIMARY_EXECUTION_AUTHORITY'
           echo 'MEME_AUTO=PAPER_ONLY'
