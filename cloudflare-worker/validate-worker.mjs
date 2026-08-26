@@ -1,79 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-
-const root=process.cwd();
-const errors=[];
-const read=f=>fs.readFileSync(path.join(root,f),'utf8');
-const need=(txt,arr,label)=>{for(const x of arr)if(!txt.includes(x))errors.push(`${label} missing ${x}`)};
-
-function walk(d){
-  for(const e of fs.readdirSync(d,{withFileTypes:true})){
-    if(['node_modules','.wrangler'].includes(e.name))continue;
-    const p=path.join(d,e.name);
-    if(e.isDirectory())walk(p);
-    else if(/\.(js|mjs)$/.test(e.name)){
-      try{execFileSync(process.execPath,['--check',p],{cwd:root,stdio:'pipe'});}
-      catch(x){errors.push(`SYNTAX ${path.relative(root,p)} ${String(x.stderr||x.message)}`);}
-    }
-  }
-}
-walk(root);
-
-const files=[
- 'index.js','bybit-runtime-contract.js','bybit-auto-hub.js','bybit-control-plane.js','bybit-auto-config.js',
- 'bybit-auto-v1.js','bybit-auto-controller.js','bybit-scalp-engine.js','bybit-adaptive-edge.js','bybit-risk-guard.js',
- 'bybit-position-manager.js','bybit-ai-scalp-gate.js','bybit-learning-engine.js','bybit-learning-recovery.js','bybit-v5-client.js',
- 'validate-bybit-learning.mjs','binance-scalp-exit.js','multi-ai-control-plane.js','chatgpt-mcp.js','gpt-5ai-action.js','providers/telegram-client.js',
- 'meme-auto-design.js','meme-paper-engine.js','forex-auto-config.js','forex-the5ers-rule-engine.js','forex-signal-engine.js',
- 'forex-3ai-council.js','forex-learning-engine.js','forex-mt5-bridge.js'
-];
-for(const f of files)if(!fs.existsSync(path.join(root,f)))errors.push(`MISSING ${f}`);
+const root=process.cwd(),errors=[];const read=f=>fs.readFileSync(path.join(root,f),'utf8');const need=(txt,arr,label)=>{for(const x of arr)if(!txt.includes(x))errors.push(`${label} missing ${x}`)};
+function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.wrangler'].includes(e.name))continue;const p=path.join(d,e.name);if(e.isDirectory())walk(p);else if(/\.(js|mjs)$/.test(e.name)){try{execFileSync(process.execPath,['--check',p],{cwd:root,stdio:'pipe'});}catch(x){errors.push(`SYNTAX ${path.relative(root,p)} ${String(x.stderr||x.message)}`);}}}}walk(root);
+const files=['index.js','bybit-runtime-contract.js','bybit-auto-hub.js','bybit-control-plane.js','bybit-ai-review-api.js','bybit-auto-config.js','bybit-auto-v1.js','bybit-auto-controller.js','bybit-scalp-engine.js','bybit-adaptive-edge.js','bybit-risk-guard.js','bybit-position-manager.js','bybit-ai-scalp-gate.js','bybit-learning-engine.js','bybit-learning-recovery.js','bybit-v5-client.js','validate-bybit-learning.mjs','binance-scalp-exit.js','providers/telegram-client.js','meme-auto-design.js','meme-paper-engine.js','forex-auto-config.js','forex-the5ers-rule-engine.js','forex-signal-engine.js','forex-3ai-council.js','forex-learning-engine.js','forex-mt5-bridge.js'];for(const f of files)if(!fs.existsSync(path.join(root,f)))errors.push(`MISSING ${f}`);
 if(!fs.existsSync(path.join(root,'../mt5/ForexAutoThe5ers.mq5'))&&!fs.existsSync(path.join(root,'mt5/ForexAutoThe5ers.mq5')))errors.push('MISSING MT5 ForexAutoThe5ers.mq5');
-
-const index=read('index.js');
-const runtime=read('bybit-runtime-contract.js');
-const cfg=read('bybit-auto-config.js');
-const risk=read('bybit-risk-guard.js');
-const mgr=read('bybit-position-manager.js');
-const mcp=read('chatgpt-mcp.js');
-const multi=read('multi-ai-control-plane.js');
-const meme=read('meme-auto-design.js');
-const paper=read('meme-paper-engine.js');
-const fxcfg=read('forex-auto-config.js');
-const fxrules=read('forex-the5ers-rule-engine.js');
-const fxsig=read('forex-signal-engine.js');
-const fxai=read('forex-3ai-council.js');
-const fxbridge=read('forex-mt5-bridge.js');
-
+const index=read('index.js'),runtime=read('bybit-runtime-contract.js'),review=read('bybit-ai-review-api.js'),cfg=read('bybit-auto-config.js'),risk=read('bybit-risk-guard.js'),mgr=read('bybit-position-manager.js'),meme=read('meme-auto-design.js'),paper=read('meme-paper-engine.js'),fxcfg=read('forex-auto-config.js'),fxrules=read('forex-the5ers-rule-engine.js'),fxsig=read('forex-signal-engine.js'),fxai=read('forex-3ai-council.js'),fxbridge=read('forex-mt5-bridge.js');
 need(runtime,['BYBIT_RUNTIME_CONTRACT_V1','BYBIT_AUTO_TRADE_ONLY','VPS_BYBIT_PRIVATE_PROXY','VPS_BYBIT_MARKET_PROXY','/bybit/health'],'BYBIT_RUNTIME_CONTRACT');
-need(index,['signalV11Enabled:false','runBybitAutoControlled','handleForexMt5Bridge','handleChatGptMcp','/runtime/contract'],'INDEX');
-need(mcp,['review_crypto_trade_3ai','CHATGPT_MCP_TRADING_REVIEW_ONLY','executionAllowed:false','requestedProviders:PROVIDERS','consensus','requiredQuorum:2'],'CHATGPT_3AI_MCP');
-need(multi,["const PROVIDERS=['claude','codex','deepseek']",'requiredQuorum:2'],'UNIFIED_3AI_CONTROL');
-if(mcp.includes('executionAllowed:true'))errors.push('CHATGPT 3AI review must never execute trades');
+need(index,['signalV11Enabled:false','runBybitAutoControlled','handleForexMt5Bridge','handleBybitAiReviewApi','/bybit/ai/latest-review','RETIRED_CONFLICTING_AI_ROUTE','/runtime/contract'],'INDEX');
+need(review,['BYBIT_AUTO_CANONICAL_3AI_GATE','/bybit/ai/latest-review','executionAllowed:false','claude','codex','deepseek','readOnly:true'],'BYBIT_3AI_REVIEW_API');
+for(const x of ['handleChatGptMcp(req','handleGpt5AiAction(req','handleMultiAiControl(req'])if(index.includes(x))errors.push(`CONFLICTING AI route still active: ${x}`);
 if(index.includes('runMemeAuto(')||index.includes('MEME_AUTO_ENABLED'))errors.push('MEME real execution forbidden');
-need(cfg,['maxRiskPctOfEquity:10','maxTotalOpenRiskPct:20','maxPortfolioMarginPct:85','minRR:1.5','smartCutEnabled:true','autoPromote:false'],'BYBIT_CONFIG');
-need(risk,['SINGLE_TRADE_RISK_CAP','TOTAL_OPEN_RISK_CAP','PORTFOLIO_MARGIN_HEADROOM','dailyTargetEnabled:false','continuousTrading:true'],'BYBIT_RISK');
-need(mgr,['SMART_CUT_CONFIRMED_INVALIDATION','reduceOnly:true'],'BYBIT_MANAGER');
-
-need(meme,['PAPER_ONLY','executionEnabled:false','walletConnected:false','signingEnabled:false','autoPromote:false'],'MEME_DESIGN');
-need(paper,['noWallet:true','noSigning:true','noRealExecution:true'],'MEME_PAPER');
-for(const x of ['privateKey','seedPhrase','secretKey','sendTransaction(','signTransaction(','executionEnabled:true','walletConnected:true','signingEnabled:true'])if((meme+paper).includes(x))errors.push(`MEME forbidden ${x}`);
-
-need(fxcfg,[
- 'FOREX-AUTO-0.4.4-PAPER','PAPER_ONLY','THE5ERS_HIGH_STAKES','MT5_WINDOWS','INTRADAY_SCALP',
- 'maxDailyLossPct:5','maxTotalLossPct:10','internalDailyStopPct:4.0','projectedDailyStopPct:4.0',
- 'neverIncreaseRiskToChaseTarget:true','hardMaxRiskPct:1.00','maxTotalOpenRiskPct:3.25','minRR:1.5',
- 'positionCountCapEnabled:false','minFreeMarginPctOfEquity:35','minMarginLevelPct:300',
- 'consensusPassesRequired:2','finalDecisionProvider:"chatgpt"','chatgptWebResearch:true','advancedMethodsAreSoftEvidence:true',
- 'liveEnabled:false'
-],'FOREX_CONFIG');
-need(fxrules,['INTERNAL_DAILY_STOP','THE5ERS_DAILY_LOSS_BREACH','THE5ERS_MAX_LOSS_BREACH','HIGH_IMPACT_NEWS_WINDOW','TOTAL_OPEN_RISK_CAP','LOSS_STREAK_PAUSE'],'FOREX_RULES');
-need(fxsig,['NO_H4_H1_M15_ALIGNMENT','REGIME_TOO_WEAK','PRICE_TOO_EXTENDED_WAIT_RETEST','SPREAD_TOO_WIDE','NO_HEALTHY_PULLBACK','STOP_TOO_WIDE','STRUCTURE_RR_TOO_LOW','TREND_PULLBACK','RETEST_CONTINUATION','LIQUIDITY_SWEEP','MICRO_BOS_MSS','FVG_IMBALANCE','M15','H1'],'FOREX_SIGNAL');
-need(fxai,['OPENAI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','web_search','LEAD INTRADAY FOREX SCALP TRADER','INTRADAY REGIME + SESSION CONTEXT','INTRADAY ENTRY + STRUCTURE + EXECUTION','WAIT_RETEST','passes>=2','final?.decision==="ENTER"'],'FOREX_3AI');
-need(fxbridge,['FOREX_MT5_BRIDGE_TOKEN','/forex/health','/forex/mt5/pulse','/forex/mt5/decision','/forex/mt5/ack','TARGET_REACHED_PRESERVE','RISK_BUDGET_TOO_SMALL','projectedDailyLossPct','3AI_CONSENSUS_THE5ERS_ALTERNATION_QUALITY_AND_RISK_PASS','THE5ERS_RULE_BLOCK','PAPER_TRADE'],'FOREX_BRIDGE');
-if(fxcfg.includes('liveEnabled:true'))errors.push('FOREX source default must remain fail-safe; runtime env enables LIVE');
-if(fxai.includes('qwen')||fxai.includes('openrouter')||fxai.includes('codex'))errors.push('FOREX council must use only ChatGPT Claude DeepSeek');
-
-if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const e of errors)console.error('- '+e);process.exit(1);}
-console.log('Worker AUTO preflight PASS: Bybit safety + ChatGPT review-only 3AI MCP + MEME paper-only + FOREX-AUTO 0.4.4.');
+need(cfg,['maxRiskPctOfEquity:10','maxTotalOpenRiskPct:20','maxPortfolioMarginPct:85','minRR:1.5','smartCutEnabled:true','autoPromote:false'],'BYBIT_CONFIG');need(risk,['SINGLE_TRADE_RISK_CAP','TOTAL_OPEN_RISK_CAP','PORTFOLIO_MARGIN_HEADROOM','dailyTargetEnabled:false','continuousTrading:true'],'BYBIT_RISK');need(mgr,['SMART_CUT_CONFIRMED_INVALIDATION','reduceOnly:true'],'BYBIT_MANAGER');
+need(meme,['PAPER_ONLY','executionEnabled:false','walletConnected:false','signingEnabled:false','autoPromote:false'],'MEME_DESIGN');need(paper,['noWallet:true','noSigning:true','noRealExecution:true'],'MEME_PAPER');for(const x of ['privateKey','seedPhrase','secretKey','sendTransaction(','signTransaction(','executionEnabled:true','walletConnected:true','signingEnabled:true'])if((meme+paper).includes(x))errors.push(`MEME forbidden ${x}`);
+need(fxcfg,['FOREX-AUTO-0.4.4-PAPER','PAPER_ONLY','THE5ERS_HIGH_STAKES','MT5_WINDOWS','INTRADAY_SCALP','maxDailyLossPct:5','maxTotalLossPct:10','internalDailyStopPct:4.0','projectedDailyStopPct:4.0','neverIncreaseRiskToChaseTarget:true','hardMaxRiskPct:1.00','maxTotalOpenRiskPct:3.25','minRR:1.5','positionCountCapEnabled:false','minFreeMarginPctOfEquity:35','minMarginLevelPct:300','consensusPassesRequired:2','finalDecisionProvider:"chatgpt"','chatgptWebResearch:true','advancedMethodsAreSoftEvidence:true','liveEnabled:false'],'FOREX_CONFIG');
+need(fxrules,['INTERNAL_DAILY_STOP','THE5ERS_DAILY_LOSS_BREACH','THE5ERS_MAX_LOSS_BREACH','HIGH_IMPACT_NEWS_WINDOW','TOTAL_OPEN_RISK_CAP','LOSS_STREAK_PAUSE'],'FOREX_RULES');need(fxsig,['NO_H4_H1_M15_ALIGNMENT','REGIME_TOO_WEAK','PRICE_TOO_EXTENDED_WAIT_RETEST','SPREAD_TOO_WIDE','NO_HEALTHY_PULLBACK','STOP_TOO_WIDE','STRUCTURE_RR_TOO_LOW','TREND_PULLBACK','RETEST_CONTINUATION','LIQUIDITY_SWEEP','MICRO_BOS_MSS','FVG_IMBALANCE','M15','H1'],'FOREX_SIGNAL');need(fxai,['OPENAI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','web_search','LEAD INTRADAY FOREX SCALP TRADER','INTRADAY REGIME + SESSION CONTEXT','INTRADAY ENTRY + STRUCTURE + EXECUTION','WAIT_RETEST','passes>=2','final?.decision==="ENTER"'],'FOREX_3AI');need(fxbridge,['FOREX_MT5_BRIDGE_TOKEN','/forex/health','/forex/mt5/pulse','/forex/mt5/decision','/forex/mt5/ack','TARGET_REACHED_PRESERVE','RISK_BUDGET_TOO_SMALL','projectedDailyLossPct','3AI_CONSENSUS_THE5ERS_ALTERNATION_QUALITY_AND_RISK_PASS','THE5ERS_RULE_BLOCK','PAPER_TRADE'],'FOREX_BRIDGE');if(fxcfg.includes('liveEnabled:true'))errors.push('FOREX source default must remain fail-safe; runtime env enables LIVE');if(fxai.includes('qwen')||fxai.includes('openrouter')||fxai.includes('codex'))errors.push('FOREX council must use only ChatGPT Claude DeepSeek');
+if(errors.length){console.error(`Worker AUTO preflight FAILED (${errors.length})`);for(const e of errors)console.error('- '+e);process.exit(1);}console.log('Worker AUTO preflight PASS: canonical Bybit 3AI telemetry + Bybit safety + MEME paper-only + FOREX-AUTO 0.4.4.');
