@@ -1,0 +1,23 @@
+[Unit]
+Description=Crypto 50-Day Continuous PAPER_ONLY Research
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/trading/trading-api-main
+EnvironmentFile=/etc/trading/crypto-50d.env
+ExecStartPre=/usr/bin/python3 -m py_compile /opt/trading/trading-api-main/scripts/continuous_crypto_50d.py
+ExecStart=/usr/bin/python3 /opt/trading/trading-api-main/scripts/continuous_crypto_50d.py
+Restart=always
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=60
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/trading/crypto-50d
+
+[Install]
+WantedBy=multi-user.target
