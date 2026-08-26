@@ -37,29 +37,41 @@ apt-get install -y --no-install-recommends \
   ca-certificates wget curl xvfb xauth winbind cabextract unzip procps psmisc \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils
 
-# Prefer the current WineHQ stable build when that repository is available.
-# MetaTrader's own Linux documentation recommends current Wine builds.
+# IMPORTANT: never mix WineHQ executables with Ubuntu libwine packages.
+# The previous mixed Wine 11 wrapper + Ubuntu Wine 9 libraries caused c0000135.
+WINE_STACK=""
 if apt-cache policy winehq-stable 2>/dev/null | grep -Eq 'Candidate: [^()]'; then
-  apt-get install -y --install-recommends winehq-stable || true
+  WINE_STACK="WINEHQ"
+
+  # Purge distro Wine packages that can shadow/mix with WineHQ. WineHQ packages
+  # use wine-stable* names and are reinstalled immediately below.
+  apt-get remove -y \
+    wine wine64 wine32:i386 libwine:amd64 libwine:i386 2>/dev/null || true
+  apt-get -f install -y || true
+
+  apt-get install -y --install-recommends --reinstall \
+    winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386
+else
+  WINE_STACK="DISTRO"
+  # Fallback only when WineHQ is unavailable. Do not install WineHQ in this path.
+  if [[ "$(dpkg --print-architecture)" == "amd64" ]]; then
+    apt-get install -y --install-recommends wine wine64 wine32:i386
+  else
+    apt-get install -y --install-recommends wine
+  fi
 fi
 
-# Ensure both architectures exist on amd64. This is intentionally unconditional:
-# a stale /usr/bin/wine from an incomplete package set caused the previous c0000135 failure.
-if [[ "$(dpkg --print-architecture)" == "amd64" ]]; then
-  apt-get install -y --install-recommends wine64 wine32:i386 || \
-    apt-get install -y --install-recommends wine wine64 wine32 || true
-else
-  apt-get install -y --install-recommends wine || true
-fi
+echo "MT5_WINE_STACK=$WINE_STACK"
 
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
   useradd --system --create-home --home-dir "$APP_HOME" --shell /usr/sbin/nologin "$APP_USER"
 fi
 install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$APP_HOME"
+install -d -o "$APP_USER" -g "$APP_USER" -m 0750 \
+  "$APP_HOME/.local" "$APP_HOME/.local/share" "$APP_HOME/.local/share/applications" \
+  "$APP_HOME/.config" "$APP_HOME/.cache"
 
-# Always prefer the Wine wrapper. Calling a low-level wine64 loader directly can
-# bypass wrapper setup and was the likely source of kernel32.dll c0000135.
-WINE_BIN="$(command -v wine || command -v wine64 || true)"
+WINE_BIN="$(command -v wine || true)"
 WINEBOOT_BIN="$(command -v wineboot || true)"
 WINEPATH_BIN="$(command -v winepath || true)"
 if [[ -z "$WINE_BIN" || -z "$WINEBOOT_BIN" ]]; then
@@ -67,8 +79,22 @@ if [[ -z "$WINE_BIN" || -z "$WINEBOOT_BIN" ]]; then
   exit 5
 fi
 
-echo "MT5_WINE_BIN=$WINE_BIN"
-"$WINE_BIN" --version || true
+WINE_VERSION="$($WINE_BIN --version 2>/dev/null || true)"
+echo "MT5_WINE_VERSION=${WINE_VERSION:-UNKNOWN}"
+
+# Detect a mixed installation before touching the prefix.
+if [[ "$WINE_STACK" == "WINEHQ" ]]; then
+  if dpkg-query -W -f='${Status}\n' libwine:amd64 2>/dev/null | grep -q 'install ok installed'; then
+    echo "ERROR: Ubuntu libwine:amd64 still installed alongside WineHQ" >&2
+    exit 53
+  fi
+  if dpkg-query -W -f='${Status}\n' libwine:i386 2>/dev/null | grep -q 'install ok installed'; then
+    echo "ERROR: Ubuntu libwine:i386 still installed alongside WineHQ" >&2
+    exit 54
+  fi
+fi
+
+echo "MT5_WINE_STACK_CONSISTENCY=PASS"
 
 run_as_mt5() {
   sudo -u "$APP_USER" env \
@@ -80,40 +106,8 @@ run_as_mt5() {
 }
 
 wineboot_once() {
-  run_as_mt5 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -u >/tmp/mt5-wineboot.log 2>&1
+  run_as_mt5 timeout 120 xvfb-run -a -s "$SCREEN" "$WINEBOOT_BIN" -u >/tmp/mt5-wineboot.log 2>&1
 }
-
-# Validate the prefix instead of reusing it blindly. If it cannot load its own
-# core DLLs, quarantine it and create a clean 64-bit prefix.
-install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
-if ! wineboot_once; then
-  stamp="$(date +%Y%m%d%H%M%S)"
-  echo "MT5_WINE_PREFIX_REPAIR=RECREATE"
-  rm -rf "${WINEPREFIX_DIR}.broken-${stamp}" 2>/dev/null || true
-  mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.broken-${stamp}" || true
-  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
-  if ! wineboot_once; then
-    echo "ERROR: Wine prefix initialization failed after clean rebuild" >&2
-    tail -160 /tmp/mt5-wineboot.log >&2 || true
-    exit 51
-  fi
-else
-  echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
-fi
-
-# Strong sanity check: kernel32 must exist in a valid 64-bit Wine prefix.
-KERNEL32="$(find "$WINEPREFIX_DIR/drive_c/windows" -type f -iname kernel32.dll -print -quit 2>/dev/null || true)"
-if [[ -z "$KERNEL32" ]]; then
-  echo "ERROR: Wine prefix has no kernel32.dll after wineboot" >&2
-  tail -160 /tmp/mt5-wineboot.log >&2 || true
-  exit 52
-fi
-echo "MT5_WINE_PREFIX=PASS"
-
-wget -q --https-only --show-progress -O "$INSTALLER" "$INSTALLER_URL"
-chown "$APP_USER:$APP_USER" "$INSTALLER"
-chmod 0640 "$INSTALLER"
-echo "MT5_INSTALLER_SHA256=$(sha256sum "$INSTALLER" | awk '{print $1}')"
 
 find_terminal() {
   local found=""
@@ -129,10 +123,45 @@ find_terminal() {
   [[ -n "$found" ]] && printf '%s\n' "$found"
 }
 
+# Any prefix created by the previously mixed stack is untrusted. Preserve an
+# already working MT5 installation only if wineboot succeeds; otherwise rebuild.
+if [[ -d "$WINEPREFIX_DIR" ]]; then
+  if ! wineboot_once; then
+    stamp="$(date +%Y%m%d%H%M%S)"
+    echo "MT5_WINE_PREFIX_REPAIR=RECREATE"
+    mv "$WINEPREFIX_DIR" "${WINEPREFIX_DIR}.broken-${stamp}" || rm -rf "$WINEPREFIX_DIR"
+    install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
+  else
+    echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
+  fi
+else
+  install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$WINEPREFIX_DIR"
+fi
+
+# If the prefix is new/recreated, initialize it now.
+if [[ ! -f "$WINEPREFIX_DIR/system.reg" ]]; then
+  if ! wineboot_once; then
+    echo "ERROR: Wine prefix initialization failed after clean rebuild" >&2
+    tail -160 /tmp/mt5-wineboot.log >&2 || true
+    exit 51
+  fi
+fi
+
+KERNEL32="$(find "$WINEPREFIX_DIR/drive_c/windows" -type f -iname kernel32.dll -print -quit 2>/dev/null || true)"
+if [[ -z "$KERNEL32" ]]; then
+  echo "ERROR: Wine prefix has no kernel32.dll after wineboot" >&2
+  tail -160 /tmp/mt5-wineboot.log >&2 || true
+  exit 52
+fi
+echo "MT5_WINE_PREFIX=PASS"
+
+wget -q --https-only --show-progress -O "$INSTALLER" "$INSTALLER_URL"
+chown "$APP_USER:$APP_USER" "$INSTALLER"
+chmod 0640 "$INSTALLER"
+echo "MT5_INSTALLER_SHA256=$(sha256sum "$INSTALLER" | awk '{print $1}')"
+
 TERMINAL="$(find_terminal || true)"
 if [[ -z "$TERMINAL" ]]; then
-  # The MetaQuotes installer is a web installer. Allow enough time for the
-  # terminal payload to download, then verify the resulting executable.
   set +e
   run_as_mt5 timeout 900 xvfb-run -a -s "$SCREEN" \
     "$WINE_BIN" "$INSTALLER" /auto /path:'C:\MT5Forex' >/tmp/mt5-install.log 2>&1
