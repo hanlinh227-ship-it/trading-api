@@ -9,6 +9,7 @@ export function evaluateThe5ersRules(env,s={}){
  if(totalLossPct>=r.maxTotalLossPct)reasons.push("THE5ERS_MAX_LOSS_BREACH");
  if(openRiskPct>=c.risk.maxTotalOpenRiskPct)reasons.push("TOTAL_OPEN_RISK_CAP");
  if(n(s.lossStreak)>=c.risk.maxLossStreak)reasons.push("LOSS_STREAK_PAUSE");
+ if(r.newsCalendarFailClosed&&s.newsCalendarOk===false)reasons.push("NEWS_CALENDAR_UNAVAILABLE");
  if(Boolean(s.newsBlocked))reasons.push("HIGH_IMPACT_NEWS_WINDOW");
  if(n(s.openPositions)>=c.maxOpenPositions)reasons.push("MAX_OPEN_POSITIONS");
  return {ok:reasons.length===0,reasons,metrics:{dailyLossPct,totalLossPct,openRiskPct,equity:eq,balance:bal,initialBalance:start,dayStartBalance:dayStart},limits:{daily:r.maxDailyLossPct,total:r.maxTotalLossPct,internalDaily:r.internalDailyStopPct,openRisk:c.risk.maxTotalOpenRiskPct}};
