@@ -19,49 +19,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== BYBIT RUNTIME RECOVERY ==='
-
-          # Restart known bridge when installed; do not alter credentials or trading config.
+          echo '=== BYBIT RUNTIME RECOVERY V2 ==='
           if systemctl list-unit-files --type=service --no-legend | awk '{print $1}' | grep -qx 'v11-manual-ai-bridge.service'; then
             sudo systemctl restart v11-manual-ai-bridge.service
             systemctl is-active --quiet v11-manual-ai-bridge.service
             echo 'v11-manual-ai-bridge=active'
           fi
-
-          # Discover the process currently owning the historical private-proxy port.
           PID="$(ss -ltnp 2>/dev/null | sed -n 's/.*127\.0\.0\.1:8790.*pid=\([0-9][0-9]*\).*/\1/p' | head -1 || true)"
-          if [ -n "$PID" ]; then
-            echo "private_proxy_port_8790=LISTENING pid=$PID"
-            UNIT="$(systemctl status "$PID" 2>/dev/null | sed -n 's/^[[:space:]]*Loaded: loaded (\/[^;]*;.*$/\1/p' | head -1 || true)"
-            if [ -n "$UNIT" ]; then
-              echo "private_proxy_unit_file=$UNIT"
-            fi
-          else
-            echo 'private_proxy_port_8790=NOT_LISTENING'
-          fi
-
-          # Restart any explicit Bybit/private-proxy services already installed on this VPS.
+          if [ -n "$PID" ]; then echo "private_proxy_port_8790=LISTENING pid=$PID"; else echo 'private_proxy_port_8790=NOT_LISTENING'; fi
           mapfile -t UNITS < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '{print $1}' | grep -Ei 'bybit|private.*proxy|trading.*proxy' || true)
-          for unit in "${UNITS[@]:-}"; do
-            [ -n "$unit" ] || continue
-            echo "restarting=$unit"
-            sudo systemctl restart "$unit"
-          done
-
-          # If 8790 is owned by a service not named Bybit, restart its systemd unit when resolvable.
+          for unit in "${UNITS[@]:-}"; do [ -n "$unit" ] || continue; echo "restarting=$unit"; sudo systemctl restart "$unit"; done
           if [ -n "${PID:-}" ]; then
             UNIT_NAME="$(systemctl status "$PID" 2>/dev/null | head -1 | sed -n 's/.*(\([^)]*\.service\)).*/\1/p' || true)"
-            if [ -n "$UNIT_NAME" ] && [ "$UNIT_NAME" != 'v11-manual-ai-bridge.service' ]; then
-              echo "restarting_port_owner=$UNIT_NAME"
-              sudo systemctl restart "$UNIT_NAME" || true
-            fi
+            if [ -n "$UNIT_NAME" ] && [ "$UNIT_NAME" != 'v11-manual-ai-bridge.service' ]; then echo "restarting_port_owner=$UNIT_NAME"; sudo systemctl restart "$UNIT_NAME" || true; fi
           fi
-
           sleep 3
-          echo '=== POST-RECOVERY PORTS ==='
           ss -ltnp 2>/dev/null | grep -E '127\.0\.0\.1:(8789|8790)' || true
-
-          echo '=== PRODUCTION BYBIT HEALTH ==='
           HEALTH="$(curl -fsS --connect-timeout 5 --max-time 25 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health)"
           printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; j=json.load(sys.stdin); out={k:j.get(k) for k in ("ok","mode","authenticated","privateTransport","marketTransport","execution","account","runtimeRevision")}; print(json.dumps(out,separators=(",",":"))); assert j.get("mode")=="LIVE", "MODE_NOT_LIVE"; assert j.get("authenticated") is True, "BYBIT_NOT_AUTHENTICATED"; e=j.get("execution") or {}; assert e.get("ready") is True, "EXECUTION_NOT_READY"; a=j.get("account") or {}; assert a.get("totalEquity") is not None, "BALANCE_UNAVAILABLE"'
           echo 'BYBIT_RUNTIME_RECOVERY_PASS'
