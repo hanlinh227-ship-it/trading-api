@@ -103,8 +103,6 @@ install -d -o "$APP_USER" -g "$APP_USER" -m 0750 "$MT5_DIR/MQL5/Experts" "$MT5_D
 [[ -f "$EA_SRC" ]] || { echo "ERROR: canonical EA source missing: $EA_SRC" >&2; exit 7; }
 EA_DST="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.mq5"
 install -o "$APP_USER" -g "$APP_USER" -m 0640 "$EA_SRC" "$EA_DST"
-
-# Canonical source verification: never compile an old fallback copy.
 SRC_SHA="$(sha256sum "$EA_SRC" | awk '{print $1}')"
 DST_SHA="$(sha256sum "$EA_DST" | awk '{print $1}')"
 [[ "$SRC_SHA" = "$DST_SHA" ]] || { echo "ERROR: EA source sync mismatch" >&2; exit 71; }
@@ -118,25 +116,24 @@ for candidate in "$MT5_DIR/metaeditor64.exe" "$MT5_DIR/MetaEditor64.exe"; do [[ 
 EA_WIN="$(run_as_mt5 "$WINEPATH_BIN" -w "$EA_DST" 2>/dev/null || true)"
 LOG_HOST="$MT5_DIR/metaeditor-compile.log"
 LOG_WIN="$(run_as_mt5 "$WINEPATH_BIN" -w "$LOG_HOST" 2>/dev/null || true)"
-[[ -n "$EA_WIN" && -n "$LOG_WIN" ]] || { echo "ERROR: winepath failed; refusing stale C:\\MT5Forex fallback" >&2; exit 73; }
+[[ -n "$EA_WIN" && -n "$LOG_WIN" ]] || { echo "ERROR: winepath failed; refusing stale fallback" >&2; exit 73; }
 echo "MT5_EA_COMPILE_WINDOWS_PATH=$EA_WIN"
 
-# Remove every old artifact before compile so a stale EX5 can never satisfy readiness.
 find "$WINEPREFIX_DIR" "$APP_HOME" -type f -iname 'ForexAutoThe5ers.ex5' -delete 2>/dev/null || true
 rm -f "$LOG_HOST" /tmp/mt5-compile.log
 stop_mt5_wine
 set +e
-run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINE_BIN" "$METAEDITOR" "/compile:$EA_WIN" "/log:$LOG_WIN" >/tmp/mt5-compile.log 2>&1
+# /portable is mandatory here. Runtime also launches /portable, so compiler and terminal share one canonical MQL5 tree.
+run_as_mt5 timeout 240 xvfb-run -a -s "$SCREEN" "$WINE_BIN" "$METAEDITOR" /portable "/compile:$EA_WIN" "/log:$LOG_WIN" >/tmp/mt5-compile.log 2>&1
 COMPILE_RC=$?
 set -e
 stop_mt5_wine
 echo "MT5_METAEDITOR_EXIT=$COMPILE_RC"
 
-# MetaEditor may place EX5 in the terminal data folder rather than beside the program binary.
 FOUND_EX5="$(find "$WINEPREFIX_DIR" "$APP_HOME" -type f -iname 'ForexAutoThe5ers.ex5' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2- || true)"
 EA_EX5="$MT5_DIR/MQL5/Experts/ForexAutoThe5ers.ex5"
-if [[ -n "$FOUND_EX5" && -f "$FOUND_EX5" ]]; then
-  if [[ "$FOUND_EX5" != "$EA_EX5" ]]; then install -o "$APP_USER" -g "$APP_USER" -m 0640 "$FOUND_EX5" "$EA_EX5"; fi
+if [[ -n "$FOUND_EX5" && -f "$FOUND_EX5" && "$FOUND_EX5" != "$EA_EX5" ]]; then
+  install -o "$APP_USER" -g "$APP_USER" -m 0640 "$FOUND_EX5" "$EA_EX5"
 fi
 
 if [[ ! -f "$EA_EX5" ]]; then
@@ -149,7 +146,6 @@ if [[ ! -f "$EA_EX5" ]]; then
   exit 9
 fi
 
-# Require the compile log to prove zero compile errors when available.
 if [[ -f "$LOG_HOST" ]]; then
   LOG_TEXT="$(iconv -f UTF-16LE -t UTF-8 "$LOG_HOST" 2>/dev/null || cat "$LOG_HOST")"
   printf '%s' "$LOG_TEXT" | grep -Eq 'Result:[[:space:]]+0 errors' || { echo "ERROR: MetaEditor log did not confirm 0 errors" >&2; printf '%s\n' "$LOG_TEXT" | tail -120 >&2; exit 74; }
