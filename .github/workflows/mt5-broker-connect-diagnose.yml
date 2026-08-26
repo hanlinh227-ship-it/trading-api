@@ -53,41 +53,44 @@ jobs:
           echo '=== BRIDGE HEALTH ==='
           cat /var/lib/trading/mt5-forex/bridge-health.json 2>/dev/null | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g' || true
           echo
-          echo '=== SERVER/CACHE INVENTORY ==='
+          echo '=== CURRENT SERVER/CACHE INVENTORY ==='
           find "$MT5_INSTALL_DIR" -maxdepth 5 -type f \( -iname 'servers.dat' -o -iname '*.srv' -o -iname 'accounts.dat' -o -iname 'origin.txt' -o -iname 'common.ini' -o -iname '*.ini' \) -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
-          echo '=== FIVEPERCENT PATH MATCHES ==='
-          find "$MT5_WINEPREFIX" -maxdepth 12 \( -type f -o -type d \) -iname '*FivePercent*' -print 2>/dev/null | head -n 100
-          echo '=== ROAMING METAQUOTES ==='
-          find "$MT5_WINEPREFIX/drive_c/users/mt5forex/AppData/Roaming/MetaQuotes" -maxdepth 5 -type f -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
-          echo '=== ALL RECENT MT5 LOG FILES ==='
-          find "$MT5_WINEPREFIX" -type f \( -iname '*.log' -o -iname '*.txt' \) -mmin -180 -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 60 | cut -d' ' -f2-
-          echo '=== TERMINAL LOG TAIL DECODED ==='
-          latest=$(find "$MT5_INSTALL_DIR/logs" -maxdepth 1 -type f -iname '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
-          if [ -n "$latest" ]; then
+          echo '=== CURRENT SERVERS.DAT STRINGS ==='
+          for f in "$MT5_INSTALL_DIR/Config/servers.dat"; do
+            [ -f "$f" ] || continue
+            echo "file=$f sha=$(sha256sum "$f" | awk '{print $1}')"
+            strings -el "$f" 2>/dev/null | grep -Eai 'FivePercent|Five Percent|Online|Real|LDN|server' | head -n 100 || true
+            strings "$f" 2>/dev/null | grep -Eai 'FivePercent|Five Percent|Online|Real|LDN|server' | head -n 100 || true
+          done
+          echo '=== BACKUP SERVER CACHE CANDIDATES ==='
+          find /var/lib/trading/mt5-forex -type f -path '*/Config/servers.dat' -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 40 | cut -d' ' -f2-
+          echo '=== BACKUP SERVERS.DAT FIVEPERCENT STRINGS ==='
+          find /var/lib/trading/mt5-forex -type f -path '*/Config/servers.dat' -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            m="$( { strings -el "$f" 2>/dev/null; strings "$f" 2>/dev/null; } | grep -Eai 'FivePercent|Five Percent|Online-Real|FivePercentOnline' | head -n 20 )"
+            if [ -n "$m" ]; then echo "--- $f sha=$(sha256sum "$f" | awk '{print $1}') ---"; printf '%s\n' "$m"; fi
+          done
+          echo '=== PRIOR FIVEPERCENT AUTHORIZATION LINES FROM ALL PREFIX BACKUPS ==='
+          find /var/lib/trading/mt5-forex -type f -path '*/logs/*.log' -print0 2>/dev/null | while IFS= read -r -d '' f; do
             out=$(mktemp)
-            iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out"
-            tail -n 250 "$out" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
-            rm -f "$out"
-          fi
-          echo '=== MQL5 LOG TAIL DECODED ==='
-          latest=$(find "$MT5_INSTALL_DIR/MQL5/logs" -maxdepth 1 -type f -iname '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
-          if [ -n "$latest" ]; then
-            out=$(mktemp)
-            iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out"
-            tail -n 250 "$out" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
-            rm -f "$out"
-          fi
-          echo '=== CONNECTION/AUTH LOG MATCHES ==='
-          find "$MT5_WINEPREFIX" -type f -iname '*.log' -mmin -180 -print0 2>/dev/null | while IFS= read -r -d '' f; do
-            out=$(mktemp)
-            if iconv -f UTF-16LE -t UTF-8 "$f" >"$out" 2>/dev/null; then :; else cp "$f" "$out" 2>/dev/null; fi
-            m=$(grep -Eai 'connect|authoriz|login|account|server|network|socket|proxy|certificate|invalid|failed|error|no connection|trade|build|linux|wine|update' "$out" | tail -n 160)
+            iconv -f UTF-16LE -t UTF-8 "$f" >"$out" 2>/dev/null || cp "$f" "$out" 2>/dev/null
+            m=$(grep -Eai 'FivePercentOnline-Real|Five Percent Online|authorized on|authorization failed|invalid account|no connection|network' "$out" | tail -n 80)
             if [ -n "$m" ]; then
               echo "--- $f ---"
               printf '%s\n' "$m" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
             fi
             rm -f "$out"
           done
+          echo '=== FIVEPERCENT PATH MATCHES ==='
+          find /var/lib/trading/mt5-forex -maxdepth 14 \( -type f -o -type d \) -iname '*FivePercent*' -print 2>/dev/null | head -n 200
+          echo '=== ROAMING METAQUOTES ==='
+          find "$MT5_WINEPREFIX/drive_c/users/mt5forex/AppData/Roaming/MetaQuotes" -maxdepth 5 -type f -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 100 | cut -d' ' -f2-
+          echo '=== TERMINAL LOG TAIL DECODED ==='
+          latest=$(find "$MT5_INSTALL_DIR/logs" -maxdepth 1 -type f -iname '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)
+          if [ -n "$latest" ]; then
+            out=$(mktemp); iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out"
+            tail -n 300 "$out" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
+            rm -f "$out"
+          fi
           echo '=== NETWORK ==='
           getent hosts www.mql5.com || true
           curl -I -sS --connect-timeout 5 --max-time 10 https://www.mql5.com/ | head -n 3 || true
