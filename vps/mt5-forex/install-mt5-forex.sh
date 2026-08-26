@@ -29,9 +29,8 @@ apt-get install -y --no-install-recommends \
   fonts-liberation fonts-dejavu-core gnupg2 software-properties-common coreutils
 
 # MT5 build 6140 explicitly rejects the Ubuntu 24.04 Wine 9 runtime as
-# unsupported. Use a single, pinned WineHQ 10 stable family. Do not mix WineHQ
-# executables with Ubuntu libwine packages: that was the source of the historic
-# c0000135 loader conflict on this VPS.
+# unsupported. Use one coherent WineHQ 10 stable family and never mix its
+# executables with distro libwine packages.
 CODENAME="${VERSION_CODENAME:-noble}"
 install -d -m 0755 /etc/apt/keyrings
 wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
@@ -47,10 +46,26 @@ if [[ -z "$WINEHQ_VERSION" ]]; then
 fi
 EXPECTED_STACK="WINEHQ_STABLE_${WINEHQ_VERSION}"
 
-# Stop any package-family processes before changing loaders. Runtime service is
+for pkg in winehq-stable wine-stable wine-stable-amd64 'wine-stable-i386:i386'; do
+  if ! apt-cache madison "$pkg" 2>/dev/null | awk '{print $3}' | grep -Fxq "$WINEHQ_VERSION"; then
+    echo "ERROR: exact WineHQ 10 package unavailable: $pkg=$WINEHQ_VERSION" >&2
+    apt-cache madison "$pkg" >&2 || true
+    exit 59
+  fi
+done
+
+echo "MT5_WINE_TARGET_VERSION=$WINEHQ_VERSION"
+
+# Stop package-family processes before changing loaders. Runtime service is
 # already stopped by the deploy workflow; these are defensive cleanup only.
 pkill -u "$APP_USER" -f 'terminal64.exe|MetaTrader|wineserver' 2>/dev/null || true
 sleep 1
+
+# Clear stale holds first; a previous staging/devel install must not influence
+# dependency resolution for the pinned stable family.
+apt-mark unhold winehq-stable wine-stable wine-stable-amd64 wine-stable-i386:i386 \
+  winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
+  winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
 
 apt-get purge -y \
   wine wine64 wine32:i386 libwine:amd64 libwine:i386 \
@@ -58,7 +73,15 @@ apt-get purge -y \
   winehq-staging wine-staging wine-staging-amd64 wine-staging-i386:i386 \
   winehq-devel wine-devel wine-devel-amd64 wine-devel-i386:i386 2>/dev/null || true
 apt-get -f install -y
-apt-get install -y --allow-downgrades --install-recommends "winehq-stable=${WINEHQ_VERSION}"
+
+# Install every WineHQ component at the same exact version. Installing only
+# winehq-stable can make apt choose a newer wine-stable dependency and fail with
+# "held broken packages" when an older 10.x meta package is requested.
+apt-get install -y --allow-downgrades --install-recommends \
+  "wine-stable-amd64=${WINEHQ_VERSION}" \
+  "wine-stable-i386:i386=${WINEHQ_VERSION}" \
+  "wine-stable=${WINEHQ_VERSION}" \
+  "winehq-stable=${WINEHQ_VERSION}"
 
 WINE_BIN="/opt/wine-stable/bin/wine"
 WINEBOOT_BIN="/opt/wine-stable/bin/wineboot"
@@ -76,7 +99,6 @@ if [[ "$WINE_MAJOR" != "10" ]]; then
   exit 57
 fi
 
-# Fail if any other Wine family survived and could contaminate loaders/DLLs.
 for pkg in wine wine64 wine32:i386 libwine:amd64 libwine:i386 winehq-staging winehq-devel; do
   if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
     echo "ERROR: conflicting Wine package still installed: $pkg" >&2
@@ -161,7 +183,6 @@ recreate_prefix() {
   return 1
 }
 
-# Changing Wine family/version is an unconditional prefix boundary.
 if prefix_artifacts_ready && wine_runtime_smoke; then
   echo "MT5_WINE_PREFIX_REPAIR=NOT_NEEDED"
 else
