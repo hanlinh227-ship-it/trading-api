@@ -33,13 +33,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "d598f38aeb0f0dbe90d48dc6dfd5a95aa8604100ffc0d4c01fc5f92e6124d882",
         "source": "OKX Spot H1",
         "instrument": "SPOT:AAVEUSDT",
         "exact": true,
-        "seal": "73c33f2baedf62b025db2512cae9eea179353d87a91a5bb5ee37dc8f86b85ced"
+        "seal": "6f9483a11f18fa9bd8652aa0ae2029ce703372818f6f81c1c6d4fc6335c28928"
       },
       "dev": {
         "trades": 62,
@@ -89,13 +89,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "36f451609fb53266fcccb15cb1aae48a0dc166fe0290640e232491a31966a1cd",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ADAUSDT",
         "exact": true,
-        "seal": "db03ac23f8cf4e1bb93d74e2002855aed133bc3df44fcb2ac4e17901e1152abd"
+        "seal": "fe223df2b3a692e4edef2e71606b7492169ea3e980f08fe195b044c8de0067ea"
       },
       "dev": {
         "trades": 63,
@@ -145,13 +145,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "43316dd789b34897deb142f6d08c06a027110a9211e1b8ac56cad737f1f95e32",
         "source": "OKX Spot H1",
         "instrument": "SPOT:AIXBTUSDT",
         "exact": true,
-        "seal": "a728e4c1ee14577ce9c67eed907faa8e1f3effa98f1ce1ed5d591fa701b2ae5c"
+        "seal": "6661fe24c6b61ec935bf8d9a31fb737b6e95d84e89bd1d26135e8811d0324869"
       },
       "dev": {
         "trades": 62,
@@ -200,13 +200,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "7ae719f8dffed792bc11f0743168c05955f391db06f8e2558fb2040905fb7ed3",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ALGOUSDT",
         "exact": true,
-        "seal": "97ee6c2b361b6bfaef2a4b57c933b69b761ebc734bcfaaaf63a98482f7b4e004"
+        "seal": "3689750f93d1d894f3463eda44d5d3516cf8a3e0402dee17507282626da58816"
       },
       "dev": {
         "trades": 63,
@@ -253,13 +253,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "7ec15ab9908d4365794f5bc2fc6f9ca9a8919fe122aee122019011565ebfc55b",
         "source": "OKX Spot H1",
         "instrument": "SPOT:APTUSDT",
         "exact": true,
-        "seal": "09a07c152482793bbbc78c5e3c7b3e8fed4bbd5b928f7bca63617418dd2bf7dd"
+        "seal": "fb003ed0981c8240ef93a6e24ed025c04a400cf736a1434f9bac18f38d86fefd"
       },
       "dev": {
         "trades": 63,
@@ -286,7 +286,8 @@
       "market": "crypto",
       "pass": false,
       "reasons": [
-        "DEV_FAIL"
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
       ],
       "profile": {
         "symbol": "ARBUSDT",
@@ -308,21 +309,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "782b63eb4edca5d5d12703e373d18b48251b6dd9cb997dae0769f3950fff064b",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ARBUSDT",
         "exact": true,
-        "seal": "b5bd25f394bd4a7854380f9af34fc5a2059d80b6fabe9f10ca2f715fd7608caf"
+        "seal": "967f9312fa84128b08b057bef89fe38652ebf3b0d27e1f59bd17df5602a414ff"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 77.78,
-        "meanR": 0.5556,
+        "winRate": 76.19,
+        "meanR": 0.5397,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -331,8 +332,8 @@
         "eligibleDays": 23,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 82.61,
-        "meanR": 0.6522,
+        "winRate": 73.91,
+        "meanR": 0.4783,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -364,13 +365,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "2d81457cc79acf4c7f4e186ca063a202fc5655f938b6e64b646b2666a16d4870",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ASTERUSDT",
         "exact": true,
-        "seal": "99f5eead2097f88ef64a979d84287119ab5ef688f919103a45afc78da9b3421a"
+        "seal": "aed01856c1915e23edad9a98565e18e0e016e0db3ea1cd8a58224cb4a1c58a7d"
       },
       "dev": {
         "trades": 63,
@@ -420,13 +421,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "7bcabc62ed078a343a02bfaa2abde342a26d7afa13503abe291df8734eb150bd",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ATOMUSDT",
         "exact": true,
-        "seal": "c8f76562f1ed8efabdb8231d78ba66ffe5cd412f2786a79632ae1dee9235273f"
+        "seal": "3fefcad0c7b86228e13bd4585452b1f95f8f16407824bc60f9eea312626eb02a"
       },
       "dev": {
         "trades": 63,
@@ -451,8 +452,10 @@
     },
     "AUDCAD": {
       "market": "forex",
-      "pass": true,
-      "reasons": [],
+      "pass": false,
+      "reasons": [
+        "DEV_FAIL"
+      ],
       "profile": {
         "symbol": "AUDCAD",
         "market": "forex",
@@ -473,21 +476,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "538808654b3f8b405a6753dbd9ad87be3dab7a7d91862de19cd794af7623bd31",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:AUDCAD",
         "exact": true,
-        "seal": "965bbda4a692951149537617eef608b4a8b1e4de1a477076df0daaa7b0f26717"
+        "seal": "94e360f198e035a54931997d5aef276090f8e76004ad444634f44764e683cfea"
       },
       "dev": {
         "trades": 45,
         "eligibleDays": 45,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 80.0,
-        "meanR": 0.6,
+        "winRate": 73.33,
+        "meanR": 0.4667,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -496,8 +499,8 @@
         "eligibleDays": 16,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 81.25,
-        "meanR": 0.625,
+        "winRate": 87.5,
+        "meanR": 0.75,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -528,13 +531,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "54f0f7ec15fcea02496f000844d217cb1ad5274666bba5827d8514849094c017",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:AUDCHF",
         "exact": true,
-        "seal": "6dbd4a32e098849025cf596cc7f37ca8e30d3d97ec300ef68db9ffbe0ca110e6"
+        "seal": "dfcc74ed426908f17acae8fde252c7e89310c554f773bbb44a584e4b9fbf81c0"
       },
       "dev": {
         "trades": 44,
@@ -584,13 +587,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "7214dbc491aa1df6d1c2b70abfe64fb1d4d356d39c66455fc6f78086fdb47bc2",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:AUDJPY",
         "exact": true,
-        "seal": "768e0f6878529fd66432554094cb19b91a0c40318e216929edfc57fa582e4375"
+        "seal": "32b51105760d8e48b080e0c018b81d6e9582b03a0f1661793a2915f5ec744dc3"
       },
       "dev": {
         "trades": 45,
@@ -639,13 +642,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5557e0a3edce09873c9aba933896849fd22744b919a309822df1814c302ac7a5",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:AUDNZD",
         "exact": true,
-        "seal": "c43230ec39ae0e1a1d81d7e9b86661ff8f2268bb5035d26895075f8bf1e75a39"
+        "seal": "6975634e0acc2f109b36394fb10c725ea14cf407b3e6d35a3fe5b1847297b3b3"
       },
       "dev": {
         "trades": 45,
@@ -694,13 +697,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "f1d0776c8c1ba769d423d85b1801a1424c3883b52572cd29892867793ef9d7ee",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:AUDUSD",
         "exact": true,
-        "seal": "e0f496cdd8e5cf92137fa8571a46a003df29e5d6095a313a2da8bd930b0d30e2"
+        "seal": "9be7291371873b62a17c3f95bc11320f7c0dad017a0cc94154a3fea01565e744"
       },
       "dev": {
         "trades": 44,
@@ -750,13 +753,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "962109406fb9b22ba78dfbe0e25c817405f7a47f60f2e5503afc32b86c596c90",
         "source": "OKX Spot H1",
         "instrument": "SPOT:AVAXUSDT",
         "exact": true,
-        "seal": "54a032395bd59014a1d297bfbb306ff4780c95305ed0e6a3f96c8533674f4c27"
+        "seal": "3d804a96890b4ed7d0131866cb36b57099fa6adb9862414ee0941fe670a63868"
       },
       "dev": {
         "trades": 63,
@@ -806,21 +809,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5f93f586d17d142b1b200332daff9a5135302d796002deb7610e0215df4e27bb",
         "source": "OKX Spot H1",
         "instrument": "SPOT:BCHUSDT",
         "exact": true,
-        "seal": "9bbe44135032d5dea64535eb942756bfad07936b41640c2ed0ee9fdd19a8b2b3"
+        "seal": "974c9205acd01d60516ca001b85ed985af8a8651cb9991dc64a74b0e05d492e2"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 65.08,
-        "meanR": 0.3016,
+        "winRate": 73.02,
+        "meanR": 0.4603,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -829,8 +832,8 @@
         "eligibleDays": 23,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 65.22,
-        "meanR": 0.3478,
+        "winRate": 69.57,
+        "meanR": 0.3913,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -862,21 +865,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "a0d48bdbba158152ea4f1c4a08ec6330e52444654141938c0c85194fae15fea7",
         "source": "OKX Spot H1",
         "instrument": "SPOT:BONKUSDT",
         "exact": true,
-        "seal": "3e36cd9ab17c35b24937e4db3bcec32035972c7ba024a30f8d777da12914cf11"
+        "seal": "339f3d6731f5cd0e70bcd0f03f74a952c394527378166dc3f2023949654f1f47"
       },
       "dev": {
         "trades": 62,
         "eligibleDays": 63,
         "coveragePct": 98.41,
         "zeroExecutionDays": 1,
-        "winRate": 59.68,
-        "meanR": 0.2581,
+        "winRate": 66.13,
+        "meanR": 0.371,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -885,8 +888,8 @@
         "eligibleDays": 23,
         "coveragePct": 95.65,
         "zeroExecutionDays": 1,
-        "winRate": 63.64,
-        "meanR": 0.2727,
+        "winRate": 72.73,
+        "meanR": 0.5,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -918,13 +921,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "684aa7525a8091062b49a565ecfd96b8205b0889ba3f55ea713e1e0e5e8574a1",
         "source": "OKX Spot H1",
         "instrument": "SPOT:BTCUSDT",
         "exact": true,
-        "seal": "ba4a5d49774ea990c666b16c1bfa0280866e6e3b55395bd898ca079016ef1a72"
+        "seal": "19fdea6d1b3f6f2bb37bf12b70d367aa6b4a45c26a5088321c1c5c163c955592"
       },
       "dev": {
         "trades": 63,
@@ -973,13 +976,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "9a267cb73f18d96376c49eed94623d2f9f17bc898dae424d06b24a98addcb09a",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:CADCHF",
         "exact": true,
-        "seal": "52aa88e150ed17e0df04062848f020f4af88178b6fc4d6ec25c8b85edc04493e"
+        "seal": "71576676e645ad423370570f2e25ddb31d13da25286ad4189c8bc05f75793c50"
       },
       "dev": {
         "trades": 44,
@@ -1029,13 +1032,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "fdd08d89becd816f9f29fc5fc60cc0195bed2b6bf35f62a52734f2006c808c82",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:CADJPY",
         "exact": true,
-        "seal": "7843db667ff08aceecffbd65b0159707f992ca19c33b7112c52ddbbb572c564e"
+        "seal": "913004f1c3ab9b291c2aa8c99cedf34ae14710845287d40a7ffb178b0703205c"
       },
       "dev": {
         "trades": 45,
@@ -1084,13 +1087,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "87d8224a54c3ab85eadd0f5b643871a660159d9c182f9195f29598340a55076c",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:CHFJPY",
         "exact": true,
-        "seal": "cec599cd963692cf5448747bcf48ea8f9bfef33cab9eb5f60fdf521fec868505"
+        "seal": "94a35082373dcb14be84e3d61cfeea71e79b85a08040986eeae630aa72f1fb31"
       },
       "dev": {
         "trades": 44,
@@ -1140,31 +1143,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "e9e0293418369e269ec51267ec088d1958746a899aef66f92fb35d990303796a",
         "source": "OKX Spot H1",
         "instrument": "SPOT:CRVUSDT",
         "exact": true,
-        "seal": "97132559df21278b598d85421386300d0d5d4d74d7ed531410bb15812576bfab"
+        "seal": "d89edc4dd35ad98ba8ce2184851f8ae17c91f2e59ad8ce703359c5a5bc91ba46"
       },
       "dev": {
-        "trades": 63,
+        "trades": 62,
         "eligibleDays": 63,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 66.67,
-        "meanR": 0.3333,
+        "coveragePct": 98.41,
+        "zeroExecutionDays": 1,
+        "winRate": 66.13,
+        "meanR": 0.3226,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 23,
+        "trades": 22,
         "eligibleDays": 23,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 78.26,
-        "meanR": 0.5652,
+        "coveragePct": 95.65,
+        "zeroExecutionDays": 1,
+        "winRate": 77.27,
+        "meanR": 0.5455,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -1195,21 +1198,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "967e269a246a395a8a51305b669eb2b1c5b00fff17af2afa5d9ab2d986e2ddec",
         "source": "Dukascopy DEUIDXEUR BID Spot/Index H1",
         "instrument": "BID:DEUIDXEUR",
         "exact": true,
-        "seal": "01a2c7b898e45c1851ef2274ba7a8f65a20831aecff74be4356d1956d58a4aae"
+        "seal": "fe469e17dde22f5206c473c87e39cbb55b22594eaadca82c57921f27ea44c49b"
       },
       "dev": {
         "trades": 34,
         "eligibleDays": 34,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 76.47,
-        "meanR": 0.5588,
+        "winRate": 73.53,
+        "meanR": 0.4706,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -1218,8 +1221,8 @@
         "eligibleDays": 12,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 91.67,
-        "meanR": 0.8333,
+        "winRate": 83.33,
+        "meanR": 0.6667,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -1250,13 +1253,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "d841235307d2907b3c8c331919a73e3263c32314f9c2413170da0d052bbd0f93",
         "source": "OKX Spot H1",
         "instrument": "SPOT:DOGEUSDT",
         "exact": true,
-        "seal": "f0c7b2e8ac8157df46bf7c9cda613c000e3ae7bdacea4394662e7560dc0df7e5"
+        "seal": "6b2d4e5c70910664734f0d8cac708ab63359b26b789099aeb27eda157dbfdd6b"
       },
       "dev": {
         "trades": 63,
@@ -1306,13 +1309,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "cae1fca105611be9c5c2a5e39daab141c05330a743cad2c73742f9cf49f9f87a",
         "source": "OKX Spot H1",
         "instrument": "SPOT:DOTUSDT",
         "exact": true,
-        "seal": "81bebc177697b3ba48959bbc1247c7372b598093878d0fa5279166109f91ae05"
+        "seal": "6646467db2f16a278dca556df3a0ed313bb381432e439d4fcc09f17794ff1783"
       },
       "dev": {
         "trades": 62,
@@ -1362,13 +1365,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "309c2cdccc30c5adaa73bc6c2c6e9cfdfdfffc1a917784abc8d5067e51368922",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ETCUSDT",
         "exact": true,
-        "seal": "77956589f10d488ba7db8274897363f7f6adc1e0c66329a3a25817b02282b5a7"
+        "seal": "a5edd8533b308d10822e07f80e077f781eaf35a5e4eefd208f8491c4cd12c1a9"
       },
       "dev": {
         "trades": 63,
@@ -1418,13 +1421,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5d75680bad589d40ccf3b1aa848df2d911bfe3d7aa5e52ce1f1bb7e237cb1767",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ETHUSDT",
         "exact": true,
-        "seal": "bb2b0917e2ffebd5ce7d4317a2f9a7e519dc05220c8d27f82ee68b548d59ace9"
+        "seal": "9e2b3c0814057a4dca7ed5cbb54ed592eaf9c42c5c8ec2e5940259b8dba06af8"
       },
       "dev": {
         "trades": 63,
@@ -1474,13 +1477,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "6c288f140e6e9dc16b44614f6a5cfbdd72582d085ca5c1cbeffd0fe4345cd8c5",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURAUD",
         "exact": true,
-        "seal": "cb2814c0abb33c5dcd42088906fdbe46133bd9dc6ded679acc1eccdfd9479758"
+        "seal": "abffd2afff367c20d931b2c3402d496c9e2962f9e9a151615ca463b740d46881"
       },
       "dev": {
         "trades": 44,
@@ -1530,13 +1533,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "db2cd1c4247c5b2a08ef7624277a9c87bec94153472aaf03242175673e7835f3",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURCAD",
         "exact": true,
-        "seal": "7096e89843dab4b69a78a55d118d59c99e6d955c3daf07b380e1bbb20db5527c"
+        "seal": "921b35eb0db5a668d8835743f39e16c3a0cc8d807d8ea801f995b5cbbf06bd43"
       },
       "dev": {
         "trades": 45,
@@ -1553,8 +1556,8 @@
         "eligibleDays": 16,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 62.5,
-        "meanR": 0.25,
+        "winRate": 68.75,
+        "meanR": 0.375,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -1585,13 +1588,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "c7911eb1c769aa32da17f59e78e26125d5d1c6d8d5c9a8b751efba635a22bcfb",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURCHF",
         "exact": true,
-        "seal": "c52f50b3d8cee46fae7b9d4800dc3258edc622bf3fe881702306d7ee676d9792"
+        "seal": "a30a5366fbfd576257e010d44a9772c3cb95f029ab547d6bfc8ab56216737de5"
       },
       "dev": {
         "trades": 44,
@@ -1640,13 +1643,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "7ceec6eb17ce9d225432ea3a29044bfc5dc67d98e4465b61ebed68a7e49eed40",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURGBP",
         "exact": true,
-        "seal": "8f74292bef52443e288ca5bde93437a68f77ab1355a3a7e26dd7db6b566c48b2"
+        "seal": "6f895d20487654b0388c45b50f3bc1fa6829db07d24b2aa348df881beab3cdc3"
       },
       "dev": {
         "trades": 44,
@@ -1695,13 +1698,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "adf8302e636727fc4a47380ba51837503a6145cf985dbea61e582ad0f01322a7",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURJPY",
         "exact": true,
-        "seal": "7625bba4f645036ef7dc3eab9f2f248cc80507c52c52d3e5cf094ec0bb1ad409"
+        "seal": "329aef3bd75f60adcb7e735dbe54579356ebeb04f6ae9fa62cdab9dd2a1dcd52"
       },
       "dev": {
         "trades": 44,
@@ -1728,8 +1731,7 @@
       "market": "forex",
       "pass": false,
       "reasons": [
-        "DEV_FAIL",
-        "VALIDATION_FAIL"
+        "DEV_FAIL"
       ],
       "profile": {
         "symbol": "EURNZD",
@@ -1751,21 +1753,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "698904c1b21f1f1300eb9914430cb5d018b9d7cfa338aead303b7db50cc3f3cc",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURNZD",
         "exact": true,
-        "seal": "66b3c5c2db21509216a89c32c0a6412d537913a476913660bad3ed2c52c90ee4"
+        "seal": "271c0451c311cba8e73bbe97a8fe519f57f89aa6f7822be955e6b7c549f40567"
       },
       "dev": {
         "trades": 44,
         "eligibleDays": 45,
         "coveragePct": 97.78,
         "zeroExecutionDays": 1,
-        "winRate": 72.73,
-        "meanR": 0.5455,
+        "winRate": 84.09,
+        "meanR": 0.6818,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -1774,8 +1776,8 @@
         "eligibleDays": 16,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 75.0,
-        "meanR": 0.5625,
+        "winRate": 87.5,
+        "meanR": 0.8125,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -1807,13 +1809,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "88ee3170674dd17e66b46d0857bb123882562816b1771e6713a1877b408f1a00",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:EURUSD",
         "exact": true,
-        "seal": "fe39dc049906d90206b52ddde688374fb8198639012e554008eaa02e2b05c74a"
+        "seal": "7f7ff4e9c9d1fdb843e4d11aaae44c9241a1318bedff1e9aad25bd3f47d2bf0d"
       },
       "dev": {
         "trades": 45,
@@ -1863,13 +1865,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5d5d329e8031ead7689c486b6291dab76682048cb578197114685d39c1eb79f2",
         "source": "Gate.io Spot H1",
         "instrument": "SPOT:FARTCOINUSDT",
         "exact": true,
-        "seal": "30df9194be2be8f49131149e27d3e827864fbb8715b9d0a5204eba0414a840b4"
+        "seal": "64874503f3a65dfe5113db514e9c7de5d3cf7b0d584c25c5e91a10902ff7e496"
       },
       "dev": {
         "trades": 63,
@@ -1919,13 +1921,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "b26fdf0b2d7ef456981e631d31bb135f017970fc82d35e2dc79fe826126540e8",
         "source": "OKX Spot H1",
         "instrument": "SPOT:FILUSDT",
         "exact": true,
-        "seal": "57036e63224209636cf10c67535608683ae0ba1fcb77da96487ae3721984f2b7"
+        "seal": "fe386ff4d97ff7db3ce1eb4d5637c9574fa9857b82cb05fe3a2bc8925613a1af"
       },
       "dev": {
         "trades": 63,
@@ -1975,21 +1977,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5e3a407bdb7a04d6b59055d3d909446caa619e3e40b138fa04293bb3c4fc93ae",
         "source": "OKX Spot H1",
         "instrument": "SPOT:FLOKIUSDT",
         "exact": true,
-        "seal": "0c86cec5df5b01ff22d747d52d131275a899e680e78b2f673cfc074f3b9643a9"
+        "seal": "cb40b3a253d1f666744e3b6afd570f0a82df70ddc6b843675ea11f52e9778baa"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 63.49,
-        "meanR": 0.2698,
+        "winRate": 68.25,
+        "meanR": 0.3651,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -2030,13 +2032,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "507892be441d3c653977dfd4a2cd81540f8a0d28f38d2a2fa930ab0e50abc266",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:GBPAUD",
         "exact": true,
-        "seal": "53666211589a2112c0f3a1bd79335690ff3efbce255c42b733d6026302691caa"
+        "seal": "0c59aa07d8883e748b1c0aa54b8890769ab3183e5d45a200786d45ef903f84b6"
       },
       "dev": {
         "trades": 44,
@@ -2063,7 +2065,8 @@
       "market": "forex",
       "pass": false,
       "reasons": [
-        "DEV_FAIL"
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
       ],
       "profile": {
         "symbol": "GBPCAD",
@@ -2085,21 +2088,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "de0e9cc04a7a03f1af8082dd63f82f79601777babb4f2179d0d47d9ccafa6375",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:GBPCAD",
         "exact": true,
-        "seal": "c78440c0c57f2fe586161bebac3e37fa8cedd2785e57af6e699353806dc80928"
+        "seal": "c2d905997b09f4fbc4decdaa2ce7d45921942ee1c9dfcbae9bc31024a66651d3"
       },
       "dev": {
-        "trades": 44,
+        "trades": 45,
         "eligibleDays": 45,
-        "coveragePct": 97.78,
-        "zeroExecutionDays": 1,
-        "winRate": 72.73,
-        "meanR": 0.5227,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 68.89,
+        "meanR": 0.3778,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -2108,8 +2111,8 @@
         "eligibleDays": 16,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 87.5,
-        "meanR": 0.75,
+        "winRate": 68.75,
+        "meanR": 0.375,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -2140,13 +2143,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "4405df9d0a5bd528d01863cf5474f45a5c890bd62128cf6014e6c1e27c55168c",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:GBPCHF",
         "exact": true,
-        "seal": "b140dacff63747ee004cc32e9320ce045b575734f86a43d1f2c401e16c6689bc"
+        "seal": "697478395078d94ab0f8cc5336ab1d13050c1ec6ce42e7b7cf3f1c80603bba79"
       },
       "dev": {
         "trades": 44,
@@ -2196,13 +2199,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "c7181b90aadb41f7078cdb526e032b30c91623843c83d65e8a9e9e85afe07d93",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:GBPJPY",
         "exact": true,
-        "seal": "fec2fecb0bfefe26dd4621066c4b6722c983214e85696398bfe344f7fe0b5d42"
+        "seal": "4ac5839f604c59adbb059126e3085510b93efdb64a7f13647d92210d0ef566fd"
       },
       "dev": {
         "trades": 44,
@@ -2251,13 +2254,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "e6b5461d96c107323e62b5bea055bda37c4fac4df5768c13f515565102caeda1",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:GBPNZD",
         "exact": true,
-        "seal": "f2ec52d58a0c1f8f866d0297e6b7efdcb0c9db5d27156ed6b5e0c9890e8a50ed"
+        "seal": "5bdb0df918b55e3749c41fe65c3b890f856787b3b2de1245b7f939776fca350e"
       },
       "dev": {
         "trades": 45,
@@ -2307,13 +2310,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "807f41992b232d471790aeb1f8cf58355d48247db4a15d56e80856d4cb5d75fd",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:GBPUSD",
         "exact": true,
-        "seal": "98d366c4ab635832a97f85f1c7c5cbcda5130a4620c669baba1e02899c8d7c0c"
+        "seal": "b6ce0ca94012dc989137691a2cf9703c59081e8a2dcd64033a1b1399eb971351"
       },
       "dev": {
         "trades": 45,
@@ -2363,13 +2366,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "bad3b659b716ac1007f6d3d5f6cd1ee9d08c325f91dadf1038b01dad173ff989",
         "source": "OKX Spot H1",
         "instrument": "SPOT:GRASSUSDT",
         "exact": true,
-        "seal": "86122f89e0ad301b87d3b1d1dc906f411f7bb629a07b115c8a14553768b9d11a"
+        "seal": "c5f983acbdb56485455ecfdd35218936a4c4ec6a56ccc82edcedf43836e8eda7"
       },
       "dev": {
         "trades": 63,
@@ -2419,31 +2422,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "a51d43de5733fbf0eaed31fbcc979a8028471fec3dfe0bd6c9f859fa1cf4b785",
         "source": "OKX Spot H1",
         "instrument": "SPOT:HBARUSDT",
         "exact": true,
-        "seal": "285338ac645358b6dc973976b16f10e360c1c1c3d92b248e112b695db4689730"
+        "seal": "bcefc0b03e0aceeec3c4b604d39602bac59ed5b8e36b04e30fb8aa934569eaac"
       },
       "dev": {
-        "trades": 63,
+        "trades": 62,
         "eligibleDays": 63,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 71.43,
-        "meanR": 0.4286,
+        "coveragePct": 98.41,
+        "zeroExecutionDays": 1,
+        "winRate": 72.58,
+        "meanR": 0.4516,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 23,
+        "trades": 22,
         "eligibleDays": 23,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 73.91,
-        "meanR": 0.4783,
+        "coveragePct": 95.65,
+        "zeroExecutionDays": 1,
+        "winRate": 81.82,
+        "meanR": 0.6364,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -2474,13 +2477,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "c11905c1dcd97862d4bd0529f985c343bd3326bb89dbecb4e4a281bbd24483b3",
         "source": "OKX Spot H1",
         "instrument": "SPOT:HYPEUSDT",
         "exact": true,
-        "seal": "ad1da73f54057ab08f391277dadc07602c69c303b58295dfe69ec40d011a71c6"
+        "seal": "498b0ed9613ed09637565e8e03638e6201ae6e5199071e88c58a97162c1b1902"
       },
       "dev": {
         "trades": 63,
@@ -2530,13 +2533,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "80759390e887fde402ba9b6c8b314c38e535b90a126c099de49834b1a7372892",
         "source": "OKX Spot H1",
         "instrument": "SPOT:INJUSDT",
         "exact": true,
-        "seal": "d3a90d01087ff9940068764ef12df2052f779ed75a3f3694ac75aa7d129c8ddc"
+        "seal": "46b8fe75a7de6645034da06e21db28ad23fde1785b7645a269524c0be452da76"
       },
       "dev": {
         "trades": 63,
@@ -2583,13 +2586,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "8e8a0862822c115d4a69a01b82ce93b0d8d38c5a93fb61a861c0e9d69cbaf647",
         "source": "Dukascopy JPNIDXJPY BID Spot/Index H1",
         "instrument": "BID:JPNIDXJPY",
         "exact": true,
-        "seal": "70d5cc3f2e5a21248a57647e13373f37ee8feb48a3de1d31cb0db32084faa331"
+        "seal": "633e7a7bae8f4507b7b6c0f54e913b9203fb223a139412da7a5a25c19021b849"
       },
       "dev": {
         "trades": 34,
@@ -2639,13 +2642,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "1120bfe6d9f4779715ed5de8979ef8b0febe5298f657d09ba7eb1a26cf887ebb",
         "source": "OKX Spot H1",
         "instrument": "SPOT:JTOUSDT",
         "exact": true,
-        "seal": "d2e98c7b98980d380a6065e7950661b73242c5641c110ecd737d472896143d9d"
+        "seal": "4999467d3d6c11a732581164613e7fd08357c2171d5d97229cedef60c0e20370"
       },
       "dev": {
         "trades": 62,
@@ -2695,13 +2698,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "c38b073fc85e87a08e7a5e155e397c2b8e9e2963c695571efb931206e6bee600",
         "source": "OKX Spot H1",
         "instrument": "SPOT:JUPUSDT",
         "exact": true,
-        "seal": "281efbb35b1c573aaaa4ce70515f08bcdffe9ca9f1fbcd74322f2e1635c00522"
+        "seal": "ec77bb2f0c9a7c677b9e15f6fc54b876d9e5c481d20102cdc0f3ac63cd5ba9ab"
       },
       "dev": {
         "trades": 63,
@@ -2751,31 +2754,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "8f8a7a8667c1cfffee798016a3ff1c52bf01f1f62081b330f4fa05eb252bfb84",
         "source": "OKX Spot H1",
         "instrument": "SPOT:KAITOUSDT",
         "exact": true,
-        "seal": "aec5d85878bf26f56e13f4ba6fbc200cd84310424aea2498b82cafcbb4bc879c"
+        "seal": "86cd0e128f8d161f7bcbf226986e87f2af4fa90521bca53d23075fae3b5c4131"
       },
       "dev": {
-        "trades": 63,
+        "trades": 62,
         "eligibleDays": 63,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 60.32,
-        "meanR": 0.3651,
+        "coveragePct": 98.41,
+        "zeroExecutionDays": 1,
+        "winRate": 62.9,
+        "meanR": 0.2742,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 23,
+        "trades": 22,
         "eligibleDays": 23,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 60.87,
-        "meanR": 0.3478,
+        "coveragePct": 95.65,
+        "zeroExecutionDays": 1,
+        "winRate": 72.73,
+        "meanR": 0.5,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -2807,13 +2810,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "4f4f4020cad1c79d0d4411e5e7a9ae7c6c5840ec624748a052e67d254575986f",
         "source": "OKX Spot H1",
         "instrument": "SPOT:LDOUSDT",
         "exact": true,
-        "seal": "6a264467ffa8036cf254e540e1eb004c6e87050e47b5df72a8a75bb8c69fbbf8"
+        "seal": "c9f3b96294e9585541474c5c49d3299db2a10d76786ef96ea180c6991ff8ff98"
       },
       "dev": {
         "trades": 63,
@@ -2863,13 +2866,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "b05aa96227ae7e15abeb646a642b98794dd965bb734649262049d97945046478",
         "source": "OKX Spot H1",
         "instrument": "SPOT:LINKUSDT",
         "exact": true,
-        "seal": "89a632baf28ee2e7ae1838f660e0d34a9a34476acbd667259a847616ee4b4dbc"
+        "seal": "c6e17b392be37841a67d9718b38bf73784a6c804e1b8dcf952f6f70852e56f51"
       },
       "dev": {
         "trades": 63,
@@ -2919,13 +2922,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "c03660d0623f2cb0e0038c26e8bc88e64995c4610cd39b3398aaae42b134ffa3",
         "source": "OKX Spot H1",
         "instrument": "SPOT:LITUSDT",
         "exact": true,
-        "seal": "b736b11b8d0dea44a56a3145ad44b61fa503c2dcdcef21a7622b242a0f747dfd"
+        "seal": "6747fd5d2eebf9067f09c1139716539bf694cd5329bcdbec77f9ce46c0b0213a"
       },
       "dev": {
         "trades": 62,
@@ -2975,21 +2978,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "009f708dbc7e49f512e051021d895151f1f62242df405af6bffa9dbe54b98e36",
         "source": "OKX Spot H1",
         "instrument": "SPOT:LTCUSDT",
         "exact": true,
-        "seal": "7e1a20467212617680f1eca1902616d9e5ac4a5b5bd57de709329eac6c473dbb"
+        "seal": "0f1896795a5d541f889425136494d7bcc7dd31230d9b09e07c97eee4dd016591"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 69.84,
-        "meanR": 0.3968,
+        "winRate": 77.78,
+        "meanR": 0.5556,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -2998,8 +3001,8 @@
         "eligibleDays": 23,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 69.57,
-        "meanR": 0.3913,
+        "winRate": 73.91,
+        "meanR": 0.4783,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -3031,13 +3034,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "bac0614adec04242836367689e1b6b371931a45cf88a82c9a75f94b7a47ed825",
         "source": "OKX Spot H1",
         "instrument": "SPOT:MOODENGUSDT",
         "exact": true,
-        "seal": "caa4ea81083fa63020bd4ad3178f119f11d5243cd77c87829bb5eb512d075efa"
+        "seal": "d9667d88d064330ce99fec523ecfd69b2a8a6680e77269515af0d548dc60e269"
       },
       "dev": {
         "trades": 62,
@@ -3062,11 +3065,8 @@
     },
     "NAS100": {
       "market": "index",
-      "pass": false,
-      "reasons": [
-        "DEV_FAIL",
-        "VALIDATION_FAIL"
-      ],
+      "pass": true,
+      "reasons": [],
       "profile": {
         "symbol": "NAS100",
         "market": "index",
@@ -3087,21 +3087,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "6385b93799a23def5f0c64a11e0a4736e655c3e597e2d3a86eaa98e3c6d9fb52",
         "source": "Dukascopy USATECHIDXUSD BID Spot/Index H1",
         "instrument": "BID:USATECHIDXUSD",
         "exact": true,
-        "seal": "97d68b71a17d8ad8af5b590a99b846b1139b018e6a54a4d40534b4c1737dc8aa"
+        "seal": "2acf50e4b818692e92f3f9d8383fbea324dda3c26bd87060a8078fe0808fc84b"
       },
       "dev": {
         "trades": 34,
         "eligibleDays": 34,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 76.47,
-        "meanR": 0.5294,
+        "winRate": 85.29,
+        "meanR": 0.7059,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -3110,8 +3110,8 @@
         "eligibleDays": 12,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 75.0,
-        "meanR": 0.5,
+        "winRate": 83.33,
+        "meanR": 0.6667,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -3143,13 +3143,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "213ceef2f2fcc8129cb2578c9ffe12d48b49f49b558bf25f3490b4559a972403",
         "source": "OKX Spot H1",
         "instrument": "SPOT:NEARUSDT",
         "exact": true,
-        "seal": "650cead17c2c71e4ea1c13d3a3f0821d0a74fa450b0f4f7162c1d010e0d99940"
+        "seal": "16b0210bc53b33c3be5fa73c0e562415841c49d9309e86c77d6e0ee0bef65010"
       },
       "dev": {
         "trades": 63,
@@ -3198,13 +3198,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "94120b4fa6503ace3dd042e90b6e8876d07d0bd0717186f8a3c29cfd0c940720",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:NZDCAD",
         "exact": true,
-        "seal": "8e5440d38947c9a95272fbe8c447ea29b221260566ad9627a3d9272bf5513c7b"
+        "seal": "593aac7388bc51fcc483b0b0effcca6145e4cb0b25d48fea9849703deaa10792"
       },
       "dev": {
         "trades": 44,
@@ -3254,13 +3254,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "f247fb8df381c2988f3a11837ea12db49efb185729387f8738a4f1a877b62056",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:NZDCHF",
         "exact": true,
-        "seal": "0f8b1bb7255c5a03c61efd87a3f027d43a649cb6fb6a3453e908dc6498ba6fea"
+        "seal": "bdefee1941dbb76084f7a889320c1bd9dcb184d9a930fe8fde0fcfc601abd899"
       },
       "dev": {
         "trades": 45,
@@ -3310,13 +3310,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "3ebf0167a580daa7fb1b6d98165a47afba09d35e3577ce5d12c96c21b9dccd09",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:NZDJPY",
         "exact": true,
-        "seal": "a60945d2c763df3c86f4b10c26efa93e6d7eb99f9258a5086e7e43d5c8fa391f"
+        "seal": "d8a2e6c74de0eeeec54c84350b301f174d02b3f68c67047fe601b7165f6a124e"
       },
       "dev": {
         "trades": 44,
@@ -3366,13 +3366,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "ad380b5e769298c753eba8fe771325c9a0db5b8bc4743c9e09ed1b618bb346fa",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:NZDUSD",
         "exact": true,
-        "seal": "381667e712a28f7b347897c5546c2fb5acfac26a140e7cbf663a8e8d3f83e79e"
+        "seal": "7a10a8d6166c01b76d26adbefc2647b0c3ec0736ad4c94817bccdff7bf6d5d4f"
       },
       "dev": {
         "trades": 44,
@@ -3422,13 +3422,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "b616eb9a226924108b3dc5b7cbc4add1deb5785d0e4b42ae4a0a928324811269",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ONDOUSDT",
         "exact": true,
-        "seal": "6d147aad4033d9874d10d74184db1295f8b395cc89710fd7fd838bcff84f3dc7"
+        "seal": "ca944eaeffd5c98e79620ab94cea31da5afadbef4b989a2670cdbfb059c35343"
       },
       "dev": {
         "trades": 63,
@@ -3478,31 +3478,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "2047ffe602588a35c157450f3aa39d72abba8bca87130a4df6162338d49b6185",
         "source": "OKX Spot H1",
         "instrument": "SPOT:OPUSDT",
         "exact": true,
-        "seal": "cb3b2583e5d90391479900f610f9a893f64b266412e2379cc74154e944224f75"
+        "seal": "66891beb660b446e125dc9b829ed0399cbe9d7fc68fb793e55206761b179e812"
       },
       "dev": {
-        "trades": 62,
+        "trades": 63,
         "eligibleDays": 63,
-        "coveragePct": 98.41,
-        "zeroExecutionDays": 1,
-        "winRate": 77.42,
-        "meanR": 0.5484,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 71.43,
+        "meanR": 0.4286,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 22,
+        "trades": 23,
         "eligibleDays": 23,
-        "coveragePct": 95.65,
-        "zeroExecutionDays": 1,
-        "winRate": 77.27,
-        "meanR": 0.5455,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 73.91,
+        "meanR": 0.4783,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -3533,13 +3533,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "14b35906dc4616991856cfda0b46ed0125c88e1225fb150798ca3c6d5ebbb174",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ORDIUSDT",
         "exact": true,
-        "seal": "76b3e0ae624df3ad9e4c8c09ce2e8fe926937b8a5f20a80d0bda1e2a974640f2"
+        "seal": "597471fbbb0a0ef99844abc57e1e1f11fe144c663e890951e15db4de10b54154"
       },
       "dev": {
         "trades": 63,
@@ -3589,13 +3589,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "c6cc962be8096b2298091de3d056338eb49e1ac64b9c15f579ae1f7a31ac8d81",
         "source": "OKX Spot H1",
         "instrument": "SPOT:PENGUUSDT",
         "exact": true,
-        "seal": "1d1e7c20e55cf44816ba07bf677ef12e61b66e53a4dd45613ad5cc3eabdb2ea0"
+        "seal": "a1807fe605dac34c8fdd8664e31cc53ffcbe6a4c1ecef9577cc58573cdc60aa2"
       },
       "dev": {
         "trades": 62,
@@ -3622,7 +3622,8 @@
       "market": "crypto",
       "pass": false,
       "reasons": [
-        "DEV_FAIL"
+        "DEV_FAIL",
+        "VALIDATION_FAIL"
       ],
       "profile": {
         "symbol": "PEPEUSDT",
@@ -3644,21 +3645,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "515ce191643ad73ec95a6351f7c7f0dc04da39aee9417ce29ef48ce72a8329f7",
         "source": "OKX Spot H1",
         "instrument": "SPOT:PEPEUSDT",
         "exact": true,
-        "seal": "73e1835f79084a9977b7dd1d00a0d9226e82639739551c0b099d71b891b654c5"
+        "seal": "64a9e257f1ab7bef93e8566f83c2865b9ed4fa624b8c684afec77d86c2555225"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 77.78,
-        "meanR": 0.5556,
+        "winRate": 74.6,
+        "meanR": 0.5238,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -3667,8 +3668,8 @@
         "eligibleDays": 23,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 86.96,
-        "meanR": 0.7391,
+        "winRate": 73.91,
+        "meanR": 0.4783,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -3700,13 +3701,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "d9e12a78d9952bc6f81c4e7bf460162c609dc6d5458f2db7bd7fdae3793fe54a",
         "source": "OKX Spot H1",
         "instrument": "SPOT:PNUTUSDT",
         "exact": true,
-        "seal": "66bd207eef4057e11fc44c183807135cc002d805d99da4347e20d474aa1ff911"
+        "seal": "19ff4d38bfdf08aea969ef73b65a38ce1bd70f44f19d24a0668c0dd2ccead274"
       },
       "dev": {
         "trades": 62,
@@ -3753,13 +3754,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5856ebd8284e50f5cdca0037b70f9db60d00f983256e60ce2014f499950d96e5",
         "source": "OKX Spot H1",
         "instrument": "SPOT:POLUSDT",
         "exact": true,
-        "seal": "261b0a38bc057aa4d586829842993d49bf77f34f5a5b325fbe2be324e94603a8"
+        "seal": "0ad95c2fbf81083a6002872a50b9ab552b2a594d030c1c0a0e41352f495c5ed1"
       },
       "dev": {
         "trades": 63,
@@ -3809,13 +3810,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "e338b8e2f6037d3aeacbb855b18c6cd8d12659660b2bb1851d3a0af71083b648",
         "source": "Gate.io Spot H1",
         "instrument": "SPOT:POPCATUSDT",
         "exact": true,
-        "seal": "6e32efb4c80d335f09e7c4e0526eeb5df448e568e7aed146639ea0d163638cc2"
+        "seal": "5a16b7e312174eaa6b9aaf0e44573a4aedf36a0847eb1ae4ec60221c46fb5b11"
       },
       "dev": {
         "trades": 62,
@@ -3865,13 +3866,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "6e6242710b5971341124e9575cc04e4dbeb6e59add0cc855e5ce4dafba218efe",
         "source": "OKX Spot H1",
         "instrument": "SPOT:PUMPUSDT",
         "exact": true,
-        "seal": "328574c33c707a6f6e9d88217d42e7f468aff7c133330c9b785413d532cd5732"
+        "seal": "be5297e87bffbdef36db10e4c164a50fc1d1f0c0204be1df88c7735bc00b3f84"
       },
       "dev": {
         "trades": 63,
@@ -3921,13 +3922,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "8b14944ede6a061db3e57a1ca09961a5f375f5b457fc5703e31a813841132106",
         "source": "OKX Spot H1",
         "instrument": "SPOT:RENDERUSDT",
         "exact": true,
-        "seal": "feec99953e5ef456396076b9120e803e089106d8a1d02a15fc4bf272817463e9"
+        "seal": "5d51ca44e2d4d71c9a36a1cbad1c14c3fb22eb867f1dbf7540a26b93c1564eab"
       },
       "dev": {
         "trades": 63,
@@ -3977,21 +3978,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5986cca13f0efed6bc0596a9f8187d45737378951bc2d37a9f41bcac20e3ecf3",
         "source": "OKX Spot H1",
         "instrument": "SPOT:SHIBUSDT",
         "exact": true,
-        "seal": "e82a04a48befbefc475ef8e0999209557f907d8a8883a2616247cc00a0a21e2d"
+        "seal": "02b80767d38a3bf0e0c8c6ccb69a4adfa85726328f1cae1d06ff2e870f4e7d4c"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 71.43,
-        "meanR": 0.4286,
+        "winRate": 69.84,
+        "meanR": 0.3968,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -4000,8 +4001,8 @@
         "eligibleDays": 23,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 69.57,
-        "meanR": 0.3913,
+        "winRate": 73.91,
+        "meanR": 0.4783,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4032,13 +4033,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "5617f56dfe767127af9904c0e52a20f3b7c518b563b45be70ea53ffeb2e45f0e",
         "source": "OKX Spot H1",
         "instrument": "SPOT:SOLUSDT",
         "exact": true,
-        "seal": "e7e3c307360fddc9981ab2e28d05e6cbd939850f42ac605162a31b1777c90f40"
+        "seal": "13d9266716a80510fae795eb199f68380f15e762d9136a6a77cb9d246012c947"
       },
       "dev": {
         "trades": 63,
@@ -4088,31 +4089,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "54def68547fc594df36708de95c15cae12ab0c86f7bd526f4759cfb6bd6cc529",
         "source": "OKX Spot H1",
         "instrument": "SPOT:STXUSDT",
         "exact": true,
-        "seal": "365aaf178a74d85ea60076a15d8608db13fbc0da1aa71e29adb013683e659419"
+        "seal": "3f0942024a65451365213c5a825015b91b7b546e33e3ecfd023d6235763463a6"
       },
       "dev": {
-        "trades": 62,
+        "trades": 63,
         "eligibleDays": 63,
-        "coveragePct": 98.41,
-        "zeroExecutionDays": 1,
-        "winRate": 61.29,
-        "meanR": 0.2581,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 68.25,
+        "meanR": 0.3651,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 22,
+        "trades": 23,
         "eligibleDays": 23,
-        "coveragePct": 95.65,
-        "zeroExecutionDays": 1,
-        "winRate": 63.64,
-        "meanR": 0.3182,
+        "coveragePct": 100.0,
+        "zeroExecutionDays": 0,
+        "winRate": 65.22,
+        "meanR": 0.3478,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4144,13 +4145,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "f34fd90bcafffc42f2094098c28543a2d20afae43e4f924d6ae054ca8a223a6f",
         "source": "OKX Spot H1",
         "instrument": "SPOT:SUIUSDT",
         "exact": true,
-        "seal": "7970d3ff571bd32fc344b319ca5cf3598ad0470b0b56c0152761998f9be3fe20"
+        "seal": "c55913d361fe8a7eb6ce76a632992bd6be2b1ee750242c563f87e1373a5c17a1"
       },
       "dev": {
         "trades": 63,
@@ -4200,31 +4201,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "495245a4c5ef6096cb0af6dc0dbde3eb07f507a49ce15d63ff69ee4b73fa0465",
         "source": "OKX Spot H1",
         "instrument": "SPOT:SUSDT",
         "exact": true,
-        "seal": "dbf96b6793411b1419bd5830c67776ac54119a5f7f4147aacb342466918654d3"
+        "seal": "506965907d0d025c99882c69188c17aad373909174edaa6bdb694eb381136038"
       },
       "dev": {
-        "trades": 63,
+        "trades": 62,
         "eligibleDays": 63,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 65.08,
-        "meanR": 0.3333,
+        "coveragePct": 98.41,
+        "zeroExecutionDays": 1,
+        "winRate": 69.35,
+        "meanR": 0.3871,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 23,
+        "trades": 22,
         "eligibleDays": 23,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 65.22,
-        "meanR": 0.3478,
+        "coveragePct": 95.65,
+        "zeroExecutionDays": 1,
+        "winRate": 68.18,
+        "meanR": 0.3636,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4253,13 +4254,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "35229d5fdf09f3a628fa3739bd331c43d1a6f98544488bda6b168949f6075950",
         "source": "OKX Spot H1",
         "instrument": "SPOT:TAOUSDT",
         "exact": true,
-        "seal": "ca4d817c1fd6d5598c5f20d7f2778545899936110f476e9736bd512de2d3be8c"
+        "seal": "ad2d477dd28526a526d9e0c57adfaa9f933202ded895b8dca1eb5501a18100bd"
       },
       "dev": {
         "trades": 30,
@@ -4308,13 +4309,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "1876a80396d1e8759d400d1617081ca17cc5e2b205bbb2f361cb127c5269d9ea",
         "source": "OKX Spot H1",
         "instrument": "SPOT:TIAUSDT",
         "exact": true,
-        "seal": "a517f6400225d4b8ef9a94b3046177f3bfc3e16d8c082b4e927371c05bb3a4a2"
+        "seal": "b99766c3dda781b70740f0cd89bf6708a31640e4b7343c0baadc28d002e519f9"
       },
       "dev": {
         "trades": 63,
@@ -4364,21 +4365,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "0edf3ecb31571a20427f9ac439bb748e34b809bc64e9c62cd521af9d332958c8",
         "source": "OKX Spot H1",
         "instrument": "SPOT:TRUMPUSDT",
         "exact": true,
-        "seal": "a28fcb44b22b1d3865afd3a386521f0763f3151a11d801658258007061529e1d"
+        "seal": "74cf3e26737e44078c2c6509c6a8d615b9ed7045293c6a9452f10ae87dbf9228"
       },
       "dev": {
         "trades": 63,
         "eligibleDays": 63,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 66.67,
-        "meanR": 0.3492,
+        "winRate": 68.25,
+        "meanR": 0.3968,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -4387,8 +4388,8 @@
         "eligibleDays": 23,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 65.22,
-        "meanR": 0.3043,
+        "winRate": 69.57,
+        "meanR": 0.4348,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4420,13 +4421,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "87d3ffa66aa8b807613d616ace8ccaf030c3af3bd40eb8e441b0a7ca4af9a217",
         "source": "OKX Spot H1",
         "instrument": "SPOT:TRXUSDT",
         "exact": true,
-        "seal": "eaced994b528bb44a456a9cd1219200db15c2746022bac2d342d6dad24e3f470"
+        "seal": "513b40cd2209a1682c53654a67cb0b9e0582c2ae347b9873d912be0e694a5234"
       },
       "dev": {
         "trades": 62,
@@ -4476,31 +4477,31 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "fb1d628d6dc9ac614f99d30f7897aeec26e9541a8f6671facf9c777c29d45f3c",
         "source": "OKX Spot H1",
         "instrument": "SPOT:UNIUSDT",
         "exact": true,
-        "seal": "c230e058bee552bce955fef018df921cf2722cc126d716e386b73a9e82808162"
+        "seal": "82e7121993bdf5e7ef6a5014c28a978069a33121f31d59e3b94db8a7f66389a4"
       },
       "dev": {
-        "trades": 63,
+        "trades": 62,
         "eligibleDays": 63,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 73.02,
-        "meanR": 0.5079,
+        "coveragePct": 98.41,
+        "zeroExecutionDays": 1,
+        "winRate": 66.13,
+        "meanR": 0.3387,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
       "validation": {
-        "trades": 23,
+        "trades": 22,
         "eligibleDays": 23,
-        "coveragePct": 100.0,
-        "zeroExecutionDays": 0,
-        "winRate": 73.91,
-        "meanR": 0.4783,
+        "coveragePct": 95.65,
+        "zeroExecutionDays": 1,
+        "winRate": 68.18,
+        "meanR": 0.3636,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4529,13 +4530,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "cd7d35a0c250d1f0354f04fa4fe40c050c52274ef0e5704b8b64639c74f5723d",
         "source": "Dukascopy USA30IDXUSD BID Spot/Index H1",
         "instrument": "BID:USA30IDXUSD",
         "exact": true,
-        "seal": "7037fa1edd97630c97a90eec52ac561734fbf03bd88da95a28a28925462a6783"
+        "seal": "344b306fea332497bf292606651d172271ca625ffe3e087996771dea404edd8b"
       },
       "dev": {
         "trades": 34,
@@ -4552,8 +4553,8 @@
         "eligibleDays": 12,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 83.33,
-        "meanR": 0.6667,
+        "winRate": 91.67,
+        "meanR": 0.8333,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4582,13 +4583,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "161659e629a3dc4397cff743e3ceffe7aaa5203a832401d9a3bc147e3bfb1d0d",
         "source": "Dukascopy USA500IDXUSD BID Spot/Index H1",
         "instrument": "BID:USA500IDXUSD",
         "exact": true,
-        "seal": "021ffde916c761c2940881c4ebd32b0f8aabd49ecd3248dfff93dcda62a6c108"
+        "seal": "b9732de0aed8d8fa6f195be8fa4c27c309433f952c37cfceb6a495f8f2e6f781"
       },
       "dev": {
         "trades": 34,
@@ -4638,13 +4639,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "d24a7d01c6a430f74b157571dcf1b20b80d934e447ff6dbe77225b24c9bc68a0",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:USDCAD",
         "exact": true,
-        "seal": "a1b3a22db8913ed9c9275dadd98bbc72f8816b0afde7869ff1fde91d8b038dbc"
+        "seal": "9efb536cc0b90d250cbfd7716deb07360f52b4f2349af849c859538972f85c24"
       },
       "dev": {
         "trades": 45,
@@ -4661,8 +4662,8 @@
         "eligibleDays": 16,
         "coveragePct": 100.0,
         "zeroExecutionDays": 0,
-        "winRate": 75.0,
-        "meanR": 0.5,
+        "winRate": 68.75,
+        "meanR": 0.375,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       }
@@ -4694,13 +4695,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "d1e1ee7e00b588d62d112025c0a51fdff07b1583f2210b01663184587d2ce31f",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:USDCHF",
         "exact": true,
-        "seal": "389ffbad286036154d27d9af9d7739cbc3f7d412fd4836ff34452ddd6d8e6597"
+        "seal": "21677ea3880a095d6e0cf0f08cfbb9ae844eb68fa73a58a6090dbed0defed4d8"
       },
       "dev": {
         "trades": 44,
@@ -4750,13 +4751,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "736b289172186765286c1917830768e75ecec836ec12f378b3401f32171494a3",
         "source": "Twelve Data Forex M5",
         "instrument": "FOREX:USDJPY",
         "exact": true,
-        "seal": "b8741e7a490f789ae551dcbaad2163846f0cd6fc0293b001c1420a573189a7f7"
+        "seal": "addcf502c65ee3bd8bb640bdaf9c29e62f24541d6685476de113cf92cacdfb14"
       },
       "dev": {
         "trades": 44,
@@ -4806,21 +4807,21 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "f4f138df315f3169eae46fd61a84502e1334bffede2ebf5e46ecddf899f6b9b6",
         "source": "OKX Spot H1",
         "instrument": "SPOT:VIRTUALUSDT",
         "exact": true,
-        "seal": "c973213a876b249794377adec44625ae95369c5baa05ae948bb2282a4ee1fb27"
+        "seal": "02fac04b6f43c08874d1905888705969e56a65a5ec3aa89bc8b3103eda99c433"
       },
       "dev": {
         "trades": 62,
         "eligibleDays": 63,
         "coveragePct": 98.41,
         "zeroExecutionDays": 1,
-        "winRate": 67.74,
-        "meanR": 0.3548,
+        "winRate": 72.58,
+        "meanR": 0.4516,
         "minTradesInDay": 1,
         "maxTradesInDay": 1
       },
@@ -4862,13 +4863,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "7a2ad625a016f4d516d0b61986a7fda1e779e3033db0c5db9c90fba38bdff8dc",
         "source": "OKX Spot H1",
         "instrument": "SPOT:WIFUSDT",
         "exact": true,
-        "seal": "a66192b58a69b2ba12cf45a63b1de3638b25461f31efd53d631ef48faa0049c5"
+        "seal": "ab1042a70a3a99bdb831419b3f675f6e2f6b0ab213d7a07bee4a4acdc58f7456"
       },
       "dev": {
         "trades": 62,
@@ -4918,13 +4919,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "1b47fc5ed0a1cc6a73bb4883d3c78cedaa4c81422eb64619a6d7d105e36b0c40",
         "source": "OKX Spot H1",
         "instrument": "SPOT:WLDUSDT",
         "exact": true,
-        "seal": "5435158ab7e9f06fb26e20844f5888173e737145d85a09677c65cdfd80f529df"
+        "seal": "74066f36b3dcd40b6035b93bbf5938420b642cc4ce1062aca1203ddde2da7e17"
       },
       "dev": {
         "trades": 63,
@@ -4974,13 +4975,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "b0b0801f2851cc582a89037f278df14b8f569e108d38928a7d1c2b6086e78632",
         "source": "Dukascopy XAGUSD BID Spot/Index H1",
         "instrument": "BID:XAGUSD",
         "exact": true,
-        "seal": "0e1789389bf5b0ba4f53df8ebc7fc4b79b0ad6fec38e9e7c84b2be0772af7a46"
+        "seal": "35852d419626b9e578fca8fd0aade483bddd177b783fb3de9548b0d06b4979ed"
       },
       "dev": {
         "trades": 34,
@@ -5030,13 +5031,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "bbfddae6500af5c129762c7f88549e918c5977a9d7251b172e7ad297885e2bc5",
         "source": "Dukascopy XAUUSD BID Spot/Index H1",
         "instrument": "BID:XAUUSD",
         "exact": true,
-        "seal": "1ea0b1356c78396d7e42b06a7e83130c5e44f495775dd4689ab5671fb5065e48"
+        "seal": "851ef743e46779600303a9aceb052757cd780da6d2e0495f9f892edecd50d0c2"
       },
       "dev": {
         "trades": 34,
@@ -5086,13 +5087,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "d49c14df9f5a17a263ca6264e4397d45076797949e4c680f111273b244975b09",
         "source": "OKX Spot H1",
         "instrument": "SPOT:XPLUSDT",
         "exact": true,
-        "seal": "316ee29f6fc2f4afe1ddc9dd9419ffe6fcd7271dc5b4c3956d307446540ab44c"
+        "seal": "1270918bc326dcbeb3b26bc542dd0566b45696659c1ee04f9a6bac99b7a2828e"
       },
       "dev": {
         "trades": 63,
@@ -5142,13 +5143,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "216e8c0744e09fffe8319f62f689df271687de4ddb1380f69d3146d87fcc2dfb",
         "source": "OKX Spot H1",
         "instrument": "SPOT:XRPUSDT",
         "exact": true,
-        "seal": "5edfbd3b1fbee03b373ccd1fb93336cbb7c97ddbb61a0eadd6497dd2422ca45b"
+        "seal": "42f686f392c751ab523662ba9a32827cf4271f7ccb49806c2978e88d711aaaec"
       },
       "dev": {
         "trades": 63,
@@ -5198,13 +5199,13 @@
         },
         "partitionPolicy": "DAY_ALIGNED_DEV60_VALIDATION22_FINAL18_AFTER_FIXED_WARMUP",
         "directVersion": "V11-DIRECT-RESEARCH-R3",
-        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-COARSE-MODE-R15",
-        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-coarse-mode-r15",
+        "engineVersion": "V11-GEOMETRY-R4-FUSION-V77V78-R4-MKT-HOLD-SWEEP-V2-INVERSE-FAMILY-R14-JOINT-ALL-MODES-R16",
+        "featureSchema": "v11-geometry-r4-h1-per-symbol-fusion-v77v78-priors-warmup14-executionbase-r4-mkt-hold-sweep-v2-inverse-family-r14-joint-all-modes-r16",
         "dataHash": "bb612ec40d4bba2e6cb2222ee2c9b4fb5eb4f4721c4d0ba943a1c0d19980bf9e",
         "source": "OKX Spot H1",
         "instrument": "SPOT:ZECUSDT",
         "exact": true,
-        "seal": "024ef88dda7711aae5dc8e9474d12f01c8bf5e9c9ed432c2a10a373fc4caf481"
+        "seal": "6ebf7289ac6037269ff884cb007557b3f039770503d3548312b3a0851241efe8"
       },
       "dev": {
         "trades": 63,
