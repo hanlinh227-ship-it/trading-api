@@ -1,6 +1,0 @@
-Owner-authorized V11 R15 research trigger.
-
-Catalog: 94 symbols; IPUSDT excluded.
-Research-only change: joint coarse family/hour/entry-mode sweep on DEV/VALIDATION.
-Integrity contract unchanged: exact data; RR 1 or 2; WR >=80%; positive expectancy; 1-3 real executions per eligible day; no pooling, fabrication, lookahead, symbol deletion, or FINAL tuning.
-Require Claude + Codex + DeepSeek + Qwen + OpenRouter all OK before FINAL eligibility.
