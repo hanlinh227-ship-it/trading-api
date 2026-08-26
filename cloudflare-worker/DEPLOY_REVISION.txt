@@ -1,15 +1,18 @@
 V10
 SIGNAL-ONLY-V10-SOURCE-OF-TRUTH
-Revision: BYBIT-AUTO-1.7.2-ENTRY-CONFLICT-CLEANUP-2026-08-26
+Revision: BYBIT-AUTO-1.7.3-CANONICAL-CONFLICT-LOCK-2026-08-26
 GitHub source entry: cloudflare-worker/index.js.
-Bybit Auto production authority: BYBIT-AUTO-1.7.2.
-Entry timing authority: BYBIT_AUTO_CONFIG.execution.cooldownSec, default 180 seconds; retired hard-coded controller 5-minute spacing and hidden inner-engine cooldown override are forbidden.
-Loss-streak pause authority remains canonical engine state with one-shot trigger per newest realized loss streak; controller reports but does not duplicate the decision.
-Bybit PnL reconciliation: transient closed-PnL failure may use a maximum 15-minute last-known-healthy grace window; stale reconciliation remains fail-closed.
-LIVE risk/margin accounting authority: BYBIT_LIVE_POSITIONS_ONLY. Plans retained only for closed-PnL reconciliation/learning do not count as live exposure when Bybit positions confirms the position is absent.
-Pending closed plan may block same-symbol re-entry until reconciliation completes, but must not block unrelated symbols through ghost risk/margin.
-Bybit scheduler telemetry persists exceptions, last cycle reason, entry blocker, scan telemetry and live-risk-accounting diagnostics.
+Bybit Auto production authority: BYBIT-AUTO-1.7.3.
+Entry timing authority: BYBIT_AUTO_CONFIG.execution.cooldownSec, default 180 seconds. No controller hard-coded spacing and no inner-engine spacing override are allowed.
+Loss-streak pause authority: canonical engine state only, one-shot trigger per newest realized loss streak. Controller is telemetry only.
+Closed-PnL safety authority: CURRENT_TRADING_DAY_ONLY. Historical ghost plans must never expand the global PnL safety window or block unrelated entries.
+Unresolved closed plans older than the current trading-day window are moved to reconcileQuarantine with outcome unresolved. They remain available for audit/learning diagnostics but are removed from openPlans, live risk, margin capacity and symbol-entry blocking.
+Bybit PnL endpoint transient failure may use a maximum 15-minute last-known-healthy grace window; stale current-day safety reconciliation remains fail-closed.
+LIVE risk/margin accounting authority: BYBIT_LIVE_POSITIONS_ONLY.
+Pending same-day closed plan may block only the same symbol until reconciliation completes. Quarantined historical plans cannot block any symbol.
+Bybit scheduler telemetry persists exceptions, last cycle reason, entry blocker, scan telemetry, live-risk diagnostics and unresolved quarantine count.
 Bybit entry quality gates remain intact: liquidity, regime, adaptive score, correlation, pre-AI freshness/reanchor, sizing, risk preflight, AI review, post-AI revalidation, actual RR and verified protection.
 Cron: one minute.
 Forex, Meme and other execution authorities remain unchanged.
+Forbidden legacy behavior: CLOSED_PNL_LOOKBACK_EXCEEDED global entry block, MAX_CLOSED_LOOKBACK_MS expansion from ghost plans, controller 5-minute spacing, duplicate controller loss pause, ghost-plan live risk accounting.
 NOTE: GitHub source commits are not proof of successful Cloudflare/VPS runtime deployment; workflow/runtime evidence must confirm production state.
