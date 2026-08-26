@@ -4,6 +4,8 @@ After=network-online.target
 Wants=network-online.target
 ConditionPathExists=/etc/trading/mt5-forex-vps-only
 ConditionPathExists=/var/lib/trading/mt5-forex/runtime.env
+StartLimitIntervalSec=120
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -18,12 +20,13 @@ ExecStartPre=+/usr/bin/chown root:mt5forex /etc/trading
 ExecStartPre=+/usr/bin/chmod 0750 /etc/trading
 ExecStartPre=/usr/bin/test -r /etc/trading/mt5-forex-vps-only
 ExecStartPre=/usr/bin/test -r /var/lib/trading/mt5-forex/runtime.env
+ExecStartPre=/usr/bin/test -r /etc/trading/mt5-forex.env
 ExecStart=/opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
-Restart=always
+Restart=on-failure
 RestartSec=10
 TimeoutStartSec=120
-TimeoutStopSec=30
-KillMode=control-group
+TimeoutStopSec=20
+KillMode=mixed
 SendSIGKILL=yes
 NoNewPrivileges=true
 PrivateTmp=true

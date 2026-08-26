@@ -21,12 +21,12 @@ jobs:
     runs-on: [self-hosted, trading-vps]
     timeout-minutes: 35
     env:
-      MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_FOREX_LOGIN }}
-      MT5_ACCOUNT_PASSWORD: ${{ secrets.MT5_FOREX_PASSWORD }}
-      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_FOREX_SERVER }}
-      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_FOREX_BRIDGE_TOKEN }}
-      MT5_HUB_URL: ${{ secrets.MT5_FOREX_HUB_URL }}
-      MT5_ALLOW_LIVE: ${{ secrets.MT5_FOREX_ALLOW_LIVE }}
+      MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_ACCOUNT_LOGIN }}
+      MT5_ACCOUNT_PASSWORD: ${{ secrets.MT5_ACCOUNT_PASSWORD }}
+      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
+      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
+      MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
+      MT5_ALLOW_LIVE: ${{ secrets.MT5_ALLOW_LIVE }}
     steps:
       - name: Assert authorized VPS-only runner
         shell: bash
@@ -45,6 +45,20 @@ jobs:
           sudo chmod 0444 /etc/trading/mt5-forex-vps-only
           echo 'MT5_FOREX_RUNNER=AUTHORIZED_VPS'
           echo 'MT5_FOREX_SCOPE=VPS_ONLY'
+
+      - name: Guard canonical MT5 secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${MT5_ACCOUNT_LOGIN:-}" || { echo 'MT5_ACCOUNT_LOGIN=MISSING' >&2; exit 11; }
+          test -n "${MT5_ACCOUNT_PASSWORD:-}" || { echo 'MT5_ACCOUNT_PASSWORD=MISSING' >&2; exit 12; }
+          test -n "${MT5_ACCOUNT_SERVER:-}" || { echo 'MT5_ACCOUNT_SERVER=MISSING' >&2; exit 13; }
+          test -n "${MT5_BRIDGE_TOKEN:-}" || { echo 'MT5_BRIDGE_TOKEN=MISSING' >&2; exit 14; }
+          echo 'MT5_ACCOUNT_LOGIN=CONFIGURED'
+          echo 'MT5_ACCOUNT_PASSWORD=CONFIGURED'
+          echo 'MT5_ACCOUNT_SERVER=CONFIGURED'
+          echo 'MT5_BRIDGE_TOKEN=CONFIGURED'
+          echo "MT5_ALLOW_LIVE=$([[ "${MT5_ALLOW_LIVE:-false}" =~ ^(true|1|yes)$ ]] && echo REQUESTED || echo OFF_SAFE)"
 
       - name: Checkout exact main
         uses: actions/checkout@v4
@@ -82,6 +96,25 @@ jobs:
           echo "MT5_VPS_ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)"
           echo 'MT5_VPS_IDENTITY=AUTHORIZED'
 
+      - name: Verify Forex Hub bridge authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
+          BODY="$(mktemp)"
+          trap 'rm -f "$BODY"' EXIT
+          CODE="$(curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w '%{http_code}' \
+            -X POST "$HUB/forex/mt5/pulse" \
+            -H "Authorization: Bearer $MT5_BRIDGE_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data '{}')"
+          RESP="$(cat "$BODY")"
+          if [ "$CODE" != 400 ] || ! printf '%s' "$RESP" | grep -q 'TERMINAL_ID_REQUIRED'; then
+            echo "ERROR: Forex Hub bridge auth preflight failed http=$CODE" >&2
+            exit 15
+          fi
+          echo 'MT5_FOREX_BRIDGE_AUTH=PASS'
+
       - name: Install or repair MetaTrader 5
         shell: bash
         run: |
@@ -103,26 +136,23 @@ jobs:
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
           LIVE="${MT5_ALLOW_LIVE:-false}"
           if [[ "${LIVE,,}" =~ ^(true|1|yes)$ ]]; then
-            test -n "${MT5_ACCOUNT_LOGIN:-}" || { echo 'ERROR: LIVE blocked: broker login secret missing' >&2; exit 21; }
-            test -n "${MT5_ACCOUNT_PASSWORD:-}" || { echo 'ERROR: LIVE blocked: broker password secret missing' >&2; exit 22; }
-            test -n "${MT5_ACCOUNT_SERVER:-}" || { echo 'ERROR: LIVE blocked: broker server secret missing' >&2; exit 23; }
-            test -n "${MT5_BRIDGE_TOKEN:-}" || { echo 'ERROR: LIVE blocked: bridge token secret missing' >&2; exit 24; }
+            LIVE=true
           else
             LIVE=false
           fi
           umask 077
           {
-            printf 'MT5_ACCOUNT_LOGIN=%q\n' "${MT5_ACCOUNT_LOGIN:-}"
-            printf 'MT5_ACCOUNT_PASSWORD=%q\n' "${MT5_ACCOUNT_PASSWORD:-}"
-            printf 'MT5_ACCOUNT_SERVER=%q\n' "${MT5_ACCOUNT_SERVER:-}"
+            printf 'MT5_ACCOUNT_LOGIN=%q\n' "$MT5_ACCOUNT_LOGIN"
+            printf 'MT5_ACCOUNT_PASSWORD=%q\n' "$MT5_ACCOUNT_PASSWORD"
+            printf 'MT5_ACCOUNT_SERVER=%q\n' "$MT5_ACCOUNT_SERVER"
             printf 'MT5_HUB_URL=%q\n' "$HUB"
-            printf 'MT5_BRIDGE_TOKEN=%q\n' "${MT5_BRIDGE_TOKEN:-}"
+            printf 'MT5_BRIDGE_TOKEN=%q\n' "$MT5_BRIDGE_TOKEN"
             printf 'MT5_ALLOW_LIVE=%q\n' "$LIVE"
           } > "$tmp"
           sudo install -o root -g mt5forex -m 0640 "$tmp" /etc/trading/mt5-forex.env
           echo 'MT5_FOREX_PRIVATE_ENV=PASS'
-          echo "MT5_FOREX_CREDENTIALS=$([[ -n "${MT5_ACCOUNT_LOGIN:-}" && -n "${MT5_ACCOUNT_PASSWORD:-}" && -n "${MT5_ACCOUNT_SERVER:-}" ]] && echo CONFIGURED || echo INCOMPLETE)"
-          echo "MT5_FOREX_BRIDGE=$([[ -n "${MT5_BRIDGE_TOKEN:-}" ]] && echo CONFIGURED || echo INCOMPLETE)"
+          echo 'MT5_FOREX_CREDENTIALS=CONFIGURED'
+          echo 'MT5_FOREX_BRIDGE=CONFIGURED'
           echo "MT5_FOREX_LIVE_REQUESTED=$LIVE"
 
       - name: Install and start MT5 systemd service
@@ -133,6 +163,7 @@ jobs:
           sudo chmod +x /opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
           sudo install -m 0644 /opt/trading/trading-api-main/vps/mt5-forex/mt5-forex.service /etc/systemd/system/mt5-forex.service
           sudo systemctl daemon-reload
+          sudo systemctl reset-failed mt5-forex.service || true
           sudo systemctl enable mt5-forex.service
           sudo systemctl restart mt5-forex.service
           for i in $(seq 1 30); do
@@ -191,7 +222,7 @@ jobs:
           echo 'MT5_FOREX_EA=ForexAutoThe5ers'
           echo 'MT5_FOREX_RUNTIME_SCOPE=VPS_ONLY'
           echo 'MT5_FOREX_LOGIN_LOCATION=TRADING_VPS_ONLY'
-          echo "MT5_FOREX_CREDENTIALS=$([[ -n "${MT5_ACCOUNT_LOGIN:-}" && -n "${MT5_ACCOUNT_PASSWORD:-}" && -n "${MT5_ACCOUNT_SERVER:-}" ]] && echo CONFIGURED || echo NEEDS_SECRET)"
-          echo "MT5_FOREX_BRIDGE_TOKEN=$([[ -n "${MT5_BRIDGE_TOKEN:-}" ]] && echo CONFIGURED || echo NEEDS_SECRET)"
+          echo 'MT5_FOREX_CREDENTIALS=CONFIGURED'
+          echo 'MT5_FOREX_BRIDGE_TOKEN=CONFIGURED'
           echo "MT5_FOREX_LIVE=$([[ "${MT5_ALLOW_LIVE:-false}" =~ ^(true|1|yes)$ ]] && echo REQUESTED || echo OFF_SAFE)"
-          echo 'MT5_FOREX_NOTE=No MT5 hosted-runner fallback exists; runtime is host-locked to trading-vps.'
+          echo 'MT5_FOREX_NOTE=No hosted-runner fallback; runtime host-locked to trading-vps.'
