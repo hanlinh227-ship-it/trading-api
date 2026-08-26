@@ -1,5 +1,6 @@
-// BYBIT-AUTO-1.7.5: bounded trade postmortem intelligence + canonical learning recovery.
-export const BYBIT_AUTO_VERSION="BYBIT-AUTO-1.7.5";
+// BYBIT-AUTO-1.8.0: canonical runtime contract + bounded postmortem + balanced opportunity intelligence.
+import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
+export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
   leverage:10,
@@ -59,6 +60,11 @@ export const BYBIT_AUTO_CONFIG={
     postMortemEnabled:true,
     postMortemMinSamples:20,
     postMortemMaxThresholdPenalty:2,
+    strongEdgeMinSamples:30,
+    strongEdgeMinNetR:.18,
+    strongEdgeMinWinRate:.48,
+    maxOpportunityBonus:1,
+    trendAlignmentBonus:1,
     exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
     autoPromote:false
   },
@@ -112,6 +118,11 @@ export function bybitAutoConfig(env={}){
   c.adaptive.postMortemEnabled=true;
   c.adaptive.postMortemMinSamples=20;
   c.adaptive.postMortemMaxThresholdPenalty=2;
+  c.adaptive.strongEdgeMinSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_STRONG_EDGE_MIN_SAMPLES",c.adaptive.strongEdgeMinSamples))));
+  c.adaptive.strongEdgeMinNetR=Math.max(.05,Math.min(.60,n(env,"BYBIT_STRONG_EDGE_MIN_NET_R",c.adaptive.strongEdgeMinNetR)));
+  c.adaptive.strongEdgeMinWinRate=Math.max(.40,Math.min(.65,n(env,"BYBIT_STRONG_EDGE_MIN_WIN_RATE",c.adaptive.strongEdgeMinWinRate)));
+  c.adaptive.maxOpportunityBonus=1;
+  c.adaptive.trendAlignmentBonus=1;
   c.adaptive.autoPromote=false;
   c.execution.cooldownSec=Math.max(120,Math.min(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
   return c;
