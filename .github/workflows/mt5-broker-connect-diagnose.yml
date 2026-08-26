@@ -1,0 +1,66 @@
+name: MT5 Broker Connection Diagnose
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-broker-connect-diagnose.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-broker-connect-diagnose
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Diagnose MT5 broker login and terminal state
+        shell: bash
+        run: |
+          set +e
+          source /var/lib/trading/mt5-forex/runtime.env
+          echo '=== SERVICES ==='
+          systemctl is-active mt5-forex.service mt5-forex-bridge.service || true
+          echo '=== REAL MT5 PROCESS ==='
+          ps -u mt5forex -o pid=,comm=,etimes=,args= | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g' | grep -E 'terminal64|^ *[0-9]+ +main ' || true
+          echo '=== CONFIG NONSECRET ==='
+          awk -F= '/^(Login|Server|ProxyEnable|KeepPrivate|CertInstall|Enabled|AllowLiveTrading|Expert|Symbol|Period)=/{if($1=="Login") $2="[REDACTED_LOGIN]"; print $1"="$2}' "$MT5_INSTALL_DIR/mt5-forex-start.ini" 2>/dev/null || true
+          echo '=== LOCAL PULSE SUMMARY ==='
+          python3 - "$MT5_INSTALL_DIR/MQL5/Files/FOREX_BRIDGE/pulse.json" <<'PY'
+          import json, pathlib, sys
+          p=pathlib.Path(sys.argv[1])
+          if not p.is_file():
+              print('pulse=missing'); raise SystemExit
+          try: d=json.loads(p.read_text())
+          except Exception as e: print('pulse_json_error='+repr(e)); raise SystemExit
+          print('terminalId='+str(d.get('terminalId','')).replace(str(d.get('account','')),'[ACCOUNT]'))
+          print('connected='+str(d.get('connected')))
+          print('tradeAllowed='+str(d.get('tradeAllowed')))
+          print('balance_positive='+str(float(d.get('balance') or 0)>0))
+          print('equity_positive='+str(float(d.get('equity') or 0)>0))
+          print('server='+str(d.get('server','')))
+          PY
+          echo '=== BRIDGE HEALTH ==='
+          cat /var/lib/trading/mt5-forex/bridge-health.json 2>/dev/null | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g' || true
+          echo
+          echo '=== ALL RECENT MT5 LOG FILES ==='
+          find "$MT5_WINEPREFIX" -type f \( -iname '*.log' -o -iname '*.txt' \) -mmin -180 -printf '%T@ %s %p\n' 2>/dev/null | sort -nr | head -n 40 | cut -d' ' -f2-
+          echo '=== CONNECTION/AUTH LOG MATCHES ==='
+          find "$MT5_WINEPREFIX" -type f -iname '*.log' -mmin -180 -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            out=$(mktemp)
+            if iconv -f UTF-16LE -t UTF-8 "$f" >"$out" 2>/dev/null; then :; else cp "$f" "$out" 2>/dev/null; fi
+            m=$(grep -Eai 'connect|authoriz|login|account|server|network|socket|proxy|certificate|invalid|failed|error|no connection|trade' "$out" | tail -n 120)
+            if [ -n "$m" ]; then
+              echo "--- $f ---"
+              printf '%s\n' "$m" | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g; s/(password|passwd|token|authorization)[=: ]+[^ ]+/\1=[REDACTED]/Ig'
+            fi
+            rm -f "$out"
+          done
+          echo '=== NETWORK ==='
+          getent hosts www.mql5.com || true
+          curl -I -sS --connect-timeout 5 --max-time 10 https://www.mql5.com/ | head -n 3 || true
