@@ -98,9 +98,6 @@ WINESERVER_BIN="${MT5_WINESERVER_BIN:-$(dirname "$MT5_WINE_BIN")/wineserver}"
 CONFIG_WIN="$(HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINEPATH_BIN" -w "$CONFIG" 2>/dev/null || true)"
 [[ -n "$CONFIG_WIN" ]] || { echo "ERROR: winepath failed for MT5 config" >&2; exit 15; }
 
-# Wine exposes the MetaTrader PE process as comm="main" on this VPS and can
-# expose MetaEditor as comm="wine64". Clean by dedicated-user command line too,
-# not only Windows executable-shaped comm names.
 HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>&1 || true
 pkill -u "$(id -u)" -f 'C:\\MT5Forex\\metaeditor64\.exe' 2>/dev/null || true
 pkill -u "$(id -u)" -f 'C:\\MT5Forex\\terminal64\.exe' 2>/dev/null || true
@@ -109,7 +106,7 @@ for proc in main terminal64.exe metaeditor64.exe services.exe explorer.exe wined
 done
 for _ in $(seq 1 5); do
   stale=false
-  for proc in main services.exe explorer.exe winedevice.exe; do
+  for proc in main terminal64.exe services.exe explorer.exe winedevice.exe; do
     if pgrep -u "$(id -u)" -x "$proc" >/dev/null 2>&1; then stale=true; break; fi
   done
   [[ "$stale" == false ]] && break
@@ -132,11 +129,15 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   LOG="$APP_HOME/wine-terminal-launch.log"
   : > "$LOG"
 
-  # On Ubuntu Wine 9 the actual MT5 PE process appears as comm="main" with a
-  # terminal64.exe Windows path in argv. Matching comm="main" prevents the
-  # supervisor shell from self-matching while still tracking the real terminal.
+  # Wine versions expose Windows PE processes with different comm names.
+  # Track the real terminal by argv and explicitly exclude launcher/shell
+  # processes whose command text can also contain terminal64.exe.
   real_terminal_pids() {
-    ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | awk '\''$2=="main" && index($0,"terminal64.exe") {print $1}'\''
+    ps -u "$(id -u)" -o pid=,comm=,args= 2>/dev/null | awk '\''
+      index($0,"terminal64.exe") &&
+      $2!="bash" && $2!="sh" && $2!="xvfb-run" && $2!="start.exe" &&
+      $2!="wine" && $2!="wine64" {print $1}
+    '\''
   }
   real_terminal_alive() { [ -n "$(real_terminal_pids)" ]; }
   stop_prefix() {
@@ -154,12 +155,12 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" "$@" >>"$LOG" 2>&1 &
     wine_pid=$!
     appeared=false
-    for i in $(seq 1 15); do
+    for i in $(seq 1 20); do
       if real_terminal_alive; then appeared=true; break; fi
       if ! kill -0 "$wine_pid" >/dev/null 2>&1; then
         wait "$wine_pid"; rc=$?
         echo "MT5_FOREX_LAUNCH_MODE_EXIT=$mode:$rc"
-        for j in $(seq 1 3); do
+        for j in $(seq 1 5); do
           if real_terminal_alive; then appeared=true; break; fi
           sleep 1
         done
