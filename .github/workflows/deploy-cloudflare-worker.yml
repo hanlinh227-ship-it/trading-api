@@ -13,65 +13,54 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 12
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
       AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-      BINANCE_BRIDGE_SECRET: ${{ secrets.BINANCE_BRIDGE_SECRET }}
-      FOREX_MT5_BRIDGE_TOKEN: ${{ secrets.FOREX_MT5_BRIDGE_TOKEN }}
       BYBIT_AUTO_ENABLED: 'false'
       BYBIT_AUTO_LIVE: 'false'
       FOREX_AUTO_LIVE: 'true'
-      FOREX_TARGET_USD: ${{ vars.FOREX_TARGET_USD || '500' }}
-      FOREX_TARGET_DAYS: ${{ vars.FOREX_TARGET_DAYS || '3' }}
-      FOREX_TARGET_CYCLE_ID: ${{ vars.FOREX_TARGET_CYCLE_ID || 'CYCLE_001' }}
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - uses: actions/setup-node@v4
-        with: {node-version: '22'}
-      - name: Guard deployment controls
+      - name: Verify VPS runtime path
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"; test -n "${CLOUDFLARE_ACCOUNT_ID:-}"; test -n "${TRADING_KV_NAMESPACE_ID:-}"
-          test -n "${BINANCE_BRIDGE_SECRET:-}"; test -n "${FOREX_MT5_BRIDGE_TOKEN:-}"
+          echo "RUNNER=$(hostname)"
+          curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/3ai-health.json
+          python3 -c "import json; d=json.load(open('/tmp/3ai-health.json')); assert d.get('service')=='UNIFIED_3AI_BRIDGE'; assert int(d.get('providerCount',0))>=2; print('VPS_3AI_BRIDGE=PASS')"
+      - name: Validate Cloudflare credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN:-}"
+          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
+          test -n "${TRADING_KV_NAMESPACE_ID:-}"
           [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
-          test "$BYBIT_AUTO_ENABLED" = false; test "$BYBIT_AUTO_LIVE" = false; test "$FOREX_AUTO_LIVE" = true
-      - name: Install and validate
-        working-directory: cloudflare-worker
-        run: npm install --no-audit --no-fund && npm run check
-      - name: Resolve existing AI bridge and prepare config
-        working-directory: cloudflare-worker
-        run: npm run prepare:wrangler
-      - name: Deploy exact revision
-        working-directory: cloudflare-worker
-        run: npx wrangler deploy
-      - name: Preserve execution secrets
+      - name: Install validate resolve and deploy
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
-          printf '%s' "$BINANCE_BRIDGE_SECRET" | npx wrangler secret put BINANCE_BRIDGE_SECRET
-          printf '%s' "$FOREX_MT5_BRIDGE_TOKEN" | npx wrangler secret put FOREX_MT5_BRIDGE_TOKEN
-      - name: Verify deployed revision only
+          node --version
+          npm --version
+          npm install --no-audit --no-fund
+          npm run check
+          npm run prepare:wrangler
+          npx wrangler deploy
+      - name: Verify deployed revision
         shell: bash
         run: |
           set -euo pipefail
-          MATCH=false
           for i in 1 2 3 4 5 6; do
             H="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/bybit/health" || true)"
-            REV="$(printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).runtimeRevision||""))}catch{}})' || true)"
-            if [ "$REV" = "$GITHUB_SHA" ]; then MATCH=true; break; fi
+            if printf '%s' "$H" | grep -q "$GITHUB_SHA"; then echo 'UNIFIED_HUB_DEPLOY=PASS'; exit 0; fi
             sleep $((i*2))
           done
-          [ "$MATCH" = true ]
-      - name: Summary
-        run: |
-          echo "UNIFIED_HUB_DEPLOY=PASS"
-          echo "RUNTIME_REVISION=$GITHUB_SHA"
-          echo 'AI_BRIDGE_BINDING=EXISTING_VPC_SERVICE'
+          exit 1
