@@ -1,84 +1,30 @@
-name: Multi-AI Gateway Smoke
+name: Multi-AI Gateway Smoke (Legacy Disabled)
+
+# Legacy workflow intentionally disabled.
+# Canonical 3AI validation now lives in:
+#   .github/workflows/deploy-v11-ai-bridge.yml
+# and runs directly on the online self-hosted trading-vps runner.
+# Keeping this file as workflow_dispatch-only avoids automatic workflow_run
+# queue buildup while preserving an explicit diagnostic escape hatch.
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Deploy Bybit Auto Hub"]
-    types: [completed]
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: multi-ai-gateway-smoke
-  cancel-in-progress: false
+  group: legacy-multi-ai-gateway-smoke-manual
+  cancel-in-progress: true
 
 jobs:
-  core-provider-smoke:
-    # Always run after the deploy workflow completes. The smoke itself reports
-    # the real dependency failure instead of being silently SKIPPED.
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      MULTI_AI_GATEWAY_TIMEOUT_SECONDS: '10'
-      MULTI_AI_GATEWAY_MAX_AGE_MS: '300000'
+  legacy-notice:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-      - name: Record upstream deployment state
-        shell: bash
+      - name: Canonical path notice
         run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "UPSTREAM_DEPLOY_CONCLUSION=${{ github.event.workflow_run.conclusion }}"
-          else
-            echo "UPSTREAM_DEPLOY_CONCLUSION=manual"
-          fi
-      - name: Resolve gateway URLs and OIDC
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}" || { echo CLOUDFLARE_API_TOKEN_MISSING; exit 10; }
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}" || { echo CLOUDFLARE_ACCOUNT_ID_MISSING; exit 11; }
-          SUBDOMAIN="$(curl -fsS --retry 2 --retry-delay 2 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("result") or {}).get("subdomain") or "")')"
-          test -n "$SUBDOMAIN" || { echo CLOUDFLARE_WORKERS_SUBDOMAIN_MISSING; exit 12; }
-          BASE="https://trading-v77-scanner.${SUBDOMAIN}.workers.dev/internal/multi-ai"
-          echo "MULTI_AI_GATEWAY_HEALTH_URL=$BASE/health" >> "$GITHUB_ENV"
-          echo "MULTI_AI_GATEWAY_REVIEW_URL=$BASE/review" >> "$GITHUB_ENV"
-          OIDC="$(curl -fsS --retry 2 --retry-delay 2 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')"
-          echo "::add-mask::$OIDC"
-          echo "GATEWAY_OIDC=$OIDC" >> "$GITHUB_ENV"
-      - name: Exercise canonical 3AI quorum
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat >/tmp/smoke.json <<'JSON'
-          {"task_id":"post-deploy-3ai-smoke","instruction":"Connectivity validation only. Return a concise acknowledgement for this same evidence package. Do not modify configuration or execute trades.","context":{"scope":"READ_ONLY_CONNECTIVITY"},"requestedProviders":["claude","codex","deepseek"]}
-          JSON
-          CODE="$(curl -sS --retry 1 --retry-delay 2 --max-time 420 -o /tmp/review.json -w '%{http_code}' -X POST "$MULTI_AI_GATEWAY_REVIEW_URL" -H "Authorization: Bearer $GATEWAY_OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/smoke.json)"
-          test "$CODE" -eq 200 -o "$CODE" -eq 502 || { echo "CORE_AI_REVIEW_HTTP_$CODE"; cat /tmp/review.json || true; exit 13; }
-          python3 - <<'PY'
-          import json
-          d=json.load(open('/tmp/review.json'))
-          core=('claude','codex','deepseek'); p=d.get('providers') or {}
-          statuses={k:str((p.get(k) or {}).get('status','MISSING')).upper() for k in core}
-          healthy=[k for k,v in statuses.items() if v=='OK']
-          print('CORE_3AI_STATUS='+','.join(f'{k}:{statuses[k]}' for k in core))
-          print('CORE_3AI_QUORUM='+str(len(healthy))+'/3')
-          if len(healthy)<2:
-              raise SystemExit('3AI_QUORUM_FAILED: '+','.join(f'{k}:{v}' for k,v in statuses.items()))
-          print('CORE_3AI_QUORUM_PASS')
-          PY
-      - name: Require fresh gateway runtime evidence
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/ops/check_multi_ai_gateway.py
-      - name: Cleanup
-        if: always()
-        run: rm -f /tmp/smoke.json /tmp/review.json
+          echo 'LEGACY_MULTI_AI_GATEWAY_SMOKE=DISABLED'
+          echo 'CANONICAL_3AI_DEPLOY=.github/workflows/deploy-v11-ai-bridge.yml'
+          echo 'CANONICAL_RUNNER=trading-vps'
