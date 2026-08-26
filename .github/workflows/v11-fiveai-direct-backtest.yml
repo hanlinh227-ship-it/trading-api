@@ -17,7 +17,7 @@ jobs:
   direct-backtest:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[V11-RUN]')
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 360
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -74,7 +74,7 @@ jobs:
           open('/tmp/pre.json','w').write(json.dumps({'task_id':'v11-pre-'+os.environ['GITHUB_RUN_ID'],'instruction':instruction,'context':context}))
           PY
           rm -f /tmp/pre-result.json
-          for ATTEMPT in 1 2 3; do
+          for ATTEMPT in 1 2 3 4 5; do
             OIDC="$(curl -fsS --max-time 15 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=trading-multi-ai-gateway" | python3 -c 'import sys,json;print(json.load(sys.stdin)["value"])')"
             echo "::add-mask::$OIDC"
             CODE="$(curl -sS --connect-timeout 10 --max-time 150 -o /tmp/pre-attempt.json -w '%{http_code}' -X POST "$GATEWAY_URL" -H "Authorization: Bearer $OIDC" -H 'Content-Type: application/json' --data-binary @/tmp/pre.json || echo CURL_FAIL)"
@@ -124,7 +124,7 @@ jobs:
 
       - name: Five-AI evidence review
         if: always()
-        timeout-minutes: 20
+        timeout-minutes: 60
         run: |
           set -euo pipefail
           rm -rf /tmp/v11-post-batches
@@ -178,7 +178,11 @@ jobs:
           python - <<'PY'
           import json,os
           expected=['claude','codex','deepseek','qwen','openrouter']
-          manifest=json.load(open('/tmp/v11-post-batches/manifest.json'));batches=[];aggregate={p:{'status':'OK','batchStatuses':[]} for p in expected};all_complete=True
+          manifest=json.load(open('/tmp/v11-post-batches/manifest.json'))
+          evidence_complete=(manifest.get('catalogCount')==94 and manifest.get('resultCount')==94 and int(manifest.get('batchCount') or 0)>0)
+          batches=[]
+          aggregate={p:{'status':('OK' if evidence_complete else 'MISSING_EVIDENCE'),'batchStatuses':[]} for p in expected}
+          all_complete=evidence_complete
           for n in range(1,int(manifest['batchCount'])+1):
             try:d=json.load(open(f'/tmp/v11-post-batches/result-{n}.json'))
             except Exception:d={'ok':False,'error':'NO_VALID_RESPONSE','providers':{}}
