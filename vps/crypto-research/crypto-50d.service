@@ -1,15 +1,17 @@
 [Unit]
-Description=Crypto 50-Day Continuous PAPER_ONLY Research
+Description=Crypto 50-Day Continuous 3AI PAPER_ONLY Research
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/trading/trading-api-main
+WorkingDirectory=/opt/trading/trading-api-main/scripts
 EnvironmentFile=/etc/trading/crypto-50d.env
-ExecStartPre=/usr/bin/python3 -m py_compile /opt/trading/trading-api-main/scripts/continuous_crypto_50d.py
-ExecStart=/usr/bin/python3 /opt/trading/trading-api-main/scripts/continuous_crypto_50d.py
+# Existing VPS AI credentials remain outside GitHub. Optional second env file can expose them to this service.
+EnvironmentFile=-/etc/trading/ai-providers.env
+ExecStartPre=/usr/bin/python3 -m py_compile /opt/trading/trading-api-main/scripts/continuous_crypto_50d.py /opt/trading/trading-api-main/scripts/crypto_3ai_learner.py /opt/trading/trading-api-main/scripts/continuous_crypto_50d_v2.py
+ExecStart=/usr/bin/python3 /opt/trading/trading-api-main/scripts/continuous_crypto_50d_v2.py
 Restart=always
 RestartSec=10
 KillMode=control-group

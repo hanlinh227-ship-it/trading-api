@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/continuous_crypto_50d.py'
+      - 'scripts/continuous_crypto_50d_v2.py'
+      - 'scripts/crypto_3ai_learner.py'
       - 'vps/crypto-research/**'
       - '.github/workflows/deploy-crypto-50d-research.yml'
 permissions:
@@ -19,8 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Validate runner
-        run: python3 -m py_compile scripts/continuous_crypto_50d.py
+      - name: Validate runners
+        run: python3 -m py_compile scripts/continuous_crypto_50d.py scripts/crypto_3ai_learner.py scripts/continuous_crypto_50d_v2.py
       - name: Sync canonical main
         shell: bash
         run: |
@@ -50,6 +52,7 @@ jobs:
           CRYPTO_MIN_TRADES=20
           CRYPTO_WINDOW_DAYS=50
           CRYPTO_ROUND_PAUSE_SECONDS=2
+          CRYPTO_AI_TIMEOUT_SECONDS=60
           EOF
           sudo install -m 600 "$tmp" /etc/trading/crypto-50d.env
           rm -f "$tmp"
@@ -57,25 +60,25 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl enable crypto-50d.service
           sudo systemctl restart crypto-50d.service
-      - name: Verify active research
+      - name: Verify V2 active research
         shell: bash
         run: |
           set -euo pipefail
           for i in $(seq 1 120); do
-            sudo systemctl is-active --quiet crypto-50d.service || { sudo journalctl -u crypto-50d.service -n 80 --no-pager; exit 1; }
+            sudo systemctl is-active --quiet crypto-50d.service || { sudo journalctl -u crypto-50d.service -n 100 --no-pager; exit 1; }
             if [ -s /var/lib/trading/crypto-50d/state.json ]; then
-              sudo cat /var/lib/trading/crypto-50d/state.json
               python3 - <<'PY'
           import json
-          p='/var/lib/trading/crypto-50d/state.json'
-          d=json.load(open(p))
-          assert d.get('version')=='CRYPTO-50D-V1'
+          p='/var/lib/trading/crypto-50d/state.json'; d=json.load(open(p))
+          assert d.get('version')=='CRYPTO-50D-V2', d.get('version')
           assert int(d.get('round') or 0)>=1
-          print('CRYPTO_50D_RESEARCH=ACTIVE round='+str(d['round'])+' status='+str(d.get('status')))
+          assert d.get('aiLearning',{}).get('rule')=='DEV_ONLY'
+          print('CRYPTO_50D_V2=ACTIVE round='+str(d['round'])+' status='+str(d.get('status')))
           PY
+              sudo tail -n 3 /var/lib/trading/crypto-50d/ai-learning/council.jsonl 2>/dev/null || true
               exit 0
             fi
             sleep 2
           done
-          sudo journalctl -u crypto-50d.service -n 100 --no-pager
+          sudo journalctl -u crypto-50d.service -n 120 --no-pager
           exit 1
