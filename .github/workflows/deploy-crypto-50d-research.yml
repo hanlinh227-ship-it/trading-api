@@ -1,15 +1,6 @@
 name: Deploy Crypto 50D Research
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/continuous_crypto_50d.py'
-      - 'scripts/continuous_crypto_50d_v2.py'
-      - 'scripts/crypto_3ai_learner.py'
-      - 'scripts/crypto_50d_status.py'
-      - 'vps/crypto-research/**'
-      - '.github/workflows/deploy-crypto-50d-research.yml'
 permissions:
   contents: read
 concurrency:
@@ -18,75 +9,70 @@ concurrency:
 jobs:
   deploy:
     runs-on: [self-hosted, trading-vps]
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Validate runners
-        run: python3 -m py_compile scripts/continuous_crypto_50d.py scripts/crypto_3ai_learner.py scripts/continuous_crypto_50d_v2.py scripts/crypto_50d_status.py
+      - name: Validate V3
+        run: python3 -m py_compile scripts/continuous_crypto_50d.py scripts/crypto_3ai_learner.py scripts/continuous_crypto_50d_v3.py
       - name: Sync canonical main
         shell: bash
         run: |
           set -euo pipefail
           repo=/opt/trading/trading-api-main
-          sudo mkdir -p /opt/trading
-          if sudo git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-            if [ -n "$(sudo git -C "$repo" status --porcelain --untracked-files=all)" ]; then sudo git -C "$repo" stash push --include-untracked -m "pre-crypto-50d-$(date +%s)"; fi
-          else
-            [ ! -e "$repo" ] || sudo mv "$repo" "${repo}.pre-crypto-50d.$(date +%s)"
-            sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git "$repo"
-          fi
           sudo git -C "$repo" fetch --prune origin main
           sudo git -C "$repo" reset --hard origin/main
           sudo git -C "$repo" checkout -B main origin/main
-      - name: Install services
+      - name: Stop prior epoch and install V3
         shell: bash
         run: |
           set -euo pipefail
           repo=/opt/trading/trading-api-main
-          sudo install -d -m 700 /etc/trading /var/lib/trading/crypto-50d
+          sudo systemctl stop crypto-50d.service || true
+          sudo systemctl disable --now crypto-50d-status.timer || true
+          sudo install -d -m 700 /etc/trading /var/lib/trading/crypto-50d-v3
           tmp=$(mktemp)
           cat > "$tmp" <<'EOF'
           CRYPTO_RESEARCH_STATE_DIR=/var/lib/trading/crypto-50d
+          CRYPTO_V3_STATE_DIR=/var/lib/trading/crypto-50d-v3
           BINANCE_FUTURES_BASE_URL=https://fapi.binance.com
           CRYPTO_TARGET_WR=80
-          CRYPTO_MIN_TRADES=20
           CRYPTO_WINDOW_DAYS=50
+          CRYPTO_V3_MIN_TRADES_WINDOW=50
+          CRYPTO_V3_VALIDATION_WINDOWS=3
+          CRYPTO_V3_WORST_WR=70
+          CRYPTO_FEE_BPS_RT=10
+          CRYPTO_SLIPPAGE_BPS_RT=4
           CRYPTO_ROUND_PAUSE_SECONDS=2
           CRYPTO_AI_TIMEOUT_SECONDS=60
-          CRYPTO_PUBLIC_STATUS_PATH=/var/lib/trading/crypto-50d/public-status.json
           EOF
           sudo install -m 600 "$tmp" /etc/trading/crypto-50d.env
           rm -f "$tmp"
           sudo install -m 644 "$repo/vps/crypto-research/crypto-50d.service" /etc/systemd/system/crypto-50d.service
-          sudo install -m 644 "$repo/vps/crypto-research/crypto-50d-status.service" /etc/systemd/system/crypto-50d-status.service
-          sudo install -m 644 "$repo/vps/crypto-research/crypto-50d-status.timer" /etc/systemd/system/crypto-50d-status.timer
           sudo systemctl daemon-reload
-          sudo systemctl enable crypto-50d.service crypto-50d-status.timer
+          sudo systemctl enable crypto-50d.service
           sudo systemctl restart crypto-50d.service
-          sudo systemctl restart crypto-50d-status.timer
-      - name: Verify V2 and telemetry
+      - name: Verify fresh V3 epoch
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 120); do
-            sudo systemctl is-active --quiet crypto-50d.service || { sudo journalctl -u crypto-50d.service -n 100 --no-pager; exit 1; }
-            if [ -s /var/lib/trading/crypto-50d/state.json ]; then
+          for i in $(seq 1 180); do
+            sudo systemctl is-active --quiet crypto-50d.service || { sudo journalctl -u crypto-50d.service -n 120 --no-pager; exit 1; }
+            if [ -s /var/lib/trading/crypto-50d-v3/state.json ]; then
               python3 - <<'PY'
           import json
-          p='/var/lib/trading/crypto-50d/state.json'; d=json.load(open(p))
-          assert d.get('version')=='CRYPTO-50D-V2', d.get('version')
+          p='/var/lib/trading/crypto-50d-v3/state.json'; d=json.load(open(p))
+          assert d.get('version')=='CRYPTO-50D-V3', d.get('version')
           assert int(d.get('round') or 0)>=1
+          assert int(d.get('minTradesPer50d') or 0)>=50
+          assert int(d.get('validationWindows') or 0)>=3
           assert d.get('aiLearning',{}).get('rule')=='DEV_ONLY'
-          print('CRYPTO_50D_V2=ACTIVE round='+str(d['round'])+' status='+str(d.get('status')))
+          print('CRYPTO_50D_V3=ACTIVE round='+str(d['round'])+' symbol='+str(d.get('currentSymbol')))
           PY
-              sudo systemctl start crypto-50d-status.service
-              sudo test -s /var/lib/trading/crypto-50d/public-status.json
-              sudo systemctl is-active --quiet crypto-50d-status.timer
-              sudo cat /var/lib/trading/crypto-50d/public-status.json
+              sudo cat /var/lib/trading/crypto-50d-v3/universe.json
               exit 0
             fi
             sleep 2
           done
-          sudo journalctl -u crypto-50d.service -n 120 --no-pager
+          sudo journalctl -u crypto-50d.service -n 150 --no-pager
           exit 1
