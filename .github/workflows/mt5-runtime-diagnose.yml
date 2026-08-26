@@ -18,21 +18,38 @@ jobs:
       - name: Inspect MT5 EA startup and bridge
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           source /var/lib/trading/mt5-forex/runtime.env
           echo '=== SERVICES ==='
           sudo systemctl status mt5-forex.service mt5-forex-bridge.service --no-pager -l || true
-          echo '=== PROCESSES ==='
-          ps -u mt5forex -o pid=,comm=,args= | tail -n 120 || true
           echo '=== BRIDGE DIR ==='
-          sudo -u mt5forex find "$MT5_INSTALL_DIR/MQL5/Files/FOREX_BRIDGE" -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %f\n' 2>/dev/null | sort || true
+          find "$MT5_INSTALL_DIR/MQL5/Files/FOREX_BRIDGE" -maxdepth 1 -type f -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %f\n' 2>/dev/null | sort || true
+          echo '=== BRIDGE HEALTH ==='
+          cat /var/lib/trading/mt5-forex/bridge-health.json 2>/dev/null || true
+          echo
           echo '=== STARTUP CONFIG ==='
-          sed -E 's/^(Password=).*/\1[REDACTED]/' "$MT5_INSTALL_DIR/mt5-forex-start.ini" || true
-          echo '=== PRESET KEYS ==='
-          sed -E 's/^(InpBridgeToken=).*/\1[REDACTED]/' "$MT5_INSTALL_DIR/MQL5/Presets/ForexAutoThe5ers.set" || true
+          sed -E 's/^(Password=).*/\1[REDACTED]/' "$MT5_INSTALL_DIR/mt5-forex-start.ini" 2>/dev/null || true
           echo '=== TERMINAL LOGS ==='
-          find "$MT5_INSTALL_DIR/Logs" -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 4 | cut -d' ' -f2- | while IFS= read -r f; do echo "--- $f ---"; iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tail -n 220 || tail -n 220 "$f" || true; done
+          for f in $(find "$MT5_INSTALL_DIR/Logs" -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 4 | cut -d' ' -f2-); do echo "--- $f ---"; iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tail -n 220 || tail -n 220 "$f" || true; done
           echo '=== MQL5 LOGS ==='
-          find "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 4 | cut -d' ' -f2- | while IFS= read -r f; do echo "--- $f ---"; iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tail -n 260 || tail -n 260 "$f" || true; done
-          echo '=== EXPERT FILES ==='
-          ls -l "$MT5_INSTALL_DIR/MQL5/Experts/ForexAutoThe5ers."* || true
+          for f in $(find "$MT5_INSTALL_DIR/MQL5/Logs" -maxdepth 1 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 4 | cut -d' ' -f2-); do echo "--- $f ---"; iconv -f UTF-16LE -t UTF-8 "$f" 2>/dev/null | tail -n 260 || tail -n 260 "$f" || true; done
+          echo '=== DIRECT SIDECAR PROBE ==='
+          sudo -u mt5forex bash -c 'set -a; source /var/lib/trading/mt5-forex/runtime.env; source /etc/trading/mt5-forex.env; set +a; python3 - <<"PY"
+import json, os, pathlib, urllib.request, urllib.error
+install=pathlib.Path(os.environ["MT5_INSTALL_DIR"])
+p=install/"MQL5"/"Files"/"FOREX_BRIDGE"/"pulse.json"
+print("pulse_exists",p.exists(),"size",p.stat().st_size if p.exists() else None)
+raw=p.read_bytes()
+obj=json.loads(raw.decode("utf-8"))
+print("terminalId",obj.get("terminalId"),"connected",obj.get("mt5",{}).get("connected"),"balance",obj.get("account",{}).get("balance"))
+req=urllib.request.Request((os.environ.get("MT5_HUB_URL") or "https://trading-v77-scanner.hanlinh227.workers.dev").rstrip("/")+"/forex/mt5/pulse",data=raw,method="POST",headers={"Authorization":"Bearer "+os.environ["MT5_BRIDGE_TOKEN"],"Content-Type":"application/json","User-Agent":"mt5-diagnostic/1.0"})
+try:
+  with urllib.request.urlopen(req,timeout=20) as r:
+    body=r.read().decode("utf-8","replace")
+    print("http",r.status,"body",body[:1000])
+except urllib.error.HTTPError as e:
+  print("http_error",e.code,e.read().decode("utf-8","replace")[:1000])
+except Exception as e:
+  print("probe_error",type(e).__name__,str(e))
+PY'
+          echo '=== DONE ==='
