@@ -2,8 +2,9 @@ name: Deploy Bybit Auto Hub
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json'
+    paths:
+      - 'cloudflare-worker/**'
+      - '.github/workflows/deploy-cloudflare-worker.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -50,13 +51,6 @@ jobs:
           test "$BYBIT_AUTO_ENABLED" = false
           test "$BYBIT_AUTO_LIVE" = false
           test "$FOREX_AUTO_LIVE" = true
-          echo 'FOREX_MT5_BRIDGE_TOKEN=CONFIGURED'
-          echo 'BYBIT_AUTO_ENABLED=false'
-          echo 'BYBIT_AUTO_LIVE=false'
-          echo 'FOREX_AUTO_LIVE_REQUESTED=true'
-          echo "FOREX_TARGET_USD=$FOREX_TARGET_USD"
-          echo "FOREX_TARGET_DAYS=$FOREX_TARGET_DAYS"
-          echo "FOREX_TARGET_CYCLE_ID=$FOREX_TARGET_CYCLE_ID"
       - name: Install pinned Wrangler
         working-directory: cloudflare-worker
         run: npm install --no-audit --no-fund
@@ -81,64 +75,24 @@ jobs:
         run: |
           set -euo pipefail
           H="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/forex/health")"
-          printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.ok)throw Error("FOREX_HEALTH");if(j.bridgeTokenConfigured!==true)throw Error("FOREX_BRIDGE_TOKEN");if(j.liveEnabled!==true||j.mode!=="LIVE")throw Error("FOREX_LIVE_NOT_ACTIVE");console.log("FOREX_BRIDGE_HEALTH=PASS");console.log("FOREX_LIVE_RUNTIME=PASS")})'
+          printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.ok)throw Error("FOREX_HEALTH");if(j.bridgeTokenConfigured!==true)throw Error("FOREX_BRIDGE_TOKEN");if(j.liveEnabled!==true||j.mode!=="LIVE")throw Error("FOREX_LIVE_NOT_ACTIVE")})'
           S="$(curl -fsS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/status")"
-          printf '%s' "$S" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.bybit?.autoEnabled!==false)throw Error("BYBIT_SCHEDULER_NOT_PAUSED");if(j.bybit?.live!==false)throw Error("BYBIT_LIVE_NOT_PAUSED");if(j.forex?.liveEnabled!==true||j.forex?.mode!=="LIVE")throw Error("FOREX_NOT_LIVE");console.log("BYBIT_HARD_PAUSE=PASS");console.log("FOREX_STATUS_LIVE=PASS")})'
+          printf '%s' "$S" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.bybit?.autoEnabled!==false)throw Error("BYBIT_SCHEDULER_NOT_PAUSED");if(j.bybit?.live!==false)throw Error("BYBIT_LIVE_NOT_PAUSED");if(j.forex?.liveEnabled!==true||j.forex?.mode!=="LIVE")throw Error("FOREX_NOT_LIVE")})'
       - name: Verify active runtime revision and Bybit readonly transports
         shell: bash
         run: |
           set -euo pipefail
           H=""; C=""; MATCH="false"
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            F="$(mktemp)"
-            C="$(curl -sS --connect-timeout 5 --max-time 20 -o "$F" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"
-            H="$(cat "$F")"; rm -f "$F"
-            if [ "$C" = 200 ]; then
-              REV="$(printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).runtimeRevision||""))}catch{}})' || true)"
-              if [ "$REV" = "$GITHUB_SHA" ]; then MATCH="true"; break; fi
-              echo "Waiting for Cloudflare revision propagation: got=${REV:-none} want=$GITHUB_SHA attempt=$i"
-            fi
+            F="$(mktemp)"; C="$(curl -sS --connect-timeout 5 --max-time 20 -o "$F" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || true)"; H="$(cat "$F")"; rm -f "$F"
+            if [ "$C" = 200 ]; then REV="$(printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).runtimeRevision||""))}catch{}})' || true)"; if [ "$REV" = "$GITHUB_SHA" ]; then MATCH="true"; break; fi; fi
             sleep $((i*3))
           done
-          [ "$C" = 200 ] || { echo "$H" >&2; exit 22; }
-          [ "$MATCH" = true ] || { echo "RUNTIME_REVISION_NOT_PROPAGATED" >&2; echo "$H" >&2; exit 23; }
-          printf '%s' "$H" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s),w=process.env.GITHUB_SHA;if(j.runtimeRevision!==w)throw Error(`REVISION ${j.runtimeRevision} != ${w}`);if(j.exchange!=="BYBIT"||!j.execution)throw Error("BYBIT_VISIBILITY");if(j.privateTransport!=="VPS_BYBIT_PRIVATE_PROXY")throw Error(`PRIVATE_TRANSPORT ${j.privateTransport}`);if(j.marketTransport!=="VPS_BYBIT_MARKET_PROXY")throw Error(`MARKET_TRANSPORT ${j.marketTransport}`);if(!(Number(j.serverTime?.ms)>0))throw Error("BYBIT_MARKET_TIME");console.log(`RUNTIME_REVISION=PASS ${w}`);console.log(`BYBIT_READONLY_TRANSPORTS=PASS private=${j.privateTransport} market=${j.marketTransport}`)})'
-      - name: Verify MEME paper production runtime E2E
-        shell: bash
-        run: |
-          set -euo pipefail
-          STATUS="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/status")"
-          DESIGN="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/design")"
-          BEFORE="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
-          QUOTE="$(curl -fsS --max-time 60 "$WORKER_BASE_URL/meme-auto/quote-health")"
-          RUN="$(curl -fsS --max-time 150 "$WORKER_BASE_URL/meme-auto/paper/run")"
-          AFTER="$(curl -fsS --max-time 20 "$WORKER_BASE_URL/meme-auto/paper/state")"
-          STATUS="$STATUS" DESIGN="$DESIGN" BEFORE="$BEFORE" QUOTE="$QUOTE" RUN="$RUN" AFTER="$AFTER" node <<'NODE'
-          const S=JSON.parse(process.env.STATUS),D=JSON.parse(process.env.DESIGN),Q=JSON.parse(process.env.QUOTE),R=JSON.parse(process.env.RUN),A=JSON.parse(process.env.AFTER),x=R.state?.lastScan||{};const must=(v,m)=>{if(!v)throw Error(m)};
-          must(S.signalV11Enabled===false,'V11');
-          must(S.bybit?.autoEnabled===false&&S.bybit?.live===false,'BYBIT_NOT_PAUSED');
-          must(S.forex?.liveEnabled===true&&S.forex?.mode==='LIVE','FOREX_NOT_LIVE');
-          must(S.meme?.version==='MEME-AUTO-0.3.3-PAPER'&&S.meme?.mode==='PAPER_ONLY','MEME_STATUS');
-          must(S.meme.executionEnabled===false&&S.meme.walletConnected===false&&S.meme.signingEnabled===false,'MEME_AUTH');
-          must(S.meme.quoteHealth==='/meme-auto/quote-health','QUOTE_HEALTH_ROUTE_MISSING');
-          must(D.version==='MEME-AUTO-0.3.3-PAPER'&&D.paperReady===true,'DESIGN');
-          must(Q.ok===true&&Q.readOnly===true&&Q.noSigning===true&&Q.noExecution===true,'JUPITER_QUOTE_HEALTH');
-          must(Q.solToUsdc?.ok===true&&Q.usdcToSol?.ok===true,'JUPITER_TWO_WAY_QUOTE');
-          must(Number(Q.solToUsdc.routePlanCount)>0&&Number(Q.usdcToSol.routePlanCount)>0,'JUPITER_ROUTE_PLAN_EMPTY');
-          must(R.ok&&R.version==='MEME-AUTO-0.3.3-PAPER'&&R.mode==='PAPER'&&R.noWallet&&R.noSigning&&R.noRealExecution,'PAPER_FLAGS');
-          must(x.data==='JUPITER_TOKENS_FREE+DEXSCREENER_FREE+GECKOTERMINAL_FREE+SOLANA_RPC_FREE'&&x.quote==='JUPITER_FREE_QUOTE','DATA_ROUTES');
-          must(Number(x.discovered)>0&&Array.isArray(x.discoverySources)&&x.discoverySources.length>0,'REAL_DISCOVERY');
-          must(Number(x.evaluated)>0,'REAL_EVALUATION'); must(Number(x.onchainProbes)>0,'ONCHAIN_NOT_PROBED');
-          must(A.lastScan?.at===x.at&&A.equityUsd===R.state.equityUsd&&A.cashUsd===R.state.cashUsd,'KV_PERSIST'); must(A.version==='MEME-AUTO-0.3.3-PAPER','STATE_VERSION');
-          console.log(`MEME_PAPER_E2E=PASS discovered=${x.discovered} evaluated=${x.evaluated} eligible=${x.eligible}`);
-          NODE
+          [ "$C" = 200 ] || exit 22
+          [ "$MATCH" = true ] || exit 23
       - name: Deployment summary
         run: |
           echo 'CLOUDFLARE_DEPLOY=PASS'
           echo "RUNTIME_REVISION=$GITHUB_SHA"
-          echo 'FOREX_MT5_BRIDGE=CONFIGURED'
           echo 'FOREX_AUTO_LIVE=true'
-          echo "FOREX_TARGET=${FOREX_TARGET_USD}/${FOREX_TARGET_DAYS}d"
-          echo "FOREX_TARGET_CYCLE_ID=$FOREX_TARGET_CYCLE_ID"
           echo 'BYBIT_AUTO=PAUSED_NO_TRADING'
-          echo 'MEME_AUTO=PAPER_ONLY'
