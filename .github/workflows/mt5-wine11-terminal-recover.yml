@@ -37,15 +37,33 @@ jobs:
           sudo systemctl stop mt5-forex-bridge.service 2>/dev/null || true
           sudo systemctl stop mt5-forex.service 2>/dev/null || true
           prefix=/var/lib/trading/mt5-forex/wine
-          test -f "$prefix/system.reg"
-          test "$(cat "$prefix/.trading-wine-stack")" = WINEHQ_STABLE_11
-          test "$(/usr/bin/wine --version | sed -nE 's/.*wine-([0-9]+).*/\1/p')" -ge 11
-          if ! find "$prefix/drive_c" -type f -iname terminal64.exe -print -quit | grep -q .; then
-            backup=$(find /var/lib/trading/mt5-forex -maxdepth 1 -type d -name 'wine.pre-wine11-*' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)
-            test -n "$backup"
-            src=$(find "$backup/drive_c" -type f -iname terminal64.exe -printf '%h\n' | head -1)
-            test -n "$src"
-            echo "MT5_WINE11_FILE_SOURCE=BACKUP"
+          echo '=== WINE11 RECOVERY INVENTORY ==='
+          sudo find /var/lib/trading/mt5-forex -maxdepth 2 -type d -name 'wine*' -print 2>/dev/null || true
+          wine_version=$(/usr/bin/wine --version)
+          wine_major=$(printf '%s' "$wine_version" | sed -nE 's/.*wine-([0-9]+).*/\1/p' | head -1)
+          echo "MT5_RECOVERY_WINE=$wine_version"
+          [[ -n "$wine_major" && "$wine_major" -ge 11 ]]
+
+          if [[ ! -f "$prefix/system.reg" ]]; then
+            echo 'MT5_WINE11_PREFIX=REBUILDING'
+            sudo rm -rf "$prefix"
+            sudo install -d -o mt5forex -g mt5forex -m 0750 "$prefix"
+            sudo -u mt5forex env HOME=/var/lib/trading/mt5-forex WINEPREFIX="$prefix" WINEDEBUG=-all \
+              timeout 240 xvfb-run -a -s '-screen 0 1280x1024x24' /usr/bin/wineboot -i >/tmp/wine11-recovery-wineboot.log 2>&1 || true
+            sudo -u mt5forex env HOME=/var/lib/trading/mt5-forex WINEPREFIX="$prefix" /usr/bin/wineserver -k >/dev/null 2>&1 || true
+            test -f "$prefix/system.reg"
+          fi
+          printf '%s\n' WINEHQ_STABLE_11 | sudo tee "$prefix/.trading-wine-stack" >/dev/null
+          sudo chown mt5forex:mt5forex "$prefix/.trading-wine-stack"
+          sudo chmod 0600 "$prefix/.trading-wine-stack"
+
+          if ! find "$prefix/drive_c" -type f -iname terminal64.exe -print -quit 2>/dev/null | grep -q .; then
+            src=$(sudo find /var/lib/trading/mt5-forex -type f -path '*/wine.pre-wine11-*/drive_c/*' -iname terminal64.exe -printf '%h\n' -quit 2>/dev/null || true)
+            if [[ -z "$src" ]]; then
+              src=$(sudo find /var/lib/trading/mt5-forex -type f -path '*/wine.pre-*/*' -iname terminal64.exe -printf '%h\n' -quit 2>/dev/null || true)
+            fi
+            [[ -n "$src" ]] || { echo 'ERROR: no recoverable MT5 terminal directory found' >&2; sudo find /var/lib/trading/mt5-forex -type f -iname terminal64.exe -print 2>/dev/null || true; exit 61; }
+            echo "MT5_WINE11_FILE_SOURCE=${src%/terminal64.exe}"
             sudo rm -rf "$prefix/drive_c/MT5Forex"
             sudo cp -a "$src" "$prefix/drive_c/MT5Forex"
             sudo chown -R mt5forex:mt5forex "$prefix/drive_c/MT5Forex"
@@ -85,7 +103,7 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl reset-failed mt5-forex.service mt5-forex-bridge.service || true
           sudo systemctl restart mt5-forex.service
-          sleep 12
+          sleep 15
           sudo systemctl restart mt5-forex-bridge.service
           sudo systemctl is-active --quiet mt5-forex.service
           sudo systemctl is-active --quiet mt5-forex-bridge.service
