@@ -1,0 +1,80 @@
+name: Deploy Crypto 50D Research
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/continuous_crypto_50d.py'
+      - 'vps/crypto-research/**'
+      - '.github/workflows/deploy-crypto-50d-research.yml'
+permissions:
+  contents: read
+concurrency:
+  group: crypto-50d-research-vps
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Validate runner
+        run: python3 -m py_compile scripts/continuous_crypto_50d.py
+      - name: Sync canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          sudo mkdir -p /opt/trading
+          if sudo git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            if [ -n "$(sudo git -C "$repo" status --porcelain --untracked-files=all)" ]; then sudo git -C "$repo" stash push --include-untracked -m "pre-crypto-50d-$(date +%s)"; fi
+          else
+            [ ! -e "$repo" ] || sudo mv "$repo" "${repo}.pre-crypto-50d.$(date +%s)"
+            sudo git clone https://github.com/hanlinh227-ship-it/trading-api.git "$repo"
+          fi
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" reset --hard origin/main
+          sudo git -C "$repo" checkout -B main origin/main
+      - name: Install environment and service
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 700 /etc/trading /var/lib/trading/crypto-50d
+          tmp=$(mktemp)
+          cat > "$tmp" <<'EOF'
+          CRYPTO_RESEARCH_STATE_DIR=/var/lib/trading/crypto-50d
+          BINANCE_FUTURES_BASE_URL=https://fapi.binance.com
+          CRYPTO_TARGET_WR=80
+          CRYPTO_MIN_TRADES=20
+          CRYPTO_WINDOW_DAYS=50
+          CRYPTO_ROUND_PAUSE_SECONDS=2
+          EOF
+          sudo install -m 600 "$tmp" /etc/trading/crypto-50d.env
+          rm -f "$tmp"
+          sudo install -m 644 "$repo/vps/crypto-research/crypto-50d.service" /etc/systemd/system/crypto-50d.service
+          sudo systemctl daemon-reload
+          sudo systemctl enable crypto-50d.service
+          sudo systemctl restart crypto-50d.service
+      - name: Verify active research
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 120); do
+            sudo systemctl is-active --quiet crypto-50d.service || { sudo journalctl -u crypto-50d.service -n 80 --no-pager; exit 1; }
+            if [ -s /var/lib/trading/crypto-50d/state.json ]; then
+              sudo cat /var/lib/trading/crypto-50d/state.json
+              python3 - <<'PY'
+          import json
+          p='/var/lib/trading/crypto-50d/state.json'
+          d=json.load(open(p))
+          assert d.get('version')=='CRYPTO-50D-V1'
+          assert int(d.get('round') or 0)>=1
+          print('CRYPTO_50D_RESEARCH=ACTIVE round='+str(d['round'])+' status='+str(d.get('status')))
+          PY
+              exit 0
+            fi
+            sleep 2
+          done
+          sudo journalctl -u crypto-50d.service -n 100 --no-pager
+          exit 1
