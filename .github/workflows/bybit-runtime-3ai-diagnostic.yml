@@ -11,27 +11,48 @@ jobs:
     runs-on: [self-hosted, trading-vps]
     timeout-minutes: 5
     steps:
-      - name: Runtime and 3AI health
+      - name: Runtime, 3AI and Bybit private health
         shell: bash
         run: |
           set -euo pipefail
           echo '=== 3AI BRIDGE SERVICE ==='
           systemctl is-active --quiet v11-manual-ai-bridge.service
-          echo 'active'
-          echo '=== LOAD CANONICAL 3AI ENV ==='
+          echo '3AI_SERVICE=active'
           test -f /etc/trading-v11-ai.env || { echo 'canonical /etc/trading-v11-ai.env missing'; exit 1; }
-          set -a
-          source /etc/trading-v11-ai.env
-          set +a
-          test -n "${V11_AI_BRIDGE_SECRET:-}" || { echo 'V11_AI_BRIDGE_SECRET missing in canonical env'; exit 1; }
-          test -n "${DEEPSEEK_API_KEY:-}" || { echo 'DEEPSEEK_API_KEY missing in canonical env'; exit 1; }
+          set -a; source /etc/trading-v11-ai.env; set +a
+          test -n "${V11_AI_BRIDGE_SECRET:-}" || { echo 'V11_AI_BRIDGE_SECRET missing'; exit 1; }
+          test -n "${DEEPSEEK_API_KEY:-}" || { echo 'DEEPSEEK_API_KEY missing'; exit 1; }
           command -v claude >/dev/null || { echo 'claude CLI missing'; exit 1; }
           test -x /usr/bin/codex || { echo '/usr/bin/codex missing'; exit 1; }
-          echo '=== 3AI BRIDGE HEALTH ==='
           HEALTH="$(curl -fsS --max-time 10 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; names=("claude","codex","deepseek"); configured=[n for n in names if bool((ps.get(n) or {}).get("configured"))]; print("3AI_CONFIGURED="+",".join(configured)); assert len(configured)>=2,("3AI_CONFIGURED_QUORUM_FAILED",configured)'
-          echo '=== REAL 3AI REVIEW ==='
-          BODY='{"evidence":{"mode":"RUNTIME_DIAGNOSTIC_REVIEW_ONLY","task_id":"runtime-diagnostic","instruction":"Connectivity diagnostic only. Acknowledge supplied evidence. Do not trade and do not change configuration.","context":{"executionAllowed":false,"diagnostic":true},"requestedProviders":["claude","codex","deepseek"]}}'
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; n=("claude","codex","deepseek"); c=[x for x in n if bool((ps.get(x) or {}).get("configured"))]; print("3AI_CONFIGURED="+",".join(c)); assert len(c)>=2'
+          BODY='{"evidence":{"mode":"RUNTIME_DIAGNOSTIC_REVIEW_ONLY","task_id":"runtime-diagnostic","instruction":"Connectivity diagnostic only. Do not trade.","context":{"executionAllowed":false,"diagnostic":true},"requestedProviders":["claude","codex","deepseek"]}}'
           REVIEW="$(curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
-          printf '%s\n' "$REVIEW" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; names=("claude","codex","deepseek"); st={n:str((ps.get(n) or {}).get("status","MISSING")).upper() for n in names}; ok=[n for n in names if st[n]=="OK"]; print("3AI_STATUS="+",".join(n+":"+st[n] for n in names)); print("3AI_QUORUM=%d/3"%len(ok)); assert len(ok)>=2,("3AI_REAL_REVIEW_QUORUM_FAILED",st)'
-          echo 'RUNTIME_3AI_DIAGNOSTIC_PASS'
+          printf '%s\n' "$REVIEW" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; n=("claude","codex","deepseek"); st={x:str((ps.get(x) or {}).get("status","MISSING")).upper() for x in n}; ok=[x for x in n if st[x]=="OK"]; print("3AI_STATUS="+",".join(x+":"+st[x] for x in n)); assert len(ok)>=2'
+
+          echo '=== BYBIT PRIVATE VPS AUDIT (NO SECRET VALUES) ==='
+          echo 'HOST='$(hostname)
+          echo 'BYBIT_RELATED_SERVICES:'
+          systemctl list-units --type=service --all --no-legend 2>/dev/null | awk 'BEGIN{IGNORECASE=1} /bybit|trading|proxy/{print $1,$3,$4}' | head -40 || true
+          echo 'LISTENING_PORTS:'
+          ss -ltnp 2>/dev/null | awk 'NR==1 || /:878|:879|:880|:300|:800|:808/' | head -50 || true
+          echo 'ENV_FILES_WITH_BYBIT_KEYS:'
+          for f in /etc/trading*.env /etc/*bybit*.env; do
+            [ -f "$f" ] || continue
+            N=$(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$f" | cut -d= -f1 | grep -Ei 'BYBIT|HYRO' | wc -l | tr -d ' ')
+            [ "$N" -gt 0 ] && echo "$f key_count=$N"
+          done
+          echo 'PROCESS_ENV_KEY_NAMES:'
+          for pid in $(pgrep -f 'bybit|trading.*proxy|private.*proxy' 2>/dev/null | head -20); do
+            [ -r "/proc/$pid/environ" ] || continue
+            KEYS=$(tr '\0' '\n' < "/proc/$pid/environ" | cut -d= -f1 | grep -Ei 'BYBIT|HYRO' | paste -sd, - || true)
+            [ -n "$KEYS" ] && echo "pid=$pid keys=$KEYS"
+          done
+          echo 'LOCAL_HTTP_PROBES:'
+          for port in 8788 8789 8790 8791 8792 8800 8080 8000 3000; do
+            code=$(curl -sS --connect-timeout 1 --max-time 3 -o /tmp/bybit-probe.$$ -w '%{http_code}' "http://127.0.0.1:$port/health" || true)
+            [ "$code" != 000 ] && echo "port=$port health_http=$code"
+          done
+          echo 'PUBLIC_RUNTIME:'
+          curl -sS --connect-timeout 3 --max-time 15 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health | python3 -c 'import json,sys; j=json.load(sys.stdin); print(json.dumps({"ok":j.get("ok"),"mode":j.get("mode"),"authenticated":j.get("authenticated"),"privateTransport":j.get("privateTransport"),"marketTransport":j.get("marketTransport"),"execution":j.get("execution"),"account":j.get("account"),"runtimeRevision":j.get("runtimeRevision")},separators=(",",":")))'
+          echo 'RUNTIME_3AI_BYBIT_DIAGNOSTIC_COMPLETE'
