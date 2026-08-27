@@ -35,7 +35,14 @@ function dailyObjectiveState(cfg,account){const base=Math.max(.01,n(account.dayS
 async function targetState(env,terminalId,cfg,account){let s=await get(env,targetKey(terminalId));if(!s&&cfg.target?.enabled)s={enabled:true,source:String(cfg.target.source||"ENV_USER_SET"),cycleId:String(cfg.target.cycleId||"USER_SET"),targetUsd:n(cfg.target.targetUsd),targetPct:n(cfg.target.targetPct),targetDays:n(cfg.target.targetDays),tradingDaysOnly:cfg.target.tradingDaysOnly===true,excludeWeekend:cfg.target.excludeWeekend===true,dailyMinProfitPct:n(cfg.target.dailyMinProfitPct),startEquity:n(account.equity),startedAt:new Date().toISOString()};if(!s?.enabled)return {configured:false,enabled:false,mode:"USER_SET_RUNTIME_TARGET_ONLY",reached:false};const start=Math.max(.01,n(s.startEquity,account.equity)),profitUsd=n(account.equity)-start,profitPct=profitUsd/start*100,targetUsd=n(s.targetUsd),targetPct=n(s.targetPct),progress=targetUsd>0?profitUsd/targetUsd:targetPct>0?profitPct/targetPct:0,reached=(targetUsd>0&&profitUsd>=targetUsd)||(targetPct>0&&profitPct>=targetPct);return {...s,configured:true,enabled:true,startEquity:start,profitUsd,profitPct,progress,progressPct:progress*100,reached,mode:"USER_SET_RUNTIME_TARGET_ONLY"};}
 function hardRiskBudget(cfg,rules,requestedRiskPct){const req=Math.max(cfg.risk.minExecutableRiskPct,Math.min(cfg.risk.hardMaxRiskPct,n(requestedRiskPct,cfg.risk.defaultRequestedRiskPct))),daily=n(rules?.metrics?.dailyLossPct),open=n(rules?.metrics?.openRiskPct),remainingDaily=Math.max(0,n(cfg.rules.projectedDailyStopPct,4)-daily-open),remainingPortfolio=Math.max(0,n(cfg.risk.maxTotalOpenRiskPct,3.75)-open),allowed=Math.min(req,remainingDaily,remainingPortfolio,cfg.risk.hardMaxRiskPct);return {aiRequestedRiskPct:n(requestedRiskPct),clampedRequestedRiskPct:req,remainingDailyRiskPct:remainingDaily,remainingPortfolioRiskPct:remainingPortfolio,allowedRiskPct:allowed,hardMaxRiskPct:cfg.risk.hardMaxRiskPct,authority:"HARD_SAFETY_CLAMP_ONLY"};}
 async function learningMap(env,terminalId,snapshots=[]){const out={};await Promise.all((snapshots||[]).map(async s=>{const symbol=String(s.symbol||"").toUpperCase();if(symbol)out[symbol]=await getForexLearningSummary(env,terminalId,symbol);}));return out;}
-function quoteAgeSec(s={}){let t=n(s.timestamp);if(t>1e12)t/=1000;return t>0?Math.max(0,Date.now()/1000-t):Infinity;}
+// F3: safe timestamp parser — handles Unix seconds, Unix ms, ISO string.
+// Any unparseable/missing/zero timestamp → Infinity (fail closed → STALE).
+function quoteAgeSec(s={}){
+  const raw=s.timestamp;
+  if(typeof raw==="number"&&Number.isFinite(raw)&&raw>0){const t=raw>1e12?raw/1000:raw;return Math.max(0,Date.now()/1000-t);}
+  if(typeof raw==="string"&&raw.length>0){const p=Date.parse(raw);if(Number.isFinite(p)&&p>0)return Math.max(0,Date.now()/1000-p/1000);}
+  return Infinity; // missing/null/invalid → STALE
+}
 function publicHealth(env){const c=forexAutoConfig(env),ai=forexAutonomous2AiHealth(env);return {ok:true,service:"FOREX_AUTO_PURE_AI_2AI",branchId:c.branchId,version:FOREX_AUTO_VERSION,mode:c.execution.liveEnabled?"LIVE":"PAPER",executionTerminal:"MT5_WINDOWS",brokerProfile:c.brokerProfile,ai,pureAiAuthority:true,ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,deterministicTradeManager:false,bridgeTokenConfigured:!!env.FOREX_MT5_BRIDGE_TOKEN,liveEnabled:c.execution.liveEnabled,hardRuleAuthority:"SAFETY_ONLY",redNewsGuard:{enabled:true,failClosed:true,blockBeforeSec:c.rules.officialNewsBlockBeforeSec,blockAfterSec:c.rules.officialNewsBlockAfterSec,pendingAutoCancel:true},orderTypes:["MARKET","LIMIT","STOP"],pendingRequiresEa:"1.002",alternation:"BUY_SELL_BUY_SELL_BY_FILLED_ENTRY",scanEverySec:c.scanEverySec,dailyObjectivePct:c.dailyObjective.minProfitPct,userTargetMode:c.target.mode,maxRiskPerTradePct:c.risk.hardMaxRiskPct,telegram:{configured:!!env.TELEGRAM_BOT_TOKEN&&!!telegramChatId(env),hubForexButton:"market:forex",events:["TRADE_DECISION","FILLED","MODIFY_SLTP","CLOSE","CLOSED_PNL","DAILY_TARGET","CAMPAIGN_TARGET"]},stateAuthority:env.FOREX_STATE?"FOREX_STATE":"FOREX_PREFIX_IN_TRADING_STATE"};}
 
 export async function handleForexAutonomousMt5Bridge(req,env){
@@ -53,7 +60,27 @@ export async function handleForexAutonomousMt5Bridge(req,env){
   if(target?.reached&&cfg.target?.stopNewEntriesWhenReached)decision={action:"NO_TRADE",reason:"USER_CAMPAIGN_TARGET_REACHED",requiredSide};
   else if(!snapshots.length)decision={action:"NO_TRADE",reason:"NO_MT5_MARKET_SNAPSHOTS",requiredSide};
   else{
-   learning=await learningMap(env,terminalId,snapshots);const context={dailyObjective,target,hardRiskLimits:{hardMaxRiskPct:cfg.risk.hardMaxRiskPct,maxTotalOpenRiskPct:cfg.risk.maxTotalOpenRiskPct,minRR:cfg.risk.minRR,projectedDailyStopPct:cfg.rules.projectedDailyStopPct,minFreeMarginPct:cfg.margin.minFreeMarginPctOfEquity,minMarginLevelPct:cfg.margin.minMarginLevelPct}};council=await runForexAutonomous2Ai(env,snapshots,account,learning,requiredSide,positions,context);management=Array.isArray(council?.management)?council.management:[];
+   learning=await learningMap(env,terminalId,snapshots);const context={dailyObjective,target,hardRiskLimits:{hardMaxRiskPct:cfg.risk.hardMaxRiskPct,maxTotalOpenRiskPct:cfg.risk.maxTotalOpenRiskPct,minRR:cfg.risk.minRR,projectedDailyStopPct:cfg.rules.projectedDailyStopPct,minFreeMarginPct:cfg.margin.minFreeMarginPctOfEquity,minMarginLevelPct:cfg.margin.minMarginLevelPct}};
+   // F5: Adaptive AI council cadence.
+   // MT5 heartbeat remains fast (2s) for connection/price/position freshness.
+   // Full 2AI entry council is rate-limited to avoid quota waste.
+   // Wake-up conditions (any one triggers immediate AI call):
+   //   a) open positions exist → management must never be delayed
+   //   b) cooldown elapsed (default 30s, env-overridable)
+   //   c) prior cycle had pending management action → confirm or clear
+   const AI_ENTRY_COOLDOWN_SEC=Math.max(10,Math.min(120,Number(env.FOREX_AI_COOLDOWN_SEC||30)));
+   const aiCallKey=`forex:ai:lastcall:${terminalId}`;
+   const lastAiMeta=await get(env,aiCallKey)||{};
+   const secSinceLastAi=(Date.now()-(lastAiMeta.at||0))/1000;
+   const hasOpenPositions=positions.length>0;
+   const hadPendingManagement=Boolean(lastAiMeta.hadPendingManagement);
+   const needAiCall=hasOpenPositions||secSinceLastAi>=AI_ENTRY_COOLDOWN_SEC||hadPendingManagement;
+   if(needAiCall){
+    council=await runForexAutonomous2Ai(env,snapshots,account,learning,requiredSide,positions,context);
+    await put(env,aiCallKey,{at:Date.now(),hadPendingManagement:Boolean(council?.primaryManagement&&council.primaryManagement.action!=="HOLD")});
+   } else {
+    decision={action:"NO_TRADE",reason:"AI_ENTRY_COOLDOWN",cooldownSec:AI_ENTRY_COOLDOWN_SEC,secSinceLastAi:Math.round(secSinceLastAi),requiredSide};
+   }management=Array.isArray(council?.management)?council.management:[];
    if(!council.ok)decision={action:"NO_TRADE",reason:"PURE_AI_2AI_NOT_HEALTHY",requiredSide};
    else if(!council.consensus||!council.proposal)decision={action:"NO_TRADE",reason:"PURE_AI_WAIT_OR_NO_CONSENSUS",requiredSide};
    else if(!accountRules.ok)decision={action:"NO_TRADE",reason:"THE5ERS_ACCOUNT_OR_MARGIN_BLOCK",rules:accountRules,requiredSide};
