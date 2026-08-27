@@ -28,8 +28,8 @@ async function providerSelfTest(env){
     const r=await env.AI_BRIDGE.fetch(new Request("http://127.0.0.1:8789/review",{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret},body:JSON.stringify({evidence}),signal:AbortSignal.timeout(20000)}));
     const j=await r.json().catch(()=>({}));
     const providers={claude:compactProvider(j?.providers?.claude),codex:compactProvider(j?.providers?.codex)};
-    const quorum=Number(j?.quorum||0),requiredQuorum:Number(j?.requiredQuorum||2);
-    return {ok:r.ok&&j?.ok===true&&quorum===2&&requiredQuorum===2,reviewOnly:true,executionAllowed:false,service:j?.service||null,quorum,requiredQuorum,deepseekDisabled:j?.deepseekDisabled===true,providers,decisionLatencyMs:Number(j?.decisionLatencyMs||0),bridgeStatus:r.status,latencyMs:Date.now()-started,error:j?.error||null};
+    const quorum=Number(j?.quorum||0),requiredQuorum=Number(j?.requiredQuorum||2);
+    return {ok:r.ok&&j?.ok===true&&quorum===2&&requiredQuorum===2,reviewOnly:true,executionAllowed:false,service:j?.service||null,quorum,requiredQuorum,providers,decisionLatencyMs:Number(j?.decisionLatencyMs||0),bridgeStatus:r.status,latencyMs:Date.now()-started,error:j?.error||null};
   }catch(e){return {ok:false,reviewOnly:true,executionAllowed:false,reason:"AI_PROVIDER_SELFTEST_FETCH_FAILED",error:String(e?.message||e),latencyMs:Date.now()-started};}
 }
 
