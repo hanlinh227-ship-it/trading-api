@@ -18,7 +18,7 @@ async function del(env,k){try{await stateStore(env)?.delete(k)}catch{}}
 const dayKey=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Etc/GMT-3",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const normSide=s=>String(s||"").toUpperCase()==="BUY"?"BUY":String(s||"").toUpperCase()==="SELL"?"SELL":"";
 const normOrderType=s=>["MARKET","LIMIT","STOP"].includes(String(s||"").toUpperCase())?String(s||"").toUpperCase():"MARKET";
-const expectedNextSide=last=>last==="BUY"?"SELL":last==="SELL"?"BUY":"BUY";
+const expectedNextSide=last=>"ANY";
 const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
 const f=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 
@@ -43,7 +43,7 @@ function quoteAgeSec(s={}){
   if(typeof raw==="string"&&raw.length>0){const p=Date.parse(raw);if(Number.isFinite(p)&&p>0)return Math.max(0,Date.now()/1000-p/1000);}
   return Infinity; // missing/null/invalid → STALE
 }
-function publicHealth(env){const c=forexAutoConfig(env),ai=forexAutonomous2AiHealth(env);return {ok:true,service:"FOREX_AUTO_PURE_AI_2AI",branchId:c.branchId,version:FOREX_AUTO_VERSION,mode:c.execution.liveEnabled?"LIVE":"PAPER",executionTerminal:"MT5_WINDOWS",brokerProfile:c.brokerProfile,ai,pureAiAuthority:true,ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,deterministicTradeManager:false,bridgeTokenConfigured:!!env.FOREX_MT5_BRIDGE_TOKEN,liveEnabled:c.execution.liveEnabled,hardRuleAuthority:"SAFETY_ONLY",redNewsGuard:{enabled:true,failClosed:true,blockBeforeSec:c.rules.officialNewsBlockBeforeSec,blockAfterSec:c.rules.officialNewsBlockAfterSec,pendingAutoCancel:true},orderTypes:["MARKET","LIMIT","STOP"],pendingRequiresEa:"1.002",alternation:"BUY_SELL_BUY_SELL_BY_FILLED_ENTRY",scanEverySec:c.scanEverySec,dailyObjectivePct:c.dailyObjective.minProfitPct,userTargetMode:c.target.mode,maxRiskPerTradePct:c.risk.hardMaxRiskPct,telegram:{configured:!!env.TELEGRAM_BOT_TOKEN&&!!telegramChatId(env),hubForexButton:"market:forex",events:["TRADE_DECISION","FILLED","MODIFY_SLTP","CLOSE","CLOSED_PNL","DAILY_TARGET","CAMPAIGN_TARGET"]},stateAuthority:env.FOREX_STATE?"FOREX_STATE":"FOREX_PREFIX_IN_TRADING_STATE"};}
+function publicHealth(env){const c=forexAutoConfig(env),ai=forexAutonomous2AiHealth(env);return {ok:true,service:"FOREX_AUTO_PURE_AI_2AI",branchId:c.branchId,version:FOREX_AUTO_VERSION,mode:c.execution.liveEnabled?"LIVE":"PAPER",executionTerminal:"MT5_WINDOWS",brokerProfile:c.brokerProfile,ai,pureAiAuthority:true,ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,deterministicTradeManager:false,bridgeTokenConfigured:!!env.FOREX_MT5_BRIDGE_TOKEN,liveEnabled:c.execution.liveEnabled,hardRuleAuthority:"SAFETY_ONLY",redNewsGuard:{enabled:true,failClosed:true,blockBeforeSec:c.rules.officialNewsBlockBeforeSec,blockAfterSec:c.rules.officialNewsBlockAfterSec,pendingAutoCancel:true},orderTypes:["MARKET","LIMIT","STOP"],pendingRequiresEa:"1.002",alternation:"FREE_SIDE_WITH_ANTI_BIAS",scanEverySec:c.scanEverySec,dailyObjectivePct:c.dailyObjective.minProfitPct,userTargetMode:c.target.mode,maxRiskPerTradePct:c.risk.hardMaxRiskPct,telegram:{configured:!!env.TELEGRAM_BOT_TOKEN&&!!telegramChatId(env),hubForexButton:"market:forex",events:["TRADE_DECISION","FILLED","MODIFY_SLTP","CLOSE","CLOSED_PNL","DAILY_TARGET","CAMPAIGN_TARGET"]},stateAuthority:env.FOREX_STATE?"FOREX_STATE":"FOREX_PREFIX_IN_TRADING_STATE"};}
 
 export async function handleForexAutonomousMt5Bridge(req,env){
  const u=new URL(req.url);if(!u.pathname.startsWith("/forex/"))return null;
@@ -68,7 +68,7 @@ export async function handleForexAutonomousMt5Bridge(req,env){
    //   a) open positions exist → management must never be delayed
    //   b) cooldown elapsed (default 30s, env-overridable)
    //   c) prior cycle had pending management action → confirm or clear
-   const AI_ENTRY_COOLDOWN_SEC=Math.max(10,Math.min(120,Number(env.FOREX_AI_COOLDOWN_SEC||30)));
+   const AI_ENTRY_COOLDOWN_SEC=Math.max(10,Math.min(120,Number(env.FOREX_AI_COOLDOWN_SEC||10)));
    const aiCallKey=`forex:ai:lastcall:${terminalId}`;
    const lastAiMeta=await get(env,aiCallKey)||{};
    const secSinceLastAi=(Date.now()-(lastAiMeta.at||0))/1000;
@@ -86,8 +86,7 @@ export async function handleForexAutonomousMt5Bridge(req,env){
    else if(!accountRules.ok)decision={action:"NO_TRADE",reason:"THE5ERS_ACCOUNT_OR_MARGIN_BLOCK",rules:accountRules,requiredSide};
    else{
     proposal=council.proposal;const snap=snapshots.find(x=>String(x.symbol||"").toUpperCase()===proposal.symbol)||{};rules=evaluateThe5ersRules(env,{...account,newsBlocked:Boolean(snap.newsBlocked),newsCalendarOk:snap.newsCalendarOk===true});const age=quoteAgeSec(snap),orderType=normOrderType(proposal.orderType);
-    if(normSide(proposal.side)!==requiredSide)decision={action:"NO_TRADE",reason:"BUY_SELL_ALTERNATION_BLOCK",requiredSide,proposedSide:normSide(proposal.side)};
-    else if(age>cfg.marketData.maxQuoteAgeSec)decision={action:"NO_TRADE",reason:"STALE_MT5_QUOTE",quoteAgeSec:age,requiredSide};
+    if(age>cfg.marketData.maxQuoteAgeSec)decision={action:"NO_TRADE",reason:"STALE_MT5_QUOTE",quoteAgeSec:age,requiredSide};
     else if(!rules.ok)decision={action:"NO_TRADE",reason:"THE5ERS_SYMBOL_RULE_BLOCK",rules,requiredSide};
     else if(orderType!=="MARKET"&&!pendingCapable)decision={action:"NO_TRADE",reason:"MT5_PENDING_ORDER_CAPABILITY_REQUIRED",requiredSide,proposedOrderType:orderType,eaVersion,pendingRequiresEa:"1.002"};
     else{riskBudgetState=hardRiskBudget(cfg,rules,proposal.requestedRiskPct);if(riskBudgetState.allowedRiskPct<cfg.risk.minExecutableRiskPct)decision={action:"NO_TRADE",reason:"HARD_RISK_HEADROOM_TOO_SMALL",riskBudget:riskBudgetState,requiredSide};else decision={action:cfg.execution.liveEnabled?"TRADE":"PAPER_TRADE",symbol:proposal.symbol,side:proposal.side==="BUY"?"Buy":"Sell",orderType,entry:proposal.entry,entryPrice:proposal.entry,tp:proposal.tp,sl:proposal.sl,rr:proposal.rr,riskPct:riskBudgetState.allowedRiskPct,technicalAnalysis:proposal.technicalAnalysis,economicAnalysis:proposal.economicAnalysis,thesis:proposal.thesis,riskBudget:riskBudgetState,dailyObjective,target,requiredSide,redNewsGuard:{enabled:true,failClosed:true,pendingAutoCancel:true},expiresAt:Date.now()+cfg.execution.decisionTtlSec*1000,magic:cfg.execution.magicNumber,reason:"PURE_AI_2AI_MARKET_LIMIT_STOP_HARD_SAFETY_PASS"};}
