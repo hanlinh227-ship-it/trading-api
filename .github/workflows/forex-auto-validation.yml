@@ -26,7 +26,7 @@ jobs:
         run: node validate-forex-auto.mjs
       - name: Validate worker source
         run: node validate-worker.mjs
-      - name: Guard PURE AI campaign + stable-shell invariants
+      - name: Guard PURE AI campaign + pending-order news invariants
         run: |
           grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
           grep -q 'FOREX-AUTO-0.6.3-USER-CAMPAIGN-510-3D' forex-auto-config.js
@@ -48,12 +48,20 @@ jobs:
           grep -q 'neverIncreaseRiskToChaseTarget:true' forex-auto-config.js
           grep -q 'structurally tighter stop' forex-autonomous-2ai-trader.js
           grep -q 'larger lot while keeping monetary/risk-percent exposure unchanged' forex-autonomous-2ai-trader.js
+          grep -q 'MARKET|LIMIT|STOP' forex-autonomous-2ai-trader.js
+          grep -q 'pendingOrdersCancelledOnRedNews' forex-autonomous-2ai-trader.js
+          grep -q 'MT5_PENDING_ORDER_CAPABILITY_REQUIRED' forex-autonomous-mt5-bridge.js
+          grep -q 'pendingRequiresEa:"1.002"' forex-autonomous-mt5-bridge.js
           grep -q 'decisionTtlSec:6' forex-auto-config.js
-          grep -q '#property version   "1.001"' ../mt5/ForexAutoThe5ers.mq5
+          grep -q '#property version   "1.002"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpPulseMs=2000' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpHeartbeatSec=10' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpWatchdogSec=15' ../mt5/ForexAutoThe5ers.mq5
-          grep -q 'FOREX EA HEARTBEAT v1.001' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'InpRedNewsGuardSec=180' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'FOREX EA HEARTBEAT v1.002' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'TRADE_ACTION_PENDING' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'PENDING_NEWS_AUTO_CANCEL' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'RED_NEWS_PENDING_AUTO_CANCEL' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'WebRequest("POST"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'PROTOCOL_VERSION=1' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'ALTERNATION_HARD_LOCK' ../mt5/ForexAutoThe5ers.mq5
