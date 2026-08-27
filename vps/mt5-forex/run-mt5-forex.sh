@@ -66,6 +66,61 @@ if [[ "${MT5_SERVER_BOOTSTRAP_PREFER,,}" == "endpoint" && -n "$MT5_ACCOUNT_ENDPO
 else
   SERVER_BOOTSTRAP="${MT5_ACCOUNT_SERVER:-$MT5_ACCOUNT_ENDPOINT}"
 fi
+
+# Broker-aware server cache repair (fix 2026-08-27, round 2).
+# Production evidence: Server=FivePercentOnline-Real, servers.dat has NO
+# FivePercent entry, and the terminal journal shows NEITHER "authorized on"
+# NOR "authorization failed" — MT5 cannot resolve the display name locally,
+# network discovery did not supply it, so it has no endpoint to dial and
+# NEVER STARTS authorization (silent). Repair order:
+#   1. If the current servers.dat lacks the broker but a prefix backup HAS it,
+#      restore the backup copy (current file is renamed .pre-restore-<ts>,
+#      never deleted). Also restore matching broker .srv files if absent.
+#   2. accounts.dat is restored only when currently missing/empty.
+#   3. If after repair servers.dat STILL lacks the broker and
+#      MT5_ACCOUNT_ENDPOINT is set, fall back to the endpoint automatically —
+#      a direct access-point address does not need local name resolution.
+# No credentials are read, printed, or modified.
+BROKER_TOKEN="${SERVER_BOOTSTRAP%%-*}"
+[[ -n "$BROKER_TOKEN" ]] || BROKER_TOKEN="$SERVER_BOOTSTRAP"
+has_broker_string() { [[ -s "$1" ]] && { strings -el "$1" 2>/dev/null; strings "$1" 2>/dev/null; } | grep -qiF -- "$BROKER_TOKEN"; }
+
+CUR_SERVERS="$MT5_INSTALL_DIR/Config/servers.dat"
+if [[ -n "$BROKER_TOKEN" ]] && ! has_broker_string "$CUR_SERVERS"; then
+  RESTORED=""
+  while IFS= read -r cand; do
+    [[ -n "$cand" ]] || continue
+    if has_broker_string "$cand"; then
+      ts="$(date +%Y%m%d%H%M%S)"
+      [[ -f "$CUR_SERVERS" ]] && mv "$CUR_SERVERS" "${CUR_SERVERS}.pre-restore-${ts}"
+      install -o mt5forex -g mt5forex -m 0640 "$cand" "$CUR_SERVERS"
+      echo "MT5_FOREX_SERVERS_DAT_RESTORED_FROM=${cand%/*}"
+      RESTORED=1
+      break
+    fi
+  done < <(find "$APP_HOME" -type f -path "*/Config/servers.dat" ! -path "$MT5_WINEPREFIX/drive_c/MT5Forex/*" -printf '%T@ %p\n' 2>/dev/null | sort -nr | cut -d' ' -f2-)
+  [[ -n "$RESTORED" ]] || echo "MT5_FOREX_SERVERS_DAT_RESTORED_FROM=NO_BACKUP_WITH_BROKER"
+fi
+# Restore per-server .srv config files matching the broker if absent.
+while IFS= read -r srv; do
+  base="$(basename "$srv")"
+  dst="$MT5_INSTALL_DIR/Config/$base"
+  [[ -s "$dst" ]] || { install -o mt5forex -g mt5forex -m 0640 "$srv" "$dst" && echo "MT5_FOREX_SRV_RESTORED=$base"; }
+done < <(find "$APP_HOME" -type f -path "*/Config/*.srv" ! -path "$MT5_WINEPREFIX/drive_c/MT5Forex/*" -iname "*${BROKER_TOKEN}*" 2>/dev/null | sort -u)
+
+if has_broker_string "$CUR_SERVERS"; then
+  echo "MT5_FOREX_SERVERS_DAT_HAS_BROKER=yes"
+else
+  echo "MT5_FOREX_SERVERS_DAT_HAS_BROKER=no"
+  if [[ "${MT5_SERVER_BOOTSTRAP_PREFER,,}" != "display-only" && -n "$MT5_ACCOUNT_ENDPOINT" && "$SERVER_BOOTSTRAP" != "$MT5_ACCOUNT_ENDPOINT" ]]; then
+    SERVER_BOOTSTRAP="$MT5_ACCOUNT_ENDPOINT"
+    echo "MT5_FOREX_SERVER_BOOTSTRAP_AUTO=ENDPOINT_FALLBACK"
+  fi
+fi
+case "$MT5_ACCOUNT_LOGIN" in
+  ""|*[!0-9]*) echo "MT5_FOREX_BOOT_LOGIN_NUMERIC=no" ;;
+  *) echo "MT5_FOREX_BOOT_LOGIN_NUMERIC=yes" ;;
+esac
 {
   echo '[Common]'
   [[ -n "$MT5_ACCOUNT_LOGIN" ]] && echo "Login=$MT5_ACCOUNT_LOGIN"
@@ -109,24 +164,17 @@ HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>
 pkill -u "$(id -u)" -f 'terminal64.exe|metaeditor64.exe' 2>/dev/null || true
 sleep 1
 
-# Broker cache restore (fix 2026-08-27): earlier prefix rebuilds left the
-# CURRENT Config/ without the broker server definitions (servers.dat) and the
-# previously authorized account cache (accounts.dat) that older prefix backups
-# still hold. Without servers.dat the [Common] Server= display name cannot
-# resolve locally and authorization silently never completes.
-# Restore-only-if-missing from the newest backup; never overwrite, never
-# delete, never touch credentials in /etc.
-for cache_file in servers.dat accounts.dat; do
-  dst="$MT5_INSTALL_DIR/Config/$cache_file"
-  if [[ ! -s "$dst" ]]; then
-    src="$(find "$APP_HOME" -type f -path "*/Config/$cache_file" ! -path "$MT5_WINEPREFIX/*" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
-    if [[ -n "$src" && -s "$src" ]]; then
-      install -o mt5forex -g mt5forex -m 0640 "$src" "$dst" && echo "MT5_FOREX_BROKER_CACHE_RESTORED=$cache_file"
-    else
-      echo "MT5_FOREX_BROKER_CACHE_RESTORED=${cache_file}:NO_BACKUP_FOUND"
-    fi
+# accounts.dat: restore only when currently missing/empty (may hold a prior
+# authorized session). Never overwrite an existing one.
+acct_dst="$MT5_INSTALL_DIR/Config/accounts.dat"
+if [[ ! -s "$acct_dst" ]]; then
+  acct_src="$(find "$APP_HOME" -type f -path "*/Config/accounts.dat" ! -path "$MT5_WINEPREFIX/drive_c/MT5Forex/*" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
+  if [[ -n "$acct_src" && -s "$acct_src" ]]; then
+    install -o mt5forex -g mt5forex -m 0640 "$acct_src" "$acct_dst" && echo "MT5_FOREX_BROKER_CACHE_RESTORED=accounts.dat"
+  else
+    echo "MT5_FOREX_BROKER_CACHE_RESTORED=accounts.dat:NO_BACKUP_FOUND"
   fi
-done
+fi
 
 # Wine 11 launch contract, verified on production 2026-08-27:
 # - launch terminal directly with Wine; do not use `wine start /wait <unix path>`.
@@ -190,10 +238,18 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     out=$(mktemp)
     iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out" 2>/dev/null
     echo "MT5_FOREX_AUTH_EVIDENCE_BEGIN source=$(basename "$latest")"
-    grep -aiE "authoriz|connect|network|account|server|login" "$out" 2>/dev/null \
+    matched=$(grep -aiE "authoriz|connect|network|account|server|login|scan|access point|trade server|resolve|srv|ping|dns|proxy|certificate" "$out" 2>/dev/null \
       | grep -aiv "password" \
-      | tail -25 \
-      | sed -E "s/[0-9]{6,}/[N]/g"
+      | tail -30 \
+      | sed -E "s/[0-9]{6,}/[N]/g")
+    if [[ -n "$matched" ]]; then
+      printf "%s\n" "$matched"
+    else
+      # Silence itself is evidence: no auth was even attempted. Show the raw
+      # tail so the next debugging round sees what the terminal DID log.
+      echo "MT5_FOREX_AUTH_EVIDENCE=NO_AUTH_LINES_MATCHED"
+      tail -15 "$out" 2>/dev/null | grep -aiv "password" | sed -E "s/[0-9]{6,}/[N]/g"
+    fi
     echo "MT5_FOREX_AUTH_EVIDENCE_END"
     rm -f "$out"
   }
