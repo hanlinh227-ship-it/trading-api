@@ -1,0 +1,36 @@
+name: Bybit Runtime 2AI Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-diagnostic:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Runtime, 2AI and Bybit private health
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== 2AI BRIDGE SERVICE ==='
+          systemctl is-active --quiet v11-manual-ai-bridge.service
+          test -f /etc/trading-v11-ai.env || { echo 'canonical /etc/trading-v11-ai.env missing'; exit 1; }
+          set -a; source /etc/trading-v11-ai.env; set +a
+          test -n "${V11_AI_BRIDGE_SECRET:-}" || { echo 'V11_AI_BRIDGE_SECRET missing'; exit 1; }
+          command -v claude >/dev/null || { echo 'claude CLI missing'; exit 1; }
+          test -x /usr/bin/codex || { echo '/usr/bin/codex missing'; exit 1; }
+          HEALTH="$(curl -fsS --max-time 10 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; n=("claude","codex"); assert j.get("deepseekDisabled") is True; assert all(bool((ps.get(x) or {}).get("configured")) for x in n); print("2AI_CONFIGURED=claude,codex")'
+          BODY='{"evidence":{"mode":"RUNTIME_DIAGNOSTIC_REVIEW_ONLY","task_id":"runtime-diagnostic","instruction":"Connectivity diagnostic only. Do not trade.","context":{"executionAllowed":false,"diagnostic":true},"requestedProviders":["claude","codex"]}}'
+          REVIEW="$(curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
+          printf '%s\n' "$REVIEW" | python3 -c 'import json,sys; j=json.load(sys.stdin); ps=j.get("providers") or {}; n=("claude","codex"); st={x:str((ps.get(x) or {}).get("status","MISSING")).upper() for x in n}; print("2AI_STATUS="+",".join(x+":"+st[x] for x in n)); assert all(st[x]=="OK" for x in n); assert j.get("deepseekDisabled") is True'
+          echo '=== BYBIT PRIVATE VPS AUDIT ==='
+          echo 'HOST='$(hostname)
+          systemctl list-units --type=service --all --no-legend 2>/dev/null | awk 'BEGIN{IGNORECASE=1} /bybit|trading|proxy/{print $1,$3,$4}' | head -40 || true
+          ss -ltnp 2>/dev/null | awk 'NR==1 || /:878|:879|:880|:300|:800|:808/' | head -50 || true
+          echo 'PUBLIC_RUNTIME:'
+          curl -sS --connect-timeout 3 --max-time 15 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health | python3 -c 'import json,sys; j=json.load(sys.stdin); print(json.dumps({"ok":j.get("ok"),"mode":j.get("mode"),"authenticated":j.get("authenticated"),"privateTransport":j.get("privateTransport"),"marketTransport":j.get("marketTransport"),"execution":j.get("execution"),"account":j.get("account"),"runtimeRevision":j.get("runtimeRevision")},separators=(",",":")))'
+          echo 'RUNTIME_2AI_BYBIT_DIAGNOSTIC_COMPLETE'
