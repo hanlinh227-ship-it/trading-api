@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.8.5: $3+ effective SL risk, capped $10 TP ladder, anti-sweep V5 + delayed protection + Telegram retry.
+// BYBIT-AUTO-1.8.6: anti-sweep V5 + Telegram retry + core-major low-vol fairness + capital-limited risk underfill.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
@@ -46,8 +46,8 @@ export const BYBIT_AUTO_CONFIG={
   adaptive:{
     enabled:true,
     baseScore:66,
-    minScore:64,
-    maxScore:82,
+    minScore:66,
+    maxScore:84,
     minLearningSamples:10,
     fullLearningSamples:80,
     shrinkagePriorTrades:20,
