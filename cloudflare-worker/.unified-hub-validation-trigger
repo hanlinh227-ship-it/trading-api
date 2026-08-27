@@ -1,2 +1,3 @@
-Canonical validation trigger for BYBIT-AUTO-1.4.1 + MEME-AUTO-0.2.0-DESIGN.
+Canonical validation/deploy trigger for current Unified Trading Hub.
+Bybit hotfix 2026-08-27: continuous position re-evaluation + positive-PnL Smart CUT thesis invalidation.
 No runtime logic or secrets.
