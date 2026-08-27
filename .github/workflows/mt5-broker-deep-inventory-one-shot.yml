@@ -1,0 +1,91 @@
+name: MT5 Broker Deep Inventory One Shot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-broker-deep-inventory-one-shot.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-forex-vps
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - name: Deep broker inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" reset --hard origin/main
+          app=/var/lib/trading/mt5-forex
+          echo 'MT5_DEEP_INVENTORY_BEGIN'
+
+          echo '=== FILES WITH FIVEPERCENT STRING ==='
+          sudo find "$app" -type f -size -100M -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            if { strings -el "$f" 2>/dev/null || true; strings "$f" 2>/dev/null || true; } | grep -qiE 'FivePercent|Five Percent Online|FivePercentOnline'; then
+              echo "BROKER_STRING_FILE=$f"
+              { strings -el "$f" 2>/dev/null || true; strings "$f" 2>/dev/null || true; } \
+                | grep -iE 'FivePercent|Five Percent Online|FivePercentOnline|Access Server|server|host|port' \
+                | grep -aivE 'password|token|secret' \
+                | sed -E 's/[0-9]{6,}/[N]/g' \
+                | head -40 || true
+            fi
+          done
+
+          echo '=== BROKER RELATED FILE INVENTORY ==='
+          sudo find "$app" -type f \( -iname '*.srv' -o -iname 'servers.dat' -o -iname 'accounts.dat' -o -iname 'origin.txt' -o -iname 'terminal.ini' -o -iname 'common.ini' -o -iname '*.json' -o -iname '*.xml' \) -printf '%TY-%Tm-%TdT%TH:%TM:%TS %s %p\n' 2>/dev/null | sort | tail -250
+
+          echo '=== SRV FILE STRINGS ==='
+          while IFS= read -r f; do
+            echo "SRV_FILE=$f"
+            { strings -el "$f" 2>/dev/null || true; strings "$f" 2>/dev/null || true; } \
+              | grep -aiE 'FivePercent|server|host|port|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' \
+              | grep -aivE 'password|token|secret' \
+              | sed -E 's/[0-9]{6,}/[N]/g' \
+              | head -30 || true
+          done < <(sudo find "$app" -type f -iname '*.srv' -print 2>/dev/null)
+
+          echo '=== MT5 NEWEST TERMINAL LOG NETWORK/AUTH ==='
+          logdir="$app/wine/drive_c/MT5Forex/logs"
+          latest=$(sudo find "$logdir" -maxdepth 1 -type f -iname '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2- || true)
+          if [[ -n "$latest" ]]; then
+            tmp=$(mktemp)
+            sudo iconv -f UTF-16LE -t UTF-8 "$latest" >"$tmp" 2>/dev/null || sudo cp "$latest" "$tmp"
+            grep -aiE 'authoriz|connect|network|account|server|login|scan|access point|trade server|resolve|srv|ping|dns|proxy|certificate' "$tmp" \
+              | grep -aivE 'password|token|secret' \
+              | sed -E 's/[0-9]{6,}/[N]/g' \
+              | tail -120 || true
+            rm -f "$tmp"
+          else
+            echo 'NO_TERMINAL_LOG'
+          fi
+
+          echo '=== MT5/WINE OUTBOUND CONNECTIONS ==='
+          sudo ss -tpn 2>/dev/null | grep -Ei 'wine|terminal|main|310|ESTAB' | grep -v '127.0.0.1' | head -120 || true
+          uid=$(id -u mt5forex 2>/dev/null || true)
+          if [[ -n "$uid" ]]; then
+            echo "MT5_UID=$uid"
+            sudo lsof -Pan -u mt5forex -i 2>/dev/null | grep -v LISTEN | head -120 || true
+          fi
+
+          echo '=== CANDIDATE PACKAGE HEAD CHECKS ==='
+          for u in \
+            'https://download.mql5.com/cdn/web/five.percent.online.ltd/mt5/fivepercentonline5setup.exe' \
+            'https://download.terminal.free/cdn/web/five.percent.online.ltd/mt5/fivepercentonline5setup.exe' \
+            'https://download.terminal.free/cdn/web/five.percent.online.ltd/mt5/mt5setup.exe' \
+            'https://download.terminal.free/cdn/web/fivepercentonline/mt5/fivepercentonline5setup.exe'; do
+            echo "URL=$u"
+            curl -A 'Mozilla/5.0' -sSIL --connect-timeout 8 --max-time 20 "$u" 2>/dev/null \
+              | grep -Ei '^(HTTP/|location:|content-type:|content-length:|server:)' \
+              | tail -12 || true
+          done
+
+          echo 'MT5_DEEP_INVENTORY_END'
