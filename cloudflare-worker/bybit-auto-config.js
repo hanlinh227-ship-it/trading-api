@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.8.7: universal equity-aware sizing across the full scan universe; no fixed USD entry floor.
+// BYBIT-AUTO-1.8.8: continuous equity-curve sizing, full-capital portfolio allocation, no fixed position-count cap.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
@@ -6,10 +6,10 @@ export const BYBIT_AUTO_CONFIG={
   leverage:50,
   maxLeverage:75,
   scanEverySec:60,
-  maxOpenPositions:3,
+  maxOpenPositions:1000000,
   maxTradesPerDay:1000000000,
   risk:{
-    mode:"EQUITY_EXECUTION_COST_SCALED_ALLOCATOR",
+    mode:"CONTINUOUS_EQUITY_CURVE_FULL_CAPITAL_ALLOCATOR",
     baseBalanceUsd:50,
     balanceStepUsd:10,
     baseRiskUsd:5,
@@ -25,6 +25,13 @@ export const BYBIT_AUTO_CONFIG={
     maxRewardUsd:10,
     minRiskUsd:0,
     minRewardUsd:0,
+    minRiskUtilizationPct:60,
+    microAccountMinRiskUtilizationPct:35,
+    smallAccountMinRiskUtilizationPct:55,
+    riskCurveAnchorEquityUsd:25,
+    riskCurveSmallPct:6,
+    riskCurveLargeFloorPct:.75,
+    riskCurveDecayPerDecade:1.25,
     targetRiskPctOfEquity:6,
     maxRiskPctOfEquity:8,
     maxRewardPctOfEquity:20,
@@ -33,17 +40,17 @@ export const BYBIT_AUTO_CONFIG={
     takerFeeRate:.00055,
     slippageBps:2,
     fixedDollarFloorAuthority:false,
-    maxTotalOpenRiskPct:18,
-    maxMarginPerPositionPct:40,
-    minFreeReservePct:18,
+    maxTotalOpenRiskPct:24,
+    maxMarginPerPositionPct:100,
+    minFreeReservePct:0,
     feeBufferPct:4,
-    maxPortfolioMarginPct:80,
+    maxPortfolioMarginPct:100,
     minRR:1.5,
     preferredRR:1.8,
     maxRR:5,
     maxLossStreak:3,
     pauseMinutes:30,
-    maxSameDirectionPositions:2,
+    maxSameDirectionPositions:1000000,
     smartCutEnabled:true,
     smartCutMinAgeSec:180,
     smartCutScore:7,
@@ -99,16 +106,19 @@ export function bybitAutoConfig(env={}){
   c.risk.takerFeeRate=Math.max(0,Math.min(.002,n(env,"BYBIT_TAKER_FEE_RATE",c.risk.takerFeeRate)));
   c.risk.slippageBps=Math.max(0,Math.min(20,n(env,"BYBIT_SLIPPAGE_BPS",c.risk.slippageBps)));
   c.risk.fixedDollarFloorAuthority=false;
-  c.risk.maxTotalOpenRiskPct=Math.max(6,Math.min(18,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.maxMarginPerPositionPct=Math.max(10,Math.min(40,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
-  c.risk.minFreeReservePct=Math.max(18,Math.min(40,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
+  c.risk.maxTotalOpenRiskPct=Math.max(4,Math.min(24,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.maxMarginPerPositionPct=Math.max(10,Math.min(100,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
+  c.risk.minFreeReservePct=Math.max(0,Math.min(20,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
   c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
-  c.risk.maxPortfolioMarginPct=Math.max(40,Math.min(80,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.risk.maxPortfolioMarginPct=Math.max(50,Math.min(100,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
   c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
-  c.maxOpenPositions=Math.max(1,Math.min(3,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
+  c.maxOpenPositions=Math.max(1,Math.min(1000000,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
   c.maxTradesPerDay=1000000000;
+  c.risk.minRiskUtilizationPct=Math.max(40,Math.min(80,n(env,"BYBIT_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct)));
+  c.risk.microAccountMinRiskUtilizationPct=Math.max(20,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_MICRO_MIN_RISK_UTILIZATION_PCT",c.risk.microAccountMinRiskUtilizationPct)));
+  c.risk.smallAccountMinRiskUtilizationPct=Math.max(c.risk.microAccountMinRiskUtilizationPct,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_SMALL_MIN_RISK_UTILIZATION_PCT",c.risk.smallAccountMinRiskUtilizationPct)));
   c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
   c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
   c.risk.smartCutEnabled=String(env.BYBIT_DISCRETIONARY_CUT_ENABLED??String(c.risk.smartCutEnabled)).toLowerCase()==="true";
