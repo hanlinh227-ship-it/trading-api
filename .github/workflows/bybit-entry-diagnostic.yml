@@ -31,11 +31,11 @@ jobs:
           if(!x.ok && x.reason!=='EFFECTIVE_RISK_TOO_SMALL' && x.reason!=='STRUCTURE_REWARD_BELOW_LADDER_MIN' && x.reason!=='SIZED_RR_BELOW_MIN') throw Error('UNEXPECTED_RISK_REJECT_'+x.reason);
           const stepOf=e=>Number(sizeBybitAuto(setup,cfg,e).riskLadderStep);
           if(stepOf(50)!==0||stepOf(49.99)!==0||stepOf(40)!==-1||stepOf(39.99)!==-1||stepOf(60)!==1||stepOf(69.99)!==1||stepOf(70)!==2) throw Error('ASYMMETRIC_SCALE_STEP');
-          if(Number(cfg.risk.maxMarginPerPositionPct)!==42||Number(cfg.risk.minFreeReservePct)!==15||Number(cfg.risk.maxPortfolioMarginPct)!==85) throw Error('RISK_CONFIG_MISMATCH');
+          if(Number(cfg.risk.maxMarginPerPositionPct)!==35||Number(cfg.risk.minFreeReservePct)!==22||Number(cfg.risk.maxPortfolioMarginPct)!==75||Number(cfg.risk.maxRiskPctOfEquity)!==6||Number(cfg.risk.maxTotalOpenRiskPct)!==15) throw Error('RISK_CONFIG_MISMATCH');
           if(Number(cfg.execution.cooldownSec)!==120||Number(cfg.execution.recvWindow)!==10000) throw Error('EXECUTION_CONFIG_MISMATCH');
           console.log('SCALE_STEP_SYMMETRY=PASS');
           console.log('EFFECTIVE_RISK_BAND=PASS');
-          console.log('OPERATIONAL_ENTRY_BAND=PASS');
+          console.log('BYBIT_1_8_3_RISK_PROFILE=PASS');
           NODE
       - name: Inspect public Bybit contract, entry health, scan and health
         shell: bash
@@ -49,8 +49,7 @@ jobs:
           [ "$CODE" = 200 ]
           node <<'NODE'
           const fs=require('fs');
-          const h=JSON.parse(fs.readFileSync('/tmp/health.json')),c=JSON.parse(fs.readFileSync('/tmp/contract.json')),e=JSON.parse(fs.readFileSync('/tmp/entry.json'));
-          let s={};try{s=JSON.parse(fs.readFileSync('/tmp/scan.json'))}catch{}
+          const h=JSON.parse(fs.readFileSync('/tmp/health.json')),c=JSON.parse(fs.readFileSync('/tmp/contract.json')),e=JSON.parse(fs.readFileSync('/tmp/entry.json'));let s={};try{s=JSON.parse(fs.readFileSync('/tmp/scan.json'))}catch{}
           console.log('DIAG='+JSON.stringify({revision:h.runtimeRevision,version:c.autoVersion,entryStatus:e.status,entryReady:e.entryReady,lastCycleReason:e.lastCycleReason,operationalBlockers:e.operationalBlockers,mode:h.mode,executionReady:h.execution?.ready??null,privateTransport:h.privateTransport??null,marketTransport:h.marketTransport??null,equity:h.account?.totalEquity??null,scanOk:s.ok??null,scanVersion:s.version??null,universe:s.universe?.count??null,analyzed:s.analyzed??null,rawCandidates:s.rawCandidates??null,qualified:s.qualified??null,best:s.best?{symbol:s.best.symbol,side:s.best.side,score:s.best.score,threshold:s.best.adaptiveThreshold,rr:s.best.rr,regime:s.best.regime,spread:s.best.spreadBps}:null,errors:(s.errors||[]).slice(0,5)}));
           if(h.mode!=="LIVE"||h.execution?.ready!==true||h.privateTransport!=="VPS_BYBIT_PRIVATE_PROXY"||h.marketTransport!=="VPS_BYBIT_MARKET_PROXY")process.exit(7);
           if(!c.autoVersion||s.ok!==true||s.version!==c.autoVersion||!(Number(s.scannedAt)>0)||!Array.isArray(s.errors))process.exit(8);
