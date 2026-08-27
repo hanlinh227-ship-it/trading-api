@@ -1,4 +1,6 @@
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function equityRiskCurvePct(equity,cfg){const r=cfg?.risk||{},anchor=Math.max(.5,num(r.riskCurveAnchorEquityUsd)||25),small=Math.max(.1,num(r.riskCurveSmallPct)||6),floor=Math.max(.1,num(r.riskCurveLargeFloorPct)||.75),decay=Math.max(.1,num(r.riskCurveDecayPerDecade)||1.25),decades=Math.log10(Math.max(1,equity/anchor));return clamp(small-decay*decades,floor,small); }
 
 function effectiveStop(p={}){
   const managed=num(p?.managedSl),initial=num(p?.sl),entry=num(p?.entry),side=String(p?.side||"");
@@ -40,9 +42,9 @@ export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd,candida
   const equity=Math.max(0,num(equityUsd));
   if(!(equity>0))return {ok:false,reason:"EQUITY_INVALID"};
   const realized=num(state?.realizedUsd),openPlans=state?.openPlans||{},openRiskUsd=computeOpenRiskUsd(openPlans),candidate=Math.max(0,num(candidateRiskUsd));
-  const singleCapUsd=equity*Math.max(0,num(cfg?.risk?.maxRiskPctOfEquity))/100;
+  const targetRiskPct=equityRiskCurvePct(equity,cfg),configuredSinglePct=Math.max(.1,num(cfg?.risk?.maxRiskPctOfEquity)||8),singleRiskPct=Math.min(configuredSinglePct,Math.max(targetRiskPct,targetRiskPct*1.35)),singleCapUsd=equity*singleRiskPct/100;
   if(candidate>singleCapUsd+1e-9)return {ok:false,reason:"SINGLE_TRADE_RISK_CAP",candidateRiskUsd:candidate,singleCapUsd,equityUsd:equity};
-  const capUsd=equity*Math.max(0,num(cfg?.risk?.maxTotalOpenRiskPct))/100;
+  const configuredTotalPct=Math.max(4,num(cfg?.risk?.maxTotalOpenRiskPct)||24),totalOpenRiskPct=Math.min(configuredTotalPct,Math.max(4,targetRiskPct*4)),capUsd=equity*totalOpenRiskPct/100;
   if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,realizedUsd:realized};
 
   const openInitialMarginUsd=computeOpenInitialMarginUsd(openPlans),portfolioMarginCapUsd=equity*Math.max(0,num(cfg?.risk?.maxPortfolioMarginPct))/100;
@@ -50,7 +52,7 @@ export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd,candida
   if(candidateMarginUsd>0&&openInitialMarginUsd+candidateMarginUsd>portfolioMarginCapUsd+1e-9){
     return {ok:false,reason:"PORTFOLIO_MARGIN_HEADROOM",openInitialMarginUsd,candidateMarginUsd,projectedInitialMarginUsd:openInitialMarginUsd+candidateMarginUsd,portfolioMarginCapUsd,equityUsd:equity,marginSource:providedMarginUsd>0?"ACTUAL_CANDIDATE":"FAIL_SAFE_SLOT_FALLBACK",managementOnly:true};
   }
-  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,openInitialMarginUsd,candidateMarginUsd,portfolioMarginCapUsd,dailyLossStopEnabled:false,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE",marginAccounting:providedMarginUsd>0?"ACTUAL_CANDIDATE_INITIAL_MARGIN_V187":"FAIL_SAFE_SLOT_FALLBACK"};
+  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,targetRiskPct,singleRiskPct,totalOpenRiskPct,openInitialMarginUsd,candidateMarginUsd,portfolioMarginCapUsd,dailyLossStopEnabled:false,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE_EQUITY_CURVE_V188",marginAccounting:providedMarginUsd>0?"ACTUAL_CANDIDATE_INITIAL_MARGIN_V188":"FAIL_SAFE_SLOT_FALLBACK"};
 }
 
 export function validateProtectionGeometry({side,entry,sl,tp}){
