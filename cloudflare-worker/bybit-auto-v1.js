@@ -146,23 +146,37 @@ export async function runBybitAutoV1(env,{forceScan=false,entryBlockReason=null}
   }
   if(Number(state.trades||0)>=cfg.maxTradesPerDay)return {ok:true,executed:false,mode,reason:"MAX_TRADES_PER_DAY",state,lifecycles};
 
-  const scan=await scanBybitAuto(env),scannedSetup=scan.best;
-  if(!scannedSetup)return {ok:true,executed:false,mode,reason:scan.reason||"NO_SETUP",scan,lifecycles,state};
-  if(positions.some(p=>String(p.symbol||"")===scannedSetup.symbol))return {ok:true,executed:false,mode,reason:"SYMBOL_ALREADY_OPEN",setup:scannedSetup,scan,lifecycles,state};
-  if(state.openPlans?.[scannedSetup.symbol])return {ok:true,executed:false,mode,reason:"PLAN_ALREADY_TRACKED_OR_PENDING_RECONCILE",setup:scannedSetup,scan,lifecycles,state};
-
-  const preparation=await prepareBybitScalpForReview(env,scannedSetup,api);
-  state.lastPreAiPreparation={symbol:scannedSetup.symbol,side:scannedSetup.side,at:iso(),reason:preparation.reason,ok:preparation.ok,quote:preparation.quote||null,entryState:preparation.setup?.entryState||"DISCARDED",reanchorCount:Number(preparation.setup?.reanchorCount||0)};
-  if(!preparation.ok){await learn(env,{stage:"PRE_AI_REJECT",mode,symbol:scannedSetup.symbol,side:scannedSetup.side,strategy:scannedSetup.strategy,score:scannedSetup.score,rr:scannedSetup.rr,entry:scannedSetup.entry,sl:scannedSetup.sl,tp:scannedSetup.tp,preparation,reason:preparation.reason});await put(env,state);return {ok:true,executed:false,mode,reason:preparation.reason,preparation,setup:scannedSetup,scan,lifecycles,state};}
-  const setup=preparation.setup;
-  const sizing=sizeBybitAuto(setup,cfg,equity);if(!sizing.ok)return {ok:true,executed:false,mode,reason:sizing.reason,preparation,setup,sizing,scan,lifecycles,state};
-  const riskPreflight=bybitRiskPreflight({cfg,equityUsd:equity,state:riskState,candidateRiskUsd:sizing.riskUsd,candidateInitialMarginUsd:sizing.initialMarginUsd});if(!riskPreflight.ok)return {ok:true,executed:false,mode,reason:riskPreflight.reason,risk:riskPreflight,preparation,setup,sizing,scan,lifecycles,state};
-  const fp=`${setup.symbol}:${setup.side}:${setup.strategy}:${Math.round(setup.entry*1e6)}`;if(!forceScan&&state.lastFingerprint===fp&&now()-Number(state.lastTradeAt||0)<cfg.execution.cooldownSec*1000)return {ok:true,executed:false,mode,reason:"DUPLICATE_COOLDOWN",preparation,setup,scan,lifecycles,state};
-
-  const ai=await reviewBybitScalp(env,setup,preparation.quote);state.lastAiReview={symbol:setup.symbol,side:setup.side,at:iso(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...ai};
-  if(!ai.allow){await learn(env,{stage:"AI_REJECT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:setup.rr,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,entry:setup.entry,sl:setup.sl,tp:setup.tp,preparation,ai,reason:ai.reason});await put(env,state);return {ok:true,executed:false,mode,reason:ai.reason||"AI_SCALP_GATE",preparation,ai,setup,sizing,scan,lifecycles,state};}
-  const postAi=await revalidateBybitScalpAfterAi(env,api,setup);state.lastPostAiQuote={symbol:setup.symbol,side:setup.side,at:iso(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...postAi};
-  if(!postAi.ok){await learn(env,{stage:"POST_AI_REJECT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:setup.rr,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,entry:setup.entry,sl:setup.sl,tp:setup.tp,preparation,ai,postAi,reason:postAi.reason});await put(env,state);return {ok:true,executed:false,mode,reason:postAi.reason||"POST_AI_REVALIDATION_FAILED",preparation,ai,postAi,setup,sizing,scan,lifecycles,state};}
+  const scan=await scanBybitAuto(env);
+  const fallbackMax=Math.max(1,Math.min(8,Math.round(Number(env.BYBIT_CANDIDATE_FALLBACK_MAX||5))));
+  const candidateQueue=(Array.isArray(scan.candidates)&&scan.candidates.length?scan.candidates:(scan.best?[scan.best]:[])).slice(0,fallbackMax);
+  if(!candidateQueue.length)return {ok:true,executed:false,mode,reason:scan.reason||"NO_SETUP",scan,lifecycles,state};
+  const attempts=[];
+  const systemicRiskReasons=new Set(["TOTAL_OPEN_RISK_CAP","PORTFOLIO_MARGIN_HEADROOM"]);
+  const systemicAiReasons=new Set(["AI_BRIDGE_QUORUM_FAILED","AI_REQUIRED_PROVIDER_UNAVAILABLE"]);
+  let scannedSetup=null,preparation=null,setup=null,sizing=null,riskPreflight=null,fp=null,ai=null,postAi=null;
+  for(const candidate of candidateQueue){
+    scannedSetup=candidate;
+    if(positions.some(p=>String(p.symbol||"")===candidate.symbol)){attempts.push({symbol:candidate.symbol,reason:"SYMBOL_ALREADY_OPEN"});continue;}
+    if(state.openPlans?.[candidate.symbol]){attempts.push({symbol:candidate.symbol,reason:"PLAN_ALREADY_TRACKED_OR_PENDING_RECONCILE"});continue;}
+    preparation=await prepareBybitScalpForReview(env,candidate,api);
+    state.lastPreAiPreparation={symbol:candidate.symbol,side:candidate.side,at:iso(),reason:preparation.reason,ok:preparation.ok,quote:preparation.quote||null,entryState:preparation.setup?.entryState||"DISCARDED",reanchorCount:Number(preparation.setup?.reanchorCount||0)};
+    if(!preparation.ok){await learn(env,{stage:"PRE_AI_REJECT",mode,symbol:candidate.symbol,side:candidate.side,strategy:candidate.strategy,score:candidate.score,rr:candidate.rr,entry:candidate.entry,sl:candidate.sl,tp:candidate.tp,preparation,reason:preparation.reason});attempts.push({symbol:candidate.symbol,reason:preparation.reason||"PRE_AI_REJECT"});continue;}
+    setup=preparation.setup;
+    sizing=sizeBybitAuto(setup,cfg,equity);
+    if(!sizing.ok){attempts.push({symbol:setup.symbol,reason:sizing.reason||"SIZING_REJECT"});setup=null;continue;}
+    riskPreflight=bybitRiskPreflight({cfg,equityUsd:equity,state:riskState,candidateRiskUsd:sizing.riskUsd,candidateInitialMarginUsd:sizing.initialMarginUsd});
+    if(!riskPreflight.ok){attempts.push({symbol:setup.symbol,reason:riskPreflight.reason||"RISK_PREFLIGHT_REJECT"});if(systemicRiskReasons.has(String(riskPreflight.reason||""))){state.lastCandidateAttempts={at:iso(),fallbackMax,attempts};await put(env,state);return {ok:true,executed:false,mode,reason:riskPreflight.reason,risk:riskPreflight,preparation,setup,sizing,scan,lifecycles,state,candidateAttempts:attempts};}setup=null;continue;}
+    fp=`${setup.symbol}:${setup.side}:${setup.strategy}:${Math.round(setup.entry*1e6)}`;
+    if(!forceScan&&state.lastFingerprint===fp&&now()-Number(state.lastTradeAt||0)<cfg.execution.cooldownSec*1000){attempts.push({symbol:setup.symbol,reason:"DUPLICATE_COOLDOWN"});setup=null;continue;}
+    ai=await reviewBybitScalp(env,setup,preparation.quote);state.lastAiReview={symbol:setup.symbol,side:setup.side,at:iso(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...ai};
+    if(!ai.allow){await learn(env,{stage:"AI_REJECT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:setup.rr,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,entry:setup.entry,sl:setup.sl,tp:setup.tp,preparation,ai,reason:ai.reason});attempts.push({symbol:setup.symbol,reason:ai.reason||"AI_SCALP_GATE"});if(systemicAiReasons.has(String(ai.reason||""))){state.lastCandidateAttempts={at:iso(),fallbackMax,attempts};await put(env,state);return {ok:true,executed:false,mode,reason:ai.reason||"AI_SCALP_GATE",preparation,ai,setup,sizing,scan,lifecycles,state,candidateAttempts:attempts};}setup=null;continue;}
+    postAi=await revalidateBybitScalpAfterAi(env,api,setup);state.lastPostAiQuote={symbol:setup.symbol,side:setup.side,at:iso(),entryState:setup.entryState,reanchorCount:setup.reanchorCount,...postAi};
+    if(!postAi.ok){await learn(env,{stage:"POST_AI_REJECT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:setup.rr,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,entry:setup.entry,sl:setup.sl,tp:setup.tp,preparation,ai,postAi,reason:postAi.reason});attempts.push({symbol:setup.symbol,reason:postAi.reason||"POST_AI_REVALIDATION_FAILED"});setup=null;continue;}
+    attempts.push({symbol:setup.symbol,reason:"SELECTED_AFTER_QUALITY_GATES"});
+    break;
+  }
+  state.lastCandidateAttempts={at:iso(),fallbackMax,attempts};
+  if(!setup){await put(env,state);return {ok:true,executed:false,mode,reason:"CANDIDATE_QUEUE_EXHAUSTED",scan,lifecycles,state,candidateAttempts:attempts};}
 
   const rewardTp=tpForReward(setup.side,setup.entry,sizing.qty,sizing.rewardUsd),plan={mode,symbol:setup.symbol,side:setup.side,qty:sizing.qty,entry:setup.entry,originalEntry:setup.originalEntry||setup.entry,entryState:setup.entryState||"ORIGINAL",reanchorCount:Number(setup.reanchorCount||0),reanchor:setup.reanchor||null,sl:setup.sl,initialSl:setup.sl,tp:rewardTp||setup.tp,structureTp:setup.tp,atr1:Number(setup.atr1||0),exitPlan:setup.exitPlan||null,tickSize:Number(setup.filters?.tickSize||0),filters:setup.filters,rr:sizing.targetRR,strategy:setup.strategy,score:setup.score,riskUsd:sizing.riskUsd,rewardUsd:sizing.rewardUsd,leverage:Number(sizing.leverage||cfg.leverage),margin:{marginUsePct:sizing.marginUsePct,marginBudgetUsd:sizing.marginBudgetUsd,initialMarginUsd:sizing.initialMarginUsd,notional:sizing.notional},riskPreflight,ai:{mode:ai.mode,reason:ai.reason,pass:ai.pass,reject:ai.reject,blocked:ai.blocked,unavailable:ai.unavailable,verdicts:ai.verdicts},postAiQuote:{px:postAi.px,spreadBps:postAi.spreadBps,driftBps:postAi.driftBps,checkedAt:postAi.checkedAt},peakR:0,lastReview:null,createdAt:iso(),createdAtMs:now()};
   if(mode==="PAPER"){state.trades=Number(state.trades||0)+1;state.lastTradeAt=now();state.lastFingerprint=fp;state.openPlans={...(state.openPlans||{}),[setup.symbol]:plan};await learn(env,{stage:"PAPER_ACCEPT",mode,symbol:setup.symbol,side:setup.side,strategy:setup.strategy,score:setup.score,rr:plan.rr,riskUsd:plan.riskUsd,rewardUsd:plan.rewardUsd,entry:plan.entry,sl:plan.sl,tp:plan.tp,leverage:plan.leverage,preparation,ai,postAi,reason:"PAPER_ORDER_ACCEPTED_AFTER_AI"});await put(env,state);return {ok:true,executed:true,paper:true,mode,reason:"PAPER_ORDER_ACCEPTED_AFTER_AI",plan,preparation,ai,postAi,risk:riskPreflight,scan,state};}

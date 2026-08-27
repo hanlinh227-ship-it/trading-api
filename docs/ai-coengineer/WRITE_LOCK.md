@@ -4,7 +4,7 @@ LOCKED: true
 SCOPE: Bybit Auto production quality/runtime + protected trading authority
 UPDATED: 2026-08-27
 
-GitHub `main` is authoritative. Current Bybit Auto production design is **BYBIT-AUTO-1.9.0**. Signal V11 is historical/research-only unless explicitly referenced by current source.
+GitHub `main` is authoritative. Current Bybit Auto production design is **BYBIT-AUTO-1.9.1**. Signal V11 is historical/research-only unless explicitly referenced by current source.
 
 ## Hard production invariants
 Preserve:
@@ -41,7 +41,7 @@ Regime is deterministic and cannot be overridden by AI. Correlation failures are
 ## Smart CUT
 Normal path: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`. Smart CUT is exceptional and requires confirmed thesis invalidation; slow trade, noisy M1, later scan or ordinary profit giveback alone are insufficient.
 
-## Current profile — BYBIT-AUTO-1.9.0
+## Current profile — BYBIT-AUTO-1.9.1
 - Scan cadence: 60s.
 - Live universe minimum target: 80 symbols.
 - Default minimum 24h turnover for universe: $750,000.
