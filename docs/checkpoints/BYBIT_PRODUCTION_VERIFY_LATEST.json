@@ -1,8 +1,8 @@
 {
-  "verifiedAt": "2026-08-27T10:22:16.978Z",
-  "expectedRevision": "48c91cd043d9640a812c1cdceb508ab83b4d2996",
-  "runtimeRevision": "48c91cd043d9640a812c1cdceb508ab83b4d2996",
-  "version": "BYBIT-AUTO-1.9.0",
+  "verifiedAt": "2026-08-27T10:39:56.073Z",
+  "expectedRevision": "2ce6386007be87aafacd6b4b27f66a76e60772ab",
+  "runtimeRevision": "2ce6386007be87aafacd6b4b27f66a76e60772ab",
+  "version": "BYBIT-AUTO-1.9.1",
   "pass": true,
   "health": {
     "http": 200,
@@ -26,11 +26,12 @@
     "runtimeRevision": true,
     "bybitLive": true,
     "bybitForexLiveIsolation": true,
+    "forexCanonicalMt5": true,
     "unifiedLiveRuntime": true
   },
   "deployment": {
     "workflow": "Deploy Unified Trading Hub",
-    "runId": 33062667011,
-    "cloudflareVersionId": "36e9709d-f831-45b6-ac4c-1c96d2945e99"
+    "runId": 33063916573,
+    "cloudflareVersionId": "86bfb345-6dd2-4692-9d9a-937fac665780"
   }
 }
