@@ -1,0 +1,54 @@
+name: Build Forex EX5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mt5/ForexAutoThe5ers.mq5'
+      - '.github/workflows/build-forex-ex5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: [self-hosted, Windows, X64, trading-mt5-windows]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Locate MetaEditor and compile EX5 only
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $candidates=@(
+            'C:\Program Files\MetaTrader 5\metaeditor64.exe',
+            'C:\Program Files\The5ers MetaTrader 5\metaeditor64.exe',
+            'C:\Program Files\Five Percent Online MT5\metaeditor64.exe'
+          )
+          $meta=$candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $meta) { throw 'MetaEditor64.exe not found on Windows build runner.' }
+          $src=Join-Path $env:GITHUB_WORKSPACE 'mt5\ForexAutoThe5ers.mq5'
+          $out=Join-Path $env:GITHUB_WORKSPACE 'dist'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $work=Join-Path $out 'ForexAutoThe5ers.mq5'
+          Copy-Item $src $work -Force
+          $log=Join-Path $out 'compile.log'
+          $p=Start-Process -FilePath $meta -ArgumentList @("/compile:$work","/log:$log") -PassThru -Wait
+          Get-Content $log -ErrorAction SilentlyContinue
+          $ex5=Join-Path $out 'ForexAutoThe5ers.ex5'
+          if (-not (Test-Path $ex5)) { throw 'EX5 was not produced.' }
+          if ((Get-Item $ex5).Length -lt 1000) { throw 'EX5 output is unexpectedly small.' }
+          Write-Output "FOREX_EX5_BUILD=PASS size=$((Get-Item $ex5).Length)"
+
+      - name: Upload EX5
+        uses: actions/upload-artifact@v4
+        with:
+          name: ForexAutoThe5ers-EX5
+          path: |
+            dist/ForexAutoThe5ers.ex5
+            dist/compile.log
+          if-no-files-found: error
+          retention-days: 30
