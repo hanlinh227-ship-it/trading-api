@@ -9,6 +9,8 @@ const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undef
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function bases(env={}){
+  const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
+  if(demo)return ["https://api-demo.bybit.com"];
   const preferred=String(env.BYBIT_API_BASE_URL||"").trim().replace(/\/$/,"");
   return [...new Set([preferred,...DEFAULT_BASES].filter(Boolean))];
 }
@@ -24,6 +26,7 @@ function retryableReadError(e){
   return [408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(r)||(!h&&!Number.isFinite(r));
 }
 export function bybitV5(env={}){
+  const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=bases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
   async function pub(path,params={}){
     const q=qs(params),attempted=[];let lastErr;
@@ -63,6 +66,7 @@ export function bybitV5(env={}){
     throw last;
   }
   async function market(path,params={}){
+    if(demo)return pub(path,params);
     try{return await signedViaVps("GET",path,params);}
     catch(vpsError){
       if(String(env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK||"").toLowerCase()==="true"){
@@ -85,6 +89,7 @@ export function bybitV5(env={}){
     if(lastErr?.bybit)lastErr.bybit.attemptedBases=[...attempted];throw lastErr;
   }
   async function signed(method,path,paramsOrBody={}){
+    if(demo)return signedDirect(method,path,paramsOrBody);
     try{return await signedViaVps(method,path,paramsOrBody);}
     catch(e){
       if(String(env.BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK||"").toLowerCase()==="true")return signedDirect(method,path,paramsOrBody);
@@ -99,7 +104,7 @@ export function bybitV5(env={}){
     }
   }
   return {
-    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:BYBIT_PRIVATE_TRANSPORT,marketTransport:BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
+    credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":BYBIT_PRIVATE_TRANSPORT,marketTransport:demo?"CLOUDFLARE_BYBIT_DEMO_PUBLIC":BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
     serverTime:()=>market("/v5/market/time"),
     wallet:()=>signed("GET","/v5/account/wallet-balance",{accountType:"UNIFIED",coin:"USDT"}),
     positions:()=>signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200}),

@@ -164,4 +164,4 @@ export function bybitAutoConfig(env={}){
   return c;
 }
 export function bybitExecutionMode(env={}){if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";return "PAPER";}
-export function bybitCredentials(env={}){return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||"",apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||"",source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?"BYBIT_AUTO":"HYRO_BYBIT_LIVE_FALLBACK"};}
+export function bybitCredentials(env={}){const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";if(demo)return {apiKey:env.HYRO_BYBIT_API_KEY||"",apiSecret:env.HYRO_BYBIT_API_SECRET||"",source:"HYRO_BYBIT_DEMO"};return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||"",apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||"",source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?"BYBIT_AUTO":"HYRO_BYBIT_LIVE_FALLBACK"};}
