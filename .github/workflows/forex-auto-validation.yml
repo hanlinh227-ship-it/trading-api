@@ -26,9 +26,12 @@ jobs:
         run: node validate-forex-auto.mjs
       - name: Validate worker source
         run: node validate-worker.mjs
-      - name: Guard LIVE default
+      - name: Guard autonomous 2AI PAPER default
         run: |
-          grep -q 'FOREX_AUTO_MODE="PAPER_ONLY"' forex-auto-config.js
+          grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
+          grep -q 'FOREX-AUTO-0.5.0-AUTONOMOUS' forex-auto-config.js
+          grep -q 'aiProviders:\["chatgpt","claude"\]' forex-auto-config.js
+          grep -q 'ruleBasedSignalAuthority:false' forex-auto-config.js
           grep -q 'liveEnabled:false' forex-auto-config.js
           grep -q 'internalDailyStopPct:4.0' forex-auto-config.js
           grep -q 'projectedDailyStopPct:4.0' forex-auto-config.js
