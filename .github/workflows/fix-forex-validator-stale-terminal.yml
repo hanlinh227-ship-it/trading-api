@@ -1,0 +1,41 @@
+name: Fix Forex Validator Stale Terminal
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-forex-validator-stale-terminal.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Align validator with VPS-only canonical terminal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/validate-worker.mjs')
+          s=p.read_text()
+          old="'AUTONOMOUS_2AI','MT5_WINDOWS','PURE_AI_DISCRETIONARY_INTRADAY_FREER_ENTRY'"
+          new="'AUTONOMOUS_2AI','MT5_VPS_WINE11','PURE_AI_DISCRETIONARY_INTRADAY_FREER_ENTRY'"
+          assert old in s, 'stale MT5_WINDOWS validator anchor not found'
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check cloudflare-worker/validate-worker.mjs
+          cd cloudflare-worker
+          node validate-worker.mjs
+      - name: Commit validator repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'hanlinh227-ship-it'
+          git config user.email 'hanlinh227@gmail.com'
+          git add cloudflare-worker/validate-worker.mjs
+          git commit -m 'fix(forex): align worker validator with VPS-only MT5 canonical'
+          git push origin HEAD:main
