@@ -92,21 +92,13 @@ HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>
 pkill -u "$(id -u)" -f 'terminal64.exe|metaeditor64.exe' 2>/dev/null || true
 sleep 1
 
-# ROOT CAUSE FIX (proven empirically 2026-08-27):
-#   Previous launch: `wine start /wait <unix path>` — Wine's start.exe does NOT
-#   accept Unix paths without the /unix switch; it printed its usage text and
-#   exited, so terminal64.exe was NEVER launched. Every cycle then burned the
-#   full appear-timeout and exited 69 → systemd restart loop (~45-50s/cycle).
-#   Fix: launch the terminal directly with `wine "$MT5_TERMINAL"`. The wine
-#   wrapper process lives exactly as long as the terminal, so we can wait on it.
-#
-#   Previous detector: awk '$1=="main" && index($0,"terminal64.exe")' — Wine
-#   processes appear in `ps -o comm=` with comm == the exe basename
-#   (e.g. "terminal64.exe"), never "main". The detector could not match a
-#   living terminal and would have killed a healthy session at the timeout.
-#   Fix: exact comm match on the terminal basename via `ps -o comm=` + grep -qxF.
-#   The basename is passed via env so the monitor's own argv never contains
-#   the literal exe name (prevents pgrep/args self-match false positives).
+# Wine 11 launch contract, verified on production 2026-08-27:
+# - launch terminal directly with Wine; do not use `wine start /wait <unix path>`.
+# - during early launch comm can equal terminal64.exe, but the stable Wine process
+#   on this VPS reports comm=main while args contain C:\MT5Forex\terminal64.exe.
+# - therefore detection must accept either representation while requiring the
+#   process owner to be mt5forex and comm=main for args-based matching. This
+#   avoids matching the monitor shell itself.
 if [[ -f "$AUTH_MARKER" ]]; then
   LAUNCH_MODE="PERSISTENT_SESSION"
   LAUNCH_ARGS=("$MT5_TERMINAL")
@@ -132,11 +124,16 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   LOG="$APP_HOME/wine-terminal-launch.log"
   : > "$LOG"
   echo "MT5_FOREX_EXEC_MODE=$LAUNCH_MODE"
-  # Direct execution: the wine process IS the terminal lifetime.
   HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" WINEDEBUG=-all "$MT5_WINE_BIN" $CMD >>"$LOG" 2>&1 &
   wine_pid=$!
 
-  term_alive() { ps -u "$(id -u)" -o comm= | grep -qxF "$TERM_BASENAME"; }
+  term_alive() {
+    ps -u "$(id -u)" -o comm=,args= | awk -v base="$TERM_BASENAME" '\''
+      $1==base {found=1}
+      $1=="main" && $0 ~ /[\\\/]terminal64\.exe([[:space:]]|$)/ {found=1}
+      END {exit found?0:1}
+    '\''
+  }
   dump_diag() {
     echo "MT5_FOREX_DIAG_PS_SNAPSHOT_BEGIN"
     ps -u "$(id -u)" -o comm=,args= | grep -vE "^(ps|grep|bash|xvfb|Xvfb|awk) " | head -30
@@ -162,7 +159,6 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   fi
 
   echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"
-  # Monitor: terminal alive as long as its comm is present OR the wine wrapper runs.
   while term_alive || kill -0 "$wine_pid" >/dev/null 2>&1; do sleep 5; done
   echo "MT5_FOREX_TERMINAL_EXITED=1"
   dump_diag
