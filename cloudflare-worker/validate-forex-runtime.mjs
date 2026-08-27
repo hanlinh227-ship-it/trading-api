@@ -16,8 +16,8 @@ need(index,['handleForexMt5ProtocolV1','handleForexTelegramHub','forex-mt5-proto
 need(compat,['handleForexAutonomousMt5Bridge','HEARTBEAT_LAST_KEY','forex:mt5:heartbeat:last','recordHeartbeat','isCanonicalEa','pureAiEa===true','directHub===true','mt5HeartbeatAccepted','mt5Canonical','age<=30'],'FOREX_MT5_HEARTBEAT');
 need(bridge,['runForexAutonomous2Ai','HARD_SAFETY_CLAMP_ONLY','BUY->SELL->BUY->SELL','orderTypes:["MARKET","LIMIT","STOP"]','pendingRequiresEa:"1.002"','MT5_PENDING_ORDER_CAPABILITY_REQUIRED','PENDING_NEWS_AUTO_CANCEL','pendingCapable'],'FOREX_CANONICAL_BRIDGE');
 need(ai,['requestedProviders:["claude","codex"]','UNIFIED_2AI_VPC_BRIDGE','entryCandidates may contain up to 3','function entryConsensus','gp.symbol!==cp.symbol||gp.side!==cp.side','reconcileOrderType','2AI_NO_COMMON_TRADABLE_CANDIDATE','candidateOverlapCount','MARKET|LIMIT|STOP','pendingOrdersCancelledOnRedNews'],'FOREX_2AI');
-need(hub,['🧠 2 AI','Codex + Claude','market:forex','forex:mt5:heartbeat:last','heartbeatStatus','STALE_HEARTBEAT','NO_CANONICAL_HEARTBEAT','age<=30'],'FOREX_TELEGRAM');
-need(autoHub,['FOREX = MT5 Windows • 2 AI (Codex + Claude) • The5ers guards','canonicalHandler:"forex-telegram-hub"','if(cb==="hub:forex"||cb.startsWith("forex:"))return null'],'UNIFIED_HUB');
+need(hub,['🧠 AI COUNCIL — FOREX','Claude:','Codex:','market:forex','forex:mt5:heartbeat:last','heartbeatStatus','STALE_HEARTBEAT','NO_CANONICAL_HEARTBEAT','age<=30'],'FOREX_TELEGRAM');
+need(autoHub,['💱 FOREX','canonicalHandler:"forex-telegram-hub"','if(cb==="hub:forex"||cb.startsWith("forex:"))return null'],'UNIFIED_HUB');
 need(cfg,['targetUsd:510','targetDays:3','dailyMinProfitPct:1.00','minProfitPct:1.00','aiProviders:["chatgpt","claude"]','executionTerminal:"MT5_WINDOWS"','newsCalendarFailClosed:true','prohibitNewsBracketing:true'],'FOREX_CONFIG');
 need(prep,['FOREX_USER_TARGET_ENABLED','FOREX_USER_TARGET_USD','510','FOREX_USER_TARGET_DAYS','FOREX_DAILY_OBJECTIVE_PCT'],'PREPARE_WRANGLER');
 need(workflow,["FOREX_AUTO_LIVE: 'true'","FOREX_USER_TARGET_USD: '510'","FOREX_USER_TARGET_DAYS: '3'","FOREX_DAILY_OBJECTIVE_PCT: '1.0'",'FOREX_USER_TARGET_ENABLED'], 'DEPLOY_WORKFLOW');
