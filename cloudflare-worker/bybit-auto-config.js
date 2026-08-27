@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.8.4: $3+ effective SL risk, capped $10 TP ladder, easier-but-protected entry flow.
+// BYBIT-AUTO-1.8.5: $3+ effective SL risk, capped $10 TP ladder, anti-sweep V5 + delayed protection + Telegram retry.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
