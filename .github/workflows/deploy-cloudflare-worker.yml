@@ -63,11 +63,11 @@ jobs:
           set -euo pipefail
           verify_once() {
             CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
-            if ! printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!=='BYBIT-AUTO-1.8.4')process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion)}catch{process.exit(2)}})"; then
+            if ! printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!=='BYBIT-AUTO-1.8.5')process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion)}catch{process.exit(2)}})"; then
               return 1
             fi
             HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health" || true)"
-            if ! printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,version:x.version,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(!x.ok||!x.authenticated)process.exit(2);if(x.version!=='BYBIT-AUTO-1.8.4'||x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(x.marketTransport!=='VPS_BYBIT_MARKET_PROXY')process.exit(5);if(!x.execution?.liveAck||!x.execution?.scheduled||!x.execution?.ready)process.exit(6)}catch{process.exit(2)}})"; then
+            if ! printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,version:x.version,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(!x.ok||!x.authenticated)process.exit(2);if(x.version!=='BYBIT-AUTO-1.8.5'||x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(x.marketTransport!=='VPS_BYBIT_MARKET_PROXY')process.exit(5);if(!x.execution?.liveAck||!x.execution?.scheduled||!x.execution?.ready)process.exit(6)}catch{process.exit(2)}})"; then
               return 1
             fi
             STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status" || true)"
