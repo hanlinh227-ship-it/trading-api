@@ -41,20 +41,29 @@ export async function scanBybitAuto(env){
  let positions=[];if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"){try{positions=(await api.positions())?.result?.list?.filter(x=>Number(x.size||0)>0)||[];}catch(e){return {version:BYBIT_AUTO_VERSION,best:null,candidates:out,universe:{ok:true,count:universe.count,symbols:universe.symbols},analyzed:universe.symbols.length,qualified:out.length,reason:"CORRELATION_POSITION_FETCH_FAILED",adaptive:{enabled:true,regime:true,perSymbolEdge:true,correlation:true,autoPromote:false},errors:[...errors,{symbol:"PORTFOLIO",error:String(e?.message||e).slice(0,140)}].slice(0,20),scannedAt:Date.now()};}}
  const eligible=[],correlationRejected=[];
  for(const candidate of out){if(positions.some(p=>String(p.symbol)===candidate.symbol))continue;const correlation=await assessPortfolioCorrelation(api,candidate,positions,{soft:cfg.adaptive?.correlationSoft,hard:cfg.adaptive?.correlationHard});const enriched={...candidate,correlation};if(correlation.ok)eligible.push(enriched);else correlationRejected.push({symbol:candidate.symbol,side:candidate.side,reason:correlation.reason,maxCorrelation:correlation.maxCorrelation,checks:correlation.checks});}
- return {version:BYBIT_AUTO_VERSION,best:eligible[0]||null,candidates:eligible,rawCandidates:out.length,universe:{ok:true,count:universe.count,symbols:universe.symbols},analyzed:universe.symbols.length,qualified:eligible.length,correlationRejected:correlationRejected.slice(0,12),adaptive:{enabled:true,regime:true,perSymbolEdge:true,adaptiveThresholdBounds:[68,85],correlationSoft:cfg.adaptive?.correlationSoft,correlationHard:cfg.adaptive?.correlationHard,netExpectancy:true,exitProfiles:true,autoPromote:false},errors:errors.slice(0,20),scannedAt:Date.now()};
+ return {version:BYBIT_AUTO_VERSION,best:eligible[0]||null,candidates:eligible,rawCandidates:out.length,universe:{ok:true,count:universe.count,symbols:universe.symbols},analyzed:universe.symbols.length,qualified:eligible.length,correlationRejected:correlationRejected.slice(0,12),adaptive:{enabled:true,regime:true,perSymbolEdge:true,adaptiveThresholdBounds:[64,82],correlationSoft:cfg.adaptive?.correlationSoft,correlationHard:cfg.adaptive?.correlationHard,netExpectancy:true,exitProfiles:true,autoPromote:false},errors:errors.slice(0,20),scannedAt:Date.now()};
 }
 
 export function sizeBybitAuto(setup,cfg,equityUsd=50){
   const f=setup.filters||{},equity=Math.max(0,Number(equityUsd||0)),entry=Number(setup.entry||0),sl=Number(setup.sl||0),structureTp=Number(setup.tp||0);
   const base=Math.max(1,Number(cfg.risk.baseBalanceUsd||50)),stepUsd=Math.max(1,Number(cfg.risk.balanceStepUsd||10));
   const scaleEquity=Math.round(equity*100)/100,delta=scaleEquity-base,signedSteps=delta>=0?Math.floor((delta+1e-9)/stepUsd):Math.ceil((delta-1e-9)/stepUsd);
-  const minRiskFloor=Math.max(.25,Number(cfg.risk.minRiskUsd||.5)),absoluteMinReward=Math.max(.25,Number(cfg.risk.minRewardUsd||.5));
-  const ladderMaxLossUsd=Math.max(minRiskFloor,Number(cfg.risk.baseRiskUsd||5)+signedSteps*Number(cfg.risk.riskStepUsd||1));
-  const ladderMinEffectiveRiskUsd=Math.min(ladderMaxLossUsd,Math.max(minRiskFloor,Number(cfg.risk.baseMinEffectiveRiskUsd||2)+signedSteps*Number(cfg.risk.effectiveRiskStepUsd||.5)));
-  const ladderMinRewardUsd=Math.max(absoluteMinReward,Number(cfg.risk.baseMinRewardUsd||1)+signedSteps*Number(cfg.risk.minRewardStepUsd||.5));
-  const ladderMaxRewardUsd=Math.max(ladderMinRewardUsd,Number(cfg.risk.baseRewardUsd||5)+signedSteps*Number(cfg.risk.rewardStepUsd||1));
-  const riskBudgetUsd=Math.min(ladderMaxLossUsd,equity*Number(cfg.risk.maxRiskPctOfEquity||10)/100),dist=Math.abs(entry-sl);
+  const minRiskFloor=Math.max(3,Number(cfg.risk.minRiskUsd||3)),absoluteMinReward=Math.max(.25,Number(cfg.risk.minRewardUsd||3));
+  const hardMaxRewardUsd=Math.max(absoluteMinReward,Math.min(10,Number(cfg.risk.maxRewardUsd||10)));
+  const rawRiskLadderUsd=Math.max(minRiskFloor,Number(cfg.risk.baseRiskUsd||5)+signedSteps*Number(cfg.risk.riskStepUsd||1));
+  const rawMaxRewardUsd=Number(cfg.risk.baseRewardUsd||8)+signedSteps*Number(cfg.risk.rewardStepUsd||1);
+  const ladderMaxRewardUsd=Math.min(hardMaxRewardUsd,Math.max(absoluteMinReward,rawMaxRewardUsd));
+  const requestedMinRewardUsd=Math.max(absoluteMinReward,Number(cfg.risk.baseMinRewardUsd||5)+signedSteps*Number(cfg.risk.minRewardStepUsd||1));
+  const ladderMinRewardUsd=Math.min(ladderMaxRewardUsd,requestedMinRewardUsd);
+  const minRR=Math.max(1,Number(cfg.risk.minRR||1.5));
+  const rrCompatibleRiskCapUsd=ladderMaxRewardUsd/minRR;
+  const ladderMaxLossUsd=Math.max(minRiskFloor,Math.min(rawRiskLadderUsd,rrCompatibleRiskCapUsd));
+  const requestedEffectiveRiskUsd=Math.max(minRiskFloor,Number(cfg.risk.baseMinEffectiveRiskUsd||3)+signedSteps*Number(cfg.risk.effectiveRiskStepUsd||1));
+  const ladderMinEffectiveRiskUsd=Math.min(ladderMaxLossUsd,requestedEffectiveRiskUsd);
+  const equityRiskCapUsd=equity*Number(cfg.risk.maxRiskPctOfEquity||8)/100;
+  const riskBudgetUsd=Math.min(ladderMaxLossUsd,equityRiskCapUsd),dist=Math.abs(entry-sl);
   if(!(equity>0&&entry>0&&dist>0&&riskBudgetUsd>0))return {ok:false,reason:"RISK_BUDGET_OR_GEOMETRY_INVALID",riskBudgetUsd,equityUsd:equity,riskLadderStep:signedSteps};
+  if(riskBudgetUsd+1e-9<minRiskFloor)return {ok:false,reason:"ACCOUNT_TOO_SMALL_FOR_3USD_SL_FLOOR",riskBudgetUsd,equityRiskCapUsd,minRiskFloor,equityUsd:equity,riskLadderStep:signedSteps};
   const configuredMax=Math.max(1,Number(cfg.maxLeverage||10)),symbolMax=Number(f.maxLeverage||0)>0?Math.min(configuredMax,Number(f.maxLeverage)):configuredMax,symbolMin=Math.max(1,Number(f.minLeverage||1));
   const leverage=Math.max(symbolMin,symbolMax);
   const reservePct=clamp(Number(cfg.risk.minFreeReservePct||20),15,40),feeBufferPct=clamp(Number(cfg.risk.feeBufferPct||5),2,12);
@@ -67,8 +76,10 @@ export function sizeBybitAuto(setup,cfg,equityUsd=50){
   if(initialMarginUsd>marginBudgetUsd+1e-9)return {ok:false,reason:"PER_POSITION_MARGIN_CAP",qty,notional,leverage,initialMarginUsd,marginBudgetUsd,equityUsd:equity};
   const riskUsd=qty*dist,structureRewardUsd=structureTp>0?qty*Math.abs(structureTp-entry):Infinity;
   if(riskUsd+1e-9<ladderMinEffectiveRiskUsd)return {ok:false,reason:"EFFECTIVE_RISK_TOO_SMALL",qty,notional,riskUsd,riskBudgetUsd,ladderMinEffectiveRiskUsd,initialMarginUsd,marginBudgetUsd,capitalLimited:capitalQty<riskQty,riskLadderStep:signedSteps};
+  if(riskUsd+1e-9<minRiskFloor)return {ok:false,reason:"SL_RISK_BELOW_3USD_HARD_FLOOR",qty,notional,riskUsd,minRiskFloor,riskLadderStep:signedSteps};
   if(structureRewardUsd+1e-9<ladderMinRewardUsd)return {ok:false,reason:"STRUCTURE_REWARD_BELOW_LADDER_MIN",qty,notional,riskUsd,structureRewardUsd,ladderMinRewardUsd,ladderMaxRewardUsd,riskLadderStep:signedSteps};
   const rewardUsd=Math.min(ladderMaxRewardUsd,structureRewardUsd),targetRR=riskUsd>0?rewardUsd/riskUsd:null;
-  if(!(riskUsd>0&&rewardUsd>=ladderMinRewardUsd&&targetRR>=Number(cfg.risk.minRR||1)))return {ok:false,reason:"SIZED_RR_BELOW_MIN",qty,notional,riskUsd,rewardUsd,targetRR,structureRewardUsd,ladderMinRewardUsd,ladderMaxRewardUsd};
-  return {ok:true,qty,notional,riskUsd,riskBudgetUsd,rewardUsd,rewardBudgetUsd:ladderMaxRewardUsd,structureRewardUsd,targetRR,riskLadderStep:signedSteps,ladderMaxLossUsd,ladderMinEffectiveRiskUsd,ladderMinRewardUsd,ladderMaxRewardUsd,equityUsd:equity,scaleEquityUsd:scaleEquity,leverage,requiredLeverage:leverage,maxLeverage:symbolMax,capitalMode:"BALANCED_EFFECTIVE_RISK_BAND_ALLOCATOR",reservePct,feeBufferPct,slotMarginPct:slotCeilingPct,grossMarginBudgetUsd,marginBudgetUsd,initialMarginUsd,capitalLimited:capitalQty<riskQty,riskUtilizationPct:riskBudgetUsd>0?riskUsd/riskBudgetUsd*100:null,marginUtilizationPct:marginBudgetUsd>0?initialMarginUsd/marginBudgetUsd*100:null,adaptive:{regime:setup.regime||null,betaCluster:setup.betaCluster||null,exitProfile:setup.exitProfile||"BALANCED",threshold:setup.adaptiveThreshold||null,edge:setup.edge||null,correlation:setup.correlation||null}};
+  if(rewardUsd>hardMaxRewardUsd+1e-9)return {ok:false,reason:"TP_REWARD_ABOVE_10USD_HARD_CAP",rewardUsd,hardMaxRewardUsd};
+  if(!(riskUsd>0&&rewardUsd>=ladderMinRewardUsd&&targetRR>=minRR))return {ok:false,reason:"SIZED_RR_BELOW_MIN",qty,notional,riskUsd,rewardUsd,targetRR,structureRewardUsd,ladderMinRewardUsd,ladderMaxRewardUsd,hardMaxRewardUsd};
+  return {ok:true,qty,notional,riskUsd,riskBudgetUsd,rewardUsd,rewardBudgetUsd:ladderMaxRewardUsd,structureRewardUsd,targetRR,riskLadderStep:signedSteps,rawRiskLadderUsd,ladderMaxLossUsd,ladderMinEffectiveRiskUsd,requestedEffectiveRiskUsd,ladderMinRewardUsd,ladderMaxRewardUsd,hardMaxRewardUsd,rrCompatibleRiskCapUsd,equityRiskCapUsd,equityUsd:equity,scaleEquityUsd:scaleEquity,scaleRule:"PLUS_MINUS_1_USD_PER_10_USD_EQUITY_FROM_50_USD_BASE",leverage,requiredLeverage:leverage,maxLeverage:symbolMax,capitalMode:"BALANCE_SCALED_TP_SL_BAND_ALLOCATOR_V184",reservePct,feeBufferPct,slotMarginPct:slotCeilingPct,grossMarginBudgetUsd,marginBudgetUsd,initialMarginUsd,capitalLimited:capitalQty<riskQty,riskUtilizationPct:riskBudgetUsd>0?riskUsd/riskBudgetUsd*100:null,marginUtilizationPct:marginBudgetUsd>0?initialMarginUsd/marginBudgetUsd*100:null,adaptive:{regime:setup.regime||null,betaCluster:setup.betaCluster||null,exitProfile:setup.exitProfile||"BALANCED",threshold:setup.adaptiveThreshold||null,edge:setup.edge||null,correlation:setup.correlation||null}};
 }
