@@ -4,7 +4,7 @@ LOCKED: true
 SCOPE: Bybit Auto production quality/runtime + protected trading authority
 UPDATED: 2026-08-27
 
-GitHub `main` is authoritative. Current Bybit Auto production design is **BYBIT-AUTO-1.8.8**. Signal V11 is historical/research-only unless explicitly referenced by current source.
+GitHub `main` is authoritative. Current Bybit Auto production design is **BYBIT-AUTO-1.9.0**. Signal V11 is historical/research-only unless explicitly referenced by current source.
 
 ## Hard production invariants
 Preserve:
@@ -17,7 +17,7 @@ Preserve:
 - `maxMarginPerPositionPct: 100`, with equity-aware slot decay sizing; `PORTFOLIO_MARGIN_HEADROOM` enforces runtime headroom;
 - `minFreeReservePct: 0`; reserve is enforced dynamically by portfolio headroom rather than a fixed config floor;
 - `targetRiskPctOfEquity: 6%` and `maxRiskPctOfEquity: 6.5%`, with the effective per-trade target declining as equity scales up;
-- `maxTotalOpenRiskPct: 24%` hard portfolio risk ceiling;
+- `maxTotalOpenRiskPct: 36%` hard portfolio risk ceiling;
 - adaptive threshold hard bounded to `66–84`;
 - correlation/beta gate for same-direction live exposure with `0.86` soft / `0.95` hard defaults;
 - learning influence is zero below minimum sample and bounded afterward;
@@ -28,6 +28,7 @@ Preserve:
 - strict fail-closed Claude + Codex final-entry authority; post-AI quote validation mandatory;
 - structural anti-sweep SL geometry remains deterministic and cannot be weakened by learning;
 - verified exchange-side TP/SL protection plus delayed BE / profit-lock / trailing management;
+- native trailing floor remains 1.70R with 1.85R default trigger unless a stricter runtime value is supplied;
 - Smart CUT canonical multi-signal invalidation, always `reduceOnly` for CUT;
 - daily target OFF; 3-loss 30-minute new-entry pause; management continues during blocks;
 - Telegram notifications/health must reflect runtime truth; learning remains backend state even when UI buttons are absent.
@@ -40,19 +41,23 @@ Regime is deterministic and cannot be overridden by AI. Correlation failures are
 ## Smart CUT
 Normal path: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`. Smart CUT is exceptional and requires confirmed thesis invalidation; slow trade, noisy M1, later scan or ordinary profit giveback alone are insufficient.
 
-## Current profile — BYBIT-AUTO-1.8.8
+## Current profile — BYBIT-AUTO-1.9.0
 - Scan cadence: 60s.
+- Live universe minimum target: 80 symbols.
+- Default minimum 24h turnover for universe: $750,000.
+- Default scan concurrency: 12.
 - Entry cooldown: 60s minimum.
-- Score bounds: 66–84.
+- Score bounds: 66–84; current symbol profiles remain scalp-tuned within those bounds.
 - `maxOpenPositions`: unlimited sentinel (`1_000_000`).
 - `maxSameDirectionPositions`: unlimited sentinel (`1_000_000`).
 - `maxMarginPerPositionPct`: 100% config ceiling with slot-margin decay curve.
 - `maxPortfolioMarginPct`: 100% portfolio allocation ceiling.
 - `minFreeReservePct`: 0%; runtime headroom gate owns enforcement.
 - Target risk: 6% equity curve; hard per-trade cap: 6.5% equity.
-- Total managed open risk hard cap: 24% equity.
+- Total managed open risk hard cap: 36% equity.
 - Correlation: soft 0.86 / hard 0.95.
-- Minimum RR: 1.5.
+- Minimum RR: 1.5; preferred RR: 1.8.
+- Native trailing: hard floor 1.70R, default 1.85R.
 - Daily target: OFF.
 
 ## Deployment
