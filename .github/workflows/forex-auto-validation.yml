@@ -43,8 +43,11 @@ jobs:
           grep -q 'minProfitPct:.50' forex-auto-config.js
           grep -q 'USER_SET_RUNTIME_TARGET_ONLY' forex-auto-config.js
           grep -q 'decisionTtlSec:6' forex-auto-config.js
-          grep -q '#property version   "1.000"' ../mt5/ForexAutoThe5ers.mq5
+          grep -q '#property version   "1.001"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpPulseMs=2000' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'InpHeartbeatSec=10' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'InpWatchdogSec=15' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'FOREX EA HEARTBEAT v1.001' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'WebRequest("POST"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'PROTOCOL_VERSION=1' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'ALTERNATION_HARD_LOCK' ../mt5/ForexAutoThe5ers.mq5
