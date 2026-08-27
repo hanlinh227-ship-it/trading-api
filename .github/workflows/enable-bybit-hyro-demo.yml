@@ -1,0 +1,103 @@
+name: Enable Bybit Hyro Demo
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/enable-bybit-hyro-demo.yml'
+permissions:
+  contents: write
+jobs:
+  enable:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Patch demo-aware health status and production flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Demo-aware readonly health. LIVE and DEMO have separate transport contracts.
+          p=Path('cloudflare-worker/bybit-readonly-health.js')
+          s=p.read_text()
+          old='const creds=bybitCredentials(env),mode=bybitExecutionMode(env),api=bybitV5(env),liveAck=on(env.BYBIT_AUTO_LIVE_ACK),scheduled=on(env.BYBIT_AUTO_ENABLED),runtimeRevision=String(env.RUNTIME_REVISION||"UNKNOWN");'
+          new='const creds=bybitCredentials(env),mode=bybitExecutionMode(env),api=bybitV5(env),liveAck=on(env.BYBIT_AUTO_LIVE_ACK),scheduled=on(env.BYBIT_AUTO_ENABLED),demo=on(env.BYBIT_AUTO_DEMO),runtimeRevision=String(env.RUNTIME_REVISION||"UNKNOWN");'
+          assert old in s, 'health env anchor missing'
+          s=s.replace(old,new)
+          old='const privateTransport=api.privateTransport||"UNKNOWN",marketTransport=api.marketTransport||"UNKNOWN",contractAligned=privateTransport===BYBIT_PRIVATE_TRANSPORT&&marketTransport===BYBIT_MARKET_TRANSPORT&&api.runtimeContract===BYBIT_RUNTIME_CONTRACT.version;'
+          new='const privateTransport=api.privateTransport||"UNKNOWN",marketTransport=api.marketTransport||"UNKNOWN",expectedPrivateTransport=demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":BYBIT_PRIVATE_TRANSPORT,expectedMarketTransport=demo?"CLOUDFLARE_BYBIT_DEMO_PUBLIC":BYBIT_MARKET_TRANSPORT,contractAligned=privateTransport===expectedPrivateTransport&&marketTransport===expectedMarketTransport&&api.runtimeContract===BYBIT_RUNTIME_CONTRACT.version;'
+          assert old in s, 'health contract anchor missing'
+          s=s.replace(old,new)
+          old='const contract={...BYBIT_RUNTIME_CONTRACT,aligned:contractAligned,clientContract:api.runtimeContract||null};'
+          new='const contract={...BYBIT_RUNTIME_CONTRACT,aligned:contractAligned,clientContract:api.runtimeContract||null,environment:demo?"DEMO":"LIVE",expectedPrivateTransport,expectedMarketTransport};'
+          assert old in s, 'health contract object anchor missing'
+          s=s.replace(old,new)
+          s=s.replace('exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,execution:', 'exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,environment:demo?"DEMO":"LIVE",demo,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,apiBase:api.bases?.[0]||null,execution:')
+          s=s.replace('exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,credentialSource:', 'exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,environment:demo?"DEMO":"LIVE",demo,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,apiBase:api.bases?.[0]||null,credentialSource:')
+          s=s.replace('"HEALTH_USES_AUTHENTICATED_VPS_PRIVATE_TRANSPORT","HEALTH_USES_VPS_MARKET_TRANSPORT"', 'demo?"HEALTH_USES_AUTHENTICATED_BYBIT_DEMO_PRIVATE_TRANSPORT":"HEALTH_USES_AUTHENTICATED_VPS_PRIVATE_TRANSPORT",demo?"HEALTH_USES_BYBIT_DEMO_MARKET_TRANSPORT":"HEALTH_USES_VPS_MARKET_TRANSPORT"')
+          p.write_text(s)
+
+          # Public status must make DEMO explicit and remove stale Windows telemetry.
+          p=Path('cloudflare-worker/index.js')
+          s=p.read_text()
+          old='bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,'
+          new='bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),demo:envBool(env.BYBIT_AUTO_DEMO),environment:envBool(env.BYBIT_AUTO_DEMO)?"DEMO":(envBool(env.BYBIT_AUTO_LIVE)?"LIVE":"PAPER"),executionAuthority:true,'
+          assert old in s, 'index bybit status anchor missing'
+          s=s.replace(old,new)
+          s=s.replace('mt5Windows:true','mt5VpsWine11:true')
+          p.write_text(s)
+
+          # Enable full exchange execution semantics but hard-route them to DEMO.
+          p=Path('.github/workflows/deploy-cloudflare-worker.yml')
+          s=p.read_text()
+          for old,new in [
+            ("BYBIT_AUTO_ENABLED: 'false'","BYBIT_AUTO_ENABLED: 'true'"),
+            ("BYBIT_AUTO_LIVE: 'false'","BYBIT_AUTO_LIVE: 'true'"),
+            ("BYBIT_AUTO_LIVE_ACK: 'false'","BYBIT_AUTO_LIVE_ACK: 'true'")]:
+              assert old in s, f'deploy env anchor missing: {old}'
+              s=s.replace(old,new,1)
+          marker="      BYBIT_AUTO_LIVE_ACK: 'true'\n"
+          assert marker in s and "BYBIT_AUTO_DEMO: 'true'" not in s
+          s=s.replace(marker,marker+"      BYBIT_AUTO_DEMO: 'true'\n",1)
+          for old,new in [
+            ('grep -q \'"BYBIT_AUTO_ENABLED": "false"\' wrangler.jsonc','grep -q \'"BYBIT_AUTO_ENABLED": "true"\' wrangler.jsonc'),
+            ('grep -q \'"BYBIT_AUTO_LIVE": "false"\' wrangler.jsonc','grep -q \'"BYBIT_AUTO_LIVE": "true"\' wrangler.jsonc'),
+            ('grep -q \'"BYBIT_AUTO_LIVE_ACK": "false"\' wrangler.jsonc','grep -q \'"BYBIT_AUTO_LIVE_ACK": "true"\' wrangler.jsonc')]:
+              assert old in s, f'deploy grep anchor missing: {old}'
+              s=s.replace(old,new,1)
+          marker="          grep -q '\"BYBIT_AUTO_LIVE_ACK\": \"true\"' wrangler.jsonc\n"
+          assert marker in s
+          s=s.replace(marker,marker+"          grep -q '\"BYBIT_AUTO_DEMO\": \"true\"' wrangler.jsonc\n",1)
+          s=s.replace('Verify deployed runtime with Bybit paused','Verify deployed Bybit DEMO runtime')
+          old='if(x.version!==\'BYBIT-AUTO-1.9.1\'||x.mode!==\'PAPER\')process.exit(3);if(x.execution?.scheduled||x.execution?.ready||x.execution?.liveAck)process.exit(5);console.log(\'BYBIT_PAUSED=PASS\')'
+          new='if(x.version!==\'BYBIT-AUTO-1.9.1\'||x.mode!==\'LIVE\'||x.environment!==\'DEMO\'||x.demo!==true)process.exit(3);if(x.credentialSource!==\'HYRO_BYBIT_DEMO\'||x.apiBase!==\'https://api-demo.bybit.com\')process.exit(4);if(x.privateTransport!==\'CLOUDFLARE_BYBIT_DEMO_DIRECT\'||x.marketTransport!==\'CLOUDFLARE_BYBIT_DEMO_PUBLIC\')process.exit(5);if(!x.execution?.scheduled||!x.execution?.ready||!x.execution?.liveAck||Number(x.account?.totalEquity)<=0)process.exit(6);console.log(\'BYBIT_DEMO_READY=PASS\')'
+          assert old in s, 'deploy health verifier anchor missing'
+          s=s.replace(old,new,1)
+          old='if(x.bybit?.autoEnabled||x.bybit?.live)process.exit(7);if(!x.forex?.liveEnabled)process.exit(8);console.log(\'BYBIT_PAUSED_FOREX_LIVE=PASS\')'
+          new='if(!x.bybit?.autoEnabled||!x.bybit?.live||x.bybit?.demo!==true||x.bybit?.environment!==\'DEMO\')process.exit(7);if(!x.forex?.liveEnabled)process.exit(8);console.log(\'BYBIT_DEMO_FOREX_ISOLATION=PASS\')'
+          assert old in s, 'deploy status verifier anchor missing'
+          s=s.replace(old,new,1)
+          s=s.replace("UNIFIED_RUNTIME_BYBIT_PAUSED=PASS","UNIFIED_RUNTIME_BYBIT_DEMO=PASS")
+          s=s.replace("UNIFIED_RUNTIME_BYBIT_PAUSED=FAIL_AFTER_PROPAGATION_RETRIES","UNIFIED_RUNTIME_BYBIT_DEMO=FAIL_AFTER_PROPAGATION_RETRIES")
+          p.write_text(s)
+          PY
+          node --check cloudflare-worker/bybit-readonly-health.js
+          node --check cloudflare-worker/index.js
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          BYBIT_AUTO_ENABLED=true BYBIT_AUTO_LIVE=true BYBIT_AUTO_LIVE_ACK=true BYBIT_AUTO_DEMO=true FOREX_AUTO_LIVE=true npm run prepare:wrangler
+          grep -q '"BYBIT_AUTO_DEMO": "true"' wrangler.jsonc
+      - name: Commit and trigger production deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'hanlinh227-ship-it'
+          git config user.email 'hanlinh227@gmail.com'
+          git add cloudflare-worker/bybit-readonly-health.js cloudflare-worker/index.js .github/workflows/deploy-cloudflare-worker.yml
+          git commit -m 'ops(bybit): enable isolated Hyro Bybit demo execution'
+          git push origin HEAD:main
