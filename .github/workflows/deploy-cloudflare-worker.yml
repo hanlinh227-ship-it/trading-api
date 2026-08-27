@@ -21,9 +21,9 @@ jobs:
       TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
       AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-      BYBIT_AUTO_ENABLED: 'true'
-      BYBIT_AUTO_LIVE: 'true'
-      BYBIT_AUTO_LIVE_ACK: 'true'
+      BYBIT_AUTO_ENABLED: 'false'
+      BYBIT_AUTO_LIVE: 'false'
+      BYBIT_AUTO_LIVE_ACK: 'false'
       FOREX_AUTO_LIVE: 'true'
       FOREX_USER_TARGET_ENABLED: 'true'
       FOREX_USER_TARGET_USD: '510'
@@ -57,15 +57,15 @@ jobs:
           npm install --no-audit --no-fund
           npm run check
           npm run prepare:wrangler
-          grep -q '"BYBIT_AUTO_ENABLED": "true"' wrangler.jsonc
-          grep -q '"BYBIT_AUTO_LIVE": "true"' wrangler.jsonc
-          grep -q '"BYBIT_AUTO_LIVE_ACK": "true"' wrangler.jsonc
+          grep -q '"BYBIT_AUTO_ENABLED": "false"' wrangler.jsonc
+          grep -q '"BYBIT_AUTO_LIVE": "false"' wrangler.jsonc
+          grep -q '"BYBIT_AUTO_LIVE_ACK": "false"' wrangler.jsonc
           grep -q '"FOREX_AUTO_LIVE": "true"' wrangler.jsonc
           grep -q '"FOREX_USER_TARGET_ENABLED": "true"' wrangler.jsonc
           grep -q '"FOREX_USER_TARGET_USD": "510"' wrangler.jsonc
           grep -q '"FOREX_USER_TARGET_DAYS": "3"' wrangler.jsonc
           npx wrangler deploy
-      - name: Verify deployed LIVE runtime
+      - name: Verify deployed runtime with Bybit paused
         shell: bash
         run: |
           set -euo pipefail
@@ -73,17 +73,17 @@ jobs:
             CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
             if ! printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!=='BYBIT-AUTO-1.9.1')process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion)}catch{process.exit(2)}})"; then return 1; fi
             HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health" || true)"
-            if ! printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated)process.exit(2);if(x.version!=='BYBIT-AUTO-1.9.1'||x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY'||x.marketTransport!=='VPS_BYBIT_MARKET_PROXY')process.exit(4);if(!x.execution?.liveAck||!x.execution?.scheduled||!x.execution?.ready)process.exit(5);console.log('BYBIT_LIVE=PASS')}catch{process.exit(2)}})"; then return 1; fi
+            if ! printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated)process.exit(2);if(x.version!=='BYBIT-AUTO-1.9.1'||x.mode!=='PAPER')process.exit(3);if(x.execution?.scheduled||x.execution?.ready||x.execution?.liveAck)process.exit(5);console.log('BYBIT_PAUSED=PASS')}catch{process.exit(2)}})"; then return 1; fi
             STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status" || true)"
-            if ! printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.bybit?.autoEnabled||!x.bybit?.live)process.exit(7);if(!x.forex?.liveEnabled)process.exit(8);console.log('BYBIT_FOREX_LIVE_ISOLATION=PASS')}catch{process.exit(2)}})"; then return 1; fi
+            if ! printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(x.bybit?.autoEnabled||x.bybit?.live)process.exit(7);if(!x.forex?.liveEnabled)process.exit(8);console.log('BYBIT_PAUSED_FOREX_LIVE=PASS')}catch{process.exit(2)}})"; then return 1; fi
             FX="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/forex/health" || true)"
             if ! printf '%s\n' "$FX" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),a=x.ai||{},m=x.mt5Canonical||{};console.log('FOREX_PRODUCTION='+JSON.stringify({ok:x.ok,version:x.version,mode:x.mode,bridgeTokenConfigured:x.bridgeTokenConfigured,ai:{chatgpt:a.chatgpt,claude:a.claude},mt5Canonical:m,lastTerminal:x.lastTerminal}));if(!x.ok||x.mode!=='LIVE'||!x.bridgeTokenConfigured)process.exit(9);if(!a.chatgpt?.configured||!a.claude?.configured)process.exit(10);if(!m.connected||!m.heartbeat?.canonicalEa||Number(m.heartbeat?.balance)<=0||Number(m.heartbeat?.equity)<=0||Number(m.ageSec)>30)process.exit(11);console.log('FOREX_CANONICAL_MT5=PASS')}catch(e){console.error(e);process.exit(2)}})"; then return 1; fi
             return 0
           }
           for attempt in 1 2 3 4 5 6 7 8; do
             echo "PRODUCTION_VERIFY_ATTEMPT=$attempt"
-            if verify_once; then echo 'UNIFIED_LIVE_RUNTIME=PASS'; exit 0; fi
+            if verify_once; then echo 'UNIFIED_RUNTIME_BYBIT_PAUSED=PASS'; exit 0; fi
             sleep 8
           done
-          echo 'UNIFIED_LIVE_RUNTIME=FAIL_AFTER_PROPAGATION_RETRIES' >&2
+          echo 'UNIFIED_RUNTIME_BYBIT_PAUSED=FAIL_AFTER_PROPAGATION_RETRIES' >&2
           exit 1
