@@ -1,0 +1,51 @@
+name: Forex ChatGPT Runtime Hardening
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/forex-chatgpt-runtime-hardening.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chatgpt/forex-runtime-hardening-20260827
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Patch Forex bridge stale locks
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/forex-autonomous-mt5-bridge.js')
+          s=p.read_text()
+          replacements={
+            'b) cooldown elapsed (default 30s, env-overridable)':'b) cooldown elapsed (default 10s, env-overridable)',
+            '`🔁 Required side: ${decision.requiredSide||"—"}`':'`↔️ Side policy: FREE BUY/SELL • max streak 3`',
+            '`🔁 Next allowed entry: ${expectedNextSide(side)}`':'`↔️ Side policy: FREE BUY/SELL • max streak 3`',
+            'if(!council.ok)decision={action:"NO_TRADE",reason:"PURE_AI_2AI_NOT_HEALTHY",requiredSide};':'if(!council){/* preserve AI_ENTRY_COOLDOWN decision when council call is not due */}\n   else if(!council.ok)decision={action:"NO_TRADE",reason:"PURE_AI_2AI_NOT_HEALTHY",requiredSide};',
+            'alternation:{lastFilledSide:account.lastFilledSide||null,requiredSide,sequence:"BUY->SELL->BUY->SELL",noForceEntry:true}':'sidePolicy:{mode:"FREE_WITH_ANTI_BIAS_STREAK_CAP",lastFilledSide:account.lastFilledSide||null,maxConsecutiveSameSide:3,noForceEntry:true}',
+            'alternation:{lastFilledSide:s.account?.lastFilledSide||null,requiredSide:s.account?.expectedNextSide||"BUY",sequence:"BUY->SELL->BUY->SELL"}':'sidePolicy:{mode:"FREE_WITH_ANTI_BIAS_STREAK_CAP",lastFilledSide:s.account?.lastFilledSide||null,maxConsecutiveSameSide:3}'
+          }
+          for a,b in replacements.items():
+              if a not in s:
+                  raise SystemExit(f'MISSING EXPECTED TEXT: {a}')
+              s=s.replace(a,b)
+          p.write_text(s)
+          PY
+      - name: Validate
+        shell: bash
+        run: |
+          node --check cloudflare-worker/forex-autonomous-mt5-bridge.js
+          node cloudflare-worker/validate-forex-auto.mjs
+          node cloudflare-worker/validate-forex-runtime.mjs
+      - name: Commit branch
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cloudflare-worker/forex-autonomous-mt5-bridge.js
+          git commit -m 'forex: preserve cooldown reason and remove stale alternation text'
+          git push origin HEAD:chatgpt/forex-runtime-hardening-20260827
