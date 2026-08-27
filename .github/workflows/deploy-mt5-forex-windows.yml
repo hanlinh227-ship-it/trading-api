@@ -1,6 +1,12 @@
 name: Deploy MT5 Forex Windows Native
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'mt5/ForexAutoThe5ers.mq5'
+      - 'windows/mt5-forex/**'
+      - '.github/workflows/deploy-mt5-forex-windows.yml'
   workflow_dispatch:
 
 permissions:
@@ -64,14 +70,18 @@ jobs:
                 $connected = [bool]$p.mt5.connected
                 $balanceOk = [double]$p.account.balance -gt 0
                 $equityOk = [double]$p.account.equity -gt 0
-                if ($loginOk -and $serverOk -and $connected -and $balanceOk -and $equityOk) {
+                $eaOk = [string]$p.mt5.eaVersion -eq '1.002'
+                $caps = @($p.capabilities)
+                $pendingOk = $caps -contains 'LIMIT_ENTRY' -and $caps -contains 'STOP_ENTRY' -and $caps -contains 'PENDING_NEWS_AUTO_CANCEL'
+                if ($loginOk -and $serverOk -and $connected -and $balanceOk -and $equityOk -and $eaOk -and $pendingOk) {
                   Write-Output 'MT5_WINDOWS_CONNECTED=PASS'
                   Write-Output 'MT5_WINDOWS_ACCOUNT_MATCH=PASS'
                   Write-Output 'MT5_WINDOWS_BALANCE_EQUITY=PASS'
+                  Write-Output 'MT5_WINDOWS_EA_1_002_PENDING_NEWS_GUARD=PASS'
                   exit 0
                 }
               } catch {}
             }
             Start-Sleep -Seconds 5
           } while ((Get-Date) -lt $deadline)
-          throw 'Native Windows MT5 did not produce a connected The5ers pulse within 5 minutes. Confirm the broker account has been logged in once under this same Windows user.'
+          throw 'Native Windows MT5 did not produce canonical EA 1.002 MARKET/LIMIT/STOP + pending red-news guard pulse within 5 minutes.'
