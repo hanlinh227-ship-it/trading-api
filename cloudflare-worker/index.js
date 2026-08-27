@@ -9,6 +9,7 @@ import {MEME_AUTO_VERSION,MEME_AUTO_MODE} from "./meme-auto-design.js";
 import {runMemePaperCycle,getMemePaperState} from "./meme-paper-engine.js";
 import {getMemeJupiterQuoteHealth} from "./meme-quote-health.js";
 import {handleForexMt5ProtocolV1} from "./forex-mt5-protocol-v1-compat.js";
+import {handleForexTelegramHub} from "./forex-telegram-hub.js";
 import {FOREX_AUTO_VERSION} from "./forex-auto-config.js";
 
 const VERSION=BYBIT_AUTO_VERSION;
@@ -22,6 +23,7 @@ export default {
     const bybitReview=await handleBybitAiReviewApi(req,env); if(bybitReview)return bybitReview;
     const bybitControl=await handleBybitControlApi(req,env); if(bybitControl)return bybitControl;
     const forex=await handleForexMt5ProtocolV1(req,env,ctx); if(forex)return forex;
+    const forexTelegram=await handleForexTelegramHub(req,env,ctx); if(forexTelegram)return forexTelegram;
     const hub=await autoHub.fetch(req,env,ctx); if(hub)return hub;
     const url=new URL(req.url);
     if(url.pathname==="/runtime/contract")return json({ok:true,...BYBIT_RUNTIME_CONTRACT,runtimeRevision:String(env.RUNTIME_REVISION||"")});
@@ -33,7 +35,7 @@ export default {
       ok:true,version:VERSION,service:SERVICE,hub:BYBIT_EXECUTION_AUTHORITY,runtimeContract:BYBIT_RUNTIME_CONTRACT,
       telegramHub:TELEGRAM_HUB_ID,telegramBranches:["BYBIT","FOREX","MEME"],signalV11Enabled:false,signalSchedulerEnabled:false,
       bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,readonlyHealth:BYBIT_HEALTH_ROUTE,runtimeContract:"/runtime/contract",twoAiAuthority:"BYBIT_AUTO_CANONICAL_2AI_GATE",latestAiReview:"/bybit/ai/latest-review"},
-      forex:{version:FOREX_AUTO_VERSION,mode:envBool(env.FOREX_AUTO_LIVE)?"LIVE":"PAPER",mt5Windows:true,autonomous2Ai:["chatgpt","claude"],ruleBasedSignalAuthority:false,health:"/forex/health",liveEnabled:envBool(env.FOREX_AUTO_LIVE)},
+      forex:{version:FOREX_AUTO_VERSION,mode:envBool(env.FOREX_AUTO_LIVE)?"LIVE":"PAPER",mt5Windows:true,autonomous2Ai:["chatgpt","claude"],telegramCanonicalDashboard:true,ruleBasedSignalAuthority:false,health:"/forex/health",liveEnabled:envBool(env.FOREX_AUTO_LIVE)},
       meme:{version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,paperEnabled:true,executionEnabled:false,walletConnected:false,signingEnabled:false,paperState:"/meme-auto/paper/state",paperRun:"/meme-auto/paper/run",quoteHealth:"/meme-auto/quote-health"},telegramWebhook:"/telegram/webhook"
     });
     if(url.pathname.startsWith("/v11/"))return json({ok:false,error:"SIGNAL_V11_DISABLED",replacement:"BYBIT_AUTO_TRADE_HUB",runtimeContract:"/runtime/contract"},410);
