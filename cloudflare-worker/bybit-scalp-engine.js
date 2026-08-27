@@ -11,13 +11,12 @@ function atr(r,n=14){if(r.length<n+1)return 0;const t=[];for(let i=r.length-n;i<
 function parseK(p){const rows=p?.result?.list||[];return [...rows].reverse().map(x=>[Number(x[0]),Number(x[1]),Number(x[2]),Number(x[3]),Number(x[4]),Number(x[5])]).filter(x=>x.slice(1).every(Number.isFinite));}
 function interval(tf){const s=String(tf||"1m").toLowerCase();if(s.endsWith("m"))return String(Math.max(1,parseInt(s)||1));if(s.endsWith("h"))return String(Math.max(1,(parseInt(s)||1)*60));return "1";}
 function returnsFromRows(r=[]){const c=r.map(x=>Number(x[4])).filter(Number.isFinite),out=[];for(let i=1;i<c.length;i++)if(c[i-1]>0&&c[i]>0)out.push((c[i]-c[i-1])/c[i-1]);return out.slice(-70);}
-function atrFloorPct(symbol,base){const s=String(symbol||"").toUpperCase();if(s==="BTCUSDT")return Math.min(base,.025);if(s==="ETHUSDT")return Math.min(base,.030);if(s==="SOLUSDT")return Math.min(base,.040);return base;}
 function liquidityQualityBonus(metrics={}){const spread=Math.max(0,Number(metrics.spreadBps||0)),turnover=Math.max(1,Number(metrics.turnover24h||0)),spreadScore=clamp((8-spread)/8,0,1),turnoverScore=clamp(Math.log10(turnover/10_000_000)/3,0,1);return (spreadScore+turnoverScore)*.5;}
 async function instrumentMap(api){let cursor="",all=[];for(let i=0;i<4;i++){const p=await api.instruments(cursor),r=p?.result||{};all.push(...(r.list||[]));cursor=String(r.nextPageCursor||"");if(!cursor)break;}return new Map(all.map(x=>[x.symbol,x]));}
 async function liquidUniverse(env,api,filters){const minCount=Math.max(50,Number(env.BYBIT_MIN_UNIVERSE_COUNT||50)),minTurnover=Math.max(1000000,Number(env.BYBIT_MIN_TURNOVER_24H_USD||5000000)),maxSpread=Math.max(2,Number(env.BYBIT_MAX_UNIVERSE_SPREAD_BPS||12)),t=await api.tickers(),out=[];for(const x of t?.result?.list||[]){const symbol=String(x.symbol||"").toUpperCase(),f=filters.get(symbol);if(!f||f.status!=="Trading"||f.contractType!=="LinearPerpetual"||f.settleCoin!=="USDT")continue;const bid=Number(x.bid1Price),ask=Number(x.ask1Price),mid=(bid+ask)/2,turnover=Number(x.turnover24h||0),spread=mid>0?(ask-bid)/mid*10000:Infinity;if(!(bid>0&&ask>bid)||turnover<minTurnover||spread>maxSpread)continue;out.push({symbol,turnover24h:turnover,spreadBps:spread,bid,ask});}out.sort((a,b)=>b.turnover24h-a.turnover24h);return {ok:out.length>=minCount,reason:out.length>=minCount?null:"INSUFFICIENT_LIQUID_UNIVERSE",count:out.length,symbols:out.map(x=>x.symbol),metrics:out};}
 
 function analyze(symbol,r1,r5,bid,ask,cfg,metrics,learningSummary={}){
- const profile=symbolProfile(symbol,{quoteVolume:metrics.turnover24h,spreadBps:metrics.spreadBps}),c1=r1.map(x=>x[4]),c5=r5.map(x=>x[4]),p=(bid+ask)/2,a1=atr(r1,profile.atrPeriod),a5=atr(r5,profile.atrPeriod),eFast=ema(c1,profile.emaFast),eSlow=ema(c1,profile.emaSlow),ctxFast=ema(c5,profile.ctxFast),ctxSlow=ema(c5,profile.ctxSlow),spreadBps=(ask-bid)/p*10000,atrPct=a1/p*100,minAtrPct=atrFloorPct(symbol,Number(cfg.filters.minAtrPct||.05));
+ const profile=symbolProfile(symbol,{quoteVolume:metrics.turnover24h,spreadBps:metrics.spreadBps}),c1=r1.map(x=>x[4]),c5=r5.map(x=>x[4]),p=(bid+ask)/2,a1=atr(r1,profile.atrPeriod),a5=atr(r5,profile.atrPeriod),eFast=ema(c1,profile.emaFast),eSlow=ema(c1,profile.emaSlow),ctxFast=ema(c5,profile.ctxFast),ctxSlow=ema(c5,profile.ctxSlow),spreadBps=(ask-bid)/p*10000,atrPct=a1/p*100,minAtrPct=Math.max(0,Number(cfg.filters.minAtrPct||0));
  if(!(a1>0)||atrPct<minAtrPct||atrPct>cfg.filters.maxAtrPct||spreadBps>profile.maxSpreadBps)return null;
  const c=last(r1),pr=r1[r1.length-2],trend=ctxFast>ctxSlow?1:ctxFast<ctxSlow?-1:0,impUp=c[4]>c[1]&&c[4]>pr[2],impDn=c[4]<c[1]&&c[4]<pr[3],near=Math.min(Math.abs(p-eFast),Math.abs(p-eSlow))<=a1*.60,look=r1.slice(-26,-3),hi=Math.max(...look.map(x=>x[2])),lo=Math.min(...look.map(x=>x[3]));
  let side=null,setupType=null,score=0,breakout=false;
@@ -43,45 +42,37 @@ export async function scanBybitAuto(env){
  let positions=[];if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"){try{positions=(await api.positions())?.result?.list?.filter(x=>Number(x.size||0)>0)||[];}catch(e){return {version:BYBIT_AUTO_VERSION,best:null,candidates:out,universe:{ok:true,count:universe.count,symbols:universe.symbols},analyzed:universe.symbols.length,qualified:out.length,reason:"CORRELATION_POSITION_FETCH_FAILED",adaptive:{enabled:true,regime:true,perSymbolEdge:true,correlation:true,autoPromote:false},errors:[...errors,{symbol:"PORTFOLIO",error:String(e?.message||e).slice(0,140)}].slice(0,20),scannedAt:Date.now()};}}
  const eligible=[],correlationRejected=[];
  for(const candidate of out){if(positions.some(p=>String(p.symbol)===candidate.symbol))continue;const correlation=await assessPortfolioCorrelation(api,candidate,positions,{soft:cfg.adaptive?.correlationSoft,hard:cfg.adaptive?.correlationHard});const enriched={...candidate,correlation};if(correlation.ok)eligible.push(enriched);else correlationRejected.push({symbol:candidate.symbol,side:candidate.side,reason:correlation.reason,maxCorrelation:correlation.maxCorrelation,checks:correlation.checks});}
- return {version:BYBIT_AUTO_VERSION,best:eligible[0]||null,candidates:eligible,rawCandidates:out.length,universe:{ok:true,count:universe.count,symbols:universe.symbols},analyzed:universe.symbols.length,qualified:eligible.length,correlationRejected:correlationRejected.slice(0,12),adaptive:{enabled:true,regime:true,perSymbolEdge:true,adaptiveThresholdBounds:[66,84],correlationSoft:cfg.adaptive?.correlationSoft,correlationHard:cfg.adaptive?.correlationHard,netExpectancy:true,exitProfiles:true,autoPromote:false},errors:errors.slice(0,20),scannedAt:Date.now()};
+ return {version:BYBIT_AUTO_VERSION,best:eligible[0]||null,candidates:eligible,rawCandidates:out.length,universe:{ok:true,count:universe.count,symbols:universe.symbols},analyzed:universe.symbols.length,qualified:eligible.length,correlationRejected:correlationRejected.slice(0,12),adaptive:{enabled:true,regime:true,perSymbolEdge:true,adaptiveThresholdBounds:[66,84],correlationSoft:cfg.adaptive?.correlationSoft,correlationHard:cfg.adaptive?.correlationHard,netExpectancy:true,exitProfiles:true,autoPromote:false},sizingAuthority:"UNIVERSAL_EQUITY_EXECUTION_COST_V187",errors:errors.slice(0,20),scannedAt:Date.now()};
 }
 
 export function sizeBybitAuto(setup,cfg,equityUsd=50){
-  const f=setup.filters||{},equity=Math.max(0,Number(equityUsd||0)),entry=Number(setup.entry||0),sl=Number(setup.sl||0),structureTp=Number(setup.tp||0);
-  const base=Math.max(1,Number(cfg.risk.baseBalanceUsd||50)),stepUsd=Math.max(1,Number(cfg.risk.balanceStepUsd||10));
-  const scaleEquity=Math.round(equity*100)/100,delta=scaleEquity-base,signedSteps=delta>=0?Math.floor((delta+1e-9)/stepUsd):Math.ceil((delta-1e-9)/stepUsd);
-  const targetRiskFloor=Math.max(3,Number(cfg.risk.minRiskUsd||3)),absoluteMinReward=Math.max(.25,Number(cfg.risk.minRewardUsd||3));
-  const hardMaxRewardUsd=Math.max(absoluteMinReward,Math.min(10,Number(cfg.risk.maxRewardUsd||10)));
-  const rawRiskLadderUsd=Math.max(targetRiskFloor,Number(cfg.risk.baseRiskUsd||5)+signedSteps*Number(cfg.risk.riskStepUsd||1));
-  const rawMaxRewardUsd=Number(cfg.risk.baseRewardUsd||8)+signedSteps*Number(cfg.risk.rewardStepUsd||1);
-  const ladderMaxRewardUsd=Math.min(hardMaxRewardUsd,Math.max(absoluteMinReward,rawMaxRewardUsd));
-  const requestedMinRewardUsd=Math.max(absoluteMinReward,Number(cfg.risk.baseMinRewardUsd||5)+signedSteps*Number(cfg.risk.minRewardStepUsd||1));
-  const ladderMinRewardUsd=Math.min(ladderMaxRewardUsd,requestedMinRewardUsd);
-  const minRR=Math.max(1,Number(cfg.risk.minRR||1.5));
-  const rrCompatibleRiskCapUsd=ladderMaxRewardUsd/minRR;
-  const ladderMaxLossUsd=Math.max(targetRiskFloor,Math.min(rawRiskLadderUsd,rrCompatibleRiskCapUsd));
-  const requestedEffectiveRiskUsd=Math.max(targetRiskFloor,Number(cfg.risk.baseMinEffectiveRiskUsd||3)+signedSteps*Number(cfg.risk.effectiveRiskStepUsd||1));
-  const ladderMinEffectiveRiskUsd=Math.min(ladderMaxLossUsd,requestedEffectiveRiskUsd);
-  const equityRiskCapUsd=equity*Number(cfg.risk.maxRiskPctOfEquity||8)/100;
-  const riskBudgetUsd=Math.min(ladderMaxLossUsd,equityRiskCapUsd),dist=Math.abs(entry-sl);
-  if(!(equity>0&&entry>0&&dist>0&&riskBudgetUsd>0))return {ok:false,reason:"RISK_BUDGET_OR_GEOMETRY_INVALID",riskBudgetUsd,equityUsd:equity,riskLadderStep:signedSteps};
-  if(riskBudgetUsd+1e-9<targetRiskFloor)return {ok:false,reason:"ACCOUNT_TOO_SMALL_FOR_TARGET_RISK_BAND",riskBudgetUsd,equityRiskCapUsd,targetRiskFloor,equityUsd:equity,riskLadderStep:signedSteps};
-  const configuredMax=Math.max(1,Number(cfg.maxLeverage||10)),symbolMax=Number(f.maxLeverage||0)>0?Math.min(configuredMax,Number(f.maxLeverage)):configuredMax,symbolMin=Math.max(1,Number(f.minLeverage||1));
-  const leverage=Math.max(symbolMin,symbolMax);
-  const reservePct=clamp(Number(cfg.risk.minFreeReservePct||20),15,40),feeBufferPct=clamp(Number(cfg.risk.feeBufferPct||5),2,12);
-  const slotCeilingPct=Math.min(Number(cfg.risk.maxMarginPerPositionPct||40),100-reservePct);
+  const f=setup.filters||{},equity=Math.max(0,Number(equityUsd||0)),entry=Number(setup.entry||0),sl=Number(setup.sl||0),structureTp=Number(setup.tp||0),dist=Math.abs(entry-sl);
+  if(!(equity>0&&entry>0&&dist>0))return {ok:false,reason:"RISK_BUDGET_OR_GEOMETRY_INVALID",equityUsd:equity,entry,sl};
+
+  const configuredMax=Math.max(1,Number(cfg.maxLeverage||10)),symbolMax=Number(f.maxLeverage||0)>0?Math.min(configuredMax,Number(f.maxLeverage)):configuredMax,symbolMin=Math.max(1,Number(f.minLeverage||1)),leverage=Math.max(symbolMin,symbolMax);
+  const reservePct=clamp(Number(cfg.risk.minFreeReservePct||18),15,40),feeBufferPct=clamp(Number(cfg.risk.feeBufferPct||4),2,12),slotCeilingPct=Math.min(Number(cfg.risk.maxMarginPerPositionPct||40),100-reservePct);
   const grossMarginBudgetUsd=equity*slotCeilingPct/100,marginBudgetUsd=grossMarginBudgetUsd*(1-feeBufferPct/100);
-  const riskQty=riskBudgetUsd/dist,capitalQty=marginBudgetUsd*leverage/entry;
-  const qty=floorStep(Math.min(riskQty,capitalQty,Number(f.maxQty||Infinity)),Number(f.qtyStep||0)),notional=qty*entry;
-  if(!(qty>=Number(f.minQty||0))||notional<Math.max(5,Number(f.minNotional||5)))return {ok:false,reason:"MIN_NOTIONAL_OR_QTY",qty,notional,riskBudgetUsd,marginBudgetUsd,riskLadderStep:signedSteps};
+
+  const maxRiskPct=Math.max(.1,Number(cfg.risk.maxRiskPctOfEquity||8)),targetRiskPct=Math.min(maxRiskPct,Math.max(.1,Number(cfg.risk.targetRiskPctOfEquity||6)));
+  const equityRiskCapUsd=equity*maxRiskPct/100,targetRiskUsd=equity*targetRiskPct/100,riskBudgetUsd=Math.min(targetRiskUsd,equityRiskCapUsd);
+  const riskQty=riskBudgetUsd/dist,capitalQty=marginBudgetUsd*leverage/entry,maxQty=Number(f.maxQty||Infinity),qty=floorStep(Math.min(riskQty,capitalQty,maxQty),Number(f.qtyStep||0)),notional=qty*entry;
+  const minQty=Math.max(0,Number(f.minQty||0)),minNotional=Math.max(0,Number(f.minNotional||5));
+  const requiredMarginForMinNotionalUsd=minNotional/leverage,usableMarginFraction=Math.max(.0001,slotCeilingPct/100*(1-feeBufferPct/100)),approxMinEquityForMinNotionalUsd=requiredMarginForMinNotionalUsd/usableMarginFraction;
+  if(!(qty>=minQty)||notional+1e-9<minNotional)return {ok:false,reason:"EXCHANGE_MIN_ORDER_NOT_REACHABLE_WITH_CURRENT_EQUITY",qty,notional,minQty,minNotional,leverage,marginBudgetUsd,equityUsd:equity,requiredMarginForMinNotionalUsd,approxMinEquityForMinNotionalUsd};
+
   const initialMarginUsd=notional/leverage;
   if(initialMarginUsd>marginBudgetUsd+1e-9)return {ok:false,reason:"PER_POSITION_MARGIN_CAP",qty,notional,leverage,initialMarginUsd,marginBudgetUsd,equityUsd:equity};
-  const riskUsd=qty*dist,structureRewardUsd=structureTp>0?qty*Math.abs(structureTp-entry):Infinity,capitalLimited=capitalQty<riskQty;
-  const capitalLimitedRiskFloorUsd=Math.max(.75,Math.min(targetRiskFloor,equity*.025)),effectiveRequiredRiskUsd=capitalLimited?capitalLimitedRiskFloorUsd:ladderMinEffectiveRiskUsd;
-  if(riskUsd+1e-9<effectiveRequiredRiskUsd)return {ok:false,reason:capitalLimited?"CAPITAL_LIMITED_RISK_TOO_SMALL":"EFFECTIVE_RISK_TOO_SMALL",qty,notional,riskUsd,riskBudgetUsd,ladderMinEffectiveRiskUsd,effectiveRequiredRiskUsd,capitalLimitedRiskFloorUsd,initialMarginUsd,marginBudgetUsd,capitalLimited,riskLadderStep:signedSteps};
-  if(structureRewardUsd+1e-9<ladderMinRewardUsd)return {ok:false,reason:"STRUCTURE_REWARD_BELOW_LADDER_MIN",qty,notional,riskUsd,structureRewardUsd,ladderMinRewardUsd,ladderMaxRewardUsd,riskLadderStep:signedSteps};
-  const rewardUsd=Math.min(ladderMaxRewardUsd,structureRewardUsd),targetRR=riskUsd>0?rewardUsd/riskUsd:null;
-  if(rewardUsd>hardMaxRewardUsd+1e-9)return {ok:false,reason:"TP_REWARD_ABOVE_10USD_HARD_CAP",rewardUsd,hardMaxRewardUsd};
-  if(!(riskUsd>0&&rewardUsd>=ladderMinRewardUsd&&targetRR>=minRR))return {ok:false,reason:"SIZED_RR_BELOW_MIN",qty,notional,riskUsd,rewardUsd,targetRR,structureRewardUsd,ladderMinRewardUsd,ladderMaxRewardUsd,hardMaxRewardUsd};
-  return {ok:true,qty,notional,riskUsd,riskBudgetUsd,rewardUsd,rewardBudgetUsd:ladderMaxRewardUsd,structureRewardUsd,targetRR,riskLadderStep:signedSteps,rawRiskLadderUsd,ladderMaxLossUsd,ladderMinEffectiveRiskUsd,effectiveRequiredRiskUsd,capitalLimitedRiskFloorUsd,riskUnderfillAllowed:capitalLimited&&riskUsd<targetRiskFloor,requestedEffectiveRiskUsd,ladderMinRewardUsd,ladderMaxRewardUsd,hardMaxRewardUsd,rrCompatibleRiskCapUsd,equityRiskCapUsd,equityUsd:equity,scaleEquityUsd:scaleEquity,scaleRule:"PLUS_MINUS_1_USD_PER_10_USD_EQUITY_FROM_50_USD_BASE",leverage,requiredLeverage:leverage,maxLeverage:symbolMax,capitalMode:"BALANCE_SCALED_TP_SL_BAND_ALLOCATOR_V186_CAPITAL_LIMITED_UNDERFILL",reservePct,feeBufferPct,slotMarginPct:slotCeilingPct,grossMarginBudgetUsd,marginBudgetUsd,initialMarginUsd,capitalLimited,riskUtilizationPct:riskBudgetUsd>0?riskUsd/riskBudgetUsd*100:null,marginUtilizationPct:marginBudgetUsd>0?initialMarginUsd/marginBudgetUsd*100:null,adaptive:{regime:setup.regime||null,betaCluster:setup.betaCluster||null,exitProfile:setup.exitProfile||"BALANCED",threshold:setup.adaptiveThreshold||null,edge:setup.edge||null,correlation:setup.correlation||null}};
+
+  const riskUsd=qty*dist,structureRewardUsd=structureTp>0?qty*Math.abs(structureTp-entry):Infinity,minRR=Math.max(1,Number(cfg.risk.minRR||1.5));
+  const feeRate=Math.max(0,Number(cfg.risk.takerFeeRate||0)),slippageBps=Math.max(0,Number(cfg.risk.slippageBps||0)),estimatedRoundTripCostUsd=notional*(feeRate*2+slippageBps/10000);
+  const minNetEdgeUsd=equity*Math.max(0,Number(cfg.risk.minNetEdgePctOfEquity||0))/100,minGrossRewardForCostsUsd=estimatedRoundTripCostUsd*Math.max(1,Number(cfg.risk.minNetEdgeCostMultiple||1.5))+minNetEdgeUsd;
+  const dynamicRewardCapUsd=Math.max(Number(cfg.risk.maxRewardUsd||0),equity*Math.max(0,Number(cfg.risk.maxRewardPctOfEquity||20))/100),rrRequiredRewardUsd=riskUsd*minRR;
+  const rewardFloorUsd=Math.max(rrRequiredRewardUsd,minGrossRewardForCostsUsd);
+  if(!(structureRewardUsd+1e-9>=rewardFloorUsd))return {ok:false,reason:"STRUCTURE_EDGE_INSUFFICIENT_AFTER_COSTS",qty,notional,riskUsd,structureRewardUsd,rewardFloorUsd,rrRequiredRewardUsd,estimatedRoundTripCostUsd,minNetEdgeUsd,targetRiskUsd,riskBudgetUsd,equityUsd:equity};
+
+  const rewardUsd=Math.min(dynamicRewardCapUsd,structureRewardUsd),targetRR=riskUsd>0?rewardUsd/riskUsd:null,netRewardAfterEstimatedCostsUsd=rewardUsd-estimatedRoundTripCostUsd;
+  if(!(riskUsd>0&&rewardUsd>0&&targetRR>=minRR&&netRewardAfterEstimatedCostsUsd>0))return {ok:false,reason:"SIZED_EDGE_BELOW_NET_MINIMUM",qty,notional,riskUsd,rewardUsd,targetRR,estimatedRoundTripCostUsd,netRewardAfterEstimatedCostsUsd,minRR};
+
+  const capitalLimited=capitalQty<riskQty,riskUnderfillAllowed=riskUsd+1e-9<targetRiskUsd;
+  return {ok:true,qty,notional,riskUsd,riskBudgetUsd,targetRiskUsd,rewardUsd,rewardBudgetUsd:dynamicRewardCapUsd,structureRewardUsd,targetRR,equityRiskCapUsd,equityUsd:equity,leverage,requiredLeverage:leverage,maxLeverage:symbolMax,capitalMode:"UNIVERSAL_EQUITY_EXECUTION_COST_V187",fixedDollarFloorAuthority:false,reservePct,feeBufferPct,slotMarginPct:slotCeilingPct,grossMarginBudgetUsd,marginBudgetUsd,initialMarginUsd,capitalLimited,riskUnderfillAllowed,riskUtilizationPct:riskBudgetUsd>0?riskUsd/riskBudgetUsd*100:null,marginUtilizationPct:marginBudgetUsd>0?initialMarginUsd/marginBudgetUsd*100:null,estimatedRoundTripCostUsd,minNetEdgeUsd,minGrossRewardForCostsUsd,netRewardAfterEstimatedCostsUsd,minNotional,minQty,approxMinEquityForMinNotionalUsd,adaptive:{regime:setup.regime||null,betaCluster:setup.betaCluster||null,exitProfile:setup.exitProfile||"BALANCED",threshold:setup.adaptiveThreshold||null,edge:setup.edge||null,correlation:setup.correlation||null}};
 }
