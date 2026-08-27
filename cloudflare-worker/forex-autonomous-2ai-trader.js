@@ -3,6 +3,18 @@ const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
 const trimBars=(rows,count)=>Array.isArray(rows)?rows.slice(-count).map(r=>({time:r.time,open:n(r.open),high:n(r.high),low:n(r.low),close:n(r.close),volume:n(r.volume)})):[];
 const normSide=s=>String(s||"").toUpperCase()==="BUY"?"BUY":String(s||"").toUpperCase()==="SELL"?"SELL":"";
 const normOrderType=s=>["MARKET","LIMIT","STOP"].includes(String(s||"").toUpperCase())?String(s||"").toUpperCase():"MARKET";
+
+// F4: Reconcile orderType when both AIs agree symbol+side but differ on order type.
+// Conservative rules:
+//   Both same type        → use that type
+//   MARKET + LIMIT/STOP  → MARKET (immediate execution avoids pending drift)
+//   LIMIT  + STOP        → null (different pending semantics, irreconcilable → WAIT)
+function reconcileOrderType(typeA,typeB){
+  if(typeA===typeB)return typeA;
+  if(typeA==="MARKET"||typeB==="MARKET")return "MARKET";
+  return null; // LIMIT vs STOP — irreconcilable
+}
+
 function compactSnapshot(s={}){return {symbol:String(s.symbol||"").toUpperCase(),bid:n(s.bid),ask:n(s.ask),timestamp:s.timestamp,newsBlocked:Boolean(s.newsBlocked),newsCalendarOk:s.newsCalendarOk===true,bars:{M5:trimBars(s?.bars?.M5,36),M15:trimBars(s?.bars?.M15,32),H1:trimBars(s?.bars?.H1,24),H4:trimBars(s?.bars?.H4,18)}};}
 function compactPosition(p={}){return {ticket:String(p.ticket||""),symbol:String(p.symbol||"").toUpperCase(),side:normSide(p.side),entry:n(p.entry),sl:n(p.sl),tp:n(p.tp),volume:n(p.volume),profit:n(p.profit),openedAt:p.openedAt||null};}
 function evidence(snapshots,account,learning,requiredSide,positions,context={}){return {mode:"FOREX_AUTONOMOUS_TRADER",requiredSide,alternationRule:`Next filled ENTRY must be ${requiredSide}. This never forces a trade. If no qualified ${requiredSide} exists, entry must WAIT.`,dailyObjective:context.dailyObjective||null,userTarget:context.target||null,hardRiskLimits:context.hardRiskLimits||null,account:{balance:n(account?.balance),equity:n(account?.equity),dayStartEquity:n(account?.dayStartEquity),margin:n(account?.margin),freeMargin:n(account?.freeMargin),marginLevelPct:n(account?.marginLevelPct),openRiskPct:n(account?.openRiskPct),openPositions:n(account?.openPositions)},positions:(positions||[]).map(compactPosition),learningMemory:learning||{},markets:(snapshots||[]).map(compactSnapshot)};}
@@ -32,10 +44,69 @@ async function callUnifiedBridge(env,ev){
 function entryOf(x={}){const e=x&&typeof x==="object"?x:{};return {decision:String(e.decision||"WAIT").toUpperCase()==="ENTER"?"ENTER":"WAIT",symbol:String(e.symbol||"NONE").toUpperCase(),side:normSide(e.side),orderType:normOrderType(e.orderType),entryPrice:n(e.entryPrice),requestedRiskPct:Math.max(0,Math.min(1,n(e.requestedRiskPct))),sl:n(e.sl),tp:n(e.tp),technicalAnalysis:String(e.technicalAnalysis||"").trim(),economicAnalysis:String(e.economicAnalysis||"").trim(),thesis:String(e.thesis||"").trim(),invalidation:String(e.invalidation||"").trim(),riskFlags:Array.isArray(e.riskFlags)?e.riskFlags:[]};}
 function entriesOf(x={}){const out=[];if(Array.isArray(x?.entryCandidates))for(const e of x.entryCandidates.slice(0,3)){const z=entryOf(e);if(z.decision==="ENTER"&&z.symbol!=="NONE"&&z.side)out.push(z);}const best=entryOf(x?.entry||{});if(best.decision==="ENTER"&&best.symbol!=="NONE"&&best.side&&!out.some(z=>z.symbol===best.symbol&&z.side===best.side&&z.orderType===best.orderType))out.unshift(best);return out.slice(0,3);}
 function managementOf(x={}){return (Array.isArray(x?.management)?x.management:[]).map(m=>({ticket:String(m.ticket||""),action:["HOLD","CLOSE","MODIFY_SLTP"].includes(String(m.action||"").toUpperCase())?String(m.action||"").toUpperCase():"HOLD",sl:n(m.sl),tp:n(m.tp),reason:String(m.reason||"").trim()})).filter(m=>m.ticket);}
-function candidateGeometry(e,m,minRR){const bid=n(m.bid),ask=n(m.ask),orderType=normOrderType(e.orderType);if(!(bid>0&&ask>0)||Boolean(m.newsBlocked)||m.newsCalendarOk!==true)return null;let entry=orderType==="MARKET"?(e.side==="BUY"?ask:bid):n(e.entryPrice);if(!(entry>0&&e.sl>0&&e.tp>0))return null;if(orderType==="LIMIT"&&e.side==="BUY"&&!(entry<ask))return null;if(orderType==="LIMIT"&&e.side==="SELL"&&!(entry>bid))return null;if(orderType==="STOP"&&e.side==="BUY"&&!(entry>ask))return null;if(orderType==="STOP"&&e.side==="SELL"&&!(entry<bid))return null;const stop=e.side==="BUY"?entry-e.sl:e.sl-entry,reward=e.side==="BUY"?e.tp-entry:entry-e.tp,rr=stop>0?reward/stop:0;if(!(stop>0&&reward>0&&rr>=minRR))return null;return {entry,orderType,sl:e.sl,tp:e.tp,rr};}
-function entryConsensus(g,c,snap,minRR,requiredSide){const gs=entriesOf(g).filter(x=>x.side===requiredSide),cs=entriesOf(c).filter(x=>x.side===requiredSide);if(!gs.length||!cs.length)return {ok:false,reason:"2AI_WAIT",gptCandidates:gs,claudeCandidates:cs};const overlaps=[];for(const gp of gs)for(const cp of cs){if(gp.symbol!==cp.symbol||gp.side!==cp.side||gp.orderType!==cp.orderType)continue;if(!gp.technicalAnalysis||!cp.technicalAnalysis||!gp.economicAnalysis||!cp.economicAnalysis)continue;const m=(snap||[]).find(x=>String(x.symbol||"").toUpperCase()===gp.symbol);if(!m)continue;const gg=candidateGeometry(gp,m,minRR),cg=candidateGeometry(cp,m,minRR);if(!gg||!cg)continue;const chosen=gg.rr<=cg.rr?{plan:gp,geo:gg,provider:"chatgpt"}:{plan:cp,geo:cg,provider:"claude"};overlaps.push({gp,cp,m,chosen,consensusStrength:Math.min(gg.rr,cg.rr),gptGeometry:gg,claudeGeometry:cg});}
- if(!overlaps.length)return {ok:false,reason:"2AI_NO_COMMON_TRADABLE_CANDIDATE",requiredSide,gptCandidates:gs,claudeCandidates:cs};overlaps.sort((a,b)=>b.consensusStrength-a.consensusStrength);const x=overlaps[0],gp=x.gp,cp=x.cp,p=x.chosen.plan,geo=x.chosen.geo;return {ok:true,symbol:gp.symbol,side:gp.side,orderType:geo.orderType,entry:geo.entry,entryPrice:geo.entry,sl:geo.sl,tp:geo.tp,rr:geo.rr,requestedRiskPct:Math.min(gp.requestedRiskPct||1,cp.requestedRiskPct||1),technicalAnalysis:{chatgpt:gp.technicalAnalysis,claude:cp.technicalAnalysis},economicAnalysis:{chatgpt:gp.economicAnalysis,claude:cp.economicAnalysis},thesis:`GPT/Codex: ${gp.thesis.slice(0,320)} | Claude: ${cp.thesis.slice(0,320)}`,consensusPlanSource:x.chosen.provider,individualRR:{chatgpt:x.gptGeometry.rr,claude:x.claudeGeometry.rr},ai:{chatgpt:gp,claude:cp},candidateOverlapCount:overlaps.length};}
-function managementConsensus(g,c,positions=[]){const gm=managementOf(g),cm=managementOf(c),out=[];for(const p of positions||[]){const ticket=String(p.ticket||""),a=gm.find(x=>x.ticket===ticket),b=cm.find(x=>x.ticket===ticket);if(!a||!b||a.action!==b.action||a.action==="HOLD"){out.push({ticket,action:"HOLD",reason:!a||!b?"2AI_MANAGEMENT_MISSING":"2AI_HOLD_OR_DISAGREE"});continue;}if(a.action==="CLOSE"){out.push({ticket,action:"CLOSE",reason:`GPT/Codex: ${a.reason} | Claude: ${b.reason}`});continue;}const side=normSide(p.side),currentSl=n(p.sl),currentTp=n(p.tp);let sl=side==="BUY"?Math.max(a.sl,b.sl,currentSl):Math.min(...[a.sl,b.sl,currentSl].filter(x=>x>0));if(!(sl>0))sl=currentSl;let tp=currentTp;if(a.tp>0&&b.tp>0)tp=side==="BUY"?Math.min(a.tp,b.tp):Math.max(a.tp,b.tp);out.push({ticket,action:"MODIFY_SLTP",sl,tp,reason:`GPT/Codex: ${a.reason} | Claude: ${b.reason}`});}return out;}
+
+// candidateGeometry: accepts resolvedOrderType so F4 reconciliation is applied
+// before geometry validation, not using each AI's individual preference.
+function candidateGeometry(e,m,minRR,resolvedOrderType){
+  const bid=n(m.bid),ask=n(m.ask),orderType=resolvedOrderType||normOrderType(e.orderType);
+  if(!(bid>0&&ask>0)||Boolean(m.newsBlocked)||m.newsCalendarOk!==true)return null;
+  let entry=orderType==="MARKET"?(e.side==="BUY"?ask:bid):n(e.entryPrice);
+  if(!(entry>0&&e.sl>0&&e.tp>0))return null;
+  if(orderType==="LIMIT"&&e.side==="BUY"&&!(entry<ask))return null;
+  if(orderType==="LIMIT"&&e.side==="SELL"&&!(entry>bid))return null;
+  if(orderType==="STOP"&&e.side==="BUY"&&!(entry>ask))return null;
+  if(orderType==="STOP"&&e.side==="SELL"&&!(entry<bid))return null;
+  const stop=e.side==="BUY"?entry-e.sl:e.sl-entry,reward=e.side==="BUY"?e.tp-entry:entry-e.tp,rr=stop>0?reward/stop:0;
+  if(!(stop>0&&reward>0&&rr>=minRR))return null;
+  return {entry,orderType,sl:e.sl,tp:e.tp,rr};
+}
+
+// F4: Match on symbol+side only; reconcile orderType conservatively.
+// Both AIs must still provide independent technical+economic reasoning.
+function entryConsensus(g,c,snap,minRR,requiredSide){
+  const gs=entriesOf(g).filter(x=>x.side===requiredSide),cs=entriesOf(c).filter(x=>x.side===requiredSide);
+  if(!gs.length||!cs.length)return {ok:false,reason:"2AI_WAIT",gptCandidates:gs,claudeCandidates:cs};
+  const overlaps=[];
+  for(const gp of gs)for(const cp of cs){
+    if(gp.symbol!==cp.symbol||gp.side!==cp.side)continue; // F4: symbol+side only
+    if(!gp.technicalAnalysis||!cp.technicalAnalysis||!gp.economicAnalysis||!cp.economicAnalysis)continue;
+    const m=(snap||[]).find(x=>String(x.symbol||"").toUpperCase()===gp.symbol);
+    if(!m)continue;
+    const resolvedOrderType=reconcileOrderType(gp.orderType,cp.orderType);
+    if(!resolvedOrderType)continue; // LIMIT vs STOP — irreconcilable → skip
+    const gg=candidateGeometry(gp,m,minRR,resolvedOrderType),cg=candidateGeometry(cp,m,minRR,resolvedOrderType);
+    if(!gg||!cg)continue;
+    const chosen=gg.rr<=cg.rr?{plan:gp,geo:gg,provider:"chatgpt"}:{plan:cp,geo:cg,provider:"claude"};
+    overlaps.push({gp,cp,m,chosen,resolvedOrderType,orderTypeReconciled:gp.orderType!==cp.orderType,consensusStrength:Math.min(gg.rr,cg.rr),gptGeometry:gg,claudeGeometry:cg});
+  }
+  if(!overlaps.length)return {ok:false,reason:"2AI_NO_COMMON_TRADABLE_CANDIDATE",requiredSide,gptCandidates:gs,claudeCandidates:cs};
+  overlaps.sort((a,b)=>b.consensusStrength-a.consensusStrength);
+  const x=overlaps[0],gp=x.gp,cp=x.cp,geo=x.chosen.geo;
+  return {ok:true,symbol:gp.symbol,side:gp.side,orderType:x.resolvedOrderType,entry:geo.entry,entryPrice:geo.entry,sl:geo.sl,tp:geo.tp,rr:geo.rr,requestedRiskPct:Math.min(gp.requestedRiskPct||1,cp.requestedRiskPct||1),technicalAnalysis:{chatgpt:gp.technicalAnalysis,claude:cp.technicalAnalysis},economicAnalysis:{chatgpt:gp.economicAnalysis,claude:cp.economicAnalysis},thesis:`GPT/Codex: ${gp.thesis.slice(0,320)} | Claude: ${cp.thesis.slice(0,320)}`,consensusPlanSource:x.chosen.provider,individualRR:{chatgpt:x.gptGeometry.rr,claude:x.claudeGeometry.rr},ai:{chatgpt:gp,claude:cp},candidateOverlapCount:overlaps.length,orderTypeReconciled:x.orderTypeReconciled};
+}
+
+// F2: managementConsensus — fixed SELL SL direction.
+// BUY:  SL is below entry. Higher SL price = further from market = safer.
+// SELL: SL is above entry. Higher SL price = further from market = safer.
+// → Math.max is correct for BOTH directions. Never tighten beyond currentSl.
+// TP: conservative — cap BUY TP at minimum of the two; floor SELL TP at maximum.
+function managementConsensus(g,c,positions=[]){
+  const gm=managementOf(g),cm=managementOf(c),out=[];
+  for(const p of positions||[]){
+    const ticket=String(p.ticket||""),a=gm.find(x=>x.ticket===ticket),b=cm.find(x=>x.ticket===ticket);
+    if(!a||!b||a.action!==b.action||a.action==="HOLD"){out.push({ticket,action:"HOLD",reason:!a||!b?"2AI_MANAGEMENT_MISSING":"2AI_HOLD_OR_DISAGREE"});continue;}
+    if(a.action==="CLOSE"){out.push({ticket,action:"CLOSE",reason:`GPT/Codex: ${a.reason} | Claude: ${b.reason}`});continue;}
+    const side=normSide(p.side),currentSl=n(p.sl),currentTp=n(p.tp);
+    // F2: Math.max for both BUY and SELL — always expands toward safer wider stop.
+    const slCandidates=[a.sl,b.sl,currentSl].filter(x=>x>0);
+    let sl=slCandidates.length>0?Math.max(...slCandidates):currentSl;
+    if(!(sl>0))sl=currentSl;
+    let tp=currentTp;
+    if(a.tp>0&&b.tp>0)tp=side==="BUY"?Math.min(a.tp,b.tp):Math.max(a.tp,b.tp);
+    out.push({ticket,action:"MODIFY_SLTP",sl,tp,reason:`GPT/Codex: ${a.reason} | Claude: ${b.reason}`});
+  }
+  return out;
+}
 
 export async function runForexAutonomous2Ai(env,snapshots=[],account={},learning={},requiredSide="BUY",positions=[],context={}){
  const ev=evidence(snapshots,account,learning,requiredSide,positions,context),council=await callUnifiedBridge(env,ev),g=council?.providers?.chatgpt||{},c=council?.providers?.claude||{};
@@ -43,4 +114,4 @@ export async function runForexAutonomous2Ai(env,snapshots=[],account={},learning
  const entry=entryConsensus(g.review,c.review,snapshots,n(context?.hardRiskLimits?.minRR,1.5),requiredSide),management=managementConsensus(g.review,c.review,positions);
  return {ok:true,consensus:entry.ok,reason:entry.ok?"PURE_AI_2AI_ENTRY_CONSENSUS":"PURE_AI_2AI_NO_ENTRY",proposal:entry.ok?entry:null,entryDetail:entry,management,primaryManagement:management.find(x=>x.action!=="HOLD")||null,providers:{chatgpt:g,claude:c},bridge:{transport:"UNIFIED_2AI_VPC_BRIDGE",latencyMs:council.latencyMs,decisionLatencyMs:council.decisionLatencyMs},evidenceMode:ev.mode,requiredSide,portfolioView:{chatgpt:String(g.review?.portfolioView||""),claude:String(c.review?.portfolioView||"")}};
 }
-export function forexAutonomous2AiHealth(env){const q=forexAiQuotaConfig(env),bridgeConfigured=!!env.AI_BRIDGE&&typeof env.AI_BRIDGE.fetch==="function"&&!!String(env.V11_AI_BRIDGE_SECRET||"");return {mode:"PURE_AI_GPT_CODEX_CLAUDE_2AI_BRIDGE",authority:"AI_SELECTS_MARKET_LIMIT_STOP_ENTRY_RISK_AND_POSITION_MANAGEMENT_FROM_RAW_MT5",transport:"UNIFIED_2AI_VPC_BRIDGE",ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,confidenceGateAuthority:false,deterministicTradeManager:false,technicalReasoningRequired:true,currentEconomicContextRequired:true,redNewsFailClosed:true,pendingOrdersCancelledOnRedNews:true,orderTypes:["MARKET","LIMIT","STOP"],alternatingFilledSideRequired:true,quotaCooldownHours:q.cooldownMs/3600000,quotaStateAvailableDuringRuntimeCalls:true,entryConsensusMode:"UP_TO_3_AI_CANDIDATES_COMMON_SYMBOL_SIDE_ORDER_TYPE",chatgpt:{configured:bridgeConfigured,providerAlias:"codex",model:"gpt-5.6-sol via Codex CLI",maxOutputTokens:q.openAiMaxOutputTokens},claude:{configured:bridgeConfigured,providerAlias:"claude",model:"Claude CLI Sonnet",maxOutputTokens:q.claudeMaxOutputTokens}};}
+export function forexAutonomous2AiHealth(env){const q=forexAiQuotaConfig(env),bridgeConfigured=!!env.AI_BRIDGE&&typeof env.AI_BRIDGE.fetch==="function"&&!!String(env.V11_AI_BRIDGE_SECRET||"");return {mode:"PURE_AI_GPT_CODEX_CLAUDE_2AI_BRIDGE",authority:"AI_SELECTS_MARKET_LIMIT_STOP_ENTRY_RISK_AND_POSITION_MANAGEMENT_FROM_RAW_MT5",transport:"UNIFIED_2AI_VPC_BRIDGE",ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,confidenceGateAuthority:false,deterministicTradeManager:false,technicalReasoningRequired:true,currentEconomicContextRequired:true,redNewsFailClosed:true,pendingOrdersCancelledOnRedNews:true,orderTypes:["MARKET","LIMIT","STOP"],alternatingFilledSideRequired:true,quotaCooldownHours:q.cooldownMs/3600000,quotaStateAvailableDuringRuntimeCalls:true,entryConsensusMode:"SYMBOL_SIDE_WITH_ORDER_TYPE_RECONCILIATION",chatgpt:{configured:bridgeConfigured,providerAlias:"codex",model:"gpt-5.6-sol via Codex CLI",maxOutputTokens:q.openAiMaxOutputTokens},claude:{configured:bridgeConfigured,providerAlias:"claude",model:"Claude CLI Sonnet",maxOutputTokens:q.claudeMaxOutputTokens}};}
