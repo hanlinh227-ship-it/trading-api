@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/mt5-broker-connect-diagnose.yml'
 
+# Broker-auth diagnose trigger: 2026-08-27T19:xx+07
 permissions:
   contents: read
 
@@ -42,7 +43,6 @@ jobs:
               print('pulse=missing'); raise SystemExit
           try: d=json.loads(p.read_text())
           except Exception as e: print('pulse_json_error='+repr(e)); raise SystemExit
-          # Pulse canonical schema nests metrics: mt5.connected, account.balance
           mt5=d.get('mt5') if isinstance(d.get('mt5'),dict) else {}
           acct=d.get('account') if isinstance(d.get('account'),dict) else {}
           print('terminalId=' + ('[REDACTED_ACCOUNT]' if d.get('terminalId') else 'missing'))
