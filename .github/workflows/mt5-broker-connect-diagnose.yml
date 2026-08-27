@@ -7,7 +7,7 @@ on:
     paths:
       - '.github/workflows/mt5-broker-connect-diagnose.yml'
 
-# Broker-auth diagnose trigger: 2026-08-27T19:xx+07
+# Post-fallback broker-auth diagnose trigger: 2026-08-27
 permissions:
   contents: read
 
