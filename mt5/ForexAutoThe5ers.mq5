@@ -1,15 +1,15 @@
 #property strict
-#property version   "0.600"
-#property description "FOREX AUTO The5ers PURE AI - GPT + Claude own entry and position management; EA is transport/execution/safety only."
+#property version   "0.601"
+#property description "FOREX AUTO The5ers PURE AI FAST - GPT + Claude own entry and position management; EA is transport/execution/safety only."
 
 input string InpHubUrl="https://YOUR-WORKER.workers.dev";
 input string InpBridgeToken="";
 input bool InpAllowLiveTrading=false;
-input int InpPulseSeconds=30;
+input int InpPulseSeconds=5;
 input double InpMaxRiskPct=1.00;
 input double InpMinFreeMarginPct=20.0;
 input double InpMinMarginLevelPct=200.0;
-input int InpMagic=560600;
+input int InpMagic=560601;
 input string InpSymbols="EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,NZDUSD,USDCAD,EURJPY,GBPJPY,EURGBP,XAUUSD";
 
 string TerminalId;
@@ -67,10 +67,10 @@ void Ack(string status,ulong ticket,string symbol,string detail,string action=""
 void HandleManagement(string resp){string action=JsonString(resp,"manageAction");if(action==""||action=="HOLD")return;ulong ticket=(ulong)JsonNumber(resp,"manageTicket");double sl=JsonNumber(resp,"manageSl"),tp=JsonNumber(resp,"manageTp");if(ticket==0)return;if(action=="CLOSE"){string sym="";double pnl=0;if(PositionSelectByTicket(ticket)){sym=PositionGetString(POSITION_SYMBOL);pnl=PositionGetDouble(POSITION_PROFIT);}if(ClosePosition(ticket))Ack("MANAGED",ticket,sym,"AI_CLOSE","AI_CLOSE",pnl);return;}if(action=="MODIFY_SLTP"&&ModifyPosition(ticket,sl,tp)){string sym=PositionSelectByTicket(ticket)?PositionGetString(POSITION_SYMBOL):"";Ack("MANAGED",ticket,sym,"AI_MODIFY_SLTP","AI_MODIFY_SLTP",0);}}
 void HandleEntry(string resp){string action=JsonString(resp,"action");if(action==""||action=="NO_TRADE")return;string symbol=JsonString(resp,"symbol"),side=JsonString(resp,"side");double sl=JsonNumber(resp,"sl"),tp=JsonNumber(resp,"tp"),riskPct=JsonNumber(resp,"riskPct"),rr=JsonNumber(resp,"rr");if(action=="PAPER_TRADE"||!InpAllowLiveTrading){Print("FOREX PURE AI PAPER ",symbol," ",side," SL=",sl," TP=",tp," RR=",rr," risk%=",riskPct);return;}if(action!="TRADE"||symbol==""||sl<=0||tp<=0||riskPct<=0)return;if(PositionSelect(symbol)){Ack("REJECTED",0,symbol,"DUPLICATE_SYMBOL_POSITION","ENTRY",0,side);return;}MqlTick tick;if(!SymbolSelect(symbol,true)||!SymbolInfoTick(symbol,tick))return;double liveEntry=side=="Buy"?tick.ask:tick.bid;if(side=="Buy"&&!(sl<liveEntry&&tp>liveEntry))return;if(side=="Sell"&&!(sl>liveEntry&&tp<liveEntry))return;double vol=CalcVolume(symbol,side,liveEntry,sl,riskPct);if(vol<=0){Ack("REJECTED",0,symbol,"RISK_VOLUME_INVALID","ENTRY",0,side);return;}string marginReason;if(!MarginHeadroomOk(symbol,side,vol,liveEntry,marginReason)){Ack("REJECTED",0,symbol,marginReason,"ENTRY",0,side);return;}if(SendMarket(symbol,side,vol,sl,tp))Print("FOREX PURE AI LIVE sent ",symbol," ",side," vol=",vol);else Ack("REJECTED",0,symbol,LastTradeDetail,"ENTRY",0,side);}
 
-string BuildPulse(){string parts[];int count=StringSplit(InpSymbols,',',parts);string snaps="[";for(int i=0;i<count;i++){string s=parts[i];StringTrimLeft(s);StringTrimRight(s);string x=SnapshotJson(s);if(x=="")continue;if(StringLen(snaps)>1)snaps+=",";snaps+=x;}snaps+="]";return "{\"terminalId\":\""+Esc(TerminalId)+"\",\"mt5\":{\"connected\":true,\"pureAiEa\":true,\"version\":\"0.600\"},\"account\":"+AccountJson()+",\"positions\":"+PositionsJson()+",\"snapshots\":"+snaps+"}";}
+string BuildPulse(){string parts[];int count=StringSplit(InpSymbols,',',parts);string snaps="[";for(int i=0;i<count;i++){string s=parts[i];StringTrimLeft(s);StringTrimRight(s);string x=SnapshotJson(s);if(x=="")continue;if(StringLen(snaps)>1)snaps+=",";snaps+=x;}snaps+="]";return "{\"terminalId\":\""+Esc(TerminalId)+"\",\"mt5\":{\"connected\":true,\"pureAiEa\":true,\"fastLoop\":true,\"version\":\"0.601\"},\"account\":"+AccountJson()+",\"positions\":"+PositionsJson()+",\"snapshots\":"+snaps+"}";}
 void Pulse(){string resp;if(!HttpPost("/forex/mt5/pulse",BuildPulse(),resp))return;HandleManagement(resp);HandleEntry(resp);}
 
-int OnInit(){TerminalId=IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+"-"+IntegerToString((long)TerminalInfoInteger(TERMINAL_BUILD));EventSetTimer(MathMax(5,InpPulseSeconds));Print("FOREX PURE AI 0.600 initialized terminal=",TerminalId," live=",InpAllowLiveTrading);return INIT_SUCCEEDED;}
+int OnInit(){TerminalId=IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+"-"+IntegerToString((long)TerminalInfoInteger(TERMINAL_BUILD));EventSetTimer(MathMax(2,InpPulseSeconds));Print("FOREX PURE AI FAST 0.601 initialized terminal=",TerminalId," live=",InpAllowLiveTrading," pulse=",InpPulseSeconds);return INIT_SUCCEEDED;}
 void OnDeinit(const int reason){EventKillTimer();}
 void OnTimer(){Pulse();}
 void OnTick(){}
