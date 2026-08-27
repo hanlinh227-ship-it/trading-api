@@ -8,7 +8,7 @@ import {BYBIT_RUNTIME_CONTRACT,BYBIT_EXECUTION_AUTHORITY,TELEGRAM_HUB_ID,BYBIT_H
 import {MEME_AUTO_VERSION,MEME_AUTO_MODE} from "./meme-auto-design.js";
 import {runMemePaperCycle,getMemePaperState} from "./meme-paper-engine.js";
 import {getMemeJupiterQuoteHealth} from "./meme-quote-health.js";
-import {handleForexAutonomousMt5Bridge} from "./forex-autonomous-mt5-bridge.js";
+import {handleForexMt5ProtocolV1} from "./forex-mt5-protocol-v1-compat.js";
 import {FOREX_AUTO_VERSION} from "./forex-auto-config.js";
 
 const VERSION=BYBIT_AUTO_VERSION;
@@ -21,7 +21,7 @@ export default {
     const bybitHealth=await handleBybitReadonlyHealth(req,env); if(bybitHealth)return bybitHealth;
     const bybitReview=await handleBybitAiReviewApi(req,env); if(bybitReview)return bybitReview;
     const bybitControl=await handleBybitControlApi(req,env); if(bybitControl)return bybitControl;
-    const forex=await handleForexAutonomousMt5Bridge(req,env); if(forex)return forex;
+    const forex=await handleForexMt5ProtocolV1(req,env); if(forex)return forex;
     const hub=await autoHub.fetch(req,env,ctx); if(hub)return hub;
     const url=new URL(req.url);
     if(url.pathname==="/runtime/contract")return json({ok:true,...BYBIT_RUNTIME_CONTRACT,runtimeRevision:String(env.RUNTIME_REVISION||"")});
