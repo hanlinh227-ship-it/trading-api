@@ -59,6 +59,26 @@ jobs:
           BODY='{"evidence":{"mode":"UNIFIED_2AI_CONNECTIVITY","task_id":"deploy-2ai-smoke","requestedProviders":["claude","codex"],"instruction":"Connectivity validation only. Acknowledge receipt. Do not trade and do not change configuration.","context":{"scope":"READ_ONLY"}}}'
           OUT="$(curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
           printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; st={n:str((p.get(n) or {}).get("status","MISSING")).upper() for n in ("claude","codex")}; assert all(st[n]=="OK" for n in st),st; assert d.get("deepseekDisabled") is True; assert d.get("isolationMode")=="PROJECT_LANES_V1"; print("UNIFIED_2AI_STATUS="+",".join(n+":"+st[n] for n in st)); print("UNIFIED_2AI_QUORUM_PASS=2/2")'
+      - name: Concurrent Bybit Forex isolation smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a; source /etc/trading-v11-ai.env; set +a
+          BYBIT='{"evidence":{"mode":"BYBIT_CONNECTIVITY","task_id":"deploy-bybit-isolation","requestedProviders":["claude","codex"],"instruction":"Connectivity only. Return the required JSON. Do not trade.","context":{"scope":"READ_ONLY"}}}'
+          FOREX='{"evidence":{"mode":"FOREX_CONNECTIVITY","task_id":"deploy-forex-isolation","requestedProviders":["claude","codex"],"instruction":"Connectivity only. Return the required JSON. Do not trade.","context":{"scope":"READ_ONLY"}}}'
+          curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BYBIT" >/tmp/bybit-lane.json & B=$!
+          curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$FOREX" >/tmp/forex-lane.json & F=$!
+          wait "$B"; wait "$F"
+          python3 - <<'PY'
+          import json
+          for path,project in [('/tmp/bybit-lane.json','BYBIT'),('/tmp/forex-lane.json','FOREX')]:
+              d=json.load(open(path)); p=d.get('providers') or {}
+              assert d.get('ok') is True,(project,d)
+              assert d.get('project')==project,(project,d.get('project'))
+              assert d.get('isolationMode')=='PROJECT_LANES_V1'
+              assert all(str((p.get(n) or {}).get('status')).upper()=='OK' for n in ('claude','codex')),(project,p)
+          print('BYBIT_FOREX_AI_LANE_ISOLATION=PASS')
+          PY
       - name: Require post-smoke READY health
         shell: bash
         run: |
