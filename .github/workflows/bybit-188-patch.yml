@@ -19,6 +19,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -- .github/workflows/deploy-cloudflare-worker.yml .github/workflows/bybit-188-patch.yml
           git add -A
           git commit -m "feat: Bybit 1.8.8 continuous scale and full-capital allocation"
           git push origin HEAD:feat/bybit-1.8.8-full-scale-capital-allocation
