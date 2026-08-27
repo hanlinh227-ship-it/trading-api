@@ -6,7 +6,7 @@ export const FOREX_AUTO_CONFIG={
   brokerProfile:"THE5ERS_HIGH_STAKES",
   executionTerminal:"MT5_WINDOWS",
   tradingStyle:"INTRADAY_SCALP",
-  aiProviders:["chatgpt","claude","deepseek"],
+  aiProviders:["chatgpt","claude"],
   universe:["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","NZDUSD","USDCAD","EURJPY","GBPJPY","EURGBP","XAUUSD"],
   scanEverySec:60,
   maxOpenPositions:null,
@@ -17,7 +17,7 @@ export const FOREX_AUTO_CONFIG={
   margin:{positionCountCapEnabled:false,minFreeMarginPctOfEquity:35,maxUsedMarginPctOfEquity:65,minMarginLevelPct:300,requireBrokerMarginMetrics:true,preTradeMarginCheck:true},
   marketData:{maxQuoteAgeSec:75,requireH4:true,requireM5:true,requireM15:true,requireH1:true},
   management:{breakEvenAtR:1.0,profitLockAtR:1.35,trailAtR:1.60,requireStructureConfirmation:true,smartCutEnabled:true,smartCutMinAgeSec:300},
-  ai:{requireAllThree:true,consensusPassesRequired:2,finalDecisionProvider:"chatgpt",minFinalConfidence:72,claudeRole:"INTRADAY_REGIME_SESSION_CONTEXT",deepseekRole:"INTRADAY_ENTRY_STRUCTURE_EXECUTION",chatgptRole:"LEAD_INTRADAY_FOREX_SCALP_SYNTHESIS_AND_WEB_RESEARCH",chatgptWebResearch:true,webResearchIsContextOnly:true,brokerQuoteRemainsExecutionAuthority:true,advancedMethodsAreSoftEvidence:true,preferExecutableSevenOfTenSetup:true,requireIndependentReviews:true,noAiOverrideOfHardRules:true,noForcedTrade:true},
+  ai:{requireAllTwo:true,consensusPassesRequired:2,finalDecisionProvider:"chatgpt",minFinalConfidence:72,claudeRole:"INTRADAY_REGIME_SESSION_CONTEXT",chatgptRole:"LEAD_INTRADAY_FOREX_SCALP_SYNTHESIS_AND_WEB_RESEARCH",chatgptWebResearch:true,webResearchIsContextOnly:true,brokerQuoteRemainsExecutionAuthority:true,advancedMethodsAreSoftEvidence:true,preferExecutableSevenOfTenSetup:true,requireIndependentReviews:true,noAiOverrideOfHardRules:true,noForcedTrade:true},
   learning:{enabled:true,mode:"BOUNDED_ADAPTIVE_MEMORY",minClosedSamples:12,maxScoreDelta:5,minRiskMultiplier:.70,maxRiskMultiplier:1.05,perSymbol:true,perSetup:true,learnFromClosedTradesOnly:true,recentWindow:8,degradationMinSamples:6,degradationAvgR:-.35,degradationRiskMultiplier:.70,mayChangeHardRules:false,mayChangeDailyLossLimit:false,mayChangeNewsRules:false,mayChangeMinRR:false,autoModifySourceCode:false},
   execution:{liveEnabled:false,requireBridgeToken:true,decisionTtlSec:75,maxClockSkewSec:30,duplicateCooldownSec:300,defaultSlippagePoints:20,maxEntryDriftAtr:.45,magicNumber:560501}
 };
