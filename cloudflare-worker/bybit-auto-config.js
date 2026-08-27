@@ -1,10 +1,10 @@
-// BYBIT-AUTO-1.8.3: drawdown-aware risk tuning without tightening setup/AI quality gates.
+// BYBIT-AUTO-1.8.4: $3+ effective SL risk, capped $10 TP ladder, easier-but-protected entry flow.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
-  leverage:10,
-  maxLeverage:10,
+  leverage:50,
+  maxLeverage:75,
   scanEverySec:60,
   maxOpenPositions:3,
   maxTradesPerDay:1000000000,
@@ -13,23 +13,24 @@ export const BYBIT_AUTO_CONFIG={
     baseBalanceUsd:50,
     balanceStepUsd:10,
     baseRiskUsd:5,
-    baseMinEffectiveRiskUsd:1.25,
-    effectiveRiskStepUsd:.4,
+    baseMinEffectiveRiskUsd:3,
+    effectiveRiskStepUsd:1,
     netProfitFloorUsd:2.5,
     executionCostBufferUsd:.5,
-    baseMinRewardUsd:3.0,
+    baseMinRewardUsd:5,
     baseRewardUsd:8,
-    riskStepUsd:.75,
-    minRewardStepUsd:.5,
-    rewardStepUsd:.75,
-    minRiskUsd:.5,
-    minRewardUsd:3.0,
-    maxRiskPctOfEquity:6,
-    maxTotalOpenRiskPct:15,
-    maxMarginPerPositionPct:35,
-    minFreeReservePct:22,
-    feeBufferPct:5,
-    maxPortfolioMarginPct:75,
+    riskStepUsd:1,
+    minRewardStepUsd:1,
+    rewardStepUsd:1,
+    maxRewardUsd:10,
+    minRiskUsd:3,
+    minRewardUsd:3,
+    maxRiskPctOfEquity:8,
+    maxTotalOpenRiskPct:18,
+    maxMarginPerPositionPct:40,
+    minFreeReservePct:18,
+    feeBufferPct:4,
+    maxPortfolioMarginPct:80,
     minRR:1.5,
     preferredRR:1.8,
     maxRR:5,
@@ -44,15 +45,15 @@ export const BYBIT_AUTO_CONFIG={
   },
   adaptive:{
     enabled:true,
-    baseScore:68,
-    minScore:66,
-    maxScore:84,
+    baseScore:66,
+    minScore:64,
+    maxScore:82,
     minLearningSamples:10,
     fullLearningSamples:80,
     shrinkagePriorTrades:20,
     minExitProfileSamples:30,
-    correlationSoft:0.84,
-    correlationHard:0.94,
+    correlationSoft:0.86,
+    correlationHard:0.95,
     regimeGate:true,
     perSymbolEdge:true,
     netExpectancy:true,
@@ -68,8 +69,8 @@ export const BYBIT_AUTO_CONFIG={
     exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
     autoPromote:false
   },
-  filters:{minScore:68,maxSpreadBps:12,maxChaseAtr:.80,minAtrPct:.06,maxAtrPct:3.2},
-  execution:{recvWindow:10000,cooldownSec:120,positionIdx:0}
+  filters:{minScore:66,maxSpreadBps:15,maxChaseAtr:.95,minAtrPct:.05,maxAtrPct:3.4},
+  execution:{recvWindow:10000,cooldownSec:60,positionIdx:0}
 };
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 export function bybitAutoConfig(env={}){
@@ -78,25 +79,26 @@ export function bybitAutoConfig(env={}){
   c.leverage=Math.max(1,Math.min(c.maxLeverage,Math.round(n(env,"BYBIT_AUTO_LEVERAGE",c.leverage))));
   c.risk.baseBalanceUsd=Math.max(10,n(env,"BYBIT_BASE_BALANCE_USD",c.risk.baseBalanceUsd));
   c.risk.balanceStepUsd=Math.max(1,n(env,"BYBIT_BALANCE_STEP_USD",c.risk.balanceStepUsd));
-  c.risk.baseRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
-  c.risk.baseMinEffectiveRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_MIN_EFFECTIVE_RISK_USD",c.risk.baseMinEffectiveRiskUsd));
-  c.risk.effectiveRiskStepUsd=Math.max(.1,n(env,"BYBIT_EFFECTIVE_RISK_STEP_USD",c.risk.effectiveRiskStepUsd));
+  c.risk.baseRiskUsd=Math.max(3,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
+  c.risk.baseMinEffectiveRiskUsd=Math.max(3,n(env,"BYBIT_BASE_MIN_EFFECTIVE_RISK_USD",c.risk.baseMinEffectiveRiskUsd));
+  c.risk.effectiveRiskStepUsd=Math.max(1,n(env,"BYBIT_EFFECTIVE_RISK_STEP_USD",c.risk.effectiveRiskStepUsd));
   c.risk.netProfitFloorUsd=Math.max(2,n(env,"BYBIT_NET_PROFIT_FLOOR_USD",c.risk.netProfitFloorUsd));
   c.risk.executionCostBufferUsd=Math.max(.25,n(env,"BYBIT_EXECUTION_COST_BUFFER_USD",c.risk.executionCostBufferUsd));
   const hardGrossFloor=c.risk.netProfitFloorUsd+c.risk.executionCostBufferUsd;
   c.risk.baseMinRewardUsd=Math.max(hardGrossFloor,n(env,"BYBIT_BASE_MIN_REWARD_USD",c.risk.baseMinRewardUsd));
   c.risk.baseRewardUsd=Math.max(c.risk.baseMinRewardUsd,n(env,"BYBIT_BASE_REWARD_USD",c.risk.baseRewardUsd));
-  c.risk.riskStepUsd=Math.max(.1,n(env,"BYBIT_RISK_STEP_USD",c.risk.riskStepUsd));
-  c.risk.minRewardStepUsd=Math.max(.1,n(env,"BYBIT_MIN_REWARD_STEP_USD",c.risk.minRewardStepUsd));
-  c.risk.rewardStepUsd=Math.max(.1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
-  c.risk.minRiskUsd=Math.max(.25,n(env,"BYBIT_MIN_RISK_USD",c.risk.minRiskUsd));
+  c.risk.riskStepUsd=Math.max(1,n(env,"BYBIT_RISK_STEP_USD",c.risk.riskStepUsd));
+  c.risk.minRewardStepUsd=Math.max(1,n(env,"BYBIT_MIN_REWARD_STEP_USD",c.risk.minRewardStepUsd));
+  c.risk.rewardStepUsd=Math.max(1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
+  c.risk.maxRewardUsd=Math.max(3,Math.min(10,n(env,"BYBIT_MAX_REWARD_USD",c.risk.maxRewardUsd)));
+  c.risk.minRiskUsd=Math.max(3,n(env,"BYBIT_MIN_RISK_USD",c.risk.minRiskUsd));
   c.risk.minRewardUsd=Math.max(hardGrossFloor,n(env,"BYBIT_MIN_REWARD_USD",c.risk.minRewardUsd));
-  c.risk.maxRiskPctOfEquity=Math.max(4,Math.min(8,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
-  c.risk.maxTotalOpenRiskPct=Math.max(10,Math.min(18,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.maxMarginPerPositionPct=Math.max(15,Math.min(40,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
-  c.risk.minFreeReservePct=Math.max(18,Math.min(40,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
-  c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
-  c.risk.maxPortfolioMarginPct=Math.max(55,Math.min(80,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.risk.maxRiskPctOfEquity=Math.max(6,Math.min(8,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
+  c.risk.maxTotalOpenRiskPct=Math.max(12,Math.min(18,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.maxMarginPerPositionPct=Math.max(20,Math.min(40,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
+  c.risk.minFreeReservePct=Math.max(18,Math.min(35,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
+  c.risk.feeBufferPct=Math.max(2,Math.min(10,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
+  c.risk.maxPortfolioMarginPct=Math.max(60,Math.min(80,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
   c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
@@ -110,11 +112,11 @@ export function bybitAutoConfig(env={}){
   c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
   c.risk.smartCutReissueSec=Math.max(60,Math.min(300,Math.round(n(env,"BYBIT_SMART_CUT_REISSUE_SEC",c.risk.smartCutReissueSec))));
   c.adaptive.enabled=String(env.BYBIT_ADAPTIVE_EDGE_ENABLED??String(c.adaptive.enabled)).toLowerCase()==="true";
-  c.adaptive.baseScore=Math.max(66,Math.min(76,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
+  c.adaptive.baseScore=Math.max(64,Math.min(74,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
   c.adaptive.shrinkagePriorTrades=Math.max(10,Math.min(60,Math.round(n(env,"BYBIT_ADAPTIVE_SHRINKAGE_PRIOR_TRADES",c.adaptive.shrinkagePriorTrades))));
   c.adaptive.minExitProfileSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_MIN_EXIT_PROFILE_SAMPLES",c.adaptive.minExitProfileSamples))));
-  c.adaptive.correlationSoft=Math.max(.78,Math.min(.92,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
-  c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.04,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
+  c.adaptive.correlationSoft=Math.max(.80,Math.min(.93,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
+  c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.03,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
   c.adaptive.postMortemEnabled=true;
   c.adaptive.postMortemMinSamples=20;
   c.adaptive.postMortemMaxThresholdPenalty=2;
@@ -125,7 +127,7 @@ export function bybitAutoConfig(env={}){
   c.adaptive.trendAlignmentBonus=1;
   c.adaptive.autoPromote=false;
   c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,"BYBIT_RECV_WINDOW_MS",c.execution.recvWindow))));
-  c.execution.cooldownSec=Math.max(60,Math.min(300,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
+  c.execution.cooldownSec=Math.max(60,Math.min(180,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
   return c;
 }
 export function bybitExecutionMode(env={}){if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";return "PAPER";}
