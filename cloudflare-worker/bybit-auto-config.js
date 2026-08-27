@@ -56,6 +56,11 @@ export const BYBIT_AUTO_CONFIG={
     pauseMinutes:30,
     maxSameDirectionPositions:1000000,
     smartCutEnabled:true,
+    smartCutPositiveEnabled:true,
+    smartCutPositiveMinAgeSec:180,
+    smartCutPositiveMinR:.05,
+    smartCutPositiveMinPeakR:.30,
+    smartCutPositiveGivebackR:.25,
     smartCutMinAgeSec:180,
     smartCutScore:7,
     smartCutConfirmations:2,
@@ -130,6 +135,11 @@ export function bybitAutoConfig(env={}){
   c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
   c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
   c.risk.smartCutEnabled=String(env.BYBIT_DISCRETIONARY_CUT_ENABLED??String(c.risk.smartCutEnabled)).toLowerCase()==="true";
+  c.risk.smartCutPositiveEnabled=String(env.BYBIT_POSITIVE_SMART_CUT_ENABLED??String(c.risk.smartCutPositiveEnabled)).toLowerCase()==="true";
+  c.risk.smartCutPositiveMinAgeSec=Math.max(120,Math.min(900,Math.round(n(env,"BYBIT_POSITIVE_CUT_MIN_AGE_SEC",c.risk.smartCutPositiveMinAgeSec))));
+  c.risk.smartCutPositiveMinR=Math.max(.01,Math.min(.50,n(env,"BYBIT_POSITIVE_CUT_MIN_R",c.risk.smartCutPositiveMinR)));
+  c.risk.smartCutPositiveMinPeakR=Math.max(.15,Math.min(1.20,n(env,"BYBIT_POSITIVE_CUT_MIN_PEAK_R",c.risk.smartCutPositiveMinPeakR)));
+  c.risk.smartCutPositiveGivebackR=Math.max(.10,Math.min(.80,n(env,"BYBIT_POSITIVE_CUT_GIVEBACK_R",c.risk.smartCutPositiveGivebackR)));
   c.risk.smartCutMinAgeSec=Math.max(180,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec)));
   c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
   c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
