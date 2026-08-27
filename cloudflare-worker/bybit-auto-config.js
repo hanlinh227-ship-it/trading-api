@@ -37,7 +37,7 @@ export const BYBIT_AUTO_CONFIG={
     slotMarginFloorPct:20,
     slotMarginDecayPerDecade:1.25,
     targetRiskPctOfEquity:6,
-    maxRiskPctOfEquity:8,
+    maxRiskPctOfEquity:6.5,
     maxRewardPctOfEquity:20,
     minNetEdgePctOfEquity:.15,
     minNetEdgeCostMultiple:1.50,
@@ -103,7 +103,7 @@ export function bybitAutoConfig(env={}){
   c.risk.rewardStepUsd=Math.max(0,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.maxRewardUsd=Math.max(.01,n(env,"BYBIT_MAX_REWARD_USD",c.risk.maxRewardUsd));
   c.risk.targetRiskPctOfEquity=Math.max(.25,Math.min(c.risk.maxRiskPctOfEquity,n(env,"BYBIT_TARGET_RISK_PCT_OF_EQUITY",c.risk.targetRiskPctOfEquity)));
-  c.risk.maxRiskPctOfEquity=Math.max(1,Math.min(8,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
+  c.risk.maxRiskPctOfEquity=Math.max(1,Math.min(6.5,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.maxRewardPctOfEquity=Math.max(2,Math.min(50,n(env,"BYBIT_MAX_REWARD_PCT_OF_EQUITY",c.risk.maxRewardPctOfEquity)));
   c.risk.minNetEdgePctOfEquity=Math.max(.01,Math.min(2,n(env,"BYBIT_MIN_NET_EDGE_PCT_OF_EQUITY",c.risk.minNetEdgePctOfEquity)));
   c.risk.minNetEdgeCostMultiple=Math.max(1,Math.min(4,n(env,"BYBIT_MIN_NET_EDGE_COST_MULTIPLE",c.risk.minNetEdgeCostMultiple)));
