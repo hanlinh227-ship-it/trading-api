@@ -32,6 +32,10 @@ export const BYBIT_AUTO_CONFIG={
     riskCurveSmallPct:6,
     riskCurveLargeFloorPct:.75,
     riskCurveDecayPerDecade:1.25,
+    slotMarginAnchorEquityUsd:5,
+    slotMarginMaxPct:100,
+    slotMarginFloorPct:20,
+    slotMarginDecayPerDecade:1.25,
     targetRiskPctOfEquity:6,
     maxRiskPctOfEquity:8,
     maxRewardPctOfEquity:20,
@@ -111,6 +115,10 @@ export function bybitAutoConfig(env={}){
   c.risk.minFreeReservePct=Math.max(0,Math.min(20,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
   c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
   c.risk.maxPortfolioMarginPct=Math.max(50,Math.min(100,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.risk.slotMarginAnchorEquityUsd=Math.max(.5,n(env,"BYBIT_SLOT_MARGIN_ANCHOR_EQUITY_USD",c.risk.slotMarginAnchorEquityUsd));
+  c.risk.slotMarginMaxPct=Math.max(50,Math.min(100,n(env,"BYBIT_SLOT_MARGIN_MAX_PCT",c.risk.slotMarginMaxPct)));
+  c.risk.slotMarginFloorPct=Math.max(10,Math.min(c.risk.slotMarginMaxPct,n(env,"BYBIT_SLOT_MARGIN_FLOOR_PCT",c.risk.slotMarginFloorPct)));
+  c.risk.slotMarginDecayPerDecade=Math.max(.25,Math.min(4,n(env,"BYBIT_SLOT_MARGIN_DECAY_PER_DECADE",c.risk.slotMarginDecayPerDecade)));
   c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
