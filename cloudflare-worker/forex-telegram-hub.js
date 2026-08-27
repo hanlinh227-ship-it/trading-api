@@ -13,29 +13,30 @@ async function answer(e,id,text=""){if(!id)return;try{await telegramApiRequest(e
 function store(e){return e.FOREX_STATE||e.TRADING_STATE||null;}
 async function kv(e,k){try{return await store(e)?.get(k,{type:"json"})||null}catch{return null}}
 function ageSec(ts){const t=Date.parse(String(ts||""));return Number.isFinite(t)?Math.max(0,(Date.now()-t)/1000):Infinity;}
-function canonicalMt5(last,state){const st=state||{},mt5=st.mt5||{},a=st.account||{};const pulseAt=st.receivedAt||last?.receivedAt||null,age=ageSec(pulseAt);const canonical=mt5.pureAiEa===true&&mt5.directHub===true&&String(mt5.eaVersion||"").startsWith("1.")&&Number(a.balance??last?.balance)>0&&Number(a.equity??last?.equity)>0;const brokerConnected=mt5.connected===true||last?.connected===true;const fresh=age<=30;return {canonical,brokerConnected,fresh,connected:canonical&&brokerConnected&&fresh,ageSec:age,pulseAt,status:!canonical?"INVALID_OR_LEGACY_STATE":!fresh?"STALE_PULSE":!brokerConnected?"BROKER_DISCONNECTED":"CONNECTED"};}
+function heartbeatStatus(hb){const age=ageSec(hb?.receivedAt),canonical=hb?.canonicalEa===true&&String(hb?.eaVersion||"").startsWith("1.")&&Number(hb?.balance)>0&&Number(hb?.equity)>0,fresh=age<=30,brokerConnected=hb?.connected===true;return {canonical,brokerConnected,fresh,connected:canonical&&brokerConnected&&fresh,ageSec:age,pulseAt:hb?.receivedAt||null,status:!hb?"NO_CANONICAL_HEARTBEAT":!canonical?"INVALID_OR_LEGACY_STATE":!fresh?"STALE_HEARTBEAT":!brokerConnected?"BROKER_DISCONNECTED":"CONNECTED"};}
 async function snap(e){
- const cfg=forexAutoConfig(e),ai=forexAutonomous2AiHealth(e),last=await kv(e,"forex:mt5:last"),state=last?.terminalId?await kv(e,`forex:mt5:${last.terminalId}`):null;
- const allAi=!!ai?.chatgpt?.configured&&!!ai?.claude?.configured,mt5=canonicalMt5(last,state);
- return {cfg,ai,last,state,mt5,allAi,mode:cfg.execution.liveEnabled?"LIVE":"PAPER"};
+ const cfg=forexAutoConfig(e),ai=forexAutonomous2AiHealth(e),heartbeat=await kv(e,"forex:mt5:heartbeat:last"),legacyLast=await kv(e,"forex:mt5:last"),terminalId=heartbeat?.terminalId||legacyLast?.terminalId||null,state=terminalId?await kv(e,`forex:mt5:${terminalId}`):null;
+ const allAi=!!ai?.chatgpt?.configured&&!!ai?.claude?.configured,mt5=heartbeatStatus(heartbeat);
+ return {cfg,ai,heartbeat,last:legacyLast,state,mt5,terminalId,allAi,mode:cfg.execution.liveEnabled?"LIVE":"PAPER"};
 }
-function dash(s){const st=s.state||{},a=st.account||{},d=st.dailyObjective||{},t=st.target||{};return [
+function accountView(s){const a=s.state?.account||{},h=s.heartbeat||{};return {balance:a.balance??h.balance,equity:a.equity??h.equity,freeMargin:a.freeMargin??h.freeMargin,marginLevelPct:a.marginLevelPct??h.marginLevelPct,openPositions:a.openPositions??h.openPositions??0};}
+function dash(s){const st=s.state||{},a=accountView(s),d=st.dailyObjective||{},t=st.target||{};return [
  "💱 FOREX AUTO • THE5ERS",`${FOREX_AUTO_VERSION} • ${s.mode}`,
  `🖥️ MT5 ${s.mt5.connected?"CONNECTED":s.mt5.status}`,
  `🧠 2 AI ${s.allAi?"READY":"NOT FULLY CONFIGURED"} • Codex + Claude`,
- `💰 Balance $${fmt(a.balance??s.last?.balance)} • Equity $${fmt(a.equity??s.last?.equity)}`,
- `📌 Positions ${a.openPositions??s.last?.openPositions??0}`,
+ `💰 Balance $${fmt(a.balance)} • Equity $${fmt(a.equity)}`,
+ `📌 Positions ${a.openPositions}`,
  `📈 Today ${Number.isFinite(Number(d.profitPct))?`${Number(d.profitPct)>=0?"+":""}${fmt(d.profitPct,2)}% • ${money(d.profitUsd)}`:"—"} • Goal >${fmt(d.minProfitPct??s.cfg.dailyObjective?.minProfitPct,2)}%`,
- t?.enabled?`🎯 Campaign ${money(t.profitUsd)} / +$${fmt(t.targetUsd)} • ${fmt(t.progressPct,1)}% • ${t.targetDays||s.cfg.target?.targetDays||"—"} trading days`:"🎯 Campaign —",
+ t?.enabled?`🎯 Campaign ${money(t.profitUsd)} / +$${fmt(t.targetUsd)} • ${fmt(t.progressPct,1)}% • ${t.targetDays||s.cfg.target?.targetDays||"—"} trading days`:`🎯 Campaign $0.00 / +$${fmt(s.cfg.target?.targetUsd)} • ${s.cfg.target?.targetDays||"—"} trading days`,
  `🧭 Last ${st?.decision?.action||s.last?.decision||"—"} • ${st?.decision?.reason||"—"}`,
- `🕒 ${s.mt5.pulseAt||"chưa có pulse"}${Number.isFinite(s.mt5.ageSec)?` • age ${fmt(s.mt5.ageSec,1)}s`:""}`,
+ `🕒 ${s.mt5.pulseAt||"chưa có canonical pulse"}${Number.isFinite(s.mt5.ageSec)?` • age ${fmt(s.mt5.ageSec,1)}s`:""}`,
  "🔐 Hard rules > Risk > 2AI > MT5"
  ].join("\n");}
 function aiText(s){const a=s.ai||{};return ["🧠 FOREX PURE AI • 2/2",`Codex/GPT ${a.chatgpt?.configured?"READY":"MISSING"} • ${a.chatgpt?.model||"GPT via Codex"}`,`Claude ${a.claude?.configured?"READY":"MISSING"} • ${a.claude?.model||"Claude"}`,`Bridge ${a.transport||"UNIFIED_2AI_VPC_BRIDGE"}`,"Consensus: bắt buộc 2/2 cùng ENTER và cùng symbol/side.","Không confidence gate • không rule-based signal • không DeepSeek.","Hard rules chỉ có quyền chặn an toàn, không tạo entry."].join("\n");}
 function rulesText(s){const r=s.cfg.rules||{},m=s.state?.rules?.metrics||{};return ["🛡️ THE5ERS HARD SAFETY",`Official daily max ${fmt(r.maxDailyLossPct)}% • max loss ${fmt(r.maxTotalLossPct)}%`,`Internal/projected stop ${fmt(r.internalDailyStopPct)}% / ${fmt(r.projectedDailyStopPct)}%`,`Current daily loss ${fmt(m.dailyLossPct,2)}% • total ${fmt(m.totalLossPct,2)}%`,`News hard lock ±${Math.round(Number(r.officialNewsBlockBeforeSec||0)/60)}m / +${Math.round(Number(r.officialNewsBlockAfterSec||0)/60)}m`,`Alternation BUY→SELL→BUY→SELL • không ép lệnh`,`HFT/arbitrage/martingale/grid recovery: BLOCK`].join("\n");}
 function riskText(s){const r=s.cfg.risk||{},x=s.state?.riskBudget||{},d=s.state?.decision||{};return ["📊 FOREX RISK / SL TP",`Hard max risk/lệnh ${fmt(r.hardMaxRiskPct,2)}%`,`Portfolio open-risk cap ${fmt(r.maxTotalOpenRiskPct,2)}%`,`Min RR ${fmt(r.minRR,2)} • preferred ${fmt(r.preferredRR,2)}`,`AI requested ${fmt(x.aiRequestedRiskPct,2)}% • allowed ${fmt(x.allowedRiskPct,2)}%`,d.symbol?`${d.symbol} ${String(d.side||"").toUpperCase()} • Entry ${px(d.entry)}\nSL ${px(d.sl)} • TP ${px(d.tp)} • RR ${fmt(d.rr,2)}`:"Chưa có entry đang active.","Lot được phép lớn hơn chỉ khi SL cấu trúc ngắn hơn mà risk tiền/% không tăng."].join("\n");}
-function mt5Text(s){const l=s.last||{},st=s.state||{},a=st.account||{};return ["🖥️ MT5 WINDOWS",`Connection ${s.mt5.connected?"🟢 CONNECTED":"🔴 "+s.mt5.status}`,`Canonical EA ${s.mt5.canonical?"YES":"NO"} • pulse age ${Number.isFinite(s.mt5.ageSec)?fmt(s.mt5.ageSec,1)+"s":"—"}`,`Terminal ${l.terminalId||st.terminalId||"—"}`,`Last pulse ${s.mt5.pulseAt||"—"}`,`Balance $${fmt(a.balance??l.balance)} • Equity $${fmt(a.equity??l.equity)}`,`Free margin $${fmt(a.freeMargin)} • Margin level ${fmt(a.marginLevelPct)}%`,`Open positions ${a.openPositions??l.openPositions??0}`,`Required next side ${st.requiredSide||l.requiredSide||"—"}`].join("\n");}
-function decisionText(s){const st=s.state||{},d=st.decision||{},mg=st.manageDecision||{};return ["🎯 FOREX LAST DECISION",`Action ${d.action||s.last?.decision||"—"}`,`Reason ${d.reason||"—"}`,d.symbol?`${d.symbol} • ${String(d.side||"").toUpperCase()} • Entry ${px(d.entry)}`:"Symbol —",d.symbol?`SL ${px(d.sl)} • TP ${px(d.tp)} • RR ${fmt(d.rr,2)} • Risk ${fmt(d.riskPct,2)}%`:"",mg.manageAction?`Manage ${mg.manageAction} • ticket ${mg.manageTicket||"—"}\n${mg.manageReason||""}`:"Manage: HOLD / none",`Required side ${st.requiredSide||s.last?.requiredSide||"—"}`,`At ${st.receivedAt||s.last?.receivedAt||"—"}`].filter(Boolean).join("\n");}
+function mt5Text(s){const a=accountView(s),h=s.heartbeat||{};return ["🖥️ MT5 WINDOWS",`Connection ${s.mt5.connected?"🟢 CONNECTED":"🔴 "+s.mt5.status}`,`Canonical EA ${s.mt5.canonical?"YES":"NO"} • EA ${h.eaVersion||"—"} • pulse age ${Number.isFinite(s.mt5.ageSec)?fmt(s.mt5.ageSec,1)+"s":"—"}`,`Terminal ${s.terminalId||"—"}`,`Last pulse ${s.mt5.pulseAt||"—"}`,`Balance $${fmt(a.balance)} • Equity $${fmt(a.equity)}`,`Free margin $${fmt(a.freeMargin)} • Margin level ${fmt(a.marginLevelPct)}%`,`Open positions ${a.openPositions}`,`Required next side ${s.state?.requiredSide||s.last?.requiredSide||"—"}`].join("\n");}
+function decisionText(s){const st=s.state||{},d=st.decision||{},mg=st.manageDecision||{};return ["🎯 FOREX LAST DECISION",`Action ${d.action||s.last?.decision||"—"}`,`Reason ${d.reason||"—"}`,d.symbol?`${d.symbol} • ${String(d.side||"").toUpperCase()} • Entry ${px(d.entry)}`:"Symbol —",d.symbol?`SL ${px(d.sl)} • TP ${px(d.tp)} • RR ${fmt(d.rr,2)} • Risk ${fmt(d.riskPct,2)}%`:"",mg.manageAction?`Manage ${mg.manageAction} • ticket ${mg.manageTicket||"—"}\n${mg.manageReason||""}`:"Manage: HOLD / none",`Required side ${st.requiredSide||s.last?.requiredSide||"—"}`,`At ${st.receivedAt||s.mt5.pulseAt||s.last?.receivedAt||"—"}`].filter(Boolean).join("\n");}
 
 export async function handleForexTelegramHub(req,e){
  const u=new URL(req.url);if(u.pathname!=="/telegram/webhook"||req.method!=="POST")return null;
@@ -53,5 +54,5 @@ export async function handleForexTelegramHub(req,e){
  else if(cb==="forex:mt5")await send(e,chatId,mt5Text(s));
  else if(cb==="forex:decision")await send(e,chatId,decisionText(s));
  else return null;
- return json({ok:true,view:cb,forexStateStore:e.FOREX_STATE?"FOREX_STATE":"TRADING_STATE",twoAi:true,mt5:s.mt5});
+ return json({ok:true,view:cb,forexStateStore:e.FOREX_STATE?"FOREX_STATE":"TRADING_STATE",twoAi:true,mt5:s.mt5,terminalId:s.terminalId});
 }
