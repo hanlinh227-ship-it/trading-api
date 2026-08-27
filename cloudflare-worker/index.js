@@ -34,8 +34,8 @@ export default {
     if(url.pathname==="/status")return json({
       ok:true,version:VERSION,service:SERVICE,hub:BYBIT_EXECUTION_AUTHORITY,runtimeContract:BYBIT_RUNTIME_CONTRACT,
       telegramHub:TELEGRAM_HUB_ID,telegramBranches:["BYBIT","FOREX","MEME"],signalV11Enabled:false,signalSchedulerEnabled:false,
-      bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,readonlyHealth:BYBIT_HEALTH_ROUTE,runtimeContract:"/runtime/contract",twoAiAuthority:"BYBIT_AUTO_CANONICAL_2AI_GATE",latestAiReview:"/bybit/ai/latest-review"},
-      forex:{version:FOREX_AUTO_VERSION,mode:envBool(env.FOREX_AUTO_LIVE)?"LIVE":"PAPER",mt5Windows:true,autonomous2Ai:["chatgpt","claude"],telegramCanonicalDashboard:true,ruleBasedSignalAuthority:false,health:"/forex/health",liveEnabled:envBool(env.FOREX_AUTO_LIVE)},
+      bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),demo:envBool(env.BYBIT_AUTO_DEMO),environment:envBool(env.BYBIT_AUTO_DEMO)?"DEMO":(envBool(env.BYBIT_AUTO_LIVE)?"LIVE":"PAPER"),executionAuthority:true,readonlyHealth:BYBIT_HEALTH_ROUTE,runtimeContract:"/runtime/contract",twoAiAuthority:"BYBIT_AUTO_CANONICAL_2AI_GATE",latestAiReview:"/bybit/ai/latest-review"},
+      forex:{version:FOREX_AUTO_VERSION,mode:envBool(env.FOREX_AUTO_LIVE)?"LIVE":"PAPER",mt5VpsWine11:true,autonomous2Ai:["chatgpt","claude"],telegramCanonicalDashboard:true,ruleBasedSignalAuthority:false,health:"/forex/health",liveEnabled:envBool(env.FOREX_AUTO_LIVE)},
       meme:{version:MEME_AUTO_VERSION,mode:MEME_AUTO_MODE,paperEnabled:true,executionEnabled:false,walletConnected:false,signingEnabled:false,paperState:"/meme-auto/paper/state",paperRun:"/meme-auto/paper/run",quoteHealth:"/meme-auto/quote-health"},telegramWebhook:"/telegram/webhook"
     });
     if(url.pathname.startsWith("/v11/"))return json({ok:false,error:"SIGNAL_V11_DISABLED",replacement:"BYBIT_AUTO_TRADE_HUB",runtimeContract:"/runtime/contract"},410);
