@@ -7,7 +7,6 @@ on:
     paths:
       - '.github/workflows/mt5-wine11-terminal-recover.yml'
 
-# Final broker-auth recovery trigger: 2026-08-27
 permissions:
   contents: read
 
@@ -23,6 +22,7 @@ jobs:
       MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_ACCOUNT_LOGIN }}
       MT5_ACCOUNT_PASSWORD: ${{ secrets.MT5_ACCOUNT_PASSWORD }}
       MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
+      MT5_ACCOUNT_ENDPOINT: ${{ secrets.MT5_ACCOUNT_ENDPOINT }}
       MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
       MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
       MT5_ALLOW_LIVE: ${{ vars.MT5_ALLOW_LIVE || secrets.MT5_ALLOW_LIVE || 'false' }}
@@ -93,6 +93,7 @@ jobs:
             printf 'MT5_ACCOUNT_LOGIN=%q\n' "$MT5_ACCOUNT_LOGIN"
             printf 'MT5_ACCOUNT_PASSWORD=%q\n' "$MT5_ACCOUNT_PASSWORD"
             printf 'MT5_ACCOUNT_SERVER=%q\n' "$MT5_ACCOUNT_SERVER"
+            printf 'MT5_ACCOUNT_ENDPOINT=%q\n' "${MT5_ACCOUNT_ENDPOINT:-}"
             printf 'MT5_HUB_URL=%q\n' "$HUB"
             printf 'MT5_BRIDGE_TOKEN=%q\n' "$MT5_BRIDGE_TOKEN"
             printf 'MT5_ALLOW_LIVE=%q\n' "$LIVE"
@@ -119,6 +120,7 @@ jobs:
             FOREX_RESEARCH_REPO="$repo" \
             MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" \
             MT5_ACCOUNT_SERVER="$MT5_ACCOUNT_SERVER" \
+            MT5_ACCOUNT_ENDPOINT="${MT5_ACCOUNT_ENDPOINT:-}" \
             MT5_BRIDGE_TOKEN="$MT5_BRIDGE_TOKEN" \
             MT5_HUB_URL="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}" \
             MT5_ALLOW_LIVE="${MT5_ALLOW_LIVE:-false}" \
