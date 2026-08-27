@@ -2,7 +2,7 @@ name: FOREX Auto Validation
 
 on:
   push:
-    branches: [main, chatgpt/forex-pure-ai-060]
+    branches: [main]
     paths:
       - 'cloudflare-worker/forex-*.js'
       - 'cloudflare-worker/validate-forex-auto.mjs'
@@ -26,30 +26,29 @@ jobs:
         run: node validate-forex-auto.mjs
       - name: Validate worker source
         run: node validate-worker.mjs
-      - name: Guard PURE AI FAST 2AI PAPER default
+      - name: Guard PURE AI ultra-low-latency stable-shell invariants
         run: |
           grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
-          grep -q 'FOREX-AUTO-0.6.1-PURE-AI-FAST' forex-auto-config.js
+          grep -q 'FOREX-AUTO-0.6.2-PURE-AI-ULTRA-LOW-LATENCY' forex-auto-config.js
           grep -q 'aiProviders:\["chatgpt","claude"\]' forex-auto-config.js
-          grep -q 'PURE_AI_DISCRETIONARY_INTRADAY_FAST_LOOP' forex-auto-config.js
-          grep -q 'scanEverySec:5' forex-auto-config.js
+          grep -q 'scanEverySec:2' forex-auto-config.js
+          grep -q 'mt5SnapshotEverySec:1' forex-auto-config.js
+          grep -q 'positionManagementEverySec:2' forex-auto-config.js
           grep -q 'quotaCooldownHours:5' forex-auto-config.js
           grep -q 'openAiMaxOutputTokens:12000' forex-auto-config.js
           grep -q 'claudeMaxOutputTokens:12000' forex-auto-config.js
           grep -q 'ruleBasedSignalAuthority:false' forex-auto-config.js
-          grep -q 'precomputedScoreAuthority:false' forex-auto-config.js
-          grep -q 'confidenceGateAuthority:false' forex-auto-config.js
           grep -q 'authority:"AI_ONLY"' forex-auto-config.js
-          grep -q 'requireCurrentEconomicContext:true' forex-auto-config.js
-          grep -q 'requireTechnicalReasoning:true' forex-auto-config.js
           grep -q 'alternateTradeSide:true' forex-auto-config.js
           grep -q 'minProfitPct:.50' forex-auto-config.js
           grep -q 'USER_SET_RUNTIME_TARGET_ONLY' forex-auto-config.js
-          grep -q 'liveEnabled:false' forex-auto-config.js
-          grep -q 'internalDailyStopPct:4.0' forex-auto-config.js
-          grep -q 'projectedDailyStopPct:4.0' forex-auto-config.js
-          grep -q '#property version   "0.601"' ../mt5/ForexAutoThe5ers.mq5
-          grep -q 'InpPulseSeconds=5' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'decisionTtlSec:6' forex-auto-config.js
+          grep -q '#property version   "1.000"' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'InpPulseMs=2000' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'WebRequest("POST"' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'PROTOCOL_VERSION=1' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'ALTERNATION_HARD_LOCK' ../mt5/ForexAutoThe5ers.mq5
+          ! grep -q 'FOREX_BRIDGE' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpBreakEvenR' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpProfitLockR' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpTrailR' ../mt5/ForexAutoThe5ers.mq5
