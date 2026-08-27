@@ -1,4 +1,4 @@
-// Scalp exit planning V4: structure-first + anti-sweep ATR floor + wick buffer + delayed BE/trailing.
+// Scalp exit planning V5: structure-first + wider anti-sweep floor + delayed BE/lock/trailing.
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const num=v=>Number(v);
@@ -25,23 +25,22 @@ function volatilityClass(atr,entry){
   return "LOW";
 }
 export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.0,preferredRR=2.0,rrCap=3.0}){
-  const sw=recentSwing(r1,30,2);if(!sw||!(atr>0)||!(entry>0))return null;
-  const fib=fibLevels(sw.low,sw.high),long=side==="BUY",vol=volatilityClass(atr,entry),wickNoise=recentWickNoise(r1,20);
+  const sw=recentSwing(r1,34,2);if(!sw||!(atr>0)||!(entry>0))return null;
+  const fib=fibLevels(sw.low,sw.high),long=side==="BUY",vol=volatilityClass(atr,entry),wickNoise=recentWickNoise(r1,24);
 
-  // Anti-sweep policy: the stop must sit beyond confirmed structure and outside normal 1m noise.
-  // Risk is controlled later by position sizing; we never pull the stop closer merely to fit a dollar budget.
-  const minStopAtr=vol==="HIGH"?1.55:vol==="MEDIUM"?1.40:1.30;
-  const structureBufferAtr=vol==="HIGH"?.60:vol==="MEDIUM"?.48:.38;
-  const noiseBuffer=Math.max(atr*structureBufferAtr,wickNoise*.65);
+  // Anti-sweep V5: stop sits beyond confirmed 1m structure and outside ordinary wick/ATR noise.
+  // Dollar risk stays controlled by position sizing; widening price distance must reduce quantity, never increase loss budget.
+  const minStopAtr=vol==="HIGH"?2.05:vol==="MEDIUM"?1.85:1.70;
+  const structureBufferAtr=vol==="HIGH"?.82:vol==="MEDIUM"?.68:.55;
+  const noiseBuffer=Math.max(atr*structureBufferAtr,wickNoise*.85);
   const structureInvalidation=long?sw.low:sw.high;
   const beyondStructure=long?structureInvalidation-noiseBuffer:structureInvalidation+noiseBuffer;
   const atrFloorStop=long?entry-atr*minStopAtr:entry+atr*minStopAtr;
   const structureSl=long?Math.min(beyondStructure,atrFloorStop):Math.max(beyondStructure,atrFloorStop);
   const risk=Math.abs(entry-structureSl);if(!(risk>0))return null;
 
-  // Reject pathological stops instead of accepting a very wide structural invalidation.
-  // This keeps the bot from solving stop-sweep risk by taking oversized price-distance risk.
-  const maxStopAtr=vol==="HIGH"?4.2:vol==="MEDIUM"?3.8:3.4;
+  // Reject pathological geometry instead of accepting an excessively wide invalidation.
+  const maxStopAtr=vol==="HIGH"?4.8:vol==="MEDIUM"?4.4:4.0;
   if(risk>atr*maxStopAtr)return null;
 
   const levels=[
@@ -56,11 +55,11 @@ export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.0,preferredRR
   const chosen=preferred||acceptable||{price:long?entry+risk*pref:entry-risk*pref,rr:pref,source:"RR_FALLBACK"};
   const rr=clamp(chosen.rr,rrFloor,cap),tp=long?entry+risk*rr:entry-risk*rr;
 
-  // Wider initial stops need later management to avoid turning a good anti-sweep stop into an early BE stop.
-  const breakEvenTriggerR=vol==="HIGH"?1.20:vol==="MEDIUM"?1.10:1.00;
-  const positiveTrailTriggerR=vol==="HIGH"?1.65:vol==="MEDIUM"?1.50:1.35;
-  const positiveTrailLockR=vol==="HIGH"?.18:.22;
-  const trailAtr=vol==="HIGH"?1.35:vol==="MEDIUM"?1.15:.95;
+  // Management is deliberately late. Price must travel well beyond noise before BE/lock/trailing can activate.
+  const breakEvenTriggerR=vol==="HIGH"?1.45:vol==="MEDIUM"?1.35:1.30;
+  const positiveTrailTriggerR=vol==="HIGH"?2.10:vol==="MEDIUM"?1.95:1.85;
+  const positiveTrailLockR=vol==="HIGH"?.28:vol==="MEDIUM"?.32:.35;
+  const trailAtr=vol==="HIGH"?1.70:vol==="MEDIUM"?1.50:1.30;
 
   return {
     sl:structureSl,tp,rr,
@@ -74,7 +73,7 @@ export function buildScalpExitPlan({side,entry,atr,r1=[],rrFloor=1.0,preferredRR
     trailAtr,
     requireStructureConfirmationForBE:true,
     requireStructureConfirmationForPositiveTrail:true,
-    stopPolicy:"STRUCTURE_ANTI_SWEEP_V4",
+    stopPolicy:"STRUCTURE_ANTI_SWEEP_V5",
     stopDistanceAtr:risk/atr,
     structure:{swingHigh:sw.high,swingLow:sw.low,fib,structureBufferAtr,minStopAtr,maxStopAtr,wickNoise,noiseBuffer}
   };
