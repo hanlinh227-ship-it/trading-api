@@ -1,0 +1,40 @@
+name: Forex Production Diagnostic One Shot
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/forex-production-diagnostic-one-shot.yml']
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect MT5 process and runtime state
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== SERVICE ==='
+          sudo systemctl show mt5-forex.service -p ActiveState -p SubState -p NRestarts -p ExecMainStartTimestamp -p ExecMainStatus --no-pager
+          sudo systemctl show mt5-forex-bridge.service -p ActiveState -p SubState -p NRestarts --no-pager
+          echo '=== PS MT5FOREX ==='
+          ps -u mt5forex -o pid=,comm=,args= | sed -E 's/(login|password)=[^ ]+/\1=REDACTED/Ig' | head -80
+          echo '=== DETECTORS ==='
+          ps -u mt5forex -o comm= | cat -A
+          if ps -u mt5forex -o comm= | grep -qxF terminal64.exe; then echo 'EXACT_COMM_DETECT=PASS'; else echo 'EXACT_COMM_DETECT=FAIL'; fi
+          if ps -u mt5forex -o args= | grep -Eiq '(^|[\\/])terminal64\.exe([ " ]|$)'; then echo 'ARGS_TERMINAL_DETECT=PASS'; else echo 'ARGS_TERMINAL_DETECT=FAIL'; fi
+          echo '=== AUTH MARKER ==='
+          test -f /var/lib/trading/mt5-forex/broker-authenticated.marker && echo 'AUTH_MARKER=YES' || echo 'AUTH_MARKER=NO'
+          echo '=== BRIDGE HEALTH ==='
+          python3 - <<'PY'
+          import json,pathlib
+          for p in ['/var/lib/trading/mt5-forex/bridge-health.json','/var/lib/trading/mt5-forex/wine/drive_c/MT5Forex/MQL5/Files/FOREX_BRIDGE/pulse.json']:
+            q=pathlib.Path(p); print('FILE',p,'EXISTS',q.is_file())
+            if q.is_file():
+              try:
+                d=json.loads(q.read_text()); m=d.get('mt5',{}) if isinstance(d,dict) else {}; a=d.get('account',{}) if isinstance(d,dict) else {}
+                print({'state':d.get('state'),'updatedAt':d.get('updatedAt'),'lastSuccessAt':d.get('lastSuccessAt'),'terminalId':bool(d.get('terminalId')),'connected':m.get('connected'),'tradeAllowed':m.get('tradeAllowed'),'eaVersion':d.get('eaVersion') or m.get('eaVersion'),'balancePositive':float(a.get('balance') or 0)>0,'equityPositive':float(a.get('equity') or 0)>0,'capabilities':d.get('capabilities')})
+              except Exception as e: print('JSON_ERROR',repr(e))
+          PY
+          echo '=== JOURNAL ==='
+          sudo journalctl -u mt5-forex.service --since '15 min ago' --no-pager -o cat | grep -E 'MT5_FOREX_(AUTH_STATE|REAL_TERMINAL_PROCESS|TERMINAL_APPEAR|TERMINAL_EXITED|DIAG_PS_SNAPSHOT|EXEC_MODE|LAUNCHER_EXITED)' | tail -100 || true
