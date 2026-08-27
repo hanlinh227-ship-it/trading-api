@@ -6,6 +6,7 @@ on:
     paths:
       - 'cloudflare-worker/forex-*.js'
       - 'cloudflare-worker/validate-forex-auto.mjs'
+      - 'cloudflare-worker/validate-forex-runtime.mjs'
       - 'cloudflare-worker/validate-worker.mjs'
       - 'mt5/ForexAutoThe5ers.mq5'
       - '.github/workflows/forex-auto-validation.yml'
@@ -24,22 +25,26 @@ jobs:
           node-version: '22'
       - name: Validate FOREX AUTO invariants
         run: node validate-forex-auto.mjs
+      - name: Validate FOREX runtime invariants
+        run: node validate-forex-runtime.mjs
       - name: Validate worker source
         run: node validate-worker.mjs
-      - name: Guard PURE AI campaign + pending-order news invariants
+      - name: Guard PURE AI free-side + pending-order news invariants
         run: |
-          grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
-          grep -q 'FOREX-AUTO-0.6.3-USER-CAMPAIGN-510-3D' forex-auto-config.js
+          grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI"' forex-auto-config.js
+          grep -q 'FOREX-AUTO-0.7.0-FREE-SIDE-2AI' forex-auto-config.js
           grep -q 'aiProviders:\["chatgpt","claude"\]' forex-auto-config.js
           grep -q 'scanEverySec:2' forex-auto-config.js
           grep -q 'mt5SnapshotEverySec:1' forex-auto-config.js
           grep -q 'positionManagementEverySec:2' forex-auto-config.js
           grep -q 'quotaCooldownHours:5' forex-auto-config.js
-          grep -q 'openAiMaxOutputTokens:12000' forex-auto-config.js
-          grep -q 'claudeMaxOutputTokens:12000' forex-auto-config.js
+          grep -q 'openAiMaxOutputTokens:16000' forex-auto-config.js
+          grep -q 'claudeMaxOutputTokens:16000' forex-auto-config.js
           grep -q 'ruleBasedSignalAuthority:false' forex-auto-config.js
           grep -q 'authority:"AI_ONLY"' forex-auto-config.js
-          grep -q 'alternateTradeSide:true' forex-auto-config.js
+          grep -q 'alternateTradeSide:false' forex-auto-config.js
+          grep -q 'sidePolicy:"FREE_WITH_ANTI_BIAS_STREAK_CAP"' forex-auto-config.js
+          grep -q 'maxConsecutiveSameSide:3' forex-auto-config.js
           grep -q 'minProfitPct:1.00' forex-auto-config.js
           grep -q 'targetUsd:510' forex-auto-config.js
           grep -q 'targetDays:3' forex-auto-config.js
@@ -48,11 +53,13 @@ jobs:
           grep -q 'neverIncreaseRiskToChaseTarget:true' forex-auto-config.js
           grep -q 'structurally tighter stop' forex-autonomous-2ai-trader.js
           grep -q 'larger lot while keeping monetary/risk-percent exposure unchanged' forex-autonomous-2ai-trader.js
+          grep -q 'entryCandidates may contain up to 5' forex-autonomous-2ai-trader.js
           grep -q 'MARKET|LIMIT|STOP' forex-autonomous-2ai-trader.js
           grep -q 'pendingOrdersCancelledOnRedNews' forex-autonomous-2ai-trader.js
           grep -q 'MT5_PENDING_ORDER_CAPABILITY_REQUIRED' forex-autonomous-mt5-bridge.js
           grep -q 'pendingRequiresEa:"1.002"' forex-autonomous-mt5-bridge.js
-          grep -q 'decisionTtlSec:6' forex-auto-config.js
+          grep -q 'FREE_SIDE_WITH_ANTI_BIAS' forex-autonomous-mt5-bridge.js
+          grep -q 'decisionTtlSec:8' forex-auto-config.js
           grep -q '#property version   "1.002"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpPulseMs=2000' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpHeartbeatSec=10' ../mt5/ForexAutoThe5ers.mq5
@@ -64,7 +71,8 @@ jobs:
           grep -q 'RED_NEWS_PENDING_AUTO_CANCEL' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'WebRequest("POST"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'PROTOCOL_VERSION=1' ../mt5/ForexAutoThe5ers.mq5
-          grep -q 'ALTERNATION_HARD_LOCK' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'SIDE_STREAK_CAP_3' ../mt5/ForexAutoThe5ers.mq5
+          ! grep -q 'ALTERNATION_HARD_LOCK' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'FOREX_BRIDGE' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpBreakEvenR' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpProfitLockR' ../mt5/ForexAutoThe5ers.mq5
