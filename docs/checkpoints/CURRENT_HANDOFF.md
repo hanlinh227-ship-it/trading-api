@@ -1,43 +1,49 @@
 # CURRENT HANDOFF — TRADING PROJECT
 
-Updated: 2026-08-26 UTC+7
+Updated: 2026-08-27 UTC+7
 
 ## ACTIVE PRODUCTION AUTHORITY
 Production Worker execution authority: **Bybit Auto only**.
-Canonical source target: `BYBIT-AUTO-1.7.3`.
-Execution: Bybit LIVE. Signal V11 execution/scheduler: disabled. Existing `TRADING_STATE` KV: preserved. Daily target/quota: OFF. AI core: Claude + Codex + DeepSeek final-entry review only.
+Canonical source target: **BYBIT-AUTO-1.8.3 or newer main/runtime evidence**.
+Execution: Bybit LIVE. Forex/MT5 is a separate branch and MUST NOT be toggled as a side effect of Bybit work. Existing `TRADING_STATE` KV is preserved. Daily target/quota: OFF.
 
-## 1.7.3 CANONICAL CONFLICT LOCK
-Entry spacing has one authority only: `BYBIT_AUTO_CONFIG.execution.cooldownSec`, default 180 seconds. Controller hard-coded spacing and hidden inner-engine cooldown overrides are forbidden. Loss-streak pause is decided only by canonical engine state.
+## AI AUTHORITY — HARD LOCK
+Only TWO AI providers are active/allowed for trading decisions:
+1. **GPT / OpenAI / Codex runtime**
+2. **Claude**
 
-Global closed-PnL safety is now scoped to the current Asia/Bangkok trading day. Historical ghost plans are not allowed to expand that query window or turn old reconciliation ambiguity into a global trading block.
+DeepSeek, Qwen, OpenRouter-as-model-router, and every historical 3AI/5AI council are **TEMPORARILY DISABLED / RETIRED FROM ACTIVE ROUTING**. They must not be called, required for quorum, used as fallback, or restored from an old checkpoint unless the user explicitly asks to re-enable them.
 
-If a LIVE plan is absent from authoritative Bybit positions and cannot be resolved from current-day closed-PnL because it belongs to an older lifecycle, it is moved to `reconcileQuarantine` as `OUTCOME_UNRESOLVED_OUTSIDE_DAILY_WINDOW`. The outcome is not fabricated. The quarantined plan is removed from `openPlans`, excluded from risk/margin, and cannot block either unrelated symbols or future same-symbol entries.
+Historical files may still contain the strings `3AI`, `5AI`, `DeepSeek`, `Qwen`, or `OpenRouter`. Those references are archival only and have ZERO authority over current runtime. Never infer active providers from historical checkpoints.
 
-Same-day pending closed plans may still prevent same-symbol re-entry until their outcome resolves. This preserves lifecycle integrity without globally freezing the bot.
+Canonical final-entry review is **GPT/Codex + Claude, quorum 2/2**. If either required active provider is unavailable, fail closed for AI-reviewed new entries rather than silently substituting another AI.
 
-## LIVE SAFETY
-- closed-PnL healthy grace: maximum 15 minutes; stale current-day safety reconciliation remains fail-closed;
-- current-day closed-PnL pagination truncation remains a hard safety block because daily risk/loss-streak state would be incomplete;
-- 3 consecutive realized losses: one-shot 30-minute new-entry pause;
-- untracked real Bybit position: hard block;
-- max positions 3; max same direction 2;
-- min RR 1.5; preferred 1.8;
-- max risk/trade 10% equity; max total live managed risk 20%;
-- max margin/new position 42%; min free reserve 18%; portfolio margin cap 82%;
-- leverage cap 10x;
-- Smart CUT remains reduce-only with verified fill lifecycle;
-- freshness, spread/chase, structural protection, post-AI quote, actual RR and verified SL/TP/trailing remain mandatory.
+## BYBIT CONTROL
+Read `docs/checkpoints/BYBIT_AUTO_ON_OFF_RUNBOOK_20260827.md` before enabling/disabling/reconnecting Bybit Auto. Bybit LIVE requires the canonical three-switch contract and production health verification. Do not change Forex/Meme state as a side effect.
 
-## RETIRED LEGACY BLOCKERS
-The following are forbidden in production: controller 5-minute spacing, controller duplicate loss pause, ghost-plan live risk accounting, `CLOSED_PNL_LOOKBACK_EXCEEDED` as a global entry blocker, and `MAX_CLOSED_LOOKBACK_MS` expansion driven by unresolved old plans.
+## CURRENT RISK / ENTRY AUTHORITY
+Use current source code and production runtime as truth. Do not restore stale numeric limits from old checkpoints. Current generation introduced the safer 1.8.3 risk profile; verify exact values from `cloudflare-worker/bybit-auto-config.js` before changing them.
 
 ## PIPELINE
-`Scheduler -> account/positions -> current-day PnL safety -> stale lifecycle quarantine -> management -> canonical entry spacing -> scan -> regime/adaptive edge -> correlation -> freshness/re-anchor -> sizing/risk -> 3AI -> post-AI validation -> order -> actual risk/RR -> verified protection -> lifecycle -> learning`.
+`Scheduler -> account/positions -> current-day PnL safety -> lifecycle reconciliation/quarantine -> position management -> canonical entry spacing -> scan -> regime/adaptive edge -> correlation -> freshness/re-anchor -> sizing/risk -> GPT/Codex + Claude review -> post-AI validation -> order -> actual risk/RR -> verified protection -> lifecycle -> learning`.
 
-## TELEMETRY
-Controller persists last cycle reason, last entry blocker, scan summary, scheduler exceptions and runtime revision. Engine persists `lastLiveRiskAccounting` including live symbols, tracked plans, risk-counted plans, pending closed plans and unresolved quarantine count.
+## RETIRED ROUTING
+Forbidden unless the user explicitly re-enables it:
+- 5AI Hub/council routing
+- 3AI council routing
+- DeepSeek decision/review calls
+- Qwen decision/review calls
+- OpenRouter model fallback/council calls
+- hidden fallback to any third AI when GPT/Codex or Claude fails
+
+## STARTUP RULE FOR FUTURE CHATS
+1. Fresh-read GitHub `main`.
+2. Read this `CURRENT_HANDOFF.md`.
+3. For Bybit ON/OFF work, read `BYBIT_AUTO_ON_OFF_RUNBOOK_20260827.md`.
+4. Prefer current source + production health over historical checkpoints.
+5. Keep AI routing at exactly **GPT/Codex + Claude** unless the user explicitly changes this policy.
+6. Do not resurrect 3AI/5AI architecture from old documentation.
 
 ## DEPLOYMENT CONTRACT
 Canonical workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
-Do not claim 1.7.3 LIVE until source validation, Cloudflare deployment, `/bybit/health` revision match and both VPS Bybit transports pass.
+Never claim a new Bybit version LIVE from source/commit alone. Require successful deployment, `/bybit/health` revision/version alignment, authenticated account access, and both VPS Bybit transports passing.
