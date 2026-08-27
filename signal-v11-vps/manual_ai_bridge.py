@@ -8,7 +8,8 @@ PROVIDERS=('claude','codex'); LAST={p:{'state':'UNKNOWN','last_seen':None} for p
 BYBIT_BASES=tuple(dict.fromkeys([x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()]))
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
 BYBIT_ALLOWED_METHODS=('GET','POST')
-ROLE='''You are one independent reviewer in the Unified Trading 2AI council. Use only supplied evidence. Never invent missing data. Return exactly one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}.'''
+REVIEW_ROLE='''You are one independent reviewer in the Unified Trading 2AI council. Use only supplied evidence. Never invent missing data. Return exactly one JSON object: {"verdict":"PASS|REJECT|BLOCKED","findings":[],"proposal":"...","evidence":[]}.'''
+FOREX_ROLE='''You are one independent autonomous discretionary Forex trader. You receive raw MT5 broker evidence and must make your own trading decision without any precomputed signal, score, indicator gate, or deterministic trade manager. Respect the required BUY/SELL alternation side without forcing a trade. Never invent broker prices. Return exactly one JSON object with this schema: {"entry":{"decision":"ENTER|WAIT","symbol":"SYMBOL|NONE","side":"BUY|SELL|NONE","requestedRiskPct":0-1,"sl":number,"tp":number,"technicalAnalysis":"concrete M5/M15/H1/H4 reasoning","economicAnalysis":"current macro/rates/news/risk reasoning","thesis":"short synthesis","invalidation":"short","riskFlags":[]},"management":[{"ticket":"ticket","action":"HOLD|CLOSE|MODIFY_SLTP","sl":number,"tp":number,"reason":"AI reasoning"}],"portfolioView":"short"}. Think deeply but output only JSON.'''
 def extract(s):
  d=json.JSONDecoder()
  for i,c in enumerate((s or '').strip()):
@@ -26,9 +27,15 @@ def local(cmd,prompt):
 def one(p,e):
  st=time.time()
  if not configured(p):return p,{'status':'UNAVAILABLE','error':'PROVIDER_NOT_CONFIGURED','latencySeconds':0}
- prompt=ROLE+'\nPROVIDER_ROLE='+p+'\nEVIDENCE='+json.dumps(e,ensure_ascii=False,separators=(',',':'))
+ mode=str(e.get('mode') or '').upper(); forex=mode in ('FOREX_AUTONOMOUS_TRADER','PURE_AI_FOREX_2AI_FAST')
+ role=FOREX_ROLE if forex else REVIEW_ROLE
+ instruction=str(e.get('instruction') or '').strip()
+ prompt=role+'\nPROVIDER_ROLE='+p+('\nINSTRUCTION='+instruction if instruction else '')+'\nEVIDENCE='+json.dumps(e,ensure_ascii=False,separators=(',',':'))
  try:
-  if p=='claude':x=local(['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch'],prompt)
+  if p=='claude':
+   # Forex macro/news context may use Claude web search. Other modes remain isolated/read-only.
+   cmd=['claude','--model',CLAUDE_MODEL,'-p'] if forex else ['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch']
+   x=local(cmd,prompt)
   else:x=local(['/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex','exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt)
   now=int(time.time()*1000); LAST[p]={'state':'ONLINE','last_seen':now}; return p,{'status':'OK','review':x,'latencySeconds':round(time.time()-st,2),'last_seen':now}
  except subprocess.TimeoutExpired:LAST[p]={'state':'DEGRADED','last_seen':int(time.time()*1000)};return p,{'status':'TIMEOUT','error':'PROVIDER_TIMEOUT','latencySeconds':round(time.time()-st,2)}
@@ -61,7 +68,7 @@ class H(BaseHTTPRequestHandler):
   b=json.dumps(o,ensure_ascii=False).encode();self.send_response(c);self.send_header('content-type','application/json');self.send_header('cache-control','no-store');self.send_header('content-length',str(len(b)));self.end_headers();self.wfile.write(b)
  def do_GET(self):
   if self.path!='/health':return self.sendj(404,{'ok':False})
-  meta={'claude':CLAUDE_MODEL,'codex':CODEX_MODEL};p={n:{'configured':configured(n),'model':meta[n],'state':LAST[n]['state'] if configured(n) else 'OFFLINE','last_seen':LAST[n]['last_seen']} for n in PROVIDERS};q=sum(1 for n in PROVIDERS if configured(n));self.sendj(200,{'ok':q>=2,'service':'UNIFIED_2AI_BRIDGE','legacyServiceAlias':'UNIFIED_3AI_BRIDGE','mode':'PARALLEL_2AI','providerCount':q,'requiredQuorum':2,'deepseekDisabled':True,'bybitPrivateProxy':True,'timestamp':int(time.time()*1000),'providers':p})
+  meta={'claude':CLAUDE_MODEL,'codex':CODEX_MODEL};p={n:{'configured':configured(n),'model':meta[n],'state':LAST[n]['state'] if configured(n) else 'OFFLINE','last_seen':LAST[n]['last_seen']} for n in PROVIDERS};q=sum(1 for n in PROVIDERS if configured(n));self.sendj(200,{'ok':q>=2,'service':'UNIFIED_2AI_BRIDGE','legacyServiceAlias':'UNIFIED_3AI_BRIDGE','mode':'PARALLEL_2AI','providerCount':q,'requiredQuorum':2,'deepseekDisabled':True,'forexAutonomousMode':True,'bybitPrivateProxy':True,'timestamp':int(time.time()*1000),'providers':p})
  def do_POST(self):
   if not SECRET or self.headers.get('authorization','')!='Bearer '+SECRET:return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
   try:
