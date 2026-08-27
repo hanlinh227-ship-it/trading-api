@@ -1,16 +1,16 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.6.1-PURE-AI-FAST";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.6.2-PURE-AI-ULTRA-LOW-LATENCY";
 export const FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER";
 
 export const FOREX_AUTO_CONFIG={
   branchId:"FOREX_THE5ERS_PURE_AI",
   brokerProfile:"THE5ERS_HIGH_STAKES",
   executionTerminal:"MT5_WINDOWS",
-  tradingStyle:"PURE_AI_DISCRETIONARY_INTRADAY_FAST_LOOP",
+  tradingStyle:"PURE_AI_DISCRETIONARY_INTRADAY_ULTRA_LOW_LATENCY",
   aiProviders:["chatgpt","claude"],
   universe:["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","NZDUSD","USDCAD","EURJPY","GBPJPY","EURGBP","XAUUSD"],
-  scanEverySec:5,
-  mt5SnapshotEverySec:3,
-  positionManagementEverySec:5,
+  scanEverySec:2,
+  mt5SnapshotEverySec:1,
+  positionManagementEverySec:2,
   maxOpenPositions:null,
   rules:{
     maxDailyLossPct:5,maxTotalLossPct:10,internalDailyStopPct:4.0,projectedDailyStopPct:4.0,
@@ -25,11 +25,11 @@ export const FOREX_AUTO_CONFIG={
   target:{enabled:false,mode:"USER_SET_RUNTIME_TARGET_ONLY",requiredForLive:false,targetUsd:null,targetPct:null,targetDays:null,cycleId:"USER_SET",stopNewEntriesWhenReached:false,neverIncreaseRiskToChaseTarget:true,deadlineIsSoft:true,userAuthorityRequired:true,allowHardcodedTarget:false},
   risk:{aiChoosesRequestedRiskPct:true,defaultRequestedRiskPct:.35,minExecutableRiskPct:.10,hardMaxRiskPct:1.00,maxTotalOpenRiskPct:3.75,minRR:1.5,preferredRR:2.0,noAveragingDown:true,noMartingale:true},
   margin:{minFreeMarginPctOfEquity:20,maxUsedMarginPctOfEquity:80,minMarginLevelPct:200,requireBrokerMarginMetrics:true,preTradeMarginCheck:true},
-  marketData:{maxQuoteAgeSec:12,requireH4:true,requireM5:true,requireM15:true,requireH1:true,refreshBrokerQuoteBeforeExecution:true,rejectStaleDecision:true},
+  marketData:{maxQuoteAgeSec:5,requireH4:true,requireM5:true,requireM15:true,requireH1:true,refreshBrokerQuoteBeforeExecution:true,rejectStaleDecision:true},
   management:{authority:"AI_ONLY",deterministicBreakEven:false,deterministicProfitLock:false,deterministicTrailing:false,deterministicSmartCut:false,aiMayHold:true,aiMayClose:true,aiMayModifySlTp:true,hardProtectionCannotBeRemoved:true},
-  ai:{authority:"PURE_AI_ENTRY_AND_POSITION_MANAGEMENT",requireAllTwo:true,consensusPassesRequired:2,claudeRole:"INDEPENDENT_DISCRETIONARY_TECHNICAL_AND_MACRO_TRADER",chatgptRole:"INDEPENDENT_DISCRETIONARY_TECHNICAL_AND_MACRO_TRADER",chatgptWebResearch:true,claudeWebResearch:true,requireCurrentEconomicContext:true,requireTechnicalReasoning:true,economicResearchIsContextOnly:true,brokerQuoteRemainsExecutionAuthority:true,rawMt5CandlesArePrimaryEvidence:true,ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,indicatorGateAuthority:false,confidenceGateAuthority:false,automatedSetupRankingAuthority:false,requireIndependentReviews:true,noAiOverrideOfHardRules:true,noForcedTrade:true,enforceAlternatingFilledSide:true,learningIsContextOnly:true,maximizeReasoningBudget:true,quotaCooldownHours:5,openAiMaxOutputTokens:12000,claudeMaxOutputTokens:12000},
+  ai:{authority:"PURE_AI_ENTRY_AND_POSITION_MANAGEMENT",requireAllTwo:true,consensusPassesRequired:2,claudeRole:"INDEPENDENT_DISCRETIONARY_TECHNICAL_AND_MACRO_TRADER",chatgptRole:"INDEPENDENT_DISCRETIONARY_TECHNICAL_AND_MACRO_TRADER",chatgptWebResearch:true,claudeWebResearch:true,requireCurrentEconomicContext:true,requireTechnicalReasoning:true,economicResearchIsContextOnly:true,brokerQuoteRemainsExecutionAuthority:true,rawMt5CandlesArePrimaryEvidence:true,ruleBasedSignalAuthority:false,precomputedScoreAuthority:false,indicatorGateAuthority:false,confidenceGateAuthority:false,automatedSetupRankingAuthority:false,requireIndependentReviews:true,noAiOverrideOfHardRules:true,noForcedTrade:true,enforceAlternatingFilledSide:true,learningIsContextOnly:true,maximizeReasoningBudget:true,quotaCooldownHours:5,openAiMaxOutputTokens:12000,claudeMaxOutputTokens:12000,parallelProviderCalls:true,macroContextCacheSec:180,avoidRepeatedResearchWithinCache:true},
   learning:{enabled:true,mode:"MEMORY_CONTEXT_ONLY",perSymbol:true,perSetup:true,learnFromClosedTradesOnly:true,recentWindow:12,mayAutoChangeRisk:false,mayAutoChangeScore:false,mayAutoRejectSetup:false,mayChangeHardRules:false,mayChangeDailyLossLimit:false,mayChangeNewsRules:false,mayChangeMinRR:false,autoModifySourceCode:false},
-  execution:{liveEnabled:false,requireBridgeToken:true,decisionTtlSec:12,maxClockSkewSec:8,duplicateCooldownSec:20,defaultSlippagePoints:20,maxEntryDriftAtr:.20,magicNumber:560601}
+  execution:{liveEnabled:false,requireBridgeToken:true,decisionTtlSec:6,maxClockSkewSec:4,duplicateCooldownSec:8,defaultSlippagePoints:15,maxEntryDriftAtr:.10,magicNumber:560602}
 };
 
 export function forexAutoConfig(env={}){
