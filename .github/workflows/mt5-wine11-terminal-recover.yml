@@ -7,7 +7,7 @@ on:
     paths:
       - '.github/workflows/mt5-wine11-terminal-recover.yml'
 
-# Broker-auth repair production trigger: 2026-08-27
+# Final broker-auth recovery trigger: 2026-08-27
 permissions:
   contents: read
 
