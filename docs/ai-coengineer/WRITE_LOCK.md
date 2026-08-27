@@ -2,46 +2,58 @@
 
 LOCKED: true
 SCOPE: Bybit Auto production quality/runtime + protected trading authority
-UPDATED: 2026-08-25
+UPDATED: 2026-08-27
 
-GitHub `main` is authoritative. Current production execution authority is **Bybit Auto Trade Hub**, version `BYBIT-AUTO-1.4.0`. Signal V11 is historical/research-only.
+GitHub `main` is authoritative. Current Bybit Auto production design is **BYBIT-AUTO-1.8.8**. Signal V11 is historical/research-only unless explicitly referenced by current source.
 
 ## Hard production invariants
 Preserve:
-- existing `TRADING_STATE` KV without reset;
+- existing `TRADING_STATE` KV and learning history without reset;
 - Cloudflare native Bybit Auto scheduler and private authenticated Bybit transport;
 - fresh quote + bounded re-anchor + structural SL/TP + deterministic liquidity/spread/chase gates;
-- Continuous Capital Allocation: risk is a ceiling, not a target;
-- max 5x leverage for margin efficiency only;
-- max 20% equity initial-margin budget/new position before fee buffer;
-- min 30% capital reserve target; max 65% portfolio initial-margin target;
-- portfolio headroom gate blocks NEW entries while management remains active;
-- 4% equity max risk/trade; 10% max total managed open risk;
-- max 3 positions, max 2 same direction;
-- Adaptive Edge Engine with deterministic regime classification;
-- adaptive threshold hard bounded to 68–85;
+- Continuous Equity-Curve Full-Capital Allocator: risk is a ceiling, not a forced spend;
+- `maxOpenPositions: 1_000_000` (unlimited sentinel; actual entry authority is portfolio risk/margin/correlation/exchange gates);
+- `maxSameDirectionPositions: 1_000_000` (unlimited sentinel; correlation and portfolio gates remain authoritative);
+- `maxMarginPerPositionPct: 100`, with equity-aware slot decay sizing; `PORTFOLIO_MARGIN_HEADROOM` enforces runtime headroom;
+- `minFreeReservePct: 0`; reserve is enforced dynamically by portfolio headroom rather than a fixed config floor;
+- `targetRiskPctOfEquity: 6%` and `maxRiskPctOfEquity: 6.5%`, with the effective per-trade target declining as equity scales up;
+- `maxTotalOpenRiskPct: 24%` hard portfolio risk ceiling;
+- adaptive threshold hard bounded to `66–84`;
+- correlation/beta gate for same-direction live exposure with `0.86` soft / `0.95` hard defaults;
 - learning influence is zero below minimum sample and bounded afterward;
 - per-symbol + strategy + regime memory may alter ranking/threshold only inside bounds;
-- correlation/beta gate for same-direction live exposure with 0.80 soft / 0.90 hard defaults;
 - net expectancy after known costs is preferred over gross expectancy;
 - adaptive exit selection limited to DEFENSIVE / BALANCED / TREND_RUNNER presets;
-- adaptive/learning auto-promote is permanently OFF;
-- Claude/Codex/DeepSeek final-entry review only; post-AI quote validation mandatory;
-- verified exchange-side protection and BE/profit-lock/trailing;
+- adaptive/learning `autoPromote:false` permanently;
+- strict fail-closed Claude + Codex final-entry authority; post-AI quote validation mandatory;
+- structural anti-sweep SL geometry remains deterministic and cannot be weakened by learning;
+- verified exchange-side TP/SL protection plus delayed BE / profit-lock / trailing management;
 - Smart CUT canonical multi-signal invalidation, always `reduceOnly` for CUT;
 - daily target OFF; 3-loss 30-minute new-entry pause; management continues during blocks;
-- Telegram capital/adaptive/risk/runtime telemetry.
+- Telegram notifications/health must reflect runtime truth; learning remains backend state even when UI buttons are absent.
 
-Never allow adaptive learning to lower freshness, SL geometry, RR, risk, reserve, portfolio margin, max leverage or protection gates; never let historical edge alone force an entry; never close a legacy position merely to create capital headroom.
+Never allow adaptive learning to lower freshness, SL geometry, RR, single-trade risk cap, total-open-risk cap, portfolio margin/headroom, max leverage or protection gates. Never let historical edge alone force an entry. Never close a legacy position merely to create capital headroom.
 
 ## Adaptive Edge invariant
 Regime is deterministic and cannot be overridden by AI. Correlation failures are fail-closed in LIVE mode. Historical edge is confidence-weighted and cannot affect entries before the minimum sample guard. Candidate ranking can use bounded net expectancy, but all deterministic gates still own execution authority. No code path may set `autoPromote:true`.
 
 ## Smart CUT
-Normal path: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`. Smart CUT is exceptional and requires confirmed thesis invalidation; slow trade/noisy M1/later scan/profit giveback alone are insufficient.
+Normal path: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`. Smart CUT is exceptional and requires confirmed thesis invalidation; slow trade, noisy M1, later scan or ordinary profit giveback alone are insufficient.
 
-## Current profile
-Scan 60s; new-entry spacing 300s; base score 70 / adaptive 68–85; spread ceiling 9 bps unless stricter profile; chase ceiling 0.60 ATR unless stricter profile; planned risk/reward near $50 equity $1.50/$3.00; daily target OFF.
+## Current profile — BYBIT-AUTO-1.8.8
+- Scan cadence: 60s.
+- Entry cooldown: 60s minimum.
+- Score bounds: 66–84.
+- `maxOpenPositions`: unlimited sentinel (`1_000_000`).
+- `maxSameDirectionPositions`: unlimited sentinel (`1_000_000`).
+- `maxMarginPerPositionPct`: 100% config ceiling with slot-margin decay curve.
+- `maxPortfolioMarginPct`: 100% portfolio allocation ceiling.
+- `minFreeReservePct`: 0%; runtime headroom gate owns enforcement.
+- Target risk: 6% equity curve; hard per-trade cap: 6.5% equity.
+- Total managed open risk hard cap: 24% equity.
+- Correlation: soft 0.86 / hard 0.95.
+- Minimum RR: 1.5.
+- Daily target: OFF.
 
 ## Deployment
-Production deploy path `.github/workflows/deploy-cloudflare-worker.yml`. Source validation + Cloudflare deploy + `/bybit/health` matching revision are mandatory before LIVE confirmation.
+Production deploy path `.github/workflows/deploy-cloudflare-worker.yml`. Source validation + Cloudflare deploy + `/bybit/health` matching revision/version are mandatory before LIVE confirmation. Documentation-only commits must not be represented as production deploy evidence.
