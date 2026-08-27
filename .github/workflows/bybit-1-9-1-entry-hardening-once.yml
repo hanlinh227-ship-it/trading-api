@@ -24,7 +24,9 @@ jobs:
           p=Path('/tmp/bybit_191_patch_once.py'); s=p.read_text()
           a=s.index("old=Path('.github/workflows/bybit-runtime-3ai-diagnostic.yml')")
           b=s.index("Path('docs/checkpoints/BYBIT_AUTO_1_9_1_STATE.md')",a)
-          p.write_text(s[:a]+s[b:])
+          s=s[:a]+s[b:]
+          s=s.replace(",'.github/workflows/deploy-cloudflare-worker.yml'","")
+          p.write_text(s)
           PY
           BR='claude/bybit-1-9-1-entry-hardening-20260827'
           git fetch origin "$BR:$BR"
