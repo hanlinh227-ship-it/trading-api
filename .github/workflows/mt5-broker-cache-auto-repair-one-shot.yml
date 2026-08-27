@@ -30,8 +30,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          script=/opt/trading/trading-api-main/.github/scripts/mt5-broker-cache-auto-repair.sh
-          sudo git -C /opt/trading/trading-api-main fetch --prune origin main
-          sudo git -C /opt/trading/trading-api-main reset --hard origin/main
+          repo=/opt/trading/trading-api-main
+          script="$repo/.github/scripts/mt5-broker-cache-auto-repair.sh"
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" reset --hard origin/main
           sudo chmod +x "$script"
+          curl_home=$(mktemp -d)
+          trap 'rm -rf "$curl_home"' EXIT
+          printf '%s\n' 'user-agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36"' > "$curl_home/.curlrc"
+          export CURL_HOME="$curl_home"
           "$script"
