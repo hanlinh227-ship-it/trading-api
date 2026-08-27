@@ -34,8 +34,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "RUNNER=$(hostname)"
-          curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/3ai-health.json
-          python3 -c "import json; d=json.load(open('/tmp/3ai-health.json')); assert d.get('service')=='UNIFIED_3AI_BRIDGE'; assert int(d.get('providerCount',0))>=2; print('VPS_3AI_BRIDGE=PASS')"
+          curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/ai-health.json
+          python3 -c "import json; d=json.load(open('/tmp/ai-health.json')); assert d.get('service')=='UNIFIED_2AI_BRIDGE'; assert d.get('deepseekDisabled') is True; assert int(d.get('providerCount',0))>=2; p=d.get('providers') or {}; assert all(bool((p.get(n) or {}).get('configured')) for n in ('claude','codex')); print('VPS_2AI_BRIDGE=PASS')"
       - name: Validate Cloudflare credentials
         shell: bash
         run: |
@@ -63,9 +63,9 @@ jobs:
           set -euo pipefail
           sleep 4
           CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract")"
-          printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA)process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision)})"
+          printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!=='BYBIT-AUTO-1.8.3')process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion)})"
           HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health")"
-          printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(!x.ok||!x.authenticated)process.exit(2);if(x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(x.marketTransport!=='VPS_BYBIT_MARKET_PROXY')process.exit(5);if(!x.execution?.liveAck||!x.execution?.scheduled||!x.execution?.ready)process.exit(6);})"
+          printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,version:x.version,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(!x.ok||!x.authenticated)process.exit(2);if(x.version!=='BYBIT-AUTO-1.8.3'||x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(x.marketTransport!=='VPS_BYBIT_MARKET_PROXY')process.exit(5);if(!x.execution?.liveAck||!x.execution?.scheduled||!x.execution?.ready)process.exit(6);})"
           STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status")"
           printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.bybit?.autoEnabled||!x.bybit?.live)process.exit(7);if(x.forex?.liveEnabled)process.exit(8);console.log('BYBIT_FOREX_ISOLATION=PASS')})"
           echo 'BYBIT_LIVE_RUNTIME=PASS'
