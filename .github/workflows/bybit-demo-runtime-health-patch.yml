@@ -1,0 +1,54 @@
+name: Bybit Demo Runtime Health Patch
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bybit-demo-runtime-health-patch.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Patch demo-aware runtime telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/bybit-readonly-health.js'); s=p.read_text()
+          old='const creds=bybitCredentials(env),mode=bybitExecutionMode(env),api=bybitV5(env),liveAck=on(env.BYBIT_AUTO_LIVE_ACK),scheduled=on(env.BYBIT_AUTO_ENABLED),runtimeRevision=String(env.RUNTIME_REVISION||"UNKNOWN");'
+          new='const creds=bybitCredentials(env),mode=bybitExecutionMode(env),api=bybitV5(env),liveAck=on(env.BYBIT_AUTO_LIVE_ACK),scheduled=on(env.BYBIT_AUTO_ENABLED),demo=on(env.BYBIT_AUTO_DEMO),runtimeRevision=String(env.RUNTIME_REVISION||"UNKNOWN");'
+          assert old in s; s=s.replace(old,new)
+          old='const privateTransport=api.privateTransport||"UNKNOWN",marketTransport=api.marketTransport||"UNKNOWN",contractAligned=privateTransport===BYBIT_PRIVATE_TRANSPORT&&marketTransport===BYBIT_MARKET_TRANSPORT&&api.runtimeContract===BYBIT_RUNTIME_CONTRACT.version;'
+          new='const privateTransport=api.privateTransport||"UNKNOWN",marketTransport=api.marketTransport||"UNKNOWN",expectedPrivateTransport=demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":BYBIT_PRIVATE_TRANSPORT,expectedMarketTransport=demo?"CLOUDFLARE_BYBIT_DEMO_PUBLIC":BYBIT_MARKET_TRANSPORT,contractAligned=privateTransport===expectedPrivateTransport&&marketTransport===expectedMarketTransport&&api.runtimeContract===BYBIT_RUNTIME_CONTRACT.version;'
+          assert old in s; s=s.replace(old,new)
+          old='const contract={...BYBIT_RUNTIME_CONTRACT,aligned:contractAligned,clientContract:api.runtimeContract||null};'
+          new='const contract={...BYBIT_RUNTIME_CONTRACT,aligned:contractAligned,clientContract:api.runtimeContract||null,environment:demo?"DEMO":"LIVE",expectedPrivateTransport,expectedMarketTransport};'
+          assert old in s; s=s.replace(old,new)
+          s=s.replace('exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,execution:', 'exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,environment:demo?"DEMO":"LIVE",demo,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,apiBase:api.bases?.[0]||null,execution:')
+          s=s.replace('exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,credentialSource:', 'exchange:"BYBIT",version:BYBIT_AUTO_VERSION,mode,environment:demo?"DEMO":"LIVE",demo,runtimeRevision,runtimeContract:contract,privateTransport,marketTransport,apiBase:api.bases?.[0]||null,credentialSource:')
+          p.write_text(s)
+          p=Path('cloudflare-worker/index.js'); s=p.read_text()
+          old='bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),executionAuthority:true,'
+          new='bybit:{version:BYBIT_AUTO_VERSION,autoEnabled:envBool(env.BYBIT_AUTO_ENABLED),live:envBool(env.BYBIT_AUTO_LIVE),demo:envBool(env.BYBIT_AUTO_DEMO),environment:envBool(env.BYBIT_AUTO_DEMO)?"DEMO":(envBool(env.BYBIT_AUTO_LIVE)?"LIVE":"PAPER"),executionAuthority:true,'
+          assert old in s; s=s.replace(old,new)
+          s=s.replace('mt5Windows:true','mt5VpsWine11:true')
+          p.write_text(s)
+          PY
+          node --check cloudflare-worker/bybit-readonly-health.js
+          node --check cloudflare-worker/index.js
+          cd cloudflare-worker && npm install --no-audit --no-fund && npm run check
+      - name: Commit runtime patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'hanlinh227-ship-it'
+          git config user.email 'hanlinh227@gmail.com'
+          git add cloudflare-worker/bybit-readonly-health.js cloudflare-worker/index.js
+          git commit -m 'fix(bybit): make health contract demo-aware'
+          git push origin HEAD:main
