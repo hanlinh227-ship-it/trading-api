@@ -29,9 +29,13 @@ jobs:
       - name: Guard autonomous 2AI PAPER default
         run: |
           grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
-          grep -q 'FOREX-AUTO-0.5.0-AUTONOMOUS' forex-auto-config.js
+          grep -q 'FOREX-AUTO-0.5.1-AUTONOMOUS' forex-auto-config.js
           grep -q 'aiProviders:\["chatgpt","claude"\]' forex-auto-config.js
           grep -q 'ruleBasedSignalAuthority:false' forex-auto-config.js
+          grep -q 'requireCurrentEconomicContext:true' forex-auto-config.js
+          grep -q 'requireTechnicalReasoning:true' forex-auto-config.js
+          grep -q 'alternateTradeSide:true' forex-auto-config.js
+          grep -q 'target:{enabled:false' forex-auto-config.js
           grep -q 'liveEnabled:false' forex-auto-config.js
           grep -q 'internalDailyStopPct:4.0' forex-auto-config.js
           grep -q 'projectedDailyStopPct:4.0' forex-auto-config.js
