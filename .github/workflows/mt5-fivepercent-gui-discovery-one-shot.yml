@@ -1,0 +1,153 @@
+name: MT5 FivePercent GUI Discovery One Shot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mt5-fivepercent-gui-discovery-one-shot.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mt5-forex-vps
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 25
+    env:
+      MT5_ACCOUNT_LOGIN: ${{ secrets.MT5_ACCOUNT_LOGIN }}
+      MT5_ACCOUNT_PASSWORD: ${{ secrets.MT5_ACCOUNT_PASSWORD }}
+      MT5_ACCOUNT_SERVER: ${{ secrets.MT5_ACCOUNT_SERVER }}
+      MT5_ACCOUNT_ENDPOINT: ${{ secrets.MT5_ACCOUNT_ENDPOINT }}
+      MT5_BRIDGE_TOKEN: ${{ secrets.MT5_BRIDGE_TOKEN }}
+      MT5_HUB_URL: ${{ secrets.MT5_HUB_URL }}
+      MT5_ALLOW_LIVE: ${{ vars.MT5_ALLOW_LIVE || secrets.MT5_ALLOW_LIVE || 'false' }}
+    steps:
+      - name: Discover FivePercent broker metadata in isolated MT5 GUI
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          app=/var/lib/trading/mt5-forex
+          canon="$app/wine/drive_c/MT5Forex"
+          sudo git -C "$repo" fetch --prune origin main
+          sudo git -C "$repo" reset --hard origin/main
+          test -f "$canon/terminal64.exe"
+
+          if ! command -v xdotool >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xdotool
+          fi
+
+          work=$(mktemp -d /tmp/mt5-fivepercent-discovery.XXXXXX)
+          trap 'rm -rf "$work"' EXIT
+          prefix="$work/wine"
+          home="$work/home"
+          mkdir -p "$prefix" "$home"
+          HOME="$home" WINEPREFIX="$prefix" WINEDEBUG=-all timeout 120 xvfb-run -a -s '-screen 0 1280x1024x24' /usr/bin/wineboot -i >/dev/null 2>&1 || true
+          HOME="$home" WINEPREFIX="$prefix" /usr/bin/wineserver -k >/dev/null 2>&1 || true
+          mkdir -p "$prefix/drive_c"
+          cp -a "$canon" "$prefix/drive_c/MT5Discovery"
+          rm -f "$prefix/drive_c/MT5Discovery/Config/servers.dat" "$prefix/drive_c/MT5Discovery/Config/accounts.dat" || true
+
+          echo 'MT5_GUI_DISCOVERY=START'
+          xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
+            set -euo pipefail
+            export HOME="'$home'" WINEPREFIX="'$prefix'" WINEDEBUG=-all
+            term="'$prefix'/drive_c/MT5Discovery/terminal64.exe"
+            /usr/bin/wine "$term" /portable >/tmp/mt5-fivepercent-gui-wine.log 2>&1 &
+            wp=$!
+            win=""
+            for i in $(seq 1 90); do
+              win=$(xdotool search --onlyvisible --name "MetaTrader|MetaQuotes" 2>/dev/null | head -1 || true)
+              [[ -n "$win" ]] && break
+              sleep 1
+            done
+            [[ -n "$win" ]] || { echo MT5_GUI_MAIN_WINDOW=NOT_FOUND; kill "$wp" 2>/dev/null || true; exit 71; }
+            echo MT5_GUI_MAIN_WINDOW=FOUND
+            xdotool windowactivate --sync "$win" || true
+            sleep 2
+            xdotool key --window "$win" alt+f
+            sleep 1
+            xdotool key --window "$win" a
+            sleep 4
+            dlg=$(xdotool search --onlyvisible --name "Open an Account|Account" 2>/dev/null | tail -1 || true)
+            if [[ -z "$dlg" ]]; then
+              echo MT5_GUI_ACCOUNT_DIALOG=NOT_FOUND
+              xdotool getwindowname "$win" 2>/dev/null || true
+              kill "$wp" 2>/dev/null || true
+              exit 72
+            fi
+            echo MT5_GUI_ACCOUNT_DIALOG=FOUND
+            xdotool windowactivate --sync "$dlg" || true
+            sleep 1
+            xdotool key --window "$dlg" ctrl+a
+            xdotool type --window "$dlg" --delay 50 "Five Percent Online Ltd"
+            xdotool key --window "$dlg" Return
+            sleep 25
+            xdotool key --window "$dlg" Return || true
+            sleep 5
+            kill "$wp" 2>/dev/null || true
+            wait "$wp" 2>/dev/null || true
+            /usr/bin/wineserver -k >/dev/null 2>&1 || true
+          '
+
+          found=''
+          while IFS= read -r f; do
+            [[ -s "$f" ]] || continue
+            if { strings -el "$f" 2>/dev/null || true; strings "$f" 2>/dev/null || true; } | grep -qiE 'FivePercent|Five Percent Online'; then
+              found="$f"
+              break
+            fi
+          done < <(find "$prefix" -type f -path '*/Config/servers.dat' -print 2>/dev/null)
+
+          if [[ -z "$found" ]]; then
+            echo 'MT5_GUI_DISCOVERY_RESULT=NO_VERIFIED_FIVEPERCENT_CACHE'
+            echo 'MT5_GUI_DISCOVERY_ACTION=NO_CANONICAL_CHANGE'
+            find "$prefix" -type f -path '*/Config/servers.dat' -printf 'DISCOVERED_SERVERS_DAT=%p size=%s\n' 2>/dev/null || true
+            exit 73
+          fi
+
+          echo 'MT5_GUI_DISCOVERY_RESULT=VERIFIED_FIVEPERCENT_CACHE'
+          sudo systemctl stop mt5-forex-bridge.service 2>/dev/null || true
+          sudo systemctl stop mt5-forex.service 2>/dev/null || true
+          ts=$(date +%Y%m%d%H%M%S)
+          sudo install -d -o mt5forex -g mt5forex -m 0750 "$canon/Config"
+          if [[ -f "$canon/Config/servers.dat" ]]; then
+            sudo cp -a "$canon/Config/servers.dat" "$canon/Config/servers.dat.pre-fivepercent-discovery-$ts"
+          fi
+          sudo install -o mt5forex -g mt5forex -m 0640 "$found" "$canon/Config/servers.dat"
+          sudo rm -f "$app/broker-authenticated.marker"
+          echo 'MT5_GUI_DISCOVERY_CACHE_INSTALLED=PASS'
+
+          sudo systemctl reset-failed mt5-forex.service mt5-forex-bridge.service || true
+          sudo systemctl restart mt5-forex.service
+          sleep 15
+          sudo systemctl restart mt5-forex-bridge.service
+          sudo systemctl is-active --quiet mt5-forex.service
+          sudo systemctl is-active --quiet mt5-forex-bridge.service
+          echo 'MT5_GUI_DISCOVERY_RUNTIME_RESTART=PASS'
+
+      - name: Verify connected broker after discovered cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=/opt/trading/trading-api-main
+          sudo -u mt5forex env \
+            FOREX_RESEARCH_REPO="$repo" \
+            MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" \
+            MT5_ACCOUNT_SERVER="$MT5_ACCOUNT_SERVER" \
+            MT5_ACCOUNT_ENDPOINT="${MT5_ACCOUNT_ENDPOINT:-}" \
+            MT5_BRIDGE_TOKEN="$MT5_BRIDGE_TOKEN" \
+            MT5_HUB_URL="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}" \
+            MT5_ALLOW_LIVE="${MT5_ALLOW_LIVE:-false}" \
+            MT5_LOCAL_READY_TIMEOUT_SECONDS=480 \
+            MT5_SIDECAR_READY_TIMEOUT_SECONDS=120 \
+            MT5_HUB_READY_TIMEOUT_SECONDS=180 \
+            "$repo/vps/mt5-forex/verify-live-readiness.sh"
+          echo 'MT5_FIVEPERCENT_CONNECTED=PASS'
+          echo 'MT5_FIVEPERCENT_BALANCE_EQUITY=PASS'
+          echo 'MT5_FIVEPERCENT_VPS_READY=PASS'
