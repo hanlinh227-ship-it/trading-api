@@ -1,5 +1,19 @@
-export const FOREX_AUTO_VERSION="FOREX-AUTO-0.6.2-PURE-AI-ULTRA-LOW-LATENCY";
+export const FOREX_AUTO_VERSION="FOREX-AUTO-0.6.3-USER-CAMPAIGN-510-3D";
 export const FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER";
+
+// Active campaign is set only from an explicit user command. Change/remove this block
+// whenever the user sets a new target. It is context for AI, never permission to chase risk.
+export const FOREX_USER_ACTIVE_CAMPAIGN={
+  enabled:true,
+  source:"USER_COMMAND_20260827",
+  cycleId:"USER_20260827_510USD_3TRADINGDAYS",
+  targetUsd:510,
+  targetPct:null,
+  targetDays:3,
+  tradingDaysOnly:true,
+  excludeWeekend:true,
+  dailyMinProfitPct:1.00
+};
 
 export const FOREX_AUTO_CONFIG={
   branchId:"FOREX_THE5ERS_PURE_AI",
@@ -21,8 +35,8 @@ export const FOREX_AUTO_CONFIG={
     requireVisibleBrokerStop:true,requireOwnedSource:true,
     alternateTradeSide:true,alternationScope:"ACCOUNT_FILLED_ENTRY_SEQUENCE",alternationNoForceEntry:true
   },
-  dailyObjective:{enabled:true,minProfitPct:.50,measurement:"BROKER_DAY_START_EQUITY",requireAboveThreshold:true,continueScanningAfterReached:true,neverForceEntry:true,neverIncreaseRiskToChase:true,reportMissAtDayClose:true},
-  target:{enabled:false,mode:"USER_SET_RUNTIME_TARGET_ONLY",requiredForLive:false,targetUsd:null,targetPct:null,targetDays:null,cycleId:"USER_SET",stopNewEntriesWhenReached:false,neverIncreaseRiskToChaseTarget:true,deadlineIsSoft:true,userAuthorityRequired:true,allowHardcodedTarget:false},
+  dailyObjective:{enabled:true,minProfitPct:1.00,measurement:"BROKER_DAY_START_EQUITY",requireAboveThreshold:true,continueScanningAfterReached:true,neverForceEntry:true,neverIncreaseRiskToChase:true,reportMissAtDayClose:true},
+  target:{enabled:true,mode:"USER_SET_RUNTIME_TARGET_ONLY",requiredForLive:false,targetUsd:510,targetPct:null,targetDays:3,cycleId:"USER_20260827_510USD_3TRADINGDAYS",tradingDaysOnly:true,excludeWeekend:true,dailyMinProfitPct:1.00,stopNewEntriesWhenReached:true,neverIncreaseRiskToChaseTarget:true,deadlineIsSoft:true,userAuthorityRequired:true,allowHardcodedTarget:false,source:"USER_COMMAND_20260827"},
   risk:{aiChoosesRequestedRiskPct:true,defaultRequestedRiskPct:.35,minExecutableRiskPct:.10,hardMaxRiskPct:1.00,maxTotalOpenRiskPct:3.75,minRR:1.5,preferredRR:2.0,noAveragingDown:true,noMartingale:true},
   margin:{minFreeMarginPctOfEquity:20,maxUsedMarginPctOfEquity:80,minMarginLevelPct:200,requireBrokerMarginMetrics:true,preTradeMarginCheck:true},
   marketData:{maxQuoteAgeSec:5,requireH4:true,requireM5:true,requireM15:true,requireH1:true,refreshBrokerQuoteBeforeExecution:true,rejectStaleDecision:true},
@@ -42,9 +56,17 @@ export function forexAutoConfig(env={}){
   c.ai.quotaCooldownHours=Math.max(1,Math.min(12,Number(env.FOREX_AI_QUOTA_COOLDOWN_HOURS||5)));
   c.ai.openAiMaxOutputTokens=Math.max(1000,Math.min(32000,Number(env.FOREX_OPENAI_MAX_OUTPUT_TOKENS||12000)));
   c.ai.claudeMaxOutputTokens=Math.max(1000,Math.min(32000,Number(env.FOREX_CLAUDE_MAX_OUTPUT_TOKENS||12000)));
-  c.dailyObjective.enabled=true;c.dailyObjective.minProfitPct=.50;
-  c.target.enabled=false;c.target.requiredForLive=false;c.target.stopNewEntriesWhenReached=false;
+  c.dailyObjective.enabled=true;
+  c.dailyObjective.minProfitPct=Math.max(1.0,Number(env.FOREX_DAILY_OBJECTIVE_PCT||FOREX_USER_ACTIVE_CAMPAIGN.dailyMinProfitPct||1.0));
+
+  // The active source campaign above is from the user's current explicit instruction.
+  // Environment/runtime target, when supplied, overrides it without any EA change.
   const enabled=String(env.FOREX_USER_TARGET_ENABLED||"").toLowerCase()==="true";
-  if(enabled){const targetUsd=Number(env.FOREX_USER_TARGET_USD||0),targetPct=Number(env.FOREX_USER_TARGET_PCT||0),targetDays=Number(env.FOREX_USER_TARGET_DAYS||0),cycleId=String(env.FOREX_USER_TARGET_CYCLE_ID||"USER_SET");if((targetUsd>0||targetPct>0)&&targetDays>0){c.target.enabled=true;c.target.targetUsd=targetUsd>0?targetUsd:null;c.target.targetPct=targetPct>0?targetPct:null;c.target.targetDays=targetDays;c.target.cycleId=cycleId;}}
+  if(enabled){
+    const targetUsd=Number(env.FOREX_USER_TARGET_USD||0),targetPct=Number(env.FOREX_USER_TARGET_PCT||0),targetDays=Number(env.FOREX_USER_TARGET_DAYS||0),cycleId=String(env.FOREX_USER_TARGET_CYCLE_ID||"USER_SET");
+    if((targetUsd>0||targetPct>0)&&targetDays>0){
+      c.target.enabled=true;c.target.targetUsd=targetUsd>0?targetUsd:null;c.target.targetPct=targetPct>0?targetPct:null;c.target.targetDays=targetDays;c.target.cycleId=cycleId;c.target.source="USER_RUNTIME";
+    }
+  }
   return c;
 }
