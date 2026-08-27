@@ -21,7 +21,7 @@ export default {
     const bybitHealth=await handleBybitReadonlyHealth(req,env); if(bybitHealth)return bybitHealth;
     const bybitReview=await handleBybitAiReviewApi(req,env); if(bybitReview)return bybitReview;
     const bybitControl=await handleBybitControlApi(req,env); if(bybitControl)return bybitControl;
-    const forex=await handleForexMt5ProtocolV1(req,env); if(forex)return forex;
+    const forex=await handleForexMt5ProtocolV1(req,env,ctx); if(forex)return forex;
     const hub=await autoHub.fetch(req,env,ctx); if(hub)return hub;
     const url=new URL(req.url);
     if(url.pathname==="/runtime/contract")return json({ok:true,...BYBIT_RUNTIME_CONTRACT,runtimeRevision:String(env.RUNTIME_REVISION||"")});
