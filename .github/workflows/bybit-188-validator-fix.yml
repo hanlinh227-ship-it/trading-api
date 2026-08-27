@@ -1,0 +1,23 @@
+name: Fix Bybit 1.8.8 Validator
+on:
+  push:
+    branches: [feat/bybit-1.8.8-full-scale-capital-allocation]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/bybit-1.8.8-full-scale-capital-allocation
+          fetch-depth: 0
+      - run: node scripts/fix-bybit-188-validator.mjs
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -- .github/workflows/bybit-188-validator-fix.yml
+          git add -A
+          git commit -m "test: hard-lock Bybit 1.8.8 dynamic allocation invariants"
+          git push origin HEAD:feat/bybit-1.8.8-full-scale-capital-allocation
