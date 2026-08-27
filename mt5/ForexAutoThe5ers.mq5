@@ -1,24 +1,37 @@
 #property strict
-#property version   "1.000"
-#property description "FOREX PURE AI stable direct-Hub execution shell. AI logic stays backend; EA protocol remains stable."
+#property version   "1.001"
+#property description "FOREX PURE AI stable direct-Hub execution shell with heartbeat diagnostics/watchdog. AI logic stays backend; EA protocol remains stable."
 
 input string InpHubUrl="https://trading-v77-scanner.hanlinh227.workers.dev";
 input string InpBridgeToken="";
 input bool InpAllowLiveTrading=false;
 input int InpPulseMs=2000;
-input int InpHttpTimeoutMs=25000;
+input int InpHttpTimeoutMs=8000;
+input int InpHeartbeatSec=10;
+input int InpWatchdogSec=15;
 input double InpMaxRiskPct=1.00;
 input double InpMinFreeMarginPct=20.0;
 input double InpMinMarginLevelPct=200.0;
 input double InpMaxEntryDriftAtr=0.10;
 input int InpMaxSlippagePoints=15;
-input int InpMagic=561000;
+input int InpMagic=561001;
 input string InpSymbols="EURUSD,GBPUSD,USDJPY,USDCHF,AUDUSD,NZDUSD,USDCAD,EURJPY,GBPJPY,EURGBP,XAUUSD";
 
 const int PROTOCOL_VERSION=1;
 string TerminalId="";
 string LastTradeDetail="";
 ulong LastTradeOrder=0;
+
+ulong PulseOkCount=0;
+ulong PulseFailCount=0;
+int ConsecutivePulseFails=0;
+datetime LastPulseSuccessAt=0;
+datetime LastHeartbeatAt=0;
+int LastHttpCode=0;
+long LastHttpLatencyMs=0;
+string LastDecision="INIT";
+string LastDecisionReason="";
+string LastHttpState="INIT";
 
 string Esc(string s){StringReplace(s,"\\","\\\\");StringReplace(s,"\"","\\\"");return s;}
 string D(double v,int d=8){return DoubleToString(v,d);}
@@ -56,9 +69,16 @@ bool HttpPost(string path,string body,string &resp){
  resp="";uchar data[];uchar result[];string resultHeaders="";int n=StringToCharArray(body,data,0,WHOLE_ARRAY,CP_UTF8);if(n>0)ArrayResize(data,n-1);
  string headers="Content-Type: application/json\r\nAccept: application/json\r\nX-Forex-Protocol: "+IntegerToString(PROTOCOL_VERSION)+"\r\n";
  if(InpBridgeToken!="")headers+="Authorization: Bearer "+InpBridgeToken+"\r\n";
- ResetLastError();int code=WebRequest("POST",InpHubUrl+path,headers,InpHttpTimeoutMs,data,result,resultHeaders);
- if(code<0){Print("FOREX HUB WebRequest failed err=",GetLastError()," url=",InpHubUrl+path);return false;}
- resp=CharArrayToString(result,0,-1,CP_UTF8);if(code<200||code>=300){Print("FOREX HUB HTTP ",code," body=",StringSubstr(resp,0,300));return false;}return true;
+ ulong started=GetTickCount64();ResetLastError();int code=WebRequest("POST",InpHubUrl+path,headers,MathMax(1000,InpHttpTimeoutMs),data,result,resultHeaders);LastHttpLatencyMs=(long)(GetTickCount64()-started);LastHttpCode=code;
+ if(code<0){int err=GetLastError();LastHttpState="WEBREQUEST_FAILED:"+IntegerToString(err);Print("FOREX HUB WebRequest failed err=",err," latencyMs=",LastHttpLatencyMs," url=",InpHubUrl+path);return false;}
+ resp=CharArrayToString(result,0,-1,CP_UTF8);
+ if(code<200||code>=300){
+   if(code==401||code==403)LastHttpState="AUTH_FAILED";
+   else if(code==408||code==504)LastHttpState="HUB_TIMEOUT";
+   else LastHttpState="HTTP_"+IntegerToString(code);
+   Print("FOREX HUB HTTP ",code," latencyMs=",LastHttpLatencyMs," body=",StringSubstr(resp,0,300));return false;
+ }
+ LastHttpState="HTTP_OK";return true;
 }
 string JsonString(string j,string k){string ptn="\""+k+"\":\"";int p=StringFind(j,ptn);if(p<0)return "";p+=StringLen(ptn);int e=StringFind(j,"\"",p);return e<0?"":StringSubstr(j,p,e-p);}
 double JsonNumber(string j,string k){string ptn="\""+k+"\":";int p=StringFind(j,ptn);if(p<0)return 0;p+=StringLen(ptn);while(p<StringLen(j)&&StringGetCharacter(j,p)==32)p++;int e=p;while(e<StringLen(j)){ushort c=StringGetCharacter(j,e);if((c>=48&&c<=57)||c==45||c==43||c==46||c==101||c==69)e++;else break;}return StringToDouble(StringSubstr(j,p,e-p));}
@@ -86,11 +106,47 @@ void HandleEntry(string resp){
  double vol=CalcVolume(symbol,side,liveEntry,sl,riskPct);if(vol<=0){Ack("REJECTED",0,symbol,"RISK_VOLUME_INVALID","ENTRY",0,side);return;}string reason;if(!MarginHeadroomOk(symbol,side,vol,liveEntry,reason)){Ack("REJECTED",0,symbol,reason,"ENTRY",0,side);return;}if(SendMarket(symbol,side,vol,sl,tp))Print("FOREX PURE AI LIVE sent ",symbol," ",side," vol=",vol);else Ack("REJECTED",0,symbol,LastTradeDetail,"ENTRY",0,side);
 }
 
-string BuildPulse(){string parts[];int count=StringSplit(InpSymbols,',',parts);string snaps="[";for(int i=0;i<count;i++){string s=parts[i];StringTrimLeft(s);StringTrimRight(s);string x=SnapshotJson(s);if(x=="")continue;if(StringLen(snaps)>1)snaps+=",";snaps+=x;}snaps+="]";return "{\"protocolVersion\":"+IntegerToString(PROTOCOL_VERSION)+",\"terminalId\":\""+Esc(TerminalId)+"\",\"mt5\":{\"connected\":"+JBool(TerminalInfoInteger(TERMINAL_CONNECTED)!=0)+",\"pureAiEa\":true,\"directHub\":true,\"eaVersion\":\"1.000\"},\"capabilities\":[\"ENTRY\",\"HOLD\",\"CLOSE\",\"MODIFY_SLTP\",\"REPRICE\",\"ALTERNATION_LOCK\"],\"account\":"+AccountJson()+",\"positions\":"+PositionsJson()+",\"snapshots\":"+snaps+"}";}
-void Pulse(){string resp;if(!HttpPost("/forex/mt5/pulse",BuildPulse(),resp))return;HandleManagement(resp);HandleEntry(resp);}
+string BuildPulse(){string parts[];int count=StringSplit(InpSymbols,',',parts);string snaps="[";for(int i=0;i<count;i++){string s=parts[i];StringTrimLeft(s);StringTrimRight(s);string x=SnapshotJson(s);if(x=="")continue;if(StringLen(snaps)>1)snaps+=",";snaps+=x;}snaps+="]";return "{\"protocolVersion\":"+IntegerToString(PROTOCOL_VERSION)+",\"terminalId\":\""+Esc(TerminalId)+"\",\"mt5\":{\"connected\":"+JBool(TerminalInfoInteger(TERMINAL_CONNECTED)!=0)+",\"pureAiEa\":true,\"directHub\":true,\"eaVersion\":\"1.001\"},\"capabilities\":[\"ENTRY\",\"HOLD\",\"CLOSE\",\"MODIFY_SLTP\",\"REPRICE\",\"ALTERNATION_LOCK\",\"HEARTBEAT_DIAGNOSTICS\"],\"account\":"+AccountJson()+",\"positions\":"+PositionsJson()+",\"snapshots\":"+snaps+"}";}
 
-int OnInit(){TerminalId=IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+"-"+IntegerToString((long)TerminalInfoInteger(TERMINAL_BUILD));if(StringLen(InpHubUrl)<8){Print("FOREX EA invalid Hub URL");return INIT_PARAMETERS_INCORRECT;}EventSetMillisecondTimer(MathMax(500,InpPulseMs));Print("FOREX PURE AI stable EA 1.000 initialized terminal=",TerminalId," live=",InpAllowLiveTrading," pulseMs=",InpPulseMs," protocol=",PROTOCOL_VERSION);return INIT_SUCCEEDED;}
-void OnDeinit(const int reason){EventKillTimer();}
+void PrintHeartbeat(bool force=false){
+ datetime now=TimeCurrent();if(now<=0)now=TimeLocal();if(!force&&LastHeartbeatAt>0&&(now-LastHeartbeatAt)<MathMax(3,InpHeartbeatSec))return;LastHeartbeatAt=now;
+ long age=LastPulseSuccessAt>0?(long)(now-LastPulseSuccessAt):-1;
+ string watchdog=(LastPulseSuccessAt>0&&age>MathMax(5,InpWatchdogSec))?"STALE":"OK";
+ Print("FOREX EA HEARTBEAT v1.001 connected=",TerminalInfoInteger(TERMINAL_CONNECTED)!=0,
+       " tradeAllowed=",TerminalInfoInteger(TERMINAL_TRADE_ALLOWED)!=0,
+       " live=",InpAllowLiveTrading,
+       " pulseOk=",PulseOkCount,
+       " pulseFail=",PulseFailCount,
+       " failStreak=",ConsecutivePulseFails,
+       " lastHttp=",LastHttpCode,
+       " httpState=",LastHttpState,
+       " latencyMs=",LastHttpLatencyMs,
+       " lastDecision=",LastDecision,
+       " reason=",LastDecisionReason,
+       " lastPulseAgeSec=",age,
+       " watchdog=",watchdog);
+}
+
+void Pulse(){
+ string resp;bool ok=HttpPost("/forex/mt5/pulse",BuildPulse(),resp);
+ datetime now=TimeCurrent();if(now<=0)now=TimeLocal();
+ if(!ok){PulseFailCount++;ConsecutivePulseFails++;LastDecision="PULSE_FAILED";LastDecisionReason=LastHttpState;PrintHeartbeat();return;}
+ PulseOkCount++;ConsecutivePulseFails=0;LastPulseSuccessAt=now;
+ string action=Upper(JsonString(resp,"action"));string reason=JsonString(resp,"reason");
+ if(action=="")action="HTTP_OK_NO_ACTION";
+ LastDecision=action;LastDecisionReason=reason;
+ HandleManagement(resp);HandleEntry(resp);PrintHeartbeat();
+}
+
+int OnInit(){
+ TerminalId=IntegerToString((long)AccountInfoInteger(ACCOUNT_LOGIN))+"-"+IntegerToString((long)TerminalInfoInteger(TERMINAL_BUILD));
+ if(StringLen(InpHubUrl)<8){Print("FOREX EA invalid Hub URL");return INIT_PARAMETERS_INCORRECT;}
+ if(InpBridgeToken=="")Print("FOREX EA WARNING: InpBridgeToken is empty; Hub auth will likely fail.");
+ int timerMs=MathMax(500,InpPulseMs);if(!EventSetMillisecondTimer(timerMs)){Print("FOREX EA timer setup failed err=",GetLastError());return INIT_FAILED;}
+ Print("FOREX PURE AI stable EA 1.001 initialized terminal=",TerminalId," live=",InpAllowLiveTrading," pulseMs=",timerMs," httpTimeoutMs=",InpHttpTimeoutMs," protocol=",PROTOCOL_VERSION);
+ PrintHeartbeat(true);return INIT_SUCCEEDED;
+}
+void OnDeinit(const int reason){EventKillTimer();Print("FOREX EA 1.001 deinitialized reason=",reason," pulseOk=",PulseOkCount," pulseFail=",PulseFailCount);}
 void OnTimer(){Pulse();}
 void OnTick(){}
 void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result){if(trans.type!=TRADE_TRANSACTION_DEAL_ADD||trans.deal==0)return;if(!HistoryDealSelect(trans.deal))return;if(HistoryDealGetInteger(trans.deal,DEAL_MAGIC)!=InpMagic)return;long entryType=HistoryDealGetInteger(trans.deal,DEAL_ENTRY),dealType=HistoryDealGetInteger(trans.deal,DEAL_TYPE);ulong posId=(ulong)HistoryDealGetInteger(trans.deal,DEAL_POSITION_ID);string symbol=HistoryDealGetString(trans.deal,DEAL_SYMBOL),side=dealType==DEAL_TYPE_BUY?"BUY":dealType==DEAL_TYPE_SELL?"SELL":"";double pnl=HistoryDealGetDouble(trans.deal,DEAL_PROFIT)+HistoryDealGetDouble(trans.deal,DEAL_SWAP)+HistoryDealGetDouble(trans.deal,DEAL_COMMISSION);if(entryType==DEAL_ENTRY_IN)Ack("FILLED",posId,symbol,"PURE_AI_ENTRY_FILLED","ENTRY",0,side);else if(entryType==DEAL_ENTRY_OUT||entryType==DEAL_ENTRY_OUT_BY)Ack("CLOSED",posId,symbol,"PURE_AI_OR_BROKER_EXIT","EXIT",pnl,side);}
