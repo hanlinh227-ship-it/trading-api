@@ -14,7 +14,7 @@ jobs:
           ref: chatgpt/forex-runtime-hardening-20260827
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Patch Forex bridge stale locks
+      - name: Patch Forex bridge and stale validator locks
         shell: bash
         run: |
           python3 - <<'PY'
@@ -30,15 +30,34 @@ jobs:
             'alternation:{lastFilledSide:s.account?.lastFilledSide||null,requiredSide:s.account?.expectedNextSide||"BUY",sequence:"BUY->SELL->BUY->SELL"}':'sidePolicy:{mode:"FREE_WITH_ANTI_BIAS_STREAK_CAP",lastFilledSide:s.account?.lastFilledSide||null,maxConsecutiveSameSide:3}'
           }
           for a,b in replacements.items():
-              if a not in s:
-                  raise SystemExit(f'MISSING EXPECTED TEXT: {a}')
+              if a not in s: raise SystemExit(f'MISSING BRIDGE TEXT: {a}')
               s=s.replace(a,b)
           p.write_text(s)
+
+          v=Path('cloudflare-worker/validate-forex-auto.mjs')
+          s=v.read_text()
+          reps={
+            'FOREX-AUTO-0.6.3-USER-CAMPAIGN-510-3D':'FOREX-AUTO-0.7.0-FREE-SIDE-2AI',
+            'AUTONOMOUS_2AI_PAPER':'AUTONOMOUS_2AI',
+            'PURE_AI_DISCRETIONARY_INTRADAY_ULTRA_LOW_LATENCY':'PURE_AI_DISCRETIONARY_INTRADAY_FREER_ENTRY',
+            'assert.equal(cfg.execution.decisionTtlSec,6)':'assert.equal(cfg.execution.decisionTtlSec,8)',
+            'assert.equal(cfg.ai.openAiMaxOutputTokens,12000);assert.equal(cfg.ai.claudeMaxOutputTokens,12000)':'assert.equal(cfg.ai.openAiMaxOutputTokens,16000);assert.equal(cfg.ai.claudeMaxOutputTokens,16000)',
+            'assert.equal(cfg.rules.alternateTradeSide,true);assert.equal(cfg.rules.alternationScope,"ACCOUNT_FILLED_ENTRY_SEQUENCE");assert.equal(cfg.rules.alternationNoForceEntry,true);':'assert.equal(cfg.rules.alternateTradeSide,false);assert.equal(cfg.rules.sidePolicy,"FREE_WITH_ANTI_BIAS_STREAK_CAP");assert.equal(cfg.rules.maxConsecutiveSameSide,3);',
+            '"UP_TO_3_AI_CANDIDATES_COMMON_SYMBOL_SIDE_ORDER_TYPE"':'"entryCandidates may contain up to 5"',
+            '"BUY->SELL->BUY->SELL",':'"FREE_SIDE_WITH_ANTI_BIAS",',
+            '"ALTERNATION_HARD_LOCK",':'"SIDE_STREAK_CAP_3",',
+            'buySellAlternation:true':'freeSideAntiBias:true'
+          }
+          for a,b in reps.items():
+              if a not in s: raise SystemExit(f'MISSING VALIDATOR TEXT: {a}')
+              s=s.replace(a,b)
+          v.write_text(s)
           PY
       - name: Validate
         shell: bash
         run: |
           node --check cloudflare-worker/forex-autonomous-mt5-bridge.js
+          node --check cloudflare-worker/validate-forex-auto.mjs
           node cloudflare-worker/validate-forex-auto.mjs
           node cloudflare-worker/validate-forex-runtime.mjs
       - name: Commit branch
@@ -46,7 +65,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add cloudflare-worker/forex-autonomous-mt5-bridge.js
-          git commit -m 'forex: preserve cooldown reason and remove stale alternation text'
+          git add cloudflare-worker/forex-autonomous-mt5-bridge.js cloudflare-worker/validate-forex-auto.mjs
+          git commit -m 'forex: harden free-side runtime and align validator'
           git push origin HEAD:chatgpt/forex-runtime-hardening-20260827
-# retrigger after branch creation
+# retrigger v3
