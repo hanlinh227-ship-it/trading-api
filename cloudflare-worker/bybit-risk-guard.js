@@ -46,11 +46,11 @@ export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd,candida
   if(openRiskUsd+candidate>capUsd+1e-9)return {ok:false,reason:"TOTAL_OPEN_RISK_CAP",openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,realizedUsd:realized};
 
   const openInitialMarginUsd=computeOpenInitialMarginUsd(openPlans),portfolioMarginCapUsd=equity*Math.max(0,num(cfg?.risk?.maxPortfolioMarginPct))/100;
-  const candidateMarginUsd=Math.max(0,num(candidateInitialMarginUsd));
+  const providedMarginUsd=Math.max(0,num(candidateInitialMarginUsd)),fallbackSlotMarginUsd=candidate>0?equity*Math.max(0,num(cfg?.risk?.maxMarginPerPositionPct))/100:0,candidateMarginUsd=providedMarginUsd>0?providedMarginUsd:fallbackSlotMarginUsd;
   if(candidateMarginUsd>0&&openInitialMarginUsd+candidateMarginUsd>portfolioMarginCapUsd+1e-9){
-    return {ok:false,reason:"PORTFOLIO_MARGIN_HEADROOM",openInitialMarginUsd,candidateMarginUsd,projectedInitialMarginUsd:openInitialMarginUsd+candidateMarginUsd,portfolioMarginCapUsd,equityUsd:equity,managementOnly:true};
+    return {ok:false,reason:"PORTFOLIO_MARGIN_HEADROOM",openInitialMarginUsd,candidateMarginUsd,projectedInitialMarginUsd:openInitialMarginUsd+candidateMarginUsd,portfolioMarginCapUsd,equityUsd:equity,marginSource:providedMarginUsd>0?"ACTUAL_CANDIDATE":"FAIL_SAFE_SLOT_FALLBACK",managementOnly:true};
   }
-  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,openInitialMarginUsd,candidateMarginUsd,portfolioMarginCapUsd,dailyLossStopEnabled:false,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE",marginAccounting:"ACTUAL_CANDIDATE_INITIAL_MARGIN_V187"};
+  return {ok:true,realizedUsd:realized,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,openInitialMarginUsd,candidateMarginUsd,portfolioMarginCapUsd,dailyLossStopEnabled:false,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE",marginAccounting:providedMarginUsd>0?"ACTUAL_CANDIDATE_INITIAL_MARGIN_V187":"FAIL_SAFE_SLOT_FALLBACK"};
 }
 
 export function validateProtectionGeometry({side,entry,sl,tp}){
