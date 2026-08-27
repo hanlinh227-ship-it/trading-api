@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 const read=p=>fs.readFileSync(new URL(p,import.meta.url),'utf8');
 const hub=read('./forex-telegram-hub.js');
+const compat=read('./forex-mt5-protocol-v1-compat.js');
 const index=read('./index.js');
 const prep=read('./prepare-wrangler.mjs');
 const cfg=read('./forex-auto-config.js');
@@ -8,8 +9,9 @@ const workflow=fs.readFileSync(new URL('../.github/workflows/deploy-cloudflare-w
 const errors=[];
 const need=(txt,arr,label)=>{for(const x of arr)if(!txt.includes(x))errors.push(`${label} missing ${x}`)};
 need(index,['handleForexTelegramHub','forex-telegram-hub.js'],'INDEX');
-need(hub,['🧠 2 AI','Codex + Claude','market:forex','canonicalMt5','STALE_PULSE','INVALID_OR_LEGACY_STATE','age<=30','pureAiEa===true','directHub===true'],'FOREX_TELEGRAM');
+need(compat,['HEARTBEAT_LAST_KEY','forex:mt5:heartbeat:last','recordHeartbeat','isCanonicalEa','pureAiEa===true','directHub===true','mt5HeartbeatAccepted','mt5Canonical','age<=30'],'FOREX_MT5_HEARTBEAT');
+need(hub,['🧠 2 AI','Codex + Claude','market:forex','forex:mt5:heartbeat:last','heartbeatStatus','STALE_HEARTBEAT','NO_CANONICAL_HEARTBEAT','age<=30'],'FOREX_TELEGRAM');
 need(cfg,['targetUsd:510','targetDays:3','dailyMinProfitPct:1.00','minProfitPct:1.00'],'FOREX_CONFIG');
 need(prep,['FOREX_USER_TARGET_ENABLED','FOREX_USER_TARGET_USD','510','FOREX_USER_TARGET_DAYS','FOREX_DAILY_OBJECTIVE_PCT'],'PREPARE_WRANGLER');
 need(workflow,["FOREX_AUTO_LIVE: 'true'","FOREX_USER_TARGET_USD: '510'","FOREX_USER_TARGET_DAYS: '3'","FOREX_DAILY_OBJECTIVE_PCT: '1.0'",'FOREX_USER_TARGET_ENABLED'], 'DEPLOY_WORKFLOW');
-if(errors.length){console.error('FOREX_RUNTIME_VALIDATION=FAIL');for(const e of errors)console.error('- '+e);process.exit(1);}console.log('FOREX_RUNTIME_VALIDATION=PASS canonical MT5 + 2AI Telegram + LIVE + 510/3d + daily>1%');
+if(errors.length){console.error('FOREX_RUNTIME_VALIDATION=FAIL');for(const e of errors)console.error('- '+e);process.exit(1);}console.log('FOREX_RUNTIME_VALIDATION=PASS immediate canonical heartbeat + 2AI Telegram + LIVE + 510/3d + daily>1%');
