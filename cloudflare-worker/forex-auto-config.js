@@ -7,7 +7,7 @@ export const FOREX_USER_ACTIVE_CAMPAIGN={
 };
 
 export const FOREX_AUTO_CONFIG={
-  branchId:"FOREX_THE5ERS_PURE_AI",brokerProfile:"THE5ERS_HIGH_STAKES",executionTerminal:"MT5_WINDOWS",
+  branchId:"FOREX_THE5ERS_PURE_AI",brokerProfile:"THE5ERS_HIGH_STAKES",executionTerminal:"MT5_VPS_WINE11",
   tradingStyle:"PURE_AI_DISCRETIONARY_INTRADAY_FREER_ENTRY",aiProviders:["chatgpt","claude"],
   universe:["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","NZDUSD","USDCAD","EURJPY","GBPJPY","EURGBP","XAUUSD"],
   scanEverySec:2,mt5SnapshotEverySec:1,positionManagementEverySec:2,maxOpenPositions:null,
