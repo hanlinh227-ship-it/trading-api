@@ -1,0 +1,64 @@
+name: Forex free-side tuning
+on:
+  push:
+    paths:
+      - '.github/workflows/forex-freedom-tuning.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  tune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply focused Forex tuning
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # 1) Trader: both sides are eligible; 2AI remain independent and can return more candidates.
+          p=Path('cloudflare-worker/forex-autonomous-2ai-trader.js')
+          s=p.read_text()
+          s=s.replace('requiredSide,alternationRule:`Next filled ENTRY must be ${requiredSide}. This never forces a trade. If no qualified ${requiredSide} exists, entry must WAIT.`', 'requiredSide:"ANY",alternationRule:"BUY and SELL are both eligible. Do not force alternation; avoid excessive one-sided concentration and choose the best current opportunity."')
+          s=s.replace('entryCandidates may contain up to 3 genuinely tradable candidates and must respect requiredSide;', 'entryCandidates may contain up to 5 genuinely tradable candidates across either BUY or SELL;')
+          s=s.replace('Required next filled entry side is ${ev.requiredSide}; if no genuinely tradable ${ev.requiredSide} setup exists, WAIT.', 'BUY and SELL are both allowed. Select the strongest direction from current evidence; do not manufacture alternation. Avoid repeatedly choosing one side without fresh market justification.')
+          s=s.replace('Return up to 3 genuinely tradable ${ev.requiredSide} candidates', 'Return up to 5 genuinely tradable candidates across BUY and SELL')
+          s=s.replace('for(const e of x.entryCandidates.slice(0,3))', 'for(const e of x.entryCandidates.slice(0,5))')
+          s=s.replace('return out.slice(0,3);', 'return out.slice(0,5);')
+          s=s.replace('const gs=entriesOf(g).filter(x=>x.side===requiredSide),cs=entriesOf(c).filter(x=>x.side===requiredSide);', 'const gs=entriesOf(g),cs=entriesOf(c);')
+          s=s.replace('alternatingFilledSideRequired:true', 'alternatingFilledSideRequired:false,sidePolicy:"FREE_WITH_ANTI_BIAS_STREAK_CAP"')
+          p.write_text(s)
+
+          # 2) Bridge: remove hard required-side execution gate; keep all risk/news/margin gates.
+          p=Path('cloudflare-worker/forex-autonomous-mt5-bridge.js')
+          s=p.read_text()
+          s=s.replace('const expectedNextSide=last=>last==="BUY"?"SELL":last==="SELL"?"BUY":"BUY";', 'const expectedNextSide=last=>"ANY";')
+          s=s.replace('const AI_ENTRY_COOLDOWN_SEC=Math.max(10,Math.min(120,Number(env.FOREX_AI_COOLDOWN_SEC||30)));', 'const AI_ENTRY_COOLDOWN_SEC=Math.max(10,Math.min(120,Number(env.FOREX_AI_COOLDOWN_SEC||10)));')
+          s=s.replace('if(normSide(proposal.side)!==requiredSide)decision={action:"NO_TRADE",reason:"BUY_SELL_ALTERNATION_BLOCK",requiredSide,proposedSide:normSide(proposal.side)};\n    else if(age>cfg.marketData.maxQuoteAgeSec)', 'if(age>cfg.marketData.maxQuoteAgeSec)')
+          s=s.replace('alternation:"BUY_SELL_BUY_SELL_BY_FILLED_ENTRY"', 'alternation:"FREE_SIDE_WITH_ANTI_BIAS"')
+          p.write_text(s)
+
+          # 3) EA 1.002: replace strict alternation with max 3 same-side fills in a row.
+          p=Path('mt5/ForexAutoThe5ers.mq5')
+          s=p.read_text()
+          old='bool AlternationOk(string side){string prev=LastFilledEntrySide();string now=Upper(side);return prev==""||prev!=now;}'
+          new='bool SideStreakOk(string side){string now=Upper(side);datetime to=TimeCurrent(),from=to-60*60*24*30;if(!HistorySelect(from,to))return true;int streak=0;for(int i=HistoryDealsTotal()-1;i>=0;i--){ulong d=HistoryDealGetTicket(i);if(d==0||HistoryDealGetInteger(d,DEAL_MAGIC)!=InpMagic||HistoryDealGetInteger(d,DEAL_ENTRY)!=DEAL_ENTRY_IN)continue;long t=HistoryDealGetInteger(d,DEAL_TYPE);string ds=t==DEAL_TYPE_BUY?"BUY":t==DEAL_TYPE_SELL?"SELL":"";if(ds=="")continue;if(ds!=now)break;streak++;if(streak>=3)return false;}return true;}'
+          s=s.replace(old,new)
+          s=s.replace('if(!AlternationOk(side)){Ack("REJECTED",0,symbol,"ALTERNATION_HARD_LOCK","ENTRY",0,side);return;}', 'if(!SideStreakOk(side)){Ack("REJECTED",0,symbol,"SIDE_STREAK_CAP_3","ENTRY",0,side);return;}')
+          s=s.replace('\\"ALTERNATION_LOCK\\",\\"HEARTBEAT_DIAGNOSTICS\\"', '\\"SIDE_STREAK_CAP_3\\",\\"HEARTBEAT_DIAGNOSTICS\\"')
+          p.write_text(s)
+
+          # 4) Keep validators aligned with new free-side policy where old literal assertions exist.
+          for name in ['cloudflare-worker/validate-forex-auto.mjs','cloudflare-worker/validate-forex-runtime.mjs']:
+            p=Path(name)
+            if not p.exists(): continue
+            s=p.read_text().replace('BUY_SELL_BUY_SELL_BY_FILLED_ENTRY','FREE_SIDE_WITH_ANTI_BIAS').replace('alternatingFilledSideRequired:true','alternatingFilledSideRequired:false')
+            p.write_text(s)
+      - name: Commit tuning
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/forex-autonomous-2ai-trader.js cloudflare-worker/forex-autonomous-mt5-bridge.js mt5/ForexAutoThe5ers.mq5 cloudflare-worker/validate-forex-auto.mjs cloudflare-worker/validate-forex-runtime.mjs
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'forex: free BUY SELL with anti-bias cap and faster 2AI cadence'
+          git push
