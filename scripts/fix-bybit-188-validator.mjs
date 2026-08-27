@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+const p='cloudflare-worker/validate-worker.mjs';
+let s=fs.readFileSync(p,'utf8');
+const must=(a,b)=>{if(!s.includes(a))throw new Error('missing '+a);s=s.replace(a,b);};
+must("need(cfg,['BYBIT-AUTO-1.8.7'","need(cfg,['BYBIT-AUTO-1.8.8'");
+must("'minFreeReservePct:0','minRR:1.5'","'minFreeReservePct:0','minRiskUtilizationPct:60','maxOpenPositions:1000000','minRR:1.5'");
+must("forbid(engine,['ACCOUNT_TOO_SMALL_FOR_TARGET_RISK_BAND','SL_RISK_BELOW_3USD_HARD_FLOOR','CAPITAL_LIMITED_RISK_TOO_SMALL'],'BYBIT_ENGINE');","forbid(engine,['ACCOUNT_TOO_SMALL_FOR_TARGET_RISK_BAND','SL_RISK_BELOW_3USD_HARD_FLOOR','CAPITAL_LIMITED_RISK_TOO_SMALL'],'BYBIT_ENGINE');forbid(read('bybit-auto-v1.js'),['reason:\"MAX_OPEN_POSITIONS\"','reason:\"SAME_DIRECTION_CAP\"'],'BYBIT_DYNAMIC_POSITION_COUNT');");
+fs.writeFileSync(p,s);
+fs.rmSync('scripts/fix-bybit-188-validator.mjs');
+console.log('VALIDATOR_188_FIXED');
