@@ -76,14 +76,35 @@ jobs:
             xdotool windowfocus --sync "$win" || true
             xdotool windowactivate --sync "$win" || true
             sleep 2
+
+            # Primary route: File menu -> first item "Open an Account".
             xdotool key --clearmodifiers --window "$win" alt+f
             sleep 1
-            xdotool key --clearmodifiers --window "$win" a
+            xdotool key --clearmodifiers --window "$win" Home
+            xdotool key --clearmodifiers --window "$win" Return
             sleep 5
             dlg=$(xdotool search --onlyvisible --name "Open an Account|Account" 2>/dev/null | tail -1 || true)
+
+            # Fallback route documented by MetaQuotes: Navigator Accounts + Insert.
+            if [[ -z "$dlg" ]]; then
+              echo MT5_GUI_FILE_MENU_OPEN_ACCOUNT=MISS
+              xdotool key --clearmodifiers --window "$win" Escape || true
+              xdotool key --clearmodifiers --window "$win" ctrl+n
+              sleep 2
+              # Navigator lives in the left dock in the default terminal layout.
+              # Click inside its upper tree, move to the first tree item and invoke Insert.
+              xdotool mousemove --window "$win" 115 390 click 1 || true
+              xdotool key --clearmodifiers Home || true
+              xdotool key --clearmodifiers Insert || true
+              sleep 5
+              dlg=$(xdotool search --onlyvisible --name "Open an Account|Account" 2>/dev/null | tail -1 || true)
+            else
+              echo MT5_GUI_FILE_MENU_OPEN_ACCOUNT=PASS
+            fi
+
             if [[ -z "$dlg" ]]; then
               echo MT5_GUI_ACCOUNT_DIALOG=NOT_FOUND
-              xdotool search --onlyvisible --name ".*" getwindowname %@ 2>/dev/null | tail -30 || true
+              xdotool search --onlyvisible --name ".*" getwindowgeometry %@ getwindowname %@ 2>/dev/null | tail -60 || true
               kill "$wp" "$ob" 2>/dev/null || true
               exit 72
             fi
@@ -92,12 +113,16 @@ jobs:
             xdotool windowfocus --sync "$dlg" || true
             xdotool windowactivate --sync "$dlg" || true
             sleep 1
+
+            # The broker-search edit gets focus when the dialog opens on current MT5 builds.
+            # Type company name and let MT5 query the MetaQuotes broker directory itself.
             xdotool key --clearmodifiers --window "$dlg" ctrl+a
             xdotool type --clearmodifiers --window "$dlg" --delay 50 "Five Percent Online Ltd"
             xdotool key --clearmodifiers --window "$dlg" Return
-            sleep 30
+            sleep 35
+            echo MT5_GUI_BROKER_QUERY_WAIT=COMPLETE
             xdotool key --clearmodifiers --window "$dlg" Return || true
-            sleep 6
+            sleep 8
             kill "$wp" "$ob" 2>/dev/null || true
             wait "$wp" 2>/dev/null || true
             /usr/bin/wineserver -k >/dev/null 2>&1 || true
