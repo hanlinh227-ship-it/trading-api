@@ -26,10 +26,10 @@ jobs:
         run: node validate-forex-auto.mjs
       - name: Validate worker source
         run: node validate-worker.mjs
-      - name: Guard PURE AI ultra-low-latency stable-shell invariants
+      - name: Guard PURE AI campaign + stable-shell invariants
         run: |
           grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
-          grep -q 'FOREX-AUTO-0.6.2-PURE-AI-ULTRA-LOW-LATENCY' forex-auto-config.js
+          grep -q 'FOREX-AUTO-0.6.3-USER-CAMPAIGN-510-3D' forex-auto-config.js
           grep -q 'aiProviders:\["chatgpt","claude"\]' forex-auto-config.js
           grep -q 'scanEverySec:2' forex-auto-config.js
           grep -q 'mt5SnapshotEverySec:1' forex-auto-config.js
@@ -40,8 +40,14 @@ jobs:
           grep -q 'ruleBasedSignalAuthority:false' forex-auto-config.js
           grep -q 'authority:"AI_ONLY"' forex-auto-config.js
           grep -q 'alternateTradeSide:true' forex-auto-config.js
-          grep -q 'minProfitPct:.50' forex-auto-config.js
-          grep -q 'USER_SET_RUNTIME_TARGET_ONLY' forex-auto-config.js
+          grep -q 'minProfitPct:1.00' forex-auto-config.js
+          grep -q 'targetUsd:510' forex-auto-config.js
+          grep -q 'targetDays:3' forex-auto-config.js
+          grep -q 'tradingDaysOnly:true' forex-auto-config.js
+          grep -q 'excludeWeekend:true' forex-auto-config.js
+          grep -q 'neverIncreaseRiskToChaseTarget:true' forex-auto-config.js
+          grep -q 'structurally tighter stop' forex-autonomous-2ai-trader.js
+          grep -q 'larger lot while keeping monetary/risk-percent exposure unchanged' forex-autonomous-2ai-trader.js
           grep -q 'decisionTtlSec:6' forex-auto-config.js
           grep -q '#property version   "1.001"' ../mt5/ForexAutoThe5ers.mq5
           grep -q 'InpPulseMs=2000' ../mt5/ForexAutoThe5ers.mq5
