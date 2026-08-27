@@ -1,0 +1,78 @@
+name: Forex Integration One Shot
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/forex-integration-one-shot.yml']
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/forex-runtime-vps-repair-20260827
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Import owned files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin chatgpt/forex-runtime-hardening-20260827 claude/mt5-vps-bootstrap-repair-20260827
+          git checkout origin/chatgpt/forex-runtime-hardening-20260827 -- \
+            cloudflare-worker/forex-autonomous-mt5-bridge.js \
+            cloudflare-worker/validate-forex-auto.mjs \
+            cloudflare-worker/validate-forex-runtime.mjs
+          git checkout origin/claude/mt5-vps-bootstrap-repair-20260827 -- \
+            vps/mt5-forex/run-mt5-forex.sh \
+            vps/mt5-forex/verify-live-readiness.sh \
+            vps/mt5-forex/forex-mt5-sidecar.py \
+            vps/mt5-forex/install-mt5-forex.sh \
+            vps/mt5-forex/mt5-forex.service
+          echo '--- changed files ---'
+          git diff --name-only --cached
+          ACTUAL="$(git diff --name-only --cached | sort)"
+          EXPECTED="$(printf '%s\n' \
+            cloudflare-worker/forex-autonomous-mt5-bridge.js \
+            cloudflare-worker/validate-forex-auto.mjs \
+            cloudflare-worker/validate-forex-runtime.mjs \
+            vps/mt5-forex/forex-mt5-sidecar.py \
+            vps/mt5-forex/install-mt5-forex.sh \
+            vps/mt5-forex/mt5-forex.service \
+            vps/mt5-forex/run-mt5-forex.sh \
+            vps/mt5-forex/verify-live-readiness.sh | sort)"
+          [[ "$ACTUAL" == "$EXPECTED" ]] || { echo 'OWNERSHIP_FILESET_MISMATCH'; diff <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$ACTUAL") || true; exit 90; }
+      - name: Validate JS and Forex runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/forex-autonomous-mt5-bridge.js
+          node --check cloudflare-worker/validate-forex-auto.mjs
+          node --check cloudflare-worker/validate-forex-runtime.mjs
+          node cloudflare-worker/validate-forex-auto.mjs
+          node cloudflare-worker/validate-forex-runtime.mjs
+          node cloudflare-worker/validate-worker.mjs
+      - name: Validate VPS scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n vps/mt5-forex/run-mt5-forex.sh
+          bash -n vps/mt5-forex/verify-live-readiness.sh
+          bash -n vps/mt5-forex/install-mt5-forex.sh
+          python3 -m py_compile vps/mt5-forex/forex-mt5-sidecar.py
+      - name: Commit integration branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add cloudflare-worker/forex-autonomous-mt5-bridge.js \
+                  cloudflare-worker/validate-forex-auto.mjs \
+                  cloudflare-worker/validate-forex-runtime.mjs \
+                  vps/mt5-forex/run-mt5-forex.sh \
+                  vps/mt5-forex/verify-live-readiness.sh \
+                  vps/mt5-forex/forex-mt5-sidecar.py \
+                  vps/mt5-forex/install-mt5-forex.sh \
+                  vps/mt5-forex/mt5-forex.service
+          git commit -m 'fix(forex): integrate Cloudflare hardening and MT5 VPS bootstrap repair'
+          git push origin HEAD:integration/forex-runtime-vps-repair-20260827
