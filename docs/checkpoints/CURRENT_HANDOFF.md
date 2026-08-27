@@ -4,7 +4,7 @@ Updated: 2026-08-27 UTC+7
 
 ## ACTIVE PRODUCTION AUTHORITY
 Production Worker execution authority: **Bybit Auto only**.
-Canonical source target: **BYBIT-AUTO-1.8.3 or newer main/runtime evidence**.
+Canonical source target: **BYBIT-AUTO-1.8.4 or newer main/runtime evidence**.
 Execution: Bybit LIVE. Forex/MT5 is a separate branch and MUST NOT be toggled as a side effect of Bybit work. Existing `TRADING_STATE` KV is preserved. Daily target/quota: OFF.
 
 ## AI AUTHORITY — HARD LOCK
@@ -25,19 +25,25 @@ The account must scale by **risk budget / reward budget / position size**, not b
 - SL price is structure-first: invalidation/swing/ATR anti-sweep logic determines the stop location.
 - TP price is structure-first: structural target/Fib target determines the take-profit location subject to the minimum RR gate.
 - After Entry/SL/TP geometry is valid, quantity is sized from current real account equity, risk caps, margin caps and reserve requirements.
+- Balance base is $50 and account scale step is $10.
+- Each full +$10 equity step raises the requested USD risk/reward ladder by $1; each full -$10 step lowers it by $1.
+- Base requested max loss at $50 is $5. Effective realized SL risk may never be below $3; $3 is a hard floor.
+- Base reward budget at $50 is $8. Reward scales by $1 per $10 equity step but is hard-capped at $10 gross TP reward.
+- Minimum RR remains authoritative. Therefore the executable risk budget is additionally capped by `TP_budget / minRR`; the engine must reduce quantity rather than violate the $10 TP hard cap or minimum RR.
+- At small balances where the equity risk cap cannot support at least $3 effective SL risk, new entry is rejected rather than silently trading smaller than the floor.
 - As account equity grows, allowed USD risk/reward and executable quantity scale up according to the balance-scaled allocator.
 - As account equity falls or a different/smaller account is connected, size and USD exposure scale down automatically.
 - Never widen SL or force TP farther away merely to hit a larger USD target.
 - Never use a fixed lot/quantity across accounts when equity/risk budget changes.
-- If exchange minQty/minNotional, margin cap, free-reserve cap, or effective-risk floor makes a setup non-executable, skip it rather than violating risk constraints.
+- If exchange minQty/minNotional, margin cap, free-reserve cap, effective-risk floor, TP cap or RR compatibility makes a setup non-executable, skip it rather than violating risk constraints.
 
-Canonical config authority is `cloudflare-worker/bybit-auto-config.js`, currently using `risk.mode = BALANCE_SCALED_TP_SL_BAND_ALLOCATOR` with equity percentage caps plus balance-step scaling. Exact numeric limits must be fresh-read from source/runtime before changing them.
+Canonical config authority is `cloudflare-worker/bybit-auto-config.js`, using `risk.mode = BALANCE_SCALED_TP_SL_BAND_ALLOCATOR`. Canonical sizing enforcement is `sizeBybitAuto()` in `cloudflare-worker/bybit-scalp-engine.js`.
 
 ## BYBIT CONTROL
 Read `docs/checkpoints/BYBIT_AUTO_ON_OFF_RUNBOOK_20260827.md` before enabling/disabling/reconnecting Bybit Auto. Bybit LIVE requires the canonical three-switch contract and production health verification. Do not change Forex/Meme state as a side effect.
 
 ## CURRENT RISK / ENTRY AUTHORITY
-Use current source code and production runtime as truth. Do not restore stale numeric limits from old checkpoints. Current generation introduced the safer 1.8.3 risk profile; verify exact values from `cloudflare-worker/bybit-auto-config.js` before changing them.
+Use current source code and production runtime as truth. Do not restore stale numeric limits from old checkpoints. Current generation is Bybit Auto 1.8.4 with mandatory account-scale ladder, $3 minimum effective SL risk and $10 maximum gross TP reward.
 
 ## PIPELINE
 `Scheduler -> account/positions -> current-day PnL safety -> lifecycle reconciliation/quarantine -> position management -> canonical entry spacing -> scan -> regime/adaptive edge -> correlation -> freshness/re-anchor -> structural SL/TP -> equity/margin sizing -> GPT/Codex + Claude review -> post-AI validation -> order -> actual risk/RR -> verified protection -> lifecycle -> learning`.
