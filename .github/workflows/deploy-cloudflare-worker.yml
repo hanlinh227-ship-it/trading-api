@@ -23,7 +23,8 @@ jobs:
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       BYBIT_AUTO_ENABLED: 'true'
       BYBIT_AUTO_LIVE: 'true'
-      FOREX_AUTO_LIVE: 'true'
+      BYBIT_AUTO_LIVE_ACK: 'true'
+      FOREX_AUTO_LIVE: 'false'
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +54,8 @@ jobs:
           npm run prepare:wrangler
           grep -q '"BYBIT_AUTO_ENABLED": "true"' wrangler.jsonc
           grep -q '"BYBIT_AUTO_LIVE": "true"' wrangler.jsonc
+          grep -q '"BYBIT_AUTO_LIVE_ACK": "true"' wrangler.jsonc
+          grep -q '"FOREX_AUTO_LIVE": "false"' wrangler.jsonc
           npx wrangler deploy
       - name: Fast verify deployed LIVE runtime
         shell: bash
@@ -62,5 +65,7 @@ jobs:
           CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract")"
           printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA)process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision)})"
           HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health")"
-          printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(!x.execution?.scheduled)process.exit(5);if(!x.execution?.ready)process.exit(6);})"
+          printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);console.log(JSON.stringify({ok:x.ok,mode:x.mode,authenticated:x.authenticated,privateTransport:x.privateTransport,marketTransport:x.marketTransport,execution:x.execution,account:x.account}));if(!x.ok||!x.authenticated)process.exit(2);if(x.mode!=='LIVE')process.exit(3);if(x.privateTransport!=='VPS_BYBIT_PRIVATE_PROXY')process.exit(4);if(x.marketTransport!=='VPS_BYBIT_MARKET_PROXY')process.exit(5);if(!x.execution?.liveAck||!x.execution?.scheduled||!x.execution?.ready)process.exit(6);})"
+          STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status")"
+          printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const x=JSON.parse(s);if(!x.bybit?.autoEnabled||!x.bybit?.live)process.exit(7);if(x.forex?.liveEnabled)process.exit(8);console.log('BYBIT_FOREX_ISOLATION=PASS')})"
           echo 'BYBIT_LIVE_RUNTIME=PASS'
