@@ -51,7 +51,9 @@ trap 'rc=$?; if [[ $rc -ne 0 ]]; then fail_diag; fi' EXIT
 
 systemctl is-active --quiet mt5-forex.service
 systemctl is-active --quiet mt5-forex-bridge.service
-ps -u mt5forex -o comm=,args= 2>/dev/null | awk '$1=="main" && index($0,"terminal64.exe") {ok=1} END{exit !ok}'
+# Detector fix (2026-08-27): Wine processes report comm == exe basename
+# (e.g. "terminal64.exe"), never "main". Exact comm match, no args self-match.
+ps -u mt5forex -o comm= 2>/dev/null | grep -qxF terminal64.exe
 echo 'MT5_REAL_TERMINAL_PROCESS=PASS'
 
 start=$(date +%s); last_report=0
