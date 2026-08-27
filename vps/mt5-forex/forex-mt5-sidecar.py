@@ -22,6 +22,7 @@ TOKEN = os.environ.get('MT5_BRIDGE_TOKEN', '')
 PULSE = BRIDGE_DIR / 'pulse.json'
 DECISION = BRIDGE_DIR / 'decision.json'
 PULSE_REFRESH_SECONDS = 5.0
+AUTH_MARKER = pathlib.Path(os.environ.get('MT5_AUTH_MARKER') or (APP_HOME / 'broker-authenticated.marker'))
 
 
 def now_iso():
@@ -78,6 +79,31 @@ def pulse_signature(path: pathlib.Path, raw: bytes):
     return (st.st_mtime_ns, st.st_size, hashlib.sha256(raw).hexdigest())
 
 
+def persist_auth_marker(pulse_obj):
+    # Broker session persistence (fix 2026-08-27): previously nothing created
+    # the auth marker until full end-to-end readiness verification, so every
+    # service restart re-entered BOOTSTRAP_AUTH forever. The EA's pulse is
+    # ground truth for a live broker session: once mt5.connected is true the
+    # session exists inside the persistent Wine prefix and the next launch can
+    # use PERSISTENT_SESSION mode. Marker is created once; never deleted here.
+    try:
+        if AUTH_MARKER.exists():
+            return
+        mt5 = pulse_obj.get('mt5') if isinstance(pulse_obj.get('mt5'), dict) else {}
+        if mt5.get('connected') is True:
+            AUTH_MARKER.parent.mkdir(parents=True, exist_ok=True)
+            tid = str(pulse_obj.get('terminalId') or '')
+            AUTH_MARKER.write_text(
+                'source=sidecar-pulse\nterminalId=%s\nverified_at=%s\n' % (tid, now_iso()),
+                encoding='utf-8')
+            try:
+                os.chmod(AUTH_MARKER, 0o600)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def main():
     if not TOKEN:
         write_health(ok=False, state='CONFIG_ERROR', error='MT5_BRIDGE_TOKEN_MISSING')
@@ -108,6 +134,7 @@ def main():
                     decision_text = response.decode('utf-8')
                     json.loads(decision_text)
                     atomic_write(DECISION, decision_text)
+                    persist_auth_marker(pulse_obj)
                     last_pulse_sig = sig
                     last_forward_monotonic = now_mono
                     last_success = now_iso()

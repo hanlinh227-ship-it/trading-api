@@ -4,8 +4,8 @@ After=network-online.target
 Wants=network-online.target
 ConditionPathExists=/etc/trading/mt5-forex-vps-only
 ConditionPathExists=/var/lib/trading/mt5-forex/runtime.env
-StartLimitIntervalSec=120
-StartLimitBurst=3
+StartLimitIntervalSec=900
+StartLimitBurst=6
 
 [Service]
 Type=simple
@@ -23,7 +23,16 @@ ExecStartPre=/usr/bin/test -r /var/lib/trading/mt5-forex/runtime.env
 ExecStartPre=/usr/bin/test -r /etc/trading/mt5-forex.env
 ExecStart=/opt/trading/trading-api-main/vps/mt5-forex/run-mt5-forex.sh
 Restart=on-failure
-RestartSec=10
+RestartSec=15
+# Exponential backoff (systemd >= 254; older systemd safely ignores these):
+# 15s -> ... -> 300s over 6 steps instead of a fixed fast loop.
+RestartSteps=6
+RestartMaxDelaySec=300
+# Configuration/environment failures cannot be fixed by restarting:
+#  9=vps marker, 10=runtime.env, 11=LIVE credentials, 12=bridge token,
+#  15=winepath, 91=unauthorized host. Terminal failures (69 appear, 70 exit)
+#  are NOT listed and keep restarting with backoff.
+RestartPreventExitStatus=9 10 11 12 15 91
 TimeoutStartSec=120
 TimeoutStopSec=20
 KillMode=mixed

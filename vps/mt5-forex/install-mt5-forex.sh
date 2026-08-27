@@ -12,7 +12,7 @@ EA_SRC="${REPO}/mt5/ForexAutoThe5ers.mq5"
 INSTALLER_URL="https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe"
 INSTALLER="${APP_HOME}/mt5setup.exe"
 SCREEN="-screen 0 1280x1024x24"
-EXPECTED_EA_VERSION="0.601"
+EXPECTED_EA_VERSION="1.002"
 FORCE_REBUILD="${MT5_FORCE_PREFIX_REBUILD:-false}"
 
 [[ ${EUID} -eq 0 ]] || { echo "ERROR: run as root" >&2; exit 2; }
