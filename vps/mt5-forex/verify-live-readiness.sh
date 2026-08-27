@@ -49,17 +49,28 @@ fail_diag() {
 }
 trap 'rc=$?; if [[ $rc -ne 0 ]]; then fail_diag; fi' EXIT
 
+terminal_alive() {
+  # Production Wine 11 evidence (2026-08-27): terminal64 may report either
+  # comm=terminal64.exe during launch or stable comm=main with args containing
+  # C:\MT5Forex\terminal64.exe. Restrict the args fallback to comm=main so the
+  # verifier shell cannot self-match its own command text.
+  ps -u mt5forex -o comm=,args= 2>/dev/null | awk '
+    $1=="terminal64.exe" {found=1}
+    $1=="main" && $0 ~ /[\\\/]terminal64\.exe([[:space:]]|$)/ {found=1}
+    END {exit found?0:1}
+  '
+}
+
 systemctl is-active --quiet mt5-forex.service
 systemctl is-active --quiet mt5-forex-bridge.service
-# Detector fix (2026-08-27): Wine processes report comm == exe basename
-# (e.g. "terminal64.exe"), never "main". Exact comm match, no args self-match.
-ps -u mt5forex -o comm= 2>/dev/null | grep -qxF terminal64.exe
+terminal_alive
 echo 'MT5_REAL_TERMINAL_PROCESS=PASS'
 
 start=$(date +%s); last_report=0
 while true; do
   systemctl is-active --quiet mt5-forex.service || exit 41
   systemctl is-active --quiet mt5-forex-bridge.service || exit 42
+  terminal_alive || exit 46
   if MT5_ACCOUNT_LOGIN="$MT5_ACCOUNT_LOGIN" MT5_ACCOUNT_SERVER="$MT5_ACCOUNT_SERVER" MT5_LOCAL_PULSE_MAX_AGE_SECONDS=180 python3 "$REPO/vps/mt5-forex/verify-local-pulse.py" "$PULSE" >/tmp/mt5-local-verify.log 2>&1; then
     cat /tmp/mt5-local-verify.log; break
   fi
