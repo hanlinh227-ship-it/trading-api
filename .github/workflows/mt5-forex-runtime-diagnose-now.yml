@@ -1,0 +1,30 @@
+name: Diagnose MT5 Forex Runtime Now
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/mt5-forex-runtime-diagnose-now.yml']
+permissions:
+  contents: read
+concurrency:
+  group: mt5-forex-vps-now
+  cancel-in-progress: true
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Capture live MT5 runtime state
+        shell: bash
+        run: |
+          set -u
+          echo '===== SERVICES ====='
+          sudo systemctl status mt5-forex.service mt5-forex-bridge.service --no-pager -l || true
+          echo '===== RECENT JOURNAL ====='
+          sudo journalctl -u mt5-forex.service -u mt5-forex-bridge.service -n 180 --no-pager || true
+          echo '===== RECENT MT5 LOGS ====='
+          find /var/lib/trading/mt5-forex/wine/drive_c -type f -path '*/logs/*.log' -mmin -20 -print -exec tail -n 100 {} \; 2>/dev/null || true
+          echo '===== CONTRACT ====='
+          source /var/lib/trading/mt5-forex/runtime.env 2>/dev/null || true
+          printf 'TERMINAL_EXISTS=%s\n' "$([ -f "${MT5_TERMINAL:-}" ] && echo YES || echo NO)"
+          printf 'EX5_EXISTS=%s\n' "$([ -f "${MT5_INSTALL_DIR:-/nonexistent}/MQL5/Experts/ForexAutoThe5ers.ex5" ] && echo YES || echo NO)"
+          echo 'DIAG_NOW_DONE=PASS'
