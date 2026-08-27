@@ -33,7 +33,7 @@ jobs:
           echo '=== REAL MT5 PROCESS ==='
           ps -u mt5forex -o pid=,comm=,etimes=,args= | sed -E 's/[0-9]{6,}/[REDACTED_NUMBER]/g' | grep -E 'terminal64|^ *[0-9]+ +main ' || true
           echo '=== CONFIG NONSECRET ==='
-          awk -F= '/^(Login|Server|ProxyEnable|KeepPrivate|CertInstall|Enabled|AllowLiveTrading|Expert|Symbol|Period)=/{if($1=="Login") $2="[REDACTED_LOGIN]"; print $1"="$2}' "$MT5_INSTALL_DIR/mt5-forex-start.ini" 2>/dev/null || true
+          awk -F= '/^(Login|Server|ProxyEnable|KeepPrivate|CertInstall|Enabled|AllowLiveTrading|Expert|Symbol|Period)=/{if($1=="Login") $2="[REDACTED_LOGIN]"; print $1"="$2}' "$MT5_INSTALL_DIR/mt5-forex-bootstrap.ini" 2>/dev/null || true
           echo '=== LOCAL PULSE SUMMARY ==='
           python3 - "$MT5_INSTALL_DIR/MQL5/Files/FOREX_BRIDGE/pulse.json" <<'PY'
           import json, pathlib, sys
@@ -42,12 +42,17 @@ jobs:
               print('pulse=missing'); raise SystemExit
           try: d=json.loads(p.read_text())
           except Exception as e: print('pulse_json_error='+repr(e)); raise SystemExit
-          for k in ('terminalId','connected','tradeAllowed','balance','equity','server','account','company','name','pingMs'):
-              v=d.get(k)
-              if k in ('account','terminalId') and v is not None: v='[REDACTED_ACCOUNT]'
-              if k in ('balance','equity') and v is not None:
-                  try: v='positive' if float(v)>0 else 'zero_or_negative'
-                  except: v='invalid'
+          # Pulse canonical schema nests metrics: mt5.connected, account.balance
+          mt5=d.get('mt5') if isinstance(d.get('mt5'),dict) else {}
+          acct=d.get('account') if isinstance(d.get('account'),dict) else {}
+          print('terminalId=' + ('[REDACTED_ACCOUNT]' if d.get('terminalId') else 'missing'))
+          print(f"connected={mt5.get('connected')}")
+          print(f"tradeAllowed={mt5.get('tradeAllowed')}")
+          print(f"eaVersion={mt5.get('eaVersion')}")
+          for k in ('balance','equity','margin','freeMargin'):
+              v=acct.get(k)
+              try: v='positive' if float(v or 0)>0 else 'zero_or_negative'
+              except Exception: v='invalid'
               print(f'{k}={v}')
           PY
           echo '=== BRIDGE HEALTH ==='
