@@ -44,7 +44,7 @@ export const BYBIT_AUTO_CONFIG={
     takerFeeRate:.00055,
     slippageBps:2,
     fixedDollarFloorAuthority:false,
-    maxTotalOpenRiskPct:24,
+    maxTotalOpenRiskPct:36,
     maxMarginPerPositionPct:100,
     minFreeReservePct:0,
     feeBufferPct:4,
@@ -110,7 +110,7 @@ export function bybitAutoConfig(env={}){
   c.risk.takerFeeRate=Math.max(0,Math.min(.002,n(env,"BYBIT_TAKER_FEE_RATE",c.risk.takerFeeRate)));
   c.risk.slippageBps=Math.max(0,Math.min(20,n(env,"BYBIT_SLIPPAGE_BPS",c.risk.slippageBps)));
   c.risk.fixedDollarFloorAuthority=false;
-  c.risk.maxTotalOpenRiskPct=Math.max(4,Math.min(24,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.maxTotalOpenRiskPct=Math.max(6,Math.min(36,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
   c.risk.maxMarginPerPositionPct=Math.max(10,Math.min(100,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
   c.risk.minFreeReservePct=Math.max(0,Math.min(20,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
   c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
@@ -144,7 +144,7 @@ export function bybitAutoConfig(env={}){
   c.adaptive.postMortemMinSamples=20;
   c.adaptive.postMortemMaxThresholdPenalty=2;
   c.adaptive.strongEdgeMinSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_STRONG_EDGE_MIN_SAMPLES",c.adaptive.strongEdgeMinSamples))));
-  c.adaptive.strongEdgeMinNetR=Math.max(.05,Math.min(.60,n(env,"BYBIT_STRONG_EDGE_MIN_NET_R",c.adaptive.strongEdgeMinNetR)));
+  c.adaptive.strongEdgeMinNetR=Math.max(.05,Math.min(.60,n(env,"BYBIT_STRONG_EDGE_MIN_R",c.adaptive.strongEdgeMinNetR)));
   c.adaptive.strongEdgeMinWinRate=Math.max(.40,Math.min(.65,n(env,"BYBIT_STRONG_EDGE_MIN_WIN_RATE",c.adaptive.strongEdgeMinWinRate)));
   c.adaptive.maxOpportunityBonus=1;
   c.adaptive.trendAlignmentBonus=1;
