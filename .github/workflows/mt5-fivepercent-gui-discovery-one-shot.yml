@@ -37,9 +37,9 @@ jobs:
           sudo git -C "$repo" reset --hard origin/main
           test -f "$canon/terminal64.exe"
 
-          if ! command -v xdotool >/dev/null 2>&1; then
+          if ! command -v xdotool >/dev/null 2>&1 || ! command -v openbox >/dev/null 2>&1; then
             sudo apt-get update -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xdotool
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq xdotool openbox
           fi
 
           work=$(mktemp -d /tmp/mt5-fivepercent-discovery.XXXXXX)
@@ -57,6 +57,9 @@ jobs:
           xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
             set -euo pipefail
             export HOME="'$home'" WINEPREFIX="'$prefix'" WINEDEBUG=-all
+            openbox >/tmp/mt5-fivepercent-openbox.log 2>&1 &
+            ob=$!
+            sleep 2
             term="'$prefix'/drive_c/MT5Discovery/terminal64.exe"
             /usr/bin/wine "$term" /portable >/tmp/mt5-fivepercent-gui-wine.log 2>&1 &
             wp=$!
@@ -66,31 +69,36 @@ jobs:
               [[ -n "$win" ]] && break
               sleep 1
             done
-            [[ -n "$win" ]] || { echo MT5_GUI_MAIN_WINDOW=NOT_FOUND; kill "$wp" 2>/dev/null || true; exit 71; }
+            [[ -n "$win" ]] || { echo MT5_GUI_MAIN_WINDOW=NOT_FOUND; kill "$wp" "$ob" 2>/dev/null || true; exit 71; }
             echo MT5_GUI_MAIN_WINDOW=FOUND
+            xdotool windowmap "$win" || true
+            xdotool windowraise "$win" || true
+            xdotool windowfocus --sync "$win" || true
             xdotool windowactivate --sync "$win" || true
             sleep 2
-            xdotool key --window "$win" alt+f
+            xdotool key --clearmodifiers --window "$win" alt+f
             sleep 1
-            xdotool key --window "$win" a
-            sleep 4
+            xdotool key --clearmodifiers --window "$win" a
+            sleep 5
             dlg=$(xdotool search --onlyvisible --name "Open an Account|Account" 2>/dev/null | tail -1 || true)
             if [[ -z "$dlg" ]]; then
               echo MT5_GUI_ACCOUNT_DIALOG=NOT_FOUND
-              xdotool getwindowname "$win" 2>/dev/null || true
-              kill "$wp" 2>/dev/null || true
+              xdotool search --onlyvisible --name ".*" getwindowname %@ 2>/dev/null | tail -30 || true
+              kill "$wp" "$ob" 2>/dev/null || true
               exit 72
             fi
             echo MT5_GUI_ACCOUNT_DIALOG=FOUND
+            xdotool windowraise "$dlg" || true
+            xdotool windowfocus --sync "$dlg" || true
             xdotool windowactivate --sync "$dlg" || true
             sleep 1
-            xdotool key --window "$dlg" ctrl+a
-            xdotool type --window "$dlg" --delay 50 "Five Percent Online Ltd"
-            xdotool key --window "$dlg" Return
-            sleep 25
-            xdotool key --window "$dlg" Return || true
-            sleep 5
-            kill "$wp" 2>/dev/null || true
+            xdotool key --clearmodifiers --window "$dlg" ctrl+a
+            xdotool type --clearmodifiers --window "$dlg" --delay 50 "Five Percent Online Ltd"
+            xdotool key --clearmodifiers --window "$dlg" Return
+            sleep 30
+            xdotool key --clearmodifiers --window "$dlg" Return || true
+            sleep 6
+            kill "$wp" "$ob" 2>/dev/null || true
             wait "$wp" 2>/dev/null || true
             /usr/bin/wineserver -k >/dev/null 2>&1 || true
           '
