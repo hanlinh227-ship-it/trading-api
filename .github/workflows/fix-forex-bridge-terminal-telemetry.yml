@@ -1,0 +1,41 @@
+name: Fix Forex Bridge Terminal Telemetry
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-forex-bridge-terminal-telemetry.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Replace stale Windows telemetry with canonical config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('cloudflare-worker/forex-autonomous-mt5-bridge.js')
+          s=p.read_text()
+          old='executionTerminal:"MT5_WINDOWS"'
+          assert s.count(old)==1, f'expected 1 stale terminal reference, got {s.count(old)}'
+          p.write_text(s.replace(old,'executionTerminal:c.executionTerminal'))
+          PY
+          node --check cloudflare-worker/forex-autonomous-mt5-bridge.js
+          cd cloudflare-worker
+          node validate-worker.mjs
+          node validate-forex-runtime.mjs
+      - name: Commit repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'hanlinh227-ship-it'
+          git config user.email 'hanlinh227@gmail.com'
+          git add cloudflare-worker/forex-autonomous-mt5-bridge.js
+          git commit -m 'fix(forex): report VPS canonical terminal in health telemetry'
+          git push origin HEAD:main
