@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Inspect Forex Hub persisted terminal state
+      - name: Inspect Forex Hub health and persisted terminal state
         shell: bash
         run: |
           set -euo pipefail
@@ -27,17 +27,34 @@ jobs:
           python3 - "$body" <<'PY'
           import json, sys
           d=json.load(open(sys.argv[1]))
+          assert d.get('ok') is True, d
+          assert d.get('version')=='FOREX-AUTO-0.6.2-PURE-AI-ULTRA-LOW-LATENCY', d.get('version')
+          assert d.get('pureAiAuthority') is True
+          assert d.get('ruleBasedSignalAuthority') is False
+          assert d.get('bridgeTokenConfigured') is True
+          ai=d.get('ai') or {}
+          g=ai.get('chatgpt') or {}
+          c=ai.get('claude') or {}
+          assert g.get('configured') is True, 'OPENAI_NOT_CONFIGURED'
+          assert c.get('configured') is True, 'CLAUDE_NOT_CONFIGURED'
+          assert d.get('scanEverySec')==2
+          print('FOREX_HEALTH=PASS')
+          print('VERSION='+str(d.get('version')))
+          print('MODE='+str(d.get('mode')))
+          print('BRIDGE_TOKEN_CONFIGURED='+str(d.get('bridgeTokenConfigured')))
+          print('GPT_CONFIGURED='+str(g.get('configured')))
+          print('CLAUDE_CONFIGURED='+str(c.get('configured')))
+          print('SCAN_EVERY_SEC='+str(d.get('scanEverySec')))
+          print('DAILY_OBJECTIVE_PCT='+str(d.get('dailyObjectivePct')))
+          print('USER_TARGET_MODE='+str(d.get('userTargetMode')))
           last=d.get('lastTerminal') or {}
-          m=last.get('mt5') if isinstance(last.get('mt5'),dict) else {}
-          a=last.get('account') if isinstance(last.get('account'),dict) else {}
-          connected=last.get('connected') if 'connected' in last else m.get('connected')
-          trade=last.get('tradeAllowed') if 'tradeAllowed' in last else m.get('tradeAllowed')
-          balance=last.get('balance') if 'balance' in last else a.get('balance')
-          equity=last.get('equity') if 'equity' in last else a.get('equity')
+          connected=last.get('connected')
+          balance=last.get('balance')
+          equity=last.get('equity')
           tid=str(last.get('terminalId') or '')
           if '-' in tid:
-              account,server=tid.split('-',1)
-              tid='[REDACTED_ACCOUNT]-'+server
+              account,build=tid.split('-',1)
+              tid='[REDACTED_ACCOUNT]-'+build
           def positive(v):
               try:return float(v or 0)>0
               except:return False
@@ -45,9 +62,9 @@ jobs:
           print('TERMINAL_ID='+tid)
           print('RECEIVED_AT='+str(last.get('receivedAt')))
           print('CONNECTED='+str(connected))
-          print('TRADE_ALLOWED='+str(trade))
           print('BALANCE_POSITIVE='+str(positive(balance)))
           print('EQUITY_POSITIVE='+str(positive(equity)))
-          print('MT5_KEYS='+','.join(sorted(m.keys())))
-          print('ACCOUNT_KEYS='+','.join(sorted(a.keys())))
+          print('LAST_DECISION='+str(last.get('decision')))
+          print('REQUIRED_SIDE='+str(last.get('requiredSide')))
+          print('DAILY_PROFIT_PCT='+str(last.get('dailyProfitPct')))
           PY
