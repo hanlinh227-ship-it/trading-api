@@ -53,14 +53,31 @@ InpTrailR=1.60
 EOF
 chmod 0600 "$PRESET"
 
-SERVER_BOOTSTRAP="${MT5_ACCOUNT_ENDPOINT:-$MT5_ACCOUNT_SERVER}"
+# Server bootstrap preference (fix 2026-08-27): MT5's [Common] Server= field
+# resolves a broker SERVER NAME (via Config/servers.dat or MetaQuotes
+# discovery). A raw host:port endpoint is not reliably accepted there and can
+# leave the terminal silently unconnected while the EA still runs.
+# Default is now DISPLAY-NAME-first; set MT5_SERVER_BOOTSTRAP_PREFER=endpoint
+# to restore the previous endpoint-first behavior if the display name cannot
+# resolve in this environment.
+MT5_SERVER_BOOTSTRAP_PREFER="${MT5_SERVER_BOOTSTRAP_PREFER:-display}"
+if [[ "${MT5_SERVER_BOOTSTRAP_PREFER,,}" == "endpoint" && -n "$MT5_ACCOUNT_ENDPOINT" ]]; then
+  SERVER_BOOTSTRAP="$MT5_ACCOUNT_ENDPOINT"
+else
+  SERVER_BOOTSTRAP="${MT5_ACCOUNT_SERVER:-$MT5_ACCOUNT_ENDPOINT}"
+fi
 {
   echo '[Common]'
   [[ -n "$MT5_ACCOUNT_LOGIN" ]] && echo "Login=$MT5_ACCOUNT_LOGIN"
   [[ -n "$MT5_ACCOUNT_PASSWORD" ]] && echo "Password=$MT5_ACCOUNT_PASSWORD"
   [[ -n "$SERVER_BOOTSTRAP" ]] && echo "Server=$SERVER_BOOTSTRAP"
   echo 'ProxyEnable=0'
-  echo 'KeepPrivate=1'
+  # KeepPrivate=0 (fix 2026-08-27): KeepPrivate=1 tells MT5 NOT to store the
+  # account password in the profile. With it, a PERSISTENT_SESSION launch
+  # (no /config) can never re-authorize after restart -> connected=false
+  # forever. 0 lets the terminal keep the encrypted session so restart
+  # reconnects without credential re-injection.
+  echo 'KeepPrivate=0'
   echo 'NewsEnable=1'
   echo 'CertInstall=1'
   echo
@@ -92,6 +109,25 @@ HOME="$APP_HOME" WINEPREFIX="$MT5_WINEPREFIX" "$WINESERVER_BIN" -k >/dev/null 2>
 pkill -u "$(id -u)" -f 'terminal64.exe|metaeditor64.exe' 2>/dev/null || true
 sleep 1
 
+# Broker cache restore (fix 2026-08-27): earlier prefix rebuilds left the
+# CURRENT Config/ without the broker server definitions (servers.dat) and the
+# previously authorized account cache (accounts.dat) that older prefix backups
+# still hold. Without servers.dat the [Common] Server= display name cannot
+# resolve locally and authorization silently never completes.
+# Restore-only-if-missing from the newest backup; never overwrite, never
+# delete, never touch credentials in /etc.
+for cache_file in servers.dat accounts.dat; do
+  dst="$MT5_INSTALL_DIR/Config/$cache_file"
+  if [[ ! -s "$dst" ]]; then
+    src="$(find "$APP_HOME" -type f -path "*/Config/$cache_file" ! -path "$MT5_WINEPREFIX/*" -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -1 | cut -d' ' -f2-)"
+    if [[ -n "$src" && -s "$src" ]]; then
+      install -o mt5forex -g mt5forex -m 0640 "$src" "$dst" && echo "MT5_FOREX_BROKER_CACHE_RESTORED=$cache_file"
+    else
+      echo "MT5_FOREX_BROKER_CACHE_RESTORED=${cache_file}:NO_BACKUP_FOUND"
+    fi
+  fi
+done
+
 # Wine 11 launch contract, verified on production 2026-08-27:
 # - launch terminal directly with Wine; do not use `wine start /wait <unix path>`.
 # - during early launch comm can equal terminal64.exe, but the stable Wine process
@@ -112,11 +148,12 @@ echo 'MT5_FOREX_ARCHITECTURE=PERSISTENT_APPLIANCE'
 echo "MT5_FOREX_LAUNCH_MODE=$LAUNCH_MODE"
 echo "MT5_FOREX_MODE=$([[ "$LIVE_BOOL" == true ]] && echo LIVE || echo PAPER)"
 echo "MT5_FOREX_AUTH_STATE=$([[ -f "$AUTH_MARKER" ]] && echo PERSISTED || echo BOOTSTRAP_REQUIRED)"
-echo "MT5_FOREX_SERVER_BOOTSTRAP_SOURCE=$([[ -n "$MT5_ACCOUNT_ENDPOINT" ]] && echo ENDPOINT || echo DISPLAY_NAME)"
+echo "MT5_FOREX_SERVER_BOOTSTRAP_SOURCE=$([[ "$SERVER_BOOTSTRAP" == "$MT5_ACCOUNT_ENDPOINT" && -n "$MT5_ACCOUNT_ENDPOINT" ]] && echo ENDPOINT || echo DISPLAY_NAME)"
+echo "MT5_FOREX_SERVER_BOOTSTRAP_NAME=$SERVER_BOOTSTRAP"
 echo "MT5_FOREX_WINE_VERSION=${MT5_WINE_VERSION:-UNKNOWN}"
 
 TERM_BASENAME="$(basename "$MT5_TERMINAL")"
-export APP_HOME MT5_WINEPREFIX MT5_WINE_BIN LAUNCH_MODE TERM_BASENAME MT5_TERMINAL_APPEAR_TIMEOUT
+export APP_HOME MT5_WINEPREFIX MT5_WINE_BIN MT5_INSTALL_DIR LAUNCH_MODE TERM_BASENAME MT5_TERMINAL_APPEAR_TIMEOUT
 printf -v CMD '%q ' "${LAUNCH_ARGS[@]}"
 export CMD
 exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
@@ -142,6 +179,24 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
     tail -40 "$LOG" 2>/dev/null
     echo "MT5_FOREX_DIAG_WINE_LOG_TAIL_END"
   }
+  # Broker auth evidence (fix 2026-08-27): decode the newest MT5 terminal
+  # journal (UTF-16LE) and surface authorization/connection lines into the
+  # service journal. Sanitized: 6+ digit numbers masked, password-bearing
+  # lines never printed. Bounded to 25 lines per dump.
+  auth_evidence() {
+    local latest out
+    latest=$(find "$MT5_INSTALL_DIR/logs" -maxdepth 1 -type f -iname "*.log" -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -1 | cut -d" " -f2-)
+    [[ -n "$latest" ]] || { echo "MT5_FOREX_AUTH_EVIDENCE=NO_TERMINAL_LOG"; return 0; }
+    out=$(mktemp)
+    iconv -f UTF-16LE -t UTF-8 "$latest" >"$out" 2>/dev/null || cp "$latest" "$out" 2>/dev/null
+    echo "MT5_FOREX_AUTH_EVIDENCE_BEGIN source=$(basename "$latest")"
+    grep -aiE "authoriz|connect|network|account|server|login" "$out" 2>/dev/null \
+      | grep -aiv "password" \
+      | tail -25 \
+      | sed -E "s/[0-9]{6,}/[N]/g"
+    echo "MT5_FOREX_AUTH_EVIDENCE_END"
+    rm -f "$out"
+  }
 
   appeared=false
   launcher_died=false
@@ -159,8 +214,10 @@ exec xvfb-run -a -s '-screen 0 1280x1024x24' bash -c '
   fi
 
   echo "MT5_FOREX_REAL_TERMINAL_PROCESS=PASS"
+  ( sleep 25; auth_evidence ) &
   while term_alive || kill -0 "$wine_pid" >/dev/null 2>&1; do sleep 5; done
   echo "MT5_FOREX_TERMINAL_EXITED=1"
+  auth_evidence
   dump_diag
   exit 70
 '
