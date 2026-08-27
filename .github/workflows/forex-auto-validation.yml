@@ -26,12 +26,16 @@ jobs:
         run: node validate-forex-auto.mjs
       - name: Validate worker source
         run: node validate-worker.mjs
-      - name: Guard PURE AI 2AI PAPER default
+      - name: Guard PURE AI FAST 2AI PAPER default
         run: |
           grep -q 'FOREX_AUTO_MODE="AUTONOMOUS_2AI_PAPER"' forex-auto-config.js
-          grep -q 'FOREX-AUTO-0.6.0-PURE-AI' forex-auto-config.js
+          grep -q 'FOREX-AUTO-0.6.1-PURE-AI-FAST' forex-auto-config.js
           grep -q 'aiProviders:\["chatgpt","claude"\]' forex-auto-config.js
-          grep -q 'PURE_AI_DISCRETIONARY_INTRADAY' forex-auto-config.js
+          grep -q 'PURE_AI_DISCRETIONARY_INTRADAY_FAST_LOOP' forex-auto-config.js
+          grep -q 'scanEverySec:5' forex-auto-config.js
+          grep -q 'quotaCooldownHours:5' forex-auto-config.js
+          grep -q 'openAiMaxOutputTokens:12000' forex-auto-config.js
+          grep -q 'claudeMaxOutputTokens:12000' forex-auto-config.js
           grep -q 'ruleBasedSignalAuthority:false' forex-auto-config.js
           grep -q 'precomputedScoreAuthority:false' forex-auto-config.js
           grep -q 'confidenceGateAuthority:false' forex-auto-config.js
@@ -44,7 +48,8 @@ jobs:
           grep -q 'liveEnabled:false' forex-auto-config.js
           grep -q 'internalDailyStopPct:4.0' forex-auto-config.js
           grep -q 'projectedDailyStopPct:4.0' forex-auto-config.js
-          grep -q '#property version   "0.600"' ../mt5/ForexAutoThe5ers.mq5
+          grep -q '#property version   "0.601"' ../mt5/ForexAutoThe5ers.mq5
+          grep -q 'InpPulseSeconds=5' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpBreakEvenR' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpProfitLockR' ../mt5/ForexAutoThe5ers.mq5
           ! grep -q 'InpTrailR' ../mt5/ForexAutoThe5ers.mq5
