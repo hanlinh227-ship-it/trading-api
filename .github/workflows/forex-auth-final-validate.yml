@@ -1,0 +1,20 @@
+name: Forex Auth Final Validate
+on:
+  push:
+    branches: [claude/mt5-vps-bootstrap-repair-20260827]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate broker auth patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n vps/mt5-forex/run-mt5-forex.sh
+          cd cloudflare-worker
+          node validate-forex-auto.mjs
+          node validate-forex-runtime.mjs
+          node validate-worker.mjs
