@@ -18,6 +18,21 @@ Historical files may still contain the strings `3AI`, `5AI`, `DeepSeek`, `Qwen`,
 
 Canonical final-entry review is **GPT/Codex + Claude, quorum 2/2**. If either required active provider is unavailable, fail closed for AI-reviewed new entries rather than silently substituting another AI.
 
+## BYBIT TP/SL + ACCOUNT SCALE — HARD LOCK
+Every real Bybit entry must have a defined SL and TP before execution/protection verification.
+
+The account must scale by **risk budget / reward budget / position size**, not by arbitrarily stretching the market structure:
+- SL price is structure-first: invalidation/swing/ATR anti-sweep logic determines the stop location.
+- TP price is structure-first: structural target/Fib target determines the take-profit location subject to the minimum RR gate.
+- After Entry/SL/TP geometry is valid, quantity is sized from current real account equity, risk caps, margin caps and reserve requirements.
+- As account equity grows, allowed USD risk/reward and executable quantity scale up according to the balance-scaled allocator.
+- As account equity falls or a different/smaller account is connected, size and USD exposure scale down automatically.
+- Never widen SL or force TP farther away merely to hit a larger USD target.
+- Never use a fixed lot/quantity across accounts when equity/risk budget changes.
+- If exchange minQty/minNotional, margin cap, free-reserve cap, or effective-risk floor makes a setup non-executable, skip it rather than violating risk constraints.
+
+Canonical config authority is `cloudflare-worker/bybit-auto-config.js`, currently using `risk.mode = BALANCE_SCALED_TP_SL_BAND_ALLOCATOR` with equity percentage caps plus balance-step scaling. Exact numeric limits must be fresh-read from source/runtime before changing them.
+
 ## BYBIT CONTROL
 Read `docs/checkpoints/BYBIT_AUTO_ON_OFF_RUNBOOK_20260827.md` before enabling/disabling/reconnecting Bybit Auto. Bybit LIVE requires the canonical three-switch contract and production health verification. Do not change Forex/Meme state as a side effect.
 
@@ -25,7 +40,7 @@ Read `docs/checkpoints/BYBIT_AUTO_ON_OFF_RUNBOOK_20260827.md` before enabling/di
 Use current source code and production runtime as truth. Do not restore stale numeric limits from old checkpoints. Current generation introduced the safer 1.8.3 risk profile; verify exact values from `cloudflare-worker/bybit-auto-config.js` before changing them.
 
 ## PIPELINE
-`Scheduler -> account/positions -> current-day PnL safety -> lifecycle reconciliation/quarantine -> position management -> canonical entry spacing -> scan -> regime/adaptive edge -> correlation -> freshness/re-anchor -> sizing/risk -> GPT/Codex + Claude review -> post-AI validation -> order -> actual risk/RR -> verified protection -> lifecycle -> learning`.
+`Scheduler -> account/positions -> current-day PnL safety -> lifecycle reconciliation/quarantine -> position management -> canonical entry spacing -> scan -> regime/adaptive edge -> correlation -> freshness/re-anchor -> structural SL/TP -> equity/margin sizing -> GPT/Codex + Claude review -> post-AI validation -> order -> actual risk/RR -> verified protection -> lifecycle -> learning`.
 
 ## RETIRED ROUTING
 Forbidden unless the user explicitly re-enables it:
@@ -42,7 +57,8 @@ Forbidden unless the user explicitly re-enables it:
 3. For Bybit ON/OFF work, read `BYBIT_AUTO_ON_OFF_RUNBOOK_20260827.md`.
 4. Prefer current source + production health over historical checkpoints.
 5. Keep AI routing at exactly **GPT/Codex + Claude** unless the user explicitly changes this policy.
-6. Do not resurrect 3AI/5AI architecture from old documentation.
+6. Keep Bybit TP/SL structure-first and account scaling through risk/reward/quantity, never through arbitrary stop/target distortion.
+7. Do not resurrect 3AI/5AI architecture from old documentation.
 
 ## DEPLOYMENT CONTRACT
 Canonical workflow: `.github/workflows/deploy-cloudflare-worker.yml`.
