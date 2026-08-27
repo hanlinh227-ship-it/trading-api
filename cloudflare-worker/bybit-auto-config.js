@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.8.1: operational hardening without weakening setup/AI quality gates.
+// BYBIT-AUTO-1.8.3: drawdown-aware risk tuning without tightening setup/AI quality gates.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
@@ -13,23 +13,23 @@ export const BYBIT_AUTO_CONFIG={
     baseBalanceUsd:50,
     balanceStepUsd:10,
     baseRiskUsd:5,
-    baseMinEffectiveRiskUsd:1.75,
-    effectiveRiskStepUsd:.5,
-    netProfitFloorUsd:3,
+    baseMinEffectiveRiskUsd:1.25,
+    effectiveRiskStepUsd:.4,
+    netProfitFloorUsd:2.5,
     executionCostBufferUsd:.5,
-    baseMinRewardUsd:3.5,
-    baseRewardUsd:10,
-    riskStepUsd:1,
+    baseMinRewardUsd:3.0,
+    baseRewardUsd:8,
+    riskStepUsd:.75,
     minRewardStepUsd:.5,
-    rewardStepUsd:1,
+    rewardStepUsd:.75,
     minRiskUsd:.5,
-    minRewardUsd:3.5,
-    maxRiskPctOfEquity:10,
-    maxTotalOpenRiskPct:20,
-    maxMarginPerPositionPct:42,
-    minFreeReservePct:15,
+    minRewardUsd:3.0,
+    maxRiskPctOfEquity:6,
+    maxTotalOpenRiskPct:15,
+    maxMarginPerPositionPct:35,
+    minFreeReservePct:22,
     feeBufferPct:5,
-    maxPortfolioMarginPct:85,
+    maxPortfolioMarginPct:75,
     minRR:1.5,
     preferredRR:1.8,
     maxRR:5,
@@ -81,7 +81,7 @@ export function bybitAutoConfig(env={}){
   c.risk.baseRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
   c.risk.baseMinEffectiveRiskUsd=Math.max(.5,n(env,"BYBIT_BASE_MIN_EFFECTIVE_RISK_USD",c.risk.baseMinEffectiveRiskUsd));
   c.risk.effectiveRiskStepUsd=Math.max(.1,n(env,"BYBIT_EFFECTIVE_RISK_STEP_USD",c.risk.effectiveRiskStepUsd));
-  c.risk.netProfitFloorUsd=Math.max(3,n(env,"BYBIT_NET_PROFIT_FLOOR_USD",c.risk.netProfitFloorUsd));
+  c.risk.netProfitFloorUsd=Math.max(2,n(env,"BYBIT_NET_PROFIT_FLOOR_USD",c.risk.netProfitFloorUsd));
   c.risk.executionCostBufferUsd=Math.max(.25,n(env,"BYBIT_EXECUTION_COST_BUFFER_USD",c.risk.executionCostBufferUsd));
   const hardGrossFloor=c.risk.netProfitFloorUsd+c.risk.executionCostBufferUsd;
   c.risk.baseMinRewardUsd=Math.max(hardGrossFloor,n(env,"BYBIT_BASE_MIN_REWARD_USD",c.risk.baseMinRewardUsd));
@@ -91,12 +91,12 @@ export function bybitAutoConfig(env={}){
   c.risk.rewardStepUsd=Math.max(.1,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.minRiskUsd=Math.max(.25,n(env,"BYBIT_MIN_RISK_USD",c.risk.minRiskUsd));
   c.risk.minRewardUsd=Math.max(hardGrossFloor,n(env,"BYBIT_MIN_REWARD_USD",c.risk.minRewardUsd));
-  c.risk.maxRiskPctOfEquity=Math.max(4,Math.min(12,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
-  c.risk.maxTotalOpenRiskPct=Math.max(10,Math.min(25,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.maxMarginPerPositionPct=Math.max(15,Math.min(45,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
-  c.risk.minFreeReservePct=Math.max(15,Math.min(40,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
+  c.risk.maxRiskPctOfEquity=Math.max(4,Math.min(8,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
+  c.risk.maxTotalOpenRiskPct=Math.max(10,Math.min(18,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.maxMarginPerPositionPct=Math.max(15,Math.min(40,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
+  c.risk.minFreeReservePct=Math.max(18,Math.min(40,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
   c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
-  c.risk.maxPortfolioMarginPct=Math.max(55,Math.min(85,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.risk.maxPortfolioMarginPct=Math.max(55,Math.min(80,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
   c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
