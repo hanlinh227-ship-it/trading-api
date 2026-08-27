@@ -7,7 +7,7 @@ on:
     paths:
       - '.github/workflows/mt5-wine11-terminal-recover.yml'
 
-# Final broker-auth verification trigger: 2026-08-27
+# VPS canonical runtime redeploy trigger: 2026-08-27 21:47 +07
 permissions:
   contents: read
 
