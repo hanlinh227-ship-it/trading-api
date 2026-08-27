@@ -29,8 +29,6 @@ jobs:
             vps/mt5-forex/forex-mt5-sidecar.py \
             vps/mt5-forex/install-mt5-forex.sh \
             vps/mt5-forex/mt5-forex.service
-          echo '--- changed files ---'
-          git diff --name-only --cached
           ACTUAL="$(git diff --name-only --cached | sort)"
           EXPECTED="$(printf '%s\n' \
             cloudflare-worker/forex-autonomous-mt5-bridge.js \
@@ -41,7 +39,8 @@ jobs:
             vps/mt5-forex/mt5-forex.service \
             vps/mt5-forex/run-mt5-forex.sh \
             vps/mt5-forex/verify-live-readiness.sh | sort)"
-          [[ "$ACTUAL" == "$EXPECTED" ]] || { echo 'OWNERSHIP_FILESET_MISMATCH'; diff <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$ACTUAL") || true; exit 90; }
+          printf '%s\n' "$ACTUAL"
+          [[ "$ACTUAL" == "$EXPECTED" ]] || { echo 'OWNERSHIP_FILESET_MISMATCH'; exit 90; }
       - name: Validate JS and Forex runtime
         shell: bash
         run: |
@@ -51,7 +50,7 @@ jobs:
           node --check cloudflare-worker/validate-forex-runtime.mjs
           node cloudflare-worker/validate-forex-auto.mjs
           node cloudflare-worker/validate-forex-runtime.mjs
-          node cloudflare-worker/validate-worker.mjs
+          (cd cloudflare-worker && node validate-worker.mjs)
       - name: Validate VPS scripts
         shell: bash
         run: |
