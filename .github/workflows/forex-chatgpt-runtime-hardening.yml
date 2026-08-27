@@ -49,3 +49,4 @@ jobs:
           git add cloudflare-worker/forex-autonomous-mt5-bridge.js
           git commit -m 'forex: preserve cooldown reason and remove stale alternation text'
           git push origin HEAD:chatgpt/forex-runtime-hardening-20260827
+# retrigger after branch creation
