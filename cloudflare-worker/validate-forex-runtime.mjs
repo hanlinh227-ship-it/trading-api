@@ -16,9 +16,10 @@ need(compat,['handleForexAutonomousMt5Bridge','HEARTBEAT_LAST_KEY','forex:mt5:he
 need(bridge,['runForexAutonomous2Ai','HARD_SAFETY_CLAMP_ONLY','BUY->SELL->BUY->SELL'],'FOREX_CANONICAL_BRIDGE');
 need(ai,['requestedProviders:["claude","codex"]','UNIFIED_2AI_VPC_BRIDGE','entryCandidates may contain up to 3','UP_TO_3_AI_CANDIDATES_COMMON_SYMBOL_SIDE','2AI_NO_COMMON_TRADABLE_CANDIDATE','candidateOverlapCount'],'FOREX_2AI');
 need(hub,['🧠 2 AI','Codex + Claude','market:forex','forex:mt5:heartbeat:last','heartbeatStatus','STALE_HEARTBEAT','NO_CANONICAL_HEARTBEAT','age<=30'],'FOREX_TELEGRAM');
-need(cfg,['targetUsd:510','targetDays:3','dailyMinProfitPct:1.00','minProfitPct:1.00','aiProviders:["chatgpt","claude"]'],'FOREX_CONFIG');
+need(cfg,['targetUsd:510','targetDays:3','dailyMinProfitPct:1.00','minProfitPct:1.00','aiProviders:["chatgpt","claude"]','executionTerminal:"MT5_WINDOWS"'],'FOREX_CONFIG');
 need(prep,['FOREX_USER_TARGET_ENABLED','FOREX_USER_TARGET_USD','510','FOREX_USER_TARGET_DAYS','FOREX_DAILY_OBJECTIVE_PCT'],'PREPARE_WRANGLER');
 need(workflow,["FOREX_AUTO_LIVE: 'true'","FOREX_USER_TARGET_USD: '510'","FOREX_USER_TARGET_DAYS: '3'","FOREX_DAILY_OBJECTIVE_PCT: '1.0'",'FOREX_USER_TARGET_ENABLED'], 'DEPLOY_WORKFLOW');
 for(const p of ['./forex-3ai-council.js','./forex-signal-engine.js','./forex-mt5-bridge.js'])if(exists(p))errors.push(`LEGACY_RUNTIME_FILE_PRESENT ${p}`);
+for(const p of ['../.github/workflows/install-mt5-vps.yml','../.github/workflows/mt5-forex-recover-runtime.yml','../.github/workflows/verify-mt5-forex-runtime.yml'])if(exists(p))errors.push(`RETIRED_MT5_VPS_WORKFLOW_PRESENT ${p}`);
 for(const forbidden of ['forex-3ai-council.js','forex-signal-engine.js','./forex-mt5-bridge.js'])if(index.includes(forbidden)||compat.includes(forbidden)||bridge.includes(forbidden)||ai.includes(forbidden))errors.push(`LEGACY_RUNTIME_REFERENCE ${forbidden}`);
-if(errors.length){console.error('FOREX_RUNTIME_VALIDATION=FAIL');for(const e of errors)console.error('- '+e);process.exit(1);}console.log('FOREX_RUNTIME_VALIDATION=PASS single canonical tuned 2AI runtime + immediate MT5 heartbeat + Telegram + LIVE + 510/3d + daily>1% + no legacy Forex authority');
+if(errors.length){console.error('FOREX_RUNTIME_VALIDATION=FAIL');for(const e of errors)console.error('- '+e);process.exit(1);}console.log('FOREX_RUNTIME_VALIDATION=PASS single canonical tuned 2AI runtime + MT5 Windows only + immediate heartbeat + Telegram + LIVE + 510/3d + daily>1% + no legacy Forex authority');
