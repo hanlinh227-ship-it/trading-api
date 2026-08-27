@@ -30,10 +30,17 @@ def project_of(e):
  if mode in ('FOREX_AUTONOMOUS_TRADER','PURE_AI_FOREX_2AI_FAST') or mode.startswith('FOREX_'):return 'FOREX'
  if mode.startswith('BYBIT_'):return 'BYBIT'
  return 'OTHER'
+def compact_process_error(r):
+ raw=((r.stderr or '')+'\n'+(r.stdout or '')).strip()
+ if len(raw)<=1400:return f'PROVIDER_EXIT_{r.returncode}: '+raw
+ return f'PROVIDER_EXIT_{r.returncode}: HEAD='+raw[:500]+' ... TAIL='+raw[-850:]
 def local(cmd,prompt):
  r=subprocess.run(cmd,capture_output=True,text=True,input=prompt,timeout=TIMEOUT,cwd='/tmp')
- if r.returncode:raise RuntimeError((r.stderr or r.stdout)[-1000:])
- return extract(r.stdout)
+ if r.returncode:raise RuntimeError(compact_process_error(r))
+ try:return extract(r.stdout)
+ except Exception as e:
+  raw=(r.stdout or '').strip(); tail=raw[-900:] if len(raw)>900 else raw
+  raise RuntimeError('PROVIDER_OUTPUT_JSON_INVALID: '+tail) from e
 def one(p,e):
  st=time.time(); project=project_of(e)
  if not configured(p):return p,{'status':'UNAVAILABLE','error':'PROVIDER_NOT_CONFIGURED','latencySeconds':0,'project':project}
@@ -46,20 +53,16 @@ def one(p,e):
   if not got_global:
    return p,{'status':'BUSY','error':'PROVIDER_GLOBAL_CAPACITY_BUSY','latencySeconds':round(time.time()-st,2),'project':project,'retryable':True}
   with ACTIVE_LOCK:ACTIVE[p][project]+=1
-  forex=project=='FOREX'
-  role=FOREX_ROLE if forex else REVIEW_ROLE
-  instruction=str(e.get('instruction') or '').strip()
-  prompt=role+'\nPROVIDER_ROLE='+p+('\nINSTRUCTION='+instruction if instruction else '')+'\nEVIDENCE='+json.dumps(e,ensure_ascii=False,separators=(',',':'))
+  forex=project=='FOREX'; role=FOREX_ROLE if forex else REVIEW_ROLE; instruction=str(e.get('instruction') or '').strip(); prompt=role+'\nPROVIDER_ROLE='+p+('\nINSTRUCTION='+instruction if instruction else '')+'\nEVIDENCE='+json.dumps(e,ensure_ascii=False,separators=(',',':'))
   try:
    if p=='claude':
-    cmd=['claude','--model',CLAUDE_MODEL,'-p'] if forex else ['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch']
-    x=local(cmd,prompt)
+    cmd=['claude','--model',CLAUDE_MODEL,'-p'] if forex else ['claude','--model',CLAUDE_MODEL,'-p','--disallowedTools','Read,Grep,Glob,Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch']; x=local(cmd,prompt)
    else:x=local(['/usr/bin/codex' if os.path.exists('/usr/bin/codex') else 'codex','exec','--model',CODEX_MODEL,'--ephemeral','--sandbox','read-only','--skip-git-repo-check','-'],prompt)
    now=int(time.time()*1000); LAST[p]={'state':'ONLINE','last_seen':now,'project':project,'error':None}; return p,{'status':'OK','review':x,'latencySeconds':round(time.time()-st,2),'last_seen':now,'project':project}
   except subprocess.TimeoutExpired:
    now=int(time.time()*1000);LAST[p]={'state':'DEGRADED','last_seen':now,'project':project,'error':'PROVIDER_TIMEOUT'};return p,{'status':'TIMEOUT','error':'PROVIDER_TIMEOUT','latencySeconds':round(time.time()-st,2),'project':project}
   except Exception as z:
-   now=int(time.time()*1000);err=str(z)[:300];LAST[p]={'state':'DEGRADED','last_seen':now,'project':project,'error':err};return p,{'status':'ERROR','error':err,'latencySeconds':round(time.time()-st,2),'project':project}
+   now=int(time.time()*1000);err=str(z);safe=err if len(err)<=1200 else err[:450]+' ... '+err[-700:];LAST[p]={'state':'DEGRADED','last_seen':now,'project':project,'error':safe};return p,{'status':'ERROR','error':safe,'latencySeconds':round(time.time()-st,2),'project':project}
  finally:
   if got_global:
    with ACTIVE_LOCK:ACTIVE[p][project]=max(0,ACTIVE[p][project]-1)
