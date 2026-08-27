@@ -50,7 +50,7 @@ const ai=fs.readFileSync(new URL("./forex-autonomous-2ai-trader.js",import.meta.
 for(const x of ["PURE_AI_FOREX_2AI","runForexAutonomous2Ai","Promise.all([callOpenAI","AI_SELECTS_ENTRY_RISK_AND_POSITION_MANAGEMENT_FROM_RAW_MT5","requestedRiskPct","management","HOLD|CLOSE|MODIFY_SLTP","web_search_20250305","requiredSide"])assert(ai.includes(x),`AI missing ${x}`);
 for(const x of ["FOREX_AUTO_PURE_AI_2AI","runForexAutonomous2Ai","HARD_SAFETY_CLAMP_ONLY","PURE_AI_GPT_CLAUDE_2AI_ENTRY_HARD_SAFETY_PASS","BUY->SELL->BUY->SELL","expectedNextSide","lastFilledSide","/forex/target","USER_RUNTIME","manageDecision","dailyObjective"])assert(bridge.includes(x),`bridge missing ${x}`);
 for(const forbidden of ["AI_CONFIDENCE_TOO_LOW","sizeRiskPct(","rankForexCandidates","buildForexCandidate","targetMultiplier","learningMultiplier"])assert(!bridge.includes(forbidden),`bridge forbidden ${forbidden}`);
-for(const forbidden of ["deterministic break-even","precomputed BUY/SELL signal","quality":"PREMIUM"])assert(!ai.includes(forbidden),`AI forbidden ${forbidden}`);
+for(const forbidden of ["deterministic break-even","precomputed BUY/SELL signal",'quality":"PREMIUM'])assert(!ai.includes(forbidden),`AI forbidden ${forbidden}`);
 for(const x of ["#property version   \"0.600\"","FOREX_PURE_AI_2AI","HandleManagement","AI_CLOSE","AI_MODIFY_SLTP","InpPulseSeconds=30"])assert(ea.includes(x),`EA missing ${x}`);
 for(const forbidden of ["InpBreakEvenR","InpProfitLockR","InpTrailR","void ManagePositions()","FOREX_AUTO_3AI"])assert(!ea.includes(forbidden),`EA deterministic manager forbidden ${forbidden}`);
 assert(!/deepseek|qwen|openrouter/i.test(ai+bridge));
