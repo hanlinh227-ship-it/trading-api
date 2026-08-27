@@ -33,16 +33,21 @@ async function sendOnce(env,fingerprint,text,meta={}){
 }
 
 async function notifyLiveEntry(env,out){
-  const p=out?.plan;if(!out?.executed||out?.mode!=="LIVE"||!p?.orderId)return {sent:false,reason:"NO_NEW_LIVE_ENTRY"};
-  const s=await kvGet(env,AUTO_KEY,{});
-  if(String(s.lastTelegramOrderId||"")===String(p.orderId))return {sent:false,reason:"ALREADY_NOTIFIED"};
+  const s=await kvGet(env,AUTO_KEY,{}),notified=Array.isArray(s.telegramNotifiedOrderIds)?s.telegramNotifiedOrderIds.map(String):[];
+  let p=out?.executed&&out?.mode==="LIVE"&&out?.plan?.orderId?out.plan:null,recovered=false;
+  if(!p){
+    const pending=Object.values(s.openPlans||{}).filter(x=>String(x?.mode||"").toUpperCase()==="LIVE"&&x?.orderId&&!notified.includes(String(x.orderId))&&String(s.lastTelegramOrderId||"")!==String(x.orderId)).sort((a,b)=>Number(b?.createdAtMs||0)-Number(a?.createdAtMs||0));
+    p=pending[0]||null;recovered=!!p;
+  }
+  if(!p?.orderId)return {sent:false,reason:"NO_UNNOTIFIED_LIVE_ENTRY"};
+  const orderId=String(p.orderId);if(notified.includes(orderId)||String(s.lastTelegramOrderId||"")===orderId)return {sent:false,reason:"ALREADY_NOTIFIED",orderId};
   const tick=Number(p.tickSize||p.filters?.tickSize||0),side=String(p.side||"").toLowerCase()==="buy"?"BUY":"SELL",icon=side==="BUY"?"🟢":"🔴";
-  const text=[`${icon} ${p.symbol} ${side}`,`Entry ${compactPrice(p.entry,tick)}`,`SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}`,`TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}`,`RR ${Number(p.rr||0).toFixed(2)} • ${Number(p.leverage||0)>0?`${Number(p.leverage)}x • `:""}AUTO LIVE`,`🛡️ SL/TP/Trailing đã bảo vệ`,`${BYBIT_AUTO_VERSION} • LIVE`].join("\n");
+  const text=[`${icon} ${p.symbol} ${side}`,`Entry ${compactPrice(p.entry,tick)}`,`SL ${compactPrice(p.sl,tick)} • -${usd(p.riskUsd)}`,`TP ${compactPrice(p.tp,tick)} • +${usd(p.rewardUsd)}`,`RR ${Number(p.rr||0).toFixed(2)} • ${Number(p.leverage||0)>0?`${Number(p.leverage)}x • `:""}AUTO LIVE`,`🛡️ Anti-sweep SL • delayed BE/Trailing`,recovered?`🔁 Telegram recovered/retried`:null,`${BYBIT_AUTO_VERSION} • LIVE`].filter(Boolean).join("\n");
   try{
     await telegramApiRequest(env,"sendMessage",{chat_id:env.TELEGRAM_CHAT_ID,text,disable_web_page_preview:true});
-    s.lastTelegramOrderId=String(p.orderId);s.lastTelegramEntryAt=iso();s.lastTelegramEntrySymbol=p.symbol;s.lastTelegramNotifyError=null;
-    await kvPut(env,AUTO_KEY,s);return {sent:true,orderId:p.orderId};
-  }catch(e){s.lastTelegramNotifyError={at:iso(),symbol:p.symbol,orderId:String(p.orderId),error:String(e?.message||e)};await kvPut(env,AUTO_KEY,s);return {sent:false,reason:"TELEGRAM_SEND_FAILED",error:String(e?.message||e)};}
+    s.lastTelegramOrderId=orderId;s.telegramNotifiedOrderIds=[orderId,...notified.filter(x=>x!==orderId)].slice(0,80);s.lastTelegramEntryAt=iso();s.lastTelegramEntrySymbol=p.symbol;s.lastTelegramNotifyError=null;s.lastTelegramRecovery=recovered?{at:iso(),orderId,symbol:p.symbol}:null;
+    await kvPut(env,AUTO_KEY,s);return {sent:true,orderId,recovered};
+  }catch(e){s.lastTelegramNotifyError={at:iso(),symbol:p.symbol,orderId,error:String(e?.message||e),willRetry:true};await kvPut(env,AUTO_KEY,s);return {sent:false,reason:"TELEGRAM_SEND_FAILED_RETRY_PENDING",error:String(e?.message||e),orderId,recovered};}
 }
 
 async function latestClosed(env,symbol,plan={}){
@@ -104,7 +109,7 @@ export async function runBybitAutoControlled(env,opts={}){
   let paperEquity=null;if(mode==="PAPER"){paperEquity=await resolvePaperEquity(env);if(paperEquity>0)innerEnv.BYBIT_STARTING_CAPITAL_USD=String(paperEquity);}
   const out=await runBybitAutoV1(innerEnv,{...opts,entryBlockReason});
   const telegramNotification=await notifyLiveEntry(env,out),lifecycleNotifications=await notifyLifecycleActions(env,out,prePlans),finalState=out?.state||state;
-  const controller={executionMode:mode,entrySpacingSec:cfg.execution.cooldownSec,entryGateAuthority:"BYBIT_AUTO_CONFIG.execution.cooldownSec",entryBlockReason:out?.reason==="LOSS_STREAK_PAUSE"?"LOSS_STREAK_PAUSE":entryBlockReason,nextEntryAt:spacingActive?lastTradeAt+entrySpacingMs:null,entrySpacingRemainingMs:spacingActive?Math.max(0,entrySpacingMs-elapsed):0,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,managementAlwaysOn:true,allTradeActionsNotify:true,profitTarget:null,profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",pauseState:{pauseUntil:Number(finalState?.pauseUntil||0),lossStreak:Number(finalState?.lossStreak||0),lastLossPauseTriggerAt:Number(finalState?.lastLossPauseTriggerAt||0)||null},telegramNotification,lifecycleNotifications,runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")};
+  const controller={executionMode:mode,entrySpacingSec:cfg.execution.cooldownSec,entryGateAuthority:"BYBIT_AUTO_CONFIG.execution.cooldownSec",entryBlockReason:out?.reason==="LOSS_STREAK_PAUSE"?"LOSS_STREAK_PAUSE":entryBlockReason,nextEntryAt:spacingActive?lastTradeAt+entrySpacingMs:null,entrySpacingRemainingMs:spacingActive?Math.max(0,entrySpacingMs-elapsed):0,lossStreakTrigger:3,lossPauseMinutes:30,unlimitedDailyEntries:true,managementAlwaysOn:true,allTradeActionsNotify:true,telegramEntryRetry:true,profitTarget:null,profitTargetPolicy:"NONE_CANONICAL_RISK_GATES_ONLY",pauseState:{pauseUntil:Number(finalState?.pauseUntil||0),lossStreak:Number(finalState?.lossStreak||0),lastLossPauseTriggerAt:Number(finalState?.lastLossPauseTriggerAt||0)||null},telegramNotification,lifecycleNotifications,runtimeRevision:String(env.RUNTIME_REVISION||"UNKNOWN")};
   if(mode==="PAPER"){controller.equitySource=paperEquity>0?"BYBIT_LIVE_WALLET":"STATIC_FALLBACK";controller.equityUsd=paperEquity;}else{controller.equitySource="BYBIT_LIVE_WALLET";controller.equityUsd=Number(out?.equity||0)||null;}
   const oldCtl=await kvGet(env,CONTROL_KEY,{}),telemetry={...oldCtl,...controller,lastCycleAt:iso(),lastCycleReason:String(out?.reason||"UNKNOWN"),lastCycleExecuted:!!out?.executed,lastEntryBlockReason:controller.entryBlockReason||null,lastScan:scanTelemetry(out?.scan||{}),consecutiveSchedulerErrors:0,lastSchedulerError:null};
   await kvPut(env,CONTROL_KEY,telemetry);
