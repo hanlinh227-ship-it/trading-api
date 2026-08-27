@@ -7,7 +7,7 @@ on:
     paths:
       - '.github/workflows/mt5-wine11-terminal-recover.yml'
 
-# VPS canonical runtime redeploy trigger: 2026-08-27 21:47 +07
+# VPS canonical runtime only. Windows execution lane retired 2026-08-27.
 permissions:
   contents: read
 
@@ -39,6 +39,7 @@ jobs:
           sudo systemctl stop mt5-forex-bridge.service 2>/dev/null || true
           sudo systemctl stop mt5-forex.service 2>/dev/null || true
           prefix=/var/lib/trading/mt5-forex/wine
+          echo 'MT5_CANONICAL_EXECUTION=VPS_ONLY'
           echo '=== WINE11 RECOVERY INVENTORY ==='
           sudo find /var/lib/trading/mt5-forex -maxdepth 2 -type d -name 'wine*' -print 2>/dev/null || true
           wine_version=$(/usr/bin/wine --version)
@@ -85,6 +86,8 @@ jobs:
         run: |
           set -euo pipefail
           repo=/opt/trading/trading-api-main
+          app=/var/lib/trading/mt5-forex
+          prefix="$app/wine"
           tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
           HUB="${MT5_HUB_URL:-https://trading-v77-scanner.hanlinh227.workers.dev}"
           LIVE="${MT5_ALLOW_LIVE:-false}"
@@ -95,11 +98,51 @@ jobs:
             printf 'MT5_ACCOUNT_PASSWORD=%q\n' "$MT5_ACCOUNT_PASSWORD"
             printf 'MT5_ACCOUNT_SERVER=%q\n' "$MT5_ACCOUNT_SERVER"
             printf 'MT5_ACCOUNT_ENDPOINT=%q\n' "${MT5_ACCOUNT_ENDPOINT:-}"
+            printf 'MT5_SERVER_BOOTSTRAP_PREFER=%q\n' 'display'
             printf 'MT5_HUB_URL=%q\n' "$HUB"
             printf 'MT5_BRIDGE_TOKEN=%q\n' "$MT5_BRIDGE_TOKEN"
             printf 'MT5_ALLOW_LIVE=%q\n' "$LIVE"
           } > "$tmp"
           sudo install -o root -g mt5forex -m 0640 "$tmp" /etc/trading/mt5-forex.env
+          printf '%s\n' 'VPS_ONLY' | sudo tee /etc/trading/mt5-forex-vps-only >/dev/null
+          sudo chown root:mt5forex /etc/trading/mt5-forex-vps-only
+          sudo chmod 0640 /etc/trading/mt5-forex-vps-only
+
+          # A marker is valid only when the current pulse is actually connected.
+          # This prevents a dead Windows/old-Wine session marker from forcing
+          # PERSISTENT_SESSION and skipping credential bootstrap forever.
+          marker="$app/broker-authenticated.marker"
+          pulse="$prefix/drive_c/MT5Forex/MQL5/Files/FOREX_BRIDGE/pulse.json"
+          connected=false
+          if [[ -s "$pulse" ]]; then
+            connected=$(python3 - "$pulse" <<'PY'
+import json,sys
+try:
+    p=json.load(open(sys.argv[1]))
+    print('true' if bool((p.get('mt5') or {}).get('connected')) else 'false')
+except Exception:
+    print('false')
+PY
+)
+          fi
+          if [[ -f "$marker" && "$connected" != true ]]; then
+            sudo rm -f "$marker"
+            echo 'MT5_FOREX_STALE_AUTH_MARKER_CLEARED=yes'
+          else
+            echo 'MT5_FOREX_STALE_AUTH_MARKER_CLEARED=no'
+          fi
+
+          broker_token="${MT5_ACCOUNT_SERVER%%-*}"
+          servers="$prefix/drive_c/MT5Forex/Config/servers.dat"
+          if [[ -s "$servers" ]] && { strings -el "$servers" 2>/dev/null; strings "$servers" 2>/dev/null; } | grep -qiF -- "$broker_token"; then
+            echo 'MT5_FOREX_PREFLIGHT_SERVERS_DAT_HAS_BROKER=yes'
+          else
+            echo 'MT5_FOREX_PREFLIGHT_SERVERS_DAT_HAS_BROKER=no'
+          fi
+          [[ -n "${MT5_ACCOUNT_ENDPOINT:-}" ]] && echo 'MT5_FOREX_PREFLIGHT_ENDPOINT=SET' || echo 'MT5_FOREX_PREFLIGHT_ENDPOINT=EMPTY'
+          echo "MT5_FOREX_PREFLIGHT_SERVER_NAME=$MT5_ACCOUNT_SERVER"
+          echo 'MT5_FOREX_PREFLIGHT_BOOTSTRAP_PREFER=display'
+
           sudo chmod +x "$repo/vps/mt5-forex/run-mt5-forex.sh" "$repo/vps/mt5-forex/forex-mt5-sidecar.py" "$repo/vps/mt5-forex/verify-hub-pulse.py" "$repo/vps/mt5-forex/verify-local-pulse.py" "$repo/vps/mt5-forex/verify-live-readiness.sh"
           sudo install -m 0644 "$repo/vps/mt5-forex/mt5-forex.service" /etc/systemd/system/mt5-forex.service
           sudo install -m 0644 "$repo/vps/mt5-forex/mt5-forex-bridge.service" /etc/systemd/system/mt5-forex-bridge.service
