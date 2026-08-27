@@ -33,6 +33,8 @@ jobs:
           command -v claude >/dev/null
           test -x /usr/bin/codex
           ! grep -qi 'api.deepseek.com\|DEEPSEEK_API_KEY' signal-v11-vps/manual_ai_bridge.py
+          grep -q 'PROJECT_LANES_V1' signal-v11-vps/manual_ai_bridge.py
+          grep -q 'PROVIDER_PROJECT_LANE_BUSY' signal-v11-vps/manual_ai_bridge.py
       - name: Install exact checked-out bridge
         shell: bash
         run: |
@@ -41,14 +43,14 @@ jobs:
           systemctl daemon-reload
           systemctl restart v11-manual-ai-bridge.service
           systemctl is-active --quiet v11-manual-ai-bridge.service
-      - name: Require Claude and Codex health
+      - name: Require configured Claude and Codex
         shell: bash
         run: |
           set -euo pipefail
           sleep 2
           set -a; source /etc/trading-v11-ai.env; set +a
           HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; assert d.get("deepseekDisabled") is True; assert d.get("service")=="UNIFIED_2AI_BRIDGE"; assert all(bool((p.get(n) or {}).get("configured")) for n in ("claude","codex")); print("UNIFIED_2AI_HEALTH=PASS")'
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; assert d.get("deepseekDisabled") is True; assert d.get("service")=="UNIFIED_2AI_BRIDGE"; assert d.get("isolationMode")=="PROJECT_LANES_V1"; assert all(bool((p.get(n) or {}).get("configured")) for n in ("claude","codex")); assert d.get("healthState") in ("WARMING","READY"); print("UNIFIED_2AI_CONFIGURED=PASS")'
       - name: Real read-only 2AI council smoke
         shell: bash
         run: |
@@ -56,10 +58,18 @@ jobs:
           set -a; source /etc/trading-v11-ai.env; set +a
           BODY='{"evidence":{"mode":"UNIFIED_2AI_CONNECTIVITY","task_id":"deploy-2ai-smoke","requestedProviders":["claude","codex"],"instruction":"Connectivity validation only. Acknowledge receipt. Do not trade and do not change configuration.","context":{"scope":"READ_ONLY"}}}'
           OUT="$(curl -sS --max-time 125 -X POST http://127.0.0.1:8789/review -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" -H 'Content-Type: application/json' --data "$BODY")"
-          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; st={n:str((p.get(n) or {}).get("status","MISSING")).upper() for n in ("claude","codex")}; assert all(st[n]=="OK" for n in st),st; assert d.get("deepseekDisabled") is True; print("UNIFIED_2AI_STATUS="+",".join(n+":"+st[n] for n in st)); print("UNIFIED_2AI_QUORUM_PASS=2/2")'
+          printf '%s\n' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; st={n:str((p.get(n) or {}).get("status","MISSING")).upper() for n in ("claude","codex")}; assert all(st[n]=="OK" for n in st),st; assert d.get("deepseekDisabled") is True; assert d.get("isolationMode")=="PROJECT_LANES_V1"; print("UNIFIED_2AI_STATUS="+",".join(n+":"+st[n] for n in st)); print("UNIFIED_2AI_QUORUM_PASS=2/2")'
+      - name: Require post-smoke READY health
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a; source /etc/trading-v11-ai.env; set +a
+          HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d.get("providers") or {}; assert d.get("ready") is True,d; assert d.get("healthState")=="READY",d; assert d.get("onlineRecentCount")==2,d; assert all((p.get(n) or {}).get("state")=="ONLINE" and (p.get(n) or {}).get("fresh") is True for n in ("claude","codex")),p; print("UNIFIED_2AI_READY=PASS")'
       - name: Deployment summary
         run: |
           echo "UNIFIED_2AI_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
           echo 'UNIFIED_AI_CORE=claude,codex'
           echo 'UNIFIED_AI_REQUIRED_QUORUM=2/2'
+          echo 'UNIFIED_AI_ISOLATION=PROJECT_LANES_V1'
           echo 'DEEPSEEK_DISABLED=true'
