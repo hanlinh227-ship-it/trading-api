@@ -38,12 +38,14 @@ export function computeOpenInitialMarginUsd(openPlans={}){
   return total;
 }
 
-export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd,candidateInitialMarginUsd=0}){
+export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd,candidateInitialMarginUsd=0,candidateSide=null}){
   const equity=Math.max(0,num(equityUsd));
   if(!(equity>0))return {ok:false,reason:"EQUITY_INVALID"};
-  const realized=num(state?.realizedUsd),openPlans=state?.openPlans||{},openCount=Object.keys(openPlans).length,openRiskUsd=computeOpenRiskUsd(openPlans),candidate=Math.max(0,num(candidateRiskUsd));
+  const realized=num(state?.realizedUsd),openPlans=state?.openPlans||{},openRows=Object.values(openPlans),openCount=openRows.length,openRiskUsd=computeOpenRiskUsd(openPlans),candidate=Math.max(0,num(candidateRiskUsd));
   const maxOpen=Math.max(1,Math.round(num(cfg?.maxOpenPositions)||6));
   if(candidate>0&&openCount>=maxOpen)return {ok:false,reason:"MAX_OPEN_POSITIONS_SAFETY",openCount,maxOpen,managementOnly:true};
+  const side=String(candidateSide||""),sameDirectionCount=side?openRows.filter(p=>String(p?.side||"")===side).length:0,maxSameDirection=Math.max(1,Math.round(num(cfg?.risk?.maxSameDirectionPositions)||3));
+  if(candidate>0&&side&&sameDirectionCount>=maxSameDirection)return {ok:false,reason:"SAME_DIRECTION_EXPOSURE_CAP",candidateSide:side,sameDirectionCount,maxSameDirection,managementOnly:true};
   const dailyLossCircuitPct=Math.max(0,num(cfg?.risk?.dailyLossCircuitPct)||8),dailyLossCircuitUsd=equity*dailyLossCircuitPct/100;
   if(candidate>0&&realized<=-dailyLossCircuitUsd)return {ok:false,reason:"REALIZED_LOSS_CIRCUIT_BREAKER",realizedUsd:realized,dailyLossCircuitUsd,dailyLossCircuitPct,equityUsd:equity,managementOnly:true};
   const targetRiskPct=equityRiskCurvePct(equity,cfg),configuredSinglePct=Math.max(.1,num(cfg?.risk?.maxRiskPctOfEquity)||4.5),singleRiskPct=Math.min(configuredSinglePct,Math.max(targetRiskPct,targetRiskPct*1.20)),singleCapUsd=equity*singleRiskPct/100;
@@ -56,7 +58,7 @@ export function bybitRiskPreflight({cfg,equityUsd,state,candidateRiskUsd,candida
   if(candidateMarginUsd>0&&openInitialMarginUsd+candidateMarginUsd>portfolioMarginCapUsd+1e-9){
     return {ok:false,reason:"PORTFOLIO_MARGIN_HEADROOM",openInitialMarginUsd,candidateMarginUsd,projectedInitialMarginUsd:openInitialMarginUsd+candidateMarginUsd,portfolioMarginCapUsd,equityUsd:equity,marginSource:providedMarginUsd>0?"ACTUAL_CANDIDATE":"FAIL_SAFE_SLOT_FALLBACK",managementOnly:true};
   }
-  return {ok:true,realizedUsd:realized,openCount,maxOpen,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,targetRiskPct,singleRiskPct,totalOpenRiskPct,openInitialMarginUsd,candidateMarginUsd,portfolioMarginCapUsd,dailyLossCircuitUsd,dailyLossCircuitPct,dailyLossStopEnabled:true,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE_PORTFOLIO_SAFETY_BASELINE",marginAccounting:providedMarginUsd>0?"ACTUAL_CANDIDATE_INITIAL_MARGIN_V188":"FAIL_SAFE_SLOT_FALLBACK"};
+  return {ok:true,realizedUsd:realized,openCount,maxOpen,candidateSide:side||null,sameDirectionCount,maxSameDirection,openRiskUsd,candidateRiskUsd:candidate,totalRiskUsd:openRiskUsd+candidate,capUsd,singleCapUsd,targetRiskPct,singleRiskPct,totalOpenRiskPct,openInitialMarginUsd,candidateMarginUsd,portfolioMarginCapUsd,dailyLossCircuitUsd,dailyLossCircuitPct,dailyLossStopEnabled:true,dailyTargetEnabled:false,continuousTrading:true,riskAccounting:"MANAGED_STOP_AWARE_PORTFOLIO_SAFETY_BASELINE",marginAccounting:providedMarginUsd>0?"ACTUAL_CANDIDATE_INITIAL_MARGIN_V188":"FAIL_SAFE_SLOT_FALLBACK"};
 }
 
 export function validateProtectionGeometry({side,entry,sl,tp}){
