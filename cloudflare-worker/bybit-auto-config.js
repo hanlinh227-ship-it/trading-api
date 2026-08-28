@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.9.5: 5m/15m anti-noise entry + anti-sweep management + risk-tier-safe leverage.
+// BYBIT-AUTO-1.9.6: 5m/15m anti-noise entry + anti-sweep management + market-entry reasoning hard-lock.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
