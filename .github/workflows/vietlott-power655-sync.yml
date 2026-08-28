@@ -28,22 +28,26 @@ jobs:
           ref: main
           path: upstream
 
-      - name: Normalize and validate full Power 6/55 history
+      - name: Normalize validate and audit Power 6/55 history
         shell: bash
         run: |
           set -euo pipefail
           cd project
           mkdir -p data/vietlott/power655
           python3 - <<'PY'
-          import csv, json, pathlib, datetime
+          import csv, json, pathlib, datetime, itertools
           src = pathlib.Path('../upstream/data/power655.jsonl')
           out_dir = pathlib.Path('data/vietlott/power655')
+          # Audited repair: upstream #00944 is missing Power number. Verified 2023-10-14 result is
+          # 08 23 30 34 38 47 | Power 10 (Minh Ngoc / independent web cross-check).
+          repairs = {'00944': [8,23,30,34,38,47,10]}
           rows, seen = [], set()
           for raw in src.read_text(encoding='utf-8').splitlines():
               if not raw.strip(): continue
               x = json.loads(raw)
               draw_id = str(x['id']).zfill(5)
               result = [int(v) for v in x['result']]
+              if draw_id in repairs: result = repairs[draw_id]
               if len(result) != 7: raise SystemExit(f'Invalid result length at {draw_id}: {result}')
               main, power = result[:6], result[6]
               if len(set(main)) != 6 or any(v < 1 or v > 55 for v in result): raise SystemExit(f'Invalid numbers at {draw_id}: {result}')
@@ -57,19 +61,44 @@ jobs:
               w=csv.writer(f); w.writerow(['date','draw_id','n1','n2','n3','n4','n5','n6','power_number']); w.writerows(rows)
           with (out_dir/'power655_all_draws.jsonl').open('w',encoding='utf-8') as f:
               for r in rows: f.write(json.dumps({'date':r[0],'draw_id':r[1],'numbers':list(r[2:8]),'power_number':r[8]},ensure_ascii=False,separators=(',',':'))+'\n')
-          meta={'product':'Vietlott Power 6/55','draw_count':len(rows),'first_draw':{'id':rows[0][1],'date':rows[0][0],'numbers':list(rows[0][2:8]),'power_number':rows[0][8]},'latest_draw':{'id':rows[-1][1],'date':rows[-1][0],'numbers':list(rows[-1][2:8]),'power_number':rows[-1][8]},'updated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'upstream':'vietvudanh/vietlott-data:data/power655.jsonl'}
+
+          # Compare every unordered pair of draws. exact_main_overlap[k] means exactly k shared main numbers.
+          exact = {k:0 for k in range(7)}
+          power_same = 0
+          exact_and_power = {k:0 for k in range(7)}
+          examples = {k:[] for k in range(3,7)}
+          for a,b in itertools.combinations(rows,2):
+              k=len(set(a[2:8]) & set(b[2:8]))
+              exact[k]+=1
+              ps=a[8]==b[8]
+              if ps: power_same+=1; exact_and_power[k]+=1
+              if k>=3 and len(examples[k])<20:
+                  examples[k].append({'draw_a':a[1],'draw_b':b[1],'shared':sorted(set(a[2:8]) & set(b[2:8])),'power_same':ps})
+          pair_count=len(rows)*(len(rows)-1)//2
+          audit={
+            'definition':'Every unordered pair of draws; main overlap is EXACTLY k of the six main numbers, order ignored.',
+            'draw_count':len(rows),'pair_count':pair_count,
+            'exact_main_overlap':{str(k):exact[k] for k in range(7)},
+            'same_power_number_pairs':power_same,
+            'exact_main_overlap_and_same_power':{str(k):exact_and_power[k] for k in range(7)},
+            'identical_6_main_and_power_pairs':exact_and_power[6],
+            'examples_3_to_6':examples,
+            'repairs':{'00944':{'numbers':[8,23,30,34,38,47],'power_number':10,'reason':'upstream omitted Power number; web cross-check'}},
+          }
+          (out_dir/'overlap_audit.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          meta={'product':'Vietlott Power 6/55','draw_count':len(rows),'first_draw':{'id':rows[0][1],'date':rows[0][0],'numbers':list(rows[0][2:8]),'power_number':rows[0][8]},'latest_draw':{'id':rows[-1][1],'date':rows[-1][0],'numbers':list(rows[-1][2:8]),'power_number':rows[-1][8]},'updated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'upstream':'vietvudanh/vietlott-data:data/power655.jsonl','audited_repairs':['00944'],'overlap_audit':'overlap_audit.json'}
           (out_dir/'metadata.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          print(json.dumps(meta,ensure_ascii=False,indent=2))
+          print(json.dumps(meta,ensure_ascii=False,indent=2)); print(json.dumps(audit,ensure_ascii=False,indent=2))
           PY
 
-      - name: Commit refreshed dataset
+      - name: Commit refreshed dataset and audit
         shell: bash
         run: |
           set -euo pipefail
           cd project
-          if git diff --quiet -- data/vietlott/power655 && [ -f data/vietlott/power655/metadata.json ]; then echo 'No dataset changes.'; exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/vietlott/power655
-          git commit -m 'data(vietlott): sync Power 6/55 history'
+          if git diff --cached --quiet; then echo 'No dataset changes.'; exit 0; fi
+          git commit -m 'data(vietlott): sync history and overlap audit'
           git push
