@@ -1,5 +1,4 @@
 name: Vietlott Power 6/55 Data Sync
-
 on:
   workflow_dispatch:
   schedule:
@@ -8,6 +7,7 @@ on:
     paths:
       - '.github/workflows/vietlott-power655-sync.yml'
       - 'scripts/vietlott/power655_math_transform_research.py'
+      - 'scripts/vietlott/power655_blind_random_transform_search.py'
 permissions:
   contents: write
 jobs:
@@ -16,29 +16,22 @@ jobs:
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          path: project
+        with: {fetch-depth: 0, path: project}
       - name: Checkout public Vietlott dataset
         uses: actions/checkout@v4
-        with:
-          repository: vietvudanh/vietlott-data
-          ref: main
-          path: upstream
+        with: {repository: vietvudanh/vietlott-data, ref: main, path: upstream}
       - name: Normalize dataset
         shell: bash
         run: |
-          set -euo pipefail
-          cd project
-          mkdir -p data/vietlott/power655
+          set -euo pipefail; cd project; mkdir -p data/vietlott/power655
           python3 - <<'PY'
-          import csv,json,pathlib,datetime
-          src=pathlib.Path('../upstream/data/power655.jsonl'); out=pathlib.Path('data/vietlott/power655'); repairs={'00944':[8,23,30,34,38,47,10]}; rows=[]
+          import csv,json,pathlib
+          src=pathlib.Path('../upstream/data/power655.jsonl');out=pathlib.Path('data/vietlott/power655');rep={'00944':[8,23,30,34,38,47,10]};rows=[]
           for raw in src.read_text().splitlines():
-            if not raw.strip(): continue
-            x=json.loads(raw); did=str(x['id']).zfill(5); r=[int(v) for v in x['result']]
-            if did in repairs:r=repairs[did]
-            if len(r)!=7 or len(set(r[:6]))!=6: raise SystemExit(f'invalid {did}')
+            if not raw.strip():continue
+            x=json.loads(raw);did=str(x['id']).zfill(5);r=[int(v) for v in x['result']]
+            if did in rep:r=rep[did]
+            if len(r)!=7 or len(set(r[:6]))!=6:raise SystemExit(f'invalid {did}')
             rows.append((x['date'],did,*r))
           rows.sort(key=lambda x:int(x[1]))
           for i,r in enumerate(rows,1):
@@ -48,19 +41,9 @@ jobs:
           print('draws',len(rows))
           PY
       - name: Mathematical transform cycle research
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd project
-          python3 scripts/vietlott/power655_math_transform_research.py
+        run: cd project && python3 scripts/vietlott/power655_math_transform_research.py
+      - name: Blind random transform backtest
+        run: cd project && python3 scripts/vietlott/power655_blind_random_transform_search.py
       - name: Commit research
-        shell: bash
         run: |
-          set -euo pipefail
-          cd project
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add data/vietlott/power655
-          if git diff --cached --quiet; then echo 'No changes.'; exit 0; fi
-          git commit -m 'research(vietlott): mathematical transform cycle results'
-          git push
+          set -euo pipefail; cd project; git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'; git add data/vietlott/power655; if git diff --cached --quiet; then echo 'No changes.'; exit 0; fi; git commit -m 'research(vietlott): blind random transform results'; git push
