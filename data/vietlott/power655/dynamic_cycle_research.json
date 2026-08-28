@@ -1,0 +1,442 @@
+{
+  "draw_count": 1390,
+  "null_gap_geometry": {
+    "mean": 463.667,
+    "q10": 72,
+    "q25": 187,
+    "median": 407,
+    "q75": 695,
+    "q90": 951
+  },
+  "levels": {
+    "3": {
+      "gap_summary": {
+        "count": 12485,
+        "min": 1,
+        "q10": 72,
+        "q25": 187,
+        "median": 410,
+        "mean": 465.887,
+        "q75": 702,
+        "q90": 959,
+        "max": 1382
+      },
+      "gap_bands_vs_null": [
+        {
+          "gap": "1-7",
+          "observed": 135,
+          "expected": 125.48,
+          "z": 0.854
+        },
+        {
+          "gap": "8-30",
+          "observed": 411,
+          "expected": 407.82,
+          "z": 0.16
+        },
+        {
+          "gap": "31-90",
+          "observed": 1027,
+          "expected": 1031.67,
+          "z": -0.152
+        },
+        {
+          "gap": "91-180",
+          "observed": 1445,
+          "expected": 1460.21,
+          "z": -0.424
+        },
+        {
+          "gap": "181-365",
+          "observed": 2666,
+          "expected": 2672.55,
+          "z": -0.143
+        },
+        {
+          "gap": "366-730",
+          "observed": 3945,
+          "expected": 3974.72,
+          "z": -0.571
+        },
+        {
+          "gap": "731-1389",
+          "observed": 2856,
+          "expected": 2812.55,
+          "z": 0.931
+        }
+      ],
+      "top_standardized_gap_peaks": [
+        {
+          "gap": 830,
+          "observed": 19,
+          "expected": 7.24,
+          "pearson_residual": 4.369
+        },
+        {
+          "gap": 710,
+          "observed": 21,
+          "expected": 8.79,
+          "pearson_residual": 4.116
+        },
+        {
+          "gap": 800,
+          "observed": 17,
+          "expected": 7.63,
+          "pearson_residual": 3.392
+        },
+        {
+          "gap": 786,
+          "observed": 17,
+          "expected": 7.81,
+          "pearson_residual": 3.288
+        },
+        {
+          "gap": 349,
+          "observed": 25,
+          "expected": 13.46,
+          "pearson_residual": 3.144
+        },
+        {
+          "gap": 538,
+          "observed": 20,
+          "expected": 11.02,
+          "pearson_residual": 2.706
+        },
+        {
+          "gap": 198,
+          "observed": 26,
+          "expected": 15.42,
+          "pearson_residual": 2.696
+        },
+        {
+          "gap": 135,
+          "observed": 27,
+          "expected": 16.23,
+          "pearson_residual": 2.673
+        },
+        {
+          "gap": 472,
+          "observed": 21,
+          "expected": 11.87,
+          "pearson_residual": 2.649
+        },
+        {
+          "gap": 11,
+          "observed": 29,
+          "expected": 17.83,
+          "pearson_residual": 2.644
+        },
+        {
+          "gap": 467,
+          "observed": 21,
+          "expected": 11.94,
+          "pearson_residual": 2.623
+        },
+        {
+          "gap": 571,
+          "observed": 19,
+          "expected": 10.59,
+          "pearson_residual": 2.583
+        },
+        {
+          "gap": 394,
+          "observed": 22,
+          "expected": 12.88,
+          "pearson_residual": 2.541
+        },
+        {
+          "gap": 80,
+          "observed": 27,
+          "expected": 16.94,
+          "pearson_residual": 2.443
+        },
+        {
+          "gap": 63,
+          "observed": 27,
+          "expected": 17.16,
+          "pearson_residual": 2.375
+        }
+      ],
+      "first_half_within": {
+        "count": 3098,
+        "min": 1,
+        "q10": 36,
+        "q25": 92,
+        "median": 205.0,
+        "mean": 232.796,
+        "q75": 351,
+        "q90": 477,
+        "max": 684
+      },
+      "second_half_within": {
+        "count": 3106,
+        "min": 1,
+        "q10": 36,
+        "q25": 92,
+        "median": 198.0,
+        "mean": 229.12,
+        "q75": 345,
+        "q90": 472,
+        "max": 674
+      }
+    },
+    "4": {
+      "gap_summary": {
+        "count": 552,
+        "min": 1,
+        "q10": 82,
+        "q25": 181,
+        "median": 403.5,
+        "mean": 459.437,
+        "q75": 679,
+        "q90": 936,
+        "max": 1272
+      },
+      "gap_bands_vs_null": [
+        {
+          "gap": "1-7",
+          "observed": 5,
+          "expected": 5.55,
+          "z": -0.234
+        },
+        {
+          "gap": "8-30",
+          "observed": 21,
+          "expected": 18.03,
+          "z": 0.711
+        },
+        {
+          "gap": "31-90",
+          "observed": 34,
+          "expected": 45.61,
+          "z": -1.795
+        },
+        {
+          "gap": "91-180",
+          "observed": 78,
+          "expected": 64.56,
+          "z": 1.78
+        },
+        {
+          "gap": "181-365",
+          "observed": 115,
+          "expected": 118.16,
+          "z": -0.328
+        },
+        {
+          "gap": "366-730",
+          "observed": 179,
+          "expected": 175.73,
+          "z": 0.298
+        },
+        {
+          "gap": "731-1389",
+          "observed": 120,
+          "expected": 124.35,
+          "z": -0.443
+        }
+      ],
+      "top_standardized_gap_peaks": [],
+      "first_half_within": {
+        "count": 131,
+        "min": 3,
+        "q10": 46,
+        "q25": 120,
+        "median": 211,
+        "mean": 242.58,
+        "q75": 355,
+        "q90": 492,
+        "max": 644
+      },
+      "second_half_within": {
+        "count": 149,
+        "min": 1,
+        "q10": 30,
+        "q25": 98,
+        "median": 197,
+        "mean": 220.02,
+        "q75": 330,
+        "q90": 429,
+        "max": 683
+      },
+      "distance_from_previous_lower_overlap_endpoint": {
+        "count": 552,
+        "min": 1,
+        "q10": 1,
+        "q25": 1,
+        "median": 1.0,
+        "mean": 1.007,
+        "q75": 1,
+        "q90": 1,
+        "max": 4
+      }
+    },
+    "5": {
+      "gap_summary": {
+        "count": 12,
+        "min": 22,
+        "q10": 148,
+        "q25": 247,
+        "median": 589.5,
+        "mean": 529.75,
+        "q75": 691,
+        "q90": 1012,
+        "max": 1017
+      },
+      "gap_bands_vs_null": [
+        {
+          "gap": "1-7",
+          "observed": 0,
+          "expected": 0.12,
+          "z": -0.349
+        },
+        {
+          "gap": "8-30",
+          "observed": 1,
+          "expected": 0.39,
+          "z": 0.987
+        },
+        {
+          "gap": "31-90",
+          "observed": 0,
+          "expected": 0.99,
+          "z": -1.04
+        },
+        {
+          "gap": "91-180",
+          "observed": 2,
+          "expected": 1.4,
+          "z": 0.536
+        },
+        {
+          "gap": "181-365",
+          "observed": 2,
+          "expected": 2.57,
+          "z": -0.4
+        },
+        {
+          "gap": "366-730",
+          "observed": 4,
+          "expected": 3.82,
+          "z": 0.111
+        },
+        {
+          "gap": "731-1389",
+          "observed": 3,
+          "expected": 2.7,
+          "z": 0.205
+        }
+      ],
+      "top_standardized_gap_peaks": [],
+      "first_half_within": {
+        "count": 2,
+        "min": 148,
+        "q10": 148,
+        "q25": 148,
+        "median": 228.5,
+        "mean": 228.5,
+        "q75": 309,
+        "q90": 309,
+        "max": 309
+      },
+      "second_half_within": {
+        "count": 2,
+        "min": 22,
+        "q10": 22,
+        "q25": 22,
+        "median": 134.5,
+        "mean": 134.5,
+        "q75": 247,
+        "q90": 247,
+        "max": 247
+      },
+      "distance_from_previous_lower_overlap_endpoint": {
+        "count": 12,
+        "min": 1,
+        "q10": 1,
+        "q25": 1,
+        "median": 2.0,
+        "mean": 2.5,
+        "q75": 3,
+        "q90": 5,
+        "max": 7
+      }
+    },
+    "6": {
+      "gap_summary": {
+        "count": 1,
+        "min": 346,
+        "q10": 346,
+        "q25": 346,
+        "median": 346,
+        "mean": 346,
+        "q75": 346,
+        "q90": 346,
+        "max": 346
+      },
+      "gap_bands_vs_null": [
+        {
+          "gap": "1-7",
+          "observed": 0,
+          "expected": 0.01,
+          "z": -0.101
+        },
+        {
+          "gap": "8-30",
+          "observed": 0,
+          "expected": 0.03,
+          "z": -0.184
+        },
+        {
+          "gap": "31-90",
+          "observed": 0,
+          "expected": 0.08,
+          "z": -0.3
+        },
+        {
+          "gap": "91-180",
+          "observed": 0,
+          "expected": 0.12,
+          "z": -0.364
+        },
+        {
+          "gap": "181-365",
+          "observed": 1,
+          "expected": 0.21,
+          "z": 1.916
+        },
+        {
+          "gap": "366-730",
+          "observed": 0,
+          "expected": 0.32,
+          "z": -0.683
+        },
+        {
+          "gap": "731-1389",
+          "observed": 0,
+          "expected": 0.23,
+          "z": -0.539
+        }
+      ],
+      "top_standardized_gap_peaks": [],
+      "first_half_within": null,
+      "second_half_within": null,
+      "distance_from_previous_lower_overlap_endpoint": {
+        "count": 1,
+        "min": 72,
+        "q10": 72,
+        "q25": 72,
+        "median": 72,
+        "mean": 72,
+        "q75": 72,
+        "q90": 72,
+        "max": 72
+      }
+    }
+  },
+  "interpretation_guardrails": [
+    "Gap peaks are exploratory, not predictive unless stable out-of-sample.",
+    "A single 6/6 recurrence cannot establish a cycle.",
+    "Band z-scores are descriptive and multiple-testing correction is required before claiming anomaly."
+  ]
+}

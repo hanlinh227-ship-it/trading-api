@@ -1,5 +1,5 @@
 {
-  "definition": "Every unordered pair of draws; main overlap is EXACTLY k of the six main numbers, order ignored.",
+  "definition": "Every unordered pair; exact k shared main numbers.",
   "draw_count": 1390,
   "pair_count": 965355,
   "exact_main_overlap": {
@@ -27,6 +27,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00010",
+        "gap_draws": 9,
         "shared": [
           10,
           24,
@@ -37,6 +38,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00049",
+        "gap_draws": 48,
         "shared": [
           5,
           23,
@@ -47,6 +49,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00120",
+        "gap_draws": 119,
         "shared": [
           23,
           24,
@@ -57,6 +60,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00598",
+        "gap_draws": 597,
         "shared": [
           5,
           14,
@@ -67,6 +71,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00679",
+        "gap_draws": 678,
         "shared": [
           10,
           23,
@@ -77,6 +82,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00685",
+        "gap_draws": 684,
         "shared": [
           5,
           14,
@@ -87,6 +93,7 @@
       {
         "draw_a": "00001",
         "draw_b": "00923",
+        "gap_draws": 922,
         "shared": [
           5,
           24,
@@ -97,6 +104,7 @@
       {
         "draw_a": "00001",
         "draw_b": "01048",
+        "gap_draws": 1047,
         "shared": [
           5,
           10,
@@ -107,6 +115,7 @@
       {
         "draw_a": "00001",
         "draw_b": "01082",
+        "gap_draws": 1081,
         "shared": [
           10,
           14,
@@ -117,6 +126,7 @@
       {
         "draw_a": "00001",
         "draw_b": "01220",
+        "gap_draws": 1219,
         "shared": [
           5,
           10,
@@ -127,6 +137,7 @@
       {
         "draw_a": "00001",
         "draw_b": "01328",
+        "gap_draws": 1327,
         "shared": [
           5,
           10,
@@ -137,6 +148,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00069",
+        "gap_draws": 67,
         "shared": [
           4,
           24,
@@ -147,6 +159,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00172",
+        "gap_draws": 170,
         "shared": [
           4,
           24,
@@ -157,6 +170,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00313",
+        "gap_draws": 311,
         "shared": [
           24,
           25,
@@ -167,6 +181,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00327",
+        "gap_draws": 325,
         "shared": [
           24,
           27,
@@ -177,6 +192,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00474",
+        "gap_draws": 472,
         "shared": [
           25,
           27,
@@ -187,6 +203,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00666",
+        "gap_draws": 664,
         "shared": [
           9,
           25,
@@ -197,6 +214,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00873",
+        "gap_draws": 871,
         "shared": [
           4,
           25,
@@ -207,6 +225,7 @@
       {
         "draw_a": "00002",
         "draw_b": "00908",
+        "gap_draws": 906,
         "shared": [
           9,
           25,
@@ -217,6 +236,7 @@
       {
         "draw_a": "00002",
         "draw_b": "01035",
+        "gap_draws": 1033,
         "shared": [
           25,
           27,
@@ -229,6 +249,7 @@
       {
         "draw_a": "00002",
         "draw_b": "01089",
+        "gap_draws": 1087,
         "shared": [
           4,
           9,
@@ -240,6 +261,7 @@
       {
         "draw_a": "00003",
         "draw_b": "00703",
+        "gap_draws": 700,
         "shared": [
           5,
           11,
@@ -251,6 +273,7 @@
       {
         "draw_a": "00004",
         "draw_b": "00636",
+        "gap_draws": 632,
         "shared": [
           19,
           36,
@@ -262,6 +285,7 @@
       {
         "draw_a": "00006",
         "draw_b": "00765",
+        "gap_draws": 759,
         "shared": [
           6,
           16,
@@ -273,6 +297,7 @@
       {
         "draw_a": "00007",
         "draw_b": "00868",
+        "gap_draws": 861,
         "shared": [
           7,
           11,
@@ -284,6 +309,7 @@
       {
         "draw_a": "00009",
         "draw_b": "00064",
+        "gap_draws": 55,
         "shared": [
           7,
           11,
@@ -295,6 +321,7 @@
       {
         "draw_a": "00010",
         "draw_b": "00834",
+        "gap_draws": 824,
         "shared": [
           10,
           31,
@@ -306,6 +333,7 @@
       {
         "draw_a": "00011",
         "draw_b": "00187",
+        "gap_draws": 176,
         "shared": [
           5,
           16,
@@ -317,6 +345,7 @@
       {
         "draw_a": "00012",
         "draw_b": "01051",
+        "gap_draws": 1039,
         "shared": [
           17,
           25,
@@ -328,6 +357,7 @@
       {
         "draw_a": "00014",
         "draw_b": "00882",
+        "gap_draws": 868,
         "shared": [
           27,
           35,
@@ -339,6 +369,7 @@
       {
         "draw_a": "00014",
         "draw_b": "00935",
+        "gap_draws": 921,
         "shared": [
           20,
           27,
@@ -350,6 +381,7 @@
       {
         "draw_a": "00015",
         "draw_b": "00444",
+        "gap_draws": 429,
         "shared": [
           5,
           11,
@@ -361,6 +393,7 @@
       {
         "draw_a": "00018",
         "draw_b": "01023",
+        "gap_draws": 1005,
         "shared": [
           1,
           23,
@@ -372,6 +405,7 @@
       {
         "draw_a": "00019",
         "draw_b": "00163",
+        "gap_draws": 144,
         "shared": [
           6,
           10,
@@ -383,6 +417,7 @@
       {
         "draw_a": "00020",
         "draw_b": "00450",
+        "gap_draws": 430,
         "shared": [
           22,
           32,
@@ -394,6 +429,7 @@
       {
         "draw_a": "00020",
         "draw_b": "00982",
+        "gap_draws": 962,
         "shared": [
           23,
           32,
@@ -405,6 +441,7 @@
       {
         "draw_a": "00021",
         "draw_b": "00041",
+        "gap_draws": 20,
         "shared": [
           9,
           12,
@@ -416,6 +453,7 @@
       {
         "draw_a": "00022",
         "draw_b": "00514",
+        "gap_draws": 492,
         "shared": [
           3,
           32,
@@ -427,6 +465,7 @@
       {
         "draw_a": "00022",
         "draw_b": "00636",
+        "gap_draws": 614,
         "shared": [
           3,
           32,
@@ -438,6 +477,7 @@
       {
         "draw_a": "00022",
         "draw_b": "01169",
+        "gap_draws": 1147,
         "shared": [
           32,
           36,
@@ -451,6 +491,7 @@
       {
         "draw_a": "00044",
         "draw_b": "00921",
+        "gap_draws": 877,
         "shared": [
           2,
           3,
@@ -463,6 +504,7 @@
       {
         "draw_a": "00190",
         "draw_b": "00875",
+        "gap_draws": 685,
         "shared": [
           1,
           11,
@@ -475,6 +517,7 @@
       {
         "draw_a": "00220",
         "draw_b": "00368",
+        "gap_draws": 148,
         "shared": [
           5,
           20,
@@ -487,6 +530,7 @@
       {
         "draw_a": "00273",
         "draw_b": "01290",
+        "gap_draws": 1017,
         "shared": [
           10,
           16,
@@ -499,6 +543,7 @@
       {
         "draw_a": "00335",
         "draw_b": "01347",
+        "gap_draws": 1012,
         "shared": [
           12,
           39,
@@ -511,6 +556,7 @@
       {
         "draw_a": "00336",
         "draw_b": "01027",
+        "gap_draws": 691,
         "shared": [
           7,
           12,
@@ -523,6 +569,7 @@
       {
         "draw_a": "00340",
         "draw_b": "00649",
+        "gap_draws": 309,
         "shared": [
           10,
           29,
@@ -535,6 +582,7 @@
       {
         "draw_a": "00431",
         "draw_b": "01011",
+        "gap_draws": 580,
         "shared": [
           12,
           13,
@@ -547,6 +595,7 @@
       {
         "draw_a": "00578",
         "draw_b": "00748",
+        "gap_draws": 170,
         "shared": [
           13,
           24,
@@ -559,6 +608,7 @@
       {
         "draw_a": "00619",
         "draw_b": "01218",
+        "gap_draws": 599,
         "shared": [
           8,
           20,
@@ -571,6 +621,7 @@
       {
         "draw_a": "00813",
         "draw_b": "01060",
+        "gap_draws": 247,
         "shared": [
           2,
           12,
@@ -583,6 +634,7 @@
       {
         "draw_a": "00990",
         "draw_b": "01012",
+        "gap_draws": 22,
         "shared": [
           3,
           10,
@@ -597,6 +649,7 @@
       {
         "draw_a": "00647",
         "draw_b": "00993",
+        "gap_draws": 346,
         "shared": [
           8,
           19,
@@ -619,8 +672,7 @@
         38,
         47
       ],
-      "power_number": 10,
-      "reason": "upstream omitted Power number; web cross-check"
+      "power_number": 10
     }
   }
 }
