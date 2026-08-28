@@ -1,4 +1,4 @@
-// BYBIT-AUTO-1.9.5: 5m/15m anti-noise entry + anti-sweep management + risk-tier-safe leverage.
+// BYBIT-AUTO-1.9.6: 5m/15m anti-noise entry + anti-sweep management + market-entry reasoning hard-lock.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
@@ -47,124 +47,81 @@ export const BYBIT_AUTO_CONFIG={
     maxTotalOpenRiskPct:18,
     maxMarginPerPositionPct:40,
     minFreeReservePct:15,
-    feeBufferPct:4,
     maxPortfolioMarginPct:75,
     dailyLossCircuitPct:8,
-    minRR:1.5,
-    preferredRR:1.8,
-    maxRR:5,
+    maxSameDirectionPositions:3,
     maxLossStreak:3,
     pauseMinutes:30,
-    maxSameDirectionPositions:3,
-    smartCutEnabled:true,
-    smartCutPositiveEnabled:true,
-    smartCutPositiveMinAgeSec:1200,
-    smartCutPositiveMinR:.05,
-    smartCutPositiveMinPeakR:.30,
-    smartCutPositiveGivebackR:.30,
-    smartCutMinAgeSec:900,
-    smartCutScore:7,
-    smartCutConfirmations:2,
-    smartCutReissueSec:180
+    minRR:1.5,
+    preferredRR:2,
+    maxRR:3
+  },
+  filters:{
+    minScore:66,
+    minAtrPct:0,
+    maxAtrPct:3.5
   },
   adaptive:{
     enabled:true,
-    baseScore:66,
+    baseScore:70,
     minScore:66,
     maxScore:84,
-    minLearningSamples:10,
-    fullLearningSamples:80,
-    shrinkagePriorTrades:20,
-    minExitProfileSamples:30,
-    correlationSoft:0.84,
-    correlationHard:0.94,
-    regimeGate:true,
-    perSymbolEdge:true,
-    netExpectancy:true,
-    strictNetAuthority:true,
-    postMortemEnabled:true,
-    postMortemMinSamples:20,
-    postMortemMaxThresholdPenalty:2,
-    strongEdgeMinSamples:30,
-    strongEdgeMinNetR:.18,
-    strongEdgeMinWinRate:.48,
-    maxOpportunityBonus:1,
-    trendAlignmentBonus:1,
-    exitProfiles:["DEFENSIVE","BALANCED","TREND_RUNNER"],
+    correlationSoft:.84,
+    correlationHard:.94,
     autoPromote:false
   },
-  filters:{minScore:66,maxSpreadBps:15,maxChaseAtr:.95,minAtrPct:0,maxAtrPct:3.4},
-  execution:{recvWindow:10000,cooldownSec:60,positionIdx:0}
+  management:{
+    smartCutEnabled:true,
+    smartCutMinAgeSec:900,
+    smartCutPositiveMinAgeSec:1200
+  }
 };
-const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
+
+const n=(env,k,d)=>{const v=Number(env?.[k]);return Number.isFinite(v)?v:d};
+const b=(env,k,d)=>{const v=String(env?.[k]??"").trim().toLowerCase();if(!v)return d;return ["1","true","yes","on"].includes(v)};
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 export function bybitAutoConfig(env={}){
   const c=structuredClone(BYBIT_AUTO_CONFIG);
-  c.startingCapitalUsd=Math.max(.5,n(env,"BYBIT_STARTING_CAPITAL_USD",c.startingCapitalUsd));
-  c.leverage=Math.max(1,Math.min(c.maxLeverage,Math.round(n(env,"BYBIT_AUTO_LEVERAGE",c.leverage))));
-  c.risk.baseBalanceUsd=Math.max(.5,n(env,"BYBIT_BASE_BALANCE_USD",c.risk.baseBalanceUsd));
-  c.risk.balanceStepUsd=Math.max(.5,n(env,"BYBIT_BALANCE_STEP_USD",c.risk.balanceStepUsd));
-  c.risk.baseRiskUsd=Math.max(.01,n(env,"BYBIT_BASE_RISK_USD",c.risk.baseRiskUsd));
-  c.risk.baseRewardUsd=Math.max(.01,n(env,"BYBIT_BASE_REWARD_USD",c.risk.baseRewardUsd));
-  c.risk.riskStepUsd=Math.max(0,n(env,"BYBIT_RISK_STEP_USD",c.risk.riskStepUsd));
-  c.risk.rewardStepUsd=Math.max(0,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
-  c.risk.maxRewardUsd=Math.max(.01,n(env,"BYBIT_MAX_REWARD_USD",c.risk.maxRewardUsd));
-  c.risk.maxRiskPctOfEquity=Math.max(1,Math.min(4.5,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
-  c.risk.targetRiskPctOfEquity=Math.max(.25,Math.min(c.risk.maxRiskPctOfEquity,n(env,"BYBIT_TARGET_RISK_PCT_OF_EQUITY",c.risk.targetRiskPctOfEquity)));
-  c.risk.maxRewardPctOfEquity=Math.max(2,Math.min(50,n(env,"BYBIT_MAX_REWARD_PCT_OF_EQUITY",c.risk.maxRewardPctOfEquity)));
-  c.risk.minNetEdgePctOfEquity=Math.max(.01,Math.min(2,n(env,"BYBIT_MIN_NET_EDGE_PCT_OF_EQUITY",c.risk.minNetEdgePctOfEquity)));
-  c.risk.minNetEdgeCostMultiple=Math.max(1,Math.min(4,n(env,"BYBIT_MIN_NET_EDGE_COST_MULTIPLE",c.risk.minNetEdgeCostMultiple)));
-  c.risk.takerFeeRate=Math.max(0,Math.min(.002,n(env,"BYBIT_TAKER_FEE_RATE",c.risk.takerFeeRate)));
-  c.risk.slippageBps=Math.max(0,Math.min(20,n(env,"BYBIT_SLIPPAGE_BPS",c.risk.slippageBps)));
-  c.risk.fixedDollarFloorAuthority=false;
-  c.risk.maxTotalOpenRiskPct=Math.max(8,Math.min(24,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.maxMarginPerPositionPct=Math.max(20,Math.min(50,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
-  c.risk.minFreeReservePct=Math.max(10,Math.min(30,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
-  c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
-  c.risk.maxPortfolioMarginPct=Math.max(60,Math.min(85,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
-  c.risk.dailyLossCircuitPct=Math.max(4,Math.min(12,n(env,"BYBIT_DAILY_LOSS_CIRCUIT_PCT",c.risk.dailyLossCircuitPct)));
-  c.risk.slotMarginAnchorEquityUsd=Math.max(.5,n(env,"BYBIT_SLOT_MARGIN_ANCHOR_EQUITY_USD",c.risk.slotMarginAnchorEquityUsd));
-  c.risk.slotMarginMaxPct=Math.max(50,Math.min(100,n(env,"BYBIT_SLOT_MARGIN_MAX_PCT",c.risk.slotMarginMaxPct)));
-  c.risk.slotMarginFloorPct=Math.max(10,Math.min(c.risk.slotMarginMaxPct,n(env,"BYBIT_SLOT_MARGIN_FLOOR_PCT",c.risk.slotMarginFloorPct)));
-  c.risk.slotMarginDecayPerDecade=Math.max(.25,Math.min(4,n(env,"BYBIT_SLOT_MARGIN_DECAY_PER_DECADE",c.risk.slotMarginDecayPerDecade)));
-  c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
-  c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
-  c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
-  c.maxOpenPositions=Math.max(2,Math.min(10,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
-  c.maxTradesPerDay=1000000000;
-  c.risk.maxSameDirectionPositions=Math.max(1,Math.min(5,Math.round(n(env,"BYBIT_MAX_SAME_DIRECTION_POSITIONS",c.risk.maxSameDirectionPositions))));
-  c.risk.minRiskUtilizationPct=Math.max(30,Math.min(65,n(env,"BYBIT_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct)));
-  c.risk.microAccountMinRiskUtilizationPct=Math.max(15,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_MICRO_MIN_RISK_UTILIZATION_PCT",c.risk.microAccountMinRiskUtilizationPct)));
-  c.risk.smallAccountMinRiskUtilizationPct=Math.max(c.risk.microAccountMinRiskUtilizationPct,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_SMALL_MIN_RISK_UTILIZATION_PCT",c.risk.smallAccountMinRiskUtilizationPct)));
-  c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
-  c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
-  c.risk.smartCutEnabled=String(env.BYBIT_DISCRETIONARY_CUT_ENABLED??String(c.risk.smartCutEnabled)).toLowerCase()==="true";
-  c.risk.smartCutPositiveEnabled=String(env.BYBIT_POSITIVE_SMART_CUT_ENABLED??String(c.risk.smartCutPositiveEnabled)).toLowerCase()==="true";
-  c.risk.smartCutPositiveMinAgeSec=Math.max(900,Math.min(2400,Math.round(n(env,"BYBIT_POSITIVE_CUT_MIN_AGE_SEC",c.risk.smartCutPositiveMinAgeSec))));
-  c.risk.smartCutPositiveMinR=Math.max(.01,Math.min(.50,n(env,"BYBIT_POSITIVE_CUT_MIN_R",c.risk.smartCutPositiveMinR)));
-  c.risk.smartCutPositiveMinPeakR=Math.max(.15,Math.min(1.20,n(env,"BYBIT_POSITIVE_CUT_MIN_PEAK_R",c.risk.smartCutPositiveMinPeakR)));
-  c.risk.smartCutPositiveGivebackR=Math.max(.10,Math.min(.80,n(env,"BYBIT_POSITIVE_CUT_GIVEBACK_R",c.risk.smartCutPositiveGivebackR)));
-  c.risk.smartCutMinAgeSec=Math.max(600,Math.min(2400,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec))));
-  c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
-  c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
-  c.risk.smartCutReissueSec=Math.max(120,Math.min(600,Math.round(n(env,"BYBIT_SMART_CUT_REISSUE_SEC",c.risk.smartCutReissueSec))));
-  c.adaptive.enabled=String(env.BYBIT_ADAPTIVE_EDGE_ENABLED??String(c.adaptive.enabled)).toLowerCase()==="true";
-  c.adaptive.baseScore=Math.max(64,Math.min(74,Math.round(n(env,"BYBIT_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore))));
-  c.adaptive.shrinkagePriorTrades=Math.max(10,Math.min(60,Math.round(n(env,"BYBIT_ADAPTIVE_SHRINKAGE_PRIOR_TRADES",c.adaptive.shrinkagePriorTrades))));
-  c.adaptive.minExitProfileSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_MIN_EXIT_PROFILE_SAMPLES",c.adaptive.minExitProfileSamples))));
-  c.adaptive.correlationSoft=Math.max(.80,Math.min(.93,n(env,"BYBIT_CORRELATION_SOFT",c.adaptive.correlationSoft)));
-  c.adaptive.correlationHard=Math.max(c.adaptive.correlationSoft+.03,Math.min(.98,n(env,"BYBIT_CORRELATION_HARD",c.adaptive.correlationHard)));
-  c.adaptive.postMortemEnabled=true;
-  c.adaptive.postMortemMinSamples=20;
-  c.adaptive.postMortemMaxThresholdPenalty=2;
-  c.adaptive.strongEdgeMinSamples=Math.max(20,Math.min(80,Math.round(n(env,"BYBIT_STRONG_EDGE_MIN_SAMPLES",c.adaptive.strongEdgeMinSamples))));
-  c.adaptive.strongEdgeMinNetR=Math.max(.05,Math.min(.60,n(env,"BYBIT_STRONG_EDGE_MIN_R",c.adaptive.strongEdgeMinNetR)));
-  c.adaptive.strongEdgeMinWinRate=Math.max(.40,Math.min(.65,n(env,"BYBIT_STRONG_EDGE_MIN_WIN_RATE",c.adaptive.strongEdgeMinWinRate)));
-  c.adaptive.maxOpportunityBonus=1;
-  c.adaptive.trendAlignmentBonus=1;
+  c.startingCapitalUsd=Math.max(1,n(env,"BYBIT_STARTING_CAPITAL_USD",c.startingCapitalUsd));
+  c.leverage=clamp(n(env,"BYBIT_AUTO_LEVERAGE",c.leverage),1,15);
+  c.maxLeverage=clamp(n(env,"BYBIT_AUTO_MAX_LEVERAGE",c.maxLeverage),1,15);
+  c.scanEverySec=Math.max(15,n(env,"BYBIT_AUTO_SCAN_EVERY_SEC",c.scanEverySec));
+  c.maxOpenPositions=clamp(Math.round(n(env,"BYBIT_AUTO_MAX_OPEN_POSITIONS",c.maxOpenPositions)),2,10);
+  c.maxTradesPerDay=Math.max(1,Math.round(n(env,"BYBIT_AUTO_MAX_TRADES_PER_DAY",c.maxTradesPerDay)));
+  c.risk.targetRiskPctOfEquity=clamp(n(env,"BYBIT_AUTO_TARGET_RISK_PCT",c.risk.targetRiskPctOfEquity),.25,4.5);
+  c.risk.maxRiskPctOfEquity=clamp(n(env,"BYBIT_AUTO_MAX_RISK_PCT",c.risk.maxRiskPctOfEquity),.5,4.5);
+  c.risk.maxRewardPctOfEquity=clamp(n(env,"BYBIT_AUTO_MAX_REWARD_PCT",c.risk.maxRewardPctOfEquity),1,30);
+  c.risk.maxTotalOpenRiskPct=clamp(n(env,"BYBIT_AUTO_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct),8,24);
+  c.risk.maxMarginPerPositionPct=clamp(n(env,"BYBIT_AUTO_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct),20,50);
+  c.risk.minFreeReservePct=clamp(n(env,"BYBIT_AUTO_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct),10,30);
+  c.risk.maxPortfolioMarginPct=clamp(n(env,"BYBIT_AUTO_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct),60,85);
+  c.risk.dailyLossCircuitPct=clamp(n(env,"BYBIT_AUTO_DAILY_LOSS_CIRCUIT_PCT",c.risk.dailyLossCircuitPct),4,12);
+  c.risk.maxSameDirectionPositions=clamp(Math.round(n(env,"BYBIT_AUTO_MAX_SAME_DIRECTION_POSITIONS",c.risk.maxSameDirectionPositions)),1,5);
+  c.risk.minRiskUtilizationPct=clamp(n(env,"BYBIT_AUTO_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct),30,65);
+  c.risk.microAccountMinRiskUtilizationPct=clamp(n(env,"BYBIT_AUTO_MICRO_MIN_RISK_UTILIZATION_PCT",c.risk.microAccountMinRiskUtilizationPct),15,c.risk.minRiskUtilizationPct);
+  c.risk.smallAccountMinRiskUtilizationPct=clamp(n(env,"BYBIT_AUTO_SMALL_MIN_RISK_UTILIZATION_PCT",c.risk.smallAccountMinRiskUtilizationPct),c.risk.microAccountMinRiskUtilizationPct,c.risk.minRiskUtilizationPct);
+  c.risk.minRR=clamp(n(env,"BYBIT_AUTO_MIN_RR",c.risk.minRR),1.5,3);
+  c.risk.preferredRR=clamp(n(env,"BYBIT_AUTO_PREFERRED_RR",c.risk.preferredRR),c.risk.minRR,4);
+  c.risk.maxRR=clamp(n(env,"BYBIT_AUTO_MAX_RR",c.risk.maxRR),c.risk.preferredRR,5);
+  c.risk.maxLossStreak=clamp(Math.round(n(env,"BYBIT_AUTO_MAX_LOSS_STREAK",c.risk.maxLossStreak)),3,8);
+  c.risk.pauseMinutes=clamp(n(env,"BYBIT_AUTO_LOSS_PAUSE_MINUTES",c.risk.pauseMinutes),5,240);
+  c.filters.minScore=clamp(n(env,"BYBIT_AUTO_MIN_SCORE",c.filters.minScore),66,84);
+  c.filters.minAtrPct=Math.max(0,n(env,"BYBIT_AUTO_MIN_ATR_PCT",c.filters.minAtrPct));
+  c.filters.maxAtrPct=clamp(n(env,"BYBIT_AUTO_MAX_ATR_PCT",c.filters.maxAtrPct),.5,8);
+  c.adaptive.enabled=b(env,"BYBIT_AUTO_ADAPTIVE_ENABLED",c.adaptive.enabled);
+  c.adaptive.baseScore=clamp(n(env,"BYBIT_AUTO_ADAPTIVE_BASE_SCORE",c.adaptive.baseScore),66,84);
+  c.adaptive.minScore=66;c.adaptive.maxScore=84;
+  c.adaptive.correlationSoft=clamp(n(env,"BYBIT_AUTO_CORRELATION_SOFT",c.adaptive.correlationSoft),.5,.93);
+  c.adaptive.correlationHard=clamp(n(env,"BYBIT_AUTO_CORRELATION_HARD",c.adaptive.correlationHard),Math.max(.85,c.adaptive.correlationSoft+.01),.99);
   c.adaptive.autoPromote=false;
-  c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,"BYBIT_RECV_WINDOW_MS",c.execution.recvWindow))));
-  c.execution.cooldownSec=Math.max(60,Math.min(180,Math.round(n(env,"BYBIT_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
+  c.management.smartCutEnabled=b(env,"BYBIT_AUTO_SMART_CUT_ENABLED",c.management.smartCutEnabled);
+  c.management.smartCutMinAgeSec=Math.max(900,n(env,"BYBIT_AUTO_SMART_CUT_MIN_AGE_SEC",c.management.smartCutMinAgeSec));
+  c.management.smartCutPositiveMinAgeSec=Math.max(1200,n(env,"BYBIT_AUTO_SMART_CUT_POSITIVE_MIN_AGE_SEC",c.management.smartCutPositiveMinAgeSec));
+  c.risk.fixedDollarFloorAuthority=false;
   return c;
 }
-export function bybitExecutionMode(env={}){if(String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true")return "LIVE";return "PAPER";}
-export function bybitCredentials(env={}){const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";if(demo)return {apiKey:env.HYRO_BYBIT_API_KEY||"",apiSecret:env.HYRO_BYBIT_API_SECRET||"",source:"HYRO_BYBIT_DEMO"};return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||"",apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||"",source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?"BYBIT_AUTO":"HYRO_BYBIT_LIVE_FALLBACK"};}
+
+export function bybitExecutionMode(env={}){
+  if(String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true")return "LIVE";
+  return String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";
+}
