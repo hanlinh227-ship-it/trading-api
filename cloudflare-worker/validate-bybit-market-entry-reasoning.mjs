@@ -18,6 +18,7 @@ const cfg=read('bybit-auto-config.js');
 
 need(reasoning,[
   'BYBIT_MARKET_ENTRY_REASONING_V1',
+  'provenance:"CLAUDE_COARCHITECT_GPT_PRIMARY_ENGINEER_FUSION"',
   'signalTimeframe:"5m"',
   'contextTimeframe:"15m"',
   'closedCandlesOnly:true',
@@ -25,12 +26,15 @@ need(reasoning,[
   'liveQuoteRequired:true',
   'staleQuoteAllowed:false',
   'noNewEntryFilters:true',
+  'noHiddenSizingRejects:true',
   'spreadDoublePenalty:false',
   'softCorrelationPolicy:"SIZE_ONLY"',
   'hardCorrelationPolicy:"REJECT"',
   'candidateFallbackSameCycle:true',
   'sameDirectionPreflight:true',
   'postAiQuoteRevalidation:true',
+  'designPriorities:["REAL_EDGE","TAIL_RISK_REDUCTION","FREQUENCY_PRESERVATION","EXECUTION_ROBUSTNESS"]',
+  'rejectComplexityWithoutEdge:true',
   'noFabricatedPrice:true',
   'autoPromoteLearning:false'
 ],'REASONING_CONTRACT');
@@ -80,4 +84,4 @@ if(errors.length){
   for(const e of errors)console.error('- '+e);
   process.exit(1);
 }
-console.log('BYBIT_MARKET_ENTRY_REASONING=PASS: runtime exposes V1 contract; closed 5m/15m authority; M1 disabled; soft correlation size-only; same-cycle fallback; same-direction preflight; post-AI quote revalidation; hard risk caps retained.');
+console.log('BYBIT_MARKET_ENTRY_REASONING=PASS: Claude+GPT fusion provenance locked; runtime exposes V1 contract; closed 5m/15m authority; M1 disabled; soft correlation size-only; same-cycle fallback; same-direction preflight; post-AI quote revalidation; hard risk caps retained.');
