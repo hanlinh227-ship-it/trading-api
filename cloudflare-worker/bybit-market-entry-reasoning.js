@@ -2,6 +2,7 @@ export const BYBIT_MARKET_ENTRY_REASONING_VERSION="BYBIT_MARKET_ENTRY_REASONING_
 export const BYBIT_MARKET_ENTRY_REASONING_CHECKPOINT="docs/checkpoints/BYBIT_GPT_MARKET_ENTRY_REASONING_20260828.md";
 
 export const BYBIT_MARKET_ENTRY_REASONING={
+  provenance:"CLAUDE_COARCHITECT_GPT_PRIMARY_ENGINEER_FUSION",
   authority:"SOURCE_FIRST_NO_BEAUTIFY",
   signalTimeframe:"5m",
   contextTimeframe:"15m",
@@ -24,6 +25,8 @@ export const BYBIT_MARKET_ENTRY_REASONING={
     protectionRequired:true,
     postAiQuoteRevalidation:true
   },
+  designPriorities:["REAL_EDGE","TAIL_RISK_REDUCTION","FREQUENCY_PRESERVATION","EXECUTION_ROBUSTNESS"],
+  rejectComplexityWithoutEdge:true,
   riskAuthority:"bybit-auto-config.js",
   decisionOutputs:["MARKET_LONG","MARKET_SHORT","NO_MARKET_ENTRY"],
   noFabricatedPrice:true,
