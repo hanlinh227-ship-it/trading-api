@@ -25,6 +25,13 @@ function retryableReadError(e){
   const h=Number(e?.bybit?.httpStatus||0),r=Number(e?.bybit?.retCode);
   return [408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(r)||(!h&&!Number.isFinite(r));
 }
+function entryOrderLinkId(body={}){
+  const symbol=String(body.symbol||"NA").replace(/[^A-Za-z0-9]/g,"").slice(0,10);
+  const side=String(body.side||"")==="Buy"?"B":"S";
+  const qty=String(body.qty||"0").replace(/[^0-9]/g,"").slice(-7)||"0";
+  const bucket=Math.floor(Date.now()/(5*60*1000)).toString(36);
+  return `ba196-${symbol}-${side}-${qty}-${bucket}`.slice(0,36);
+}
 export function bybitV5(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   const c=bybitCredentials(env),cfg=bybitAutoConfig(env),baseList=bases(env),recvWindow=String(Math.max(5000,Math.min(20000,Number(cfg.execution?.recvWindow||10000))));
@@ -103,6 +110,23 @@ export function bybitV5(env={}){
       throw e;
     }
   }
+  async function createOrder(body={}){
+    const reduceOnly=body.reduceOnly===true||String(body.closeOnTrigger||"").toLowerCase()==="true";
+    const enriched={category:"linear",...body};
+    if(!reduceOnly){
+      const side=String(body.side||"");
+      const p=await signed("GET","/v5/position/list",{category:"linear",settleCoin:"USDT",limit:200});
+      const rows=p?.result?.list||[],sameDirectionCount=rows.filter(x=>Number(x?.size||0)>0&&String(x?.side||"")===side).length;
+      const maxSameDirection=Math.max(1,Number(cfg?.risk?.maxSameDirectionPositions||3));
+      if(side&&sameDirectionCount>=maxSameDirection){
+        const e=new Error(`SAME_DIRECTION_EXPOSURE_CAP: ${side} ${sameDirectionCount}/${maxSameDirection}`);
+        e.bybit={path:"LOCAL_ORDER_PREFLIGHT",httpStatus:0,retCode:null,retMsg:"SAME_DIRECTION_EXPOSURE_CAP",transport:"LOCAL_FAIL_CLOSED",runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION};
+        throw e;
+      }
+      if(!enriched.orderLinkId)enriched.orderLinkId=entryOrderLinkId(enriched);
+    }
+    return signed("POST","/v5/order/create",enriched);
+  }
   return {
     credentialSource:c.source,credentialsPresent:!!(c.apiKey&&c.apiSecret),bases:baseList,privateTransport:demo?"CLOUDFLARE_BYBIT_DEMO_DIRECT":BYBIT_PRIVATE_TRANSPORT,marketTransport:demo?"CLOUDFLARE_BYBIT_DEMO_PUBLIC":BYBIT_MARKET_TRANSPORT,runtimeContract:BYBIT_RUNTIME_CONTRACT_VERSION,recvWindowMs:Number(recvWindow),
     serverTime:()=>market("/v5/market/time"),
@@ -115,7 +139,7 @@ export function bybitV5(env={}){
     kline:(symbol,interval="1",limit=200)=>market("/v5/market/kline",{category:"linear",symbol,interval,limit}),
     klineRange:(symbol,{interval="1",start,end,limit=200}={})=>market("/v5/market/kline",{category:"linear",symbol,interval,start,end,limit}),
     ticker:(symbol)=>market("/v5/market/tickers",{category:"linear",symbol}),
-    order:body=>signed("POST","/v5/order/create",{category:"linear",...body}),
+    order:createOrder,
     orderStatus:(symbol,orderId)=>signed("GET","/v5/order/realtime",{category:"linear",symbol,orderId,limit:1}),
     setLeverage,
     tradingStop:(body)=>signed("POST","/v5/position/trading-stop",{category:"linear",...body}),
