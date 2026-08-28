@@ -15,21 +15,28 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout project
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          path: project
 
-      - name: Download and validate Power 6/55 full history
+      - name: Checkout public Vietlott dataset
+        uses: actions/checkout@v4
+        with:
+          repository: vietvudanh/vietlott-data
+          ref: main
+          path: upstream
+
+      - name: Normalize and validate full Power 6/55 history
         shell: bash
         run: |
           set -euo pipefail
+          cd project
           mkdir -p data/vietlott/power655
-          curl --fail --location --retry 3 \
-            'https://raw.githubusercontent.com/vietvudanh/vietlott-data/main/data/power655.jsonl' \
-            -o /tmp/power655.source.jsonl
           python3 - <<'PY'
           import csv, json, pathlib, datetime
-          src = pathlib.Path('/tmp/power655.source.jsonl')
+          src = pathlib.Path('../upstream/data/power655.jsonl')
           out_dir = pathlib.Path('data/vietlott/power655')
           rows, seen = [], set()
           for raw in src.read_text(encoding='utf-8').splitlines():
@@ -41,18 +48,16 @@ jobs:
               main, power = result[:6], result[6]
               if len(set(main)) != 6 or any(v < 1 or v > 55 for v in result): raise SystemExit(f'Invalid numbers at {draw_id}: {result}')
               if draw_id in seen: raise SystemExit(f'Duplicate draw id: {draw_id}')
-              seen.add(draw_id)
-              rows.append((x['date'], draw_id, *main, power))
+              seen.add(draw_id); rows.append((x['date'], draw_id, *main, power))
           rows.sort(key=lambda r: int(r[1]))
           if not rows or rows[0][1] != '00001': raise SystemExit('History does not start at #00001')
-          for i, row in enumerate(rows, 1):
+          for i,row in enumerate(rows,1):
               if int(row[1]) != i: raise SystemExit(f'Non-contiguous draw ids around #{i:05d}: got {row[1]}')
-          with (out_dir/'power655_all_draws.csv').open('w', newline='', encoding='utf-8') as f:
+          with (out_dir/'power655_all_draws.csv').open('w',newline='',encoding='utf-8') as f:
               w=csv.writer(f); w.writerow(['date','draw_id','n1','n2','n3','n4','n5','n6','power_number']); w.writerows(rows)
-          with (out_dir/'power655_all_draws.jsonl').open('w', encoding='utf-8') as f:
-              for r in rows:
-                  f.write(json.dumps({'date':r[0],'draw_id':r[1],'numbers':list(r[2:8]),'power_number':r[8]},ensure_ascii=False,separators=(',',':'))+'\n')
-          meta={'product':'Vietlott Power 6/55','draw_count':len(rows),'first_draw':{'id':rows[0][1],'date':rows[0][0],'numbers':list(rows[0][2:8]),'power_number':rows[0][8]},'latest_draw':{'id':rows[-1][1],'date':rows[-1][0],'numbers':list(rows[-1][2:8]),'power_number':rows[-1][8]},'updated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'upstream':'vietvudanh/vietlott-data:data/power655.jsonl','note':'First six values are main numbers; seventh upstream value is Power/Jackpot-2 number.'}
+          with (out_dir/'power655_all_draws.jsonl').open('w',encoding='utf-8') as f:
+              for r in rows: f.write(json.dumps({'date':r[0],'draw_id':r[1],'numbers':list(r[2:8]),'power_number':r[8]},ensure_ascii=False,separators=(',',':'))+'\n')
+          meta={'product':'Vietlott Power 6/55','draw_count':len(rows),'first_draw':{'id':rows[0][1],'date':rows[0][0],'numbers':list(rows[0][2:8]),'power_number':rows[0][8]},'latest_draw':{'id':rows[-1][1],'date':rows[-1][0],'numbers':list(rows[-1][2:8]),'power_number':rows[-1][8]},'updated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'upstream':'vietvudanh/vietlott-data:data/power655.jsonl'}
           (out_dir/'metadata.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
           print(json.dumps(meta,ensure_ascii=False,indent=2))
           PY
@@ -61,7 +66,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- data/vietlott/power655; then echo 'No dataset changes.'; exit 0; fi
+          cd project
+          if git diff --quiet -- data/vietlott/power655 && [ -f data/vietlott/power655/metadata.json ]; then echo 'No dataset changes.'; exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/vietlott/power655
