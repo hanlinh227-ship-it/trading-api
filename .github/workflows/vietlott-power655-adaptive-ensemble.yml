@@ -1,0 +1,52 @@
+name: Vietlott Power 6/55 Adaptive Ensemble Research
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/vietlott/power655_adaptive_ensemble_research.py'
+      - '.github/workflows/vietlott-power655-adaptive-ensemble.yml'
+permissions:
+  contents: write
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+        with: {fetch-depth: 0, path: project}
+      - name: Checkout public Vietlott dataset
+        uses: actions/checkout@v4
+        with: {repository: vietvudanh/vietlott-data, ref: main, path: upstream}
+      - name: Normalize current dataset
+        shell: bash
+        run: |
+          set -euo pipefail; cd project; mkdir -p data/vietlott/power655
+          python3 - <<'PY'
+          import csv,json,pathlib
+          src=pathlib.Path('../upstream/data/power655.jsonl');out=pathlib.Path('data/vietlott/power655');rep={'00944':[8,23,30,34,38,47,10]};rows=[]
+          for raw in src.read_text().splitlines():
+            if not raw.strip(): continue
+            x=json.loads(raw); did=str(x['id']).zfill(5); rr=[int(v) for v in x['result']]
+            if did in rep: rr=rep[did]
+            if len(rr)!=7 or len(set(rr[:6]))!=6 or any(v<1 or v>55 for v in rr): raise SystemExit(f'invalid {did}')
+            rows.append((x['date'],did,*rr))
+          rows.sort(key=lambda x:int(x[1]))
+          for i,x in enumerate(rows,1):
+            if int(x[1])!=i: raise SystemExit(f'gap {i}')
+          with (out/'power655_all_draws.csv').open('w',newline='') as f:
+            w=csv.writer(f);w.writerow(['date','draw_id','n1','n2','n3','n4','n5','n6','power_number']);w.writerows(rows)
+          print('draws',len(rows))
+          PY
+      - name: Strict adaptive ensemble backtest
+        run: cd project && python3 scripts/vietlott/power655_adaptive_ensemble_research.py
+      - name: Commit result
+        run: |
+          set -euo pipefail; cd project
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/vietlott/power655/adaptive_ensemble_research.json data/vietlott/power655/power655_all_draws.csv
+          if git diff --cached --quiet; then echo 'No changes.'; exit 0; fi
+          git commit -m 'research(vietlott): update adaptive ensemble results'
+          git pull --rebase origin main
+          git push
