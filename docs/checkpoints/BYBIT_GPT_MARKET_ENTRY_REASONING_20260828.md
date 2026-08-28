@@ -3,6 +3,14 @@
 ## Mục đích
 Checkpoint này dùng để giữ nguyên cùng một tư duy giữa bot Bybit runtime và các cuộc chat GPT khác khi người dùng yêu cầu tìm lệnh MARKET ngay tại GPT.
 
+## Provenance Claude + GPT
+Reasoning hiện tại là bản hợp nhất giữa:
+- Claude ở vai trò co-architect: ưu tiên tail-risk, execution safety, reconciliation, sizing theo context, tránh over-filter và yêu cầu mọi thay đổi phải chứng minh tăng edge hoặc giảm tail-risk.
+- GPT ở vai trò primary engineer: verify source trước khi sửa, bảo toàn tần suất lệnh, loại double-count/filter ngầm, chuyển soft correlation từ reject sang size-only, candidate fallback cùng cycle, post-AI quote revalidation và hard-lock bằng validator.
+
+Runtime marker bắt buộc: `CLAUDE_COARCHITECT_GPT_PRIMARY_ENGINEER_FUSION`.
+Nguyên tắc quyết định: nếu một thay đổi chỉ tăng complexity mà không tăng real edge, giảm tail-risk hoặc tăng execution robustness thì REJECT.
+
 ## Authority chain
 1. Fresh-read GitHub `main` trước mọi phân tích.
 2. Source hiện tại thắng mọi checkpoint cũ nếu có xung đột.
@@ -81,6 +89,9 @@ Các thay đổi frequency-preserving đã merge trước checkpoint này:
 - bỏ spread double-punishment trong adaptive threshold;
 - soft correlation chuyển từ binary reject sang size-only scaling;
 - utilization floor scale theo contextual multiplier để không thành hidden gate;
-- same-direction cap được đưa lên candidate risk preflight để fallback trong cùng cycle.
+- same-direction cap được đưa lên candidate risk preflight để fallback trong cùng cycle;
+- runtime expose full reasoning object để `/runtime/contract` có thể audit;
+- validator riêng hard-lock reasoning invariants và provenance Claude+GPT.
 
-Checkpoint này không phải bằng chứng production LIVE. Chỉ được tuyên bố LIVE khi production verify thực tế PASS theo quy trình dự án.
+## Deployment verification rule
+Bybit runtime verification phải độc lập với Forex health. Forex/MT5 stale heartbeat phải được báo riêng, không được làm một Bybit deploy đã PASS bị đánh FAIL giả. Checkpoint này vẫn không phải bằng chứng production LIVE; chỉ được tuyên bố môi trường nào đã verified đúng môi trường đó.
