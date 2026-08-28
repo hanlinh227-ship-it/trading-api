@@ -6,7 +6,7 @@ export const BYBIT_AUTO_CONFIG={
   leverage:15,
   maxLeverage:15,
   scanEverySec:60,
-  maxOpenPositions:1000000,
+  maxOpenPositions:6,
   maxTradesPerDay:1000000000,
   risk:{
     mode:"CONTINUOUS_EQUITY_CURVE_FULL_CAPITAL_ALLOCATOR",
@@ -25,36 +25,37 @@ export const BYBIT_AUTO_CONFIG={
     maxRewardUsd:10,
     minRiskUsd:0,
     minRewardUsd:0,
-    minRiskUtilizationPct:45,
-    microAccountMinRiskUtilizationPct:25,
-    smallAccountMinRiskUtilizationPct:40,
+    minRiskUtilizationPct:40,
+    microAccountMinRiskUtilizationPct:20,
+    smallAccountMinRiskUtilizationPct:30,
     riskCurveAnchorEquityUsd:25,
-    riskCurveSmallPct:6,
+    riskCurveSmallPct:4,
     riskCurveLargeFloorPct:.75,
-    riskCurveDecayPerDecade:1.25,
+    riskCurveDecayPerDecade:1.0,
     slotMarginAnchorEquityUsd:5,
     slotMarginMaxPct:100,
     slotMarginFloorPct:20,
     slotMarginDecayPerDecade:1.25,
-    targetRiskPctOfEquity:6,
-    maxRiskPctOfEquity:6.5,
+    targetRiskPctOfEquity:4,
+    maxRiskPctOfEquity:4.5,
     maxRewardPctOfEquity:20,
     minNetEdgePctOfEquity:.15,
     minNetEdgeCostMultiple:1.50,
     takerFeeRate:.00055,
     slippageBps:2,
     fixedDollarFloorAuthority:false,
-    maxTotalOpenRiskPct:36,
-    maxMarginPerPositionPct:100,
-    minFreeReservePct:0,
+    maxTotalOpenRiskPct:18,
+    maxMarginPerPositionPct:40,
+    minFreeReservePct:15,
     feeBufferPct:4,
-    maxPortfolioMarginPct:100,
+    maxPortfolioMarginPct:75,
+    dailyLossCircuitPct:8,
     minRR:1.5,
     preferredRR:1.8,
     maxRR:5,
     maxLossStreak:3,
     pauseMinutes:30,
-    maxSameDirectionPositions:1000000,
+    maxSameDirectionPositions:3,
     smartCutEnabled:true,
     smartCutPositiveEnabled:true,
     smartCutPositiveMinAgeSec:1200,
@@ -75,8 +76,8 @@ export const BYBIT_AUTO_CONFIG={
     fullLearningSamples:80,
     shrinkagePriorTrades:20,
     minExitProfileSamples:30,
-    correlationSoft:0.86,
-    correlationHard:0.95,
+    correlationSoft:0.84,
+    correlationHard:0.94,
     regimeGate:true,
     perSymbolEdge:true,
     netExpectancy:true,
@@ -107,19 +108,20 @@ export function bybitAutoConfig(env={}){
   c.risk.riskStepUsd=Math.max(0,n(env,"BYBIT_RISK_STEP_USD",c.risk.riskStepUsd));
   c.risk.rewardStepUsd=Math.max(0,n(env,"BYBIT_REWARD_STEP_USD",c.risk.rewardStepUsd));
   c.risk.maxRewardUsd=Math.max(.01,n(env,"BYBIT_MAX_REWARD_USD",c.risk.maxRewardUsd));
+  c.risk.maxRiskPctOfEquity=Math.max(1,Math.min(4.5,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.targetRiskPctOfEquity=Math.max(.25,Math.min(c.risk.maxRiskPctOfEquity,n(env,"BYBIT_TARGET_RISK_PCT_OF_EQUITY",c.risk.targetRiskPctOfEquity)));
-  c.risk.maxRiskPctOfEquity=Math.max(1,Math.min(6.5,n(env,"BYBIT_MAX_RISK_PCT_OF_EQUITY",c.risk.maxRiskPctOfEquity)));
   c.risk.maxRewardPctOfEquity=Math.max(2,Math.min(50,n(env,"BYBIT_MAX_REWARD_PCT_OF_EQUITY",c.risk.maxRewardPctOfEquity)));
   c.risk.minNetEdgePctOfEquity=Math.max(.01,Math.min(2,n(env,"BYBIT_MIN_NET_EDGE_PCT_OF_EQUITY",c.risk.minNetEdgePctOfEquity)));
   c.risk.minNetEdgeCostMultiple=Math.max(1,Math.min(4,n(env,"BYBIT_MIN_NET_EDGE_COST_MULTIPLE",c.risk.minNetEdgeCostMultiple)));
   c.risk.takerFeeRate=Math.max(0,Math.min(.002,n(env,"BYBIT_TAKER_FEE_RATE",c.risk.takerFeeRate)));
   c.risk.slippageBps=Math.max(0,Math.min(20,n(env,"BYBIT_SLIPPAGE_BPS",c.risk.slippageBps)));
   c.risk.fixedDollarFloorAuthority=false;
-  c.risk.maxTotalOpenRiskPct=Math.max(6,Math.min(36,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
-  c.risk.maxMarginPerPositionPct=Math.max(10,Math.min(100,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
-  c.risk.minFreeReservePct=Math.max(0,Math.min(20,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
+  c.risk.maxTotalOpenRiskPct=Math.max(8,Math.min(24,n(env,"BYBIT_MAX_TOTAL_OPEN_RISK_PCT",c.risk.maxTotalOpenRiskPct)));
+  c.risk.maxMarginPerPositionPct=Math.max(20,Math.min(50,n(env,"BYBIT_MAX_MARGIN_PER_POSITION_PCT",c.risk.maxMarginPerPositionPct)));
+  c.risk.minFreeReservePct=Math.max(10,Math.min(30,n(env,"BYBIT_MIN_FREE_RESERVE_PCT",c.risk.minFreeReservePct)));
   c.risk.feeBufferPct=Math.max(2,Math.min(12,n(env,"BYBIT_FEE_BUFFER_PCT",c.risk.feeBufferPct)));
-  c.risk.maxPortfolioMarginPct=Math.max(50,Math.min(100,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.risk.maxPortfolioMarginPct=Math.max(60,Math.min(85,n(env,"BYBIT_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.risk.dailyLossCircuitPct=Math.max(4,Math.min(12,n(env,"BYBIT_DAILY_LOSS_CIRCUIT_PCT",c.risk.dailyLossCircuitPct)));
   c.risk.slotMarginAnchorEquityUsd=Math.max(.5,n(env,"BYBIT_SLOT_MARGIN_ANCHOR_EQUITY_USD",c.risk.slotMarginAnchorEquityUsd));
   c.risk.slotMarginMaxPct=Math.max(50,Math.min(100,n(env,"BYBIT_SLOT_MARGIN_MAX_PCT",c.risk.slotMarginMaxPct)));
   c.risk.slotMarginFloorPct=Math.max(10,Math.min(c.risk.slotMarginMaxPct,n(env,"BYBIT_SLOT_MARGIN_FLOOR_PCT",c.risk.slotMarginFloorPct)));
@@ -127,10 +129,11 @@ export function bybitAutoConfig(env={}){
   c.risk.minRR=Math.max(1.5,Math.min(2,n(env,"BYBIT_MIN_RR",c.risk.minRR)));
   c.risk.preferredRR=Math.max(c.risk.minRR,Math.min(5,n(env,"BYBIT_PREFERRED_RR",c.risk.preferredRR)));
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
-  c.maxOpenPositions=Math.max(1,Math.min(1000000,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
+  c.maxOpenPositions=Math.max(2,Math.min(10,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
   c.maxTradesPerDay=1000000000;
-  c.risk.minRiskUtilizationPct=Math.max(35,Math.min(70,n(env,"BYBIT_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct)));
-  c.risk.microAccountMinRiskUtilizationPct=Math.max(20,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_MICRO_MIN_RISK_UTILIZATION_PCT",c.risk.microAccountMinRiskUtilizationPct)));
+  c.risk.maxSameDirectionPositions=Math.max(1,Math.min(5,Math.round(n(env,"BYBIT_MAX_SAME_DIRECTION_POSITIONS",c.risk.maxSameDirectionPositions))));
+  c.risk.minRiskUtilizationPct=Math.max(30,Math.min(65,n(env,"BYBIT_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct)));
+  c.risk.microAccountMinRiskUtilizationPct=Math.max(15,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_MICRO_MIN_RISK_UTILIZATION_PCT",c.risk.microAccountMinRiskUtilizationPct)));
   c.risk.smallAccountMinRiskUtilizationPct=Math.max(c.risk.microAccountMinRiskUtilizationPct,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_SMALL_MIN_RISK_UTILIZATION_PCT",c.risk.smallAccountMinRiskUtilizationPct)));
   c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
   c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
