@@ -8,6 +8,7 @@ on:
       - '.github/workflows/vietlott-power655-sync.yml'
       - 'scripts/vietlott/power655_math_transform_research.py'
       - 'scripts/vietlott/power655_blind_random_transform_search.py'
+      - 'scripts/vietlott/power655_walkforward_statistical_search.py'
 permissions:
   contents: write
 jobs:
@@ -31,7 +32,7 @@ jobs:
             if not raw.strip():continue
             x=json.loads(raw);did=str(x['id']).zfill(5);r=[int(v) for v in x['result']]
             if did in rep:r=rep[did]
-            if len(r)!=7 or len(set(r[:6]))!=6:raise SystemExit(f'invalid {did}')
+            if len(r)!=7 or len(set(r[:6]))!=6 or any(v<1 or v>55 for v in r):raise SystemExit(f'invalid {did}')
             rows.append((x['date'],did,*r))
           rows.sort(key=lambda x:int(x[1]))
           for i,r in enumerate(rows,1):
@@ -44,6 +45,8 @@ jobs:
         run: cd project && python3 scripts/vietlott/power655_math_transform_research.py
       - name: Blind random transform backtest
         run: cd project && python3 scripts/vietlott/power655_blind_random_transform_search.py
+      - name: Walk-forward statistical search
+        run: cd project && python3 scripts/vietlott/power655_walkforward_statistical_search.py
       - name: Commit research
         run: |
-          set -euo pipefail; cd project; git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'; git add data/vietlott/power655; if git diff --cached --quiet; then echo 'No changes.'; exit 0; fi; git commit -m 'research(vietlott): blind random transform results'; git push
+          set -euo pipefail; cd project; git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'; git add data/vietlott/power655; if git diff --cached --quiet; then echo 'No changes.'; exit 0; fi; git commit -m 'research(vietlott): update statistical results'; git push
