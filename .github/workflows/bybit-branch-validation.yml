@@ -6,6 +6,7 @@ on:
     paths:
       - 'cloudflare-worker/**'
       - '.github/workflows/bybit-branch-validation.yml'
+      - '.github/workflows/deploy-cloudflare-worker.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +22,9 @@ jobs:
       - name: Worker syntax and safety validator
         working-directory: cloudflare-worker
         run: node validate-worker.mjs
+      - name: Bybit market-entry reasoning validator
+        working-directory: cloudflare-worker
+        run: node validate-bybit-market-entry-reasoning.mjs
       - name: Bybit learning integrity validator
         working-directory: cloudflare-worker
         run: node validate-bybit-learning.mjs
