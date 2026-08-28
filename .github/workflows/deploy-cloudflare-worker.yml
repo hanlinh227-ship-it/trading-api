@@ -71,11 +71,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          EXPECTED_BYBIT_VERSION="$(grep -oE 'BYBIT-AUTO-[0-9]+\.[0-9]+\.[0-9]+' cloudflare-worker/bybit-runtime-contract.js | head -1)"
+          test -n "$EXPECTED_BYBIT_VERSION"
+          export EXPECTED_BYBIT_VERSION
+          echo "EXPECTED_BYBIT_VERSION=$EXPECTED_BYBIT_VERSION"
           verify_once() {
             CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
-            if ! printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!=='BYBIT-AUTO-1.9.1')process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion)}catch{process.exit(2)}})"; then return 1; fi
+            if ! printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" EXPECTED_BYBIT_VERSION="$EXPECTED_BYBIT_VERSION" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!==process.env.EXPECTED_BYBIT_VERSION)process.exit(2);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion)}catch{process.exit(2)}})"; then return 1; fi
             HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health" || true)"
-            if ! printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated)process.exit(2);if(x.version!=='BYBIT-AUTO-1.9.1'||x.mode!=='LIVE'||x.environment!=='DEMO'||x.demo!==true)process.exit(3);if(x.credentialSource!=='HYRO_BYBIT_DEMO'||x.apiBase!=='https://api-demo.bybit.com')process.exit(4);if(x.privateTransport!=='CLOUDFLARE_BYBIT_DEMO_DIRECT'||x.marketTransport!=='CLOUDFLARE_BYBIT_DEMO_PUBLIC')process.exit(5);if(!x.execution?.scheduled||!x.execution?.ready||!x.execution?.liveAck||Number(x.account?.totalEquity)<=0)process.exit(6);console.log('BYBIT_DEMO_READY=PASS')}catch{process.exit(2)}})"; then return 1; fi
+            if ! printf '%s\n' "$HEALTH" | EXPECTED_BYBIT_VERSION="$EXPECTED_BYBIT_VERSION" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated)process.exit(2);if(x.version!==process.env.EXPECTED_BYBIT_VERSION||x.mode!=='LIVE'||x.environment!=='DEMO'||x.demo!==true)process.exit(3);if(x.credentialSource!=='HYRO_BYBIT_DEMO'||x.apiBase!=='https://api-demo.bybit.com')process.exit(4);if(x.privateTransport!=='CLOUDFLARE_BYBIT_DEMO_DIRECT'||x.marketTransport!=='CLOUDFLARE_BYBIT_DEMO_PUBLIC')process.exit(5);if(!x.execution?.scheduled||!x.execution?.ready||!x.execution?.liveAck||Number(x.account?.totalEquity)<=0)process.exit(6);console.log('BYBIT_DEMO_READY=PASS')}catch{process.exit(2)}})"; then return 1; fi
             STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status" || true)"
             if ! printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.bybit?.autoEnabled||!x.bybit?.live||x.bybit?.demo!==true||x.bybit?.environment!=='DEMO')process.exit(7);if(!x.forex?.liveEnabled)process.exit(8);console.log('BYBIT_DEMO_FOREX_ISOLATION=PASS')}catch{process.exit(2)}})"; then return 1; fi
             FX="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/forex/health" || true)"
