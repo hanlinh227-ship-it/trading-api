@@ -1,10 +1,10 @@
-// BYBIT-AUTO-1.9.2: continuous equity-curve sizing + 3m/15m decision horizon + delayed Smart CUT management.
+// BYBIT-AUTO-1.9.5: 5m/15m anti-noise entry + anti-sweep management + risk-tier-safe leverage.
 import {BYBIT_AUTO_VERSION} from "./bybit-runtime-contract.js";
 export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
   startingCapitalUsd:50,
-  leverage:50,
-  maxLeverage:75,
+  leverage:15,
+  maxLeverage:15,
   scanEverySec:60,
   maxOpenPositions:1000000,
   maxTradesPerDay:1000000000,
@@ -25,9 +25,9 @@ export const BYBIT_AUTO_CONFIG={
     maxRewardUsd:10,
     minRiskUsd:0,
     minRewardUsd:0,
-    minRiskUtilizationPct:60,
-    microAccountMinRiskUtilizationPct:35,
-    smallAccountMinRiskUtilizationPct:55,
+    minRiskUtilizationPct:45,
+    microAccountMinRiskUtilizationPct:25,
+    smallAccountMinRiskUtilizationPct:40,
     riskCurveAnchorEquityUsd:25,
     riskCurveSmallPct:6,
     riskCurveLargeFloorPct:.75,
@@ -57,11 +57,11 @@ export const BYBIT_AUTO_CONFIG={
     maxSameDirectionPositions:1000000,
     smartCutEnabled:true,
     smartCutPositiveEnabled:true,
-    smartCutPositiveMinAgeSec:900,
+    smartCutPositiveMinAgeSec:1200,
     smartCutPositiveMinR:.05,
     smartCutPositiveMinPeakR:.30,
-    smartCutPositiveGivebackR:.25,
-    smartCutMinAgeSec:600,
+    smartCutPositiveGivebackR:.30,
+    smartCutMinAgeSec:900,
     smartCutScore:7,
     smartCutConfirmations:2,
     smartCutReissueSec:180
@@ -129,18 +129,18 @@ export function bybitAutoConfig(env={}){
   c.risk.maxRR=Math.max(c.risk.preferredRR,Math.min(6,n(env,"BYBIT_MAX_RR",c.risk.maxRR)));
   c.maxOpenPositions=Math.max(1,Math.min(1000000,Math.round(n(env,"BYBIT_MAX_OPEN_POSITIONS",c.maxOpenPositions))));
   c.maxTradesPerDay=1000000000;
-  c.risk.minRiskUtilizationPct=Math.max(40,Math.min(80,n(env,"BYBIT_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct)));
+  c.risk.minRiskUtilizationPct=Math.max(35,Math.min(70,n(env,"BYBIT_MIN_RISK_UTILIZATION_PCT",c.risk.minRiskUtilizationPct)));
   c.risk.microAccountMinRiskUtilizationPct=Math.max(20,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_MICRO_MIN_RISK_UTILIZATION_PCT",c.risk.microAccountMinRiskUtilizationPct)));
   c.risk.smallAccountMinRiskUtilizationPct=Math.max(c.risk.microAccountMinRiskUtilizationPct,Math.min(c.risk.minRiskUtilizationPct,n(env,"BYBIT_SMALL_MIN_RISK_UTILIZATION_PCT",c.risk.smallAccountMinRiskUtilizationPct)));
   c.risk.maxLossStreak=Math.max(3,Math.round(n(env,"BYBIT_MAX_LOSS_STREAK_INTERNAL",c.risk.maxLossStreak)));
   c.risk.pauseMinutes=Math.max(30,Math.round(n(env,"BYBIT_LOSS_PAUSE_MINUTES_INTERNAL",c.risk.pauseMinutes)));
   c.risk.smartCutEnabled=String(env.BYBIT_DISCRETIONARY_CUT_ENABLED??String(c.risk.smartCutEnabled)).toLowerCase()==="true";
   c.risk.smartCutPositiveEnabled=String(env.BYBIT_POSITIVE_SMART_CUT_ENABLED??String(c.risk.smartCutPositiveEnabled)).toLowerCase()==="true";
-  c.risk.smartCutPositiveMinAgeSec=Math.max(600,Math.min(1800,Math.round(n(env,"BYBIT_POSITIVE_CUT_MIN_AGE_SEC",c.risk.smartCutPositiveMinAgeSec))));
+  c.risk.smartCutPositiveMinAgeSec=Math.max(900,Math.min(2400,Math.round(n(env,"BYBIT_POSITIVE_CUT_MIN_AGE_SEC",c.risk.smartCutPositiveMinAgeSec))));
   c.risk.smartCutPositiveMinR=Math.max(.01,Math.min(.50,n(env,"BYBIT_POSITIVE_CUT_MIN_R",c.risk.smartCutPositiveMinR)));
   c.risk.smartCutPositiveMinPeakR=Math.max(.15,Math.min(1.20,n(env,"BYBIT_POSITIVE_CUT_MIN_PEAK_R",c.risk.smartCutPositiveMinPeakR)));
   c.risk.smartCutPositiveGivebackR=Math.max(.10,Math.min(.80,n(env,"BYBIT_POSITIVE_CUT_GIVEBACK_R",c.risk.smartCutPositiveGivebackR)));
-  c.risk.smartCutMinAgeSec=Math.max(300,Math.min(1800,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec))));
+  c.risk.smartCutMinAgeSec=Math.max(600,Math.min(2400,Math.round(n(env,"BYBIT_CUT_MIN_AGE_SEC",c.risk.smartCutMinAgeSec))));
   c.risk.smartCutScore=Math.max(6,Math.min(9,Math.round(n(env,"BYBIT_SMART_CUT_SCORE",c.risk.smartCutScore))));
   c.risk.smartCutConfirmations=Math.max(2,Math.min(3,Math.round(n(env,"BYBIT_SMART_CUT_CONFIRMATIONS",c.risk.smartCutConfirmations))));
   c.risk.smartCutReissueSec=Math.max(120,Math.min(600,Math.round(n(env,"BYBIT_SMART_CUT_REISSUE_SEC",c.risk.smartCutReissueSec))));
