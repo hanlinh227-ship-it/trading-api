@@ -1,0 +1,223 @@
+{
+  "draw_count": 1390,
+  "protocol": "strict sequential walk-forward; prediction for t uses draws < t; family selected before final 240-draw holdout",
+  "random_number_accuracy": 0.10909090909090909,
+  "development": [
+    {
+      "family": "bayes",
+      "draws": 900,
+      "histogram": [
+        445,
+        349,
+        94,
+        12,
+        0,
+        0,
+        0
+      ],
+      "matches": 573,
+      "mean_hits": 0.6366666666666667,
+      "number_accuracy": 0.10611111111111111,
+      "lift_vs_random": -0.0029797979797979712,
+      "rate_3plus": 0.013333333333333334,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "lag",
+      "draws": 900,
+      "histogram": [
+        445,
+        335,
+        103,
+        17,
+        0,
+        0,
+        0
+      ],
+      "matches": 592,
+      "mean_hits": 0.6577777777777778,
+      "number_accuracy": 0.10962962962962963,
+      "lift_vs_random": 0.0005387205387205468,
+      "rate_3plus": 0.01888888888888889,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "transform",
+      "draws": 900,
+      "histogram": [
+        434,
+        353,
+        101,
+        12,
+        0,
+        0,
+        0
+      ],
+      "matches": 591,
+      "mean_hits": 0.6566666666666666,
+      "number_accuracy": 0.10944444444444444,
+      "lift_vs_random": 0.0003535353535353558,
+      "rate_3plus": 0.013333333333333334,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    }
+  ],
+  "selected_family": "lag",
+  "holdout": {
+    "family": "lag",
+    "draws": 240,
+    "histogram": [
+      125,
+      76,
+      38,
+      1,
+      0,
+      0,
+      0
+    ],
+    "matches": 155,
+    "mean_hits": 0.6458333333333334,
+    "number_accuracy": 0.1076388888888889,
+    "lift_vs_random": -0.0014520202020201906,
+    "rate_3plus": 0.004166666666666667,
+    "rate_4plus": 0.0,
+    "rate_5plus": 0.0,
+    "rate_6": 0.0
+  },
+  "holdout_z_vs_random": -0.17674328762454344,
+  "chronological_blocks": [
+    {
+      "family": "lag",
+      "draws": 200,
+      "histogram": [
+        110,
+        67,
+        20,
+        3,
+        0,
+        0,
+        0
+      ],
+      "matches": 116,
+      "mean_hits": 0.58,
+      "number_accuracy": 0.09666666666666666,
+      "lift_vs_random": -0.012424242424242421,
+      "rate_3plus": 0.015,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "lag",
+      "draws": 200,
+      "histogram": [
+        101,
+        67,
+        28,
+        4,
+        0,
+        0,
+        0
+      ],
+      "matches": 135,
+      "mean_hits": 0.675,
+      "number_accuracy": 0.1125,
+      "lift_vs_random": 0.003409090909090917,
+      "rate_3plus": 0.02,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "lag",
+      "draws": 200,
+      "histogram": [
+        95,
+        79,
+        23,
+        3,
+        0,
+        0,
+        0
+      ],
+      "matches": 134,
+      "mean_hits": 0.67,
+      "number_accuracy": 0.11166666666666666,
+      "lift_vs_random": 0.0025757575757575785,
+      "rate_3plus": 0.015,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "lag",
+      "draws": 200,
+      "histogram": [
+        94,
+        84,
+        18,
+        4,
+        0,
+        0,
+        0
+      ],
+      "matches": 132,
+      "mean_hits": 0.66,
+      "number_accuracy": 0.11,
+      "lift_vs_random": 0.0009090909090909149,
+      "rate_3plus": 0.02,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "lag",
+      "draws": 200,
+      "histogram": [
+        92,
+        73,
+        31,
+        4,
+        0,
+        0,
+        0
+      ],
+      "matches": 147,
+      "mean_hits": 0.735,
+      "number_accuracy": 0.1225,
+      "lift_vs_random": 0.013409090909090912,
+      "rate_3plus": 0.02,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    },
+    {
+      "family": "lag",
+      "draws": 140,
+      "histogram": [
+        78,
+        41,
+        21,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matches": 83,
+      "mean_hits": 0.5928571428571429,
+      "number_accuracy": 0.0988095238095238,
+      "lift_vs_random": -0.01028138528138528,
+      "rate_3plus": 0.0,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0,
+      "rate_6": 0.0
+    }
+  ],
+  "achieved_80pct_number_accuracy": false,
+  "warning": "Exploratory family search. 80% is never forced. Further large searches require nested selection and max-statistic permutation correction."
+}
