@@ -1,0 +1,36 @@
+{
+  "product": "Vietlott Power 6/55",
+  "draw_count": 1390,
+  "first_draw": {
+    "id": "00001",
+    "date": "2017-08-01",
+    "numbers": [
+      5,
+      10,
+      14,
+      23,
+      24,
+      38
+    ],
+    "power_number": 35
+  },
+  "latest_draw": {
+    "id": "01390",
+    "date": "2026-08-27",
+    "numbers": [
+      1,
+      3,
+      11,
+      21,
+      26,
+      44
+    ],
+    "power_number": 10
+  },
+  "updated_utc": "2026-08-28T14:41:28.670035+00:00",
+  "upstream": "vietvudanh/vietlott-data:data/power655.jsonl",
+  "audited_repairs": [
+    "00944"
+  ],
+  "overlap_audit": "overlap_audit.json"
+}

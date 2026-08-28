@@ -1,0 +1,626 @@
+{
+  "definition": "Every unordered pair of draws; main overlap is EXACTLY k of the six main numbers, order ignored.",
+  "draw_count": 1390,
+  "pair_count": 965355,
+  "exact_main_overlap": {
+    "0": 465821,
+    "1": 380536,
+    "2": 105948,
+    "3": 12485,
+    "4": 552,
+    "5": 12,
+    "6": 1
+  },
+  "same_power_number_pairs": 17642,
+  "exact_main_overlap_and_same_power": {
+    "0": 8385,
+    "1": 6919,
+    "2": 2047,
+    "3": 277,
+    "4": 14,
+    "5": 0,
+    "6": 0
+  },
+  "identical_6_main_and_power_pairs": 0,
+  "examples_3_to_6": {
+    "3": [
+      {
+        "draw_a": "00001",
+        "draw_b": "00010",
+        "shared": [
+          10,
+          24,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "00049",
+        "shared": [
+          5,
+          23,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "00120",
+        "shared": [
+          23,
+          24,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "00598",
+        "shared": [
+          5,
+          14,
+          24
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "00679",
+        "shared": [
+          10,
+          23,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "00685",
+        "shared": [
+          5,
+          14,
+          24
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "00923",
+        "shared": [
+          5,
+          24,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "01048",
+        "shared": [
+          5,
+          10,
+          14
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "01082",
+        "shared": [
+          10,
+          14,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "01220",
+        "shared": [
+          5,
+          10,
+          24
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00001",
+        "draw_b": "01328",
+        "shared": [
+          5,
+          10,
+          23
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00069",
+        "shared": [
+          4,
+          24,
+          45
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00172",
+        "shared": [
+          4,
+          24,
+          27
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00313",
+        "shared": [
+          24,
+          25,
+          27
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00327",
+        "shared": [
+          24,
+          27,
+          45
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00474",
+        "shared": [
+          25,
+          27,
+          45
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00666",
+        "shared": [
+          9,
+          25,
+          27
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00873",
+        "shared": [
+          4,
+          25,
+          45
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "00908",
+        "shared": [
+          9,
+          25,
+          27
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00002",
+        "draw_b": "01035",
+        "shared": [
+          25,
+          27,
+          45
+        ],
+        "power_same": false
+      }
+    ],
+    "4": [
+      {
+        "draw_a": "00002",
+        "draw_b": "01089",
+        "shared": [
+          4,
+          9,
+          24,
+          45
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00003",
+        "draw_b": "00703",
+        "shared": [
+          5,
+          11,
+          32,
+          40
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00004",
+        "draw_b": "00636",
+        "shared": [
+          19,
+          36,
+          41,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00006",
+        "draw_b": "00765",
+        "shared": [
+          6,
+          16,
+          32,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00007",
+        "draw_b": "00868",
+        "shared": [
+          7,
+          11,
+          32,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00009",
+        "draw_b": "00064",
+        "shared": [
+          7,
+          11,
+          13,
+          26
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00010",
+        "draw_b": "00834",
+        "shared": [
+          10,
+          31,
+          32,
+          38
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00011",
+        "draw_b": "00187",
+        "shared": [
+          5,
+          16,
+          37,
+          46
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00012",
+        "draw_b": "01051",
+        "shared": [
+          17,
+          25,
+          31,
+          41
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00014",
+        "draw_b": "00882",
+        "shared": [
+          27,
+          35,
+          36,
+          47
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00014",
+        "draw_b": "00935",
+        "shared": [
+          20,
+          27,
+          36,
+          47
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00015",
+        "draw_b": "00444",
+        "shared": [
+          5,
+          11,
+          18,
+          19
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00018",
+        "draw_b": "01023",
+        "shared": [
+          1,
+          23,
+          43,
+          54
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00019",
+        "draw_b": "00163",
+        "shared": [
+          6,
+          10,
+          48,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00020",
+        "draw_b": "00450",
+        "shared": [
+          22,
+          32,
+          43,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00020",
+        "draw_b": "00982",
+        "shared": [
+          23,
+          32,
+          44,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00021",
+        "draw_b": "00041",
+        "shared": [
+          9,
+          12,
+          21,
+          52
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00022",
+        "draw_b": "00514",
+        "shared": [
+          3,
+          32,
+          36,
+          41
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00022",
+        "draw_b": "00636",
+        "shared": [
+          3,
+          32,
+          36,
+          41
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00022",
+        "draw_b": "01169",
+        "shared": [
+          32,
+          36,
+          41,
+          53
+        ],
+        "power_same": false
+      }
+    ],
+    "5": [
+      {
+        "draw_a": "00044",
+        "draw_b": "00921",
+        "shared": [
+          2,
+          3,
+          6,
+          34,
+          36
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00190",
+        "draw_b": "00875",
+        "shared": [
+          1,
+          11,
+          22,
+          34,
+          42
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00220",
+        "draw_b": "00368",
+        "shared": [
+          5,
+          20,
+          33,
+          42,
+          43
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00273",
+        "draw_b": "01290",
+        "shared": [
+          10,
+          16,
+          17,
+          33,
+          36
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00335",
+        "draw_b": "01347",
+        "shared": [
+          12,
+          39,
+          40,
+          48,
+          53
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00336",
+        "draw_b": "01027",
+        "shared": [
+          7,
+          12,
+          38,
+          43,
+          55
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00340",
+        "draw_b": "00649",
+        "shared": [
+          10,
+          29,
+          30,
+          31,
+          51
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00431",
+        "draw_b": "01011",
+        "shared": [
+          12,
+          13,
+          41,
+          48,
+          53
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00578",
+        "draw_b": "00748",
+        "shared": [
+          13,
+          24,
+          25,
+          39,
+          41
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00619",
+        "draw_b": "01218",
+        "shared": [
+          8,
+          20,
+          36,
+          39,
+          44
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00813",
+        "draw_b": "01060",
+        "shared": [
+          2,
+          12,
+          13,
+          33,
+          44
+        ],
+        "power_same": false
+      },
+      {
+        "draw_a": "00990",
+        "draw_b": "01012",
+        "shared": [
+          3,
+          10,
+          13,
+          40,
+          52
+        ],
+        "power_same": false
+      }
+    ],
+    "6": [
+      {
+        "draw_a": "00647",
+        "draw_b": "00993",
+        "shared": [
+          8,
+          19,
+          27,
+          34,
+          46,
+          51
+        ],
+        "power_same": false
+      }
+    ]
+  },
+  "repairs": {
+    "00944": {
+      "numbers": [
+        8,
+        23,
+        30,
+        34,
+        38,
+        47
+      ],
+      "power_number": 10,
+      "reason": "upstream omitted Power number; web cross-check"
+    }
+  }
+}
