@@ -20,78 +20,95 @@ jobs:
         with:
           fetch-depth: 0
           path: project
-
       - name: Checkout public Vietlott dataset
         uses: actions/checkout@v4
         with:
           repository: vietvudanh/vietlott-data
           ref: main
           path: upstream
-
-      - name: Normalize validate and audit Power 6/55 history
+      - name: Normalize validate audit and dynamic-cycle research
         shell: bash
         run: |
           set -euo pipefail
           cd project
           mkdir -p data/vietlott/power655
           python3 - <<'PY'
-          import csv, json, pathlib, datetime, itertools
-          src = pathlib.Path('../upstream/data/power655.jsonl')
-          out_dir = pathlib.Path('data/vietlott/power655')
-          # Audited repair: upstream #00944 is missing Power number. Verified 2023-10-14 result is
-          # 08 23 30 34 38 47 | Power 10 (Minh Ngoc / independent web cross-check).
-          repairs = {'00944': [8,23,30,34,38,47,10]}
-          rows, seen = [], set()
+          import csv,json,pathlib,datetime,itertools,math,statistics,random,collections
+          src=pathlib.Path('../upstream/data/power655.jsonl'); out=pathlib.Path('data/vietlott/power655')
+          repairs={'00944':[8,23,30,34,38,47,10]}; rows=[]; seen=set()
           for raw in src.read_text(encoding='utf-8').splitlines():
-              if not raw.strip(): continue
-              x = json.loads(raw)
-              draw_id = str(x['id']).zfill(5)
-              result = [int(v) for v in x['result']]
-              if draw_id in repairs: result = repairs[draw_id]
-              if len(result) != 7: raise SystemExit(f'Invalid result length at {draw_id}: {result}')
-              main, power = result[:6], result[6]
-              if len(set(main)) != 6 or any(v < 1 or v > 55 for v in result): raise SystemExit(f'Invalid numbers at {draw_id}: {result}')
-              if draw_id in seen: raise SystemExit(f'Duplicate draw id: {draw_id}')
-              seen.add(draw_id); rows.append((x['date'], draw_id, *main, power))
-          rows.sort(key=lambda r: int(r[1]))
-          if not rows or rows[0][1] != '00001': raise SystemExit('History does not start at #00001')
-          for i,row in enumerate(rows,1):
-              if int(row[1]) != i: raise SystemExit(f'Non-contiguous draw ids around #{i:05d}: got {row[1]}')
-          with (out_dir/'power655_all_draws.csv').open('w',newline='',encoding='utf-8') as f:
-              w=csv.writer(f); w.writerow(['date','draw_id','n1','n2','n3','n4','n5','n6','power_number']); w.writerows(rows)
-          with (out_dir/'power655_all_draws.jsonl').open('w',encoding='utf-8') as f:
-              for r in rows: f.write(json.dumps({'date':r[0],'draw_id':r[1],'numbers':list(r[2:8]),'power_number':r[8]},ensure_ascii=False,separators=(',',':'))+'\n')
-
-          # Compare every unordered pair of draws. exact_main_overlap[k] means exactly k shared main numbers.
-          exact = {k:0 for k in range(7)}
-          power_same = 0
-          exact_and_power = {k:0 for k in range(7)}
-          examples = {k:[] for k in range(3,7)}
+            if not raw.strip(): continue
+            x=json.loads(raw); did=str(x['id']).zfill(5); result=[int(v) for v in x['result']]
+            if did in repairs: result=repairs[did]
+            if len(result)!=7 or len(set(result[:6]))!=6 or any(v<1 or v>55 for v in result): raise SystemExit(f'invalid {did}')
+            if did in seen: raise SystemExit(f'duplicate {did}')
+            seen.add(did); rows.append((x['date'],did,*result))
+          rows.sort(key=lambda r:int(r[1]))
+          for i,r in enumerate(rows,1):
+            if int(r[1])!=i: raise SystemExit(f'gap {i} got {r[1]}')
+          with (out/'power655_all_draws.csv').open('w',newline='',encoding='utf-8') as f:
+            w=csv.writer(f); w.writerow(['date','draw_id','n1','n2','n3','n4','n5','n6','power_number']); w.writerows(rows)
+          with (out/'power655_all_draws.jsonl').open('w',encoding='utf-8') as f:
+            for r in rows:f.write(json.dumps({'date':r[0],'draw_id':r[1],'numbers':list(r[2:8]),'power_number':r[8]},separators=(',',':'))+'\n')
+          exact={k:0 for k in range(7)}; power_same=0; exact_power={k:0 for k in range(7)}; examples={k:[] for k in range(3,7)}
+          gaps={k:[] for k in range(3,7)}; pairs={k:[] for k in range(3,7)}
           for a,b in itertools.combinations(rows,2):
-              k=len(set(a[2:8]) & set(b[2:8]))
-              exact[k]+=1
-              ps=a[8]==b[8]
-              if ps: power_same+=1; exact_and_power[k]+=1
-              if k>=3 and len(examples[k])<20:
-                  examples[k].append({'draw_a':a[1],'draw_b':b[1],'shared':sorted(set(a[2:8]) & set(b[2:8])),'power_same':ps})
-          pair_count=len(rows)*(len(rows)-1)//2
-          audit={
-            'definition':'Every unordered pair of draws; main overlap is EXACTLY k of the six main numbers, order ignored.',
-            'draw_count':len(rows),'pair_count':pair_count,
-            'exact_main_overlap':{str(k):exact[k] for k in range(7)},
-            'same_power_number_pairs':power_same,
-            'exact_main_overlap_and_same_power':{str(k):exact_and_power[k] for k in range(7)},
-            'identical_6_main_and_power_pairs':exact_and_power[6],
-            'examples_3_to_6':examples,
-            'repairs':{'00944':{'numbers':[8,23,30,34,38,47],'power_number':10,'reason':'upstream omitted Power number; web cross-check'}},
-          }
-          (out_dir/'overlap_audit.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          meta={'product':'Vietlott Power 6/55','draw_count':len(rows),'first_draw':{'id':rows[0][1],'date':rows[0][0],'numbers':list(rows[0][2:8]),'power_number':rows[0][8]},'latest_draw':{'id':rows[-1][1],'date':rows[-1][0],'numbers':list(rows[-1][2:8]),'power_number':rows[-1][8]},'updated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'upstream':'vietvudanh/vietlott-data:data/power655.jsonl','audited_repairs':['00944'],'overlap_audit':'overlap_audit.json'}
-          (out_dir/'metadata.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          print(json.dumps(meta,ensure_ascii=False,indent=2)); print(json.dumps(audit,ensure_ascii=False,indent=2))
+            k=len(set(a[2:8])&set(b[2:8])); exact[k]+=1; ps=a[8]==b[8]
+            if ps: power_same+=1; exact_power[k]+=1
+            if k>=3:
+              gap=int(b[1])-int(a[1]); gaps[k].append(gap); pairs[k].append((int(a[1]),int(b[1]),gap))
+              if len(examples[k])<20: examples[k].append({'draw_a':a[1],'draw_b':b[1],'gap_draws':gap,'shared':sorted(set(a[2:8])&set(b[2:8])),'power_same':ps})
+          audit={'definition':'Every unordered pair; exact k shared main numbers.','draw_count':len(rows),'pair_count':len(rows)*(len(rows)-1)//2,'exact_main_overlap':{str(k):exact[k] for k in range(7)},'same_power_number_pairs':power_same,'exact_main_overlap_and_same_power':{str(k):exact_power[k] for k in range(7)},'identical_6_main_and_power_pairs':exact_power[6],'examples_3_to_6':examples,'repairs':{'00944':{'numbers':[8,23,30,34,38,47],'power_number':10}}}
+          (out/'overlap_audit.json').write_text(json.dumps(audit,indent=2)+'\n')
+          def q(xs,p):
+            s=sorted(xs); return s[min(len(s)-1,max(0,round((len(s)-1)*p)))]
+          def summary(xs):
+            return {'count':len(xs),'min':min(xs),'q10':q(xs,.1),'q25':q(xs,.25),'median':statistics.median(xs),'mean':round(statistics.mean(xs),3),'q75':q(xs,.75),'q90':q(xs,.9),'max':max(xs)}
+          # Compare observed gap distribution with exact null geometry conditional on pair count: for random unordered draw pairs P(gap=d) proportional N-d.
+          N=len(rows)
+          null_weights=[N-d for d in range(1,N)]; total=sum(null_weights)
+          null_cdf=[]; acc=0
+          for d,w in enumerate(null_weights,1): acc+=w; null_cdf.append((d,acc/total))
+          def null_quant(p):
+            return next(d for d,c in null_cdf if c>=p)
+          null_summary={'mean':round(sum(d*(N-d) for d in range(1,N))/total,3),'q10':null_quant(.1),'q25':null_quant(.25),'median':null_quant(.5),'q75':null_quant(.75),'q90':null_quant(.9)}
+          # Standardized excess by gap bands against conditional random-pair geometry.
+          bands=[(1,7),(8,30),(31,90),(91,180),(181,365),(366,730),(731,N-1)]
+          def band_test(xs):
+            ans=[]; m=len(xs)
+            for lo,hi in bands:
+              obs=sum(lo<=x<=hi for x in xs); prob=sum(N-d for d in range(lo,min(hi,N-1)+1))/total; exp=m*prob; var=m*prob*(1-prob); z=(obs-exp)/math.sqrt(var) if var else 0
+              ans.append({'gap':f'{lo}-{hi}','observed':obs,'expected':round(exp,2),'z':round(z,3)})
+            return ans
+          # Moving-window shift: first vs second half, only pairs wholly contained in each half; normalize gaps by local window length.
+          cut=N//2
+          def within_stats(k,lo,hi):
+            xs=[b-a for a,b,g in pairs[k] if lo<=a<b<=hi]
+            return summary(xs) if xs else None
+          # Peak exact lags, corrected using expected count proportional N-d; rank Pearson residual, require expected >=5.
+          def peaks(xs):
+            c=collections.Counter(xs); m=len(xs); ans=[]
+            for d,obs in c.items():
+              exp=m*(N-d)/total
+              if exp>=5: ans.append((round((obs-exp)/math.sqrt(exp),3),d,obs,round(exp,2)))
+            ans.sort(reverse=True); return [{'gap':d,'observed':o,'expected':e,'pearson_residual':z} for z,d,o,e in ans[:15]]
+          research={'draw_count':N,'null_gap_geometry':null_summary,'levels':{}}
+          for k in range(3,7):
+            research['levels'][str(k)]={'gap_summary':summary(gaps[k]),'gap_bands_vs_null':band_test(gaps[k]),'top_standardized_gap_peaks':peaks(gaps[k]),'first_half_within':within_stats(k,1,cut),'second_half_within':within_stats(k,cut+1,N)}
+          # Evolution test: do high-overlap events cluster near prior lower-overlap events? distance from each k>=4 pair's endpoint to nearest endpoint of a previous exact k-1 pair, no future leakage.
+          for k in range(4,7):
+            prev_end=sorted(b for a,b,g in pairs[k-1]); distances=[]
+            for a,b,g in pairs[k]:
+              candidates=[x for x in prev_end if x<b]
+              if candidates: distances.append(b-candidates[-1])
+            research['levels'][str(k)]['distance_from_previous_lower_overlap_endpoint']=summary(distances) if distances else None
+          research['interpretation_guardrails']=['Gap peaks are exploratory, not predictive unless stable out-of-sample.','A single 6/6 recurrence cannot establish a cycle.','Band z-scores are descriptive and multiple-testing correction is required before claiming anomaly.']
+          (out/'dynamic_cycle_research.json').write_text(json.dumps(research,indent=2)+'\n')
+          meta={'product':'Vietlott Power 6/55','draw_count':N,'first_draw':{'id':rows[0][1],'date':rows[0][0]},'latest_draw':{'id':rows[-1][1],'date':rows[-1][0]},'updated_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'overlap_audit':'overlap_audit.json','dynamic_cycle_research':'dynamic_cycle_research.json'}
+          (out/'metadata.json').write_text(json.dumps(meta,indent=2)+'\n')
+          print(json.dumps(research,indent=2))
           PY
-
-      - name: Commit refreshed dataset and audit
+      - name: Commit refreshed dataset and research
         shell: bash
         run: |
           set -euo pipefail
@@ -99,6 +116,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/vietlott/power655
-          if git diff --cached --quiet; then echo 'No dataset changes.'; exit 0; fi
-          git commit -m 'data(vietlott): sync history and overlap audit'
+          if git diff --cached --quiet; then echo 'No changes.'; exit 0; fi
+          git commit -m 'research(vietlott): dynamic overlap cycle analysis'
           git push
