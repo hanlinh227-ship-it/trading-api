@@ -8,6 +8,7 @@ export const REGIMES=["TREND_UP","TREND_DOWN","RANGE","BREAKOUT_EXPANSION","HIGH
 function returns(closes=[]){const out=[];for(let i=1;i<closes.length;i++){const a=Number(closes[i-1]),b=Number(closes[i]);if(a>0&&b>0)out.push((b-a)/a);}return out;}
 function pearson(a=[],b=[]){const n=Math.min(a.length,b.length);if(n<20)return null;const x=a.slice(-n),y=b.slice(-n),mx=avg(x),my=avg(y);let cov=0,vx=0,vy=0;for(let i=0;i<n;i++){const dx=x[i]-mx,dy=y[i]-my;cov+=dx*dy;vx+=dx*dx;vy+=dy*dy;}const d=Math.sqrt(vx*vy);return d>0?cov/d:null;}
 function parseK(p){const rows=p?.result?.list||[];return [...rows].reverse().map(x=>Number(x[4])).filter(Number.isFinite);}
+function correlationSizeMultiplier(maxCorrelation,soft,hard){if(!Number.isFinite(maxCorrelation)||maxCorrelation<soft)return 1;const span=Math.max(1e-6,hard-soft),pressure=clamp((maxCorrelation-soft)/span,0,1);return clamp(1-pressure*.5,.5,1);}
 
 export function betaCluster(symbol=""){
  const s=String(symbol).toUpperCase();
@@ -104,15 +105,15 @@ export async function loadAdaptiveLearning(env){
 
 export async function assessPortfolioCorrelation(api,candidate,positions=[],opts={}){
  const hard=Number(opts.hard??.94),soft=Number(opts.soft??.84),sameSide=(positions||[]).filter(p=>String(p.side)===String(candidate.side)&&String(p.symbol)!==String(candidate.symbol));
- if(!sameSide.length)return {ok:true,maxCorrelation:null,checks:[],reason:"NO_SAME_SIDE_EXPOSURE",timeframe:"5m"};
+ if(!sameSide.length)return {ok:true,maxCorrelation:null,checks:[],reason:"NO_SAME_SIDE_EXPOSURE",sizeMultiplier:1,timeframe:"5m"};
  const candidateReturns=Array.isArray(candidate.returns5m)?candidate.returns5m:(Array.isArray(candidate.returns1m)?candidate.returns1m:[]),checks=[];
  for(const p of sameSide.slice(0,3)){
   try{const k=await api.kline(String(p.symbol),"5",70),r=returns(parseK(k)),corr=pearson(candidateReturns,r),clusterMatch=betaCluster(p.symbol)===betaCluster(candidate.symbol);checks.push({symbol:p.symbol,correlation:corr,clusterMatch,timeframe:"5m"});}
   catch{checks.push({symbol:p.symbol,correlation:null,clusterMatch:betaCluster(p.symbol)===betaCluster(candidate.symbol),timeframe:"5m"});}
  }
  const finite=checks.map(x=>x.correlation).filter(Number.isFinite),maxCorrelation=finite.length?Math.max(...finite):null;
- if(Number.isFinite(maxCorrelation)&&maxCorrelation>=hard)return {ok:false,reason:"CORRELATION_HARD_CAP",maxCorrelation,hard,soft,checks,timeframe:"5m"};
- const clusterStack=checks.some(x=>x.clusterMatch&&Number.isFinite(x.correlation)&&x.correlation>=soft);
- if(clusterStack)return {ok:false,reason:"CORRELATION_CLUSTER_CAP",maxCorrelation,hard,soft,checks,timeframe:"5m"};
- return {ok:true,reason:Number.isFinite(maxCorrelation)&&maxCorrelation>=soft?"CORRELATION_SOFT_WARNING":"DIVERSIFIED",maxCorrelation,hard,soft,checks,timeframe:"5m"};
+ if(Number.isFinite(maxCorrelation)&&maxCorrelation>=hard)return {ok:false,reason:"CORRELATION_HARD_CAP",maxCorrelation,hard,soft,sizeMultiplier:0,checks,timeframe:"5m"};
+ const clusterStack=checks.some(x=>x.clusterMatch&&Number.isFinite(x.correlation)&&x.correlation>=soft),sizeMultiplier=correlationSizeMultiplier(maxCorrelation,soft,hard);
+ if(clusterStack||Number.isFinite(maxCorrelation)&&maxCorrelation>=soft)return {ok:true,reason:"CORRELATION_SOFT_SIZE_SCALE",maxCorrelation,hard,soft,sizeMultiplier,checks,timeframe:"5m",frequencyPolicy:"SIZE_ONLY_NOT_ENTRY_REJECT"};
+ return {ok:true,reason:"DIVERSIFIED",maxCorrelation,hard,soft,sizeMultiplier:1,checks,timeframe:"5m"};
 }
