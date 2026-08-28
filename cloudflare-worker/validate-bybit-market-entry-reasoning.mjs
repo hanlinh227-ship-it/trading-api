@@ -40,7 +40,7 @@ need(reasoning,[
 ],'REASONING_CONTRACT');
 
 need(runtime,[
-  'BYBIT-AUTO-1.9.6',
+  'BYBIT-AUTO-1.9.7',
   'BYBIT_MARKET_ENTRY_REASONING',
   'marketEntryReasoning:BYBIT_MARKET_ENTRY_REASONING'
 ],'RUNTIME_CONTRACT');
@@ -55,6 +55,8 @@ need(engine,[
   'closedCandleSignal:true',
   'm1SignalAuthority:false',
   'correlationSoftPolicy:"SIZE_ONLY"',
+  'TREND_CONTINUATION',
+  'setupTypes:["TREND_PULLBACK","TREND_CONTINUATION","BREAKOUT"]',
   'autoPromote:false'
 ],'SCALP_ENGINE');
 
@@ -84,4 +86,4 @@ if(errors.length){
   for(const e of errors)console.error('- '+e);
   process.exit(1);
 }
-console.log('BYBIT_MARKET_ENTRY_REASONING=PASS: Claude+GPT fusion provenance locked; runtime exposes V1 contract; closed 5m/15m authority; M1 disabled; soft correlation size-only; same-cycle fallback; same-direction preflight; post-AI quote revalidation; hard risk caps retained.');
+console.log('BYBIT_MARKET_ENTRY_REASONING=PASS: Claude+GPT fusion provenance locked; runtime exposes V1 contract; closed 5m/15m authority; M1 disabled; pullback/continuation/breakout setup family; soft correlation size-only; same-cycle fallback; same-direction preflight; post-AI quote revalidation; hard risk caps retained.');
