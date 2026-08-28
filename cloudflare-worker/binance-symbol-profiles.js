@@ -1,4 +1,4 @@
-// Shared symbol profiles used by Bybit Auto. V1.9.7 keeps 5m execution structure + 15m context while easing candidate starvation.
+// Shared symbol profiles used by Bybit Auto. V1.9.6 frequency-balance patch keeps 5m execution structure + 15m context while easing candidate starvation.
 // M1 has zero signal authority: it cannot be returned as tfFast or tfContext by this module.
 export const BYBIT_SIGNAL_TIMEFRAME="5m";
 export const BYBIT_CONTEXT_TIMEFRAME="15m";
