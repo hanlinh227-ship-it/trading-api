@@ -74,7 +74,6 @@ export function adaptiveThreshold({base=68,regime="RANGE",strategy="",edge=null,
  else if(regime==="LOW_VOL_COMPRESSION"&&String(strategy).includes("TREND_PULLBACK"))penalty+=2;
  else if(regime==="BREAKOUT_EXPANSION"&&String(strategy).includes("BREAKOUT"))penalty-=2;
  else if((regime==="TREND_UP"||regime==="TREND_DOWN")&&String(strategy).includes("TREND_PULLBACK"))penalty-=1;
- const spread=Number(spreadBps||0);if(spread>10)penalty+=3;else if(spread>8)penalty+=1;
  const conf=learningConfidence(edge?.trades||0),shrunk=shrunkEdge(edge,priorTrades),avgNetR=shrunk.shrunkAvgNetR,wr=shrunk.shrunkWinRate;
  let edgeModifier=0;
  if(conf>0){edgeModifier+=clamp(-avgNetR*4,-4,4)*conf;edgeModifier+=clamp((.5-wr)*6,-2,2)*conf;}
