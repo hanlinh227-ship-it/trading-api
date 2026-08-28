@@ -40,6 +40,7 @@ jobs:
           const env={
             V11_AI_BRIDGE_SECRET:process.env.V11_AI_BRIDGE_SECRET,
             AI_BRIDGE:{fetch:(req)=>fetch(req)},
+            BYBIT_AUTO_DEMO:'true',
             BYBIT_AI_ENABLED:'true',
             BYBIT_AI_TIMEOUT_MS:'16000',
             BYBIT_AI_NORMAL_PRE_DRIFT_BPS:'12',
@@ -50,7 +51,7 @@ jobs:
             BYBIT_MAX_UNIVERSE_SPREAD_BPS:'12'
           };
           const cfg=bybitAutoConfig(env),scan=await scanBybitAuto(env),original=scan.best;
-          const out={ok:true,reviewOnly:true,orderCalled:false,scannedAt:scan.scannedAt,analyzed:scan.analyzed,qualified:scan.qualified,original:original?{symbol:original.symbol,side:original.side,score:original.score,entry:original.entry,sl:original.sl,tp:original.tp,rr:original.rr,atr1:original.atr1,spreadBps:original.spreadBps,volumeRatio:original.context?.volumeRatio,vwapAligned:original.context?.vwapAligned,confluence:original.context?.confluence}:null};
+          const out={ok:true,reviewOnly:true,orderCalled:false,scannedAt:scan.scannedAt,analyzed:scan.analyzed,rawCandidates:scan.rawCandidates??0,qualified:scan.qualified,correlationRejected:scan.correlationRejected?.length||0,original:original?{symbol:original.symbol,side:original.side,setupType:original.setupType,score:original.score,adaptiveThreshold:original.adaptiveThreshold,entry:original.entry,sl:original.sl,tp:original.tp,rr:original.rr,atr1:original.atr1,spreadBps:original.spreadBps,volumeRatio:original.context?.volumeRatio,vwapAligned:original.context?.vwapAligned,confluence:original.context?.confluence}:null};
           if(!original){out.result='NO_SETUP';fs.writeFileSync(process.env.REPORT,JSON.stringify(out,null,2));process.exit(0);}
           const api=bybitV5(env),prep=await prepareBybitScalpForReview(env,original,api);out.preparation=prep;
           if(!prep.ok){out.result='NO_MARKET_ENTRY';out.reason=prep.reason;fs.writeFileSync(process.env.REPORT,JSON.stringify(out,null,2));process.exit(0);}
@@ -60,7 +61,7 @@ jobs:
           if(!ai.allow){out.result='NO_MARKET_ENTRY';out.reason=ai.reason;fs.writeFileSync(process.env.REPORT,JSON.stringify(out,null,2));process.exit(0);}
           const postAi=await revalidateBybitScalpAfterAi(env,api,setup);out.postAi=postAi;
           out.result=postAi.ok?'MARKET_READY_REVIEW_ONLY':'NO_MARKET_ENTRY';out.reason=postAi.ok?'ALL_REVIEW_GATES_PASS':postAi.reason;
-          out.finalSetup={symbol:setup.symbol,side:setup.side,entry:setup.entry,originalEntry:setup.originalEntry,entryState:setup.entryState,reanchorCount:setup.reanchorCount,sl:setup.sl,tp:setup.tp,rr:setup.rr,score:setup.score};
+          out.finalSetup={symbol:setup.symbol,side:setup.side,setupType:setup.setupType,entry:setup.entry,originalEntry:setup.originalEntry,entryState:setup.entryState,reanchorCount:setup.reanchorCount,sl:setup.sl,tp:setup.tp,rr:setup.rr,score:setup.score};
           fs.writeFileSync(process.env.REPORT,JSON.stringify(out,null,2));
           NODE
       - name: Persist review result
