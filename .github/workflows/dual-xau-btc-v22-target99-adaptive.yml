@@ -1,0 +1,35 @@
+name: Dual XAU BTC V22 Target99 Adaptive
+
+on:
+  push:
+    paths:
+      - 'research/dual_xau_btc_v22_target99_adaptive.py'
+      - '.github/workflows/dual-xau-btc-v22-target99-adaptive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  backtest:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [XAU, BTC]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ${{ matrix.symbol }} V22 target99 adaptive backtest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/dual_xau_btc_v22_target99_adaptive.py --symbol ${{ matrix.symbol }} 2>&1 | tee research/results/${{ matrix.symbol }}_v22_target99_adaptive.txt
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.symbol }}-v22-target99-adaptive-result
+          path: research/results/${{ matrix.symbol }}_v22_target99_adaptive.txt
+          retention-days: 30
