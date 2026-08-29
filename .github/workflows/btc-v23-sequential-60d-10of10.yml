@@ -1,0 +1,32 @@
+name: BTC V23 Sequential 60D 10of10
+
+on:
+  push:
+    paths:
+      - 'research/btc_v23_sequential_60d_10of10.py'
+      - '.github/workflows/btc-v23-sequential-60d-10of10.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V23 sequential 60d 10-of-10 backtest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v23_sequential_60d_10of10.py 2>&1 | tee research/results/BTC_v23_sequential_60d_10of10.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v23-sequential-60d-10of10-result
+          path: research/results/BTC_v23_sequential_60d_10of10.txt
+          retention-days: 30
