@@ -1,0 +1,36 @@
+name: Dual XAU BTC V21 VWAP Unbounded
+
+on:
+  push:
+    paths:
+      - 'research/dual_xau_btc_v21_vwap_unbounded.py'
+      - '.github/workflows/dual-xau-btc-v21-vwap-unbounded.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [XAU, BTC]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ${{ matrix.symbol }} V21 VWAP unbounded backtest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/dual_xau_btc_v21_vwap_unbounded.py --symbol ${{ matrix.symbol }} 2>&1 | tee research/results/${{ matrix.symbol }}_v21_vwap_unbounded.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.symbol }}-v21-vwap-unbounded-result
+          path: research/results/${{ matrix.symbol }}_v21_vwap_unbounded.txt
+          retention-days: 30
