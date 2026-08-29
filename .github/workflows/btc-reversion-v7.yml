@@ -1,0 +1,29 @@
+name: BTC Reversion V7 Backtest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/mt5_progressive_tp_backtest_v7.py'
+      - '.github/workflows/btc-reversion-v7.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run V7
+        run: |
+          mkdir -p research/results
+          python3 research/mt5_progressive_tp_backtest_v7.py | tee research/results/btc_v7.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: btc-v7-result
+          path: research/results/btc_v7.txt
+          if-no-files-found: error
+          retention-days: 30
