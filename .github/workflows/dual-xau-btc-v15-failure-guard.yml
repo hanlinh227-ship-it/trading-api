@@ -1,0 +1,29 @@
+name: Dual XAU BTC V15 Failure Guard
+
+on:
+  push:
+    paths:
+      - 'research/dual_xau_btc_v15_failure_guard.py'
+      - '.github/workflows/dual-xau-btc-v15-failure-guard.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [XAU, BTC]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ${{ matrix.symbol }} V15 joint random10
+        run: |
+          mkdir -p research/results
+          python3 research/dual_xau_btc_v15_failure_guard.py --symbol ${{ matrix.symbol }} 2>&1 | tee research/results/${{ matrix.symbol }}_random10_v15_failure_guard.txt
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.symbol }}-random10-v15-failure-guard-result
+          path: research/results/${{ matrix.symbol }}_random10_v15_failure_guard.txt
+          retention-days: 30
