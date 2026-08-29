@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/mt5_progressive_tp_backtest_v3.py'
       - 'research/mt5_progressive_tp_backtest_v4.py'
+      - 'research/mt5_progressive_tp_backtest_v5.py'
       - '.github/workflows/mt5-progressive-backtest.yml'
   workflow_dispatch:
 
@@ -14,27 +15,21 @@ permissions:
 
 jobs:
   backtest:
-    runs-on: [self-hosted, Windows, X64, trading-mt5-windows]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run six-month no-SL progressive backtest V4
-        shell: powershell
+      - name: Run BTC six-month no-SL refinement V5
         run: |
-          $ErrorActionPreference='Stop'
-          New-Item -ItemType Directory -Force -Path research/results | Out-Null
-          $py = Get-Command python -ErrorAction SilentlyContinue
-          if (-not $py) { $py = Get-Command py -ErrorAction SilentlyContinue }
-          if (-not $py) { throw 'Python not found on MT5 self-hosted runner.' }
-          & $py.Source research/mt5_progressive_tp_backtest_v4.py | Tee-Object -FilePath research/results/mt5_progressive_v4.txt
-          if ($LASTEXITCODE -ne 0) { throw "Backtest failed with exit code $LASTEXITCODE" }
+          mkdir -p research/results
+          python3 research/mt5_progressive_tp_backtest_v5.py | tee research/results/mt5_progressive_v5.txt
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: mt5-progressive-v4-result-selfhosted
-          path: research/results/mt5_progressive_v4.txt
+          name: mt5-progressive-v5-result
+          path: research/results/mt5_progressive_v5.txt
           if-no-files-found: error
           retention-days: 30
