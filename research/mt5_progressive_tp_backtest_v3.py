@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Research-only V3 no-SL progressive TP optimizer for XAUUSD and BTCUSDT.
+"""Research-only V3 no-SL progressive TP optimizer for XAUUSD and BTCUSD.
 
 Fixed user rules:
 - independent starting equity $20 per symbol
@@ -8,13 +8,13 @@ Fixed user rules:
 - finish only after the 1.00-lot trade reaches TP (99 TP stages)
 - no SL, no Smart Cut, no timeout close, no manual/scratch close
 - XAUUSD TP distance = 3.00 price units
-- BTCUSDT TP distance = 300.00 price units
+- BTCUSD TP distance = 300.00 price units
 - after TP, skip one full M5 bar before another entry
 - if mark-to-market equity reaches <= 0 from adverse movement, path is BUST
 - optimize on the latest six months only; failed configs are discarded and next configs are tested
 
-Important: this is an in-sample search requested by the user. Completion on this same six-month
-window is NOT proof of future/live profitability. Signals use only closed bars; entry is next M5 open.
+This is an in-sample search requested by the user. Completion on this same six-month window is
+not proof of future/live profitability. Signals use only closed bars; entry is next M5 open.
 """
 from __future__ import annotations
 import csv, io, urllib.request
@@ -30,8 +30,8 @@ TARGET_TPS=99
 COOLDOWN_BARS=1
 
 DATA={
- "XAUUSD":{"url":"https://raw.githubusercontent.com/simom1/XAUUSD-history/main/TradingView_Deep_Datasets/OANDA_XAUUSD/OANDA_XAUUSD_5.csv","tp":3.0,"contract":100.0},
- "BTCUSDT":{"url":"https://raw.githubusercontent.com/simom1/XAUUSD-history/main/TradingView_Deep_Datasets/BINANCE_BTCUSDT/BINANCE_BTCUSDT_5.csv","tp":300.0,"contract":1.0},
+ "XAUUSD":{"url":"https://raw.githubusercontent.com/simom1/XAUUSD-history/main/Gold-Cash/XAUUSD/XAUUSD_M5.csv","tp":3.0,"contract":100.0},
+ "BTCUSD":{"url":"https://raw.githubusercontent.com/simom1/XAUUSD-history/main/Crypto/BTCUSD/BTCUSD_M5.csv","tp":300.0,"contract":1.0},
 }
 
 @dataclass
@@ -55,21 +55,35 @@ class Res:
  trades:int; maxhold:int; lot:float; when:str; worst_adverse:float
 
 
+def parse_ts(x:dict)->tuple[int,str]:
+ if x.get('timestamp') not in (None,''):
+  ts=int(float(x['timestamp']))
+  if ts>10_000_000_000: ts//=1000
+  dt=x.get('datetime') or datetime.fromtimestamp(ts,tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+  return ts,dt
+ raw=x.get('time') or x.get('datetime')
+ if not raw: raise ValueError('missing time')
+ raw=raw.strip().replace('T',' ').replace('Z','')
+ dtobj=datetime.strptime(raw[:19],'%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+ return int(dtobj.timestamp()),raw[:19]
+
+
 def load(url:str)->list[Bar]:
  req=urllib.request.Request(url,headers={"User-Agent":"trading-api-v3-no-sl-backtest"})
- with urllib.request.urlopen(req,timeout=90) as r: text=r.read().decode("utf-8")
+ with urllib.request.urlopen(req,timeout=120) as r: text=r.read().decode("utf-8-sig")
  out=[]
  for x in csv.DictReader(io.StringIO(text)):
   try:
-   ts=int(float(x['timestamp']))
-   if ts>10_000_000_000: ts//=1000
-   out.append(Bar(ts,x.get('datetime',''),float(x['open']),float(x['high']),float(x['low']),float(x['close'])))
+   ts,dt=parse_ts(x)
+   out.append(Bar(ts,dt,float(x['open']),float(x['high']),float(x['low']),float(x['close'])))
   except Exception: pass
  out.sort(key=lambda z:z.ts)
  if not out: raise RuntimeError('no bars loaded')
- # exact latest-six-month research window, approximated as 183 days from last bar
  cutoff=out[-1].ts-int(timedelta(days=183).total_seconds())
- return [b for b in out if b.ts>=cutoff]
+ six=[b for b in out if b.ts>=cutoff]
+ if six[-1].ts-six[0].ts < int(timedelta(days=170).total_seconds()):
+  raise RuntimeError(f'dataset does not cover six months: {six[0].dt} -> {six[-1].dt}')
+ return six
 
 
 def ema(v,n):
@@ -153,7 +167,6 @@ def run(symbol,bars,cfg):
   worst_adv=max(worst_adv,adverse)
   floating=balance-adverse*contract*L
   if peak>0:maxdd=max(maxdd,(peak-floating)/peak)
-  # conservative OHLC ordering: if same candle can both bust and TP, bust is counted first
   if floating<=0:
    return Res(cfg,tps,False,True,0.,maxdd*100,trades,maxhold,L,b.dt,worst_adv)
   hit=(b.h>=target) if d>0 else (b.l<=target)
@@ -167,7 +180,6 @@ def run(symbol,bars,cfg):
 
 
 def cfgs():
- # Search from stricter trend continuation toward broader setups.
  kinds=['trend','breakout','pullback','rejection']
  ma=[(3,12),(5,20),(8,21),(9,30),(12,36),(20,50),(20,100)]
  lookbacks=[3,5,8,12,20]
@@ -175,7 +187,7 @@ def cfgs():
  bodies=[0.0,0.15,0.30,0.50]
  slopes=[1,2,3,5]
  for kind,(f,s),lb,(rl,rh),body,sl in product(kinds,ma,lookbacks,rsi_bands,bodies,slopes):
-  if kind not in ('trend',) and body!=0.0: continue
+  if kind!='trend' and body!=0.0: continue
   yield Cfg(kind,f,s,lb,rl,rh,body,sl)
 
 
@@ -184,11 +196,11 @@ def rank(r):
 
 
 def main():
- print('=== MT5 PROGRESSIVE TP V3 / STRICT NO-SL NO-CUT ===')
+ print('=== MT5 PROGRESSIVE TP V3 / STRICT NO-SL NO-CUT / FULL M5 ===')
  print('Independent equity=$20 each | lot 0.02 -> 1.00, +0.01 ONLY after TP | one position/symbol')
  print('XAU TP=+/-3.00 PRICE | BTC TP=+/-300.00 PRICE | no SL | no Smart Cut | no timeout close')
  print('After TP: one full M5 bar cooldown. BUST if adverse mark-to-market equity <= 0.\n')
- for symbol in ('XAUUSD','BTCUSDT'):
+ for symbol in ('XAUUSD','BTCUSD'):
   bars=load(DATA[symbol]['url'])
   print(f'[{symbol}] six_month_bars={len(bars)} range={bars[0].dt} -> {bars[-1].dt}')
   best=None; tested=0; first_finish=None
