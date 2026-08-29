@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """BTC V9: freeze V8 best core; add only pre-entry high-lot regime protection. No SL/cut/timeout."""
-from mt5_progressive_tp_backtest_v8 import load,prep,C,EQ0,LOT0,STEP,MAXLOT,TP
+from mt5_progressive_tp_backtest_v8 import load,prep,EQ0,LOT0,STEP,MAXLOT,TP
 from itertools import product
-BASE=C(5,20,12,46,70,0.10,68,1,'short')
 
 def base_sig(i,b,I,lot,gate,atrmax,sepmin,slopebars):
  if i<650:return 0
  E=I['e'];A=I['a'];R=I['r'];q=b[i-1];x=b[i]
  dn=E[5][i]<E[20][i] and E[5][i]<E[5][i-2] and E[60][i]<E[150][i] and E[60][i]<E[60][i-3]
- hi=max(z.h for z in b[i-13:i-1]);lo=min(z.l for z in b[i-13:i-1]);need=.10*A[i]
+ lo=min(z.l for z in b[i-13:i-1]);need=.10*A[i]
  ok=dn and q.c<lo and x.c<=q.c-need and x.c<x.o and 32<=R[i]<=54
  if not ok:return 0
  if lot>=gate:
-  # High-lot entries must also agree with the slower regime and avoid volatility spikes.
   if not (E[240][i]<E[600][i] and E[240][i]<E[240][i-slopebars]):return 0
   if A[i]>atrmax:return 0
   if (E[600][i]-E[240][i]) < sepmin*A[i]:return 0
