@@ -1,0 +1,29 @@
+name: BTC Retest V6 Backtest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/mt5_progressive_tp_backtest_v6.py'
+      - '.github/workflows/btc-retest-v6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run V6
+        run: |
+          mkdir -p research/results
+          python3 research/mt5_progressive_tp_backtest_v6.py | tee research/results/btc_v6.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: btc-v6-result
+          path: research/results/btc_v6.txt
+          if-no-files-found: error
+          retention-days: 30
