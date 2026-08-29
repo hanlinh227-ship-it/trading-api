@@ -1,0 +1,32 @@
+name: BTC V24 Sequential Recovery 10 Streak
+
+on:
+  push:
+    paths:
+      - 'research/btc_v24_sequential_recovery_10streak.py'
+      - '.github/workflows/btc-v24-sequential-recovery-10streak.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V24 sequential recovery 10-streak backtest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v24_sequential_recovery_10streak.py 2>&1 | tee research/results/BTC_v24_sequential_recovery_10streak.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v24-sequential-recovery-10streak-result
+          path: research/results/BTC_v24_sequential_recovery_10streak.txt
+          retention-days: 30
