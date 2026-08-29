@@ -1,0 +1,318 @@
+{
+  "draw_count": 1390,
+  "protocol": "strict per-draw blind adaptive ensemble: at t all scores and function selection use only draws < t; current outcome revealed only after prediction",
+  "functions": [
+    "freq20",
+    "freq50",
+    "freq100",
+    "freq250",
+    "gap_overdue",
+    "gap_recent",
+    "transition",
+    "paircore",
+    "lag1",
+    "lag2",
+    "lag3",
+    "lag7",
+    "lag11",
+    "lag17",
+    "lag29",
+    "lag46",
+    "lag63",
+    "lag69",
+    "lag76",
+    "lag81",
+    "lag84",
+    "lag90"
+  ],
+  "overall": {
+    "n": 1140,
+    "histogram": [
+      531,
+      455,
+      133,
+      21,
+      0,
+      0,
+      0
+    ],
+    "mean_hits": 0.6877192982456141,
+    "rate_3plus": 0.018421052631578946,
+    "rate_4plus": 0.0,
+    "rate_5plus": 0.0
+  },
+  "blocks": [
+    {
+      "start_draw": 251,
+      "end_draw": 450,
+      "n": 200,
+      "histogram": [
+        92,
+        82,
+        21,
+        5,
+        0,
+        0,
+        0
+      ],
+      "mean_hits": 0.695
+    },
+    {
+      "start_draw": 451,
+      "end_draw": 650,
+      "n": 200,
+      "histogram": [
+        100,
+        78,
+        19,
+        3,
+        0,
+        0,
+        0
+      ],
+      "mean_hits": 0.625
+    },
+    {
+      "start_draw": 651,
+      "end_draw": 850,
+      "n": 200,
+      "histogram": [
+        87,
+        87,
+        21,
+        5,
+        0,
+        0,
+        0
+      ],
+      "mean_hits": 0.72
+    },
+    {
+      "start_draw": 851,
+      "end_draw": 1050,
+      "n": 200,
+      "histogram": [
+        87,
+        82,
+        31,
+        0,
+        0,
+        0,
+        0
+      ],
+      "mean_hits": 0.72
+    },
+    {
+      "start_draw": 1051,
+      "end_draw": 1250,
+      "n": 200,
+      "histogram": [
+        94,
+        75,
+        25,
+        6,
+        0,
+        0,
+        0
+      ],
+      "mean_hits": 0.715
+    },
+    {
+      "start_draw": 1251,
+      "end_draw": 1390,
+      "n": 140,
+      "histogram": [
+        71,
+        51,
+        16,
+        2,
+        0,
+        0,
+        0
+      ],
+      "mean_hits": 0.6357142857142857
+    }
+  ],
+  "function_appearance": {
+    "freq20": {
+      "selected_count": 248,
+      "mean_hits": 0.6236842105263158,
+      "rate_3plus": 0.007894736842105263,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "freq50": {
+      "selected_count": 85,
+      "mean_hits": 0.6298245614035087,
+      "rate_3plus": 0.013157894736842105,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "freq100": {
+      "selected_count": 230,
+      "mean_hits": 0.6517543859649123,
+      "rate_3plus": 0.009649122807017544,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "freq250": {
+      "selected_count": 305,
+      "mean_hits": 0.6535087719298246,
+      "rate_3plus": 0.015789473684210527,
+      "rate_4plus": 0.0017543859649122807,
+      "rate_5plus": 0.0
+    },
+    "gap_overdue": {
+      "selected_count": 132,
+      "mean_hits": 0.6456140350877193,
+      "rate_3plus": 0.012280701754385965,
+      "rate_4plus": 0.0008771929824561404,
+      "rate_5plus": 0.0
+    },
+    "gap_recent": {
+      "selected_count": 171,
+      "mean_hits": 0.6640350877192982,
+      "rate_3plus": 0.011403508771929825,
+      "rate_4plus": 0.0008771929824561404,
+      "rate_5plus": 0.0
+    },
+    "transition": {
+      "selected_count": 189,
+      "mean_hits": 0.6456140350877193,
+      "rate_3plus": 0.007017543859649123,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "paircore": {
+      "selected_count": 320,
+      "mean_hits": 0.6640350877192982,
+      "rate_3plus": 0.011403508771929825,
+      "rate_4plus": 0.0008771929824561404,
+      "rate_5plus": 0.0
+    },
+    "lag1": {
+      "selected_count": 210,
+      "mean_hits": 0.6640350877192982,
+      "rate_3plus": 0.011403508771929825,
+      "rate_4plus": 0.0008771929824561404,
+      "rate_5plus": 0.0
+    },
+    "lag2": {
+      "selected_count": 224,
+      "mean_hits": 0.6640350877192982,
+      "rate_3plus": 0.017543859649122806,
+      "rate_4plus": 0.0008771929824561404,
+      "rate_5plus": 0.0
+    },
+    "lag3": {
+      "selected_count": 56,
+      "mean_hits": 0.6096491228070176,
+      "rate_3plus": 0.012280701754385965,
+      "rate_4plus": 0.0017543859649122807,
+      "rate_5plus": 0.0
+    },
+    "lag7": {
+      "selected_count": 434,
+      "mean_hits": 0.6815789473684211,
+      "rate_3plus": 0.011403508771929825,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag11": {
+      "selected_count": 184,
+      "mean_hits": 0.6614035087719298,
+      "rate_3plus": 0.02017543859649123,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag17": {
+      "selected_count": 195,
+      "mean_hits": 0.6587719298245615,
+      "rate_3plus": 0.014035087719298246,
+      "rate_4plus": 0.0017543859649122807,
+      "rate_5plus": 0.0
+    },
+    "lag29": {
+      "selected_count": 86,
+      "mean_hits": 0.6105263157894737,
+      "rate_3plus": 0.010526315789473684,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag46": {
+      "selected_count": 228,
+      "mean_hits": 0.6508771929824562,
+      "rate_3plus": 0.017543859649122806,
+      "rate_4plus": 0.0008771929824561404,
+      "rate_5plus": 0.0
+    },
+    "lag63": {
+      "selected_count": 526,
+      "mean_hits": 0.6807017543859649,
+      "rate_3plus": 0.021052631578947368,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag69": {
+      "selected_count": 314,
+      "mean_hits": 0.6543859649122807,
+      "rate_3plus": 0.014912280701754385,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag76": {
+      "selected_count": 238,
+      "mean_hits": 0.6236842105263158,
+      "rate_3plus": 0.013157894736842105,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag81": {
+      "selected_count": 529,
+      "mean_hits": 0.6921052631578948,
+      "rate_3plus": 0.015789473684210527,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag84": {
+      "selected_count": 474,
+      "mean_hits": 0.6736842105263158,
+      "rate_3plus": 0.014912280701754385,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    },
+    "lag90": {
+      "selected_count": 322,
+      "mean_hits": 0.6491228070175439,
+      "rate_3plus": 0.011403508771929825,
+      "rate_4plus": 0.0,
+      "rate_5plus": 0.0
+    }
+  },
+  "next_draw_candidate": {
+    "draw": 1391,
+    "chosen_functions": [
+      "lag11",
+      "lag63",
+      "lag2",
+      "gap_overdue",
+      "freq20"
+    ],
+    "numbers": [
+      5,
+      14,
+      39,
+      40,
+      42,
+      54
+    ],
+    "function_recent_skill": {
+      "lag11": 0.8583333333333333,
+      "lag63": 0.7916666666666666,
+      "lag2": 0.775,
+      "gap_overdue": 0.75,
+      "freq20": 0.7416666666666667
+    }
+  },
+  "warning": "Lottery remains stochastic. Candidate is a research output, not a guaranteed winning set; retain only functions with stable blind performance versus random/Monte Carlo."
+}
