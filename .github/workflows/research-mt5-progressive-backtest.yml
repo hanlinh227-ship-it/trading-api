@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'research/mt5_progressive_tp_backtest.py'
+      - 'research/mt5_progressive_tp_backtest_v2.py'
       - '.github/workflows/research-mt5-progressive-backtest.yml'
   workflow_dispatch:
 
@@ -22,11 +23,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run research backtest
-        run: python research/mt5_progressive_tp_backtest.py | tee progressive-backtest-result.txt
+      - name: Run V2 research backtest
+        run: python research/mt5_progressive_tp_backtest_v2.py | tee progressive-backtest-result.txt
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: progressive-backtest-result
+          name: progressive-backtest-result-v2
           path: progressive-backtest-result.txt
           retention-days: 30
