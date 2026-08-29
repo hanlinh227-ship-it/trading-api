@@ -1,0 +1,29 @@
+name: Dual XAU BTC V16 Entry Repair
+
+on:
+  push:
+    paths:
+      - 'research/dual_xau_btc_v16_entry_repair.py'
+      - '.github/workflows/dual-xau-btc-v16-entry-repair.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [XAU, BTC]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ${{ matrix.symbol }} V16 entry repair
+        run: |
+          mkdir -p research/results
+          python3 research/dual_xau_btc_v16_entry_repair.py --symbol ${{ matrix.symbol }} 2>&1 | tee research/results/${{ matrix.symbol }}_random10_v16_entry_repair.txt
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.symbol }}-random10-v16-entry-repair-result
+          path: research/results/${{ matrix.symbol }}_random10_v16_entry_repair.txt
+          retention-days: 30
