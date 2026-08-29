@@ -1,0 +1,26 @@
+name: BTC Followthrough V8 Backtest
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/mt5_progressive_tp_backtest_v8.py'
+      - '.github/workflows/btc-followthrough-v8.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run V8
+        run: |
+          mkdir -p research/results
+          python3 research/mt5_progressive_tp_backtest_v8.py | tee research/results/btc_v8.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: btc-v8-result
+          path: research/results/btc_v8.txt
+          if-no-files-found: error
+          retention-days: 30
