@@ -1,0 +1,31 @@
+name: BTC V26 Continuous Anti-FOMO 10 Streak
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'research/btc_v26_continuous_antifomo_10streak.py'
+      - '.github/workflows/btc-v26-continuous-antifomo-10streak.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V26 continuous anti-FOMO 10-streak backtest
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v26_continuous_antifomo_10streak.py 2>&1 | tee research/results/BTC_v26_continuous_antifomo_10streak.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v26-continuous-antifomo-10streak-result
+          path: research/results/BTC_v26_continuous_antifomo_10streak.txt
+          retention-days: 30
