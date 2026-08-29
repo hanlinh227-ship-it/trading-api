@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'research/mt5_progressive_tp_backtest_v3.py'
+      - 'research/mt5_progressive_tp_backtest_v4.py'
       - '.github/workflows/mt5-progressive-backtest.yml'
   workflow_dispatch:
 
@@ -19,15 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run six-month no-SL progressive backtest
+      - name: Run six-month no-SL progressive backtest V4
         run: |
           mkdir -p research/results
-          python3 research/mt5_progressive_tp_backtest_v3.py | tee research/results/mt5_progressive_v3.txt
+          python3 research/mt5_progressive_tp_backtest_v4.py | tee research/results/mt5_progressive_v4.txt
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: mt5-progressive-v3-result
-          path: research/results/mt5_progressive_v3.txt
+          name: mt5-progressive-v4-result
+          path: research/results/mt5_progressive_v4.txt
           if-no-files-found: error
           retention-days: 30
