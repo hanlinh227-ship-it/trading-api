@@ -1,0 +1,34 @@
+name: Dual XAU BTC V19 Paced Survival
+
+on:
+  push:
+    paths:
+      - 'research/dual_xau_btc_v19_paced_survival.py'
+      - '.github/workflows/dual-xau-btc-v19-paced-survival.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [XAU, BTC]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ${{ matrix.symbol }} V19 paced-survival backtest
+        run: |
+          mkdir -p research/results
+          python3 research/dual_xau_btc_v19_paced_survival.py --symbol ${{ matrix.symbol }} 2>&1 | tee research/results/${{ matrix.symbol }}_v19_paced_survival.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.symbol }}-v19-paced-survival-result
+          path: research/results/${{ matrix.symbol }}_v19_paced_survival.txt
+          retention-days: 30
