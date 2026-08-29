@@ -1,0 +1,17 @@
+name: BTC V4 Failure Diagnostic
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/btc_v4_failure_diagnostic.py'
+      - '.github/workflows/btc-v4-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 research/btc_v4_failure_diagnostic.py
