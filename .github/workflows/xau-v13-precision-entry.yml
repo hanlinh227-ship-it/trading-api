@@ -1,0 +1,25 @@
+name: XAU V13 Precision Entry Random10
+
+on:
+  push:
+    paths:
+      - 'research/xau_random10_v13_precision_entry.py'
+      - '.github/workflows/xau-v13-precision-entry.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run XAU V13 precision-entry random10
+        run: |
+          mkdir -p research/results
+          python3 research/xau_random10_v13_precision_entry.py 2>&1 | tee research/results/XAU_random10_v13.txt
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: XAU-random10-v13-result
+          path: research/results/XAU_random10_v13.txt
+          retention-days: 30
