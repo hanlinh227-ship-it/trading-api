@@ -1,0 +1,28 @@
+name: BTC V29 HTF Structure Direction 30x60D
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'research/btc_v29_htf_structure_direction_30x60d.py'
+      - '.github/workflows/btc-v29-htf-structure-direction-30x60d.yml'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V29 HTF structure direction optimizer
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v29_htf_structure_direction_30x60d.py 2>&1 | tee research/results/BTC_v29_htf_structure_direction_30x60d.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v29-htf-structure-direction-30x60d-result
+          path: research/results/BTC_v29_htf_structure_direction_30x60d.txt
+          retention-days: 30
