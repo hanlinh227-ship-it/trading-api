@@ -1,0 +1,31 @@
+name: BTC V27 Direction Quality 30x60D
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'research/btc_v27_direction_quality_30x60d.py'
+      - '.github/workflows/btc-v27-direction-quality-30x60d.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V27 direction-quality 30x60d optimizer
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v27_direction_quality_30x60d.py 2>&1 | tee research/results/BTC_v27_direction_quality_30x60d.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v27-direction-quality-30x60d-result
+          path: research/results/BTC_v27_direction_quality_30x60d.txt
+          retention-days: 30
