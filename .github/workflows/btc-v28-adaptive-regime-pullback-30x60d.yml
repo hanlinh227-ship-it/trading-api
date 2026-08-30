@@ -1,0 +1,31 @@
+name: BTC V28 Adaptive Regime Pullback 30x60D
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'research/btc_v28_adaptive_regime_pullback_30x60d.py'
+      - '.github/workflows/btc-v28-adaptive-regime-pullback-30x60d.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V28 adaptive regime pullback 30x60d optimizer
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v28_adaptive_regime_pullback_30x60d.py 2>&1 | tee research/results/BTC_v28_adaptive_regime_pullback_30x60d.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v28-adaptive-regime-pullback-30x60d-result
+          path: research/results/BTC_v28_adaptive_regime_pullback_30x60d.txt
+          retention-days: 30
