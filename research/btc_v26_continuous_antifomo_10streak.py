@@ -46,11 +46,12 @@ class Result:
 
 
 def cfgs():
-    # Compact family: tune only anti-FOMO sensitivity and directional bias speed.
+    # Tune only anti-FOMO sensitivity and directional bias speed.
+    # v21.prep provides VWAP 48/96; do not request unsupported VWAP24.
     for f,s,vw,md,mr,mb,bm,pp in itertools.product(
         (5,8,12),
         (20,21,36),
-        (24,48,96),
+        (48,96),
         (0.65,0.90,1.20,1.55),
         (1.55,1.90,2.30),
         (1.10,1.40,1.75),
@@ -94,7 +95,6 @@ def direction(i,b,c,I):
         score=(1 if ef>es else -1 if ef<es else 0)+(1 if x.c>vw else -1 if x.c<vw else 0)
         if score>0:return 1
         if score<0:return -1
-    # Flat tie is rare; use immediate price slope so the engine remains continuous.
     return 1 if x.c>=b[i-1].c else -1
 
 
@@ -103,18 +103,12 @@ def signal(i,b,c,I):
     A=I['a'];V=I['v'];E=I['e'];x=b[i];atr=max(A[i],1e-9)
     vw=V[c.vwap_win][i]
     d=direction(i,b,c,I)
-
-    # ONLY BLOCKER: anti-FOMO. Never chase price far from value or after an expansion bar.
-    # Value center blends VWAP with fast EMA to stay responsive enough for continuous trading.
     value=(vw+E[c.fast][i])*0.5
     dist=(x.c-value)/atr
     rng=(x.h-x.l)/atr
     body=abs(x.c-x.o)/atr
     if abs(dist)>c.max_dist_atr:return 0
     if rng>c.max_bar_atr or body>c.max_body_atr:return 0
-
-    # Optional tiny pullback preference does NOT create a hard regime/session gate;
-    # it only prevents entering on the wrong side of value while already slightly extended.
     if c.pullback_pref>0:
         if d>0 and dist>c.max_dist_atr-c.pullback_pref:return 0
         if d<0 and dist<-(c.max_dist_atr-c.pullback_pref):return 0
@@ -147,7 +141,6 @@ def run_window(full,s,c):
                 ok=tps==TARGET_TP and now<=deadline
                 return Result(tps,ok,False,'PASS99' if ok else 'CHAIN_ERROR',bal,dd*100,tr,mh,L,bar.dt,(now-st).total_seconds()/86400,c)
             lot=round(L+.01,2);pos=None
-            # no cooldown: next M5 bar is immediately eligible
     return Result(tps,False,False,'DATA_END',bal,dd*100,tr,mh,lot,when,(v21.DT(w[-1].dt)-st).total_seconds()/86400,c)
 
 
