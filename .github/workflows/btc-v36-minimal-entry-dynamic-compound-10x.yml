@@ -1,0 +1,28 @@
+name: BTC V36 Minimal Entry Dynamic Compound 10X
+
+on:
+  push:
+    paths:
+      - 'research/btc_v36_minimal_entry_dynamic_compound_10x.py'
+      - '.github/workflows/btc-v36-minimal-entry-dynamic-compound-10x.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V36 minimal-entry dynamic-compound backtest
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v36_minimal_entry_dynamic_compound_10x.py 2>&1 | tee research/results/BTC_v36_minimal_entry_dynamic_compound_10x.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v36-minimal-entry-dynamic-compound-10x-result
+          path: research/results/BTC_v36_minimal_entry_dynamic_compound_10x.txt
+          retention-days: 30
