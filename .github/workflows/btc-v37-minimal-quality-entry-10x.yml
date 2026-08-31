@@ -1,0 +1,28 @@
+name: BTC V37 Minimal Quality Entry 10X
+
+on:
+  push:
+    paths:
+      - 'research/btc_v37_minimal_quality_entry_10x.py'
+      - '.github/workflows/btc-v37-minimal-quality-entry-10x.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V37 minimal quality-entry backtest
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v37_minimal_quality_entry_10x.py 2>&1 | tee research/results/BTC_v37_minimal_quality_entry_10x.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v37-minimal-quality-entry-10x-result
+          path: research/results/BTC_v37_minimal_quality_entry_10x.txt
+          retention-days: 30
