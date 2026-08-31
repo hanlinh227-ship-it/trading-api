@@ -1,0 +1,27 @@
+name: BTC V33 Risk Matched Quality Ladder 10X
+
+on:
+  push:
+    paths:
+      - 'research/btc_v33_risk_matched_quality_ladder_10x.py'
+      - '.github/workflows/btc-v33-risk-matched-quality-ladder-10x.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V33 risk-matched ladder backtest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v33_risk_matched_quality_ladder_10x.py 2>&1 | tee research/results/BTC_v33_risk_matched_quality_ladder_10x.txt
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v33-risk-matched-quality-ladder-10x-result
+          path: research/results/BTC_v33_risk_matched_quality_ladder_10x.txt
+          retention-days: 30
