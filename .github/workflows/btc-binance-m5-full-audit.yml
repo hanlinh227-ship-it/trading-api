@@ -1,0 +1,17 @@
+name: BTC Binance M5 Full Audit
+
+on:
+  push:
+    paths:
+      - 'research/btc_binance_m5_full_loader.py'
+      - '.github/workflows/btc-binance-m5-full-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and hard-audit official Binance BTCUSDT M5
+        run: python3 research/btc_binance_m5_full_loader.py
