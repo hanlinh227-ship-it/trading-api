@@ -1,0 +1,38 @@
+name: BTC V35 Balance-Safe Anti-FOMO Structure SL 10X
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/btc_v35_balance_safe_antifomo_structure_sl_10x.py'
+      - '.github/workflows/btc-v35-balance-safe-antifomo-structure-sl-10x.yml'
+      - 'research/btc_binance_m5_full_loader.py'
+      - 'research/btc_v30_complete_data_quality_entry_10x.py'
+      - 'research/dual_xau_btc_v21_vwap_unbounded.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V35 balance-safe anti-FOMO structure SL backtest
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v35_balance_safe_antifomo_structure_sl_10x.py 2>&1 | tee research/results/BTC_v35_balance_safe_antifomo_structure_sl_10x.txt
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BTC-v35-balance-safe-antifomo-structure-sl-10x-result
+          path: research/results/BTC_v35_balance_safe_antifomo_structure_sl_10x.txt
+          retention-days: 30
