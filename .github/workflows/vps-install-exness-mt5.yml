@@ -1,0 +1,86 @@
+name: VPS Install Exness MT5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vps-install-exness-mt5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exness-mt5-vps
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - name: Install Exness MT5 in isolated Wine prefix
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/opt/trading/mt5-exness
+          PREFIX="$BASE/wineprefix"
+          INSTALLER="$BASE/exness5setup.exe"
+          LOG="$BASE/install.log"
+          URL='https://download.terminal.free/cdn/web/exness.technologies.ltd/mt5/exness5setup.exe'
+          mkdir -p "$BASE"
+          chmod 700 "$BASE"
+          export WINEPREFIX="$PREFIX"
+          export WINEDEBUG=-all
+          export DISPLAY=:99
+
+          echo '=== EXNESS_MT5_INSTALL ==='
+          echo "WINE=$(wine --version)"
+          echo "PREFIX=$PREFIX"
+
+          if ! pgrep -f 'Xvfb :99' >/dev/null 2>&1; then
+            nohup Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >"$BASE/xvfb.log" 2>&1 &
+            sleep 2
+          fi
+
+          if [ ! -d "$PREFIX/drive_c" ]; then
+            wineboot -u >"$BASE/wineboot.log" 2>&1 || true
+            sleep 3
+          fi
+          wine reg add 'HKEY_CURRENT_USER\Software\Wine' /v Version /t REG_SZ /d win10 /f >/dev/null 2>&1 || true
+
+          curl -fL --retry 3 --connect-timeout 20 "$URL" -o "$INSTALLER"
+          test -s "$INSTALLER"
+          echo "INSTALLER_BYTES=$(stat -c %s "$INSTALLER")"
+          file "$INSTALLER"
+
+          TERMINAL="$(find "$PREFIX/drive_c" -type f -iname terminal64.exe 2>/dev/null | head -1 || true)"
+          if [ -z "$TERMINAL" ]; then
+            set +e
+            timeout 600 wine "$INSTALLER" /auto >"$LOG" 2>&1
+            RC=$?
+            set -e
+            echo "INSTALLER_RC=$RC"
+          else
+            echo 'MT5_ALREADY_PRESENT=YES'
+          fi
+
+          TERMINAL="$(find "$PREFIX/drive_c" -type f -iname terminal64.exe 2>/dev/null | head -1 || true)"
+          METAEDITOR="$(find "$PREFIX/drive_c" -type f -iname metaeditor64.exe 2>/dev/null | head -1 || true)"
+          test -n "$TERMINAL"
+          echo "MT5_TERMINAL=$TERMINAL"
+          echo "MT5_METAEDITOR=$METAEDITOR"
+          wine "$TERMINAL" /version >/dev/null 2>&1 &
+          PID=$!
+          sleep 12
+          if kill -0 "$PID" 2>/dev/null; then
+            echo "MT5_PROCESS_BOOT=PASS pid=$PID"
+            kill "$PID" 2>/dev/null || true
+          else
+            echo 'MT5_PROCESS_BOOT=EXITED'
+          fi
+          wineserver -w || true
+
+          echo '--- CONFIG KEY NAMES ONLY ---'
+          grep -RhoE '^[A-Za-z_][A-Za-z0-9_]*(?==)' /etc/trading /etc 2>/dev/null | grep -Ei 'EXNESS|MT5|META.?TRADER' | sort -u | head -100 || true
+          echo 'EXNESS_MT5_INSTALL=PASS'
