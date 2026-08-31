@@ -1,0 +1,32 @@
+name: XAU V4 Aligned H1 Compound To 1Lot 10X
+on:
+  push:
+    branches: [chatgpt/xau-compound-research-v1]
+    paths:
+      - 'research/xau_v4_aligned_h1_compound_to_1lot_10x.py'
+      - '.github/workflows/xau-v4-aligned-h1-compound-to-1lot-10x.yml'
+  workflow_dispatch:
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download XAUUSD M15 history
+        run: |
+          set -euo pipefail
+          mkdir -p research/data research/results
+          curl -L --fail --retry 5 --retry-delay 3 'https://raw.githubusercontent.com/simom1/XAUUSD-history/main/Gold-Cash/XAUUSD/XAUUSD_M15.csv' -o research/data/XAUUSD_M15.csv
+      - name: Run V4
+        run: |
+          set -o pipefail
+          python3 research/xau_v4_aligned_h1_compound_to_1lot_10x.py 2>&1 | tee research/results/XAU_v4_aligned_h1_compound_to_1lot_10x.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XAU-v4-aligned-h1-compound-to-1lot-10x-result
+          path: research/results/XAU_v4_aligned_h1_compound_to_1lot_10x.txt
+          retention-days: 30
