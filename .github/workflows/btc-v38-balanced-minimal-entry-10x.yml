@@ -1,0 +1,28 @@
+name: BTC V38 Balanced Minimal Entry 10X
+
+on:
+  push:
+    paths:
+      - 'research/btc_v38_balanced_minimal_entry_10x.py'
+      - '.github/workflows/btc-v38-balanced-minimal-entry-10x.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run BTC V38 balanced minimal-entry backtest
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/btc_v38_balanced_minimal_entry_10x.py 2>&1 | tee research/results/BTC_v38_balanced_minimal_entry_10x.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BTC-v38-balanced-minimal-entry-10x-result
+          path: research/results/BTC_v38_balanced_minimal_entry_10x.txt
+          retention-days: 30
