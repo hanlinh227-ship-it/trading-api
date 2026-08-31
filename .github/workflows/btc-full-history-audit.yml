@@ -1,0 +1,17 @@
+name: BTC Full History Audit
+
+on:
+  push:
+    paths:
+      - 'research/btc_full_history_audit.py'
+      - '.github/workflows/btc-full-history-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit BTCUSD M5 full history
+        run: python3 research/btc_full_history_audit.py
