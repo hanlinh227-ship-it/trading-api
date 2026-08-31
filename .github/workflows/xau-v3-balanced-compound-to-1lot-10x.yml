@@ -1,0 +1,33 @@
+name: XAU V3 Balanced Compound To 1Lot 10X
+on:
+  push:
+    branches: [chatgpt/xau-compound-research-v1]
+    paths:
+      - 'research/xau_v3_balanced_compound_to_1lot_10x.py'
+      - '.github/workflows/xau-v3-balanced-compound-to-1lot-10x.yml'
+  workflow_dispatch:
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download XAUUSD history
+        run: |
+          set -euo pipefail
+          mkdir -p research/data research/results
+          curl -L --fail --retry 5 --retry-delay 3 'https://raw.githubusercontent.com/simom1/XAUUSD-history/main/Gold-Cash/XAUUSD/XAUUSD_M15.csv' -o research/data/XAUUSD_M15.csv
+          curl -L --fail --retry 5 --retry-delay 3 'https://raw.githubusercontent.com/simom1/XAUUSD-history/main/Gold-Cash/XAUUSD/XAUUSD_H1.csv' -o research/data/XAUUSD_H1.csv
+      - name: Run V3
+        run: |
+          set -o pipefail
+          python3 research/xau_v3_balanced_compound_to_1lot_10x.py 2>&1 | tee research/results/XAU_v3_balanced_compound_to_1lot_10x.txt
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XAU-v3-balanced-compound-to-1lot-10x-result
+          path: research/results/XAU_v3_balanced_compound_to_1lot_10x.txt
+          retention-days: 30
