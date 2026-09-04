@@ -84,7 +84,7 @@ export function sizeBtcSetup({setup,riskUsd,maxRiskUsd=0,filters={},leverage=5,e
 }
 
 export function addTranche(state={},x={}){
-  const tranches=Array.isArray(state.tranches)?[...state.tranches]:[],id=String(x.id||`BTC-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`),row={id,symbol:'BTCUSDT',status:'OPEN',createdAt:Date.now(),managedSl:x.sl,protected:false,...x,id};tranches.push(row);return {...state,tranches,highWaterUsd:Math.max(num(state.highWaterUsd),num(x.equityUsd)),lastTrancheId:id};
+  const tranches=Array.isArray(state.tranches)?[...state.tranches]:[],id=String(x.id||`BTC-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`),row={symbol:'BTCUSDT',status:'OPEN',createdAt:Date.now(),managedSl:x.sl,protected:false,...x,id};tranches.push(row);return {...state,tranches,highWaterUsd:Math.max(num(state.highWaterUsd),num(x.equityUsd)),lastTrancheId:id};
 }
 export function updateTrancheProtection(state={},id,managedSl){const tranches=(state.tranches||[]).map(t=>{if(String(t.id)!==String(id))return t;const protectedNow=String(t.side)==='Buy'?num(managedSl)>=num(t.entry):num(managedSl)<=num(t.entry);return {...t,managedSl:num(managedSl),protected:protectedNow||t.protected};});return {...state,tranches};}
 export function closeAllTranches(state={},meta={}){return {...state,tranches:(state.tranches||[]).map(t=>String(t.status||'OPEN')==='OPEN'?{...t,status:'CLOSED',closedAt:Date.now(),...meta}:t)};}
