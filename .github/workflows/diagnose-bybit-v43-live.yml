@@ -1,0 +1,32 @@
+name: Diagnose Bybit V4.3 Live
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v43-live-diagnostic-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Print production diagnostics
+        shell: bash
+        run: |
+          set +e
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          echo '=== HEALTH ==='
+          curl -sS --max-time 30 "$BASE/bybit/health"; echo
+          echo '=== ENTRY HEALTH ==='
+          curl -sS --max-time 45 "$BASE/bybit/entry-health"; echo
+          echo '=== CONTRACT ==='
+          curl -sS --max-time 30 "$BASE/runtime/contract"; echo
+          for S in BTCUSDT ETHUSDT SOLUSDT LINKUSDT HBARUSDT; do
+            echo "=== SCAN $S ==="
+            curl -sS --max-time 90 "$BASE/bybit/scan?symbol=$S"; echo
+          done
