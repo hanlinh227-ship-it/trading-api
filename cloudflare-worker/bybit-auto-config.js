@@ -11,7 +11,9 @@ export const BYBIT_AUTO_CONFIG={
   leverage:{min:3,normal:5,max:15},
   maxOpenPositions:1000000,
   maxTradesPerDay:1000000000,
-  scan:{barContextSec:60,eventDriven:true,hardDailyTradeQuota:false},
+  // Current migration runtime evaluates fresh REST snapshots once per scheduler cycle.
+  // WebSocket/event-driven execution is a later research/deployment stage and is not claimed active here.
+  scan:{barContextSec:60,eventDriven:false,hardDailyTradeQuota:false},
   risk:{
     mode:"CONTINUOUS_EQUITY_RISK_RECYCLING",
     baseEntryRiskPct:.75,strongEntryRiskPct:1.0,aPlusEntryRiskPct:1.25,absoluteSingleEntryRiskPct:1.50,
@@ -20,8 +22,8 @@ export const BYBIT_AUTO_CONFIG={
     drawdownGovernor:[{ddPct:5,multiplier:.80},{ddPct:10,multiplier:.55},{ddPct:15,multiplier:.30},{ddPct:20,multiplier:0}]
   },
   regime:{states:["TREND_UP","TREND_DOWN","RANGE","SQUEEZE","BREAKOUT_UP","BREAKOUT_DOWN","REVERSAL","HIGH_VOL_SHOCK","TRANSITION"]},
-  features:{marketStructure:true,liquidityMap:true,publicTrades:true,orderBook:true,orderFlowImbalance:true,microprice:true,liquidationFlow:true,openInterest:true,fundingRate:true,basis:true,longShortRatio:true,realizedVolatility:true,indicatorsSupportingOnly:true},
-  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true},
+  features:{marketStructure:true,liquidityMap:true,publicTrades:true,orderBook:true,orderFlowImbalance:true,microprice:true,liquidationFlow:false,openInterest:true,fundingRate:true,basis:true,longShortRatio:true,realizedVolatility:true,indicatorsSupportingOnly:true},
+  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:false,absorptionReversal:true},
   execution:{recvWindow:10000,cooldownSec:0,positionIdx:0,postOnlyPreferredForPassive:true,marketAllowedForUrgentEdge:true,requireFreshBook:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true}
 };
 
