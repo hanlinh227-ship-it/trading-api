@@ -1,100 +1,27 @@
 import {fetchBtcMicrostructure} from './bybit-btc-microstructure-client.js';
 // BTC-only state-first market engine.
 // Primary authority: price structure + executed flow + near-touch liquidity + derivatives positioning + realized volatility.
-// Indicators are intentionally not entry authority.
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
-const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-const sum=a=>a.reduce((s,x)=>s+x,0);
-const avg=a=>a.length?sum(a)/a.length:0;
+const sum=a=>a.reduce((s,x)=>s+x,0),avg=a=>a.length?sum(a)/a.length:0;
 const std=a=>{if(a.length<2)return 0;const m=avg(a);return Math.sqrt(avg(a.map(x=>(x-m)**2)));};
-
-function rows(p={}){
-  return [...(p?.result?.list||[])].reverse().map(x=>({t:num(x[0]),o:num(x[1]),h:num(x[2]),l:num(x[3]),c:num(x[4]),v:num(x[5]),turnover:num(x[6])})).filter(x=>x.c>0);
-}
-function closes(r=[]){return r.map(x=>x.c);}
-function logReturns(r=[]){const c=closes(r),out=[];for(let i=1;i<c.length;i++)if(c[i-1]>0&&c[i]>0)out.push(Math.log(c[i]/c[i-1]));return out;}
+function rows(p={}){return [...(p?.result?.list||[])].reverse().map(x=>({t:num(x[0]),o:num(x[1]),h:num(x[2]),l:num(x[3]),c:num(x[4]),v:num(x[5]),turnover:num(x[6])})).filter(x=>x.c>0);}
+const closes=r=>r.map(x=>x.c);
+function logReturns(r=[]){const c=closes(r),o=[];for(let i=1;i<c.length;i++)if(c[i-1]>0&&c[i]>0)o.push(Math.log(c[i]/c[i-1]));return o;}
 function realizedVol(r=[],n=24){const x=logReturns(r).slice(-n);return std(x)*Math.sqrt(Math.max(1,x.length));}
 function efficiency(r=[],n=24){const c=closes(r).slice(-Math.max(3,n));if(c.length<3)return 0;const path=sum(c.slice(1).map((x,i)=>Math.abs(x-c[i])));return path>0?Math.abs(c.at(-1)-c[0])/path:0;}
 function direction(r=[],n=18){const c=closes(r).slice(-Math.max(4,n));if(c.length<4)return 0;const net=c.at(-1)-c[0],noise=sum(c.slice(1).map((x,i)=>Math.abs(x-c[i])));return noise>0?net/noise:0;}
 function recentRange(r=[],n=24){const x=r.slice(-n);if(!x.length)return {hi:0,lo:0,width:0};const hi=Math.max(...x.map(z=>z.h)),lo=Math.min(...x.map(z=>z.l));return {hi,lo,width:Math.max(0,hi-lo)};}
-function structure(r=[]){
-  if(r.length<20)return {bias:0,hh:false,hl:false,ll:false,lh:false,breakUp:false,breakDown:false};
-  const a=r.slice(-20,-10),b=r.slice(-10),ahi=Math.max(...a.map(x=>x.h)),alo=Math.min(...a.map(x=>x.l)),bhi=Math.max(...b.map(x=>x.h)),blo=Math.min(...b.map(x=>x.l)),last=b.at(-1)?.c||0;
-  const hh=bhi>ahi,hl=blo>alo,ll=blo<alo,lh=bhi<ahi,breakUp=last>ahi,breakDown=last<alo;
-  const bias=(breakUp||(hh&&hl))?1:(breakDown||(ll&&lh))?-1:0;
-  return {bias,hh,hl,ll,lh,breakUp,breakDown,priorHigh:ahi,priorLow:alo,recentHigh:bhi,recentLow:blo,last};
-}
-function sweepState(r=[]){
-  if(r.length<28)return {upSweep:false,downSweep:false};
-  const prior=r.slice(-28,-2),x=r.at(-1),hi=Math.max(...prior.map(z=>z.h)),lo=Math.min(...prior.map(z=>z.l));
-  return {upSweep:x.h>hi&&x.c<hi,downSweep:x.l<lo&&x.c>lo,priorHigh:hi,priorLow:lo,close:x.c};
-}
+function structure(r=[]){if(r.length<20)return {bias:0,hh:false,hl:false,ll:false,lh:false,breakUp:false,breakDown:false};const a=r.slice(-20,-10),b=r.slice(-10),ahi=Math.max(...a.map(x=>x.h)),alo=Math.min(...a.map(x=>x.l)),bhi=Math.max(...b.map(x=>x.h)),blo=Math.min(...b.map(x=>x.l)),last=b.at(-1)?.c||0,hh=bhi>ahi,hl=blo>alo,ll=blo<alo,lh=bhi<ahi,breakUp=last>ahi,breakDown=last<alo,bias=(breakUp||(hh&&hl))?1:(breakDown||(ll&&lh))?-1:0;return {bias,hh,hl,ll,lh,breakUp,breakDown,priorHigh:ahi,priorLow:alo,recentHigh:bhi,recentLow:blo,last};}
+function sweepState(r=[]){if(r.length<28)return {upSweep:false,downSweep:false};const prior=r.slice(-28,-2),x=r.at(-1),hi=Math.max(...prior.map(z=>z.h)),lo=Math.min(...prior.map(z=>z.l));return {upSweep:x.h>hi&&x.c<hi,downSweep:x.l<lo&&x.c>lo,priorHigh:hi,priorLow:lo,close:x.c};}
 function depthRows(raw=[]){return raw.map(x=>({p:num(x[0]),q:num(x[1])})).filter(x=>x.p>0&&x.q>0);}
-function bookState(book={}){
-  const d=book?.result||{},bids=depthRows((d.b||[]).slice(0,50)),asks=depthRows((d.a||[]).slice(0,50)),bb=num(bids[0]?.p),ba=num(asks[0]?.p),mid=bb>0&&ba>0?(bb+ba)/2:0,spreadBps=mid>0&&ba>bb?(ba-bb)/mid*10000:999;
-  const notional=z=>z.p*z.q,band=(xs,bps)=>xs.filter(z=>mid>0&&Math.abs(z.p-mid)/mid*10000<=bps),depth=(xs,bps)=>sum(band(xs,bps).map(notional));
-  const bid2=depth(bids,2),ask2=depth(asks,2),bid5=depth(bids,5),ask5=depth(asks,5),bid10=depth(bids,10),ask10=depth(asks,10);
-  const imb=(b,a)=>b+a>0?(b-a)/(b+a):0;
-  const weighted=xs=>sum(xs.map(z=>{const dist=mid>0?Math.abs(z.p-mid)/mid*10000:99;return notional(z)*Math.exp(-dist/4);}));
-  const wb=weighted(bids),wa=weighted(asks),bs=num(bids[0]?.q),as=num(asks[0]?.q),topDen=bs+as,microprice=topDen>0?(ba*bs+bb*as)/topDen:mid;
-  const wall=(xs,bps)=>{const x=band(xs,bps),total=sum(x.map(notional));return total>0?Math.max(...x.map(notional))/total:0;};
-  return {bestBid:bb,bestAsk:ba,mid,spreadBps,microprice,micropriceEdgeBps:mid>0?(microprice-mid)/mid*10000:0,bidDepth2:bid2,askDepth2:ask2,bidDepth5:bid5,askDepth5:ask5,bidDepth10:bid10,askDepth10:ask10,imbalance2:imb(bid2,ask2),imbalance5:imb(bid5,ask5),imbalance10:imb(bid10,ask10),imbalance:imb(wb,wa),bidWall10:wall(bids,10),askWall10:wall(asks,10),fragility:Math.abs(imb(bid10,ask10)),updateTime:num(d.ts||book?.time)};
-}
-function tradeRows(trades={}){
-  return (trades?.result?.list||[]).map(x=>({t:num(x.time||x.T||x.timestamp),side:String(x.side||x.S||''),q:num(x.size||x.v),p:num(x.price||x.p)})).filter(x=>x.q>0&&x.p>0);
-}
-function tradeWindow(all=[],windowMs=60000,now=Date.now()){
-  const withTime=all.filter(x=>x.t>0),x=withTime.length?withTime.filter(z=>z.t>=now-windowMs):all;let buy=0,sell=0;
-  for(const z of x){const n=z.q*z.p;if(z.side==='Buy')buy+=n;else if(z.side==='Sell')sell+=n;}
-  const total=buy+sell;return {buyNotional:buy,sellNotional:sell,totalNotional:total,deltaNotional:buy-sell,imbalance:total>0?(buy-sell)/total:0,trades:x.length};
-}
-function tradeState(trades={}){
-  const all=tradeRows(trades),now=Date.now(),w5=tradeWindow(all,5000,now),w15=tradeWindow(all,15000,now),w60=tradeWindow(all,60000,now),base=Math.max(w60.totalNotional/12,1),burst5=w5.totalNotional/base;
-  return {aggressorImbalance:w15.imbalance,deltaNotional:w15.deltaNotional,notional15s:w15.totalNotional,notional60s:w60.totalNotional,burst5x:burst5,window5s:w5,window15s:w15,window60s:w60,trades:all.length,updateTime:Math.max(0,...all.map(x=>x.t||0))};
-}
+function bookState(book={}){const d=book?.result||{},bids=depthRows((d.b||[]).slice(0,50)),asks=depthRows((d.a||[]).slice(0,50)),bb=num(bids[0]?.p),ba=num(asks[0]?.p),mid=bb>0&&ba>0?(bb+ba)/2:0,spreadBps=mid>0&&ba>bb?(ba-bb)/mid*10000:999,notional=z=>z.p*z.q,band=(xs,bps)=>xs.filter(z=>mid>0&&Math.abs(z.p-mid)/mid*10000<=bps),depth=(xs,bps)=>sum(band(xs,bps).map(notional)),bid2=depth(bids,2),ask2=depth(asks,2),bid5=depth(bids,5),ask5=depth(asks,5),bid10=depth(bids,10),ask10=depth(asks,10),imb=(b,a)=>b+a>0?(b-a)/(b+a):0,weighted=xs=>sum(xs.map(z=>notional(z)*Math.exp(-(mid>0?Math.abs(z.p-mid)/mid*10000:99)/4))),wb=weighted(bids),wa=weighted(asks),bs=num(bids[0]?.q),as=num(asks[0]?.q),topDen=bs+as,microprice=topDen>0?(ba*bs+bb*as)/topDen:mid,wall=(xs,bps)=>{const x=band(xs,bps),total=sum(x.map(notional));return total>0?Math.max(...x.map(notional))/total:0;};return {bestBid:bb,bestAsk:ba,mid,spreadBps,microprice,micropriceEdgeBps:mid>0?(microprice-mid)/mid*10000:0,bidDepth2:bid2,askDepth2:ask2,bidDepth5:bid5,askDepth5:ask5,bidDepth10:bid10,askDepth10:ask10,imbalance2:imb(bid2,ask2),imbalance5:imb(bid5,ask5),imbalance10:imb(bid10,ask10),imbalance:imb(wb,wa),bidWall10:wall(bids,10),askWall10:wall(asks,10),fragility:Math.abs(imb(bid10,ask10)),updateTime:num(d.ts||book?.time)};}
+function tradeRows(trades={}){return (trades?.result?.list||[]).map(x=>({t:num(x.time||x.T||x.timestamp),side:String(x.side||x.S||''),q:num(x.size||x.v),p:num(x.price||x.p)})).filter(x=>x.q>0&&x.p>0);}
+function tradeWindow(all=[],windowMs=60000,now=Date.now()){const withTime=all.filter(x=>x.t>0),x=withTime.length?withTime.filter(z=>z.t>=now-windowMs):all;let buy=0,sell=0;for(const z of x){const n=z.q*z.p;if(z.side==='Buy')buy+=n;else if(z.side==='Sell')sell+=n;}const total=buy+sell;return {buyNotional:buy,sellNotional:sell,totalNotional:total,deltaNotional:buy-sell,imbalance:total>0?(buy-sell)/total:0,trades:x.length};}
+function tradeState(trades={}){const all=tradeRows(trades),now=Date.now(),w5=tradeWindow(all,5000,now),w15=tradeWindow(all,15000,now),w60=tradeWindow(all,60000,now),base=Math.max(w60.totalNotional/12,1);return {aggressorImbalance:w15.imbalance,deltaNotional:w15.deltaNotional,notional15s:w15.totalNotional,notional60s:w60.totalNotional,burst5x:w5.totalNotional/base,window5s:w5,window15s:w15,window60s:w60,trades:all.length,updateTime:Math.max(0,...all.map(x=>x.t||0))};}
 function oiState(oi={}){const l=oi?.result?.list||[];if(!l.length)return {current:0,previous:0,deltaPct:0};const a=num(l[0]?.openInterest),b=num(l[1]?.openInterest||a);return {current:a,previous:b,deltaPct:b>0?(a-b)/b*100:0,timestamp:num(l[0]?.timestamp)};}
 function ratioState(ratio={}){const x=ratio?.result?.list?.[0]||{};return {buyRatio:num(x.buyRatio),sellRatio:num(x.sellRatio),timestamp:num(x.timestamp)};}
-function tickerState(t={}){const x=t?.result?.list?.[0]||{};const mark=num(x.markPrice),index=num(x.indexPrice);return {last:num(x.lastPrice),mark,index,fundingRate:num(x.fundingRate),openInterest:num(x.openInterest),openInterestValue:num(x.openInterestValue),basis:num(x.basis),basisRate:num(x.basisRate),premiumBps:index>0?(mark-index)/index*10000:0,turnover24h:num(x.turnover24h)};}
-function bridgeState(raw={}){
-  const x=raw?.data||raw?.result||raw||{},at=num(x.at||x.timestamp),fresh=at>0&&Date.now()-at<5000;
-  if(!fresh)return {fresh:false};
-  return {fresh:true,at,book:x.book||null,trades:x.trades||null,liquidations:x.liquidations||null,source:String(x.source||'VPS_BYBIT_WS')};
-}
-
-export function classifyBtcRegime(s={}){
-  const d15=num(s.structure15?.bias),d60=num(s.structure60?.bias),dir15=num(s.direction15),eff15=num(s.efficiency15),volRatio=num(s.volRatio),book=num(s.book?.imbalance5??s.book?.imbalance),flow=num(s.trades?.aggressorImbalance),px=num(s.price),priorHi=num(s.structure15?.priorHigh),priorLo=num(s.structure15?.priorLow);
-  if(volRatio>2.35)return 'HIGH_VOL_SHOCK';
-  const brokeUp=px>priorHi&&priorHi>0,brokeDn=px<priorLo&&priorLo>0;
-  if(brokeUp&&flow>.08&&book>-.30)return 'BREAKOUT_UP';
-  if(brokeDn&&flow<-.08&&book<.30)return 'BREAKOUT_DOWN';
-  if(volRatio<.70&&eff15<.28)return 'SQUEEZE';
-  if(d15>0&&d60>=0&&dir15>.16&&eff15>.34)return 'TREND_UP';
-  if(d15<0&&d60<=0&&dir15<-.16&&eff15>.34)return 'TREND_DOWN';
-  if(eff15<.32)return 'RANGE';
-  if((d15>0&&d60<0)||(d15<0&&d60>0))return 'REVERSAL';
-  return 'TRANSITION';
-}
-
-export async function buildBtcMarketState(env,api,symbol='BTCUSDT'){
-  const bridgePromise=fetchBtcMicrostructure(env,symbol);
-  const [k5,k15,k60,book,trades,oi,ratio,ticker,bridgeRaw]=await Promise.all([
-    api.kline(symbol,'5',180),api.kline(symbol,'15',180),api.kline(symbol,'60',140),
-    api.market('/v5/market/orderbook',{category:'linear',symbol,limit:50}),
-    api.market('/v5/market/recent-trade',{category:'linear',symbol,limit:1000}),
-    api.market('/v5/market/open-interest',{category:'linear',symbol,intervalTime:'5min',limit:6}),
-    api.market('/v5/market/account-ratio',{category:'linear',symbol,period:'5min',limit:6}),
-    api.ticker(symbol),bridgePromise
-  ]);
-  const r5=rows(k5),r15=rows(k15),r60=rows(k60),restBook=bookState(book),restTrades=tradeState(trades),o=oiState(oi),ra=ratioState(ratio),tk=tickerState(ticker),bridge=bridgeState(bridgeRaw),rv5=realizedVol(r5,24),rvBase=realizedVol(r5,96),price=tk.last||restBook.mid;
-  const b=bridge.fresh&&bridge.book?{...restBook,...bridge.book,updateTime:num(bridge.at)}:restBook;
-  const tr=bridge.fresh&&bridge.trades?{...restTrades,...bridge.trades,updateTime:num(bridge.at)}:restTrades;
-  const liq=bridge.fresh&&bridge.liquidations?bridge.liquidations:{longLiquidationUsd:0,shortLiquidationUsd:0,totalUsd:0,imbalance:0,events:0};
-  const state={symbol,at:Date.now(),price,mark:tk.mark,index:tk.index,fundingRate:tk.fundingRate,basis:tk.basis,basisRate:tk.basisRate,premiumBps:tk.premiumBps,turnover24h:tk.turnover24h,book:b,trades:tr,liquidations:liq,openInterest:o,longShort:ra,structure5:structure(r5),structure15:structure(r15),structure60:structure(r60),sweep5:sweepState(r5),sweep15:sweepState(r15),direction5:direction(r5,18),direction15:direction(r15,20),direction60:direction(r60,16),efficiency5:efficiency(r5,18),efficiency15:efficiency(r15,20),efficiency60:efficiency(r60,16),realizedVol5:rv5,realizedVolBase:rvBase,volRatio:rvBase>0?rv5/rvBase:1,range5:recentRange(r5,24),range15:recentRange(r15,24),range60:recentRange(r60,24),microstructureSource:bridge.fresh?bridge.source:'BYBIT_REST_SNAPSHOT'};
-  state.regime=classifyBtcRegime(state);
-  state.crowding={longHeavy:ra.buyRatio>.60||tk.fundingRate>.0004,shortHeavy:ra.sellRatio>.60||tk.fundingRate<-.0004,oiExpanding:o.deltaPct>.22,oiContracting:o.deltaPct<-.22,premiumRich:tk.premiumBps>6,premiumCheap:tk.premiumBps<-6};
-  state.derivatives={oiDeltaPct:o.deltaPct,fundingRate:tk.fundingRate,premiumBps:tk.premiumBps,liquidationImbalance:num(liq.imbalance),liquidationUsd:num(liq.totalUsd)};
-  state.quality={freshBook:Date.now()-num(b.updateTime)<5000||num(b.updateTime)===0,freshTrades:Date.now()-num(tr.updateTime)<15000||num(tr.updateTime)===0,spreadOk:num(b.spreadBps)<=8,liquid:tk.turnover24h>0,microstructureSource:state.microstructureSource};
-  return state;
-}
-
-export const BTC_MARKET_STATE_VERSION='BTC_MARKET_STATE_V2_STATE_FIRST';
+function tickerState(t={}){const x=t?.result?.list?.[0]||{},mark=num(x.markPrice),index=num(x.indexPrice);return {last:num(x.lastPrice),mark,index,fundingRate:num(x.fundingRate),openInterest:num(x.openInterest),openInterestValue:num(x.openInterestValue),basis:num(x.basis),basisRate:num(x.basisRate),premiumBps:index>0?(mark-index)/index*10000:0,turnover24h:num(x.turnover24h)};}
+function bridgeState(raw={}){const x=raw?.data||raw?.result||raw||{},at=num(x.at||x.timestamp),fresh=at>0&&Date.now()-at<5000;if(!fresh)return {fresh:false};return {fresh:true,at,book:x.book||null,trades:x.trades||null,liquidations:x.liquidations||null,source:String(x.source||'VPS_BYBIT_WS')};}
+export function classifyBtcRegime(s={}){const d15=num(s.structure15?.bias),d60=num(s.structure60?.bias),dir15=num(s.direction15),eff15=num(s.efficiency15),volRatio=num(s.volRatio),book=num(s.book?.imbalance5??s.book?.imbalance),flow=num(s.trades?.aggressorImbalance),px=num(s.price),priorHi=num(s.structure15?.priorHigh),priorLo=num(s.structure15?.priorLow);if(volRatio>2.50)return 'HIGH_VOL_SHOCK';const brokeUp=px>priorHi&&priorHi>0,brokeDn=px<priorLo&&priorLo>0;if(brokeUp&&flow>.06&&book>-.32)return 'BREAKOUT_UP';if(brokeDn&&flow<-.06&&book<.32)return 'BREAKOUT_DOWN';if(volRatio<.75&&eff15<.30)return 'SQUEEZE';if(d15>0&&d60>=0&&dir15>.14&&eff15>.32)return 'TREND_UP';if(d15<0&&d60<=0&&dir15<-.14&&eff15>.32)return 'TREND_DOWN';if(eff15<.34)return 'RANGE';if((d15>0&&d60<0)||(d15<0&&d60>0))return 'REVERSAL';return 'TRANSITION';}
+export async function buildBtcMarketState(env,api,symbol='BTCUSDT'){const bridgePromise=fetchBtcMicrostructure(env,symbol),[k5,k15,k60,book,trades,oi,ratio,ticker,bridgeRaw]=await Promise.all([api.kline(symbol,'5',180),api.kline(symbol,'15',180),api.kline(symbol,'60',140),api.market('/v5/market/orderbook',{category:'linear',symbol,limit:50}),api.market('/v5/market/recent-trade',{category:'linear',symbol,limit:1000}),api.market('/v5/market/open-interest',{category:'linear',symbol,intervalTime:'5min',limit:6}),api.market('/v5/market/account-ratio',{category:'linear',symbol,period:'5min',limit:6}),api.ticker(symbol),bridgePromise]);const r5=rows(k5),r15=rows(k15),r60=rows(k60),restBook=bookState(book),restTrades=tradeState(trades),o=oiState(oi),ra=ratioState(ratio),tk=tickerState(ticker),bridge=bridgeState(bridgeRaw),rv5=realizedVol(r5,24),rvBase=realizedVol(r5,96),price=tk.last||restBook.mid,b=bridge.fresh&&bridge.book?{...restBook,...bridge.book,updateTime:num(bridge.at)}:restBook,tr=bridge.fresh&&bridge.trades?{...restTrades,...bridge.trades,updateTime:num(bridge.at)}:restTrades,liq=bridge.fresh&&bridge.liquidations?bridge.liquidations:{longLiquidationUsd:0,shortLiquidationUsd:0,totalUsd:0,imbalance:0,events:0};const state={symbol,at:Date.now(),price,mark:tk.mark,index:tk.index,fundingRate:tk.fundingRate,basis:tk.basis,basisRate:tk.basisRate,premiumBps:tk.premiumBps,turnover24h:tk.turnover24h,book:b,trades:tr,liquidations:liq,openInterest:o,longShort:ra,structure5:structure(r5),structure15:structure(r15),structure60:structure(r60),sweep5:sweepState(r5),sweep15:sweepState(r15),direction5:direction(r5,18),direction15:direction(r15,20),direction60:direction(r60,16),efficiency5:efficiency(r5,18),efficiency15:efficiency(r15,20),efficiency60:efficiency(r60,16),realizedVol5:rv5,realizedVolBase:rvBase,volRatio:rvBase>0?rv5/rvBase:1,range5:recentRange(r5,24),range15:recentRange(r15,24),range60:recentRange(r60,24),microstructureSource:bridge.fresh?bridge.source:'BYBIT_REST_SNAPSHOT'};state.regime=classifyBtcRegime(state);state.crowding={longHeavy:ra.buyRatio>.60||tk.fundingRate>.0004,shortHeavy:ra.sellRatio>.60||tk.fundingRate<-.0004,oiExpanding:o.deltaPct>.22,oiContracting:o.deltaPct<-.22,premiumRich:tk.premiumBps>6,premiumCheap:tk.premiumBps<-6};state.derivatives={oiDeltaPct:o.deltaPct,fundingRate:tk.fundingRate,premiumBps:tk.premiumBps,liquidationImbalance:num(liq.imbalance),liquidationUsd:num(liq.totalUsd)};state.quality={freshBook:Date.now()-num(b.updateTime)<5000||num(b.updateTime)===0,freshTrades:Date.now()-num(tr.updateTime)<15000||num(tr.updateTime)===0,spreadOk:num(b.spreadBps)<=8,liquid:tk.turnover24h>0,microstructureSource:state.microstructureSource};return state;}
+export const BTC_MARKET_STATE_VERSION='BTC_MARKET_STATE_V3_FAST_STATE_FIRST';
