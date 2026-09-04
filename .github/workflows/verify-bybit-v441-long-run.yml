@@ -5,7 +5,7 @@ on:
     paths: ['.github/bybit-v441-long-run-verify-trigger']
   workflow_dispatch:
 permissions: {contents: read}
-concurrency: {group: bybit-v441-long-run-verify, cancel-in-progress: true}
+concurrency: {group: bybit-v441-contract-final-verify, cancel-in-progress: true}
 jobs:
   verify:
     runs-on: ubuntu-latest
