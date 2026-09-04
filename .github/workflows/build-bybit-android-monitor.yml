@@ -27,7 +27,9 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Generate Android project
-        run: python3 .github/scripts/create-bybit-android-monitor-app.py
+        run: |
+          python3 .github/scripts/create-bybit-android-monitor-app.py
+          python3 .github/scripts/fix-bybit-android-monitor-app-v1.py
       - name: Security assertions
         shell: bash
         run: |
