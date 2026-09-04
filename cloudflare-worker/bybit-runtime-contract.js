@@ -1,3 +1,4 @@
+// V4.5 production deployment revision: realized expectancy capital-preservation runtime.
 import {BYBIT_TRADE_UNIVERSE} from './bybit-coin-profiles.js';
 export const BYBIT_RUNTIME_CONTRACT_VERSION='BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION';
 export const BYBIT_AUTO_VERSION='BYBIT-MULTI-STATEFLOW-4.5.0';
