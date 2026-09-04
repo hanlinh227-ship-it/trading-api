@@ -1,0 +1,36 @@
+name: Inspect Bybit Bridge Owner V4.6
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v460-owner-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Inspect listener ownership without reading environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          PID=$(sudo ss -ltnp | sed -n 's/.*127\.0\.0\.1:8789.*pid=\([0-9][0-9]*\).*/\1/p' | head -n1)
+          echo "PID=$PID"
+          test -n "$PID"
+          echo '=== CMDLINE ==='
+          sudo tr '\0' ' ' < /proc/$PID/cmdline; echo
+          echo '=== STATUS ==='
+          sudo grep -E '^(Name|Pid|PPid|Uid|Gid):' /proc/$PID/status || true
+          PPID=$(sudo awk '/^PPid:/ {print $2}' /proc/$PID/status)
+          echo "PPID=$PPID"
+          if [ -n "$PPID" ] && [ "$PPID" != 0 ]; then sudo tr '\0' ' ' < /proc/$PPID/cmdline; echo; fi
+          echo '=== CGROUP ==='
+          sudo cat /proc/$PID/cgroup || true
+          echo '=== CWD ==='
+          sudo readlink -f /proc/$PID/cwd || true
+          echo '=== EXE ==='
+          sudo readlink -f /proc/$PID/exe || true
