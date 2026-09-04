@@ -1,0 +1,52 @@
+name: Apply Bybit V4.4.2 Dual Lane Promotion
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v442-dual-lane-promotion-trigger']
+  workflow_dispatch:
+permissions: {contents: write}
+concurrency: {group: bybit-v442-dual-lane-promotion, cancel-in-progress: false}
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply V4.4.2 dual-lane promotion
+        run: python3 .github/scripts/apply-bybit-v442-dual-lane-promotion.py
+      - name: Validate source and contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd cloudflare-worker
+          node --check bybit-dynamic-universe.js
+          node --check bybit-multi-asset-controller.js
+          node --check bybit-coin-profiles.js
+          node --check bybit-runtime-contract.js
+          node --check bybit-symbol-strategy.js
+          node --check bybit-symbol-engine.js
+          node --check bybit-btc-risk-engine.js
+          sed -i "s/'BYBIT-MULTI-STATEFLOW-4.4.1'/'BYBIT-MULTI-STATEFLOW-4.4.2'/" validate-btc-hyperscale.mjs
+          sed -i "s/'BYBIT_MULTI_ASSET_RUNTIME_V21_DIRECTION_COHERENCE_LONG_RUN_FREEZE'/'BYBIT_MULTI_ASSET_RUNTIME_V22_DUAL_LANE_DISCOVERY_PROMOTION'/" validate-btc-hyperscale.mjs
+          sed -i "s/'continuousTimeScale'/'lastContinuousCapitalUsd'/" validate-btc-hyperscale.mjs
+          node validate-btc-hyperscale.mjs
+      - name: Assert dual-lane safety markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "TRADE_PROMOTED" cloudflare-worker/bybit-dynamic-universe.js
+          grep -q "WATCH_ONLY_DEEP_ANALYSIS_PERSISTENT_PROMOTION" cloudflare-worker/bybit-multi-asset-controller.js
+          grep -q "promotionScanCount:4" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "promotionRequiresRepeatedFreshEvidence:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "const baseMax=maxConcurrentForEquity(equity)" cloudflare-worker/bybit-multi-asset-controller.js
+      - name: Commit V4.4.2 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-dynamic-universe.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-coin-profiles.js cloudflare-worker/bybit-runtime-contract.js
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'Add dual-lane Bybit market discovery promotion V4.4.2'
+          git push origin HEAD:main
