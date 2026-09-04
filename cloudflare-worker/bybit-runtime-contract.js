@@ -15,5 +15,5 @@ export const BYBIT_RUNTIME_CONTRACT={
   version:BYBIT_RUNTIME_CONTRACT_VERSION,autoVersion:BYBIT_AUTO_VERSION,executionAuthority:BYBIT_EXECUTION_AUTHORITY,
   privateTransport:BYBIT_PRIVATE_TRANSPORT,marketTransport:BYBIT_MARKET_TRANSPORT,healthRoute:BYBIT_HEALTH_ROUTE,telegramHub:TELEGRAM_HUB_ID,
   legacySignalRuntimeDisabled:LEGACY_SIGNAL_RUNTIME_DISABLED,legacyBybitMultiCoinDisabled:LEGACY_BYBIT_MULTI_COIN_DISABLED,legacyForexDisabled:LEGACY_FOREX_DISABLED,legacyMemeDisabled:LEGACY_MEME_DISABLED,legacyAiCouncilDisabled:LEGACY_AI_COUNCIL_DISABLED,
-  symbol:'BTCUSDT',market:'LINEAR_PERPETUAL',strategyAuthority:'STATE_FIRST_STRUCTURE_FLOW_LIQUIDITY_DERIVATIVES',migrationState:'BTC_ONLY_COMPLETE',dailyTradeQuota:'NONE',riskAuthority:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',balanceAuthority:'BYBIT_WALLET_PLUS_TRANSACTION_LOG',depositWithdrawalAware:true,unrealizedScaleCreditPct:25
+  symbol:'BTCUSDT',market:'LINEAR_PERPETUAL',strategyAuthority:'STATE_FIRST_STRUCTURE_FLOW_LIQUIDITY_DERIVATIVES',migrationState:'BTC_ONLY_COMPLETE',dailyTradeQuota:'NONE',riskAuthority:'CONTINUOUS_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',continuousScale:true,balanceAuthority:'BYBIT_WALLET_PLUS_TRANSACTION_LOG',depositWithdrawalAware:true,unrealizedScaleCreditPct:25
 };
