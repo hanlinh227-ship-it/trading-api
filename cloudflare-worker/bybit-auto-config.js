@@ -22,6 +22,16 @@ export const BYBIT_AUTO_CONFIG={
       {equityUsd:5000,normal:4,strong:6,aPlus:9,max:10}
     ]}
   },
+  scalp:{
+    authority:'FAST_NET_EDGE_SCALP',
+    minPlannedNetProfitUsd:.08,
+    minPlannedNetProfitPct:.20,
+    profitLockR:.55,
+    trailStartR:1.05,
+    trailRange5Pct:.12,
+    trailPricePct:.0010,
+    netProfitLockBufferMult:1.10
+  },
   scan:{decisionAuthority:'EVENT_DRIVEN_MARKET_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   risk:{
     mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
@@ -49,6 +59,7 @@ export const BYBIT_AUTO_CONFIG={
     softInvalidationScore:.22,
     softConfirmEvents:2,
     highVolShockAdverseExit:true,
+    profitLockOnDeceleration:true,
     freshThesisReentry:true,
     recoveryMartingale:false,
     recoveryAddToLoser:false
@@ -60,8 +71,8 @@ export const BYBIT_AUTO_CONFIG={
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true
   },
-  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true},
-  execution:{recvWindow:10000,positionIdx:0,postOnlyPreferredForPassive:true,marketAllowedForUrgentEdge:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
+  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true},
+  execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
 };
 
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
