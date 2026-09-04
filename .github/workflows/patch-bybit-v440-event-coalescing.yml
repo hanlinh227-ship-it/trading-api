@@ -1,0 +1,30 @@
+name: Patch Bybit V4.4 Event Coalescing
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v440-event-coalescing-trigger']
+  workflow_dispatch:
+permissions: {contents: write}
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply bounded event-driver patch
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/patch-bybit-v440-event-coalescing.py
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          grep -q "EVENT_SYMBOL_LIMIT" bybit-live-bridge/bybit_live_bridge.py
+          grep -q "BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING" bybit-live-bridge/bybit_live_bridge.py
+      - name: Commit bridge event load fix
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add bybit-live-bridge/bybit_live_bridge.py
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'Bound Bybit V4.4 event drivers while keeping 30 WS symbols'
+          git push origin HEAD:main
