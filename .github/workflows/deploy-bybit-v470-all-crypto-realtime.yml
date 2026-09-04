@@ -1,0 +1,125 @@
+name: Deploy Bybit V4.7 All Crypto Realtime
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v470-all-crypto-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-v470-all-crypto-realtime
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Apply V4.7 all-crypto and realtime monitor patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v470-all-crypto-realtime-monitor.py
+          python3 .github/scripts/apply-bybit-v470-validator.py
+          python3 .github/scripts/apply-bybit-v470-contract-cleanup.py
+      - name: Validate trading safety and monitor contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          grep -q "TRADE_ALL_CRYPTO" cloudflare-worker/bybit-dynamic-universe.js
+          grep -q "riskMult:.35" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "deepScanCount:16,promotionScanCount:0" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.7.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V25_ALL_CRYPTO_SCALP_NETWORK" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "freshWsRequiredForNewRisk:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "opportunityBreadthDoesNotIncreaseRiskBudget:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "marketTelemetry" bybit-live-bridge/bybit_live_bridge.py
+          grep -q "intervalMs=750" cloudflare-worker/bybit-android-monitor.js
+          grep -q "500,10000" cloudflare-worker/bybit-android-monitor.js
+          grep -q "martingale:false" cloudflare-worker/bybit-auto-config.js
+          grep -q "addToLoser:false" cloudflare-worker/bybit-auto-config.js
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Commit V4.7 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add bybit-live-bridge/bybit_live_bridge.py cloudflare-worker/bybit-dynamic-universe.js cloudflare-worker/bybit-coin-profiles.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-android-monitor.js cloudflare-worker/validate-btc-hyperscale.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'Enable all active crypto scalp universe and realtime Android mark-to-market V4.7'
+            git push origin HEAD:main
+          fi
+      - name: Upgrade VPS bridge with rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+          sudo cp /usr/local/bin/v11-manual-ai-bridge "$RUNNER_TEMP/v11-bridge-v46"
+          sudo cp /etc/trading-v11-ai.env "$RUNNER_TEMP/trading-v11-ai.env-v46"
+          rollback(){
+            echo 'ROLLBACK_BRIDGE_V47'
+            sudo cp "$RUNNER_TEMP/v11-bridge-v46" /usr/local/bin/v11-manual-ai-bridge || true
+            sudo cp "$RUNNER_TEMP/trading-v11-ai.env-v46" /etc/trading-v11-ai.env || true
+            sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge || true
+            sudo systemctl restart v11-manual-ai-bridge.service || true
+          }
+          trap rollback ERR
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/trading-v11-ai.env');s=p.read_text();key='BYBIT_MAX_WS_SYMBOLS';value='72'
+          rows=s.splitlines();found=False;out=[]
+          for line in rows:
+              raw=line.strip();prefix='export ' if raw.startswith('export ') else ''
+              body=raw[7:] if prefix else raw
+              if body.startswith(key+'='):
+                  out.append(prefix+key+'='+value);found=True
+              else: out.append(line)
+          if not found:out.append(key+'='+value)
+          p.write_text('\n'.join(out)+'\n')
+          PY
+          sudo cp bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
+          sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge
+          sudo systemctl restart v11-manual-ai-bridge.service
+          sleep 14
+          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+          B=$(curl -fsS --max-time 30 http://127.0.0.1:8789/health)
+          B="$B" node <<'NODE'
+          const x=JSON.parse(process.env.B),m=x.marketTelemetry||{},w=x.wsTelemetry||{};
+          const pass=x.ok===true&&x.maxWsSymbols===72&&Object.keys(m).length>0&&Number(w.connectedCount)>0;
+          console.log(JSON.stringify({pass,maxWsSymbols:x.maxWsSymbols,connected:w.connectedCount,ready:w.readyCount,fresh:w.freshCount,marketTelemetrySymbols:Object.keys(m).length,p50:w.p50DataAgeMs,p95:w.p95DataAgeMs},null,2));
+          if(!pass)process.exit(20);
+          NODE
+          trap - ERR
+      - name: Deploy Worker preserving LIVE variables
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$(git rev-parse HEAD)" npm run deploy
+      - name: Verify production V4.7 and all-crypto universe
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          sleep 5
+          H=$(curl -fsS --max-time 45 "$BASE/bybit/health")
+          C=$(curl -fsS --max-time 30 "$BASE/runtime/contract")
+          U=$(curl -fsS --max-time 60 "$BASE/bybit/universe")
+          M=$(curl -fsS --max-time 30 "$BASE/bybit/monitor/bootstrap")
+          H="$H" C="$C" U="$U" M="$M" node <<'NODE'
+          const h=JSON.parse(process.env.H),c=JSON.parse(process.env.C),u=JSON.parse(process.env.U),m=JSON.parse(process.env.M),s=u.summary||u.universe?.summary||{};
+          const classes=s.counts||u.counts||{};
+          const allCrypto=Number(classes.TRADE_ALL_CRYPTO||0),tradeable=Number(s.tradeableNow||u.tradeableNow||0);
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.7.0',live:h.mode==='LIVE',ready:h.execution?.ready===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V25_ALL_CRYPTO_SCALP_NETWORK',allCryptoFlag:c.allActiveCryptoEligible===true||c.runtimeContract?.allActiveCryptoEligible===true,universeAuthority:String(s.authority||u.authority||'').includes('ALL_ACTIVE_CRYPTO'),tradeable:tradeable>0,monitor:m.schemaVersion==='BYBIT_ANDROID_MONITOR_V1',monitor750:m.websocketProtocol?.defaultIntervalMs===750,monitor500:m.websocketProtocol?.minIntervalMs===500,readOnly:m.capabilities?.tradingControls===false};
+          const pass=Object.values(checks).every(Boolean);
+          console.log(JSON.stringify({pass,checks,tradeableNow:tradeable,tradeAllCrypto:allCrypto,universeSummary:s,monitor:{defaultIntervalMs:m.websocketProtocol?.defaultIntervalMs,minIntervalMs:m.websocketProtocol?.minIntervalMs}},null,2));
+          if(!pass)process.exit(21);
+          NODE
