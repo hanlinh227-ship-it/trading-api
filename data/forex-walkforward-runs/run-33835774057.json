@@ -1,0 +1,4249 @@
+{
+  "version": "FOREX-TWELVEDATA-WALKFORWARD-4-SELECTIVE",
+  "sourceSha": "9d75f44934c809be7b627eedc627deef527be7d1",
+  "seed": 599631427,
+  "generatedAt": "2026-08-25T12:58:42.374015+00:00",
+  "rules": {
+    "source": "Twelve Data 5min",
+    "noLookahead": true,
+    "learner": "per-symbol expanding selective KNN",
+    "sameBarSLTP": "SL_FIRST_PESSIMISTIC",
+    "timeouts": "LOSS",
+    "rrEvaluatedIndependently": [
+      1,
+      2
+    ],
+    "allowNoTrade": true,
+    "selectionGate": {
+      "rr1MinProb": 0.74,
+      "rr2MinProb": 0.72,
+      "rr1MinLocalConsensus": 0.86,
+      "rr2MinLocalConsensus": 0.86
+    },
+    "randomWindowsNonOverlappingWithinRound": true,
+    "targetWinratePctStrictlyGreaterThanPerSymbolPerRR": 80.0,
+    "minimumTestTradesPerSymbolPerRR": 18,
+    "holdout": "60% prefix trains; 40% suffix is sequential OOS; a closed OOS day may enter training only after its decisions are recorded",
+    "antiCherryPick": "NO TRADE is decided before outcome from model/regime confidence only; all accepted trades, abstentions, windows and failures are persisted; every symbol must pass both RR profiles"
+  },
+  "windows": [
+    {
+      "start": "2025-01-12T00:00:00+00:00",
+      "end": "2025-02-05T00:00:00+00:00"
+    },
+    {
+      "start": "2025-04-10T00:00:00+00:00",
+      "end": "2025-05-04T00:00:00+00:00"
+    },
+    {
+      "start": "2025-09-05T00:00:00+00:00",
+      "end": "2025-09-29T00:00:00+00:00"
+    },
+    {
+      "start": "2025-12-16T00:00:00+00:00",
+      "end": "2026-01-09T00:00:00+00:00"
+    },
+    {
+      "start": "2026-04-03T00:00:00+00:00",
+      "end": "2026-04-27T00:00:00+00:00"
+    },
+    {
+      "start": "2026-05-14T00:00:00+00:00",
+      "end": "2026-06-07T00:00:00+00:00"
+    }
+  ],
+  "symbols": {
+    "EURUSD": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 2,
+          "wins": 2,
+          "losses": 0,
+          "winrate": 100.0,
+          "avgR": 1.5
+        },
+        "byRR": {
+          "1": {
+            "trades": 1,
+            "wins": 1,
+            "losses": 0,
+            "winrate": 100.0,
+            "avgR": 1.0
+          },
+          "2": {
+            "trades": 1,
+            "wins": 1,
+            "losses": 0,
+            "winrate": 100.0,
+            "avgR": 2.0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4863,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.201 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.133 local=0.000": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.500 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.382 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.223 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.107 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.665 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.575 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.690 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.445 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 2,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.5
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 2.0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4485,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.565 local=0.714": 2,
+            "CONFIDENCE_GATE pr=0.510 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.331 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.463 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.265 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.336 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.364 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.483 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.389 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.349 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.146 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.479 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.324 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4547,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.590 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.516 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.678 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.616 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.706 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.617 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.396 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.312 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.665 local=0.714": 2,
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.637 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.442 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.594 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.515 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.719 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.669 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.653 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.627 local=1.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.518 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.434 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.476 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.394 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.606 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.431 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.448 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.384 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.778 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.619 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.435 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.295 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.603 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.664 local=0.571": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.282 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.157 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.647 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.259 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.587 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.512 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.425 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.269 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.359 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.310 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-01-28",
+          "entry_time": "2025-01-28T08:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8061,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6123,
+          "quality": 0.6573,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.037,
+          "maeR": 0.268,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-01-28",
+          "entry_time": "2025-01-28T08:00:00+00:00",
+          "side": "SELL",
+          "rr": 2,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.8035,
+          "localConsensus": 1.0,
+          "modelEdge": 1.4106,
+          "quality": 1.4556,
+          "result": "WIN",
+          "r": 2.0,
+          "mfeR": 2.562,
+          "maeR": 0.421,
+          "exitReason": "TP"
+        }
+      ]
+    },
+    "GBPUSD": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winrate": 0.0,
+          "avgR": -1.0
+        },
+        "byRR": {
+          "1": {
+            "trades": 2,
+            "wins": 0,
+            "losses": 2,
+            "winrate": 0.0,
+            "avgR": -1.0
+          },
+          "2": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winrate": 0,
+            "avgR": 0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4918,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.612 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.516 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.559 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.290 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.375 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.342 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.608 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.580 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.572 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.397 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.421 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.357 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4816,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.593 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.409 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.655 local=0.857": 1,
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.523 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.320 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4565,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.429 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.332 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.716 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.568 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.362 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.201 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 10,
+            "CONFIDENCE_GATE pr=0.506 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.489 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.706 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.600 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.415 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.230 local=0.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 5,
+            "CONFIDENCE_GATE pr=0.697 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.444 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.535 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.454 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.548 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.316 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.338 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.186 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.172 local=0.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.537 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.403 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.659 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.518 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.459 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.364 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.273 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.298 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.102 local=0.000": 1,
+            "NO_REGIME_CANDIDATE": 3,
+            "CONFIDENCE_GATE pr=0.428 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-04-25",
+          "entry_time": "2025-04-25T10:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 2.2,
+          "predictedWinProb": 0.7889,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5778,
+          "quality": 0.6265,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.257,
+          "maeR": 1.236,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-06-01",
+          "entry_time": "2026-06-01T07:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8206,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6412,
+          "quality": 0.781,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.0,
+          "maeR": 1.237,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "USDJPY": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 1,
+          "wins": 0,
+          "losses": 1,
+          "winrate": 0.0,
+          "avgR": -1.0
+        },
+        "byRR": {
+          "1": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winrate": 0.0,
+            "avgR": -1.0
+          },
+          "2": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winrate": 0,
+            "avgR": 0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4921,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.729 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.590 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.662 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.515 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.468 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.298 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.694 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.615 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.795 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.696 local=0.571": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4789,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.564 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.400 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.659 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.569 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.690 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.584 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.710 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.593 local=0.571": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4513,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.527 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.379 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.485 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.281 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.385 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.366 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.777 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.383 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.539 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.390 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.718 local=1.000": 1,
+            "NO_REGIME_CANDIDATE": 2
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.458 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.399 local=0.143": 1,
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.406 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.227 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.627 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.355 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.521 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.223 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.387 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.360 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.555 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.499 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.625 local=0.571": 2,
+            "CONFIDENCE_GATE pr=0.451 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.425 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.204 local=0.143": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.296 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.569 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.516 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.621 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.441 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.588 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.527 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.577 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.548 local=1.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-09-25",
+          "entry_time": "2025-09-25T08:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8091,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6183,
+          "quality": 0.6422,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.542,
+          "maeR": 1.583,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "USDCHF": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 7,
+          "wins": 3,
+          "losses": 4,
+          "winrate": 42.86,
+          "avgR": -0.143
+        },
+        "byRR": {
+          "1": {
+            "trades": 6,
+            "wins": 3,
+            "losses": 3,
+            "winrate": 50.0,
+            "avgR": 0.0
+          },
+          "2": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winrate": 0.0,
+            "avgR": -1.0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4913,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.310 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.246 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.433 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.269 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.437 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.256 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 0,
+              "losses": 2,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4787,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 3,
+          "abstentionsByRR": {
+            "1": 4,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.617 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.467 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.616 local=1.000": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.590 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.664 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.759 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.576 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.505 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.302 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 3,
+              "wins": 3,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR1": {
+              "trades": 3,
+              "wins": 3,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4516,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.364 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.329 local=0.000": 2,
+            "CONFIDENCE_GATE pr=0.618 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.547 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.652 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.514 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.648 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.564 local=0.714": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.523 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.312 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.327 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.237 local=0.000": 1,
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.391 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.171 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.375 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.246 local=0.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.752 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.604 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.610 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.584 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.703 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.651 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.580 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.552 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 6
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.631 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.368 local=0.571": 1,
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.542 local=0.857": 2,
+            "CONFIDENCE_GATE pr=0.626 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.523 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.485 local=0.857": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-01-30",
+          "entry_time": "2025-01-30T12:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.8236,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6471,
+          "quality": 0.9028,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.311,
+          "maeR": 1.244,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2025-01-30",
+          "entry_time": "2025-01-30T08:00:00+00:00",
+          "side": "SELL",
+          "rr": 2,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8545,
+          "localConsensus": 1.0,
+          "modelEdge": 1.5634,
+          "quality": 1.6208,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.0,
+          "maeR": 1.014,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2025-04-25",
+          "entry_time": "2025-04-25T09:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 2.2,
+          "predictedWinProb": 0.7529,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5059,
+          "quality": 0.5563,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.125,
+          "maeR": 0.511,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-04-29",
+          "entry_time": "2025-04-29T09:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.7968,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5935,
+          "quality": 0.7525,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.005,
+          "maeR": 0.104,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-04-30",
+          "entry_time": "2025-04-30T07:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.8,
+          "predictedWinProb": 0.8025,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6051,
+          "quality": 0.6876,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.457,
+          "maeR": 0.413,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-09-22",
+          "entry_time": "2025-09-22T13:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.7935,
+          "localConsensus": 1.0,
+          "modelEdge": 0.587,
+          "quality": 0.7053,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.443,
+          "maeR": 1.257,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-06-06",
+          "entry_time": "2026-06-06T16:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.74,
+          "localConsensus": 1.0,
+          "modelEdge": 0.48,
+          "quality": 0.545,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.233,
+          "maeR": 1.089,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "AUDUSD": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 8,
+          "wins": 2,
+          "losses": 6,
+          "winrate": 25.0,
+          "avgR": -0.5
+        },
+        "byRR": {
+          "1": {
+            "trades": 6,
+            "wins": 2,
+            "losses": 4,
+            "winrate": 33.33,
+            "avgR": -0.333
+          },
+          "2": {
+            "trades": 2,
+            "wins": 0,
+            "losses": 2,
+            "winrate": 0.0,
+            "avgR": -1.0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4919,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.629 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.232 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.515 local=0.571": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.521 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.292 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.503 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.314 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.502 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.370 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.562 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.342 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4815,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.357 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.295 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.712 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.346 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.459 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.324 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.505 local=0.714": 2,
+            "CONFIDENCE_GATE pr=0.821 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.504 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 0,
+              "losses": 2,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4541,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.593 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.505 local=0.571": 1,
+            "NO_REGIME_CANDIDATE": 10,
+            "CONFIDENCE_GATE pr=0.380 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.289 local=0.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.623 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.470 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.626 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.386 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.521 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.477 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.390 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.599 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR1": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 3,
+          "abstentionsByRR": {
+            "1": 5,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.704 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.628 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.710 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.713 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.591 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.656 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.537 local=0.857": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 3,
+              "wins": 1,
+              "losses": 2,
+              "winrate": 33.33,
+              "avgR": -0.333
+            },
+            "RR1": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.639 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.299 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.552 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.291 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.688 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.522 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.451 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.250 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.518 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.488 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.516 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.346 local=0.714": 1,
+            "NO_REGIME_CANDIDATE": 2
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-01-28",
+          "entry_time": "2025-01-28T07:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 0.8,
+          "predictedWinProb": 0.8055,
+          "localConsensus": 1.0,
+          "modelEdge": 0.611,
+          "quality": 0.7344,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.438,
+          "maeR": 1.312,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2025-04-29",
+          "entry_time": "2025-04-29T08:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8776,
+          "localConsensus": 1.0,
+          "modelEdge": 0.7551,
+          "quality": 0.8943,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.0,
+          "maeR": 1.023,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2025-04-29",
+          "entry_time": "2025-04-29T08:00:00+00:00",
+          "side": "BUY",
+          "rr": 2,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.7632,
+          "localConsensus": 1.0,
+          "modelEdge": 1.2896,
+          "quality": 1.4288,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.0,
+          "maeR": 1.279,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-01-06",
+          "entry_time": "2026-01-06T06:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.8193,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6385,
+          "quality": 0.822,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.568,
+          "maeR": 0.0,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-01-08",
+          "entry_time": "2026-01-08T15:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8834,
+          "localConsensus": 1.0,
+          "modelEdge": 0.7668,
+          "quality": 0.9046,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.066,
+          "maeR": 1.147,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-04-22",
+          "entry_time": "2026-04-22T12:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8133,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6267,
+          "quality": 0.873,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.421,
+          "maeR": 0.037,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-04-23",
+          "entry_time": "2026-04-23T08:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8148,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6296,
+          "quality": 0.7447,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.368,
+          "maeR": 1.241,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-04-23",
+          "entry_time": "2026-04-23T08:00:00+00:00",
+          "side": "BUY",
+          "rr": 2,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8148,
+          "localConsensus": 1.0,
+          "modelEdge": 1.4443,
+          "quality": 1.5595,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.368,
+          "maeR": 1.241,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "NZDUSD": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winrate": 33.33,
+          "avgR": -0.333
+        },
+        "byRR": {
+          "1": {
+            "trades": 3,
+            "wins": 1,
+            "losses": 2,
+            "winrate": 33.33,
+            "avgR": -0.333
+          },
+          "2": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winrate": 0,
+            "avgR": 0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4913,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.690 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.467 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.657 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.487 local=0.571": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.671 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.477 local=0.714": 2,
+            "CONFIDENCE_GATE pr=0.392 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.279 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4816,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.545 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.461 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.574 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.326 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.650 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.600 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.627 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.170 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.504 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.452 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4568,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 10,
+            "CONFIDENCE_GATE pr=0.496 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.342 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.328 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.217 local=0.000": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 10,
+            "CONFIDENCE_GATE pr=0.390 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.316 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.730 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.512 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.697 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.473 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.700 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.677 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.264 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.202 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.348 local=0.143": 2
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 5,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.602 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.436 local=0.857": 2,
+            "CONFIDENCE_GATE pr=0.553 local=0.714": 1,
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.620 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.562 local=0.714": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR1": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-01-31",
+          "entry_time": "2025-01-31T15:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.945,
+          "localConsensus": 1.0,
+          "modelEdge": 0.8899,
+          "quality": 0.9994,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.264,
+          "maeR": 1.321,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-05-31",
+          "entry_time": "2026-05-31T14:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 2.2,
+          "predictedWinProb": 0.8316,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6633,
+          "quality": 0.7381,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.089,
+          "maeR": 0.502,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-06-02",
+          "entry_time": "2026-06-02T14:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8406,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6812,
+          "quality": 0.8006,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.342,
+          "maeR": 1.164,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "USDCAD": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 5,
+          "wins": 2,
+          "losses": 3,
+          "winrate": 40.0,
+          "avgR": -0.2
+        },
+        "byRR": {
+          "1": {
+            "trades": 4,
+            "wins": 2,
+            "losses": 2,
+            "winrate": 50.0,
+            "avgR": 0.0
+          },
+          "2": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winrate": 0.0,
+            "avgR": -1.0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4914,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.430 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.318 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.486 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.335 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.417 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.306 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.555 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.436 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.683 local=0.571": 2,
+            "CONFIDENCE_GATE pr=0.342 local=0.000": 2,
+            "NO_REGIME_CANDIDATE": 2
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4792,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.668 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.475 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.731 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.475 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.656 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.415 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.863 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.576 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.657 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.547 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.395 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.528 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.198 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4520,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.541 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.398 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.678 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.332 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.569 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.368 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.613 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.464 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.608 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.540 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.384 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.621 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.390 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.589 local=0.571": 1,
+            "NO_REGIME_CANDIDATE": 9,
+            "CONFIDENCE_GATE pr=0.655 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.588 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.436 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.386 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.657 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.350 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.803 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.766 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.815 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.702 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.624 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.518 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.422 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.665 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.578 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.785 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.565 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 7,
+            "CONFIDENCE_GATE pr=0.644 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.532 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.527 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.388 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.235 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 0,
+              "losses": 2,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-04-30",
+          "entry_time": "2025-04-30T13:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.7989,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5978,
+          "quality": 0.7046,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.092,
+          "maeR": 1.345,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2025-09-24",
+          "entry_time": "2025-09-24T08:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.7787,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5573,
+          "quality": 0.5998,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.341,
+          "maeR": 0.746,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-04-21",
+          "entry_time": "2026-04-21T09:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.9309,
+          "localConsensus": 1.0,
+          "modelEdge": 0.8618,
+          "quality": 0.9803,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.035,
+          "maeR": 0.44,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-05-31",
+          "entry_time": "2026-05-31T16:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8301,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6602,
+          "quality": 0.7458,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.792,
+          "maeR": 1.248,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-05-31",
+          "entry_time": "2026-05-31T16:00:00+00:00",
+          "side": "SELL",
+          "rr": 2,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.7218,
+          "localConsensus": 1.0,
+          "modelEdge": 1.1655,
+          "quality": 1.2511,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.792,
+          "maeR": 1.248,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "EURJPY": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 9,
+          "wins": 7,
+          "losses": 2,
+          "winrate": 77.78,
+          "avgR": 0.667
+        },
+        "byRR": {
+          "1": {
+            "trades": 7,
+            "wins": 6,
+            "losses": 1,
+            "winrate": 85.71,
+            "avgR": 0.714
+          },
+          "2": {
+            "trades": 2,
+            "wins": 1,
+            "losses": 1,
+            "winrate": 50.0,
+            "avgR": 0.5
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4907,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 4,
+          "abstentionsByRR": {
+            "1": 4,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.739 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.640 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.538 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.577 local=0.429": 2,
+            "CONFIDENCE_GATE pr=0.493 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.213 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.816 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.517 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.626 local=0.714": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 4,
+              "wins": 4,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.25
+            },
+            "RR1": {
+              "trades": 3,
+              "wins": 3,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 2.0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4812,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.608 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.389 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.674 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.350 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.534 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.461 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.261 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.324 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.207 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4537,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.558 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.738 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.405 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.742 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.344 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.447 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.268 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.379 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.158 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.476 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.301 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.631 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.599 local=0.714": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 3,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.595 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.820 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.594 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.414 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.187 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.760 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.511 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 3,
+              "wins": 1,
+              "losses": 2,
+              "winrate": 33.33,
+              "avgR": -0.333
+            },
+            "RR1": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.444 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.440 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.319 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.194 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.570 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.299 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.456 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.193 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.356 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.299 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.617 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.471 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.717 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.187 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.411 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.246 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.560 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.488 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.590 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.494 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.569 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.435 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.344 local=0.429": 2,
+            "CONFIDENCE_GATE pr=0.289 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.200 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-01-27",
+          "entry_time": "2025-01-27T08:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8551,
+          "localConsensus": 1.0,
+          "modelEdge": 0.7103,
+          "quality": 0.7741,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.098,
+          "maeR": 0.122,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-01-27",
+          "entry_time": "2025-01-27T08:00:00+00:00",
+          "side": "SELL",
+          "rr": 2,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.7669,
+          "localConsensus": 1.0,
+          "modelEdge": 1.3007,
+          "quality": 1.3645,
+          "result": "WIN",
+          "r": 2.0,
+          "mfeR": 2.318,
+          "maeR": 0.122,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-01-28",
+          "entry_time": "2025-01-28T10:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8238,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6476,
+          "quality": 0.7431,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.054,
+          "maeR": 0.211,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-02-04",
+          "entry_time": "2025-02-04T14:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.9403,
+          "localConsensus": 1.0,
+          "modelEdge": 0.8807,
+          "quality": 1.0225,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.199,
+          "maeR": 0.0,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-04-30",
+          "entry_time": "2025-04-30T09:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.9165,
+          "localConsensus": 1.0,
+          "modelEdge": 0.8331,
+          "quality": 0.9086,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.402,
+          "maeR": 0.392,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-09-18",
+          "entry_time": "2025-09-18T07:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 2.2,
+          "predictedWinProb": 0.8333,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6666,
+          "quality": 0.8346,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.124,
+          "maeR": 0.028,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-12-30",
+          "entry_time": "2025-12-30T14:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.757,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5139,
+          "quality": 0.7313,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.39,
+          "maeR": 0.699,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-01-07",
+          "entry_time": "2026-01-07T14:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.9038,
+          "localConsensus": 1.0,
+          "modelEdge": 0.8076,
+          "quality": 0.8659,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.236,
+          "maeR": 1.488,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-01-07",
+          "entry_time": "2026-01-07T14:00:00+00:00",
+          "side": "SELL",
+          "rr": 2,
+          "stopAtr": 0.8,
+          "predictedWinProb": 0.7273,
+          "localConsensus": 1.0,
+          "modelEdge": 1.1819,
+          "quality": 1.2402,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.443,
+          "maeR": 1.29,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "GBPJPY": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 2,
+          "wins": 0,
+          "losses": 2,
+          "winrate": 0.0,
+          "avgR": -1.0
+        },
+        "byRR": {
+          "1": {
+            "trades": 2,
+            "wins": 0,
+            "losses": 2,
+            "winrate": 0.0,
+            "avgR": -1.0
+          },
+          "2": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winrate": 0,
+            "avgR": 0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4904,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.653 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.378 local=0.286": 2,
+            "CONFIDENCE_GATE pr=0.729 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.561 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.794 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.353 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.769 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.527 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.622 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4812,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.699 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.434 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.685 local=1.000": 2,
+            "CONFIDENCE_GATE pr=0.606 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.369 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.492 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.248 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.769 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.475 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.579 local=0.571": 2,
+            "CONFIDENCE_GATE pr=0.587 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.243 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4537,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.698 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.435 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.810 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.525 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.693 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.649 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.651 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.471 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.679 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.432 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.612 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.708 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.609 local=0.857": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.440 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.372 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.564 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.561 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.289 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.704 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.354 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.535 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.385 local=0.714": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.478 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.319 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.626 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.547 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.564 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.445 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.615 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.555 local=0.857": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.577 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.353 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.524 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.273 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.525 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.421 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-09-25",
+          "entry_time": "2025-09-25T15:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.7607,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5214,
+          "quality": 0.6334,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.617,
+          "maeR": 1.02,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-01-02",
+          "entry_time": "2026-01-02T15:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8444,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6889,
+          "quality": 0.7767,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.676,
+          "maeR": 1.366,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "EURGBP": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 3,
+          "wins": 1,
+          "losses": 2,
+          "winrate": 33.33,
+          "avgR": -0.333
+        },
+        "byRR": {
+          "1": {
+            "trades": 3,
+            "wins": 1,
+            "losses": 2,
+            "winrate": 33.33,
+            "avgR": -0.333
+          },
+          "2": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winrate": 0,
+            "avgR": 0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4897,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.656 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.597 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.714 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.503 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.616 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.422 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.582 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.553 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.493 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.292 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.271 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.187 local=0.143": 1,
+            "NO_REGIME_CANDIDATE": 2
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4813,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.452 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.230 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.691 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.524 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.599 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.495 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.696 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.538 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.696 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.517 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.549 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.523 local=0.571": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 4537,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.566 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.439 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.776 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.503 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.532 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.254 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.718 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.615 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.672 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.501 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.660 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.385 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 4609,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.501 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.313 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.318 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.251 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 6,
+            "CONFIDENCE_GATE pr=0.582 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.239 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.666 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.570 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.730 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.609 local=0.571": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 2,
+          "abstentionsByRR": {
+            "1": 5,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.476 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.386 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.123 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.642 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.231 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.538 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.653 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.376 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 2,
+            "CONFIDENCE_GATE pr=0.403 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.360 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR1": {
+              "trades": 2,
+              "wins": 1,
+              "losses": 1,
+              "winrate": 50.0,
+              "avgR": 0.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.667 local=0.714": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.803 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.567 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.507 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.547 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.405 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.501 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.329 local=0.000": 1,
+            "CONFIDENCE_GATE pr=0.315 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2026-04-20",
+          "entry_time": "2026-04-20T06:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8499,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6999,
+          "quality": 0.8488,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.206,
+          "maeR": 0.223,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2026-04-23",
+          "entry_time": "2026-04-23T12:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 2.2,
+          "predictedWinProb": 0.7434,
+          "localConsensus": 1.0,
+          "modelEdge": 0.4867,
+          "quality": 0.6989,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.2,
+          "maeR": 1.033,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-06-02",
+          "entry_time": "2026-06-02T09:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 2.2,
+          "predictedWinProb": 0.8401,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6802,
+          "quality": 0.8018,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.0,
+          "maeR": 1.048,
+          "exitReason": "SL"
+        }
+      ]
+    },
+    "XAUUSD": {
+      "pass": false,
+      "rrPass": {
+        "1": false,
+        "2": false
+      },
+      "holdout": {
+        "all": {
+          "trades": 6,
+          "wins": 5,
+          "losses": 1,
+          "winrate": 83.33,
+          "avgR": 0.833
+        },
+        "byRR": {
+          "1": {
+            "trades": 5,
+            "wins": 4,
+            "losses": 1,
+            "winrate": 80.0,
+            "avgR": 0.6
+          },
+          "2": {
+            "trades": 1,
+            "wins": 1,
+            "losses": 0,
+            "winrate": 100.0,
+            "avgR": 2.0
+          }
+        }
+      },
+      "source": [
+        {
+          "window": 0,
+          "bars": 4660,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 4,
+          "abstentionsByRR": {
+            "1": 4,
+            "2": 6
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.648 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.500 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.425 local=0.571": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.766 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.701 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.673 local=0.857": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 4,
+              "wins": 4,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.25
+            },
+            "RR1": {
+              "trades": 3,
+              "wins": 3,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 2.0
+            }
+          }
+        },
+        {
+          "window": 1,
+          "bars": 4120,
+          "trainDays": 9,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.578 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.385 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.668 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.611 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.497 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 0,
+              "losses": 1,
+              "winrate": 0.0,
+              "avgR": -1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 2,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.552 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.459 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.644 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.411 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.422 local=0.286": 1,
+            "CONFIDENCE_GATE pr=0.212 local=0.286": 1,
+            "NO_REGIME_CANDIDATE": 4,
+            "CONFIDENCE_GATE pr=0.677 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.409 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.736 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.585 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.525 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.385 local=0.143": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 3,
+          "bars": 5000,
+          "trainDays": 12,
+          "testDays": 8,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 8,
+            "2": 8
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 10,
+            "CONFIDENCE_GATE pr=0.659 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.320 local=0.143": 1,
+            "CONFIDENCE_GATE pr=0.621 local=0.286": 2,
+            "CONFIDENCE_GATE pr=0.685 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.524 local=0.571": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 4,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 0,
+          "abstentionsByRR": {
+            "1": 7,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "CONFIDENCE_GATE pr=0.366 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.235 local=0.429": 1,
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.530 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.372 local=0.429": 1,
+            "CONFIDENCE_GATE pr=0.545 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.267 local=0.286": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR1": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        },
+        {
+          "window": 5,
+          "bars": 5000,
+          "trainDays": 10,
+          "testDays": 7,
+          "acceptedTrades": 1,
+          "abstentionsByRR": {
+            "1": 6,
+            "2": 7
+          },
+          "abstentionReasons": {
+            "NO_REGIME_CANDIDATE": 8,
+            "CONFIDENCE_GATE pr=0.695 local=1.000": 1,
+            "CONFIDENCE_GATE pr=0.468 local=0.714": 1,
+            "CONFIDENCE_GATE pr=0.606 local=0.571": 1,
+            "CONFIDENCE_GATE pr=0.824 local=0.857": 1,
+            "CONFIDENCE_GATE pr=0.492 local=0.429": 1
+          },
+          "testMetrics": {
+            "all": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR1": {
+              "trades": 1,
+              "wins": 1,
+              "losses": 0,
+              "winrate": 100.0,
+              "avgR": 1.0
+            },
+            "RR2": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winrate": 0,
+              "avgR": 0
+            }
+          }
+        }
+      ],
+      "dataError": null,
+      "trades": [
+        {
+          "day": "2025-01-27",
+          "entry_time": "2025-01-27T16:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.5,
+          "predictedWinProb": 0.8065,
+          "localConsensus": 1.0,
+          "modelEdge": 0.613,
+          "quality": 0.8317,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.309,
+          "maeR": 0.252,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-02-03",
+          "entry_time": "2025-02-03T14:00:00+00:00",
+          "side": "BUY",
+          "rr": 1,
+          "stopAtr": 1.8,
+          "predictedWinProb": 0.8006,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6012,
+          "quality": 0.8307,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.126,
+          "maeR": 0.138,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-02-04",
+          "entry_time": "2025-02-04T07:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.931,
+          "localConsensus": 1.0,
+          "modelEdge": 0.8621,
+          "quality": 1.0662,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.994,
+          "maeR": 0.982,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-02-04",
+          "entry_time": "2025-02-04T07:00:00+00:00",
+          "side": "SELL",
+          "rr": 2,
+          "stopAtr": 1.2,
+          "predictedWinProb": 0.8538,
+          "localConsensus": 1.0,
+          "modelEdge": 1.5613,
+          "quality": 1.7654,
+          "result": "WIN",
+          "r": 2.0,
+          "mfeR": 3.432,
+          "maeR": 0.982,
+          "exitReason": "TP"
+        },
+        {
+          "day": "2025-04-30",
+          "entry_time": "2025-04-30T07:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.8,
+          "predictedWinProb": 0.8062,
+          "localConsensus": 1.0,
+          "modelEdge": 0.6125,
+          "quality": 0.6964,
+          "result": "LOSS",
+          "r": -1.0,
+          "mfeR": 0.437,
+          "maeR": 1.749,
+          "exitReason": "SL"
+        },
+        {
+          "day": "2026-06-03",
+          "entry_time": "2026-06-03T16:00:00+00:00",
+          "side": "SELL",
+          "rr": 1,
+          "stopAtr": 1.0,
+          "predictedWinProb": 0.7862,
+          "localConsensus": 1.0,
+          "modelEdge": 0.5724,
+          "quality": 0.8023,
+          "result": "WIN",
+          "r": 1.0,
+          "mfeR": 1.285,
+          "maeR": 0.458,
+          "exitReason": "TP"
+        }
+      ]
+    }
+  },
+  "pass": false
+}
