@@ -1,37 +1,51 @@
 {
-  "verifiedAt": "2026-08-27T10:39:56.073Z",
-  "expectedRevision": "2ce6386007be87aafacd6b4b27f66a76e60772ab",
-  "runtimeRevision": "2ce6386007be87aafacd6b4b27f66a76e60772ab",
-  "version": "BYBIT-AUTO-1.9.1",
+  "verifiedAt": "2026-09-04T07:44:22.454Z",
+  "expectedRevision": "cab1ee60436bcc90161171ca39c872e3bca1e150",
+  "runtimeRevision": "cab1ee60436bcc90161171ca39c872e3bca1e150",
   "pass": true,
   "health": {
     "http": 200,
     "ok": true,
-    "authenticated": true,
     "exchange": "BYBIT",
-    "mode": "LIVE",
-    "executionReady": true,
-    "liveAck": true,
-    "scheduled": true,
+    "mode": "PAPER",
+    "authenticated": true,
     "privateTransport": "VPS_BYBIT_PRIVATE_PROXY",
     "marketTransport": "VPS_BYBIT_MARKET_PROXY",
+    "serverTimeMs": 1788507859913,
     "revisionOk": true
   },
+  "contract": {
+    "http": 200,
+    "version": "BYBIT-BTC-STATEFLOW-2.5",
+    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V9_EVENT_DRIVER_ONLY",
+    "authority": "BYBIT_BTC_ONLY",
+    "btcOnly": true
+  },
+  "entryHealth": {
+    "http": 503,
+    "status": "BTC_ENTRY_BLOCKED",
+    "blockers": [
+      "BTC_LIVE_ACK_MISSING"
+    ],
+    "btcLiveAck": false,
+    "scheduled": null
+  },
+  "scan": {
+    "http": 200,
+    "ok": true,
+    "symbol": "BTCUSDT",
+    "regime": "SQUEEZE",
+    "microstructureSource": "VPS_BYBIT_WS",
+    "setupOk": false,
+    "setup": null,
+    "reason": "SQUEEZE_WAIT_MOMENTUM_RELEASE_OR_SWEEP"
+  },
   "checks": {
-    "workerPreflight": true,
-    "bybitLearningIntegrity": true,
-    "forexRuntimeValidation": true,
     "privateVpsTransport": true,
     "marketVpsTransport": true,
     "runtimeRevision": true,
-    "bybitLive": true,
-    "bybitForexLiveIsolation": true,
-    "forexCanonicalMt5": true,
-    "unifiedLiveRuntime": true
-  },
-  "deployment": {
-    "workflow": "Deploy Unified Trading Hub",
-    "runId": 33063916573,
-    "cloudflareVersionId": "86bfb345-6dd2-4692-9d9a-937fac665780"
+    "runtimeContract": true,
+    "entryInspectable": true,
+    "readOnlyStateFlowScan": true
   }
 }
