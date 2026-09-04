@@ -20,7 +20,9 @@ jobs:
         run: |
           set -euo pipefail
           BASE=https://trading-v77-scanner.hanlinh227.workers.dev
-          TMP="$(mktemp -d)"
+          TMP="$RUNNER_TEMP/bybit-v43-live-audit"
+          rm -rf "$TMP"
+          mkdir -p "$TMP"
           curl -sS --max-time 35 "$BASE/bybit/health" > "$TMP/health.json"
           curl -sS --max-time 45 "$BASE/bybit/entry-health" > "$TMP/entry.json" || true
           curl -sS --max-time 35 "$BASE/runtime/contract" > "$TMP/contract.json"
@@ -28,11 +30,21 @@ jobs:
           for S in "${symbols[@]}"; do
             curl -sS --max-time 90 "$BASE/bybit/scan?symbol=$S" > "$TMP/$S.json" || echo '{}' > "$TMP/$S.json"
           done
-          TMP="$TMP" node <<'NODE'
+          TMP="$TMP" node <<'NODE' | tee "$TMP/audit.json"
           const fs=require('fs'),p=process.env.TMP;
           const read=f=>{try{return JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'))}catch{return {}}};
           const h=read('health.json'),e=read('entry.json'),c=read('contract.json');
           const symbols=['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','SOLUSDT','TRXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','AVAXUSDT','LTCUSDT','BCHUSDT','XLMUSDT','DOTUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','HBARUSDT'];
           const rows=symbols.map(sym=>{const s=read(`${sym}.json`),m=s.market||{},x=s.selected||{},q=m.quality||{},d=x.diagnostic||{},setup=x.setup||{};return {symbol:sym,ok:s.ok===true,source:m.microstructureSource||null,regime:m.regime||null,freshBook:q.freshBook??null,freshTrades:q.freshTrades??null,ultraFastReady:q.ultraFastReady??null,setupOk:x.ok===true,reason:x.reason||null,side:setup.side||null,tier:setup.entryTier||null,setup:setup.setup||null,rr:Number(setup.rr)||null,quality:Number(d.q)||null,qualityMin:Number(d.qualityMin)||null,score:Number(d.score)||null,threshold:Number(d.threshold)||null,votes:Number(d.votes)||null,totalCostBps:Number(setup.cost?.totalCostBps||x.cost?.totalCostBps)||null,netTargetBps:Number(setup.cost?.netTargetBps||x.cost?.netTargetBps)||null};});
-          console.log(JSON.stringify({checkedAt:new Date().toISOString(),runtime:{version:h.version||null,contract:c.version||null,mode:h.mode||null,environment:h.environment||null,authenticated:h.authenticated??null,liveAck:h.execution?.liveAck??e.btcLiveAck??null,entryReady:h.execution?.ready??null,entryStatus:e.status||null,blockers:e.blockers||[],equity:h.account?.totalEquity??null,wallet:h.account?.walletBalance??null,available:h.account?.availableBalance??null,positions:h.positions?.items||[]},symbols:rows},null,2));
+          const audit={checkedAt:new Date().toISOString(),runtime:{version:h.version||null,contract:c.version||null,mode:h.mode||null,environment:h.environment||null,authenticated:h.authenticated??null,liveAck:h.execution?.liveAck??e.btcLiveAck??null,entryReady:h.execution?.ready??null,entryStatus:e.status||null,blockers:e.blockers||[],equity:h.account?.totalEquity??null,wallet:h.account?.walletBalance??null,available:h.account?.availableBalance??null,positions:h.positions?.items||[]},symbols:rows};
+          console.log(JSON.stringify(audit,null,2));
           NODE
+
+      - name: Upload complete Bybit live audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v43-live-audit
+          path: ${{ runner.temp }}/bybit-v43-live-audit
+          if-no-files-found: error
+          retention-days: 7
