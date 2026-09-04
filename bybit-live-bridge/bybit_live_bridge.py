@@ -7,7 +7,7 @@ share the same confirmed WS stream so there is no second market reader or strate
 scheduler. Reconnect backoff is transport-only, never a trading time gate.
 """
 from __future__ import annotations
-import json, math, os, threading, time, urllib.error, urllib.parse, urllib.request
+import json, math, os, subprocess, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -21,6 +21,8 @@ EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() i
 BYBIT_BASES=tuple(dict.fromkeys(x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()))
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
 BYBIT_ALLOWED_METHODS=('GET','POST')
+CURL_BIN='/usr/bin/curl' if os.path.exists('/usr/bin/curl') else 'curl'
+BROWSER_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36'
 
 try:
     import websocket  # websocket-client
@@ -32,11 +34,13 @@ class Microstructure:
         self.lock=threading.RLock(); self.bids={}; self.asks={}; self.trades=deque(maxlen=12000); self.liquidations=deque(maxlen=4000)
         self.last_book=0; self.last_trade=0; self.last_liq=0; self.last_error=None; self.connected=False; self.thread=None
         self.event_last_fingerprint=None; self.event_inflight=False; self.event_pending=False
-        self.event_last_wake=0; self.event_last_success=0; self.event_last_error=None; self.event_last_result=None; self.event_last_http=0
+        self.event_last_wake=0; self.event_last_success=0; self.event_last_error=None; self.event_last_result=None; self.event_last_http=0; self.event_transport='CURL_HTTP'
     @staticmethod
     def _imb(b,a): return (b-a)/(b+a) if b+a>0 else 0.0
     @staticmethod
     def _bucket(x,step): return int(round(float(x)/step)) if step>0 else int(round(float(x)))
+    @staticmethod
+    def _curl_q(s): return str(s).replace('\\','\\\\').replace('"','\\"').replace('\n',' ').replace('\r',' ')
     def start(self):
         if websocket is None:
             self.last_error='WEBSOCKET_CLIENT_NOT_INSTALLED'; return
@@ -76,24 +80,49 @@ class Microstructure:
             micro=(ba*bs+bb*as_)/(bs+as_) if bs+as_>0 else mid
             mp=(micro-mid)/mid*10000 if mid>0 else 0
             return (self._bucket(mid,1.0),self._bucket(i2,.05),self._bucket(i5,.05),self._bucket(f5,.05),self._bucket(f15,.05),self._bucket(mp,.01),str(topic).split('.')[0])
-    def _wake_worker(self,reason):
-        now=int(time.time()*1000); self.event_last_wake=now
-        req=urllib.request.Request(WORKER_URL+'/bybit/auto/run',method='POST',data=b'{}',headers={'content-type':'application/json','accept':'application/json','x-action-key':SECRET,'x-btc-trigger':'VPS_WS_EVENT','x-btc-trigger-reason':str(reason)[:120]})
+    def _curl_worker(self,reason):
+        reason=self._curl_q(str(reason)[:120]); secret=self._curl_q(SECRET); url=self._curl_q(WORKER_URL+'/bybit/auto/run')
+        cfg='\n'.join([
+            f'url = "{url}"','request = "POST"','http1.1','silent','show-error','max-time = 35','connect-timeout = 8',
+            f'user-agent = "{self._curl_q(BROWSER_UA)}"','header = "content-type: application/json"','header = "accept: application/json"',
+            'header = "accept-language: en-US,en;q=0.9"','header = "cache-control: no-cache"',
+            f'header = "x-action-key: {secret}"','header = "x-btc-trigger: VPS_WS_EVENT"',f'header = "x-btc-trigger-reason: {reason}"',
+            'data = "{}"','write-out = "\\n__BTC_HTTP_STATUS__:%{http_code}"',''
+        ])
+        p=subprocess.run([CURL_BIN,'--config','-'],input=cfg,text=True,capture_output=True,timeout=40,check=False)
+        text=(p.stdout or '')
+        marker='\n__BTC_HTTP_STATUS__:'
+        if marker in text:
+            raw,status=text.rsplit(marker,1)
+            try:code=int(status.strip())
+            except Exception:code=0
+        else:raw=text;code=0
+        if p.returncode!=0 and code==0:raise RuntimeError('CURL_'+str(p.returncode)+':'+str(p.stderr or '')[:220])
+        return code,raw
+    def _urllib_worker(self,reason):
+        req=urllib.request.Request(WORKER_URL+'/bybit/auto/run',method='POST',data=b'{}',headers={
+            'content-type':'application/json','accept':'application/json','accept-language':'en-US,en;q=0.9','cache-control':'no-cache','user-agent':BROWSER_UA,
+            'x-action-key':SECRET,'x-btc-trigger':'VPS_WS_EVENT','x-btc-trigger-reason':str(reason)[:120]})
         try:
-            with urllib.request.urlopen(req,timeout=35) as r:
-                self.event_last_http=int(r.status); raw=r.read(1_000_000).decode(errors='replace')
+            with urllib.request.urlopen(req,timeout=35) as r:return int(r.status),r.read(1_000_000).decode(errors='replace')
+        except urllib.error.HTTPError as e:return int(e.code),e.read(1_000_000).decode(errors='replace')
+    def _wake_worker(self,reason):
+        self.event_last_wake=int(time.time()*1000)
+        try:
+            try:
+                code,raw=self._curl_worker(reason); self.event_transport='CURL_HTTP'
+            except Exception as curl_error:
+                code,raw=self._urllib_worker(reason); self.event_transport='URLLIB_FALLBACK'
+                if code==0:raise curl_error
+            self.event_last_http=int(code)
             try:out=json.loads(raw)
-            except Exception:out={'raw':raw[:300]}
+            except Exception:out={'raw':str(raw)[:500]}
             self.event_last_result=out
             if self.event_last_http==200 and out.get('ok') is not False:
                 self.event_last_success=int(time.time()*1000); self.event_last_error=None
-            else:self.event_last_error=f'WORKER_HTTP_{self.event_last_http}:'+str(out)[:240]
-        except urllib.error.HTTPError as e:
-            self.event_last_http=int(e.code)
-            try:body=e.read(1000).decode(errors='replace')
-            except Exception:body=''
-            self.event_last_error=f'WORKER_HTTP_{e.code}:{body[:220]}'
-            print('BTC_EVENT_WAKE_ERROR',self.event_last_error,flush=True)
+            else:
+                self.event_last_error=f'WORKER_HTTP_{self.event_last_http}:'+str(out)[:240]
+                print('BTC_EVENT_WAKE_ERROR',self.event_last_error,flush=True)
         except Exception as e:
             self.event_last_http=0; self.event_last_error='WORKER_WAKE:'+str(e)[:240]
             print('BTC_EVENT_WAKE_ERROR',self.event_last_error,flush=True)
@@ -143,7 +172,7 @@ class Microstructure:
     def event_status(self):
         with self.lock:
             r=self.event_last_result or {}; ctl=r.get('controller') or {}
-            return {'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason')}
+            return {'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','transport':self.event_transport,'inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason')}
     def snapshot(self):
         now=int(time.time()*1000)
         with self.lock:
