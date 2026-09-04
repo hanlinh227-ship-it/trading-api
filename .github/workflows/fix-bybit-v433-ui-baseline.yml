@@ -1,0 +1,42 @@
+name: Fix Bybit V4.3.3 UI Baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v433-ui-baseline-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply UI baseline patch and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+          python3 .github/scripts/fix-bybit-v433-ui-baseline.py
+          cd cloudflare-worker
+          node --check bybit-control-plane.js
+          node --check bybit-ui-contract.js
+          node --check index.js
+          node validate-btc-hyperscale.mjs
+      - name: Commit UI baseline consistency fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker BYBIT_UI_HANDOFF_V432.md
+          git commit -m 'Expose Bybit V4.3.3 core baseline to UI'
+          git pull --rebase origin main
+          git push origin HEAD:main
