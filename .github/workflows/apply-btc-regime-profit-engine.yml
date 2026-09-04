@@ -1,0 +1,261 @@
+name: Apply BTC Regime Profit Engine
+
+on:
+  push:
+    paths:
+      - '.github/btc-regime-profit-trigger'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-regime-profit-engine
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Upgrade regime-aware profit, sizing and hold logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+          test "$(git hash-object cloudflare-worker/bybit-auto-config.js)" = "d75238692f437804d970aade975cd0eadaefc588"
+          test "$(git hash-object cloudflare-worker/bybit-runtime-contract.js)" = "7ca388094073664ebd477193bb772e8c6e4ea8c2"
+          test "$(git hash-object cloudflare-worker/bybit-btc-strategy.js)" = "272edf968f3526317ba933770b153ab01e020810"
+          test "$(git hash-object cloudflare-worker/bybit-btc-risk-engine.js)" = "3ce60589f19d90969c5f32d859874174c28b31f6"
+          test "$(git hash-object cloudflare-worker/bybit-btc-engine.js)" = "55b08f1d338c04c45ba6cb12cc3c77f011e9b638"
+          test "$(git hash-object cloudflare-worker/validate-btc-hyperscale.mjs)" = "f677a7c388558be802f48282b56bb1d4d6c10ca3"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # ---------- CONFIG ----------
+          p=Path('cloudflare-worker/bybit-auto-config.js')
+          text=p.read_text()
+          old="""    equityAdaptive:{enabled:true,steps:[
+      {equityUsd:0,normal:11,strong:14,aPlus:18,max:20},
+      {equityUsd:50,normal:10,strong:13,aPlus:17,max:20},
+      {equityUsd:100,normal:9,strong:12,aPlus:16,max:18},
+      {equityUsd:250,normal:7.5,strong:10.5,aPlus:14,max:16},
+      {equityUsd:500,normal:6.5,strong:9.5,aPlus:12.5,max:14},
+      {equityUsd:1000,normal:5.5,strong:8.5,aPlus:11.5,max:13},
+      {equityUsd:2500,normal:4.5,strong:7.5,aPlus:10,max:12},
+      {equityUsd:5000,normal:4,strong:6.5,aPlus:9,max:10}
+    ]}"""
+          new="""    equityAdaptive:{enabled:true,steps:[
+      {equityUsd:0,normal:12,strong:15,aPlus:18,max:20},
+      {equityUsd:50,normal:11,strong:14,aPlus:17.5,max:20},
+      {equityUsd:100,normal:9.5,strong:12.5,aPlus:16,max:18},
+      {equityUsd:250,normal:8,strong:11,aPlus:14.5,max:16},
+      {equityUsd:500,normal:7,strong:10,aPlus:13,max:14},
+      {equityUsd:1000,normal:6,strong:9,aPlus:12,max:13},
+      {equityUsd:2500,normal:5,strong:8,aPlus:10.5,max:12},
+      {equityUsd:5000,normal:4.5,strong:7,aPlus:9.5,max:10}
+    ]}"""
+          if old not in text: raise SystemExit('CONFIG_LEVERAGE_BLOCK_NOT_FOUND')
+          text=text.replace(old,new,1)
+
+          old="""    adaptiveProtection:{
+      enabled:true,
+      authority:'EVENT_DRIVEN_NATIVE_TP_SL_SINGLE_WRITER',
+      probeBaseTargetR:1.70,
+      confirmBaseTargetR:1.92,
+      fullBaseTargetR:2.10,
+      minTargetR:1.25,
+      maxTargetR:2.55,
+      strongExtensionR:.40,
+      weakCompressionR:.24,
+      minTargetMoveR:.14,
+      minLiveGapR:.18,
+      neverLoosenStop:true,
+      combineNativeTpSlWrite:true,
+      timeGate:false
+    }"""
+          new="""    adaptiveProtection:{
+      enabled:true,
+      authority:'EVENT_DRIVEN_NATIVE_TP_SL_SINGLE_WRITER',
+      profitEngineAuthority:'REGIME_ADAPTIVE_PROFIT_ENGINE_V1',
+      probeBaseTargetR:1.85,
+      confirmBaseTargetR:2.20,
+      fullBaseTargetR:2.70,
+      minTargetR:1.30,
+      maxTargetR:5.60,
+      strongExtensionR:.65,
+      weakCompressionR:.18,
+      minTargetMoveR:.16,
+      minLiveGapR:.20,
+      peakGivebackActivationR:1.10,
+      runnerExtensionMinSupport:.16,
+      profitObjective:{enabled:true,authority:'EQUITY_SCALED_PREFERRED_NET_PROFIT_NOT_HARD_GATE',probePct:.35,confirmPct:.75,fullPct:1.10,strongBoost:1.15,aPlusBoost:1.30,minSupport:.12,neverForceEntry:true,capByRegime:true},
+      regimeProfiles:{
+        RANGE:{baseR:1.75,maxR:2.30,lockMult:1.00,trailMult:.90,givebackR:.34,trailWidthMult:.85},
+        SQUEEZE:{baseR:2.15,maxR:3.25,lockMult:1.15,trailMult:1.10,givebackR:.50,trailWidthMult:1.05},
+        TREND_UP:{baseR:2.65,maxR:4.60,lockMult:1.45,trailMult:1.38,givebackR:.72,trailWidthMult:1.35},
+        TREND_DOWN:{baseR:2.65,maxR:4.60,lockMult:1.45,trailMult:1.38,givebackR:.72,trailWidthMult:1.35},
+        BREAKOUT_UP:{baseR:3.00,maxR:5.60,lockMult:1.65,trailMult:1.55,givebackR:.90,trailWidthMult:1.55},
+        BREAKOUT_DOWN:{baseR:3.00,maxR:5.60,lockMult:1.65,trailMult:1.55,givebackR:.90,trailWidthMult:1.55},
+        REVERSAL:{baseR:2.15,maxR:3.30,lockMult:1.20,trailMult:1.15,givebackR:.55,trailWidthMult:1.10},
+        TRANSITION:{baseR:2.30,maxR:3.60,lockMult:1.28,trailMult:1.22,givebackR:.60,trailWidthMult:1.18},
+        HIGH_VOL_SHOCK:{baseR:1.65,maxR:2.40,lockMult:.95,trailMult:.90,givebackR:.32,trailWidthMult:1.20}
+      },
+      neverLoosenStop:true,
+      combineNativeTpSlWrite:true,
+      timeGate:false
+    }"""
+          if old not in text: raise SystemExit('CONFIG_ADAPTIVE_BLOCK_NOT_FOUND')
+          text=text.replace(old,new,1)
+
+          old="baseEntryRiskPct:.85,strongEntryRiskPct:1.20,aPlusEntryRiskPct:1.50,absoluteSingleEntryRiskPct:1.60,\n    maxActiveRiskPct:7.5,temporaryAPlusActiveRiskPct:9.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:78,minFreeReservePct:12,"
+          new="baseEntryRiskPct:.90,strongEntryRiskPct:1.35,aPlusEntryRiskPct:1.60,absoluteSingleEntryRiskPct:1.60,\n    maxActiveRiskPct:7.5,temporaryAPlusActiveRiskPct:9.5,maxPortfolioMarginPct:80,maxMarginPerPositionPct:80,minFreeReservePct:12,"
+          if old not in text: raise SystemExit('CONFIG_RISK_LINE_NOT_FOUND')
+          text=text.replace(old,new,1)
+
+          old="""    equityScale:{enabled:true,anchorUsd:39,steps:[
+      {equityUsd:39,riskMult:1.00,marginCapPct:72},
+      {equityUsd:50,riskMult:1.06,marginCapPct:74},
+      {equityUsd:75,riskMult:1.12,marginCapPct:76},
+      {equityUsd:100,riskMult:1.18,marginCapPct:78},
+      {equityUsd:150,riskMult:1.24,marginCapPct:80},
+      {equityUsd:250,riskMult:1.30,marginCapPct:82},
+      {equityUsd:500,riskMult:1.36,marginCapPct:84}
+    ],maxRiskMult:1.40,maxMarginCapPct:84},"""
+          new="""    equityScale:{enabled:true,anchorUsd:39,steps:[
+      {equityUsd:39,riskMult:1.00,marginCapPct:78},
+      {equityUsd:50,riskMult:1.06,marginCapPct:79},
+      {equityUsd:75,riskMult:1.12,marginCapPct:80},
+      {equityUsd:100,riskMult:1.18,marginCapPct:81},
+      {equityUsd:150,riskMult:1.24,marginCapPct:82},
+      {equityUsd:250,riskMult:1.30,marginCapPct:83},
+      {equityUsd:500,riskMult:1.36,marginCapPct:84}
+    ],maxRiskMult:1.40,maxMarginCapPct:84},"""
+          if old not in text: raise SystemExit('CONFIG_SCALE_BLOCK_NOT_FOUND')
+          text=text.replace(old,new,1)
+
+          old="shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true"
+          new="shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,regimeAwareProfitEngine:true,preferredNetProfitObjective:true,peakGivebackProtection:true,feeAwareContinuousSizing:true"
+          if old not in text: raise SystemExit('CONFIG_FEATURES_NOT_FOUND')
+          text=text.replace(old,new,1)
+          p.write_text(text)
+
+          # ---------- RUNTIME CONTRACT ----------
+          p=Path('cloudflare-worker/bybit-runtime-contract.js')
+          text=p.read_text()
+          text=text.replace("export const BYBIT_AUTO_VERSION='BYBIT-BTC-STATEFLOW-2.5';","export const BYBIT_AUTO_VERSION='BYBIT-BTC-STATEFLOW-2.6';",1)
+          old="scalpAuthority:'ULTRAFAST_TIERED_NET_EDGE_SCALP',adaptiveOrderRouting:true,urgentMomentumRoute:'MARKET',passiveEdgeRoute:'IOC_CAPPED_LIMIT',plannedNetProfitFloor:true,nativeTpAlways:true,costAwareProfitLock:true,"
+          new="scalpAuthority:'ULTRAFAST_TIERED_NET_EDGE_SCALP',profitAuthority:'REGIME_ADAPTIVE_PROFIT_ENGINE_V1',regimeAwareTargeting:true,preferredNetProfitObjective:true,peakGivebackProtection:true,feeAwareContinuousSizing:true,adaptiveOrderRouting:true,urgentMomentumRoute:'MARKET',passiveEdgeRoute:'IOC_CAPPED_LIMIT',plannedNetProfitFloor:true,nativeTpAlways:true,costAwareProfitLock:true,"
+          if old not in text: raise SystemExit('RUNTIME_SCALP_LINE_NOT_FOUND')
+          text=text.replace(old,new,1)
+          text=text.replace("positionExitAuthority:'ULTRAFAST_STRUCTURE_FLOW_STABILITY_EXIT'","positionExitAuthority:'MULTI_STAGE_STRUCTURE_FLOW_STABILITY_EXIT'",1)
+          p.write_text(text)
+
+          # ---------- STRATEGY ----------
+          p=Path('cloudflare-worker/bybit-btc-strategy.js')
+          text=p.read_text()
+          text=text.replace("function tierRiskScale(tier){return tier==='PROBE'?.55:tier==='CONFIRM'?.82:1;}","function tierRiskScale(tier){return tier==='PROBE'?.50:tier==='CONFIRM'?.88:1;}",1)
+          start=text.index('function geometry(')
+          end=text.index('function evidence(',start)
+          new_geometry=r'''function geometry(side,s={},setup='',entryTier='CONFIRM',strength='NORMAL'){const e=num(s.price),floor=distFloor(s),st=s.structure15||{},sw=s.sweep5||{};let sl=0;if(side==='Buy')sl=Math.min(num(sw.priorLow)||e-floor,num(st.recentLow)||e-floor,e-floor);else sl=Math.max(num(sw.priorHigh)||e+floor,num(st.recentHigh)||e+floor,e+floor);let risk=Math.abs(e-sl);if(risk<floor)risk=floor;const fastScalp=/(MOMENTUM|SQUEEZE|TRANSITION|RANGE_MICRO|PROBE)/.test(String(setup));if(fastScalp){const r5=Math.max(0,num(s.range5?.width)),cap=Math.max(floor*1.65,Math.min(e*.00220,Math.max(floor,r5*.25)));risk=clamp(risk,floor,cap);}sl=side==='Buy'?e-risk:e+risk;const tier=String(entryTier||'CONFIRM'),idx=tier==='PROBE'?0:tier==='FULL'?2:1,regime=String(s.regime||'TRANSITION'),profiles={RANGE:[1.65,1.85,2.05],SQUEEZE:[1.85,2.20,2.55],TREND_UP:[2.05,2.55,2.95],TREND_DOWN:[2.05,2.55,2.95],BREAKOUT_UP:[2.20,2.85,3.30],BREAKOUT_DOWN:[2.20,2.85,3.30],REVERSAL:[1.85,2.15,2.45],TRANSITION:[1.90,2.25,2.60],HIGH_VOL_SHOCK:[1.55,1.75,1.95]},row=profiles[regime]||profiles.TRANSITION;let runner=row[idx];if(/BREAKOUT/.test(String(setup)))runner+=.10;if(/MOMENTUM|SQUEEZE/.test(String(setup)))runner+=.05;if(/PULLBACK/.test(String(setup)))runner=Math.max(runner,tier==='FULL'?2.85:2.40);if(/LIQUIDATION/.test(String(setup)))runner=Math.min(runner,2.55);if(String(strength)==='STRONG')runner+=tier==='PROBE'?.06:.12;if(String(strength)==='A_PLUS')runner+=tier==='PROBE'?.10:.25;runner=clamp(runner,1.55,3.75);const tp=side==='Buy'?e+risk*runner:e-risk*runner;return {entry:e,sl,tp,rr:runner,stopDistance:risk,profitRegime:regime,profitProfile:'REGIME_AWARE_INITIAL_TARGET_V1'};}
+'''
+          text=text[:start]+new_geometry+text[end:]
+          old="function make(side,setup,s,why=[],strength='NORMAL',entryTier='CONFIRM'){const g=geometry(side,s,setup,entryTier),cost=costGate(side,g,s,entryTier);"
+          new="function make(side,setup,s,why=[],strength='NORMAL',entryTier='CONFIRM'){const g=geometry(side,s,setup,entryTier,strength),cost=costGate(side,g,s,entryTier);"
+          if old not in text: raise SystemExit('STRATEGY_MAKE_NOT_FOUND')
+          text=text.replace(old,new,1)
+          text=text.replace("export const BTC_STRATEGY_VERSION='BTC_STATE_FIRST_MICROSTRUCTURE_V8_PROBE_CONFIRM_FULL';","export const BTC_STRATEGY_VERSION='BTC_STATE_FIRST_MICROSTRUCTURE_V9_REGIME_PROFIT_PROBE_CONFIRM_FULL';",1)
+          p.write_text(text)
+
+          # ---------- RISK ENGINE ----------
+          p=Path('cloudflare-worker/bybit-btc-risk-engine.js')
+          text=p.read_text()
+          start=text.index('export function sizeBtcSetup(')
+          end=text.index('export function addTranche(',start)
+          new_size=r'''export function sizeBtcSetup({setup,riskUsd,maxRiskUsd=0,filters={},leverage=5,equityUsd=0,capitalBaseUsd=0,marginCapPct=78}){
+  const entry=Math.max(0,num(setup?.entry)),stop=Math.abs(entry-num(setup?.sl)),target=Math.max(0,num(riskUsd));if(!(entry>0&&stop>0&&target>0))return {ok:false,reason:'STOP_OR_RISK_INVALID'};
+  const step=Math.max(1e-12,num(filters.qtyStep)||.001),minQty=Math.max(step,num(filters.minQty)||step),maxQty=Math.max(minQty,num(filters.maxQty)||1e9),minNotional=Math.max(0,num(filters.minNotional)||5),capital=Math.max(0,num(capitalBaseUsd)||num(equityUsd)),lev=Math.max(1,num(leverage)),marginCapUsd=capital*clamp(num(marginCapPct)||78,30,84)/100,hardRiskCap=Math.max(target,num(maxRiskUsd)||target*1.20),strength=String(setup?.strength||'NORMAL'),tier=String(setup?.entryTier||'CONFIRM'),softMult=tier==='PROBE'?1.16:tier==='CONFIRM'?1.28:strength==='A_PLUS'?1.45:strength==='STRONG'?1.35:1.30,softRiskCap=Math.min(hardRiskCap,target*softMult),costBps=Math.max(0,num(setup?.cost?.totalCostBps||setup?.cost?.baseRoundTripCostBps)),unitCost=entry*costBps/10000,raw=target/stop;
+  const minByNotional=ceilStep(minNotional/entry,step),minimum=Math.min(maxQty,Math.max(minQty,minByNotional)),maxByMargin=floorStep(marginCapUsd*lev/entry,step),maxByHardEffective=floorStep(hardRiskCap/Math.max(1e-12,stop+unitCost),step),upper=Math.min(maxQty,maxByMargin,maxByHardEffective),qs=new Set();
+  const add=q=>{q=Math.min(maxQty,Math.max(minimum,Math.round(q/step)*step));if(q>=minimum-1e-12)qs.add(Number(q.toFixed(12)));};add(minimum);if(upper>=minimum-1e-12){const count=Math.floor((upper-minimum)/step+1e-9)+1;if(count<=300){for(let i=0;i<count;i++)add(minimum+i*step);}else{add(upper);const center=clamp(raw,minimum,upper);for(let k=-6;k<=6;k++)add(center+k*step);}}
+  const candidates=[...qs].sort((a,b)=>a-b).map(q=>{const notional=q*entry,priceRisk=q*stop,initialMargin=notional/lev,costReserve=notional*costBps/10000;return {qty:q,notionalUsd:notional,actualRiskUsd:priceRisk,priceRiskUsd:priceRisk,costReserveUsd:costReserve,effectiveLossEstimateUsd:priceRisk+costReserve,initialMarginUsd:initialMargin,leverage:lev,capitalBaseUsd:capital,marginCapPct};});
+  const riskFeasible=candidates.filter(x=>x.actualRiskUsd<=softRiskCap+1e-9&&x.effectiveLossEstimateUsd<=hardRiskCap+1e-9&&x.initialMarginUsd<=marginCapUsd+1e-9);
+  if(!riskFeasible.length){const min=candidates[0];if(min&&min.effectiveLossEstimateUsd>hardRiskCap+1e-9)return {ok:false,reason:'MIN_QTY_EXCEEDS_HARD_EFFECTIVE_RISK_CAP',qty:min.qty,actualRiskUsd:min.actualRiskUsd,effectiveLossEstimateUsd:min.effectiveLossEstimateUsd,targetRiskUsd:target,softRiskCapUsd:softRiskCap,hardRiskCapUsd:hardRiskCap};if(min&&min.initialMarginUsd>marginCapUsd+1e-9)return {ok:false,reason:'POSITION_MARGIN_TOO_LARGE',qty:min.qty,initialMarginUsd:min.initialMarginUsd,marginCapUsd,marginCapPct,capitalBaseUsd:capital};return {ok:false,reason:'QUANTIZED_SIZE_OUTSIDE_ADAPTIVE_RISK_BAND',targetRiskUsd:target,softRiskCapUsd:softRiskCap,hardRiskCapUsd:hardRiskCap,candidates};}
+  let chosen=[...riskFeasible].sort((a,b)=>Math.abs(a.actualRiskUsd-target)-Math.abs(b.actualRiskUsd-target))[0];if(tier!=='PROBE'&&strength!=='NORMAL'){const balanced=riskFeasible.filter(x=>x.actualRiskUsd>=target*.78).sort((a,b)=>Math.abs(a.actualRiskUsd-target)-Math.abs(b.actualRiskUsd-target));if(balanced.length)chosen=balanced[0];}
+  return {ok:true,...chosen,targetRiskUsd:target,softRiskCapUsd:softRiskCap,hardRiskCapUsd:hardRiskCap,quantized:true,qtyStep:step,minQty,entryTier:tier,selectionPolicy:'FEE_AWARE_CONTINUOUS_QUANTIZED_NEAREST_TARGET_WITH_HARD_EFFECTIVE_RISK_AND_MARGIN_CAP'};
+}
+
+'''
+          text=text[:start]+new_size+text[end:]
+          text=text.replace("export const BTC_RISK_ENGINE_VERSION='BTC_RISK_RECYCLE_V7_TIERED_SMART_QUANTIZED_SIZING';","export const BTC_RISK_ENGINE_VERSION='BTC_RISK_RECYCLE_V8_FEE_AWARE_CONTINUOUS_QUANTIZED_SIZING';",1)
+          p.write_text(text)
+
+          # ---------- BTC ENGINE ----------
+          p=Path('cloudflare-worker/bybit-btc-engine.js')
+          text=p.read_text()
+          start=text.index('function adaptiveTargetPlan(')
+          end=text.index('async function manageCluster(',start)
+          new_target=r'''function regimeProfitProfile(cfg,market={},tier='CONFIRM'){const ap=cfg?.scalp?.adaptiveProtection||{},regime=String(market.regime||'TRANSITION'),p=ap.regimeProfiles?.[regime]||ap.regimeProfiles?.TRANSITION||{},fallback=tier==='PROBE'?num(ap.probeBaseTargetR)||1.85:tier==='FULL'?num(ap.fullBaseTargetR)||2.70:num(ap.confirmBaseTargetR)||2.20,tierAdj=tier==='PROBE'?-.12:tier==='FULL'?.20:0,baseRaw=num(p.baseR)>0?num(p.baseR)+tierAdj:fallback,maxRaw=num(p.maxR)>0?num(p.maxR):num(ap.maxTargetR)||3,minR=Math.max(.8,num(ap.minTargetR)||1.25),maxR=Math.max(minR,maxRaw),baseR=clamp(baseRaw,minR,maxR);return {regime,baseR,maxR,lockMult:clamp(num(p.lockMult)||1,.75,2),trailMult:clamp(num(p.trailMult)||1,.75,2),givebackR:clamp(num(p.givebackR)||.55,.20,1.25),trailWidthMult:clamp(num(p.trailWidthMult)||1,.70,1.80)};}
+function adaptiveTargetPlan(side,latest,mark,market,stability,cfg,d,tick,r){const ap=cfg?.scalp?.adaptiveProtection||{},tier=String(latest?.entryTier||"CONFIRM"),profile=regimeProfitProfile(cfg,market,tier),base=profile.baseR,minR=Math.max(.8,num(ap.minTargetR)||1.25),maxR=profile.maxR,support=positionSupport(side,market),strong=Math.max(0,support),weak=Math.max(0,-support),extend=Math.max(0,num(ap.strongExtensionR)||.45),compress=Math.max(0,num(ap.weakCompressionR)||.20),pulseConf=num(market.marketPulse?.confidence),runnerMinSupport=num(ap.runnerExtensionMinSupport)||.16;let targetR=clamp(base+strong*extend-weak*compress,minR,maxR);if(support>=runnerMinSupport&&pulseConf>.42&&/(TREND|BREAKOUT|SQUEEZE|TRANSITION)/.test(profile.regime))targetR=Math.min(maxR,targetR+.20*clamp(pulseConf,0,1));const po=ap.profitObjective||{},capital=Math.max(0,num(latest?.capitalBaseUsd||latest?.equityUsd)),qty=Math.abs(num(latest?.qty)),strength=String(latest?.strength||'NORMAL'),pct=tier==='PROBE'?num(po.probePct)||.35:tier==='FULL'?num(po.fullPct)||1.10:num(po.confirmPct)||.75,boost=strength==='A_PLUS'?num(po.aPlusBoost)||1.30:strength==='STRONG'?num(po.strongBoost)||1.15:1,preferredNetProfitUsd=capital*pct/100*boost,minSupport=num(po.minSupport)||.12;if(po.enabled!==false&&qty>0&&d>0&&support>=minSupport){const requiredR=(preferredNetProfitUsd+Math.max(0,num(latest?.costReserveUsd)))/(qty*d);if(Number.isFinite(requiredR)&&requiredR>0)targetR=Math.max(targetR,Math.min(maxR,requiredR));}if(stability.soft&&support<-.22&&r>.75)targetR=Math.min(targetR,clamp(r+.55,minR,maxR));if(stability.hard&&support<-.35&&r>.50)targetR=Math.min(targetR,clamp(r+.38,minR,maxR));const entry=num(latest?.entry),gap=Math.max(tick*8,d*Math.max(.06,num(ap.minLiveGapR)||.12));let target=side==="Buy"?entry+d*targetR:entry-d*targetR;if(side==="Buy")target=Math.max(target,mark+gap);else target=Math.min(target,mark-gap);return {target:roundTick(target,tick),targetR,support,supportPct:Math.round(clamp(50+support*50,0,100)),baseTargetR:base,minR,maxR,preferredNetProfitUsd,profitEngineVersion:'REGIME_ADAPTIVE_PROFIT_ENGINE_V1',profile};}
+'''
+          text=text[:start]+new_target+text[end:]
+
+          mstart=text.index('  const baseSl=',text.index('async function manageCluster'))
+          mend=text.index('\n  state.positionPeakR=',mstart)
+          new_head=r'''  const baseSl=num(latest.sl)||currentStop,d=Math.max(filters.tickSize*4,Math.abs(num(latest.entry)-baseSl)),favour=side==="Buy"?mark-num(latest.entry):num(latest.entry)-mark,r=favour/d,stability=positionStability(side,market,cfg),tier=String(latest.entryTier||'CONFIRM'),profitProfile=regimeProfitProfile(cfg,market,tier),baseLock=Math.max(.35,num(cfg?.scalp?.profitLockR)||.40),baseTrail=Math.max(baseLock+.28,num(cfg?.scalp?.trailStartR)||.98),rawLock=tier==='PROBE'?Math.max(.36,baseLock*.92):tier==='CONFIRM'?Math.max(.40,baseLock):baseLock,rawTrail=tier==='PROBE'?Math.max(rawLock+.25,baseTrail*.92):tier==='CONFIRM'?Math.max(rawLock+.22,baseTrail):baseTrail,lockR=clamp(rawLock*profitProfile.lockMult,.34,1.25),trailR=clamp(Math.max(lockR+.20,rawTrail*profitProfile.trailMult),lockR+.20,2.10),costBps=Math.max(11,num(latest.costBps),num(latest.costReserveUsd)>0&&num(latest.entry)*Math.abs(num(latest.qty))>0?num(latest.costReserveUsd)/(num(latest.entry)*Math.abs(num(latest.qty)))*10000:0),bufferMult=Math.max(1,num(cfg?.scalp?.netProfitLockBufferMult)||1.06),feeBuffer=Math.max(filters.tickSize*2,num(latest.entry)*costBps/10000*bufferMult),be=side==="Buy"?num(latest.entry)+feeBuffer:num(latest.entry)-feeBuffer,canNetLock=side==="Buy"?mark>be+filters.tickSize:mark<be-filters.tickSize,peakNow=Math.max(num(state.positionPeakR),r),decelerating=cfg?.positionControl?.profitLockOnDeceleration!==false&&stability.soft&&r>=Math.max(.35,num(cfg?.positionControl?.decelerationLockMinR)||.48,lockR*.85)&&peakNow>=Math.max(.45,num(cfg?.positionControl?.decelerationPeakMinR)||.65,lockR+.18);'''
+          text=text[:mstart]+new_head+text[mend:]
+
+          pstart=text.index('  state.positionPeakR=',text.index('async function manageCluster'))
+          pend=text.index('desired=roundTick(desired,filters.tickSize);',pstart)
+          new_protect=r'''  state.positionPeakR=Math.max(num(state.positionPeakR),r);state.profitEngineVersion="REGIME_ADAPTIVE_PROFIT_ENGINE_V1";let desired=currentStop,phase=null;if((r>=lockR||decelerating||(stability.hard&&r>=Math.max(.30,lockR*.70)))&&canNetLock){desired=tighten(side,desired,be);phase=stability.hard&&r<lockR?"HARD_REVERSAL_PROTECT":decelerating&&r<lockR?"SCALP_DECELERATION_LOCK":"SCALP_PROFIT_LOCK";}if(r>=trailR){const trailDist=Math.max(filters.tickSize*6,num(market.range5?.width)*Math.max(.05,num(cfg?.scalp?.trailRange5Pct)||.08)*profitProfile.trailWidthMult,mark*Math.max(.0005,num(cfg?.scalp?.trailPricePct)||.00070)*profitProfile.trailWidthMult),trail=side==="Buy"?mark-trailDist:mark+trailDist;desired=tighten(side,desired,trail);phase="SCALP_TRAIL";}const givebackActivation=Math.max(.75,num(cfg?.scalp?.adaptiveProtection?.peakGivebackActivationR)||1.10),liveSupport=positionSupport(side,market),dynamicGiveback=profitProfile.givebackR*(liveSupport>.35?1.25:liveSupport<-.20?.82:1);if(state.positionPeakR>=givebackActivation&&canNetLock){const lockedPeakR=Math.max(0,state.positionPeakR-dynamicGiveback);if(lockedPeakR>.05){const liveGap=Math.max(filters.tickSize*5,d*.10),rawGiveback=side==="Buy"?num(latest.entry)+d*lockedPeakR:num(latest.entry)-d*lockedPeakR,givebackStop=side==="Buy"?Math.min(rawGiveback,mark-liveGap):Math.max(rawGiveback,mark+liveGap);desired=tighten(side,desired,givebackStop);phase=phase||"PEAK_GIVEBACK_LOCK";state.lastPeakGiveback={at:iso(),side,peakR:state.positionPeakR,currentR:r,lockedPeakR,givebackR:dynamicGiveback,support:liveSupport,regime:profitProfile.regime};}}'''
+          text=text[:pstart]+new_protect+text[pend:]
+
+          old="singleWriter:true,timeGate:false}"
+          new="singleWriter:true,timeGate:false,profitEngineVersion:adaptive?.profitEngineVersion||state.profitEngineVersion||null,preferredNetProfitUsd:adaptive?.preferredNetProfitUsd??null,profitProfile:adaptive?.profile||profitProfile}"
+          if old not in text: raise SystemExit('ENGINE_ADAPTIVE_STATE_NOT_FOUND')
+          text=text.replace(old,new,1)
+          text=text.replace('BYBIT-BTC-HYPERSCALE-2.9-ULTRAFAST-TIERED','BYBIT-BTC-HYPERSCALE-3.0-REGIME-PROFIT',3)
+          text=text.replace('export const BTC_HYPERSCALE_ENGINE_VERSION="BYBIT-BTC-HYPERSCALE-2.9-ULTRAFAST-TIERED";','export const BTC_HYPERSCALE_ENGINE_VERSION="BYBIT-BTC-HYPERSCALE-3.0-REGIME-PROFIT";',1)
+          p.write_text(text)
+
+          # ---------- VALIDATOR ----------
+          p=Path('cloudflare-worker/validate-btc-hyperscale.mjs')
+          text=p.read_text()
+          old="assert.equal(cfg.features.ultraFastFlow1s3s,true);assert.equal(cfg.features.marketPulseConsensus,true);assert.equal(cfg.features.tieredEntryRisk,true);assert.equal(cfg.entries.probeConfirmFull,true);assert.ok(cfg.risk.tierUpgradeMinR>0&&cfg.risk.tierUpgradeMinR<.5);"
+          new="assert.equal(cfg.features.ultraFastFlow1s3s,true);assert.equal(cfg.features.marketPulseConsensus,true);assert.equal(cfg.features.tieredEntryRisk,true);assert.equal(cfg.features.regimeAwareProfitEngine,true);assert.equal(cfg.features.preferredNetProfitObjective,true);assert.equal(cfg.features.peakGivebackProtection,true);assert.equal(cfg.features.feeAwareContinuousSizing,true);assert.equal(cfg.entries.probeConfirmFull,true);assert.ok(cfg.risk.tierUpgradeMinR>0&&cfg.risk.tierUpgradeMinR<.5);assert.ok(cfg.scalp.adaptiveProtection.maxTargetR>=5);assert.equal(cfg.scalp.adaptiveProtection.profitObjective.neverForceEntry,true);"
+          if old not in text: raise SystemExit('VALIDATOR_FEATURE_ASSERT_NOT_FOUND')
+          text=text.replace(old,new,1)
+
+          anchor="const quantLarger=sizeBtcSetup({setup:{side:'Buy',strength:'STRONG',entryTier:'FULL',entry:80930,sl:80535.5,cost:{totalCostBps:11.2}},riskUsd:1,maxRiskUsd:1.6,filters:{qtyStep:.001,minQty:.001,minNotional:5,maxQty:10},leverage:10,equityUsd:120,capitalBaseUsd:120,marginCapPct:78});assert.equal(quantLarger.ok,true);assert.ok(quantLarger.qty>=.002);assert.ok(quantLarger.actualRiskUsd<=1.6+1e-9);"
+          insert=anchor+"\nconst quantContinuous=sizeBtcSetup({setup:{side:'Buy',strength:'STRONG',entryTier:'FULL',entry:80930,sl:80850,cost:{totalCostBps:11.2}},riskUsd:.50,maxRiskUsd:.62,filters:{qtyStep:.001,minQty:.001,minNotional:5,maxQty:10},leverage:12,equityUsd:39,capitalBaseUsd:39,marginCapPct:78});assert.equal(quantContinuous.ok,true);assert.equal(quantContinuous.qty,.003);assert.ok(quantContinuous.effectiveLossEstimateUsd<=quantContinuous.hardRiskCapUsd+1e-9);"
+          if anchor not in text: raise SystemExit('VALIDATOR_QUANT_ANCHOR_NOT_FOUND')
+          text=text.replace(anchor,insert,1)
+
+          text=text.replace("'ULTRAFAST_TIERED_NET_EDGE_SCALP','plannedNetProfitFloor:true'","'ULTRAFAST_TIERED_NET_EDGE_SCALP','profitAuthority:\'REGIME_ADAPTIVE_PROFIT_ENGINE_V1\'','regimeAwareTargeting:true','preferredNetProfitObjective:true','peakGivebackProtection:true','feeAwareContinuousSizing:true','plannedNetProfitFloor:true'",1)
+          text=text.replace("'SCALP_PROFIT_LOCK','nativeTpAlways','entryTier','BYBIT-BTC-HYPERSCALE-2.9-ULTRAFAST-TIERED'","'SCALP_PROFIT_LOCK','PEAK_GIVEBACK_LOCK','REGIME_ADAPTIVE_PROFIT_ENGINE_V1','preferredNetProfitUsd','nativeTpAlways','entryTier','BYBIT-BTC-HYPERSCALE-3.0-REGIME-PROFIT'",1)
+          text=text.replace("'BTC_RISK_RECYCLE_V7_TIERED_SMART_QUANTIZED_SIZING'","'BTC_RISK_RECYCLE_V8_FEE_AWARE_CONTINUOUS_QUANTIZED_SIZING'",1)
+          text=text.replace("'TIER_AWARE_NEAREST_TARGET_WITH_HARD_RISK_AND_MARGIN_CAP'","'FEE_AWARE_CONTINUOUS_QUANTIZED_NEAREST_TARGET_WITH_HARD_EFFECTIVE_RISK_AND_MARGIN_CAP'",1)
+          text=text.replace("'BTC_STATE_FIRST_MICROSTRUCTURE_V8_PROBE_CONFIRM_FULL'","'BTC_STATE_FIRST_MICROSTRUCTURE_V9_REGIME_PROFIT_PROBE_CONFIRM_FULL'",1)
+          text=text.replace("version:'BYBIT-BTC-STATEFLOW-2.5'","version:'BYBIT-BTC-STATEFLOW-2.6'",1)
+          text=text.replace("smartQuantizedSizing:true,exchangePositionReconciliation:true","smartQuantizedSizing:true,feeAwareContinuousSizing:true,regimeAwareProfitEngine:true,preferredNetProfitObjective:true,peakGivebackProtection:true,exchangePositionReconciliation:true",1)
+          p.write_text(text)
+          PY
+
+          git diff --check
+          cd cloudflare-worker
+          node validate-btc-hyperscale.mjs
+
+      - name: Commit BTC profit engine upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-btc-strategy.js cloudflare-worker/bybit-btc-risk-engine.js cloudflare-worker/bybit-btc-engine.js cloudflare-worker/validate-btc-hyperscale.mjs
+          git commit -m 'Add regime-aware BTC profit engine and fee-aware continuous sizing'
+          git pull --rebase origin main
+          git push origin HEAD:main
