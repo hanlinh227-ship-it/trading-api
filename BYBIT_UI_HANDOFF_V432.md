@@ -47,3 +47,4 @@
 - Risk-slot admission now reserves the full pending slot before opening a new position. This prevents a new order from pushing weighted risk slots or correlation slots above their configured caps.
 - Runtime metadata now points to the actual V4 portfolio authority and floor-lock scalp authority.
 - `BYBIT_UI_SCHEMA_V1` remains stable for the UX/UI project.
+- UI bootstrap and snapshot both expose `coreBaseline` so the frontend can reject an incompatible backend before rendering live data.
