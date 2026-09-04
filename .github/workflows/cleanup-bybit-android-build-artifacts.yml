@@ -1,0 +1,50 @@
+name: Cleanup Android Build Artifacts
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-android-cleanup-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Remove generated Android build outputs from source control
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > android-monitor/.gitignore <<'EOF'
+          .gradle/
+          build/
+          app/build/
+          local.properties
+          *.iml
+          .idea/
+          EOF
+          git rm -r --cached --ignore-unmatch android-monitor/.gradle android-monitor/build android-monitor/app/build android-monitor/local.properties android-monitor/.idea
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android-monitor/.gitignore
+          if ! git diff --cached --quiet; then
+            git commit -m 'Clean Android build artifacts from repository'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Verify clean source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f android-monitor/.gitignore
+          ! git ls-files | grep -E '^android-monitor/(\.gradle/|app/build/|build/|\.idea/|local\.properties$)'
+          test -f android-monitor/app/src/main/java/com/hanlinh/bybitmonitor/MainActivity.kt
+          echo ANDROID_MONITOR_REPO_CLEAN=PASS
