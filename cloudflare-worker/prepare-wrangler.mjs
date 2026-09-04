@@ -1,28 +1,28 @@
 import fs from 'node:fs';
 import {execFileSync} from 'node:child_process';
 const ID_RE=/^[a-f0-9]{32}$/i,UUID_RE=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const NAMESPACE_NAME='TRADING_V77_STATE',BRIDGE_NAMES=['unified-3ai-bridge','v11-ai-bridge'];
+const NAMESPACE_NAME='TRADING_V77_STATE';
+// Binding name AI_BRIDGE is retained only for backward-compatible Bybit private VPS transport.
+// It has no strategy/AI decision authority in BTC Hyperscale.
+const PROXY_NAMES=['unified-3ai-bridge','v11-ai-bridge'];
 function run(args){return execFileSync(process.platform==='win32'?'npx.cmd':'npx',['wrangler',...args],{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:30000,env:process.env});}
+function yes(v){return /^(true|1|yes)$/i.test(String(v||'false'));}
 function explicitKv(){for(const k of ['TRADING_KV_NAMESPACE_ID','CF_TRADING_KV_NAMESPACE_ID','CLOUDFLARE_KV_NAMESPACE_ID']){const v=String(process.env[k]||'').trim();if(ID_RE.test(v))return {id:v,source:k};}return null;}
 function discoverKv(){try{const raw=run(['kv','namespace','list']);let rows=[];try{const j=JSON.parse(raw);rows=Array.isArray(j)?j:(j?.result||[]);}catch{}for(const x of rows){if(String(x?.title||x?.name||'')===NAMESPACE_NAME&&ID_RE.test(String(x?.id||'')))return {id:String(x.id),source:'WRANGLER_KV_DISCOVERY'};}for(const line of raw.split(/\r?\n/)){if(line.includes(NAMESPACE_NAME)){const m=line.match(/[a-f0-9]{32}/i);if(m)return {id:m[0],source:'WRANGLER_KV_DISCOVERY'};}}}catch{}return null;}
-function explicitBridge(){for(const k of ['AI_BRIDGE_SERVICE_ID','V11_AI_BRIDGE_SERVICE_ID']){const v=String(process.env[k]||'').trim();if(UUID_RE.test(v))return {id:v,source:k};}return null;}
-function discoverBridge(){try{const raw=run(['vpc','service','list']);let rows=[];try{const j=JSON.parse(raw);rows=Array.isArray(j)?j:(j?.result||[]);}catch{}for(const name of BRIDGE_NAMES){for(const x of rows){if(String(x?.name||'')===name&&UUID_RE.test(String(x?.id||x?.service_id||'')))return {id:String(x.id||x.service_id),source:'WRANGLER_VPC_DISCOVERY:'+name};}for(const line of raw.split(/\r?\n/)){if(line.includes(name)){const m=line.match(/[a-f0-9]{8}-[a-f0-9-]{27,36}/i);if(m&&UUID_RE.test(m[0]))return {id:m[0],source:'WRANGLER_VPC_DISCOVERY:'+name};}}}}catch{}return null;}
+function explicitProxy(){for(const k of ['AI_BRIDGE_SERVICE_ID','V11_AI_BRIDGE_SERVICE_ID']){const v=String(process.env[k]||'').trim();if(UUID_RE.test(v))return {id:v,source:k};}return null;}
+function discoverProxy(){try{const raw=run(['vpc','service','list']);let rows=[];try{const j=JSON.parse(raw);rows=Array.isArray(j)?j:(j?.result||[]);}catch{}for(const name of PROXY_NAMES){for(const x of rows){if(String(x?.name||'')===name&&UUID_RE.test(String(x?.id||x?.service_id||'')))return {id:String(x.id||x.service_id),source:'WRANGLER_VPC_DISCOVERY:'+name};}for(const line of raw.split(/\r?\n/)){if(line.includes(name)){const m=line.match(/[a-f0-9]{8}-[a-f0-9-]{27,36}/i);if(m&&UUID_RE.test(m[0]))return {id:m[0],source:'WRANGLER_VPC_DISCOVERY:'+name};}}}}catch{}return null;}
 const kv=explicitKv()||discoverKv();if(!kv)throw new Error(`Unable to resolve existing ${NAMESPACE_NAME} KV namespace; deployment aborted.`);
-const bridge=explicitBridge()||discoverBridge();if(!bridge)throw new Error(`Unable to resolve an existing 2AI VPC Service (${BRIDGE_NAMES.join(' or ')}). Set AI_BRIDGE_SERVICE_ID, keep legacy V11_AI_BRIDGE_SERVICE_ID during migration, or grant Connectivity Directory Read/Bind. Deployment aborted to prevent dropping AI_BRIDGE.`);
+const proxy=explicitProxy()||discoverProxy();if(!proxy)throw new Error(`Unable to resolve existing VPS service used by Bybit private transport (${PROXY_NAMES.join(' or ')}); deployment aborted.`);
 const revision=String(process.env.GITHUB_SHA||process.env.RUNTIME_REVISION||'LOCAL').trim();
-const forexLive=/^(true|1|yes)$/i.test(String(process.env.FOREX_AUTO_LIVE||'false'))?'true':'false';
-const bybitEnabled=/^(true|1|yes)$/i.test(String(process.env.BYBIT_AUTO_ENABLED||'false'))?'true':'false';
-const bybitLive=/^(true|1|yes)$/i.test(String(process.env.BYBIT_AUTO_LIVE||'false'))?'true':'false';
-const bybitLiveAck=/^(true|1|yes)$/i.test(String(process.env.BYBIT_AUTO_LIVE_ACK||'false'))?'true':'false';
-const bybitDemo=/^(true|1|yes)$/i.test(String(process.env.BYBIT_AUTO_DEMO||'false'))?'true':'false';
-const bybitMinUniverseCount=String(process.env.BYBIT_MIN_UNIVERSE_COUNT||'80').trim();
-const bybitMinTurnover24hUsd=String(process.env.BYBIT_MIN_TURNOVER_24H_USD||'750000').trim();
-const bybitScanConcurrency=String(process.env.BYBIT_SCAN_CONCURRENCY||'12').trim();
-const forexTargetEnabled=/^(true|1|yes)$/i.test(String(process.env.FOREX_USER_TARGET_ENABLED||'true'))?'true':'false';
-const forexTargetUsd=String(process.env.FOREX_USER_TARGET_USD||'510').trim();
-const forexTargetDays=String(process.env.FOREX_USER_TARGET_DAYS||'3').trim();
-const forexTargetCycle=String(process.env.FOREX_USER_TARGET_CYCLE_ID||'USER_20260827_510USD_3TRADINGDAYS').trim().slice(0,80)||'USER_20260827_510USD_3TRADINGDAYS';
-const forexDailyObjective=String(process.env.FOREX_DAILY_OBJECTIVE_PCT||'1.0').trim();
-const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars:{RUNTIME_REVISION:revision,BYBIT_AUTO_ENABLED:bybitEnabled,BYBIT_AUTO_LIVE:bybitLive,BYBIT_AUTO_LIVE_ACK:bybitLiveAck,BYBIT_AUTO_DEMO:bybitDemo,BYBIT_MIN_UNIVERSE_COUNT:bybitMinUniverseCount,BYBIT_MIN_TURNOVER_24H_USD:bybitMinTurnover24hUsd,BYBIT_SCAN_CONCURRENCY:bybitScanConcurrency,FOREX_AUTO_LIVE:forexLive,FOREX_USER_TARGET_ENABLED:forexTargetEnabled,FOREX_USER_TARGET_USD:forexTargetUsd,FOREX_USER_TARGET_DAYS:forexTargetDays,FOREX_USER_TARGET_CYCLE_ID:forexTargetCycle,FOREX_DAILY_OBJECTIVE_PCT:forexDailyObjective},kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:bridge.id,remote:true}],triggers:{crons:['* * * * *']}};
+const vars={
+  RUNTIME_REVISION:revision,
+  BYBIT_AUTO_ENABLED:yes(process.env.BYBIT_AUTO_ENABLED)?'true':'false',
+  BYBIT_AUTO_LIVE:yes(process.env.BYBIT_AUTO_LIVE)?'true':'false',
+  BYBIT_BTC_LIVE_ACK:yes(process.env.BYBIT_BTC_LIVE_ACK)?'true':'false',
+  BYBIT_AUTO_DEMO:yes(process.env.BYBIT_AUTO_DEMO)?'true':'false',
+  BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK:yes(process.env.BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK)?'true':'false',
+  BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK:yes(process.env.BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK)?'true':'false'
+};
+const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:proxy.id,remote:true}],triggers:{crons:['* * * * *']}};
 fs.writeFileSync('wrangler.jsonc',`${JSON.stringify(config,null,2)}\n`,'utf8');
-console.log(`Prepared wrangler.jsonc: TRADING_STATE=${kv.source}, AI_BRIDGE=${bridge.source}, RUNTIME_REVISION=${revision}, BYBIT_AUTO_ENABLED=${bybitEnabled}, BYBIT_AUTO_LIVE=${bybitLive}, BYBIT_AUTO_LIVE_ACK=${bybitLiveAck}, BYBIT_AUTO_DEMO=${bybitDemo}, BYBIT_MIN_UNIVERSE_COUNT=${bybitMinUniverseCount}, BYBIT_MIN_TURNOVER_24H_USD=${bybitMinTurnover24hUsd}, BYBIT_SCAN_CONCURRENCY=${bybitScanConcurrency}, FOREX_AUTO_LIVE=${forexLive}, FOREX_TARGET=${forexTargetUsd}/${forexTargetDays}d.`);
+console.log(`Prepared BTC-only wrangler.jsonc: TRADING_STATE=${kv.source}, BYBIT_VPS_PROXY=${proxy.source}, RUNTIME_REVISION=${revision}, ENABLED=${vars.BYBIT_AUTO_ENABLED}, LIVE_REQUEST=${vars.BYBIT_AUTO_LIVE}, BTC_LIVE_ACK=${vars.BYBIT_BTC_LIVE_ACK}, DEMO=${vars.BYBIT_AUTO_DEMO}`);
