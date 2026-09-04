@@ -7,8 +7,11 @@ const skip=new Set(['node_modules','.wrangler']);
 function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(skip.has(e.name))continue;const p=path.join(d,e.name);if(e.isDirectory())walk(p);else if(/\.(js|mjs)$/.test(e.name)){try{execFileSync(process.execPath,['--check',p],{cwd:root,stdio:'pipe'});}catch(x){errors.push(`SYNTAX ${path.relative(root,p)} ${String(x.stderr||x.message)}`);}}}}
 walk(root);
 
-const required=['index.js','bybit-runtime-contract.js','bybit-auto-config.js','bybit-auto-v1.js','bybit-auto-controller.js','bybit-auto-hub.js','bybit-control-plane.js','bybit-readonly-health.js','bybit-v5-client.js','bybit-btc-market-state.js','bybit-btc-strategy.js','bybit-btc-risk-engine.js','bybit-btc-engine.js','providers/bybit-signed-client.js','providers/telegram-client.js'];
+const required=['index.js','bybit-runtime-contract.js','bybit-auto-config.js','bybit-auto-controller.js','bybit-auto-hub.js','bybit-control-plane.js','bybit-readonly-health.js','bybit-v5-client.js','bybit-btc-balance-reconciler.js','bybit-btc-microstructure-client.js','bybit-btc-market-state.js','bybit-btc-strategy.js','bybit-btc-risk-engine.js','bybit-btc-engine.js','providers/bybit-signed-client.js','providers/telegram-client.js'];
 for(const f of required)if(!fs.existsSync(path.join(root,f)))errors.push(`MISSING ${f}`);
+
+const forbiddenFiles=['bybit-auto-v1.js'];
+for(const f of forbiddenFiles)if(fs.existsSync(path.join(root,f)))errors.push(`LEGACY BOT FILE MUST BE REMOVED ${f}`);
 
 function reachableImports(entry){
   const seen=new Set(),stack=[entry];
