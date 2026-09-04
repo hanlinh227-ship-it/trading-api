@@ -27,6 +27,11 @@ patch('cloudflare-worker/bybit-coin-profiles.js',[
 ("leverageMult:.70,maxSpreadBps:20.0","leverageMult:.82,maxSpreadBps:20.0")
 ])
 
+patch('cloudflare-worker/bybit-multi-asset-controller.js',[
+("equityUsd:equity,continuousCapacityCapitalUsd:capacityCapital,walletBalanceUsd:num(balance?.snapshot?.walletBalanceUsd),availableUsd:num(balance?.snapshot?.availableUsd),lastCycleAt:iso(),",
+ "equityUsd:equity,continuousCapacityCapitalUsd:capacityCapital,walletBalanceUsd:num(balance?.snapshot?.walletBalanceUsd),availableUsd:num(balance?.snapshot?.availableUsd),balanceReconcileReason:balance?.reason||null,externalCashFlowUsd:num(balance?.netExternalCashFlowUsd),lastExternalCashFlow:balance?.state?.lastExternalCashFlow||null,capitalScaleAuthority:balance?.state?.continuousScaleAuthority||null,lastCycleAt:iso(),")
+])
+
 patch('cloudflare-worker/bybit-runtime-contract.js',[
 ("export const BYBIT_RUNTIME_CONTRACT_VERSION='BYBIT_MULTI_ASSET_RUNTIME_V25_ALL_CRYPTO_SCALP_NETWORK';","export const BYBIT_RUNTIME_CONTRACT_VERSION='BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_AWARE_FAST_SCALE';"),
 ("export const BYBIT_AUTO_VERSION='BYBIT-MULTI-STATEFLOW-4.7.0';","export const BYBIT_AUTO_VERSION='BYBIT-MULTI-STATEFLOW-4.8.0';"),
