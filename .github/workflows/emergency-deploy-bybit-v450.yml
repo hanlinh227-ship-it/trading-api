@@ -1,0 +1,45 @@
+name: Emergency Deploy Bybit V4.5 Worker
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v450-emergency-deploy-trigger']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency: {group: bybit-v450-emergency-deploy, cancel-in-progress: false}
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Validate and deploy current main with preserved runtime vars
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          grep -q "BYBIT-MULTI-STATEFLOW-4.5.0" bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION" bybit-runtime-contract.js
+          npm run deploy
+      - name: Verify deployed V4.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          T="$RUNNER_TEMP/v450-emergency"; mkdir -p "$T"
+          for i in $(seq 1 24); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            curl -fsS --max-time 30 "$BASE/runtime/contract" > "$T/contract.json" || true
+            OK=$(T="$T" node -e "const fs=require('fs'),p=process.env.T;try{const h=JSON.parse(fs.readFileSync(p+'/health.json')),c=JSON.parse(fs.readFileSync(p+'/contract.json'));process.stdout.write(h.version==='BYBIT-MULTI-STATEFLOW-4.5.0'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION'?'1':'0')}catch{process.stdout.write('0')}")
+            [ "$OK" = 1 ] && break
+            sleep 5
+          done
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json"
+          T="$T" node <<'NODE'
+          const fs=require('fs'),p=process.env.T,read=f=>JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'));
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json');
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.5.0',contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION',live:h.mode==='LIVE',authenticated:h.authenticated===true,ready:h.execution?.ready===true,performance:c.realizedPnlPerformanceGovernor===true,expectancy:c.perSymbolExpectancyGate===true,earlyHarvest:c.smallProfitEarlyHarvest===true,recovery:c.capitalPreservationRecoveryMode===true,noMartingale:c.recoveryMartingale===false,noAddLoser:c.recoveryAddToLoser===false,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0};
+          const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,equity:h.account?.totalEquity,wallet:h.account?.walletBalance,available:h.account?.availableBalance,positions:h.positions?.items||[]},contract:{version:c.version,realizedPnlPerformanceGovernor:c.realizedPnlPerformanceGovernor,perSymbolExpectancyGate:c.perSymbolExpectancyGate,lossStreakRequalification:c.lossStreakRequalification,performanceAdaptiveRisk:c.performanceAdaptiveRisk,smallProfitEarlyHarvest:c.smallProfitEarlyHarvest,capitalPreservationRecoveryMode:c.capitalPreservationRecoveryMode,plannedNetProfitFloorStartsAtOneUsd:c.plannedNetProfitFloorStartsAtOneUsd,preferredRunnerNetProfitStartsAtOneUsd:c.preferredRunnerNetProfitStartsAtOneUsd},entry:{status:e.status,blockers:e.blockers||[]},checks};console.log(JSON.stringify(out,null,2));if(!pass)process.exit(9);
+          NODE
