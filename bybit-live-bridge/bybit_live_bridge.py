@@ -22,7 +22,7 @@ WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.h
 EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes')
 BYBIT_BASES=tuple(dict.fromkeys(x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()))
 AUTO_DISCOVER=str(os.environ.get('BYBIT_DYNAMIC_WS_DISCOVERY','true')).lower() in ('1','true','yes')
-MAX_WS_SYMBOLS=max(18,min(40,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','30'))))
+MAX_WS_SYMBOLS=max(18,min(72,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','48'))))
 CORE_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in DEFAULT_SYMBOLS.split(',') if x.strip()))
 MANUAL_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS','').split(',') if x.strip()))
 def discover_ws_symbols():
@@ -39,7 +39,7 @@ def discover_ws_symbols():
                 try:
                     bid=float(x.get('bid1Price') or 0);ask=float(x.get('ask1Price') or 0);turn=float(x.get('turnover24h') or 0);mid=(bid+ask)/2 if bid>0 and ask>0 else 0;spread=(ask-bid)/mid*10000 if mid>0 and ask>=bid else 999
                 except Exception:continue
-                if turn>=35_000_000 and spread<=7.0:rows.append((turn,-spread,s))
+                if turn>=12_000_000 and spread<=9.5:rows.append((turn,-spread,s))
             if rows:break
         except Exception:continue
     rows.sort(reverse=True)
@@ -49,8 +49,8 @@ def discover_ws_symbols():
     return tuple(seed)
 SYMBOLS=discover_ws_symbols()
 _extra=[s for s in SYMBOLS if s not in CORE_SYMBOLS]
-EVENT_SYMBOL_LIMIT=max(4,min(12,int(os.environ.get('BYBIT_EVENT_SYMBOL_LIMIT','8'))))
-_default_events=list(CORE_SYMBOLS[:6])+_extra[:2]
+EVENT_SYMBOL_LIMIT=max(4,min(24,int(os.environ.get('BYBIT_EVENT_SYMBOL_LIMIT','12'))))
+_default_events=list(CORE_SYMBOLS[:8])+_extra[:4]
 _event_candidates=[x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS',','.join(_default_events)).split(',') if x.strip() and x.strip().upper() in SYMBOLS]
 EVENT_SYMBOLS=set(list(dict.fromkeys(_event_candidates))[:EVENT_SYMBOL_LIMIT])
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
