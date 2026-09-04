@@ -22,12 +22,11 @@ export function equityScaleState(equityUsd,cfg){
   const equity=Math.max(0,num(equityUsd)),s=cfg?.risk?.equityScale||{};
   if(!s.enabled)return {riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0,tierEquityUsd:equity,continuous:true,lowerReferenceUsd:0,upperReferenceUsd:null,progressPct:100};
   const steps=[...(s.steps||[])].sort((a,b)=>num(a.equityUsd)-num(b.equityUsd));
-  const fallback={equityUsd:0,riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0};
   if(!steps.length)return {riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0,tierEquityUsd:equity,continuous:true,lowerReferenceUsd:0,upperReferenceUsd:null,progressPct:100};
   const first=steps[0];
   if(equity<=num(first.equityUsd))return {riskMult:clamp(num(first.riskMult)||1,.5,num(s.maxRiskMult||1.4)),marginCapPct:clamp(num(first.marginCapPct)||num(cfg?.risk?.maxPortfolioMarginPct||78),30,num(s.maxMarginCapPct||84)),leverageBonus:Math.max(0,num(first.leverageBonus)),tierEquityUsd:equity,continuous:true,lowerReferenceUsd:num(first.equityUsd),upperReferenceUsd:steps[1]?num(steps[1].equityUsd):null,progressPct:0};
   for(let i=0;i<steps.length-1;i++){
-    const a=steps[i]||fallback,b=steps[i+1]||a,lo=num(a.equityUsd),hi=Math.max(lo+1e-9,num(b.equityUsd));
+    const a=steps[i],b=steps[i+1],lo=num(a.equityUsd),hi=Math.max(lo+1e-9,num(b.equityUsd));
     if(equity>=lo&&equity<hi){const t=(equity-lo)/(hi-lo);return {riskMult:clamp(lerp(a.riskMult,b.riskMult,t),.5,num(s.maxRiskMult||1.4)),marginCapPct:clamp(lerp(a.marginCapPct,b.marginCapPct,t),30,num(s.maxMarginCapPct||84)),leverageBonus:Math.max(0,lerp(a.leverageBonus,b.leverageBonus,t)),tierEquityUsd:equity,continuous:true,lowerReferenceUsd:lo,upperReferenceUsd:hi,progressPct:t*100};}
   }
   const last=steps.at(-1),tailStart=num(last.equityUsd),tailEnd=Math.max(tailStart+1,tailStart*2),t=clamp((equity-tailStart)/(tailEnd-tailStart),0,1);
@@ -64,20 +63,24 @@ export function btcRiskDecision({cfg,equityUsd,state={},setup,markPrice,candidat
     if(!protectedNewest)return {ok:false,reason:'PYRAMID_WAIT_PRIOR_RISK_PROTECTION',newestTrancheId:newest?.id||null,newestRiskUsd:remaining,initialRiskUsd:initial,requiredRemainingRiskPct:thresholdPct};
   }
 
-  const basePct=Math.min(num(cfg?.risk?.absoluteSingleEntryRiskPct||1.6),riskPctForStrength(cfg,String(setup?.strength||'NORMAL'))),riskPct=Math.min(num(cfg?.risk?.absoluteSingleEntryRiskPct||1.6),basePct*scale.riskMult)*dd.multiplier,candidateRiskUsd=capital.capitalBaseUsd*riskPct/100,active=activeRiskUsd(tranches),normalCap=capital.capitalBaseUsd*num(cfg?.risk?.maxActiveRiskPct||7.5)/100,tempCap=capital.capitalBaseUsd*num(cfg?.risk?.temporaryAPlusActiveRiskPct||9.5)/100,cap=String(setup?.strength)==='A_PLUS'?Math.max(normalCap,tempCap):normalCap;
-  if(active+candidateRiskUsd>cap+1e-9)return {ok:false,reason:'ACTIVE_RISK_BUDGET_EXHAUSTED',activeRiskUsd:active,candidateRiskUsd,projectedRiskUsd:active+candidateRiskUsd,capUsd:cap,riskPct,...dd,scale,capital};
+  const absolutePct=Math.max(0,num(cfg?.risk?.absoluteSingleEntryRiskPct||1.6)),basePct=Math.min(absolutePct,riskPctForStrength(cfg,String(setup?.strength||'NORMAL'))),riskPct=Math.min(absolutePct,basePct*scale.riskMult)*dd.multiplier,candidateRiskUsd=capital.capitalBaseUsd*riskPct/100,active=activeRiskUsd(tranches),normalCap=capital.capitalBaseUsd*num(cfg?.risk?.maxActiveRiskPct||7.5)/100,tempCap=capital.capitalBaseUsd*num(cfg?.risk?.temporaryAPlusActiveRiskPct||9.5)/100,cap=String(setup?.strength)==='A_PLUS'?Math.max(normalCap,tempCap):normalCap,singleRiskCapUsd=capital.capitalBaseUsd*absolutePct/100*dd.multiplier,remainingActiveRiskCapacityUsd=Math.max(0,cap-active),maxCandidateRiskUsd=Math.max(0,Math.min(singleRiskCapUsd,remainingActiveRiskCapacityUsd));
+  if(candidateRiskUsd>maxCandidateRiskUsd+1e-9)return {ok:false,reason:'ACTIVE_RISK_BUDGET_EXHAUSTED',activeRiskUsd:active,candidateRiskUsd,projectedRiskUsd:active+candidateRiskUsd,capUsd:cap,singleRiskCapUsd,remainingActiveRiskCapacityUsd,maxCandidateRiskUsd,riskPct,...dd,scale,capital};
   const marginCap=capital.capitalBaseUsd*scale.marginCapPct/100,openMargin=(tranches||[]).filter(t=>String(t.status||'OPEN')==='OPEN').reduce((s,t)=>s+Math.max(0,num(t.initialMarginUsd)),0),candidateMargin=Math.max(0,num(candidateInitialMarginUsd));
   if(candidateMargin>0&&openMargin+candidateMargin>marginCap+1e-9)return {ok:false,reason:'PORTFOLIO_MARGIN_CAP',openMarginUsd:openMargin,candidateMarginUsd:candidateMargin,marginCapUsd:marginCap,marginCapPct:scale.marginCapPct,scale,capital};
-  return {ok:true,riskPct,candidateRiskUsd,activeRiskUsd:active,projectedRiskUsd:active+candidateRiskUsd,capUsd:cap,openMarginUsd:openMargin,marginCapUsd:marginCap,marginCapPct:scale.marginCapPct,...dd,scale,capital,pyramiding:openSame.length>0,riskRecycling:true,dailyTradeQuota:false,fullAccountAuthority:true};
+  return {ok:true,riskPct,candidateRiskUsd,activeRiskUsd:active,projectedRiskUsd:active+candidateRiskUsd,capUsd:cap,singleRiskCapUsd,remainingActiveRiskCapacityUsd,maxCandidateRiskUsd,openMarginUsd:openMargin,marginCapUsd:marginCap,marginCapPct:scale.marginCapPct,...dd,scale,capital,pyramiding:openSame.length>0,riskRecycling:true,dailyTradeQuota:false,fullAccountAuthority:true};
 }
 
-export function sizeBtcSetup({setup,riskUsd,filters={},leverage=5,equityUsd=0,capitalBaseUsd=0,marginCapPct=78}){
-  const stop=Math.abs(num(setup?.entry)-num(setup?.sl));if(!(stop>0&&riskUsd>0))return {ok:false,reason:'STOP_OR_RISK_INVALID'};
-  const step=Math.max(1e-12,num(filters.qtyStep)||.001),minQty=Math.max(0,num(filters.minQty)||.001),maxQty=Math.max(minQty,num(filters.maxQty)||1e9),minNotional=Math.max(0,num(filters.minNotional)||5),raw=num(riskUsd)/stop;
-  let qty=Math.floor((raw+1e-12)/step)*step;qty=Math.min(qty,maxQty);if(qty<minQty)qty=minQty;let notional=qty*num(setup.entry);if(notional<minNotional){qty=Math.ceil((minNotional/num(setup.entry))/step)*step;notional=qty*num(setup.entry);}
-  const actualRisk=qty*stop,initialMargin=notional/Math.max(1,num(leverage)),capital=Math.max(0,num(capitalBaseUsd)||num(equityUsd));if(actualRisk>riskUsd*1.20)return {ok:false,reason:'MIN_QTY_EXCEEDS_RISK_BUDGET',qty,actualRiskUsd:actualRisk,targetRiskUsd:riskUsd};
-  if(initialMargin>capital*clamp(num(marginCapPct)||78,30,84)/100+1e-9)return {ok:false,reason:'POSITION_MARGIN_TOO_LARGE',qty,initialMarginUsd:initialMargin,marginCapPct,capitalBaseUsd:capital};
-  return {ok:true,qty,notionalUsd:notional,actualRiskUsd:actualRisk,initialMarginUsd:initialMargin,leverage,capitalBaseUsd:capital};
+function ceilStep(v,step){return Math.ceil((Number(v)-1e-12)/step)*step;}
+function floorStep(v,step){return Math.floor((Number(v)+1e-12)/step)*step;}
+export function sizeBtcSetup({setup,riskUsd,maxRiskUsd=0,filters={},leverage=5,equityUsd=0,capitalBaseUsd=0,marginCapPct=78}){
+  const entry=Math.max(0,num(setup?.entry)),stop=Math.abs(entry-num(setup?.sl)),target=Math.max(0,num(riskUsd));if(!(entry>0&&stop>0&&target>0))return {ok:false,reason:'STOP_OR_RISK_INVALID'};
+  const step=Math.max(1e-12,num(filters.qtyStep)||.001),minQty=Math.max(step,num(filters.minQty)||step),maxQty=Math.max(minQty,num(filters.maxQty)||1e9),minNotional=Math.max(0,num(filters.minNotional)||5),capital=Math.max(0,num(capitalBaseUsd)||num(equityUsd)),marginCapUsd=capital*clamp(num(marginCapPct)||78,30,84)/100,hardRiskCap=Math.max(target,num(maxRiskUsd)||target*1.20),strength=String(setup?.strength||'NORMAL'),softMult=strength==='A_PLUS'?1.45:strength==='STRONG'?1.35:1.25,softRiskCap=Math.min(hardRiskCap,target*softMult),raw=target/stop;
+  const minByNotional=ceilStep(minNotional/entry,step),minimum=Math.min(maxQty,Math.max(minQty,minByNotional)),floorQty=Math.min(maxQty,Math.max(minimum,floorStep(raw,step))),ceilQty=Math.min(maxQty,Math.max(minimum,ceilStep(raw,step))),candidates=[minimum,floorQty,ceilQty].filter((v,i,a)=>v>0&&a.findIndex(x=>Math.abs(x-v)<step/1000)===i).map(q=>{const notional=q*entry,priceRisk=q*stop,initialMargin=notional/Math.max(1,num(leverage)),costBps=Math.max(0,num(setup?.cost?.totalCostBps||setup?.cost?.baseRoundTripCostBps)),costReserve=notional*costBps/10000;return {qty:q,notionalUsd:notional,actualRiskUsd:priceRisk,priceRiskUsd:priceRisk,costReserveUsd:costReserve,effectiveLossEstimateUsd:priceRisk+costReserve,initialMarginUsd:initialMargin,leverage,capitalBaseUsd:capital,marginCapPct};});
+  const riskFeasible=candidates.filter(x=>x.actualRiskUsd<=softRiskCap+1e-9&&x.initialMarginUsd<=marginCapUsd+1e-9);
+  if(!riskFeasible.length){const min=candidates.sort((a,b)=>a.qty-b.qty)[0];if(min&&min.actualRiskUsd>hardRiskCap+1e-9)return {ok:false,reason:'MIN_QTY_EXCEEDS_HARD_RISK_CAP',qty:min.qty,actualRiskUsd:min.actualRiskUsd,targetRiskUsd:target,softRiskCapUsd:softRiskCap,hardRiskCapUsd:hardRiskCap};if(min&&min.initialMarginUsd>marginCapUsd+1e-9)return {ok:false,reason:'POSITION_MARGIN_TOO_LARGE',qty:min.qty,initialMarginUsd:min.initialMarginUsd,marginCapUsd,marginCapPct,capitalBaseUsd:capital};return {ok:false,reason:'QUANTIZED_SIZE_OUTSIDE_ADAPTIVE_RISK_BAND',targetRiskUsd:target,softRiskCapUsd:softRiskCap,hardRiskCapUsd:hardRiskCap,candidates};}
+  let chosen=riskFeasible.sort((a,b)=>Math.abs(a.actualRiskUsd-target)-Math.abs(b.actualRiskUsd-target))[0];
+  if(strength!=='NORMAL'){const higher=riskFeasible.filter(x=>x.actualRiskUsd>=target).sort((a,b)=>a.actualRiskUsd-b.actualRiskUsd)[0];if(higher&&chosen.actualRiskUsd<target*.78)chosen=higher;}
+  return {ok:true,...chosen,targetRiskUsd:target,softRiskCapUsd:softRiskCap,hardRiskCapUsd:hardRiskCap,quantized:true,qtyStep:step,minQty,selectionPolicy:'NEAREST_TARGET_WITH_STRENGTH_AWARE_UPSTEP_WITHIN_HARD_CAP'};
 }
 
 export function addTranche(state={},x={}){
@@ -86,4 +89,4 @@ export function addTranche(state={},x={}){
 export function updateTrancheProtection(state={},id,managedSl){const tranches=(state.tranches||[]).map(t=>{if(String(t.id)!==String(id))return t;const protectedNow=String(t.side)==='Buy'?num(managedSl)>=num(t.entry):num(managedSl)<=num(t.entry);return {...t,managedSl:num(managedSl),protected:protectedNow||t.protected};});return {...state,tranches};}
 export function closeAllTranches(state={},meta={}){return {...state,tranches:(state.tranches||[]).map(t=>String(t.status||'OPEN')==='OPEN'?{...t,status:'CLOSED',closedAt:Date.now(),...meta}:t)};}
 
-export const BTC_RISK_ENGINE_VERSION='BTC_RISK_RECYCLE_V5_CONTINUOUS_CAPITAL_SCALE';
+export const BTC_RISK_ENGINE_VERSION='BTC_RISK_RECYCLE_V6_SMART_QUANTIZED_SIZING';
