@@ -15,7 +15,7 @@ export const BYBIT_ANDROID_MONITOR_CAPABILITIES=Object.freeze({
   tokenInQueryString:false,
   bybitApiSecretExposedToAndroid:false,
   monitorUsesPrivateBybitCredentials:false,
-  accountSource:'BOT_CONTROLLER_RECONCILED_STATE',
+  accountSource:'BOT_CONTROLLER_RECONCILED_STATE_PLUS_VPS_WS_MARK_TO_MARKET',
   scannerSource:'BYBIT_PUBLIC_MARKET_PLUS_BOT_UNIVERSE_RULES',
   snapshotApi:true,
   realtimeWebSocket:true,
@@ -26,7 +26,8 @@ export const BYBIT_ANDROID_MONITOR_CAPABILITIES=Object.freeze({
   bybitWsTelemetry:true,
   latencyTelemetry:true,
   dataAgeTelemetry:true,
-  defaultStreamIntervalMs:1500,
-  minStreamIntervalMs:1000,
+  darkMonospaceUiContract:true,
+  defaultStreamIntervalMs:750,
+  minStreamIntervalMs:500,
   maxStreamIntervalMs:10000
 });
