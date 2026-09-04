@@ -1,7 +1,7 @@
 {
-  "verifiedAt": "2026-09-04T08:02:01.474Z",
-  "expectedRevision": "828c86d5c2b8b38dba0d6a31537e5c6df0e54cde",
-  "runtimeRevision": "828c86d5c2b8b38dba0d6a31537e5c6df0e54cde",
+  "verifiedAt": "2026-09-04T08:25:21.786Z",
+  "expectedRevision": "687694832791953c3a730728b14336e63422e575",
+  "runtimeRevision": "687694832791953c3a730728b14336e63422e575",
   "pass": true,
   "health": {
     "http": 200,
@@ -11,13 +11,13 @@
     "authenticated": true,
     "privateTransport": "VPS_BYBIT_PRIVATE_PROXY",
     "marketTransport": "VPS_BYBIT_MARKET_PROXY",
-    "serverTimeMs": 1788508919058,
+    "serverTimeMs": 1788510318687,
     "revisionOk": true
   },
   "contract": {
     "http": 200,
     "version": "BYBIT-BTC-STATEFLOW-2.5",
-    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V10_ADAPTIVE_CAPITAL_CONTROL",
+    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V11_FAST_SCALP_NET_EDGE",
     "authority": "BYBIT_BTC_ONLY",
     "btcOnly": true
   },
