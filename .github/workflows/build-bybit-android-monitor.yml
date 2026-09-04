@@ -26,10 +26,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Generate Android project
+      - name: Validate committed Android project
+        shell: bash
         run: |
-          python3 .github/scripts/create-bybit-android-monitor-app.py
-          python3 .github/scripts/fix-bybit-android-monitor-app-v1.py
+          set -euo pipefail
+          test -f android-monitor/settings.gradle.kts
+          test -f android-monitor/app/build.gradle.kts
+          test -f android-monitor/app/src/main/java/com/hanlinh/bybitmonitor/MainActivity.kt
+          grep -R -q 'FontFamily.Monospace' android-monitor/app/src/main/java
+          grep -R -q 'darkColorScheme' android-monitor/app/src/main/java
       - name: Security assertions
         shell: bash
         run: |
@@ -45,27 +50,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp android-monitor/app/build/outputs/apk/debug/app-debug.apk dist/BybitAndroidMonitor-v1.apk
-          test -s dist/BybitAndroidMonitor-v1.apk
-          sha256sum dist/BybitAndroidMonitor-v1.apk | tee dist/SHA256SUMS.txt
-          unzip -l dist/BybitAndroidMonitor-v1.apk | grep -q 'AndroidManifest.xml'
-      - name: Commit generated Android source
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add android-monitor
-          if ! git diff --cached --quiet; then
-            git commit -m 'Add complete Bybit Android Monitor V1 app'
-            git pull --rebase origin main
-            git push origin HEAD:main
-          fi
+          cp android-monitor/app/build/outputs/apk/debug/app-debug.apk dist/BybitAndroidMonitor-v1.1.apk
+          test -s dist/BybitAndroidMonitor-v1.1.apk
+          sha256sum dist/BybitAndroidMonitor-v1.1.apk | tee dist/SHA256SUMS.txt
+          unzip -l dist/BybitAndroidMonitor-v1.1.apk | grep -q 'AndroidManifest.xml'
       - uses: actions/upload-artifact@v4
         with:
-          name: BybitAndroidMonitor-v1
+          name: BybitAndroidMonitor-v1.1
           path: |
-            dist/BybitAndroidMonitor-v1.apk
+            dist/BybitAndroidMonitor-v1.1.apk
             dist/SHA256SUMS.txt
       - name: Publish APK release
         env:
@@ -75,7 +68,7 @@ jobs:
           set -euo pipefail
           TAG=bybit-android-monitor-v1
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/BybitAndroidMonitor-v1.apk dist/SHA256SUMS.txt --clobber
+            gh release upload "$TAG" dist/BybitAndroidMonitor-v1.1.apk dist/SHA256SUMS.txt --clobber
           else
-            gh release create "$TAG" dist/BybitAndroidMonitor-v1.apk dist/SHA256SUMS.txt --title 'Bybit Android Monitor V1' --notes 'Read-only Android monitor for BYBIT_ANDROID_MONITOR_V1. No Bybit API credentials are embedded. Includes Dashboard, Positions, Scanner, realtime WebSocket, Android Keystore token storage, notifications and home-screen widget.'
+            gh release create "$TAG" dist/BybitAndroidMonitor-v1.1.apk dist/SHA256SUMS.txt --title 'Bybit Android Monitor V1' --notes 'Read-only Android monitor. Dark cyber-finance monospace UI, realtime WebSocket telemetry, Android Keystore token storage, notifications and home-screen widget.'
           fi
