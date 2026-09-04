@@ -22,7 +22,7 @@ WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.h
 EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes')
 BYBIT_BASES=tuple(dict.fromkeys(x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()))
 AUTO_DISCOVER=str(os.environ.get('BYBIT_DYNAMIC_WS_DISCOVERY','true')).lower() in ('1','true','yes')
-MAX_WS_SYMBOLS=max(18,min(72,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','48'))))
+MAX_WS_SYMBOLS=max(18,min(120,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','72'))))
 CORE_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in DEFAULT_SYMBOLS.split(',') if x.strip()))
 MANUAL_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS','').split(',') if x.strip()))
 def discover_ws_symbols():
@@ -39,7 +39,7 @@ def discover_ws_symbols():
                 try:
                     bid=float(x.get('bid1Price') or 0);ask=float(x.get('ask1Price') or 0);turn=float(x.get('turnover24h') or 0);mid=(bid+ask)/2 if bid>0 and ask>0 else 0;spread=(ask-bid)/mid*10000 if mid>0 and ask>=bid else 999
                 except Exception:continue
-                if turn>=12_000_000 and spread<=9.5:rows.append((turn,-spread,s))
+                if turn>=1_000_000 and spread<=20.0:rows.append((turn,-spread,s))
             if rows:break
         except Exception:continue
     rows.sort(reverse=True)
@@ -262,6 +262,14 @@ def ws_telemetry(snaps):
     min_connected=max(1,int(math.ceil(len(snaps)*.80)));min_fresh=max(1,int(math.ceil(len(snaps)*.75)))
     return {'healthy':connected>=min_connected and fresh>=min_fresh,'connectedCount':connected,'readyCount':ready,'freshCount':fresh,'totalCount':len(snaps),'p50DataAgeMs':pct(.50),'p95DataAgeMs':pct(.95),'maxDataAgeMs':int(max(ages)) if ages else None,'staleSymbols':sorted(stale,key=lambda x:x['dataAgeMs'],reverse=True)[:20],'freshThresholdMs':5000,'timestamp':now}
 
+def market_telemetry(snaps):
+    now=int(time.time()*1000);out={}
+    for symbol,x in snaps.items():
+        if not x.get('ok'):continue
+        d=x.get('data') or {};book=d.get('book') or {};trades=d.get('trades') or {};bid=float(book.get('bestBid') or 0);ask=float(book.get('bestAsk') or 0);mid=float(book.get('mid') or ((bid+ask)/2 if bid>0 and ask>0 else 0));last=float(trades.get('lastPrice') or 0);px=last or mid;bt=int(book.get('updateTime') or 0);tt=int(trades.get('lastTradeTime') or trades.get('updateTime') or 0);fresh=max(bt,tt);age=max(0,now-fresh) if fresh>0 else 999999
+        out[symbol]={'lastPrice':px,'mid':mid,'bid':bid,'ask':ask,'ageMs':age,'fresh':age<=5000,'source':'VPS_BYBIT_WS'}
+    return out
+
 
 MICROS={s:Microstructure(s) for s in SYMBOLS}
 
@@ -292,7 +300,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'eventSymbolLimit':EVENT_SYMBOL_LIMIT,'eventWakeAuthority':'BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING','dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'wsTelemetry':ws_telemetry(snaps),'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'eventSymbolLimit':EVENT_SYMBOL_LIMIT,'eventWakeAuthority':'BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING','dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'wsTelemetry':ws_telemetry(snaps),'marketTelemetry':market_telemetry(snaps),'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
         if u.path=='/bybit/microstructure':
             if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
             q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [DEFAULT_SYMBOL])[0]).upper();m=MICROS.get(symbol)
