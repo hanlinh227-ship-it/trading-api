@@ -1,0 +1,3 @@
+trigger=bybit-v450-emergency-deploy
+requested_at=2026-09-04T22:49:00+07:00
+scope=validated-main-only,keep-vars,preserve-live-ack,preserve-kv-vpc
