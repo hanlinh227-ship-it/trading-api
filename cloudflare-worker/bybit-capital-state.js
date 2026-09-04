@@ -21,10 +21,10 @@ export async function mirrorCapitalState(env,balance={}){
   for(const symbol of symbols){
     const key=symbolKey(symbol),old=await get(env,key,{});
     if(!old||!Object.keys(old).length)continue;
-    const next={...old,highWaterUsd:high,lastEquityUsd:equity,lastWalletBalanceUsd:wallet,lastAvailableUsd:available,lastContinuousCapitalUsd:capacity,globalCapitalHighWaterUsd:high,capitalAuthority:'GLOBAL_CAPITAL_INTELLIGENCE_V4',capitalMirroredAt:now};
+    const next={...old,highWaterUsd:high,lastEquityUsd:equity,lastWalletBalanceUsd:wallet,lastAvailableUsd:available,lastContinuousCapitalUsd:capacity,lastCapitalBaseUsd:capacity,globalCapitalHighWaterUsd:high,capitalAuthority:'GLOBAL_CAPITAL_INTELLIGENCE_V4',capitalMirroredAt:now};
     await put(env,key,next);migrated.push(symbol);
   }
-  return {ok:true,tradingExecuted:false,controllerMirrored:true,symbolMetadataMirrored:migrated,equityUsd:equity,walletBalanceUsd:wallet,availableUsd:available,continuousCapitalUsd:capacity,highWaterUsd:high,capitalIntelligence};
+  return {ok:true,tradingExecuted:false,strategyExecuted:false,ordersCreated:false,positionsChanged:false,controllerMirrored:true,symbolMetadataMirrored:migrated,equityUsd:equity,walletBalanceUsd:wallet,availableUsd:available,continuousCapitalUsd:capacity,highWaterUsd:high,capitalIntelligence};
 }
 
-export const BYBIT_CAPITAL_STATE_VERSION='BYBIT_CAPITAL_STATE_MIRROR_V1_READONLY_EXECUTION';
+export const BYBIT_CAPITAL_STATE_VERSION='BYBIT_CAPITAL_STATE_MIRROR_V2_READONLY_EXECUTION';
