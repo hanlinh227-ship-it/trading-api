@@ -1,0 +1,5 @@
+trigger=BYBIT_V480_CAPITAL_FAST_SCALE
+requested_at=2026-09-05T00:50:00+07:00
+scope=deposit-withdraw-reconcile,instant-capital-rebase,risk-based-leverage,fast-scale,android-isolation
+martingale=false
+add_to_loser=false
