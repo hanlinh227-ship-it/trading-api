@@ -1,0 +1,33 @@
+name: Diagnose Bybit Bridge Runtime V4.6
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v460-bridge-diagnostic-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Inspect current bridge authority
+        shell: bash
+        run: |
+          set +e
+          echo '=== PROCESSES ==='
+          pgrep -af 'bybit_live_bridge.py|bybit_event_driver.py|uvicorn|gunicorn' || true
+          echo '=== PORT 8789 ==='
+          sudo ss -ltnp | grep ':8789' || true
+          echo '=== SYSTEMD UNITS ==='
+          sudo systemctl list-unit-files --type=service | grep -Ei 'bybit|bridge|trading' || true
+          sudo systemctl list-units --all --type=service | grep -Ei 'bybit|bridge|trading' || true
+          echo '=== UNIT FILES ==='
+          sudo find /etc/systemd/system /lib/systemd/system -maxdepth 2 -type f \( -iname '*bybit*' -o -iname '*bridge*' -o -iname '*trading*' \) -print 2>/dev/null || true
+          echo '=== OPT ==='
+          sudo find /opt -maxdepth 3 -type f \( -name 'bybit_live_bridge.py' -o -name 'bybit_event_driver.py' \) -print 2>/dev/null || true
+          echo '=== ENV FILE EXISTS ==='
+          test -f /etc/bybit-btc-bridge.env && echo YES || echo NO
