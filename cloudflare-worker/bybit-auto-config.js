@@ -1,5 +1,5 @@
 import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
-// BYBIT-MULTI-STATEFLOW-3.0 configuration.
+// BYBIT-MULTI-STATEFLOW-4.0 PROFIT-SCALE configuration.
 // BTCUSDT linear perpetual. Pure event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
@@ -23,23 +23,30 @@ export const BYBIT_AUTO_CONFIG={
   },
   scalp:{
     authority:'ULTRAFAST_TIERED_NET_EDGE_SCALP',
-    minPlannedNetProfitUsd:.06,
+    minPlannedNetProfitUsd:1.00,
     minPlannedNetProfitPct:.15,
-    profitLockR:.52,
-    trailStartR:1.18,
-    trailRange5Pct:.16,
-    trailPricePct:.00130,
-    netProfitLockBufferMult:1.08,
+    profitFloorLadder:[
+      {equityUsd:0,minNetUsd:1.00},{equityUsd:75,minNetUsd:1.25},{equityUsd:150,minNetUsd:1.75},
+      {equityUsd:250,minNetUsd:2.50},{equityUsd:500,minNetUsd:4.00},{equityUsd:1000,minNetUsd:7.00},
+      {equityUsd:2500,minNetUsd:15.00},{equityUsd:5000,minNetUsd:30.00},{equityUsd:10000,minNetUsd:50.00}
+    ],
+    profitFloorBufferMult:1.05,
+    requireNetFloorAfterFees:true,
+    profitLockR:.70,
+    trailStartR:1.55,
+    trailRange5Pct:.20,
+    trailPricePct:.00160,
+    netProfitLockBufferMult:1.10,
     adaptiveProtection:{
       enabled:true,
       authority:'EVENT_DRIVEN_NATIVE_TP_SL_SINGLE_WRITER',
-      probeBaseTargetR:1.85,
-      confirmBaseTargetR:2.20,
-      fullBaseTargetR:2.70,
-      minTargetR:1.30,
-      maxTargetR:4.80,
-      strongExtensionR:.65,
-      weakCompressionR:.18,
+      probeBaseTargetR:2.00,
+      confirmBaseTargetR:2.45,
+      fullBaseTargetR:3.00,
+      minTargetR:1.45,
+      maxTargetR:5.50,
+      strongExtensionR:.75,
+      weakCompressionR:.12,
       minTargetMoveR:.16,
       minLiveGapR:.20,
       peakGivebackActivationR:1.10,
@@ -82,6 +89,12 @@ export const BYBIT_AUTO_CONFIG={
     hardAdverseRForCut:.18,
     softAdverseRForCut:.35,
     profitableMarketExit:false,
+    profitHarvestExit:true,
+    profitHarvestMinEvidence:3,
+    profitHarvestConfirmEvents:3,
+    profitHarvestPeakGivebackR:.45,
+    shortMomentumAloneCanExit:false,
+    shortMomentumAloneCanCompressTp:false,
     highVolShockAdverseExit:true,
     profitLockOnDeceleration:true,
     decelerationLockMinR:.70,
@@ -96,7 +109,7 @@ export const BYBIT_AUTO_CONFIG={
     ultraFastFlow1s3s:true,marketPulseConsensus:true,orderBook:true,nearTouchDepthBands:true,orderFlowImbalance:true,microprice:true,liquidityFragility:true,
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
-    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true
+    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
