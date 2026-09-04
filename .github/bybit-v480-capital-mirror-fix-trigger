@@ -1,0 +1,4 @@
+trigger=BYBIT_V480_CAPITAL_MIRROR_FIX
+requested_at=2026-09-05T01:03:00+07:00
+scope=controller-capital-mirror,symbol-highwater-migration,android-capital-freshness
+trading_execution=false
