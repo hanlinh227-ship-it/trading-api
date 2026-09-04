@@ -11,17 +11,18 @@ if route not in s:
     s=s.replace(needle,route+needle,1)
 p.write_text(s)
 
-# Migrate every exact source-level assertion that legitimately changes in V4.8.
 v=ROOT/'cloudflare-worker/validate-btc-hyperscale.mjs';x=v.read_text()
 repls={
 "'BYBIT-MULTI-STATEFLOW-4.7.0'":"'BYBIT-MULTI-STATEFLOW-4.8.0'",
 "'BYBIT_MULTI_ASSET_RUNTIME_V25_ALL_CRYPTO_SCALP_NETWORK'":"'BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_INTELLIGENCE_FAST_SCALE'",
 "'BYBIT-MULTI-ASSET-ENGINE-4.5.0-EXPECTANCY-CAPITAL-PRESERVATION'":"'BYBIT-MULTI-ASSET-ENGINE-4.8.0-CAPITAL-INTELLIGENCE-FAST-SCALE'",
 "'BYBIT_MULTI_ASSET_CONTROLLER_V5_EXPECTANCY_CAPITAL_PRESERVATION'":"'BYBIT_MULTI_ASSET_CONTROLLER_V6_CAPITAL_INTELLIGENCE_FAST_SCALE'",
-"'const baseMax=maxConcurrentForEquity(equity)'":"'const baseMax=maxConcurrentForEquity(capacityCapital)'",
+"'const baseMax=maxConcurrentForEquity(equity)'":"'baseMax=maxConcurrentForEquity(capacityCapital)'",
 "balance.includes('TIME_DECAYED_EQUITY_BALANCE_INSTANT_DOWNSIDE')":"balance.includes('CAPITAL_INTELLIGENCE_V4_INSTANT_EXTERNAL_UPSIDE_INSTANT_DOWNSIDE_90S_ORGANIC_SMOOTH')"
 }
 for a,b in repls.items():x=x.replace(a,b)
+# In case a previous failed workspace migration already changed the old controller assertion form.
+x=x.replace("'const baseMax=maxConcurrentForEquity(capacityCapital)'","'baseMax=maxConcurrentForEquity(capacityCapital)'")
 marker="console.log('BYBIT_MULTI_ASSET_VALIDATION=PASS');"
 extra="""assert.equal(BYBIT_RUNTIME_CONTRACT.capitalIntelligenceV4,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.separateCapitalState,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.instantDepositRecognition,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.instantWithdrawalRiskReduction,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.paginatedTransactionReconciliation,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.capitalHighWaterDoubleCountFixed,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.fastScaleControlled,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.adaptiveLeverageExpanded,true);\nassert.equal(BYBIT_AUTO_CONFIG.risk.martingale,false);\nassert.equal(BYBIT_AUTO_CONFIG.risk.addToLoser,false);\nassert.ok(BYBIT_AUTO_CONFIG.risk.baseEntryRiskPct>=1.0);\nassert.ok(BYBIT_AUTO_CONFIG.risk.strongEntryRiskPct>=1.45);\nassert.ok(BYBIT_AUTO_CONFIG.risk.aPlusEntryRiskPct>=2.0);\nassert.ok(BYBIT_AUTO_CONFIG.risk.absoluteSingleEntryRiskPct<=2.25);\nassert.ok(BYBIT_AUTO_CONFIG.risk.maxActiveRiskPct<=7.0);\nassert.ok(BYBIT_AUTO_CONFIG.leverage.max<=125);\nassert.ok(balance.includes('bybit:capital:intelligence:v1'));\nassert.ok(balance.includes('transactionPages'));\nassert.ok(balance.includes('capitalRecognition'));\n"""
 if 'assert.equal(BYBIT_RUNTIME_CONTRACT.capitalIntelligenceV4,true)' not in x:
