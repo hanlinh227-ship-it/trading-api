@@ -6,8 +6,14 @@ CF=ROOT/'cloudflare-worker'
 def patch(path, replacements):
     text=path.read_text(encoding='utf-8')
     double_reset="state.profitHarvestWeakCount=0;state.positionPeakR=0;state.aggregateStop=0;state.currentPositionMarginUsd=0;"
+    triple_engine_version="BYBIT-MULTI-ASSET-ENGINE-4.0-PROFIT-HARVEST"
     for old,new in replacements:
-        expected=2 if old==double_reset else 1
+        if old==double_reset:
+            expected=2
+        elif old==triple_engine_version:
+            expected=3
+        else:
+            expected=1
         count=text.count(old)
         if count!=expected:
             raise SystemExit(f'{path}: expected exactly {expected} match(es), got {count}: {old[:120]}')
