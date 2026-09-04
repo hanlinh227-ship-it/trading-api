@@ -1,0 +1,35 @@
+name: Stage Bybit V5.0 Scalp Quality Source
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/workflows/stage-bybit-v500-scalp-quality.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+          fetch-depth: 0
+      - name: Apply and validate V5.0 source
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v500-scalp-quality-v2.py
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Commit validated source to feature branch
+        run: |
+          set -euo pipefail
+          git config user.name "bybit-v500-stager"
+          git config user.email "actions@users.noreply.github.com"
+          git add cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-btc-strategy.js cloudflare-worker/bybit-symbol-strategy.js cloudflare-worker/bybit-performance-governor.js cloudflare-worker/validate-btc-hyperscale.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "Stage Bybit V5.0 scalp quality positive-edge source"
+            git push origin HEAD:bybit-v500-scalp-quality
+          fi
