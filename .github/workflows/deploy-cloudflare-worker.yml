@@ -1,4 +1,4 @@
-name: Deploy Unified Trading Hub
+name: Deploy BTCUSDT Bybit Hyperscale
 on:
   push:
     branches: [main]
@@ -9,10 +9,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: unified-trading-hub-cloudflare-production
+  group: btcusdt-bybit-hyperscale-cloudflare
   cancel-in-progress: true
 jobs:
-  deploy:
+  validate-and-deploy-paper-safe:
     runs-on: [self-hosted, Linux, X64, trading-vps]
     timeout-minutes: 12
     env:
@@ -23,25 +23,14 @@ jobs:
       V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
       BYBIT_AUTO_ENABLED: 'true'
       BYBIT_AUTO_LIVE: 'true'
-      BYBIT_AUTO_LIVE_ACK: 'true'
-      BYBIT_AUTO_DEMO: 'true'
-      FOREX_AUTO_LIVE: 'true'
-      FOREX_USER_TARGET_ENABLED: 'true'
-      FOREX_USER_TARGET_USD: '510'
-      FOREX_USER_TARGET_DAYS: '3'
-      FOREX_USER_TARGET_CYCLE_ID: 'USER_20260827_510USD_3TRADINGDAYS'
-      FOREX_DAILY_OBJECTIVE_PCT: '1.0'
+      BYBIT_BTC_LIVE_ACK: 'false'
+      BYBIT_AUTO_DEMO: 'false'
+      BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK: 'false'
+      BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK: 'false'
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Verify VPS runtime path
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "RUNNER=$(hostname)"
-          curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/ai-health.json
-          python3 -c "import json; d=json.load(open('/tmp/ai-health.json')); assert d.get('service')=='UNIFIED_2AI_BRIDGE'; assert d.get('deepseekDisabled') is True; assert int(d.get('providerCount',0))>=2; p=d.get('providers') or {}; assert all(bool((p.get(n) or {}).get('configured')) for n in ('claude','codex')); print('VPS_2AI_BRIDGE=PASS')"
       - name: Validate Cloudflare credentials
         shell: bash
         run: |
@@ -49,52 +38,41 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN:-}"
           test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
           test -n "${TRADING_KV_NAMESPACE_ID:-}"
-          [[ "$TRADING_KV_NAMESPACE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]
-      - name: Install validate resolve and deploy
+      - name: Validate BTC-only source
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
           npm install --no-audit --no-fund
           npm run check
+      - name: Prepare and deploy PAPER-safe runtime
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
           npm run prepare:wrangler
           grep -q '"BYBIT_AUTO_ENABLED": "true"' wrangler.jsonc
           grep -q '"BYBIT_AUTO_LIVE": "true"' wrangler.jsonc
-          grep -q '"BYBIT_AUTO_LIVE_ACK": "true"' wrangler.jsonc
-          grep -q '"BYBIT_AUTO_DEMO": "true"' wrangler.jsonc
-          grep -q '"FOREX_AUTO_LIVE": "true"' wrangler.jsonc
-          grep -q '"FOREX_USER_TARGET_ENABLED": "true"' wrangler.jsonc
-          grep -q '"FOREX_USER_TARGET_USD": "510"' wrangler.jsonc
-          grep -q '"FOREX_USER_TARGET_DAYS": "3"' wrangler.jsonc
+          grep -q '"BYBIT_BTC_LIVE_ACK": "false"' wrangler.jsonc
+          grep -q '"BYBIT_AUTO_DEMO": "false"' wrangler.jsonc
           npx wrangler deploy
-      - name: Verify deployed Bybit DEMO runtime
+      - name: Verify deployed BTC migration runtime
         shell: bash
         run: |
           set -euo pipefail
-          EXPECTED_BYBIT_VERSION="$(grep -oE 'BYBIT-AUTO-[0-9]+\.[0-9]+\.[0-9]+' cloudflare-worker/bybit-runtime-contract.js | head -1)"
-          test -n "$EXPECTED_BYBIT_VERSION"
-          export EXPECTED_BYBIT_VERSION
-          echo "EXPECTED_BYBIT_VERSION=$EXPECTED_BYBIT_VERSION"
           verify_once() {
             CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
-            if ! printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" EXPECTED_BYBIT_VERSION="$EXPECTED_BYBIT_VERSION" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),r=x.marketEntryReasoning||{};if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.autoVersion!==process.env.EXPECTED_BYBIT_VERSION)process.exit(2);if(x.marketEntryReasoningVersion!=='BYBIT_MARKET_ENTRY_REASONING_V1'||r.provenance!=='CLAUDE_COARCHITECT_GPT_PRIMARY_ENGINEER_FUSION')process.exit(12);console.log('RUNTIME_REVISION='+x.runtimeRevision);console.log('BYBIT_VERSION='+x.autoVersion);console.log('BYBIT_REASONING_FUSION=PASS')}catch{process.exit(2)}})"; then return 1; fi
-            HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health" || true)"
-            if ! printf '%s\n' "$HEALTH" | EXPECTED_BYBIT_VERSION="$EXPECTED_BYBIT_VERSION" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated)process.exit(2);if(x.version!==process.env.EXPECTED_BYBIT_VERSION||x.mode!=='LIVE'||x.environment!=='DEMO'||x.demo!==true)process.exit(3);if(x.credentialSource!=='HYRO_BYBIT_DEMO'||x.apiBase!=='https://api-demo.bybit.com')process.exit(4);if(x.privateTransport!=='CLOUDFLARE_BYBIT_DEMO_DIRECT'||x.marketTransport!=='CLOUDFLARE_BYBIT_DEMO_PUBLIC')process.exit(5);if(!x.execution?.scheduled||!x.execution?.ready||!x.execution?.liveAck||Number(x.account?.totalEquity)<=0)process.exit(6);console.log('BYBIT_DEMO_READY=PASS')}catch{process.exit(2)}})"; then return 1; fi
+            printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.executionAuthority!=='BYBIT_BTC_ONLY'||x.symbol!=='BTCUSDT'||x.legacyBybitMultiCoinDisabled!==true)process.exit(2);console.log('BTC_RUNTIME_CONTRACT=PASS '+x.autoVersion)}catch{process.exit(2)}})" || return 1
             STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status" || true)"
-            if ! printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.bybit?.autoEnabled||!x.bybit?.live||x.bybit?.demo!==true||x.bybit?.environment!=='DEMO')process.exit(7);console.log('BYBIT_DEMO_STATUS=PASS')}catch{process.exit(2)}})"; then return 1; fi
+            printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),b=x.bybit||{};if(!x.ok||x.executionAuthority!=='BYBIT_BTC_ONLY'||b.symbol!=='BTCUSDT'||b.mode!=='PAPER'||x.legacyBotsDisabled!==true||b.martingale!==false||b.addToLoser!==false||b.winnerPyramiding!==true)process.exit(3);console.log('BTC_PAPER_SAFE_STATUS=PASS')}catch{process.exit(2)}})" || return 1
+            HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health" || true)"
+            printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated||x.mode!=='PAPER'||Number(x.account?.totalEquity)<=0)process.exit(4);console.log('BTC_PRIVATE_API_HEALTH=PASS equity='+x.account.totalEquity)}catch{process.exit(2)}})" || return 1
             return 0
           }
-          for attempt in 1 2 3 4 5 6 7 8; do
-            echo "BYBIT_VERIFY_ATTEMPT=$attempt"
-            if verify_once; then echo 'UNIFIED_RUNTIME_BYBIT_DEMO=PASS'; exit 0; fi
+          for attempt in 1 2 3 4 5 6; do
+            echo "BTC_VERIFY_ATTEMPT=$attempt"
+            if verify_once; then echo 'BTC_MIGRATION_DEPLOY=PASS'; exit 0; fi
             sleep 8
           done
-          echo 'UNIFIED_RUNTIME_BYBIT_DEMO=FAIL_AFTER_PROPAGATION_RETRIES' >&2
+          echo 'BTC_MIGRATION_DEPLOY=FAIL' >&2
           exit 1
-      - name: Observe Forex runtime health separately
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          FX="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/forex/health" || true)"
-          printf '%s\n' "$FX" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),a=x.ai||{},m=x.mt5Canonical||{};console.log('FOREX_OBSERVATION='+JSON.stringify({ok:x.ok,version:x.version,mode:x.mode,bridgeTokenConfigured:x.bridgeTokenConfigured,ai:{chatgpt:a.chatgpt,claude:a.claude},mt5Canonical:m,lastTerminal:x.lastTerminal}));if(!x.ok||x.mode!=='LIVE'||!x.bridgeTokenConfigured||!a.chatgpt?.configured||!a.claude?.configured||!m.connected||!m.heartbeat?.canonicalEa||Number(m.ageSec)>30)process.exit(11);console.log('FOREX_CANONICAL_MT5=PASS')}catch(e){console.error(e);process.exit(2)}})"
