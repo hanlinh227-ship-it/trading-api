@@ -181,6 +181,9 @@ class Microstructure:
             bids=sorted(self.bids.items(),reverse=True)[:50]; asks=sorted(self.asks.items())[:50]; trades=list(self.trades); liqs=list(self.liquidations); lb=self.last_book; lt=self.last_trade; ll=self.last_liq; connected=self.connected; err=self.last_error
         if not bids or not asks:return {'ok':False,'reason':'BOOK_NOT_READY','connected':connected,'error':err,'at':now}
         bb,bs=bids[0]; ba,as_=asks[0]; mid=(bb+ba)/2
+        last_trade_price=trades[-1][3] if trades else 0.0
+        last_trade_side=trades[-1][1] if trades else ''
+        last_trade_time=trades[-1][0] if trades else lt
         def depth(rows,bps):return sum(p*q for p,q in rows if abs(p-mid)/mid*10000<=bps)
         def weighted(rows):return sum(p*q*math.exp(-(abs(p-mid)/mid*10000)/4) for p,q in rows)
         b2,a2=depth(bids,2),depth(asks,2); b5,a5=depth(bids,5),depth(asks,5); b10,a10=depth(bids,10),depth(asks,10); wb,wa=weighted(bids),weighted(asks)
@@ -195,7 +198,7 @@ class Microstructure:
             if side=='Buy':long_usd+=v
             elif side=='Sell':short_usd+=v
         total_liq=long_usd+short_usd
-        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst1x':w1['totalNotional']/base1,'burst3x':w3['totalNotional']/base3,'burst5x':w5['totalNotional']/base5,'priceChange1sBps':w1['priceChangeBps'],'priceChange3sBps':w3['priceChangeBps'],'priceChange5sBps':w5['priceChangeBps'],'window1s':w1,'window3s':w3,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
+        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'lastPrice':last_trade_price,'lastTradeSide':last_trade_side,'lastTradeTime':last_trade_time,'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst1x':w1['totalNotional']/base1,'burst3x':w3['totalNotional']/base3,'burst5x':w5['totalNotional']/base5,'priceChange1sBps':w1['priceChangeBps'],'priceChange3sBps':w3['priceChangeBps'],'priceChange5sBps':w5['priceChangeBps'],'window1s':w1,'window3s':w3,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
 
 MICRO=Microstructure()
 
