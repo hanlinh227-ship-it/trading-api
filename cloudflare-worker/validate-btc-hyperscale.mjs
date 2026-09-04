@@ -6,8 +6,8 @@ import {sizeBtcSetup} from './bybit-btc-risk-engine.js';
 import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 
 const read=f=>fs.readFileSync(f,'utf8'),cfg=BYBIT_AUTO_CONFIG;
-assert.equal(BYBIT_AUTO_VERSION,'BYBIT-MULTI-STATEFLOW-4.9.0');
-assert.equal(BYBIT_RUNTIME_CONTRACT.version,'BYBIT_MULTI_ASSET_RUNTIME_V27_SCALP_FIRST_MULTI_ENTRY');
+assert.equal(BYBIT_AUTO_VERSION,'BYBIT-MULTI-STATEFLOW-5.0.0');
+assert.equal(BYBIT_RUNTIME_CONTRACT.version,'BYBIT_MULTI_ASSET_RUNTIME_V28_SCALP_QUALITY_POSITIVE_EDGE');
 assert.ok(BYBIT_TRADE_UNIVERSE.length>=18);assert.ok(isCoreTradeSymbol('BTCUSDT'));assert.ok(coinProfileForSymbol('SOMECOINUSDT')?.dynamicProfile===true);assert.equal(coinProfileForSymbol('USDCUSDT'),null);
 assert.equal(cfg.risk.martingale,false);assert.equal(cfg.risk.addToLoser,false);assert.equal(cfg.risk.gridRescue,false);assert.equal(cfg.execution.noTimeGate,true);assert.equal(cfg.execution.requireFreshBook,true);assert.equal(cfg.execution.requireFreshTrades,true);assert.equal(cfg.execution.reduceOnlyExits,true);
 assert.ok(cfg.risk.baseEntryRiskPct>=1);assert.ok(cfg.risk.strongEntryRiskPct>=1.4);assert.ok(cfg.risk.aPlusEntryRiskPct>=2);assert.ok(cfg.risk.absoluteSingleEntryRiskPct>=2.2);assert.ok(cfg.risk.maxActiveRiskPct>=7);assert.ok(cfg.risk.maxPortfolioMarginPct<=85);assert.ok(cfg.risk.minFreeReservePct>=10);
@@ -25,9 +25,9 @@ const engine=read('bybit-symbol-engine.js'),controller=read('bybit-multi-asset-c
 for(const x of ['4.9.0-SCALP-FIRST-FAST-TURNOVER','positiveLockReady','exchangeMaxLeverage','lastContinuousCapitalUsd','performanceRiskMult','reduceOnly:true','nearerTarget','scalpCapTarget','floorRelaxedForFastScalp'])assert.ok(engine.includes(x),`ENGINE ${x}`);
 for(const x of ['continuousCapacityCapitalUsd','capitalIntelligence','CROSS_MARKET_DIRECTION_CONFLICT','buildBybitPerformanceGovernor','performanceRiskMult','scalpVelocityBps','entriesExecutedThisEvent','MANAGEMENT_ONLY_SCALP_REBASE'])assert.ok(controller.includes(x),`CONTROLLER ${x}`);
 for(const x of ['TRADE_CORE','TRADE_ALL_CRYPTO','WATCH_EXECUTION_UNSAFE','DO_NOT_TRADE','BYBIT_DYNAMIC_CRYPTO_SCALP_UNIVERSE_V5_ALL_ACTIVE_CRYPTO'])assert.ok(dynamic.includes(x),`DYNAMIC ${x}`);
-for(const x of ['BYBIT_MULTI_ASSET_RUNTIME_V27_SCALP_FIRST_MULTI_ENTRY','capitalIntelligenceV4:true','instantDepositRecognition:true','capitalHighWaterDoubleCountFixed:true','fastScaleControlled:true'])assert.ok(runtime.includes(x),`RUNTIME ${x}`);
+for(const x of ['BYBIT_MULTI_ASSET_RUNTIME_V28_SCALP_QUALITY_POSITIVE_EDGE','entryQualityPositiveNetEdge:true','shortHorizonPriceConfirmation:true','probeNewRiskDisabled:true','transitionNewRiskDisabled:true','positiveExpectancyGovernorV2:true','capitalIntelligenceV4:true','instantDepositRecognition:true','capitalHighWaterDoubleCountFixed:true','fastScaleControlled:true'])assert.ok(runtime.includes(x),`RUNTIME ${x}`);
 for(const x of ['bybit:capital:intelligence:v1','transactionPages','forceUpside:true','CAPITAL_INTELLIGENCE_V4'])assert.ok(balance.includes(x),`BALANCE ${x}`);
-for(const x of ['GLOBAL_NEGATIVE_EXPECTANCY_GUARD','SYMBOL_NEGATIVE_EXPECTANCY_QUARANTINE'])assert.ok(performance.includes(x),`PERFORMANCE ${x}`);
+for(const x of ['GLOBAL_POSITIVE_EDGE_REQUALIFICATION','GLOBAL_72H_POSITIVE_EDGE_REQUALIFICATION','SYMBOL_POSITIVE_EDGE_QUARANTINE'])assert.ok(performance.includes(x),`PERFORMANCE ${x}`);
 for(const x of ['intervalMs=750','500,10000','tradingEndpointsExposedByMonitor:false'])assert.ok(monitor.includes(x),`MONITOR ${x}`);
 for(const x of ['BYBIT_CAPITAL_STATE_MIRROR_V2_READONLY_EXECUTION','ordersCreated:false','positionsChanged:false','lastCapitalBaseUsd'])assert.ok(capital.includes(x),`CAPITAL_MIRROR ${x}`);
 for(const x of ['NO_ORDER_SUBMISSION','NO_TP_SL_CHANGE','KV_CAPITAL_METADATA_ONLY'])assert.ok(sync.includes(x),`CAPITAL_SYNC ${x}`);
