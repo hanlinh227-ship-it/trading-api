@@ -1,0 +1,3 @@
+trigger=bybit-v450-production-verify
+requested_at=2026-09-04T22:50:00+07:00
+scope=runtime,expectancy-governor,entry-health,btc-scan
