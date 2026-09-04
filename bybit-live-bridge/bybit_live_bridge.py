@@ -35,6 +35,7 @@ class Microstructure:
         self.last_book=0; self.last_trade=0; self.last_liq=0; self.last_error=None; self.connected=False; self.thread=None
         self.event_last_fingerprint=None; self.event_inflight=False; self.event_pending=False
         self.event_last_wake=0; self.event_last_success=0; self.event_last_error=None; self.event_last_result=None; self.event_last_http=0; self.event_transport='CURL_HTTP'
+        self.event_wake_started=0; self.event_wake_completed=0; self.event_coalesced=0
     @staticmethod
     def _imb(b,a): return (b-a)/(b+a) if b+a>0 else 0.0
     @staticmethod
@@ -110,6 +111,7 @@ class Microstructure:
         except urllib.error.HTTPError as e:return int(e.code),e.read(1_000_000).decode(errors='replace')
     def _wake_worker(self,reason):
         self.event_last_wake=int(time.time()*1000)
+        with self.lock:self.event_wake_started+=1
         try:
             try:
                 code,raw=self._curl_worker(reason); self.event_transport='CURL_HTTP'
@@ -129,15 +131,20 @@ class Microstructure:
             self.event_last_http=0; self.event_last_error='WORKER_WAKE:'+str(e)[:240]
             print('BTC_EVENT_WAKE_ERROR',self.event_last_error,flush=True)
         finally:
+            # Release the inflight token before spawning the coalesced latest state.
+            # The old ordering kept event_inflight=True when rerun=True, causing
+            # _spawn_wake() to re-mark pending and leave the event loop stuck.
             with self.lock:
-                rerun=self.event_pending; self.event_pending=False
-                if not rerun:self.event_inflight=False
+                rerun=self.event_pending
+                self.event_pending=False
+                self.event_inflight=False
+                self.event_wake_completed+=1
             if rerun:self._spawn_wake('COALESCED_LATEST_STATE')
     def _spawn_wake(self,reason):
         if not EVENT_ENABLED or not SECRET:return
         with self.lock:
             if self.event_inflight:
-                self.event_pending=True; return
+                self.event_pending=True; self.event_coalesced+=1; return
             self.event_inflight=True
         threading.Thread(target=self._wake_worker,args=(reason,),name='btc-worker-wake',daemon=True).start()
     def _maybe_wake(self,topic):
@@ -174,7 +181,7 @@ class Microstructure:
     def event_status(self):
         with self.lock:
             r=self.event_last_result or {}; ctl=r.get('controller') or {}
-            return {'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','transport':self.event_transport,'inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason')}
+            return {'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','transport':self.event_transport,'inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason'),'wakeStarted':self.event_wake_started,'wakeCompleted':self.event_wake_completed,'coalesced':self.event_coalesced,'coalescingHealthy':self.event_wake_completed<=self.event_wake_started and self.event_wake_started-self.event_wake_completed<=1}
     def snapshot(self):
         now=int(time.time()*1000)
         with self.lock:
