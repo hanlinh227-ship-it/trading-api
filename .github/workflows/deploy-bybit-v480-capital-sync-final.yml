@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           grep -q "handleBybitCapitalSync" cloudflare-worker/index.js
           grep -q "KV_CAPITAL_METADATA_ONLY" cloudflare-worker/bybit-capital-sync-handler.js
-          grep -q "BYBIT_CAPITAL_STATE_MIRROR_V1_READONLY_EXECUTION" cloudflare-worker/bybit-capital-state.js
+          grep -q "BYBIT_CAPITAL_STATE_MIRROR_V2_READONLY_EXECUTION" cloudflare-worker/bybit-capital-state.js
           grep -q "BYBIT-MULTI-STATEFLOW-4.8.0" cloudflare-worker/bybit-runtime-contract.js
           grep -q "martingale:false" cloudflare-worker/bybit-auto-config.js
           grep -q "addToLoser:false" cloudflare-worker/bybit-auto-config.js
@@ -71,6 +71,6 @@ jobs:
           const pre=r(process.env.PRE),post=r(process.env.POST),sync=r(process.env.SYNC),s=r(process.env.STATE),m=r(process.env.MON),ctl=s.controller||{},st=s.state||{},a=post.account||{},mir=sync.mirror||{};
           const strip=x=>(x.positions||[]).map(p=>({symbol:p.symbol,side:p.side,size:Number(p.size),avgPrice:Number(p.avgPrice),sl:Number(p.stopLoss),tp:Number(p.takeProfit)})).sort((a,b)=>a.symbol.localeCompare(b.symbol));
           const hard=Math.min(Number(a.totalEquity||0),Number(a.walletBalance||0)),capacity=Number(ctl.continuousCapacityCapitalUsd||0),ratio=hard>0?capacity/hard:0,high=Number(ctl.capitalIntelligence?.highWaterUsd||0),btcHigh=Number(st.highWaterUsd||0);
-          const checks={version:post.version==='BYBIT-MULTI-STATEFLOW-4.8.0',live:post.mode==='LIVE',ready:post.ok===true,syncReadOnly:sync.ok===true&&sync.tradingExecuted===false,mirror:mir.ok===true&&mir.controllerMirrored===true&&mir.tradingExecuted===false,capacity:ratio>=.98&&ratio<=1.002,controllerHigh:high>=hard*.95&&high<=Number(a.totalEquity)*1.08,btcHigh:btcHigh>=hard*.95&&btcHigh<=Number(a.totalEquity)*1.08,positions:JSON.stringify(strip(pre))===JSON.stringify(strip(post)),orders:Number(pre.openOrders)===Number(post.openOrders),monitor:m.schemaVersion==='BYBIT_ANDROID_MONITOR_V1'&&m.capabilities?.tradingControls===false,realtime:m.websocketProtocol?.minIntervalMs===500};
+          const checks={version:post.version==='BYBIT-MULTI-STATEFLOW-4.8.0',live:post.mode==='LIVE',ready:post.ok===true,syncReadOnly:sync.ok===true&&sync.tradingExecuted===false,mirror:mir.ok===true&&mir.controllerMirrored===true&&mir.tradingExecuted===false&&mir.ordersCreated===false&&mir.positionsChanged===false,capacity:ratio>=.98&&ratio<=1.002,controllerHigh:high>=hard*.95&&high<=Number(a.totalEquity)*1.08,btcHigh:btcHigh>=hard*.95&&btcHigh<=Number(a.totalEquity)*1.08,positions:JSON.stringify(strip(pre))===JSON.stringify(strip(post)),orders:Number(pre.openOrders)===Number(post.openOrders),monitor:m.schemaVersion==='BYBIT_ANDROID_MONITOR_V1'&&m.capabilities?.tradingControls===false,realtime:m.websocketProtocol?.minIntervalMs===500};
           const pass=Object.values(checks).every(Boolean);console.log(JSON.stringify({pass,checks,account:a,capital:{hard,capacity,ratio,controllerHigh:high,btcHigh},mirror:mir,positions:strip(post),openOrders:post.openOrders},null,2));if(!pass)process.exit(51);
           NODE
