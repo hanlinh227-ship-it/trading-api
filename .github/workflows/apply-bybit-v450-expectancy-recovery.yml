@@ -1,0 +1,44 @@
+name: Apply Bybit V4.5 Expectancy Recovery
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v450-expectancy-recovery-trigger']
+  workflow_dispatch:
+permissions: {contents: write}
+concurrency: {group: bybit-v450-expectancy-recovery, cancel-in-progress: false}
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply V4.5 expectancy recovery
+        run: python3 .github/scripts/apply-bybit-v450-expectancy-recovery.py
+      - name: Validate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/bybit-performance-governor.js
+          node --check cloudflare-worker/bybit-auto-config.js
+          node --check cloudflare-worker/bybit-btc-risk-engine.js
+          node --check cloudflare-worker/bybit-symbol-engine.js
+          node --check cloudflare-worker/bybit-multi-asset-controller.js
+          node --check cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.5.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "realizedPnlPerformanceGovernor:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "smallProfitEarlyHarvest:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "REALIZED_NET_EXPECTANCY_CAPITAL_PRESERVATION" cloudflare-worker/bybit-performance-governor.js
+          grep -q "performanceRiskMult" cloudflare-worker/bybit-btc-risk-engine.js
+          grep -q "earlyHarvestReady" cloudflare-worker/bybit-symbol-engine.js
+      - name: Commit V4.5 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-performance-governor.js cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-btc-risk-engine.js cloudflare-worker/bybit-symbol-engine.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-runtime-contract.js
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'Add realized expectancy capital preservation V4.5.0'
+          git push origin HEAD:main
