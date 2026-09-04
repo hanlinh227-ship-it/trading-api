@@ -9,6 +9,10 @@ export const BYBIT_AUTO_CONFIG={
   settleCoin:"USDT",
   strategyAuthority:"BTC_MARKET_STRUCTURE_ORDERFLOW_DERIVATIVES_MICROSTRUCTURE",
   leverage:{min:3,normal:5,max:15},
+  // Compatibility fields remain while legacy orchestration is being replaced.
+  // They are deliberately non-authoritative for strategic trade frequency.
+  maxOpenPositions:1000000,
+  maxTradesPerDay:1000000000,
   scan:{barContextSec:60,eventDriven:true,hardDailyTradeQuota:false},
   risk:{
     mode:"CONTINUOUS_EQUITY_RISK_RECYCLING",
@@ -19,12 +23,17 @@ export const BYBIT_AUTO_CONFIG={
     maxActiveRiskPct:6.0,
     temporaryAPlusActiveRiskPct:8.0,
     maxPortfolioMarginPct:65,
+    maxMarginPerPositionPct:65,
     minFreeReservePct:25,
     addToLoser:false,
     pyramidWinner:true,
     martingale:false,
     gridRescue:false,
     dailyTarget:false,
+    dailyLossCircuitPct:20,
+    maxLossStreak:4,
+    pauseMinutes:15,
+    maxSameDirectionPositions:1000000,
     riskRecycleAfterProtection:true,
     drawdownGovernor:[
       {ddPct:5,multiplier:.80},
@@ -60,6 +69,9 @@ export const BYBIT_AUTO_CONFIG={
     absorptionReversal:true
   },
   execution:{
+    recvWindow:10000,
+    cooldownSec:0,
+    positionIdx:0,
     postOnlyPreferredForPassive:true,
     marketAllowedForUrgentEdge:true,
     requireFreshBook:true,
@@ -75,6 +87,8 @@ export function bybitAutoConfig(env={}){
   c.leverage.max=Math.max(1,Math.min(25,Math.round(n(env,"BYBIT_AUTO_MAX_LEVERAGE",c.leverage.max))));
   c.risk.maxActiveRiskPct=Math.max(2,Math.min(10,n(env,"BYBIT_BTC_MAX_ACTIVE_RISK_PCT",c.risk.maxActiveRiskPct)));
   c.risk.maxPortfolioMarginPct=Math.max(30,Math.min(75,n(env,"BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT",c.risk.maxPortfolioMarginPct)));
+  c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,"BYBIT_RECV_WINDOW_MS",c.execution.recvWindow))));
+  c.execution.cooldownSec=Math.max(0,Math.min(60,Math.round(n(env,"BYBIT_BTC_ENTRY_COOLDOWN_SEC",c.execution.cooldownSec))));
   return c;
 }
 export function bybitExecutionMode(env={}){return String(env.BYBIT_AUTO_LIVE||"").toLowerCase()==="true"?"LIVE":"PAPER";}
