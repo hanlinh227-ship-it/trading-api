@@ -20,6 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           cd cloudflare-worker
+          sed -i "s/'continuousTimeScale'/'lastContinuousCapitalUsd'/" validate-btc-hyperscale.mjs
           node --check bybit-auto-config.js
           node --check bybit-coin-profiles.js
           node --check bybit-dynamic-universe.js
