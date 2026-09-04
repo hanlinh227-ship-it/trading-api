@@ -1,0 +1,2 @@
+deploy=bybit-multi-asset-v43
+reason=activate-symbol-aware-curl-wake-and-expanded-event-symbols
