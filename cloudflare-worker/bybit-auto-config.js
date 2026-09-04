@@ -1,5 +1,5 @@
-// BYBIT-BTC-STATEFLOW-2.1 configuration.
-// Single production authority: BTCUSDT linear perpetual. Legacy bot strategy configuration is retired.
+// BYBIT-BTC-STATEFLOW-2.2 configuration.
+// Single production authority: BTCUSDT linear perpetual. No hard daily trade quota.
 // LIVE credentials and signed VPS transport are preserved.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
@@ -7,15 +7,16 @@ export {BYBIT_AUTO_VERSION};
 export const BYBIT_AUTO_CONFIG={
   symbol:'BTCUSDT',category:'linear',settleCoin:'USDT',
   strategyAuthority:'BTC_STATE_FIRST_STRUCTURE_EXECUTED_FLOW_NEAR_TOUCH_LIQUIDITY_DERIVATIVES',
-  leverage:{min:3,normal:5,max:15},
+  leverage:{min:3,normal:6,max:15},
   maxOpenPositions:1000000,maxTradesPerDay:1000000000,
-  scan:{workerCycleSec:60,microstructureCollectorEventDriven:true,hardDailyTradeQuota:false},
+  scan:{workerCycleSec:60,microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null},
   risk:{
     mode:'CONTINUOUS_EQUITY_RISK_RECYCLING',
-    baseEntryRiskPct:.75,strongEntryRiskPct:1.0,aPlusEntryRiskPct:1.25,absoluteSingleEntryRiskPct:1.50,
-    maxActiveRiskPct:6.0,temporaryAPlusActiveRiskPct:8.0,maxPortfolioMarginPct:65,maxMarginPerPositionPct:65,minFreeReservePct:25,
+    baseEntryRiskPct:.80,strongEntryRiskPct:1.10,aPlusEntryRiskPct:1.40,absoluteSingleEntryRiskPct:1.50,
+    maxActiveRiskPct:7.0,temporaryAPlusActiveRiskPct:9.0,maxPortfolioMarginPct:68,maxMarginPerPositionPct:68,minFreeReservePct:22,
     addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,dailyLossCircuitPct:20,maxLossStreak:4,pauseMinutes:15,maxSameDirectionPositions:1000000,riskRecycleAfterProtection:true,
-    drawdownGovernor:[{ddPct:5,multiplier:.80},{ddPct:10,multiplier:.55},{ddPct:15,multiplier:.30},{ddPct:20,multiplier:0}]
+    priorRiskProtectionThresholdPct:25,
+    drawdownGovernor:[{ddPct:5,multiplier:.82},{ddPct:10,multiplier:.58},{ddPct:15,multiplier:.32},{ddPct:20,multiplier:0}]
   },
   regime:{states:['TREND_UP','TREND_DOWN','RANGE','SQUEEZE','BREAKOUT_UP','BREAKOUT_DOWN','REVERSAL','HIGH_VOL_SHOCK','TRANSITION']},
   features:{
