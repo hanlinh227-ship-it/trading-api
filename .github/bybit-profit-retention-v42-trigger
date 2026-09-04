@@ -1,4 +1,4 @@
 trigger=apply-bybit-profit-retention-v42
-requested_at=2026-09-04T19:16:00+07:00
+requested_at=2026-09-04T19:18:00+07:00
 scope=all-bybit-symbols-profit-floor-retention
-retry=2
+retry=3
