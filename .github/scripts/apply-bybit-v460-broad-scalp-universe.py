@@ -44,8 +44,7 @@ patch('cloudflare-worker/bybit-runtime-contract.js',[
 ])
 
 patch('cloudflare-worker/bybit-multi-asset-controller.js',[
-("portfolioAuthority:BYBIT_PORTFOLIO_POLICY.authority,entrySelectionAuthority:'OBJECTIVE_SCAN_THEN_RANK_FRESH_RECHECK'","portfolioAuthority:BYBIT_PORTFOLIO_POLICY.authority,opportunityBreadthAuthority:'BROAD_CRYPTO_SCAN_SEPARATE_FROM_RISK_BUDGET',entrySelectionAuthority:'OBJECTIVE_SCAN_THEN_RANK_FRESH_RECHECK'"),
-("BYBIT_MULTI_ASSET_CONTROLLER_V4_DYNAMIC_UNIVERSE_CONTINUOUS_SLOTS","BYBIT_MULTI_ASSET_CONTROLLER_V5_BROAD_OPPORTUNITY_CONTINUOUS_SLOTS")
+("portfolioAuthority:BYBIT_PORTFOLIO_POLICY.authority,entrySelectionAuthority:'OBJECTIVE_SCAN_THEN_RANK_FRESH_RECHECK'","portfolioAuthority:BYBIT_PORTFOLIO_POLICY.authority,opportunityBreadthAuthority:'BROAD_CRYPTO_SCAN_SEPARATE_FROM_RISK_BUDGET',entrySelectionAuthority:'OBJECTIVE_SCAN_THEN_RANK_FRESH_RECHECK'")
 ])
 
 patch('cloudflare-worker/validate-btc-hyperscale.mjs',[
