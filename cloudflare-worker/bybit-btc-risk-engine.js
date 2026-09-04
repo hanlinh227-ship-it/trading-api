@@ -43,7 +43,7 @@ function newestOpen(tranches=[]){return [...(tranches||[])].filter(t=>String(t.s
 
 export function btcRiskDecision({cfg,equityUsd,state={},setup,markPrice,candidateInitialMarginUsd=0,candidateActualRiskUsd=0,externalActiveRiskUsd=0,externalMarginUsd=0}){
   const equity=Math.max(0,num(equityUsd));if(!(equity>0))return {ok:false,reason:'EQUITY_INVALID'};
-  const wallet=Math.max(0,num(state.lastWalletBalanceUsd)||equity),capital=capitalBaseState({equityUsd:equity,walletBalanceUsd:wallet,cfg});if(!(capital.capitalBaseUsd>0))return {ok:false,reason:'CAPITAL_BASE_INVALID',capital};
+  const wallet=Math.max(0,num(state.lastWalletBalanceUsd)||equity),rawCapital=capitalBaseState({equityUsd:equity,walletBalanceUsd:wallet,cfg}),continuous=Math.max(0,num(state.lastContinuousCapitalUsd)),capital=continuous>0?{...rawCapital,instantCapitalBaseUsd:rawCapital.capitalBaseUsd,capitalBaseUsd:Math.min(rawCapital.capitalBaseUsd,continuous),continuousTimeScale:true}:rawCapital;if(!(capital.capitalBaseUsd>0))return {ok:false,reason:'CAPITAL_BASE_INVALID',capital};
   const tranches=Array.isArray(state.tranches)?state.tranches:[],highWater=highWaterFromState(state,equity),dd=drawdownState({equityUsd:equity,highWaterUsd:highWater,cfg}),scale=equityScaleState(capital.capitalBaseUsd,cfg);
   if(dd.newRiskLocked)return {ok:false,reason:'DRAWDOWN_NEW_RISK_LOCK',...dd,scale,capital};
   const side=String(setup?.side||''),entryTier=String(setup?.entryTier||'CONFIRM'),existingSide=aggregateSide(tranches);if(existingSide&&existingSide!==side)return {ok:false,reason:'OPPOSITE_EXPOSURE_REQUIRES_FLAT_OR_EXPLICIT_REVERSAL',existingSide,candidateSide:side};

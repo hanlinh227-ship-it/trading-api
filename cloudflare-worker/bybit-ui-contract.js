@@ -1,24 +1,4 @@
 export const BYBIT_UI_SCHEMA_VERSION='BYBIT_UI_SCHEMA_V1';
-export const BYBIT_UI_CORE_BASELINE='BYBIT-MULTI-STATEFLOW-4.3.3';
-export const BYBIT_UI_ROUTES=Object.freeze({
-  bootstrap:'/bybit/ui/bootstrap',
-  snapshot:'/bybit/ui/snapshot',
-  health:'/bybit/health',
-  entryHealth:'/bybit/entry-health',
-  runtimeContract:'/runtime/contract'
-});
-export const BYBIT_UI_CAPABILITIES=Object.freeze({
-  coreBackendFrozenForUiV1:true,
-  readOnlyBootstrap:true,
-  authenticatedReadOnlySnapshot:true,
-  liveAccountSummary:true,
-  activePositions:true,
-  protectedRiskSlots:true,
-  candidateRanking:true,
-  candidateDecisions:true,
-  profitObjective:true,
-  leveragePolicy:true,
-  riskPolicy:true,
-  executionWriteControlsExposedToUi:false,
-  realizedProfitGuaranteed:false
-});
+export const BYBIT_UI_CORE_BASELINE='BYBIT-MULTI-STATEFLOW-4.4.0';
+export const BYBIT_UI_ROUTES=Object.freeze({bootstrap:'/bybit/ui/bootstrap',snapshot:'/bybit/ui/snapshot',health:'/bybit/health',entryHealth:'/bybit/entry-health',runtimeContract:'/runtime/contract'});
+export const BYBIT_UI_CAPABILITIES=Object.freeze({coreBackendFrozenForUiV1:true,readOnlyBootstrap:true,authenticatedReadOnlySnapshot:true,liveAccountSummary:true,activePositions:true,protectedRiskSlots:true,candidateRanking:true,candidateDecisions:true,dynamicMarketUniverse:true,newListingWatchlist:true,antiSweepPositiveLock:true,continuousCapitalScale:true,exchangeCappedLeverage:true,profitObjective:true,leveragePolicy:true,riskPolicy:true,executionWriteControlsExposedToUi:false,realizedProfitGuaranteed:false});

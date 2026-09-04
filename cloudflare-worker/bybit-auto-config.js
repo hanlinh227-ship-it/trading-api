@@ -1,5 +1,5 @@
 import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
-// BYBIT-MULTI-STATEFLOW-4.3.3 FINAL-CORE-FREEZE + UI-READY configuration.
+// BYBIT-MULTI-STATEFLOW-4.4.0 FINAL-CORE-FREEZE + UI-READY configuration.
 // Event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
@@ -9,7 +9,7 @@ export const BYBIT_AUTO_CONFIG={
   strategyAuthority:'STATE_FIRST_ULTRAFAST_FLOW_STRUCTURE_LIQUIDITY_DERIVATIVES_PER_SYMBOL',
   trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
-    min:3,max:20,authority:'EQUITY_TAPERED_CLUSTER_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:20,
+    min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
     equityAdaptive:{enabled:true,steps:[
       {equityUsd:0,normal:11,strong:14,aPlus:18,max:20},
       {equityUsd:50,normal:10,strong:13,aPlus:17,max:20},
@@ -43,6 +43,7 @@ export const BYBIT_AUTO_CONFIG={
     trailRange5Pct:.22,
     trailPricePct:.00170,
     netProfitLockBufferMult:1.12,
+    positiveAntiSweep:{enabled:true,authority:'POSITIVE_AFTER_COST_WIDE_NOISE_GAP',minPreservedNetUsd:.12,minGapTicks:12,range5GapPct:.28,range15GapPct:.09,priceGapPct:.00110,minGapR:.14,spreadGapMult:3.5,delayUntilRoom:true,neverMoveToLiteralEntry:true},
     adaptiveProtection:{
       enabled:true,
       authority:'EDGE_PERSISTENCE_NATIVE_TP_SL_SINGLE_WRITER',
@@ -72,7 +73,7 @@ export const BYBIT_AUTO_CONFIG={
     priorRiskProtectionThresholdPct:30,
     tierUpgradeMinR:.24,
     tierUpgradeMaxRemainingRiskPct:62,
-    capitalBase:{enabled:true,unrealizedProfitCreditPct:25,useLowerOfBalanceAndEquityOnDrawdown:true},
+    capitalBase:{enabled:true,unrealizedProfitCreditPct:25,useLowerOfBalanceAndEquityOnDrawdown:true,continuousTimeScale:true,smoothingHalfLifeMs:900000,instantDownside:true},
     equityScale:{enabled:true,anchorUsd:39,steps:[
       {equityUsd:39,riskMult:1.00,marginCapPct:72},
       {equityUsd:50,riskMult:1.06,marginCapPct:74},
@@ -117,7 +118,7 @@ export const BYBIT_AUTO_CONFIG={
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
     shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
-    netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true
+    netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true,positiveAntiSweepLock:true,dynamicBybitScalpUniverse:true,momentumFootprint:true,continuousTimeCapitalScale:true,exchangeMaxLeverageCap:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}

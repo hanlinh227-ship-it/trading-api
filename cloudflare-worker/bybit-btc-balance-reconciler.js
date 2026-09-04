@@ -25,12 +25,14 @@ function classifyTransfer(row={}){
 }
 
 function applySnapshot(state,snap){
+  const now=Date.now(),prevAt=Date.parse(state.lastBalanceObservedAt||'')||now,dt=Math.max(0,now-prevAt),halfLife=15*60*1000,alpha=dt<=0?1:1-Math.exp(-dt/halfLife),prevEq=num(state.smoothedEquityUsd)||snap.equityUsd,prevWallet=num(state.smoothedWalletBalanceUsd)||snap.walletBalanceUsd,smEq=prevEq+(snap.equityUsd-prevEq)*alpha,smWallet=prevWallet+(snap.walletBalanceUsd-prevWallet)*alpha,prevObserved=num(state.lastEquityUsd)||snap.equityUsd,hours=Math.max(dt/3600000,1/3600);
+  state.smoothedEquityUsd=smEq;state.smoothedWalletBalanceUsd=smWallet;state.continuousCapitalUsd=Math.max(0,Math.min(snap.equityUsd,smEq,snap.walletBalanceUsd>0?Math.max(smWallet,snap.walletBalanceUsd*.75):smEq));state.equityVelocityUsdPerHour=(snap.equityUsd-prevObserved)/hours;state.continuousScaleAuthority='TIME_DECAYED_EQUITY_BALANCE_INSTANT_DOWNSIDE';
   state.lastWalletBalanceUsd=snap.walletBalanceUsd;
   state.lastEquityUsd=snap.equityUsd;
   state.lastAvailableUsd=snap.availableUsd;
   state.lastUnrealisedPnlUsd=snap.unrealisedPnlUsd;
   state.lastCumRealisedPnlUsd=snap.cumRealisedPnlUsd;
-  state.lastBalanceObservedAt=iso();
+  state.lastBalanceObservedAt=new Date(now).toISOString();
   state.balanceAuthority='BYBIT_WALLET_PLUS_TRANSACTION_LOG';
   state.depositWithdrawalAware=true;
   return state;
@@ -89,4 +91,4 @@ export async function reconcileBtcAccountBalance(env){
   return {ok:true,reason:events.length?'EXTERNAL_CASHFLOW_RECONCILED':'BALANCE_RECONCILED',snapshot:snap,netExternalCashFlowUsd,events,state};
 }
 
-export const BTC_BALANCE_RECONCILER_VERSION='BTC_BALANCE_RECONCILER_V2_BASELINE_SAFE';
+export const BTC_BALANCE_RECONCILER_VERSION='BTC_BALANCE_RECONCILER_V3_CONTINUOUS_TIME_CAPITAL';

@@ -16,13 +16,41 @@ HOST=os.environ.get('BYBIT_VPS_BRIDGE_HOST',os.environ.get('V11_AI_BRIDGE_HOST',
 PORT=int(os.environ.get('BYBIT_VPS_BRIDGE_PORT',os.environ.get('V11_AI_BRIDGE_PORT','8789')))
 DEFAULT_SYMBOL='BTCUSDT'
 DEFAULT_SYMBOLS='BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT,BCHUSDT,XLMUSDT,DOTUSDT,NEARUSDT,UNIUSDT,AAVEUSDT,HBARUSDT'
-SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS',DEFAULT_SYMBOLS).split(',') if x.strip()))
-EVENT_SYMBOLS=set(x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS','BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,BNBUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,LTCUSDT,TRXUSDT').split(',') if x.strip())
 WORKER_WAKE_SEMAPHORE=threading.Semaphore(1)
 WS_URL=os.environ.get('BYBIT_PUBLIC_WS','wss://stream.bybit.com/v5/public/linear')
 WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.hanlinh227.workers.dev').rstrip('/')
 EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes')
 BYBIT_BASES=tuple(dict.fromkeys(x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()))
+AUTO_DISCOVER=str(os.environ.get('BYBIT_DYNAMIC_WS_DISCOVERY','true')).lower() in ('1','true','yes')
+MAX_WS_SYMBOLS=max(18,min(40,int(os.environ.get('BYBIT_MAX_WS_SYMBOLS','30'))))
+CORE_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in DEFAULT_SYMBOLS.split(',') if x.strip()))
+MANUAL_SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS','').split(',') if x.strip()))
+def discover_ws_symbols():
+    seed=list(dict.fromkeys(list(CORE_SYMBOLS)+list(MANUAL_SYMBOLS)))
+    if not AUTO_DISCOVER:return tuple(seed[:MAX_WS_SYMBOLS])
+    rows=[]
+    for base in BYBIT_BASES:
+        try:
+            req=urllib.request.Request(base+'/v5/market/tickers?category=linear',headers={'user-agent':'Mozilla/5.0','accept':'application/json'})
+            with urllib.request.urlopen(req,timeout=8) as r: data=json.loads(r.read(4_000_000).decode())
+            for x in (data.get('result') or {}).get('list') or []:
+                s=str(x.get('symbol') or '').upper()
+                if not s.endswith('USDT') or s in seed:continue
+                try:
+                    bid=float(x.get('bid1Price') or 0);ask=float(x.get('ask1Price') or 0);turn=float(x.get('turnover24h') or 0);mid=(bid+ask)/2 if bid>0 and ask>0 else 0;spread=(ask-bid)/mid*10000 if mid>0 and ask>=bid else 999
+                except Exception:continue
+                if turn>=35_000_000 and spread<=7.0:rows.append((turn,-spread,s))
+            if rows:break
+        except Exception:continue
+    rows.sort(reverse=True)
+    for _,__,s in rows:
+        if len(seed)>=MAX_WS_SYMBOLS:break
+        seed.append(s)
+    return tuple(seed)
+SYMBOLS=discover_ws_symbols()
+_extra=[s for s in SYMBOLS if s not in CORE_SYMBOLS]
+_default_events=list(CORE_SYMBOLS[:10])+_extra[:8]
+EVENT_SYMBOLS=set(x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS',','.join(_default_events)).split(',') if x.strip() and x.strip().upper() in SYMBOLS)
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
 BYBIT_ALLOWED_METHODS=('GET','POST')
 CURL_BIN='/usr/bin/curl' if os.path.exists('/usr/bin/curl') else 'curl'
@@ -244,7 +272,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
         if u.path=='/bybit/microstructure':
             if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
             q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [DEFAULT_SYMBOL])[0]).upper();m=MICROS.get(symbol)
