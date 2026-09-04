@@ -1,9 +1,9 @@
 {
-  "name": "trading-signal-v11",
+  "name": "bybit-btc-hyperscale",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node validate-worker.mjs && node validate-bybit-market-entry-reasoning.mjs && node validate-bybit-learning.mjs && node validate-forex-runtime.mjs",
+    "check": "node validate-worker.mjs && node validate-btc-hyperscale.mjs",
     "prepare:wrangler": "node prepare-wrangler.mjs",
     "deploy": "npm run check && npm run prepare:wrangler && wrangler deploy",
     "preview": "npm run check && npm run prepare:wrangler && wrangler versions upload"
