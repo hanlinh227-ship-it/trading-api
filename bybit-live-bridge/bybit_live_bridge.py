@@ -247,20 +247,22 @@ class Microstructure:
 
 
 def ws_telemetry(snaps):
-    now=int(time.time()*1000);ages=[];stale=[];connected=ready=fresh=0
+    now=int(time.time()*1000);book_ages=[];trade_ages=[];dual_ages=[];stale=[];connected=ready=book_fresh=trade_fresh=dual_fresh=0
     for symbol,x in snaps.items():
         if x.get('connected'):connected+=1
         if not x.get('ok'):continue
         ready+=1;d=x.get('data') or {};book=d.get('book') or {};trades=d.get('trades') or {};lb=int(book.get('updateTime') or 0);lt=int(trades.get('lastTradeTime') or trades.get('updateTime') or 0)
-        age=max(now-lb if lb>0 else 999999,now-lt if lt>0 else 999999);ages.append(max(0,age))
-        if age<=5000:fresh+=1
-        else:stale.append({'symbol':symbol,'dataAgeMs':max(0,age)})
-    ages.sort()
-    def pct(q):
-        if not ages:return None
-        i=max(0,min(len(ages)-1,int(math.ceil(q*len(ages)))-1));return int(ages[i])
-    min_connected=max(1,int(math.ceil(len(snaps)*.80)));min_fresh=max(1,int(math.ceil(len(snaps)*.75)))
-    return {'healthy':connected>=min_connected and fresh>=min_fresh,'connectedCount':connected,'readyCount':ready,'freshCount':fresh,'totalCount':len(snaps),'p50DataAgeMs':pct(.50),'p95DataAgeMs':pct(.95),'maxDataAgeMs':int(max(ages)) if ages else None,'staleSymbols':sorted(stale,key=lambda x:x['dataAgeMs'],reverse=True)[:20],'freshThresholdMs':5000,'timestamp':now}
+        ba=max(0,now-lb) if lb>0 else 999999;ta=max(0,now-lt) if lt>0 else 999999;da=max(ba,ta);book_ages.append(ba);trade_ages.append(ta);dual_ages.append(da)
+        if ba<=5000:book_fresh+=1
+        if ta<=5000:trade_fresh+=1
+        if da<=5000:dual_fresh+=1
+        if da>5000:stale.append({'symbol':symbol,'bookAgeMs':ba,'tradeAgeMs':ta,'dataAgeMs':da})
+    def pct(xs,q):
+        if not xs:return None
+        xs=sorted(xs);i=max(0,min(len(xs)-1,int(math.ceil(q*len(xs)))-1));return int(xs[i])
+    min_connected=max(1,int(math.ceil(len(snaps)*.80)));min_book=max(1,int(math.ceil(len(snaps)*.70)))
+    transport_healthy=connected>=min_connected and book_fresh>=min_book
+    return {'healthy':transport_healthy,'transportHealthy':transport_healthy,'connectedCount':connected,'readyCount':ready,'freshCount':dual_fresh,'bookFreshCount':book_fresh,'tradeFreshCount':trade_fresh,'dualFreshCount':dual_fresh,'totalCount':len(snaps),'p50DataAgeMs':pct(book_ages,.50),'p95DataAgeMs':pct(book_ages,.95),'maxDataAgeMs':int(max(book_ages)) if book_ages else None,'tradeP50AgeMs':pct(trade_ages,.50),'tradeP95AgeMs':pct(trade_ages,.95),'dualP95AgeMs':pct(dual_ages,.95),'staleSymbols':sorted(stale,key=lambda x:x['dataAgeMs'],reverse=True)[:20],'freshThresholdMs':5000,'healthAuthority':'TRANSPORT_CONNECTION_PLUS_BOOK_FRESHNESS_TRADE_FRESHNESS_PER_SYMBOL_ENTRY_GATE','timestamp':now}
 
 def market_telemetry(snaps):
     now=int(time.time()*1000);out={}

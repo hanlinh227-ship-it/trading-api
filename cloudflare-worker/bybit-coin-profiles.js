@@ -40,7 +40,7 @@ export const BYBIT_COIN_PROFILES=freeze({
 });
 
 export const BYBIT_PORTFOLIO_POLICY=freeze({
-  authority:'DYNAMIC_BYBIT_SCALP_PORTFOLIO_V7_ALL_CRYPTO_SAME_RISK_BUDGET',
+  authority:'DYNAMIC_BYBIT_SCALP_PORTFOLIO_V8_CAPITAL_INTELLIGENCE_FAST_SCALE',
   maxNewEntriesPerEvent:1,
   deepScanCount:16,promotionScanCount:0,
   protectedRiskSlotReuse:true,
@@ -58,7 +58,7 @@ export const BYBIT_PORTFOLIO_POLICY=freeze({
 export function normalizeBybitSymbol(symbol='BTCUSDT'){
   return String(symbol||'BTCUSDT').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
 }
-const DYNAMIC_PROFILE_BASE=freeze({...base,marketCapClass:'DYNAMIC',riskMult:.35,targetMult:1.02,stopMult:1.06,signalGain:.94,flowThresholdMult:1.05,qualityThresholdMult:1.12,bookToleranceMult:.92,leverageMult:.70,maxSpreadBps:20.0,minTurnoverUsd:500_000,runnerMaxR:3.8,holdMult:1.00,minNetProfitMult:1.00,profitGivebackMult:.92,reverseExitEvidenceMult:1.08,style:'BALANCED',correlationGroup:'DYNAMIC_ALT',priority:35,dynamicProfile:true});
+const DYNAMIC_PROFILE_BASE=freeze({...base,marketCapClass:'DYNAMIC',riskMult:.55,targetMult:1.10,stopMult:1.06,signalGain:.96,flowThresholdMult:1.04,qualityThresholdMult:1.10,bookToleranceMult:.94,leverageMult:.82,maxSpreadBps:20.0,minTurnoverUsd:500_000,runnerMaxR:4.5,holdMult:1.08,minNetProfitMult:1.00,profitGivebackMult:.92,reverseExitEvidenceMult:1.08,style:'BALANCED',correlationGroup:'DYNAMIC_ALT',priority:35,dynamicProfile:true});
 const DYNAMIC_PROFILE_CACHE=new Map();
 export function isCoreTradeSymbol(symbol){return !!BYBIT_COIN_PROFILES[normalizeBybitSymbol(symbol)];}
 export function coinProfileForSymbol(symbol='BTCUSDT'){

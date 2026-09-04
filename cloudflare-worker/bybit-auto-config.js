@@ -11,27 +11,27 @@ export const BYBIT_AUTO_CONFIG={
   leverage:{
     min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
     equityAdaptive:{enabled:true,steps:[
-      {equityUsd:0,normal:11,strong:14,aPlus:18,max:20},
-      {equityUsd:50,normal:10,strong:13,aPlus:17,max:20},
-      {equityUsd:100,normal:9,strong:12,aPlus:16,max:18},
-      {equityUsd:250,normal:7.5,strong:10.5,aPlus:14,max:16},
-      {equityUsd:500,normal:6.5,strong:9.5,aPlus:12.5,max:14},
-      {equityUsd:1000,normal:5.5,strong:8.5,aPlus:11.5,max:13},
-      {equityUsd:2500,normal:4.5,strong:7.5,aPlus:10,max:12},
-      {equityUsd:5000,normal:4,strong:6.5,aPlus:9,max:10}
+      {equityUsd:0,normal:16,strong:22,aPlus:30,max:35},
+      {equityUsd:50,normal:15,strong:21,aPlus:29,max:34},
+      {equityUsd:100,normal:14,strong:19,aPlus:27,max:32},
+      {equityUsd:250,normal:11,strong:16,aPlus:23,max:28},
+      {equityUsd:500,normal:9,strong:14,aPlus:20,max:24},
+      {equityUsd:1000,normal:8,strong:12,aPlus:18,max:22},
+      {equityUsd:2500,normal:7,strong:11,aPlus:16,max:20},
+      {equityUsd:5000,normal:6,strong:10,aPlus:14,max:18}
     ]}
   },
   scalp:{
     authority:'OBJECTIVE_PROFIT_FLOOR_EDGE_PERSISTENCE_FLOOR_LOCK',
     // Hard entry floor is >$1 net at low scale. Larger profits come from runners, not by starving valid entries.
-    minPlannedNetProfitUsd:.25,
-    preferredRunnerNetProfitUsd:1.05,
-    minPlannedNetProfitPct:.35,
+    minPlannedNetProfitUsd:.40,
+    preferredRunnerNetProfitUsd:1.50,
+    minPlannedNetProfitPct:.55,
     profitFloorLadder:[
-      {equityUsd:0,minNetUsd:.25},{equityUsd:50,minNetUsd:.35},{equityUsd:75,minNetUsd:.50},
-      {equityUsd:100,minNetUsd:.70},{equityUsd:150,minNetUsd:1.00},{equityUsd:250,minNetUsd:1.50},
-      {equityUsd:500,minNetUsd:3.00},{equityUsd:1000,minNetUsd:6.00},{equityUsd:2500,minNetUsd:14.00},
-      {equityUsd:5000,minNetUsd:30.00},{equityUsd:10000,minNetUsd:60.00}
+      {equityUsd:0,minNetUsd:.40},{equityUsd:50,minNetUsd:.55},{equityUsd:75,minNetUsd:.75},
+      {equityUsd:100,minNetUsd:1.00},{equityUsd:150,minNetUsd:1.40},{equityUsd:250,minNetUsd:2.00},
+      {equityUsd:500,minNetUsd:4.00},{equityUsd:1000,minNetUsd:8.00},{equityUsd:2500,minNetUsd:18.00},
+      {equityUsd:5000,minNetUsd:40.00},{equityUsd:10000,minNetUsd:80.00}
     ],
     profitFloorBufferMult:1.04,
     requireNetFloorAfterFees:true,
@@ -67,9 +67,9 @@ export const BYBIT_AUTO_CONFIG={
   scan:{decisionAuthority:'EVENT_DRIVEN_MARKET_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   risk:{
     mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
-    baseEntryRiskPct:.70,strongEntryRiskPct:.95,aPlusEntryRiskPct:1.20,absoluteSingleEntryRiskPct:1.25,
-    maxActiveRiskPct:4.2,temporaryAPlusActiveRiskPct:5.0,maxPortfolioMarginPct:60,maxMarginPerPositionPct:55,minFreeReservePct:20,
-    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:2,riskRecycleAfterProtection:true,
+    baseEntryRiskPct:1.00,strongEntryRiskPct:1.45,aPlusEntryRiskPct:2.00,absoluteSingleEntryRiskPct:2.25,
+    maxActiveRiskPct:7.0,temporaryAPlusActiveRiskPct:8.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:65,minFreeReservePct:12,
+    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:3,riskRecycleAfterProtection:true,
     timedPause:false,lossStreakTimeGate:false,
     priorRiskProtectionThresholdPct:30,
     tierUpgradeMinR:.24,
@@ -99,11 +99,11 @@ export const BYBIT_AUTO_CONFIG={
     profitableMarketExit:false,
     profitHarvestExit:true,
     profitHarvestMinEvidence:3,
-    earlyHarvestMinNetUsd:.18,
-    earlyHarvestMinPeakR:.55,
+    earlyHarvestMinNetUsd:.30,
+    earlyHarvestMinPeakR:.65,
     earlyHarvestMinEvidence:2,
     earlyHarvestConfirmEvents:2,
-    earlyHarvestGivebackR:.25,
+    earlyHarvestGivebackR:.30,
     profitHarvestConfirmEvents:2,
     profitHarvestPeakGivebackR:.35,
     shortMomentumAloneCanExit:false,
