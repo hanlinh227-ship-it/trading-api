@@ -1,5 +1,5 @@
-trigger=BYBIT_ANDROID_MONITOR_APP_V1
-requested_at=2026-09-04T23:49:00+07:00
-features=dashboard,positions,scanner,realtime-ws,keystore,foreground-alerts,widget
+trigger=BYBIT_ANDROID_MONITOR_APP_V1_1
+requested_at=2026-09-05T00:22:00+07:00
+features=dark-cyber-finance,monospace,equity-hero,position-progress,realtime-ws-750ms,keystore,foreground-alerts,dark-widget
 contains_credentials=false
-retry=compile-fixes-v1
+preserve_existing_pair_token=true
