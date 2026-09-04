@@ -1,0 +1,4 @@
+trigger=BYBIT_ANDROID_MONITOR_V1
+requested_at=2026-09-04T23:18:00+07:00
+scope=read-only-snapshot,websocket,account,performance,scanner,positions,ws-latency-data-age
+trading_logic_change=false
