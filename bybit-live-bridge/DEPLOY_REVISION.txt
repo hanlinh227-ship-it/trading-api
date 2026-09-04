@@ -1,0 +1,10 @@
+BYBIT-MULTI-STATEFLOW-4.4.0
+DYNAMIC-WS-SCALP-UNIVERSE
+Source revision: 1e32683a50d56e79b1144bd35558d833e3556acb
+Requested at: 2026-09-04T21:28:00+07:00
+Dynamic WS discovery: true
+Default maximum WS symbols: 30
+Core symbols retained: 18
+Dynamic extra symbols: selected by live turnover and spread
+Event authority: VPS_WS_MARKET_STATE_CHANGE
+Fresh WS required for new risk: true
