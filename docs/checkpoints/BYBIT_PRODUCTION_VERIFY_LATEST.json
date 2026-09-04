@@ -1,7 +1,7 @@
 {
-  "verifiedAt": "2026-09-04T09:10:35.414Z",
-  "expectedRevision": "f0b5f2b260b08ec7b1008a34822954989fe76aab",
-  "runtimeRevision": "f0b5f2b260b08ec7b1008a34822954989fe76aab",
+  "verifiedAt": "2026-09-04T09:58:37.775Z",
+  "expectedRevision": "1cdc68415856e685e89730f01b532401438c026a",
+  "runtimeRevision": "1cdc68415856e685e89730f01b532401438c026a",
   "pass": true,
   "health": {
     "http": 200,
@@ -11,13 +11,13 @@
     "authenticated": true,
     "privateTransport": "VPS_BYBIT_PRIVATE_PROXY",
     "marketTransport": "VPS_BYBIT_MARKET_PROXY",
-    "serverTimeMs": 1788513032204,
+    "serverTimeMs": 1788515914125,
     "revisionOk": true
   },
   "contract": {
     "http": 200,
     "version": "BYBIT-BTC-STATEFLOW-2.5",
-    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V11_FAST_SCALP_NET_EDGE",
+    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V12_ULTRAFAST_TIERED_SCALP",
     "authority": "BYBIT_BTC_ONLY",
     "btcOnly": true
   },
@@ -28,15 +28,34 @@
     "btcLiveAck": true,
     "scheduled": null
   },
+  "hub": {
+    "http": 200,
+    "ok": true,
+    "mode": "LIVE",
+    "modeMismatch": false,
+    "cycleMode": "LIVE",
+    "cycleAgeSec": 883,
+    "lastEventCycleAt": "2026-09-04T09:43:53.703Z",
+    "lastEventResult": "SQUEEZE_WAIT_MOMENTUM_RELEASE_OR_SWEEP",
+    "lastEventResultVi": "⏳ CHỜ XUNG LỰC",
+    "regimeVi": "NÉN GIÁ",
+    "position": null,
+    "activeTranches": 0,
+    "telegramNotification": {
+      "sent": false,
+      "reason": "NO_PENDING_LIVE_ENTRY_ALERT"
+    }
+  },
   "scan": {
     "http": 200,
     "ok": true,
     "symbol": "BTCUSDT",
     "regime": "SQUEEZE",
     "microstructureSource": "VPS_BYBIT_WS",
-    "setupOk": false,
-    "setup": null,
-    "reason": "SQUEEZE_WAIT_MOMENTUM_RELEASE_OR_SWEEP"
+    "setupOk": true,
+    "setup": "SQUEEZE_MOMENTUM_PROBE",
+    "reason": null,
+    "diagnostic": null
   },
   "checks": {
     "privateVpsTransport": true,
@@ -44,6 +63,8 @@
     "runtimeRevision": true,
     "runtimeContract": true,
     "entryInspectable": true,
+    "hubRuntime": true,
+    "liveEventCycle": true,
     "readOnlyStateFlowScan": true
   }
 }
