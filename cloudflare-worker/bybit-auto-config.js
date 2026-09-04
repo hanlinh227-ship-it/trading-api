@@ -1,4 +1,4 @@
-// BYBIT-BTC-STATEFLOW-2.5 configuration.
+// BYBIT-BTC-STATEFLOW-2.6 configuration.
 // BTCUSDT linear perpetual. Pure event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
@@ -28,7 +28,23 @@ export const BYBIT_AUTO_CONFIG={
     trailStartR:.78,
     trailRange5Pct:.08,
     trailPricePct:.00070,
-    netProfitLockBufferMult:1.06
+    netProfitLockBufferMult:1.06,
+    adaptiveProtection:{
+      enabled:true,
+      authority:'EVENT_DRIVEN_NATIVE_TP_SL_SINGLE_WRITER',
+      probeBaseTargetR:1.65,
+      confirmBaseTargetR:1.85,
+      fullBaseTargetR:2.00,
+      minTargetR:1.15,
+      maxTargetR:2.35,
+      strongExtensionR:.30,
+      weakCompressionR:.42,
+      minTargetMoveR:.08,
+      minLiveGapR:.12,
+      neverLoosenStop:true,
+      combineNativeTpSlWrite:true,
+      timeGate:false
+    }
   },
   scan:{decisionAuthority:'EVENT_DRIVEN_MARKET_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   risk:{
@@ -70,7 +86,7 @@ export const BYBIT_AUTO_CONFIG={
     ultraFastFlow1s3s:true,marketPulseConsensus:true,orderBook:true,nearTouchDepthBands:true,orderFlowImbalance:true,microprice:true,liquidityFragility:true,
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
-    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true
+    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
