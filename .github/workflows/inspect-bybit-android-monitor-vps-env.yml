@@ -1,0 +1,19 @@
+name: Inspect Android Monitor VPS Env Names
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-android-monitor-vps-env-trigger'
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    steps:
+      - name: Show relevant environment variable names only
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'ENV_KEY_NAMES_ONLY'
+          sudo sed -n 's/^export[[:space:]]\+//; s/^\([A-Z0-9_][A-Z0-9_]*\)=.*/\1/p' /etc/trading-v11-ai.env | grep -E '^(BYBIT|HYRO|V11)_' | sort -u
+          echo 'SERVICE_ENV_FILE'
+          sudo systemctl show v11-manual-ai-bridge.service -p EnvironmentFiles -p ActiveState -p SubState
