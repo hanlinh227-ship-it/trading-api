@@ -6,7 +6,7 @@ export {BYBIT_AUTO_VERSION};
 
 export const BYBIT_AUTO_CONFIG={
   symbol:'BTCUSDT',symbols:BYBIT_TRADE_UNIVERSE,multiAsset:true,portfolio:BYBIT_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
-  strategyAuthority:'SCALP_QUALITY_SHORT_HORIZON_CONFIRMATION_POSITIVE_NET_EDGE_PER_SYMBOL',
+  strategyAuthority:'V51_THREE_LANE_MICROSTRUCTURE_TTT_MAE_POSITIVE_EDGE',
   trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
     min:3,max:125,authority:'EXCHANGE_CAPPED_CONTINUOUS_CAPITAL_LEVERAGE',holdConstantInsideOpenCluster:true,profitFloorAdaptive:true,profitFloorMax:125,exchangeInstrumentCapRequired:true,
@@ -129,7 +129,7 @@ export const BYBIT_AUTO_CONFIG={
     shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
     netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true,positiveAntiSweepLock:true,dynamicBybitScalpUniverse:true,momentumFootprint:true,continuousTimeCapitalScale:true,exchangeMaxLeverageCap:true
   },
-  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:false,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:false,confirmOrFullOnly:true,shortHorizonPriceConfirmation:true,positiveNetEdgeRequired:true},
+  entries:{liquiditySweepReclaim:true,breakoutRetestContinuation:true,trendPullbackReacceleration:true,trendPullback:false,trendContinuation:false,breakoutRetest:false,rangeMeanReversion:false,liquidationExhaustion:false,absorptionReversal:false,squeezeRelease:false,momentumEarlyRelease:false,rangeMicroReclaimScalp:false,transitionWsScalp:false,shortHorizonReversal:false,probeConfirmFull:false,confirmOrFullOnly:true,shortHorizonPriceConfirmation:true,positiveNetEdgeRequired:true,legacyBroadSetupRouterDisabled:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
 };
 
