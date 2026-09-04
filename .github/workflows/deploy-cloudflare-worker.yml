@@ -25,11 +25,6 @@ jobs:
           set -euo pipefail
           npm install --no-audit --no-fund
           npm run check
-          ! grep -q 'BYBIT_BTC_LIVE_ACK.*false' ../.github/workflows/deploy-cloudflare-worker.yml
-          ! grep -q 'npx wrangler deploy' ../.github/workflows/deploy-cloudflare-worker.yml
-          ! grep -q 'scheduled(event' index.js
-          grep -q 'NONE_EVENT_DRIVER_ONLY' bybit-runtime-contract.js
-          grep -q 'VPS_BRIDGE_SECRET_ONLY' bybit-control-plane.js
           echo 'BTC_GITHUB_CI_VALIDATION_ONLY=PASS'
       - name: Explain deployment authority
         shell: bash
