@@ -14,7 +14,9 @@ jobs:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 2}
       - name: Apply direction coherence long-run freeze
-        run: python3 .github/scripts/apply-bybit-v441-direction-freeze.py
+        run: |
+          python3 .github/scripts/apply-bybit-v441-direction-freeze.py
+          python3 .github/scripts/sync-bybit-v441-validator.py
       - name: Validate strategy controller runtime
         shell: bash
         run: |
@@ -26,6 +28,7 @@ jobs:
           node --check bybit-symbol-engine.js
           node --check bybit-btc-risk-engine.js
           node --check bybit-coin-profiles.js
+          node --check validate-btc-hyperscale.mjs
           sed -i "s/'continuousTimeScale'/'lastContinuousCapitalUsd'/" validate-btc-hyperscale.mjs
           node validate-btc-hyperscale.mjs
       - name: Assert V4.4.1 freeze markers
@@ -36,13 +39,16 @@ jobs:
           grep -q "CROSS_MARKET_DIRECTION_CONFLICT" cloudflare-worker/bybit-multi-asset-controller.js
           grep -q "BYBIT-MULTI-STATEFLOW-4.4.1" cloudflare-worker/bybit-runtime-contract.js
           grep -q "longRunCoreFreeze:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.4.1" cloudflare-worker/validate-btc-hyperscale.mjs
       - name: Commit V4.4.1 long-run freeze
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add cloudflare-worker/bybit-symbol-strategy.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-runtime-contract.js
+          git checkout -- cloudflare-worker/validate-btc-hyperscale.mjs || true
+          python3 .github/scripts/sync-bybit-v441-validator.py
+          git add cloudflare-worker/bybit-symbol-strategy.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/validate-btc-hyperscale.mjs
           if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
           git commit -m 'Freeze Bybit direction coherence for long-run V4.4.1'
           git push origin HEAD:main
