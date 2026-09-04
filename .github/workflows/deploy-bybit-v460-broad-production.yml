@@ -1,0 +1,100 @@
+name: Deploy Bybit V4.6 Broad Production
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v460-production-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bybit-v460-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Validate committed V4.6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          grep -q 'BYBIT-MULTI-STATEFLOW-4.6.0' bybit-runtime-contract.js
+          grep -q 'BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK' bybit-runtime-contract.js
+          grep -q 'deepScanCount:12,promotionScanCount:12' bybit-coin-profiles.js
+          grep -q "BYBIT_MAX_WS_SYMBOLS','48'" ../bybit-live-bridge/bybit_live_bridge.py
+      - name: Upgrade the actual V11 Bybit bridge authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sudo systemctl show v11-manual-ai-bridge.service -p ActiveState --value)" = active
+          test "$(sudo systemctl show v11-manual-ai-bridge.service -p EnvironmentFiles --value | awk '{print $1}')" = /etc/trading-v11-ai.env
+          sudo cp bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
+          sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/etc/trading-v11-ai.env')
+          rows=p.read_text().splitlines()
+          updates={'BYBIT_MAX_WS_SYMBOLS':'48','BYBIT_EVENT_SYMBOL_LIMIT':'12','BYBIT_DYNAMIC_WS_DISCOVERY':'true','BYBIT_EVENT_DRIVER_ENABLED':'true'}
+          out=[]; seen=set()
+          for line in rows:
+              stripped=line.strip()
+              replaced=False
+              for k,v in updates.items():
+                  if stripped.startswith(k+'=') or stripped.startswith('export '+k+'='):
+                      out.append(f'{k}={v}');seen.add(k);replaced=True;break
+              if not replaced: out.append(line)
+          for k,v in updates.items():
+              if k not in seen: out.append(f'{k}={v}')
+          p.write_text('\n'.join(out)+'\n')
+          p.chmod(0o600)
+          print('Updated only non-secret Bybit breadth controls:',','.join(sorted(updates)))
+          PY
+          sudo systemctl daemon-reload
+          sudo systemctl restart v11-manual-ai-bridge.service
+          sleep 10
+          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+          test -n "$(sudo ss -ltnp | sed -n 's/.*127\.0\.0\.1:8789.*pid=\([0-9][0-9]*\).*/\1/p' | head -n1)"
+          BRIDGE=$(curl -fsS --max-time 30 http://127.0.0.1:8789/health || curl -fsS --max-time 30 http://127.0.0.1:8789/)
+          BRIDGE="$BRIDGE" node <<'NODE'
+          const x=JSON.parse(process.env.BRIDGE);const syms=Array.isArray(x.symbols)?x.symbols:[],ready=Array.isArray(x.readySymbols)?x.readySymbols:[],events=Array.isArray(x.eventSymbols)?x.eventSymbols:[];const out={ok:x.ok===true,service:x.service,maxWsSymbols:x.maxWsSymbols,symbolCount:syms.length,readySymbolCount:ready.length,eventSymbolCount:events.length,eventSymbols:events,dynamicWsDiscovery:x.dynamicWsDiscovery};console.log(JSON.stringify(out,null,2));if(!(out.ok&&out.maxWsSymbols===48&&out.symbolCount>=18&&out.eventSymbolCount<=12&&out.dynamicWsDiscovery===true))process.exit(9);
+          NODE
+      - name: Deploy Worker V4.6 preserving runtime vars
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          REV=$(git rev-parse HEAD)
+          GITHUB_SHA="$REV" npm run deploy
+      - name: Verify LIVE V4.6 broad scalp network
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          T="$RUNNER_TEMP/v460-production"; mkdir -p "$T"
+          for i in $(seq 1 24); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            curl -fsS --max-time 30 "$BASE/runtime/contract" > "$T/contract.json" || true
+            OK=$(T="$T" node -e "const fs=require('fs'),p=process.env.T;try{const h=JSON.parse(fs.readFileSync(p+'/health.json')),c=JSON.parse(fs.readFileSync(p+'/contract.json'));process.stdout.write(h.version==='BYBIT-MULTI-STATEFLOW-4.6.0'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK'?'1':'0')}catch{process.stdout.write('0')}")
+            [ "$OK" = 1 ] && break
+            sleep 5
+          done
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json"
+          curl -fsS --max-time 60 "$BASE/bybit/universe" > "$T/universe.json"
+          BRIDGE=$(curl -fsS --max-time 30 http://127.0.0.1:8789/health || curl -fsS --max-time 30 http://127.0.0.1:8789/)
+          T="$T" BRIDGE="$BRIDGE" node <<'NODE'
+          const fs=require('fs'),p=process.env.T,read=f=>JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8')),br=JSON.parse(process.env.BRIDGE);
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json'),u=read('universe.json'),us=u.summary||{};
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.6.0',contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK',live:h.mode==='LIVE',authenticated:h.authenticated===true,ready:h.execution?.ready===true,broad:c.broadScalpUniverse===true,ws:c.expandedWsCoverage===true,deep:c.expandedDeepScan===true,promotion:c.expandedPromotionScan===true,sameRisk:c.opportunityBreadthDoesNotIncreaseRiskBudget===true,performance:c.realizedPnlPerformanceGovernor===true,noMartingale:c.recoveryMartingale===false,noAddLoser:c.recoveryAddToLoser===false,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0,universe:u.ok===true,bridgeMax:br.maxWsSymbols===48};
+          const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,authenticated:h.authenticated,ready:h.execution?.ready,equity:h.account?.totalEquity,wallet:h.account?.walletBalance,available:h.account?.availableBalance,positions:h.positions?.items||[]},bridge:{service:br.service,maxWsSymbols:br.maxWsSymbols,symbolCount:(br.symbols||[]).length,readySymbolCount:(br.readySymbols||[]).length,eventSymbolCount:(br.eventSymbols||[]).length,eventSymbols:br.eventSymbols||[]},contract:{version:c.version,broadScalpUniverse:c.broadScalpUniverse,expandedWsCoverage:c.expandedWsCoverage,expandedDeepScan:c.expandedDeepScan,expandedPromotionScan:c.expandedPromotionScan,opportunityBreadthDoesNotIncreaseRiskBudget:c.opportunityBreadthDoesNotIncreaseRiskBudget},universe:{authority:us.authority,totalLinearUsdt:us.totalLinearUsdt,tradeableNow:us.tradeableNow,promotedNow:us.promotedNow,promotionCandidates:us.promotionCandidates,watchNew:us.watchNew,watchOnly:us.watchOnly,doNotTrade:us.doNotTrade,counts:us.counts,topTrade:us.topTrade},entry:{status:e.status,blockers:e.blockers||[]},checks};console.log(JSON.stringify(out,null,2));fs.writeFileSync(`${p}/audit.json`,JSON.stringify(out,null,2)+'\n');if(!pass)process.exit(9);
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v460-broad-production-audit
+          path: ${{ runner.temp }}/v460-production/audit.json
