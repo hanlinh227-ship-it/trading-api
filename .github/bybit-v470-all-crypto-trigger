@@ -1,0 +1,7 @@
+trigger=BYBIT_V470_ALL_ACTIVE_CRYPTO_REALTIME_MONITOR
+requested_at=2026-09-05T00:08:00+07:00
+all_active_crypto_eligible=true
+same_global_risk_budget=true
+fresh_ws_required=true
+android_realtime_ms=750
+trading_logic_change=universe-expansion-only
