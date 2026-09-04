@@ -1,0 +1,4 @@
+trigger=BYBIT_ANDROID_MONITOR_SOURCE_CLEANUP
+requested_at=2026-09-04T23:56:00+07:00
+preserve_release_apk=true
+trading_logic_change=false
