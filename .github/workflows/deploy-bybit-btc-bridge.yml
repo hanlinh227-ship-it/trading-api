@@ -1,0 +1,69 @@
+name: Deploy Bybit BTC Live Bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bybit-live-bridge/**'
+      - '.github/workflows/deploy-bybit-btc-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bybit-btc-live-bridge-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current BTC-only main
+        uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Validate BTC-only bridge source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          test -f /etc/trading-v11-ai.env
+          test -n "$(grep '^V11_AI_BRIDGE_SECRET=' /etc/trading-v11-ai.env | cut -d= -f2-)"
+          ! grep -qi 'claude\|codex\|deepseek\|FOREX_CONNECTIVITY\|PROJECT_LANES' bybit-live-bridge/bybit_live_bridge.py
+          grep -q '/bybit/private' bybit-live-bridge/bybit_live_bridge.py
+          grep -q '/bybit/microstructure' bybit-live-bridge/bybit_live_bridge.py
+          grep -q 'BTCUSDT' bybit-live-bridge/bybit_live_bridge.py
+      - name: Enable optional WebSocket collector dependency
+        shell: bash
+        run: |
+          set -u
+          python3 -c 'import websocket' 2>/dev/null && exit 0
+          python3 -m pip install --disable-pip-version-check websocket-client || true
+      - name: Replace legacy process with BTC-only bridge without changing private proxy port
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 0755 bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
+          systemctl daemon-reload
+          systemctl restart v11-manual-ai-bridge.service
+          systemctl is-active --quiet v11-manual-ai-bridge.service
+      - name: Verify preserved private API bridge and BTC microstructure surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 2
+          set -a; source /etc/trading-v11-ai.env; set +a
+          HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True,d; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE",d; assert d.get("privateProxy") is True,d; assert d.get("legacyAiCouncil") is False,d; assert d.get("forex") is False,d; assert d.get("meme") is False,d; print("BTC_LIVE_BRIDGE_PRIVATE_PROXY=PASS")'
+          CODE="$(curl -sS --max-time 8 -o /tmp/btc-micro.json -w '%{http_code}' -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' || true)"
+          if [ "$CODE" = 200 ]; then
+            python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); assert d.get("ok") is True,d; assert (d.get("data") or {}).get("symbol")=="BTCUSDT",d; print("BTC_MICROSTRUCTURE_WS=PASS")'
+          else
+            echo "BTC_MICROSTRUCTURE_WS=REST_FALLBACK_ALLOWED http=$CODE"
+          fi
+      - name: Deployment summary
+        run: |
+          echo "BYBIT_BTC_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
+          echo 'BYBIT_PRIVATE_API_PROXY=PRESERVED'
+          echo 'LEGACY_AI_FOREX_MEME=REMOVED'

@@ -1,4 +1,4 @@
-name: Verify Bybit Production
+name: Verify BTC StateFlow Production
 on:
   push:
     branches: [main]
@@ -8,7 +8,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: verify-bybit-production
+  group: verify-btc-stateflow-production
   cancel-in-progress: true
 jobs:
   verify:
@@ -18,11 +18,8 @@ jobs:
       WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-      - name: Verify production health, contract and read-only market scan
-        id: verify
+        with: {ref: main, fetch-depth: 0}
+      - name: Verify BTC-only runtime, live API transport and read-only StateFlow scan
         shell: bash
         run: |
           set -uo pipefail
@@ -38,22 +35,21 @@ jobs:
           done
           CC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$CONTRACT_FILE" -w '%{http_code}' "$WORKER_BASE_URL/runtime/contract" || echo 000)"
           EC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$ENTRY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/entry-health" || echo 000)"
-          SC=0
-          if [ "$HC" = 200 ]; then SC="$(curl -sS --connect-timeout 10 --max-time 300 -o "$SCAN_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/scan" || echo 000)"; fi
+          SC="$(curl -sS --connect-timeout 10 --max-time 300 -o "$SCAN_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/scan" || echo 000)"
           EXPECTED="$EXPECTED" HC="$HC" CC="$CC" EC="$EC" SC="$SC" HEALTH_FILE="$HEALTH_FILE" CONTRACT_FILE="$CONTRACT_FILE" ENTRY_FILE="$ENTRY_FILE" SCAN_FILE="$SCAN_FILE" node <<'NODE'
           const fs=require('fs');
           const read=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
           const h=read(process.env.HEALTH_FILE),c=read(process.env.CONTRACT_FILE),e=read(process.env.ENTRY_FILE),s=read(process.env.SCAN_FILE),expected=process.env.EXPECTED;
-          const privateOk=h.privateTransport==='VPS_BYBIT_PRIVATE_PROXY';
-          const marketOk=h.marketTransport==='VPS_BYBIT_MARKET_PROXY'&&Number(h.serverTime?.ms)>0;
           const revisionOk=h.runtimeRevision===expected&&c.runtimeRevision===expected;
-          const versionOk=!!c.autoVersion&&s.version===c.autoVersion;
+          const privateOk=h.privateTransport==='VPS_BYBIT_PRIVATE_PROXY'&&h.authenticated===true;
+          const marketOk=h.marketTransport==='VPS_BYBIT_MARKET_PROXY'&&Number(h.serverTime?.ms)>0;
+          const contractOk=process.env.CC==='200'&&c.ok===true&&c.executionAuthority==='BYBIT_BTC_ONLY'&&c.symbol==='BTCUSDT'&&c.legacyBybitMultiCoinDisabled===true&&c.legacyForexDisabled===true&&c.legacyMemeDisabled===true&&c.legacyAiCouncilDisabled===true;
+          const versionOk=!!c.autoVersion&&s.version===c.autoVersion&&e.version===c.autoVersion;
           const healthOk=process.env.HC==='200'&&h.ok===true&&privateOk&&marketOk&&revisionOk;
-          const contractOk=process.env.CC==='200'&&c.ok===true&&c.executionAuthority==='BYBIT_AUTO_TRADE_ONLY'&&versionOk;
-          const entryHealthOk=process.env.EC==='200'&&e.ok===true&&['ENTRY_READY','ENTRY_BLOCKED','WAITING_FOR_QUALITY_SETUP'].includes(String(e.status));
-          const scanOk=process.env.SC==='200'&&s.ok===true&&Number(s.scannedAt)>0&&versionOk;
-          const best=s.best||null;
-          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&contractOk&&entryHealthOk&&scanOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,exchange:h.exchange||null,mode:h.mode||null,executionReady:!!h.execution?.ready,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,serverTimeMs:Number(h.serverTime?.ms)||null,revisionOk},contract:{http:Number(process.env.CC)||0,version:c.autoVersion||null,contract:c.version||null,authority:c.executionAuthority||null,versionOk},entryHealth:{http:Number(process.env.EC)||0,status:e.status||null,entryReady:e.entryReady??null,lastCycleReason:e.lastCycleReason||null,operationalBlockers:e.operationalBlockers||[]},scan:{http:Number(process.env.SC)||0,ok:!!s.ok,version:s.version||null,universeCount:Number(s.universe?.count)||0,analyzed:Number(s.analyzed)||0,qualified:Number(s.qualified)||0,rawCandidates:Number(s.rawCandidates)||0,errorCount:Array.isArray(s.errors)?s.errors.length:0,reason:s.reason||null,best:best?{symbol:best.symbol,side:best.side,score:best.score,rr:best.rr,spreadBps:best.spreadBps,regime:best.regime}:null},checks:{privateVpsTransport:privateOk,marketVpsTransport:marketOk,runtimeRevision:revisionOk,runtimeContract:contractOk,entryHealth:entryHealthOk,readOnlyScan:scanOk}};
+          const entryInspectable=['BTC_ENTRY_INFRA_READY','BTC_ENTRY_BLOCKED'].includes(String(e.status))&&['200','503'].includes(process.env.EC);
+          const scanOk=process.env.SC==='200'&&s.ok===true&&s.symbol==='BTCUSDT'&&!!s.market&&typeof s.market.regime==='string'&&versionOk;
+          const selected=s.selected||{};
+          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&contractOk&&entryInspectable&&scanOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,exchange:h.exchange||null,mode:h.mode||null,authenticated:!!h.authenticated,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,serverTimeMs:Number(h.serverTime?.ms)||null,revisionOk},contract:{http:Number(process.env.CC)||0,version:c.autoVersion||null,contract:c.version||null,authority:c.executionAuthority||null,btcOnly:c.symbol==='BTCUSDT'},entryHealth:{http:Number(process.env.EC)||0,status:e.status||null,blockers:e.blockers||[],btcLiveAck:e.btcLiveAck??null,scheduled:e.scheduled??null},scan:{http:Number(process.env.SC)||0,ok:!!s.ok,symbol:s.symbol||null,regime:s.market?.regime||null,microstructureSource:s.market?.microstructureSource||null,setupOk:selected.ok??null,setup:selected.setup?.setup||null,reason:selected.reason||null},checks:{privateVpsTransport:privateOk,marketVpsTransport:marketOk,runtimeRevision:revisionOk,runtimeContract:contractOk,entryInspectable,readOnlyStateFlowScan:scanOk}};
           fs.writeFileSync('docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json',JSON.stringify(out,null,2)+'\n');
           console.log(JSON.stringify(out));
           process.exitCode=out.pass?0:7;
@@ -62,6 +58,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json
-          git commit -m "chore: record Bybit production verification $EXPECTED" || true
-          git push origin HEAD:main
+          git commit -m "chore: record BTC StateFlow production verification $EXPECTED" || true
+          git push origin HEAD:main || true
           exit "$VERIFY_RC"
