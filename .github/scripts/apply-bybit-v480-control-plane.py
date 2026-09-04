@@ -6,7 +6,7 @@ new=old+"\nimport {reconcileBtcAccountBalance} from './bybit-btc-balance-reconci
 if "reconcileBtcAccountBalance" not in s:s=s.replace(old,new,1)
 needle="if(u.pathname==='/bybit/runtime/preflight'&&req.method==='GET')"
 route="if(u.pathname==='/bybit/capital/sync'&&req.method==='GET'){if(!authState(req,env).ok)return unauthorized(req,env);try{const b=await reconcileBtcAccountBalance(env),st=b.state||{},snap=b.snapshot||{};return json({ok:b.ok!==false,readOnlyExecution:true,tradingExecuted:false,reason:b.reason||null,netExternalCashFlowUsd:Number(b.netExternalCashFlowUsd||0),account:{equityUsd:Number(snap.equityUsd||0),walletBalanceUsd:Number(snap.walletBalanceUsd||0),availableUsd:Number(snap.availableUsd||0)},capital:{stateVersion:Number(st.capitalStateVersion||0),continuousCapitalUsd:Number(st.continuousCapitalUsd||0),highWaterUsd:Number(st.highWaterUsd||0),protectedEquityUsd:Number(st.protectedEquityUsd||0),authority:st.continuousScaleAuthority||null,recognition:st.capitalRecognition||null,lastExternalCashFlow:st.lastExternalCashFlow||null,transactionLogPages:Number(st.transactionLogPages||0),transactionLogRows:Number(st.transactionLogRows||0)},checkedAt:new Date().toISOString()})}catch(e){return json({ok:false,readOnlyExecution:true,tradingExecuted:false,reason:'CAPITAL_SYNC_FAILED',error:String(e?.message||e)},502)}}"
-if route not in s:
+if "u.pathname==='/bybit/capital/sync'" not in s:
     if needle not in s:raise SystemExit('CONTROL_PLANE_INSERT_PATTERN_MISSING')
     s=s.replace(needle,route+needle,1)
 p.write_text(s)
@@ -21,7 +21,6 @@ repls={
 "balance.includes('TIME_DECAYED_EQUITY_BALANCE_INSTANT_DOWNSIDE')":"balance.includes('CAPITAL_INTELLIGENCE_V4_INSTANT_EXTERNAL_UPSIDE_INSTANT_DOWNSIDE_90S_ORGANIC_SMOOTH')"
 }
 for a,b in repls.items():x=x.replace(a,b)
-# In case a previous failed workspace migration already changed the old controller assertion form.
 x=x.replace("'const baseMax=maxConcurrentForEquity(capacityCapital)'","'baseMax=maxConcurrentForEquity(capacityCapital)'")
 marker="console.log('BYBIT_MULTI_ASSET_VALIDATION=PASS');"
 extra="""assert.equal(BYBIT_RUNTIME_CONTRACT.capitalIntelligenceV4,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.separateCapitalState,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.instantDepositRecognition,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.instantWithdrawalRiskReduction,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.paginatedTransactionReconciliation,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.capitalHighWaterDoubleCountFixed,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.fastScaleControlled,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.adaptiveLeverageExpanded,true);\nassert.equal(BYBIT_AUTO_CONFIG.risk.martingale,false);\nassert.equal(BYBIT_AUTO_CONFIG.risk.addToLoser,false);\nassert.ok(BYBIT_AUTO_CONFIG.risk.baseEntryRiskPct>=1.0);\nassert.ok(BYBIT_AUTO_CONFIG.risk.strongEntryRiskPct>=1.45);\nassert.ok(BYBIT_AUTO_CONFIG.risk.aPlusEntryRiskPct>=2.0);\nassert.ok(BYBIT_AUTO_CONFIG.risk.absoluteSingleEntryRiskPct<=2.25);\nassert.ok(BYBIT_AUTO_CONFIG.risk.maxActiveRiskPct<=7.0);\nassert.ok(BYBIT_AUTO_CONFIG.leverage.max<=125);\nassert.ok(balance.includes('bybit:capital:intelligence:v1'));\nassert.ok(balance.includes('transactionPages'));\nassert.ok(balance.includes('capitalRecognition'));\n"""
