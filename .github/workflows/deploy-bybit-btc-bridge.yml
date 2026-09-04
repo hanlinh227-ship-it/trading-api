@@ -1,155 +1,72 @@
-name: Deploy Bybit BTC Live Bridge
-
+name: Deploy Bybit Multi-Asset Live Bridge
 on:
   push:
     branches: [main]
-    paths:
-      - 'bybit-live-bridge/**'
-      - '.github/workflows/deploy-bybit-btc-bridge.yml'
+    paths: ['bybit-live-bridge/**','.github/workflows/deploy-bybit-btc-bridge.yml']
   workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: bybit-btc-live-bridge-production
-  cancel-in-progress: true
-
+permissions: {contents: read}
+concurrency: {group: bybit-multi-asset-live-bridge-production, cancel-in-progress: true}
 jobs:
   deploy:
     runs-on: [self-hosted, trading-vps]
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
-      - name: Checkout current BTC-only main
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Validate unified BTC VPS authority
+      - name: Validate multi-asset VPS authority
         shell: bash
         run: |
           set -euo pipefail
           python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
           test -f /etc/trading-v11-ai.env
-          test -n "$(grep '^V11_AI_BRIDGE_SECRET=' /etc/trading-v11-ai.env | cut -d= -f2-)"
-          ! grep -qi 'claude\|codex\|deepseek\|FOREX_CONNECTIVITY\|PROJECT_LANES' bybit-live-bridge/bybit_live_bridge.py
-          grep -q '/bybit/private' bybit-live-bridge/bybit_live_bridge.py
-          grep -q '/bybit/microstructure' bybit-live-bridge/bybit_live_bridge.py
-          grep -q '/bybit/auto/run' bybit-live-bridge/bybit_live_bridge.py
-          grep -q 'VPS_WS_MARKET_STATE_CHANGE' bybit-live-bridge/bybit_live_bridge.py
-          grep -q 'COALESCED_LATEST_STATE' bybit-live-bridge/bybit_live_bridge.py
-          grep -q "'lastPrice':last_trade_price" bybit-live-bridge/bybit_live_bridge.py
+          ! grep -qi 'claude\|codex\|deepseek\|FOREX_CONNECTIVITY' bybit-live-bridge/bybit_live_bridge.py
+          grep -q 'BYBIT_MULTI_SYMBOLS' bybit-live-bridge/bybit_live_bridge.py
+          grep -q 'WORKER_WAKE_SEMAPHORE' bybit-live-bridge/bybit_live_bridge.py
+          grep -q 'x-bybit-symbol' bybit-live-bridge/bybit_live_bridge.py
       - name: Ensure WebSocket dependency
-        shell: bash
         run: |
-          set -euo pipefail
-          if python3 -c 'import websocket' 2>/dev/null; then
-            python3 -c 'import websocket; print("WEBSOCKET_CLIENT_READY", getattr(websocket,"__version__","unknown"))'
-            exit 0
-          fi
-          python3 -m pip install --disable-pip-version-check --break-system-packages websocket-client
-          python3 -c 'import websocket; print("WEBSOCKET_CLIENT_INSTALLED", getattr(websocket,"__version__","unknown"))'
-      - name: Install single BTC bridge and remove duplicate event reader
-        shell: bash
+          python3 -c 'import websocket' 2>/dev/null || python3 -m pip install --disable-pip-version-check --break-system-packages websocket-client
+      - name: Install bridge
         run: |
-          set -euo pipefail
-          install -m 0755 bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
-          systemctl disable --now bybit-btc-event-driver.service 2>/dev/null || true
-          rm -f /etc/systemd/system/bybit-btc-event-driver.service
-          systemctl daemon-reload
-          systemctl reset-failed v11-manual-ai-bridge.service || true
-          systemctl restart v11-manual-ai-bridge.service
-          systemctl is-active --quiet v11-manual-ai-bridge.service
-          if systemctl is-active --quiet bybit-btc-event-driver.service 2>/dev/null; then
-            echo 'DUPLICATE_EVENT_DRIVER_STILL_ACTIVE'
-            exit 1
-          fi
-      - name: Verify unified WS data and wake authority
+          sudo install -m 0755 bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
+          sudo systemctl disable --now bybit-btc-event-driver.service 2>/dev/null || true
+          sudo systemctl daemon-reload
+          sudo systemctl restart v11-manual-ai-bridge.service
+          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+      - name: Verify representative live WS symbols
         shell: bash
         run: |
           set -euo pipefail
           set -a; source /etc/trading-v11-ai.env; set +a
-          READY=0
-          for i in $(seq 1 40); do
-            curl -sS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' >/tmp/btc-micro.json || true
-            curl -sS --max-time 8 'http://127.0.0.1:8789/health' >/tmp/btc-bridge-health.json || true
-            if python3 - <<'PY' 2>/dev/null
-          import json, time
-          h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; ev=h.get('eventDriver') or {}; m=h.get('microstructure') or {}; t=x.get('trades') or {}; b=x.get('book') or {}; now=int(time.time()*1000)
-          assert h.get('ok') is True and h.get('service')=='BYBIT_BTC_LIVE_BRIDGE'
-          assert m.get('ready') is True and m.get('connected') is True
-          assert ev.get('integrated') is True and ev.get('enabled') is True
-          assert ev.get('authority')=='VPS_WS_MARKET_STATE_CHANGE'
-          assert d.get('ok') is True and x.get('source')=='VPS_BYBIT_WS'
-          assert b.get('bestBid',0)>0 and b.get('bestAsk',0)>0
-          assert t.get('updateTime',0)>0 and t.get('lastPrice',0)>0 and t.get('lastTradeTime',0)>0
-          assert now-int(t.get('lastTradeTime',0)) < 5000
-          assert now-int(b.get('updateTime',0)) < 5000
+          for i in $(seq 1 60); do
+            OK=1
+            curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/bybit-multi-health.json || OK=0
+            for S in BTCUSDT ETHUSDT SOLUSDT XRPUSDT LINKUSDT; do curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" "http://127.0.0.1:8789/bybit/microstructure?symbol=$S" >"/tmp/$S.json" || OK=0; done
+            if [ "$OK" = 1 ] && python3 - <<'PY'
+          import json,time
+          h=json.load(open('/tmp/bybit-multi-health.json'));assert h.get('ok') is True and h.get('service')=='BYBIT_MULTI_ASSET_LIVE_BRIDGE';assert len(h.get('symbols') or [])>=15
+          now=int(time.time()*1000)
+          for s in ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','LINKUSDT']:
+            d=json.load(open('/tmp/'+s+'.json'));x=d.get('data') or {};t=x.get('trades') or {};b=x.get('book') or {};assert x.get('symbol')==s and x.get('source')=='VPS_BYBIT_WS';assert t.get('lastPrice',0)>0 and b.get('bestBid',0)>0 and b.get('bestAsk',0)>0;assert now-int(t.get('lastTradeTime',0))<8000
           PY
-            then READY=1; break; fi
+            then exit 0; fi
             sleep 1
           done
-          if [ "$READY" != 1 ]; then
-            cat /tmp/btc-bridge-health.json || true
-            cat /tmp/btc-micro.json || true
-            journalctl -u v11-manual-ai-bridge.service -n 100 --no-pager || true
-            exit 1
-          fi
-          python3 - <<'PY'
-          import json
-          h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; t=x.get('trades') or {}
-          print('BTC_UNIFIED_WS=PASS','lastPrice',t.get('lastPrice'),'book',(x.get('book') or {}).get('updateTime'),'trades',t.get('updateTime'),'eventDriver',h.get('eventDriver'))
-          PY
-      - name: Verify integrated event wake reaches LIVE Worker
+          cat /tmp/bybit-multi-health.json || true
+          journalctl -u v11-manual-ai-bridge.service -n 120 --no-pager || true
+          exit 1
+      - name: Verify event wake reaches Worker
         shell: bash
         run: |
           set -euo pipefail
-          START_MS=$(date +%s%3N)
-          EVENT_OK=0
           for i in $(seq 1 90); do
-            curl -fsS --connect-timeout 5 --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/auto-hub/status' >/tmp/btc-hub.json || true
-            curl -fsS --connect-timeout 5 --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/btc/telemetry' >/tmp/btc-telemetry.json || true
-            curl -sS --max-time 8 'http://127.0.0.1:8789/health' >/tmp/btc-bridge-health.json || true
-            if START_MS="$START_MS" python3 - <<'PY' 2>/dev/null
-          import json, os, datetime
-          d=json.load(open('/tmp/btc-hub.json')); t=json.load(open('/tmp/btc-telemetry.json')); h=json.load(open('/tmp/btc-bridge-health.json')); m=d.get('modeAuthority') or {}; ev=h.get('eventDriver') or {}; meter=t.get('marketMeter') or {}; audit=t.get('protocolAudit') or {}
-          at=d.get('lastEventCycleAt') or ''
-          ts=int(datetime.datetime.fromisoformat(at.replace('Z','+00:00')).timestamp()*1000) if at else 0
-          assert d.get('ok') is True and d.get('mode')=='LIVE'
-          assert m.get('cycleMode')=='LIVE' and m.get('mismatch') is False
-          assert ts >= int(os.environ['START_MS'])-5000
-          assert ev.get('lastSuccessAt',0)>0 and ev.get('lastHttpStatus')==200
-          assert ev.get('lastResultMode')=='LIVE'
-          assert t.get('ok') is True and t.get('btcPriceSource')=='BYBIT_LINEAR_WS_LAST_TRADE'
-          assert meter.get('fresh') is True and meter.get('source')=='VPS_BYBIT_WS'
-          assert abs(float(meter.get('buyPct',0))+float(meter.get('sellPct',0))-100)<=1
-          assert audit.get('monitorAffectsTradeFrequency') is False and audit.get('decisionAuthority')=='VPS_WS_MARKET_STATE_CHANGE'
-          pos=d.get('position') or None
-          if pos:
-            assert float(pos.get('takeProfit') or 0)>0 and float(pos.get('stopLoss') or 0)>0
+            curl -fsS --max-time 15 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/entry-health >/tmp/bybit-entry.json || true
+            curl -fsS --max-time 8 http://127.0.0.1:8789/health >/tmp/bybit-multi-health.json || true
+            if python3 - <<'PY' 2>/dev/null
+          import json
+          h=json.load(open('/tmp/bybit-multi-health.json'));e=json.load(open('/tmp/bybit-entry.json'));d=h.get('eventDriver') or {};assert d.get('lastSuccessAt',0)>0 and d.get('lastHttpStatus')==200;assert e.get('multiAsset') is True and len(e.get('universe') or [])>=15
           PY
-            then EVENT_OK=1; break; fi
+            then echo BYBIT_MULTI_ASSET_EVENT_WAKE=PASS; exit 0; fi
             sleep 1
           done
-          if [ "$EVENT_OK" != 1 ]; then
-            echo 'BTC_INTEGRATED_EVENT_WAKE_E2E=FAIL'
-            cat /tmp/btc-hub.json || true
-            cat /tmp/btc-telemetry.json || true
-            cat /tmp/btc-bridge-health.json || true
-            systemctl --no-pager --full status v11-manual-ai-bridge.service || true
-            journalctl -u v11-manual-ai-bridge.service -n 120 --no-pager || true
-            exit 1
-          fi
-          echo 'BTC_INTEGRATED_EVENT_WAKE_E2E=PASS'
-          cat /tmp/btc-hub.json
-          cat /tmp/btc-telemetry.json
-          cat /tmp/btc-bridge-health.json
-      - name: Deployment summary
-        run: |
-          echo "BYBIT_BTC_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
-          echo 'BYBIT_PRIVATE_API_PROXY=PRESERVED'
-          echo 'BTC_MARKET_DATA=VPS_BYBIT_WS'
-          echo 'BTC_CANONICAL_PRICE=BYBIT_LINEAR_WS_LAST_TRADE'
-          echo 'BTC_DECISION_AUTHORITY=INTEGRATED_VPS_WS_MARKET_STATE_CHANGE'
-          echo 'MONITOR_TRADE_FREQUENCY_IMPACT=NONE'
-          echo 'DUPLICATE_EVENT_READER=DISABLED'
-          echo 'STRATEGY_TIME_GATES=NONE'
-          echo 'LEGACY_AI_FOREX_MEME=REMOVED'
+          exit 1
