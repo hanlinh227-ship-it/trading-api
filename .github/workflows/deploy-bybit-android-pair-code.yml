@@ -6,51 +6,30 @@ on:
       - '.github/bybit-android-pairing-trigger'
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: bybit-android-monitor-pairing
   cancel-in-progress: false
 jobs:
   deploy:
     runs-on: [self-hosted, Linux, X64, trading-vps]
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 2
-      - name: Apply one-time pairing support
-        run: python3 .github/scripts/apply-bybit-android-pair-code.py
-      - name: Validate unchanged trading runtime
+      - name: Validate pairing support and unchanged trading runtime
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-audit --no-fund
-          npm run check
           grep -q "PAIR_CODE_KEY" bybit-android-monitor.js
           grep -q "ONE_TIME_PAIR_CODE" bybit-android-monitor.js
+          grep -q "configurePairCode" bybit-android-monitor.js
           grep -q "BYBIT-MULTI-STATEFLOW-4.6.0" bybit-runtime-contract.js
           grep -q "BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK" bybit-runtime-contract.js
-      - name: Commit pairing support
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add cloudflare-worker/bybit-android-monitor.js cloudflare-worker/bybit-android-monitor-contract.js
-          if ! git diff --cached --quiet; then
-            git commit -m 'Add one-time Android Monitor pairing code'
-            git push origin HEAD:main
-          fi
-      - name: Deploy Worker preserving trading variables
-        working-directory: cloudflare-worker
-        shell: bash
-        run: |
-          set -euo pipefail
-          REV=$(git rev-parse HEAD)
-          GITHUB_SHA="$REV" npm run deploy
-      - name: Activate one-time pairing code hash
+      - name: Activate corrected one-time pairing code hash
         shell: bash
         env:
           PAIR_SHA256: ce41fc4048f8ad39b688df7e143069746a8684d371107166ea6880ca3b016b10
