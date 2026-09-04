@@ -1,0 +1,82 @@
+name: Apply Bybit V4.6 Broad Scalp Universe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v460-broad-scalp-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-v460-broad-scalp
+  cancel-in-progress: false
+jobs:
+  upgrade-deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply broad scalp opportunity network
+        run: python3 .github/scripts/apply-bybit-v460-broad-scalp-universe.py
+      - name: Validate Worker and bridge source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          grep -q 'BYBIT-MULTI-STATEFLOW-4.6.0' bybit-runtime-contract.js
+          grep -q 'BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK' bybit-runtime-contract.js
+          grep -q 'deepScanCount:12,promotionScanCount:12' bybit-coin-profiles.js
+          grep -q "BYBIT_MAX_WS_SYMBOLS','48'" ../bybit-live-bridge/bybit_live_bridge.py
+      - name: Commit V4.6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-coin-profiles.js cloudflare-worker/bybit-dynamic-universe.js cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/validate-btc-hyperscale.mjs bybit-live-bridge/bybit_live_bridge.py
+          git commit -m 'Expand Bybit broad scalp opportunity network V4.6.0'
+          git push origin HEAD:main
+      - name: Install expanded VPS WS bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd bybit-live-bridge
+          sudo bash install.sh
+          sudo mkdir -p /etc/systemd/system/bybit-btc-bridge.service.d
+          printf '[Service]\nEnvironment=BYBIT_MAX_WS_SYMBOLS=48\nEnvironment=BYBIT_EVENT_SYMBOL_LIMIT=12\n' | sudo tee /etc/systemd/system/bybit-btc-bridge.service.d/broad-universe.conf >/dev/null
+          sudo systemctl daemon-reload
+          sudo systemctl restart bybit-btc-bridge.service
+          sleep 5
+          sudo systemctl is-active --quiet bybit-btc-bridge.service
+      - name: Deploy Worker preserving runtime vars
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          REV=$(git rev-parse HEAD)
+          GITHUB_SHA="$REV" npm run deploy
+      - name: Verify production V4.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          T="$RUNNER_TEMP/v460-broad"; mkdir -p "$T"
+          for i in $(seq 1 24); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            curl -fsS --max-time 30 "$BASE/runtime/contract" > "$T/contract.json" || true
+            OK=$(T="$T" node -e "const fs=require('fs'),p=process.env.T;try{const h=JSON.parse(fs.readFileSync(p+'/health.json')),c=JSON.parse(fs.readFileSync(p+'/contract.json'));process.stdout.write(h.version==='BYBIT-MULTI-STATEFLOW-4.6.0'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK'?'1':'0')}catch{process.stdout.write('0')}")
+            [ "$OK" = 1 ] && break
+            sleep 5
+          done
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json"
+          curl -fsS --max-time 60 "$BASE/bybit/universe" > "$T/universe.json"
+          T="$T" node <<'NODE'
+          const fs=require('fs'),p=process.env.T,read=f=>JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'));
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json'),u=read('universe.json');
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.6.0',contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK',live:h.mode==='LIVE',ready:h.execution?.ready===true,broad:c.broadScalpUniverse===true,ws:c.expandedWsCoverage===true,deep:c.expandedDeepScan===true,promotion:c.expandedPromotionScan===true,sameRisk:c.opportunityBreadthDoesNotIncreaseRiskBudget===true,performance:c.realizedPnlPerformanceGovernor===true,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0,universe:u.ok===true};
+          const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,equity:h.account?.totalEquity,wallet:h.account?.walletBalance,available:h.account?.availableBalance,positions:h.positions?.items||[]},contract:{version:c.version,broadScalpUniverse:c.broadScalpUniverse,expandedWsCoverage:c.expandedWsCoverage,expandedDeepScan:c.expandedDeepScan,expandedPromotionScan:c.expandedPromotionScan,opportunityBreadthDoesNotIncreaseRiskBudget:c.opportunityBreadthDoesNotIncreaseRiskBudget},universe:u.summary||null,entry:{status:e.status,blockers:e.blockers||[]},checks};console.log(JSON.stringify(out,null,2));if(!pass)process.exit(9);
+NODE
