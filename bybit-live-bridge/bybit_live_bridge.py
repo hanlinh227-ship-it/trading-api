@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """BTC-only Bybit VPS bridge.
 
-Preserves the existing signed private REST proxy contract used by the Cloudflare Worker
-and adds an optional event-driven public microstructure collector for BTCUSDT.
-No AI council, Forex bot, Meme bot or strategy decision runs here.
+Single BTCUSDT VPS authority for signed private REST proxy, public WebSocket
+microstructure and event-driven Worker wakeups. Market data and execution wakeups
+share the same confirmed WS stream so there is no second market reader or strategy
+scheduler. Reconnect backoff is transport-only, never a trading time gate.
 """
 from __future__ import annotations
 import json, math, os, threading, time, urllib.error, urllib.parse, urllib.request
@@ -15,6 +16,8 @@ HOST=os.environ.get('BYBIT_VPS_BRIDGE_HOST',os.environ.get('V11_AI_BRIDGE_HOST',
 PORT=int(os.environ.get('BYBIT_VPS_BRIDGE_PORT',os.environ.get('V11_AI_BRIDGE_PORT','8789')))
 SYMBOL='BTCUSDT'
 WS_URL=os.environ.get('BYBIT_PUBLIC_WS','wss://stream.bybit.com/v5/public/linear')
+WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.hanlinh227.workers.dev').rstrip('/')
+EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes')
 BYBIT_BASES=tuple(dict.fromkeys(x.rstrip('/') for x in [os.environ.get('BYBIT_API_BASE_URL','').strip(),'https://api.bybit.com','https://api.bytick.com'] if x.strip()))
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
 BYBIT_ALLOWED_METHODS=('GET','POST')
@@ -28,6 +31,12 @@ class Microstructure:
     def __init__(self):
         self.lock=threading.RLock(); self.bids={}; self.asks={}; self.trades=deque(maxlen=12000); self.liquidations=deque(maxlen=4000)
         self.last_book=0; self.last_trade=0; self.last_liq=0; self.last_error=None; self.connected=False; self.thread=None
+        self.event_last_fingerprint=None; self.event_inflight=False; self.event_pending=False
+        self.event_last_wake=0; self.event_last_success=0; self.event_last_error=None; self.event_last_result=None; self.event_last_http=0
+    @staticmethod
+    def _imb(b,a): return (b-a)/(b+a) if b+a>0 else 0.0
+    @staticmethod
+    def _bucket(x,step): return int(round(float(x)/step)) if step>0 else int(round(float(x)))
     def start(self):
         if websocket is None:
             self.last_error='WEBSOCKET_CLIENT_NOT_INSTALLED'; return
@@ -46,10 +55,71 @@ class Microstructure:
         ws.send(json.dumps({'op':'subscribe','args':[f'orderbook.50.{SYMBOL}',f'publicTrade.{SYMBOL}',f'allLiquidation.{SYMBOL}']}))
     def _error(self,_ws,e): self.last_error='WS:'+str(e)[:240]
     def _close(self,_ws,_code,_msg): self.connected=False
+    def _trade_imbalance_locked(self,window_ms,now):
+        buy=sell=0.0
+        for t,side,q,p in self.trades:
+            if t<now-window_ms: continue
+            v=q*p
+            if side=='Buy': buy+=v
+            elif side=='Sell': sell+=v
+        return self._imb(buy,sell)
+    def _event_fingerprint(self,topic):
+        now=int(time.time()*1000)
+        with self.lock:
+            if not self.bids or not self.asks:return None
+            bids=sorted(self.bids.items(),reverse=True)[:50]; asks=sorted(self.asks.items())[:50]
+            bb,bs=bids[0]; ba,as_=asks[0]; mid=(bb+ba)/2
+            def depth(rows,bps):return sum(p*q for p,q in rows if abs(p-mid)/mid*10000<=bps)
+            b2,a2=depth(bids,2),depth(asks,2); b5,a5=depth(bids,5),depth(asks,5)
+            i2=self._imb(b2,a2); i5=self._imb(b5,a5)
+            f5=self._trade_imbalance_locked(5000,now); f15=self._trade_imbalance_locked(15000,now)
+            micro=(ba*bs+bb*as_)/(bs+as_) if bs+as_>0 else mid
+            mp=(micro-mid)/mid*10000 if mid>0 else 0
+            return (self._bucket(mid,1.0),self._bucket(i2,.05),self._bucket(i5,.05),self._bucket(f5,.05),self._bucket(f15,.05),self._bucket(mp,.01),str(topic).split('.')[0])
+    def _wake_worker(self,reason):
+        now=int(time.time()*1000); self.event_last_wake=now
+        req=urllib.request.Request(WORKER_URL+'/bybit/auto/run',method='POST',data=b'{}',headers={'content-type':'application/json','accept':'application/json','x-action-key':SECRET,'x-btc-trigger':'VPS_WS_EVENT','x-btc-trigger-reason':str(reason)[:120]})
+        try:
+            with urllib.request.urlopen(req,timeout=35) as r:
+                self.event_last_http=int(r.status); raw=r.read(1_000_000).decode(errors='replace')
+            try:out=json.loads(raw)
+            except Exception:out={'raw':raw[:300]}
+            self.event_last_result=out
+            if self.event_last_http==200 and out.get('ok') is not False:
+                self.event_last_success=int(time.time()*1000); self.event_last_error=None
+            else:self.event_last_error=f'WORKER_HTTP_{self.event_last_http}:'+str(out)[:240]
+        except urllib.error.HTTPError as e:
+            self.event_last_http=int(e.code)
+            try:body=e.read(1000).decode(errors='replace')
+            except Exception:body=''
+            self.event_last_error=f'WORKER_HTTP_{e.code}:{body[:220]}'
+            print('BTC_EVENT_WAKE_ERROR',self.event_last_error,flush=True)
+        except Exception as e:
+            self.event_last_http=0; self.event_last_error='WORKER_WAKE:'+str(e)[:240]
+            print('BTC_EVENT_WAKE_ERROR',self.event_last_error,flush=True)
+        finally:
+            with self.lock:
+                rerun=self.event_pending; self.event_pending=False
+                if not rerun:self.event_inflight=False
+            if rerun:self._spawn_wake('COALESCED_LATEST_STATE')
+    def _spawn_wake(self,reason):
+        if not EVENT_ENABLED or not SECRET:return
+        with self.lock:
+            if self.event_inflight:
+                self.event_pending=True; return
+            self.event_inflight=True
+        threading.Thread(target=self._wake_worker,args=(reason,),name='btc-worker-wake',daemon=True).start()
+    def _maybe_wake(self,topic):
+        fp=self._event_fingerprint(topic)
+        if fp is None:return
+        with self.lock:
+            if fp==self.event_last_fingerprint:return
+            self.event_last_fingerprint=fp
+        self._spawn_wake('MARKET_STATE_CHANGE:'+str(topic))
     def _message(self,_ws,raw):
         try: msg=json.loads(raw)
         except Exception: return
-        topic=str(msg.get('topic') or ''); data=msg.get('data') or {}; now=int(time.time()*1000)
+        topic=str(msg.get('topic') or ''); data=msg.get('data') or {}; now=int(time.time()*1000); changed=False
         with self.lock:
             if topic.startswith('orderbook.'):
                 if msg.get('type')=='snapshot': self.bids={float(p):float(q) for p,q in data.get('b',[]) if float(q)>0}; self.asks={float(p):float(q) for p,q in data.get('a',[]) if float(q)>0}
@@ -58,19 +128,22 @@ class Microstructure:
                         p=float(p);q=float(q); self.bids.pop(p,None) if q==0 else self.bids.__setitem__(p,q)
                     for p,q in data.get('a',[]):
                         p=float(p);q=float(q); self.asks.pop(p,None) if q==0 else self.asks.__setitem__(p,q)
-                self.last_book=int(msg.get('cts') or msg.get('ts') or now)
+                self.last_book=int(msg.get('cts') or msg.get('ts') or now); changed=True
             elif topic==f'publicTrade.{SYMBOL}':
                 for x in (data if isinstance(data,list) else [data]):
-                    try:self.trades.append((int(x.get('T') or now),str(x.get('S') or ''),float(x.get('v') or 0),float(x.get('p') or 0)))
+                    try:self.trades.append((int(x.get('T') or now),str(x.get('S') or ''),float(x.get('v') or 0),float(x.get('p') or 0))); changed=True
                     except Exception:pass
                 self.last_trade=int(msg.get('ts') or now)
             elif topic==f'allLiquidation.{SYMBOL}':
                 for x in (data if isinstance(data,list) else [data]):
-                    try:self.liquidations.append((int(x.get('T') or now),str(x.get('S') or ''),float(x.get('v') or 0),float(x.get('p') or 0)))
+                    try:self.liquidations.append((int(x.get('T') or now),str(x.get('S') or ''),float(x.get('v') or 0),float(x.get('p') or 0))); changed=True
                     except Exception:pass
                 self.last_liq=int(msg.get('ts') or now)
-    @staticmethod
-    def _imb(b,a): return (b-a)/(b+a) if b+a>0 else 0.0
+        if changed:self._maybe_wake(topic)
+    def event_status(self):
+        with self.lock:
+            r=self.event_last_result or {}; ctl=r.get('controller') or {}
+            return {'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason')}
     def snapshot(self):
         now=int(time.time()*1000)
         with self.lock:
@@ -97,7 +170,7 @@ class Microstructure:
             if side=='Buy':long_usd+=v
             elif side=='Sell':short_usd+=v
         total_liq=long_usd+short_usd
-        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst5x':w5['totalNotional']/base,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err}
+        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst5x':w5['totalNotional']/base,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
 
 MICRO=Microstructure()
 
@@ -128,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            snap=MICRO.snapshot();return self.sendj(200,{'ok':True,'service':'BYBIT_BTC_LIVE_BRIDGE','privateProxy':True,'microstructure':{'ready':bool(snap.get('ok')),'connected':bool(snap.get('connected')),'reason':snap.get('reason'),'error':snap.get('error')},'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+            snap=MICRO.snapshot();return self.sendj(200,{'ok':True,'service':'BYBIT_BTC_LIVE_BRIDGE','privateProxy':True,'microstructure':{'ready':bool(snap.get('ok')),'connected':bool(snap.get('connected')),'reason':snap.get('reason'),'error':snap.get('error')},'eventDriver':MICRO.event_status(),'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
         if u.path=='/bybit/microstructure':
             if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
             q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [SYMBOL])[0]).upper()
