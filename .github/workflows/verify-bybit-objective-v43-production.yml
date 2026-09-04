@@ -1,0 +1,67 @@
+name: Verify Bybit Objective V4.3 Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-objective-v43-production-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-bybit-objective-v43-production
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify deployed V4.3 objective runtime and all-symbol market authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="$GITHUB_SHA"
+          HEALTH_FILE="$(mktemp)"
+          CONTRACT_FILE="$(mktemp)"
+          ENTRY_FILE="$(mktemp)"
+          HC=0
+          for i in $(seq 1 60); do
+            HC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$HEALTH_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || echo 000)"
+            REV="$(node -e 'const fs=require("fs");try{const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(String(j.runtimeRevision||""))}catch{}' "$HEALTH_FILE")"
+            if [ "$HC" = 200 ] && [ "$REV" = "$EXPECTED" ]; then break; fi
+            sleep 12
+          done
+          CC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$CONTRACT_FILE" -w '%{http_code}' "$WORKER_BASE_URL/runtime/contract" || echo 000)"
+          EC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$ENTRY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/entry-health" || echo 000)"
+          mkdir -p /tmp/bybit-v43-scans
+          symbols=(BTCUSDT ETHUSDT BNBUSDT XRPUSDT SOLUSDT TRXUSDT DOGEUSDT ADAUSDT LINKUSDT AVAXUSDT LTCUSDT BCHUSDT XLMUSDT DOTUSDT NEARUSDT UNIUSDT AAVEUSDT HBARUSDT)
+          for sym in "${symbols[@]}"; do
+            curl -sS --connect-timeout 8 --max-time 90 -o "/tmp/bybit-v43-scans/$sym.json" "$WORKER_BASE_URL/bybit/scan?symbol=$sym" || echo '{}' > "/tmp/bybit-v43-scans/$sym.json"
+          done
+          EXPECTED="$EXPECTED" HC="$HC" CC="$CC" EC="$EC" HEALTH_FILE="$HEALTH_FILE" CONTRACT_FILE="$CONTRACT_FILE" ENTRY_FILE="$ENTRY_FILE" node <<'NODE'
+          const fs=require('fs');
+          const read=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
+          const h=read(process.env.HEALTH_FILE),c=read(process.env.CONTRACT_FILE),e=read(process.env.ENTRY_FILE),expected=process.env.EXPECTED;
+          const symbols=['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','SOLUSDT','TRXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','AVAXUSDT','LTCUSDT','BCHUSDT','XLMUSDT','DOTUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','HBARUSDT'];
+          const scans=Object.fromEntries(symbols.map(sym=>[sym,read(`/tmp/bybit-v43-scans/${sym}.json`)]));
+          const contractSymbols=Array.isArray(c.symbols)?c.symbols:[];
+          const revisionOk=h.runtimeRevision===expected&&c.runtimeRevision===expected;
+          const healthOk=process.env.HC==='200'&&h.ok===true&&h.mode==='LIVE'&&h.authenticated===true&&h.privateTransport==='VPS_BYBIT_PRIVATE_PROXY'&&h.marketTransport==='VPS_BYBIT_MARKET_PROXY'&&revisionOk;
+          const contractOk=process.env.CC==='200'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V16_OBJECTIVE_PROFIT_EFFICIENCY'&&c.autoVersion==='BYBIT-MULTI-STATEFLOW-4.3'&&c.executionAuthority==='BYBIT_MAJOR_CAP_MULTI_ASSET'&&c.multiAsset===true&&c.plannedNetProfitFloor===true&&c.plannedNetProfitFloorStartsAtOneUsd===true&&c.profitFloorScalesWithEquity===true&&c.perSymbolProfitFloorMultiplier===true&&c.profitFloorRetentionAfterHit===true&&c.profitFloorAdaptiveLeverage===true&&c.profileNormalizedQuality===true&&c.peakNetProfitRetention===true&&c.shortMomentumAloneCanExit===false&&c.profitHarvestRequiresMultiStageInvalidation===true&&symbols.every(x=>contractSymbols.includes(x));
+          const entryOk=process.env.EC==='200'&&e.ok===true&&e.status==='BYBIT_MULTI_ENTRY_INFRA_READY'&&e.mode==='LIVE'&&e.multiAsset===true&&Array.isArray(e.blockers)&&e.blockers.length===0&&symbols.every(x=>(e.universe||[]).includes(x));
+          const scanChecks={},scanDiagnostics={};
+          for(const sym of symbols){const s=scans[sym]||{},m=s.market||{};scanChecks[sym]=s.ok===true&&s.symbol===sym&&s.version==='BYBIT-MULTI-STATEFLOW-4.3'&&m.microstructureSource==='VPS_BYBIT_WS'&&typeof m.regime==='string';scanDiagnostics[sym]={ok:s.ok??null,version:s.version||null,source:m.microstructureSource||null,regime:m.regime||null,freshBook:m.quality?.freshBook??null,freshTrades:m.quality?.freshTrades??null,selectedOk:s.selected?.ok??null,selectedReason:s.selected?.reason||null,setup:s.selected?.setup?.setup||null,entryTier:s.selected?.setup?.entryTier||null};}
+          const scansOk=Object.values(scanChecks).every(Boolean);
+          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&contractOk&&entryOk&&scansOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,mode:h.mode||null,authenticated:!!h.authenticated,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,revisionOk},contract:{http:Number(process.env.CC)||0,version:c.version||null,autoVersion:c.autoVersion||null,authority:c.executionAuthority||null,multiAsset:c.multiAsset??null,symbolCount:contractSymbols.length,profitFloorScalesWithEquity:c.profitFloorScalesWithEquity??null,profitFloorAdaptiveLeverage:c.profitFloorAdaptiveLeverage??null,profileNormalizedQuality:c.profileNormalizedQuality??null,peakNetProfitRetention:c.peakNetProfitRetention??null,shortMomentumAloneCanExit:c.shortMomentumAloneCanExit??null},entryHealth:{http:Number(process.env.EC)||0,status:e.status||null,mode:e.mode||null,blockers:e.blockers||[],universeCount:Array.isArray(e.universe)?e.universe.length:0},scanChecks,scanDiagnostics};
+          console.log(JSON.stringify(out,null,2));
+          if(!out.pass)process.exit(7);
+          NODE
