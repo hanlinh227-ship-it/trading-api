@@ -1,20 +1,19 @@
-// V78-011 — shared Telegram Bot API transport primitive.
-// Extracted byte-for-byte HTTP-call+JSON-parse pattern common to
-// index.js, hub-v77171.js, claude-telegram.js, system-health.js,
-// release-notifier.js, dual-ai-intervention.js and claude-reviewer.js.
-// Guard checks (TELEGRAM_BOT_TOKEN/CHAT_ID presence), error-throw vs
-// boolean-return interpretation, and reply_markup/payload construction
-// all remain in each caller — this primitive only does the raw fetch+parse.
-// engine-v77168.js is intentionally EXCLUDED: its telegram() wraps fetch
-// with fetchTimeout()/AbortController (6500ms), a genuine behavioral
-// difference not present in the other 7. Deferred to a future issue
-// alongside its Wave 5 (V78-054) decomposition.
-
-export async function telegramApiRequest(env, method, payload) {
-  const r = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
-    method: "POST",
-    headers: {"content-type": "application/json"},
-    body: JSON.stringify(payload)
-  });
-  return await r.json();
+// BTC runtime Telegram transport. A Telegram HTTP 200 with {ok:false} is still a failure.
+// Callers rely on thrown errors so notifications are never marked delivered unless Telegram confirms them.
+export async function telegramApiRequest(env,method,payload={}){
+  const token=String(env?.TELEGRAM_BOT_TOKEN||'').trim();
+  if(!token)throw new Error('TELEGRAM_BOT_TOKEN_MISSING');
+  if(String(method)==='sendMessage'&&!String(payload?.chat_id||'').trim())throw new Error('TELEGRAM_CHAT_ID_MISSING');
+  let r,j=null;
+  try{
+    r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{
+      method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(10000)
+    });
+    j=await r.json().catch(()=>null);
+  }catch(e){throw new Error(`TELEGRAM_TRANSPORT_FAILED: ${String(e?.message||e).slice(0,220)}`);}
+  if(!r.ok||j?.ok!==true){
+    const d=String(j?.description||j?.error_code||`HTTP_${r.status}`).slice(0,240);
+    const e=new Error(`TELEGRAM_API_FAILED: ${d}`);e.telegram={httpStatus:r.status,errorCode:j?.error_code??null,description:j?.description||null,method};throw e;
+  }
+  return j;
 }
