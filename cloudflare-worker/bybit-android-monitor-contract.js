@@ -2,6 +2,7 @@ export const BYBIT_ANDROID_MONITOR_SCHEMA_VERSION='BYBIT_ANDROID_MONITOR_V1';
 export const BYBIT_ANDROID_MONITOR_ROUTES=Object.freeze({
   bootstrap:'/bybit/monitor/bootstrap',
   pair:'/bybit/monitor/pair',
+  pairCodeAdmin:'/bybit/monitor/pair-code',
   authHealth:'/bybit/monitor/auth/health',
   snapshot:'/bybit/monitor/snapshot',
   websocket:'/bybit/monitor/ws'

@@ -6,6 +6,7 @@ import {buildBybitDynamicUniverse} from './bybit-dynamic-universe.js';
 import {BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,BYBIT_ANDROID_MONITOR_ROUTES,BYBIT_ANDROID_MONITOR_CAPABILITIES} from './bybit-android-monitor-contract.js';
 
 const TOKEN_KEY='bybit:android:monitor:token:v1';
+const PAIR_CODE_KEY='bybit:android:monitor:pair-code:v1';
 const enc=new TextEncoder();
 const num=v=>Number.isFinite(Number(v))?Number(v):0;
 const on=v=>String(v||'').toLowerCase()==='true';
@@ -27,16 +28,35 @@ async function monitorAuth(req,env){
   const state=await kvGet(env,TOKEN_KEY,null);if(!state?.sha256)return {ok:false,reason:'MONITOR_NOT_PAIRED'};
   const hash=await sha256Hex(token);return secureEq(hash,state.sha256)?{ok:true,source:'PAIRED_MONITOR_TOKEN',scope:'TELEMETRY_READ_ONLY',deviceName:state.deviceName||null}:{ok:false,reason:'MONITOR_TOKEN_INVALID'};
 }
-function actionBootstrapAuth(req,env){const expected=String(env.GPT_5AI_ACTION_KEY||'').trim(),got=String(req.headers.get('x-action-key')||'').trim();return !!expected&&secureEq(got,expected);}
+function actionBootstrapAuth(req,env){const got=String(req.headers.get('x-action-key')||req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'').trim(),action=String(env.GPT_5AI_ACTION_KEY||'').trim(),bridge=String(env.V11_AI_BRIDGE_SECRET||env.BYBIT_VPS_BRIDGE_SECRET||'').trim();return !!got&&((!!action&&secureEq(got,action))||(!!bridge&&secureEq(got,bridge)));}
 function randomToken(){const a=new Uint8Array(32);crypto.getRandomValues(a);let s='';for(const b of a)s+=String.fromCharCode(b);return 'bam1_'+btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 async function pairMonitor(req,env){
-  if(!actionBootstrapAuth(req,env))return json({ok:false,error:'PAIR_REQUIRES_ACTION_KEY',readOnly:true},401);
   if(!env.TRADING_STATE)return json({ok:false,error:'TRADING_STATE_KV_REQUIRED'},503);
   let body={};try{body=await req.json()}catch{}
+  let authorized=actionBootstrapAuth(req,env),authSource=authorized?'ADMIN_SECRET':null;
+  if(!authorized){
+    const code=String(body?.pairingCode||'').trim().toUpperCase(),state=await kvGet(env,PAIR_CODE_KEY,null),now=Date.now();
+    if(!code||!state?.sha256)return json({ok:false,error:'PAIRING_CODE_REQUIRED',readOnly:true},401);
+    if(num(state.expiresAt)<=now){try{await env.TRADING_STATE.delete(PAIR_CODE_KEY)}catch{}return json({ok:false,error:'PAIRING_CODE_EXPIRED',readOnly:true},401);}
+    const hash=await sha256Hex(code);if(!secureEq(hash,String(state.sha256||'')))return json({ok:false,error:'PAIRING_CODE_INVALID',readOnly:true},401);
+    authorized=true;authSource='ONE_TIME_PAIR_CODE';try{await env.TRADING_STATE.delete(PAIR_CODE_KEY)}catch{}
+  }
+  if(!authorized)return json({ok:false,error:'PAIR_UNAUTHORIZED',readOnly:true},401);
   const deviceName=String(body?.deviceName||'Android Monitor').replace(/[\r\n\t]/g,' ').slice(0,80),token=randomToken(),sha256=await sha256Hex(token),at=Date.now();
   await env.TRADING_STATE.put(TOKEN_KEY,JSON.stringify({sha256,createdAt:at,rotatedAt:at,deviceName,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,scope:'TELEMETRY_READ_ONLY'}));
-  return json({ok:true,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,token,tokenType:'Bearer',scope:'TELEMETRY_READ_ONLY',deviceName,createdAt:new Date(at).toISOString(),warning:'TOKEN_IS_SHOWN_ONCE_STORE_IN_ANDROID_KEYSTORE'});
+  return json({ok:true,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,token,tokenType:'Bearer',scope:'TELEMETRY_READ_ONLY',deviceName,authSource,createdAt:new Date(at).toISOString(),warning:'TOKEN_IS_SHOWN_ONCE_STORE_IN_ANDROID_KEYSTORE'});
 }
+async function configurePairCode(req,env){
+  if(!actionBootstrapAuth(req,env))return json({ok:false,error:'PAIR_CODE_ADMIN_AUTH_REQUIRED',readOnly:true},401);
+  if(!env.TRADING_STATE)return json({ok:false,error:'TRADING_STATE_KV_REQUIRED'},503);
+  let body={};try{body=await req.json()}catch{}
+  const sha=String(body?.sha256||'').toLowerCase(),now=Date.now(),expiresAt=num(body?.expiresAt);
+  if(!/^[a-f0-9]{64}$/.test(sha))return json({ok:false,error:'PAIR_CODE_SHA256_INVALID'},400);
+  if(!(expiresAt>now&&expiresAt<=now+30*24*60*60*1000))return json({ok:false,error:'PAIR_CODE_EXPIRY_INVALID'},400);
+  await env.TRADING_STATE.put(PAIR_CODE_KEY,JSON.stringify({sha256:sha,createdAt:now,expiresAt,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,scope:'ONE_TIME_PAIRING_ONLY'}));
+  return json({ok:true,readOnly:true,configured:true,expiresAt:new Date(expiresAt).toISOString(),plaintextCodeReturned:false});
+}
+
 
 async function cached(key,ttl,loader){
   const cache=key==='bridge'?bridgeCache:universeCache,now=Date.now();
@@ -112,6 +132,7 @@ export async function handleBybitAndroidMonitor(req,env,ctx){
   const u=new URL(req.url),p=u.pathname;if(!p.startsWith('/bybit/monitor/'))return null;
   if(p===BYBIT_ANDROID_MONITOR_ROUTES.bootstrap&&req.method==='GET')return json(bootstrap());
   if(p===BYBIT_ANDROID_MONITOR_ROUTES.authHealth&&req.method==='GET')return json(await authHealth(env));
+  if(p==='/bybit/monitor/pair-code'&&req.method==='POST')return configurePairCode(req,env);
   if(p===BYBIT_ANDROID_MONITOR_ROUTES.pair&&req.method==='POST')return pairMonitor(req,env);
   if(p===BYBIT_ANDROID_MONITOR_ROUTES.snapshot&&req.method==='GET'){const a=await monitorAuth(req,env);if(!a.ok)return json({ok:false,error:a.reason,readOnly:true},401);try{return json(await buildBybitAndroidSnapshot(env))}catch(e){return json({ok:false,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,error:'MONITOR_SNAPSHOT_FAILED',detail:String(e?.message||e).slice(0,240)},502)}}
   if(p===BYBIT_ANDROID_MONITOR_ROUTES.websocket&&req.method==='GET')return openWebSocket(req,env,ctx);
