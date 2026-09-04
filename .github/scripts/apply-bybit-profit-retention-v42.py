@@ -5,11 +5,13 @@ CF=ROOT/'cloudflare-worker'
 
 def patch(path, replacements):
     text=path.read_text(encoding='utf-8')
+    double_reset="state.profitHarvestWeakCount=0;state.positionPeakR=0;state.aggregateStop=0;state.currentPositionMarginUsd=0;"
     for old,new in replacements:
+        expected=2 if old==double_reset else 1
         count=text.count(old)
-        if count!=1:
-            raise SystemExit(f'{path}: expected exactly 1 match, got {count}: {old[:120]}')
-        text=text.replace(old,new,1)
+        if count!=expected:
+            raise SystemExit(f'{path}: expected exactly {expected} match(es), got {count}: {old[:120]}')
+        text=text.replace(old,new,expected)
     path.write_text(text,encoding='utf-8')
 
 config=CF/'bybit-auto-config.js'
