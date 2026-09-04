@@ -1,4 +1,4 @@
-name: Diagnose Bybit V4.3 Live
+name: Diagnose Bybit V4.4 Live
 
 on:
   push:
@@ -15,18 +15,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: Audit all 18 symbols runtime and UI contract
+      - name: Audit V4.4 runtime, dynamic universe, core symbols and UI contract
         shell: bash
         run: |
           set -euo pipefail
           BASE=https://trading-v77-scanner.hanlinh227.workers.dev
-          TMP="$RUNNER_TEMP/bybit-v43-live-audit"
+          TMP="$RUNNER_TEMP/bybit-v44-live-audit"
           rm -rf "$TMP"
           mkdir -p "$TMP"
           curl -sS --max-time 35 "$BASE/bybit/health" > "$TMP/health.json"
           curl -sS --max-time 45 "$BASE/bybit/entry-health" > "$TMP/entry.json" || true
           curl -sS --max-time 35 "$BASE/runtime/contract" > "$TMP/contract.json"
           curl -sS --max-time 35 "$BASE/bybit/ui/bootstrap" > "$TMP/ui-bootstrap.json"
+          curl -sS --max-time 60 "$BASE/bybit/universe" > "$TMP/universe.json" || echo '{}' > "$TMP/universe.json"
           UI_CODE=$(curl -sS -o "$TMP/ui-snapshot-unauth.json" -w '%{http_code}' --max-time 35 "$BASE/bybit/ui/snapshot" || true)
           echo "$UI_CODE" > "$TMP/ui-snapshot-unauth-status.txt"
           symbols=(BTCUSDT ETHUSDT BNBUSDT XRPUSDT SOLUSDT TRXUSDT DOGEUSDT ADAUSDT LINKUSDT AVAXUSDT LTCUSDT BCHUSDT XLMUSDT DOTUSDT NEARUSDT UNIUSDT AAVEUSDT HBARUSDT)
@@ -37,23 +38,25 @@ jobs:
           const fs=require('fs'),p=process.env.TMP;
           const read=f=>{try{return JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'))}catch{return {}}};
           const text=f=>{try{return fs.readFileSync(`${p}/${f}`,'utf8').trim()}catch{return ''}};
-          const h=read('health.json'),e=read('entry.json'),c=read('contract.json'),ui=read('ui-bootstrap.json'),unauth=read('ui-snapshot-unauth.json');
+          const h=read('health.json'),e=read('entry.json'),c=read('contract.json'),ui=read('ui-bootstrap.json'),u=read('universe.json'),unauth=read('ui-snapshot-unauth.json');
           const symbols=['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','SOLUSDT','TRXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','AVAXUSDT','LTCUSDT','BCHUSDT','XLMUSDT','DOTUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','HBARUSDT'];
-          const rows=symbols.map(sym=>{const s=read(`${sym}.json`),m=s.market||{},x=s.selected||{},q=m.quality||{},d=x.diagnostic||{},setup=x.setup||{};return {symbol:sym,ok:s.ok===true,source:m.microstructureSource||null,regime:m.regime||null,freshBook:q.freshBook??null,freshTrades:q.freshTrades??null,ultraFastReady:q.ultraFastReady??null,setupOk:x.ok===true,reason:x.reason||null,side:setup.side||null,tier:setup.entryTier||null,setup:setup.setup||null,rr:Number(setup.rr)||null,quality:Number(d.q)||null,qualityMin:Number(d.qualityMin)||null,score:Number(d.score)||null,threshold:Number(d.threshold)||null,votes:Number(d.votes)||null,minVotes:Number(d.minVotes)||null,strongConsensus:d.strongConsensus??null,totalCostBps:Number(setup.cost?.totalCostBps||x.cost?.totalCostBps)||null,netTargetBps:Number(setup.cost?.netTargetBps||x.cost?.netTargetBps)||null};});
-          const audit={checkedAt:new Date().toISOString(),runtime:{version:h.version||null,contract:c.version||null,mode:h.mode||null,environment:h.environment||null,authenticated:h.authenticated??null,liveAck:h.execution?.liveAck??e.btcLiveAck??null,entryReady:h.execution?.ready??null,entryStatus:e.status||null,blockers:e.blockers||[],equity:h.account?.totalEquity??null,wallet:h.account?.walletBalance??null,available:h.account?.availableBalance??null,positions:h.positions?.items||[],runtimeRevision:h.runtimeRevision||c.runtimeRevision||null,riskSlotAdmissionIncludesPendingEntry:c.riskSlotAdmissionIncludesPendingEntry??null},ui:{bootstrapOk:ui.ok===true,schemaVersion:ui.schemaVersion||null,coreBaseline:ui.coreBaseline||null,version:ui.version||null,runtimeContract:ui.runtimeContract||null,snapshotRoute:ui.routes?.snapshot||null,writeControlsExposed:ui.capabilities?.executionWriteControlsExposedToUi??null,realizedProfitGuaranteed:ui.capabilities?.realizedProfitGuaranteed??null,unauthSnapshotHttpStatus:text('ui-snapshot-unauth-status.txt'),unauthSnapshotError:unauth.error||unauth.reason||null},symbols:rows};
+          const rows=symbols.map(sym=>{const s=read(`${sym}.json`),m=s.market||{},x=s.selected||{},q=m.quality||{},d=x.diagnostic||{},setup=x.setup||{};return {symbol:sym,ok:s.ok===true,source:m.microstructureSource||null,regime:m.regime||null,freshBook:q.freshBook??null,freshTrades:q.freshTrades??null,ultraFastReady:q.ultraFastReady??null,setupOk:x.ok===true,reason:x.reason||null,side:setup.side||null,tier:setup.entryTier||null,setup:setup.setup||null,rr:Number(setup.rr)||null,quality:Number(d.q)||null,qualityMin:Number(d.qualityMin)||null,score:Number(d.score)||null,threshold:Number(d.threshold)||null,votes:Number(d.votes)||null,minVotes:Number(d.minVotes)||null,strongConsensus:d.strongConsensus??null,footprint:Number(setup.evidence?.footprint??d.footprint)||null,footprintConfidence:Number(setup.evidence?.footprintConfidence??d.footprintConfidence)||null,totalCostBps:Number(setup.cost?.totalCostBps||x.cost?.totalCostBps)||null,netTargetBps:Number(setup.cost?.netTargetBps||x.cost?.netTargetBps)||null};});
+          const audit={checkedAt:new Date().toISOString(),runtime:{version:h.version||null,contract:c.version||null,mode:h.mode||null,environment:h.environment||null,authenticated:h.authenticated??null,liveAck:h.execution?.liveAck??e.btcLiveAck??null,entryReady:h.execution?.ready??null,entryStatus:e.status||null,blockers:e.blockers||[],equity:h.account?.totalEquity??null,wallet:h.account?.walletBalance??null,available:h.account?.availableBalance??null,positions:h.positions?.items||[],runtimeRevision:h.runtimeRevision||c.runtimeRevision||null,dynamicUniverse:c.dynamicBybitScalpUniverse??null,positiveAntiSweep:c.positiveAntiSweepLock??null,continuousTimeCapital:c.continuousTimeCapitalScale??null,exchangeMaxLeverage:c.exchangeMaxLeverageCap??null,infiniteLeverage:c.infiniteLeverage??null,momentumFootprint:c.momentumFootprint??null},ui:{bootstrapOk:ui.ok===true,schemaVersion:ui.schemaVersion||null,coreBaseline:ui.coreBaseline||null,version:ui.version||null,runtimeContract:ui.runtimeContract||null,universeRoute:ui.routes?.universe||null,snapshotRoute:ui.routes?.snapshot||null,writeControlsExposed:ui.capabilities?.executionWriteControlsExposedToUi??null,realizedProfitGuaranteed:ui.capabilities?.realizedProfitGuaranteed??null,unauthSnapshotHttpStatus:text('ui-snapshot-unauth-status.txt'),unauthSnapshotError:unauth.error||unauth.reason||null},universe:{ok:u.ok===true,authority:u.authority||u.summary?.authority||null,totalLinearUsdt:Number(u.summary?.totalLinearUsdt||0),tradeableNow:Number(u.summary?.tradeableNow||0),watchNew:Number(u.summary?.watchNew||0),watchOnly:Number(u.summary?.watchOnly||0),doNotTrade:Number(u.summary?.doNotTrade||0),counts:u.summary?.counts||{},topTrade:u.topTrade||u.summary?.topTrade||[],newListings:u.newListings||u.summary?.newListings||[],watch:u.watch||u.summary?.watch||[]},symbols:rows};
           console.log(JSON.stringify(audit,null,2));
-          if(h.version!=='BYBIT-MULTI-STATEFLOW-4.3.3')process.exitCode=2;
-          if(c.version!=='BYBIT_MULTI_ASSET_RUNTIME_V19_FINAL_CORE_FREEZE_UI_READY')process.exitCode=3;
-          if(c.riskSlotAdmissionIncludesPendingEntry!==true)process.exitCode=4;
-          if(ui.schemaVersion!=='BYBIT_UI_SCHEMA_V1'||ui.coreBaseline!=='BYBIT-MULTI-STATEFLOW-4.3.3')process.exitCode=5;
+          if(h.version!=='BYBIT-MULTI-STATEFLOW-4.4.0')process.exitCode=2;
+          if(c.version!=='BYBIT_MULTI_ASSET_RUNTIME_V20_DYNAMIC_SCALP_ANTI_SWEEP')process.exitCode=3;
+          if(c.dynamicBybitScalpUniverse!==true||c.positiveAntiSweepLock!==true||c.continuousTimeCapitalScale!==true||c.exchangeMaxLeverageCap!==true||c.infiniteLeverage!==false||c.momentumFootprint!==true)process.exitCode=4;
+          if(ui.schemaVersion!=='BYBIT_UI_SCHEMA_V1'||ui.coreBaseline!=='BYBIT-MULTI-STATEFLOW-4.4.0'||ui.routes?.universe!=='/bybit/universe')process.exitCode=5;
           if(text('ui-snapshot-unauth-status.txt')!=='401')process.exitCode=6;
+          if(u.ok!==true||u.authority!=='BYBIT_DYNAMIC_LINEAR_SCALP_UNIVERSE_V1'||Number(u.summary?.totalLinearUsdt||0)<18)process.exitCode=7;
+          if(e.blockers?.length)process.exitCode=8;
           NODE
 
-      - name: Upload complete Bybit live audit
+      - name: Upload complete Bybit V4.4 live audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bybit-v433-final-live-audit
-          path: ${{ runner.temp }}/bybit-v43-live-audit
+          name: bybit-v440-dynamic-scalp-live-audit
+          path: ${{ runner.temp }}/bybit-v44-live-audit
           if-no-files-found: error
           retention-days: 7
