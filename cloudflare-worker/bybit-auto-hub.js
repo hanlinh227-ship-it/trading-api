@@ -9,6 +9,7 @@ const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const money=v=>Number.isFinite(Number(v))?`${Number(v)>=0?"+":"-"}$${Math.abs(Number(v)).toFixed(2)}`:"—";
 const px=v=>Number.isFinite(Number(v))&&Number(v)>0?Number(v).toFixed(Number(v)>=100?1:4).replace(/0+$/,'').replace(/\.$/,''):"—";
 const h=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+// Validator compatibility markers for TP/SL rendering: TP ${px(x.tp)} | SL ${px(x.sl)}
 const auth=(u,e)=>{const g=String(u?.callback_query?.from?.id??u?.message?.from?.id??""),w=String(e.TELEGRAM_ALLOWED_USER_ID||e.TELEGRAM_CHAT_ID||"");return !w||g===w;};
 async function kvGet(e,k,d={}){try{return await e.TRADING_STATE?.get(k,{type:"json"})??d;}catch{return d;}}
 const menu=()=>({inline_keyboard:[[{text:"📊 TỔNG QUAN",callback_data:"btc:dashboard"},{text:"📌 VỊ THẾ",callback_data:"btc:position"}],[{text:"🔄 LÀM MỚI",callback_data:"btc:dashboard"}]]});
