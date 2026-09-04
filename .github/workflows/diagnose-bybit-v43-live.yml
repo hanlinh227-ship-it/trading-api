@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: Audit all 18 symbols and runtime state
+      - name: Audit all 18 symbols runtime and UI contract
         shell: bash
         run: |
           set -euo pipefail
@@ -26,6 +26,9 @@ jobs:
           curl -sS --max-time 35 "$BASE/bybit/health" > "$TMP/health.json"
           curl -sS --max-time 45 "$BASE/bybit/entry-health" > "$TMP/entry.json" || true
           curl -sS --max-time 35 "$BASE/runtime/contract" > "$TMP/contract.json"
+          curl -sS --max-time 35 "$BASE/bybit/ui/bootstrap" > "$TMP/ui-bootstrap.json"
+          UI_CODE=$(curl -sS -o "$TMP/ui-snapshot-unauth.json" -w '%{http_code}' --max-time 35 "$BASE/bybit/ui/snapshot" || true)
+          echo "$UI_CODE" > "$TMP/ui-snapshot-unauth-status.txt"
           symbols=(BTCUSDT ETHUSDT BNBUSDT XRPUSDT SOLUSDT TRXUSDT DOGEUSDT ADAUSDT LINKUSDT AVAXUSDT LTCUSDT BCHUSDT XLMUSDT DOTUSDT NEARUSDT UNIUSDT AAVEUSDT HBARUSDT)
           for S in "${symbols[@]}"; do
             curl -sS --max-time 90 "$BASE/bybit/scan?symbol=$S" > "$TMP/$S.json" || echo '{}' > "$TMP/$S.json"
@@ -33,18 +36,23 @@ jobs:
           TMP="$TMP" node <<'NODE' | tee "$TMP/audit.json"
           const fs=require('fs'),p=process.env.TMP;
           const read=f=>{try{return JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'))}catch{return {}}};
-          const h=read('health.json'),e=read('entry.json'),c=read('contract.json');
+          const text=f=>{try{return fs.readFileSync(`${p}/${f}`,'utf8').trim()}catch{return ''}};
+          const h=read('health.json'),e=read('entry.json'),c=read('contract.json'),ui=read('ui-bootstrap.json'),unauth=read('ui-snapshot-unauth.json');
           const symbols=['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','SOLUSDT','TRXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','AVAXUSDT','LTCUSDT','BCHUSDT','XLMUSDT','DOTUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','HBARUSDT'];
-          const rows=symbols.map(sym=>{const s=read(`${sym}.json`),m=s.market||{},x=s.selected||{},q=m.quality||{},d=x.diagnostic||{},setup=x.setup||{};return {symbol:sym,ok:s.ok===true,source:m.microstructureSource||null,regime:m.regime||null,freshBook:q.freshBook??null,freshTrades:q.freshTrades??null,ultraFastReady:q.ultraFastReady??null,setupOk:x.ok===true,reason:x.reason||null,side:setup.side||null,tier:setup.entryTier||null,setup:setup.setup||null,rr:Number(setup.rr)||null,quality:Number(d.q)||null,qualityMin:Number(d.qualityMin)||null,score:Number(d.score)||null,threshold:Number(d.threshold)||null,votes:Number(d.votes)||null,totalCostBps:Number(setup.cost?.totalCostBps||x.cost?.totalCostBps)||null,netTargetBps:Number(setup.cost?.netTargetBps||x.cost?.netTargetBps)||null};});
-          const audit={checkedAt:new Date().toISOString(),runtime:{version:h.version||null,contract:c.version||null,mode:h.mode||null,environment:h.environment||null,authenticated:h.authenticated??null,liveAck:h.execution?.liveAck??e.btcLiveAck??null,entryReady:h.execution?.ready??null,entryStatus:e.status||null,blockers:e.blockers||[],equity:h.account?.totalEquity??null,wallet:h.account?.walletBalance??null,available:h.account?.availableBalance??null,positions:h.positions?.items||[]},symbols:rows};
+          const rows=symbols.map(sym=>{const s=read(`${sym}.json`),m=s.market||{},x=s.selected||{},q=m.quality||{},d=x.diagnostic||{},setup=x.setup||{};return {symbol:sym,ok:s.ok===true,source:m.microstructureSource||null,regime:m.regime||null,freshBook:q.freshBook??null,freshTrades:q.freshTrades??null,ultraFastReady:q.ultraFastReady??null,setupOk:x.ok===true,reason:x.reason||null,side:setup.side||null,tier:setup.entryTier||null,setup:setup.setup||null,rr:Number(setup.rr)||null,quality:Number(d.q)||null,qualityMin:Number(d.qualityMin)||null,score:Number(d.score)||null,threshold:Number(d.threshold)||null,votes:Number(d.votes)||null,minVotes:Number(d.minVotes)||null,strongConsensus:d.strongConsensus??null,totalCostBps:Number(setup.cost?.totalCostBps||x.cost?.totalCostBps)||null,netTargetBps:Number(setup.cost?.netTargetBps||x.cost?.netTargetBps)||null};});
+          const audit={checkedAt:new Date().toISOString(),runtime:{version:h.version||null,contract:c.version||null,mode:h.mode||null,environment:h.environment||null,authenticated:h.authenticated??null,liveAck:h.execution?.liveAck??e.btcLiveAck??null,entryReady:h.execution?.ready??null,entryStatus:e.status||null,blockers:e.blockers||[],equity:h.account?.totalEquity??null,wallet:h.account?.walletBalance??null,available:h.account?.availableBalance??null,positions:h.positions?.items||[],runtimeRevision:h.runtimeRevision||c.runtimeRevision||null},ui:{bootstrapOk:ui.ok===true,schemaVersion:ui.schemaVersion||null,version:ui.version||null,runtimeContract:ui.runtimeContract||null,snapshotRoute:ui.routes?.snapshot||null,writeControlsExposed:ui.capabilities?.executionWriteControlsExposedToUi??null,realizedProfitGuaranteed:ui.capabilities?.realizedProfitGuaranteed??null,unauthSnapshotHttpStatus:text('ui-snapshot-unauth-status.txt'),unauthSnapshotError:unauth.error||unauth.reason||null},symbols:rows};
           console.log(JSON.stringify(audit,null,2));
+          if(h.version!=='BYBIT-MULTI-STATEFLOW-4.3.2')process.exitCode=2;
+          if(c.version!=='BYBIT_MULTI_ASSET_RUNTIME_V18_PROTECTED_RISK_SLOT_UI_READY')process.exitCode=3;
+          if(ui.schemaVersion!=='BYBIT_UI_SCHEMA_V1')process.exitCode=4;
+          if(text('ui-snapshot-unauth-status.txt')!=='401')process.exitCode=5;
           NODE
 
       - name: Upload complete Bybit live audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bybit-v43-live-audit
+          name: bybit-v432-live-audit
           path: ${{ runner.temp }}/bybit-v43-live-audit
           if-no-files-found: error
           retention-days: 7
