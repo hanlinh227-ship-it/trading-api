@@ -15,6 +15,7 @@ async function put(env,x){if(env.TRADING_STATE)await env.TRADING_STATE.put(KEY,J
 function liveMode(env){return envBool(env.BYBIT_AUTO_LIVE)&&envBool(env.BYBIT_BTC_LIVE_ACK)?"LIVE":"PAPER";}
 function walletEquity(w={}){const a=w?.result?.list?.[0]||{},c=(a.coin||[]).find(x=>x.coin==="USDT")||{};return num(a.totalEquity||c.equity||c.walletBalance);}
 function btcPosition(p={}){return (p?.result?.list||[]).find(x=>String(x.symbol)===SYMBOL&&num(x.size)>0)||null;}
+function foreignPositions(p={}){return (p?.result?.list||[]).filter(x=>num(x.size)>0&&String(x.symbol)!==SYMBOL).map(x=>({symbol:String(x.symbol||""),side:String(x.side||""),size:num(x.size),avgPrice:num(x.avgPrice),unrealisedPnl:num(x.unrealisedPnl)}));}
 function openTranches(state={}){return (state.tranches||[]).filter(x=>String(x.status||"OPEN")==="OPEN");}
 function qstr(v,step){const d=String(step||"0.001").split(".")[1]?.length||3;return Number(v).toFixed(Math.min(8,d)).replace(/0+$/,"").replace(/\.$/,"");}
 async function filter(api){const p=await api.market("/v5/market/instruments-info",{category:"linear",symbol:SYMBOL,limit:1}),x=p?.result?.list?.[0];if(!x)throw new Error("BTCUSDT_INSTRUMENT_NOT_FOUND");return normalizeBybitFilter(x);}
@@ -66,9 +67,10 @@ async function manageCluster(env,api,state,position,market,filters){
 
 export async function runBtcHyperscale(env,{entryBlockReason=null}={}){
   const cfg=bybitAutoConfig(env),api=bybitV5(env),mode=liveMode(env),[wallet,positions,filters,market]=await Promise.all([api.wallet(),api.positions(),filter(api),buildBtcMarketState(env,api,SYMBOL)]),equity=walletEquity(wallet);if(!(equity>0))return {version:"BYBIT-BTC-HYPERSCALE-2.5",mode,executed:false,reason:"EQUITY_INVALID",equity,market};
-  let state=await get(env);state={...state,version:"BYBIT-BTC-HYPERSCALE-2.5",executionMode:mode,highWaterUsd:Math.max(equity,num(state.highWaterUsd)),lastEquityUsd:equity,lastCycleAt:iso(),lastRegime:market.regime};
+  const foreign=foreignPositions(positions);let state=await get(env);state={...state,version:"BYBIT-BTC-HYPERSCALE-2.5",executionMode:mode,highWaterUsd:Math.max(equity,num(state.highWaterUsd)),lastEquityUsd:equity,lastCycleAt:iso(),lastRegime:market.regime};
   let pos=btcPosition(positions);const reconciled=reconcileTranchesToPosition(state,pos,equity);state=reconciled.state;if(reconciled.changed)await put(env,state);
   const managed=await manageCluster(env,api,state,pos,market,filters);state=managed.state;pos=managed.position;if(managed.cut){state.openPlans={};await put(env,state);return {version:state.version,mode,equity,executed:false,reason:"SMART_CUT",market,lifecycles:managed.events,state,plan:null,scan:{best:null,qualified:0,reason:"CUT_MANAGEMENT"}};}
+  if(foreign.length){state.lastRiskReject={at:iso(),reason:"FOREIGN_LEGACY_POSITIONS_PRESENT_REVIEW_REQUIRED",foreignPositions:foreign};state.openPlans=pos?{[SYMBOL]:clusterPlan(state,pos)}:{};await put(env,state);return {version:state.version,mode,equity,executed:false,reason:"FOREIGN_LEGACY_POSITIONS_PRESENT_REVIEW_REQUIRED",foreignPositions:foreign,market,lifecycles:managed.events,state,plan:state.openPlans[SYMBOL]||null,scan:{best:null,qualified:0,analyzed:1,rawCandidates:0,reason:"FOREIGN_EXPOSURE_BLOCKS_NEW_BTC_RISK",scannedAt:Date.now()}};}
 
   const picked=selectBtcSetup(market),scan={best:picked.ok?picked.setup:null,qualified:picked.ok?1:0,analyzed:1,rawCandidates:picked.ok?1:0,universe:{count:1,symbols:[SYMBOL]},reason:picked.ok?null:picked.reason,scannedAt:Date.now()};
   if(!picked.ok||entryBlockReason){state.openPlans=pos?{[SYMBOL]:clusterPlan(state,pos,picked.setup)}:{};await put(env,state);return {version:state.version,mode,equity,executed:false,reason:entryBlockReason||picked.reason,market,scan,lifecycles:managed.events,state,plan:state.openPlans[SYMBOL]||null};}
