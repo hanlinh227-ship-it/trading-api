@@ -1,19 +1,19 @@
 // BYBIT-BTC-STATEFLOW-2.5 configuration.
-// BTCUSDT linear perpetual. Event-driven authority: no session gate, no cooldown, no timed pause, no daily quota.
+// BTCUSDT linear perpetual. Pure event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
 
 export const BYBIT_AUTO_CONFIG={
   symbol:'BTCUSDT',category:'linear',settleCoin:'USDT',
   strategyAuthority:'BTC_STATE_FIRST_STRUCTURE_EXECUTED_FLOW_NEAR_TOUCH_LIQUIDITY_DERIVATIVES',
+  trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{min:3,normal:6,strong:8,aPlus:11,max:15},
-  maxOpenPositions:1000000,maxTradesPerDay:1000000000,
   scan:{decisionAuthority:'EVENT_DRIVEN_MARKET_STATE_CHANGE',microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null,timeGate:false,sessionGate:false,cooldownGate:false},
   risk:{
     mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
     baseEntryRiskPct:.85,strongEntryRiskPct:1.20,aPlusEntryRiskPct:1.50,absoluteSingleEntryRiskPct:1.60,
     maxActiveRiskPct:7.5,temporaryAPlusActiveRiskPct:9.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:78,minFreeReservePct:12,
-    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,dailyLossCircuitPct:20,maxSameDirectionPositions:1000000,riskRecycleAfterProtection:true,
+    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:1000000,riskRecycleAfterProtection:true,
     timedPause:false,lossStreakTimeGate:false,
     priorRiskProtectionThresholdPct:30,
     capitalBase:{enabled:true,unrealizedProfitCreditPct:25,useLowerOfBalanceAndEquityOnDrawdown:true},
@@ -35,7 +35,7 @@ export const BYBIT_AUTO_CONFIG={
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true
   },
-  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true},
+  entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true},
   execution:{recvWindow:10000,positionIdx:0,postOnlyPreferredForPassive:true,marketAllowedForUrgentEdge:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
 };
 
