@@ -1,25 +1,18 @@
-BYBIT-AUTO-1.8.0
-CANONICAL-RUNTIME-CONTRACT
-Revision authority: cloudflare-worker/bybit-runtime-contract.js
-GitHub source entry: cloudflare-worker/index.js
-Bybit Auto production authority: BYBIT-AUTO-1.8.0
-Runtime contract: BYBIT_RUNTIME_CONTRACT_V1
-Execution authority: BYBIT_AUTO_TRADE_ONLY
-Private transport: VPS_BYBIT_PRIVATE_PROXY
-Market transport: VPS_BYBIT_MARKET_PROXY
-Canonical health route: /bybit/health
-Canonical runtime contract route: /runtime/contract
-Entry timing authority: BYBIT_AUTO_CONFIG.execution.cooldownSec, default 180 seconds. No controller hard-coded spacing and no inner-engine spacing override are allowed.
-Loss-streak pause authority: canonical engine state only, one-shot trigger per newest realized loss streak. Controller is telemetry only.
-Closed-PnL safety authority: CURRENT_TRADING_DAY_ONLY. Historical ghost plans must never expand the global PnL safety window or block unrelated entries.
-Unresolved closed plans older than the current trading-day window are moved to reconcileQuarantine with outcome unresolved. They remain available for audit/learning diagnostics but are removed from openPlans, live risk, margin capacity and symbol-entry blocking.
-Bybit PnL endpoint transient failure may use a maximum 15-minute last-known-healthy grace window; stale current-day safety reconciliation remains fail-closed.
-LIVE risk/margin accounting authority: BYBIT_LIVE_POSITIONS_ONLY.
-Pending same-day closed plan may block only the same symbol until reconciliation completes. Quarantined historical plans cannot block any symbol.
-Bybit scheduler telemetry persists exceptions, last cycle reason, entry blocker, scan telemetry, live-risk diagnostics and unresolved quarantine count.
-Entry intelligence authority: liquidity + trend/breakout setup + regime affinity + strict NET adaptive edge + bounded postmortem + bounded opportunity bonus + correlation + pre-AI freshness/reanchor + sizing + risk preflight + 3AI review + post-AI revalidation + actual RR + verified protection.
-Learning may tighten weak edges and may relax a proven aligned edge by at most one score point only after a robust sample; auto-promote remains OFF.
-Cron: one minute.
-Forex, Meme and other execution authorities remain unchanged.
-Forbidden legacy behavior: V77/V78 deployment trigger authority, SIGNAL V11 execution, CLOSED_PNL_LOOKBACK_EXCEEDED global entry block, MAX_CLOSED_LOOKBACK_MS expansion from ghost plans, controller 5-minute spacing, duplicate controller loss pause, ghost-plan live risk accounting.
-NOTE: GitHub source commits are not proof of successful Cloudflare/VPS runtime deployment; workflow/runtime evidence must confirm production state.
+BYBIT-MULTI-STATEFLOW-4.4.0
+DYNAMIC-SCALP-ANTI-SWEEP-CONTINUOUS-CAPITAL
+Source revision: 1e32683a50d56e79b1144bd35558d833e3556acb
+Requested at: 2026-09-04T21:28:00+07:00
+Runtime contract: BYBIT_MULTI_ASSET_RUNTIME_V20_DYNAMIC_SCALP_ANTI_SWEEP
+Deployment authority: Cloudflare Builds
+Execution authority: BYBIT_DYNAMIC_LINEAR_SCALP_MULTI_ASSET
+Market universe authority: BYBIT_DYNAMIC_LINEAR_SCALP_UNIVERSE_V1
+Fresh WS required for new risk: true
+New listings watch before trade: true
+Positive anti-sweep lock: true
+Continuous time equity/balance scaling: true
+Leverage: exchange instrument max capped; configured ceiling 125; infinite leverage false
+Planned minimum net profit objective starts at 1.05 USD after estimated costs
+Native TP/SL: required
+Martingale: false
+Add to loser: false
+NOTE: source revision is not proof of runtime deployment; production audit must confirm V4.4.0.
