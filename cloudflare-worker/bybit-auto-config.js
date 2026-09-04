@@ -1,4 +1,4 @@
-// BYBIT-BTC-STATEFLOW-2.3 configuration.
+// BYBIT-BTC-STATEFLOW-2.5 configuration.
 // Single production authority: BTCUSDT linear perpetual. No hard daily trade quota.
 // LIVE credentials and signed VPS transport are preserved.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
@@ -11,11 +11,12 @@ export const BYBIT_AUTO_CONFIG={
   maxOpenPositions:1000000,maxTradesPerDay:1000000000,
   scan:{workerCycleSec:60,microstructureCollectorEventDriven:true,hardDailyTradeQuota:false,entryQuotaPerDay:null},
   risk:{
-    mode:'ADAPTIVE_FULL_ACCOUNT_EQUITY_BALANCE_SCALE',fullAccountAuthority:true,
+    mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
     baseEntryRiskPct:.85,strongEntryRiskPct:1.20,aPlusEntryRiskPct:1.50,absoluteSingleEntryRiskPct:1.60,
     maxActiveRiskPct:7.5,temporaryAPlusActiveRiskPct:9.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:78,minFreeReservePct:12,
     addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,dailyLossCircuitPct:20,maxLossStreak:4,pauseMinutes:15,maxSameDirectionPositions:1000000,riskRecycleAfterProtection:true,
     priorRiskProtectionThresholdPct:30,
+    capitalBase:{enabled:true,unrealizedProfitCreditPct:25,useLowerOfBalanceAndEquityOnDrawdown:true},
     equityScale:{enabled:true,anchorUsd:39,steps:[
       {equityUsd:39,riskMult:1.00,marginCapPct:72,leverageBonus:0},
       {equityUsd:50,riskMult:1.06,marginCapPct:74,leverageBonus:0},
@@ -40,6 +41,6 @@ export const BYBIT_AUTO_CONFIG={
 
 const n=(env,k,d)=>Number.isFinite(Number(env[k]))?Number(env[k]):d;
 const on=v=>String(v||'').toLowerCase()==='true';
-export function bybitAutoConfig(env={}){const c=structuredClone(BYBIT_AUTO_CONFIG);c.leverage.max=Math.max(1,Math.min(25,Math.round(n(env,'BYBIT_AUTO_MAX_LEVERAGE',c.leverage.max))));c.risk.maxActiveRiskPct=Math.max(2,Math.min(12,n(env,'BYBIT_BTC_MAX_ACTIVE_RISK_PCT',c.risk.maxActiveRiskPct)));c.risk.maxPortfolioMarginPct=Math.max(30,Math.min(85,n(env,'BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT',c.risk.maxPortfolioMarginPct)));c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,'BYBIT_RECV_WINDOW_MS',c.execution.recvWindow))));c.execution.cooldownSec=Math.max(0,Math.min(60,Math.round(n(env,'BYBIT_BTC_ENTRY_COOLDOWN_SEC',c.execution.cooldownSec))));return c;}
+export function bybitAutoConfig(env={}){const c=structuredClone(BYBIT_AUTO_CONFIG);c.leverage.max=Math.max(1,Math.min(25,Math.round(n(env,'BYBIT_AUTO_MAX_LEVERAGE',c.leverage.max))));c.risk.maxActiveRiskPct=Math.max(2,Math.min(12,n(env,'BYBIT_BTC_MAX_ACTIVE_RISK_PCT',c.risk.maxActiveRiskPct)));c.risk.maxPortfolioMarginPct=Math.max(30,Math.min(85,n(env,'BYBIT_BTC_MAX_PORTFOLIO_MARGIN_PCT',c.risk.maxPortfolioMarginPct)));c.risk.capitalBase.unrealizedProfitCreditPct=Math.max(0,Math.min(50,n(env,'BYBIT_BTC_UNREALIZED_SCALE_CREDIT_PCT',c.risk.capitalBase.unrealizedProfitCreditPct)));c.execution.recvWindow=Math.max(5000,Math.min(20000,Math.round(n(env,'BYBIT_RECV_WINDOW_MS',c.execution.recvWindow))));c.execution.cooldownSec=Math.max(0,Math.min(60,Math.round(n(env,'BYBIT_BTC_ENTRY_COOLDOWN_SEC',c.execution.cooldownSec))));return c;}
 export function bybitExecutionMode(env={}){return on(env.BYBIT_AUTO_LIVE)&&on(env.BYBIT_BTC_LIVE_ACK)?'LIVE':'PAPER';}
 export function bybitCredentials(env={}){const demo=on(env.BYBIT_AUTO_DEMO);if(demo)return {apiKey:env.HYRO_BYBIT_API_KEY||'',apiSecret:env.HYRO_BYBIT_API_SECRET||'',source:'HYRO_BYBIT_DEMO'};return {apiKey:env.BYBIT_AUTO_API_KEY||env.HYRO_BYBIT_LIVE_API_KEY||'',apiSecret:env.BYBIT_AUTO_API_SECRET||env.HYRO_BYBIT_LIVE_API_SECRET||'',source:env.BYBIT_AUTO_API_KEY&&env.BYBIT_AUTO_API_SECRET?'BYBIT_AUTO':'HYRO_BYBIT_LIVE_FALLBACK'};}
