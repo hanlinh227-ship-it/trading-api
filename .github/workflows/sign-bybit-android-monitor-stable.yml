@@ -10,7 +10,7 @@ permissions:
 jobs:
   sign:
     runs-on: [self-hosted, Linux, X64, trading-vps]
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,27 +24,31 @@ jobs:
           rm -rf "$RUNNER_TEMP/bybit-monitor-sign" && mkdir -p "$RUNNER_TEMP/bybit-monitor-sign"
           gh release download bybit-android-monitor-v1 --repo hanlinh227-ship-it/trading-api --pattern 'BybitAndroidMonitor-v1.1.apk' --dir "$RUNNER_TEMP/bybit-monitor-sign"
           test -s "$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk"
+      - name: Ensure Java and APK signer tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v keytool >/dev/null 2>&1 || ! command -v apksigner >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq default-jdk-headless apksigner
+          fi
+          command -v keytool >/dev/null
+          command -v apksigner >/dev/null
       - name: Ensure persistent VPS-only signing identity
         shell: bash
         run: |
           set -euo pipefail
           if [ ! -s /etc/bybit-monitor-signing.env ] || [ ! -s /etc/bybit-monitor-signing.jks ]; then
             PASS=$(openssl rand -hex 32)
+            TMPKS="$RUNNER_TEMP/bybit-monitor-new-signing.jks"
+            rm -f "$TMPKS"
+            keytool -genkeypair -noprompt -keystore "$TMPKS" -storepass "$PASS" -keypass "$PASS" -alias bybit-monitor -keyalg RSA -keysize 4096 -validity 36500 -dname 'CN=Bybit Android Monitor,OU=Read Only Monitor,O=Hanlinh Trading,C=VN'
             sudo sh -c "umask 077; printf 'KS_PASS=%s\nKEY_PASS=%s\n' '$PASS' '$PASS' > /etc/bybit-monitor-signing.env"
-            sudo keytool -genkeypair -noprompt -keystore /etc/bybit-monitor-signing.jks -storepass "$PASS" -keypass "$PASS" -alias bybit-monitor -keyalg RSA -keysize 4096 -validity 36500 -dname 'CN=Bybit Android Monitor,OU=Read Only Monitor,O=Hanlinh Trading,C=VN'
+            sudo mv "$TMPKS" /etc/bybit-monitor-signing.jks
             sudo chmod 600 /etc/bybit-monitor-signing.env /etc/bybit-monitor-signing.jks
           fi
           sudo test -s /etc/bybit-monitor-signing.jks
           sudo test -s /etc/bybit-monitor-signing.env
-      - name: Ensure APK signer tooling
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! command -v apksigner >/dev/null 2>&1; then
-            sudo apt-get update -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apksigner
-          fi
-          command -v apksigner
       - name: Sign and verify stable APK
         shell: bash
         run: |
@@ -54,10 +58,14 @@ jobs:
           set +a
           IN="$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk"
           OUT="$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1-stable.apk"
-          sudo apksigner sign --ks /etc/bybit-monitor-signing.jks --ks-key-alias bybit-monitor --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out "$OUT" "$IN"
-          sudo chown "$(id -u):$(id -g)" "$OUT"
+          LOCAL_KS="$RUNNER_TEMP/bybit-monitor-sign/bybit-monitor-signing.jks"
+          sudo cp /etc/bybit-monitor-signing.jks "$LOCAL_KS"
+          sudo chown "$(id -u):$(id -g)" "$LOCAL_KS"
+          chmod 600 "$LOCAL_KS"
+          apksigner sign --ks "$LOCAL_KS" --ks-key-alias bybit-monitor --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out "$OUT" "$IN"
           apksigner verify --verbose --print-certs "$OUT" | grep -E 'Verified using v[123] scheme|Signer #1 certificate SHA-256 digest'
           sha256sum "$OUT" | tee "$RUNNER_TEMP/bybit-monitor-sign/SHA256SUMS-stable.txt"
+          rm -f "$LOCAL_KS"
           mv "$OUT" "$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk"
       - name: Publish stable-signed APK
         env:
