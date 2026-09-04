@@ -1,0 +1,29 @@
+name: Inspect V11 Bybit Routing V4.6
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v460-v11-routing-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Inspect V11 service and Bybit routing without environment values
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== SERVICE METADATA ==='
+          sudo systemctl show v11-manual-ai-bridge.service -p FragmentPath -p EnvironmentFiles -p ExecStart -p MainPID -p ActiveState -p SubState
+          echo '=== SCRIPT METADATA ==='
+          sudo ls -l /usr/local/bin/v11-manual-ai-bridge
+          sudo sha256sum /usr/local/bin/v11-manual-ai-bridge
+          echo '=== BYBIT ROUTING MARKERS ==='
+          sudo grep -nEi 'bybit|8789|market|proxy|websocket|vpc|bridge' /usr/local/bin/v11-manual-ai-bridge | head -n 240 || true
+          echo '=== REFERENCED LOCAL PATHS ==='
+          sudo grep -oE '/(opt|usr/local|etc)/[A-Za-z0-9_./-]+' /usr/local/bin/v11-manual-ai-bridge | sort -u | head -n 100 || true
