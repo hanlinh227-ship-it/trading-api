@@ -1,3 +1,4 @@
 Canonical validation/deploy trigger for current Unified Trading Hub.
 Bybit hotfix 2026-08-27: continuous position re-evaluation + positive-PnL Smart CUT thesis invalidation.
 Activation trigger 2026-09-04: redeploy current BTCUSDT-only Stateflow 2.5 runtime using existing Cloudflare build variables, secrets, KV and VPS transport. No strategy or secret changes.
+Activation trigger 2026-09-04 12:19 +07: first build after GitHub-to-Cloudflare reconnect. No runtime logic changes.
