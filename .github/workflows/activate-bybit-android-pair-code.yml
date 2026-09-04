@@ -1,0 +1,45 @@
+name: Activate Bybit Android Monitor Pair Code
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-android-pair-code-activate-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Activate one-time pairing hash only
+        shell: bash
+        env:
+          PAIR_SHA256: dde894b6b16e2d126f8d5823d1ab5f461fedb5a9d3092b92e769e8718d7b089c
+          PAIR_EXPIRES_AT: '1789147927037'
+        run: |
+          set -euo pipefail
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          RESP=$(curl -fsS --max-time 30 -X POST \
+            -H 'content-type: application/json' \
+            -H "x-action-key: $SECRET" \
+            --data "{\"sha256\":\"$PAIR_SHA256\",\"expiresAt\":$PAIR_EXPIRES_AT}" \
+            https://trading-v77-scanner.hanlinh227.workers.dev/bybit/monitor/pair-code)
+          RESP="$RESP" node -e "const x=JSON.parse(process.env.RESP);if(!(x.ok===true&&x.configured===true&&x.plaintextCodeReturned===false))process.exit(8);console.log(JSON.stringify({ok:true,expiresAt:x.expiresAt,plaintextCodeReturned:x.plaintextCodeReturned}))"
+      - name: Verify V4.7 trading remains isolated
+        shell: bash
+        run: |
+          set -euo pipefail
+          H=$(curl -fsS --max-time 45 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health)
+          C=$(curl -fsS --max-time 30 https://trading-v77-scanner.hanlinh227.workers.dev/runtime/contract)
+          H="$H" C="$C" node <<'NODE'
+          const h=JSON.parse(process.env.H),c=JSON.parse(process.env.C);
+          const pass=h.version==='BYBIT-MULTI-STATEFLOW-4.7.0'&&h.mode==='LIVE'&&h.execution?.ready===true&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V25_ALL_CRYPTO_SCALP_NETWORK';
+          console.log(JSON.stringify({pass,version:h.version,mode:h.mode,ready:h.execution?.ready,contract:c.version},null,2));
+          if(!pass)process.exit(9);
+          NODE
