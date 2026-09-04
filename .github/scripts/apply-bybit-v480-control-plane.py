@@ -10,4 +10,14 @@ if route not in s:
     if needle not in s:raise SystemExit('CONTROL_PLANE_INSERT_PATTERN_MISSING')
     s=s.replace(needle,route+needle,1)
 p.write_text(s)
-print('BYBIT_V480_CONTROL_PLANE_PATCHED')
+
+# Keep the repository's safety validator in lock-step with the V4.8 runtime.
+v=ROOT/'cloudflare-worker/validate-btc-hyperscale.mjs';x=v.read_text()
+x=x.replace("'BYBIT-MULTI-STATEFLOW-4.7.0'","'BYBIT-MULTI-STATEFLOW-4.8.0'")
+x=x.replace("'BYBIT_MULTI_ASSET_RUNTIME_V25_ALL_CRYPTO_SCALP_NETWORK'","'BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_INTELLIGENCE_FAST_SCALE'")
+marker="console.log('BYBIT_MULTI_ASSET_VALIDATION=PASS');"
+extra="""assert.equal(BYBIT_RUNTIME_CONTRACT.capitalIntelligenceV4,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.separateCapitalState,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.instantDepositRecognition,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.instantWithdrawalRiskReduction,true);\nassert.equal(BYBIT_RUNTIME_CONTRACT.capitalHighWaterDoubleCountFixed,true);\nassert.equal(BYBIT_AUTO_CONFIG.risk.martingale,false);\nassert.equal(BYBIT_AUTO_CONFIG.risk.addToLoser,false);\nassert.ok(BYBIT_AUTO_CONFIG.risk.baseEntryRiskPct>=1.0);\nassert.ok(BYBIT_AUTO_CONFIG.risk.absoluteSingleEntryRiskPct<=2.25);\nassert.ok(BYBIT_AUTO_CONFIG.risk.maxActiveRiskPct<=7.0);\nassert.ok(BYBIT_AUTO_CONFIG.leverage.max<=125);\n"""
+if 'capitalHighWaterDoubleCountFixed' not in x:
+    x=x.replace(marker,extra+marker,1) if marker in x else x+'\n'+extra
+v.write_text(x)
+print('BYBIT_V480_CONTROL_PLANE_AND_VALIDATOR_PATCHED')
