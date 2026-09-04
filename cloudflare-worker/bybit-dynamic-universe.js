@@ -35,9 +35,11 @@ async function loadInstrumentMeta(env,api){
 }
 
 function rowFromTicker(x={},meta={},now=Date.now()){
-  const symbol=normalizeBybitSymbol(x.symbol||''),bid=num(x.bid1Price),ask=num(x.ask1Price),last=num(x.lastPrice),mid=bid>0&&ask>0?(bid+ask)/2:last,spreadBps=mid>0&&ask>=bid?(ask-bid)/mid*10000:999,turnover=num(x.turnover24h),change=num(x.price24hPcnt),oiValue=num(x.openInterestValue),launch=num(meta.launchTime),ageDays=launch>0?Math.max(0,(now-launch)/86400000):null,core=isCoreTradeSymbol(symbol),profile=coinProfileForSymbol(symbol),trading=!meta.status||String(meta.status).toUpperCase()==='TRADING',perpetual=!meta.contractType||/PERPETUAL/i.test(meta.contractType),settled=!meta.settleCoin||String(meta.settleCoin).toUpperCase()==='USDT';
+  const symbol=normalizeBybitSymbol(x.symbol||''),bid=num(x.bid1Price),ask=num(x.ask1Price),last=num(x.lastPrice),mid=bid>0&&ask>0?(bid+ask)/2:last,spreadBps=mid>0&&ask>=bid?(ask-bid)/mid*10000:999,turnover=num(x.turnover24h),change=num(x.price24hPcnt),oiValue=num(x.openInterestValue),launch=num(meta.launchTime),ageDays=launch>0?Math.max(0,(now-launch)/86400000):null,core=isCoreTradeSymbol(symbol),profile=coinProfileForSymbol(symbol),metaKnown=core||Boolean(meta.status&&meta.contractType&&meta.settleCoin),trading=String(meta.status||'').toUpperCase()==='TRADING',perpetual=/PERPETUAL/i.test(String(meta.contractType||'')),settled=String(meta.settleCoin||'').toUpperCase()==='USDT';
   let classification='WATCH_THIN',eligible=false,reason='LIQUIDITY_OR_SPREAD_BELOW_DYNAMIC_SCALP_GATE';
-  if(!validLinearSymbol(symbol)||!trading||!perpetual||!settled){classification='DO_NOT_TRADE';reason='INSTRUMENT_NOT_ACTIVE_USDT_LINEAR_PERPETUAL';}
+  if(!validLinearSymbol(symbol)){classification='DO_NOT_TRADE';reason='INVALID_LINEAR_USDT_SYMBOL';}
+  else if(!metaKnown&&!core){classification='WATCH_READY';reason='INSTRUMENT_METADATA_REQUIRED_FOR_DYNAMIC_RISK';}
+  else if(!core&&(!trading||!perpetual||!settled)){classification='DO_NOT_TRADE';reason='INSTRUMENT_NOT_ACTIVE_USDT_LINEAR_PERPETUAL';}
   else if(ageDays!==null&&ageDays<3){classification='WATCH_NEW';reason='NEW_LISTING_OBSERVATION_LT_3D';}
   else if(ageDays!==null&&ageDays<14){classification='WATCH_NEW';reason='NEW_LISTING_OBSERVATION_LT_14D';}
   else if(core&&turnover>=Math.max(8_000_000,num(profile?.minTurnoverUsd)*.35)&&spreadBps<=Math.max(3.5,num(profile?.maxSpreadBps))){classification='TRADE_CORE';eligible=true;reason=null;}
@@ -47,7 +49,7 @@ function rowFromTicker(x={},meta={},now=Date.now()){
   else if(turnover<12_000_000||spreadBps>10){classification='WATCH_THIN';reason=turnover<12_000_000?'TURNOVER_TOO_LOW':'SPREAD_TOO_WIDE';}
   else {classification='WATCH_READY';reason='OBSERVE_UNTIL_EDGE_AND_EXECUTION_QUALITY_IMPROVE';}
   const liqScore=clamp(Math.log10(Math.max(10,turnover))/10,0,1),oiScore=clamp(Math.log10(Math.max(10,oiValue))/10,0,1),spreadScore=clamp(1-spreadBps/10,0,1),moveScore=clamp(Math.abs(change)*12,0,1),coreBonus=core?.08:0,score=.36*liqScore+.20*oiScore+.25*spreadScore+.19*moveScore+coreBonus;
-  return {symbol,last,bid,ask,turnover,change,oiValue,spreadBps,ageDays,status:meta.status||null,maxLeverage:num(meta.maxLeverage)||null,profile,style:profile?.style||'BALANCED',core,classification,eligible,reason,score};
+  return {symbol,last,bid,ask,turnover,change,oiValue,spreadBps,ageDays,status:meta.status||null,maxLeverage:num(meta.maxLeverage)||null,profile,style:profile?.style||'BALANCED',core,metaKnown,classification,eligible,reason,score};
 }
 
 export async function buildBybitDynamicUniverse(env,api){
