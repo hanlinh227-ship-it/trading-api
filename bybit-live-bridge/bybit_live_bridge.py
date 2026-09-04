@@ -7,7 +7,7 @@ share the same confirmed WS stream so there is no second market reader or strate
 scheduler. Reconnect backoff is transport-only, never a trading time gate.
 """
 from __future__ import annotations
-import json, math, os, subprocess, threading, time, urllib.error, urllib.parse, urllib.request
+import hashlib, hmac, json, math, os, subprocess, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -55,6 +55,9 @@ _event_candidates=[x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOL
 EVENT_SYMBOLS=set(list(dict.fromkeys(_event_candidates))[:EVENT_SYMBOL_LIMIT])
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
 BYBIT_ALLOWED_METHODS=('GET','POST')
+TELEMETRY_API_KEY=(os.environ.get('BYBIT_AUTO_API_KEY') or os.environ.get('HYRO_BYBIT_LIVE_API_KEY') or os.environ.get('HYRO_BYBIT_API_KEY') or '').strip()
+TELEMETRY_API_SECRET=(os.environ.get('BYBIT_AUTO_API_SECRET') or os.environ.get('HYRO_BYBIT_LIVE_API_SECRET') or os.environ.get('HYRO_BYBIT_API_SECRET') or '').strip()
+TELEMETRY_RECV_WINDOW=str(max(5000,min(20000,int(os.environ.get('BYBIT_RECV_WINDOW_MS','10000')))))
 CURL_BIN='/usr/bin/curl' if os.path.exists('/usr/bin/curl') else 'curl'
 BROWSER_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36'
 
@@ -245,6 +248,87 @@ class Microstructure:
         total_liq=long_usd+short_usd
         return {'ok':True,'data':{'symbol':self.symbol,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'lastPrice':last_trade_price,'lastTradeSide':last_trade_side,'lastTradeTime':last_trade_time,'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst1x':w1['totalNotional']/base1,'burst3x':w3['totalNotional']/base3,'burst5x':w5['totalNotional']/base5,'priceChange1sBps':w1['priceChangeBps'],'priceChange3sBps':w3['priceChangeBps'],'priceChange5sBps':w5['priceChangeBps'],'window1s':w1,'window3s':w3,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
 
+
+def _bybit_readonly_get(path,params=None,signed=True):
+    params=dict(params or {})
+    query=urllib.parse.urlencode([(str(k),str(v)) for k,v in params.items() if v is not None and str(v)!=''])
+    if signed and not (TELEMETRY_API_KEY and TELEMETRY_API_SECRET):
+        raise RuntimeError('BYBIT_TELEMETRY_CREDENTIALS_MISSING')
+    last=None
+    for base in BYBIT_BASES:
+        headers={'accept':'application/json','user-agent':BROWSER_UA}
+        if signed:
+            ts=str(int(time.time()*1000));payload=ts+TELEMETRY_API_KEY+TELEMETRY_RECV_WINDOW+query
+            sig=hmac.new(TELEMETRY_API_SECRET.encode(),payload.encode(),hashlib.sha256).hexdigest()
+            headers.update({'X-BAPI-API-KEY':TELEMETRY_API_KEY,'X-BAPI-TIMESTAMP':ts,'X-BAPI-RECV-WINDOW':TELEMETRY_RECV_WINDOW,'X-BAPI-SIGN':sig})
+        req=urllib.request.Request(base+path+(('?'+query) if query else ''),headers=headers)
+        try:
+            with urllib.request.urlopen(req,timeout=25) as r:
+                raw=r.read(4_000_000).decode(errors='replace');status=int(r.status)
+        except urllib.error.HTTPError as e:
+            raw=e.read(4_000_000).decode(errors='replace');status=int(e.code)
+        except Exception as e:
+            last=RuntimeError('BYBIT_TELEMETRY_UPSTREAM:'+str(e)[:180]);continue
+        try:body=json.loads(raw)
+        except Exception:body={'retCode':None,'retMsg':raw[:300]}
+        if status==200 and int(body.get('retCode',-1))==0:return body
+        last=RuntimeError('BYBIT_TELEMETRY_HTTP_'+str(status)+':'+str(body.get('retMsg') or '')[:180])
+        if status not in (403,429):break
+    raise last or RuntimeError('BYBIT_TELEMETRY_UPSTREAM_FAILED')
+
+def _closed_pnl_rows(start_ms,end_ms):
+    out=[];cursor=''
+    for _ in range(4):
+        q={'category':'linear','startTime':start_ms,'endTime':end_ms,'limit':100}
+        if cursor:q['cursor']=cursor
+        r=_bybit_readonly_get('/v5/position/closed-pnl',q,True);result=r.get('result') or {};rows=result.get('list') or [];out.extend(rows)
+        nxt=str(result.get('nextPageCursor') or '')
+        if not nxt or nxt==cursor:break
+        cursor=nxt
+    seen=set();dedup=[]
+    for x in out:
+        k=(str(x.get('orderId') or ''),str(x.get('updatedTime') or x.get('createdTime') or ''),str(x.get('symbol') or ''))
+        if k in seen:continue
+        seen.add(k);dedup.append(x)
+    return dedup
+
+def readonly_telemetry():
+    started=time.perf_counter();now=int(time.time()*1000)
+    wallet=_bybit_readonly_get('/v5/account/wallet-balance',{'accountType':'UNIFIED','coin':'USDT'},True)
+    positions=_bybit_readonly_get('/v5/position/list',{'category':'linear','settleCoin':'USDT','limit':200},True)
+    closed=_closed_pnl_rows(now-72*60*60*1000,now)
+    acct=((wallet.get('result') or {}).get('list') or [{}])[0] or {};coin=next((x for x in (acct.get('coin') or []) if str(x.get('coin') or '')=='USDT'),{})
+    pos=[]
+    for x in ((positions.get('result') or {}).get('list') or []):
+        try:size=float(x.get('size') or 0)
+        except Exception:size=0.0
+        if size<=0:continue
+        def f(k):
+            try:return float(x.get(k) or 0)
+            except Exception:return 0.0
+        pos.append({'symbol':str(x.get('symbol') or ''),'side':str(x.get('side') or ''),'size':size,'avgPrice':f('avgPrice'),'markPrice':f('markPrice'),'unrealisedPnl':f('unrealisedPnl'),'leverage':f('leverage'),'takeProfit':f('takeProfit'),'stopLoss':f('stopLoss'),'liqPrice':f('liqPrice'),'positionValue':f('positionValue'),'positionIM':f('positionIM'),'positionIdx':f('positionIdx')})
+    def af(v):
+        try:return float(v or 0)
+        except Exception:return 0.0
+    return {'ok':True,'readOnly':True,'authenticated':True,'source':'VPS_BYBIT_SIGNED_READONLY_TELEMETRY','secretScope':'VPS_ONLY','account':{'equity':af(acct.get('totalEquity') or coin.get('equity')),'balance':af(acct.get('totalWalletBalance') or coin.get('walletBalance')),'availableBalance':af(acct.get('totalAvailableBalance') or coin.get('availableToWithdraw'))},'positions':pos,'closedPnl':closed,'closedPnlLookbackHours':72,'bybitLatencyMs':round((time.perf_counter()-started)*1000,2),'fetchedAt':int(time.time()*1000)}
+
+def ws_telemetry(snaps):
+    now=int(time.time()*1000);ages=[];stale=[];connected=ready=fresh=0
+    for symbol,x in snaps.items():
+        if x.get('connected'):connected+=1
+        if not x.get('ok'):continue
+        ready+=1;d=x.get('data') or {};book=d.get('book') or {};trades=d.get('trades') or {};lb=int(book.get('updateTime') or 0);lt=int(trades.get('lastTradeTime') or trades.get('updateTime') or 0)
+        age=max(now-lb if lb>0 else 999999,now-lt if lt>0 else 999999);ages.append(max(0,age))
+        if age<=5000:fresh+=1
+        else:stale.append({'symbol':symbol,'dataAgeMs':max(0,age)})
+    ages.sort()
+    def pct(q):
+        if not ages:return None
+        i=max(0,min(len(ages)-1,int(math.ceil(q*len(ages)))-1));return int(ages[i])
+    min_connected=max(1,int(math.ceil(len(snaps)*.80)));min_fresh=max(1,int(math.ceil(len(snaps)*.75)))
+    return {'healthy':connected>=min_connected and fresh>=min_fresh,'connectedCount':connected,'readyCount':ready,'freshCount':fresh,'totalCount':len(snaps),'p50DataAgeMs':pct(.50),'p95DataAgeMs':pct(.95),'maxDataAgeMs':int(max(ages)) if ages else None,'staleSymbols':sorted(stale,key=lambda x:x['dataAgeMs'],reverse=True)[:20],'freshThresholdMs':5000,'timestamp':now}
+
+
 MICROS={s:Microstructure(s) for s in SYMBOLS}
 
 def bybit_proxy(body):
@@ -274,7 +358,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'eventSymbolLimit':EVENT_SYMBOL_LIMIT,'eventWakeAuthority':'BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING','dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'eventSymbolLimit':EVENT_SYMBOL_LIMIT,'eventWakeAuthority':'BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING','dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'wsTelemetry':ws_telemetry(snaps),'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+        if u.path=='/bybit/telemetry':
+            if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
+            try:return self.sendj(200,readonly_telemetry())
+            except Exception as e:return self.sendj(503,{'ok':False,'readOnly':True,'error':'BYBIT_TELEMETRY_FAILED','detail':str(e)[:240]})
         if u.path=='/bybit/microstructure':
             if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
             q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [DEFAULT_SYMBOL])[0]).upper();m=MICROS.get(symbol)
