@@ -1,5 +1,6 @@
 trigger=BYBIT_ANDROID_MONITOR_APP_V1_1
-requested_at=2026-09-05T00:22:00+07:00
+requested_at=2026-09-05T00:25:00+07:00
 features=dark-cyber-finance,monospace,equity-hero,position-progress,realtime-ws-750ms,keystore,foreground-alerts,dark-widget
 contains_credentials=false
 preserve_existing_pair_token=true
+retry=terminal-ui-kotlin-fix
