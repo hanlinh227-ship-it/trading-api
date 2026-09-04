@@ -1,4 +1,4 @@
-name: Deploy BTCUSDT Bybit Hyperscale
+name: Validate BTCUSDT Bybit Hyperscale
 on:
   push:
     branches: [main]
@@ -9,70 +9,31 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: btcusdt-bybit-hyperscale-cloudflare
+  group: btcusdt-bybit-hyperscale-validation
   cancel-in-progress: true
 jobs:
-  validate-and-deploy-paper-safe:
+  validate-only:
     runs-on: [self-hosted, Linux, X64, trading-vps]
     timeout-minutes: 12
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      TRADING_KV_NAMESPACE_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
-      AI_BRIDGE_SERVICE_ID: ${{ secrets.AI_BRIDGE_SERVICE_ID }}
-      V11_AI_BRIDGE_SERVICE_ID: ${{ secrets.V11_AI_BRIDGE_SERVICE_ID }}
-      BYBIT_AUTO_ENABLED: 'true'
-      BYBIT_AUTO_LIVE: 'true'
-      BYBIT_BTC_LIVE_ACK: 'false'
-      BYBIT_AUTO_DEMO: 'false'
-      BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK: 'false'
-      BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK: 'false'
-      WORKER_BASE_URL: https://trading-v77-scanner.hanlinh227.workers.dev
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Validate Cloudflare credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "${CLOUDFLARE_API_TOKEN:-}"
-          test -n "${CLOUDFLARE_ACCOUNT_ID:-}"
-          test -n "${TRADING_KV_NAMESPACE_ID:-}"
-      - name: Validate BTC-only source
+      - name: Validate BTC-only source and runtime contracts
         working-directory: cloudflare-worker
         shell: bash
         run: |
           set -euo pipefail
           npm install --no-audit --no-fund
           npm run check
-      - name: Prepare and deploy PAPER-safe runtime
-        working-directory: cloudflare-worker
+          ! grep -q 'BYBIT_BTC_LIVE_ACK.*false' ../.github/workflows/deploy-cloudflare-worker.yml
+          ! grep -q 'npx wrangler deploy' ../.github/workflows/deploy-cloudflare-worker.yml
+          ! grep -q 'scheduled(event' index.js
+          grep -q 'NONE_EVENT_DRIVER_ONLY' bybit-runtime-contract.js
+          grep -q 'VPS_BRIDGE_SECRET_ONLY' bybit-control-plane.js
+          echo 'BTC_GITHUB_CI_VALIDATION_ONLY=PASS'
+      - name: Explain deployment authority
         shell: bash
         run: |
-          set -euo pipefail
-          npm run prepare:wrangler
-          grep -q '"BYBIT_AUTO_ENABLED": "true"' wrangler.jsonc
-          grep -q '"BYBIT_AUTO_LIVE": "true"' wrangler.jsonc
-          grep -q '"BYBIT_BTC_LIVE_ACK": "false"' wrangler.jsonc
-          grep -q '"BYBIT_AUTO_DEMO": "false"' wrangler.jsonc
-          npx wrangler deploy
-      - name: Verify deployed BTC migration runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          verify_once() {
-            CONTRACT="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/runtime/contract" || true)"
-            printf '%s\n' "$CONTRACT" | GITHUB_SHA="$GITHUB_SHA" node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||x.runtimeRevision!==process.env.GITHUB_SHA||x.executionAuthority!=='BYBIT_BTC_ONLY'||x.symbol!=='BTCUSDT'||x.legacyBybitMultiCoinDisabled!==true)process.exit(2);console.log('BTC_RUNTIME_CONTRACT=PASS '+x.autoVersion)}catch{process.exit(2)}})" || return 1
-            STATUS="$(curl -fsS --connect-timeout 5 --max-time 15 "$WORKER_BASE_URL/status" || true)"
-            printf '%s\n' "$STATUS" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s),b=x.bybit||{};if(!x.ok||x.executionAuthority!=='BYBIT_BTC_ONLY'||b.symbol!=='BTCUSDT'||b.mode!=='PAPER'||x.legacyBotsDisabled!==true||b.martingale!==false||b.addToLoser!==false||b.winnerPyramiding!==true)process.exit(3);console.log('BTC_PAPER_SAFE_STATUS=PASS')}catch{process.exit(2)}})" || return 1
-            HEALTH="$(curl -sS --connect-timeout 5 --max-time 20 "$WORKER_BASE_URL/bybit/health" || true)"
-            printf '%s\n' "$HEALTH" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const x=JSON.parse(s);if(!x.ok||!x.authenticated||x.mode!=='PAPER'||Number(x.account?.totalEquity)<=0)process.exit(4);console.log('BTC_PRIVATE_API_HEALTH=PASS equity='+x.account.totalEquity)}catch{process.exit(2)}})" || return 1
-            return 0
-          }
-          for attempt in 1 2 3 4 5 6; do
-            echo "BTC_VERIFY_ATTEMPT=$attempt"
-            if verify_once; then echo 'BTC_MIGRATION_DEPLOY=PASS'; exit 0; fi
-            sleep 8
-          done
-          echo 'BTC_MIGRATION_DEPLOY=FAIL' >&2
-          exit 1
+          echo 'Cloudflare Builds is the sole Worker deployment authority.'
+          echo 'GitHub Actions validates source only and never changes Worker runtime variables.'
+          echo 'BYBIT_BTC_LIVE_ACK is never forced by this workflow.'
