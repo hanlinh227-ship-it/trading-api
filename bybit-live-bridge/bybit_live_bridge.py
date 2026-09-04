@@ -49,8 +49,10 @@ def discover_ws_symbols():
     return tuple(seed)
 SYMBOLS=discover_ws_symbols()
 _extra=[s for s in SYMBOLS if s not in CORE_SYMBOLS]
-_default_events=list(CORE_SYMBOLS[:10])+_extra[:8]
-EVENT_SYMBOLS=set(x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS',','.join(_default_events)).split(',') if x.strip() and x.strip().upper() in SYMBOLS)
+EVENT_SYMBOL_LIMIT=max(4,min(12,int(os.environ.get('BYBIT_EVENT_SYMBOL_LIMIT','8'))))
+_default_events=list(CORE_SYMBOLS[:6])+_extra[:2]
+_event_candidates=[x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS',','.join(_default_events)).split(',') if x.strip() and x.strip().upper() in SYMBOLS]
+EVENT_SYMBOLS=set(list(dict.fromkeys(_event_candidates))[:EVENT_SYMBOL_LIMIT])
 BYBIT_ALLOWED_PREFIXES=('/v5/account/','/v5/position/','/v5/order/','/v5/market/')
 BYBIT_ALLOWED_METHODS=('GET','POST')
 CURL_BIN='/usr/bin/curl' if os.path.exists('/usr/bin/curl') else 'curl'
@@ -272,7 +274,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'eventSymbolLimit':EVENT_SYMBOL_LIMIT,'eventWakeAuthority':'BOUNDED_DRIVER_SET_GLOBAL_SERIAL_COALESCING','dynamicWsDiscovery':AUTO_DISCOVER,'maxWsSymbols':MAX_WS_SYMBOLS,'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
         if u.path=='/bybit/microstructure':
             if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
             q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [DEFAULT_SYMBOL])[0]).upper();m=MICROS.get(symbol)
