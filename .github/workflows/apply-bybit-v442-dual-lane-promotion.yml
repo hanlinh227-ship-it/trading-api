@@ -27,15 +27,17 @@ jobs:
           node --check bybit-symbol-strategy.js
           node --check bybit-symbol-engine.js
           node --check bybit-btc-risk-engine.js
-          sed -i "s/'BYBIT-MULTI-STATEFLOW-4.4.1'/'BYBIT-MULTI-STATEFLOW-4.4.2'/" validate-btc-hyperscale.mjs
-          sed -i "s/'BYBIT_MULTI_ASSET_RUNTIME_V21_DIRECTION_COHERENCE_LONG_RUN_FREEZE'/'BYBIT_MULTI_ASSET_RUNTIME_V22_DUAL_LANE_DISCOVERY_PROMOTION'/" validate-btc-hyperscale.mjs
-          sed -i "s/'continuousTimeScale'/'lastContinuousCapitalUsd'/" validate-btc-hyperscale.mjs
+          sed -i "s/'BYBIT-MULTI-STATEFLOW-4.4.1'/'BYBIT-MULTI-STATEFLOW-4.4.2'/g" validate-btc-hyperscale.mjs
+          sed -i "s/'BYBIT_MULTI_ASSET_RUNTIME_V21_DIRECTION_COHERENCE_LONG_RUN_FREEZE'/'BYBIT_MULTI_ASSET_RUNTIME_V22_DUAL_LANE_DISCOVERY_PROMOTION'/g" validate-btc-hyperscale.mjs
+          sed -i "s/'BYBIT_DYNAMIC_CRYPTO_SCALP_UNIVERSE_V2'/'BYBIT_DYNAMIC_CRYPTO_SCALP_UNIVERSE_V3_DUAL_LANE_PROMOTION'/g" validate-btc-hyperscale.mjs
+          sed -i "s/'continuousTimeScale'/'lastContinuousCapitalUsd'/g" validate-btc-hyperscale.mjs
           node validate-btc-hyperscale.mjs
       - name: Assert dual-lane safety markers
         shell: bash
         run: |
           set -euo pipefail
           grep -q "TRADE_PROMOTED" cloudflare-worker/bybit-dynamic-universe.js
+          grep -q "promotionCandidates" cloudflare-worker/bybit-dynamic-universe.js
           grep -q "WATCH_ONLY_DEEP_ANALYSIS_PERSISTENT_PROMOTION" cloudflare-worker/bybit-multi-asset-controller.js
           grep -q "promotionScanCount:4" cloudflare-worker/bybit-coin-profiles.js
           grep -q "promotionRequiresRepeatedFreshEvidence:true" cloudflare-worker/bybit-runtime-contract.js
