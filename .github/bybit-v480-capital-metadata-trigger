@@ -1,0 +1,4 @@
+trigger=BYBIT_V480_CAPITAL_METADATA_FINALIZER
+requested_at=2026-09-05T01:02:00+07:00
+strategy_execution=false
+purpose=sync-controller-and-legacy-capital-metadata
