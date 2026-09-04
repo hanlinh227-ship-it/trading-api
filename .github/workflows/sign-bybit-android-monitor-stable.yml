@@ -1,0 +1,74 @@
+name: Sign Bybit Android Monitor Stable
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-android-stable-signing-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  sign:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Download built V1.1 APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/bybit-monitor-sign" && mkdir -p "$RUNNER_TEMP/bybit-monitor-sign"
+          gh release download bybit-android-monitor-v1 --repo hanlinh227-ship-it/trading-api --pattern 'BybitAndroidMonitor-v1.1.apk' --dir "$RUNNER_TEMP/bybit-monitor-sign"
+          test -s "$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk"
+      - name: Ensure persistent VPS-only signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -s /etc/bybit-monitor-signing.env ] || [ ! -s /etc/bybit-monitor-signing.jks ]; then
+            PASS=$(openssl rand -hex 32)
+            sudo sh -c "umask 077; printf 'KS_PASS=%s\nKEY_PASS=%s\n' '$PASS' '$PASS' > /etc/bybit-monitor-signing.env"
+            sudo keytool -genkeypair -noprompt -keystore /etc/bybit-monitor-signing.jks -storepass "$PASS" -keypass "$PASS" -alias bybit-monitor -keyalg RSA -keysize 4096 -validity 36500 -dname 'CN=Bybit Android Monitor,OU=Read Only Monitor,O=Hanlinh Trading,C=VN'
+            sudo chmod 600 /etc/bybit-monitor-signing.env /etc/bybit-monitor-signing.jks
+          fi
+          sudo test -s /etc/bybit-monitor-signing.jks
+          sudo test -s /etc/bybit-monitor-signing.env
+      - name: Ensure APK signer tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v apksigner >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq apksigner
+          fi
+          command -v apksigner
+      - name: Sign and verify stable APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source <(sudo cat /etc/bybit-monitor-signing.env)
+          set +a
+          IN="$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk"
+          OUT="$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1-stable.apk"
+          sudo apksigner sign --ks /etc/bybit-monitor-signing.jks --ks-key-alias bybit-monitor --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out "$OUT" "$IN"
+          sudo chown "$(id -u):$(id -g)" "$OUT"
+          apksigner verify --verbose --print-certs "$OUT" | grep -E 'Verified using v[123] scheme|Signer #1 certificate SHA-256 digest'
+          sha256sum "$OUT" | tee "$RUNNER_TEMP/bybit-monitor-sign/SHA256SUMS-stable.txt"
+          mv "$OUT" "$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk"
+      - name: Publish stable-signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release upload bybit-android-monitor-v1 "$RUNNER_TEMP/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk" "$RUNNER_TEMP/bybit-monitor-sign/SHA256SUMS-stable.txt" --repo hanlinh227-ship-it/trading-api --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BybitAndroidMonitor-v1.1-stable
+          path: |
+            ${{ runner.temp }}/bybit-monitor-sign/BybitAndroidMonitor-v1.1.apk
+            ${{ runner.temp }}/bybit-monitor-sign/SHA256SUMS-stable.txt
