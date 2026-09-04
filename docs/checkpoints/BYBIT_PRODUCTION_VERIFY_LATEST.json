@@ -1,7 +1,7 @@
 {
-  "verifiedAt": "2026-09-04T09:58:37.775Z",
-  "expectedRevision": "1cdc68415856e685e89730f01b532401438c026a",
-  "runtimeRevision": "1cdc68415856e685e89730f01b532401438c026a",
+  "verifiedAt": "2026-09-04T10:22:32.624Z",
+  "expectedRevision": "23c1cb6b1eb74add4b656850531cf4a26145b2aa",
+  "runtimeRevision": "23c1cb6b1eb74add4b656850531cf4a26145b2aa",
   "pass": true,
   "health": {
     "http": 200,
@@ -11,7 +11,7 @@
     "authenticated": true,
     "privateTransport": "VPS_BYBIT_PRIVATE_PROXY",
     "marketTransport": "VPS_BYBIT_MARKET_PROXY",
-    "serverTimeMs": 1788515914125,
+    "serverTimeMs": 1788517347367,
     "revisionOk": true
   },
   "contract": {
@@ -34,17 +34,34 @@
     "mode": "LIVE",
     "modeMismatch": false,
     "cycleMode": "LIVE",
-    "cycleAgeSec": 883,
+    "cycleAgeSec": 2316,
     "lastEventCycleAt": "2026-09-04T09:43:53.703Z",
     "lastEventResult": "SQUEEZE_WAIT_MOMENTUM_RELEASE_OR_SWEEP",
-    "lastEventResultVi": "⏳ CHỜ XUNG LỰC",
+    "lastEventResultVi": "⏳ CHƯA ĐỦ LỰC",
+    "lastEventResultShortVi": "Chưa đủ lực",
     "regimeVi": "NÉN GIÁ",
+    "btcPrice": 80808.4,
+    "btcPriceSource": "BYBIT_LINEAR_LAST_PRICE",
+    "btcPriceCanonical": true,
     "position": null,
     "activeTranches": 0,
     "telegramNotification": {
       "sent": false,
       "reason": "NO_PENDING_LIVE_ENTRY_ALERT"
     }
+  },
+  "price": {
+    "http": 200,
+    "ok": true,
+    "price": 80808.4,
+    "markPrice": 80809.76,
+    "indexPrice": 80850.16,
+    "source": "BYBIT_LINEAR_LAST_PRICE",
+    "fetchedAt": 1788517350861
+  },
+  "monitor": {
+    "http": 200,
+    "ok": true
   },
   "scan": {
     "http": 200,
@@ -53,7 +70,7 @@
     "regime": "SQUEEZE",
     "microstructureSource": "VPS_BYBIT_WS",
     "setupOk": true,
-    "setup": "SQUEEZE_MOMENTUM_PROBE",
+    "setup": "SQUEEZE_MOMENTUM_EARLY_RELEASE",
     "reason": null,
     "diagnostic": null
   },
@@ -64,6 +81,8 @@
     "runtimeContract": true,
     "entryInspectable": true,
     "hubRuntime": true,
+    "canonicalBybitLivePrice": true,
+    "btcMonitorPwa": true,
     "liveEventCycle": true,
     "readOnlyStateFlowScan": true
   }
