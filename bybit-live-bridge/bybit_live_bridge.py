@@ -25,13 +25,13 @@ CURL_BIN='/usr/bin/curl' if os.path.exists('/usr/bin/curl') else 'curl'
 BROWSER_UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36'
 
 try:
-    import websocket  # websocket-client
+    import websocket
 except Exception:
     websocket=None
 
 class Microstructure:
     def __init__(self):
-        self.lock=threading.RLock(); self.bids={}; self.asks={}; self.trades=deque(maxlen=12000); self.liquidations=deque(maxlen=4000)
+        self.lock=threading.RLock(); self.bids={}; self.asks={}; self.trades=deque(maxlen=16000); self.liquidations=deque(maxlen=4000)
         self.last_book=0; self.last_trade=0; self.last_liq=0; self.last_error=None; self.connected=False; self.thread=None
         self.event_last_fingerprint=None; self.event_inflight=False; self.event_pending=False
         self.event_last_wake=0; self.event_last_success=0; self.event_last_error=None; self.event_last_result=None; self.event_last_http=0; self.event_transport='CURL_HTTP'
@@ -59,14 +59,17 @@ class Microstructure:
         ws.send(json.dumps({'op':'subscribe','args':[f'orderbook.50.{SYMBOL}',f'publicTrade.{SYMBOL}',f'allLiquidation.{SYMBOL}']}))
     def _error(self,_ws,e): self.last_error='WS:'+str(e)[:240]
     def _close(self,_ws,_code,_msg): self.connected=False
-    def _trade_imbalance_locked(self,window_ms,now):
-        buy=sell=0.0
+    def _trade_window_locked(self,window_ms,now):
+        buy=sell=0.0; n=0; first=last=0.0
         for t,side,q,p in self.trades:
             if t<now-window_ms: continue
-            v=q*p
+            if first<=0:first=p
+            last=p; n+=1; v=q*p
             if side=='Buy': buy+=v
             elif side=='Sell': sell+=v
-        return self._imb(buy,sell)
+        total=buy+sell
+        return {'buyNotional':buy,'sellNotional':sell,'totalNotional':total,'deltaNotional':buy-sell,'imbalance':self._imb(buy,sell),'trades':n,'priceChangeBps':((last-first)/first*10000 if first>0 and last>0 else 0.0)}
+    def _trade_imbalance_locked(self,window_ms,now): return self._trade_window_locked(window_ms,now)['imbalance']
     def _event_fingerprint(self,topic):
         now=int(time.time()*1000)
         with self.lock:
@@ -76,10 +79,10 @@ class Microstructure:
             def depth(rows,bps):return sum(p*q for p,q in rows if abs(p-mid)/mid*10000<=bps)
             b2,a2=depth(bids,2),depth(asks,2); b5,a5=depth(bids,5),depth(asks,5)
             i2=self._imb(b2,a2); i5=self._imb(b5,a5)
-            f5=self._trade_imbalance_locked(5000,now); f15=self._trade_imbalance_locked(15000,now)
+            f1=self._trade_imbalance_locked(1000,now); f3=self._trade_imbalance_locked(3000,now); f5=self._trade_imbalance_locked(5000,now); f15=self._trade_imbalance_locked(15000,now)
             micro=(ba*bs+bb*as_)/(bs+as_) if bs+as_>0 else mid
             mp=(micro-mid)/mid*10000 if mid>0 else 0
-            return (self._bucket(mid,1.0),self._bucket(i2,.05),self._bucket(i5,.05),self._bucket(f5,.05),self._bucket(f15,.05),self._bucket(mp,.01),str(topic).split('.')[0])
+            return (self._bucket(mid,.5),self._bucket(i2,.04),self._bucket(i5,.05),self._bucket(f1,.06),self._bucket(f3,.05),self._bucket(f5,.05),self._bucket(f15,.05),self._bucket(mp,.01),str(topic).split('.')[0])
     def _curl_worker(self,reason):
         reason=self._curl_q(str(reason)[:120]); secret=self._curl_q(SECRET); url=self._curl_q(WORKER_URL+'/bybit/auto/run')
         cfg='\n'.join([
@@ -90,8 +93,7 @@ class Microstructure:
             'data = "{}"','write-out = "\\n__BTC_HTTP_STATUS__:%{http_code}"',''
         ])
         p=subprocess.run([CURL_BIN,'--config','-'],input=cfg,text=True,capture_output=True,timeout=40,check=False)
-        text=(p.stdout or '')
-        marker='\n__BTC_HTTP_STATUS__:'
+        text=(p.stdout or ''); marker='\n__BTC_HTTP_STATUS__:'
         if marker in text:
             raw,status=text.rsplit(marker,1)
             try:code=int(status.strip())
@@ -183,15 +185,9 @@ class Microstructure:
         def weighted(rows):return sum(p*q*math.exp(-(abs(p-mid)/mid*10000)/4) for p,q in rows)
         b2,a2=depth(bids,2),depth(asks,2); b5,a5=depth(bids,5),depth(asks,5); b10,a10=depth(bids,10),depth(asks,10); wb,wa=weighted(bids),weighted(asks)
         micro=(ba*bs+bb*as_)/(bs+as_) if bs+as_>0 else mid
-        def t_window(ms):
-            buy=sell=0.0; n=0
-            for t,side,q,p in trades:
-                if t<now-ms:continue
-                v=q*p;n+=1
-                if side=='Buy':buy+=v
-                elif side=='Sell':sell+=v
-            total=buy+sell;return {'buyNotional':buy,'sellNotional':sell,'totalNotional':total,'deltaNotional':buy-sell,'imbalance':self._imb(buy,sell),'trades':n}
-        w5,w15,w60=t_window(5000),t_window(15000),t_window(60000); base=max(w60['totalNotional']/12,1.0)
+        with self.lock:
+            w1=self._trade_window_locked(1000,now); w3=self._trade_window_locked(3000,now); w5=self._trade_window_locked(5000,now); w15=self._trade_window_locked(15000,now); w60=self._trade_window_locked(60000,now)
+        base1=max(w60['totalNotional']/60,1.0); base3=max(w60['totalNotional']/20,1.0); base5=max(w60['totalNotional']/12,1.0)
         long_usd=short_usd=0.0; events=0
         for t,side,q,p in liqs:
             if t<now-60000:continue
@@ -199,7 +195,7 @@ class Microstructure:
             if side=='Buy':long_usd+=v
             elif side=='Sell':short_usd+=v
         total_liq=long_usd+short_usd
-        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst5x':w5['totalNotional']/base,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
+        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst1x':w1['totalNotional']/base1,'burst3x':w3['totalNotional']/base3,'burst5x':w5['totalNotional']/base5,'priceChange1sBps':w1['priceChangeBps'],'priceChange3sBps':w3['priceChangeBps'],'priceChange5sBps':w5['priceChangeBps'],'window1s':w1,'window3s':w3,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
 
 MICRO=Microstructure()
 
