@@ -1,0 +1,16 @@
+from pathlib import Path
+root=Path(__file__).resolve().parents[2]
+p=root/'cloudflare-worker/bybit-runtime-contract.js';s=p.read_text()
+s=s.replace('expandedPromotionScan:true','expandedPromotionScan:false')
+s=s.replace('dualLaneMarketDiscovery:true','dualLaneMarketDiscovery:false')
+s=s.replace('promotionWatchLane:true','promotionWatchLane:false')
+s=s.replace('promotionRequiresRepeatedFreshEvidence:true','promotionRequiresRepeatedFreshEvidence:false')
+p.write_text(s)
+p=root/'cloudflare-worker/validate-btc-hyperscale.mjs';s=p.read_text()
+s=s.replace('assert.equal(BYBIT_RUNTIME_CONTRACT.dualLaneMarketDiscovery,true)','assert.equal(BYBIT_RUNTIME_CONTRACT.dualLaneMarketDiscovery,false)')
+s=s.replace('assert.equal(BYBIT_RUNTIME_CONTRACT.promotionWatchLane,true)','assert.equal(BYBIT_RUNTIME_CONTRACT.promotionWatchLane,false)')
+s=s.replace('assert.equal(BYBIT_RUNTIME_CONTRACT.promotionRequiresRepeatedFreshEvidence,true)','assert.equal(BYBIT_RUNTIME_CONTRACT.promotionRequiresRepeatedFreshEvidence,false)')
+s=s.replace("'dualLaneMarketDiscovery:true','confirmedTradeLane:true','promotionWatchLane:true','persistentPromotionEvidence:true','promotionRequiresRepeatedFreshEvidence:true'","'dualLaneMarketDiscovery:false','confirmedTradeLane:true','promotionWatchLane:false','persistentPromotionEvidence:true','promotionRequiresRepeatedFreshEvidence:false'")
+s=s.replace('dualLaneMarketDiscovery:true,confirmedTradeLane:true,promotionWatchLane:true,persistentPromotionEvidence:true','dualLaneMarketDiscovery:false,confirmedTradeLane:true,promotionWatchLane:false,persistentPromotionEvidence:true')
+p.write_text(s)
+print('BYBIT_V470_CONTRACT_CLEANUP_PATCHED')
