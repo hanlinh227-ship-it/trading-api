@@ -1,5 +1,5 @@
 import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
-// BYBIT-MULTI-STATEFLOW-4.3.1 FRESHNESS + OBJECTIVE-ENTRY configuration.
+// BYBIT-MULTI-STATEFLOW-4.3.2 PROTECTED-RISK-SLOT + UI-READY configuration.
 // Event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
@@ -22,7 +22,7 @@ export const BYBIT_AUTO_CONFIG={
     ]}
   },
   scalp:{
-    authority:'OBJECTIVE_PROFIT_FLOOR_EDGE_PERSISTENCE',
+    authority:'OBJECTIVE_PROFIT_FLOOR_EDGE_PERSISTENCE_FLOOR_LOCK',
     // Hard entry floor is >$1 net at low scale. Larger profits come from runners, not by starving valid entries.
     minPlannedNetProfitUsd:1.05,
     minPlannedNetProfitPct:.35,
@@ -35,8 +35,9 @@ export const BYBIT_AUTO_CONFIG={
     profitFloorBufferMult:1.04,
     requireNetFloorAfterFees:true,
     profitFloorProtectAfterHit:true,
-    profitFloorRetentionPct:.82,
-    profitPeakRetentionPct:.58,
+    profitFloorLockAtHit:true,
+    profitFloorRetentionPct:1.00,
+    profitPeakRetentionPct:.68,
     profitLockR:.72,
     trailStartR:1.55,
     trailRange5Pct:.22,
@@ -116,7 +117,7 @@ export const BYBIT_AUTO_CONFIG={
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
     shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true,profitScaleLadder:true,thesisAwareProfitHarvest:true,
-    netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true
+    netProfitFloorAfterFees:true,holdWhileEdgePersists:true,multiStageExitEvidence:true,perSymbolProfitFloor:true,profitFloorRetention:true,priceBasedProfitProtection:true,profitFloorAdaptiveLeverage:true,profileNormalizedQuality:true,peakNetProfitRetention:true,protectedRiskSlotReuse:true,uiReadOnlyContract:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
