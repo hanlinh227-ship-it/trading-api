@@ -1,0 +1,71 @@
+name: Finalize Bybit V4.6 Broad Scalp Production
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v460-finalize-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bybit-v460-finalize
+  cancel-in-progress: false
+jobs:
+  finalize:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Validate committed V4.6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          grep -q 'BYBIT-MULTI-STATEFLOW-4.6.0' bybit-runtime-contract.js
+          grep -q 'BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK' bybit-runtime-contract.js
+          grep -q 'deepScanCount:12,promotionScanCount:12' bybit-coin-profiles.js
+      - name: Activate expanded VPS WS bridge without changing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /opt/bybit-btc-bridge
+          sudo cp bybit-live-bridge/bybit_live_bridge.py /opt/bybit-btc-bridge/bybit_live_bridge.py
+          sudo mkdir -p /etc/systemd/system/bybit-btc-bridge.service.d
+          printf '[Service]\nEnvironment=BYBIT_MAX_WS_SYMBOLS=48\nEnvironment=BYBIT_EVENT_SYMBOL_LIMIT=12\n' | sudo tee /etc/systemd/system/bybit-btc-bridge.service.d/broad-universe.conf >/dev/null
+          sudo systemctl daemon-reload
+          sudo systemctl restart bybit-btc-bridge.service
+          sleep 6
+          sudo systemctl is-active --quiet bybit-btc-bridge.service
+          sudo systemctl --no-pager --full status bybit-btc-bridge.service | head -n 25
+      - name: Deploy V4.6 Worker preserving all runtime variables
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          REV=$(git rev-parse HEAD)
+          GITHUB_SHA="$REV" npm run deploy
+      - name: Verify LIVE V4.6 and expanded universe
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          T="$RUNNER_TEMP/v460-final"; mkdir -p "$T"
+          for i in $(seq 1 20); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            curl -fsS --max-time 30 "$BASE/runtime/contract" > "$T/contract.json" || true
+            OK=$(T="$T" node -e "const fs=require('fs'),p=process.env.T;try{const h=JSON.parse(fs.readFileSync(p+'/health.json')),c=JSON.parse(fs.readFileSync(p+'/contract.json'));process.stdout.write(h.version==='BYBIT-MULTI-STATEFLOW-4.6.0'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK'?'1':'0')}catch{process.stdout.write('0')}")
+            [ "$OK" = 1 ] && break
+            sleep 5
+          done
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json"
+          curl -fsS --max-time 60 "$BASE/bybit/universe" > "$T/universe.json"
+          T="$T" node <<'NODE'
+          const fs=require('fs'),p=process.env.T,read=f=>JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'));
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json'),u=read('universe.json');
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.6.0',contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK',live:h.mode==='LIVE',authenticated:h.authenticated===true,ready:h.execution?.ready===true,broad:c.broadScalpUniverse===true,ws:c.expandedWsCoverage===true,deep:c.expandedDeepScan===true,promotion:c.expandedPromotionScan===true,sameRisk:c.opportunityBreadthDoesNotIncreaseRiskBudget===true,performance:c.realizedPnlPerformanceGovernor===true,noMartingale:c.recoveryMartingale===false,noAddLoser:c.recoveryAddToLoser===false,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0,universe:u.ok===true};
+          const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,authenticated:h.authenticated,ready:h.execution?.ready,equity:h.account?.totalEquity,wallet:h.account?.walletBalance,available:h.account?.availableBalance,positions:h.positions?.items||[]},contract:{version:c.version,broadScalpUniverse:c.broadScalpUniverse,expandedWsCoverage:c.expandedWsCoverage,expandedDeepScan:c.expandedDeepScan,expandedPromotionScan:c.expandedPromotionScan,opportunityBreadthDoesNotIncreaseRiskBudget:c.opportunityBreadthDoesNotIncreaseRiskBudget},universe:u.summary||null,entry:{status:e.status,blockers:e.blockers||[]},checks};console.log(JSON.stringify(out,null,2));if(!pass)process.exit(9);
+          NODE
