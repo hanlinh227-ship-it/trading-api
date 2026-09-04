@@ -28,15 +28,15 @@ def fetch_klines(symbol):
     start_ms=end_ms-DAYS*24*60*60*1000
     out=[]; cursor=start_ms
     while cursor<end_ms:
-        q=urllib.parse.urlencode({'symbol':symbol,'interval':INTERVAL,'startTime':cursor,'endTime':end_ms,'limit':1500})
-        rows=get_json('https://fapi.binance.com/fapi/v1/klines?'+q)
+        q=urllib.parse.urlencode({'symbol':symbol,'interval':INTERVAL,'startTime':cursor,'endTime':end_ms,'limit':1000})
+        rows=get_json('https://data-api.binance.vision/api/v3/klines?'+q)
         if not rows: break
         for x in rows:
             out.append({'t':int(x[0]),'o':float(x[1]),'h':float(x[2]),'l':float(x[3]),'c':float(x[4]),'v':float(x[5])})
         nxt=int(rows[-1][0])+60_000
         if nxt<=cursor: break
         cursor=nxt
-        if len(rows)<1500: break
+        if len(rows)<1000: break
         time.sleep(.08)
     seen={}
     for r in out: seen[r['t']]=r
@@ -192,7 +192,7 @@ def fmt(s):
 
 
 def main():
-    report={'generatedAt':datetime.now(timezone.utc).isoformat(),'source':'BINANCE_USDT_FUTURES_1M_PROXY','days':DAYS,'symbols':{},'lanes':{},'assumptions':{'startEquityUsdPerSymbol':START_EQUITY,'roundTripCostRate':ROUNDTRIP_COST_RATE,'maxHoldMinutes':MAX_HOLD_BARS,'minPlannedNetUsd':MIN_PLANNED_NET_USD,'sameBarTpSl':'SL_FIRST_CONSERVATIVE','fullFidelityMicrostructure':False}}
+    report={'generatedAt':datetime.now(timezone.utc).isoformat(),'source':'BINANCE_PUBLIC_SPOT_1M_PRICE_VOLUME_PROXY','days':DAYS,'symbols':{},'lanes':{},'assumptions':{'startEquityUsdPerSymbol':START_EQUITY,'roundTripCostRate':ROUNDTRIP_COST_RATE,'maxHoldMinutes':MAX_HOLD_BARS,'minPlannedNetUsd':MIN_PLANNED_NET_USD,'sameBarTpSl':'SL_FIRST_CONSERVATIVE','fullFidelityMicrostructure':False}}
     all_trades=[]
     for s in SYMBOLS:
         rows=fetch_klines(s)
