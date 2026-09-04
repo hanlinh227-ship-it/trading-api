@@ -1,0 +1,141 @@
+name: Deploy Bybit V4.9 Scalp First
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/apply-bybit-v490-scalp-first.py'
+      - '.github/workflows/deploy-bybit-v490-scalp-first.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-v490-scalp-first
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply scalp-first source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v490-scalp-first.py
+          grep -q "BYBIT-MULTI-STATEFLOW-4.9.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V27_SCALP_FIRST_MULTI_ENTRY" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "maxNewEntriesPerEvent:null" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "deepScanCount:28" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "scalpCapTarget" cloudflare-worker/bybit-symbol-engine.js
+          grep -q "nearerTarget" cloudflare-worker/bybit-symbol-engine.js
+          grep -q "scalpVelocityBps" cloudflare-worker/bybit-multi-asset-controller.js
+          grep -q "MANAGEMENT_ONLY_SCALP_REBASE" cloudflare-worker/bybit-multi-asset-controller.js
+          ! grep -q "martingale:true" cloudflare-worker/bybit-auto-config.js
+          ! grep -q "addToLoser:true" cloudflare-worker/bybit-auto-config.js
+      - name: Validate bot source
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          node --input-type=module <<'NODE'
+          import {BYBIT_AUTO_CONFIG} from './bybit-auto-config.js';
+          import {BYBIT_PORTFOLIO_POLICY,coinProfileForSymbol,maxConcurrentForEquity} from './bybit-coin-profiles.js';
+          import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
+          const c=BYBIT_AUTO_CONFIG,p=BYBIT_PORTFOLIO_POLICY;
+          const checks={
+            version:BYBIT_AUTO_VERSION==='BYBIT-MULTI-STATEFLOW-4.9.0',
+            contract:BYBIT_RUNTIME_CONTRACT.version==='BYBIT_MULTI_ASSET_RUNTIME_V27_SCALP_FIRST_MULTI_ENTRY',
+            scalpOnly:BYBIT_RUNTIME_CONTRACT.scalpOnly===true,
+            cappedTarget:BYBIT_RUNTIME_CONTRACT.scalpTargetDistanceCapped===true,
+            floorNoSwing:BYBIT_RUNTIME_CONTRACT.profitFloorNeverForcesSwingTarget===true,
+            oldPositionRebase:BYBIT_RUNTIME_CONTRACT.existingPositionScalpRebase===true,
+            multiEntry:BYBIT_RUNTIME_CONTRACT.multiEntryUntilCapacity===true,
+            targetR:c.scalp.adaptiveProtection.maxTargetR<=2.2,
+            deep:p.deepScanCount>=28,
+            noEventEntryQuota:p.maxNewEntriesPerEvent===null,
+            concurrency:maxConcurrentForEquity(73)>=5,
+            btcProfile:coinProfileForSymbol('BTCUSDT').runnerMaxR<=2.25,
+            dynamicProfile:coinProfileForSymbol('SOMECOINUSDT').runnerMaxR<=2.15,
+            martingale:c.risk.martingale===false,
+            addToLoser:c.risk.addToLoser===false,
+            activeRiskCap:c.risk.maxActiveRiskPct<=8,
+            nativeTp:c.execution.nativeTpAlways===true,
+            freshBook:c.execution.requireFreshBook===true,
+            freshTrades:c.execution.requireFreshTrades===true
+          };
+          console.log(JSON.stringify(checks,null,2));
+          if(!Object.values(checks).every(Boolean))process.exit(41);
+          NODE
+      - name: Commit production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "bybit-v490-deployer"
+          git config user.email "actions@users.noreply.github.com"
+          git add cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-coin-profiles.js cloudflare-worker/bybit-btc-strategy.js cloudflare-worker/bybit-symbol-strategy.js cloudflare-worker/bybit-symbol-engine.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-control-plane.js cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/validate-btc-hyperscale.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "Deploy Bybit V4.9 scalp-first multi-entry runtime"
+            git push origin HEAD:main
+          fi
+      - name: Deploy Worker preserving live switches
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$(git rev-parse HEAD)" npm run deploy
+      - name: Rebase existing positions to scalp targets only
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          for i in $(seq 1 15); do
+            CODE=$(curl -sS -o "$RUNNER_TEMP/preflight.json" -w '%{http_code}' --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" || true)
+            [ "$CODE" = 200 ] && break
+            sleep 4
+          done
+          test "$CODE" = 200
+          curl -fsS --max-time 90 -X POST -H "Authorization: Bearer $SECRET" -H "x-bybit-management-only: true" -H "x-bybit-symbol: BTCUSDT" "$BASE/bybit/auto/run" > "$RUNNER_TEMP/manage.json"
+          cat "$RUNNER_TEMP/manage.json"
+      - name: Verify V4.9 live scalp runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          sleep 4
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/post.json"
+          POST="$RUNNER_TEMP/post.json" MANAGE="$RUNNER_TEMP/manage.json" node <<'NODE'
+          const fs=require('fs'),r=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const post=r(process.env.POST),m=r(process.env.MANAGE),ctl=m.controller||{},pos=post.positions||[];
+          const protectedNow=pos.every(x=>Number(x.size)>0&&Number(x.stopLoss)>0&&Number(x.takeProfit)>0);
+          const targetBps=pos.map(x=>({symbol:x.symbol,bps:Number(x.avgPrice)>0?Math.abs(Number(x.takeProfit)-Number(x.avgPrice))/Number(x.avgPrice)*10000:null}));
+          const scalpTargets=targetBps.every(x=>x.bps===null||x.bps<=60);
+          const checks={
+            version:post.version==='BYBIT-MULTI-STATEFLOW-4.9.0',
+            live:post.mode==='LIVE',ready:post.ok===true,
+            managementOnly:m.managementOnly===true&&ctl.managementOnly===true,
+            noManagementEntry:Number(ctl.entriesExecutedThisEvent||0)===0,
+            noManagementExecution:(m.results||[]).every(x=>x?.executed!==true),
+            protectedNow,scalpTargets
+          };
+          console.log(JSON.stringify({pass:Object.values(checks).every(Boolean),checks,account:post.account,positions:pos,targetBps,controller:{maxConcurrent:ctl.maxConcurrent,riskSlotsUsed:ctl.riskSlotsUsed,riskSlotsAvailable:ctl.riskSlotsAvailable,entriesExecutedThisEvent:ctl.entriesExecutedThisEvent,lastCycleReason:ctl.lastCycleReason}},null,2));
+          if(!Object.values(checks).every(Boolean))process.exit(51);
+          NODE
+          for S in $(node -e 'const x=require(process.argv[1]);console.log((x.positions||[]).map(p=>p.symbol).join(" "))' "$RUNNER_TEMP/post.json"); do
+            curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/auto/state?symbol=$S" > "$RUNNER_TEMP/state-$S.json"
+            S="$S" F="$RUNNER_TEMP/state-$S.json" node <<'NODE'
+            const fs=require('fs'),x=JSON.parse(fs.readFileSync(process.env.F,'utf8')),s=x.state||{},a=s.lastAdaptiveProtection||{};
+            const ok=String(s.version||'').includes('4.9.0-SCALP-FIRST-FAST-TURNOVER') && (!a.targetR || Number(a.targetR)<=2.25) && (!a.scalpCapDistance || Number(a.scalpCapDistance)>0);
+            console.log(JSON.stringify({symbol:process.env.S,ok,version:s.version,targetR:a.targetR,scalpCapDistance:a.scalpCapDistance,takeProfit:a.takeProfit,phase:a.phase},null,2));
+            if(!ok)process.exit(52);
+            NODE
+          done
