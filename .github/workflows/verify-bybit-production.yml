@@ -19,13 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 0}
-      - name: Verify BTC-only runtime, live API transport and read-only StateFlow scan
+      - name: Verify BTC-only runtime, live event cycle and read-only StateFlow scan
         shell: bash
         run: |
           set -uo pipefail
           EXPECTED="$GITHUB_SHA"
           mkdir -p docs/checkpoints
-          HEALTH_FILE="$(mktemp)"; SCAN_FILE="$(mktemp)"; CONTRACT_FILE="$(mktemp)"; ENTRY_FILE="$(mktemp)"
+          HEALTH_FILE="$(mktemp)"; SCAN_FILE="$(mktemp)"; CONTRACT_FILE="$(mktemp)"; ENTRY_FILE="$(mktemp)"; HUB_FILE="$(mktemp)"
           HC=0
           for i in $(seq 1 30); do
             HC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$HEALTH_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/health" || echo 000)"
@@ -35,21 +35,24 @@ jobs:
           done
           CC="$(curl -sS --connect-timeout 5 --max-time 25 -o "$CONTRACT_FILE" -w '%{http_code}' "$WORKER_BASE_URL/runtime/contract" || echo 000)"
           EC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$ENTRY_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/entry-health" || echo 000)"
+          UC="$(curl -sS --connect-timeout 5 --max-time 45 -o "$HUB_FILE" -w '%{http_code}' "$WORKER_BASE_URL/auto-hub/status" || echo 000)"
           SC="$(curl -sS --connect-timeout 10 --max-time 300 -o "$SCAN_FILE" -w '%{http_code}' "$WORKER_BASE_URL/bybit/scan" || echo 000)"
-          EXPECTED="$EXPECTED" HC="$HC" CC="$CC" EC="$EC" SC="$SC" HEALTH_FILE="$HEALTH_FILE" CONTRACT_FILE="$CONTRACT_FILE" ENTRY_FILE="$ENTRY_FILE" SCAN_FILE="$SCAN_FILE" node <<'NODE'
+          EXPECTED="$EXPECTED" HC="$HC" CC="$CC" EC="$EC" UC="$UC" SC="$SC" HEALTH_FILE="$HEALTH_FILE" CONTRACT_FILE="$CONTRACT_FILE" ENTRY_FILE="$ENTRY_FILE" HUB_FILE="$HUB_FILE" SCAN_FILE="$SCAN_FILE" node <<'NODE'
           const fs=require('fs');
           const read=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return {}}};
-          const h=read(process.env.HEALTH_FILE),c=read(process.env.CONTRACT_FILE),e=read(process.env.ENTRY_FILE),s=read(process.env.SCAN_FILE),expected=process.env.EXPECTED;
-          const revisionOk=h.runtimeRevision===expected&&c.runtimeRevision===expected;
+          const h=read(process.env.HEALTH_FILE),c=read(process.env.CONTRACT_FILE),e=read(process.env.ENTRY_FILE),u=read(process.env.HUB_FILE),s=read(process.env.SCAN_FILE),expected=process.env.EXPECTED;
+          const revisionOk=h.runtimeRevision===expected&&c.runtimeRevision===expected&&u.runtimeRevision===expected;
           const privateOk=h.privateTransport==='VPS_BYBIT_PRIVATE_PROXY'&&h.authenticated===true;
           const marketOk=h.marketTransport==='VPS_BYBIT_MARKET_PROXY'&&Number(h.serverTime?.ms)>0;
           const contractOk=process.env.CC==='200'&&c.ok===true&&c.executionAuthority==='BYBIT_BTC_ONLY'&&c.symbol==='BTCUSDT'&&c.legacyBybitMultiCoinDisabled===true&&c.legacyForexDisabled===true&&c.legacyMemeDisabled===true&&c.legacyAiCouncilDisabled===true;
-          const versionOk=!!c.autoVersion&&s.version===c.autoVersion&&e.version===c.autoVersion;
+          const versionOk=!!c.autoVersion&&s.version===c.autoVersion&&e.version===c.autoVersion&&u.version===c.autoVersion;
           const healthOk=process.env.HC==='200'&&h.ok===true&&privateOk&&marketOk&&revisionOk;
           const entryInspectable=['BTC_ENTRY_INFRA_READY','BTC_ENTRY_BLOCKED'].includes(String(e.status))&&['200','503'].includes(process.env.EC);
+          const hubOk=process.env.UC==='200'&&u.ok===true&&u.symbol==='BTCUSDT'&&u.mode===h.mode&&u.modeAuthority?.mismatch!==true;
+          const eventCycleOk=!!u.lastEventCycleAt&&(h.mode!=='LIVE'||u.modeAuthority?.cycleMode==='LIVE')&&u.modeAuthority?.mismatch!==true;
           const scanOk=process.env.SC==='200'&&s.ok===true&&s.symbol==='BTCUSDT'&&!!s.market&&typeof s.market.regime==='string'&&versionOk;
           const selected=s.selected||{};
-          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&contractOk&&entryInspectable&&scanOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,exchange:h.exchange||null,mode:h.mode||null,authenticated:!!h.authenticated,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,serverTimeMs:Number(h.serverTime?.ms)||null,revisionOk},contract:{http:Number(process.env.CC)||0,version:c.autoVersion||null,contract:c.version||null,authority:c.executionAuthority||null,btcOnly:c.symbol==='BTCUSDT'},entryHealth:{http:Number(process.env.EC)||0,status:e.status||null,blockers:e.blockers||[],btcLiveAck:e.btcLiveAck??null,scheduled:e.scheduled??null},scan:{http:Number(process.env.SC)||0,ok:!!s.ok,symbol:s.symbol||null,regime:s.market?.regime||null,microstructureSource:s.market?.microstructureSource||null,setupOk:selected.ok??null,setup:selected.setup?.setup||null,reason:selected.reason||null},checks:{privateVpsTransport:privateOk,marketVpsTransport:marketOk,runtimeRevision:revisionOk,runtimeContract:contractOk,entryInspectable,readOnlyStateFlowScan:scanOk}};
+          const out={verifiedAt:new Date().toISOString(),expectedRevision:expected,runtimeRevision:h.runtimeRevision||null,pass:healthOk&&contractOk&&entryInspectable&&hubOk&&eventCycleOk&&scanOk,health:{http:Number(process.env.HC)||0,ok:!!h.ok,exchange:h.exchange||null,mode:h.mode||null,authenticated:!!h.authenticated,privateTransport:h.privateTransport||null,marketTransport:h.marketTransport||null,serverTimeMs:Number(h.serverTime?.ms)||null,revisionOk},contract:{http:Number(process.env.CC)||0,version:c.autoVersion||null,contract:c.version||null,authority:c.executionAuthority||null,btcOnly:c.symbol==='BTCUSDT'},entryHealth:{http:Number(process.env.EC)||0,status:e.status||null,blockers:e.blockers||[],btcLiveAck:e.btcLiveAck??null,scheduled:e.scheduled??null},hub:{http:Number(process.env.UC)||0,ok:!!u.ok,mode:u.mode||null,modeMismatch:u.modeAuthority?.mismatch??null,cycleMode:u.modeAuthority?.cycleMode||null,cycleAgeSec:u.modeAuthority?.cycleAgeSec??null,lastEventCycleAt:u.lastEventCycleAt||null,lastEventResult:u.lastEventResult||null,lastEventResultVi:u.lastEventResultVi||null,regimeVi:u.regimeVi||null,position:u.position||null,activeTranches:Number(u.activeTranches||0),telegramNotification:u.telegramNotification||null},scan:{http:Number(process.env.SC)||0,ok:!!s.ok,symbol:s.symbol||null,regime:s.market?.regime||null,microstructureSource:s.market?.microstructureSource||null,setupOk:selected.ok??null,setup:selected.setup?.setup||null,reason:selected.reason||null,diagnostic:selected.diagnostic||null},checks:{privateVpsTransport:privateOk,marketVpsTransport:marketOk,runtimeRevision:revisionOk,runtimeContract:contractOk,entryInspectable,hubRuntime:hubOk,liveEventCycle:eventCycleOk,readOnlyStateFlowScan:scanOk}};
           fs.writeFileSync('docs/checkpoints/BYBIT_PRODUCTION_VERIFY_LATEST.json',JSON.stringify(out,null,2)+'\n');
           console.log(JSON.stringify(out));
           process.exitCode=out.pass?0:7;
