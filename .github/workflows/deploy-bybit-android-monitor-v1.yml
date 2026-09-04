@@ -19,32 +19,34 @@ jobs:
         with:
           ref: main
           fetch-depth: 2
-      - name: Apply additive VPS telemetry patch
-        run: python3 .github/scripts/apply-bybit-android-monitor-v1-bridge.py
+      - name: Finalize credentialless monitor telemetry
+        run: python3 .github/scripts/finalize-bybit-android-monitor-v1-readonly.py
       - name: Validate monitor and unchanged trading core
         shell: bash
         run: |
           set -euo pipefail
           python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
-          grep -q "'/bybit/telemetry'" bybit-live-bridge/bybit_live_bridge.py
           grep -q "wsTelemetry" bybit-live-bridge/bybit_live_bridge.py
+          ! grep -q "'/bybit/telemetry'" bybit-live-bridge/bybit_live_bridge.py
           cd cloudflare-worker
           npm install --no-audit --no-fund
           npm run check
           node -e "import('./bybit-android-monitor.js').then(m=>{if(typeof m.handleBybitAndroidMonitor!=='function'||typeof m.buildBybitAndroidSnapshot!=='function')process.exit(7);console.log('ANDROID_MONITOR_MODULE=PASS')})"
           grep -q "BYBIT_ANDROID_MONITOR_V1" bybit-android-monitor-contract.js
+          grep -q "monitorUsesPrivateBybitCredentials:false" bybit-android-monitor-contract.js
+          grep -q "bybitApiSecretAccessedByMonitor:false" bybit-android-monitor.js
           grep -q "handleBybitAndroidMonitor" index.js
           grep -q "BYBIT-MULTI-STATEFLOW-4.6.0" bybit-runtime-contract.js
           grep -q "BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK" bybit-runtime-contract.js
-      - name: Commit additive bridge telemetry source
+      - name: Commit telemetry-only source
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add bybit-live-bridge/bybit_live_bridge.py
+          git add bybit-live-bridge/bybit_live_bridge.py cloudflare-worker/bybit-android-monitor.js
           if ! git diff --cached --quiet; then
-            git commit -m 'Add VPS read-only telemetry for Android Monitor V1'
+            git commit -m 'Finalize credentialless Android Monitor V1 telemetry'
             git push origin HEAD:main
           fi
       - name: Upgrade actual V11 bridge with rollback guard
@@ -55,7 +57,7 @@ jobs:
           test "$(sudo systemctl show v11-manual-ai-bridge.service -p EnvironmentFiles --value | awk '{print $1}')" = /etc/trading-v11-ai.env
           sudo cp /usr/local/bin/v11-manual-ai-bridge "$RUNNER_TEMP/v11-manual-ai-bridge.pre-android-monitor"
           rollback() {
-            echo 'Bridge telemetry activation failed; restoring previous bridge binary'
+            echo 'Bridge WS telemetry activation failed; restoring previous bridge binary'
             sudo cp "$RUNNER_TEMP/v11-manual-ai-bridge.pre-android-monitor" /usr/local/bin/v11-manual-ai-bridge || true
             sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge || true
             sudo systemctl restart v11-manual-ai-bridge.service || true
@@ -64,26 +66,14 @@ jobs:
           sudo cp bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
           sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge
           sudo systemctl restart v11-manual-ai-bridge.service
-          sleep 10
+          sleep 12
           sudo systemctl is-active --quiet v11-manual-ai-bridge.service
           BRIDGE=$(curl -fsS --max-time 30 http://127.0.0.1:8789/health)
           BRIDGE="$BRIDGE" node <<'NODE'
           const x=JSON.parse(process.env.BRIDGE),w=x.wsTelemetry||{};
-          const pass=x.ok===true&&x.service==='BYBIT_MULTI_ASSET_LIVE_BRIDGE'&&x.maxWsSymbols===48&&Number(w.connectedCount)>0&&Number(w.readyCount)>0&&w.p95DataAgeMs!==undefined;
-          console.log(JSON.stringify({pass,service:x.service,maxWsSymbols:x.maxWsSymbols,wsTelemetry:w},null,2));
+          const pass=x.ok===true&&x.service==='BYBIT_MULTI_ASSET_LIVE_BRIDGE'&&x.maxWsSymbols===48&&Number(w.connectedCount)>0&&Number(w.readyCount)>0&&w.p50DataAgeMs!==undefined&&Array.isArray(w.staleSymbols);
+          console.log(JSON.stringify({pass,service:x.service,maxWsSymbols:x.maxWsSymbols,wsTelemetry:{healthy:w.healthy,connectedCount:w.connectedCount,readyCount:w.readyCount,freshCount:w.freshCount,totalCount:w.totalCount,p50DataAgeMs:w.p50DataAgeMs,p95DataAgeMs:w.p95DataAgeMs,maxDataAgeMs:w.maxDataAgeMs,staleCount:(w.staleSymbols||[]).length}},null,2));
           if(!pass)process.exit(9);
-          NODE
-          set -a
-          source /etc/trading-v11-ai.env
-          set +a
-          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
-          test -n "$SECRET"
-          PRIVATE=$(curl -fsS --max-time 50 -H "Authorization: Bearer $SECRET" http://127.0.0.1:8789/bybit/telemetry)
-          PRIVATE="$PRIVATE" node <<'NODE'
-          const x=JSON.parse(process.env.PRIVATE),a=x.account||{},p=x.positions||[];
-          const pass=x.ok===true&&x.readOnly===true&&x.authenticated===true&&x.secretScope==='VPS_ONLY'&&Number.isFinite(Number(a.equity))&&Array.isArray(p)&&Array.isArray(x.closedPnl);
-          console.log(JSON.stringify({pass,source:x.source,secretScope:x.secretScope,account:{equity:a.equity,balance:a.balance,availableBalance:a.availableBalance},openPositions:p.length,closedPnlRecords:x.closedPnl.length,bybitLatencyMs:x.bybitLatencyMs},null,2));
-          if(!pass)process.exit(10);
           NODE
           trap - ERR
       - name: Deploy Worker telemetry routes preserving runtime variables
@@ -113,7 +103,7 @@ jobs:
           T="$T" node <<'NODE'
           const fs=require('fs'),p=process.env.T,read=f=>JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'));
           const b=read('bootstrap.json'),a=read('auth.json'),h=read('health.json'),c=read('contract.json'),u=read('unauth.json');
-          const checks={schema:b.schemaVersion==='BYBIT_ANDROID_MONITOR_V1',readOnly:b.readOnly===true,snapshotRoute:b.routes?.snapshot==='/bybit/monitor/snapshot',wsRoute:b.routes?.websocket==='/bybit/monitor/ws',monitorNoTrading:b.capabilities?.tradingControls===false,monitorTokenSeparate:b.capabilities?.monitorTokenSeparate===true,privateSigningVps:b.capabilities?.bybitPrivateTelemetrySignedOnVps===true,authHealth:a.ok===true,tradeVersion:h.version==='BYBIT-MULTI-STATEFLOW-4.6.0',tradeLive:h.mode==='LIVE',tradeReady:h.execution?.ready===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK',unauthorizedFailsClosed:u.ok===false};
+          const checks={schema:b.schemaVersion==='BYBIT_ANDROID_MONITOR_V1',readOnly:b.readOnly===true,snapshotRoute:b.routes?.snapshot==='/bybit/monitor/snapshot',wsRoute:b.routes?.websocket==='/bybit/monitor/ws',monitorNoTrading:b.capabilities?.tradingControls===false,monitorTokenSeparate:b.capabilities?.monitorTokenSeparate===true,noPrivateCredentials:b.capabilities?.monitorUsesPrivateBybitCredentials===false,authHealth:a.ok===true,tradeVersion:h.version==='BYBIT-MULTI-STATEFLOW-4.6.0',tradeLive:h.mode==='LIVE',tradeReady:h.execution?.ready===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK',unauthorizedFailsClosed:u.ok===false};
           const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),monitor:{schemaVersion:b.schemaVersion,routes:b.routes,capabilities:b.capabilities,authConfigured:a.configured,paired:a.paired},trading:{version:h.version,mode:h.mode,ready:h.execution?.ready,runtimeRevision:h.runtimeRevision,contract:c.version},checks};
           console.log(JSON.stringify(out,null,2));fs.writeFileSync(`${p}/audit.json`,JSON.stringify(out,null,2)+'\n');if(!pass)process.exit(11);
           NODE
