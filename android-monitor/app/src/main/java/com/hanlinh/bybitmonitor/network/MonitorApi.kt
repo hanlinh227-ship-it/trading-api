@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 class MonitorApi(private val baseUrl:String) {
     private val jsonType="application/json; charset=utf-8".toMediaType()
-    val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(25,TimeUnit.SECONDS).writeTimeout(15,TimeUnit.SECONDS).pingInterval(20,TimeUnit.SECONDS).build()
+    val client=OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(25,TimeUnit.SECONDS).writeTimeout(15,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build()
     private fun url(path:String)=baseUrl.trimEnd('/')+path
     fun pair(pairingCode:String,deviceName:String):String {
         val body=JSONObject().put("pairingCode",pairingCode.trim().uppercase()).put("deviceName",deviceName.trim().ifBlank{"Android Monitor"}).toString().toRequestBody(jsonType)
@@ -25,7 +25,7 @@ class MonitorApi(private val baseUrl:String) {
         val wsBase=baseUrl.trimEnd('/').replaceFirst("https://","wss://").replaceFirst("http://","ws://")
         val req=Request.Builder().url("$wsBase/bybit/monitor/ws").header("Authorization","Bearer $token").build()
         return client.newWebSocket(req,object:WebSocketListener(){
-            override fun onOpen(webSocket:WebSocket,response:Response){onStatus("CONNECTED");webSocket.send(JSONObject().put("type","subscribe").put("intervalMs",2000).toString())}
+            override fun onOpen(webSocket:WebSocket,response:Response){onStatus("CONNECTED");webSocket.send(JSONObject().put("type","subscribe").put("intervalMs",750).toString())}
             override fun onMessage(webSocket:WebSocket,text:String){runCatching{val e=JSONObject(text);if(e.optString("type")=="snapshot")onSnapshot(TelemetryParser.parse(e.getJSONObject("data")))}.onFailure{onStatus("PARSE_ERROR")}}
             override fun onClosing(webSocket:WebSocket,code:Int,reason:String){onStatus("CLOSING");webSocket.close(code,reason)}
             override fun onClosed(webSocket:WebSocket,code:Int,reason:String){onStatus("DISCONNECTED");onTerminal(null)}
