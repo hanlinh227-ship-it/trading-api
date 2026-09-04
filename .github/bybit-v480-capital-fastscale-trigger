@@ -1,0 +1,5 @@
+trigger=BYBIT_V480_CAPITAL_INTELLIGENCE_FAST_SCALE
+requested_at=2026-09-05T00:52:00+07:00
+fixes=deposit-recognition,separate-capital-state,highwater-double-count,transaction-pagination,ws-health
+profit_profile=controlled-fast-scale
+trading_safety=no-martingale,no-add-to-loser,exchange-max-cap,fresh-ws-required
