@@ -1,0 +1,76 @@
+name: Deploy Bybit V4.8 Capital Sync Final
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v480-capital-sync-final-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bybit-v480-capital-sync-final
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Validate final source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "handleBybitCapitalSync" cloudflare-worker/index.js
+          grep -q "KV_CAPITAL_METADATA_ONLY" cloudflare-worker/bybit-capital-sync-handler.js
+          grep -q "BYBIT_CAPITAL_STATE_MIRROR_V1_READONLY_EXECUTION" cloudflare-worker/bybit-capital-state.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.8.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "martingale:false" cloudflare-worker/bybit-auto-config.js
+          grep -q "addToLoser:false" cloudflare-worker/bybit-auto-config.js
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Capture live position protection before sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/pre.json"
+      - name: Deploy Worker preserving runtime variables
+        working-directory: cloudflare-worker
+        run: GITHUB_SHA="$(git rev-parse HEAD)" npm run deploy
+      - name: Execute read-only capital sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          for i in $(seq 1 15); do
+            CODE=$(curl -sS -o "$RUNNER_TEMP/sync.json" -w '%{http_code}' --max-time 60 -H "Authorization: Bearer $SECRET" "$BASE/bybit/capital/sync" || true)
+            [ "$CODE" = 200 ] && break
+            sleep 4
+          done
+          test "$CODE" = 200
+          cat "$RUNNER_TEMP/sync.json"
+      - name: Verify no trade mutation and fresh capital authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/post.json"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/auto/state?symbol=BTCUSDT" > "$RUNNER_TEMP/state.json"
+          curl -fsS --max-time 30 "$BASE/bybit/monitor/bootstrap" > "$RUNNER_TEMP/monitor.json"
+          PRE="$RUNNER_TEMP/pre.json" POST="$RUNNER_TEMP/post.json" SYNC="$RUNNER_TEMP/sync.json" STATE="$RUNNER_TEMP/state.json" MON="$RUNNER_TEMP/monitor.json" node <<'NODE'
+          const fs=require('fs'),r=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const pre=r(process.env.PRE),post=r(process.env.POST),sync=r(process.env.SYNC),s=r(process.env.STATE),m=r(process.env.MON),ctl=s.controller||{},st=s.state||{},a=post.account||{},mir=sync.mirror||{};
+          const strip=x=>(x.positions||[]).map(p=>({symbol:p.symbol,side:p.side,size:Number(p.size),avgPrice:Number(p.avgPrice),sl:Number(p.stopLoss),tp:Number(p.takeProfit)})).sort((a,b)=>a.symbol.localeCompare(b.symbol));
+          const hard=Math.min(Number(a.totalEquity||0),Number(a.walletBalance||0)),capacity=Number(ctl.continuousCapacityCapitalUsd||0),ratio=hard>0?capacity/hard:0,high=Number(ctl.capitalIntelligence?.highWaterUsd||0),btcHigh=Number(st.highWaterUsd||0);
+          const checks={version:post.version==='BYBIT-MULTI-STATEFLOW-4.8.0',live:post.mode==='LIVE',ready:post.ok===true,syncReadOnly:sync.ok===true&&sync.tradingExecuted===false,mirror:mir.ok===true&&mir.controllerMirrored===true&&mir.tradingExecuted===false,capacity:ratio>=.98&&ratio<=1.002,controllerHigh:high>=hard*.95&&high<=Number(a.totalEquity)*1.08,btcHigh:btcHigh>=hard*.95&&btcHigh<=Number(a.totalEquity)*1.08,positions:JSON.stringify(strip(pre))===JSON.stringify(strip(post)),orders:Number(pre.openOrders)===Number(post.openOrders),monitor:m.schemaVersion==='BYBIT_ANDROID_MONITOR_V1'&&m.capabilities?.tradingControls===false,realtime:m.websocketProtocol?.minIntervalMs===500};
+          const pass=Object.values(checks).every(Boolean);console.log(JSON.stringify({pass,checks,account:a,capital:{hard,capacity,ratio,controllerHigh:high,btcHigh},mirror:mir,positions:strip(post),openOrders:post.openOrders},null,2));if(!pass)process.exit(51);
+          NODE
