@@ -1,0 +1,53 @@
+name: Verify Bybit V4.4.1 Long Run
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v441-long-run-verify-trigger']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency: {group: bybit-v441-long-run-verify, cancel-in-progress: true}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify deployed runtime and direction coherence
+        shell: bash
+        env:
+          BASE: https://trading-v77-scanner.hanlinh227.workers.dev
+          EXPECTED_REVISION: 9c1a162acb27309c886561df8f580751af4b5e75
+        run: |
+          set -euo pipefail
+          T="$RUNNER_TEMP/bybit-v441-final"; mkdir -p "$T"
+          for i in $(seq 1 36); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            REV=$(node -e "const fs=require('fs');try{const j=JSON.parse(fs.readFileSync('$T/health.json'));process.stdout.write(String(j.runtimeRevision||''))}catch{}")
+            [ "$REV" = "$EXPECTED_REVISION" ] && break
+            sleep 10
+          done
+          curl -fsS --max-time 35 "$BASE/runtime/contract" > "$T/contract.json"
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json" || echo '{}' > "$T/entry.json"
+          curl -fsS --max-time 60 "$BASE/bybit/universe" > "$T/universe.json" || echo '{}' > "$T/universe.json"
+          symbols=(BTCUSDT ETHUSDT BNBUSDT XRPUSDT SOLUSDT TRXUSDT DOGEUSDT ADAUSDT LINKUSDT AVAXUSDT LTCUSDT BCHUSDT XLMUSDT DOTUSDT NEARUSDT UNIUSDT AAVEUSDT HBARUSDT)
+          for S in "${symbols[@]}"; do curl -fsS --max-time 75 "$BASE/bybit/scan?symbol=$S" > "$T/$S.json" || echo '{}' > "$T/$S.json"; done
+          T="$T" EXPECTED_REVISION="$EXPECTED_REVISION" node <<'NODE'
+          const fs=require('fs'),p=process.env.T;
+          const read=f=>{try{return JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'))}catch{return {}}};
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json'),u=read('universe.json');
+          const syms=['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','SOLUSDT','TRXUSDT','DOGEUSDT','ADAUSDT','LINKUSDT','AVAXUSDT','LTCUSDT','BCHUSDT','XLMUSDT','DOTUSDT','NEARUSDT','UNIUSDT','AAVEUSDT','HBARUSDT'];
+          const regimeSide=r=>/(BREAKOUT_DOWN|TREND_DOWN|BEAR|SELL)/.test(String(r||'').toUpperCase())?'Sell':/(BREAKOUT_UP|TREND_UP|BULL|BUY)/.test(String(r||'').toUpperCase())?'Buy':null;
+          const rows=syms.map(symbol=>{const x=read(`${symbol}.json`),m=x.market||{},sel=x.selected||{},s=sel.setup||{},ev=s.evidence||{},rs=regimeSide(m.regime),opposite=!!(sel.ok&&s.side&&rs&&s.side!==rs);return {symbol,ok:x.ok===true,source:m.microstructureSource||null,regime:m.regime||null,setupOk:sel.ok===true,side:s.side||null,setup:s.setup||null,oppositeRegime:opposite,reversalValidated:ev.reversalValidated??null,marketContrarianQualified:ev.marketContrarianQualified??null,reason:sel.reason||null};});
+          const violations=rows.filter(x=>x.oppositeRegime&&x.reversalValidated!==true);
+          const freshCount=rows.filter(x=>x.ok&&x.source==='VPS_BYBIT_WS').length;
+          const checks={revision:h.runtimeRevision===process.env.EXPECTED_REVISION,version:h.version==='BYBIT-MULTI-STATEFLOW-4.4.1',mode:h.mode==='LIVE',authenticated:h.authenticated===true,ready:h.execution?.ready===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V21_DIRECTION_COHERENCE_LONG_RUN_FREEZE',localGuard:c.perSymbolRegimeSideCoherence===true,breadthGuard:c.crossMarketDirectionBreadthGuard===true,contrarian:c.strictContrarianException===true,freeze:c.longRunCoreFreeze===true,noGuarantee:c.realizedProfitGuarantee===false,noMartingale:c.recoveryMartingale===false,noAddLoser:c.recoveryAddToLoser===false,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0,freshCoverage:freshCount>=12,directionViolations:violations.length===0};
+          const pass=Object.values(checks).every(Boolean);
+          console.log(JSON.stringify({pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,authenticated:h.authenticated,ready:h.execution?.ready,equity:h.account?.totalEquity,wallet:h.account?.walletBalance,available:h.account?.availableBalance,positions:h.positions?.items||[]},contract:{version:c.version,autoVersion:c.autoVersion,perSymbolRegimeSideCoherence:c.perSymbolRegimeSideCoherence,crossMarketDirectionBreadthGuard:c.crossMarketDirectionBreadthGuard,strictContrarianException:c.strictContrarianException,longRunCoreFreeze:c.longRunCoreFreeze},entry:{status:e.status,blockers:e.blockers||[]},universe:u.summary||{},freshCount,violations,rows,checks},null,2));
+          if(!pass)process.exit(9);
+          NODE
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v441-long-run-verification
+          path: ${{ runner.temp }}/bybit-v441-final
+          retention-days: 7
