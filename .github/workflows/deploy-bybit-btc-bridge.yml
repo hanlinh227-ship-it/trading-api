@@ -23,19 +23,19 @@ jobs:
       - name: Checkout current BTC-only main
         uses: actions/checkout@v4
         with: {ref: main, fetch-depth: 1}
-      - name: Validate BTC-only bridge source
+      - name: Validate unified BTC VPS authority
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py bybit-live-bridge/bybit_event_driver.py
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
           test -f /etc/trading-v11-ai.env
           test -n "$(grep '^V11_AI_BRIDGE_SECRET=' /etc/trading-v11-ai.env | cut -d= -f2-)"
-          ! grep -qi 'claude\|codex\|deepseek\|FOREX_CONNECTIVITY\|PROJECT_LANES' bybit-live-bridge/bybit_live_bridge.py bybit-live-bridge/bybit_event_driver.py
+          ! grep -qi 'claude\|codex\|deepseek\|FOREX_CONNECTIVITY\|PROJECT_LANES' bybit-live-bridge/bybit_live_bridge.py
           grep -q '/bybit/private' bybit-live-bridge/bybit_live_bridge.py
           grep -q '/bybit/microstructure' bybit-live-bridge/bybit_live_bridge.py
-          grep -q '/bybit/auto/run' bybit-live-bridge/bybit_event_driver.py
-          grep -q 'EVENT_DRIVEN' bybit-live-bridge/bybit_event_driver.py
-          grep -q 'BTCUSDT' bybit-live-bridge/bybit_event_driver.py
+          grep -q '/bybit/auto/run' bybit-live-bridge/bybit_live_bridge.py
+          grep -q 'VPS_WS_MARKET_STATE_CHANGE' bybit-live-bridge/bybit_live_bridge.py
+          grep -q 'COALESCED_LATEST_STATE' bybit-live-bridge/bybit_live_bridge.py
       - name: Ensure WebSocket dependency
         shell: bash
         run: |
@@ -46,97 +46,94 @@ jobs:
           fi
           python3 -m pip install --disable-pip-version-check --break-system-packages websocket-client
           python3 -c 'import websocket; print("WEBSOCKET_CLIENT_INSTALLED", getattr(websocket,"__version__","unknown"))'
-      - name: Install BTC private bridge and autonomous event driver
+      - name: Install single BTC bridge and remove duplicate event reader
         shell: bash
         run: |
           set -euo pipefail
           install -m 0755 bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
-          install -m 0755 bybit-live-bridge/bybit_event_driver.py /usr/local/bin/bybit-btc-event-driver
-          cat >/etc/systemd/system/bybit-btc-event-driver.service <<'UNIT'
-          [Unit]
-          Description=Bybit BTCUSDT autonomous event-driven decision driver
-          After=network-online.target v11-manual-ai-bridge.service
-          Wants=network-online.target
-
-          [Service]
-          Type=simple
-          EnvironmentFile=/etc/trading-v11-ai.env
-          Environment=BYBIT_EVENT_DRIVER_ENABLED=true
-          Environment=PYTHONUNBUFFERED=1
-          ExecStart=/usr/bin/python3 /usr/local/bin/bybit-btc-event-driver
-          Restart=always
-          RestartSec=1
-          NoNewPrivileges=true
-
-          [Install]
-          WantedBy=multi-user.target
-          UNIT
+          systemctl disable --now bybit-btc-event-driver.service 2>/dev/null || true
+          rm -f /etc/systemd/system/bybit-btc-event-driver.service
           systemctl daemon-reload
-          systemctl reset-failed v11-manual-ai-bridge.service bybit-btc-event-driver.service || true
+          systemctl reset-failed v11-manual-ai-bridge.service || true
           systemctl restart v11-manual-ai-bridge.service
-          systemctl enable bybit-btc-event-driver.service
-          systemctl restart bybit-btc-event-driver.service
           systemctl is-active --quiet v11-manual-ai-bridge.service
-          systemctl is-active --quiet bybit-btc-event-driver.service
-      - name: Verify private bridge microstructure
+          if systemctl is-active --quiet bybit-btc-event-driver.service 2>/dev/null; then
+            echo 'DUPLICATE_EVENT_DRIVER_STILL_ACTIVE'
+            exit 1
+          fi
+      - name: Verify unified WS data and wake authority
         shell: bash
         run: |
           set -euo pipefail
           set -a; source /etc/trading-v11-ai.env; set +a
           READY=0
-          for i in $(seq 1 30); do
-            HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health || true)"
+          for i in $(seq 1 40); do
             curl -sS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' >/tmp/btc-micro.json || true
-            if printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); m=d.get("microstructure") or {}; assert d.get("ok") is True; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE"; assert d.get("privateProxy") is True; assert m.get("ready") is True; assert m.get("connected") is True' 2>/dev/null && python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); x=d.get("data") or {}; assert d.get("ok") is True; assert x.get("symbol")=="BTCUSDT"; assert x.get("source")=="VPS_BYBIT_WS"; assert (x.get("book") or {}).get("bestBid",0)>0; assert (x.get("trades") or {}).get("updateTime",0)>0' 2>/dev/null; then
-              READY=1
-              break
-            fi
+            curl -sS --max-time 8 'http://127.0.0.1:8789/health' >/tmp/btc-bridge-health.json || true
+            if python3 - <<'PY' 2>/dev/null
+          import json
+          h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; ev=h.get('eventDriver') or {}; m=h.get('microstructure') or {}
+          assert h.get('ok') is True and h.get('service')=='BYBIT_BTC_LIVE_BRIDGE'
+          assert m.get('ready') is True and m.get('connected') is True
+          assert ev.get('integrated') is True and ev.get('enabled') is True
+          assert ev.get('authority')=='VPS_WS_MARKET_STATE_CHANGE'
+          assert d.get('ok') is True and x.get('source')=='VPS_BYBIT_WS'
+          assert (x.get('book') or {}).get('bestBid',0)>0
+          assert (x.get('trades') or {}).get('updateTime',0)>0
+          PY
+            then READY=1; break; fi
             sleep 1
           done
-          test "$READY" = 1
-          python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); x=d.get("data") or {}; t=x.get("trades") or {}; print("BTC_MICROSTRUCTURE_WS=PASS", "book", (x.get("book") or {}).get("updateTime"), "trades", t.get("updateTime"), "trades60", (t.get("window60s") or {}).get("trades"))'
-      - name: Verify event driver reaches LIVE Worker
+          if [ "$READY" != 1 ]; then
+            cat /tmp/btc-bridge-health.json || true
+            journalctl -u v11-manual-ai-bridge.service -n 100 --no-pager || true
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; t=x.get('trades') or {}
+          print('BTC_UNIFIED_WS=PASS','book',(x.get('book') or {}).get('updateTime'),'trades',t.get('updateTime'),'eventDriver',h.get('eventDriver'))
+          PY
+      - name: Verify integrated event wake reaches LIVE Worker
         shell: bash
         run: |
           set -euo pipefail
           START_MS=$(date +%s%3N)
           EVENT_OK=0
-          for i in $(seq 1 60); do
+          for i in $(seq 1 90); do
             curl -fsS --connect-timeout 5 --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/auto-hub/status' >/tmp/btc-hub.json || true
+            curl -sS --max-time 8 'http://127.0.0.1:8789/health' >/tmp/btc-bridge-health.json || true
             if START_MS="$START_MS" python3 - <<'PY' 2>/dev/null
           import json, os, datetime
-          d=json.load(open('/tmp/btc-hub.json'))
-          m=d.get('modeAuthority') or {}
+          d=json.load(open('/tmp/btc-hub.json')); h=json.load(open('/tmp/btc-bridge-health.json')); m=d.get('modeAuthority') or {}; ev=h.get('eventDriver') or {}
           at=d.get('lastEventCycleAt') or ''
           ts=int(datetime.datetime.fromisoformat(at.replace('Z','+00:00')).timestamp()*1000) if at else 0
-          assert d.get('ok') is True
-          assert d.get('mode') == 'LIVE'
-          assert m.get('cycleMode') == 'LIVE'
-          assert m.get('mismatch') is False
-          assert ts >= int(os.environ['START_MS']) - 5000
+          assert d.get('ok') is True and d.get('mode')=='LIVE'
+          assert m.get('cycleMode')=='LIVE' and m.get('mismatch') is False
+          assert ts >= int(os.environ['START_MS'])-5000
+          assert ev.get('lastSuccessAt',0)>0 and ev.get('lastHttpStatus')==200
+          assert ev.get('lastResultMode')=='LIVE'
           PY
-            then
-              EVENT_OK=1
-              break
-            fi
+            then EVENT_OK=1; break; fi
             sleep 1
           done
           if [ "$EVENT_OK" != 1 ]; then
-            echo 'BTC_EVENT_DRIVER_E2E=FAIL'
+            echo 'BTC_INTEGRATED_EVENT_WAKE_E2E=FAIL'
             cat /tmp/btc-hub.json || true
-            systemctl --no-pager --full status bybit-btc-event-driver.service || true
-            journalctl -u bybit-btc-event-driver.service -n 100 --no-pager || true
+            cat /tmp/btc-bridge-health.json || true
+            systemctl --no-pager --full status v11-manual-ai-bridge.service || true
+            journalctl -u v11-manual-ai-bridge.service -n 120 --no-pager || true
             exit 1
           fi
-          echo 'BTC_EVENT_DRIVER_E2E=PASS'
+          echo 'BTC_INTEGRATED_EVENT_WAKE_E2E=PASS'
           cat /tmp/btc-hub.json
-          systemctl is-active --quiet bybit-btc-event-driver.service
+          cat /tmp/btc-bridge-health.json
       - name: Deployment summary
         run: |
           echo "BYBIT_BTC_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
           echo 'BYBIT_PRIVATE_API_PROXY=PRESERVED'
           echo 'BTC_MARKET_DATA=VPS_BYBIT_WS'
-          echo 'BTC_DECISION_AUTHORITY=EVENT_DRIVEN_MARKET_STATE_CHANGE'
-          echo 'BTC_EVENT_DRIVER_RESTARTED=YES'
+          echo 'BTC_DECISION_AUTHORITY=INTEGRATED_VPS_WS_MARKET_STATE_CHANGE'
+          echo 'DUPLICATE_EVENT_READER=DISABLED'
           echo 'STRATEGY_TIME_GATES=NONE'
           echo 'LEGACY_AI_FOREX_MEME=REMOVED'
