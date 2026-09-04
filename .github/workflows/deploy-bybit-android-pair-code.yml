@@ -1,0 +1,80 @@
+name: Deploy Android Monitor Pairing
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-android-pairing-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-android-monitor-pairing
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Apply one-time pairing support
+        run: python3 .github/scripts/apply-bybit-android-pair-code.py
+      - name: Validate unchanged trading runtime
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          grep -q "PAIR_CODE_KEY" bybit-android-monitor.js
+          grep -q "ONE_TIME_PAIR_CODE" bybit-android-monitor.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.6.0" bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V24_BROAD_SCALP_OPPORTUNITY_NETWORK" bybit-runtime-contract.js
+      - name: Commit pairing support
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-android-monitor.js cloudflare-worker/bybit-android-monitor-contract.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add one-time Android Monitor pairing code'
+            git push origin HEAD:main
+          fi
+      - name: Deploy Worker preserving trading variables
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          REV=$(git rev-parse HEAD)
+          GITHUB_SHA="$REV" npm run deploy
+      - name: Activate one-time pairing code hash
+        shell: bash
+        env:
+          PAIR_SHA256: f390f088709ae9fe8baefa22ed8a74a05d3db8263bcd3e193d538ca99ba72e64
+          PAIR_EXPIRES_AT: '1789144799763'
+        run: |
+          set -euo pipefail
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          RESP=$(curl -fsS --max-time 30 -X POST \
+            -H 'content-type: application/json' \
+            -H "x-action-key: $SECRET" \
+            --data "{\"sha256\":\"$PAIR_SHA256\",\"expiresAt\":$PAIR_EXPIRES_AT}" \
+            https://trading-v77-scanner.hanlinh227.workers.dev/bybit/monitor/pair-code)
+          RESP="$RESP" node -e "const x=JSON.parse(process.env.RESP); if(!(x.ok&&x.configured&&x.plaintextCodeReturned===false)) process.exit(8); console.log(JSON.stringify({pairCodeConfigured:true,expiresAt:x.expiresAt,plaintextCodeReturned:x.plaintextCodeReturned}))"
+      - name: Verify production isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=$(curl -fsS --max-time 30 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/monitor/bootstrap)
+          H=$(curl -fsS --max-time 45 https://trading-v77-scanner.hanlinh227.workers.dev/bybit/health)
+          B="$B" H="$H" node <<'NODE'
+          const b=JSON.parse(process.env.B),h=JSON.parse(process.env.H);
+          const pass=b.schemaVersion==='BYBIT_ANDROID_MONITOR_V1'&&b.routes?.pair==='/bybit/monitor/pair'&&b.routes?.pairCodeAdmin==='/bybit/monitor/pair-code'&&b.capabilities?.tradingControls===false&&h.version==='BYBIT-MULTI-STATEFLOW-4.6.0'&&h.mode==='LIVE'&&h.execution?.ready===true;
+          console.log(JSON.stringify({pass,monitorSchema:b.schemaVersion,pair:b.routes?.pair,pairCodeAdmin:b.routes?.pairCodeAdmin,tradingVersion:h.version,mode:h.mode,ready:h.execution?.ready},null,2));
+          if(!pass)process.exit(9);
+          NODE
