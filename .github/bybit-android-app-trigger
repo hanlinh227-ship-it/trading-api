@@ -1,0 +1,4 @@
+trigger=BYBIT_ANDROID_MONITOR_APP_V1
+requested_at=2026-09-04T23:39:00+07:00
+features=dashboard,positions,scanner,realtime-ws,keystore,foreground-alerts,widget
+contains_credentials=false
