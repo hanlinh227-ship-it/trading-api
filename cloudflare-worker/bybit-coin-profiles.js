@@ -40,9 +40,9 @@ export const BYBIT_COIN_PROFILES=freeze({
 });
 
 export const BYBIT_PORTFOLIO_POLICY=freeze({
-  authority:'MAJOR_CAP_LIQUIDITY_PROFILE_PORTFOLIO_V2_PROFIT_EFFICIENCY',
+  authority:'MAJOR_CAP_LIQUIDITY_PROFILE_PORTFOLIO_V3_OBJECTIVE_COVERAGE',
   maxNewEntriesPerEvent:1,
-  deepScanCount:3,
+  deepScanCount:6,
   maxCorrelatedSmall:1,
   maxCorrelatedNormal:2,
   concurrentByEquity:[{equityUsd:0,max:2},{equityUsd:75,max:2},{equityUsd:150,max:3},{equityUsd:500,max:4},{equityUsd:2000,max:5}],

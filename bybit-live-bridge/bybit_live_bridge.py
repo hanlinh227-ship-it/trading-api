@@ -17,7 +17,7 @@ PORT=int(os.environ.get('BYBIT_VPS_BRIDGE_PORT',os.environ.get('V11_AI_BRIDGE_PO
 DEFAULT_SYMBOL='BTCUSDT'
 DEFAULT_SYMBOLS='BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT,BCHUSDT,XLMUSDT,DOTUSDT,NEARUSDT,UNIUSDT,AAVEUSDT,HBARUSDT'
 SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS',DEFAULT_SYMBOLS).split(',') if x.strip()))
-EVENT_SYMBOLS=set(x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS','BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,BNBUSDT,DOGEUSDT').split(',') if x.strip())
+EVENT_SYMBOLS=set(x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS','BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,BNBUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,LTCUSDT,TRXUSDT').split(',') if x.strip())
 WORKER_WAKE_SEMAPHORE=threading.Semaphore(1)
 WS_URL=os.environ.get('BYBIT_PUBLIC_WS','wss://stream.bybit.com/v5/public/linear')
 WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.hanlinh227.workers.dev').rstrip('/')
@@ -95,7 +95,7 @@ class Microstructure:
             f'url = "{url}"','request = "POST"','http1.1','silent','show-error','max-time = 35','connect-timeout = 8',
             f'user-agent = "{self._curl_q(BROWSER_UA)}"','header = "content-type: application/json"','header = "accept: application/json"',
             'header = "accept-language: en-US,en;q=0.9"','header = "cache-control: no-cache"',
-            f'header = "x-action-key: {secret}"','header = "x-btc-trigger: VPS_WS_EVENT"',f'header = "x-btc-trigger-reason: {reason}"',
+            f'header = "x-action-key: {secret}"','header = "x-btc-trigger: VPS_WS_EVENT"',f'header = "x-bybit-symbol: {self._curl_q(self.symbol)}"',f'header = "x-btc-trigger-reason: {reason}"',
             'data = "{}"','write-out = "\\n__BTC_HTTP_STATUS__:%{http_code}"',''
         ])
         p=subprocess.run([CURL_BIN,'--config','-'],input=cfg,text=True,capture_output=True,timeout=40,check=False)
