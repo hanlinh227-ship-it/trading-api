@@ -22,20 +22,21 @@ export const BYBIT_AUTO_CONFIG={
     ]}
   },
   scalp:{
-    authority:'SCALP_QUALITY_REALISTIC_TARGET_POSITIVE_NET_EDGE_FAST_TURNOVER',
-    // Hard entry floor is >$1 net at low scale. Larger profits come from runners, not by starving valid entries.
-    minPlannedNetProfitUsd:.30,
-    preferredRunnerNetProfitUsd:1.00,
-    minPlannedNetProfitPct:.35,
-    minViableNetProfitUsd:.18,
-    allowFloorRelaxationForFastScalp:true,
+    authority:'SCALP_QUALITY_MIN_ONE_USD_NET_POSITIVE_EDGE_FAST_TURNOVER',
+    // New-risk admission requires at least $1 planned NET after estimated trading costs.
+    // Profit is increased through qualified sizing/leverage inside the existing risk cap; TP is never stretched beyond the scalp runner cap.
+    minPlannedNetProfitUsd:1.00,
+    preferredRunnerNetProfitUsd:1.50,
+    minPlannedNetProfitPct:1.00,
+    minViableNetProfitUsd:1.00,
+    allowFloorRelaxationForFastScalp:false,
     profitFloorLadder:[
-      {equityUsd:0,minNetUsd:.25},{equityUsd:50,minNetUsd:.35},{equityUsd:75,minNetUsd:.45},
-      {equityUsd:100,minNetUsd:.55},{equityUsd:150,minNetUsd:.75},{equityUsd:250,minNetUsd:1.10},
-      {equityUsd:500,minNetUsd:2.00},{equityUsd:1000,minNetUsd:3.50},{equityUsd:2500,minNetUsd:8.00},
-      {equityUsd:5000,minNetUsd:16.00},{equityUsd:10000,minNetUsd:32.00}
+      {equityUsd:0,minNetUsd:1.00},{equityUsd:50,minNetUsd:1.00},{equityUsd:75,minNetUsd:1.25},
+      {equityUsd:100,minNetUsd:1.50},{equityUsd:150,minNetUsd:2.00},{equityUsd:250,minNetUsd:3.00},
+      {equityUsd:500,minNetUsd:5.00},{equityUsd:1000,minNetUsd:9.00},{equityUsd:2500,minNetUsd:20.00},
+      {equityUsd:5000,minNetUsd:45.00},{equityUsd:10000,minNetUsd:90.00}
     ],
-    profitFloorBufferMult:1.04,
+    profitFloorBufferMult:1.08,
     requireNetFloorAfterFees:true,
     profitFloorProtectAfterHit:true,
     profitFloorLockAtHit:true,
@@ -101,7 +102,7 @@ export const BYBIT_AUTO_CONFIG={
     profitableMarketExit:true,
     profitHarvestExit:true,
     profitHarvestMinEvidence:2,
-    earlyHarvestMinNetUsd:.18,
+    earlyHarvestMinNetUsd:1.00,
     earlyHarvestMinPeakR:.42,
     earlyHarvestMinEvidence:2,
     earlyHarvestConfirmEvents:1,
