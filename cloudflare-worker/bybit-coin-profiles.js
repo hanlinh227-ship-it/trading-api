@@ -40,9 +40,9 @@ export const BYBIT_COIN_PROFILES=freeze({
 });
 
 export const BYBIT_PORTFOLIO_POLICY=freeze({
-  authority:'DYNAMIC_BYBIT_SCALP_PORTFOLIO_V8_CAPITAL_INTELLIGENCE_FAST_SCALE',
-  maxNewEntriesPerEvent:1,
-  deepScanCount:16,promotionScanCount:0,
+  authority:'DYNAMIC_BYBIT_SCALP_PORTFOLIO_V9_MULTI_ENTRY_CAPACITY',
+  maxNewEntriesPerEvent:null,
+  deepScanCount:28,promotionScanCount:0,
   protectedRiskSlotReuse:true,
   protectedSlotWeight:.20,
   protectedActiveRiskEquityPct:.05,
@@ -50,7 +50,7 @@ export const BYBIT_PORTFOLIO_POLICY=freeze({
   forcedOpportunityReplacement:false,
   maxCorrelatedSmall:1,
   maxCorrelatedNormal:2,
-  concurrentByEquity:[{equityUsd:0,max:2.35},{equityUsd:50,max:2.70},{equityUsd:100,max:3.10},{equityUsd:250,max:4.00},{equityUsd:500,max:5.00},{equityUsd:1000,max:6.00},{equityUsd:2500,max:7.00},{equityUsd:5000,max:8.00}],
+  concurrentByEquity:[{equityUsd:0,max:4.5},{equityUsd:50,max:5.5},{equityUsd:100,max:6.5},{equityUsd:250,max:8.0},{equityUsd:500,max:10.0},{equityUsd:1000,max:12.0},{equityUsd:2500,max:14.0},{equityUsd:5000,max:16.0}],
   noTimeGate:true,noDailyQuota:true,noMartingale:true,noAddToLoser:true,
   requireNativeProtection:true,unmanagedSymbolFailClosed:true
 });
@@ -58,11 +58,13 @@ export const BYBIT_PORTFOLIO_POLICY=freeze({
 export function normalizeBybitSymbol(symbol='BTCUSDT'){
   return String(symbol||'BTCUSDT').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
 }
-const DYNAMIC_PROFILE_BASE=freeze({...base,marketCapClass:'DYNAMIC',riskMult:.55,targetMult:1.10,stopMult:1.06,signalGain:.96,flowThresholdMult:1.04,qualityThresholdMult:1.10,bookToleranceMult:.94,leverageMult:.82,maxSpreadBps:20.0,minTurnoverUsd:500_000,runnerMaxR:4.5,holdMult:1.08,minNetProfitMult:1.00,profitGivebackMult:.92,reverseExitEvidenceMult:1.08,style:'BALANCED',correlationGroup:'DYNAMIC_ALT',priority:35,dynamicProfile:true});
+const DYNAMIC_PROFILE_BASE=freeze({...base,marketCapClass:'DYNAMIC',riskMult:.55,targetMult:.98,stopMult:.96,signalGain:.98,flowThresholdMult:1.02,qualityThresholdMult:1.06,bookToleranceMult:.96,leverageMult:.82,maxSpreadBps:12.0,minTurnoverUsd:750_000,runnerMaxR:2.15,holdMult:.90,minNetProfitMult:.96,profitGivebackMult:.88,reverseExitEvidenceMult:.96,style:'BALANCED',correlationGroup:'DYNAMIC_ALT',priority:35,dynamicProfile:true});
 const DYNAMIC_PROFILE_CACHE=new Map();
+const CORE_SCALP_PROFILE_CACHE=new Map();
+function scalpNormalizedCoreProfile(x){return freeze({...x,targetMult:Math.min(1.03,Number(x.targetMult)||1),stopMult:Math.min(1.02,Number(x.stopMult)||1),runnerMaxR:Math.min(2.25,Number(x.runnerMaxR)||2.25),holdMult:Math.min(1.03,Number(x.holdMult)||1),profitGivebackMult:Math.min(1.00,Number(x.profitGivebackMult)||1),reverseExitEvidenceMult:Math.min(1.05,Number(x.reverseExitEvidenceMult)||1)});}
 export function isCoreTradeSymbol(symbol){return !!BYBIT_COIN_PROFILES[normalizeBybitSymbol(symbol)];}
 export function coinProfileForSymbol(symbol='BTCUSDT'){
-  const s=normalizeBybitSymbol(symbol),core=BYBIT_COIN_PROFILES[s];if(core)return core;
+  const s=normalizeBybitSymbol(symbol),core=BYBIT_COIN_PROFILES[s];if(core){if(!CORE_SCALP_PROFILE_CACHE.has(s))CORE_SCALP_PROFILE_CACHE.set(s,scalpNormalizedCoreProfile(core));return CORE_SCALP_PROFILE_CACHE.get(s);}
   if(!/^[A-Z0-9]{2,28}USDT$/.test(s))return null;
   const baseCoin=s.slice(0,-4);if(['USDT','USDC','USDE','DAI','FDUSD','TUSD','USDD','PYUSD'].includes(baseCoin))return null;
   if(!DYNAMIC_PROFILE_CACHE.has(s))DYNAMIC_PROFILE_CACHE.set(s,freeze({...DYNAMIC_PROFILE_BASE,symbol:s}));return DYNAMIC_PROFILE_CACHE.get(s);
@@ -71,6 +73,6 @@ export function isSupportedTradeSymbol(symbol){return !!coinProfileForSymbol(sym
 function lerp(a,b,t){return Number(a)+(Number(b)-Number(a))*Math.max(0,Math.min(1,t));}
 export function maxConcurrentForEquity(equityUsd=0){
   const e=Math.max(0,Number(equityUsd)||0),rows=[...BYBIT_PORTFOLIO_POLICY.concurrentByEquity].sort((a,b)=>a.equityUsd-b.equityUsd);if(!rows.length)return 2;
-  if(e<=rows[0].equityUsd)return rows[0].max;for(let i=0;i<rows.length-1;i++){const a=rows[i],b=rows[i+1];if(e>=a.equityUsd&&e<b.equityUsd)return lerp(a.max,b.max,(e-a.equityUsd)/(b.equityUsd-a.equityUsd));}const last=rows.at(-1);return Math.min(10,last.max+Math.log1p(Math.max(0,e-last.equityUsd)/Math.max(1,last.equityUsd))*1.25);
+  if(e<=rows[0].equityUsd)return rows[0].max;for(let i=0;i<rows.length-1;i++){const a=rows[i],b=rows[i+1];if(e>=a.equityUsd&&e<b.equityUsd)return lerp(a.max,b.max,(e-a.equityUsd)/(b.equityUsd-a.equityUsd));}const last=rows.at(-1);return Math.min(20,last.max+Math.log1p(Math.max(0,e-last.equityUsd)/Math.max(1,last.equityUsd))*1.50);
 }
-export function correlationCapForEquity(equityUsd=0){const e=Math.max(0,Number(equityUsd)||0);return Math.min(3,1.20+Math.log1p(e/150)*.55);}
+export function correlationCapForEquity(equityUsd=0){const e=Math.max(0,Number(equityUsd)||0);return Math.min(5,2.20+Math.log1p(e/100)*.80);}
