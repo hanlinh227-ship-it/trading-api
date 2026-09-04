@@ -1,3 +1,4 @@
 trigger=bybit-v460-broad-scalp-universe
-requested_at=2026-09-04T22:55:00+07:00
+requested_at=2026-09-04T22:59:00+07:00
 scope=broader-ws,deep-scan,promotion-scan,same-risk-budget,expectancy-governed
+retry=yaml-fixed
