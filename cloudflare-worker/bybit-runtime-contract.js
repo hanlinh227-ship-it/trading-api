@@ -1,4 +1,4 @@
-export const BYBIT_RUNTIME_CONTRACT_VERSION='BYBIT_BTC_RUNTIME_CONTRACT_V10_ADAPTIVE_CAPITAL_CONTROL';
+export const BYBIT_RUNTIME_CONTRACT_VERSION='BYBIT_BTC_RUNTIME_CONTRACT_V11_FAST_SCALP_NET_EDGE';
 export const BYBIT_AUTO_VERSION='BYBIT-BTC-STATEFLOW-2.5';
 export const BYBIT_EXECUTION_AUTHORITY='BYBIT_BTC_ONLY';
 export const BYBIT_PRIVATE_TRANSPORT='VPS_BYBIT_PRIVATE_PROXY';
@@ -20,6 +20,7 @@ export const BYBIT_RUNTIME_CONTRACT={
   timeGate:false,sessionGate:false,cooldownGate:false,timedPause:false,lossStreakTimeGate:false,strategyCooldown:'NONE',dailyTradeQuota:'NONE',
   riskAuthority:'CONTINUOUS_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',continuousScale:true,balanceAuthority:'BYBIT_WALLET_PLUS_TRANSACTION_LOG',depositWithdrawalAware:true,unrealizedScaleCreditPct:25,
   leverageAuthority:'EQUITY_TAPERED_CLUSTER_LEVERAGE',smallCapitalHigherLeverage:true,largeCapitalLowerLeverage:true,leverageLockedInsideOpenCluster:true,
+  scalpAuthority:'FAST_NET_EDGE_SCALP',adaptiveOrderRouting:true,urgentMomentumRoute:'MARKET',passiveEdgeRoute:'IOC_CAPPED_LIMIT',plannedNetProfitFloor:true,nativeTpAlways:true,costAwareProfitLock:true,
   positionExitAuthority:'STRUCTURE_FLOW_STABILITY_EXIT',instabilityExit:true,reentryAuthority:'FRESH_THESIS_ONLY',recoveryMartingale:false,recoveryAddToLoser:false,
   runtimeSwitchDeploymentPolicy:'PRESERVE_EXISTING',liveAckDeploymentPolicy:'PRESERVE_EXISTING'
 };
