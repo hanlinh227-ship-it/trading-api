@@ -1,0 +1,38 @@
+name: Diagnose Bybit V4.8 Capital and App
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v48-diagnostic-trigger'
+  workflow_dispatch:
+jobs:
+  diagnose:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Read production state without trading
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          curl -fsS --max-time 40 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/preflight.json"
+          curl -fsS --max-time 40 -H "Authorization: Bearer $SECRET" "$BASE/bybit/auto/state?symbol=BTCUSDT" > "$RUNNER_TEMP/state.json"
+          curl -fsS --max-time 30 "$BASE/bybit/monitor/bootstrap" > "$RUNNER_TEMP/monitor.json"
+          curl -fsS --max-time 30 http://127.0.0.1:8789/health > "$RUNNER_TEMP/bridge.json"
+          P="$RUNNER_TEMP/preflight.json" S="$RUNNER_TEMP/state.json" M="$RUNNER_TEMP/monitor.json" B="$RUNNER_TEMP/bridge.json" node <<'NODE'
+          const fs=require('fs'),r=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const p=r(process.env.P),s=r(process.env.S),m=r(process.env.M),b=r(process.env.B),c=s.controller||{},st=s.state||{},w=b.wsTelemetry||{};
+          const out={checkedAt:new Date().toISOString(),preflight:{ok:p.ok,version:p.version,mode:p.mode,account:p.account,positions:p.positions?.length,openOrders:p.openOrders,blockers:p.blockers},controller:{equityUsd:c.equityUsd,continuousCapacityCapitalUsd:c.continuousCapacityCapitalUsd,walletBalanceUsd:c.walletBalanceUsd,availableUsd:c.availableUsd,lastCycleAt:c.lastCycleAt,lastCycleReason:c.lastCycleReason,activePositionCount:c.activePositionCount,riskSlotsUsed:c.riskSlotsUsed,riskSlotsAvailable:c.riskSlotsAvailable},btcState:{lastEquityUsd:st.lastEquityUsd,lastWalletBalanceUsd:st.lastWalletBalanceUsd,lastAvailableUsd:st.lastAvailableUsd,lastContinuousCapitalUsd:st.lastContinuousCapitalUsd,lastCapitalBaseUsd:st.lastCapitalBaseUsd,highWaterUsd:st.highWaterUsd,lastSizing:st.lastSizing||null,lastRiskReject:st.lastRiskReject||null},monitor:{schemaVersion:m.schemaVersion,defaultIntervalMs:m.websocketProtocol?.defaultIntervalMs,minIntervalMs:m.websocketProtocol?.minIntervalMs,readOnly:m.capabilities?.tradingControls===false},bridge:{maxWsSymbols:b.maxWsSymbols,connected:w.connectedCount,ready:w.readyCount,fresh:w.freshCount,p50:w.p50DataAgeMs,p95:w.p95DataAgeMs,max:w.maxDataAgeMs}};
+          console.log(JSON.stringify(out,null,2));
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/v48-diagnostic.json',JSON.stringify(out,null,2));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v48-capital-app-diagnostic
+          path: ${{ runner.temp }}/v48-diagnostic.json
