@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""BTC-only Bybit VPS bridge.
+"""Multi-asset Bybit VPS bridge.
 
-Single BTCUSDT VPS authority for signed private REST proxy, public WebSocket
+Single VPS authority for signed private REST proxy, public WebSocket
 microstructure and event-driven Worker wakeups. Market data and execution wakeups
 share the same confirmed WS stream so there is no second market reader or strategy
 scheduler. Reconnect backoff is transport-only, never a trading time gate.
@@ -14,7 +14,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 SECRET=(os.environ.get('BYBIT_VPS_BRIDGE_SECRET') or os.environ.get('V11_AI_BRIDGE_SECRET') or '').strip()
 HOST=os.environ.get('BYBIT_VPS_BRIDGE_HOST',os.environ.get('V11_AI_BRIDGE_HOST','127.0.0.1'))
 PORT=int(os.environ.get('BYBIT_VPS_BRIDGE_PORT',os.environ.get('V11_AI_BRIDGE_PORT','8789')))
-SYMBOL='BTCUSDT'
+DEFAULT_SYMBOL='BTCUSDT'
+DEFAULT_SYMBOLS='BTCUSDT,ETHUSDT,BNBUSDT,XRPUSDT,SOLUSDT,TRXUSDT,DOGEUSDT,ADAUSDT,LINKUSDT,AVAXUSDT,LTCUSDT,BCHUSDT,XLMUSDT,DOTUSDT,NEARUSDT,UNIUSDT,AAVEUSDT,HBARUSDT'
+SYMBOLS=tuple(dict.fromkeys(x.strip().upper() for x in os.environ.get('BYBIT_MULTI_SYMBOLS',DEFAULT_SYMBOLS).split(',') if x.strip()))
+EVENT_SYMBOLS=set(x.strip().upper() for x in os.environ.get('BYBIT_EVENT_SYMBOLS','BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,BNBUSDT,DOGEUSDT').split(',') if x.strip())
+WORKER_WAKE_SEMAPHORE=threading.Semaphore(1)
 WS_URL=os.environ.get('BYBIT_PUBLIC_WS','wss://stream.bybit.com/v5/public/linear')
 WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.hanlinh227.workers.dev').rstrip('/')
 EVENT_ENABLED=str(os.environ.get('BYBIT_EVENT_DRIVER_ENABLED','true')).lower() in ('1','true','yes')
@@ -30,7 +34,8 @@ except Exception:
     websocket=None
 
 class Microstructure:
-    def __init__(self):
+    def __init__(self,symbol):
+        self.symbol=str(symbol).upper()
         self.lock=threading.RLock(); self.bids={}; self.asks={}; self.trades=deque(maxlen=16000); self.liquidations=deque(maxlen=4000)
         self.last_book=0; self.last_trade=0; self.last_liq=0; self.last_error=None; self.connected=False; self.thread=None
         self.event_last_fingerprint=None; self.event_inflight=False; self.event_pending=False
@@ -46,7 +51,7 @@ class Microstructure:
         if websocket is None:
             self.last_error='WEBSOCKET_CLIENT_NOT_INSTALLED'; return
         if self.thread and self.thread.is_alive(): return
-        self.thread=threading.Thread(target=self._loop,name='bybit-btc-public-ws',daemon=True); self.thread.start()
+        self.thread=threading.Thread(target=self._loop,name=f'bybit-{self.symbol.lower()}-public-ws',daemon=True); self.thread.start()
     def _loop(self):
         while True:
             try:
@@ -57,7 +62,7 @@ class Microstructure:
             self.connected=False; time.sleep(2)
     def _open(self,ws):
         self.connected=True; self.last_error=None
-        ws.send(json.dumps({'op':'subscribe','args':[f'orderbook.50.{SYMBOL}',f'publicTrade.{SYMBOL}',f'allLiquidation.{SYMBOL}']}))
+        ws.send(json.dumps({'op':'subscribe','args':[f'orderbook.50.{self.symbol}',f'publicTrade.{self.symbol}',f'allLiquidation.{self.symbol}']}))
     def _error(self,_ws,e): self.last_error='WS:'+str(e)[:240]
     def _close(self,_ws,_code,_msg): self.connected=False
     def _trade_window_locked(self,window_ms,now):
@@ -105,11 +110,12 @@ class Microstructure:
     def _urllib_worker(self,reason):
         req=urllib.request.Request(WORKER_URL+'/bybit/auto/run',method='POST',data=b'{}',headers={
             'content-type':'application/json','accept':'application/json','accept-language':'en-US,en;q=0.9','cache-control':'no-cache','user-agent':BROWSER_UA,
-            'x-action-key':SECRET,'x-btc-trigger':'VPS_WS_EVENT','x-btc-trigger-reason':str(reason)[:120]})
+            'x-action-key':SECRET,'x-btc-trigger':'VPS_WS_EVENT','x-bybit-symbol':self.symbol,'x-btc-trigger-reason':str(reason)[:120]})
         try:
             with urllib.request.urlopen(req,timeout=35) as r:return int(r.status),r.read(1_000_000).decode(errors='replace')
         except urllib.error.HTTPError as e:return int(e.code),e.read(1_000_000).decode(errors='replace')
     def _wake_worker(self,reason):
+        WORKER_WAKE_SEMAPHORE.acquire()
         self.event_last_wake=int(time.time()*1000)
         with self.lock:self.event_wake_started+=1
         try:
@@ -139,6 +145,7 @@ class Microstructure:
                 self.event_pending=False
                 self.event_inflight=False
                 self.event_wake_completed+=1
+            WORKER_WAKE_SEMAPHORE.release()
             if rerun:self._spawn_wake('COALESCED_LATEST_STATE')
     def _spawn_wake(self,reason):
         if not EVENT_ENABLED or not SECRET:return
@@ -148,6 +155,7 @@ class Microstructure:
             self.event_inflight=True
         threading.Thread(target=self._wake_worker,args=(reason,),name='btc-worker-wake',daemon=True).start()
     def _maybe_wake(self,topic):
+        if self.symbol not in EVENT_SYMBOLS:return
         fp=self._event_fingerprint(topic)
         if fp is None:return
         with self.lock:
@@ -167,12 +175,12 @@ class Microstructure:
                     for p,q in data.get('a',[]):
                         p=float(p);q=float(q); self.asks.pop(p,None) if q==0 else self.asks.__setitem__(p,q)
                 self.last_book=int(msg.get('cts') or msg.get('ts') or now); changed=True
-            elif topic==f'publicTrade.{SYMBOL}':
+            elif topic==f'publicTrade.{self.symbol}':
                 for x in (data if isinstance(data,list) else [data]):
                     try:self.trades.append((int(x.get('T') or now),str(x.get('S') or ''),float(x.get('v') or 0),float(x.get('p') or 0))); changed=True
                     except Exception:pass
                 self.last_trade=int(msg.get('ts') or now)
-            elif topic==f'allLiquidation.{SYMBOL}':
+            elif topic==f'allLiquidation.{self.symbol}':
                 for x in (data if isinstance(data,list) else [data]):
                     try:self.liquidations.append((int(x.get('T') or now),str(x.get('S') or ''),float(x.get('v') or 0),float(x.get('p') or 0))); changed=True
                     except Exception:pass
@@ -181,7 +189,7 @@ class Microstructure:
     def event_status(self):
         with self.lock:
             r=self.event_last_result or {}; ctl=r.get('controller') or {}
-            return {'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','transport':self.event_transport,'inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason'),'wakeStarted':self.event_wake_started,'wakeCompleted':self.event_wake_completed,'coalesced':self.event_coalesced,'coalescingHealthy':self.event_wake_completed<=self.event_wake_started and self.event_wake_started-self.event_wake_completed<=1}
+            return {'symbol':self.symbol,'integrated':True,'enabled':EVENT_ENABLED,'authority':'VPS_WS_MARKET_STATE_CHANGE','transport':self.event_transport,'inflight':self.event_inflight,'pending':self.event_pending,'lastWakeAt':self.event_last_wake,'lastSuccessAt':self.event_last_success,'lastHttpStatus':self.event_last_http,'lastError':self.event_last_error,'lastResultMode':r.get('mode') or ctl.get('executionMode'),'lastResultReason':r.get('reason') or ctl.get('lastCycleReason'),'wakeStarted':self.event_wake_started,'wakeCompleted':self.event_wake_completed,'coalesced':self.event_coalesced,'coalescingHealthy':self.event_wake_completed<=self.event_wake_started and self.event_wake_started-self.event_wake_completed<=1}
     def snapshot(self):
         now=int(time.time()*1000)
         with self.lock:
@@ -205,9 +213,9 @@ class Microstructure:
             if side=='Buy':long_usd+=v
             elif side=='Sell':short_usd+=v
         total_liq=long_usd+short_usd
-        return {'ok':True,'data':{'symbol':SYMBOL,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'lastPrice':last_trade_price,'lastTradeSide':last_trade_side,'lastTradeTime':last_trade_time,'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst1x':w1['totalNotional']/base1,'burst3x':w3['totalNotional']/base3,'burst5x':w5['totalNotional']/base5,'priceChange1sBps':w1['priceChangeBps'],'priceChange3sBps':w3['priceChangeBps'],'priceChange5sBps':w5['priceChangeBps'],'window1s':w1,'window3s':w3,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
+        return {'ok':True,'data':{'symbol':self.symbol,'at':now,'source':'VPS_BYBIT_WS','book':{'bestBid':bb,'bestAsk':ba,'mid':mid,'spreadBps':(ba-bb)/mid*10000,'microprice':micro,'micropriceEdgeBps':(micro-mid)/mid*10000,'bidDepth2':b2,'askDepth2':a2,'bidDepth5':b5,'askDepth5':a5,'bidDepth10':b10,'askDepth10':a10,'imbalance2':self._imb(b2,a2),'imbalance5':self._imb(b5,a5),'imbalance10':self._imb(b10,a10),'imbalance':self._imb(wb,wa),'updateTime':lb},'trades':{'lastPrice':last_trade_price,'lastTradeSide':last_trade_side,'lastTradeTime':last_trade_time,'aggressorImbalance':w15['imbalance'],'deltaNotional':w15['deltaNotional'],'notional15s':w15['totalNotional'],'notional60s':w60['totalNotional'],'burst1x':w1['totalNotional']/base1,'burst3x':w3['totalNotional']/base3,'burst5x':w5['totalNotional']/base5,'priceChange1sBps':w1['priceChangeBps'],'priceChange3sBps':w3['priceChangeBps'],'priceChange5sBps':w5['priceChangeBps'],'window1s':w1,'window3s':w3,'window5s':w5,'window15s':w15,'window60s':w60,'updateTime':lt},'liquidations':{'longLiquidationUsd':long_usd,'shortLiquidationUsd':short_usd,'totalUsd':total_liq,'imbalance':self._imb(long_usd,short_usd),'events':events,'updateTime':ll}},'connected':connected,'error':err,'eventDriver':self.event_status()}
 
-MICRO=Microstructure()
+MICROS={s:Microstructure(s) for s in SYMBOLS}
 
 def bybit_proxy(body):
     method=str(body.get('method') or '').upper(); path=str(body.get('path') or ''); query=str(body.get('query') or ''); raw=str(body.get('body') or ''); headers=body.get('headers') or {}
@@ -236,12 +244,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u=urllib.parse.urlparse(self.path)
         if u.path=='/health':
-            snap=MICRO.snapshot();return self.sendj(200,{'ok':True,'service':'BYBIT_BTC_LIVE_BRIDGE','privateProxy':True,'microstructure':{'ready':bool(snap.get('ok')),'connected':bool(snap.get('connected')),'reason':snap.get('reason'),'error':snap.get('error')},'eventDriver':MICRO.event_status(),'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
+            snaps={s:m.snapshot() for s,m in MICROS.items()};ready=[s for s,x in snaps.items() if x.get('ok')];drivers={s:m.event_status() for s,m in MICROS.items()};btc=MICROS.get(DEFAULT_SYMBOL);return self.sendj(200,{'ok':True,'service':'BYBIT_MULTI_ASSET_LIVE_BRIDGE','privateProxy':True,'symbols':list(SYMBOLS),'readySymbols':ready,'eventSymbols':sorted(EVENT_SYMBOLS),'microstructure':{'ready':DEFAULT_SYMBOL in ready,'connected':bool(snaps.get(DEFAULT_SYMBOL,{}).get('connected'))},'eventDriver':btc.event_status() if btc else {},'eventDrivers':drivers,'legacyAiCouncil':False,'forex':False,'meme':False,'timestamp':int(time.time()*1000)})
         if u.path=='/bybit/microstructure':
             if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
-            q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [SYMBOL])[0]).upper()
-            if symbol!=SYMBOL:return self.sendj(400,{'ok':False,'error':'BTCUSDT_ONLY'})
-            snap=MICRO.snapshot();return self.sendj(200 if snap.get('ok') else 503,snap)
+            q=urllib.parse.parse_qs(u.query);symbol=str((q.get('symbol') or [DEFAULT_SYMBOL])[0]).upper();m=MICROS.get(symbol)
+            if not m:return self.sendj(400,{'ok':False,'error':'SYMBOL_NOT_IN_MULTI_ASSET_BRIDGE','symbol':symbol})
+            snap=m.snapshot();return self.sendj(200 if snap.get('ok') else 503,snap)
         return self.sendj(404,{'ok':False,'error':'NOT_FOUND'})
     def do_POST(self):
         if not self.authorized():return self.sendj(401,{'ok':False,'error':'UNAUTHORIZED'})
@@ -253,5 +261,5 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     if not SECRET:raise SystemExit('BYBIT_VPS_BRIDGE_SECRET_OR_V11_AI_BRIDGE_SECRET_REQUIRED')
-    MICRO.start();ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
+    [m.start() for m in MICROS.values()];ThreadingHTTPServer((HOST,PORT),Handler).serve_forever()
 if __name__=='__main__':main()

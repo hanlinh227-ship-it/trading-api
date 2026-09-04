@@ -1,10 +1,11 @@
-// BYBIT-BTC-STATEFLOW-2.6 configuration.
+import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
+// BYBIT-MULTI-STATEFLOW-3.0 configuration.
 // BTCUSDT linear perpetual. Pure event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
 
 export const BYBIT_AUTO_CONFIG={
-  symbol:'BTCUSDT',category:'linear',settleCoin:'USDT',
+  symbol:'BTCUSDT',symbols:BYBIT_TRADE_UNIVERSE,multiAsset:true,portfolio:BYBIT_PORTFOLIO_POLICY,category:'linear',settleCoin:'USDT',
   strategyAuthority:'BTC_STATE_FIRST_ULTRAFAST_FLOW_STRUCTURE_LIQUIDITY_DERIVATIVES',
   trigger:{authority:'VPS_WS_MARKET_STATE_CHANGE',eventDriven:true,scheduledExecution:false,sessionGate:false,cooldownGate:false,timedPause:false},
   leverage:{
@@ -24,23 +25,25 @@ export const BYBIT_AUTO_CONFIG={
     authority:'ULTRAFAST_TIERED_NET_EDGE_SCALP',
     minPlannedNetProfitUsd:.06,
     minPlannedNetProfitPct:.15,
-    profitLockR:.40,
-    trailStartR:.98,
-    trailRange5Pct:.12,
-    trailPricePct:.00100,
+    profitLockR:.52,
+    trailStartR:1.18,
+    trailRange5Pct:.16,
+    trailPricePct:.00130,
     netProfitLockBufferMult:1.08,
     adaptiveProtection:{
       enabled:true,
       authority:'EVENT_DRIVEN_NATIVE_TP_SL_SINGLE_WRITER',
-      probeBaseTargetR:1.70,
-      confirmBaseTargetR:1.92,
-      fullBaseTargetR:2.10,
-      minTargetR:1.25,
-      maxTargetR:2.55,
-      strongExtensionR:.40,
-      weakCompressionR:.24,
-      minTargetMoveR:.14,
-      minLiveGapR:.18,
+      probeBaseTargetR:1.85,
+      confirmBaseTargetR:2.20,
+      fullBaseTargetR:2.70,
+      minTargetR:1.30,
+      maxTargetR:4.80,
+      strongExtensionR:.65,
+      weakCompressionR:.18,
+      minTargetMoveR:.16,
+      minLiveGapR:.20,
+      peakGivebackActivationR:1.10,
+      peakGivebackR:.65,
       neverLoosenStop:true,
       combineNativeTpSlWrite:true,
       timeGate:false
@@ -51,7 +54,7 @@ export const BYBIT_AUTO_CONFIG={
     mode:'ADAPTIVE_FULL_ACCOUNT_BALANCE_EQUITY_SCALE',fullAccountAuthority:true,
     baseEntryRiskPct:.85,strongEntryRiskPct:1.20,aPlusEntryRiskPct:1.50,absoluteSingleEntryRiskPct:1.60,
     maxActiveRiskPct:7.5,temporaryAPlusActiveRiskPct:9.5,maxPortfolioMarginPct:78,maxMarginPerPositionPct:78,minFreeReservePct:12,
-    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:1000000,riskRecycleAfterProtection:true,
+    addToLoser:false,pyramidWinner:true,martingale:false,gridRescue:false,dailyTarget:false,maxSameDirectionPositions:3,riskRecycleAfterProtection:true,
     timedPause:false,lossStreakTimeGate:false,
     priorRiskProtectionThresholdPct:35,
     tierUpgradeMinR:.18,
@@ -81,8 +84,8 @@ export const BYBIT_AUTO_CONFIG={
     profitableMarketExit:false,
     highVolShockAdverseExit:true,
     profitLockOnDeceleration:true,
-    decelerationLockMinR:.48,
-    decelerationPeakMinR:.65,
+    decelerationLockMinR:.70,
+    decelerationPeakMinR:.95,
     freshThesisReentry:true,
     recoveryMartingale:false,
     recoveryAddToLoser:false
@@ -93,7 +96,7 @@ export const BYBIT_AUTO_CONFIG={
     ultraFastFlow1s3s:true,marketPulseConsensus:true,orderBook:true,nearTouchDepthBands:true,orderFlowImbalance:true,microprice:true,liquidityFragility:true,
     liquidationFlow:true,openInterest:true,fundingRate:true,basisPremium:true,longShortRatio:true,realizedVolatility:true,
     stateFirst:true,indicatorsSupportingOnly:true,eventDrivenDecision:true,openPositionManagementAlwaysOn:true,
-    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true
+    shortHorizonFlowReversal:true,sampleQualityWeighted:true,tieredEntryRisk:true,adaptiveNativeTpSl:true,multiAssetUniverse:true,perSymbolCognition:true,portfolioCorrelationGuard:true,peakGivebackProtection:true
   },
   entries:{trendPullback:true,trendContinuation:true,breakoutRetest:true,rangeMeanReversion:true,liquidationExhaustion:true,absorptionReversal:true,squeezeRelease:true,momentumEarlyRelease:true,rangeMicroReclaimScalp:true,transitionWsScalp:true,shortHorizonReversal:true,sampleQualityGuard:true,probeConfirmFull:true},
   execution:{recvWindow:10000,positionIdx:0,adaptiveOrderRouting:true,postOnlyPreferredForPassive:false,iocLimitForPassiveEdge:true,iocBufferTicks:1,marketAllowedForUrgentEdge:true,marketForUrgentMomentum:true,nativeTpAlways:true,requireFreshBook:true,requireFreshTrades:true,requirePostOrderReconciliation:true,requireProtectionConfirmation:true,reduceOnlyExits:true,noTimeGate:true,managementEveryMarketStateChange:true}
