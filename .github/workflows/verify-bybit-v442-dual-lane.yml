@@ -1,0 +1,48 @@
+name: Verify Bybit V4.4.2 Dual Lane
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v442-dual-lane-verify-trigger']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency: {group: bybit-v442-dual-lane-verify, cancel-in-progress: true}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify V4.4.2 production dual-lane discovery
+        shell: bash
+        env:
+          BASE: https://trading-v77-scanner.hanlinh227.workers.dev
+        run: |
+          set -euo pipefail
+          T="$RUNNER_TEMP/bybit-v442"; mkdir -p "$T"
+          for i in $(seq 1 36); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            curl -fsS --max-time 30 "$BASE/runtime/contract" > "$T/contract.json" || true
+            OK=$(T="$T" node -e "const fs=require('fs'),p=process.env.T;try{const h=JSON.parse(fs.readFileSync(p+'/health.json')),c=JSON.parse(fs.readFileSync(p+'/contract.json'));process.stdout.write(h.version==='BYBIT-MULTI-STATEFLOW-4.4.2'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V22_DUAL_LANE_DISCOVERY_PROMOTION'?'1':'0')}catch{process.stdout.write('0')}")
+            [ "$OK" = 1 ] && break
+            sleep 10
+          done
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json" || echo '{}' > "$T/entry.json"
+          curl -fsS --max-time 60 "$BASE/bybit/universe" > "$T/universe.json"
+          T="$T" node <<'NODE'
+          const fs=require('fs'),p=process.env.T;
+          const read=f=>{try{return JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'))}catch{return {}}};
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json'),u=read('universe.json'),s=u.summary||{};
+          const promoted=(u.ranked||[]).filter(x=>x.classification==='TRADE_PROMOTED');
+          const unsafePromoted=promoted.filter(x=>x.classification==='WATCH_NEW'||x.cryptoType===false||x.metaKnown===false||Number(x.spreadBps)>7.5||Number(x.turnover)<25_000_000||x.promotion?.qualified!==true);
+          const queue=Array.isArray(u.promotionCandidates)?u.promotionCandidates:[];
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.4.2',mode:h.mode==='LIVE',authenticated:h.authenticated===true,ready:h.execution?.ready===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V22_DUAL_LANE_DISCOVERY_PROMOTION',dualLane:c.dualLaneMarketDiscovery===true,tradeLane:c.confirmedTradeLane===true,promotionLane:c.promotionWatchLane===true,persistentEvidence:c.persistentPromotionEvidence===true,repeatedFresh:c.promotionRequiresRepeatedFreshEvidence===true,universe:u.authority==='BYBIT_DYNAMIC_CRYPTO_SCALP_UNIVERSE_V3_DUAL_LANE_PROMOTION',cryptoOnly:u.cryptoOnly===true,total:Number(s.totalLinearUsdt)>=18,promotionQueue:Array.isArray(u.promotionCandidates),noUnsafePromotion:unsafePromoted.length===0,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0};
+          const pass=Object.values(checks).every(Boolean);
+          console.log(JSON.stringify({pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,ready:h.execution?.ready},entry:{status:e.status,blockers:e.blockers||[]},contract:{version:c.version,dualLaneMarketDiscovery:c.dualLaneMarketDiscovery,confirmedTradeLane:c.confirmedTradeLane,promotionWatchLane:c.promotionWatchLane,persistentPromotionEvidence:c.persistentPromotionEvidence,promotionRequiresRepeatedFreshEvidence:c.promotionRequiresRepeatedFreshEvidence},universe:{authority:u.authority,total:s.totalLinearUsdt,tradeableNow:s.tradeableNow,promotedNow:s.promotedNow,promotionCandidates:s.promotionCandidates,watchNew:s.watchNew,watchOnly:s.watchOnly,queueTop:(s.promotionQueue||[]).slice(0,10)},unsafePromoted,checks},null,2));
+          if(!pass)process.exit(9);
+          NODE
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v442-dual-lane-verification
+          path: ${{ runner.temp }}/bybit-v442
+          retention-days: 7
