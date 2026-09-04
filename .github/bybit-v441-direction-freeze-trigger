@@ -1,3 +1,4 @@
 trigger=bybit-v441-direction-freeze
-requested_at=2026-09-04T21:00:00+07:00
+requested_at=2026-09-04T21:06:00+07:00
 scope=per-symbol-regime-side-coherence,cross-market-breadth,long-run-freeze
+validator_sync=true
