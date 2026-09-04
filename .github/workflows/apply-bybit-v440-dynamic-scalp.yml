@@ -1,0 +1,46 @@
+name: Apply Bybit V4.4 Dynamic Scalp
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v440-dynamic-scalp-trigger']
+  workflow_dispatch:
+permissions: {contents: write}
+concurrency: {group: bybit-v440-dynamic-scalp-upgrade, cancel-in-progress: false}
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply V4.4 dynamic scalp patch
+        run: python3 .github/scripts/apply-bybit-v440-dynamic-scalp.py
+      - name: Validate JS and bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd cloudflare-worker
+          node --check bybit-auto-config.js
+          node --check bybit-coin-profiles.js
+          node --check bybit-dynamic-universe.js
+          node --check bybit-symbol-strategy.js
+          node --check bybit-symbol-engine.js
+          node --check bybit-btc-risk-engine.js
+          node --check bybit-btc-balance-reconciler.js
+          node --check bybit-multi-asset-controller.js
+          node --check bybit-control-plane.js
+          node --check bybit-runtime-contract.js
+          node --check bybit-ui-contract.js
+          node validate-btc-hyperscale.mjs
+          cd ..
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+      - name: Commit V4.4 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker bybit-live-bridge/bybit_live_bridge.py
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'Upgrade Bybit dynamic scalp anti-sweep V4.4.0'
+          git push origin HEAD:main
