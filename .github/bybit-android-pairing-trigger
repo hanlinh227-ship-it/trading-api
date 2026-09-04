@@ -1,4 +1,5 @@
 trigger=BYBIT_ANDROID_MONITOR_PAIRING_V1
-requested_at=2026-09-04T23:34:00+07:00
+requested_at=2026-09-05T00:01:00+07:00
 pair_code_plaintext_not_stored=true
 trading_logic_change=false
+reason=correct-pairing-hash-mismatch
