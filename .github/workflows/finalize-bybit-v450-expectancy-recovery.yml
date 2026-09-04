@@ -1,0 +1,59 @@
+name: Finalize Bybit V4.5 Expectancy Recovery
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v450-finalize-trigger']
+  workflow_dispatch:
+permissions: {contents: write}
+concurrency: {group: bybit-v450-finalize, cancel-in-progress: false}
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply final state reset
+        run: python3 .github/scripts/finalize-bybit-v450-expectancy-recovery.py
+      - name: Validate source and synthetic expectancy behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check cloudflare-worker/bybit-performance-governor.js
+          node --check cloudflare-worker/bybit-btc-risk-engine.js
+          node --check cloudflare-worker/bybit-symbol-engine.js
+          node --input-type=module <<'NODE'
+          import {buildBybitPerformanceGovernor,bybitPerformanceDecision} from './cloudflare-worker/bybit-performance-governor.js';
+          const now=Date.now();
+          const rows=[
+            {symbol:'SOLUSDT',closedPnl:'-0.30',openFee:'0.02',closeFee:'0.02',updatedTime:String(now-1000),orderId:'1'},
+            {symbol:'SOLUSDT',closedPnl:'-0.24',openFee:'0.02',closeFee:'0.02',updatedTime:String(now-2000),orderId:'2'},
+            {symbol:'SOLUSDT',closedPnl:'-0.18',openFee:'0.02',closeFee:'0.02',updatedTime:String(now-3000),orderId:'3'},
+            {symbol:'ETHUSDT',closedPnl:'0.42',openFee:'0.02',closeFee:'0.02',updatedTime:String(now-4000),orderId:'4'}
+          ];
+          const api={closedPnl:async()=>({result:{list:rows,nextPageCursor:''}})};
+          const state=await buildBybitPerformanceGovernor({},api,{equityUsd:35,highWaterUsd:39});
+          if(state.symbols.SOLUSDT.h72.trades!==3)throw new Error('SOL_SAMPLE_COUNT_BAD');
+          if(state.symbols.SOLUSDT.h72.expectancy>=0)throw new Error('SOL_EXPECTANCY_NOT_NEGATIVE');
+          const normal=bybitPerformanceDecision(state,{symbol:'SOLUSDT',strength:'NORMAL',entryTier:'CONFIRM',quality:.35,edgeScore:.08,netRR:2.5,localCounterTrend:false},35,39);
+          if(!normal.block)throw new Error('NEGATIVE_SYMBOL_NOT_BLOCKED');
+          const exceptional=bybitPerformanceDecision(state,{symbol:'SOLUSDT',strength:'A_PLUS',entryTier:'FULL',quality:.45,edgeScore:.10,netRR:3.0,localCounterTrend:false},35,39);
+          if(exceptional.block)throw new Error('A_PLUS_REQUALIFICATION_BLOCKED');
+          if(!(normal.riskMult<1&&normal.riskMult>=.40))throw new Error('RISK_MULT_BAD');
+          if(state.summary.h72.netPnl>=0)throw new Error('GLOBAL_NET_BAD');
+          console.log(JSON.stringify({ok:true,normal,exceptional,summary:state.summary.h72},null,2));
+          NODE
+          grep -q "earlyProfitHarvestWeakCount:0" cloudflare-worker/bybit-btc-risk-engine.js
+          grep -q "earlyHarvestReady" cloudflare-worker/bybit-symbol-engine.js
+          grep -q "minPlannedNetProfitUsd:.25" cloudflare-worker/bybit-auto-config.js
+          grep -q "maxActiveRiskPct:4.2" cloudflare-worker/bybit-auto-config.js
+      - name: Commit final reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-btc-risk-engine.js
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'Finalize V4.5 flat-state performance reset'
+          git push origin HEAD:main
