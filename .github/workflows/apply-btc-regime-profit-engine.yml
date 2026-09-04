@@ -38,7 +38,8 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add cloudflare-worker bybit-live-bridge .github/workflows/deploy-bybit-btc-bridge.yml
+          git restore .github/workflows/deploy-bybit-btc-bridge.yml
+          git add cloudflare-worker bybit-live-bridge
           git commit -m 'Upgrade Bybit runtime to profiled major-cap multi-asset StateFlow'
           git pull --rebase origin main
           git push origin HEAD:main
