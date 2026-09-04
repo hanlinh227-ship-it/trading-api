@@ -1,0 +1,50 @@
+name: Validate Bybit V5.0 Scalp Quality v2
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/apply-bybit-v500-scalp-quality.py'
+      - '.github/scripts/apply-bybit-v500-scalp-quality-v2.py'
+      - '.github/workflows/validate-bybit-v500-scalp-quality-v2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply corrected V5.0 patch in validation workspace
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v500-scalp-quality-v2.py
+          grep -q "BYBIT-MULTI-STATEFLOW-5.0.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V28_SCALP_QUALITY_POSITIVE_EDGE" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "V50_PROBE_DISABLED_FOR_LIVE_SCALP" cloudflare-worker/bybit-btc-strategy.js
+          grep -q "V50_TRANSITION_NO_NEW_RISK" cloudflare-worker/bybit-btc-strategy.js
+          grep -q "shortPriceConfirmation" cloudflare-worker/bybit-btc-strategy.js
+          grep -q "BYBIT_SYMBOL_COGNITION_V7_SCALP_QUALITY_POSITIVE_EDGE" cloudflare-worker/bybit-symbol-strategy.js
+          grep -q "BYBIT_PERFORMANCE_GOVERNOR_V2_POSITIVE_EDGE_SCALP_QUALITY" cloudflare-worker/bybit-performance-governor.js
+          ! grep -q "martingale:true" cloudflare-worker/bybit-auto-config.js
+          ! grep -q "addToLoser:true" cloudflare-worker/bybit-auto-config.js
+      - name: Validate JavaScript and invariants
+        working-directory: cloudflare-worker
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          node --input-type=module <<'NODE'
+          import {BYBIT_AUTO_CONFIG} from './bybit-auto-config.js';
+          import {BYBIT_RUNTIME_CONTRACT,BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
+          import {BYBIT_PERFORMANCE_GOVERNOR_VERSION} from './bybit-performance-governor.js';
+          import {BTC_STRATEGY_VERSION} from './bybit-btc-strategy.js';
+          import {BYBIT_SYMBOL_STRATEGY_VERSION} from './bybit-symbol-strategy.js';
+          const c=BYBIT_AUTO_CONFIG,r=BYBIT_RUNTIME_CONTRACT;
+          const checks={version:BYBIT_AUTO_VERSION==='BYBIT-MULTI-STATEFLOW-5.0.0',contract:r.version==='BYBIT_MULTI_ASSET_RUNTIME_V28_SCALP_QUALITY_POSITIVE_EDGE',scalpOnly:r.scalpOnly===true,targetStillCapped:r.scalpTargetDistanceCapped===true&&c.scalp.adaptiveProtection.maxTargetR<=2.2,positiveEdge:r.entryQualityPositiveNetEdge===true,priceConfirmation:r.shortHorizonPriceConfirmation===true,probeDisabled:r.probeNewRiskDisabled===true&&c.entries.probeConfirmFull===false,transitionDisabled:r.transitionNewRiskDisabled===true&&c.entries.transitionWsScalp===false,btcStrategy:BTC_STRATEGY_VERSION==='BTC_STATE_FIRST_MICROSTRUCTURE_V10_SCALP_QUALITY_POSITIVE_EDGE',symbolStrategy:BYBIT_SYMBOL_STRATEGY_VERSION==='BYBIT_SYMBOL_COGNITION_V7_SCALP_QUALITY_POSITIVE_EDGE',governor:BYBIT_PERFORMANCE_GOVERNOR_VERSION==='BYBIT_PERFORMANCE_GOVERNOR_V2_POSITIVE_EDGE_SCALP_QUALITY',noMartingale:c.risk.martingale===false&&c.positionControl.recoveryMartingale===false,noAddToLoser:c.risk.addToLoser===false&&c.positionControl.recoveryAddToLoser===false,riskNotIncreased:c.risk.baseEntryRiskPct<=1.0&&c.risk.absoluteSingleEntryRiskPct<=2.25&&c.risk.maxActiveRiskPct<=7.0,nativeTpSl:c.execution.nativeTpAlways===true&&c.execution.requireProtectionConfirmation===true,freshWs:c.execution.requireFreshBook===true&&c.execution.requireFreshTrades===true,multiEntryCapacity:r.multiEntryUntilCapacity===true};
+          console.log(JSON.stringify(checks,null,2));
+          if(!Object.values(checks).every(Boolean))process.exit(41);
+          NODE
+      - name: Show patch summary
+        run: |
+          git diff --stat
