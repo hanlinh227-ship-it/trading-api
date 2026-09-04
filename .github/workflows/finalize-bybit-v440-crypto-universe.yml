@@ -1,0 +1,37 @@
+name: Finalize Bybit V4.4 Crypto Universe
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v440-crypto-final-trigger']
+  workflow_dispatch:
+permissions: {contents: write}
+concurrency: {group: bybit-v440-crypto-final, cancel-in-progress: false}
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 2}
+      - name: Apply crypto-only universe and bridge discovery
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/finalize-bybit-v440-crypto-universe.py
+          cd cloudflare-worker
+          node --check bybit-dynamic-universe.js
+          node --check bybit-runtime-contract.js
+          node --check bybit-control-plane.js
+          node validate-btc-hyperscale.mjs
+          cd ..
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          grep -q "symbolType" bybit-live-bridge/bybit_live_bridge.py
+          grep -q "EVENT_SYMBOL_LIMIT" bybit-live-bridge/bybit_live_bridge.py
+      - name: Commit final crypto-only V4.4 runtime
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-control-plane.js .github/workflows/diagnose-bybit-v43-live.yml bybit-live-bridge/bybit_live_bridge.py
+          if git diff --cached --quiet; then echo NO_CHANGES; exit 0; fi
+          git commit -m 'Finalize Bybit V4.4 crypto-only dynamic scalp universe'
+          git push origin HEAD:main
