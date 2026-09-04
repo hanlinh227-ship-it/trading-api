@@ -1,0 +1,3 @@
+trigger=bybit-v460-broad-production
+requested_at=2026-09-04T23:09:00+07:00
+scope=upgrade-v11-live-bridge-48ws,deploy-v24,verify-live,same-risk-budget
