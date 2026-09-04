@@ -16,7 +16,7 @@ const proxy=explicitProxy()||discoverProxy();if(!proxy)throw new Error(`Unable t
 const revision=String(process.env.GITHUB_SHA||process.env.CF_PAGES_COMMIT_SHA||process.env.RUNTIME_REVISION||gitHead()||'UNKNOWN').trim();
 const vars={RUNTIME_REVISION:revision};
 for(const k of ['BYBIT_AUTO_ENABLED','BYBIT_AUTO_LIVE','BYBIT_BTC_LIVE_ACK','BYBIT_AUTO_DEMO','BYBIT_ALLOW_DIRECT_PUBLIC_FALLBACK','BYBIT_ALLOW_DIRECT_PRIVATE_FALLBACK'])if(has(k))vars[k]=yes(process.env[k])?'true':'false';
-const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:proxy.id,remote:true}],triggers:{crons:['* * * * *']}};
+const config={$schema:'./node_modules/wrangler/config-schema.json',name:'trading-v77-scanner',main:'index.js',compatibility_date:'2026-08-21',keep_vars:true,vars,kv_namespaces:[{binding:'TRADING_STATE',id:kv.id}],vpc_services:[{binding:'AI_BRIDGE',service_id:proxy.id,remote:true}]};
 fs.writeFileSync('wrangler.jsonc',`${JSON.stringify(config,null,2)}\n`,'utf8');
 const shown=k=>Object.prototype.hasOwnProperty.call(vars,k)?vars[k]:'PRESERVE_EXISTING';
-console.log(`Prepared BTC-only wrangler.jsonc: TRADING_STATE=${kv.source}, BYBIT_VPS_PROXY=${proxy.source}, RUNTIME_REVISION=${revision}, ENABLED=${shown('BYBIT_AUTO_ENABLED')}, LIVE_REQUEST=${shown('BYBIT_AUTO_LIVE')}, BTC_LIVE_ACK=${shown('BYBIT_BTC_LIVE_ACK')}, DEMO=${shown('BYBIT_AUTO_DEMO')}`);
+console.log(`Prepared BTC-only wrangler.jsonc: TRADING_STATE=${kv.source}, BYBIT_VPS_PROXY=${proxy.source}, RUNTIME_REVISION=${revision}, ENABLED=${shown('BYBIT_AUTO_ENABLED')}, LIVE_REQUEST=${shown('BYBIT_AUTO_LIVE')}, BTC_LIVE_ACK=${shown('BYBIT_BTC_LIVE_ACK')}, DEMO=${shown('BYBIT_AUTO_DEMO')}, CRON=NONE_EVENT_DRIVER_ONLY`);
