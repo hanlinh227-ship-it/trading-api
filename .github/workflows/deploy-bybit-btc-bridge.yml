@@ -80,17 +80,18 @@ jobs:
         run: |
           set -euo pipefail
           set -a; source /etc/trading-v11-ai.env; set +a
-          for i in $(seq 1 15); do
+          READY=0
+          for i in $(seq 1 30); do
             HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health || true)"
-            if printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE"; assert d.get("privateProxy") is True; assert (d.get("microstructure") or {}).get("ready") is True; assert (d.get("microstructure") or {}).get("connected") is True' 2>/dev/null; then
+            curl -sS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' >/tmp/btc-micro.json || true
+            if printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); m=d.get("microstructure") or {}; assert d.get("ok") is True; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE"; assert d.get("privateProxy") is True; assert m.get("ready") is True; assert m.get("connected") is True' 2>/dev/null && python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); x=d.get("data") or {}; assert d.get("ok") is True; assert x.get("symbol")=="BTCUSDT"; assert x.get("source")=="VPS_BYBIT_WS"; assert (x.get("book") or {}).get("bestBid",0)>0; assert (x.get("trades") or {}).get("updateTime",0)>0' 2>/dev/null; then
+              READY=1
               break
             fi
             sleep 1
           done
-          HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True,d; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE",d; assert d.get("privateProxy") is True,d; m=d.get("microstructure") or {}; assert m.get("ready") is True,m; assert m.get("connected") is True,m; print("BTC_LIVE_BRIDGE_WS_HEALTH=PASS")'
-          curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' >/tmp/btc-micro.json
-          python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); assert d.get("ok") is True,d; x=d.get("data") or {}; assert x.get("symbol")=="BTCUSDT",d; assert x.get("source")=="VPS_BYBIT_WS",d; assert (x.get("book") or {}).get("bestBid",0)>0,d; assert (x.get("trades") or {}).get("updateTime",0)>0,d; print("BTC_MICROSTRUCTURE_WS=PASS")'
+          test "$READY" = 1
+          python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); x=d.get("data") or {}; t=x.get("trades") or {}; print("BTC_MICROSTRUCTURE_WS=PASS", "book", (x.get("book") or {}).get("updateTime"), "trades", t.get("updateTime"), "trades60", (t.get("window60s") or {}).get("trades"))'
           systemctl is-active --quiet bybit-btc-event-driver.service
           echo 'BTC_EVENT_DRIVER=ACTIVE'
       - name: Deployment summary
