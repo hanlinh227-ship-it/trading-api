@@ -1,0 +1,100 @@
+name: Finalize Bybit V4.8 Capital Metadata
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v480-capital-metadata-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-v480-capital-metadata
+  cancel-in-progress: false
+jobs:
+  finalize:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Apply read-only capital metadata sync and validator migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v480-capital-metadata-sync.py
+          python3 .github/scripts/apply-bybit-v480-control-plane.py
+      - name: Validate source and safety invariants
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run check
+          grep -q "synchronizeCapitalMetadata" bybit-control-plane.js
+          grep -q "strategyExecuted:false" bybit-control-plane.js
+          grep -q "ordersCreated:false" bybit-control-plane.js
+          grep -q "positionsChanged:false" bybit-control-plane.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.8.0" validate-btc-hyperscale.mjs
+          grep -q "capitalHighWaterDoubleCountFixed" validate-btc-hyperscale.mjs
+          grep -q "martingale:false" bybit-auto-config.js
+          grep -q "addToLoser:false" bybit-auto-config.js
+      - name: Commit metadata hotfix and validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-control-plane.js cloudflare-worker/validate-btc-hyperscale.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m 'Finalize read-only capital metadata sync V4.8'
+            git push origin HEAD:main
+          fi
+      - name: Deploy Worker only preserving runtime variables
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$(git rev-parse HEAD)" npm run deploy
+      - name: Sync capital metadata without strategy execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"; test -n "$SECRET"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/before.json"
+          curl -fsS --max-time 50 -H "Authorization: Bearer $SECRET" "$BASE/bybit/capital/sync" > "$RUNNER_TEMP/sync.json"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/after.json"
+          B="$RUNNER_TEMP/before.json" S="$RUNNER_TEMP/sync.json" A="$RUNNER_TEMP/after.json" node <<'NODE'
+          const fs=require('fs'),r=p=>JSON.parse(fs.readFileSync(p,'utf8'));const b=r(process.env.B),s=r(process.env.S),a=r(process.env.A);
+          const checks={syncOk:s.ok===true,noTrade:s.tradingExecuted===false&&s.strategyExecuted===false&&s.ordersCreated===false&&s.positionsChanged===false,positionsUnchanged:(b.positions||[]).length===(a.positions||[]).length,openOrdersUnchanged:Number(b.openOrders)===Number(a.openOrders),accountStillReady:a.ok===true};
+          console.log(JSON.stringify({pass:Object.values(checks).every(Boolean),checks,sync:s,positionsBefore:(b.positions||[]).length,positionsAfter:(a.positions||[]).length,ordersBefore:b.openOrders,ordersAfter:a.openOrders},null,2));
+          if(!Object.values(checks).every(Boolean))process.exit(30);
+          NODE
+      - name: Final production audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          curl -fsS --max-time 30 "$BASE/runtime/contract" > "$RUNNER_TEMP/contract.json"
+          curl -fsS --max-time 30 "$BASE/bybit/entry-health" > "$RUNNER_TEMP/health.json"
+          curl -fsS --max-time 30 "$BASE/bybit/ui/bootstrap" > "$RUNNER_TEMP/ui.json"
+          curl -fsS --max-time 30 "$BASE/bybit/monitor/bootstrap" > "$RUNNER_TEMP/monitor.json"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/preflight.json"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/auto/state?symbol=BTCUSDT" > "$RUNNER_TEMP/state.json"
+          curl -fsS --max-time 30 http://127.0.0.1:8789/health > "$RUNNER_TEMP/bridge.json"
+          C="$RUNNER_TEMP/contract.json" H="$RUNNER_TEMP/health.json" U="$RUNNER_TEMP/ui.json" M="$RUNNER_TEMP/monitor.json" P="$RUNNER_TEMP/preflight.json" S="$RUNNER_TEMP/state.json" B="$RUNNER_TEMP/bridge.json" node <<'NODE'
+          const fs=require('fs'),r=p=>JSON.parse(fs.readFileSync(p,'utf8'));const c=r(process.env.C),h=r(process.env.H),u=r(process.env.U),m=r(process.env.M),p=r(process.env.P),s=r(process.env.S),b=r(process.env.B),ctl=s.controller||{},st=s.state||{},cap=ctl.capitalIntelligence||{},a=p.account||{},risk=u.risk||{},lev=u.leverage||{},w=b.wsTelemetry||{};
+          const hard=Math.min(Number(a.totalEquity||0),Number(a.walletBalance||0)),capacity=Number(ctl.continuousCapacityCapitalUsd||0),ratio=hard>0?capacity/hard:0,high=Number(cap.highWaterUsd||0),btcHigh=Number(st.highWaterUsd||0);
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.8.0',live:h.mode==='LIVE',ready:h.ok===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_INTELLIGENCE_FAST_SCALE',capitalState:Number(cap.stateVersion)===4,capacityRecognized:ratio>=.95,highWaterSane:high>0&&high<=Number(a.totalEquity)*1.05+0.5,btcHighWaterSane:btcHigh>0&&btcHigh<=Number(a.totalEquity)*1.05+0.5,btcCapitalBaseSynced:Number(st.lastCapitalBaseUsd)>=hard*.95,riskFastScale:Number(risk.baseEntryRiskPct)>=1&&Number(risk.strongEntryRiskPct)>=1.45&&Number(risk.aPlusEntryRiskPct)>=2&&Number(risk.absoluteSingleEntryRiskPct)===2.25&&Number(risk.maxActiveRiskPct)===7,noMartingale:risk.martingale===false&&risk.addToLoser===false,leverageExpanded:Number(lev.equityAdaptive?.steps?.[0]?.normal)>=16&&Number(lev.equityAdaptive?.steps?.[0]?.aPlus)>=30,monitorRealtime:m.websocketProtocol?.defaultIntervalMs===750&&m.websocketProtocol?.minIntervalMs===500,monitorReadOnly:m.capabilities?.tradingControls===false,wsHealthy:w.transportHealthy===true&&Number(w.bookFreshCount)>0};
+          const out={pass:Object.values(checks).every(Boolean),checkedAt:new Date().toISOString(),checks,account:a,capital:{hardCapitalUsd:hard,capacityUsd:capacity,capacityRatio:ratio,highWaterUsd:high,btcHighWaterUsd:btcHigh,btcCapitalBaseUsd:Number(st.lastCapitalBaseUsd||0),authority:cap.authority,recognition:cap.recognition},risk,leverage:lev.equityAdaptive?.steps?.slice(0,4),positions:(p.positions||[]).length,openOrders:p.openOrders,blockers:p.blockers,ws:{connected:w.connectedCount,ready:w.readyCount,bookFresh:w.bookFreshCount,tradeFresh:w.tradeFreshCount,dualFresh:w.dualFreshCount,transportHealthy:w.transportHealthy,p95BookAgeMs:w.p95DataAgeMs,tradeP95AgeMs:w.tradeP95AgeMs},monitor:{defaultMs:m.websocketProtocol?.defaultIntervalMs,minMs:m.websocketProtocol?.minIntervalMs}};
+          console.log(JSON.stringify(out,null,2));fs.writeFileSync(process.env.RUNNER_TEMP+'/bybit-v480-final-audit.json',JSON.stringify(out,null,2));if(!out.pass)process.exit(31);
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v480-final-audit
+          path: ${{ runner.temp }}/bybit-v480-final-audit.json
