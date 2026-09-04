@@ -1,0 +1,42 @@
+name: Verify Bybit V4.5 Production
+on:
+  push:
+    branches: [main]
+    paths: ['.github/bybit-v450-production-verify-trigger']
+  workflow_dispatch:
+permissions: {contents: read}
+concurrency: {group: bybit-v450-production-verify, cancel-in-progress: true}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 1}
+      - name: Verify deployed V4.5 runtime
+        shell: bash
+        env:
+          BASE: https://trading-v77-scanner.hanlinh227.workers.dev
+        run: |
+          set -euo pipefail
+          T="$RUNNER_TEMP/bybit-v450-production"; mkdir -p "$T"
+          for i in $(seq 1 36); do
+            curl -fsS --max-time 30 "$BASE/bybit/health" > "$T/health.json" || true
+            curl -fsS --max-time 30 "$BASE/runtime/contract" > "$T/contract.json" || true
+            OK=$(T="$T" node -e "const fs=require('fs'),p=process.env.T;try{const h=JSON.parse(fs.readFileSync(p+'/health.json')),c=JSON.parse(fs.readFileSync(p+'/contract.json'));process.stdout.write(h.version==='BYBIT-MULTI-STATEFLOW-4.5.0'&&c.version==='BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION'?'1':'0')}catch{process.stdout.write('0')}")
+            [ "$OK" = 1 ] && break
+            sleep 10
+          done
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$T/entry.json"
+          curl -fsS --max-time 60 "$BASE/bybit/scan?symbol=BTCUSDT" > "$T/btc.json"
+          T="$T" node <<'NODE'
+          const fs=require('fs'),p=process.env.T,read=f=>JSON.parse(fs.readFileSync(`${p}/${f}`,'utf8'));
+          const h=read('health.json'),c=read('contract.json'),e=read('entry.json'),b=read('btc.json');
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.5.0',mode:h.mode==='LIVE',authenticated:h.authenticated===true,ready:h.execution?.ready===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V23_REALIZED_EXPECTANCY_CAPITAL_PRESERVATION',performanceGovernor:c.realizedPnlPerformanceGovernor===true,expectancyGate:c.perSymbolExpectancyGate===true,lossRequalification:c.lossStreakRequalification===true,adaptiveRisk:c.performanceAdaptiveRisk===true,earlyHarvest:c.smallProfitEarlyHarvest===true,recoveryMode:c.capitalPreservationRecoveryMode===true,noGuarantee:c.realizedProfitGuarantee===false,noMartingale:c.recoveryMartingale===false,noAddLoser:c.recoveryAddToLoser===false,noBlockers:Array.isArray(e.blockers)&&e.blockers.length===0,scan:b.ok===true};
+          const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),runtime:{version:h.version,revision:h.runtimeRevision,mode:h.mode,authenticated:h.authenticated,ready:h.execution?.ready,equity:h.account?.totalEquity,wallet:h.account?.walletBalance,available:h.account?.availableBalance,positions:h.positions?.items||[]},contract:{version:c.version,realizedPnlPerformanceGovernor:c.realizedPnlPerformanceGovernor,perSymbolExpectancyGate:c.perSymbolExpectancyGate,lossStreakRequalification:c.lossStreakRequalification,performanceAdaptiveRisk:c.performanceAdaptiveRisk,smallProfitEarlyHarvest:c.smallProfitEarlyHarvest,capitalPreservationRecoveryMode:c.capitalPreservationRecoveryMode,plannedNetProfitFloorStartsAtOneUsd:c.plannedNetProfitFloorStartsAtOneUsd,preferredRunnerNetProfitStartsAtOneUsd:c.preferredRunnerNetProfitStartsAtOneUsd},entry:{status:e.status,blockers:e.blockers||[]},btcScan:{source:b.market?.microstructureSource,regime:b.market?.regime,setupOk:b.selected?.ok,reason:b.selected?.reason,side:b.selected?.setup?.side,setup:b.selected?.setup?.setup},checks};console.log(JSON.stringify(out,null,2));fs.writeFileSync(`${p}/audit.json`,JSON.stringify(out,null,2)+'\n');if(!pass)process.exit(9);
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v450-production-verification
+          path: ${{ runner.temp }}/bybit-v450-production
+          retention-days: 7
