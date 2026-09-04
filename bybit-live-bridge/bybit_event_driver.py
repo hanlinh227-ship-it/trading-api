@@ -15,6 +15,7 @@ except Exception:
     websocket=None
 
 SYMBOL='BTCUSDT'
+DRIVER_MODE='EVENT_DRIVEN'
 WS_URL=os.environ.get('BYBIT_PUBLIC_WS','wss://stream.bybit.com/v5/public/linear')
 WORKER_URL=(os.environ.get('BYBIT_WORKER_URL') or 'https://trading-v77-scanner.hanlinh227.workers.dev').rstrip('/')
 SECRET=(os.environ.get('BYBIT_VPS_BRIDGE_SECRET') or os.environ.get('V11_AI_BRIDGE_SECRET') or '').strip()
