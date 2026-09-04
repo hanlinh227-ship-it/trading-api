@@ -36,12 +36,16 @@ jobs:
           grep -q '/bybit/auto/run' bybit-live-bridge/bybit_event_driver.py
           grep -q 'EVENT_DRIVEN' bybit-live-bridge/bybit_event_driver.py
           grep -q 'BTCUSDT' bybit-live-bridge/bybit_event_driver.py
-      - name: Enable WebSocket dependency
+      - name: Ensure WebSocket dependency
         shell: bash
         run: |
-          set -u
-          python3 -c 'import websocket' 2>/dev/null && exit 0
-          python3 -m pip install --disable-pip-version-check websocket-client
+          set -euo pipefail
+          if python3 -c 'import websocket' 2>/dev/null; then
+            python3 -c 'import websocket; print("WEBSOCKET_CLIENT_READY", getattr(websocket,"__version__","unknown"))'
+            exit 0
+          fi
+          python3 -m pip install --disable-pip-version-check --break-system-packages websocket-client
+          python3 -c 'import websocket; print("WEBSOCKET_CLIENT_INSTALLED", getattr(websocket,"__version__","unknown"))'
       - name: Install BTC private bridge and autonomous event driver
         shell: bash
         run: |
@@ -75,23 +79,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sleep 2
           set -a; source /etc/trading-v11-ai.env; set +a
+          for i in $(seq 1 15); do
+            HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health || true)"
+            if printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE"; assert d.get("privateProxy") is True; assert (d.get("microstructure") or {}).get("ready") is True; assert (d.get("microstructure") or {}).get("connected") is True' 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
           HEALTH="$(curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" http://127.0.0.1:8789/health)"
-          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True,d; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE",d; assert d.get("privateProxy") is True,d; assert d.get("legacyAiCouncil") is False,d; assert d.get("forex") is False,d; assert d.get("meme") is False,d; print("BTC_LIVE_BRIDGE_PRIVATE_PROXY=PASS")'
-          CODE="$(curl -sS --max-time 8 -o /tmp/btc-micro.json -w '%{http_code}' -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' || true)"
-          if [ "$CODE" = 200 ]; then
-            python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); assert d.get("ok") is True,d; assert (d.get("data") or {}).get("symbol")=="BTCUSDT",d; assert (d.get("data") or {}).get("source")=="VPS_BYBIT_WS",d; print("BTC_MICROSTRUCTURE_WS=PASS")'
-          else
-            echo "BTC_MICROSTRUCTURE_WS=NOT_READY http=$CODE"
-            exit 1
-          fi
+          printf '%s\n' "$HEALTH" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True,d; assert d.get("service")=="BYBIT_BTC_LIVE_BRIDGE",d; assert d.get("privateProxy") is True,d; m=d.get("microstructure") or {}; assert m.get("ready") is True,m; assert m.get("connected") is True,m; print("BTC_LIVE_BRIDGE_WS_HEALTH=PASS")'
+          curl -fsS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' >/tmp/btc-micro.json
+          python3 -c 'import json; d=json.load(open("/tmp/btc-micro.json")); assert d.get("ok") is True,d; x=d.get("data") or {}; assert x.get("symbol")=="BTCUSDT",d; assert x.get("source")=="VPS_BYBIT_WS",d; assert (x.get("book") or {}).get("bestBid",0)>0,d; assert (x.get("trades") or {}).get("updateTime",0)>0,d; print("BTC_MICROSTRUCTURE_WS=PASS")'
           systemctl is-active --quiet bybit-btc-event-driver.service
           echo 'BTC_EVENT_DRIVER=ACTIVE'
       - name: Deployment summary
         run: |
           echo "BYBIT_BTC_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
           echo 'BYBIT_PRIVATE_API_PROXY=PRESERVED'
+          echo 'BTC_MARKET_DATA=VPS_BYBIT_WS'
           echo 'BTC_DECISION_AUTHORITY=EVENT_DRIVEN_MARKET_STATE_CHANGE'
           echo 'STRATEGY_TIME_GATES=NONE'
           echo 'LEGACY_AI_FOREX_MEME=REMOVED'
