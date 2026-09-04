@@ -8,6 +8,7 @@ const BRIDGE_TIMEOUT_MS=25000;
 const clean=o=>Object.fromEntries(Object.entries(o||{}).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
 const qs=o=>new URLSearchParams(Object.entries(clean(o)).map(([k,v])=>[k,String(v)])).toString();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const bridgeSecret=env=>String(env?.V11_AI_BRIDGE_SECRET||env?.BYBIT_VPS_BRIDGE_SECRET||"").trim();
 function bases(env={}){
   const demo=String(env.BYBIT_AUTO_DEMO||"").toLowerCase()==="true";
   if(demo)return ["https://api-demo.bybit.com"];
@@ -25,6 +26,7 @@ function retryableReadError(e){
   const h=Number(e?.bybit?.httpStatus||0),r=Number(e?.bybit?.retCode);
   return [408,425,429,500,502,503,504].includes(h)||[10000,10006,10016].includes(r)||(!h&&!Number.isFinite(r));
 }
+function unchangedWrite(e){const msg=String(e?.bybit?.retMsg||e?.message||"").toLowerCase();return msg.includes("not modified")||msg.includes("not modify")||msg.includes("already set")||msg.includes("same as current");}
 function entryOrderLinkId(body={}){
   const symbol=String(body.symbol||"NA").replace(/[^A-Za-z0-9]/g,"").slice(0,10);
   const side=String(body.side||"")==="Buy"?"B":"S";
@@ -47,15 +49,15 @@ export function bybitV5(env={}){
   async function signedViaVpsOnce(method,path,paramsOrBody={}){
     if(!(c.apiKey&&c.apiSecret))throw new Error("BYBIT_CREDENTIALS_MISSING");
     if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=="function")throw new Error("BYBIT_VPS_BRIDGE_BINDING_MISSING");
-    const bridgeSecret=String(env.V11_AI_BRIDGE_SECRET||"");
-    if(!bridgeSecret)throw new Error("BYBIT_VPS_BRIDGE_SECRET_MISSING");
+    const secret=bridgeSecret(env);
+    if(!secret)throw new Error("BYBIT_VPS_BRIDGE_SECRET_MISSING");
     const upper=String(method).toUpperCase(),payload=upper==="GET"?qs(paramsOrBody):JSON.stringify(clean(paramsOrBody));
     const ts=String(Date.now()),sig=await hmacHex(c.apiSecret,ts+c.apiKey+recvWindow+payload);
     const headers={"X-BAPI-API-KEY":c.apiKey,"X-BAPI-TIMESTAMP":ts,"X-BAPI-RECV-WINDOW":recvWindow,"X-BAPI-SIGN":sig,"Content-Type":"application/json","Accept":"application/json","X-Trading-Runtime-Contract":BYBIT_RUNTIME_CONTRACT_VERSION};
     const requestBody={method:upper,path,query:upper==="GET"?payload:"",body:upper==="GET"?"":payload,headers};
     let r,j;
     try{
-      r=await env.AI_BRIDGE.fetch(new Request(BRIDGE_PRIVATE_URL,{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+bridgeSecret,"x-trading-runtime-contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)}));
+      r=await env.AI_BRIDGE.fetch(new Request(BRIDGE_PRIVATE_URL,{method:"POST",headers:{"content-type":"application/json","accept":"application/json","authorization":"Bearer "+secret,"x-trading-runtime-contract":BYBIT_RUNTIME_CONTRACT_VERSION},body:JSON.stringify(requestBody),signal:AbortSignal.timeout(BRIDGE_TIMEOUT_MS)}));
       j=await r.json().catch(()=>null);
     }catch(e){throw bybitError(path,502,null,{bodySnippet:"VPS bridge fetch failed: "+String(e?.message||e).slice(0,180),transport:BYBIT_PRIVATE_TRANSPORT});}
     if(!r.ok||!j)throw bybitError(path,r?.status||502,j?.upstream||null,{bodySnippet:j?.error||"VPS bridge invalid response",transport:j?.transport||BYBIT_PRIVATE_TRANSPORT,attemptedBases:j?.attempts||[]});
@@ -106,7 +108,14 @@ export function bybitV5(env={}){
   async function setLeverage(symbol,leverage){
     try{return await signed("POST","/v5/position/set-leverage",{category:"linear",symbol,buyLeverage:String(leverage),sellLeverage:String(leverage)});}
     catch(e){
-      if(Number(e?.bybit?.retCode)===110043)return {retCode:0,retMsg:"LEVERAGE_UNCHANGED",result:{},idempotent:true,requestedLeverage:Number(leverage)};
+      if(Number(e?.bybit?.retCode)===110043||unchangedWrite(e))return {retCode:0,retMsg:"LEVERAGE_UNCHANGED",result:{},idempotent:true,requestedLeverage:Number(leverage)};
+      throw e;
+    }
+  }
+  async function tradingStop(body={}){
+    try{return await signed("POST","/v5/position/trading-stop",{category:"linear",...body});}
+    catch(e){
+      if(unchangedWrite(e))return {retCode:0,retMsg:"TRADING_STOP_UNCHANGED",result:{},idempotent:true,requested:{...body}};
       throw e;
     }
   }
@@ -142,7 +151,7 @@ export function bybitV5(env={}){
     order:createOrder,
     orderStatus:(symbol,orderId)=>signed("GET","/v5/order/realtime",{category:"linear",symbol,orderId,limit:1}),
     setLeverage,
-    tradingStop:(body)=>signed("POST","/v5/position/trading-stop",{category:"linear",...body}),
+    tradingStop,
     cancelAll:(symbol)=>signed("POST","/v5/order/cancel-all",{category:"linear",symbol}),
     public:pub,market,signed
   };
