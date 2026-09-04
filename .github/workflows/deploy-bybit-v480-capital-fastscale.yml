@@ -1,0 +1,138 @@
+name: Deploy Bybit V4.8 Capital Intelligence Fast Scale
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v480-capital-fastscale-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-v480-capital-fastscale
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Apply V4.8 capital intelligence and fast-scale patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v480-capital-fastscale.py
+          python3 .github/scripts/apply-bybit-v480-control-plane.py
+      - name: Validate source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile bybit-live-bridge/bybit_live_bridge.py
+          grep -q "bybit:capital:intelligence:v1" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "BTC_BALANCE_RECONCILER_V4_CAPITAL_INTELLIGENCE" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "transactionPages" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "forceUpside:true" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "capitalHighWaterDoubleCountFixed:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.8.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_INTELLIGENCE_FAST_SCALE" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "baseEntryRiskPct:1.00,strongEntryRiskPct:1.45,aPlusEntryRiskPct:2.00,absoluteSingleEntryRiskPct:2.25" cloudflare-worker/bybit-auto-config.js
+          grep -q "maxActiveRiskPct:7.0,temporaryAPlusActiveRiskPct:8.5" cloudflare-worker/bybit-auto-config.js
+          grep -q "maxSameDirectionPositions:3" cloudflare-worker/bybit-auto-config.js
+          grep -q "riskMult:.55" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "leverageMult:.82" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "num(portfolioContext?.highWaterUsd)>0?Math.max(equity,num(portfolioContext.highWaterUsd))" cloudflare-worker/bybit-symbol-engine.js
+          grep -q "bookFreshCount" bybit-live-bridge/bybit_live_bridge.py
+          grep -q "tradeFreshCount" bybit-live-bridge/bybit_live_bridge.py
+          grep -q "'/bybit/capital/sync'" cloudflare-worker/bybit-control-plane.js
+          grep -q "martingale:false" cloudflare-worker/bybit-auto-config.js
+          grep -q "addToLoser:false" cloudflare-worker/bybit-auto-config.js
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Commit V4.8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-btc-balance-reconciler.js cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-coin-profiles.js cloudflare-worker/bybit-symbol-engine.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-android-monitor.js cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-control-plane.js bybit-live-bridge/bybit_live_bridge.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'Fix capital recognition and enable controlled fast scale V4.8'
+            git push origin HEAD:main
+          fi
+      - name: Upgrade VPS WS telemetry with rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+          sudo cp /usr/local/bin/v11-manual-ai-bridge "$RUNNER_TEMP/v11-bridge-pre-v48"
+          rollback(){
+            echo 'ROLLBACK_BRIDGE_V48'
+            sudo cp "$RUNNER_TEMP/v11-bridge-pre-v48" /usr/local/bin/v11-manual-ai-bridge || true
+            sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge || true
+            sudo systemctl restart v11-manual-ai-bridge.service || true
+          }
+          trap rollback ERR
+          sudo cp bybit-live-bridge/bybit_live_bridge.py /usr/local/bin/v11-manual-ai-bridge
+          sudo chmod 0755 /usr/local/bin/v11-manual-ai-bridge
+          sudo systemctl restart v11-manual-ai-bridge.service
+          sleep 14
+          sudo systemctl is-active --quiet v11-manual-ai-bridge.service
+          B=$(curl -fsS --max-time 30 http://127.0.0.1:8789/health)
+          B="$B" node <<'NODE'
+          const x=JSON.parse(process.env.B),w=x.wsTelemetry||{};
+          const pass=x.ok===true&&x.maxWsSymbols===72&&Number(w.connectedCount)>=50&&Number(w.readyCount)>0&&Number.isFinite(Number(w.bookFreshCount))&&Number.isFinite(Number(w.tradeFreshCount))&&String(w.healthAuthority||'').includes('BOOK_FRESHNESS');
+          console.log(JSON.stringify({pass,maxWsSymbols:x.maxWsSymbols,connected:w.connectedCount,ready:w.readyCount,bookFresh:w.bookFreshCount,tradeFresh:w.tradeFreshCount,dualFresh:w.dualFreshCount,transportHealthy:w.transportHealthy,p50BookAge:w.p50DataAgeMs,p95BookAge:w.p95DataAgeMs,tradeP95Age:w.tradeP95AgeMs},null,2));
+          if(!pass)process.exit(20);
+          NODE
+          trap - ERR
+      - name: Deploy Worker preserving live variables
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$(git rev-parse HEAD)" npm run deploy
+      - name: Initialize dedicated capital state without trading
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          test -n "$SECRET"
+          for i in $(seq 1 20); do
+            CODE=$(curl -sS -o "$RUNNER_TEMP/capital-sync.json" -w '%{http_code}' --max-time 50 -H "Authorization: Bearer $SECRET" "$BASE/bybit/capital/sync" || true)
+            [ "$CODE" = 200 ] && break
+            sleep 4
+          done
+          test "${CODE:-0}" = 200
+          cat "$RUNNER_TEMP/capital-sync.json"
+      - name: Verify production bot, capital, risk and Android monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          set -a; source /etc/trading-v11-ai.env; set +a
+          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          sleep 8
+          curl -fsS --max-time 45 "$BASE/bybit/entry-health" > "$RUNNER_TEMP/health.json"
+          curl -fsS --max-time 30 "$BASE/runtime/contract" > "$RUNNER_TEMP/contract.json"
+          curl -fsS --max-time 30 "$BASE/bybit/ui/bootstrap" > "$RUNNER_TEMP/ui.json"
+          curl -fsS --max-time 30 "$BASE/bybit/monitor/bootstrap" > "$RUNNER_TEMP/monitor.json"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/runtime/preflight" > "$RUNNER_TEMP/preflight.json"
+          curl -fsS --max-time 45 -H "Authorization: Bearer $SECRET" "$BASE/bybit/auto/state?symbol=BTCUSDT" > "$RUNNER_TEMP/state.json"
+          curl -fsS --max-time 30 http://127.0.0.1:8789/health > "$RUNNER_TEMP/bridge.json"
+          H="$RUNNER_TEMP/health.json" C="$RUNNER_TEMP/contract.json" U="$RUNNER_TEMP/ui.json" M="$RUNNER_TEMP/monitor.json" P="$RUNNER_TEMP/preflight.json" S="$RUNNER_TEMP/state.json" B="$RUNNER_TEMP/bridge.json" node <<'NODE'
+          const fs=require('fs'),r=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const h=r(process.env.H),c=r(process.env.C),u=r(process.env.U),m=r(process.env.M),p=r(process.env.P),s=r(process.env.S),b=r(process.env.B),ctl=s.controller||{},st=s.state||{},cap=ctl.capitalIntelligence||{},a=p.account||{},risk=u.risk||{},lev=u.leverage||{},w=b.wsTelemetry||{};
+          const hard=Math.min(Number(a.totalEquity||0),Number(a.walletBalance||0)),capacity=Number(ctl.continuousCapacityCapitalUsd||0),capLag=Math.max(0,hard-capacity),capRatio=hard>0?capacity/hard:0,high=Number(cap.highWaterUsd||0),btcHigh=Number(st.highWaterUsd||0);
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.8.0',live:h.mode==='LIVE',ready:h.ok===true||h.status==='BYBIT_MULTI_ENTRY_INFRA_READY',contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_INTELLIGENCE_FAST_SCALE',capitalFlags:c.capitalIntelligenceV4===true&&c.separateCapitalState===true&&c.instantDepositRecognition===true,accountValid:Number(a.totalEquity)>0&&Number(a.walletBalance)>0,capitalState:Number(cap.stateVersion)===4,capacityRecognized:capRatio>=.90,highWaterFixed:high>0&&high<=Number(a.totalEquity)*1.08+1,btcHighWaterFixed:btcHigh>0&&btcHigh<=Number(a.totalEquity)*1.08+1,riskRaised:Number(risk.baseEntryRiskPct)>=1&&Number(risk.strongEntryRiskPct)>=1.45&&Number(risk.aPlusEntryRiskPct)>=2&&Number(risk.absoluteSingleEntryRiskPct)>=2.25&&Number(risk.maxActiveRiskPct)>=7,noMartingale:risk.martingale===false&&risk.addToLoser===false,leverageExpanded:Number(lev.equityAdaptive?.steps?.[0]?.normal)>=16&&Number(lev.equityAdaptive?.steps?.[0]?.aPlus)>=30,monitorRealtime:m.websocketProtocol?.defaultIntervalMs===750&&m.websocketProtocol?.minIntervalMs===500,monitorReadOnly:m.capabilities?.tradingControls===false,bridgeTelemetry:Number.isFinite(Number(w.bookFreshCount))&&Number.isFinite(Number(w.tradeFreshCount))};
+          const pass=Object.values(checks).every(Boolean),out={pass,checkedAt:new Date().toISOString(),checks,account:a,capital:{hardCapital:hard,capacity,capLag,capRatio,highWater:high,btcHighWater:btcHigh,authority:cap.authority,recognition:cap.recognition},risk,leverageFirstSteps:lev.equityAdaptive?.steps?.slice(0,4),positions:p.positions?.length,openOrders:p.openOrders,blockers:p.blockers,bridge:{connected:w.connectedCount,ready:w.readyCount,bookFresh:w.bookFreshCount,tradeFresh:w.tradeFreshCount,dualFresh:w.dualFreshCount,transportHealthy:w.transportHealthy,p95BookAge:w.p95DataAgeMs,tradeP95Age:w.tradeP95AgeMs},monitor:{defaultMs:m.websocketProtocol?.defaultIntervalMs,minMs:m.websocketProtocol?.minIntervalMs}};
+          console.log(JSON.stringify(out,null,2));fs.writeFileSync(process.env.RUNNER_TEMP+'/bybit-v480-audit.json',JSON.stringify(out,null,2));if(!pass)process.exit(21);
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v480-capital-fastscale-audit
+          path: ${{ runner.temp }}/bybit-v480-audit.json
