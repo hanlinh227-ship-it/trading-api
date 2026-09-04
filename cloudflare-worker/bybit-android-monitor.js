@@ -12,10 +12,8 @@ const on=v=>String(v||'').toLowerCase()==='true';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const nowIso=()=>new Date().toISOString();
 const json=(body,status=200)=>new Response(JSON.stringify(body,null,2),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
-const bridgeSecret=env=>String(env?.V11_AI_BRIDGE_SECRET||env?.BYBIT_VPS_BRIDGE_SECRET||'').trim();
 const perfNow=()=>typeof performance!=='undefined'&&performance.now?performance.now():Date.now();
 
-let privateCache={at:0,value:null,promise:null};
 let bridgeCache={at:0,value:null,promise:null};
 let universeCache={at:0,value:null,promise:null};
 
@@ -41,20 +39,18 @@ async function pairMonitor(req,env){
 }
 
 async function cached(key,ttl,loader){
-  const cache=key==='private'?privateCache:key==='bridge'?bridgeCache:universeCache,now=Date.now();
+  const cache=key==='bridge'?bridgeCache:universeCache,now=Date.now();
   if(cache.value&&now-cache.at<ttl)return cache.value;
   if(cache.promise)return cache.promise;
   cache.promise=(async()=>{try{const v=await loader();cache.value=v;cache.at=Date.now();return v}finally{cache.promise=null}})();return cache.promise;
 }
-async function bridgeFetch(env,path,{authorized=false}={}){
+async function bridgeFetch(env,path){
   if(!env.AI_BRIDGE||typeof env.AI_BRIDGE.fetch!=='function')throw new Error('BYBIT_VPS_BRIDGE_BINDING_MISSING');
-  const headers={'accept':'application/json'};if(authorized){const secret=bridgeSecret(env);if(!secret)throw new Error('BYBIT_VPS_BRIDGE_SECRET_MISSING');headers.authorization='Bearer '+secret;}
-  const t=perfNow(),r=await env.AI_BRIDGE.fetch(new Request('http://127.0.0.1:8789'+path,{method:'GET',headers})),latencyMs=Math.max(0,perfNow()-t),body=await r.json().catch(()=>null);
+  const t=perfNow(),r=await env.AI_BRIDGE.fetch(new Request('http://127.0.0.1:8789'+path,{method:'GET',headers:{accept:'application/json'}})),latencyMs=Math.max(0,perfNow()-t),body=await r.json().catch(()=>null);
   if(!r.ok||!body?.ok){const e=new Error(body?.error||body?.reason||`VPS_BRIDGE_HTTP_${r.status}`);e.status=r.status;throw e;}
   return {...body,workerToVpsLatencyMs:Number(latencyMs.toFixed(2))};
 }
 const loadBridgeHealth=env=>cached('bridge',1000,()=>bridgeFetch(env,'/health'));
-const loadPrivateTelemetry=env=>cached('private',1000,()=>bridgeFetch(env,'/bybit/telemetry',{authorized:true}));
 async function loadUniverse(env){
   return cached('universe',5000,async()=>{
     const api=bybitV5(env),publicApi={
@@ -67,6 +63,9 @@ async function loadUniverse(env){
 function closedSummary(rows=[],hours=24,now=Date.now()){
   const start=now-hours*3600000,x=rows.filter(r=>num(r.updatedTime||r.createdTime)>=start),pnls=x.map(r=>num(r.closedPnl)),wins=pnls.filter(v=>v>0),losses=pnls.filter(v=>v<0),flat=pnls.filter(v=>v===0),net=pnls.reduce((a,b)=>a+b,0),grossWin=wins.reduce((a,b)=>a+b,0),grossLoss=Math.abs(losses.reduce((a,b)=>a+b,0));
   return {windowHours:hours,closedRecords:pnls.length,wins:wins.length,losses:losses.length,flat:flat.length,winRatePct:pnls.length?Number((wins.length/pnls.length*100).toFixed(2)):0,realizedPnl:Number(net.toFixed(6)),grossProfit:Number(grossWin.toFixed(6)),grossLoss:Number(grossLoss.toFixed(6)),profitFactor:grossLoss>0?Number((grossWin/grossLoss).toFixed(3)):(grossWin>0?99:0),expectancy:pnls.length?Number((net/pnls.length).toFixed(6)):0,lastClosedAt:x.length?new Date(Math.max(...x.map(r=>num(r.updatedTime||r.createdTime)))).toISOString():null};
+}
+function governorWindow(g={},hours=24){
+  const last=num(g.lastClosedAt);return {windowHours:hours,closedRecords:num(g.trades),wins:num(g.wins),losses:num(g.losses),flat:Math.max(0,num(g.trades)-num(g.wins)-num(g.losses)),winRatePct:Number((num(g.winRate)*100).toFixed(2)),realizedPnl:Number(num(g.netPnl).toFixed(6)),grossProfit:Number((num(g.avgWin)*num(g.wins)).toFixed(6)),grossLoss:Number((num(g.avgLoss)*num(g.losses)).toFixed(6)),profitFactor:num(g.profitFactor),expectancy:num(g.expectancy),lastClosedAt:last>0?new Date(last).toISOString():null};
 }
 function positionRow(x={}){
   const size=Math.abs(num(x.size)),entry=num(x.avgPrice),mark=num(x.markPrice),leverage=num(x.leverage),pnl=num(x.unrealisedPnl),positionValue=Math.abs(num(x.positionValue))||(mark>0?size*mark:entry>0?size*entry:0),positionIM=Math.abs(num(x.positionIM)),marginBasis=positionIM>0?positionIM:(leverage>0?positionValue/leverage:0),roe=marginBasis>0?pnl/marginBasis*100:null;
@@ -81,18 +80,19 @@ function positionsSummary(rows=[]){
   let longCount=0,shortCount=0,longNotional=0,shortNotional=0,pnl=0;for(const p of rows){const n=Math.abs(num(p.positionValue));pnl+=num(p.unrealizedPnl);if(p.side==='Buy'){longCount++;longNotional+=n}else if(p.side==='Sell'){shortCount++;shortNotional+=n}}
   return {openCount:rows.length,longCount,shortCount,longNotional:Number(longNotional.toFixed(6)),shortNotional:Number(shortNotional.toFixed(6)),netDirectionalNotional:Number((longNotional-shortNotional).toFixed(6)),totalUnrealizedPnl:Number(pnl.toFixed(6))};
 }
-function botState(env,controller={},privateData={},bridge={}){
-  const mode=bybitExecutionMode(env),enabled=on(env.BYBIT_AUTO_ENABLED),liveAck=on(env.BYBIT_BTC_LIVE_ACK),ws=bridge.wsTelemetry||{},ready=enabled&&(mode!=='LIVE'||liveAck)&&privateData.ok===true&&bridge.ok===true&&num(ws.connectedCount)>0,status=!enabled?'DISABLED':mode==='LIVE'&&ready?'LIVE_RUNNING':mode==='PAPER'&&ready?'PAPER_RUNNING':'DEGRADED';
+function botState(env,controller={},bridge={}){
+  const mode=bybitExecutionMode(env),enabled=on(env.BYBIT_AUTO_ENABLED),liveAck=on(env.BYBIT_BTC_LIVE_ACK),ws=bridge.wsTelemetry||{},accountReady=num(controller.equityUsd)>0||num(controller.walletBalanceUsd)>0,ready=enabled&&(mode!=='LIVE'||liveAck)&&accountReady&&bridge.ok===true&&num(ws.connectedCount)>0,status=!enabled?'DISABLED':mode==='LIVE'&&ready?'LIVE_RUNNING':mode==='PAPER'&&ready?'PAPER_RUNNING':'DEGRADED';
   return {status,ready,mode,enabled,liveAck,version:BYBIT_AUTO_VERSION,runtimeContract:BYBIT_RUNTIME_CONTRACT.version,runtimeRevision:String(env.RUNTIME_REVISION||'UNKNOWN'),decisionAuthority:controller.decisionAuthority||'VPS_WS_MARKET_STATE_CHANGE',entrySelectionAuthority:controller.entrySelectionAuthority||null,lastCycleAt:controller.lastCycleAt||null,lastCycleReason:controller.lastCycleReason||null,lastCycleExecuted:!!controller.lastCycleExecuted,lastEventSymbol:controller.lastEventSymbol||null,monitorAffectsTrading:false};
 }
 export async function buildBybitAndroidSnapshot(env){
   const started=perfNow(),generatedMs=Date.now();
-  const [privateData,bridge,controller,universe]=await Promise.all([loadPrivateTelemetry(env),loadBridgeHealth(env),getMultiAssetControllerState(env),loadUniverse(env)]);
-  const positions=(privateData.positions||[]).filter(x=>num(x.size)>0).map(positionRow),summary=positionsSummary(positions),p24=closedSummary(privateData.closedPnl||[],24,generatedMs),p72=closedSummary(privateData.closedPnl||[],72,generatedMs),scanner=scannerSnapshot(universe),ws=bridge.wsTelemetry||{},snapshotBuildMs=Math.max(0,perfNow()-started),wsAge=num(ws.p95DataAgeMs||ws.maxDataAgeMs),scannerAge=universe?.at?Math.max(0,generatedMs-num(universe.at)):null,privateAge=privateData.fetchedAt?Math.max(0,generatedMs-num(privateData.fetchedAt)):0;
-  const account={equity:num(privateData.account?.equity),balance:num(privateData.account?.balance),availableBalance:num(privateData.account?.availableBalance),unrealizedPnl:summary.totalUnrealizedPnl,realizedPnl:p24.realizedPnl,realizedPnlWindowHours:24,realizedPnl72h:p72.realizedPnl};
-  const bot=botState(env,controller,privateData,bridge);
-  return {ok:true,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,generatedAt:new Date(generatedMs).toISOString(),generatedAtMs:generatedMs,bot,connection:{bybitAuthenticated:privateData.authenticated===true,privateTelemetrySource:privateData.source||null,privateReadLatencyMs:num(privateData.bybitLatencyMs),workerToVpsPrivateLatencyMs:num(privateData.workerToVpsLatencyMs),workerToVpsHealthLatencyMs:num(bridge.workerToVpsLatencyMs),bybitWs:{status:ws.healthy?'HEALTHY':num(ws.connectedCount)>0?'DEGRADED':'DOWN',healthy:ws.healthy===true,connectedCount:num(ws.connectedCount),readyCount:num(ws.readyCount),freshCount:num(ws.freshCount),symbolCount:num(bridge.symbols?.length),maxWsSymbols:num(bridge.maxWsSymbols),eventSymbolCount:num(bridge.eventSymbols?.length),eventSymbols:bridge.eventSymbols||[],staleSymbols:ws.staleSymbols||[],source:'VPS_BYBIT_PUBLIC_WS'},latency:{snapshotBuildMs:Number(snapshotBuildMs.toFixed(2)),bybitPrivateUpstreamMs:num(privateData.bybitLatencyMs),workerToVpsPrivateMs:num(privateData.workerToVpsLatencyMs),workerToVpsHealthMs:num(bridge.workerToVpsLatencyMs)},dataAge:{wsP50Ms:ws.p50DataAgeMs??null,wsP95Ms:ws.p95DataAgeMs??null,wsMaxMs:ws.maxDataAgeMs??null,privateMs:privateAge,scannerMs:scannerAge,overallMs:Math.max(wsAge||0,privateAge||0,scannerAge||0)}},account,performance:{source:'BYBIT_CLOSED_PNL',winRatePct:p24.winRatePct,realizedPnl:p24.realizedPnl,h24:p24,h72:p72},positionsSummary:summary,positions,scanner,controller:{marketDirectionBreadth:controller.marketDirectionBreadth||null,performanceGovernor:controller.performanceGovernor?.summary||null,bestUniverseSymbol:controller.bestUniverseSymbol||null,candidateRanking:controller.objectiveCandidateRanking||[],candidateDecisions:controller.candidateDecisions||[]},security:{androidScope:'TELEMETRY_READ_ONLY',bybitApiSecretReturned:false,bybitApiKeyReturned:false,privateTelemetrySigningAuthority:'VPS_ONLY',tradingEndpointsExposedByMonitor:false}};
+  const [bridge,controller,universe]=await Promise.all([loadBridgeHealth(env),getMultiAssetControllerState(env),loadUniverse(env)]);
+  const positions=(Array.isArray(controller?.activePositions)?controller.activePositions:[]).filter(x=>num(x.size)>0).map(positionRow),summary=positionsSummary(positions),pg=controller?.performanceGovernor?.summary||{},p24=governorWindow(pg.h24||{},24),p72=governorWindow(pg.h72||{},72),scanner=scannerSnapshot(universe),ws=bridge.wsTelemetry||{},snapshotBuildMs=Math.max(0,perfNow()-started),wsAge=num(ws.p95DataAgeMs||ws.maxDataAgeMs),scannerAge=universe?.at?Math.max(0,generatedMs-num(universe.at)):null,cycleMs=Date.parse(String(controller?.lastCycleAt||'')),accountAge=Number.isFinite(cycleMs)?Math.max(0,generatedMs-cycleMs):null;
+  const account={equity:num(controller.equityUsd),balance:num(controller.walletBalanceUsd),availableBalance:num(controller.availableUsd),unrealizedPnl:summary.totalUnrealizedPnl,realizedPnl:p24.realizedPnl,realizedPnlWindowHours:24,realizedPnl72h:p72.realizedPnl,source:'BOT_CONTROLLER_RECONCILED_ACCOUNT_STATE'};
+  const bot=botState(env,controller,bridge),accountReady=account.equity>0||account.balance>0;
+  return {ok:true,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,generatedAt:new Date(generatedMs).toISOString(),generatedAtMs:generatedMs,bot,connection:{bybitAuthenticated:accountReady?true:null,authenticationEvidence:accountReady?'LAST_SUCCESSFUL_CONTROLLER_ACCOUNT_RECONCILIATION':null,privateTelemetrySource:'NO_PRIVATE_BYBIT_CALLS_FROM_MONITOR',workerToVpsHealthLatencyMs:num(bridge.workerToVpsLatencyMs),bybitWs:{status:ws.healthy?'HEALTHY':num(ws.connectedCount)>0?'DEGRADED':'DOWN',healthy:ws.healthy===true,connectedCount:num(ws.connectedCount),readyCount:num(ws.readyCount),freshCount:num(ws.freshCount),symbolCount:num(bridge.symbols?.length),maxWsSymbols:num(bridge.maxWsSymbols),eventSymbolCount:num(bridge.eventSymbols?.length),eventSymbols:bridge.eventSymbols||[],staleSymbols:ws.staleSymbols||[],source:'VPS_BYBIT_PUBLIC_WS'},latency:{snapshotBuildMs:Number(snapshotBuildMs.toFixed(2)),workerToVpsHealthMs:num(bridge.workerToVpsLatencyMs)},dataAge:{wsP50Ms:ws.p50DataAgeMs??null,wsP95Ms:ws.p95DataAgeMs??null,wsMaxMs:ws.maxDataAgeMs??null,accountMs:accountAge,scannerMs:scannerAge,overallMs:Math.max(wsAge||0,accountAge||0,scannerAge||0)}},account,performance:{source:'BOT_PERFORMANCE_GOVERNOR_BYBIT_CLOSED_PNL',winRatePct:p24.winRatePct,realizedPnl:p24.realizedPnl,h24:p24,h72:p72},positionsSummary:summary,positions,scanner,controller:{marketDirectionBreadth:controller.marketDirectionBreadth||null,performanceGovernor:controller.performanceGovernor?.summary||null,bestUniverseSymbol:controller.bestUniverseSymbol||null,candidateRanking:controller.objectiveCandidateRanking||[],candidateDecisions:controller.candidateDecisions||[]},security:{androidScope:'TELEMETRY_READ_ONLY',bybitApiSecretReturned:false,bybitApiKeyReturned:false,bybitApiSecretAccessedByMonitor:false,privateTelemetrySigningAuthority:'NONE_MONITOR_USES_RECONCILED_CONTROLLER_STATE',tradingEndpointsExposedByMonitor:false}};
 }
+
 
 function bootstrap(){return {ok:true,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,routes:BYBIT_ANDROID_MONITOR_ROUTES,capabilities:BYBIT_ANDROID_MONITOR_CAPABILITIES,auth:{type:'Bearer',header:'Authorization: Bearer <monitor-token>',pairingRequires:'x-action-key',queryStringTokenAllowed:false},websocketProtocol:{serverMessages:['snapshot','pong','telemetry_error','error'],clientMessages:['subscribe','sync','ping'],defaultIntervalMs:1500,minIntervalMs:1000,maxIntervalMs:10000,executionCommands:false},checkedAt:nowIso()};}
 async function authHealth(env){const paired=await kvGet(env,TOKEN_KEY,null);return {ok:true,readOnly:true,schemaVersion:BYBIT_ANDROID_MONITOR_SCHEMA_VERSION,configured:Boolean(String(env.BYBIT_MONITOR_TOKEN||'').trim()||paired?.sha256),paired:!!paired?.sha256,deviceName:paired?.deviceName||null,scope:'TELEMETRY_READ_ONLY',checkedAt:nowIso()};}
