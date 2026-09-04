@@ -17,12 +17,21 @@ export function capitalBaseState({equityUsd,walletBalanceUsd,cfg}){
   return {capitalBaseUsd:Math.max(0,base),walletBalanceUsd:wallet,equityUsd:equity,unrealizedProfitUsd:unrealized,creditedUnrealizedUsd:credited,creditPct};
 }
 
+function lerp(a,b,t){return num(a)+(num(b)-num(a))*clamp(t,0,1);}
 export function equityScaleState(equityUsd,cfg){
   const equity=Math.max(0,num(equityUsd)),s=cfg?.risk?.equityScale||{};
-  if(!s.enabled)return {riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0,tierEquityUsd:0};
-  const steps=[...(s.steps||[])].sort((a,b)=>num(a.equityUsd)-num(b.equityUsd));let row={riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0,equityUsd:0};
-  for(const x of steps)if(equity>=num(x.equityUsd))row=x;
-  return {riskMult:clamp(num(row.riskMult)||1,.5,num(s.maxRiskMult||1.4)),marginCapPct:clamp(num(row.marginCapPct)||num(cfg?.risk?.maxPortfolioMarginPct||78),30,num(s.maxMarginCapPct||84)),leverageBonus:Math.max(0,Math.round(num(row.leverageBonus))),tierEquityUsd:num(row.equityUsd)};
+  if(!s.enabled)return {riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0,tierEquityUsd:equity,continuous:true,lowerReferenceUsd:0,upperReferenceUsd:null,progressPct:100};
+  const steps=[...(s.steps||[])].sort((a,b)=>num(a.equityUsd)-num(b.equityUsd));
+  const fallback={equityUsd:0,riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0};
+  if(!steps.length)return {riskMult:1,marginCapPct:num(cfg?.risk?.maxPortfolioMarginPct||78),leverageBonus:0,tierEquityUsd:equity,continuous:true,lowerReferenceUsd:0,upperReferenceUsd:null,progressPct:100};
+  const first=steps[0];
+  if(equity<=num(first.equityUsd))return {riskMult:clamp(num(first.riskMult)||1,.5,num(s.maxRiskMult||1.4)),marginCapPct:clamp(num(first.marginCapPct)||num(cfg?.risk?.maxPortfolioMarginPct||78),30,num(s.maxMarginCapPct||84)),leverageBonus:Math.max(0,num(first.leverageBonus)),tierEquityUsd:equity,continuous:true,lowerReferenceUsd:num(first.equityUsd),upperReferenceUsd:steps[1]?num(steps[1].equityUsd):null,progressPct:0};
+  for(let i=0;i<steps.length-1;i++){
+    const a=steps[i]||fallback,b=steps[i+1]||a,lo=num(a.equityUsd),hi=Math.max(lo+1e-9,num(b.equityUsd));
+    if(equity>=lo&&equity<hi){const t=(equity-lo)/(hi-lo);return {riskMult:clamp(lerp(a.riskMult,b.riskMult,t),.5,num(s.maxRiskMult||1.4)),marginCapPct:clamp(lerp(a.marginCapPct,b.marginCapPct,t),30,num(s.maxMarginCapPct||84)),leverageBonus:Math.max(0,lerp(a.leverageBonus,b.leverageBonus,t)),tierEquityUsd:equity,continuous:true,lowerReferenceUsd:lo,upperReferenceUsd:hi,progressPct:t*100};}
+  }
+  const last=steps.at(-1),tailStart=num(last.equityUsd),tailEnd=Math.max(tailStart+1,tailStart*2),t=clamp((equity-tailStart)/(tailEnd-tailStart),0,1);
+  return {riskMult:clamp(lerp(last.riskMult,num(s.maxRiskMult||last.riskMult||1.4),t),.5,num(s.maxRiskMult||1.4)),marginCapPct:clamp(lerp(last.marginCapPct,num(s.maxMarginCapPct||last.marginCapPct||84),t),30,num(s.maxMarginCapPct||84)),leverageBonus:Math.max(0,num(last.leverageBonus)),tierEquityUsd:equity,continuous:true,lowerReferenceUsd:tailStart,upperReferenceUsd:t<1?tailEnd:null,progressPct:t*100};
 }
 
 export function trancheRiskUsd(t={}){
@@ -77,4 +86,4 @@ export function addTranche(state={},x={}){
 export function updateTrancheProtection(state={},id,managedSl){const tranches=(state.tranches||[]).map(t=>{if(String(t.id)!==String(id))return t;const protectedNow=String(t.side)==='Buy'?num(managedSl)>=num(t.entry):num(managedSl)<=num(t.entry);return {...t,managedSl:num(managedSl),protected:protectedNow||t.protected};});return {...state,tranches};}
 export function closeAllTranches(state={},meta={}){return {...state,tranches:(state.tranches||[]).map(t=>String(t.status||'OPEN')==='OPEN'?{...t,status:'CLOSED',closedAt:Date.now(),...meta}:t)};}
 
-export const BTC_RISK_ENGINE_VERSION='BTC_RISK_RECYCLE_V4_BALANCE_EQUITY_CAPITAL';
+export const BTC_RISK_ENGINE_VERSION='BTC_RISK_RECYCLE_V5_CONTINUOUS_CAPITAL_SCALE';
