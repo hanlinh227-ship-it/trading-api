@@ -1,0 +1,85 @@
+name: Deploy Bybit V4.8 Capital Fast Scale
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/bybit-v480-capital-fast-scale-trigger'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bybit-v480-capital-fast-scale
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+      - name: Apply V4.8 capital and fast-scale patch
+        run: python3 .github/scripts/apply-bybit-v480-capital-fast-scale.py
+      - name: Validate bot, capital and Android monitor isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "BTC_BALANCE_RECONCILER_V4_INSTANT_EXTERNAL_CAPITAL_REBASE" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "externalCashFlowInstantScale=true" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "lastContinuousCapitalUsd=state.continuousCapitalUsd" cloudflare-worker/bybit-btc-balance-reconciler.js
+          grep -q "baseEntryRiskPct:1.15,strongEntryRiskPct:1.65,aPlusEntryRiskPct:2.35" cloudflare-worker/bybit-auto-config.js
+          grep -q "absoluteSingleEntryRiskPct:2.50" cloudflare-worker/bybit-auto-config.js
+          grep -q "maxActiveRiskPct:7.0,temporaryAPlusActiveRiskPct:8.5" cloudflare-worker/bybit-auto-config.js
+          grep -q "riskMult:.55" cloudflare-worker/bybit-coin-profiles.js
+          grep -q "BYBIT-MULTI-STATEFLOW-4.8.0" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_AWARE_FAST_SCALE" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "leverageDoesNotOverrideStopRiskBudget:true" cloudflare-worker/bybit-runtime-contract.js
+          grep -q "addToLoser:false" cloudflare-worker/bybit-auto-config.js
+          grep -q "martingale:false" cloudflare-worker/bybit-auto-config.js
+          grep -q "requireFreshBook:true" cloudflare-worker/bybit-auto-config.js
+          grep -q "requireFreshTrades:true" cloudflare-worker/bybit-auto-config.js
+          grep -q "reduceOnlyExits:true" cloudflare-worker/bybit-auto-config.js
+          grep -q "tradingControls:false" cloudflare-worker/bybit-android-monitor-contract.js
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+      - name: Commit V4.8 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-coin-profiles.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-runtime-contract.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Upgrade capital awareness and controlled fast scaling V4.8'
+            git push origin HEAD:main
+          fi
+      - name: Deploy Worker preserving runtime variables
+        working-directory: cloudflare-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$(git rev-parse HEAD)" npm run deploy
+      - name: Verify production account, runtime and monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://trading-v77-scanner.hanlinh227.workers.dev
+          sleep 5
+          H=$(curl -fsS --max-time 45 "$BASE/bybit/health")
+          C=$(curl -fsS --max-time 30 "$BASE/runtime/contract")
+          M=$(curl -fsS --max-time 30 "$BASE/bybit/monitor/bootstrap")
+          H="$H" C="$C" M="$M" node <<'NODE'
+          const h=JSON.parse(process.env.H),c=JSON.parse(process.env.C),m=JSON.parse(process.env.M);
+          const a=h.account||{};
+          const checks={version:h.version==='BYBIT-MULTI-STATEFLOW-4.8.0',live:h.mode==='LIVE',ready:h.execution?.ready===true,authenticated:h.authenticated===true,contract:c.version==='BYBIT_MULTI_ASSET_RUNTIME_V26_CAPITAL_AWARE_FAST_SCALE',depositAware:c.depositWithdrawalAware===true,instantCapital:c.externalCashFlowInstantScale===true,riskBasedLeverage:c.riskBasedLeverageExpansion===true,stopRiskBudget:c.leverageDoesNotOverrideStopRiskBudget===true,equity:Number(a.totalEquity)>0,balance:Number(a.walletBalance)>0,available:Number(a.availableBalance)>=0,monitor:m.schemaVersion==='BYBIT_ANDROID_MONITOR_V1',monitorReadOnly:m.capabilities?.tradingControls===false,monitorRealtime:m.websocketProtocol?.minIntervalMs===500};
+          const pass=Object.values(checks).every(Boolean);
+          console.log(JSON.stringify({pass,checks,account:a,positions:h.positions,version:h.version,contract:c.version,monitor:{defaultIntervalMs:m.websocketProtocol?.defaultIntervalMs,minIntervalMs:m.websocketProtocol?.minIntervalMs}},null,2));
+          if(!pass)process.exit(31);
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-v480-capital-fast-scale-audit
+          path: /tmp/nonexistent-v480-audit
+          if-no-files-found: ignore
