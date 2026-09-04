@@ -36,6 +36,7 @@ jobs:
           grep -q '/bybit/auto/run' bybit-live-bridge/bybit_live_bridge.py
           grep -q 'VPS_WS_MARKET_STATE_CHANGE' bybit-live-bridge/bybit_live_bridge.py
           grep -q 'COALESCED_LATEST_STATE' bybit-live-bridge/bybit_live_bridge.py
+          grep -q "'lastPrice':last_trade_price" bybit-live-bridge/bybit_live_bridge.py
       - name: Ensure WebSocket dependency
         shell: bash
         run: |
@@ -71,28 +72,31 @@ jobs:
             curl -sS --max-time 8 -H "Authorization: Bearer $V11_AI_BRIDGE_SECRET" 'http://127.0.0.1:8789/bybit/microstructure?symbol=BTCUSDT' >/tmp/btc-micro.json || true
             curl -sS --max-time 8 'http://127.0.0.1:8789/health' >/tmp/btc-bridge-health.json || true
             if python3 - <<'PY' 2>/dev/null
-          import json
-          h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; ev=h.get('eventDriver') or {}; m=h.get('microstructure') or {}
+          import json, time
+          h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; ev=h.get('eventDriver') or {}; m=h.get('microstructure') or {}; t=x.get('trades') or {}; b=x.get('book') or {}; now=int(time.time()*1000)
           assert h.get('ok') is True and h.get('service')=='BYBIT_BTC_LIVE_BRIDGE'
           assert m.get('ready') is True and m.get('connected') is True
           assert ev.get('integrated') is True and ev.get('enabled') is True
           assert ev.get('authority')=='VPS_WS_MARKET_STATE_CHANGE'
           assert d.get('ok') is True and x.get('source')=='VPS_BYBIT_WS'
-          assert (x.get('book') or {}).get('bestBid',0)>0
-          assert (x.get('trades') or {}).get('updateTime',0)>0
+          assert b.get('bestBid',0)>0 and b.get('bestAsk',0)>0
+          assert t.get('updateTime',0)>0 and t.get('lastPrice',0)>0 and t.get('lastTradeTime',0)>0
+          assert now-int(t.get('lastTradeTime',0)) < 5000
+          assert now-int(b.get('updateTime',0)) < 5000
           PY
             then READY=1; break; fi
             sleep 1
           done
           if [ "$READY" != 1 ]; then
             cat /tmp/btc-bridge-health.json || true
+            cat /tmp/btc-micro.json || true
             journalctl -u v11-manual-ai-bridge.service -n 100 --no-pager || true
             exit 1
           fi
           python3 - <<'PY'
           import json
           h=json.load(open('/tmp/btc-bridge-health.json')); d=json.load(open('/tmp/btc-micro.json')); x=d.get('data') or {}; t=x.get('trades') or {}
-          print('BTC_UNIFIED_WS=PASS','book',(x.get('book') or {}).get('updateTime'),'trades',t.get('updateTime'),'eventDriver',h.get('eventDriver'))
+          print('BTC_UNIFIED_WS=PASS','lastPrice',t.get('lastPrice'),'book',(x.get('book') or {}).get('updateTime'),'trades',t.get('updateTime'),'eventDriver',h.get('eventDriver'))
           PY
       - name: Verify integrated event wake reaches LIVE Worker
         shell: bash
@@ -102,10 +106,11 @@ jobs:
           EVENT_OK=0
           for i in $(seq 1 90); do
             curl -fsS --connect-timeout 5 --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/auto-hub/status' >/tmp/btc-hub.json || true
+            curl -fsS --connect-timeout 5 --max-time 15 'https://trading-v77-scanner.hanlinh227.workers.dev/btc/telemetry' >/tmp/btc-telemetry.json || true
             curl -sS --max-time 8 'http://127.0.0.1:8789/health' >/tmp/btc-bridge-health.json || true
             if START_MS="$START_MS" python3 - <<'PY' 2>/dev/null
           import json, os, datetime
-          d=json.load(open('/tmp/btc-hub.json')); h=json.load(open('/tmp/btc-bridge-health.json')); m=d.get('modeAuthority') or {}; ev=h.get('eventDriver') or {}
+          d=json.load(open('/tmp/btc-hub.json')); t=json.load(open('/tmp/btc-telemetry.json')); h=json.load(open('/tmp/btc-bridge-health.json')); m=d.get('modeAuthority') or {}; ev=h.get('eventDriver') or {}; meter=t.get('marketMeter') or {}; audit=t.get('protocolAudit') or {}
           at=d.get('lastEventCycleAt') or ''
           ts=int(datetime.datetime.fromisoformat(at.replace('Z','+00:00')).timestamp()*1000) if at else 0
           assert d.get('ok') is True and d.get('mode')=='LIVE'
@@ -113,6 +118,13 @@ jobs:
           assert ts >= int(os.environ['START_MS'])-5000
           assert ev.get('lastSuccessAt',0)>0 and ev.get('lastHttpStatus')==200
           assert ev.get('lastResultMode')=='LIVE'
+          assert t.get('ok') is True and t.get('btcPriceSource')=='BYBIT_LINEAR_WS_LAST_TRADE'
+          assert meter.get('fresh') is True and meter.get('source')=='VPS_BYBIT_WS'
+          assert abs(float(meter.get('buyPct',0))+float(meter.get('sellPct',0))-100)<=1
+          assert audit.get('monitorAffectsTradeFrequency') is False and audit.get('decisionAuthority')=='VPS_WS_MARKET_STATE_CHANGE'
+          pos=d.get('position') or None
+          if pos:
+            assert float(pos.get('takeProfit') or 0)>0 and float(pos.get('stopLoss') or 0)>0
           PY
             then EVENT_OK=1; break; fi
             sleep 1
@@ -120,6 +132,7 @@ jobs:
           if [ "$EVENT_OK" != 1 ]; then
             echo 'BTC_INTEGRATED_EVENT_WAKE_E2E=FAIL'
             cat /tmp/btc-hub.json || true
+            cat /tmp/btc-telemetry.json || true
             cat /tmp/btc-bridge-health.json || true
             systemctl --no-pager --full status v11-manual-ai-bridge.service || true
             journalctl -u v11-manual-ai-bridge.service -n 120 --no-pager || true
@@ -127,13 +140,16 @@ jobs:
           fi
           echo 'BTC_INTEGRATED_EVENT_WAKE_E2E=PASS'
           cat /tmp/btc-hub.json
+          cat /tmp/btc-telemetry.json
           cat /tmp/btc-bridge-health.json
       - name: Deployment summary
         run: |
           echo "BYBIT_BTC_BRIDGE_SOURCE_SHA=${GITHUB_SHA}"
           echo 'BYBIT_PRIVATE_API_PROXY=PRESERVED'
           echo 'BTC_MARKET_DATA=VPS_BYBIT_WS'
+          echo 'BTC_CANONICAL_PRICE=BYBIT_LINEAR_WS_LAST_TRADE'
           echo 'BTC_DECISION_AUTHORITY=INTEGRATED_VPS_WS_MARKET_STATE_CHANGE'
+          echo 'MONITOR_TRADE_FREQUENCY_IMPACT=NONE'
           echo 'DUPLICATE_EVENT_READER=DISABLED'
           echo 'STRATEGY_TIME_GATES=NONE'
           echo 'LEGACY_AI_FOREX_MEME=REMOVED'
