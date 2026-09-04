@@ -42,7 +42,7 @@ export const BYBIT_COIN_PROFILES=freeze({
 export const BYBIT_PORTFOLIO_POLICY=freeze({
   authority:'DYNAMIC_BYBIT_SCALP_PORTFOLIO_V5_CONTINUOUS_RISK_SLOTS',
   maxNewEntriesPerEvent:1,
-  deepScanCount:6,
+  deepScanCount:6,promotionScanCount:4,
   protectedRiskSlotReuse:true,
   protectedSlotWeight:.20,
   protectedActiveRiskEquityPct:.05,
