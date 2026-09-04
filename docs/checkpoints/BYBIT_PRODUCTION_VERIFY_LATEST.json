@@ -1,33 +1,31 @@
 {
-  "verifiedAt": "2026-09-04T07:44:22.454Z",
-  "expectedRevision": "cab1ee60436bcc90161171ca39c872e3bca1e150",
-  "runtimeRevision": "cab1ee60436bcc90161171ca39c872e3bca1e150",
+  "verifiedAt": "2026-09-04T08:02:01.474Z",
+  "expectedRevision": "828c86d5c2b8b38dba0d6a31537e5c6df0e54cde",
+  "runtimeRevision": "828c86d5c2b8b38dba0d6a31537e5c6df0e54cde",
   "pass": true,
   "health": {
     "http": 200,
     "ok": true,
     "exchange": "BYBIT",
-    "mode": "PAPER",
+    "mode": "LIVE",
     "authenticated": true,
     "privateTransport": "VPS_BYBIT_PRIVATE_PROXY",
     "marketTransport": "VPS_BYBIT_MARKET_PROXY",
-    "serverTimeMs": 1788507859913,
+    "serverTimeMs": 1788508919058,
     "revisionOk": true
   },
   "contract": {
     "http": 200,
     "version": "BYBIT-BTC-STATEFLOW-2.5",
-    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V9_EVENT_DRIVER_ONLY",
+    "contract": "BYBIT_BTC_RUNTIME_CONTRACT_V10_ADAPTIVE_CAPITAL_CONTROL",
     "authority": "BYBIT_BTC_ONLY",
     "btcOnly": true
   },
   "entryHealth": {
-    "http": 503,
-    "status": "BTC_ENTRY_BLOCKED",
-    "blockers": [
-      "BTC_LIVE_ACK_MISSING"
-    ],
-    "btcLiveAck": false,
+    "http": 200,
+    "status": "BTC_ENTRY_INFRA_READY",
+    "blockers": [],
+    "btcLiveAck": true,
     "scheduled": null
   },
   "scan": {
