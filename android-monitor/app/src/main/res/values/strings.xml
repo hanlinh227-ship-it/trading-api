@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Bybit Monitor</string>
+    <string name="widget_description">Theo dõi bot Bybit realtime</string>
+</resources>

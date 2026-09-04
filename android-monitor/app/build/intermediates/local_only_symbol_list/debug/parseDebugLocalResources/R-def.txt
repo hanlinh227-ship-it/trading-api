@@ -1,0 +1,13 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_monitor
+drawable widget_bg
+id widget_equity
+id widget_pnl
+id widget_status
+id widget_ws
+layout widget_monitor
+string app_name
+string widget_description
+style Theme.BybitMonitor
+xml bybit_monitor_widget_info
