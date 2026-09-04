@@ -1,8 +1,8 @@
-# Bybit Bot V4.3.2 — UX/UI Handoff
+# Bybit Bot V4.3.3 — FINAL CORE FREEZE / UX/UI Handoff
 
 ## Runtime baseline
-- Auto version: `BYBIT-MULTI-STATEFLOW-4.3.2`
-- Runtime contract: `BYBIT_MULTI_ASSET_RUNTIME_V18_PROTECTED_RISK_SLOT_UI_READY`
+- Auto version: `BYBIT-MULTI-STATEFLOW-4.3.3`
+- Runtime contract: `BYBIT_MULTI_ASSET_RUNTIME_V19_FINAL_CORE_FREEZE_UI_READY`
 - UI schema: `BYBIT_UI_SCHEMA_V1`
 - Execution remains event-driven from VPS WebSocket market-state changes.
 - The UI layer is read-only. It does **not** get order/close/leverage write endpoints.
@@ -27,7 +27,7 @@
 ## Profit objective semantics
 - New risk is rejected if the planned net profit floor after estimated costs is not feasible inside the permitted runner geometry.
 - At low equity the configured planned floor begins at `$1.05` net before per-symbol multipliers and the planning buffer.
-- After the live position reaches its profit floor, V4.3.2 targets a 100% floor-retention lock when exchange geometry permits, while keeping native TP/SL and runner logic.
+- After the live position reaches its profit floor, V4.3.3 targets a 100% floor-retention lock when exchange geometry permits, while keeping native TP/SL and runner logic.
 - This is an objective/protection rule, **not a guarantee of realized profit**. Gaps, slippage, liquidation conditions, exchange failures, or market movement can still produce less profit or a loss.
 
 ## UI fields to prioritize
@@ -42,3 +42,8 @@
 - Clearly label LIVE vs PAPER/DEMO.
 - Never imply guaranteed profit.
 - Any future write controls should be a separate authenticated control plane with confirmation, audit log, and server-side authorization; do not bolt them onto the read-only snapshot contract.
+
+## Final core-freeze correction
+- Risk-slot admission now reserves the full pending slot before opening a new position. This prevents a new order from pushing weighted risk slots or correlation slots above their configured caps.
+- Runtime metadata now points to the actual V4 portfolio authority and floor-lock scalp authority.
+- `BYBIT_UI_SCHEMA_V1` remains stable for the UX/UI project.

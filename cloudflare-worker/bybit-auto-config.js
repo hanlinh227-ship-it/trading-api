@@ -1,5 +1,5 @@
 import {BYBIT_TRADE_UNIVERSE,BYBIT_PORTFOLIO_POLICY} from './bybit-coin-profiles.js';
-// BYBIT-MULTI-STATEFLOW-4.3.2 PROTECTED-RISK-SLOT + UI-READY configuration.
+// BYBIT-MULTI-STATEFLOW-4.3.3 FINAL-CORE-FREEZE + UI-READY configuration.
 // Event-driven authority: no session gate, cooldown, timed pause, cron execution or daily quota.
 import {BYBIT_AUTO_VERSION} from './bybit-runtime-contract.js';
 export {BYBIT_AUTO_VERSION};
