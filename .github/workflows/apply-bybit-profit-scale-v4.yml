@@ -1,0 +1,43 @@
+name: Apply Bybit Profit Scale V4
+
+on:
+  push:
+    paths:
+      - '.github/bybit-profit-scale-v4-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bybit-profit-scale-v4
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply profit scale and thesis-aware harvest patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+          python3 .github/scripts/apply-bybit-profit-scale-v4.py
+          cd cloudflare-worker
+          node validate-btc-hyperscale.mjs
+      - name: Commit validated runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cloudflare-worker
+          git commit -m 'Tune Bybit multi-asset profit scale and thesis-aware harvest'
+          git pull --rebase origin main
+          git push origin HEAD:main
