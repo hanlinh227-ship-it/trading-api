@@ -7,3 +7,28 @@ node_modules/
 
 # AI loop local run artifacts (run state lives in the PR, never in git)
 .ai-loop/
+
+# Secrets / runtime configuration
+.env
+.env.*
+!.env.example
+secrets/
+secret/
+credentials/
+
+# Wallets / signing material
+wallet/
+wallets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*keypair*.json
+meme-bot-keypair.json
+bot-wallet*.json
+solana-wallet*.json
+
+# Local/runtime trading state
+runtime-data/
+data/private/
