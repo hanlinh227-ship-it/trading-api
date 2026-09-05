@@ -1,0 +1,16 @@
+name: Meme Alpha v3.28 Separate Live Scan Disable Paper Trading
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v328-separate-live-scan-disable-paper-trading.sh'
+      - '.github/workflows/meme-alpha-v328-separate-live-scan-disable-paper-trading.yml'
+  workflow_dispatch:
+jobs:
+  activate:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Separate live scanner from demo execution
+        run: bash ops/meme-alpha/v328-separate-live-scan-disable-paper-trading.sh
