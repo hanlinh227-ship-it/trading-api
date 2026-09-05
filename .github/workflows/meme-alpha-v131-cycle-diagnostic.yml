@@ -1,0 +1,21 @@
+name: Meme Alpha v1.3.1 Cycle Diagnostic
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v131-cycle-diagnostic.sh'
+      - '.github/workflows/meme-alpha-v131-cycle-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Diagnose Meme Alpha v1.3 cycle failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v131-cycle-diagnostic.sh
+          nice -n 15 bash ops/meme-alpha/v131-cycle-diagnostic.sh
