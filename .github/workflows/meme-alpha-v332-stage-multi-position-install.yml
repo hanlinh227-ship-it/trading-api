@@ -1,0 +1,18 @@
+name: Meme Alpha v3.32 Stage Multi Position Install
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/micro-live/micro-live-executor-v331-multi.js'
+      - 'ops/meme-alpha/v331-root-install-multi-position.sh'
+      - 'ops/meme-alpha/v332-stage-multi-position-install.sh'
+      - '.github/workflows/meme-alpha-v332-stage-multi-position-install.yml'
+  workflow_dispatch:
+jobs:
+  stage:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage verified installer without changing production executor
+        run: bash ops/meme-alpha/v332-stage-multi-position-install.sh
