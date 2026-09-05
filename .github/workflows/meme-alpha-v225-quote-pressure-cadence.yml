@@ -1,0 +1,20 @@
+name: Meme Alpha v2.2.5 Quote Pressure Cadence
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v225-quote-pressure-cadence.sh'
+      - '.github/workflows/meme-alpha-v225-quote-pressure-cadence.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy quote-pressure cadence
+        run: bash ops/meme-alpha/v225-quote-pressure-cadence.sh
