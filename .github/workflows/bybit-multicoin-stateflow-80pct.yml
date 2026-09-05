@@ -2,14 +2,16 @@ name: Bybit MultiCoin Scalp RR 80pct OOS
 
 on:
   push:
-    paths:
-      - 'research/bybit_multicoin_scalp_rr_v4.py'
-      - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
-  pull_request:
+    branches:
+      - research/bybit-multicoin-oos80-20260905
     paths:
       - 'research/bybit_multicoin_scalp_rr_v4.py'
       - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
   workflow_dispatch:
+
+concurrency:
+  group: bybit-multicoin-scalp-rr-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
