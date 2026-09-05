@@ -12,23 +12,33 @@ B="code-backups/v224-$(date -u +%Y%m%d-%H%M%S)";mkdir -p "$B";cp -a src/holder-c
 python3 - <<'PY'
 from pathlib import Path
 p=Path('src/holder-cluster.js');s=p.read_text()
-old='''  /*
+legacy='''  /*
    * This audit does not prove the identity
    * of the dev/creator wallet.
    */
   review.push(
     "DEV_IDENTITY_NOT_PROVEN"
   );'''
+v212='''  /*
+   * RPC owner clustering cannot prove the creator/dev identity.
+   * That unknown is recorded as telemetry, not as an automatic REVIEW.
+   * Entry remains fail-closed on measurable concentration, clustering,
+   * unresolved owner/RPC evidence, and all upstream security gates.
+   */
+  evidence.push(
+    "DEV_IDENTITY_NOT_PROVEN_TELEMETRY_ONLY"
+  );'''
 new='''  /*
    * Identity attribution is not reliably provable from RPC owner clustering.
-   * Keep that uncertainty explicit, but do not turn an unknowable identity
-   * field into a permanent trading deadlock. Objective owner concentration,
-   * RPC resolution, holder concentration and cluster evidence remain gates.
+   * Keep that uncertainty explicit without turning an unknowable identity
+   * field into a permanent deadlock. Objective owner concentration, RPC
+   * resolution, holder concentration and cluster evidence remain gates.
    */
   const devIdentityProven = false;
   evidence.push("DEV_IDENTITY_UNKNOWN_DISCLOSED");'''
-if old in s:s=s.replace(old,new,1)
-elif 'DEV_IDENTITY_UNKNOWN_DISCLOSED' not in s:raise SystemExit('DEV_IDENTITY_PATTERN_NOT_FOUND')
+if legacy in s:s=s.replace(legacy,new,1)
+elif v212 in s:s=s.replace(v212,new,1)
+elif 'const devIdentityProven = false;' not in s:raise SystemExit('DEV_IDENTITY_PATTERN_NOT_FOUND')
 needle='''    error:null
   };'''
 repl='''    devIdentityProven,
@@ -37,6 +47,8 @@ repl='''    devIdentityProven,
 if needle in s:s=s.replace(needle,repl,1)
 elif 'devIdentityProven,' not in s:raise SystemExit('RETURN_DEV_IDENTITY_PATTERN_NOT_FOUND')
 s=s.replace('"FAIL_CLOSED_DEV_IDENTITY_UNKNOWN"','"OBJECTIVE_ONCHAIN_CLUSTER_GATES_DEV_IDENTITY_DISCLOSED"')
+s=s.replace('"FAIL_CLOSED_MEASURABLE_CLUSTER_RISK"','"OBJECTIVE_ONCHAIN_CLUSTER_GATES_DEV_IDENTITY_DISCLOSED"')
+s=s.replace('"DEV_IDENTITY_UNKNOWN=NO_LIVE_APPROVAL"','"DEV_IDENTITY_UNKNOWN=DISCLOSED_OBJECTIVE_CLUSTER_GATES_APPLY"')
 s=s.replace('"DEV_IDENTITY_UNKNOWN=NO_LIVE_APPROVAL"','"DEV_IDENTITY_UNKNOWN=DISCLOSED_OBJECTIVE_CLUSTER_GATES_APPLY"')
 p.write_text(s)
 PY
@@ -79,7 +91,7 @@ p.write_text(s)
 PY
 node --check src/safe-signal-export.js
 
-# MICRO_LIVE is still disabled. When it is eventually armed, require objective holder audit PASS.
+# MICRO_LIVE is still disabled. When eventually armed, require objective holder audit PASS.
 python3 - <<'PY'
 from pathlib import Path
 for p in [Path('src/micro-live-executor.js'),Path('ops/security/micro-live-executor-v192.js')]:
