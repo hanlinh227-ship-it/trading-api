@@ -1,0 +1,27 @@
+name: Meme Alpha v3.66 Stage Root Safe Deploy Repair
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v366-root-repair-safe-deploy.sh'
+      - '.github/workflows/meme-alpha-v366-stage-root-safe-deploy-repair.yml'
+jobs:
+  stage:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage immutable-intent root repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STAGE="$APP/runtime-status/v366-root-repair"
+          mkdir -p "$STAGE"
+          bash -n ops/meme-alpha/v366-root-repair-safe-deploy.sh
+          install -m 0755 ops/meme-alpha/v366-root-repair-safe-deploy.sh "$STAGE/install-v366.sh"
+          sha256sum "$STAGE/install-v366.sh"
+          grep -q 'SERVICE_STOP_NO_ARM_FILE_WRITE' "$STAGE/install-v366.sh"
+          grep -q 'V360_PROFIT_AWARE_PRODUCTION_ACTIVE=TRUE' "$STAGE/install-v366.sh"
+          echo V366_ROOT_REPAIR_STAGE_READY=TRUE
+          echo ROOT_INSTALL_COMMAND="$STAGE/install-v366.sh"
