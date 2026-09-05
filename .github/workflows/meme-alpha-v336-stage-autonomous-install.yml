@@ -1,0 +1,17 @@
+name: Meme Alpha v3.36 Stage Autonomous Portfolio Install
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v336-stage-autonomous-install.sh'
+      - 'ops/meme-alpha/v336-root-install-autonomous-portfolio.sh'
+      - '.github/workflows/meme-alpha-v336-stage-autonomous-install.yml'
+  workflow_dispatch:
+jobs:
+  stage:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage verified v3.36 autonomous installer
+        run: bash ops/meme-alpha/v336-stage-autonomous-install.sh
