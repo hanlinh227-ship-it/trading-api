@@ -1,0 +1,21 @@
+name: Meme Alpha v1.4.1 Runner Isolation Migration
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v141-runner-isolation-migrate.sh'
+      - '.github/workflows/meme-alpha-v141-runner-isolation-migrate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  migrate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage non-root runner cutover
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v141-runner-isolation-migrate.sh
+          nice -n 15 bash ops/meme-alpha/v141-runner-isolation-migrate.sh
