@@ -1,0 +1,15 @@
+name: Meme Alpha v3.63 Chain Source Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v363-chain-source-audit.sh'
+      - '.github/workflows/meme-alpha-v363-chain-source-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit chain-state consistency and scanner sources
+        run: bash ops/meme-alpha/v363-chain-source-audit.sh
