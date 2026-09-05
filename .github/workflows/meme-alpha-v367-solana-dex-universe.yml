@@ -1,0 +1,60 @@
+name: Meme Alpha v3.67 Solana DEX Universe
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v367-solana-dex-universe-radar.js'
+      - 'ops/meme-alpha/v367-patch-scanner-broad-dex-universe.py'
+      - 'ops/meme-alpha/v367-stage-solana-dex-universe.sh'
+      - '.github/workflows/meme-alpha-v367-solana-dex-universe.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test broad Solana DEX discovery
+        run: bash ops/meme-alpha/v367-stage-solana-dex-universe.sh
+      - name: Safe deploy radar and scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; S="$APP/runtime-status/v367-stage"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy radar radar-v367-solana-dex-universe.js "$(cat "$S/radar.sha256")"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner scanner-v367-broad-dex-universe.js "$(cat "$S/scanner.sha256")"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          sleep 75
+      - name: Production audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-whale-flow.service meme-alpha-signer.service; do echo "$s=$(systemctl is-active "$s" || true)"; systemctl is-active --quiet "$s"; done
+          grep -q "version:'3.67.0'\|version: '3.67.0'\|version:\"3.67.0\"" "$APP/src/new-listing-radar.js"
+          grep -q 'SOLANA_DEX_UNIVERSE_V367_MERGE' "$APP/src/scanner.js"
+          grep -q 'DISCOVERY_RADAR_ONLY_MAX = 120' "$APP/src/scanner.js"
+          echo '--- radar ---'
+          cat "$APP/runtime-status/new-listing-radar.json"
+          node - "$APP/runtime-status/new-listing-radar.json" <<'NODE'
+          const fs=require('fs');const r=JSON.parse(fs.readFileSync(process.argv[2]));
+          if(r.version!=='3.67.0')throw new Error('RADAR_VERSION');
+          if(!Number.isFinite(Number(r.providerCount))||Number(r.providerCount)<1)throw new Error('NO_DISCOVERY_PROVIDER');
+          if(!Array.isArray(r.candidates)||r.candidates.length<1)throw new Error('NO_UNIVERSE_CANDIDATES');
+          const buckets=new Set(r.candidates.map(x=>x.ageBucket).filter(Boolean));
+          console.log('V367_PROVIDER_COUNT='+r.providerCount);
+          console.log('V367_CANDIDATES='+r.candidates.length);
+          console.log('V367_AGE_BUCKETS='+[...buckets].join(','));
+          NODE
+          echo '--- source health ---'
+          cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
+          echo '--- gate ---'
+          cat "$APP/runtime-status/micro-live-gate.json"
+          echo '--- portfolio ---'
+          cat "$APP/runtime-status/portfolio-observability.json"
+          node - "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');const p=JSON.parse(fs.readFileSync(process.argv[2]));
+          if(p.stateReadable!==true)throw new Error('PORTFOLIO_STATE_UNREADABLE');
+          if(!Number.isFinite(Number(p.openPositions)))throw new Error('POSITION_COUNT_INVALID');
+          console.log('V367_OPEN_POSITIONS='+p.openPositions);
+          NODE
+          echo V367_SOLANA_DEX_UNIVERSE_PRODUCTION_ACTIVE=TRUE
