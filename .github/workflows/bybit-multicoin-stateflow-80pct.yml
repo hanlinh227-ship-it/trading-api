@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'research/bybit_multicoin_stateflow_80pct.py'
+      - 'research/bybit_multicoin_stateflow_dynamic_v2.py'
       - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
   pull_request:
     paths:
       - 'research/bybit_multicoin_stateflow_80pct.py'
+      - 'research/bybit_multicoin_stateflow_dynamic_v2.py'
       - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
   workflow_dispatch:
 
@@ -45,22 +47,22 @@ jobs:
       PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v4
-      - name: Run per-symbol OOS calibration
+      - name: Run dynamic V2 per-symbol OOS calibration
         shell: bash
         run: |
           set -o pipefail
           mkdir -p research/results
           SYMBOL='${{ matrix.symbol }}'
-          python3 research/bybit_multicoin_stateflow_80pct.py \
+          python3 research/bybit_multicoin_stateflow_dynamic_v2.py \
             --symbols "$SYMBOL" \
-            --out "research/results/${SYMBOL}.json" \
-            2>&1 | tee "research/results/${SYMBOL}.txt"
-      - name: Upload symbol report
+            --out "research/results/${SYMBOL}-v2.json" \
+            2>&1 | tee "research/results/${SYMBOL}-v2.txt"
+      - name: Upload V2 symbol report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bybit-${{ matrix.symbol }}-oos80
+          name: bybit-${{ matrix.symbol }}-dynamic-v2
           path: |
-            research/results/${{ matrix.symbol }}.json
-            research/results/${{ matrix.symbol }}.txt
+            research/results/${{ matrix.symbol }}-v2.json
+            research/results/${{ matrix.symbol }}-v2.txt
           retention-days: 30
