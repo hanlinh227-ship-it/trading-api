@@ -20,11 +20,23 @@ systemctl is-active --quiet "$RUNNER_UNIT"
 systemctl is-active --quiet meme-alpha-paper.service
 echo 'SERVICES_ACTIVE=PASS'
 
-# Runner needs to deploy app code, but not read the wallet directory.
+echo '=== APP PERMISSION PROBE ==='
+stat -c 'APP=%n OWNER=%U:%G MODE=%a' /opt /opt/meme-alpha "$APP" || true
+namei -l "$APP" || true
+findmnt -T "$APP" -o TARGET,SOURCE,FSTYPE,OPTIONS -n || true
+set +e
 testfile="$APP/.runner-write-test-$$"
-printf 'ok\n' > "$testfile"
-rm -f "$testfile"
-echo 'APP_DEPLOY_WRITE=PASS'
+printf 'ok\n' > "$testfile" 2>/tmp/v141-write-err-$$
+wrc=$?
+if [ $wrc -eq 0 ]; then
+  rm -f "$testfile"
+  echo 'APP_DEPLOY_WRITE=PASS'
+else
+  echo "APP_DEPLOY_WRITE=DENIED rc=$wrc"
+  cat /tmp/v141-write-err-$$ || true
+fi
+rm -f /tmp/v141-write-err-$$
+set -e
 
 if [ -r /var/lib/meme-alpha/wallet ] || [ -x /var/lib/meme-alpha/wallet ]; then
   echo 'FAIL_RUNNER_CAN_ACCESS_WALLET_DIR'
@@ -33,7 +45,6 @@ else
   echo 'RUNNER_WALLET_ACCESS=DENIED_PASS'
 fi
 
-# Narrow sudo must work only for paper service status/restart commands.
 sudo -n /bin/systemctl is-active meme-alpha-paper.service >/dev/null
 echo 'NARROW_SUDO_PAPER_STATUS=PASS'
 if sudo -n /usr/bin/id >/dev/null 2>&1; then
@@ -43,7 +54,6 @@ else
   echo 'ARBITRARY_SUDO=DENIED_PASS'
 fi
 
-# Bot itself remains paper-only.
 node --input-type=module - <<'NODE'
 import fs from 'node:fs';
 const c=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/config/runtime.json','utf8'));
@@ -52,4 +62,10 @@ console.log('MODE=PAPER');
 console.log('LIVE_EXECUTION=DISABLED');
 NODE
 
-echo 'V141_RUNNER_ISOLATION_PASS'
+echo 'RUNNER_ROOT_ISOLATION=PASS'
+if [ $wrc -eq 0 ]; then
+  echo 'DEPLOY_PATH_STATUS=DIRECT_GROUP_WRITE'
+else
+  echo 'DEPLOY_PATH_STATUS=NEEDS_CONTROLLED_HELPER'
+fi
+echo 'V141_SECURITY_ISOLATION_PASS'
