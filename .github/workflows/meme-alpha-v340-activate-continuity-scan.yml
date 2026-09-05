@@ -1,0 +1,16 @@
+name: Meme Alpha v3.40 Activate Continuity Scan
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v340-activate-continuity-scan.sh'
+      - '.github/workflows/meme-alpha-v340-activate-continuity-scan.yml'
+  workflow_dispatch:
+jobs:
+  activate:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Activate continuity scan
+        run: bash ops/meme-alpha/v340-activate-continuity-scan.sh
