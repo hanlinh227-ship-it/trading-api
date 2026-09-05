@@ -10,8 +10,7 @@ B="code-backups/v216-$(date -u +%Y%m%d-%H%M%S)";mkdir -p "$B";cp -a src/persiste
 python3 - <<'PY'
 from pathlib import Path
 p=Path('src/persistence.js');s=p.read_text()
-old='''    c.universeClass !==\n      "NON_MEME" &&'''
-new='''    c.universeClass ===\n      "MEME_CONFIRMED" &&'''
+old='''    c.universeClass !==\n      "NON_MEME" &&''';new='''    c.universeClass ===\n      "MEME_CONFIRMED" &&'''
 if old in s:s=s.replace(old,new,1)
 elif new not in s:raise SystemExit('UNIVERSE_ELIGIBILITY_PATTERN_NOT_FOUND')
 old2='''    c.sellRoute !== false;''';new2='''    c.sellRoute === true;'''
@@ -19,7 +18,7 @@ if old2 in s:s=s.replace(old2,new2,1)
 elif new2 not in s:raise SystemExit('SELL_ROUTE_ELIGIBILITY_PATTERN_NOT_FOUND')
 marker='''  if (\n    c.universeClass ===\n      "NON_MEME"\n  ) {'''
 if 'const fastTrackReady =' not in s:
-    insert='''  const last2 = obs.slice(-2);\n  const avgScoreLast2 = last2.length\n    ? last2.reduce((sum,x)=>sum+Number(x.score||0),0)/last2.length\n    : 0;\n  const avgNetBuyersLast2 = last2.length\n    ? last2.reduce((sum,x)=>sum+Number(x.netBuyers5m||0),0)/last2.length\n    : 0;\n  const buyersPositiveLast2 = last2.length === 2 &&\n    last2.every(x=>Number(x.netBuyers5m||0)>0);\n  const liquidityLast2 = last2.map(x=>Number(x.liquidityUsd||0));\n  const liquidityStableLast2 = last2.length === 2 &&\n    Math.min(...liquidityLast2) >= 0.85*Math.max(...liquidityLast2);\n  const scoreSlopeLast2 = last2.length === 2\n    ? Number(last2[1].score||0)-Number(last2[0].score||0)\n    : -Infinity;\n  const currentPriceMove5m = Number(c.priceChange5m);\n  const currentSellImpact = Number(c.sellPriceImpactPct);\n  const currentSourceCount = new Set(c.sources||[]).size;\n  const fastTrackReady =\n    t.consecutiveEligible >= 2 &&\n    c.universeClass === "MEME_CONFIRMED" &&\n    c.securityDecision === "PASS" &&\n    c.decision === "PROBE_CANDIDATE" &&\n    !c.token2022 &&\n    (c.hardReject||[]).length === 0 &&\n    c.sellRoute === true &&\n    Number(c.score||0) >= 80 &&\n    avgScoreLast2 >= 78 &&\n    avgNetBuyersLast2 > 0 &&\n    buyersPositiveLast2 &&\n    scoreSlopeLast2 >= 0 &&\n    liquidityStableLast2 &&\n    Number.isFinite(currentPriceMove5m) &&\n    currentPriceMove5m >= -4 && currentPriceMove5m <= 18 &&\n    Number.isFinite(currentSellImpact) &&\n    Math.abs(currentSellImpact) <= 1.25 &&\n    currentSourceCount >= 3;\n\n'''
+    insert='''  const last2 = obs.slice(-2);\n  const avgScoreLast2 = last2.length\n    ? last2.reduce((sum,x)=>sum+Number(x.score||0),0)/last2.length\n    : 0;\n  const avgNetBuyersLast2 = last2.length\n    ? last2.reduce((sum,x)=>sum+Number(x.netBuyers5m||0),0)/last2.length\n    : 0;\n  const buyersPositiveLast2 = last2.length === 2 && last2.every(x=>Number(x.netBuyers5m||0)>0);\n  const liquidityLast2 = last2.map(x=>Number(x.liquidityUsd||0));\n  const liquidityStableLast2 = last2.length === 2 && Math.min(...liquidityLast2) >= 0.85*Math.max(...liquidityLast2);\n  const scoreSlopeLast2 = last2.length === 2 ? Number(last2[1].score||0)-Number(last2[0].score||0) : -Infinity;\n  const currentPriceMove5m = Number(c.priceChange5m);\n  const currentSellImpact = Number(c.sellPriceImpactPct);\n  const currentSourceCount = new Set(c.sources||[]).size;\n  const fastTrackReady =\n    t.consecutiveEligible >= 2 &&\n    c.universeClass === "MEME_CONFIRMED" &&\n    c.securityDecision === "PASS" &&\n    c.decision === "PROBE_CANDIDATE" &&\n    !c.token2022 &&\n    (c.hardReject||[]).length === 0 &&\n    c.sellRoute === true &&\n    Number(c.score||0) >= 80 &&\n    avgScoreLast2 >= 78 &&\n    avgNetBuyersLast2 > 0 &&\n    buyersPositiveLast2 &&\n    scoreSlopeLast2 >= 0 &&\n    liquidityStableLast2 &&\n    Number.isFinite(currentPriceMove5m) && currentPriceMove5m >= -4 && currentPriceMove5m <= 18 &&\n    Number.isFinite(currentSellImpact) && Math.abs(currentSellImpact) <= 1.25 &&\n    currentSourceCount >= 3;\n\n'''
     if marker not in s:raise SystemExit('FAST_TRACK_INSERT_MARKER_NOT_FOUND')
     s=s.replace(marker,insert+marker,1)
 branch='''  } else if (\n    t.consecutiveEligible >= 3 &&'''
@@ -50,18 +49,13 @@ PY
 node --check src/safe-signal-export.js
 python3 - <<'PY'
 from pathlib import Path
-p=Path('run-paper.sh');s=p.read_text()
-replacements=[('HEALTHY_FULL_GAP_SEC=20','HEALTHY_FULL_GAP_SEC=15'),('HEALTHY_FULL_GAP=20','HEALTHY_FULL_GAP=15'),('FULL_CYCLE_HEALTHY_SEC=20','FULL_CYCLE_HEALTHY_SEC=15')]
-changed=False
+p=Path('run-paper.sh');s=p.read_text();replacements=[('HEALTHY_FULL_GAP_SEC=20','HEALTHY_FULL_GAP_SEC=15'),('HEALTHY_FULL_GAP=20','HEALTHY_FULL_GAP=15'),('FULL_CYCLE_HEALTHY_SEC=20','FULL_CYCLE_HEALTHY_SEC=15')];changed=False
 for a,b in replacements:
     if a in s:s=s.replace(a,b,1);changed=True;break
-if not changed and not any(x in s for x in ['HEALTHY_FULL_GAP_SEC=15','HEALTHY_FULL_GAP=15','FULL_CYCLE_HEALTHY_SEC=15']):
-    raise SystemExit('HEALTHY_CADENCE_PATTERN_NOT_FOUND')
+if not changed and not any(x in s for x in ['HEALTHY_FULL_GAP_SEC=15','HEALTHY_FULL_GAP=15','FULL_CYCLE_HEALTHY_SEC=15']):raise SystemExit('HEALTHY_CADENCE_PATTERN_NOT_FOUND')
 p.write_text(s)
 PY
 bash -n run-paper.sh
-for f in src/persistence.js src/safe-signal-export.js run-paper.sh;do chmod 664 "$f" 2>/dev/null||true;done
-chmod 755 run-paper.sh
 sudo -n /bin/systemctl restart meme-alpha-paper.service
 sleep 155
 sudo -n /bin/systemctl is-active meme-alpha-paper.service >/dev/null
