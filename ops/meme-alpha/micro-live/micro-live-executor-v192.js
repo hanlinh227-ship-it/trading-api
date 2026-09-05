@@ -34,7 +34,7 @@ function signature(j){return j?.signature||j?.txid||j?.transactionSignature||j?.
 async function executeOrder(o){const cfg=read(`${APP}/config/runtime.json`);const j=await post(`${String(cfg.jupiter).replace(/\/$/,'')}/swap/v2/execute`,{signedTransaction:o.signedTransaction,requestId:o.requestId});const sig=signature(j);if(!sig)throw new Error('EXECUTE_NO_SIGNATURE');await confirm(sig);return sig}
 function candidate(mint){return (read(SIGNAL,{candidates:[]}).candidates||[]).find(x=>x.mint===mint)}
 function hardRejectEmpty(v){return Array.isArray(v)?v.length===0:!v}
-function eligible(c){if(!c)return false;const impact=Number(c.sellPriceImpactPct??c.sellImpactPct??c.priceImpactPct);return c.universeClass==='MEME_CONFIRMED'&&c.securityDecision==='PASS'&&c.decision==='PROBE_CANDIDATE'&&!c.token2022&&c.sellRoute===true&&hardRejectEmpty(c.hardReject)&&Number(c.score)>=82&&Number(c.liquidityUsd)>=50000&&Number.isFinite(impact)&&Math.abs(impact)<=1.25&&Number(c.consecutiveEligible||0)>=2}
+function eligible(c){if(!c)return false;const impact=Number(c.sellPriceImpactPct??c.sellImpactPct??c.priceImpactPct);return c.universeClass==='MEME_CONFIRMED'&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&c.decision==='PROBE_CANDIDATE'&&!c.token2022&&c.sellRoute===true&&hardRejectEmpty(c.hardReject)&&Number(c.score)>=82&&Number(c.liquidityUsd)>=50000&&Number.isFinite(impact)&&Math.abs(impact)<=1.25&&Number(c.consecutiveEligible||0)>=2}
 function paperOpen(){const s=read(`${PAPER}/state.json`,{openPositions:[]});return Array.isArray(s.openPositions)?s.openPositions:[]}
 function pid(p){return p?.positionId||p?.id||null}
 async function buy(st,p){
