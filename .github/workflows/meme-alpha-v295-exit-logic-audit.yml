@@ -1,0 +1,15 @@
+name: Meme Alpha v2.9 Exit Logic Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v295-exit-logic-audit.sh'
+      - '.github/workflows/meme-alpha-v295-exit-logic-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v295-exit-logic-audit.sh
