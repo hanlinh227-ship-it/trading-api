@@ -1,0 +1,17 @@
+name: Meme Alpha v2.2.4 Holder Evidence Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v224-holder-evidence-gate.sh'
+      - '.github/workflows/meme-alpha-v224-holder-evidence-gate.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy objective holder evidence gate
+        run: bash ops/meme-alpha/v224-holder-evidence-gate.sh
