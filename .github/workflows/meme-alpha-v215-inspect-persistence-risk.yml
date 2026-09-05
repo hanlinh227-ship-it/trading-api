@@ -1,0 +1,15 @@
+name: Meme Alpha v2.1.5 Inspect Persistence Risk
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v215-inspect-persistence-risk.sh'
+      - '.github/workflows/meme-alpha-v215-inspect-persistence-risk.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v215-inspect-persistence-risk.sh
