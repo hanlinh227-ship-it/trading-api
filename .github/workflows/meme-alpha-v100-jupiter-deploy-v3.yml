@@ -1,0 +1,28 @@
+name: Meme Alpha v1.0 Jupiter Deploy v3
+
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v100-deploy-jupiter-v3.sh'
+      - '.github/workflows/meme-alpha-v100-jupiter-deploy-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meme-alpha-v100-jupiter-deploy-v3
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Jupiter size-specific PAPER execution v3
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v100-deploy-jupiter-v3.sh
+          bash ops/meme-alpha/v100-deploy-jupiter-v3.sh
