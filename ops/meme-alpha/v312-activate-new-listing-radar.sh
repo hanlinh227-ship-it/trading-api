@@ -68,8 +68,7 @@ if 'NEW_LISTING_RADAR_V312' not in s:
     anchor5='''    launchpad: token.launchpad || null,'''
     if s.count(anchor5)!=1: raise SystemExit('scanner output anchor mismatch')
     s=s.replace(anchor5,anchor5+'''\n    pairAgeMin: Number.isFinite(pairAgeMin) ? Number(pairAgeMin.toFixed(3)) : null,\n    radarPreScore,\n    newListingRadar: token.newListingRadar || null,''')
-
-p.write_text(s)
+sys.stdout.write(s)
 PY
 /usr/bin/node --check "$stmp"
 mv -f "$stmp" "$SCANNER"
@@ -85,7 +84,7 @@ if 'NEW_LISTING_RADAR_LOOP_V312' not in s:
     if s.count(anchor)!=1: raise SystemExit('run-paper anchor mismatch')
     block='''FAILURE_BACKOFF_SEC=30\n\n# NEW_LISTING_RADAR_LOOP_V312\nRADAR_PID=""\nstart_new_listing_radar() {\n  (\n    while true; do\n      /usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js || echo "NEW_LISTING_RADAR_CYCLE_FAILED"\n      sleep 5\n    done\n  ) &\n  RADAR_PID=$!\n  echo "NEW_LISTING_RADAR_PID=$RADAR_PID"\n}\ncleanup_new_listing_radar() {\n  [ -n "${RADAR_PID:-}" ] && kill "$RADAR_PID" 2>/dev/null || true\n}\ntrap cleanup_new_listing_radar EXIT TERM INT\nstart_new_listing_radar'''
     s=s.replace(anchor,block)
-p.write_text(s)
+sys.stdout.write(s)
 PY
 /bin/bash -n "$runtmp"
 mv -f "$runtmp" "$RUN"
