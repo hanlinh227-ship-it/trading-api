@@ -1,0 +1,19 @@
+name: Meme Alpha v2.8.0 Opportunity 9/10
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v280-stage-opportunity.sh'
+      - 'ops/meme-alpha/v280-root-apply-opportunity.sh'
+      - '.github/workflows/meme-alpha-v280-opportunity.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v280-opportunity
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v280-stage-opportunity.sh
