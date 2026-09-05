@@ -1,0 +1,17 @@
+name: Meme Alpha v2.9 Fast Trend
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/trend-pulse-v290.js'
+      - 'ops/meme-alpha/v290-stage-fast-trend.sh'
+      - 'ops/meme-alpha/v290-root-apply-fast-trend.sh'
+      - '.github/workflows/meme-alpha-v290-fast-trend.yml'
+  workflow_dispatch:
+
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v290-stage-fast-trend.sh
