@@ -1,18 +1,10 @@
-name: Meme Alpha v3.12 Activate New Listing Radar
+name: Meme Alpha v3.12 Activate New Listing Radar (Retired)
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'ops/meme-alpha/v312-new-listing-radar.js'
-      - 'ops/meme-alpha/v312-activate-new-listing-radar.sh'
-      - '.github/workflows/meme-alpha-v312-activate-new-listing-radar.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  activate:
+  retired:
     runs-on: [self-hosted, linux]
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      - name: Activate and verify new-listing radar
-        run: bash ops/meme-alpha/v312-activate-new-listing-radar.sh
+      - run: echo 'V312_RETIRED_USE_V313_SAFE_ACTIVATION'
