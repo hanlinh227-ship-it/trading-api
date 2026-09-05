@@ -99,7 +99,6 @@ if(!j.scripts.cycle5.includes('src/micro-live-gate.js')) j.scripts.cycle5 += ' &
 fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
 console.log('CYCLE5_MICRO_LIVE_GATE=INSTALLED');
 NODE
-chmod g+rw package.json
 
 if [ -r /var/lib/meme-alpha/signer-key ] || [ -x /var/lib/meme-alpha/signer-key ]; then
   echo 'FAIL_RUNNER_SIGNER_KEY_ACCESS'
