@@ -7,7 +7,7 @@ SIG="$APP/runtime-status/signal-snapshot.json"
 SERVICE=meme-alpha-paper.service
 cd "$APP"
 
-echo '=== V305 LIVE FRESHNESS GUARD ==='
+echo '=== V305 R2 LIVE FRESHNESS GUARD ==='
 [ -r "$LAUNCHER" ] && [ -w "$LAUNCHER" ] || { echo 'LAUNCHER_NOT_WRITABLE'; exit 2; }
 [ -r "$GATE" ] && [ -w "$GATE" ] || { echo 'GATE_NOT_WRITABLE'; exit 3; }
 
@@ -18,12 +18,15 @@ if grep -q 'V305_LIVE_FRESHNESS_GUARD' "$LAUNCHER"; then
   echo 'GUARD_ALREADY_PRESENT=TRUE'
 else
   tmp=$(mktemp)
-  node - "$LAUNCHER" > "$tmp" <<'NODE'
-const fs=require('fs');
-const f=process.argv[2]; let s=fs.readFileSync(f,'utf8');
-const marker="FAILURE_BACKOFF_SEC=30\n";
-if((s.split(marker).length-1)!==1) throw new Error('cadence marker mismatch');
-const guard=String.raw`
+  python3 - "$LAUNCHER" > "$tmp" <<'PY_PATCH'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+s=p.read_text()
+marker="FAILURE_BACKOFF_SEC=30\n"
+if s.count(marker)!=1:
+    raise SystemExit('cadence marker mismatch')
+guard=r'''
 # V305_LIVE_FRESHNESS_GUARD
 LIVE_SIGNAL_MAX_AGE_SEC=6
 close_entry_gate() {
@@ -59,20 +62,27 @@ try {
 } catch {}
 NODE_FRESH
 }
-`;
-s=s.replace(marker,marker+guard+'\n');
-const cycle='  /usr/bin/npm run cycle5\n';
-if((s.split(cycle).length-1)!==1) throw new Error('cycle5 invocation mismatch');
-s=s.replace(cycle,"  close_entry_gate 'FULL_CYCLE_REFRESH_IN_PROGRESS'\n"+cycle);
-const loop='  while true; do\n';
-if((s.split(loop).length-1)!==1) throw new Error('wait loop mismatch');
-s=s.replace(loop,loop+'    enforce_entry_freshness\n');
-process.stdout.write(s);
-NODE
-  cat "$tmp" > "$LAUNCHER"; rm -f "$tmp"
+'''
+s=s.replace(marker,marker+guard+'\n')
+cycle='  /usr/bin/npm run cycle5\n'
+if s.count(cycle)!=1:
+    raise SystemExit('cycle5 invocation mismatch')
+s=s.replace(cycle,"  close_entry_gate 'FULL_CYCLE_REFRESH_IN_PROGRESS'\n"+cycle)
+loop='  while true; do\n'
+if s.count(loop)!=1:
+    raise SystemExit('wait loop mismatch')
+s=s.replace(loop,loop+'    enforce_entry_freshness\n')
+sys.stdout.write(s)
+PY_PATCH
+  cat "$tmp" > "$LAUNCHER"
+  rm -f "$tmp"
 fi
 
-bash -n "$LAUNCHER" || { cat "$backup" > "$LAUNCHER"; echo 'LAUNCHER_SYNTAX_FAIL_ROLLBACK'; exit 4; }
+if ! bash -n "$LAUNCHER"; then
+  cat "$backup" > "$LAUNCHER"
+  echo 'LAUNCHER_SYNTAX_FAIL_ROLLBACK'
+  exit 4
+fi
 grep -q 'LIVE_SIGNAL_MAX_AGE_SEC=6' "$LAUNCHER"
 grep -q "close_entry_gate 'FULL_CYCLE_REFRESH_IN_PROGRESS'" "$LAUNCHER"
 grep -q 'enforce_entry_freshness' "$LAUNCHER"
@@ -83,13 +93,27 @@ echo 'POSITION_EXIT_PATH_CHANGED=FALSE'
 echo 'RISK_LIMITS_CHANGED=FALSE'
 echo 'SECURITY_GATES_WEAKENED=FALSE'
 
-if ! sudo -n /bin/systemctl restart "$SERVICE"; then cat "$backup" > "$LAUNCHER"; echo 'RESTART_DENIED_ROLLBACK'; exit 5; fi
+if ! sudo -n /bin/systemctl restart "$SERVICE"; then
+  cat "$backup" > "$LAUNCHER"
+  echo 'RESTART_DENIED_ROLLBACK'
+  exit 5
+fi
 sleep 3
-sudo -n /bin/systemctl is-active "$SERVICE" >/dev/null || { cat "$backup" > "$LAUNCHER"; sudo -n /bin/systemctl restart "$SERVICE" || true; echo 'SERVICE_INACTIVE_ROLLBACK'; exit 6; }
+if ! sudo -n /bin/systemctl is-active "$SERVICE" >/dev/null; then
+  cat "$backup" > "$LAUNCHER"
+  sudo -n /bin/systemctl restart "$SERVICE" || true
+  echo 'SERVICE_INACTIVE_ROLLBACK'
+  exit 6
+fi
 
 echo '=== POST-RESTART GATE ==='
-node - "$GATE" "$SIG" <<'NODE' || true
-const fs=require('fs'); try{const g=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),s=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));const age=(Date.now()-Date.parse(s.timestamp||0))/1000;console.log(JSON.stringify({allowed:g.allowed,reasons:g.reasons,fastGuard:g.fastGuard||null,signalAgeSec:Number.isFinite(age)?Number(age.toFixed(2)):null},null,2));}catch(e){console.log('POST_GATE_READ_FAIL')}
-NODE
+node - "$GATE" "$SIG" <<'NODE_STATUS' || true
+const fs=require('fs');
+try {
+ const g=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),s=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+ const age=(Date.now()-Date.parse(s.timestamp||0))/1000;
+ console.log(JSON.stringify({allowed:g.allowed,reasons:g.reasons,fastGuard:g.fastGuard||null,signalAgeSec:Number.isFinite(age)?Number(age.toFixed(2)):null},null,2));
+} catch(e){console.log('POST_GATE_READ_FAIL')}
+NODE_STATUS
 
-echo 'V305_LIVE_FRESHNESS_GUARD_ACTIVE_PASS'
+echo 'V305_R2_LIVE_FRESHNESS_GUARD_ACTIVE_PASS'
