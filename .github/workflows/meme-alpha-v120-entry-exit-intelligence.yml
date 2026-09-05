@@ -1,0 +1,24 @@
+name: Meme Alpha v1.2 Entry Exit Intelligence
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v120-entry-exit-intelligence.sh'
+      - '.github/workflows/meme-alpha-v120-entry-exit-intelligence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v120
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy Meme Alpha v1.2 shadow intelligence
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v120-entry-exit-intelligence.sh
+          nice -n 15 bash ops/meme-alpha/v120-entry-exit-intelligence.sh
