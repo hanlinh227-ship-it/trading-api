@@ -1,0 +1,18 @@
+name: Meme Alpha v2.1.6 Strict Fast Persistence Cadence
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v216-fast-persistence-cadence.sh'
+      - '.github/workflows/meme-alpha-v216-fast-persistence-cadence.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v216-fast-persistence
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v216-fast-persistence-cadence.sh
