@@ -22,7 +22,7 @@ const ENDPOINTS=endpointList();
 const provider=new Map(ENDPOINTS.map((url,i)=>[url,{url,index:i,failures:0,cooldownUntil:0,lastOkAt:null,lastError:null}]));
 let nextRpcAt=0;
 const supplyCache=new Map();
-let cursor=0;
+let cycleIndex=0,heldCursor=0,otherCursor=0;
 const prior=read(OUT,{rows:[]});
 let lastRows=Array.isArray(prior.rows)?prior.rows.filter(r=>Date.now()-Date.parse(r?.observedAt||0)<=600000):[];
 for(const r of lastRows){if(Number.isFinite(Number(r?.supply))&&Number(r.supply)>0)supplyCache.set(r.mint,{value:Number(r.supply),at:Date.parse(r.observedAt)||Date.now(),cached:true})}
@@ -56,8 +56,15 @@ async function rpc(method,params){
 function heldMints(){const s=read(STATE,{positions:[]});return [...new Set((s.positions||[]).map(x=>x?.mint).filter(Boolean))];}
 function signalMints(){const s=read(`${APP}/runtime-status/signal-snapshot.json`,{candidates:[]});return (s.candidates||[]).filter(x=>x?.mint&&x?.decision==='PROBE_CANDIDATE').sort((a,b)=>num(b.score)-num(a.score)).map(x=>x.mint);}
 function scannerMints(){const s=read(`${PAPER}/scanner-latest.json`,{candidates:[]});return (s.candidates||[]).filter(x=>x?.mint).sort((a,b)=>num(b.score)-num(a.score)).map(x=>x.mint);}
-function priorityMints(){return [...new Set([...heldMints(),...signalMints(),...scannerMints()])].slice(0,120);}
-function nextMint(){const q=priorityMints();if(!q.length)return null;const m=q[cursor%q.length];cursor++;return m;}
+function otherMints(held){const hs=new Set(held);return [...new Set([...signalMints(),...scannerMints()].filter(m=>!hs.has(m)))].slice(0,120);}
+function chooseNextMint(held,other,index){
+  if(!held.length&&!other.length)return null;
+  if(!held.length)return {kind:'OTHER',mint:other[otherCursor++%other.length]};
+  if(!other.length)return {kind:'HELD',mint:held[heldCursor++%held.length]};
+  if(index%3!==2)return {kind:'HELD',mint:held[heldCursor++%held.length]};
+  return {kind:'OTHER',mint:other[otherCursor++%other.length]};
+}
+function nextMint(){const held=heldMints(),other=otherMints(held),pick=chooseNextMint(held,other,cycleIndex++);return pick?{...pick,heldCount:held.length,otherCount:other.length}:null;}
 
 async function supply(mint){const old=supplyCache.get(mint);if(old&&Date.now()-old.at<600000)return {...old,cached:true};const r=await rpc('getTokenSupply',[mint,{commitment:'processed'}]);const v=num(r?.value?.uiAmount);const x={value:v,at:Date.now(),cached:false};supplyCache.set(mint,x);return x;}
 async function largest(mint){const r=await rpc('getTokenLargestAccounts',[mint,{commitment:'processed'}]);return (r?.value||[]).map(x=>num(x.uiAmount)).filter(x=>x>=0);}
@@ -73,24 +80,28 @@ function statusOf({ok,rateLimit,rows}){if(!ENDPOINTS.length)return'NO_RPC_CONFIG
 if(SELF_TEST){
   if(providerCooldown(1)!==30000||providerCooldown(5)!==300000)throw new Error('PROVIDER_COOLDOWN_SELFTEST');
   if(CYCLE_MS!==15000||RPC_SPACING_MS!==1800)throw new Error('RPC_BUDGET_SELFTEST');
+  const h=['H1','H2'],o=['O1','O2'];heldCursor=0;otherCursor=0;
+  const seq=[0,1,2,3,4,5].map(i=>chooseNextMint(h,o,i)?.kind).join(',');
+  if(seq!=='HELD,HELD,OTHER,HELD,HELD,OTHER')throw new Error('HELD_PRIORITY_SCHEDULER_SELFTEST');
   console.log('V370_WHALE_ADAPTIVE_BUDGET_SELF_TEST=PASS');
   console.log('RPC_CYCLE_15S=TRUE');
   console.log('RPC_SPACING_1800MS=TRUE');
   console.log('PERSIST_CACHED_ROWS_ACROSS_RESTART=TRUE');
   console.log('RATE_LIMIT_COOLDOWN_UP_TO_300S=TRUE');
   console.log('FRESH_CACHED_ROWS_FAIL_SOFT=TRUE');
+  console.log('HELD_PRIORITY_TWO_OF_THREE_CYCLES=TRUE');
   process.exit(0);
 }
 
 async function cycle(){
-  let ok=false,rateLimit=false,error=null;const mint=nextMint();
+  let ok=false,rateLimit=false,error=null;const pick=nextMint();const mint=pick?.mint||null;
   try{if(mint){const row=await inspect(mint);lastRows=[row,...lastRows.filter(x=>x.mint!==mint)];ok=true}}catch(e){error=String(e?.message||e);rateLimit=e?.code===429||error.includes('429')}
   const held=new Set(heldMints());
   lastRows=lastRows.filter(r=>freshnessMs(r)<=180000||held.has(r.mint)&&freshnessMs(r)<=600000);
   const rows=lastRows.slice().sort((a,b)=>(held.has(b.mint)?1:0)-(held.has(a.mint)?1:0)||Date.parse(b.observedAt)-Date.parse(a.observedAt)).slice(0,120);
-  const out={version:'3.70.0-adaptive-whale',updatedAt:new Date().toISOString(),status:statusOf({ok,rateLimit,rows}),rpcConfigured:ENDPOINTS.length>0,providerCount:ENDPOINTS.length,providers:publicProviderView(),rateShaped:true,cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,oneMintPerCycle:true,supplyCacheMs:600000,rowFreshnessTtlMs:180000,heldRowTtlMs:600000,heldPositionsAlwaysMonitored:true,inspectedMint:mint,rows,error};
+  const out={version:'3.70.0-adaptive-whale',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:statusOf({ok,rateLimit,rows}),rpcConfigured:ENDPOINTS.length>0,providerCount:ENDPOINTS.length,providers:publicProviderView(),rateShaped:true,cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,oneMintPerCycle:true,supplyCacheMs:600000,rowFreshnessTtlMs:180000,heldRowTtlMs:600000,heldPositionsAlwaysMonitored:true,inspectedMint:mint,inspectedKind:pick?.kind||null,heldQueueSize:pick?.heldCount||0,otherQueueSize:pick?.otherCount||0,rows,error};
   atomic(OUT,out);atomic(OBS,observability());
 }
 
 await cycle();
-setInterval(()=>cycle().catch(e=>atomic(OUT,{version:'3.70.0-adaptive-whale',updatedAt:new Date().toISOString(),status:'INTERNAL_ERROR',error:String(e?.message||e),rows:lastRows,providerCount:ENDPOINTS.length,providers:publicProviderView(),cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS})),CYCLE_MS);
+setInterval(()=>cycle().catch(e=>atomic(OUT,{version:'3.70.0-adaptive-whale',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:'INTERNAL_ERROR',error:String(e?.message||e),rows:lastRows,providerCount:ENDPOINTS.length,providers:publicProviderView(),cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS})),CYCLE_MS);
