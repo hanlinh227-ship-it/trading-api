@@ -2,7 +2,11 @@
 set -euo pipefail
 APP=/opt/meme-alpha/app
 ETC=/etc/meme-alpha
+UNIT=meme-alpha-micro-live.service
+rollback(){ systemctl disable --now "$UNIT" >/dev/null 2>&1 || true; rm -f "$ETC/signer-enabled" "$ETC/micro-live-armed" "$ETC/execution-mode"; echo 'ARM_ROLLBACK=APPLIED' >&2; }
+trap rollback ERR
 [ "$(id -u)" -eq 0 ] || { echo ABORT_ROOT_REQUIRED; exit 1; }
+[ -f /etc/systemd/system/$UNIT ] || { echo ABORT_MICRO_EXECUTOR_NOT_INSTALLED; exit 1; }
 python3 - <<'PY'
 import json
 R='/opt/meme-alpha/app/runtime-status/'
@@ -26,9 +30,7 @@ PY
 )
 BAL=$(python3 - "$RPC" "$PUB" <<'PY'
 import json,sys,urllib.request
-rpc,pub=sys.argv[1:]
-data=json.dumps({'jsonrpc':'2.0','id':1,'method':'getBalance','params':[pub,{'commitment':'confirmed'}]}).encode()
-req=urllib.request.Request(rpc,data=data,headers={'content-type':'application/json'})
+rpc,pub=sys.argv[1:];data=json.dumps({'jsonrpc':'2.0','id':1,'method':'getBalance','params':[pub,{'commitment':'confirmed'}]}).encode();req=urllib.request.Request(rpc,data=data,headers={'content-type':'application/json'})
 with urllib.request.urlopen(req,timeout=10) as r:j=json.loads(r.read())
 if 'error' in j: raise SystemExit('RPC_BALANCE_ERROR')
 print(int(j['result']['value']))
@@ -36,25 +38,23 @@ PY
 )
 python3 - "$BAL" <<'PY'
 import sys
-b=int(sys.argv[1]);sol=b/1_000_000_000
-print(f'WALLET_BALANCE_SOL={sol:.9f}')
-assert b>=30_000_000,'ABORT_MICRO_BALANCE_LT_0_03_SOL'
-assert b<=100_000_000,'ABORT_MICRO_BALANCE_GT_0_10_SOL'
+b=int(sys.argv[1]);print(f'WALLET_BALANCE_SOL={b/1_000_000_000:.9f}');assert b>=30_000_000,'ABORT_MICRO_BALANCE_LT_0_03_SOL';assert b<=100_000_000,'ABORT_MICRO_BALANCE_GT_0_10_SOL'
 PY
 install -d -o root -g meme-alpha-signer-client -m 0750 "$ETC"
-printf 'ARMED=YES\n' > "$ETC/signer-enabled"
-printf 'ARMED=YES\n' > "$ETC/micro-live-armed"
-printf 'MICRO_LIVE\n' > "$ETC/execution-mode"
+printf 'ARMED=YES\n' > "$ETC/signer-enabled"; printf 'ARMED=YES\n' > "$ETC/micro-live-armed"; printf 'MICRO_LIVE\n' > "$ETC/execution-mode"
 for f in signer-enabled micro-live-armed execution-mode; do chown root:meme-alpha-signer-client "$ETC/$f"; chmod 640 "$ETC/$f"; done
-sleep 25
+sleep 30
 python3 - <<'PY'
-import json,time
-p='/opt/meme-alpha/app/runtime-status/micro-live-gate.json'
-x=json.load(open(p));print('GATE_ALLOWED='+str(x.get('allowed')).lower());print('GATE_REASONS='+','.join(x.get('reasons',[])))
-assert x.get('allowed') is True,'ABORT_GATE_DID_NOT_OPEN'
+import json
+x=json.load(open('/opt/meme-alpha/app/runtime-status/micro-live-gate.json'));print('GATE_ALLOWED='+str(x.get('allowed')).lower());print('GATE_REASONS='+','.join(x.get('reasons',[])));assert x.get('allowed') is True,'ABORT_GATE_DID_NOT_OPEN'
 PY
+systemctl enable --now "$UNIT"
+sleep 2
+systemctl is-active --quiet "$UNIT"
+trap - ERR
 echo BOT_PUBLIC_KEY="$PUB"
 echo SIGNER_ARMED=TRUE
 echo EXECUTION_MODE=MICRO_LIVE
 echo MICRO_LIVE_GATE=PASS
+echo MICRO_EXECUTOR_ACTIVE=TRUE
 echo V181_MICRO_LIVE_ARM_PASS
