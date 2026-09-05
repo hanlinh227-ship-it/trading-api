@@ -1,0 +1,18 @@
+name: Meme Alpha v2.6.1 Trend Entry Engine
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v261-trend-entry-engine.sh'
+      - '.github/workflows/meme-alpha-v261-trend-entry-engine.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v261-trend-entry-engine
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v261-trend-entry-engine.sh
