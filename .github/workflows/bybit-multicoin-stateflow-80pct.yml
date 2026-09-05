@@ -18,21 +18,49 @@ jobs:
   backtest:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 18
+      matrix:
+        symbol:
+          - BTCUSDT
+          - ETHUSDT
+          - BNBUSDT
+          - XRPUSDT
+          - SOLUSDT
+          - TRXUSDT
+          - DOGEUSDT
+          - ADAUSDT
+          - LINKUSDT
+          - AVAXUSDT
+          - LTCUSDT
+          - BCHUSDT
+          - XLMUSDT
+          - DOTUSDT
+          - NEARUSDT
+          - UNIUSDT
+          - AAVEUSDT
+          - HBARUSDT
     env:
       PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v4
-      - name: Run 18-symbol Bybit OOS calibration
+      - name: Run per-symbol OOS calibration
+        shell: bash
         run: |
           set -o pipefail
           mkdir -p research/results
-          python3 research/bybit_multicoin_stateflow_80pct.py 2>&1 | tee research/results/bybit_multicoin_stateflow_80pct.txt
-      - name: Upload reports
+          SYMBOL='${{ matrix.symbol }}'
+          python3 research/bybit_multicoin_stateflow_80pct.py \
+            --symbols "$SYMBOL" \
+            --out "research/results/${SYMBOL}.json" \
+            2>&1 | tee "research/results/${SYMBOL}.txt"
+      - name: Upload symbol report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bybit-multicoin-stateflow-80pct-results
+          name: bybit-${{ matrix.symbol }}-oos80
           path: |
-            research/results/bybit_multicoin_stateflow_80pct.json
-            research/results/bybit_multicoin_stateflow_80pct.txt
+            research/results/${{ matrix.symbol }}.json
+            research/results/${{ matrix.symbol }}.txt
           retention-days: 30
