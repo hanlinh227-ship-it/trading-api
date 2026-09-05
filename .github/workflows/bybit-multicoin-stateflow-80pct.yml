@@ -1,0 +1,38 @@
+name: Bybit MultiCoin StateFlow 80pct OOS
+
+on:
+  push:
+    paths:
+      - 'research/bybit_multicoin_stateflow_80pct.py'
+      - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
+  pull_request:
+    paths:
+      - 'research/bybit_multicoin_stateflow_80pct.py'
+      - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run 18-symbol Bybit OOS calibration
+        run: |
+          set -o pipefail
+          mkdir -p research/results
+          python3 research/bybit_multicoin_stateflow_80pct.py 2>&1 | tee research/results/bybit_multicoin_stateflow_80pct.txt
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bybit-multicoin-stateflow-80pct-results
+          path: |
+            research/results/bybit_multicoin_stateflow_80pct.json
+            research/results/bybit_multicoin_stateflow_80pct.txt
+          retention-days: 30
