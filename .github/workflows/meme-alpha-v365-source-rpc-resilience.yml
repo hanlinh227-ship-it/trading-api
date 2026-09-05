@@ -6,6 +6,7 @@ on:
       - 'ops/meme-alpha/v365-patch-scanner-source-resilience.py'
       - 'ops/meme-alpha/v365-whale-flow-rate-shaped.js'
       - 'ops/meme-alpha/v365-stage-source-rpc-resilience.sh'
+      - 'ops/meme-alpha/v365-patch-run-paper-radar-cadence.py'
       - '.github/workflows/meme-alpha-v365-source-rpc-resilience.yml'
 jobs:
   deploy:
@@ -20,17 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           RUN=/opt/meme-alpha/app/run-paper.sh
-          python3 - "$RUN" <<'PY'
-          from pathlib import Path
-          import sys
-          p=Path(sys.argv[1]);s=p.read_text()
-          old='/usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || echo "NEW_LISTING_RADAR_CYCLE_FAILED rc=$?" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1\n      sleep 1'
-          new='/usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || echo "NEW_LISTING_RADAR_CYCLE_FAILED rc=$?" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1\n      sleep 6'
-          if old in s:s=s.replace(old,new,1)
-          elif 'new-listing-radar.js' in s and '      sleep 6' in s:pass
-          else:raise SystemExit('RADAR_CADENCE_PATTERN_NOT_FOUND')
-          p.write_text(s)
-PY
+          python3 ops/meme-alpha/v365-patch-run-paper-radar-cadence.py "$RUN"
           grep -A2 'new-listing-radar.js' "$RUN" | head -n 3
       - name: Safe deploy scanner and whale modules
         shell: bash
