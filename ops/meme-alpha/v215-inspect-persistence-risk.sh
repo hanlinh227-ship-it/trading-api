@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd /opt/meme-alpha/app
-echo '=== PERSISTENCE READY LOGIC ==='
-grep -n -E 'consecutive|ready|READY|avg|liquidity|persistenceDecision|eligible' src/persistence.js | tail -n 240 || true
-echo '=== RISK ENTRY LOGIC ==='
-grep -n -E 'candidate|ready|READY|persistence|entryAllowed|PROBE_CANDIDATE|securityDecision|sellRoute' src/risk.js | tail -n 240 || true
-echo '=== POSITION ENTRY LOGIC ==='
-grep -n -E 'candidate|ready|READY|persistence|entryAllowed|PROBE_CANDIDATE|securityDecision|sellRoute' src/position.js | tail -n 260 || true
-echo V215_INSPECT_PASS
+echo '=== PERSISTENCE 280-455 ==='
+sed -n '280,455p' src/persistence.js || true
+echo '=== PERSISTENCE 580-620 ==='
+sed -n '580,620p' src/persistence.js || true
+echo '=== RISK 40-70 ==='
+sed -n '40,70p' src/risk.js || true
+echo '=== POSITION 835-915 ==='
+sed -n '835,915p' src/position.js || true
+echo V215_INSPECT_CONTEXT_PASS
