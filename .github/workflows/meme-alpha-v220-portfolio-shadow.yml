@@ -1,0 +1,16 @@
+name: Meme Alpha v2.20 Portfolio Shadow
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/portfolio-shadow-v220.js'
+      - 'ops/meme-alpha/v220-stage-portfolio-shadow.sh'
+      - '.github/workflows/meme-alpha-v220-portfolio-shadow.yml'
+  workflow_dispatch:
+
+jobs:
+  shadow:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v220-stage-portfolio-shadow.sh
