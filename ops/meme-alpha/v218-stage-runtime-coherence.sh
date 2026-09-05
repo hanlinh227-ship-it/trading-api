@@ -15,9 +15,10 @@ python3 - "$DST" <<'PY'
 from pathlib import Path
 import sys
 p=Path(sys.argv[1]);s=p.read_text()
-# Freshness helper and defense-in-depth entry freshness.
-s=s.replace("const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;", "const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;\nconst fileAgeSec=p=>{try{return Math.max(0,(Date.now()-fs.statSync(p).mtimeMs)/1000)}catch{return Infinity}};\nconst ENTRY_SIGNAL_MAX_AGE_SEC=45,HARD_STALE_EXIT_SEC=180;",1)
-s=s.replace("function trendEntryEligible(c){\n  if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;", "function trendEntryEligible(c){\n  if(fileAgeSec(SIGNAL)>ENTRY_SIGNAL_MAX_AGE_SEC)return false;\n  if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;",1)
+# Freshness helper and defense-in-depth entry freshness. Deterministic self-test
+# bypasses filesystem freshness only; all live execution keeps the freshness gate.
+s=s.replace("const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;", "const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;\nconst SELF_TEST=process.argv.includes('--self-test');\nconst fileAgeSec=p=>{try{return Math.max(0,(Date.now()-fs.statSync(p).mtimeMs)/1000)}catch{return Infinity}};\nconst ENTRY_SIGNAL_MAX_AGE_SEC=45,HARD_STALE_EXIT_SEC=180;",1)
+s=s.replace("function trendEntryEligible(c){\n  if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;", "function trendEntryEligible(c){\n  if(!SELF_TEST&&fileAgeSec(SIGNAL)>ENTRY_SIGNAL_MAX_AGE_SEC)return false;\n  if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;",1)
 # Make fast trend opportunity score affect scale tiers/ranking as well as eligibility.
 s=s.replace("const score=n(c.score),con=n(c.consecutiveEligible),net=n(c.netBuyers5m)", "const score=opportunityScore(c),con=n(c.consecutiveEligible),net=n(c.netBuyers5m)",1)
 s=s.replace("function rank(c){return n(c.score)*100+n(c.netBuyers5m)*2", "function rank(c){return opportunityScore(c)*100+n(c.netBuyers5m)*2",1)
