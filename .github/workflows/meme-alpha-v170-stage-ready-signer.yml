@@ -1,0 +1,19 @@
+name: Meme Alpha v1.7 Stage Ready Signer
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v170-stage-ready-signer.sh'
+      - 'ops/meme-alpha/signer/ready_signer.py'
+      - 'ops/meme-alpha/v170-root-install-ready-signer.sh'
+      - '.github/workflows/meme-alpha-v170-stage-ready-signer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage signer
+        run: bash ops/meme-alpha/v170-stage-ready-signer.sh
