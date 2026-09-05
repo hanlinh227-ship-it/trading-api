@@ -1,0 +1,20 @@
+name: Meme Alpha v2.0.2 Stage Final Compatible Bundle
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v202-stage-final-compatible-bundle.sh'
+      - '.github/workflows/meme-alpha-v202-stage-final-compatible-bundle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v202-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage final compatible root-only bundle
+        run: bash ops/meme-alpha/v202-stage-final-compatible-bundle.sh
