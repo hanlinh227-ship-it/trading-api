@@ -1,0 +1,18 @@
+name: Meme Alpha v2.6.0 Trend Autopilot
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v260-trend-autopilot.sh'
+      - '.github/workflows/meme-alpha-v260-trend-autopilot.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v260-trend-autopilot
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v260-trend-autopilot.sh
