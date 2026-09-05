@@ -1,0 +1,67 @@
+name: Meme Alpha v3.70 Deep Health Diagnostic
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v370-deep-health-diagnostic.yml'
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deep read-only production diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STATE=/var/lib/meme-alpha/data/micro-live/state.json
+          echo '=== SERVICES ==='
+          services=(meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service)
+          for s in "${services[@]}"; do
+            echo "SERVICE=$s ACTIVE=$(systemctl is-active "$s" || true) FAILED=$(systemctl is-failed "$s" || true)"
+            systemctl show "$s" -p NRestarts -p ActiveEnterTimestamp -p ExecMainStartTimestamp -p ExecMainStatus --no-pager || true
+          done
+          echo '=== PROCESS COUNTS ==='
+          echo "MICRO_LIVE_PROCS=$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)"
+          echo "WHALE_PROCS=$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/whale-flow-intel.js' || true)"
+          echo "REALTIME_PROCS=$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/realtime-pool-pulse.js' || true)"
+          echo '=== FILE SUMMARIES ==='
+          /usr/bin/node - "$APP" "$STATE" <<'NODE'
+          const fs=require('fs'),path=require('path');
+          const APP=process.argv[2],STATE=process.argv[3];
+          const files=[
+            ['signal','runtime-status/signal-snapshot.json'],
+            ['whale','runtime-status/whale-flow-intel.json'],
+            ['realtime','runtime-status/realtime-pool-pulse.json'],
+            ['observability','runtime-status/portfolio-observability.json'],
+            ['radar','runtime-status/new-listing-radar.json'],
+            ['scanner','/var/lib/meme-alpha/data/paper/scanner-latest.json'],
+            ['source','/var/lib/meme-alpha/data/paper/scanner-source-health.json'],
+            ['risk','/var/lib/meme-alpha/data/paper/risk-state.json']
+          ];
+          const read=p=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch(e){return {__readError:String(e.message||e)}}};
+          const age=x=>{const t=Date.parse(x.updatedAt||x.timestamp||x.generatedAt||x.checkedAt||0);return Number.isFinite(t)?Date.now()-t:null};
+          for(const [name,rel] of files){
+            const p=rel.startsWith('/')?rel:path.join(APP,rel),x=read(p);
+            const out={name,version:x.version||null,status:x.status||null,ageMs:age(x),readError:x.__readError||null};
+            if(name==='signal'){out.candidates=(x.candidates||[]).length;out.intelSummary=x.intelSummary||null;out.sourceHealth=x.sourceHealth||null;out.probes=(x.candidates||[]).filter(c=>c.decision==='PROBE_CANDIDATE').length;out.blocks=(x.candidates||[]).filter(c=>String(c.decision||'').includes('BLOCK')||c.securityDecision==='BLOCK').length}
+            if(name==='whale'){out.rows=(x.rows||[]).length;out.providerCount=x.providerCount||0;out.providers=(x.providers||[]).map(p=>({name:p.name||null,status:p.status||null,cooldownUntil:p.cooldownUntil||null,lastError:p.lastError||null}))}
+            if(name==='realtime'){out.rows=(x.rows||[]).length;out.websocketOpen=x.websocketOpen;out.subscriptions=x.subscriptions;out.lastError=x.lastError||null;out.rowsWithFreshEvents=(x.rows||[]).filter(r=>Number.isFinite(Number(r.lastEventAgeMs))&&r.lastEventAgeMs!==null&&Number(r.lastEventAgeMs)<=8000).length}
+            if(name==='observability'){out.stateReadable=x.stateReadable;out.openPositions=x.openPositions;out.positionMints=x.positionMints||[]}
+            if(name==='radar'){out.candidates=(x.candidates||[]).length;out.providerCount=x.providerCount||0}
+            if(name==='scanner'){out.candidates=(x.candidates||[]).length;out.version=x.version||null}
+            if(name==='source'){out.successfulSources=x.successfulSources;out.failedSources=x.failedSources;out.usingCache=x.usingCache;out.allowNewEntries=x.allowNewEntries;out.lastErrors=x.lastErrors||x.errors||null}
+            console.log('DOC='+JSON.stringify(out));
+          }
+          const st=read(STATE),positions=Array.isArray(st.positions)?st.positions:[];
+          console.log('STATE='+JSON.stringify({version:st.version||null,positions:positions.length,updatedAt:st.updatedAt||null,positionSummary:positions.map(p=>({mint:p.mint,symbol:p.symbol||null,ret:p.lastReturnPct??null,peak:p.peakReturnPct??null,weak:p.weakExitCount??0,tp1:!!p.tp1Done,tp2:!!p.tp2Done,tp3:!!p.tp3Done,profitProtect:!!p.profitProtectDone,weakTrims:p.profitWeakTrimCount??0}))}));
+          NODE
+          echo '=== ACTIVE CODE MARKERS ==='
+          grep -E "3\.69\.[0-9]+-modern-signal-guard|3\.69\.0-modern-whale|3\.60\.0-profit-aware-exits" "$APP/src/safe-signal-export.js" "$APP/src/whale-flow-intel.js" "$APP/src/micro-live-executor.js" | head -20 || true
+          echo '=== RECENT SERVICE ERRORS ==='
+          for s in "${services[@]}"; do
+            echo "--- $s ---"
+            journalctl -u "$s" --since '-30 min' --no-pager -p warning..alert 2>/dev/null | tail -35 || true
+          done
+          echo V370_DEEP_DIAGNOSTIC_COMPLETE=TRUE
