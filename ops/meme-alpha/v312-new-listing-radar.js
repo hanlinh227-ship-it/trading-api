@@ -104,7 +104,8 @@ try{
   }
   dexSolanaPromoMints=promoSolana.size;
 
-  const previous=read(STATE,{candidates:[]});
+  // Runtime snapshot is the primary queue state. Persistence is optional and must never block radar health.
+  const previous=read(OUT,read(STATE,{candidates:[]}));
   const prevByMint=new Map((previous.candidates||[]).map(x=>[x.mint,x]));
   const rankedMints=[...sourceMap.values()]
     .sort((a,b)=>{
@@ -208,7 +209,7 @@ try{
   const discoveryHealthy=(jupiterRecentOk||dexSolanaPromoMints>0)&&sourceMap.size>0;
   const status=(discoveryHealthy&&pairLookupOk)?'HEALTHY':'DEGRADED';
   const out={
-    version:'3.15.0',
+    version:'3.16.0',
     updatedAt:new Date().toISOString(),
     status,
     healthySources,
@@ -222,8 +223,14 @@ try{
     candidates:candidates.slice(0,100),
     policy:'DISCOVERY_ONLY_NEVER_GRANTS_ENTRY'
   };
-  atomic(STATE,out);
+
+  // The runtime queue is authoritative for scanner integration.
   atomic(OUT,out);
+  try{
+    atomic(STATE,out);
+  }catch(e){
+    console.log(`RADAR_PERSISTENCE_WARN=${String(e?.code||e?.message||e).slice(0,120)}`);
+  }
   console.log(`NEW_LISTING_RADAR v=${out.version} status=${out.status} jupRecent=${out.jupiterRecentCount} dexPromoSol=${out.dexSolanaPromoMints} feedMints=${out.currentFeedMints} candidates=${out.candidates.length} topScore=${out.candidates[0]?.preScore??0}`);
 } finally {
   try{if(lockFd!==null)fs.closeSync(lockFd)}catch{}
