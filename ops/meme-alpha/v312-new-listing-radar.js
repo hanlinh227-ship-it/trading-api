@@ -17,6 +17,19 @@ function atomic(path,value){
   fs.renameSync(t,path);
   try{fs.chmodSync(path,0o664)}catch{}
 }
+function writeRuntime(value){
+  const text=JSON.stringify(value,null,2);
+  try{
+    atomic(OUT,value);
+    return;
+  }catch(e){
+    // runtime-status may intentionally deny directory creation to the service user.
+    // Deployment pre-creates this non-sensitive state file, so direct overwrite is safe.
+    fs.writeFileSync(OUT,text);
+    try{fs.chmodSync(OUT,0o666)}catch{}
+    console.log(`RADAR_RUNTIME_DIRECT_WRITE=${String(e?.code||e?.message||e).slice(0,80)}`);
+  }
+}
 function read(path,d={}){try{return JSON.parse(fs.readFileSync(path,'utf8'))}catch{return d}}
 function arr(x){return Array.isArray(x)?x:(x&&typeof x==='object'?[x]:[])}
 function n(v,d=0){const x=Number(v);return Number.isFinite(x)?x:d}
@@ -46,7 +59,6 @@ try{
   let jupiterRecentCount=0;
   let dexSolanaPromoMints=0;
 
-  // Primary Solana new-list backbone: Jupiter recent is ordered by first pool creation.
   try{
     const body=await get(`${JUP}/tokens/v2/recent`,5000);
     const rows=arr(body);
@@ -76,7 +88,6 @@ try{
     failures.push({source:'jupiter-recent',error:String(e?.message||e).slice(0,120)});
   }
 
-  // Independent discovery hints. These are optional cross-confirmations, never entry authority.
   const feeds=[
     ['profile',`${DEX}/token-profiles/latest/v1`],
     ['boost',`${DEX}/token-boosts/latest/v1`],
@@ -104,7 +115,6 @@ try{
   }
   dexSolanaPromoMints=promoSolana.size;
 
-  // Runtime snapshot is the primary queue state. Persistence is optional and must never block radar health.
   const previous=read(OUT,read(STATE,{candidates:[]}));
   const prevByMint=new Map((previous.candidates||[]).map(x=>[x.mint,x]));
   const rankedMints=[...sourceMap.values()]
@@ -209,7 +219,7 @@ try{
   const discoveryHealthy=(jupiterRecentOk||dexSolanaPromoMints>0)&&sourceMap.size>0;
   const status=(discoveryHealthy&&pairLookupOk)?'HEALTHY':'DEGRADED';
   const out={
-    version:'3.16.0',
+    version:'3.18.0',
     updatedAt:new Date().toISOString(),
     status,
     healthySources,
@@ -224,8 +234,7 @@ try{
     policy:'DISCOVERY_ONLY_NEVER_GRANTS_ENTRY'
   };
 
-  // The runtime queue is authoritative for scanner integration.
-  atomic(OUT,out);
+  writeRuntime(out);
   try{
     atomic(STATE,out);
   }catch(e){
