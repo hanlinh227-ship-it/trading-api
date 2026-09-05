@@ -10,19 +10,16 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v5
-      - name: Audit noninteractive deploy capability
+      - name: Audit active signal and executor hooks
         shell: bash
         run: |
           set -u
           echo RUNNER_IDENTITY="$(id)"
-          echo '--- sudo capability ---'
           sudo -n -l || true
           echo '--- safe deploy wrapper markers ---'
           grep -nE 'SAFE_DEPLOY_DISARM|ARMED=NO|micro-live-armed' /usr/local/sbin/meme-alpha-safe-deploy || true
-          echo '--- meme alpha unit files ---'
-          systemctl list-unit-files 'meme-alpha*' --no-pager || true
-          echo '--- live executor unit security ---'
-          systemctl show meme-alpha-micro-live.service -p User -p Group -p ProtectSystem -p ProtectHome -p ReadOnlyPaths -p ReadWritePaths -p FragmentPath --no-pager || true
-          echo '--- likely deploy/root helper units ---'
-          systemctl list-unit-files --no-pager | grep -Ei 'meme-alpha.*(deploy|root|repair|bootstrap|update|watch|path)' || true
+          echo '--- signal source ---'
+          sed -n '1,220p' /opt/meme-alpha/app/src/safe-signal-export.js || true
+          echo '--- executor signal/gate hooks ---'
+          grep -nE 'signal-snapshot|micro-live-gate|function candidates|hardSafetyBroken|trendEntryEligible|function candidate' /opt/meme-alpha/app/src/micro-live-executor.js || true
           echo V369_DEPLOY_CAPABILITY_AUDIT=COMPLETE
