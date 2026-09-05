@@ -1,0 +1,28 @@
+name: Meme Alpha v1.0 Autonomous
+
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v100-autonomous.sh'
+      - '.github/workflows/meme-alpha-v100-autonomous.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meme-alpha-v100-autonomous
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live VPS PAPER engine for v1.0 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v100-autonomous.sh
+          nice -n 15 bash ops/meme-alpha/v100-autonomous.sh
