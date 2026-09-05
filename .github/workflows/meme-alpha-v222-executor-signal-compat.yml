@@ -1,0 +1,18 @@
+name: Meme Alpha v2.2.2 Executor Signal Compat
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v222-executor-signal-compat.sh'
+      - 'ops/meme-alpha/micro-live/micro-live-executor-v192.js'
+      - '.github/workflows/meme-alpha-v222-executor-signal-compat.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy executor signal compatibility
+        run: bash ops/meme-alpha/v222-executor-signal-compat.sh
