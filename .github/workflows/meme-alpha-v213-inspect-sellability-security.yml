@@ -1,0 +1,15 @@
+name: Meme Alpha v2.1.3 Inspect Sellability Security
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v213-inspect-sellability-security.sh'
+      - '.github/workflows/meme-alpha-v213-inspect-sellability-security.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v213-inspect-sellability-security.sh
