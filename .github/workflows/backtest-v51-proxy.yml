@@ -1,0 +1,31 @@
+name: Backtest Bybit V5.1 Proxy Scalp
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/scripts/backtest-v51-proxy.py'
+      - '.github/workflows/backtest-v51-proxy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+      - name: Run 7-day 1m proxy backtest
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/backtest-v51-proxy.py | tee v51-proxy-backtest.log
+      - name: Upload proxy backtest results
+        uses: actions/upload-artifact@v4
+        with:
+          name: v51-proxy-backtest-results
+          path: |
+            v51-proxy-backtest-report.json
+            v51-proxy-backtest-trades.json
+            v51-proxy-backtest.log
+          retention-days: 30

@@ -1,0 +1,43 @@
+name: Optimize Bybit V5.4 Per-Coin Alpha
+
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/scripts/optimize-v54-percoin-alpha.py'
+      - '.github/workflows/optimize-v54-percoin-alpha.yml'
+  workflow_dispatch:
+
+jobs:
+  optimize:
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, DOGEUSDT, LINKUSDT]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SYMBOL: ${{ matrix.symbol }}
+      DAYS: '18'
+      TRAIN_DAYS: '10'
+      VAL_DAYS: '4'
+      MAX_GENERATIONS: '24'
+      CANDIDATES_PER_GEN: '14'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+      - name: Run per-coin adaptive alpha search
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/optimize-v54-percoin-alpha.py | tee v54-${SYMBOL,,}.log
+      - name: Upload per-coin report
+        uses: actions/upload-artifact@v4
+        with:
+          name: v54-${{ matrix.symbol }}-alpha
+          path: |
+            v54-*-alpha-report.json
+            v54-*.log
+          if-no-files-found: error
+          retention-days: 30

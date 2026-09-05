@@ -1,0 +1,81 @@
+name: Validate Bybit V5.1 Three-Lane Scalp
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/scripts/apply-bybit-v510-three-lane-scalp.py'
+      - '.github/workflows/validate-bybit-v510-three-lane-scalp.yml'
+      - 'cloudflare-worker/bybit-scalp-entry-v51.js'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  validate-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+          fetch-depth: 0
+      - name: Apply V5.1 integration patch
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v510-three-lane-scalp.py
+      - name: Validate worker and V5.1 invariants
+        run: |
+          set -euo pipefail
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          node --input-type=module <<'NODE'
+          import {BYBIT_AUTO_CONFIG} from './bybit-auto-config.js';
+          import {BYBIT_AUTO_VERSION,BYBIT_RUNTIME_CONTRACT} from './bybit-runtime-contract.js';
+          import {selectScalpEntryV51,BYBIT_SCALP_ENTRY_ENGINE_VERSION} from './bybit-scalp-entry-v51.js';
+          const c=BYBIT_AUTO_CONFIG,r=BYBIT_RUNTIME_CONTRACT;
+          const checks={
+            version:BYBIT_AUTO_VERSION==='BYBIT-MULTI-STATEFLOW-5.1.0',
+            contract:r.version==='BYBIT_MULTI_ASSET_RUNTIME_V29_THREE_LANE_MICROSTRUCTURE_SCALP',
+            engine:BYBIT_SCALP_ENTRY_ENGINE_VERSION==='BYBIT_SCALP_ENTRY_V51_THREE_LANE_TTT_MAE',
+            threeLane:r.threeLaneScalpEntry===true,
+            ttt:r.expectedTimeToTargetGate===true&&r.expectedTimeToTargetRanking===true,
+            mae:r.maeAwareEntryRanking===true,
+            netPerMin:r.netProfitPerMinuteRanking===true,
+            confirmFull:r.entryTierAuthority==='CONFIRM_FULL_ONLY',
+            oneDollarFloor:c.scalp.minPlannedNetProfitUsd>=1&&c.scalp.allowFloorRelaxationForFastScalp===false,
+            targetScalp:c.scalp.adaptiveProtection.maxTargetR<=2.2,
+            riskUnchanged:c.risk.baseEntryRiskPct<=1&&c.risk.absoluteSingleEntryRiskPct<=2.25&&c.risk.maxActiveRiskPct<=7,
+            noMartingale:c.risk.martingale===false&&c.positionControl.recoveryMartingale===false,
+            noAddToLoser:c.risk.addToLoser===false&&c.positionControl.recoveryAddToLoser===false,
+            oldNoisyEntriesOff:c.entries.rangeMeanReversion===false&&c.entries.momentumEarlyRelease===false&&c.entries.transitionWsScalp===false&&c.entries.probeConfirmFull===false
+          };
+          console.log(JSON.stringify(checks,null,2));
+          if(!Object.values(checks).every(Boolean))process.exit(61);
+
+          const profile={symbol:'TESTUSDT',enabled:true,minTurnoverUsd:500000,maxSpreadBps:8,riskMult:.70,runnerMaxR:2.0};
+          const common={symbol:'TESTUSDT',price:100,microstructureSource:'VPS_BYBIT_WS',quality:{freshBook:true,freshTrades:true,spreadOk:true,wsFastPath:true},book:{spreadBps:1,imbalance2:.14,imbalance5:.12,micropriceEdgeBps:.10},trades:{window1s:{imbalance:.22,priceChangeBps:1.5},window3s:{imbalance:.18,priceChangeBps:4.5},window5s:{imbalance:.17,priceChangeBps:7},window15s:{imbalance:.16,priceChangeBps:10,trades:40,totalNotional:100000},window60s:{imbalance:.08,priceChangeBps:14,totalNotional:250000},priceChange1sBps:1.5,priceChange3sBps:4.5,priceChange5sBps:7},ultraFast:{flowAcceleration:.08,pressureScore:.11,impulseScore:.12,speedScore:.65},marketPulse:{score:.14,confidence:.75,agreement:.78},openInterest:{deltaPct:.05},direction5:.20,direction15:.18,direction60:.10,range5:{lo:99,hi:101.5,width:2.5},range15:{lo:98,hi:102,width:4},executionCost:{baseRoundTripCostBps:11,fundingWithinExpectedHold:false}};
+          const sweep=selectScalpEntryV51({...common,regime:'RANGE',sweep5:{downSweep:true,upSweep:false,priorLow:99.90,priorHigh:101.2},structure5:{breakUp:false,breakDown:false},structure15:{bias:0,priorHigh:101.2,priorLow:99.9,recentLow:99.7,recentHigh:101.2}},profile);
+          const breakout=selectScalpEntryV51({...common,price:100.10,regime:'BREAKOUT_UP',sweep5:{downSweep:false,upSweep:false,priorLow:99,priorHigh:100},structure5:{breakUp:true,breakDown:false},structure15:{bias:1,breakUp:true,breakDown:false,priorHigh:100,priorLow:98.8,recentLow:99.7,recentHigh:100.3}},profile);
+          const trend=selectScalpEntryV51({...common,regime:'TREND_UP',sweep5:{downSweep:false,upSweep:false,priorLow:99,priorHigh:101},structure5:{breakUp:false,breakDown:false},structure15:{bias:1,breakUp:false,breakDown:false,priorHigh:101.2,priorLow:98.8,recentLow:99.55,recentHigh:101.2}},profile);
+          const lanes=[sweep,breakout,trend].map(x=>x?.setup?.evidence?.lane||x?.reason);
+          console.log(JSON.stringify({syntheticLanes:lanes,sweep:sweep.ok,breakout:breakout.ok,trend:trend.ok},null,2));
+          if(!sweep.ok||sweep.setup.evidence.lane!=='LIQUIDITY_SWEEP_RECLAIM')process.exit(62);
+          if(!breakout.ok||breakout.setup.evidence.lane!=='BREAKOUT_RETEST_CONTINUATION')process.exit(63);
+          if(!trend.ok||trend.setup.evidence.lane!=='TREND_PULLBACK_REACCELERATION')process.exit(64);
+          for(const x of [sweep,breakout,trend]){
+            if(x.setup.entryTier==='PROBE')process.exit(65);
+            if(!(x.setup.evidence.hitProbability>=.68))process.exit(66);
+            if(!(x.setup.evidence.expectedTimeToTargetSec<=420))process.exit(67);
+            if(!(x.setup.rr<=1.90))process.exit(68);
+          }
+          NODE
+      - name: Commit validated V5.1 source
+        run: |
+          set -euo pipefail
+          git config user.name "bybit-v510-stager"
+          git config user.email "actions@users.noreply.github.com"
+          git add cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-auto-config.js cloudflare-worker/bybit-symbol-strategy.js cloudflare-worker/bybit-multi-asset-controller.js cloudflare-worker/bybit-symbol-engine.js cloudflare-worker/validate-btc-hyperscale.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "Integrate Bybit V5.1 three-lane microstructure scalp entry engine"
+            git push origin HEAD:bybit-v500-scalp-quality
+          fi
