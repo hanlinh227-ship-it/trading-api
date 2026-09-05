@@ -1,0 +1,21 @@
+name: Meme Alpha v1.9.6 Final Assistant Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v196-final-assistant-audit.sh'
+      - '.github/workflows/meme-alpha-v196-final-assistant-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run final assistant-side audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v196-final-assistant-audit.sh
+          bash ops/meme-alpha/v196-final-assistant-audit.sh
