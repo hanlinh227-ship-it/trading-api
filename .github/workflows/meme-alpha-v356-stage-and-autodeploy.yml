@@ -32,3 +32,4 @@ jobs:
           systemctl is-active meme-alpha-whale-flow.service || true
           if [ -f /opt/meme-alpha/app/runtime-status/whale-flow-intel.json ]; then cat /opt/meme-alpha/app/runtime-status/whale-flow-intel.json | head -n 30; fi
           if [ -f /opt/meme-alpha/app/runtime-status/portfolio-observability.json ]; then cat /opt/meme-alpha/app/runtime-status/portfolio-observability.json; fi
+# trigger: v356
