@@ -8,7 +8,10 @@ one side to be disabled from DEV evidence, and uses wider profit targets with
 less premature locking.
 
 V3 OOS is older than both V1 and V2 evidence: 300d DEV + 3x50d OOS ending
-1100 days before the current dataset end. OOS is never used for selection.
+at least 1100 days before the current dataset end. OOS is never used for
+selection. If an exchange-history candle gap intersects the fixed block, the
+whole block is shifted OLDER in deterministic 15-day steps based only on data
+integrity, never on P/L or win rate.
 """
 from __future__ import annotations
 import argparse, json
@@ -70,18 +73,15 @@ def combo_score(s):
     enough = s.trades >= 100
     econ = s.exp >= 0.04
     quality = s.wr >= 0.74
-    # Once economically qualified, favor WR while still preferring stronger expectancy.
     return (1 if enough and econ and quality else 0, 1 if s.exp > 0 else 0, s.wr, s.exp, -s.max_dd_r, s.trades)
 
 def choose_profiles(b, I, di):
     ranked = {}
-    dev_by_hash = {}
     for side in (1, -1):
         arr=[]
         for p in candidates(side):
             s=c.run_side(b,I,p,di[0],di[1])
             arr.append((side_score(s),p,s))
-            dev_by_hash[c.ph(p)] = s
         arr.sort(key=lambda z:z[0], reverse=True)
         ranked[side]=arr
 
@@ -97,24 +97,35 @@ def choose_profiles(b, I, di):
     combos.sort(key=lambda z:z[0], reverse=True)
     return combos[0], ranked
 
+def select_clean_block(b):
+    """Choose by DATA QUALITY only; never inspect trading outcome here."""
+    for shift_days in range(0, 241, 15):
+        anchor=b[-1].ts-(c.SEEN_V1_BUFFER_DAYS+shift_days)*c.DAY_MS
+        oos_end=anchor
+        oos_start=oos_end-c.OOS_WINDOWS*c.OOS_DAYS*c.DAY_MS+c.INTERVAL_MS
+        dev_end=oos_start-c.INTERVAL_MS
+        dev_start=dev_end-c.DEV_DAYS*c.DAY_MS+c.INTERVAL_MS
+        di=c.idx(b,dev_start,dev_end)
+        if not di or not c.clean(b,*di):
+            continue
+        windows=[]; ok=True
+        for k in range(c.OOS_WINDOWS):
+            st=oos_start+k*c.OOS_DAYS*c.DAY_MS
+            en=st+c.OOS_DAYS*c.DAY_MS-c.INTERVAL_MS
+            z=c.idx(b,st,en)
+            if not z or not c.clean(b,*z):
+                ok=False; break
+            windows.append(z)
+        if ok:
+            return shift_days,di,windows
+    return None
+
 def calibrate(sym,b,manifest):
     I=c.prep(b)
-    anchor=b[-1].ts-c.SEEN_V1_BUFFER_DAYS*c.DAY_MS
-    oos_end=anchor
-    oos_start=oos_end-c.OOS_WINDOWS*c.OOS_DAYS*c.DAY_MS+c.INTERVAL_MS
-    dev_end=oos_start-c.INTERVAL_MS
-    dev_start=dev_end-c.DEV_DAYS*c.DAY_MS+c.INTERVAL_MS
-    di=c.idx(b,dev_start,dev_end)
-    if not di or not c.clean(b,*di):
-        return {"symbol":sym,"status":"DATA_GAP","reason":"V3 DEV unavailable/gapped","manifest":manifest}
-    windows=[]
-    for k in range(c.OOS_WINDOWS):
-        st=oos_start+k*c.OOS_DAYS*c.DAY_MS
-        en=st+c.OOS_DAYS*c.DAY_MS-c.INTERVAL_MS
-        z=c.idx(b,st,en)
-        if not z or not c.clean(b,*z):
-            return {"symbol":sym,"status":"DATA_GAP","reason":f"V3 OOS{k+1} unavailable/gapped","manifest":manifest}
-        windows.append(z)
+    selected=select_clean_block(b)
+    if not selected:
+        return {"symbol":sym,"status":"DATA_GAP","reason":"No clean V3 block within deterministic 0-240d older shift","manifest":manifest}
+    shift_days,di,windows=selected
 
     (_,lp,sp,dev_combo), ranked = choose_profiles(b,I,di)
     dev_long=c.run_side(b,I,lp,di[0],di[1]) if lp.family!="DISABLED" else c.Stats()
@@ -142,9 +153,9 @@ def calibrate(sym,b,manifest):
 
     return {
         "symbol":sym,"status":status,"reason":"PASS" if status=="LOCKED" else reason,
-        "profile_version":"stateflow_profit_v3","long_profile_hash":c.ph(lp),"short_profile_hash":c.ph(sp),
+        "profile_version":"stateflow_profit_v3_gap_safe","long_profile_hash":c.ph(lp),"short_profile_hash":c.ph(sp),
         "long_params":c.pd(lp),"short_params":c.pd(sp),"manifest":manifest,
-        "validation_block_policy":{"end_buffer_days":c.SEEN_V1_BUFFER_DAYS,"dev_days":c.DEV_DAYS,"oos_windows":c.OOS_WINDOWS,"oos_days":c.OOS_DAYS,"disjoint_from":"V1,V2"},
+        "validation_block_policy":{"base_end_buffer_days":c.SEEN_V1_BUFFER_DAYS,"data_gap_shift_older_days":shift_days,"shift_rule":"first clean block in 15d increments; data quality only","dev_days":c.DEV_DAYS,"oos_windows":c.OOS_WINDOWS,"oos_days":c.OOS_DAYS,"disjoint_from":"V1,V2"},
         "dev_range":[c.iso(b[di[0]].ts),c.iso(b[di[1]].ts)],"dev_combined":c.statd(dev_combo),"dev_long":c.statd(dev_long),"dev_short":c.statd(dev_short),
         "oos_windows":[{"range":[c.iso(b[lo].ts),c.iso(b[hi].ts)],**c.statd(s)} for (lo,hi),s in zip(windows,ws)],
         "oos_aggregate":c.statd(agg),"worst_window_wr":round(worst,6),
@@ -156,7 +167,7 @@ def calibrate(sym,b,manifest):
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("--symbols",default=",".join(c.UNIVERSE));ap.add_argument("--out",default="research/results/bybit_multicoin_stateflow_profit_v3.json");a=ap.parse_args()
     syms=[x.strip().upper() for x in a.symbols.split(",") if x.strip()];res=[]
-    print("=== BYBIT MULTICOIN STATEFLOW PROFIT-AWARE V3 ===",flush=True)
+    print("=== BYBIT MULTICOIN STATEFLOW PROFIT-AWARE V3 GAP-SAFE ===",flush=True)
     for n,sym in enumerate(syms,1):
         print(f"[{n}/{len(syms)}] {sym} load",flush=True)
         try:
@@ -164,10 +175,10 @@ def main():
         except Exception as e:r={"symbol":sym,"status":"ERROR","reason":repr(e)}
         res.append(r)
         if r.get("oos_aggregate"):
-            x=r["oos_aggregate"];print(f"RESULT {sym} {r['status']} WR={100*x['win_rate']:.2f}% N={x['trades']} ExpR={x['expectancy_r']:+.4f} worst={100*r['worst_window_wr']:.2f}% LONG={r['long_params']['family']} SHORT={r['short_params']['family']} DEV_WR={100*r['dev_combined']['win_rate']:.2f}% DEV_ExpR={r['dev_combined']['expectancy_r']:+.4f} reason={r['reason']}",flush=True)
+            x=r["oos_aggregate"];shift=r['validation_block_policy']['data_gap_shift_older_days'];print(f"RESULT {sym} {r['status']} WR={100*x['win_rate']:.2f}% N={x['trades']} ExpR={x['expectancy_r']:+.4f} worst={100*r['worst_window_wr']:.2f}% LONG={r['long_params']['family']} SHORT={r['short_params']['family']} DEV_WR={100*r['dev_combined']['win_rate']:.2f}% DEV_ExpR={r['dev_combined']['expectancy_r']:+.4f} SHIFT={shift}d reason={r['reason']}",flush=True)
         else:print("RESULT",sym,r["status"],r.get("reason"),flush=True)
     out=Path(a.out);out.parent.mkdir(parents=True,exist_ok=True)
-    summary={"generated_at":datetime.now(timezone.utc).isoformat(),"engine":"BYBIT_MULTICOIN_STATEFLOW_PROFIT_V3","research_only":True,"universe":syms,"locked":[r["symbol"] for r in res if r.get("status")=="LOCKED"],"unresolved":[r["symbol"] for r in res if r.get("status")!="LOCKED"],"results":res}
+    summary={"generated_at":datetime.now(timezone.utc).isoformat(),"engine":"BYBIT_MULTICOIN_STATEFLOW_PROFIT_V3_GAP_SAFE","research_only":True,"universe":syms,"locked":[r["symbol"] for r in res if r.get("status")=="LOCKED"],"unresolved":[r["symbol"] for r in res if r.get("status")!="LOCKED"],"results":res}
     out.write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8")
     print("LOCKED",summary["locked"],flush=True);print("REPORT",out,flush=True)
 if __name__=="__main__":main()
