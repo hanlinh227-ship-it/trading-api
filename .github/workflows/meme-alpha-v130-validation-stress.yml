@@ -1,0 +1,24 @@
+name: Meme Alpha v1.3 Validation Stress
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v130-validation-stress.sh'
+      - '.github/workflows/meme-alpha-v130-validation-stress.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v130
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run Meme Alpha v1.3 stress validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v130-validation-stress.sh
+          nice -n 15 bash ops/meme-alpha/v130-validation-stress.sh
