@@ -1,0 +1,17 @@
+name: Meme Alpha v2.2 Broad Discovery Turbo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v220-broad-discovery-turbo.sh'
+      - '.github/workflows/meme-alpha-v220-broad-discovery-turbo.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy v2.2 broad discovery turbo
+        run: bash ops/meme-alpha/v220-broad-discovery-turbo.sh
