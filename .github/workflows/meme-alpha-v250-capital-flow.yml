@@ -1,0 +1,28 @@
+name: Meme Alpha v2.5.0 Capital Flow
+
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v250-capital-flow.sh'
+      - '.github/workflows/meme-alpha-v250-capital-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meme-alpha-v250-capital-flow
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect current capital and execution controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v250-capital-flow.sh
+          nice -n 15 bash ops/meme-alpha/v250-capital-flow.sh
