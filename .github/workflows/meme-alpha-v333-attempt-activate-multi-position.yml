@@ -1,0 +1,16 @@
+name: Meme Alpha v3.33 Attempt Multi Position Activation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v333-attempt-activate-multi-position.sh'
+      - '.github/workflows/meme-alpha-v333-attempt-activate-multi-position.yml'
+  workflow_dispatch:
+jobs:
+  activate:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Attempt root-safe staged activation
+        run: bash ops/meme-alpha/v333-attempt-activate-multi-position.sh
