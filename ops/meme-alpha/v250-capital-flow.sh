@@ -28,7 +28,6 @@ SRC="$REPO_ROOT/ops/meme-alpha/micro-live/micro-live-executor-v250.js"
 ROOTSRC="$REPO_ROOT/ops/meme-alpha/v250-root-go-live.sh"
 [ -f "$SRC" ] && [ -f "$ROOTSRC" ] || { echo ABORT_V250_BUNDLE_MISSING; exit 1; }
 cat "$SRC" > src/micro-live-executor.js
-chmod 664 src/micro-live-executor.js
 mkdir -p ops/meme-alpha
 install -m 0755 "$ROOTSRC" ops/meme-alpha/v250-root-go-live.sh
 
