@@ -1,0 +1,22 @@
+name: Meme Alpha v3.69 Deploy Capability Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v369-sudo-capability-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit noninteractive deploy capability
+        shell: bash
+        run: |
+          set -u
+          echo RUNNER_IDENTITY="$(id)"
+          echo '--- sudo capability ---'
+          sudo -n -l || true
+          echo '--- safe deploy wrapper markers ---'
+          grep -nE 'SAFE_DEPLOY_DISARM|ARMED=NO|micro-live-armed' /usr/local/sbin/meme-alpha-safe-deploy || true
+          echo V369_DEPLOY_CAPABILITY_AUDIT=COMPLETE
