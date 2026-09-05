@@ -1,0 +1,17 @@
+name: Meme Alpha v3.41 Stage Continuity Installer
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v341-root-install-continuity-scan.sh'
+      - 'ops/meme-alpha/v341-stage-continuity-installer.sh'
+      - '.github/workflows/meme-alpha-v341-stage-continuity-installer.yml'
+  workflow_dispatch:
+jobs:
+  stage:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage root continuity installer
+        run: bash ops/meme-alpha/v341-stage-continuity-installer.sh
