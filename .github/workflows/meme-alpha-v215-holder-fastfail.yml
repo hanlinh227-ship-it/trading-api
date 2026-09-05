@@ -1,0 +1,16 @@
+name: Meme Alpha v2.15 Holder Fast Fail
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v215-stage-holder-fastfail.sh'
+      - 'ops/meme-alpha/v215-root-apply-holder-fastfail.sh'
+      - '.github/workflows/meme-alpha-v215-holder-fastfail.yml'
+  workflow_dispatch:
+
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v215-stage-holder-fastfail.sh
