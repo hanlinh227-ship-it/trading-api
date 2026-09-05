@@ -1,0 +1,91 @@
+name: Meme Alpha v3.69 Modern Market Guard
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v369-patch-modern-market-guard.py'
+      - 'ops/meme-alpha/v369-stage-modern-market-guard.sh'
+      - '.github/workflows/meme-alpha-v369-modern-market-guard.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Stage and self-test v3.69
+        run: bash ops/meme-alpha/v369-stage-modern-market-guard.sh
+
+      - name: Safe activate executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=/opt/meme-alpha/app/runtime-status/v369-stage
+          NAME=$(cat "$STAGE/deploy-name.txt")
+          SHA=$(cat "$STAGE/executor.sha256")
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$NAME" "$SHA"
+          sleep 12
+
+      - name: Production audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STAGE="$APP/runtime-status/v369-stage"
+          STATE=/var/lib/meme-alpha/data/micro-live/state.json
+          EXPECT=$(cat "$STAGE/executor.sha256")
+          ACT=$(sha256sum "$APP/src/micro-live-executor.js" | awk '{print $1}')
+          echo EXPECTED_SHA="$EXPECT"
+          echo PRODUCTION_SHA="$ACT"
+          [ "$ACT" = "$EXPECT" ]
+
+          grep -q "3.69.0-modern-market-guard" "$APP/src/micro-live-executor.js"
+          grep -q 'MICRO_LIVE_EXECUTOR_V369_MODERN_MARKET_GUARD=STARTED' "$APP/src/micro-live-executor.js"
+          grep -q 'RUG_SHIELD_EXIT' "$APP/src/micro-live-executor.js"
+          grep -q 'ENTRY_CIRCUIT_BREAKER' "$APP/src/micro-live-executor.js"
+          grep -q 'liquidityAllocationCapPct' "$APP/src/micro-live-executor.js"
+          grep -q 'rowObservedAgeSec' "$APP/src/micro-live-executor.js"
+          grep -q 'AUTO_PROFIT_AWARE_WEAKNESS_TRIM' "$APP/src/micro-live-executor.js"
+          grep -q 'WINNER_ROTATION' "$APP/src/micro-live-executor.js"
+
+          for s in meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-paper.service meme-alpha-realtime-pulse.service meme-alpha-whale-flow.service; do
+            echo "$s=$(systemctl is-active "$s" || true)"
+            systemctl is-active --quiet "$s"
+          done
+          COUNT=$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)
+          echo EXECUTOR_COUNT="$COUNT"
+          [ "$COUNT" -eq 1 ]
+
+          /usr/bin/node - "$STATE" "$APP/runtime-status/portfolio-observability.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/whale-flow-intel.json" <<'NODE'
+          const fs=require('fs');
+          const read=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
+          const st=read(process.argv[2],null);if(!st)throw new Error('STATE_UNREADABLE');
+          const positions=Array.isArray(st.positions)?st.positions:[];
+          const mints=positions.map(x=>x?.mint).filter(Boolean);
+          if(new Set(mints).size!==mints.length)throw new Error('DUPLICATE_POSITION_MINT');
+          if(st.version!=='3.69.0-modern-market-guard')throw new Error('STATE_VERSION_NOT_V369');
+          const obs=read(process.argv[3],{});if(obs.stateReadable!==true)throw new Error('PORTFOLIO_STATE_NOT_READABLE');
+          const rt=read(process.argv[4],{}),wh=read(process.argv[5],{});
+          const age=x=>{const t=Date.parse(x.updatedAt||x.timestamp||x.generatedAt||0);return Number.isFinite(t)?Date.now()-t:-1};
+          console.log('OPEN_POSITIONS='+positions.length);
+          console.log('POSITION_MINTS='+JSON.stringify(mints.sort()));
+          console.log('REALTIME_STATUS='+(rt.status||'UNKNOWN'));
+          console.log('REALTIME_AGE_MS='+age(rt));
+          console.log('WHALE_STATUS='+(wh.status||'UNKNOWN'));
+          console.log('WHALE_AGE_MS='+age(wh));
+          console.log('WHALE_ROWS='+(Array.isArray(wh.rows)?wh.rows.length:0));
+          NODE
+
+          if [ -s /var/lib/meme-alpha/data/micro-live/entry-circuit.json ]; then
+            echo '--- entry circuit ---'
+            cat /var/lib/meme-alpha/data/micro-live/entry-circuit.json
+          else
+            echo ENTRY_CIRCUIT=NO_FAILURES_RECORDED_YET
+          fi
+          echo V369_RUG_SHIELD=ACTIVE
+          echo V369_INTEL_HAIRCUT=ACTIVE
+          echo V369_EXIT_LIQUIDITY_CAP=ACTIVE
+          echo V369_ENTRY_CIRCUIT_BREAKER=ACTIVE
+          echo V369_PROFIT_AWARE_EXITS=PRESERVED
+          echo V369_PRODUCTION_ACTIVE=TRUE
