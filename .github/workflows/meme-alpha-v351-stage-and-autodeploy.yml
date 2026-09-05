@@ -1,0 +1,39 @@
+name: Meme Alpha v3.51 Stage and Safe Auto Deploy
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v351-patch-executor.py'
+      - 'ops/meme-alpha/v351-stage-adaptive-alpha-stack.sh'
+      - 'ops/meme-alpha/v350-realtime-pool-pulse.js'
+      - 'ops/meme-alpha/v350-whale-flow-intel.js'
+      - '.github/workflows/meme-alpha-v351-stage-and-autodeploy.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage v3.51 and self-test
+        run: bash ops/meme-alpha/v351-stage-adaptive-alpha-stack.sh
+      - name: Attempt narrow non-interactive root deploy
+        shell: bash
+        run: |
+          set +e
+          sudo -n /opt/meme-alpha/app/runtime-status/v351-stage/install-v351.sh
+          rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo 'V351_AUTO_DEPLOY=SUCCESS'
+          else
+            echo "V351_AUTO_DEPLOY=ROOT_PERMISSION_REQUIRED rc=$rc"
+            echo 'ROOT_INSTALL_COMMAND=/opt/meme-alpha/app/runtime-status/v351-stage/install-v351.sh'
+          fi
+          exit 0
+      - name: Report runtime markers
+        run: |
+          echo "EXECUTOR_SHA=$(sha256sum /opt/meme-alpha/app/src/micro-live-executor.js | awk '{print $1}')"
+          grep -q 'MICRO_LIVE_EXECUTOR_V351_ADAPTIVE_ALPHA=STARTED' /opt/meme-alpha/app/src/micro-live-executor.js && echo V351_EXECUTOR_RUNTIME=TRUE || echo V351_EXECUTOR_RUNTIME=FALSE
+          grep -q '^LIVE_SIGNAL_MAX_AGE_SEC=60$' /opt/meme-alpha/app/run-paper.sh && echo SIGNAL_TTL_60=TRUE || echo SIGNAL_TTL_60=FALSE
+          systemctl is-active meme-alpha-micro-live.service || true
+          systemctl is-active meme-alpha-realtime-pulse.service || true
+          systemctl is-active meme-alpha-whale-flow.service || true
