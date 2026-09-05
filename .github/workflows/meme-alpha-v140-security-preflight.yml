@@ -1,0 +1,25 @@
+name: Meme Alpha v1.4 Security Preflight
+
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v140-security-preflight.sh'
+      - '.github/workflows/meme-alpha-v140-security-preflight.yml'
+      - '.gitignore'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run Meme Alpha v1.4 security preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v140-security-preflight.sh
+          nice -n 15 bash ops/meme-alpha/v140-security-preflight.sh
