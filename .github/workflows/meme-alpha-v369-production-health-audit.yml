@@ -31,6 +31,8 @@ jobs:
             echo "FINAL_$s=$V"
             [ "$V" = active ]
           done
+          # Give scanner/signal one settled cycle after every service is confirmed active.
+          sleep 35
           test -s "$APP/runtime-status/signal-snapshot.json"
           test -s "$APP/runtime-status/whale-flow-intel.json"
           test -s "$APP/runtime-status/realtime-pool-pulse.json"
