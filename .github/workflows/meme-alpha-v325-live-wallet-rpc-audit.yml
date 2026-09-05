@@ -1,0 +1,16 @@
+name: Meme Alpha v3.25 Live Wallet RPC Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v325-live-wallet-rpc-audit.sh'
+      - '.github/workflows/meme-alpha-v325-live-wallet-rpc-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read-only signer health and live wallet RPC audit
+        run: bash ops/meme-alpha/v325-live-wallet-rpc-audit.sh
