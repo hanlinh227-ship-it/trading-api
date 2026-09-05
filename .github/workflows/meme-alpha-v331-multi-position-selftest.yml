@@ -1,0 +1,17 @@
+name: Meme Alpha v3.31 Multi Position Self Test
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/micro-live/micro-live-executor-v331-multi.js'
+      - 'ops/meme-alpha/v331-multi-position-selftest.sh'
+      - '.github/workflows/meme-alpha-v331-multi-position-selftest.yml'
+  workflow_dispatch:
+jobs:
+  selftest:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate multi-position executor without live execution
+        run: bash ops/meme-alpha/v331-multi-position-selftest.sh
