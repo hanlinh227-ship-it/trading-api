@@ -1,0 +1,52 @@
+name: Meme Alpha v3.69 Production Health Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v369-production-health-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit active production stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            V=$(systemctl is-active "$s" || true)
+            echo "$s=$V"
+            [ "$V" = active ]
+          done
+          test -s "$APP/runtime-status/signal-snapshot.json"
+          test -s "$APP/runtime-status/whale-flow-intel.json"
+          test -s "$APP/runtime-status/realtime-pool-pulse.json"
+          test -s "$APP/runtime-status/portfolio-observability.json"
+          /usr/bin/node - "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');const r=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const s=r(process.argv[2]),w=r(process.argv[3]),rt=r(process.argv[4]),o=r(process.argv[5]);
+          const age=x=>{const t=Date.parse(x.updatedAt||x.timestamp||x.generatedAt||0);return Number.isFinite(t)?Date.now()-t:-1};
+          if(s.version!=='3.69.0-modern-signal-guard')throw new Error('SIGNAL_GUARD_NOT_V369');
+          if(w.version!=='3.69.0-modern-whale')throw new Error('WHALE_NOT_V369');
+          if(o.stateReadable!==true||!Number.isFinite(Number(o.openPositions)))throw new Error('OBSERVABILITY_INVALID');
+          const leak=(s.candidates||[]).filter(c=>c.intelMode==='BOTH_FEEDS_DOWN'&&c.decision==='PROBE_CANDIDATE');
+          if(leak.length)throw new Error('INTEL_FAIL_CLOSED_LEAK');
+          console.log('SIGNAL_VERSION='+s.version);
+          console.log('SIGNAL_AGE_MS='+age(s));
+          console.log('SIGNAL_CANDIDATES='+(s.candidates||[]).length);
+          console.log('SIGNAL_INTEL_SUMMARY='+JSON.stringify(s.intelSummary||{}));
+          console.log('SOURCE_HEALTH='+JSON.stringify(s.sourceHealth||{}));
+          console.log('REALTIME_STATUS='+(rt.status||'UNKNOWN'));
+          console.log('REALTIME_AGE_MS='+age(rt));
+          console.log('WHALE_VERSION='+w.version);
+          console.log('WHALE_STATUS='+(w.status||'UNKNOWN'));
+          console.log('WHALE_AGE_MS='+age(w));
+          console.log('WHALE_PROVIDER_COUNT='+Number(w.providerCount||0));
+          console.log('WHALE_ROWS='+(w.rows||[]).length);
+          console.log('OPEN_POSITIONS='+o.openPositions);
+          console.log('POSITION_MINTS='+JSON.stringify(o.positionMints||[]));
+          NODE
+          if grep -q "3.60.0-profit-aware-exits" "$APP/src/micro-live-executor.js"; then echo EXECUTOR_CORE=V360_PROFIT_AWARE; else echo EXECUTOR_CORE=UNKNOWN; exit 1; fi
+          echo V369_PRODUCTION_HEALTH=PASS
