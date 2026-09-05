@@ -1,0 +1,21 @@
+name: Meme Alpha v2.4.0 Fast Live Ready
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v240-fast-live-ready.sh'
+      - 'ops/meme-alpha/v240-root-go-live.sh'
+      - '.github/workflows/meme-alpha-v240-fast-live-ready.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Remove PAPER sample-count blocker and stage real micro-live activation
+        run: bash ops/meme-alpha/v240-fast-live-ready.sh
