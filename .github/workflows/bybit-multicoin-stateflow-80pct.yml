@@ -1,17 +1,13 @@
-name: Bybit MultiCoin StateFlow 80pct OOS
+name: Bybit MultiCoin Scalp RR 80pct OOS
 
 on:
   push:
     paths:
-      - 'research/bybit_multicoin_stateflow_80pct.py'
-      - 'research/bybit_multicoin_stateflow_dynamic_v2.py'
-      - 'research/bybit_multicoin_stateflow_profit_v3.py'
+      - 'research/bybit_multicoin_scalp_rr_v4.py'
       - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
   pull_request:
     paths:
-      - 'research/bybit_multicoin_stateflow_80pct.py'
-      - 'research/bybit_multicoin_stateflow_dynamic_v2.py'
-      - 'research/bybit_multicoin_stateflow_profit_v3.py'
+      - 'research/bybit_multicoin_scalp_rr_v4.py'
       - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
   workflow_dispatch:
 
@@ -21,7 +17,7 @@ permissions:
 jobs:
   backtest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       max-parallel: 18
@@ -49,22 +45,22 @@ jobs:
       PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v4
-      - name: Run profit-aware V3 per-symbol OOS calibration
+      - name: Run Bybit native 5m scalp fixed-RR V4 calibration
         shell: bash
         run: |
           set -o pipefail
           mkdir -p research/results
           SYMBOL='${{ matrix.symbol }}'
-          python3 research/bybit_multicoin_stateflow_profit_v3.py \
+          python3 research/bybit_multicoin_scalp_rr_v4.py \
             --symbols "$SYMBOL" \
-            --out "research/results/${SYMBOL}-v3.json" \
-            2>&1 | tee "research/results/${SYMBOL}-v3.txt"
-      - name: Upload V3 symbol report
+            --out "research/results/${SYMBOL}-v4.json" \
+            2>&1 | tee "research/results/${SYMBOL}-v4.txt"
+      - name: Upload V4 symbol report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bybit-${{ matrix.symbol }}-profit-v3
+          name: bybit-${{ matrix.symbol }}-scalp-rr-v4
           path: |
-            research/results/${{ matrix.symbol }}-v3.json
-            research/results/${{ matrix.symbol }}-v3.txt
+            research/results/${{ matrix.symbol }}-v4.json
+            research/results/${{ matrix.symbol }}-v4.txt
           retention-days: 30
