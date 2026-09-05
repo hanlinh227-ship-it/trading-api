@@ -1,0 +1,17 @@
+name: Meme Alpha v2.2.3 Resilient Sellability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v223-resilient-sellability.sh'
+      - '.github/workflows/meme-alpha-v223-resilient-sellability.yml'
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy resilient sellability
+        run: bash ops/meme-alpha/v223-resilient-sellability.sh
