@@ -1,0 +1,24 @@
+name: Meme Alpha v1.9.9 Stage Post-Validation Controls
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v199-stage-post-validation-controls.sh'
+      - 'ops/meme-alpha/signer/ready_signer_v3.py'
+      - 'ops/meme-alpha/v170-root-install-ready-signer.sh'
+      - 'ops/meme-alpha/v180-root-create-wallet-after-validation.sh'
+      - 'ops/meme-alpha/v181-root-arm-micro-live.sh'
+      - 'ops/meme-alpha/v191-root-install-micro-executor.sh'
+      - 'ops/meme-alpha/v192-root-emergency-disarm.sh'
+      - 'ops/meme-alpha/micro-live/micro-live-executor.js'
+      - '.github/workflows/meme-alpha-v199-stage-post-validation-controls.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test controls
+        run: bash ops/meme-alpha/v199-stage-post-validation-controls.sh
