@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Re-run after one-time parent traversal and runner sudo isolation fix.
 echo '=== MEME ALPHA v1.4.1 RUNNER ISOLATION VERIFY ==='
 RUNNER_UNIT=actions.runner.hanlinh227-ship-it-trading-api.trading-vps.service
 APP=/opt/meme-alpha/app
