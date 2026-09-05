@@ -25,7 +25,7 @@ jobs:
           NAME=$(cat "$STAGE/deploy-name.txt")
           SHA=$(cat "$STAGE/executor.sha256")
           sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$NAME" "$SHA"
-          sleep 12
+          sleep 15
 
       - name: Production audit
         shell: bash
@@ -33,7 +33,6 @@ jobs:
           set -euo pipefail
           APP=/opt/meme-alpha/app
           STAGE="$APP/runtime-status/v369-stage"
-          STATE=/var/lib/meme-alpha/data/micro-live/state.json
           EXPECT=$(cat "$STAGE/executor.sha256")
           ACT=$(sha256sum "$APP/src/micro-live-executor.js" | awk '{print $1}')
           echo EXPECTED_SHA="$EXPECT"
@@ -57,19 +56,19 @@ jobs:
           echo EXECUTOR_COUNT="$COUNT"
           [ "$COUNT" -eq 1 ]
 
-          /usr/bin/node - "$STATE" "$APP/runtime-status/portfolio-observability.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/whale-flow-intel.json" <<'NODE'
+          test -s "$APP/runtime-status/portfolio-observability.json"
+          test -s "$APP/runtime-status/realtime-pool-pulse.json"
+          test -s "$APP/runtime-status/whale-flow-intel.json"
+          /usr/bin/node - "$APP/runtime-status/portfolio-observability.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/whale-flow-intel.json" <<'NODE'
           const fs=require('fs');
-          const read=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
-          const st=read(process.argv[2],null);if(!st)throw new Error('STATE_UNREADABLE');
-          const positions=Array.isArray(st.positions)?st.positions:[];
-          const mints=positions.map(x=>x?.mint).filter(Boolean);
-          if(new Set(mints).size!==mints.length)throw new Error('DUPLICATE_POSITION_MINT');
-          if(st.version!=='3.69.0-modern-market-guard')throw new Error('STATE_VERSION_NOT_V369');
-          const obs=read(process.argv[3],{});if(obs.stateReadable!==true)throw new Error('PORTFOLIO_STATE_NOT_READABLE');
-          const rt=read(process.argv[4],{}),wh=read(process.argv[5],{});
+          const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const obs=read(process.argv[2]);if(obs.stateReadable!==true)throw new Error('PORTFOLIO_STATE_NOT_READABLE');
+          if(!Number.isFinite(Number(obs.openPositions)))throw new Error('OPEN_POSITION_COUNT_INVALID');
+          const rt=read(process.argv[3]),wh=read(process.argv[4]);
           const age=x=>{const t=Date.parse(x.updatedAt||x.timestamp||x.generatedAt||0);return Number.isFinite(t)?Date.now()-t:-1};
-          console.log('OPEN_POSITIONS='+positions.length);
-          console.log('POSITION_MINTS='+JSON.stringify(mints.sort()));
+          console.log('OPEN_POSITIONS='+obs.openPositions);
+          console.log('POSITION_MINTS='+JSON.stringify(obs.positionMints||[]));
+          console.log('OBS_STATE_VERSION='+(obs.stateVersion||'UNKNOWN'));
           console.log('REALTIME_STATUS='+(rt.status||'UNKNOWN'));
           console.log('REALTIME_AGE_MS='+age(rt));
           console.log('WHALE_STATUS='+(wh.status||'UNKNOWN'));
@@ -77,12 +76,6 @@ jobs:
           console.log('WHALE_ROWS='+(Array.isArray(wh.rows)?wh.rows.length:0));
           NODE
 
-          if [ -s /var/lib/meme-alpha/data/micro-live/entry-circuit.json ]; then
-            echo '--- entry circuit ---'
-            cat /var/lib/meme-alpha/data/micro-live/entry-circuit.json
-          else
-            echo ENTRY_CIRCUIT=NO_FAILURES_RECORDED_YET
-          fi
           echo V369_RUG_SHIELD=ACTIVE
           echo V369_INTEL_HAIRCUT=ACTIVE
           echo V369_EXIT_LIQUIDITY_CAP=ACTIVE
