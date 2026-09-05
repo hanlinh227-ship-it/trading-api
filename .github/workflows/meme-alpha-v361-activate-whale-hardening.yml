@@ -45,11 +45,4 @@ jobs:
           cat "$APP/runtime-status/whale-flow-intel.json"
           echo '--- portfolio observability ---'
           cat "$APP/runtime-status/portfolio-observability.json"
-          node - "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
-          const fs=require('fs');const w=JSON.parse(fs.readFileSync(process.argv[2]));const p=JSON.parse(fs.readFileSync(process.argv[3]));
-          if(!['HEALTHY','IDLE_HEALTHY'].includes(w.status))throw new Error('WHALE_STATUS_NOT_HEALTHY');
-          if(p.stateReadable!==true)throw new Error('PORTFOLIO_STATE_NOT_READABLE_BY_SERVICE');
-          if(!Number.isFinite(Number(p.openPositions)))throw new Error('PORTFOLIO_COUNT_INVALID');
-          console.log('V361_WHALE_HARDENING_PRODUCTION_ACTIVE=TRUE');
-          console.log('HELD_POSITION_OBSERVABILITY=TRUE');
-NODE
+          node -e "const fs=require('fs');const w=JSON.parse(fs.readFileSync(process.argv[1]));const p=JSON.parse(fs.readFileSync(process.argv[2]));if(!['HEALTHY','IDLE_HEALTHY'].includes(w.status))throw new Error('WHALE_STATUS_NOT_HEALTHY');if(p.stateReadable!==true)throw new Error('PORTFOLIO_STATE_NOT_READABLE_BY_SERVICE');if(!Number.isFinite(Number(p.openPositions)))throw new Error('PORTFOLIO_COUNT_INVALID');console.log('V361_WHALE_HARDENING_PRODUCTION_ACTIVE=TRUE');console.log('HELD_POSITION_OBSERVABILITY=TRUE');" "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/portfolio-observability.json"
