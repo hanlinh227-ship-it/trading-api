@@ -1,0 +1,43 @@
+name: Meme Alpha v0.9.2 Lite Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v092-lite.sh'
+      - '.github/workflows/meme-alpha-v092-lite.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meme-alpha-v092-lite
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: VPS resource precheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "hostname=$(hostname)"
+          echo "user=$(whoami)"
+          uptime
+          free -h
+          df -h /
+          test -d /opt/meme-alpha/app
+          test "$(id -u)" -eq 0
+
+      - name: Install and verify v0.9.2 lite
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v092-lite.sh
+          nice -n 10 bash ops/meme-alpha/v092-lite.sh
