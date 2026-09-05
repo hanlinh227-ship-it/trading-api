@@ -1,0 +1,17 @@
+name: Meme Alpha v3.09 Opportunity Expansion Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v309-opportunity-expansion-audit.sh'
+      - '.github/workflows/meme-alpha-v309-opportunity-expansion-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect opportunity sources and capital controls
+        run: bash ops/meme-alpha/v309-opportunity-expansion-audit.sh
