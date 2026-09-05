@@ -1,0 +1,25 @@
+name: Meme Alpha v1.9.5 Stage Final Live Bundle
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v195-stage-final-live-bundle.sh'
+      - 'ops/meme-alpha/micro-live/micro-live-executor-v192.js'
+      - 'ops/meme-alpha/v192-root-install-micro-executor.sh'
+      - 'ops/meme-alpha/v193-root-arm-micro-live.sh'
+      - 'ops/meme-alpha/v194-root-disarm-micro-live.sh'
+      - '.github/workflows/meme-alpha-v195-stage-final-live-bundle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage final root-only live bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v195-stage-final-live-bundle.sh
+          bash ops/meme-alpha/v195-stage-final-live-bundle.sh
