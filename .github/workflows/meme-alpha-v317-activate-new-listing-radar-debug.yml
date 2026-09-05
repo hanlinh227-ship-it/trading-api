@@ -1,0 +1,17 @@
+name: Meme Alpha v3.17 Captured New Listing Radar Activation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v317-activate-new-listing-radar-debug.sh'
+      - '.github/workflows/meme-alpha-v317-activate-new-listing-radar-debug.yml'
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Activate radar with runtime capture
+        run: bash ops/meme-alpha/v317-activate-new-listing-radar-debug.sh
