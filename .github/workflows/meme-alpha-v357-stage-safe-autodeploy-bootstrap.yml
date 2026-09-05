@@ -1,0 +1,24 @@
+name: Meme Alpha v3.57 Stage Safe AutoDeploy Bootstrap
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v357-root-bootstrap-safe-autodeploy.sh'
+      - '.github/workflows/meme-alpha-v357-stage-safe-autodeploy-bootstrap.yml'
+jobs:
+  stage:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage one-time root bootstrap
+        run: |
+          set -euo pipefail
+          STAGE=/opt/meme-alpha/app/runtime-status/v357-bootstrap
+          mkdir -p "$STAGE"
+          cp ops/meme-alpha/v357-root-bootstrap-safe-autodeploy.sh "$STAGE/install-safe-autodeploy.sh"
+          chmod 0755 "$STAGE/install-safe-autodeploy.sh"
+          bash -n "$STAGE/install-safe-autodeploy.sh"
+          sha256sum "$STAGE/install-safe-autodeploy.sh"
+          echo ROOT_BOOTSTRAP_COMMAND="$STAGE/install-safe-autodeploy.sh"
+          echo V357_BOOTSTRAP_STAGE_READY=TRUE
