@@ -1,0 +1,21 @@
+name: Meme Alpha v2.7.0 Full Capital Autoscale
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v270-stage-full-capital.sh'
+      - 'ops/meme-alpha/v270-root-apply-full-capital.sh'
+      - 'ops/meme-alpha/micro-live/micro-live-executor-v270.js'
+      - 'ops/meme-alpha/signer/ready_signer_v5.py'
+      - '.github/workflows/meme-alpha-v270-full-capital.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v270-full-capital
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v270-stage-full-capital.sh
