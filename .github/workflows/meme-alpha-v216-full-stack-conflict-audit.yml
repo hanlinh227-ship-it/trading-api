@@ -1,0 +1,15 @@
+name: Meme Alpha v2.16 Full Stack Conflict Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v216-full-stack-conflict-audit.sh'
+      - '.github/workflows/meme-alpha-v216-full-stack-conflict-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v216-full-stack-conflict-audit.sh
