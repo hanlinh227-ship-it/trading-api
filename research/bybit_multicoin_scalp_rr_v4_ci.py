@@ -8,6 +8,11 @@ from __future__ import annotations
 import json,time,urllib.parse,urllib.request
 import bybit_multicoin_scalp_rr_v4 as c
 
+# Hard scalp-density gates requested for this research batch.
+c.MIN_FINAL_TRADES=300
+c.MIN_FINAL_WINDOW_TRADES=80
+c.WORST_FINAL_WR=0.75
+
 BASE_BINANCE='https://data-api.binance.vision/api/v3/klines'
 
 def getj(url,retries=7):
