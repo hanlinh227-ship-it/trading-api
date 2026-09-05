@@ -85,6 +85,9 @@ if(runtime.mode==='PAPER' && allowed) throw new Error('FAIL_OPEN_GATE_IN_PAPER')
 console.log('FAIL_CLOSED_GATE=PASS');
 NODE
 
+# GitHub runner uses UMask=0077; explicitly grant only deploy-group read access so the bot can execute it.
+chown github-runner:meme-alpha-deploy src/micro-live-gate.js
+chmod 664 src/micro-live-gate.js
 node --check src/micro-live-gate.js
 
 node --input-type=module - <<'NODE'
@@ -96,8 +99,8 @@ if(!j.scripts.cycle5.includes('src/micro-live-gate.js')) j.scripts.cycle5 += ' &
 fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
 console.log('CYCLE5_MICRO_LIVE_GATE=INSTALLED');
 NODE
+chmod g+rw package.json
 
-# Runner must remain isolated from signer key/socket.
 if [ -r /var/lib/meme-alpha/signer-key ] || [ -x /var/lib/meme-alpha/signer-key ]; then
   echo 'FAIL_RUNNER_SIGNER_KEY_ACCESS'
   exit 1
@@ -111,7 +114,7 @@ echo 'RUNNER_SIGNER_KEY_ACCESS=DENIED_PASS'
 echo 'RUNNER_SIGNER_SOCKET_WRITE=DENIED_PASS'
 
 sudo -n /bin/systemctl restart meme-alpha-paper.service
-sleep 45
+sleep 90
 sudo -n /bin/systemctl is-active meme-alpha-paper.service >/dev/null
 
 node --input-type=module - <<'NODE'
