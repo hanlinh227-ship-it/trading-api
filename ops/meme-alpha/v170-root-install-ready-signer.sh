@@ -15,7 +15,7 @@ PY
 runner=$(systemctl show actions.runner.hanlinh227-ship-it-trading-api.trading-vps.service -p User --value)
 [ "$runner" = github-runner ] || { echo "ABORT_RUNNER=$runner"; exit 1; }
 install -o root -g root -m 0555 "$SRC" "$DST"
-install -d -o root -g meme-alpha-signer -m 0750 /etc/meme-alpha
+install -d -o root -g meme-alpha-signer-client -m 0750 /etc/meme-alpha
 cat > "$POLICY" <<'JSON'
 {
   "maxBuyLamports": 20000000,
@@ -23,7 +23,7 @@ cat > "$POLICY" <<'JSON'
   "jupiterBaseUrl": "https://api.jup.ag"
 }
 JSON
-chown root:meme-alpha-signer "$POLICY"; chmod 640 "$POLICY"
+chown root:meme-alpha-signer-client "$POLICY"; chmod 640 "$POLICY"
 rm -f /etc/meme-alpha/signer-enabled
 cat > "$UNIT" <<'EOF'
 [Unit]
