@@ -68,6 +68,8 @@ chmod 664 src/micro-live-gate.js
 node --check src/micro-live-gate.js
 
 # Stage the single root activation entry point. It never contains or prints a private key.
+mkdir -p "$APP/ops/meme-alpha"
+chmod 2775 "$APP/ops" "$APP/ops/meme-alpha" 2>/dev/null || true
 install -m 0755 "$SCRIPT_DIR/v240-root-go-live.sh" "$APP/ops/meme-alpha/v240-root-go-live.sh"
 chown github-runner:meme-alpha-deploy "$APP/ops/meme-alpha/v240-root-go-live.sh"
 
