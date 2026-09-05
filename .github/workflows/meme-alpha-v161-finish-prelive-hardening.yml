@@ -1,0 +1,17 @@
+name: Meme Alpha v1.6.1 Finish Pre-Live Hardening
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v161-finish-prelive-hardening.sh'
+      - '.github/workflows/meme-alpha-v161-finish-prelive-hardening.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  finish:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v5
+      - name: Finish hardening
+        run: bash ops/meme-alpha/v161-finish-prelive-hardening.sh
