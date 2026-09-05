@@ -74,8 +74,6 @@ function liquidityAllocationCapPct(c){const liq=n(c?.liquidityUsd);if(liq<75000)
 '''
 between('function intelRow(path,c,maxAgeSec=20){','function learningState(st){',intel)
 
-# Preserve the existing low-latency/Jito/Jupiter execution implementation and wrap it
-# only with persistent failure feedback for the entry circuit breaker.
 must('async function executeOrder(o){','async function executeOrderRaw(o){',1)
 wrapper = r'''async function executeOrder(o){
   try{const sig=await executeOrderRaw(o);executionCircuitSuccess();return sig}catch(e){executionCircuitFail(e);throw e}
@@ -86,7 +84,6 @@ idx=s.find('function candidates()')
 if idx<0: raise SystemExit('CANDIDATES_MARKER_MISSING')
 s=s[:idx]+wrapper+s[idx:]
 
-# Keep all original entry logic and add only the new entry-side fail-closed checks.
 must('function trendEntryEligible(c){','function trendEntryEligibleBase(c){',1)
 idx=s.find('function hardSafetyBroken(c){')
 if idx<0: raise SystemExit('HARD_SAFETY_MARKER_MISSING')
@@ -120,6 +117,11 @@ between('function allocationProfile(c,p,st,capitalBaseLamports){','function rank
 old="    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}"
 new="    const rug=rugShieldReason(c);if(rug){event({type:'RUG_SHIELD_EXIT',mint:pos.mint,symbol:pos.symbol,reason:rug});await sell(st,i,'RUG_SHIELD_'+rug);return{action:'SELL',reason:'RUG_SHIELD_'+rug,symbol:pos.symbol}}\n    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}"
 must(old,new,1)
+
+# v3.51 expected percentage allocation to always rise with equity. v3.69 intentionally
+# lets exit-liquidity concentration caps saturate that percentage instead.
+must("if(!(p2.pct>p1.pct))throw new Error('EQUITY_SCALE_FACTOR');",
+     "if(!(p2.pct>=p1.pct&&p2.pct<=liquidityAllocationCapPct(c)))throw new Error('EQUITY_SCALE_WITH_LIQUIDITY_CAP');",1)
 
 must("st.version='3.60.0-profit-aware-exits'","st.version='3.69.0-modern-market-guard'",1)
 must('MICRO_LIVE_EXECUTOR_V360_PROFIT_AWARE=STARTED','MICRO_LIVE_EXECUTOR_V369_MODERN_MARKET_GUARD=STARTED',1)
