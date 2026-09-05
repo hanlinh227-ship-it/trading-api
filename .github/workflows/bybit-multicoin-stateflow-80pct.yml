@@ -1,4 +1,4 @@
-name: MultiCoin Scalp RR 80pct OOS
+name: MultiCoin Scalp ML RR 80pct OOS
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
     paths:
       - 'research/bybit_multicoin_scalp_rr_v4.py'
       - 'research/bybit_multicoin_scalp_rr_v5.py'
+      - 'research/bybit_multicoin_scalp_ml_v6.py'
       - '.github/workflows/bybit-multicoin-stateflow-80pct.yml'
   workflow_dispatch:
 
@@ -48,22 +49,24 @@ jobs:
       PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v4
-      - name: Run 5m scalp fixed-RR V5 futures calibration
+      - name: Install ML dependencies
+        run: python3 -m pip install --disable-pip-version-check --quiet numpy scikit-learn
+      - name: Run 5m scalp ML fixed-RR V6 calibration
         shell: bash
         run: |
           set -o pipefail
           mkdir -p research/results
           SYMBOL='${{ matrix.symbol }}'
-          python3 research/bybit_multicoin_scalp_rr_v5.py \
+          python3 research/bybit_multicoin_scalp_ml_v6.py \
             --symbols "$SYMBOL" \
-            --out "research/results/${SYMBOL}-v5.json" \
-            2>&1 | tee "research/results/${SYMBOL}-v5.txt"
-      - name: Upload V5 symbol report
+            --out "research/results/${SYMBOL}-v6.json" \
+            2>&1 | tee "research/results/${SYMBOL}-v6.txt"
+      - name: Upload V6 symbol report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bybit-${{ matrix.symbol }}-scalp-rr-v5
+          name: bybit-${{ matrix.symbol }}-scalp-ml-v6
           path: |
-            research/results/${{ matrix.symbol }}-v5.json
-            research/results/${{ matrix.symbol }}-v5.txt
+            research/results/${{ matrix.symbol }}-v6.json
+            research/results/${{ matrix.symbol }}-v6.txt
           retention-days: 30
