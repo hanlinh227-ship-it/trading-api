@@ -24,114 +24,97 @@ Checkpoint date: 2026-09-06 (+07)
 - Wallet: Phantom-backed live wallet through isolated signer
 - Live execution: ACTIVE
 - Demo/paper execution: DISABLED; legacy paper service is scanner/risk/signal only
-- Scanner/radar/trend/signer/live executor: ACTIVE on the currently installed production version
 - Live executor architecture: multi-position
 - Hard max live position count: NONE
 - Duplicate mint protection remains
 - Exit/sell remains allowed when entry gate is closed
 
-### Current production executor
-- v3.42 Capital-Utilization-First: PRODUCTION ACTIVE.
-- Production executor SHA256: `077425b0744b17d22dbbaca23a5b130840640651ea2942fe919542462a0c5b88`
-- Confirmed production capabilities:
-  - continuous allocation
-  - capital-utilization-first
-  - free capital boosts new buys
-  - equity growth scales absolute new-buy size
-  - dynamic network exit headroom
-  - no hard position-count limit
-  - rotation to stronger opportunities
-  - hard security/sellability fail-safes retained
+### Current production executor — v3.51 Adaptive Alpha Stack
+Status: **PRODUCTION ACTIVE + RUNTIME AUDITED**.
+Production executor SHA256:
+`68230517180a7867ec0b4b8a0068d9ab7e07ed1bc62324c498902969b638e2ab`
 
-### Important runtime discrepancy found by v3.50 pre-upgrade audit
-Workflow run: `33981393887`
-- `run-paper.sh` currently shows `LIVE_SIGNAL_MAX_AGE_SEC=6000`, NOT 60.
-- This supersedes the older v3.44 audit statement that TTL 60 was active.
-- Continuity topology is still present, but 6000 seconds is too permissive for signal freshness.
-- v3.51 installer explicitly resets this to exactly `LIVE_SIGNAL_MAX_AGE_SEC=60`.
-- Until v3.51 is installed, do NOT claim the current production signal TTL is 60 seconds.
+Confirmed production capabilities:
+- continuous allocation
+- capital-utilization-first
+- free capital boosts new buys
+- equity growth scales absolute new-buy size
+- dynamic network exit headroom
+- no hard position-count limit
+- online expectancy learning from completed live trades
+- realtime pool-pulse integration
+- on-chain whale/holder-flow intelligence module
+- opportunity-cost rotation with switching-cost adjustment
+- Jito Singapore/Tokyo region race with Jupiter Execute fallback
+- execution feedback loop (submit/confirm/total latency + route)
+- executor loop ~1.5s
+- exit quote cache ~5s
+- radar enrichment ceiling 90; install changed radar cadence to 1s
+- hard security/sellability/mint/freeze/Token-2022/liquidity/price-impact/signing fail-safes retained
 
-### v3.51 Adaptive Alpha Stack
-Status: CODED + SELF-TESTED + STAGED. NOT YET PRODUCTION ACTIVE.
-Stage workflow run: `33981779575`
-Git commit that triggered stage: `13f7f75d6e5abfe8ddd3aa0505a95025c7f60a21`
-Staged executor SHA256: `68230517180a7867ec0b4b8a0068d9ab7e07ed1bc62324c498902969b638e2ab`
-Staged installer:
-`/opt/meme-alpha/app/runtime-status/v351-stage/install-v351.sh`
+### v3.52 post-activation audit
+Workflow run: `33982149540`
+Audit commit: `3debeb86547224d90589eea67cbc6a3a83f08fac`
+Result: **AUDIT STEP SUCCESS / V352_POST_V351_AUDIT=COMPLETE**.
 
-Self-test confirmed:
-- `MICRO_EXECUTOR_V351_ADAPTIVE_ALPHA_SELF_TEST=PASS`
-- `REALTIME_POOL_PULSE_INTEGRATION=TRUE`
-- `ONCHAIN_WHALE_FLOW_INTEGRATION=TRUE`
-- `ONLINE_EXPECTANCY_LEARNING=TRUE`
-- `OPPORTUNITY_COST_ROTATION=TRUE`
-- `JITO_REGION_RACE_WITH_SAFE_FALLBACK=TRUE`
-- `EXECUTION_FEEDBACK_LOOP=TRUE`
-- `ADAPTIVE_FAST_LOOP_MS=1500`
-- inherited continuous allocation/capital-utilization/equity-scale/multi-position/safety markers remain TRUE
+Confirmed on VPS/runtime:
+- `EXECUTOR_SHA_MATCH=TRUE`
+- `V351_EXECUTOR_MARKER=TRUE`
+- `ONLINE_LEARNING_MARKER=TRUE`
+- `JITO_ROUTER_MARKER=TRUE`
+- `SIGNAL_TTL_60=TRUE`
+- `PAPER_EXECUTION_DISABLED=TRUE`
+- `meme-alpha-micro-live.service=active`
+- `meme-alpha-paper.service=active`
+- `meme-alpha-realtime-pulse.service=active`
+- `meme-alpha-whale-flow.service=active`
+- `meme-alpha-signer.service=active`
 
-v3.51 upgrade contents:
-1. Event-driven realtime pool pulse using Solana WebSocket account subscriptions for top radar pair accounts.
-2. On-chain whale-flow intelligence from token supply + largest-account concentration changes; no paid provider key required.
-3. Online expectancy learning from completed live trades, with shrinkage to reduce overfitting on small sample counts.
-4. Candidate ranking and allocation include learned expectancy, realtime activity, whale-flow quality, liquidity, impact, flow and trend.
-5. Opportunity-cost rotation compares new opportunity edge against held positions and includes estimated switching impact.
-6. Jito Singapore/Tokyo region race for signed transactions with Jupiter Execute fallback if Jito submission fails.
-7. Execution feedback logging: route, submit latency, confirmation latency, total latency, signature.
-8. Executor loop reduced from ~4s to 1.5s; exit quote cache reduced from 10s to 5s; confirmation polling tightened.
-9. Radar candidate enrichment ceiling increased from 60 to 90 and radar loop sleep is changed from 5s to 1s at install time.
-10. Signal TTL is corrected from the discovered 6000 seconds to 60 seconds.
-11. Existing root policy, sellability, holder-cluster, mint/freeze, Token-2022, liquidity, exact price-impact, signer isolation and fail-close safety remain.
+Runtime freshness snapshot from that audit:
+- realtime pool pulse: `HEALTHY`, age ~0.10s, 32 rows
+- safe signal age: ~38.97s, 18 rows
+- micro-live entry gate: `true`, age ~38.94s
+- signal TTL fixed to exactly 60 seconds (older 6000-second discrepancy is resolved)
 
-### v3.51 deployment status
-- GitHub self-hosted runner staged and self-tested v3.51 successfully.
-- Automatic root install was attempted and blocked by the expected root boundary: `sudo: a password is required`.
-- Current production remains v3.42 until the root installer is run.
-- Required one-time production activation command:
+### Current live wallet snapshot from v3.52
+On-chain confirmed at audit time:
+- LIVE SOL: `0.153814036`
+- Non-zero SPL token accounts: `5`
 
-```bash
-/opt/meme-alpha/app/runtime-status/v351-stage/install-v351.sh
-```
+Do not assume this balance/count remains identical after later live trades.
 
-- Installer has backup + rollback and preserves live position mints before/after activation.
-- Expected success marker:
-`V351_ADAPTIVE_ALPHA_PRODUCTION_ACTIVE=TRUE`
+### Whale-flow note
+The whale-flow service itself is ACTIVE, but at the v3.52 snapshot its output was:
+- status: `DEGRADED`
+- rows: `0`
+A v3.53 debug showed the current signal snapshot had **no candidate simultaneously matching `securityDecision=PASS` and `holderClusterDecision=PASS`**, so the module had no eligible mint to inspect at that instant (`CANDIDATE_MINT=NONE`). This is not evidence that the service crashed; it is currently an empty-input/degraded state. The executor treats unavailable/degraded whale intelligence as neutral rather than bypassing hard safety gates.
 
-### Prepared post-activation audit
-- Audit script: `ops/meme-alpha/v352-post-v351-audit.sh`
-- Audit workflow: `.github/workflows/meme-alpha-v352-post-v351-audit.yml`
-- It checks executor hash/markers, signal TTL, services, state version, open positions, learning state, realtime/whale intel health, live SOL and nonzero token-account count.
-- Do not mark v3.51 PRODUCTION ACTIVE until this audit or equivalent runtime evidence confirms installation.
+### State visibility note
+The GitHub runner reported `STATE_UNREADABLE_OR_MISSING=TRUE` for `/var/lib/meme-alpha/data/micro-live/state.json`. The live services/executor are active and chain state was independently confirmed, but runner permissions prevented refreshing the internal open-position list/learning counters in the audit. Do not infer internal position count from this flag.
 
-### Latest on-chain wallet state previously confirmed
-This is historical until refreshed after v3.51 activation:
-- SOL: `0.439392033`
-- Non-zero live token accounts: 4
-- Previously observed holdings:
-  - `8PzFWyLpCVEmbZmVJcaRTU5r69XKJx1rd7YGpWvnpump`
-  - `9Pfync3ejPC9eHqVzq3nYQJAhyhjqpnB9UsaSfLxpump`
-  - `Cy1GS2FqefgaMbi45UunrUzin1rfEmTUYnomddzBpump`
-  - `G8aVC4nk5oPWzTHp4PDm3kAuixCebv9WRQMD93h9pump`
-Do not assume balances/holdings are unchanged without a fresh chain audit.
-
-### Provider note
-The pre-upgrade runtime audit found no configured Birdeye/Helius/Jito API-key environment variables. v3.51 therefore implements immediate no-key realtime/on-chain intelligence and no-key Jito transaction endpoints. Birdeye/Helius labeled-wallet or LaserStream-grade data can be added later if credentials are intentionally provisioned, but v3.51 does not depend on them to run.
+### Current operating intent
+- Do not cap number of held coins for strategy reasons.
+- If deployable SOL remains and a candidate passes the full safety/quality pipeline, bot may continue allocating to additional positions.
+- Free capital should increase new-buy pressure instead of being held idle solely because portfolio exposure is already high.
+- Equity growth should increase absolute new-entry size.
+- Stronger opportunities may rotate capital from weaker holdings after estimated switching cost.
+- Only technical/network exit headroom and root-policy safety floor remain as reserve constraints.
 
 ### Deployment/security rules
 - NEVER grant `NOPASSWD: ALL`.
 - NEVER make GitHub runner root.
-- Keep signer isolation and private-key boundary intact.
+- Keep signer isolation/private-key boundary intact.
 - Root-level installers must have backup + rollback.
 - Preserve sellRoute/security/holder/mint/freeze/Token-2022/price-impact/data-freshness fail-safes.
 - Strategy may be autonomous; invalid/unsafe transaction prevention remains fail-closed.
 
-## One command to view the latest checkpoint on VPS
+## One command to view latest checkpoint on VPS
 ```bash
 cat /opt/meme-alpha/app/runtime-status/MEME_ALPHA_CHECKPOINT.md
 ```
 
 ## Required checkpoint write after each future update
-Every future update must end with a checkpoint entry containing:
+Every future update must end with:
 - timestamp
 - version/change name
 - git commit/workflow run if applicable
