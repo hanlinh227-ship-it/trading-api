@@ -1,0 +1,18 @@
+name: Meme Alpha v2.7.2 Opportunity Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v272-opportunity-audit.sh'
+      - '.github/workflows/meme-alpha-v272-opportunity-audit.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v272-opportunity-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v272-opportunity-audit.sh
