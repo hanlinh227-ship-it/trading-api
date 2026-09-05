@@ -1,0 +1,34 @@
+name: Meme Alpha v3.56 Whale Flow Hardening
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v356-whale-flow-intel.js'
+      - 'ops/meme-alpha/v356-stage-whale-flow-hardening.sh'
+      - '.github/workflows/meme-alpha-v356-stage-and-autodeploy.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test v3.56
+        run: bash ops/meme-alpha/v356-stage-whale-flow-hardening.sh
+      - name: Attempt narrow non-interactive production activation
+        shell: bash
+        run: |
+          set +e
+          sudo -n /opt/meme-alpha/app/runtime-status/v356-stage/install-v356.sh
+          rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo V356_AUTO_DEPLOY=SUCCESS
+          else
+            echo "V356_AUTO_DEPLOY=ROOT_PERMISSION_REQUIRED rc=$rc"
+            echo ROOT_INSTALL_COMMAND=/opt/meme-alpha/app/runtime-status/v356-stage/install-v356.sh
+          fi
+          exit 0
+      - name: Runtime report
+        run: |
+          systemctl is-active meme-alpha-whale-flow.service || true
+          if [ -f /opt/meme-alpha/app/runtime-status/whale-flow-intel.json ]; then cat /opt/meme-alpha/app/runtime-status/whale-flow-intel.json | head -n 30; fi
+          if [ -f /opt/meme-alpha/app/runtime-status/portfolio-observability.json ]; then cat /opt/meme-alpha/app/runtime-status/portfolio-observability.json; fi
