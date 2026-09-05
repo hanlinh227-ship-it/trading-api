@@ -1,0 +1,24 @@
+name: Meme Alpha v1.4.3 Micro Live Gate
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v143-micro-live-gate.sh'
+      - '.github/workflows/meme-alpha-v143-micro-live-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v143
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage fail-closed micro live gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v143-micro-live-gate.sh
+          nice -n 15 bash ops/meme-alpha/v143-micro-live-gate.sh
