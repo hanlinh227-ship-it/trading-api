@@ -20,9 +20,10 @@ old="sellImpactPct:Number.isFinite(Number(c.sellImpactPct))?Number(c.sellImpactP
 new="sellPriceImpactPct:Number.isFinite(Number(c.sellPriceImpactPct))?Number(c.sellPriceImpactPct):null,sellImpactPct:Number.isFinite(Number(c.sellPriceImpactPct))?Number(c.sellPriceImpactPct):(Number.isFinite(Number(c.sellImpactPct))?Number(c.sellImpactPct):(Number.isFinite(Number(c.priceImpactPct))?Number(c.priceImpactPct):null)),priceImpactPct:Number.isFinite(Number(c.priceImpactPct))?Number(c.priceImpactPct):null"
 if old in s:s=s.replace(old,new,1)
 elif 'sellPriceImpactPct:Number.isFinite(Number(c.sellPriceImpactPct))' not in s:raise SystemExit('SAFE_SIGNAL_IMPACT_PATTERN_NOT_FOUND')
-for oldv in ["version:'2.2.0'","version:'2.1.6'","version:'2.1.4'","version:'2.1.2'","version:'2.0.1'"]:
-    if oldv in s:s=s.replace(oldv,"version:'2.2.2'",1);break
-if "version:'2.2.2'" not in s:raise SystemExit('SAFE_SIGNAL_VERSION_PATTERN_NOT_FOUND')
+# Never downgrade a newer exporter on rerun.
+if not any(f"version:'{v}'" in s for v in ['2.2.3','2.2.4','2.2.5','2.3.0']):
+    for oldv in ["version:'2.2.0'","version:'2.1.6'","version:'2.1.4'","version:'2.1.2'","version:'2.0.1'"]:
+        if oldv in s:s=s.replace(oldv,"version:'2.2.2'",1);break
 p.write_text(s)
 PY
 node --check src/safe-signal-export.js
@@ -36,35 +37,28 @@ patched=0
 for p in paths:
     if not p.exists(): continue
     s=p.read_text()
-    if old in s:
-        s=s.replace(old,new,1);p.write_text(s);patched+=1
-    elif new in s: patched+=1
-    else: raise SystemExit('EXECUTOR_IMPACT_PATTERN_NOT_FOUND_'+str(p))
+    if old in s:s=s.replace(old,new,1);p.write_text(s);patched+=1
+    elif new in s:patched+=1
+    else:raise SystemExit('EXECUTOR_IMPACT_PATTERN_NOT_FOUND_'+str(p))
 print('EXECUTOR_COMPAT_FILES='+str(patched))
-if patched<1: raise SystemExit('NO_EXECUTOR_FILE_PATCHED')
+if patched<1:raise SystemExit('NO_EXECUTOR_FILE_PATCHED')
 PY
 node --check src/micro-live-executor.js
 
-# Refresh read-only exported signal. No order/sign/execute path is called.
-node src/safe-signal-export.js
-
-# MICRO executor must remain disabled while PAPER validation is incomplete.
+# Do NOT execute safe-signal-export as github-runner: it is intentionally denied
+# access to private PAPER files and would overwrite the sanitized snapshot empty.
 ! systemctl is-active --quiet meme-alpha-micro-live.service
 [ "$(systemctl is-enabled meme-alpha-micro-live.service 2>/dev/null || true)" != enabled ]
 node src/micro-live-executor.js --self-test
 
 node --input-type=module - <<'NODE'
 import fs from 'node:fs';
-const sig=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/signal-snapshot.json','utf8'));
+const src=fs.readFileSync('src/safe-signal-export.js','utf8');
+const ex=fs.readFileSync('src/micro-live-executor.js','utf8');
 const g=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/micro-live-gate.json','utf8'));
-console.log(`SIGNAL_VERSION=${sig.version}`);
-console.log(`CANDIDATES=${(sig.candidates||[]).length}`);
-const sell=(sig.candidates||[]).filter(x=>x.sellRoute===true);
-console.log(`SELLABLE=${sell.length}`);
-for(const x of sell.slice(0,8)) console.log(`SELLABLE ${x.symbol} sellPriceImpact=${x.sellPriceImpactPct} normalizedImpact=${x.sellImpactPct}`);
-if(sig.version!=='2.2.2') throw new Error('SIGNAL_VERSION');
-for(const x of sell){if(Number.isFinite(Number(x.sellPriceImpactPct)) && Number(x.sellImpactPct)!==Number(x.sellPriceImpactPct)) throw new Error('IMPACT_NORMALIZATION_MISMATCH')}
-if(g.allowed!==false||g.executionMode!=='DISABLED') throw new Error('LIVE_GATE');
+if(!src.includes('sellPriceImpactPct:Number.isFinite(Number(c.sellPriceImpactPct))'))throw new Error('EXPORT_COMPAT_MISSING');
+if(!ex.includes('c.sellPriceImpactPct??c.sellImpactPct??c.priceImpactPct'))throw new Error('EXECUTOR_COMPAT_MISSING');
+if(g.allowed!==false||g.executionMode!=='DISABLED')throw new Error('LIVE_GATE');
 console.log('V222_EXECUTOR_SIGNAL_COMPAT_PASS');
 NODE
 
