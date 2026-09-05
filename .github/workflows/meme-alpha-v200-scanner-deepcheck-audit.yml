@@ -1,0 +1,16 @@
+name: Meme Alpha v2.0 Scanner Deepcheck Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v200-scanner-deepcheck-audit.sh'
+      - '.github/workflows/meme-alpha-v200-scanner-deepcheck-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v200-scanner-deepcheck-audit.sh
