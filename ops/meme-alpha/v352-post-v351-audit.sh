@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# audit trigger 2026-09-06 after user confirmed v3.51 activation
+# audit trigger 2026-09-06 after user confirmed v3.51 activation; wallet query fixed
 APP=/opt/meme-alpha/app
 STATE=/var/lib/meme-alpha/data/micro-live/state.json
 WALLET=DpdTfAAyrtQm28CBgi1xH3Euk1xHAJsnmSiqUMGVNSfk
@@ -18,12 +18,13 @@ for s in meme-alpha-micro-live.service meme-alpha-paper.service meme-alpha-realt
 if [ -f "$STATE" ]; then /usr/bin/node - "$STATE" <<'NODE'
 const fs=require('fs'),s=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));console.log('STATE_VERSION='+(s.version||''));console.log('OPEN_POSITIONS='+((s.positions||[]).length));console.log('POSITION_MINTS='+JSON.stringify((s.positions||[]).map(x=>x.mint).sort()));console.log('LEARNING_CLOSED='+(s.learning?.totalClosed||0));console.log('LEARNING_WIN_RATE='+(s.learning?.totalClosed?((s.learning.totalWins||0)/s.learning.totalClosed):0));
 NODE
-else echo STATE_MISSING=TRUE; fi
+else echo STATE_UNREADABLE_OR_MISSING=TRUE; fi
 for f in realtime-pool-pulse.json whale-flow-intel.json signal-snapshot.json micro-live-gate.json; do if [ -f "$APP/runtime-status/$f" ]; then /usr/bin/node - "$APP/runtime-status/$f" "$f" <<'NODE'
 const fs=require('fs'),j=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),name=process.argv[3];const age=(Date.now()-Date.parse(j.updatedAt||j.timestamp||0))/1000;console.log(name+'_STATUS='+(j.status??j.allowed??''));console.log(name+'_AGE_SEC='+(Number.isFinite(age)?age.toFixed(2):'NA'));console.log(name+'_ROWS='+((j.rows||j.candidates||[]).length));
 NODE
 fi; done
 /usr/bin/node - "$APP/config/runtime.json" "$WALLET" <<'NODE'
-const fs=require('fs');const cfg=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),w=process.argv[3];async function rpc(m,p){const r=await fetch(cfg.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:m,params:p}),signal:AbortSignal.timeout(8000)});const j=await r.json();if(j.error)throw new Error(j.error.message);return j.result}const b=await rpc('getBalance',[w,{commitment:'confirmed'}]);const t=await rpc('getTokenAccountsByOwner',[w,{programId:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},{encoding:'jsonParsed',commitment:'confirmed'}]);const nz=(t.value||[]).filter(x=>Number(x.account?.data?.parsed?.info?.tokenAmount?.amount||0)>0);console.log('LIVE_SOL='+(Number(b.value)/1e9).toFixed(9));console.log('NONZERO_TOKEN_ACCOUNTS='+nz.length)}
+const fs=require('fs');
+(async()=>{const cfg=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),w=process.argv[3];async function rpc(m,p){const r=await fetch(cfg.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:m,params:p}),signal:AbortSignal.timeout(8000)});const j=await r.json();if(j.error)throw new Error(j.error.message);return j.result}const b=await rpc('getBalance',[w,{commitment:'confirmed'}]);const t=await rpc('getTokenAccountsByOwner',[w,{programId:'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'},{encoding:'jsonParsed',commitment:'confirmed'}]);const nz=(t.value||[]).filter(x=>BigInt(x.account?.data?.parsed?.info?.tokenAmount?.amount||'0')>0n);console.log('LIVE_SOL='+(Number(b.value)/1e9).toFixed(9));console.log('NONZERO_TOKEN_ACCOUNTS='+nz.length)})().catch(e=>{console.error('CHAIN_AUDIT_ERROR='+String(e.message||e));process.exit(1)})
 NODE
 echo V352_POST_V351_AUDIT=COMPLETE
