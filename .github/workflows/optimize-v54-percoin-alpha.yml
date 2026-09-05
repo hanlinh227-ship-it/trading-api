@@ -37,7 +37,7 @@ jobs:
         with:
           name: v54-${{ matrix.symbol }}-alpha
           path: |
-            v54-${{ matrix.symbol == 'BTCUSDT' && 'btcusdt' || matrix.symbol == 'ETHUSDT' && 'ethusdt' || matrix.symbol == 'SOLUSDT' && 'solusdt' || matrix.symbol == 'XRPUSDT' && 'xrpusdt' || matrix.symbol == 'DOGEUSDT' && 'dogeusdt' || 'linkusdt' }}-alpha-report.json
+            v54-*-alpha-report.json
             v54-*.log
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
