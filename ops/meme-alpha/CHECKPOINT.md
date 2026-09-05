@@ -35,9 +35,13 @@ Checkpoint date: 2026-09-06 (+07)
 - Exit/sell remains allowed when entry gate is closed
 
 ### Latest production executor confirmed
-- v3.36 Autonomous Portfolio was confirmed production active.
-- Production executor SHA256 confirmed at audit: `608785762d5387b58a2bfb4adead1bf29e7cfe9c489472bf7013442a35ab21d2`
-- v3.36 features confirmed:
+- v3.42 Capital-Utilization-First: PRODUCTION ACTIVE and runtime-audited.
+- Production executor SHA256: `077425b0744b17d22dbbaca23a5b130840640651ea2942fe919542462a0c5b88`
+- v3.42 runtime markers confirmed:
+  - `CAPITAL_UTILIZATION_FIRST=TRUE`
+  - `FREE_CAPITAL_BOOSTS_NEW_BUYS=TRUE`
+  - `MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE`
+- v3.36 autonomous features remain inherited:
   - continuous allocation
   - equity growth scales new buys
   - dynamic network exit headroom
@@ -45,49 +49,56 @@ Checkpoint date: 2026-09-06 (+07)
   - rotation to stronger opportunity
   - hard security/sellability fail-safes retained
 
-### Latest live-wallet audit after v3.36
+### v3.41 Continuity Scan
+Status: PRODUCTION ACTIVE and runtime-audited.
+Confirmed runtime markers:
+- `LIVE_SIGNAL_MAX_AGE_SEC=60`
+- `CONTINUITY_SCAN=KEEP_LAST_SAFE_GATE_DURING_REFRESH`
+- `close_entry_gate 'FULL_CYCLE_FAILED'`
+- paper execution remains disabled
+Interpretation:
+- a healthy full refresh no longer closes entry merely because refresh is running;
+- failed refresh still closes entry immediately;
+- excessive staleness still fail-closes.
+
+### v3.44 Post-Activation Audit
+Status: PASS.
+Workflow run: `33981066349`
+Git commit: `44bbd9f8a86dbfcc8f8a6918105f7eb685af9d11`
+Confirmed on VPS/runtime:
+- v3.42 executor marker: TRUE
+- capital-utilization-first marker: TRUE
+- free-capital boost marker: TRUE
+- no hard position count limit marker: TRUE
+- v3.41 signal TTL 60: TRUE
+- v3.41 continuity marker: TRUE
+- full-cycle fail-close: TRUE
+- paper execution disabled: TRUE
+- executor processes: 1
+- signer processes: 1
+- `meme-alpha-paper.service`: active
+- `meme-alpha-micro-live.service`: active
+- audit result: `V344_POST_ACTIVATION_AUDIT=PASS`
+Note: the audit did not find the expected state file at `runtime-status/micro-live-state.json`; this does not invalidate executor/service activation, but live position count was therefore not refreshed by v3.44.
+
+### Latest on-chain wallet state previously confirmed
+This is the latest blockchain-confirmed snapshot on record, not necessarily current after later live trading:
 - SOL: `0.439392033`
 - Non-zero live token accounts: 4
-- Holdings observed:
-  - `8PzFWyLpCVEmbZmVJcaRTU5r69XKJx1rd7YGpWvnpump` — 8477.346201
-  - `9Pfync3ejPC9eHqVzq3nYQJAhyhjqpnB9UsaSfLxpump` — 1103.014859
-  - `Cy1GS2FqefgaMbi45UunrUzin1rfEmTUYnomddzBpump` — 4918.032166
-  - `G8aVC4nk5oPWzTHp4PDm3kAuixCebv9WRQMD93h9pump` — 1828.811494
-- 4/4 live positions were preserved after v3.36 upgrade.
+- Previously observed holdings:
+  - `8PzFWyLpCVEmbZmVJcaRTU5r69XKJx1rd7YGpWvnpump`
+  - `9Pfync3ejPC9eHqVzq3nYQJAhyhjqpnB9UsaSfLxpump`
+  - `Cy1GS2FqefgaMbi45UunrUzin1rfEmTUYnomddzBpump`
+  - `G8aVC4nk5oPWzTHp4PDm3kAuixCebv9WRQMD93h9pump`
+Do not assume these balances/holdings are still identical without a fresh chain audit.
 
-### Scanner/gate bottleneck discovered
-- Radar observed healthy and fresh (~1s in one audit), 100 radar candidates.
-- Trend observed fresh (~2s in one audit).
-- Safe signal snapshot was observed stale (~24.9s) while full scan was running.
-- Old scan topology closes/blocks entry during long full-cycle refresh windows.
-
-### v3.41 Continuity Scan
-Status: STAGED, NOT YET CONFIRMED PRODUCTION ACTIVE.
-Purpose:
-- stop closing entry merely because a full refresh starts;
-- keep last safe signal usable during refresh;
-- only close on failed refresh or excessive staleness;
-- keep paper execution disabled.
-Staged installer:
-`/opt/meme-alpha/app/runtime-status/v341-stage/install-v341.sh`
-Success marker:
-`V341_CONTINUITY_SCAN_PRODUCTION_ACTIVE=TRUE`
-
-### v3.42 Capital-Utilization-First
-Status: STAGED, SELF-TEST PASS, NOT YET CONFIRMED PRODUCTION ACTIVE.
-Self-test markers:
-- `CAPITAL_UTILIZATION_FIRST=TRUE`
-- `FREE_CAPITAL_BOOSTS_NEW_BUYS=TRUE`
-- `EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE`
-- `DYNAMIC_NETWORK_EXIT_HEADROOM=TRUE`
-- `MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE`
-- `ROTATION_TO_STRONGER_OPPORTUNITY=TRUE`
-Staged executor SHA256:
-`077425b0744b17d22dbbaca23a5b130840640651ea2942fe919542462a0c5b88`
-Staged installer:
-`/opt/meme-alpha/app/runtime-status/v342-stage/install-v342.sh`
-Expected success marker:
-`V342_CAPITAL_UTILIZATION_PRODUCTION_ACTIVE=TRUE`
+### Current operating intent
+- Do not cap the number of held coins for strategy reasons.
+- If deployable SOL remains and a new candidate passes the full safety/quality pipeline, the bot may continue allocating to additional positions.
+- Free capital should increase new-buy pressure rather than being held idle solely because portfolio exposure is already high.
+- Equity growth should increase absolute new-entry size.
+- Stronger opportunities may trigger capital rotation from weaker holdings.
+- Keep only dynamic technical/network exit headroom and root-policy safety floor, not a strategic cash-hoarding reserve.
 
 ### Deployment/security rules
 - NEVER grant `NOPASSWD: ALL`.
@@ -98,8 +109,6 @@ Expected success marker:
 - Strategy may be autonomous; invalid/unsafe transaction prevention remains fail-closed.
 
 ## One command to view the latest checkpoint on VPS
-After checkpoint sync is installed, use:
-
 ```bash
 cat /opt/meme-alpha/app/runtime-status/MEME_ALPHA_CHECKPOINT.md
 ```
