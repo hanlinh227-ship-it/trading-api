@@ -1,0 +1,28 @@
+name: Meme Alpha v1.1.3 Reaction Telemetry
+
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v113-reaction-telemetry.sh'
+      - '.github/workflows/meme-alpha-v113-reaction-telemetry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meme-alpha-v113-reaction-telemetry
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy Meme Alpha v1.1.3 reaction telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v113-reaction-telemetry.sh
+          nice -n 15 bash ops/meme-alpha/v113-reaction-telemetry.sh
