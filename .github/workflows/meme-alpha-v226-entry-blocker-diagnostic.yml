@@ -1,0 +1,20 @@
+name: Meme Alpha v2.2.6 Entry Blocker Diagnostic
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v226-entry-blocker-diagnostic.sh'
+      - '.github/workflows/meme-alpha-v226-entry-blocker-diagnostic.yml'
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Diagnose entry blockers
+        run: bash ops/meme-alpha/v226-entry-blocker-diagnostic.sh
