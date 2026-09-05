@@ -3,39 +3,35 @@ set -euo pipefail
 APP=/opt/meme-alpha/app
 cd "$APP"
 
-echo '=== MEME ALPHA v1.1 HARDENING INSPECTION ==='
+echo '=== MEME ALPHA v1.1.1 REACTION/ORCHESTRATION INSPECTION ==='
 node - <<'NODE'
 import fs from 'node:fs';
 const c=JSON.parse(fs.readFileSync('config/runtime.json','utf8'));
 if(c.mode!=='PAPER') throw new Error('ABORT_NOT_PAPER');
 console.log('MODE=PAPER');
-console.log('JUPITER='+c.jupiter);
+console.log('SCANNER_INTERVAL_MS='+c.scannerIntervalMs);
 NODE
 
-echo '=== RISK FULL ==='
-sed -n '1,520p' src/risk.js
+echo '=== POSITION ARG/MANAGE/ENTRY MARKERS ==='
+grep -nE 'process\.argv|openPositions|for \(const pos|PAPER_BUY_PROBE|PAPER_SELL|ENTRY_ALLOWED|RISK_STATE_FRESH|SOURCE_HEALTH_ENTRY_GATE|POSITION_ENGINE_STATUS|closeFraction|emergency|thesis|tp1|tp2' src/position.js || true
 
-echo '=== VALIDATION FULL ==='
-sed -n '1,520p' src/validation.js
+echo '=== POSITION CORE 260-1040 ==='
+sed -n '260,1040p' src/position.js
 
-echo '=== PERSISTENCE KEY SECTIONS ==='
-grep -nE 'version|generatedAt|updatedAt|persistenceDecision|positionId|PAPER_ENTRY_READY|STALE|observations' src/persistence.js || true
-sed -n '1,380p' src/persistence.js
+echo '=== RISK CURRENT ==='
+sed -n '1,420p' src/risk.js
 
-echo '=== PACKAGE CYCLE ==='
+echo '=== RUN LOOP ==='
+cat run-paper.sh
+
+echo '=== PACKAGE ==='
 cat package.json
 
-echo '=== SOURCE HEALTH ==='
-cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
-
-echo '=== RISK STATE ==='
-cat /var/lib/meme-alpha/data/paper/risk-state.json 2>/dev/null || true
-
-echo '=== PAPER SUMMARY ==='
-node src/paper.js || true
+echo '=== LATEST LOG TAIL ==='
+tail -120 /var/log/meme-alpha/paper.log || true
 
 echo '=== SERVICE ==='
 systemctl --no-pager is-active meme-alpha-paper.service || true
 systemctl --no-pager is-enabled meme-alpha-paper.service || true
 
-echo 'V110_INSPECTION_COMPLETE'
+echo 'V111_INSPECTION_COMPLETE'
