@@ -1,0 +1,29 @@
+name: Meme Alpha v3.70 Realtime Crash Diagnostic
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v370-realtime-crash-diagnostic.yml'
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect realtime restart loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          S=meme-alpha-realtime-pulse.service
+          echo '=== UNIT STATE ==='
+          systemctl show "$S" -p ActiveState -p SubState -p Result -p NRestarts -p Restart -p RestartUSec -p ExecMainCode -p ExecMainStatus -p MainPID -p ExecMainStartTimestamp -p ActiveEnterTimestamp --no-pager || true
+          echo '=== UNIT FILE ==='
+          systemctl cat "$S" --no-pager || true
+          echo '=== RECENT JOURNAL ==='
+          journalctl -u "$S" --since '-20 min' --no-pager -n 220 2>/dev/null || true
+          echo '=== CURRENT RUNTIME ==='
+          /usr/bin/node - /opt/meme-alpha/app/runtime-status/realtime-pool-pulse.json <<'NODE'
+          const fs=require('fs');const p=process.argv[2];
+          try{const x=JSON.parse(fs.readFileSync(p,'utf8'));console.log(JSON.stringify({version:x.version,status:x.status,updatedAt:x.updatedAt,websocketOpen:x.websocketOpen,subscriptions:x.subscriptions,lastConnectAt:x.lastConnectAt,lastError:x.lastError,rows:(x.rows||[]).length,fresh:(x.rows||[]).filter(r=>r.lastEventAgeMs!==null&&Number.isFinite(Number(r.lastEventAgeMs))&&Number(r.lastEventAgeMs)<=8000).length},null,2))}catch(e){console.log('RUNTIME_READ_ERROR='+String(e.message||e))}
+          NODE
+          echo V370_REALTIME_DIAGNOSTIC_COMPLETE=TRUE
