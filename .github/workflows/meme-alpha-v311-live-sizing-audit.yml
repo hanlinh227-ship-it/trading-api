@@ -1,0 +1,17 @@
+name: Meme Alpha v3.11 Live Sizing Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v311-live-sizing-audit.sh'
+      - '.github/workflows/meme-alpha-v311-live-sizing-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect live sizing and scale controls
+        run: bash ops/meme-alpha/v311-live-sizing-audit.sh
