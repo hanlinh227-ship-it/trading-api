@@ -8,12 +8,12 @@ SERVICE=meme-alpha-paper.service
 TARGET_CHECKS=3
 cd "$APP"
 
-echo '=== V307 SELL-ROUTE BUDGET AUTOTUNE ==='
+echo '=== V307 R2 SELL-ROUTE BUDGET AUTOTUNE ==='
 [ -r "$SCANNER" ] || { echo 'SCANNER_NOT_READABLE'; exit 2; }
 [ -w "$APP/src" ] || { echo 'SRC_DIR_NOT_WRITABLE'; exit 3; }
 
 grep -q '^const MAX_SELLABILITY_CHECKS_V216=8;$' "$SCANNER" || {
-  if grep -q '^const MAX_SELLABILITY_CHECKS_V216=3;$' "$SCANNER"; then
+  if grep -q '^const MAX_SELLABILITY_CHECKS_V216=3;' "$SCANNER"; then
     echo 'SELL_ROUTE_BUDGET_ALREADY_TUNED=TRUE'
   else
     echo 'UNKNOWN_SELL_ROUTE_BUDGET_ABORT'; exit 4
@@ -29,7 +29,7 @@ cp -p "$SCANNER" "$backup"
 echo "BACKUP=$backup"
 
 if grep -q '^const MAX_SELLABILITY_CHECKS_V216=8;$' "$SCANNER"; then
-  tmp="$APP/src/.scanner-v307.$$.tmp"
+  tmp="$APP/src/.scanner-v307.$$.js"
   python3 - "$SCANNER" "$TARGET_CHECKS" > "$tmp" <<'PY'
 from pathlib import Path
 import sys
@@ -65,7 +65,7 @@ echo 'SECURITY_THRESHOLDS_CHANGED=FALSE'
 
 rollback(){
   echo 'ROLLBACK_START=TRUE'
-  local rt="$APP/src/.scanner-v307-rollback.$$.tmp"
+  local rt="$APP/src/.scanner-v307-rollback.$$.js"
   cp "$backup" "$rt"
   /usr/bin/node --check "$rt" || true
   chmod 664 "$rt" || true
@@ -85,7 +85,7 @@ sleep 2
 sudo -n /bin/systemctl is-active "$SERVICE" >/dev/null || { rollback; echo 'PAPER_NOT_ACTIVE'; exit 9; }
 
 echo '=== LATENCY VERIFY: TWO FRESH SIGNALS ==='
-last="$pre"; updates=0; first_epoch=0; second_epoch=0; first_stamp=''; second_stamp=''
+last="$pre"; updates=0; first_epoch=0; second_epoch=0
 for i in $(seq 1 90); do
   sleep 2
   [ -r "$SIG" ] || continue
@@ -106,8 +106,8 @@ NODE
   if [ -n "$stamp" ] && [ "$stamp" != "$last" ]; then
     updates=$((updates+1)); now=$(date +%s); last="$stamp"
     echo "NEW_SIGNAL_$updates stamp=$stamp ageSec=$age source=$source cache=$cache gateAllowed=$allowed reasons=$reasons elapsed=$((now-start))s"
-    if [ "$updates" -eq 1 ]; then first_epoch=$now; first_stamp="$stamp"; fi
-    if [ "$updates" -eq 2 ]; then second_epoch=$now; second_stamp="$stamp"; break; fi
+    if [ "$updates" -eq 1 ]; then first_epoch=$now; fi
+    if [ "$updates" -eq 2 ]; then second_epoch=$now; break; fi
   fi
 done
 
@@ -124,4 +124,4 @@ if [ "$first_latency" -gt 40 ] || [ "$steady_interval" -gt 35 ]; then
   exit 11
 fi
 
-echo 'V307_SELLROUTE_BUDGET_AUTOTUNE_PASS'
+echo 'V307_R2_SELLROUTE_BUDGET_AUTOTUNE_PASS'
