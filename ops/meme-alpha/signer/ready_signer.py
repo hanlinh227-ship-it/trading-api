@@ -116,7 +116,7 @@ def load_policy():
 def is_enabled():
     try:
         st=os.stat(ENABLE_PATH)
-        return (st.st_mode&0o777)==0o600 and open(ENABLE_PATH,'r',encoding='utf-8').read().strip()=='ARMED=YES'
+        return st.st_uid==0 and (st.st_mode&0o777)==0o640 and open(ENABLE_PATH,'r',encoding='utf-8').read().strip()=='ARMED=YES'
     except Exception: return False
 
 
