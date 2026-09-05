@@ -1,0 +1,15 @@
+name: Meme Alpha v3.60 Preupgrade Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v360-preupgrade-audit.sh'
+      - '.github/workflows/meme-alpha-v360-preupgrade-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit current runtime and deploy boundary
+        run: bash ops/meme-alpha/v360-preupgrade-audit.sh
