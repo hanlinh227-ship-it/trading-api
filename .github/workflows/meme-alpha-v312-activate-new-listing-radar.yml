@@ -1,0 +1,18 @@
+name: Meme Alpha v3.12 Activate New Listing Radar
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v312-new-listing-radar.js'
+      - 'ops/meme-alpha/v312-activate-new-listing-radar.sh'
+      - '.github/workflows/meme-alpha-v312-activate-new-listing-radar.yml'
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Activate and verify new-listing radar
+        run: bash ops/meme-alpha/v312-activate-new-listing-radar.sh
