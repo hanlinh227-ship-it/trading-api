@@ -1,0 +1,30 @@
+name: Optimize Bybit V5.2 Scalp 10 Round
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/scripts/optimize-v52-scalp-10round.py'
+      - '.github/workflows/optimize-v52-scalp-10round.yml'
+permissions:
+  contents: read
+jobs:
+  optimize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+      - name: Run 10-round walk-forward optimizer
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/optimize-v52-scalp-10round.py | tee v52-optimizer.log
+      - name: Upload optimizer result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v52-10round-optimizer-results
+          path: |
+            v52-10round-optimizer-report.json
+            v52-optimizer.log
+          retention-days: 30
