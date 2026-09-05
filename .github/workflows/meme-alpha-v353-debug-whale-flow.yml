@@ -1,0 +1,15 @@
+name: Meme Alpha v3.53 Whale Flow Debug
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v353-debug-whale-flow.sh'
+      - '.github/workflows/meme-alpha-v353-debug-whale-flow.yml'
+jobs:
+  debug:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Debug whale flow runtime
+        run: bash ops/meme-alpha/v353-debug-whale-flow.sh
