@@ -1,0 +1,20 @@
+name: Meme Alpha v2.0.1 Universe Compat Observability
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v201-universe-compat-observability.sh'
+      - '.github/workflows/meme-alpha-v201-universe-compat-observability.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v201-compat
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Patch compatibility and safe observability
+        run: bash ops/meme-alpha/v201-universe-compat-observability.sh
