@@ -1,0 +1,57 @@
+name: Meme Alpha v3.69 Modern Whale Intelligence
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v369-whale-flow-modern.js'
+      - 'ops/meme-alpha/v369-stage-modern-whale.sh'
+      - '.github/workflows/meme-alpha-v369-modern-whale.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test
+        run: bash ops/meme-alpha/v369-stage-modern-whale.sh
+      - name: Safe deploy whale intelligence
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=/opt/meme-alpha/app/runtime-status/v369-whale-stage
+          NAME=$(cat "$STAGE/deploy-name.txt")
+          SHA=$(cat "$STAGE/whale.sha256")
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy whale "$NAME" "$SHA"
+          sleep 14
+      - name: Production audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STAGE="$APP/runtime-status/v369-whale-stage"
+          EXPECT=$(cat "$STAGE/whale.sha256")
+          ACT=$(sha256sum "$APP/src/whale-flow-intel.js" | awk '{print $1}')
+          echo EXPECTED_WHALE_SHA="$EXPECT"
+          echo ACTIVE_WHALE_SHA="$ACT"
+          [ "$ACT" = "$EXPECT" ]
+          systemctl is-active --quiet meme-alpha-whale-flow.service
+          systemctl is-active --quiet meme-alpha-micro-live.service
+          test -s "$APP/runtime-status/whale-flow-intel.json"
+          test -s "$APP/runtime-status/portfolio-observability.json"
+          /usr/bin/node - "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/portfolio-observability.json" "$APP/runtime-status/signal-snapshot.json" <<'NODE'
+          const fs=require('fs');const w=JSON.parse(fs.readFileSync(process.argv[2]));const o=JSON.parse(fs.readFileSync(process.argv[3]));const s=JSON.parse(fs.readFileSync(process.argv[4]));
+          if(w.version!=='3.69.0-modern-whale')throw new Error('WHALE_VERSION_NOT_V369');
+          if(w.oneMintPerCycle!==true||w.supplyCacheMs!==600000||w.rowFreshnessTtlMs!==180000)throw new Error('WHALE_RATE_SHAPE_SCHEMA');
+          if(o.stateReadable!==true||!Number.isFinite(Number(o.openPositions)))throw new Error('OBS_STATE_NOT_READABLE');
+          if(s.version!=='3.69.0-modern-signal-guard')throw new Error('SIGNAL_GUARD_NOT_ACTIVE');
+          console.log('WHALE_STATUS='+w.status);
+          console.log('WHALE_PROVIDER_COUNT='+w.providerCount);
+          console.log('WHALE_ROWS='+(Array.isArray(w.rows)?w.rows.length:0));
+          console.log('OPEN_POSITIONS='+o.openPositions);
+          console.log('POSITION_MINTS='+JSON.stringify(o.positionMints||[]));
+          NODE
+          echo V369_MULTI_PROVIDER_WHALE=ACTIVE
+          echo V369_ROW_FRESHNESS_GUARD=ACTIVE
+          echo V369_HELD_POSITION_WHALE_PRIORITY=ACTIVE
+          echo V369_SIGNAL_GUARD=ACTIVE
+          echo V369_INTELLIGENCE_PRODUCTION_ACTIVE=TRUE
