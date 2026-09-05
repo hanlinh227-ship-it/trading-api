@@ -12,7 +12,7 @@ const g=r('/opt/meme-alpha/app/runtime-status/micro-live-gate.json');
 const cs=s.candidates||[];
 console.log(`SIGNAL_TS=${s.timestamp||'-'} TOTAL=${cs.length} MEME=${cs.filter(x=>x.universeClass==='MEME_CONFIRMED').length} GATE=${g.allowed===true}`);
 const x=cs.filter(c=>c.universeClass==='MEME_CONFIRMED').sort((a,b)=>Number(b.score||0)-Number(a.score||0)).slice(0,20);
-for(const c of x)console.log(JSON.stringify({symbol:c.symbol,score:c.score,decision:c.decision,security:c.securityDecision,holder:c.holderClusterDecision??null,sell:c.sellRoute??null,impact:c.sellPriceImpactPct??null,liq:c.liquidityUsd,chg5m:c.priceChange5m,buyers:c.netBuyers5m,avgBuyers:c.avgNetBuyersLast2,slope:c.scoreSlopeLast2,stable:c.liquidityStableLast2,elig:c.consecutiveEligible,token2022:c.token2022,hardReject:c.hardReject}));
+for(const c of x)console.log(JSON.stringify({symbol:c.symbol,score:c.score,decision:c.decision,security:c.securityDecision,securityReview:c.securityReviewReasons||[],securityBlock:c.securityBlockReasons||[],holder:c.holderClusterDecision??null,holderReview:c.holderReviewReasons||[],holderBlock:c.holderBlockReasons||[],sell:c.sellRoute??null,impact:c.sellPriceImpactPct??null,liq:c.liquidityUsd,chg5m:c.priceChange5m,buyers:c.netBuyers5m,avgBuyers:c.avgNetBuyersLast2,slope:c.scoreSlopeLast2,stable:c.liquidityStableLast2,elig:c.consecutiveEligible,token2022:c.token2022,hardReject:c.hardReject}));
 NODE
 
 echo '=== SECURITY/HOLDER/SELL PIPELINE TRACE ==='
