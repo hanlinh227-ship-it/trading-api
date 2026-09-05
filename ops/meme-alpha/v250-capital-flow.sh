@@ -39,9 +39,13 @@ grep -q 'CAPITAL_DEPOSIT_DETECTED' src/micro-live-executor.js
 grep -q 'CAPITAL_WITHDRAWAL_DETECTED' src/micro-live-executor.js
 grep -q 'maxUtilizationPct' ops/meme-alpha/v250-root-go-live.sh
 
-# This deploy only stages code. It cannot create/read the wallet, arm signing, or execute a transaction.
 ! systemctl is-active --quiet meme-alpha-micro-live.service
 if [ -e /etc/meme-alpha/execution-mode ]; then echo EXECUTION_MODE_FILE_PRESENT_PRE_ACTIVATION; else echo EXECUTION_MODE=DISABLED; fi
+
+echo '=== CURRENT GLOBAL RISK STATE ==='
+cat /var/lib/meme-alpha/data/paper/risk-state.json 2>/dev/null || echo RISK_STATE_MISSING
+echo '=== CURRENT SOURCE HEALTH ==='
+cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || echo SOURCE_HEALTH_MISSING
 
 echo PRE_EVIDENCE_MAX_ENTRY_SOL=0.005
 echo POST_EVIDENCE_BASE_UTILIZATION_PCT=70
