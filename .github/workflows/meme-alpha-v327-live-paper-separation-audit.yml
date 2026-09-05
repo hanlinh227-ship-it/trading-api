@@ -1,0 +1,16 @@
+name: Meme Alpha v3.27 Live Paper Separation Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v327-live-paper-separation-audit.sh'
+      - '.github/workflows/meme-alpha-v327-live-paper-separation-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect paper-live coupling and cadence
+        run: bash ops/meme-alpha/v327-live-paper-separation-audit.sh
