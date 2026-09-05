@@ -1,0 +1,15 @@
+name: Meme Alpha v2.10 Smart Profit Exit v2
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v210-stage-smart-profit-exit-v2.sh'
+      - '.github/workflows/meme-alpha-v210-smart-profit-exit-v2.yml'
+  workflow_dispatch:
+
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v210-stage-smart-profit-exit-v2.sh
