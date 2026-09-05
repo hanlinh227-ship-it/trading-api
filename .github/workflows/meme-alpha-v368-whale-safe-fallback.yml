@@ -1,0 +1,60 @@
+name: Meme Alpha v3.68 Whale Safe Fallback
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v365-whale-flow-rate-shaped.js'
+      - 'ops/meme-alpha/v368-stage-whale-safe-fallback.sh'
+      - '.github/workflows/meme-alpha-v368-whale-safe-fallback.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test whale safe fallback
+        run: bash ops/meme-alpha/v368-stage-whale-safe-fallback.sh
+      - name: Safe deploy rate-shaped whale module
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          S="$APP/runtime-status/v368-stage"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy whale whale-flow-v368-safe-fallback.js "$(cat "$S/whale.sha256")"
+          sleep 25
+      - name: Audit critical services and fail-soft whale health
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service; do
+            echo "$s=$(systemctl is-active "$s" || true)"
+            systemctl is-active --quiet "$s"
+          done
+          echo "meme-alpha-whale-flow.service=$(systemctl is-active meme-alpha-whale-flow.service || true)"
+          systemctl is-active --quiet meme-alpha-whale-flow.service
+          grep -q "version:'3.65.0'" "$APP/src/whale-flow-intel.js"
+          test -s "$APP/runtime-status/portfolio-observability.json"
+          test -s "$APP/runtime-status/whale-flow-intel.json"
+          /usr/bin/node - "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');
+          const w=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const o=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+          if(o.stateReadable!==true)throw new Error('STATE_NOT_READABLE_BY_SERVICE');
+          if(!Number.isFinite(Number(o.openPositions)))throw new Error('POSITION_COUNT_INVALID');
+          const healthy=new Set(['HEALTHY','IDLE_HEALTHY','HEALTHY_CACHED_RATE_SHAPED']);
+          const status=String(w.status||'UNKNOWN');
+          const safeFallback=!healthy.has(status);
+          const age=Date.now()-Date.parse(w.updatedAt||0);
+          console.log('WHALE_STATUS='+status);
+          console.log('WHALE_ROWS='+(Array.isArray(w.rows)?w.rows.length:0));
+          console.log('WHALE_DATA_AGE_MS='+(Number.isFinite(age)?age:-1));
+          console.log('OBS_OPEN_POSITIONS='+o.openPositions);
+          console.log('OBS_POSITION_MINTS='+JSON.stringify(o.positionMints||[]));
+          console.log('V368_WHALE_SAFE_FALLBACK='+(safeFallback?'ON':'OFF'));
+          if(safeFallback)console.warn('WHALE_OPTIONAL_DEGRADED_NON_FATAL='+status);
+          if(!Number.isFinite(age)||age>180000)console.warn('WHALE_DATA_STALE_NON_FATAL=TRUE');
+          NODE
+          echo V368_CRITICAL_HEALTH=PASS
+          echo V368_WHALE_DEGRADATION_FAIL_SOFT=TRUE
+          echo V368_PRODUCTION_ACTIVE=TRUE
