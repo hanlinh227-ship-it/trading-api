@@ -36,3 +36,4 @@ jobs:
           systemctl is-active meme-alpha-micro-live.service || true
           systemctl is-active meme-alpha-realtime-pulse.service || true
           systemctl is-active meme-alpha-whale-flow.service || true
+# trigger: v350-stage-1
