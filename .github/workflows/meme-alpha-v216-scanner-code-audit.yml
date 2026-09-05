@@ -1,0 +1,15 @@
+name: Meme Alpha v2.16 Scanner Code Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v216-scanner-code-audit.sh'
+      - '.github/workflows/meme-alpha-v216-scanner-code-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v216-scanner-code-audit.sh
