@@ -1,0 +1,21 @@
+name: Meme Alpha v1.5.0 Completion Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v150-completion-audit.sh'
+      - '.github/workflows/meme-alpha-v150-completion-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit remaining completion work
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v150-completion-audit.sh
+          bash ops/meme-alpha/v150-completion-audit.sh
