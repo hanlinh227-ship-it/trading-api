@@ -1,0 +1,17 @@
+name: Meme Alpha v3.08 Production Readiness Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v308-production-readiness-audit.sh'
+      - '.github/workflows/meme-alpha-v308-production-readiness-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit deployed Meme Alpha production readiness
+        run: bash ops/meme-alpha/v308-production-readiness-audit.sh
