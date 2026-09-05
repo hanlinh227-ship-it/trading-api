@@ -1,0 +1,21 @@
+name: Meme Alpha v1.4.1 Runner Isolation Diagnostic
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v141-runner-isolation-diagnostic.sh'
+      - '.github/workflows/meme-alpha-v141-runner-isolation-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Diagnose runner isolation safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v141-runner-isolation-diagnostic.sh
+          nice -n 15 bash ops/meme-alpha/v141-runner-isolation-diagnostic.sh
