@@ -7,7 +7,7 @@ const fs=require('fs'); const c=JSON.parse(fs.readFileSync('config/runtime.json'
 NODE
 B=/var/lib/meme-alpha/data/backups/v120-$(date -u +%Y%m%d-%H%M%S); mkdir -p "$B"; cp -a src package.json "$B"/
 cat > src/entry-exit-intelligence.js <<'NODE'
-const fs=require('fs');
+import fs from 'node:fs';
 const P='/var/lib/meme-alpha/data/paper';
 const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(`${P}/${f}`,'utf8'))}catch{return d}};
 const scanner=read('scanner-latest.json',{candidates:[]});
