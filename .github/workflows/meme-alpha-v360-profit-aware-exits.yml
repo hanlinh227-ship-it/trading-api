@@ -1,0 +1,86 @@
+name: Meme Alpha v3.60 Profit-Aware Exit Upgrade
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v360-patch-profit-aware-exits.py'
+      - 'ops/meme-alpha/v360-stage-profit-aware-exits.sh'
+      - '.github/workflows/meme-alpha-v360-profit-aware-exits.yml'
+jobs:
+  upgrade:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test v3.60
+        run: bash ops/meme-alpha/v360-stage-profit-aware-exits.sh
+      - name: Attempt safe production activation
+        shell: bash
+        run: |
+          set -uo pipefail
+          STAGE=/opt/meme-alpha/app/runtime-status/v360-stage
+          NAME=$(cat "$STAGE/deploy-name.txt")
+          SHA=$(cat "$STAGE/executor.sha256")
+          STATUS="$STAGE/deploy-status.txt"
+          if [ -x /usr/local/sbin/meme-alpha-safe-deploy ]; then
+            set +e
+            OUT=$(sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$NAME" "$SHA" 2>&1)
+            RC=$?
+            set -e
+            echo "$OUT"
+            if [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'SAFE_DEPLOY_SUCCESS=TRUE'; then
+              echo PRODUCTION_ACTIVE > "$STATUS"
+              echo V360_AUTO_DEPLOY=SUCCESS
+            else
+              echo STAGED_ROOT_PERMISSION_OR_WRAPPER_FAILURE > "$STATUS"
+              echo V360_AUTO_DEPLOY=BLOCKED
+              echo V357_ROOT_BOOTSTRAP_COMMAND=/opt/meme-alpha/app/runtime-status/v357-bootstrap/install-safe-autodeploy.sh
+            fi
+          else
+            echo STAGED_BOOTSTRAP_REQUIRED > "$STATUS"
+            echo V360_AUTO_DEPLOY=BOOTSTRAP_REQUIRED
+            echo V357_ROOT_BOOTSTRAP_COMMAND=/opt/meme-alpha/app/runtime-status/v357-bootstrap/install-safe-autodeploy.sh
+          fi
+      - name: Production integrity audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STAGE="$APP/runtime-status/v360-stage"
+          EXPECT=$(cat "$STAGE/executor.sha256")
+          ACT=$(sha256sum "$APP/src/micro-live-executor.js" | awk '{print $1}')
+          echo DEPLOY_STATUS=$(cat "$STAGE/deploy-status.txt")
+          echo EXPECTED_SHA="$EXPECT"
+          echo PRODUCTION_SHA="$ACT"
+          echo EXECUTOR_SERVICE=$(systemctl is-active meme-alpha-micro-live.service || true)
+          echo SIGNER_SERVICE=$(systemctl is-active meme-alpha-signer.service || true)
+          echo PAPER_SERVICE=$(systemctl is-active meme-alpha-paper.service || true)
+          echo REALTIME_SERVICE=$(systemctl is-active meme-alpha-realtime-pulse.service || true)
+          echo WHALE_SERVICE=$(systemctl is-active meme-alpha-whale-flow.service || true)
+          echo EXECUTOR_COUNT=$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)
+          if [ "$ACT" = "$EXPECT" ]; then
+            grep -q "3.60.0-profit-aware-exits" "$APP/src/micro-live-executor.js"
+            grep -q 'MICRO_LIVE_EXECUTOR_V360_PROFIT_AWARE=STARTED' "$APP/src/micro-live-executor.js"
+            grep -q 'AUTO_PROFIT_AWARE_WEAKNESS_TRIM' "$APP/src/micro-live-executor.js"
+            grep -q 'AUTO_WINNER_DEFENSE_NO_QUOTE' "$APP/src/micro-live-executor.js"
+            grep -q 'WINNER_ROTATION' "$APP/src/micro-live-executor.js"
+            [ "$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]
+            systemctl is-active --quiet meme-alpha-micro-live.service
+            systemctl is-active --quiet meme-alpha-signer.service
+            echo V360_PROFIT_AWARE_PRODUCTION_ACTIVE=TRUE
+          else
+            echo V360_PROFIT_AWARE_PRODUCTION_ACTIVE=FALSE
+          fi
+          if [ -f "$APP/runtime-status/portfolio-observability.json" ]; then
+            echo '--- portfolio observability ---'
+            cat "$APP/runtime-status/portfolio-observability.json"
+          fi
+          if [ -f "$APP/runtime-status/whale-flow-intel.json" ]; then
+            echo '--- whale flow ---'
+            head -n 40 "$APP/runtime-status/whale-flow-intel.json"
+          fi
+          if [ -f "$APP/runtime-status/micro-live-gate.json" ]; then
+            echo '--- entry gate ---'
+            cat "$APP/runtime-status/micro-live-gate.json"
+          fi
+          echo V360_POST_DEPLOY_AUDIT=COMPLETE
