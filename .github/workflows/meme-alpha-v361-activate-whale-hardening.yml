@@ -1,0 +1,55 @@
+name: Meme Alpha v3.61 Activate Whale Hardening
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v361-activate-whale-hardening.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Self-test and stage v3.56 whale module
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          BASE="$APP/runtime-status/deploy-candidates"
+          NAME=whale-flow-intel-v356-hardened.js
+          mkdir -p "$BASE"
+          /usr/bin/node --check ops/meme-alpha/v356-whale-flow-intel.js
+          /usr/bin/node ops/meme-alpha/v356-whale-flow-intel.js --self-test | tee /tmp/v356-whale-selftest.txt
+          grep -q 'V356_WHALE_FLOW_SELF_TEST=PASS' /tmp/v356-whale-selftest.txt
+          install -m 0644 ops/meme-alpha/v356-whale-flow-intel.js "$BASE/$NAME"
+          sha256sum "$BASE/$NAME" | awk '{print $1}' > /tmp/v356-whale.sha
+          echo WHALE_CANDIDATE_SHA=$(cat /tmp/v356-whale.sha)
+      - name: Safe deploy whale module
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME=whale-flow-intel-v356-hardened.js
+          SHA=$(cat /tmp/v356-whale.sha)
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy whale "$NAME" "$SHA"
+          sleep 15
+      - name: Audit whale and portfolio health
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          echo WHALE_SERVICE=$(systemctl is-active meme-alpha-whale-flow.service || true)
+          systemctl is-active --quiet meme-alpha-whale-flow.service
+          grep -q "version:'3.56.0'" "$APP/src/whale-flow-intel.js"
+          echo WHALE_PRODUCTION_SHA=$(sha256sum "$APP/src/whale-flow-intel.js" | awk '{print $1}')
+          echo '--- whale intel ---'
+          cat "$APP/runtime-status/whale-flow-intel.json"
+          echo '--- portfolio observability ---'
+          cat "$APP/runtime-status/portfolio-observability.json"
+          node - "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');const w=JSON.parse(fs.readFileSync(process.argv[2]));const p=JSON.parse(fs.readFileSync(process.argv[3]));
+          if(!['HEALTHY','IDLE_HEALTHY'].includes(w.status))throw new Error('WHALE_STATUS_NOT_HEALTHY');
+          if(p.stateReadable!==true)throw new Error('PORTFOLIO_STATE_NOT_READABLE_BY_SERVICE');
+          if(!Number.isFinite(Number(p.openPositions)))throw new Error('PORTFOLIO_COUNT_INVALID');
+          console.log('V361_WHALE_HARDENING_PRODUCTION_ACTIVE=TRUE');
+          console.log('HELD_POSITION_OBSERVABILITY=TRUE');
+NODE
