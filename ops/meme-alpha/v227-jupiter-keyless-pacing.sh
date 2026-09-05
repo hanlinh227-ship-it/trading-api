@@ -12,7 +12,6 @@ B="code-backups/v227-$(date -u +%Y%m%d-%H%M%S)";mkdir -p "$B";cp -a src/scanner.
 python3 - <<'PY'
 from pathlib import Path
 p=Path('src/scanner.js');s=p.read_text()
-# Keyless Jupiter access is rate limited; serialize all Jupiter calls from scanner.
 if 'JUPITER_MIN_INTERVAL_MS = 2200' not in s:
     marker='async function getJSON(url) {'
     insert='''const JUPITER_MIN_INTERVAL_MS = 2200;
@@ -26,24 +25,29 @@ async function paceJupiter() {
 async function getJSON(url) {'''
     if marker not in s:raise SystemExit('GETJSON_MARKER_NOT_FOUND')
     s=s.replace(marker,insert,1)
-# getJSON is used for Jupiter token discovery; pace immediately before each network attempt.
-needle='''      const r = await fetch(url, {
-        headers: { accept: "application/json" },'''
-repl='''      if (String(url).startsWith(String(cfg.jupiter))) await paceJupiter();
-      const r = await fetch(url, {
-        headers: { accept: "application/json" },'''
-if needle in s:s=s.replace(needle,repl,1)
-elif 'startsWith(String(cfg.jupiter))) await paceJupiter()' not in s:raise SystemExit('GETJSON_FETCH_PATTERN_NOT_FOUND')
-# Existing inter-source delay is redundant once global Jupiter pacing is active.
+# Pace each discovery request at function entry. Retry sleeps below are also lengthened.
+marker2='async function getJSON(url) {'
+entry='''async function getJSON(url) {
+  if (String(url).startsWith(String(cfg.jupiter))) await paceJupiter();'''
+if entry not in s:
+    if marker2 not in s:raise SystemExit('GETJSON_ENTRY_NOT_FOUND')
+    s=s.replace(marker2,entry,1)
+# Pace every sellability attempt. This is deliberately true-only; transient failure remains REVIEW.
+loop='for (let attempt=0; attempt<2; attempt++) {'
+loop2='''for (let attempt=0; attempt<2; attempt++) {
+      await paceJupiter();'''
+idx=s.find('async function sellability(candidate) {')
+if idx<0:raise SystemExit('SELLABILITY_NOT_FOUND')
+pre=s[:idx];tail=s[idx:]
+if loop2 not in tail:
+    if loop not in tail:raise SystemExit('SELLABILITY_LOOP_NOT_FOUND')
+    tail=tail.replace(loop,loop2,1)
+s=pre+tail
+# Reduce redundant source gap; global pace is authoritative.
 s=s.replace('if (i < ENDPOINTS.length - 1) await sleep(500);','if (i < ENDPOINTS.length - 1) await sleep(50);',1)
-# Pace order requests too, including retries.
-needle2='''        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });'''
-repl2='''        await paceJupiter();
-        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });'''
-if needle2 in s:s=s.replace(needle2,repl2,1)
-elif 'await paceJupiter();\n        const r = await fetch(url' not in s:raise SystemExit('SELLABILITY_FETCH_PATTERN_NOT_FOUND')
-# Retry after a keyless rate-limit interval.
-s=s.replace('await new Promise(x=>setTimeout(x,700)); continue;','await new Promise(x=>setTimeout(x,2200)); continue;')
+# Make all known transient waits at least one keyless interval.
+s=s.replace('await sleep(1500);','await sleep(2200);')
+s=s.replace('await new Promise(x=>setTimeout(x,700));','await new Promise(x=>setTimeout(x,2200));')
 p.write_text(s)
 PY
 node --check src/scanner.js
@@ -51,7 +55,6 @@ node --check src/scanner.js
 python3 - <<'PY'
 from pathlib import Path
 p=Path('src/safe-signal-export.js');s=p.read_text()
-# Preserve sellability tri-state in sanitized telemetry while retaining strict true-only entry gates.
 if 'sellRoute:c.sellRoute===true,' in s:s=s.replace('sellRoute:c.sellRoute===true,','sellRoute:c.sellRoute===true?true:(c.sellRoute===false?false:null),',1)
 for oldv in ["version:'2.2.4'","version:'2.2.3'","version:'2.2.2'"]:
     if oldv in s:s=s.replace(oldv,"version:'2.2.7'",1);break
@@ -61,7 +64,6 @@ PY
 node --check src/safe-signal-export.js
 
 sudo -n /bin/systemctl restart meme-alpha-paper.service
-# Allow paced cycles to complete without issuing extra Jupiter requests.
 sleep 210
 sudo -n /bin/systemctl is-active meme-alpha-paper.service >/dev/null
 ! systemctl is-active --quiet meme-alpha-micro-live.service
