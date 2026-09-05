@@ -1,0 +1,22 @@
+name: Meme Alpha v1.7 Ready Signer Self-Test
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/signer/ready_signer.py'
+      - '.github/workflows/meme-alpha-v170-signer-selftest.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test isolated signing primitives
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ops/meme-alpha/signer/ready_signer.py
+          python3 ops/meme-alpha/signer/ready_signer.py --self-test
+          echo LIVE_ENABLE=FALSE
+          echo WALLET_CREATED=FALSE
