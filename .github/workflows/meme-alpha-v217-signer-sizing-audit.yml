@@ -1,0 +1,15 @@
+name: Meme Alpha v2.17 Signer Sizing Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v217-signer-sizing-audit.sh'
+      - '.github/workflows/meme-alpha-v217-signer-sizing-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v217-signer-sizing-audit.sh
