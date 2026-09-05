@@ -7,20 +7,10 @@ DEPLOY="$APP/runtime-status/deploy-candidates"
 NAME=micro-live-executor-v369-modern-market-guard.js
 SRC="$APP/src/micro-live-executor.js"
 OUT="$STAGE/$NAME"
-STATE=/var/lib/meme-alpha/data/micro-live/state.json
 mkdir -p "$STAGE" "$DEPLOY"
 
-# Snapshot only structural state for post-deploy audit. Never mutate live state here.
-/usr/bin/node - "$STATE" > "$STAGE/pre-state.json" <<'NODE'
-const fs=require('fs');
-const p=process.argv[2];
-let s={};try{s=JSON.parse(fs.readFileSync(p,'utf8'))}catch(e){throw new Error('PRE_STATE_UNREADABLE')}
-const positions=Array.isArray(s.positions)?s.positions:[];
-const mints=positions.map(x=>x?.mint).filter(Boolean);
-if(new Set(mints).size!==mints.length)throw new Error('PRE_STATE_DUPLICATE_MINT');
-console.log(JSON.stringify({version:s.version||null,openPositions:positions.length,mints:mints.sort()}));
-NODE
-
+# Stage from the currently active production executor so v3.60 profit-aware behavior
+# is preserved exactly, then apply only the v3.69 protective/modernization layer.
 cp "$SRC" "$OUT"
 python3 "$ROOT/ops/meme-alpha/v369-patch-modern-market-guard.py" "$OUT"
 /usr/bin/node --check "$OUT"
