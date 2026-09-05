@@ -1,0 +1,16 @@
+name: Meme Alpha v3.30 Capture Live Executor Source
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v330-capture-live-executor-source.sh'
+      - '.github/workflows/meme-alpha-v330-capture-live-executor-source.yml'
+  workflow_dispatch:
+jobs:
+  capture:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Capture current production live executor source read-only
+        run: bash ops/meme-alpha/v330-capture-live-executor-source.sh
