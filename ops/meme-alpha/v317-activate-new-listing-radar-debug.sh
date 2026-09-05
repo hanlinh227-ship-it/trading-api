@@ -7,6 +7,10 @@ python3 - "$BASE" > "$TMP" <<'PY'
 from pathlib import Path
 import sys
 s=Path(sys.argv[1]).read_text()
+old0='''/usr/bin/node --check "$rtmp"\nmv -f "$rtmp" "$RADAR"'''
+new0='''/usr/bin/node --check "$rtmp"\nmv -f "$rtmp" "$RADAR"\nchmod 644 "$RADAR"\necho "V318_RADAR_FILE_READY $(stat -c 'owner=%U group=%G mode=%a size=%s' "$RADAR")"'''
+if s.count(old0)!=1: raise SystemExit('V318_RADAR_INSTALL_ANCHOR_MISMATCH')
+s=s.replace(old0,new0)
 old='''      /usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js || echo "NEW_LISTING_RADAR_CYCLE_FAILED"'''
 new='''      echo "RADAR_HEARTBEAT_START $(date -u +%Y-%m-%dT%H:%M:%SZ) user=$(id -un)" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || true\n      /usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || echo "NEW_LISTING_RADAR_CYCLE_FAILED rc=$?" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1'''
 if s.count(old)!=1: raise SystemExit('V318_RADAR_LOOP_ANCHOR_MISMATCH')
