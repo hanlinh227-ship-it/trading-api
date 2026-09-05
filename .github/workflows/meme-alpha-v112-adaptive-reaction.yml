@@ -1,0 +1,28 @@
+name: Meme Alpha v1.1.2 Adaptive Reaction
+
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v112-adaptive-reaction.sh'
+      - '.github/workflows/meme-alpha-v112-adaptive-reaction.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: meme-alpha-v112-adaptive-reaction
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Deploy Meme Alpha v1.1.2 adaptive cadence
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v112-adaptive-reaction.sh
+          nice -n 15 bash ops/meme-alpha/v112-adaptive-reaction.sh
