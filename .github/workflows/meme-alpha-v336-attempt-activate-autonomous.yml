@@ -1,0 +1,14 @@
+name: Meme Alpha v3.36 Attempt Autonomous Activation
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v336-attempt-activate-autonomous.yml'
+  workflow_dispatch:
+jobs:
+  activate:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - name: Activate staged v3.36 through existing sudo policy
+        run: sudo -n /opt/meme-alpha/app/runtime-status/v336-stage/install-v336.sh
