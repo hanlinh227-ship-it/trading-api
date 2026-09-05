@@ -1,0 +1,18 @@
+name: Meme Alpha v2.1.2 Holder Risk Deadlock Fix
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v212-holder-risk-deadlock-fix.sh'
+      - '.github/workflows/meme-alpha-v212-holder-risk-deadlock-fix.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v212-holder-risk
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v212-holder-risk-deadlock-fix.sh
