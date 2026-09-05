@@ -1,0 +1,62 @@
+name: Meme Alpha v3.65 Source RPC Resilience
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v365-patch-scanner-source-resilience.py'
+      - 'ops/meme-alpha/v365-whale-flow-rate-shaped.js'
+      - 'ops/meme-alpha/v365-stage-source-rpc-resilience.sh'
+      - '.github/workflows/meme-alpha-v365-source-rpc-resilience.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test source/RPC hardening
+        run: bash ops/meme-alpha/v365-stage-source-rpc-resilience.sh
+      - name: Reduce radar network cadence to keyless-safe interval
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN=/opt/meme-alpha/app/run-paper.sh
+          python3 - "$RUN" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]);s=p.read_text()
+          old='/usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || echo "NEW_LISTING_RADAR_CYCLE_FAILED rc=$?" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1\n      sleep 1'
+          new='/usr/bin/node /opt/meme-alpha/app/src/new-listing-radar.js >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || echo "NEW_LISTING_RADAR_CYCLE_FAILED rc=$?" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1\n      sleep 6'
+          if old in s:s=s.replace(old,new,1)
+          elif 'new-listing-radar.js' in s and '      sleep 6' in s:pass
+          else:raise SystemExit('RADAR_CADENCE_PATTERN_NOT_FOUND')
+          p.write_text(s)
+PY
+          grep -A2 'new-listing-radar.js' "$RUN" | head -n 3
+      - name: Safe deploy scanner and whale modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; S="$APP/runtime-status/v365-stage"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner scanner-v365-source-resilient.js "$(cat "$S/scanner.sha256")"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy whale whale-flow-v365-rate-shaped.js "$(cat "$S/whale.sha256")"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          sleep 55
+      - name: Audit recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-whale-flow.service meme-alpha-signer.service; do echo "$s=$(systemctl is-active "$s" || true)"; systemctl is-active --quiet "$s"; done
+          grep -q 'JUPITER_MIN_INTERVAL_MS = 3200' "$APP/src/scanner.js"
+          grep -q "version:'3.65.0'" "$APP/src/whale-flow-intel.js"
+          echo '--- source health ---'
+          cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
+          echo '--- signal ---'
+          cat "$APP/runtime-status/signal-snapshot.json"
+          echo '--- gate ---'
+          cat "$APP/runtime-status/micro-live-gate.json"
+          echo '--- whale ---'
+          cat "$APP/runtime-status/whale-flow-intel.json"
+          echo '--- portfolio ---'
+          cat "$APP/runtime-status/portfolio-observability.json"
+          echo V365_SOURCE_RPC_PRODUCTION_DEPLOYED=TRUE
