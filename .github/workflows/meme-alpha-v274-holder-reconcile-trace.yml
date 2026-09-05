@@ -1,0 +1,15 @@
+name: Meme Alpha v2.7.4 Holder Reconcile Trace
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v274-holder-reconcile-trace.sh'
+      - '.github/workflows/meme-alpha-v274-holder-reconcile-trace.yml'
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v274-holder-reconcile-trace.sh
