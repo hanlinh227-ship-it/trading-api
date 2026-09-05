@@ -1,0 +1,15 @@
+name: Meme Alpha v2.9 Runtime Freshness Audit
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v292-runtime-freshness-audit.sh'
+      - '.github/workflows/meme-alpha-v292-runtime-freshness-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v292-runtime-freshness-audit.sh
