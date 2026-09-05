@@ -2,26 +2,18 @@
 set -euo pipefail
 APP=/opt/meme-alpha/app
 LOG=/var/log/meme-alpha/paper.log
+ERR=/var/log/meme-alpha/paper-error.log
 cd "$APP"
-echo '=== V1.3.1 PERSISTENCE EXIT-CODE PROBE ==='
+echo '=== V1.3.1 STDERR ROOT-CAUSE DIAGNOSTIC ==='
 node --input-type=module - <<'NODE'
 import fs from 'node:fs'; const c=JSON.parse(fs.readFileSync('config/runtime.json','utf8')); if(c.mode!=='PAPER') throw new Error('ABORT_NOT_PAPER'); console.log('MODE=PAPER');
 NODE
-echo '=== PERSISTENCE RUNTIME PROBE ==='
-set +e
-node src/persistence.js
-PRC=$?
-set -e
-echo "PERSISTENCE_RC=$PRC"
-echo '=== PERSISTENCE SOURCE TAIL ==='
-tail -180 src/persistence.js || true
-echo '=== REACTION/RISK PROBE ==='
-set +e
-node src/reaction-telemetry.js; RRC=$?
-node src/risk.js; KRC=$?
-set -e
-echo "REACTION_RC=$RRC"
-echo "RISK_RC=$KRC"
-echo '=== RECENT FULL-CYCLE MARKERS ==='
-tail -500 "$LOG" | grep -nE -C 3 'PERSISTENCE_STATUS|PERSISTENCE_INVARIANT|UNSAFE|FULL_CYCLE_FAILED|FULL_CYCLE_COMPLETE' || true
-echo 'V131_PERSISTENCE_PROBE_COMPLETE'
+echo '=== STDERR RECENT ==='
+tail -260 "$ERR" || true
+echo '=== STDERR FILTERED ==='
+tail -1200 "$ERR" | grep -nE -C 5 'Error|ERROR|ReferenceError|TypeError|SyntaxError|ENOENT|EACCES|429|timeout|ETIMEDOUT|fetch failed|ECONN|MODULE_NOT_FOUND|JSON' || true
+echo '=== STDOUT RECENT FAILURE MARKERS ==='
+tail -650 "$LOG" | grep -nE -C 4 'FULL_CYCLE_FAILED|FULL_CYCLE_COMPLETE|PERSISTENCE_STATUS|REACTION_TELEMETRY_STATUS|RISK_STATUS' || true
+echo '=== SERVICE PROCESS ==='
+systemctl --no-pager status meme-alpha-paper.service | tail -30 || true
+echo 'V131_STDERR_DIAGNOSTIC_COMPLETE'
