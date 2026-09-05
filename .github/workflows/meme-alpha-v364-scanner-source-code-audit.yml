@@ -12,4 +12,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Inspect live scanner source-health code
-        run: bash ops/meme-alpha/v364-scanner-source-code-audit.sh
+        run: |
+          bash ops/meme-alpha/v364-scanner-source-code-audit.sh
