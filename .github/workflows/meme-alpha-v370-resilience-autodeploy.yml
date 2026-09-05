@@ -1,0 +1,102 @@
+name: Meme Alpha v3.70 Resilience Autodeploy
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v370-realtime-pool-pulse-resilient.js'
+      - 'ops/meme-alpha/v370-whale-flow-adaptive-budget.js'
+      - 'ops/meme-alpha/v370-stage-resilience.sh'
+      - '.github/workflows/meme-alpha-v370-resilience-autodeploy.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test
+        run: bash ops/meme-alpha/v370-stage-resilience.sh
+      - name: Safe deploy resilient realtime pulse
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STAGE="$APP/runtime-status/v370-resilience-stage"
+          NAME=$(cat "$STAGE/realtime-name.txt")
+          SHA=$(cat "$STAGE/realtime.sha256")
+          BEFORE=$(systemctl show meme-alpha-realtime-pulse.service -p NRestarts --value || echo 0)
+          echo BEFORE_REALTIME_NRESTARTS="$BEFORE"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy realtime "$NAME" "$SHA"
+          sleep 20
+          systemctl is-active --quiet meme-alpha-realtime-pulse.service
+          /usr/bin/node - "$APP/runtime-status/realtime-pool-pulse.json" <<'NODE'
+          const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          if(x.version!=='3.70.0-resilient-realtime')throw new Error('REALTIME_VERSION_NOT_V370');
+          if(!['HEALTHY','CONNECTING','DEGRADED'].includes(x.status))throw new Error('REALTIME_BAD_STATUS');
+          if(x.connectionSeq<1)throw new Error('REALTIME_NO_CONNECTION_ATTEMPT');
+          console.log('REALTIME_STATUS='+x.status);
+          console.log('REALTIME_SUBSCRIPTIONS='+Number(x.subscriptions||0));
+          console.log('REALTIME_CONNECTING='+(x.connecting===true));
+          console.log('REALTIME_RECONNECT_FAILURES='+Number(x.reconnectFailures||0));
+          console.log('REALTIME_LAST_ERROR='+(x.lastError||'NONE'));
+          NODE
+          echo AFTER_REALTIME_NRESTARTS=$(systemctl show meme-alpha-realtime-pulse.service -p NRestarts --value || echo 0)
+      - name: Safe deploy adaptive whale budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          STAGE="$APP/runtime-status/v370-resilience-stage"
+          NAME=$(cat "$STAGE/whale-name.txt")
+          SHA=$(cat "$STAGE/whale.sha256")
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy whale "$NAME" "$SHA"
+          sleep 45
+          systemctl is-active --quiet meme-alpha-whale-flow.service
+          test -s "$APP/runtime-status/whale-flow-intel.json"
+          test -s "$APP/runtime-status/portfolio-observability.json"
+          /usr/bin/node - "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');const w=JSON.parse(fs.readFileSync(process.argv[2],'utf8')),o=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+          if(w.version!=='3.70.0-adaptive-whale')throw new Error('WHALE_VERSION_NOT_V370');
+          if(w.cycleMs!==15000||w.rpcSpacingMs!==1800)throw new Error('WHALE_RPC_BUDGET_NOT_ACTIVE');
+          if(o.stateReadable!==true||!Number.isFinite(Number(o.openPositions)))throw new Error('PORTFOLIO_STATE_UNREADABLE');
+          console.log('WHALE_STATUS='+w.status);
+          console.log('WHALE_PROVIDER_COUNT='+Number(w.providerCount||0));
+          console.log('WHALE_ROWS='+(Array.isArray(w.rows)?w.rows.length:0));
+          console.log('WHALE_ERROR='+(w.error||'NONE'));
+          console.log('OPEN_POSITIONS='+Number(o.openPositions));
+          console.log('POSITION_MINTS='+JSON.stringify(o.positionMints||[]));
+          NODE
+      - name: Settled production audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          sleep 40
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            V=$(systemctl is-active "$s" || true); echo "$s=$V"; [ "$V" = active ];
+          done
+          FINAL_RESTARTS=$(systemctl show meme-alpha-realtime-pulse.service -p NRestarts --value || echo 0)
+          echo FINAL_REALTIME_NRESTARTS="$FINAL_RESTARTS"
+          /usr/bin/node - "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');const r=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const rt=r(process.argv[2]),w=r(process.argv[3]),s=r(process.argv[4]),o=r(process.argv[5]);
+          if(rt.version!=='3.70.0-resilient-realtime')throw new Error('REALTIME_V370_NOT_ACTIVE');
+          if(w.version!=='3.70.0-adaptive-whale')throw new Error('WHALE_V370_NOT_ACTIVE');
+          if(s.version!=='3.69.1-modern-signal-guard')throw new Error('SIGNAL_GUARD_3691_NOT_ACTIVE');
+          if(o.stateReadable!==true)throw new Error('OBSERVABILITY_NOT_READABLE');
+          const leak=(s.candidates||[]).filter(c=>c.intelMode==='BOTH_FEEDS_DOWN'&&c.decision==='PROBE_CANDIDATE');
+          if(leak.length)throw new Error('INTEL_FAIL_CLOSED_LEAK');
+          console.log('SETTLED_REALTIME_STATUS='+rt.status);
+          console.log('SETTLED_REALTIME_SUBSCRIPTIONS='+Number(rt.subscriptions||0));
+          console.log('SETTLED_REALTIME_RECONNECT_FAILURES='+Number(rt.reconnectFailures||0));
+          console.log('SETTLED_WHALE_STATUS='+w.status);
+          console.log('SETTLED_WHALE_ROWS='+(w.rows||[]).length);
+          console.log('SETTLED_SIGNAL_CANDIDATES='+(s.candidates||[]).length);
+          console.log('SETTLED_SIGNAL_INTEL='+JSON.stringify(s.intelSummary||{}));
+          console.log('SETTLED_OPEN_POSITIONS='+Number(o.openPositions));
+          NODE
+          grep -q "3.60.0-profit-aware-exits" "$APP/src/micro-live-executor.js"
+          echo V370_REALTIME_RESILIENCE=ACTIVE
+          echo V370_WHALE_ADAPTIVE_BUDGET=ACTIVE
+          echo V3691_SIGNAL_GUARD=PRESERVED
+          echo V360_EXECUTOR=PRESERVED
+          echo V370_PRODUCTION_RESILIENCE_ACTIVE=TRUE
