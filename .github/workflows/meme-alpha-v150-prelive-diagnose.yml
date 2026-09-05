@@ -1,0 +1,21 @@
+name: Meme Alpha v1.5 Prelive Diagnostic
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v150-prelive-diagnose.sh'
+      - '.github/workflows/meme-alpha-v150-prelive-diagnose.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Diagnose pre-live components
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ops/meme-alpha/v150-prelive-diagnose.sh
+          bash ops/meme-alpha/v150-prelive-diagnose.sh
