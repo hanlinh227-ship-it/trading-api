@@ -1,0 +1,16 @@
+name: Meme Alpha v3.29 Post Separation Speed Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v329-post-separation-speed-audit.sh'
+      - '.github/workflows/meme-alpha-v329-post-separation-speed-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - name: Measure live-scan cadence and wallet state
+        run: bash ops/meme-alpha/v329-post-separation-speed-audit.sh
