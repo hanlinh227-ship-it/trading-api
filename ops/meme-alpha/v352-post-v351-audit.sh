@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# audit trigger 2026-09-06 after user confirmed v3.51 activation
 APP=/opt/meme-alpha/app
 STATE=/var/lib/meme-alpha/data/micro-live/state.json
 WALLET=DpdTfAAyrtQm28CBgi1xH3Euk1xHAJsnmSiqUMGVNSfk
