@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+const APP='/opt/meme-alpha/app';
+const SIGNAL=`${APP}/runtime-status/signal-snapshot.json`;
+const OUT=`${APP}/runtime-status/whale-flow-intel.json`;
+const read=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const atomic=(p,x)=>{const t=p+'.tmp';try{fs.writeFileSync(t,JSON.stringify(x,null,2));fs.renameSync(t,p)}catch{try{fs.writeFileSync(p,JSON.stringify(x,null,2))}catch{}}};
+const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+async function rpc(method,params){const cfg=read(`${APP}/config/runtime.json`,{});const r=await fetch(cfg.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(8000)});const j=await r.json();if(j.error)throw new Error(`RPC_${j.error.code}`);return j.result}
+const hist=new Map();let cursor=0;
+function candidates(){return (read(SIGNAL,{candidates:[]}).candidates||[]).filter(x=>x?.mint&&x?.securityDecision==='PASS'&&x?.holderClusterDecision==='PASS').sort((a,b)=>n(b.score)-n(a.score))}
+async function inspect(c){const [largest,supply]=await Promise.all([rpc('getTokenLargestAccounts',[c.mint,{commitment:'confirmed'}]),rpc('getTokenSupply',[c.mint,{commitment:'confirmed'}])]);const total=n(supply?.value?.amount),vals=(largest?.value||[]).map(x=>n(x.amount)).filter(x=>x>=0);if(!(total>0)||!vals.length)throw new Error('SUPPLY_OR_HOLDERS_EMPTY');const p=v=>v/total*100,top1=p(vals[0]||0),top5=p(vals.slice(0,5).reduce((a,b)=>a+b,0)),top10=p(vals.slice(0,10).reduce((a,b)=>a+b,0));const prev=hist.get(c.mint),delta5=prev?top5-prev.top5:0,delta10=prev?top10-prev.top10:0;let score=0;if(top10<=25)score+=3;else if(top10>=60)score-=8;else if(top10>=45)score-=4;if(delta5<=-1.5)score+=3;else if(delta5>=2)score-=4;if(delta10<=-2)score+=2;else if(delta10>=3)score-=3;score=clamp(score,-10,6);hist.set(c.mint,{top5,top10,at:Date.now()});return{mint:c.mint,symbol:c.symbol||null,top1Pct:Number(top1.toFixed(3)),top5Pct:Number(top5.toFixed(3)),top10Pct:Number(top10.toFixed(3)),deltaTop5Pct:Number(delta5.toFixed(3)),deltaTop10Pct:Number(delta10.toFixed(3)),whaleFlowScore:score,observedAt:new Date().toISOString()}}
+async function main(){if(process.argv.includes('--self-test')){if(clamp(20,-10,6)!==6)throw new Error('CLAMP');console.log('V350_WHALE_FLOW_SELF_TEST=PASS');return}const rows=new Map();while(true){const cs=candidates();if(cs.length){const batch=[];for(let i=0;i<Math.min(6,cs.length);i++)batch.push(cs[(cursor+i)%cs.length]);cursor=(cursor+batch.length)%Math.max(1,cs.length);const settled=await Promise.allSettled(batch.map(inspect));for(const r of settled)if(r.status==='fulfilled')rows.set(r.value.mint,r.value)}const out={version:'3.50.0',updatedAt:new Date().toISOString(),status:rows.size?'HEALTHY':'DEGRADED',rows:[...rows.values()].sort((a,b)=>b.whaleFlowScore-a.whaleFlowScore).slice(0,64)};atomic(OUT,out);await sleep(12000)}}
+main().catch(e=>{console.error(e);process.exit(1)});
