@@ -7,7 +7,7 @@ on:
 jobs:
   audit:
     runs-on: [self-hosted, linux]
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v5
       - name: Audit active production stack
@@ -15,9 +15,20 @@ jobs:
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+          services=(meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service)
+          for attempt in 1 2 3 4 5 6; do
+            pending=0
+            for s in "${services[@]}"; do
+              V=$(systemctl is-active "$s" || true)
+              echo "attempt=$attempt $s=$V"
+              if [ "$V" != active ]; then pending=1; fi
+            done
+            [ "$pending" -eq 0 ] && break
+            sleep 10
+          done
+          for s in "${services[@]}"; do
             V=$(systemctl is-active "$s" || true)
-            echo "$s=$V"
+            echo "FINAL_$s=$V"
             [ "$V" = active ]
           done
           test -s "$APP/runtime-status/signal-snapshot.json"
