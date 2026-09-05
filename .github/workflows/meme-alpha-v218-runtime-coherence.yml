@@ -1,0 +1,16 @@
+name: Meme Alpha v2.18 Runtime Coherence
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v218-stage-runtime-coherence.sh'
+      - 'ops/meme-alpha/v218-root-apply-runtime-coherence.sh'
+      - '.github/workflows/meme-alpha-v218-runtime-coherence.yml'
+  workflow_dispatch:
+
+jobs:
+  stage:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v218-stage-runtime-coherence.sh
