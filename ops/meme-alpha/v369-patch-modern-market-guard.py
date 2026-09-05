@@ -64,18 +64,18 @@ function executionCircuitSuccess(){
   if(SELF_TEST)return;const old=circuitState(),now=Date.now(),failures=Math.max(0,n(old.failures)-2),openUntilMs=n(old.openUntilMs)>now?n(old.openUntilMs):0;atomic(CIRCUIT,{...old,version:'3.69.0',updatedAt:new Date().toISOString(),failures,openUntilMs,lastSuccessAt:new Date().toISOString()});
 }
 function dangerousTokenFlags(c){
-  const out=[];if(!c)return out;if(c.token2022===true)out.push('TOKEN_2022');if(c.mintAuthorityActive===true||c.mintAuthorityRevoked===false)out.push('MINT_AUTHORITY');if(c.freezeAuthorityActive===true||c.freezeAuthorityRevoked===false)out.push('FREEZE_AUTHORITY');if(c.transferHook===true||c.transferHookActive===true)out.push('TRANSFER_HOOK');if(c.permanentDelegate===true||c.permanentDelegateActive===true)out.push('PERMANENT_DELEGATE');if(c.nonTransferable===true)out.push('NON_TRANSFERABLE');return out
+  const out=[];if(!c)return out;if(c.token2022===true)out.push('TOKEN_2022');if(c.mintAuthorityActive===true||c.mintAuthorityRevoked===false)out.push('MINT_AUTHORITY');if(c.freezeAuthorityActive===true||c.freezeAuthorityRevoked===false)out.push('FREEZE_AUTHORITY');if(c.transferHook===true||c.transferHookActive===true)out.push('TRANSFER_HOOK');if(c.permanentDelegate===true||c.permanentDelegateActive===true)out.push('PERMANENT_DELEGATE');if(c.nonTransferable===true)out.push('NON_TRANSFERABLE');return out;
 }
 function explicitLiquidityDropPct(c){for(const k of ['liquidityChange5mPct','liquidityDelta5mPct','liquidityChangePct5m','liquidityDrop5mPct']){if(Number.isFinite(Number(c?.[k])))return Number(c[k])}return null}
 function rugShieldReason(c){
-  if(!c)return null;if(c.sellRoute===false)return'SELL_ROUTE_LOST';if(c.securityDecision==='BLOCK')return'SECURITY_BLOCK';if(c.holderClusterDecision==='BLOCK')return'HOLDER_CLUSTER_BLOCK';const flags=dangerousTokenFlags(c);if(flags.length)return'TOKEN_SAFETY_'+flags[0];if(n(c.liquidityUsd,999999)<15000)return'LIQUIDITY_COLLAPSE';const d=explicitLiquidityDropPct(c);if(d!==null&&d<=-35)return'LIQUIDITY_DROP_35PCT';const w=whaleFor(c);if(w&&n(w.top10Pct)<100&&n(w.top10Pct)>=70)return'WHALE_TOP10_CONCENTRATION';if(w&&n(w.deltaTop10Pct)>=8)return'WHALE_CONCENTRATION_SPIKE';return null
+  if(!c)return null;if(c.sellRoute===false)return'SELL_ROUTE_LOST';if(c.securityDecision==='BLOCK')return'SECURITY_BLOCK';if(c.holderClusterDecision==='BLOCK')return'HOLDER_CLUSTER_BLOCK';const flags=dangerousTokenFlags(c);if(flags.length)return'TOKEN_SAFETY_'+flags[0];if(n(c.liquidityUsd,999999)<15000)return'LIQUIDITY_COLLAPSE';const d=explicitLiquidityDropPct(c);if(d!==null&&d<=-35)return'LIQUIDITY_DROP_35PCT';const w=whaleFor(c);if(w&&n(w.top10Pct)<100&&n(w.top10Pct)>=70)return'WHALE_TOP10_CONCENTRATION';if(w&&n(w.deltaTop10Pct)>=8)return'WHALE_CONCENTRATION_SPIKE';return null;
 }
 function liquidityAllocationCapPct(c){const liq=n(c?.liquidityUsd);if(liq<75000)return 5;if(liq<150000)return 8;if(liq<300000)return 12;if(liq<750000)return 16;if(liq<1500000)return 20;return 24}
 '''
-between('function intelRow(path,c,maxAgeSec=20){','function learningState(st){',intel+'function learningState(st){')
+between('function intelRow(path,c,maxAgeSec=20){','function learningState(st){',intel)
 
-# Wrap the existing low-latency execution path. This does not change the signed
-# transaction or fallback semantics; it only feeds a persistent entry circuit breaker.
+# Preserve the existing low-latency/Jito/Jupiter execution implementation and wrap it
+# only with persistent failure feedback for the entry circuit breaker.
 must('async function executeOrder(o){','async function executeOrderRaw(o){',1)
 wrapper = r'''async function executeOrder(o){
   try{const sig=await executeOrderRaw(o);executionCircuitSuccess();return sig}catch(e){executionCircuitFail(e);throw e}
@@ -86,7 +86,7 @@ idx=s.find('function candidates()')
 if idx<0: raise SystemExit('CANDIDATES_MARKER_MISSING')
 s=s[:idx]+wrapper+s[idx:]
 
-# Keep every original entry rule, then layer the modern fail-closed entry gate on top.
+# Keep all original entry logic and add only the new entry-side fail-closed checks.
 must('function trendEntryEligible(c){','function trendEntryEligibleBase(c){',1)
 idx=s.find('function hardSafetyBroken(c){')
 if idx<0: raise SystemExit('HARD_SAFETY_MARKER_MISSING')
@@ -99,14 +99,10 @@ entry_wrap = r'''function trendEntryEligible(c){
 '''
 s=s[:idx]+entry_wrap+s[idx:]
 
-# Strengthen hard safety without weakening any original condition. Missing optional
-# fields never trigger a rug exit; only explicit negative signals do.
 hard = r'''function hardSafetyBroken(c){if(!c)return false;if(rugShieldReason(c))return true;if((Array.isArray(c.hardReject)&&c.hardReject.length>0)||c.sellRoute===false||c.token2022===true)return true;if(c.securityDecision==='BLOCK'||c.holderClusterDecision==='BLOCK')return true;if(n(c.liquidityUsd,999999)<20_000)return true;return false}
 '''
-between('function hardSafetyBroken(c){','function severeTrendBreak(c){',hard+'function severeTrendBreak(c){')
+between('function hardSafetyBroken(c){','function severeTrendBreak(c){',hard)
 
-# Preserve the adaptive allocation engine, but cap concentration by exit liquidity and
-# haircut size when only a subset of intelligence is fresh.
 allocation = r'''function allocationProfile(c,p,st,capitalBaseLamports){
   if(!trendEntryEligible(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};
   const scoreQ=clamp((opportunityScore(c)-58)/32,0,1),netQ=clamp((n(c.netBuyers5m)+2)/24,0,1),avgQ=clamp((n(c.avgNetBuyersLast2)+1)/16,0,1);
@@ -119,11 +115,10 @@ allocation = r'''function allocationProfile(c,p,st,capitalBaseLamports){
   return{name:'AUTO_ALPHA_V369',pct,quality,growth,exposure,freeRatio,cashBoost,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),intelMode:intel.mode,intelHaircut:intel.haircut,liquidityCapPct:liqCap};
 }
 '''
-between('function allocationProfile(c,p,st,capitalBaseLamports){','function rank(c){',allocation+'function rank(c){')
+between('function allocationProfile(c,p,st,capitalBaseLamports){','function rank(c){',allocation)
 
-# Preserve exact emergency-exit priority while exposing the explicit RugShield reason.
-old='''    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}'''
-new='''    const rug=rugShieldReason(c);if(rug){event({type:'RUG_SHIELD_EXIT',mint:pos.mint,symbol:pos.symbol,reason:rug});await sell(st,i,'RUG_SHIELD_'+rug);return{action:'SELL',reason:'RUG_SHIELD_'+rug,symbol:pos.symbol}}\n    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}'''
+old="    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}"
+new="    const rug=rugShieldReason(c);if(rug){event({type:'RUG_SHIELD_EXIT',mint:pos.mint,symbol:pos.symbol,reason:rug});await sell(st,i,'RUG_SHIELD_'+rug);return{action:'SELL',reason:'RUG_SHIELD_'+rug,symbol:pos.symbol}}\n    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}"
 must(old,new,1)
 
 must("st.version='3.60.0-profit-aware-exits'","st.version='3.69.0-modern-market-guard'",1)
