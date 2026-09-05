@@ -10,14 +10,20 @@ const readFile=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch
 const read=(n,d={})=>readFile(`${P}/${n}`,d);
 const num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
 const ageSec=(ts)=>{const t=Date.parse(ts||0);return Number.isFinite(t)?Math.max(0,(Date.now()-t)/1000):Infinity};
-const badStatus=(s)=>new Set(['DEGRADED','INTERNAL_ERROR','ERROR','OFFLINE','STALE','RATE_LIMIT_BACKOFF','WARMING_UP']).has(String(s||'').toUpperCase());
+const badStatus=(s)=>new Set(['DEGRADED','INTERNAL_ERROR','ERROR','OFFLINE','STALE','RATE_LIMIT_BACKOFF','WARMING_UP','NO_RPC_CONFIG']).has(String(s||'').toUpperCase());
 const feedHealthy=(x,maxAge)=>!!x&&!badStatus(x.status)&&ageSec(x.updatedAt||x.timestamp||x.generatedAt)<=maxAge;
 const rowAgeSec=(r,parent)=>ageSec(r?.observedAt||r?.updatedAt||r?.timestamp||parent?.updatedAt||parent?.timestamp||parent?.generatedAt);
 
 function freshRow(doc,mint,maxAge,kind){
   const r=(doc?.rows||[]).find(x=>x?.mint===mint);
   if(!r)return null;
-  if(kind==='realtime'&&Number.isFinite(Number(r.lastEventAgeMs)))return Number(r.lastEventAgeMs)<=maxAge*1000?r:null;
+  if(kind==='realtime'){
+    // A subscribed account with no event is not real-time evidence. In JS Number(null)=0,
+    // so require an actual value before considering lastEventAgeMs fresh.
+    if(r.lastEventAgeMs===null||r.lastEventAgeMs===undefined||r.lastEventAgeMs==='')return null;
+    const eventAge=Number(r.lastEventAgeMs);
+    return Number.isFinite(eventAge)&&eventAge>=0&&eventAge<=maxAge*1000?r:null;
+  }
   return rowAgeSec(r,doc)<=maxAge?r:null;
 }
 
@@ -75,6 +81,7 @@ function guardCandidate(c,rt,wh){
     holderClusterMaxAccountsSameOwner:num(c.holderClusterAudit?.maxAccountsSameOwner),
     hardReject,entryGuardReasons,
     token2022:!!c.token2022,
+    pairAddress:c.pairAddress||null,
     sellRoute:c.sellRoute===true?true:(c.sellRoute===false?false:null),
     liquidityUsd:num(c.liquidityUsd),
     sellPriceImpactPct:Number.isFinite(Number(c.sellPriceImpactPct))?Number(c.sellPriceImpactPct):null,
@@ -100,7 +107,7 @@ function guardCandidate(c,rt,wh){
 
 if(SELF_TEST){
   const now=new Date().toISOString();
-  const rt={status:'HEALTHY',updatedAt:now,rows:[{mint:'A',lastEventAgeMs:1000}]};
+  const rt={status:'HEALTHY',updatedAt:now,rows:[{mint:'A',lastEventAgeMs:1000},{mint:'N',lastEventAgeMs:null}]};
   const wh={status:'HEALTHY',updatedAt:now,rows:[{mint:'A',observedAt:now,top10Pct:75,deltaTop10Pct:9}]};
   globalThis.__persistFind=()=>({consecutiveEligible:3,metrics:{avgNetBuyersLast2:5}});
   const a=guardCandidate({mint:'A',score:80,decision:'PROBE_CANDIDATE',securityDecision:'ALLOW',sellRoute:true,liquidityUsd:200000},rt,wh);
@@ -108,11 +115,13 @@ if(SELF_TEST){
   const b=intelState({mint:'B'}, {}, {});if(b.entryAllowed!==false||b.haircut!==0)throw new Error('INTEL_FAIL_CLOSED_SELFTEST');
   const c=guardCandidate({mint:'A',score:80,decision:'PROBE_CANDIDATE',securityDecision:'ALLOW',sellRoute:true,liquidityUsd:200000,needsExtensionAudit:true},rt,{status:'RATE_LIMIT_BACKOFF',updatedAt:now,rows:[]});
   if(c.decision!=='EXTENSION_AUDIT_REQUIRED'||c.intelHaircut!==0.88)throw new Error('EXTENSION_OR_HAIRCUT_SELFTEST');
+  if(freshRow(rt,'N',8,'realtime')!==null)throw new Error('NULL_EVENT_AGE_FALSE_FRESH_SELFTEST');
   console.log('V369_SIGNAL_GUARD_SELF_TEST=PASS');
   console.log('ENTRY_FAIL_CLOSED_WHEN_BOTH_INTEL_DOWN=TRUE');
   console.log('DEGRADED_INTEL_SCORE_HAIRCUT=TRUE');
   console.log('FRESH_WHALE_RUG_GUARD=TRUE');
   console.log('TOKEN_EXTENSION_ENTRY_GUARD=TRUE');
+  console.log('NULL_REALTIME_EVENT_NOT_FRESH=TRUE');
   process.exit(0);
 }
 
@@ -125,10 +134,17 @@ const whale=readFile(WHALE,{});
 function findP(m){for(const root of [persist.tokens,persist.candidates,persist.state,persist]){if(!root)continue;if(Array.isArray(root)){const x=root.find(v=>v?.mint===m);if(x)return x}else if(typeof root==='object'&&root[m])return root[m]}return null}
 globalThis.__persistFind=findP;
 
-const candidates=(scan.candidates||[]).map(c=>guardCandidate(c,realtime,whale)).sort((a,b)=>b.score-a.score).slice(0,30);
+const candidates=(scan.candidates||[]).map(c=>{
+  const g=guardCandidate(c,realtime,whale);
+  if(source?.allowNewEntries===false&&g.decision==='PROBE_CANDIDATE'){
+    g.decision='SOURCE_HEALTH_BLOCK';g.entryGuardReasons.push('V369_SOURCE_HEALTH_BLOCK');
+  }
+  return g;
+}).sort((a,b)=>b.score-a.score).slice(0,30);
 const safeRisk={};for(const k of Object.keys(risk||{})){const v=risk[k];if(['string','number','boolean'].includes(typeof v)||v===null)safeRisk[k]=v;else if(Array.isArray(v))safeRisk[k]=v.slice(0,10);else if(v&&typeof v==='object'&&JSON.stringify(v).length<12000)safeRisk[k]=v}
 const sourceHealth={status:source?.status||null,checkedAt:source?.checkedAt||null,successfulSources:num(source?.successfulSources),failedSources:num(source?.failedSources),usingCache:source?.usingCache===true,allowNewEntries:source?.allowNewEntries===true};
-const summary={fullIntel:candidates.filter(x=>x.intelMode==='FULL_INTEL').length,realtimeOnly:candidates.filter(x=>x.intelMode==='REALTIME_ONLY').length,whaleOnly:candidates.filter(x=>x.intelMode==='WHALE_ONLY').length,feedHealthyRowMissing:candidates.filter(x=>x.intelMode==='FEED_HEALTHY_ROW_MISSING').length,bothFeedsDown:candidates.filter(x=>x.intelMode==='BOTH_FEEDS_DOWN').length,blockedByModernGuard:candidates.filter(x=>x.hardReject.some(r=>String(r).startsWith('V369_'))).length};
-const out={version:'3.69.0-modern-signal-guard',trendTelemetryRevision:'2.6.0',timestamp:new Date().toISOString(),scannerVersion:scan.version||null,sourceHealth,risk:safeRisk,intelSummary:summary,candidates};
+const summary={fullIntel:candidates.filter(x=>x.intelMode==='FULL_INTEL').length,realtimeOnly:candidates.filter(x=>x.intelMode==='REALTIME_ONLY').length,whaleOnly:candidates.filter(x=>x.intelMode==='WHALE_ONLY').length,feedHealthyRowMissing:candidates.filter(x=>x.intelMode==='FEED_HEALTHY_ROW_MISSING').length,bothFeedsDown:candidates.filter(x=>x.intelMode==='BOTH_FEEDS_DOWN').length,blockedByModernGuard:candidates.filter(x=>x.hardReject.some(r=>String(r).startsWith('V369_'))).length,sourceHealthBlocked:candidates.filter(x=>x.entryGuardReasons.includes('V369_SOURCE_HEALTH_BLOCK')).length};
+const nowIso=new Date().toISOString();
+const out={version:'3.69.1-modern-signal-guard',trendTelemetryRevision:'2.6.1',timestamp:nowIso,updatedAt:nowIso,scannerVersion:scan.version||null,sourceHealth,risk:safeRisk,intelSummary:summary,candidates};
 const t=OUT+'.tmp';fs.writeFileSync(t,JSON.stringify(out,null,2));fs.renameSync(t,OUT);try{fs.chmodSync(OUT,0o664)}catch{}
 console.log(`SAFE_SIGNAL_EXPORT=${candidates.length} SOURCE=${sourceHealth.status} V369_INTEL=${JSON.stringify(summary)}`);
