@@ -1,0 +1,16 @@
+name: Meme Alpha v3.36 Autonomous Portfolio Build
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/v336-build-autonomous-portfolio.sh'
+      - '.github/workflows/meme-alpha-v336-build-autonomous-portfolio.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and self-test autonomous portfolio executor
+        run: bash ops/meme-alpha/v336-build-autonomous-portfolio.sh
