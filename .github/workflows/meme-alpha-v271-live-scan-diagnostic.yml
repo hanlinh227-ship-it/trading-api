@@ -1,0 +1,18 @@
+name: Meme Alpha v2.7 Live Scan Diagnostic
+on:
+  push:
+    paths:
+      - 'ops/meme-alpha/v271-live-scan-diagnostic.sh'
+      - '.github/workflows/meme-alpha-v271-live-scan-diagnostic.yml'
+permissions:
+  contents: read
+concurrency:
+  group: meme-alpha-v271-live-scan-diagnostic
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash ops/meme-alpha/v271-live-scan-diagnostic.sh
