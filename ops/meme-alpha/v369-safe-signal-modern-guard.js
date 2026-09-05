@@ -22,7 +22,6 @@ function freshRow(doc,mint,maxAge,kind){
 }
 
 function intelState(c,rt,wh){
-  if(SELF_TEST)return {mode:'SELF_TEST',haircut:1,entryAllowed:true,rtFeed:true,whaleFeed:true,rtRow:true,whaleRow:true,whale:null};
   const rtFeed=feedHealthy(rt,15), whaleFeed=feedHealthy(wh,180);
   const rr=rtFeed?freshRow(rt,c.mint,8,'realtime'):null;
   const wr=whaleFeed?freshRow(wh,c.mint,120,'whale'):null;
