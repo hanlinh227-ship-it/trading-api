@@ -1,0 +1,17 @@
+name: Meme Alpha v3.43 Sync Checkpoint
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/meme-alpha/CHECKPOINT.md'
+      - 'ops/meme-alpha/v343-sync-checkpoint.sh'
+      - '.github/workflows/meme-alpha-v343-sync-checkpoint.yml'
+  workflow_dispatch:
+jobs:
+  sync:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Sync canonical checkpoint to VPS
+        run: bash ops/meme-alpha/v343-sync-checkpoint.sh
