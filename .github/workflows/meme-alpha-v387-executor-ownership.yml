@@ -14,6 +14,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo V387_EXECUTOR_OWNERSHIP_AUDIT=TRUE
           echo '=== EXECUTOR PROCESS ==='
           pgrep -af '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true
           for p in $(pgrep -f '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true); do ps -o user=,uid=,gid=,pid=,ppid=,cmd= -p "$p"; done
