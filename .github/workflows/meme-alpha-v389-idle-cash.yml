@@ -20,9 +20,6 @@ jobs:
           BASE="$RT/deploy-candidates"
           mkdir -p "$BASE"
 
-          echo '=== PRECHECK DEPENDENCIES ==='
-          grep -RniE "2\.7\.0-v387-unified-production|version.*2\.4\.0" "$APP/src" 2>/dev/null | head -80 || true
-
           GATE_SRC="$APP/src/micro-live-gate.js"
           GATE_CAND="$BASE/v392-gate-signer-compat.js"
           cp -a "$GATE_SRC" "$GATE_CAND"
@@ -33,11 +30,9 @@ jobs:
           new="const out={version:'2.4.0',gateContractRevision:'2.7.0-v387-unified-production',timestamp:new Date().toISOString(),allowed,"
           n=s.count(old)
           if n!=1: raise SystemExit(f'V392_GATE_VERSION_PATCH_COUNT={n}')
-          s=s.replace(old,new,1)
-          p.write_text(s)
+          p.write_text(s.replace(old,new,1))
           PY
           node --check "$GATE_CAND"
-          grep -q "version:'2.4.0',gateContractRevision:'2.7.0-v387-unified-production'" "$GATE_CAND"
 
           SIG_SRC="$APP/src/safe-signal-export.js"
           SIG_CAND="$BASE/v392-signal-core-safe-promotion.js"
@@ -45,24 +40,15 @@ jobs:
           python3 - "$SIG_CAND" <<'PY'
           import pathlib,sys
           p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="""  let effectiveConsecutive=num(p?.consecutiveEligible);
-          if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){
-            decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);
-          }
-          const originalScore=num(c.score);
-          const score=router.promotionEligible?router.effectiveScore:Number((originalScore*intel.haircut).toFixed(4));
-          """
-          new="""  let effectiveConsecutive=num(p?.consecutiveEligible);
-          const hardSafePromotion=router.common?.actionableSafe===true&&decision!=='SOURCE_HEALTH_BLOCK'&&decision!=='INTEL_DEGRADED'&&decision!=='EXTENSION_AUDIT_REQUIRED';
-          if((router.promotionEligible||hardSafePromotion)&&decision!=='PROBE_CANDIDATE'){
-            decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(router.promotionEligible?`V376_ROUTED_${router.selectedLane}`:'V392_CORE_SAFE_CAPITAL_DEPLOYMENT');
-          }
-          const originalScore=num(c.score);
-          const score=router.promotionEligible?router.effectiveScore:(hardSafePromotion?Number(originalScore.toFixed(4)):Number((originalScore*intel.haircut).toFixed(4)));
-          """
-          n=s.count(old)
-          if n!=1: raise SystemExit(f'V392_SIGNAL_PROMOTION_PATCH_COUNT={n}')
-          s=s.replace(old,new,1)
+          reps=[
+            ("if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){","if((router.promotionEligible||(router.common?.actionableSafe===true&&decision!=='EXTENSION_AUDIT_REQUIRED'))&&decision!=='PROBE_CANDIDATE'){",'IF'),
+            ("decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);","decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(router.promotionEligible?`V376_ROUTED_${router.selectedLane}`:'V392_CORE_SAFE_CAPITAL_DEPLOYMENT');",'REASON'),
+            ("const score=router.promotionEligible?router.effectiveScore:Number((originalScore*intel.haircut).toFixed(4));","const score=router.promotionEligible?router.effectiveScore:(router.common?.actionableSafe===true?Number(originalScore.toFixed(4)):Number((originalScore*intel.haircut).toFixed(4)));",'SCORE')
+          ]
+          for old,new,label in reps:
+            n=s.count(old)
+            if n!=1: raise SystemExit(f'V392_SIGNAL_{label}_PATCH_COUNT={n}')
+            s=s.replace(old,new,1)
           p.write_text(s)
           PY
           node --check "$SIG_CAND"
@@ -80,7 +66,6 @@ jobs:
           sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$SIG_CAND")" "$SIG_SHA"
           sudo -n /usr/local/sbin/meme-alpha-safe-deploy gate "$(basename "$GATE_CAND")" "$GATE_SHA"
 
-          echo '=== VERIFY LIVE ==='
           for i in $(seq 1 40); do
             sleep 2
             if python3 - <<'PY'
