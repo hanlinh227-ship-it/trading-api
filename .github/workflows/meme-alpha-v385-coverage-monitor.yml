@@ -1,0 +1,36 @@
+name: Meme Alpha V385 Coverage Monitor
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v385-coverage-monitor.yml']
+jobs:
+  monitor:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Monitor live cluster rotation
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RS="$APP/runtime-status"
+          echo '=== CONFIG ==='
+          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|V385_BUCKET_COUNT|V385_BUCKET_INDEX|MAX_SELLABILITY_CHECKS_V216' "$APP/src/scanner.js"
+          echo '=== SERVICES ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
+          echo '=== INITIAL GATE ==='
+          python3 -c "import json; d=json.load(open('$RS/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']})"
+          rm -f /tmp/v385_seen.txt
+          touch /tmp/v385_seen.txt
+          for i in 1 2 3 4; do
+            echo "=== SAMPLE $i ==="
+            python3 -c "import json,os,time; p='$RS/signal-snapshot.json'; d=json.load(open(p)); c=d.get('candidates') or []; rows=[((x.get('mint') or (x.get('result') or {}).get('mint') or x.get('address') or ''),(x.get('symbol') or (x.get('result') or {}).get('symbol') or '')) for x in c if isinstance(x,dict)]; print({'ageSec':round(time.time()-os.path.getmtime(p),1),'count':len(c),'probe':(d.get('intelSummary') or {}).get('probeCandidates'),'routed':(d.get('intelSummary') or {}).get('routedCandidates'),'sample':rows[:10]}); open('/tmp/v385_seen.txt','a').write(''.join([m+'\\t'+s+'\\n' for m,s in rows if m]))"
+            find "$RS" -maxdepth 1 -type f -iname '*radar*.json' -printf '%f %s bytes\n' | sort || true
+            [ "$i" -eq 4 ] || sleep 35
+          done
+          echo '=== DISTINCT SIGNAL CANDIDATES OBSERVED ==='
+          sort -u /tmp/v385_seen.txt | tee /tmp/v385_seen_unique.txt
+          echo "distinct=$(wc -l < /tmp/v385_seen_unique.txt)"
+          echo '=== FINAL GATE ==='
+          python3 -c "import json; d=json.load(open('$RS/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']}); assert d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True"
