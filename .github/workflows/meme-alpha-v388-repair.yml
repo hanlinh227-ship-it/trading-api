@@ -10,31 +10,29 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect radar eligibility and scanner analysis
+      - name: Inspect holder and flow mapping
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"
-          echo '=== ANALYZE FUNCTION ==='
-          sed -n '560,860p' "$SRC/scanner.js"
-          echo '=== PUBLIC HEALTH ==='
+          echo '=== SCANNER RETURN/SECURITY ==='
+          sed -n '800,1010p' "$SRC/scanner.js"
+          echo '=== SIGNAL HOLDER LOGIC ==='
+          sed -n '105,170p' "$SRC/safe-signal-export.js"
+          echo '=== PAPER PIPELINE ==='
+          grep -nE 'scanner|holder|security|universe|safe-signal|micro-live-gate|risk' "$APP/run-paper.sh" || true
+          echo '=== RADAR FIELD COVERAGE ==='
           python3 - <<'PY'
-          import json,pathlib,time,collections
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          sig=json.loads((rt/'signal-snapshot.json').read_text())
-          print('sourceHealth=',sig.get('sourceHealth'))
-          print('risk=',sig.get('risk'))
-          print('intelSummary=',sig.get('intelSummary'))
-          r=json.loads((rt/'new-listing-radar.json').read_text())
-          rows=r.get('candidates') or []
-          print('radar status/provider/rows',r.get('status'),r.get('providerCount'),len(rows))
-          for key in ['currentFeed','entryEligible','fastDiscoveryLane']:
-            c=collections.Counter(str(x.get(key)) for x in rows); print(key,c)
-          print('currentCandidates=',r.get('currentCandidates'),'fastDiscoveryCandidates=',r.get('fastDiscoveryCandidates'),'currentFeedMints=',len(r.get('currentFeedMints') or []))
-          eligible=[x for x in rows if x.get('currentFeed') is True]
-          print('currentFeed_rows',len(eligible))
-          for x in eligible[:15]: print({k:x.get(k) for k in ['mint','symbol','currentFeed','entryEligible','fastDiscoveryLane','preScore','discoveryConfidence','liquidityUsd','volume5m','buys5m','sells5m','buySellTxnRatio','priceChange5m','pairAgeSec']})
+          import json,pathlib,collections
+          r=json.loads(pathlib.Path('/opt/meme-alpha/app/runtime-status/new-listing-radar.json').read_text())
+          rows=[x for x in (r.get('candidates') or []) if x.get('currentFeed') is True]
+          print('currentFeed',len(rows))
+          for key in ['holderCount','liquidityUsd','buys5m','sells5m','buySellTxnRatio','priceChange5m','volume5m','organicScore','entryEligible','fastDiscoveryLane']:
+            vals=[x.get(key) for x in rows]
+            nonzero=sum(1 for v in vals if isinstance(v,(int,float)) and v!=0)
+            present=sum(1 for v in vals if v is not None)
+            print(key,'present',present,'nonzero',nonzero,'sample',vals[:8])
+          for x in rows[:12]:
+            print({k:x.get(k) for k in ['mint','symbol','holderCount','liquidityUsd','buys5m','sells5m','buySellTxnRatio','priceChange5m','volume5m','organicScore','preScore','discoveryConfidence','fastDiscoveryLane']})
           PY
-          echo '=== PAPER STATUS ==='
-          sudo -n /bin/systemctl status meme-alpha-paper.service --no-pager -l || true
-          echo V388_RADAR_ANALYSIS=COMPLETE
+          echo V388_MAPPING_INSPECT=COMPLETE
