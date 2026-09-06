@@ -9,28 +9,18 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect live candidate funnel
+      - name: Inspect active scanner funnel caps
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          echo '=== FILES ==='
-          find "$APP/runtime-status" -maxdepth 2 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 80 || true
-          echo '=== GATE ==='
-          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
-          echo '=== SIGNAL SNAPSHOTS ==='
-          for p in "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/safe-signal.json" "$APP/runtime-status/signals.json"; do
-            if [ -f "$p" ]; then
-              echo "--- $p"
-              python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(json.dumps(d,ensure_ascii=False)[:30000])" "$p" || true
-            fi
-          done
-          echo '=== MICRO LIVE STATE ==='
-          find "$APP/runtime-status" -maxdepth 2 -type f -iname '*micro*live*.json' -print 2>/dev/null | while read -r p; do
-            echo "--- $p"
-            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(json.dumps(d,ensure_ascii=False)[:20000])" "$p" || true
-          done
-          echo '=== DATA RECENT FILES ==='
-          find /var/lib/meme-alpha/data -maxdepth 3 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 100 || true
-          echo '=== RECENT FUNNEL TEXT ==='
-          grep -RniE 'BUY|SELL|EXECUT|PROBE_CANDIDATE|candidate|reject|block|eligible' /var/lib/meme-alpha/data "$APP/runtime-status" 2>/dev/null | tail -n 250 || true
+          echo '=== SCANNER MATCHES ==='
+          grep -nE 'MAX_SELLABILITY|slice\(|TOP CANDIDATES|best 30|high-signal|final|PROBE_CANDIDATE|candidateCount|MAX_' "$APP/src/scanner.js" | tail -n 160 || true
+          echo '=== SCANNER WINDOW ==='
+          nl -ba "$APP/src/scanner.js" | sed -n '900,1120p' || true
+          echo '=== SAFE SIGNAL MATCHES ==='
+          grep -nE 'slice\(|candidate|PROBE_CANDIDATE|routed|blocked|intel|MEME_CONFIRMED|hardReject' "$APP/src/safe-signal-export.js" | tail -n 180 || true
+          echo '=== SAFE SIGNAL WINDOW ==='
+          nl -ba "$APP/src/safe-signal-export.js" | sed -n '1,320p' || true
+          echo '=== LATEST SIGNAL SUMMARY ==='
+          python3 -c "import json; d=json.load(open('$APP/runtime-status/signal-snapshot.json')); print({'timestamp':d.get('timestamp'),'count':len(d.get('candidates') or []),'intelSummary':d.get('intelSummary'),'marketRegime':d.get('marketRegime')}); [print({k:x.get(k) for k in ['symbol','score','decision','universeClass','securityDecision','holderClusterDecision','hardReject','token2022','liquidityUsd','priceChange5m','netBuyers5m','sellRoute']}) for x in (d.get('candidates') or [])[:20]]"
