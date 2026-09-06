@@ -10,36 +10,31 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Isolate scanner candidate loss
+      - name: Inspect radar eligibility and scanner analysis
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"
-          echo '=== SCANNER DISCOVERY 300-470 ==='
-          sed -n '300,470p' "$SRC/scanner.js"
-          echo '=== SCANNER FINALIZATION 1010-1195 ==='
-          sed -n '1010,1195p' "$SRC/scanner.js"
-          echo '=== CURRENT SCANNER OUTPUT ==='
+          echo '=== ANALYZE FUNCTION ==='
+          sed -n '560,860p' "$SRC/scanner.js"
+          echo '=== PUBLIC HEALTH ==='
           python3 - <<'PY'
-          import json,pathlib,time
-          paths=[pathlib.Path('/var/lib/meme-alpha/data/paper/scanner-latest.json'),pathlib.Path('/var/lib/meme-alpha/data/paper/scanner-source-health.json'),pathlib.Path('/opt/meme-alpha/app/runtime-status/signal-snapshot.json')]
-          for p in paths:
-            print('\nFILE',p,'exists',p.exists(),'age',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
-            if not p.exists(): continue
-            try:d=json.loads(p.read_text())
-            except Exception as e: print('ERR',e); continue
-            if isinstance(d,dict):
-              print('keys',list(d)[:60])
-              for k,v in d.items():
-                if isinstance(v,list): print('LIST',k,len(v),'sample',v[:1])
-                elif k in ['version','status','allowNewEntries','usingCache','checkedAt','updatedAt','timestamp','successfulSources','sourceCount','reason','reasons','errors','failures','scannerVersion','sourceHealth','risk','intelSummary']:
-                  print(k,repr(v))
+          import json,pathlib,time,collections
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          sig=json.loads((rt/'signal-snapshot.json').read_text())
+          print('sourceHealth=',sig.get('sourceHealth'))
+          print('risk=',sig.get('risk'))
+          print('intelSummary=',sig.get('intelSummary'))
+          r=json.loads((rt/'new-listing-radar.json').read_text())
+          rows=r.get('candidates') or []
+          print('radar status/provider/rows',r.get('status'),r.get('providerCount'),len(rows))
+          for key in ['currentFeed','entryEligible','fastDiscoveryLane']:
+            c=collections.Counter(str(x.get(key)) for x in rows); print(key,c)
+          print('currentCandidates=',r.get('currentCandidates'),'fastDiscoveryCandidates=',r.get('fastDiscoveryCandidates'),'currentFeedMints=',len(r.get('currentFeedMints') or []))
+          eligible=[x for x in rows if x.get('currentFeed') is True]
+          print('currentFeed_rows',len(eligible))
+          for x in eligible[:15]: print({k:x.get(k) for k in ['mint','symbol','currentFeed','entryEligible','fastDiscoveryLane','preScore','discoveryConfidence','liquidityUsd','volume5m','buys5m','sells5m','buySellTxnRatio','priceChange5m','pairAgeSec']})
           PY
-          echo '=== RADAR TOP SAFE-RELATED FIELDS ==='
-          python3 - <<'PY'
-          import json,pathlib
-          d=json.loads(pathlib.Path('/opt/meme-alpha/app/runtime-status/new-listing-radar.json').read_text())
-          for r in (d.get('candidates') or [])[:12]:
-            print({k:r.get(k) for k in ['mint','symbol','preScore','entryEligible','liquidityUsd','priceChange5m','buys5m','sells5m','providerCount','sourceCount','fastDiscoveryLane','discoveryConfidence','pairAgeSec']})
-          PY
-          echo V388_SCANNER_ISOLATED=TRUE
+          echo '=== PAPER STATUS ==='
+          sudo -n /bin/systemctl status meme-alpha-paper.service --no-pager -l || true
+          echo V388_RADAR_ANALYSIS=COMPLETE
