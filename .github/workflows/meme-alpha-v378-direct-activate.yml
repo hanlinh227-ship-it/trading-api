@@ -1,4 +1,4 @@
-name: Meme Alpha V382 Scanner Stall Inspect
+name: Meme Alpha Locate Clean Run Paper
 on:
   push:
     branches: [main]
@@ -9,25 +9,13 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect paper scanner stall
+      - name: Inspect run-paper backups
         shell: bash
         run: |
           set +e
-          APP=/opt/meme-alpha/app
-          echo '=== NOW ==='; date -u +%FT%TZ
-          echo '=== SERVICES ==='; systemctl status meme-alpha-paper.service meme-alpha-micro-live.service --no-pager -l 2>/dev/null | tail -120
-          echo '=== PROCESSES ==='; ps -eo pid,ppid,etime,stat,cmd | grep -E 'scanner.js|safe-signal-export.js|run-paper.sh|micro-live-executor.js' | grep -v grep || true
-          echo '=== PAPER JOURNAL ==='; journalctl -u meme-alpha-paper.service -n 160 --no-pager 2>/dev/null || true
-          echo '=== FILE AGES ===';
-          python3 - <<'PY'
-          import os,time,json
-          base='/opt/meme-alpha/app/runtime-status/'
-          for f in ['new-listing-radar.json','signal-snapshot.json','micro-live-gate.json','realtime-pool-pulse.json']:
-            p=base+f
-            try:
-              d=json.load(open(p)); print(f,round(time.time()-os.path.getmtime(p),1),d.get('timestamp') or d.get('updatedAt'))
-            except Exception as e: print(f,e)
-          PY
-          echo '=== SCANNER LIMITS ==='; grep -nE 'DISCOVERY_RADAR_ONLY_MAX|JUPITER_MIN_INTERVAL_MS|MAX_SELLABILITY_CHECKS_V216|baseDeep|slice\(0, 4\)' "$APP/src/scanner.js" | head -30
-          echo '=== RUN PAPER HEAD ==='; sed -n '1,160p' "$APP/run-paper.sh" 2>/dev/null
+          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
+          for f in "$ST"/run-paper*.sh; do
+            echo "=== $f ==="
+            sed -n '1,80p' "$f" 2>/dev/null
+          done
           exit 0
