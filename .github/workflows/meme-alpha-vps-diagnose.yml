@@ -1,0 +1,80 @@
+name: Meme Alpha VPS Diagnose
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-vps-diagnose.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect non-secret runtime topology
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/DIAGNOSTICS.md"
+          mkdir -p "$(dirname "$OUT")"
+          {
+            echo '# Meme Alpha VPS Diagnostics'
+            echo
+            echo "- UTC: $(date -u +%FT%TZ)"
+            echo "- Runner user: $(id -un)"
+            echo "- Host: $(hostname)"
+            echo
+            echo '## /opt/meme-alpha directories'
+            echo '```'
+            if [[ -d /opt/meme-alpha ]]; then
+              find /opt/meme-alpha -maxdepth 5 -type d -print 2>/dev/null | sort | head -n 500
+            else
+              echo '/opt/meme-alpha missing'
+            fi
+            echo '```'
+            echo
+            echo '## /opt/meme-alpha files (names only; no contents)'
+            echo '```'
+            if [[ -d /opt/meme-alpha ]]; then
+              find /opt/meme-alpha -maxdepth 6 -type f -print 2>/dev/null | sort | head -n 1000
+            else
+              echo '/opt/meme-alpha missing'
+            fi
+            echo '```'
+            echo
+            echo '## Meme-related system services'
+            echo '```'
+            systemctl list-unit-files --type=service --no-pager 2>/dev/null | grep -iE 'meme|solana|jupiter' || true
+            echo '```'
+            echo
+            echo '## Meme-related service runtime states'
+            echo '```'
+            systemctl list-units --type=service --all --no-pager 2>/dev/null | grep -iE 'meme|solana|jupiter' || true
+            echo '```'
+            echo
+            echo '## User-level meme services'
+            echo '```'
+            systemctl --user list-units --type=service --all --no-pager 2>/dev/null | grep -iE 'meme|solana|jupiter' || true
+            echo '```'
+          } > "$OUT"
+
+      - name: Commit diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/DIAGNOSTICS.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(meme): capture VPS runtime topology"
+          git push origin HEAD:main
