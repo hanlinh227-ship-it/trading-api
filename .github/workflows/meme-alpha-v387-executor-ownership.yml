@@ -1,0 +1,23 @@
+name: Meme Alpha V387 Executor Ownership
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v387-executor-ownership.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Inspect executor process ownership without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== EXECUTOR PROCESS ==='
+          pgrep -af '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true
+          for p in $(pgrep -f '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true); do ps -o user=,uid=,gid=,pid=,ppid=,cmd= -p "$p"; done
+          echo '=== UNIT ==='
+          systemctl show meme-alpha-micro-live.service -p User -p Group -p Restart -p RestartUSec -p MainPID -p ActiveState -p SubState || true
+          echo '=== RUNNER ==='
+          id
