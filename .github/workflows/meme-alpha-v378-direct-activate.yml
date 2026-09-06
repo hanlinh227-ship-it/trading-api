@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Service Attestation Diagnose
+name: Meme Alpha V379 Root Recovery Inspect
 
 on:
   push:
@@ -7,43 +7,21 @@ on:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Read attestation through paper service user
+      - name: Inspect root recovery lane
         shell: bash
         run: |
-          set -Eeuo pipefail
-          APP=/opt/meme-alpha/app
-          RUN="$APP/run-paper.sh"
-          H="$APP/runtime-status/v379-arm-read"
-          rm -rf "$H" && mkdir -p "$H" && chmod 0777 "$H"
-          cp -a "$RUN" "$H/original-run-paper.sh" && chmod 0755 "$H/original-run-paper.sh"
-          rm -f "$H/result.txt"
-          cat > "$RUN" <<'SH'
-          #!/usr/bin/env bash
           set -u
-          APP=/opt/meme-alpha/app
-          H="$APP/runtime-status/v379-arm-read"
-          {
-            echo "USER=$(id -un)"
-            echo "GROUPS=$(id -Gn)"
-            echo 'ATTEST_BEGIN'
-            cat /var/lib/meme-alpha/data/micro-live/arm-attestation.json 2>&1 || true
-            echo 'ATTEST_END'
-            echo 'ARM_DIRECT_BEGIN'
-            stat -c 'uid=%u gid=%g mode=%a owner=%U group=%G' /etc/meme-alpha/micro-live-armed 2>&1 || true
-            cat /etc/meme-alpha/micro-live-armed 2>&1 || true
-            echo 'ARM_DIRECT_END'
-          } > "$H/result.txt"
-          exec "$H/original-run-paper.sh"
-          SH
-          chmod 0775 "$RUN"
-          sudo -n /bin/systemctl restart meme-alpha-paper.service
-          sleep 2
-          cp -a "$H/original-run-paper.sh" "$RUN"
-          chmod 0775 "$RUN"
-          sleep 5
-          cat "$H/result.txt"
+          echo '--- MAINT STATE ---'
+          ls -l /var/lib/meme-alpha/deploy-v377-maintenance.json 2>&1 || true
+          echo '--- ROOT UPDATER ---'
+          systemctl status auto-futures-update.timer auto-futures-update.service --no-pager 2>&1 || true
+          echo '--- UPDATER LOG TAIL ---'
+          tail -n 120 /opt/trading/trading-api/auto-futures-v1/logs/auto_update.log 2>&1 || true
+          echo '--- ARM ---'
+          stat -c 'uid=%u gid=%g mode=%a owner=%U group=%G' /etc/meme-alpha/micro-live-armed 2>&1 || true
+          cat /etc/meme-alpha/micro-live-armed 2>&1 || true
