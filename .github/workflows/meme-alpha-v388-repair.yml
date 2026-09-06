@@ -1,0 +1,38 @@
+name: Meme Alpha V388 Repair
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v388-repair.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Inspect source-health and signal pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          SRC="$APP/src"
+          RT="$APP/runtime-status"
+          echo '=== SAFE SIGNAL SOURCE ==='
+          sed -n '1,280p' "$SRC/safe-signal-export.js"
+          echo '=== GATE SOURCE ==='
+          sed -n '1,260p' "$SRC/micro-live-gate.js"
+          echo '=== SCANNER SOURCE ==='
+          sed -n '1,260p' "$SRC/scanner.js"
+          echo '=== RUN PAPER ==='
+          sed -n '1,260p' "$APP/run-paper.sh"
+          echo '=== UNIVERSE ==='
+          cat "$RT/universe.json" || true
+          echo '=== RADAR ==='
+          cat "$RT/new-listing-radar.json" || true
+          echo '=== PULSE ==='
+          cat "$RT/realtime-pool-pulse.json" || true
+          echo '=== TREND ==='
+          cat "$RT/trend-pulse.json" || true
+          echo '=== WHALE ==='
+          cat "$RT/whale-flow-intel.json" || true
+          echo V388_INSPECT=COMPLETE
