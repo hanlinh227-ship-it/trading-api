@@ -1,0 +1,55 @@
+name: Meme Alpha v3.74 Held Pair Diagnostic
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v374-held-pair-diagnostic.yml'
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect safe runtime-status sources for held pair mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          /usr/bin/node - "$APP/runtime-status" <<'NODE'
+          const fs=require('fs'),path=require('path');
+          const dir=process.argv[2];
+          const obsPath=path.join(dir,'portfolio-observability.json');
+          const obs=JSON.parse(fs.readFileSync(obsPath,'utf8'));
+          const mints=Array.isArray(obs.positionMints)?obs.positionMints:[];
+          const addr=/^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+          const secret=/secret|private|seed|mnemonic|keypair|password|token|authorization|credential|signer/i;
+          const allowFile=f=>f.endsWith('.json')&&!secret.test(f)&&!f.includes('config');
+          const files=fs.readdirSync(dir).filter(allowFile).slice(0,500);
+          const hits=[];
+          function walk(v,p,out,depth=0){
+            if(depth>8||v==null)return;
+            if(Array.isArray(v)){for(let i=0;i<Math.min(v.length,1000);i++)walk(v[i],`${p}[${i}]`,out,depth+1);return}
+            if(typeof v!=='object')return;
+            for(const [k,val] of Object.entries(v)){
+              if(secret.test(k))continue;
+              const kp=p?`${p}.${k}`:k;
+              if(typeof val==='string'&&mints.includes(val)){
+                const siblings=[];
+                for(const [sk,sv] of Object.entries(v)){
+                  if(secret.test(sk)||sk===k)continue;
+                  if(typeof sv==='string'&&addr.test(sv)&&!mints.includes(sv))siblings.push({field:sk,value:sv});
+                }
+                out.push({path:kp,mint:val,siblings:siblings.slice(0,12)});
+              }
+              if(typeof val==='object'&&val!==null)walk(val,kp,out,depth+1);
+            }
+          }
+          for(const f of files){
+            let x;try{x=JSON.parse(fs.readFileSync(path.join(dir,f),'utf8'))}catch{continue}
+            const out=[];walk(x,'',out);if(out.length)hits.push({file:f,hits:out.slice(0,20)});
+          }
+          console.log('V374_HELD_PAIR_DIAGNOSTIC=START');
+          console.log('HELD_COUNT='+mints.length);
+          console.log(JSON.stringify(hits,null,2));
+          console.log('V374_HELD_PAIR_DIAGNOSTIC=END');
+          NODE
