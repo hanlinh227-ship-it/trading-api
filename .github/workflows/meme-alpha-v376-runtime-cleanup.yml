@@ -1,0 +1,61 @@
+name: Meme Alpha v3.76 Runtime Cleanup
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v376-runtime-cleanup.yml']
+jobs:
+  cleanup:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Remove stale v3.75 runtime artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          ACTIVE="$APP/src/safe-signal-export.js"
+          /usr/bin/node - <<'NODE'
+          const fs=require('fs');
+          const s=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/signal-snapshot.json','utf8'));
+          if(s.version!=='3.76.0-multi-strategy-router')throw new Error('REFUSE_CLEANUP_ACTIVE_SIGNAL_NOT_V376');
+          NODE
+          grep -q '3.76.0-multi-strategy-router' "$ACTIVE"
+          if grep -q '3.75.0-opportunity-accelerator' "$ACTIVE"; then
+            echo REFUSE_CLEANUP_ACTIVE_V375_MARKER=TRUE
+            exit 1
+          fi
+          rm -rf "$APP/runtime-status/v375-opportunity-stage"
+          rm -f "$APP/runtime-status/deploy-candidates/safe-signal-export-v375-opportunity-accelerator.js"
+          test ! -e "$APP/runtime-status/v375-opportunity-stage"
+          test ! -e "$APP/runtime-status/deploy-candidates/safe-signal-export-v375-opportunity-accelerator.js"
+          echo V375_STAGE_REMOVED=TRUE
+          echo V375_DEPLOY_CANDIDATE_REMOVED=TRUE
+      - name: Verify production unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          for svc in meme-alpha-paper meme-alpha-micro-live meme-alpha-realtime-pulse meme-alpha-signer meme-alpha-trend-pulse meme-alpha-whale-flow; do
+            systemctl is-active --quiet "$svc.service"
+          done
+          /usr/bin/node - <<'NODE'
+          const fs=require('fs');
+          const s=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/signal-snapshot.json','utf8'));
+          const g=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/micro-live-gate.json','utf8'));
+          const r=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/realtime-pool-pulse.json','utf8'));
+          const p=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/portfolio-observability.json','utf8'));
+          if(s.version!=='3.76.0-multi-strategy-router')throw new Error('SIGNAL_CHANGED_AFTER_CLEANUP');
+          if(g.allowed!==true)throw new Error('LIVE_GATE_NOT_ALLOWED_AFTER_CLEANUP');
+          if(r.version!=='3.74.0-held-continuity'||r.status!=='HEALTHY')throw new Error('REALTIME_NOT_HEALTHY_AFTER_CLEANUP');
+          if(p.stateReadable!==true)throw new Error('PORTFOLIO_NOT_READABLE_AFTER_CLEANUP');
+          console.log('SIGNAL_VERSION='+s.version);
+          console.log('LIVE_GATE_ALLOWED='+g.allowed);
+          console.log('REALTIME_STATUS='+r.status);
+          console.log('OPEN_POSITIONS='+Number(p.openPositions||0));
+          NODE
+          grep -q '3.60.0-profit-aware-exits' "$APP/src/micro-live-executor.js"
+          grep -q 'FAST_DISCOVERY_V372' "$APP/src/new-listing-radar.js"
+          grep -q 'FAST_DISCOVERY_V372_MERGE' "$APP/src/scanner.js"
+          echo V376_RUNTIME_CLEANUP_VERIFIED=TRUE
