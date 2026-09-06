@@ -1,0 +1,131 @@
+name: Meme Alpha VPS Source Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-vps-sync.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: meme-alpha-vps-sync
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Snapshot meme bot source without secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="/opt/meme-alpha/app"
+          DST="$GITHUB_WORKSPACE/meme-alpha-runtime/source"
+          META="$GITHUB_WORKSPACE/meme-alpha-runtime/INVENTORY.md"
+
+          if [[ ! -d "$SRC" ]]; then
+            echo "Expected runtime source directory not found: $SRC" >&2
+            exit 2
+          fi
+
+          rm -rf "$DST"
+          mkdir -p "$DST"
+
+          SRC="$SRC" DST="$DST" META="$META" python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os, re, shutil, subprocess, sys, datetime
+
+          src = Path(os.environ['SRC']).resolve()
+          dst = Path(os.environ['DST']).resolve()
+          meta = Path(os.environ['META']).resolve()
+
+          allowed_names = {'requirements.txt', 'pyproject.toml', 'poetry.lock'}
+          allowed_suffixes = {'.py'}
+          blocked_parts = {'.git', '.venv', 'venv', '__pycache__', 'node_modules'}
+          blocked_name_tokens = ('secret', 'private_key', 'private-key', 'mnemonic', 'seed_phrase', 'seed-phrase', '.env', 'wallet-key', 'wallet_key')
+          secret_assignment = re.compile(
+              r"(?im)^\s*[A-Z0-9_]*(?:PRIVATE_KEY|SECRET_KEY|MNEMONIC|SEED_PHRASE|API_KEY|BOT_TOKEN|ACCESS_TOKEN)[A-Z0-9_]*\s*=\s*['\"][^'\"]{16,}['\"]"
+          )
+
+          copied, skipped = [], []
+          for p in src.rglob('*'):
+              if not p.is_file():
+                  continue
+              rel = p.relative_to(src)
+              if any(part in blocked_parts for part in rel.parts):
+                  continue
+              lname = p.name.lower()
+              if any(tok in lname for tok in blocked_name_tokens):
+                  skipped.append((str(rel), 'blocked filename'))
+                  continue
+              if not (p.suffix.lower() in allowed_suffixes or p.name in allowed_names):
+                  continue
+              try:
+                  text = p.read_text(encoding='utf-8')
+              except Exception:
+                  skipped.append((str(rel), 'non-UTF8/unreadable'))
+                  continue
+              if secret_assignment.search(text):
+                  skipped.append((str(rel), 'possible hard-coded secret'))
+                  continue
+              out = dst / rel
+              out.parent.mkdir(parents=True, exist_ok=True)
+              out.write_text(text, encoding='utf-8')
+              sha = hashlib.sha256(text.encode()).hexdigest()
+              copied.append((str(rel), sha))
+
+          compile_failures = []
+          for p in dst.rglob('*.py'):
+              cp = subprocess.run([sys.executable, '-m', 'py_compile', str(p)], capture_output=True, text=True)
+              if cp.returncode:
+                  compile_failures.append((str(p.relative_to(dst)), (cp.stderr or cp.stdout).strip()))
+
+          try:
+              active = subprocess.run(['systemctl', 'is-active', 'meme-alpha.service'], capture_output=True, text=True).stdout.strip() or 'unknown'
+          except Exception:
+              active = 'unknown'
+
+          lines = [
+              '# Meme Alpha VPS Inventory', '',
+              f'- Snapshot UTC: {datetime.datetime.now(datetime.timezone.utc).isoformat()}',
+              f'- Runtime source: `{src}`',
+              f'- Service active: `{active}`',
+              f'- Python: `{sys.version.split()[0]}`',
+              f'- Source files copied: `{len(copied)}`',
+              f'- Files skipped by secret guard: `{len(skipped)}`',
+              f'- Python compile failures: `{len(compile_failures)}`', '',
+              '## Copied files',
+          ]
+          lines += [f'- `{rel}` — `{sha[:16]}`' for rel, sha in copied] or ['- none']
+          lines += ['', '## Secret-guard skips']
+          lines += [f'- `{rel}` — {why}' for rel, why in skipped] or ['- none']
+          lines += ['', '## Compile failures']
+          lines += [f'- `{rel}` — `{err[:300]}`' for rel, err in compile_failures] or ['- none']
+          meta.parent.mkdir(parents=True, exist_ok=True)
+          meta.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+          print(f'Copied {len(copied)} files; skipped {len(skipped)}; compile failures {len(compile_failures)}; service={active}')
+          PY
+
+      - name: Commit sanitized snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime
+          if git diff --cached --quiet; then
+            echo "No runtime source changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(meme): snapshot sanitized VPS runtime source"
+          git push origin HEAD:main
