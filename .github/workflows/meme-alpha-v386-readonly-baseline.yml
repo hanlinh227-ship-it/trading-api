@@ -58,4 +58,10 @@ jobs:
                           print(json.dumps({'businessFunction':m.group(1),'source':filename,'text':snippet}))
               else:
                   print(json.dumps({'gateSha256':hashlib.sha256(text.encode()).hexdigest(),'scaleLines':[line for line in text.splitlines() if 'evidenceReady' in line or 'scaleAllowed' in line or 'completed>=' in line]}))
+          for p in sorted((root/'src').glob('*.js')):
+              for i,line in enumerate(p.read_text().splitlines(),1):
+                  if 'scaleAllowed' in line:
+                      print(json.dumps({'scaleConsumer':p.name,'line':i,'text':line}))
+          deploy=pathlib.Path('/usr/local/sbin/meme-alpha-safe-deploy')
+          print(json.dumps({'deployDispatcher':deploy.read_text()}))
           PY
