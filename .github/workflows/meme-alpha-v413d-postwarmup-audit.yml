@@ -1,0 +1,42 @@
+name: Meme Alpha V413D Postwarmup Audit
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v413d-postwarmup-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Verify V413 runtime after warmup
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; sleep 38
+          date -u +%FT%TZ
+          echo PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true)
+          echo COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          echo EXEC_SHA=$(sha256sum "$APP/src/micro-live-executor.js"|awk '{print $1}')
+          echo TREND_SHA=$(sha256sum "$APP/src/trend-pulse.js"|awk '{print $1}')
+          echo RT_SHA=$(sha256sum "$APP/src/realtime-pool-pulse.js"|awk '{print $1}')
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          g=json.loads((rt/'micro-live-gate.json').read_text()); print('GATE',{k:g.get(k) for k in ['allowed','armOk','armAttested','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          tr=json.loads((rt/'trend-pulse.json').read_text()); rows=tr.get('rows') or []; print('TREND',{'version':tr.get('version'),'ageSec':round(time.time()-(rt/'trend-pulse.json').stat().st_mtime,2),'rows':len(rows),'prebreakout':sum(x.get('status')=='PREBREAKOUT' for x in rows),'breakout':sum(x.get('status')=='BREAKOUT' for x in rows),'rising':sum(x.get('flowRiseConfirmed') is True for x in rows)})
+          for x in rows[:18]: print('ROW',{k:x.get(k) for k in ['symbol','status','pulseScore','price5m','volumeAcceleration','txnAcceleration','buySellRatio','volumeAccelSlope','txnAccelSlope','buySellRatioSlope','flowRiseConfirmed']})
+          rp=json.loads((rt/'realtime-pool-pulse.json').read_text()); print('REALTIME',{k:rp.get(k) for k in ['version','status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','activeSetSize','lastError']})
+          po=json.loads((rt/'portfolio-observability.json').read_text()); print('PORTFOLIO',{k:po.get(k) for k in ['openPositions','positionMints','stateReadable']})
+          co=json.loads((rt/'capital-observability.json').read_text()); print('CAPITAL',{k:co.get(k) for k in ['walletSol','investedSol','deployableSol','minOrderLamports','openPositions','scaleAllowed']})
+          al=json.loads((rt/'allocator-status.json').read_text()); print('ALLOC',{k:al.get(k) for k in ['action','reason','symbol','targetSymbol','openPositions','scaleAllowed']})
+          le=rt/'last-execution.json'
+          if le.exists(): print('LAST_EXEC',json.loads(le.read_text()))
+          assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          assert tr.get('version')=='2.13.0-v413-flow-slope' and len(rows)>0
+          assert rp.get('status')=='HEALTHY' and int(rp.get('heldUnresolved') or 0)==0 and int(rp.get('heldSubscriptions') or 0)>=int(rp.get('heldTotal') or 0)
+          PY
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          echo V413D_POSTWARMUP=PASS
