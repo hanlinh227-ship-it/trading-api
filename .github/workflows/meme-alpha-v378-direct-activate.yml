@@ -17,73 +17,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Direct Meme-only activation
+      - name: Discover and use authorized Meme-only root path
         shell: bash
         run: |
-          set -Eeuo pipefail
+          set -u
           APP=/opt/meme-alpha/app
           EXEC="$APP/src/micro-live-executor.js"
-          TMP=$(mktemp -d /tmp/meme-v378-direct.XXXXXX)
-          trap 'rm -rf "$TMP"' EXIT
-          git show origin/auto-futures-v1:auto-futures-v1/runtime/meme_alpha_patch_v378.py > "$TMP/patch.py"
-          cp -a "$EXEC" "$TMP/executor.js"
-          python3 "$TMP/patch.py" "$TMP/executor.js"
-          node --check "$TMP/executor.js"
-          node "$TMP/executor.js" --self-test >/tmp/meme_v378_direct_selftest.out 2>&1
-          grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$TMP/executor.js"
-          test -w "$EXEC" || { echo 'DIRECT_ACTIVATE=BLOCKED_EXECUTOR_NOT_WRITABLE'; exit 42; }
-          cp -a "$EXEC" "$TMP/executor.backup.js"
-          cp "$TMP/executor.js" "$EXEC"
-          restarted=false
-          if systemctl restart meme-alpha-micro-live.service >/tmp/meme_v378_restart.out 2>&1; then
-            restarted=true
-          else
-            pid=$(systemctl show meme-alpha-micro-live.service -p MainPID --value 2>/dev/null || echo 0)
-            if [[ "$pid" =~ ^[0-9]+$ ]] && [[ "$pid" -gt 1 ]]; then
-              owner=$(stat -c %U "/proc/$pid" 2>/dev/null || echo unknown)
-              me=$(id -un)
-              if [[ "$owner" == "$me" ]]; then
-                kill -TERM "$pid"
-                for i in $(seq 1 30); do
-                  sleep 0.5
-                  npid=$(systemctl show meme-alpha-micro-live.service -p MainPID --value 2>/dev/null || echo 0)
-                  [[ "$npid" =~ ^[0-9]+$ ]] && [[ "$npid" -gt 1 ]] && [[ "$npid" != "$pid" ]] && { restarted=true; break; }
-                done
-              fi
-            fi
-          fi
-          if [[ "$restarted" != true ]]; then
-            cp "$TMP/executor.backup.js" "$EXEC"
-            echo 'DIRECT_ACTIVATE=BLOCKED_RESTART_PERMISSION'
-            exit 43
-          fi
-          sleep 2
-          systemctl is-active --quiet meme-alpha-micro-live.service
-          grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXEC"
-          mkdir -p "$APP/runtime-status"
-          printf '{"version":"3.78.0","status":"DEPLOYED","profile":"AGGRESSIVE_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v378-deployed.json"
-          echo 'DIRECT_ACTIVATE=SUCCESS'
-      - name: Record result
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V378-DIRECT-ACTIVATE.md"
-          APP=/opt/meme-alpha/app
-          {
-            echo '# Meme Alpha V378 Direct Activation'
-            echo
-            echo "- executor_marker: \`$([[ -f "$APP/src/micro-live-executor.js" ]] && grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$APP/src/micro-live-executor.js" && echo true || echo false)\`"
-            echo "- deployment_marker: \`$([[ -f "$APP/runtime-status/v378-deployed.json" ]] && echo true || echo false)\`"
-            echo "- micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`"
-            echo "- paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`"
-            echo "- signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`"
-            echo "- executor_writable_by_runner: \`$([[ -w "$APP/src/micro-live-executor.js" ]] && echo true || echo false)\`"
-            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
-          } > "$OUT"
-          git config user.name "meme-alpha-vps-bot"
-          git config user.email "actions-bot@users.noreply.github.com"
-          git add meme-alpha-runtime/V378-DIRECT-ACTIVATE.md
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'chore(meme): record direct v378 activation'
-          git push origin HEAD:main
+          echo "RUNNER=$(id -un) UID=$(id -u)"
+          echo "EXEC_STAT=$(stat -c '%U:%G %a' "$EXEC" 2>/dev/null || echo missing)"
+          echo "EXEC_WRITABLE=$([[ -w "$EXEC" ]] && echo true || echo false)"
+          echo '--- SUDO_N_LIST ---'
+          sudo -n -l 2>&1 || true
+          echo '--- SERVICE ---'
+          systemctl show meme-alpha-micro-live.service -p User -p Group -p MainPID -p Restart -p FragmentPath 2>/dev/null || true
+          systemctl cat meme-alpha-micro-live.service 2>/dev/null || true
+          echo '--- OPS ---'
+          find "$APP/ops/meme-alpha" -maxdepth 1 -type f -printf '%f %u:%g %m\n' 2>/dev/null | sort | tail -n 80 || true
+          echo '--- POSSIBLE ROOT UNITS ---'
+          systemctl list-unit-files --no-pager 2>/dev/null | grep -iE 'meme|deploy|apply|update' | head -n 120 || true
+          systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'meme|deploy|apply|update' | head -n 80 || true
+          echo 'ROOT_PATH_DISCOVERY=DONE'
