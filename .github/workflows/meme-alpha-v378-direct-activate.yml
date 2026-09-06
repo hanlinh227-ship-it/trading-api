@@ -1,4 +1,4 @@
-name: Meme Alpha V381 Fast Capital Rotation
+name: Meme Alpha V381 Selftest Diagnose
 
 on:
   push:
@@ -7,175 +7,23 @@ on:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
 jobs:
-  deploy:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 6
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Patch, activate and verify v381
+      - name: Diagnose v381 staged selftests
         shell: bash
         run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          mkdir -p "$ST"
-          chmod 0777 "$ST"
-          cp "$APP/src/scanner.js" "$ST/scanner.js"
-          cp "$APP/src/safe-signal-export.js" "$ST/safe-signal-export.js"
-          cp "$APP/src/micro-live-executor.js" "$ST/micro-live-executor.js"
-          cp "$APP/run-paper.sh" "$ST/run-paper.original.sh"
-          chmod 0644 "$ST"/*.js
-          chmod 0755 "$ST/run-paper.original.sh"
-
-          python3 - "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js" <<'PY'
-          import re,sys
-          sp,gp,ep=sys.argv[1:4]
-          s=open(sp).read(); g=open(gp).read(); e=open(ep).read()
-          def sub1(txt,pat,repl,label,flags=0):
-              out,n=re.subn(pat,repl,txt,count=1,flags=flags)
-              if n!=1: raise SystemExit(f'PATCH_MISMATCH_{label}_{n}')
-              return out
-
-          # Scanner: broaden the actually deep-checked universe and remove soft score bottlenecks.
-          s=sub1(s,r'const DISCOVERY_RADAR_ONLY_MAX\s*=\s*\d+;[^\n]*',
-                 'const DISCOVERY_RADAR_ONLY_MAX = 360; // V381 broader fast-discovery intake', 'SCANNER_RADAR_CAP')
-          s=sub1(s,r'const JUPITER_MIN_INTERVAL_MS\s*=\s*\d+;',
-                 'const JUPITER_MIN_INTERVAL_MS = 1900;', 'SCANNER_JUPITER_PACE')
-          s=sub1(s,r'const MAX_SELLABILITY_CHECKS_V216\s*=\s*\d+;[^\n]*',
-                 'const MAX_SELLABILITY_CHECKS_V216=8; // V381 verify more actionable coins each cycle', 'SCANNER_SELL_CHECKS')
-          s=sub1(s,r'const baseDeep\s*=\s*preliminary\.slice\(0,\s*\d+\);',
-                 'const baseDeep = preliminary.slice(0, 36);', 'SCANNER_BASE_DEEP')
-          s=sub1(s,r'\.slice\(0,\s*6\);\nconst deep = \[\.\.\.baseDeep, \.\.\.extraMeme\];',
-                 '.slice(0, 12);\nconst deep = [...baseDeep, ...extraMeme];', 'SCANNER_MEME_EXTRA')
-          s=sub1(s,r'score\s*>=\s*70\s*&&\s*!needsExtensionAudit',
-                 'score >= 50 &&\n      !needsExtensionAudit', 'SCANNER_PROBE_SCORE')
-          s=sub1(s,r'else if \(score\s*>=\s*50\)', 'else if (score >= 45)', 'SCANNER_WATCH_SCORE')
-          s=sub1(s,r'Number\(enriched\.score\|\|0\)\s*>=\s*55',
-                 'Number(enriched.score||0) >= 45', 'SCANNER_SELL_SCORE')
-          s=s.replace('await sleep(750);','await sleep(250);')
-          s=s.replace('setTimeout(x,2200)','setTimeout(x,1100)')
-
-          # Safe signal: preserve hard safety, but stop requiring multiple redundant soft confirmations.
-          g=sub1(g,r"&&intel\.entryAllowed&&\(intel\.mode==='FULL_INTEL'\|\|intel\.mode==='REALTIME_ONLY'\)",
-                 '&&intel.entryAllowed', 'SIGNAL_INTEL_MODE')
-          replacements={
-            "const launchConfirm=fastTrack||rtBurst||(rtPulse&&net>=10)||consecutive>=1;":"const launchConfirm=fastTrack||rtPulse||rtBurst||net>=4||consecutive>=1;",
-            "watchLike&&actionableSafe&&launchFresh&&score>=50&&liq>=60000&&net>=6&&bs>=1.05&&chg!==null&&chg>=.20&&chg<=15&&launchConfirm":"watchLike&&actionableSafe&&launchFresh&&score>=45&&liq>=50000&&net>=2&&bs>=0.98&&chg!==null&&chg>=-.10&&chg<=18&&launchConfirm",
-            "const momentumConfirm=rtBurst||fastTrack||consecutive>=1;":"const momentumConfirm=rtPulse||rtBurst||fastTrack||net>=4||consecutive>=1;",
-            "watchLike&&actionableSafe&&score>=52&&liq>=100000&&net>=8&&bs>=1.10&&chg!==null&&chg>=.30&&chg<=12&&momentumConfirm":"watchLike&&actionableSafe&&score>=47&&liq>=60000&&net>=3&&bs>=1.00&&chg!==null&&chg>=0&&chg<=16&&momentumConfirm",
-            "watchLike&&actionableSafe&&score>=50&&liq>=120000&&net>=8&&bs>=1.08&&chg!==null&&chg>=.15&&chg<=5&&recoveryTrend&&recoveryConfirm":"watchLike&&actionableSafe&&score>=46&&liq>=60000&&net>=2&&bs>=1.00&&chg!==null&&chg>=-.15&&chg<=8&&recoveryConfirm",
-            "watchLike&&actionableSafe&&established&&score>=50&&liq>=500000&&net>=3&&bs>=1.05&&chg!==null&&chg>=.20&&chg<=8&&rotationConfirm":"watchLike&&actionableSafe&&established&&score>=46&&liq>=150000&&net>=1&&bs>=0.98&&chg!==null&&chg>=-.10&&chg<=12&&rotationConfirm",
-            "const promotionEligible=!!selected&&effectiveScore>=58;":"const promotionEligible=!!selected&&effectiveScore>=50;",
-            "}).sort((a,b)=>b.score-a.score).slice(0,50);":"}).sort((a,b)=>b.score-a.score).slice(0,120);"
-          }
-          for old,new in replacements.items():
-              if old not in g: raise SystemExit('PATCH_MISMATCH_SIGNAL_'+old[:32].replace(' ','_'))
-              g=g.replace(old,new,1)
-
-          # Executor: hard safety unchanged; allow safe WATCH/PROBE candidates with active flow to buy quickly.
-          opp="""function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),rt=realtimeFor(c);if(base<45)return false;const standard=score>=54;const liquid=score>=50&&liq>=75000&&net>=0&&imp<=1.05;const flow=score>=48&&liq>=50000&&net>=1&&avg>=0&&chg>=-0.20&&imp<=1.10;const realtime=!!rt&&n(rt.lastEventAgeMs,99999)<=3000&&n(rt.events5s)>=1&&n(rt.eventMomentum)>=1.05&&liq>=50000&&imp<=1.10;return standard||liquid||flow||realtime}"""
-          entry="""function trendEntryEligible(c){if(!coreSafe(c))return false;const decisionOk=c.decision==='PROBE_CANDIDATE'||c.decision==='WATCH';if(!decisionOk)return false;const p=pulseFor(c),rt=realtimeFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=48&&n(p.volumeAcceleration)>=0.95&&n(p.txnAcceleration)>=0.85&&n(p.buySellRatio)>=0.98&&n(p.tx5)>=2;const realtimeFlow=!!rt&&n(rt.lastEventAgeMs,99999)<=3000&&n(rt.events5s)>=1&&n(rt.eventMomentum)>=1.05;const buyerFlow=net>=1||avg>=0.5;return chg>=-0.35&&chg<=22&&(buyerFlow||pulseFlow||realtimeFlow)&&slope>=-10&&stable&&opportunityLane(c)}"""
-          e=sub1(e,r'function opportunityLane\(c\)\{.*?\}\nfunction trendEntryEligible\(c\)\{.*?\}\nfunction hardSafetyBroken',
-                 opp+'\n'+entry+'\nfunction hardSafetyBroken', 'EXECUTOR_ENTRY_FUNCTIONS', re.S)
-
-          alloc="""function allocationProfile(c,p,st,capitalBaseLamports){
-            if(!trendEntryEligible(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};
-            const scoreQ=clamp((opportunityScore(c)-45)/40,0,1),netQ=clamp((n(c.netBuyers5m)+2)/20,0,1),avgQ=clamp((n(c.avgNetBuyersLast2)+1)/14,0,1);
-            const liq=Math.max(50_000,n(c.liquidityUsd,50_000)),liqQ=clamp(Math.log10(liq/50_000)/1.6,0,1),impactQ=clamp(1-impact(c)/1.25,0,1),pulse=pulseFor(c),pulseQ=clamp(n(pulse?.pulseScore,50)/100,0,1);
-            const rt=realtimeFor(c),rtQ=rt?clamp((n(rt.eventMomentum)-.7)/2.0,0,1):.35,w=whaleFor(c),whaleQ=w?clamp((n(w.whaleFlowScore)+10)/16,0,1):.50,learn=learnedBoost(st,c),learnQ=clamp(.5+learn/24,0,1);
-            const quality=clamp(scoreQ*.24+netQ*.16+avgQ*.08+liqQ*.12+impactQ*.14+pulseQ*.07+rtQ*.10+whaleQ*.05+learnQ*.04,0,1);
-            const a=ensureAutonomy(st,capitalBaseLamports),ref=Math.max(1,n(a.referenceCapitalLamports,capitalBaseLamports)),growth=clamp(Math.pow(capitalBaseLamports/ref,.28),.85,2.00);
-            const invested=portfolioInvested(st),exposure=clamp(invested/capitalBaseLamports,0,1),freeRatio=clamp((capitalBaseLamports-invested)/capitalBaseLamports,0,1),basePct=11+25*Math.pow(quality,.90),cashBoost=1+.55*freeRatio,perPositionCap=Math.min(42,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(12,perPositionCap),perPositionCap);
-            return{name:'V381_FAST_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};
-          }"""
-          e=sub1(e,r'function allocationProfile\(c,p,st,capitalBaseLamports\)\{.*?\n\}\nfunction rank',
-                 alloc+'\nfunction rank', 'EXECUTOR_ALLOCATION', re.S)
-
-          rotation="""function rotationSource(st,newC){
-            const ns=expectedEdge(st,newC),newImpact=impact(newC),rows=st.positions.map((pos,index)=>({pos,index,c:candidate(pos.mint)})).filter(x=>x.c).map(x=>({...x,oldScore:expectedEdge(st,x.c),weak:softTrendWeak(x.c),severe:severeTrendBreak(x.c)})).sort((a,b)=>a.oldScore-b.oldScore);
-            for(const x of rows){
-              const switchingCost=(newImpact+Math.max(0,n(x.pos.lastPreviewImpactPct,impact(x.c))))*1.15,advantage=ns-x.oldScore-switchingCost,ret=n(x.pos.lastReturnPct),peak=n(x.pos.peakReturnPct),winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(Date.now()-Date.parse(x.pos.openedAt||0))/60000),stagnant=ageMin>=8&&ret<=5&&peak<10&&n(x.c.netBuyers5m)<=2&&n(x.c.avgNetBuyersLast2,n(x.c.netBuyers5m))<=2;
-              const threshold=x.severe?0:(stagnant?1:(winner?(ret>=12||peak>=20?18:14):(x.weak?1:4)));
-              if(x.severe||advantage>=threshold)return{...x,advantage,switchingCost,winner,stagnant,threshold,ret,peak,ageMin};
-            }
-            return null;
-          }"""
-          e=sub1(e,r'function rotationSource\(st,newC\)\{.*?\n\}\nasync function maybeRotate',
-                 rotation+'\nasync function maybeRotate', 'EXECUTOR_ROTATION_SOURCE', re.S)
-          e=sub1(e,r"const frac=.*?,reason=x\.winner\?'AUTO_WINNER_ROTATE_TO_STRONGER_OPPORTUNITY':'AUTO_ROTATE_TO_STRONGER_OPPORTUNITY';",
-                 "const frac=x.severe?.70:x.stagnant?.70:x.winner?clamp(.25+x.advantage/150,.25,.45):x.weak?.70:clamp(.45+x.advantage/80,.45,.75),reason=x.winner?'AUTO_WINNER_ROTATE_TO_STRONGER_OPPORTUNITY':'AUTO_ROTATE_TO_STRONGER_OPPORTUNITY';", 'EXECUTOR_ROTATION_FRACTION')
-          e=sub1(e,r"console\.log\('MICRO_LIVE_EXECUTOR_[^']+=STARTED'\)",
-                 "console.log('MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED')", 'EXECUTOR_MARKER')
-
-          open(sp,'w').write(s);open(gp,'w').write(g);open(ep,'w').write(e)
-          print('V381_PATCH=PASS')
-          PY
-
-          node --check "$ST/scanner.js"
-          node --check "$ST/safe-signal-export.js"
-          node --check "$ST/micro-live-executor.js"
-          node "$ST/scanner.js" --self-test > "$ST/scanner-selftest.txt" 2>&1
-          node "$ST/safe-signal-export.js" --self-test > "$ST/signal-selftest.txt" 2>&1
-          node "$ST/micro-live-executor.js" --self-test > "$ST/executor-selftest.txt" 2>&1
-          grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' "$ST/executor-selftest.txt"
-          grep -q 'OBJECTIVE_INSIDER_RISK_DEFENSE_IN_DEPTH=TRUE' "$ST/executor-selftest.txt"
-
-          cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
-          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
-          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
-          printf 'SCANNER_SWAP=TRUE\nSIGNAL_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
-          cp "$ST/run-paper.original.sh" "$APP/run-paper.sh"
-          chmod +x "$APP/run-paper.sh"
-          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill -9 "$p" 2>/dev/null || true; done
-          exec "$APP/run-paper.sh"
-          SH
-          chmod +x "$APP/run-paper.sh"
-
-          timeout 130s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-
-          # Wait for one complete post-patch scanner/signal/gate cycle.
-          for i in $(seq 1 90); do
-            if grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt" 2>/dev/null \
-              && grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
-              && systemctl is-active --quiet meme-alpha-paper.service \
-              && systemctl is-active --quiet meme-alpha-micro-live.service \
-              && systemctl is-active --quiet meme-alpha-signer.service \
-              && grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json" 2>/dev/null \
-              && grep -q '"sourceHealthy": true' "$APP/runtime-status/micro-live-gate.json" 2>/dev/null; then
-              break
-            fi
-            sleep 2
+          set -u
+          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
+          echo '--- FILES ---'
+          ls -la "$ST" || true
+          for f in scanner-selftest.txt signal-selftest.txt executor-selftest.txt; do
+            echo "--- $f ---"
+            cat "$ST/$f" 2>/dev/null || echo MISSING
           done
-
-          echo '--- V381 HANDOFF ---'
-          cat "$ST/result.txt"
-          echo '--- SERVICES ---'
-          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
-          echo '--- GATE ---'
-          cat "$APP/runtime-status/micro-live-gate.json"
-          echo '--- SIGNAL/RADAR ---'
-          python3 - <<'PY'
-          import json,os,time
-          for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json']:
-            d=json.load(open(p));print(p,{'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(d.get('candidates') or []),'ageSec':round(time.time()-os.path.getmtime(p),1)})
-          st='/var/lib/meme-alpha/data/micro-live/state.json'
-          try:
-            d=json.load(open(st)); print('openPositions=',len(d.get('positions') or []))
-          except Exception as ex: print('stateRead=',str(ex))
-          PY
-          echo '--- EXECUTOR PROCESS ---'
-          pgrep -af 'micro-live-executor.js' || true
-          grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'SIGNAL_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'EXECUTOR_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js"
-          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"sourceHealthy": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"riskEntryAllowed": true' "$APP/runtime-status/micro-live-gate.json"
-          printf '{"version":"3.81.0","status":"DEPLOYED","profile":"FAST_CAPITAL_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v381-deployed.json"
-          echo 'V381_ACTIVE=TRUE'
+          echo '--- DIRECT RC ---'
+          node "$ST/scanner.js" --self-test >/tmp/v381-scanner.out 2>&1; echo scanner_rc=$?; cat /tmp/v381-scanner.out
+          node "$ST/safe-signal-export.js" --self-test >/tmp/v381-signal.out 2>&1; echo signal_rc=$?; cat /tmp/v381-signal.out
+          node "$ST/micro-live-executor.js" --self-test >/tmp/v381-executor.out 2>&1; echo executor_rc=$?; cat /tmp/v381-executor.out
