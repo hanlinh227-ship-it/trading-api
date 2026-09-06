@@ -1,39 +1,83 @@
-name: Meme Alpha V381 Safe Fixture Repair
+name: Meme Alpha V381 Activate
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
+
 jobs:
-  repair:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Repair and validate staged v381
+      - name: Activate v381 and verify runtime
         shell: bash
         run: |
           set -euo pipefail
-          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
-          F="$ST/micro-live-executor.js"
-          python3 - "$F" <<'PY'
-          import sys
-          p=sys.argv[1]; e=open(p).read()
-          old="holderClusterDecision:'PASS',decision:'PROBE_CANDIDATE'"
-          new="holderClusterDecision:'PASS',insiderRiskDecision:'PASS',topHoldersPct:20,holderClusterMaxAccountsSameOwner:1,decision:'PROBE_CANDIDATE'"
-          if old in e:
-              e=e.replace(old,new,1)
-          elif "insiderRiskDecision:'PASS'" not in e:
-              raise SystemExit('FIXTURE_PATCH_MISMATCH')
-          oldtest="trendEntryEligible({...c,token2022:true}))throw new Error('ENTRY_SAFETY_SELFTEST');"
-          newtest="trendEntryEligible({...c,token2022:true})||trendEntryEligible({...c,insiderRiskDecision:'BLOCK'}))throw new Error('ENTRY_SAFETY_SELFTEST');"
-          if oldtest in e: e=e.replace(oldtest,newtest,1)
-          open(p,'w').write(e)
-          print('V381_FIXTURE_REPAIR=PASS')
+          APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v381-fast-capital"
+          START_EPOCH=$(date +%s)
+
+          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
+          node --check "$ST/scanner.js"
+          node --check "$ST/safe-signal-export.js"
+          node --check "$ST/micro-live-executor.js"
+          node "$ST/safe-signal-export.js" --self-test > "$ST/signal-deploy-pass.txt" 2>&1
+          node "$ST/micro-live-executor.js" --self-test > "$ST/executor-deploy-pass.txt" 2>&1
+          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' "$ST/signal-deploy-pass.txt"
+          grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' "$ST/executor-deploy-pass.txt"
+          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$ST/micro-live-executor.js"
+          grep -q "insiderRiskDecision:'BLOCK'" "$ST/micro-live-executor.js"
+
+          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v381-activate.sh"
+          chmod 0755 "$ST/run-paper.pre-v381-activate.sh"
+          cat > "$APP/run-paper.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v381-fast-capital"
+          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
+          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
+          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
+          printf 'SCANNER_SWAP=TRUE\nSIGNAL_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
+          cp "$ST/run-paper.pre-v381-activate.sh" "$APP/run-paper.sh"
+          chmod 0755 "$APP/run-paper.sh"
+          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill "$p" 2>/dev/null || true; done
+          exec "$APP/run-paper.sh"
+          SH
+          chmod 0755 "$APP/run-paper.sh"
+          timeout 140s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+
+          READY=0
+          for i in $(seq 1 120); do
+            G="$APP/runtime-status/micro-live-gate.json"
+            S="$APP/runtime-status/signal-snapshot.json"
+            if grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt" 2>/dev/null \
+              && grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
+              && systemctl is-active --quiet meme-alpha-paper.service \
+              && systemctl is-active --quiet meme-alpha-micro-live.service \
+              && systemctl is-active --quiet meme-alpha-signer.service \
+              && grep -q '"allowed": true' "$G" 2>/dev/null \
+              && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
+              && grep -q '"riskEntryAllowed": true' "$G" 2>/dev/null; then
+              MT=$(stat -c %Y "$S" 2>/dev/null || echo 0)
+              if [ "$MT" -ge "$START_EPOCH" ]; then READY=1; break; fi
+            fi
+            sleep 2
+          done
+          [ "$READY" = 1 ]
+
+          echo '=== HANDOFF ==='; cat "$ST/result.txt"
+          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
+          echo '=== EXECUTOR ==='; pgrep -af 'micro-live-executor.js' || true
+          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
+          echo '=== PIPELINE ==='
+          python3 - <<'PY'
+          import json,os,time
+          for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json']:
+            d=json.load(open(p)); r=d.get('candidates') or []
+            print(p,{'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(r),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r),'watch':sum(x.get('decision')=='WATCH' for x in r),'ageSec':round(time.time()-os.path.getmtime(p),1)})
           PY
-          node --check "$F"
-          node "$ST/safe-signal-export.js" --self-test
-          node "$F" --self-test
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$F"
-          grep -q "insiderRiskDecision:'PASS'" "$F"
-          grep -q "insiderRiskDecision:'BLOCK'" "$F"
-          echo V381_STAGED_VALIDATION=PASS
+          printf '{"version":"3.81.0","status":"DEPLOYED","profile":"FAST_CAPITAL_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v381-deployed.json"
+          echo V381_ACTIVE=TRUE
