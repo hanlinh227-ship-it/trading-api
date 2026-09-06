@@ -1,0 +1,117 @@
+name: Meme Alpha V406 Resilient Profit Management
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v406-resilient-profit-management.yml
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Deploy V406 resilient position management
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"; mkdir -p "$BASE"
+          EXE="$APP/src/micro-live-executor.js"; CAND="$BASE/v406-executor-resilient-profit.js"; cp -a "$EXE" "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+
+          old="function severeTrendBreak(c){if(!c)return false;const p=pulseFor(c),chg=p?n(p.price5m,n(c.priceChange5m)):n(c.priceChange5m),net=n(c.netBuyers5m),bs=p?n(p.buySellRatio,1):n(c.buySellRatio5m,1);return chg<=-13||net<=-30||(chg<=-9&&bs<0.55)}\nfunction softTrendWeak(c){"
+          new="function severeTrendBreak(c){if(!c)return false;const p=pulseFor(c),chg=p?n(p.price5m,n(c.priceChange5m)):n(c.priceChange5m),net=n(c.netBuyers5m),bs=p?n(p.buySellRatio,1):n(c.buySellRatio5m,1);return chg<=-13||net<=-30||(chg<=-9&&bs<0.55)}\nfunction extremeTrendBreak(c){if(!c)return false;const p=pulseFor(c),chg=p?n(p.price5m,n(c.priceChange5m)):n(c.priceChange5m),net=n(c.netBuyers5m),bs=p?n(p.buySellRatio,1):n(c.buySellRatio5m,1);return chg<=-22||net<=-60||(chg<=-16&&bs<0.35&&net<=-25)}\nfunction elapsedSince(ts){const t=Date.parse(ts||0);return Number.isFinite(t)&&t>0?Math.max(0,Date.now()-t):0}\nfunction softTrendWeak(c){"
+          if s.count(old)!=1: raise SystemExit(f'V406_HELPER_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="const givebackRatio=breakout?0.45:0.30,minGiveback=clamp(5+chg*0.65,5,16);\n  const f1=breakout?0.12:0.18,f2=breakout?0.16:0.22,f3=breakout?0.12:0.18;"
+          new="const givebackRatio=breakout?0.38:0.30,minGiveback=clamp(5+chg*0.65,5,16);\n  const f1=breakout?0.10:0.16,f2=breakout?0.14:0.20,f3=breakout?0.10:0.14;"
+          if s.count(old)!=1: raise SystemExit(f'V406_PROFIT_PLAN_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="const ret=n(x.ret),peak=Math.max(n(x.peak),ret),giveback=Math.max(0,n(x.giveback)),minGiveback=Math.max(3,n(x.minGiveback,5)),weakCount=n(x.weakCount),severe=x.severe===true,softWeak=x.softWeak===true,hadProfit=x.hadProfit===true||peak>=4||ret>0;\n  if(severe)return{mode:'FULL',reason:'SEVERE_TREND_BREAK',frac:1};\n  if(!softWeak)return{mode:'HOLD',reason:'TREND_RECOVERED',frac:0};\n  if(ret<=-8)return{mode:'FULL',reason:'LOSS_LIMIT',frac:1};\n  if(hadProfit&&ret>-3){\n    const frac=clamp(.18+giveback/120+Math.max(0,weakCount-4)*.025,.18,.35);\n    return{mode:'TRIM',reason:'PROFIT_AWARE_WEAKNESS',frac};\n  }\n  if(ret<=-3&&weakCount>=6)return{mode:'FULL',reason:'PERSISTENT_WEAKNESS_NEGATIVE',frac:1};\n  return{mode:'TRIM',reason:'DEFENSIVE_WEAKNESS_TRIM',frac:clamp(.16+Math.max(0,weakCount-4)*.02,.16,.28)};"
+          new="const ret=n(x.ret),peak=Math.max(n(x.peak),ret),giveback=Math.max(0,n(x.giveback)),minGiveback=Math.max(3,n(x.minGiveback,5)),weakCount=n(x.weakCount),severe=x.severe===true,softWeak=x.softWeak===true,hadProfit=x.hadProfit===true||peak>=4||ret>0,weakAgeMs=Number.isFinite(Number(x.weakAgeMs))?Number(x.weakAgeMs):999999,severeAgeMs=Number.isFinite(Number(x.severeAgeMs))?Number(x.severeAgeMs):999999;\n  if(severe&&severeAgeMs>=6000){if(hadProfit&&ret>0)return{mode:'TRIM',reason:'SEVERE_WINNER_DEFENSE',frac:clamp(.24+giveback/160,.24,.34)};return{mode:'FULL',reason:'SEVERE_TREND_BREAK',frac:1}}\n  if(!softWeak)return{mode:'HOLD',reason:'TREND_RECOVERED',frac:0};\n  if(weakAgeMs<15000)return{mode:'HOLD',reason:'WEAKNESS_CONFIRMING',frac:0};\n  if(ret<=-8)return{mode:'FULL',reason:'LOSS_LIMIT',frac:1};\n  if(hadProfit&&ret>-3){\n    const frac=clamp(.15+giveback/150+Math.max(0,weakCount-4)*.02,.15,.30);\n    return{mode:'TRIM',reason:'PROFIT_AWARE_WEAKNESS',frac};\n  }\n  if(ret<=-3&&weakAgeMs>=30000&&weakCount>=6)return{mode:'FULL',reason:'PERSISTENT_WEAKNESS_NEGATIVE',frac:1};\n  return{mode:'TRIM',reason:'DEFENSIVE_WEAKNESS_TRIM',frac:clamp(.12+Math.max(0,weakCount-4)*.015,.12,.22)};"
+          if s.count(old)!=1: raise SystemExit(f'V406_WEAK_DECISION_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="return profitAwareWeakDecision({ret,peak,giveback,minGiveback:plan?.minGiveback,weakCount:pos?.weakExitCount,severe:severeTrendBreak(c),softWeak:softTrendWeak(c),hadProfit:peak>=4||pos?.tp1Done||pos?.tp2Done||pos?.tp3Done||pos?.profitProtectDone});"
+          new="return profitAwareWeakDecision({ret,peak,giveback,minGiveback:plan?.minGiveback,weakCount:pos?.weakExitCount,weakAgeMs:elapsedSince(pos?.weakSince),severeAgeMs:elapsedSince(pos?.severeBreakSince),severe:severeTrendBreak(c),softWeak:softTrendWeak(c),hadProfit:peak>=4||pos?.tp1Done||pos?.tp2Done||pos?.tp3Done||pos?.profitProtectDone});"
+          if s.count(old)!=1: raise SystemExit(f'V406_WEAK_ACTION_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="if(!Number.isFinite(Number(pos.profitWeakTrimCount)))pos.profitWeakTrimCount=0;if(!pos.lastProfitWeakTrimAt)pos.lastProfitWeakTrimAt=null;\n  return pos;"
+          new="if(!Number.isFinite(Number(pos.profitWeakTrimCount)))pos.profitWeakTrimCount=0;if(!pos.lastProfitWeakTrimAt)pos.lastProfitWeakTrimAt=null;\n  if(!pos.weakSince)pos.weakSince=null;if(!pos.lastWeakCountAt)pos.lastWeakCountAt=null;if(!pos.severeBreakSince)pos.severeBreakSince=null;if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;\n  return pos;"
+          if s.count(old)!=1: raise SystemExit(f'V406_NORMALIZE_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="if(!gate.allowed)pos.gateClosedCount=n(pos.gateClosedCount)+1;else pos.gateClosedCount=0;\n    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}\n    if(severeTrendBreak(c)){await sell(st,i,'SEVERE_TREND_BREAK');return{action:'SELL',reason:'SEVERE_TREND_BREAK',symbol:pos.symbol}}\n    const weak=softTrendWeak(c);pos.weakExitCount=weak?Math.min(12,n(pos.weakExitCount)+1):Math.max(0,n(pos.weakExitCount)-1);"
+          new="if(!gate.allowed)pos.gateClosedCount=n(pos.gateClosedCount)+1;else pos.gateClosedCount=0;\n    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}\n    if(extremeTrendBreak(c)){await sell(st,i,'EXTREME_TREND_BREAK');return{action:'SELL',reason:'EXTREME_TREND_BREAK',symbol:pos.symbol}}\n    const now=Date.now(),iso=new Date(now).toISOString(),severe=severeTrendBreak(c),weak=softTrendWeak(c);if(severe){if(!pos.severeBreakSince)pos.severeBreakSince=iso}else pos.severeBreakSince=null;if(weak){if(!pos.weakSince)pos.weakSince=iso;const last=Date.parse(pos.lastWeakCountAt||0);if(!Number.isFinite(last)||last<=0||now-last>=5000){pos.weakExitCount=Math.min(12,n(pos.weakExitCount)+1);pos.lastWeakCountAt=iso}}else{pos.weakSince=null;pos.severeBreakSince=null;pos.lastWeakCountAt=iso;pos.weakExitCount=0}"
+          if s.count(old)!=1: raise SystemExit(f'V406_SAFETY_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="const plan=profitPlan(c,pos),peak=n(pos.peakReturnPct,ret??0),giveback=peak-n(ret,peak);"
+          new="const plan=profitPlan(c,pos),peak=n(pos.peakReturnPct,ret??0),giveback=peak-n(ret,peak),weakAgeMs=elapsedSince(pos.weakSince),severeAgeMs=elapsedSince(pos.severeBreakSince);"
+          if s.count(old)!=1: raise SystemExit(f'V406_MANAGE_AGE_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="const protectGiveback=Math.max(plan.minGiveback,peak*plan.givebackRatio);if(!pos.profitProtectDone&&peak>=plan.tp1*.85&&giveback>=protectGiveback&&ret>0){const frac=plan.breakout?.20:.30,r=await sellFraction(st,idx,frac,'AUTO_PROFIT_GIVEBACK');if(!r.closed){const x=st.positions.find(x=>x.mint===pos.mint);if(x){x.profitProtectDone=true;x.scaleInLockedAfterProfit=true;atomic(statePath,st)}}return{action:'PARTIAL_SELL',reason:'AUTO_PROFIT_GIVEBACK',symbol:pos.symbol}}"
+          new="const protectGiveback=Math.max(plan.minGiveback,peak*plan.givebackRatio);if(!pos.profitProtectDone&&peak>=plan.tp1*.85&&giveback>=protectGiveback&&ret>0){const frac=plan.breakout?.18:.26,r=await sellFraction(st,idx,frac,'AUTO_PROFIT_GIVEBACK');if(!r.closed){const x=st.positions.find(x=>x.mint===pos.mint);if(x){x.profitProtectDone=true;x.scaleInLockedAfterProfit=true;atomic(statePath,st)}}return{action:'PARTIAL_SELL',reason:'AUTO_PROFIT_GIVEBACK',symbol:pos.symbol}}\n    const stage=n(pos.runnerProtectStage);if(stage<1&&peak>=plan.tp2*.85&&giveback>=Math.max(7,peak*.24)&&ret>0){const r=await sellFraction(st,idx,plan.breakout?.12:.16,'AUTO_RUNNER_PROTECT_1');if(!r.closed){const x=st.positions.find(x=>x.mint===pos.mint);if(x){x.runnerProtectStage=1;x.scaleInLockedAfterProfit=true;atomic(statePath,st)}}return{action:'PARTIAL_SELL',reason:'AUTO_RUNNER_PROTECT_1',symbol:pos.symbol}}\n    if(stage<2&&peak>=plan.tp3*.85&&giveback>=Math.max(10,peak*.28)&&ret>0){const r=await sellFraction(st,idx,plan.breakout?.14:.18,'AUTO_RUNNER_PROTECT_2');if(!r.closed){const x=st.positions.find(x=>x.mint===pos.mint);if(x){x.runnerProtectStage=2;x.scaleInLockedAfterProfit=true;atomic(statePath,st)}}return{action:'PARTIAL_SELL',reason:'AUTO_RUNNER_PROTECT_2',symbol:pos.symbol}}"
+          if s.count(old)!=1: raise SystemExit(f'V406_RUNNER_PROTECT_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="if(severeTrendBreak(c)&&pos.weakExitCount>=4){event({type:'NO_QUOTE_EXIT_DECISION',mint:pos.mint,decision:'FULL',reason:'SEVERE_TREND_BREAK',peak,weakExitCount:pos.weakExitCount});await sell(st,idx,'AUTO_SEVERE_TREND_BREAK_NO_QUOTE');return{action:'SELL',reason:'AUTO_SEVERE_TREND_BREAK_NO_QUOTE',symbol:pos.symbol}}\n    if(hadProfit&&pos.weakExitCount>=7&&weakTrimReady(pos,30000,2)){const frac=.22,r=await sellFraction(st,idx,frac,'AUTO_WINNER_DEFENSE_NO_QUOTE');if(!r.closed)markWeakTrim(st,pos.mint);event({type:'NO_QUOTE_WINNER_DEFENSE',mint:pos.mint,symbol:pos.symbol,peak,fraction:frac,weakExitCount:pos.weakExitCount,closed:r.closed});return{action:r.closed?'SELL':'PARTIAL_SELL',reason:'AUTO_WINNER_DEFENSE_NO_QUOTE',symbol:pos.symbol}}\n    if(!hadProfit&&pos.weakExitCount>=10){event({type:'NO_QUOTE_EXIT_DECISION',mint:pos.mint,decision:'FULL',reason:'PERSISTENT_WEAKNESS',peak,weakExitCount:pos.weakExitCount});await sell(st,idx,'AUTO_PERSISTENT_WEAKNESS_NO_QUOTE');return{action:'SELL',reason:'AUTO_PERSISTENT_WEAKNESS_NO_QUOTE',symbol:pos.symbol}}"
+          new="if(severeTrendBreak(c)&&severeAgeMs>=8000&&pos.weakExitCount>=2){event({type:'NO_QUOTE_EXIT_DECISION',mint:pos.mint,decision:'FULL',reason:'SEVERE_TREND_BREAK_CONFIRMED',peak,weakExitCount:pos.weakExitCount,severeAgeMs});await sell(st,idx,'AUTO_SEVERE_TREND_BREAK_NO_QUOTE');return{action:'SELL',reason:'AUTO_SEVERE_TREND_BREAK_NO_QUOTE',symbol:pos.symbol}}\n    if(hadProfit&&weakAgeMs>=30000&&pos.weakExitCount>=6&&weakTrimReady(pos,45000,2)){const frac=.18,r=await sellFraction(st,idx,frac,'AUTO_WINNER_DEFENSE_NO_QUOTE');if(!r.closed)markWeakTrim(st,pos.mint);event({type:'NO_QUOTE_WINNER_DEFENSE',mint:pos.mint,symbol:pos.symbol,peak,fraction:frac,weakExitCount:pos.weakExitCount,weakAgeMs,closed:r.closed});return{action:r.closed?'SELL':'PARTIAL_SELL',reason:'AUTO_WINNER_DEFENSE_NO_QUOTE',symbol:pos.symbol}}\n    if(!hadProfit&&weakAgeMs>=45000&&pos.weakExitCount>=8){event({type:'NO_QUOTE_EXIT_DECISION',mint:pos.mint,decision:'FULL',reason:'PERSISTENT_WEAKNESS_CONFIRMED',peak,weakExitCount:pos.weakExitCount,weakAgeMs});await sell(st,idx,'AUTO_PERSISTENT_WEAKNESS_NO_QUOTE');return{action:'SELL',reason:'AUTO_PERSISTENT_WEAKNESS_NO_QUOTE',symbol:pos.symbol}}"
+          if s.count(old)!=1: raise SystemExit(f'V406_NOQUOTE_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(Date.now()-Date.parse(x.pos.openedAt||0))/60000),stagnant=ageMin>=8&&ret<=5&&peak<10&&n(x.c.netBuyers5m)<=2&&n(x.c.avgNetBuyersLast2,n(x.c.netBuyers5m))<=2;\n    const threshold=x.severe?0:(stagnant?1:(winner?(ret>=12||peak>=20?18:14):(x.weak?1:4)));"
+          new="winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(Date.now()-Date.parse(x.pos.openedAt||0))/60000),stagnant=ageMin>=12&&ret<=5&&peak<10&&n(x.c.netBuyers5m)<=2&&n(x.c.avgNetBuyersLast2,n(x.c.netBuyers5m))<=2;\n    const threshold=x.severe?0:(stagnant?3:(winner?(ret>=12||peak>=20?18:14):(x.weak?3:5)));"
+          if s.count(old)!=1: raise SystemExit(f'V406_ROTATION_THRESHOLD_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old="const frac=x.severe?.70:x.stagnant?.70:x.winner?clamp(.25+x.advantage/150,.25,.45):x.weak?.70:clamp(.45+x.advantage/80,.45,.75),reason=x.winner?'AUTO_WINNER_ROTATE_TO_STRONGER_OPPORTUNITY':'AUTO_ROTATE_TO_STRONGER_OPPORTUNITY';"
+          new="const frac=x.severe?.65:x.stagnant?.50:x.winner?clamp(.22+x.advantage/170,.22,.40):x.weak?.55:clamp(.40+x.advantage/100,.40,.65),reason=x.winner?'AUTO_WINNER_ROTATE_TO_STRONGER_OPPORTUNITY':'AUTO_ROTATE_TO_STRONGER_OPPORTUNITY';"
+          if s.count(old)!=1: raise SystemExit(f'V406_ROTATION_FRACTION_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          marker="if(process.argv.includes('--self-test')){"
+          hooks="const V406_SELF_TEST=process.argv.includes('--self-test');\nif(!V406_SELF_TEST){\n  process.on('unhandledRejection',e=>{try{event({type:'UNHANDLED_REJECTION_RESTART',error:String(e?.message||e).slice(0,240)})}catch{};console.error('UNHANDLED_REJECTION_RESTART',e);setTimeout(()=>process.exit(1),50)});\n  process.on('uncaughtException',e=>{try{event({type:'UNCAUGHT_EXCEPTION_RESTART',error:String(e?.message||e).slice(0,240)})}catch{};console.error('UNCAUGHT_EXCEPTION_RESTART',e);setTimeout(()=>process.exit(1),50)});\n  process.on('beforeExit',code=>{if(code===0)process.exitCode=1});\n}\n\nif(process.argv.includes('--self-test')){"
+          if s.count(marker)!=1: raise SystemExit(f'V406_HOOK_PATCH_COUNT={s.count(marker)}')
+          s=s.replace(marker,hooks,1)
+
+          p.write_text(s)
+          PY
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
+          grep -q 'function extremeTrendBreak' "$CAND"
+          grep -q 'weakAgeMs<15000' "$CAND"
+          grep -q 'AUTO_RUNNER_PROTECT_2' "$CAND"
+          grep -q 'UNHANDLED_REJECTION_RESTART' "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V406_EXECUTOR_SHA="$SHA"
+          BACK="$RT/v406-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$CAND" "$EXE"; chmod 664 "$EXE" || true
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); echo OLD_EXECUTOR_PID="$OLDPID"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 55); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && [ "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA" ] && systemctl is-active --quiet meme-alpha-paper.service && systemctl is-active --quiet meme-alpha-micro-live.service && systemctl is-active --quiet meme-alpha-signer.service; then break; fi; [ "$i" -lt 55 ] || exit 9; done
+          sleep 8
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo NEW_EXECUTOR_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
+          grep -nE 'extremeTrendBreak|weakAgeMs<15000|AUTO_RUNNER_PROTECT_1|AUTO_RUNNER_PROTECT_2|ageMin>=12|UNHANDLED_REJECTION_RESTART' "$EXE" | head -80
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          PY
+          echo V406_RESILIENT_PROFIT_MANAGEMENT=ACTIVE
+          echo HARD_SAFETY_IMMEDIATE_EXIT=KEPT
+          echo EXTREME_CRASH_IMMEDIATE_EXIT=KEPT
+          echo SOFT_WEAKNESS_TIME_CONFIRMATION=TRUE
+          echo SEVERE_WINNER_PARTIAL_DEFENSE=TRUE
+          echo MULTI_STAGE_RUNNER_PROTECTION=TRUE
+          echo RUNTIME_ABNORMAL_EXIT_RESTART_SIGNAL=TRUE
