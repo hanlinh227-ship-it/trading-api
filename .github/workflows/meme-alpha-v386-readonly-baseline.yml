@@ -10,21 +10,30 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect current production execution path without mutation
+      - name: Inspect V387 post-handoff state without mutation
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v387-unified-final"
           echo '=== WHO ==='; id
-          echo '=== PATH PERMS ==='; ls -ld "$APP" "$APP/src" "$APP/runtime-status"; ls -l "$APP/src/micro-live-executor.js" "$APP/src/micro-live-gate.js" "$APP/run-paper.sh" /usr/local/sbin/meme-alpha-safe-deploy /etc/meme-alpha/micro-live-armed || true
-          echo '=== WRITABLE ==='
-          for p in "$APP/src" "$APP/src/micro-live-executor.js" "$APP/run-paper.sh" /usr/local/sbin/meme-alpha-safe-deploy /etc/meme-alpha/micro-live-armed; do if [ -w "$p" ]; then echo "$p writable=yes"; else echo "$p writable=no"; fi; done
-          echo '=== MOUNTS ==='; findmnt -T /etc/meme-alpha/micro-live-armed || true; findmnt -T "$APP/src/micro-live-executor.js" || true
-          echo '=== PAPER UNIT ==='; systemctl cat meme-alpha-paper.service || true
-          echo '=== EXECUTOR UNIT ==='; systemctl cat meme-alpha-micro-live.service || true
-          echo '=== RUN PAPER HEAD ==='; sed -n '1,120p' "$APP/run-paper.sh" || true
-          echo '=== SWAP STAGE ==='; ls -la "$APP/runtime-status/v387-unified-final" || true; cat "$APP/runtime-status/v387-unified-final/SWAP_OK" 2>/dev/null || true
-          echo '=== SERVICE STATUS ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service || true
-          echo '=== PROCESSES ==='; pgrep -af 'micro-live-executor.js|scanner.js|run-paper.sh' || true
-          echo '=== JOURNAL PAPER ==='; journalctl -u meme-alpha-paper.service -n 80 --no-pager || true
-          echo '=== SUDO CAPABILITIES ==='; sudo -n -l || true
+          echo '=== LIVE HASHES ==='
+          for f in safe-signal-export.js micro-live-gate.js micro-live-executor.js; do printf '%s ' "$f"; sha256sum "$APP/src/$f"; done
+          echo '=== STAGED HASHES ==='
+          for f in gate.original.js gate.v387.js executor.original.js executor.v387.js; do [ -f "$ST/$f" ] && sha256sum "$ST/$f" || true; done
+          echo '=== MARKERS ==='
+          grep -n 'V387_UNIFIED\|scaleAllowed' "$APP/src/micro-live-gate.js" "$APP/src/micro-live-executor.js" "$APP/src/safe-signal-export.js" | head -40 || true
+          echo '=== STAGE ==='; ls -la "$ST" || true; for f in SWAP_OK ROLLBACK_OK; do echo "$f=$(cat "$ST/$f" 2>/dev/null || echo missing)"; done
+          echo '=== RUN PAPER ==='; sed -n '1,80p' "$APP/run-paper.sh" || true
+          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service || true
+          echo '=== PIDS ==='; pgrep -af '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" || true
+          echo '=== SIGNAL AGE/COUNTS ==='
+          python3 - <<'PY'
+          import json,os,time,pathlib
+          p=pathlib.Path('/opt/meme-alpha/app/runtime-status/signal-snapshot.json')
+          d=json.loads(p.read_text()); r=d.get('candidates') or []
+          print({'ageSec':round(time.time()-os.path.getmtime(p),1),'count':len(r),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r),'watch':sum(x.get('decision')=='WATCH' for x in r),'nonMemeProbe':sum(x.get('decision')=='PROBE_CANDIDATE' and x.get('universeClass')!='MEME_CONFIRMED' for x in r)})
+          PY
+          echo '=== PAPER LOG TAIL ==='; tail -80 /var/log/meme-alpha/paper-error.log 2>/dev/null || true; tail -80 /var/log/meme-alpha/paper.log 2>/dev/null || true
+          echo '=== MICRO LOG TAIL ==='; tail -80 /var/log/meme-alpha/micro-live.log 2>/dev/null || true; tail -80 /var/log/meme-alpha/micro-live-error.log 2>/dev/null || true
