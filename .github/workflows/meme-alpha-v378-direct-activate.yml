@@ -1,32 +1,80 @@
-name: Meme Alpha V382 Paper Runner Trace
+name: Meme Alpha V382 Stabilize And Activate
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Trace paper runner under service user
+      - name: Stabilize paper service and verify v382 live pipeline
         shell: bash
         run: |
-          set +e
+          set -euo pipefail
           APP=/opt/meme-alpha/app
           ST="$APP/runtime-status/v381-fast-capital"
-          rm -f "$APP/runtime-status/paper-v382-trace.log" 2>/dev/null || true
-          cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          exec /bin/bash -x /opt/meme-alpha/app/runtime-status/v381-fast-capital/run-paper.original.sh >> /opt/meme-alpha/app/runtime-status/paper-v382-trace.log 2>&1
-          SH
+          CLEAN="$ST/run-paper.original.sh"
+          test -s "$CLEAN"
+          grep -q 'LIVE_SCAN_ONLY=1' "$CLEAN"
+          grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js"
+
+          # Restore the known-good long-running discovery runner directly.
+          cp "$CLEAN" "$APP/run-paper.sh"
           chmod 0755 "$APP/run-paper.sh"
-          timeout 30s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-          sleep 8
-          echo '=== SERVICE ==='
-          systemctl status meme-alpha-paper.service --no-pager -l 2>/dev/null | tail -60 || true
-          echo '=== TRACE ==='
-          tail -n 180 "$APP/runtime-status/paper-v382-trace.log" 2>/dev/null || true
+
+          # A previous restart was waiting on systemd stop. Let it settle before one clean restart.
+          for i in $(seq 1 90); do
+            SUB=$(systemctl show -p SubState --value meme-alpha-paper.service 2>/dev/null || true)
+            [ "$SUB" != "stop-sigterm" ] && break
+            sleep 2
+          done
+          timeout 75s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+
+          # Verification does not require scanner.js to be continuously resident: the runner launches it per cycle.
+          READY=0
+          for i in $(seq 1 90); do
+            if systemctl is-active --quiet meme-alpha-paper.service \
+              && systemctl is-active --quiet meme-alpha-micro-live.service \
+              && systemctl is-active --quiet meme-alpha-signer.service \
+              && systemctl is-active --quiet meme-alpha-realtime-pulse.service \
+              && systemctl is-active --quiet meme-alpha-trend-pulse.service \
+              && systemctl is-active --quiet meme-alpha-whale-flow.service \
+              && pgrep -f 'node .*micro-live-executor.js' >/dev/null \
+              && grep -q 'LIVE_SCAN_ONLY=1' "$APP/run-paper.sh" \
+              && grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js"; then
+              python3 - <<'PY' && READY=1 && break || true
+import os,json,time,sys
+base='/opt/meme-alpha/app/runtime-status/'
+files=['new-listing-radar.json','signal-snapshot.json','micro-live-gate.json']
+ages={f:time.time()-os.path.getmtime(base+f) for f in files}
+g=json.load(open(base+'micro-live-gate.json'))
+ok=(ages['new-listing-radar.json']<90 and ages['signal-snapshot.json']<120 and ages['micro-live-gate.json']<120 and g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True)
+print('VERIFY',{'ages':{k:round(v,1) for k,v in ages.items()},'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'riskEntryAllowed':g.get('riskEntryAllowed')})
+sys.exit(0 if ok else 1)
+PY
+            fi
+            sleep 2
+          done
+
+          echo '=== SERVICES ==='
+          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service || true
+          echo '=== PAPER STATE ==='
+          systemctl show meme-alpha-paper.service -p ActiveState -p SubState -p MainPID || true
           echo '=== PROCESSES ==='
-          ps -eo pid,ppid,etime,stat,cmd | grep -E 'new-listing-radar.js|scanner.js|safe-signal-export.js|run-paper.sh|micro-live-executor.js' | grep -v grep || true
-          exit 0
+          ps -eo pid,ppid,etime,stat,cmd | grep -E 'new-listing-radar.js|scanner.js|safe-signal-export.js|micro-live-executor.js' | grep -v grep || true
+          echo '=== MARKER ==='
+          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
+          echo '=== PIPELINE ==='
+          python3 - <<'PY'
+import os,json,time
+base='/opt/meme-alpha/app/runtime-status/'
+for f in ['new-listing-radar.json','signal-snapshot.json','micro-live-gate.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']:
+    p=base+f
+    d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
+    print(f,{'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(r) if isinstance(r,list) else None,'status':d.get('status'),'allowed':d.get('allowed'),'sourceHealthy':d.get('sourceHealthy'),'riskEntryAllowed':d.get('riskEntryAllowed')})
+PY
+          [ "$READY" = 1 ]
+          printf '{"version":"3.82.2","status":"ACTIVE","profile":"FAST_ROTATING_BATCH","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v382-deployed.json"
+          echo V382_ACTIVE=TRUE
