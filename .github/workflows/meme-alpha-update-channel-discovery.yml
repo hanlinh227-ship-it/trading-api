@@ -1,0 +1,53 @@
+name: Meme Alpha Update Channel Discovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-update-channel-discovery.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect existing updater metadata
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/UPDATE-CHANNEL.md"
+          {
+            echo '# Existing VPS Update Channel'
+            echo
+            echo '## auto-futures-update.service'
+            echo '```ini'
+            systemctl cat auto-futures-update.service 2>/dev/null || true
+            echo '```'
+            echo
+            echo '## auto-futures-update.timer'
+            echo '```ini'
+            systemctl cat auto-futures-update.timer 2>/dev/null || true
+            echo '```'
+            echo
+            echo '## Service execution metadata'
+            echo '```'
+            systemctl show auto-futures-update.service -p User -p Group -p ExecStart -p WorkingDirectory -p FragmentPath --no-pager 2>/dev/null || true
+            echo '```'
+          } > "$OUT"
+      - name: Commit updater metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/UPDATE-CHANNEL.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): inspect existing VPS update channel"
+          git push origin HEAD:main
