@@ -1,0 +1,42 @@
+name: Meme Alpha V410 Held Realtime Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v410-held-realtime-audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Inspect realtime held-position source and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; RTP="$APP/src/realtime-pool-pulse.js"
+          echo '=== REALTIME UNIT ==='; systemctl cat meme-alpha-realtime-pulse.service --no-pager || true
+          echo '=== HELD SOURCE CODE ==='; grep -nE 'function heldMints|heldMints\(|state.json|portfolio-observability|micro-live|positionMints|heldSubscriptions|desiredPairs|desiredSet' "$RTP" | head -160 || true
+          sed -n '1,145p' "$RTP"
+          echo '=== SOURCE PERMISSIONS ==='
+          ls -ld /var/lib/meme-alpha /var/lib/meme-alpha/data /var/lib/meme-alpha/data/micro-live /var/lib/meme-alpha/data/paper /opt/meme-alpha/app/runtime-status 2>/dev/null || true
+          ls -l /var/lib/meme-alpha/data/micro-live/state.json /opt/meme-alpha/app/runtime-status/portfolio-observability.json 2>/dev/null || true
+          echo '=== TEST READ AS REALTIME USER ==='
+          RU=$(systemctl show meme-alpha-realtime-pulse.service -p User --value); echo REALTIME_USER="$RU"
+          if [ -n "$RU" ]; then
+            runuser -u "$RU" -- sh -c 'for p in /var/lib/meme-alpha/data/micro-live/state.json /opt/meme-alpha/app/runtime-status/portfolio-observability.json; do echo PATH=$p; test -r "$p" && echo READABLE=YES || echo READABLE=NO; done' || true
+          fi
+          echo '=== RUNTIME CROSSCHECK ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for n in ['realtime-pool-pulse.json','portfolio-observability.json','micro-live-gate.json','allocator-status.json']:
+            p=rt/n
+            if p.exists(): print(n,'ageSec=',round(time.time()-p.stat().st_mtime,2),json.loads(p.read_text()))
+          p=pathlib.Path('/var/lib/meme-alpha/data/micro-live/state.json')
+          try:
+            x=json.loads(p.read_text()); print('MICRO_STATE_POSITIONS',len(x.get('positions') or x.get('openPositions') or []),[(z.get('symbol'),z.get('mint')) for z in (x.get('positions') or x.get('openPositions') or [])])
+          except Exception as e: print('MICRO_STATE_READ_ERROR',repr(e))
+          PY
+          echo V410_HELD_REALTIME_AUDIT=COMPLETE
