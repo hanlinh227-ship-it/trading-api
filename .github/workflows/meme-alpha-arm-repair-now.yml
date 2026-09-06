@@ -9,17 +9,17 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect root-safe deploy interface
+      - name: Inspect root sync and ARM state
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== SUDO ==='
-          sudo -n -l || true
-          echo '=== SAFE DEPLOY SCRIPT ==='
-          if [ -r /usr/local/sbin/meme-alpha-safe-deploy ]; then
-            sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy
-          else
-            ls -l /usr/local/sbin/meme-alpha-safe-deploy || true
-          fi
-          echo '=== CURRENT ARM/GATE ==='
-          cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json || true
+          ROOT=/opt/trading/trading-api
+          APP=/opt/meme-alpha/app
+          echo '=== ROOT SYNC ==='
+          git -c safe.directory="$ROOT" -C "$ROOT" fetch origin auto-futures-v1 >/dev/null 2>&1 || true
+          echo "rootHead=$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
+          echo "remote=$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse origin/auto-futures-v1 2>/dev/null || true)"
+          echo '=== WATCH TAIL ==='
+          tail -n 50 "$ROOT/auto-futures-v1/logs/github_watch.log" 2>/dev/null || true
+          echo '=== GATE ==='
+          cat "$APP/runtime-status/micro-live-gate.json" || true
