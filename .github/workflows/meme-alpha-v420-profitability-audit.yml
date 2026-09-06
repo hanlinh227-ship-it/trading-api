@@ -1,0 +1,60 @@
+name: Meme Alpha V420 Profitability Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v420-profitability-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Audit post-V419 profitability
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; RUN="$APP/run-paper.sh"; ORIG="$RT/v420-run-paper-original.sh"; OUT="$RT/v420-profitability.txt"
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v420-profitability.txt 2>&1 || true
+          import json,pathlib,time,collections
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          state=json.loads((base/'state.json').read_text())
+          ev=[]
+          p=base/'events.jsonl'
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-25000:]:
+              try: ev.append(json.loads(line))
+              except: pass
+          cutoff='2026-09-06T22:43:54Z'
+          post=[e for e in ev if str(e.get('timestamp',''))>=cutoff]
+          buys=[e for e in post if e.get('type') in ('MICRO_BUY','MICRO_SCALE_IN')]
+          sells=[e for e in post if e.get('type') in ('MICRO_SELL','MICRO_PARTIAL_SELL')]
+          pnl=sum(float(e.get('pnlLamports') or 0) for e in sells)
+          full=[e for e in sells if e.get('type')=='MICRO_SELL']
+          wins=[e for e in full if float(e.get('pnlLamports') or 0)>0]
+          losses=[e for e in full if float(e.get('pnlLamports') or 0)<0]
+          print('POST_V419_BUYS',len(buys))
+          print('POST_V419_SELL_EVENTS',len(sells))
+          print('POST_V419_FULL_CLOSES',len(full),'WINS',len(wins),'LOSSES',len(losses))
+          print('POST_V419_REALIZED_PNL_SOL',pnl/1e9)
+          print('STATE_REALIZED_TRADING_PNL_SOL',float((state.get('capital') or {}).get('realizedTradingPnlLamports') or 0)/1e9)
+          print('OPEN_POSITIONS',len(state.get('positions') or []))
+          rows=[]
+          for x in state.get('positions') or []:
+            rows.append((x.get('symbol'),x.get('lastReturnPct'),x.get('peakReturnPct'),x.get('addCount'),x.get('costBasisLamports')))
+          print('POSITIONS',rows)
+          print('LEARNING',state.get('learning'))
+          print('AUTONOMY',state.get('autonomy'))
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v420-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 20); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          echo '=== CAPITAL ==='; cat "$RT/capital-observability.json"
+          echo '=== ALLOC ==='; cat "$RT/allocator-status.json"
+          echo '=== PROFITABILITY ==='; cat "$OUT"
+          echo '=== SERVICES ==='; for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
