@@ -1,23 +1,96 @@
-name: Meme Alpha Updater Failure Detail
+name: Meme Alpha Capacity Repair And Radar Watchdog
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  repair:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect updater stderr and bot size
+      - name: Trim log bloat, repair radar watchdog, restart paper and verify
         shell: bash
         run: |
-          set +e
+          set -euo pipefail
           ROOT=/opt/trading/trading-api
           BOT="$ROOT/auto-futures-v1"
-          echo '=== BOT SIZE ==='; du -sh "$BOT" 2>&1 || true; du -h --max-depth=1 "$BOT" 2>&1 | sort -h | tail -30 || true
-          echo '=== BACKUPS SIZE ==='; du -sh /opt/trading/auto-futures-backups 2>&1 || true; ls -ld /opt/trading/auto-futures-backups/release_20260906_08* 2>&1 || true
-          echo '=== WATCH LOG ==='; tail -n 320 "$BOT/logs/github_watch.log" 2>&1 || true
-          echo '=== ROOT FS ==='; df -h / /opt 2>&1 || true; df -i / /opt 2>&1 || true
-          echo '=== FAILED 083243 META ==='; stat "$ROOT/auto-futures-v1.failed.20260906_083243" 2>&1 || true
-          echo DETAIL_DONE=TRUE
+          APP=/opt/meme-alpha/app
+          echo '=== LARGE LOGS BEFORE ==='
+          find "$BOT/logs" -maxdepth 1 -type f -size +2M -printf '%s %m %u:%g %p\n' 2>/dev/null | sort -nr | head -40 || true
+          # Keep recent diagnostics while preventing the root updater from backing up hundreds of MB every cycle.
+          for f in "$BOT"/logs/*.log; do
+            [ -f "$f" ] || continue
+            sz=$(stat -c %s "$f" 2>/dev/null || echo 0)
+            if [ "$sz" -gt 2097152 ] && [ -w "$f" ]; then
+              tail -n 4000 "$f" > "$f.trim" || true
+              cat "$f.trim" > "$f"
+              rm -f "$f.trim"
+            fi
+          done
+          echo '=== BOT SIZE AFTER LOG TRIM ==='; du -sh "$BOT" || true
+
+          # Repair the paper runner with a self-healing radar watchdog. Hard trading gates are untouched.
+          cp "$APP/run-paper.sh" "$APP/runtime-status/run-paper.pre-radar-watchdog.sh"
+          python3 - <<'PY'
+from pathlib import Path
+p=Path('/opt/meme-alpha/app/run-paper.sh')
+s=p.read_text()
+marker='start_new_listing_radar\n\n# V305_LIVE_FRESHNESS_GUARD'
+if 'ensure_new_listing_radar()' not in s:
+    block=r'''start_new_listing_radar
+
+# V382_RADAR_SELF_HEAL_WATCHDOG
+ensure_new_listing_radar() {
+  local radar_file=/opt/meme-alpha/app/runtime-status/new-listing-radar.json
+  local now mt age=999999
+  if [ -f "$radar_file" ]; then
+    now=$(date +%s); mt=$(stat -c %Y "$radar_file" 2>/dev/null || echo 0); age=$((now-mt))
+  fi
+  if [ -z "${RADAR_PID:-}" ] || ! kill -0 "$RADAR_PID" 2>/dev/null || [ "$age" -gt 45 ]; then
+    echo "RADAR_WATCHDOG_RESTART age=${age}s old_pid=${RADAR_PID:-none} $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> /opt/meme-alpha/app/runtime-status/new-listing-radar-runtime.log 2>&1 || true
+    if [ -n "${RADAR_PID:-}" ]; then kill "$RADAR_PID" 2>/dev/null || true; wait "$RADAR_PID" 2>/dev/null || true; fi
+    start_new_listing_radar
+  fi
+}
+
+# V305_LIVE_FRESHNESS_GUARD'''
+    if marker not in s: raise SystemExit('RADAR_INSERT_MARKER_NOT_FOUND')
+    s=s.replace(marker,block,1)
+# Call watchdog in both full-cycle and idle loops, without duplicating.
+needle='while true; do\n  echo\n  echo "=========================================="'
+if 'while true; do\n  ensure_new_listing_radar\n  echo\n  echo "=========================================="' not in s:
+    if needle not in s: raise SystemExit('MAIN_LOOP_MARKER_NOT_FOUND')
+    s=s.replace(needle,'while true; do\n  ensure_new_listing_radar\n  echo\n  echo "=========================================="',1)
+needle2='  while true; do\n    enforce_entry_freshness'
+if '  while true; do\n    ensure_new_listing_radar\n    enforce_entry_freshness' not in s:
+    if needle2 not in s: raise SystemExit('IDLE_LOOP_MARKER_NOT_FOUND')
+    s=s.replace(needle2,'  while true; do\n    ensure_new_listing_radar\n    enforce_entry_freshness',1)
+p.write_text(s)
+PY
+          bash -n "$APP/run-paper.sh"
+          grep -q 'V382_RADAR_SELF_HEAL_WATCHDOG' "$APP/run-paper.sh"
+          timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+          READY=0
+          for i in $(seq 1 70); do
+            if systemctl is-active --quiet meme-alpha-paper.service; then
+              python3 - <<'PY' && READY=1 && break || true
+import os,time,json,sys
+b='/opt/meme-alpha/app/runtime-status/'
+p=b+'new-listing-radar.json'
+try:
+ d=json.load(open(p)); age=time.time()-os.path.getmtime(p); n=len(d.get('candidates') or [])
+ print({'radarAgeSec':round(age,1),'radarCount':n,'radarStatus':d.get('status')})
+ sys.exit(0 if age < 30 and n > 0 else 1)
+except Exception as e:
+ print(e); sys.exit(1)
+PY
+            fi
+            sleep 2
+          done
+          echo '=== SERVICES ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
+          echo '=== RADAR PROCESSES ==='; pgrep -af 'new-listing-radar.js|run-paper.sh|scanner.js' || true
+          echo '=== RADAR TAIL ==='; tail -n 40 "$APP/runtime-status/new-listing-radar-runtime.log" || true
+          [ "$READY" = 1 ]
+          echo CAPACITY_REPAIR_AND_RADAR_WATCHDOG=PASS
