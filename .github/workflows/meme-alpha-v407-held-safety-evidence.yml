@@ -1,0 +1,86 @@
+name: Meme Alpha V407 Held Safety Evidence
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v407-held-safety-evidence.yml
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 4
+    steps:
+      - name: Patch validate and controlled activate V407
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"; RUN="$APP/run-paper.sh"; CAND="$RT/deploy-candidates/v407-held-safety-evidence.js"
+          cp -a "$EXE" "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="function hardSafetyBroken(c){if(!c)return false;if((Array.isArray(c.hardReject)&&c.hardReject.length>0)||c.sellRoute===false||c.token2022===true)return true;if(c.securityDecision==='BLOCK'||c.holderClusterDecision==='BLOCK')return true;if(n(c.liquidityUsd,999999)<20_000)return true;return false}"
+          new="const HELD_SOFT_REJECTS=new Set(['MEME_EVIDENCE_INSUFFICIENT','NON_MEME_UNIVERSE','DEX_LIQUIDITY_FAIL','DEX_LIQUIDITY_BELOW_MINIMUM']);\nfunction materialSecurityBlock(c){if(!c||c.securityDecision!=='BLOCK')return false;const rs=Array.isArray(c.securityBlockReasons)?c.securityBlockReasons.map(String):[];if(!rs.length)return true;return rs.some(r=>!HELD_SOFT_REJECTS.has(r))}\nfunction materialHardRejects(c){if(!c||!Array.isArray(c.hardReject))return[];return c.hardReject.map(String).filter(r=>{if(HELD_SOFT_REJECTS.has(r))return false;if(r==='SECURITY_BLOCK')return materialSecurityBlock(c);return true})}\nfunction hardSafetyBroken(c){if(!c)return false;if(materialHardRejects(c).length>0||c.sellRoute===false||c.token2022===true)return true;if(materialSecurityBlock(c)||c.holderClusterDecision==='BLOCK')return true;return false}\nfunction liquiditySafety(c){const liq=Number(c?.liquidityUsd);if(!c||!Number.isFinite(liq)||liq<0)return{name:'UNKNOWN',liq:null};if(liq<5_000)return{name:'EXTREME',liq};if(liq<20_000)return{name:'LOW',liq};return{name:'OK',liq}}"
+          if s.count(old)!=1: raise SystemExit(f'V407_HARD_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+
+          old2="if(!pos.weakSince)pos.weakSince=null;if(!pos.lastWeakCountAt)pos.lastWeakCountAt=null;if(!pos.severeBreakSince)pos.severeBreakSince=null;if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;"
+          new2="if(!pos.weakSince)pos.weakSince=null;if(!pos.lastWeakCountAt)pos.lastWeakCountAt=null;if(!pos.severeBreakSince)pos.severeBreakSince=null;if(!pos.lowLiquiditySince)pos.lowLiquiditySince=null;if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;"
+          if s.count(old2)!=1: raise SystemExit(f'V407_NORMALIZE_PATCH_COUNT={s.count(old2)}')
+          s=s.replace(old2,new2,1)
+
+          old3="if(!gate.allowed)pos.gateClosedCount=n(pos.gateClosedCount)+1;else pos.gateClosedCount=0;\n    if(hardSafetyBroken(c)){await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}\n    if(extremeTrendBreak(c)){await sell(st,i,'EXTREME_TREND_BREAK');return{action:'SELL',reason:'EXTREME_TREND_BREAK',symbol:pos.symbol}}"
+          new3="if(!gate.allowed)pos.gateClosedCount=n(pos.gateClosedCount)+1;else pos.gateClosedCount=0;\n    const lq=liquiditySafety(c),safetyIso=new Date().toISOString();if(lq.name==='LOW'){if(!pos.lowLiquiditySince)pos.lowLiquiditySince=safetyIso}else if(lq.name==='OK'||lq.name==='UNKNOWN'){pos.lowLiquiditySince=null}\n    if(hardSafetyBroken(c)){event({type:'HARD_SAFETY_BREAK_CONFIRMED',mint:pos.mint,symbol:pos.symbol,materialHardRejects:materialHardRejects(c),securityDecision:c?.securityDecision,securityBlockReasons:c?.securityBlockReasons||[],holderDecision:c?.holderClusterDecision,sellRoute:c?.sellRoute,token2022:c?.token2022});await sell(st,i,'HARD_SAFETY_BREAK');return{action:'SELL',reason:'HARD_SAFETY_BREAK',symbol:pos.symbol}}\n    if(lq.name==='EXTREME'||(lq.name==='LOW'&&elapsedSince(pos.lowLiquiditySince)>=12000)){event({type:'LIQUIDITY_BREAK_CONFIRMED',mint:pos.mint,symbol:pos.symbol,liquidityUsd:lq.liq,lowLiquidityAgeMs:elapsedSince(pos.lowLiquiditySince)});await sell(st,i,'LIQUIDITY_BREAK_CONFIRMED');return{action:'SELL',reason:'LIQUIDITY_BREAK_CONFIRMED',symbol:pos.symbol}}\n    if(extremeTrendBreak(c)){await sell(st,i,'EXTREME_TREND_BREAK');return{action:'SELL',reason:'EXTREME_TREND_BREAK',symbol:pos.symbol}}"
+          if s.count(old3)!=1: raise SystemExit(f'V407_SAFETY_PATCH_COUNT={s.count(old3)}')
+          s=s.replace(old3,new3,1)
+
+          # Align legacy self-test only if it explicitly expects sub-20k liquidity to be an immediate hard break.
+          s=s.replace("if(!hardSafetyBroken({...unsafe,securityDecision:'PASS',holderClusterDecision:'PASS',hardReject:[],sellRoute:true,token2022:false,liquidityUsd:10000}))throw new Error('HARD_LIQUIDITY_FAIL');","if(hardSafetyBroken({...unsafe,securityDecision:'PASS',holderClusterDecision:'PASS',hardReject:[],sellRoute:true,token2022:false,liquidityUsd:10000}))throw new Error('LIQUIDITY_MUST_USE_TIME_CONFIRMATION');")
+          p.write_text(s)
+          PY
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
+          grep -q 'function materialHardRejects' "$CAND"
+          grep -q 'LIQUIDITY_BREAK_CONFIRMED' "$CAND"
+          grep -q 'lowLiquiditySince' "$CAND"
+          grep -q 'AUTO_RUNNER_PROTECT_2' "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V407_EXECUTOR_SHA="$SHA"
+          cp "$CAND" "$EXE"; chmod 664 "$EXE"; test "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); test -n "$OLDPID"; echo OLD_EXECUTOR_PID="$OLDPID"
+          ORIG="$RT/v407-run-paper-original.sh"; REQ="$RT/v407-executor-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v407-executor-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v407-run-paper-original.sh
+          if [ -r "$REQ" ]; then
+            PID=$(cat "$REQ" 2>/dev/null || true); rm -f "$REQ" 2>/dev/null || true
+            if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -KILL "$PID" 2>/dev/null || true;; esac; fi
+          fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 25); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 25 ] || exit 9; done
+          NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); echo NEW_EXECUTOR_PID="$NEWPID"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          sleep 25
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]; test "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA"
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); g=json.loads((rt/'micro-live-gate.json').read_text()); print('GATE',{k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          assert g.get('armOk') is True and g.get('armAttested') is True
+          for name in ['portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          PY
+          echo V407_HELD_SAFETY_EVIDENCE=ACTIVE
+          echo CLASSIFICATION_ONLY_EXIT_BLOCK=REMOVED
+          echo LIQUIDITY_NOISE_CONFIRMATION=12_SECONDS
+          echo EXTREME_LIQUIDITY_EXIT_BELOW_5000=IMMEDIATE
+          echo TRUE_SECURITY_HOLDER_TOKEN_SELLABILITY_EXIT=IMMEDIATE
