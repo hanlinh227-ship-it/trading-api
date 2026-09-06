@@ -1,0 +1,139 @@
+name: Meme Alpha V418D Equity Expectancy Active
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v418d-equity-expectancy-active.yml'
+  workflow_dispatch:
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Build validate activate V418
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; E="$APP/src/micro-live-executor.js"; C="$DC/v418-equity-expectancy.js"; RUN="$APP/run-paper.sh"
+          mkdir -p "$DC"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name):
+            global s
+            assert s.count(old)==1,(name,s.count(old)); s=s.replace(old,new,1)
+          old="async function getJson(url){let last=null;for(let i=0;i<3;i++){try{const r=await fetch(url,{headers:{'accept':'application/json','user-agent':'meme-alpha-v400-autonomous-portfolio'},signal:AbortSignal.timeout(12000)});const txt=await r.text();let j;try{j=JSON.parse(txt)}catch{j={raw:txt}};if(!r.ok)throw new Error(`HTTP_${r.status}`);return j}catch(e){last=e;if(i<2)await sleep(250*(i+1))}}throw last||new Error('HTTP_READ_FAILED')}"
+          new="async function getJson(url){let last=null;for(let i=0;i<3;i++){try{const r=await fetch(url,{headers:{'accept':'application/json','user-agent':'meme-alpha-v418-equity-expectancy'},signal:AbortSignal.timeout(12000)});const txt=await r.text();let j;try{j=JSON.parse(txt)}catch{j={raw:txt}};if(!r.ok){const e=new Error(`HTTP_${r.status}`);e.noRetry=r.status===429;throw e}return j}catch(e){last=e;if(e?.noRetry)break;if(i<2)await sleep(500*(i+1))}}throw last||new Error('HTTP_READ_FAILED')}"
+          rep(old,new,'GETJSON')
+          old="function portfolioInvested(st){return (st.positions||[]).reduce((s,x)=>s+Math.max(0,n(x.costBasisLamports||x.entrySolLamports)),0)}"
+          new="""function portfolioInvested(st){return (st.positions||[]).reduce((s,x)=>s+Math.max(0,n(x.costBasisLamports||x.entrySolLamports)),0)}
+          function positionMarkedValue(pos,maxAgeMs=120000){if(!pos)return 0;const cost=Math.max(0,n(pos.costBasisLamports||pos.entrySolLamports)),ret=Number(pos.lastReturnPct),last=Date.parse(pos.lastMarkAt||0),fresh=Number.isFinite(last)&&Date.now()-last>=0&&Date.now()-last<=maxAgeMs;if(fresh&&Number.isFinite(ret))return Math.max(0,Math.floor(cost*(1+clamp(ret,-95,300)/100)));return Math.floor(cost*.95)}
+          function portfolioMarkedValue(st){return (st.positions||[]).reduce((sum,pos)=>sum+positionMarkedValue(pos),0)}
+          function netLiquidationEquityLamports(st,walletLamports){return Math.max(0,Math.floor(Math.max(0,n(walletLamports))+portfolioMarkedValue(st)))}
+          function equityCompoundingState(st,equityLamports){const a=ensureAutonomy(st),eq=Math.max(1,n(equityLamports));if(!(n(a.referenceEquityLamports)>0))a.referenceEquityLamports=eq;if(!(n(a.equityHighWaterLamports)>0))a.equityHighWaterLamports=eq;a.equityHighWaterLamports=Math.max(n(a.equityHighWaterLamports),eq);const ref=Math.max(1,n(a.referenceEquityLamports)),hwm=Math.max(eq,n(a.equityHighWaterLamports)),drawdownPct=Math.max(0,(hwm-eq)/hwm*100);a.lastNetLiquidationEquityLamports=eq;a.lastEquityDrawdownPct=drawdownPct;return{equityLamports:eq,referenceEquityLamports:ref,equityHighWaterLamports:hwm,drawdownPct}}
+          function scalePositionEligible(pos,c,p){if(!pos||!c)return false;const lastMark=Date.parse(pos.lastMarkAt||0),markFresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,ret=Number(pos.lastReturnPct),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000);if(!markFresh||!Number.isFinite(ret)||!intervalOk||pos.scaleInLockedAfterProfit||n(pos.weakExitCount)>0)return false;const pulse=pulseFor(c),winner=ret>=1.5,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&n(c.netBuyers5m)>=6&&n(c.avgNetBuyersLast2,n(c.netBuyers5m))>=4;return winner||recovery}"""
+          rep(old,new,'EQUITY_HELPERS')
+          old="""function allocationProfile(c,p,st,capitalBaseLamports){
+            if(!coreSafe(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};
+            const scoreQ=clamp((opportunityScore(c)-45)/40,0,1),netQ=clamp((n(c.netBuyers5m)+2)/20,0,1),avgQ=clamp((n(c.avgNetBuyersLast2)+1)/14,0,1);
+            const liq=Math.max(50_000,n(c.liquidityUsd,50_000)),liqQ=clamp(Math.log10(liq/50_000)/1.6,0,1),impactQ=clamp(1-impact(c)/1.25,0,1),pulse=pulseFor(c),pulseQ=clamp(n(pulse?.pulseScore,50)/100,0,1);
+            const rt=realtimeFor(c),rtQ=rt?clamp((n(rt.eventMomentum)-.7)/2.0,0,1):.35,w=whaleFor(c),whaleQ=w?clamp((n(w.whaleFlowScore)+10)/16,0,1):.50,learn=learnedBoost(st,c),learnQ=clamp(.5+learn/24,0,1);
+            const quality=clamp(scoreQ*.24+netQ*.16+avgQ*.08+liqQ*.12+impactQ*.14+pulseQ*.07+rtQ*.10+whaleQ*.05+learnQ*.04,0,1);
+            const a=ensureAutonomy(st,capitalBaseLamports),ref=Math.max(1,n(a.referenceCapitalLamports,capitalBaseLamports)),growth=clamp(Math.pow(capitalBaseLamports/ref,.28),.85,2.00);
+            const invested=portfolioInvested(st),exposure=clamp(invested/capitalBaseLamports,0,1),freeRatio=clamp((capitalBaseLamports-invested)/capitalBaseLamports,0,1),basePct=8+18*Math.pow(quality,.90),cashBoost=1+.30*freeRatio,heldMints=new Set((st.positions||[]).map(x=>x.mint)),newSafeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)&&!heldMints.has(x.mint)).length),safeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)).length),diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(8,perPositionCap),perPositionCap);
+            const mode=entryMode(c),finalPct=mode==='PREBREAKOUT'?Math.min(pct,14):mode==='CONFIRMED_BREAKOUT'?Math.min(pct,Math.max(18,perPositionCap)):pct;
+            return{name:'V411_PREBREAKOUT_CAPITAL',pct:finalPct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode};
+          }"""
+          new="""function allocationProfile(c,p,st,equityLamports){
+            if(!coreSafe(c)||equityLamports<=0)return{name:'NONE',pct:0,quality:0};
+            const scoreQ=clamp((opportunityScore(c)-45)/40,0,1),netQ=clamp((n(c.netBuyers5m)+2)/20,0,1),avgQ=clamp((n(c.avgNetBuyersLast2)+1)/14,0,1);
+            const liq=Math.max(50_000,n(c.liquidityUsd,50_000)),liqQ=clamp(Math.log10(liq/50_000)/1.6,0,1),impactQ=clamp(1-impact(c)/1.25,0,1),pulse=pulseFor(c),pulseQ=clamp(n(pulse?.pulseScore,50)/100,0,1);
+            const rt=realtimeFor(c),rtQ=rt?clamp((n(rt.eventMomentum)-.7)/2.0,0,1):.35,w=whaleFor(c),whaleQ=w?clamp((n(w.whaleFlowScore)+10)/16,0,1):.50,learn=learnedBoost(st,c),learnQ=clamp(.5+learn/24,0,1);
+            const quality=clamp(scoreQ*.24+netQ*.15+avgQ*.08+liqQ*.12+impactQ*.14+pulseQ*.07+rtQ*.10+whaleQ*.05+learnQ*.05,0,1),eq=equityCompoundingState(st,equityLamports),growthBase=Math.pow(eq.equityLamports/eq.referenceEquityLamports,.42),drawdownFactor=clamp(1-eq.drawdownPct/35,.65,1),growth=clamp(growthBase*drawdownFactor,.65,1.60);
+            const invested=portfolioMarkedValue(st),exposure=clamp(invested/equityLamports,0,1),freeRatio=clamp((equityLamports-invested)/equityLamports,0,1),L=learningState(st),learnFactor=n(L.totalClosed)>=4?clamp(1+learn/18,.72,1.12):1,basePct=(8+18*Math.pow(quality,.90))*learnFactor,cashBoost=1+.22*freeRatio,heldMints=new Set((st.positions||[]).map(x=>x.mint)),newSafeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)&&!heldMints.has(x.mint)).length),safeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)).length),diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(6,perPositionCap),perPositionCap);
+            const mode=entryMode(c),finalPct=mode==='PREBREAKOUT'?Math.min(pct,12):mode==='CONFIRMED_BREAKOUT'?Math.min(pct,Math.max(18,perPositionCap)):pct;
+            return{name:'V418_EQUITY_EXPECTANCY',pct:finalPct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,learnFactor,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode,netLiquidationEquityLamports:eq.equityLamports,equityHighWaterLamports:eq.equityHighWaterLamports,equityDrawdownPct:eq.drawdownPct};
+          }"""
+          rep(old,new,'ALLOCATION')
+          old="function targetPlan(solBalanceLamports,st,position,targetPct,p,{isNew=false,exitHeadroomLamports=MIN_EXIT_HEADROOM_LAMPORTS}={}){\n  const invested=Math.max(0,n(position?.costBasisLamports)),capitalBase=Math.max(0,solBalanceLamports+portfolioInvested(st)),targetInvested=Math.floor(capitalBase*targetPct/100),futureCount=st.positions.length+(isNew?1:0),reserve=requiredReserveLamports(p,futureCount,exitHeadroomLamports),overhead=Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports),available=Math.max(0,solBalanceLamports-reserve-overhead),amount=Math.min(Math.max(0,targetInvested-invested),available);\n  return {capitalBaseLamports:capitalBase,investedLamports:invested,targetInvestedLamports:targetInvested,amountLamports:Math.floor(amount),targetUtilizationPct:targetPct,reserveLamports:reserve,entryOverheadLamports:overhead,futurePositionCount:futureCount,availableLamports:available,exitHeadroomLamports};\n}"
+          new="function targetPlan(solBalanceLamports,st,position,targetPct,p,{isNew=false,exitHeadroomLamports=MIN_EXIT_HEADROOM_LAMPORTS,equityLamports=null}={}){\n  const invested=Math.max(0,positionMarkedValue(position)),capitalBase=Number.isFinite(Number(equityLamports))&&Number(equityLamports)>0?Math.floor(Number(equityLamports)):netLiquidationEquityLamports(st,solBalanceLamports),targetInvested=Math.floor(capitalBase*targetPct/100),futureCount=st.positions.length+(isNew?1:0),reserve=requiredReserveLamports(p,futureCount,exitHeadroomLamports),overhead=Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports),available=Math.max(0,solBalanceLamports-reserve-overhead),amount=Math.min(Math.max(0,targetInvested-invested),available);\n  return {capitalBaseLamports:capitalBase,investedLamports:invested,targetInvestedLamports:targetInvested,amountLamports:Math.floor(amount),targetUtilizationPct:targetPct,reserveLamports:reserve,entryOverheadLamports:overhead,futurePositionCount:futureCount,availableLamports:available,exitHeadroomLamports};\n}"
+          rep(old,new,'TARGET_PLAN')
+          old="  if(!pos.weakSince)pos.weakSince=null;if(!pos.lastWeakCountAt)pos.lastWeakCountAt=null;if(!pos.severeBreakSince)pos.severeBreakSince=null;if(!pos.lowLiquiditySince)pos.lowLiquiditySince=null;if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;"
+          new="  if(!pos.weakSince)pos.weakSince=null;if(!pos.lastWeakCountAt)pos.lastWeakCountAt=null;if(!pos.severeBreakSince)pos.severeBreakSince=null;if(!pos.lowLiquiditySince)pos.lowLiquiditySince=null;if(!pos.lossSince)pos.lossSince=null;if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;"
+          rep(old,new,'NORMALIZE_LOSS')
+          old="  const p=rootPolicy(),isAdd=posIndex>=0,entryDecision=isAdd?(trendEntryEligible(c)&&opportunityLane(c)?'STANDARD_SCALE':'BLOCK'):newEntryMode(c);if(entryDecision==='BLOCK')return{placed:false,reason:'ENTRY_SIGNAL_NOT_READY'};const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.signingEnabled||!h.walletLoaded)throw new Error('SIGNER_NOT_ARMED');\n  const existing=isAdd?st.positions[posIndex]:null;if(!isAdd&&st.positions.some(x=>x.mint===c.mint))return{placed:false,reason:'MINT_ALREADY_HELD'};"
+          new="  const p=rootPolicy(),isAdd=posIndex>=0,existing=isAdd?st.positions[posIndex]:null,entryDecision=isAdd?(trendEntryEligible(c)&&opportunityLane(c)&&scalePositionEligible(existing,c,p)?'STANDARD_SCALE':'BLOCK'):newEntryMode(c);if(entryDecision==='BLOCK')return{placed:false,reason:isAdd?'SCALE_WINNER_CONFIRMATION_NOT_READY':'ENTRY_SIGNAL_NOT_READY'};if(!isAdd){const edge=expectedEdge(st,c),floor=entryDecision==='IDLE_PROBE'?60:56;if(edge<floor)return{placed:false,reason:'EXPECTANCY_EDGE_BELOW_FLOOR',expectedEdge:edge,edgeFloor:floor}}const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.signingEnabled||!h.walletLoaded)throw new Error('SIGNER_NOT_ARMED');\n  if(!isAdd&&st.positions.some(x=>x.mint===c.mint))return{placed:false,reason:'MINT_ALREADY_HELD'};"
+          rep(old,new,'PLACE_GATE')
+          old="  const beforeSol=await solBalance(h.publicKey),capitalBase=Math.max(0,beforeSol+portfolioInvested(st)),baseProfile=allocationProfile(c,p,st,capitalBase),profile=entryDecision==='IDLE_PROBE'?{...baseProfile,name:'V416_IDLE_CAPITAL_PROBE',pct:Math.min(baseProfile.pct,5),entryMode:'IDLE_PROBE'}:baseProfile,exitHeadroomLamports=await networkExitHeadroomLamports(p),plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});"
+          new="  const beforeSol=await solBalance(h.publicKey),equityLamports=netLiquidationEquityLamports(st,beforeSol),baseProfile=allocationProfile(c,p,st,equityLamports),profile=entryDecision==='IDLE_PROBE'?{...baseProfile,name:'V418_EQUITY_IDLE_PROBE',pct:Math.min(baseProfile.pct,5),entryMode:'IDLE_PROBE'}:baseProfile,exitHeadroomLamports=await networkExitHeadroomLamports(p),plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports,equityLamports});"
+          rep(old,new,'PLACE_EQUITY')
+          old="async function previewExitReturn(pos,pub){\n  const now=Date.now(),last=Date.parse(pos.lastMarkAt||0);if(Number.isFinite(last)&&now-last<5_000&&Number.isFinite(Number(pos.lastReturnPct)))return Number(pos.lastReturnPct);\n  const amount=await tokenBalance(pub,pos.mint);if(amount<=0n)return null;\n  const cfg=read(`${APP}/config/runtime.json`),u=new URL(`${String(cfg.jupiter).replace(/\\/$/,'')}/swap/v2/order`);u.searchParams.set('inputMint',pos.mint);u.searchParams.set('outputMint',WSOL);u.searchParams.set('amount',amount.toString());u.searchParams.set('taker',pub);\n  const q=await getJson(u.toString()),out=n(q.outAmount??q.outputAmount??q.otherAmountThreshold,-1),cost=n(pos.costBasisLamports||pos.entrySolLamports);if(out<=0||cost<=0)throw new Error('EXIT_PREVIEW_INVALID');const ret=(out-cost)/cost*100;pos.lastReturnPct=ret;pos.peakReturnPct=Number.isFinite(Number(pos.peakReturnPct))?Math.max(Number(pos.peakReturnPct),ret):ret;pos.lastMarkAt=new Date().toISOString();pos.lastPreviewOutLamports=out;pos.lastPreviewImpactPct=n(q.priceImpactPct,0);return ret;\n}"
+          new="let lastExitPreviewRequestAt=0,exitPreviewBackoffUntil=0,exitPreviewRequests=0,exitPreviewRateLimits=0,exitPreviewCacheHits=0;\nasync function previewExitReturn(pos,pub){\n  const now=Date.now(),last=Date.parse(pos.lastMarkAt||0),cached=Number(pos.lastReturnPct);if(Number.isFinite(last)&&now-last<30_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}if(now<exitPreviewBackoffUntil){if(Number.isFinite(last)&&now-last<120_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}const gap=1400-(now-lastExitPreviewRequestAt);if(gap>0)await sleep(gap);lastExitPreviewRequestAt=Date.now();\n  const amount=await tokenBalance(pub,pos.mint);if(amount<=0n)return null;\n  const cfg=read(`${APP}/config/runtime.json`),u=new URL(`${String(cfg.jupiter).replace(/\\/$/,'')}/swap/v2/order`);u.searchParams.set('inputMint',pos.mint);u.searchParams.set('outputMint',WSOL);u.searchParams.set('amount',amount.toString());u.searchParams.set('taker',pub);let q;try{exitPreviewRequests++;q=await getJson(u.toString())}catch(e){if(String(e?.message||e).includes('HTTP_429')){exitPreviewRateLimits++;exitPreviewBackoffUntil=Date.now()+15_000;throw new Error('EXIT_PREVIEW_RATE_LIMIT')}throw e}\n  const out=n(q.outAmount??q.outputAmount??q.otherAmountThreshold,-1),cost=n(pos.costBasisLamports||pos.entrySolLamports);if(out<=0||cost<=0)throw new Error('EXIT_PREVIEW_INVALID');const ret=(out-cost)/cost*100;pos.lastReturnPct=ret;pos.peakReturnPct=Number.isFinite(Number(pos.peakReturnPct))?Math.max(Number(pos.peakReturnPct),ret):ret;pos.lastMarkAt=new Date().toISOString();pos.lastPreviewOutLamports=out;pos.lastPreviewImpactPct=n(q.priceImpactPct,0);return ret;\n}"
+          rep(old,new,'PREVIEW')
+          old="async function observeCapital(st){const now=Date.now();if(now-lastCapitalObserveAt<3000)return;lastCapitalObserveAt=now;const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.walletLoaded)return;const p=rootPolicy(),bal=await solBalance(h.publicKey);observeBalance(st,bal,p.externalFlowThresholdLamports);try{const exitHeadroomLamports=await networkExitHeadroomLamports(p),reserveLamports=requiredReserveLamports(p,st.positions.length,exitHeadroomLamports),investedLamports=portfolioInvested(st),capitalBaseLamports=Math.max(0,bal+investedLamports),deployableLamports=Math.max(0,bal-reserveLamports);atomic(`${DATA}/capital-observability.json`,{version:'V391_RUNTIME_CAPITAL_ENFORCEMENT',updatedAt:new Date().toISOString(),walletSolLamports:bal,walletSol:bal/1e9,investedLamports,investedSol:investedLamports/1e9,capitalBaseLamports,reserveLamports,reserveSol:reserveLamports/1e9,deployableLamports,deployableSol:deployableLamports/1e9,minOrderLamports:p.minOrderLamports,maxUtilizationPct:p.maxUtilizationPct,openPositions:st.positions.length,scaleAllowed:true})}catch(e){event({type:'CAPITAL_OBSERVABILITY_ERROR',error:String(e.message||e).slice(0,160)})}atomic(statePath,st)}"
+          new="async function observeCapital(st){const now=Date.now();if(now-lastCapitalObserveAt<3000)return;lastCapitalObserveAt=now;const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.walletLoaded)return;const p=rootPolicy(),bal=await solBalance(h.publicKey);observeBalance(st,bal,p.externalFlowThresholdLamports);try{const exitHeadroomLamports=await networkExitHeadroomLamports(p),reserveLamports=requiredReserveLamports(p,st.positions.length,exitHeadroomLamports),costInvestedLamports=portfolioInvested(st),markedInvestedLamports=portfolioMarkedValue(st),netLiquidationEquityLamportsNow=Math.max(0,bal+markedInvestedLamports),eq=equityCompoundingState(st,netLiquidationEquityLamportsNow),deployableLamports=Math.max(0,bal-reserveLamports);atomic(`${DATA}/capital-observability.json`,{version:'V418_EQUITY_EXPECTANCY',updatedAt:new Date().toISOString(),walletSolLamports:bal,walletSol:bal/1e9,investedLamports:costInvestedLamports,investedSol:costInvestedLamports/1e9,markedInvestedLamports,markedInvestedSol:markedInvestedLamports/1e9,capitalBaseLamports:netLiquidationEquityLamportsNow,netLiquidationEquityLamports:netLiquidationEquityLamportsNow,netLiquidationEquitySol:netLiquidationEquityLamportsNow/1e9,equityHighWaterLamports:eq.equityHighWaterLamports,equityDrawdownPct:eq.drawdownPct,reserveLamports,reserveSol:reserveLamports/1e9,deployableLamports,deployableSol:deployableLamports/1e9,minOrderLamports:p.minOrderLamports,maxUtilizationPct:p.maxUtilizationPct,openPositions:st.positions.length,scaleAllowed:true,exitPreviewRequests,exitPreviewRateLimits,exitPreviewCacheHits,exitPreviewBackoffUntil})}catch(e){event({type:'CAPITAL_OBSERVABILITY_ERROR',error:String(e.message||e).slice(0,160)})}atomic(statePath,st)}"
+          rep(old,new,'OBSERVE_CAPITAL')
+          old="  if(Number.isFinite(ret)){\n    resetWeakTrimEpisode(st,pos,c);"
+          new="  if(Number.isFinite(ret)){\n    const lossIso=new Date().toISOString();if(ret<=-8){if(!pos.lossSince)pos.lossSince=lossIso}else if(ret>-5)pos.lossSince=null;const lossAgeMs=elapsedSince(pos.lossSince);if(ret<=-18||(ret<=-8&&lossAgeMs>=20000)){const reason=ret<=-18?'AUTO_DEEP_LOSS_LIMIT':'AUTO_CONFIRMED_LOSS_LIMIT';event({type:'EQUITY_LOSS_CONTROL',mint:pos.mint,symbol:pos.symbol,ret,lossAgeMs,reason});await sell(st,idx,reason);return{action:'SELL',reason,symbol:pos.symbol}}\n    resetWeakTrimEpisode(st,pos,c);"
+          rep(old,new,'LOSS_CONTROL')
+          rep("if(wa.mode==='TRIM'&&weakTrimReady(pos,20000,2))","if(wa.mode==='TRIM'&&weakTrimReady(pos,45000,1))",'TRIM_CHURN')
+          old="async function maybeScaleIn(st,p){\n  if(!st.positions.length)return null;const ranked=st.positions.map((pos,index)=>({pos,index,c:candidate(pos.mint)})).filter(x=>x.c&&trendEntryEligible(x.c)&&opportunityLane(x.c)&&!x.pos.scaleInLockedAfterProfit&&x.pos.weakExitCount===0).sort((a,b)=>rank(b.c)-rank(a.c));"
+          new="async function maybeScaleIn(st,p){\n  if(!st.positions.length)return null;const ranked=st.positions.map((pos,index)=>({pos,index,c:candidate(pos.mint)})).filter(x=>x.c&&trendEntryEligible(x.c)&&opportunityLane(x.c)&&scalePositionEligible(x.pos,x.c,p)).sort((a,b)=>(n(b.pos.lastReturnPct)-n(a.pos.lastReturnPct))||(rank(b.c)-rank(a.c)));"
+          rep(old,new,'SCALE_WINNER')
+          rep("['CAPITAL_HEADROOM_LOW','TARGET_ALREADY_SATISFIED','ALLOCATION_BELOW_MIN_ORDER','SIGNER_ORDER_CAP_BELOW_MIN','ENTRY_SIGNAL_NOT_READY']","['CAPITAL_HEADROOM_LOW','TARGET_ALREADY_SATISFIED','ALLOCATION_BELOW_MIN_ORDER','SIGNER_ORDER_CAP_BELOW_MIN','ENTRY_SIGNAL_NOT_READY','SCALE_WINNER_CONFIRMATION_NOT_READY']",'SCALE_SKIP')
+          old="  const grown=normalizeState({autonomy:{referenceCapitalLamports:714_000_000}}),p1=allocationProfile(c,p,grown,714_000_000),p2=allocationProfile(c,p,grown,1_428_000_000);if(!(p2.pct>=p1.pct&&p2.pct<=p2.perPositionCap))throw new Error('EQUITY_SCALE_FACTOR');"
+          new="  const grown=normalizeState({autonomy:{referenceCapitalLamports:714_000_000}}),p1=allocationProfile(c,p,grown,714_000_000),p2=allocationProfile(c,p,grown,1_428_000_000);if(!(p2.pct>=p1.pct&&p2.pct<=p2.perPositionCap))throw new Error('EQUITY_SCALE_FACTOR');const nowIso=new Date().toISOString(),oldIso=new Date(Date.now()-60000).toISOString(),winPos=normalizePosition({mint:'W',costBasisLamports:100_000_000,lastReturnPct:4,lastMarkAt:nowIso,lastAddAt:oldIso,openedAt:oldIso}),losePos=normalizePosition({mint:'L',costBasisLamports:100_000_000,lastReturnPct:-3,lastMarkAt:nowIso,lastAddAt:oldIso,openedAt:oldIso});if(!scalePositionEligible(winPos,c,p)||scalePositionEligible(losePos,c,p))throw new Error('V418_WINNER_ONLY_SCALE_SELFTEST');if(positionMarkedValue(winPos)!==104_000_000)throw new Error('V418_MARK_TO_MARKET_SELFTEST');"
+          rep(old,new,'SELFTEST_EQ')
+          marker="console.log('V416_SCALE_REQUIRES_STANDARD_CONFIRMATION=TRUE');"
+          rep(marker,marker+"console.log('V418_NET_LIQUIDATION_EQUITY=TRUE');console.log('V418_WINNER_ONLY_SCALE=TRUE');console.log('V418_EXIT_PREVIEW_RATE_CONTROL=TRUE');console.log('V418_LIFECYCLE_EXPECTANCY_GATING=TRUE');console.log('V418_CONFIRMED_LOSS_CONTROL=TRUE');",'MARKERS')
+          p.write_text(s)
+          PY
+          node --check "$C"
+          OUT=$(node "$C" --self-test); printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'V418_NET_LIQUIDATION_EQUITY=TRUE' <<<"$OUT"
+          grep -q 'V418_WINNER_ONLY_SCALE=TRUE' <<<"$OUT"
+          grep -q 'V418_EXIT_PREVIEW_RATE_CONTROL=TRUE' <<<"$OUT"
+          grep -q 'V418_CONFIRMED_LOSS_CONTROL=TRUE' <<<"$OUT"
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V418_EXECUTOR_SHA=$SHA
+          OLD_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); cp "$E" "$RT/v418-pre-active-executor.js"; cp "$C" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          ORIG="$RT/v418-run-paper-original.sh"; REQ="$RT/v418-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLD_PID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v418-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v418-run-paper-original.sh
+          if [ -r "$REQ" ]; then
+            PID=$(cat "$REQ" 2>/dev/null || true); rm -f "$REQ" 2>/dev/null || true
+            if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then
+              CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || true)
+              case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -USR2 "$PID" 2>/dev/null || true;; esac
+            fi
+          fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          NEW_PID=''; for i in $(seq 1 65); do sleep 2; NEW_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 65 ] || exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          echo OLD_PID=$OLD_PID; echo NEW_PID=$NEW_PID; echo ACTIVE_SHA=$(sha256sum "$E"|awk '{print $1}'); [ "$NEW_PID" != "$OLD_PID" ]; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          sleep 70
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n):
+            p=rt/n; return json.loads(p.read_text()),round(time.time()-p.stat().st_mtime,2)
+          g,ga=load('micro-live-gate.json'); co,ca=load('capital-observability.json'); al,aa=load('allocator-status.json'); rp,ra=load('realtime-pool-pulse.json'); po,pa=load('portfolio-observability.json')
+          print('GATE',ga,{k:g.get(k) for k in ['allowed','armOk','armAttested','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          print('CAPITAL',ca,co)
+          print('ALLOC',aa,al)
+          print('REALTIME',ra,{k:rp.get(k) for k in ['status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','lastError']})
+          print('PORTFOLIO',pa,{k:po.get(k) for k in ['openPositions','stateReadable']})
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          assert co.get('version')=='V418_EQUITY_EXPECTANCY' and co.get('netLiquidationEquityLamports') is not None and co.get('equityHighWaterLamports') is not None and co.get('exitPreviewRequests') is not None
+          assert rp.get('status')=='HEALTHY' and int(rp.get('heldUnresolved') or 0)==0 and int(rp.get('heldSubscriptions') or 0)>=int(rp.get('heldTotal') or 0)
+          assert po.get('stateReadable') is True
+          PY
+          echo V418_EQUITY_EXPECTANCY=ACTIVE
+          echo HARD_SAFETY_BYPASS=FALSE
+          echo SCALE_ALLOWED=TRUE
