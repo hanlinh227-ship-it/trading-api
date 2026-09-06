@@ -1,4 +1,4 @@
-name: Meme Alpha V393 Evidence Pipeline Fix
+name: Meme Alpha RPC Fallback Audit
 on:
   push:
     branches: [main]
@@ -7,78 +7,24 @@ on:
 permissions:
   contents: read
 jobs:
-  deploy:
+  audit:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Deploy V393 evidence pipeline fix
+      - name: Inspect holder RPC fallback pool
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"
-          mkdir -p "$BASE"
-          SRC="$APP/src/safe-signal-export.js"
-          CAND="$BASE/v393-signal-evidence-pipeline.js"
-          cp -a "$SRC" "$CAND"
-          python3 - "$CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          reps=[
-            ("const V388_MAX_AUDITS=6;","const V388_MAX_AUDITS=12;",'MAX_AUDITS'),
-            ("const eligible=sellOk&&c?.token2022!==true&&liq>=50000&&score>=45&&(authorityUnknown||holderUnknown||c?.securityDecision==='REVIEW');","const eligible=c?.token2022!==true&&liq>=50000&&score>=45&&(authorityUnknown||holderUnknown||c?.securityDecision==='REVIEW');",'AUDIT_ELIGIBLE'),
-            ("holderAuditDecision:c.holderClusterAudit?.decision||null,holderReviewReasons:c.holderClusterAudit?.reviewReasons||[],holderBlockReasons:c.holderClusterAudit?.blockReasons||[],holderEvidence:c.holderClusterAudit?.evidence||[],securityReviewReasons:c.securityReviewReasons||[],securityBlockReasons:c.securityBlockReasons||[],securityEvidence:c.securityEvidence||[],","holderAuditDecision:c.holderClusterAudit?.decision||null,holderReviewReasons:c.holderClusterAudit?.reviewReasons||[],holderBlockReasons:c.holderClusterAudit?.blockReasons||[],holderEvidence:c.holderClusterAudit?.evidence||[],v388RpcAudit:c.v388RpcAudit||null,securityReviewReasons:c.securityReviewReasons||[],securityBlockReasons:c.securityBlockReasons||[],securityEvidence:c.securityEvidence||[],",'AUDIT_TELEMETRY')
-          ]
-          for old,new,label in reps:
-            n=s.count(old)
-            if n!=1: raise SystemExit(f'V393_{label}_PATCH_COUNT={n}')
-            s=s.replace(old,new,1)
-          p.write_text(s)
-          PY
-          node --check "$CAND"
-          OUT="$(node "$CAND" --self-test)"
-          printf '%s\n' "$OUT"
-          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$OUT"
-          grep -q 'SECURITY_PASS_REQUIRED=TRUE' <<<"$OUT"
-          grep -q 'HOLDER_PASS_REQUIRED=TRUE' <<<"$OUT"
-          grep -q 'SELL_ROUTE_REQUIRED=TRUE' <<<"$OUT"
-          grep -q 'TOKEN2022_HARD_BLOCK_PRESERVED=TRUE' <<<"$OUT"
-          grep -q 'const V388_MAX_AUDITS=12;' "$CAND"
-          grep -q 'v388RpcAudit:c.v388RpcAudit||null' "$CAND"
-          SHA="$(sha256sum "$CAND" | awk '{print $1}')"
-          echo V393_SIGNAL_SHA="$SHA"
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$CAND")" "$SHA"
-
-          echo '=== WAIT FRESH SIGNAL ==='
-          for i in $(seq 1 50); do
-            sleep 2
-            if python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); p=rt/'signal-snapshot.json'
-          assert p.exists() and time.time()-p.stat().st_mtime<25
-          d=json.loads(p.read_text()); rows=d.get('candidates') or []
-          assert rows
-          audited=[c for c in rows if c.get('v388RpcAudit')]
-          print('SIGNAL_COUNT',len(rows),'RPC_AUDITED_OR_FAILED',len(audited))
-          for c in rows[:15]:
-            print('ROW',c.get('symbol'),c.get('securityDecision'),c.get('holderClusterDecision'),c.get('insiderRiskDecision'),c.get('sellRoute'),c.get('v388RpcAudit'))
-          PY
-            then break; fi
-            [ "$i" -lt 50 ] || { echo V393_FAIL=NO_FRESH_SIGNAL; exit 9; }
-          done
+          APP=/opt/meme-alpha/app
+          echo '=== HOLDER_CLUSTER_RPC_SOURCE ==='
+          grep -nEi 'rpc|endpoint|publicnode|ankr|mainnet|helius|solana' "$APP/src/holder-cluster.js" | head -260 || true
+          sed -n '1,220p' "$APP/src/holder-cluster.js" || true
+          echo '=== RUNTIME_CONFIG_RPC_KEYS ==='
           python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); d=json.loads((rt/'signal-snapshot.json').read_text()); rows=d.get('candidates') or []
-          def n(v,d=0):
-            try:return float(v)
-            except:return d
-          def core(c):
-            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
-            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
-          safe=[c for c in rows if core(c)]
-          print('CORE_SAFE_COUNT',len(safe),'CORE_SAFE_SYMBOLS',[c.get('symbol') for c in safe[:20]])
-          g=json.loads((rt/'micro-live-gate.json').read_text())
-          print('GATE',{k:g.get(k) for k in ['version','gateContractRevision','allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
+          import json,pathlib
+          p=pathlib.Path('/opt/meme-alpha/app/config/runtime.json')
+          if p.exists():
+            d=json.loads(p.read_text())
+            print({k:v for k,v in d.items() if 'rpc' in k.lower() or 'solana' in k.lower()})
           PY
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo V393_EVIDENCE_PIPELINE=ACTIVE
-          echo HARD_SAFETY_BYPASS=FALSE
+          echo RPC_FALLBACK_AUDIT=COMPLETE
