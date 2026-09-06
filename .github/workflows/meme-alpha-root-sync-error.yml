@@ -1,0 +1,68 @@
+name: Meme Alpha Root Sync Error
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-root-sync-error.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify updater failure without exposing positions or secrets
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/ROOT-SYNC-ERROR.md"
+          ROOT=/opt/trading/trading-api
+          ULOG="$ROOT/auto-futures-v1/logs/auto_update.log"
+          WLOG="$ROOT/auto-futures-v1/logs/github_watch.log"
+          STATE="$(systemctl show auto-futures-update.service -p Result --value 2>/dev/null || echo unknown)"
+          CODE="$(systemctl show auto-futures-update.service -p ExecMainCode --value 2>/dev/null || echo unknown)"
+          STATUS="$(systemctl show auto-futures-update.service -p ExecMainStatus --value 2>/dev/null || echo unknown)"
+          REASON=UNKNOWN
+          if tail -n 80 "$ULOG" 2>/dev/null | grep -q 'DEPLOY_DEFER open_live='; then REASON=FUTURES_SAFETY_PREFLIGHT_DEFER;
+          elif tail -n 80 "$ULOG" 2>/dev/null | grep -q 'DEPLOY_SKIP reason=DEPLOY_LOCK_BUSY'; then REASON=DEPLOY_LOCK_BUSY;
+          elif tail -n 80 "$ULOG" 2>/dev/null | grep -q 'UPDATE FAILED rc='; then REASON=AUTO_FUTURES_UPDATE_SCRIPT_FAILED;
+          elif tail -n 80 "$ULOG" 2>/dev/null | grep -q 'STATIC VALIDATION PASS'; then REASON=POST_STATIC_VALIDATION_FAILURE;
+          elif tail -n 80 "$ULOG" 2>/dev/null | grep -q 'GITHUB SOURCE SYNC PASS'; then REASON=POST_GIT_SYNC_FAILURE;
+          elif tail -n 80 "$WLOG" 2>/dev/null | grep -q 'STARTING SAFE UPDATE'; then REASON=WATCHER_CHILD_UPDATE_FAILED;
+          fi
+          JOURNAL_CLASS=NONE
+          J="$(journalctl -u auto-futures-update.service -n 60 --no-pager -o cat 2>/dev/null || true)"
+          if grep -qi 'permission denied' <<<"$J"; then JOURNAL_CLASS=PERMISSION_DENIED;
+          elif grep -qi 'not found\|No such file' <<<"$J"; then JOURNAL_CLASS=MISSING_FILE_OR_COMMAND;
+          elif grep -qi 'syntax error\|unexpected' <<<"$J"; then JOURNAL_CLASS=SCRIPT_SYNTAX;
+          elif grep -qi 'fatal:.*git\|fatal:.*repository\|could not read from remote\|authentication failed' <<<"$J"; then JOURNAL_CLASS=GIT_FAILURE;
+          elif grep -qi 'failed' <<<"$J"; then JOURNAL_CLASS=GENERIC_FAILURE;
+          fi
+          cat > "$OUT" <<EOF
+          # Meme Alpha Root Sync Error
+
+          - systemd_result: \`$STATE\`
+          - exec_main_code: \`$CODE\`
+          - exec_main_status: \`$STATUS\`
+          - updater_log_category: \`$REASON\`
+          - journal_category: \`$JOURNAL_CLASS\`
+          - timer_active: \`$(systemctl is-active auto-futures-update.timer 2>/dev/null || echo unknown)\`
+          - checked_at_utc: \`$(date -u +%FT%TZ)\`
+          EOF
+      - name: Commit classification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/ROOT-SYNC-ERROR.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): record root updater failure class"
+          git push origin HEAD:main
