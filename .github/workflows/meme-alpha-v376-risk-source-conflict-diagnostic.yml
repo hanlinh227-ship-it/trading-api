@@ -1,0 +1,41 @@
+name: Meme Alpha v3.76 Risk Source Conflict Diagnostic
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v376-risk-source-conflict-diagnostic.yml']
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Diagnose source health ownership and stale risk block
+        shell: bash
+        run: |
+          set -u -o pipefail
+          APP=/opt/meme-alpha/app
+          DATA=/var/lib/meme-alpha/data/paper
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper meme-alpha-micro-live meme-alpha-realtime-pulse meme-alpha-signer meme-alpha-trend-pulse meme-alpha-whale-flow; do
+            printf '%s=' "$svc"; systemctl is-active "$svc.service" || true
+          done
+          echo '=== LIVE GATE ==='
+          cat "$APP/runtime-status/micro-live-gate.json" 2>&1 || true
+          echo '=== RISK STATE ==='
+          cat "$DATA/risk-state.json" 2>&1 || true
+          echo '=== SCANNER SOURCE HEALTH ==='
+          cat "$DATA/scanner-source-health.json" 2>&1 || true
+          echo '=== SOURCE-RELATED RUNTIME FILES ==='
+          find "$APP/runtime-status" -maxdepth 1 -type f \( -iname '*source*' -o -iname '*health*' -o -iname '*risk*' -o -iname '*gate*' \) -printf '%TY-%Tm-%TdT%TH:%TM:%TS %U:%G %a %p\n' 2>/dev/null | sort || true
+          echo '=== RELEVANT FILE METADATA ==='
+          for p in "$DATA/risk-state.json" "$DATA/scanner-source-health.json" "$APP/runtime-status/micro-live-gate.json"; do stat -c '%y %U:%G %a %s %n' "$p" 2>&1 || true; done
+          echo '=== OWNER LOGIC: PAPER ==='
+          grep -nE -A8 -B8 'SOURCE_HEALTH_DEGRADED|scanner-source-health|allowNewEntries|sourceHealthy|riskEntryAllowed|riskGlobalBlockReasons|riskLiveBlockReasons' "$APP/src/paper-trading-service.js" 2>/dev/null | head -n 320 || true
+          echo '=== OWNER LOGIC: SCANNER ==='
+          grep -nE -A8 -B8 'SOURCE_HEALTH_DEGRADED|scanner-source-health|allowNewEntries|sourceHealthy|successfulSources|failedSources|usingCache' "$APP/src/scanner.js" 2>/dev/null | head -n 320 || true
+          echo '=== OWNER LOGIC: EXECUTOR ==='
+          grep -nE -A8 -B8 'SOURCE_HEALTH_DEGRADED|scanner-source-health|allowNewEntries|sourceHealthy|riskEntryAllowed|riskGlobalBlockReasons|riskLiveBlockReasons|micro-live-gate' "$APP/src/micro-live-executor.js" 2>/dev/null | head -n 320 || true
+          echo '=== RECENT PAPER LOG SOURCE/RISK ==='
+          journalctl -u meme-alpha-paper.service --since '20 minutes ago' --no-pager 2>/dev/null | grep -Ei 'SOURCE|HEALTH|RISK|GATE|DEGRADED' | tail -n 180 || true
+          echo V376_RISK_SOURCE_CONFLICT_DIAGNOSTIC=END
