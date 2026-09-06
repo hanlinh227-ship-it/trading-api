@@ -1,0 +1,45 @@
+name: Meme Alpha V412B Held Resolver Active
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v412b-held-resolver-active.yml]
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Activate nonblocking held pair resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; R="$APP/src/realtime-pool-pulse.js"; C="$DC/v412b-realtime-held-resolver.js"
+          cp "$R" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]);s=p.read_text()
+          s=s.replace("const VERSION='3.79.0-v409-prebreakout-antifomo';","const VERSION='3.80.0-v412-held-resolver';")
+          anchor="function desiredPairs(){"
+          resolver="""let heldResolverBusy=false,lastHeldResolverAt=0;\nasync function resolveMissingHeld(){if(heldResolverBusy)return;const miss=[...heldSet()].filter(m=>!pairMemoryByMint.get(m)?.pair).slice(0,4);if(!miss.length)return;heldResolverBusy=true;try{for(const mint of miss){try{const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),6000);let r;try{r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(mint)}`,{signal:ctl.signal,headers:{accept:'application/json','user-agent':'meme-alpha-v412'}})}finally{clearTimeout(tm)}if(!r.ok)continue;const j=await r.json(),ps=(j?.pairs||[]).filter(x=>x?.chainId==='solana'&&isAddress(x?.pairAddress)&&x.pairAddress!==mint&&[x?.baseToken?.address,x?.quoteToken?.address].includes(mint)).sort((a,b)=>n(b?.liquidity?.usd)-n(a?.liquidity?.usd)||n(b?.volume?.h24)-n(a?.volume?.h24));const x=ps[0];if(x)remember(mint,x.pairAddress,'DEXSCREENER_HELD_RESOLVE',{symbol:x?.baseToken?.address===mint?x?.baseToken?.symbol:x?.quoteToken?.symbol})}catch{}}persistPairCache()}finally{heldResolverBusy=false}}\n"""
+          if s.count(anchor)!=1: raise SystemExit('ANCHOR')
+          s=s.replace(anchor,resolver+anchor,1)
+          old="if(now-lastDesiredRefreshAt>=DESIRED_REFRESH_MS)refreshDesired();\n    if(!ws&&!connecting)connect();"
+          new="if(now-lastDesiredRefreshAt>=DESIRED_REFRESH_MS)refreshDesired();\n    if(now-lastHeldResolverAt>=10000&&!heldResolverBusy){lastHeldResolverAt=now;resolveMissingHeld().catch(()=>{})}\n    if(!ws&&!connecting)connect();"
+          if s.count(old)!=1: raise SystemExit('LOOP')
+          s=s.replace(old,new,1)
+          marker="console.log('EXIT_PATH_UNTOUCHED=TRUE');"
+          if s.count(marker)!=1: raise SystemExit('MARKER')
+          s=s.replace(marker,marker+"console.log('V412_HELD_RESOLVER=TRUE');console.log('HELD_PAIR_NO_GUESSING=TRUE');",1)
+          p.write_text(s)
+          PY
+          node --check "$C"; OUT=$(node "$C" --self-test); printf '%s\n' "$OUT"; grep -q 'V412_HELD_RESOLVER=TRUE' <<<"$OUT"; grep -q 'HELD_PAIR_NO_GUESSING=TRUE' <<<"$OUT"
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V412_REALTIME_SHA=$SHA
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy realtime "$(basename "$C")" "$SHA"
+          sleep 25
+          test "$(sha256sum "$R"|awk '{print $1}')" = "$SHA"; systemctl is-active --quiet meme-alpha-realtime-pulse.service
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status');r=json.loads((rt/'realtime-pool-pulse.json').read_text());print('REALTIME',{k:r.get(k) for k in ['version','status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','activeSetSize','desiredSetSize','lastError']});g=json.loads((rt/'micro-live-gate.json').read_text());print('GATE',{k:g.get(k) for k in ['allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
+          PY
+          echo V412_HELD_CONTINUITY_ACTIVE=TRUE
