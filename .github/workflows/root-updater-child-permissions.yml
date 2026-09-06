@@ -1,0 +1,65 @@
+name: Root Updater Child Permissions
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/root-updater-child-permissions.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect directly executed updater children
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/ROOT-UPDATER-CHILD-PERMISSIONS.md"
+          ROOT=/opt/trading/trading-api
+          files=(
+            auto-futures-v1/runtime/unified_bootstrap.sh
+            signal-only-v10/runtime/install_signal_v10.sh
+            auto-futures-v1/runtime/scan_loop.sh
+            auto-futures-v1/run_pipeline.sh
+          )
+          {
+            echo '# Root Updater Child Permissions'
+            echo
+            for rel in "${files[@]}"; do
+              f="$ROOT/$rel"; key="$(basename "$f" | tr '.-' '__')"
+              if [[ -e "$f" ]]; then
+                echo "- ${key}_mode: \`$(stat -c %a "$f")\`"
+                echo "- ${key}_executable: \`$([[ -x "$f" ]] && echo true || echo false)\`"
+              else
+                echo "- ${key}_exists: \`false\`"
+              fi
+            done
+            WLOG="$ROOT/auto-futures-v1/logs/github_watch.log"
+            CLASS=NONE
+            T="$(tail -n 120 "$WLOG" 2>/dev/null || true)"
+            if grep -qi 'Permission denied' <<<"$T"; then CLASS=PERMISSION_DENIED;
+            elif grep -qi 'command not found' <<<"$T"; then CLASS=COMMAND_NOT_FOUND;
+            elif grep -qi 'No such file or directory' <<<"$T"; then CLASS=MISSING_FILE;
+            elif grep -qi 'cannot execute' <<<"$T"; then CLASS=CANNOT_EXECUTE;
+            fi
+            echo "- watcher_log_exec_failure_class: \`$CLASS\`"
+            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
+          } > "$OUT"
+      - name: Commit report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/ROOT-UPDATER-CHILD-PERMISSIONS.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: record root updater child permissions"
+          git push origin HEAD:main
