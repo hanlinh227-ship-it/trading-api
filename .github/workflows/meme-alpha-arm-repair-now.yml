@@ -21,23 +21,11 @@ jobs:
             LH=$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
             RH=$(git -c safe.directory="$ROOT" -C "$ROOT" rev-parse origin/auto-futures-v1 2>/dev/null || true)
             printf 'check=%s rootHead=%s remote=%s\n' "$i" "$LH" "$RH"
-            if [ -f "$GATE" ]; then
-              if python3 - "$GATE" <<'PY'
-import json,sys,time,datetime
-try:g=json.load(open(sys.argv[1]))
-except Exception:raise SystemExit(1)
-ts=g.get('timestamp') or ''
-age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp() if ts else 999
-ok=(age<35 and g.get('allowed') is True and g.get('armOk') is True and g.get('armAttested') is True and g.get('executionMode')=='MICRO_LIVE' and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and not (g.get('riskGlobalBlockReasons') or []) and not (g.get('riskLiveBlockReasons') or []) and not (g.get('reasons') or []))
-print({'allowed':g.get('allowed'),'armOk':g.get('armOk'),'armAttested':g.get('armAttested'),'age':round(age,1),'reasons':g.get('reasons')})
-raise SystemExit(0 if ok else 1)
-PY
-              then
-                echo '=== WATCH TAIL ==='
-                tail -n 80 "$ROOT/auto-futures-v1/logs/github_watch.log" 2>/dev/null || true
-                echo 'ARM_REPAIR_VERIFIED=TRUE'
-                exit 0
-              fi
+            if [ -f "$GATE" ] && python3 -c "import json,time,datetime,sys; g=json.load(open('$GATE')); ts=g.get('timestamp') or ''; age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp() if ts else 999; ok=(age<35 and g.get('allowed') is True and g.get('armOk') is True and g.get('armAttested') is True and g.get('executionMode')=='MICRO_LIVE' and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and not (g.get('riskGlobalBlockReasons') or []) and not (g.get('riskLiveBlockReasons') or []) and not (g.get('reasons') or [])); print({'allowed':g.get('allowed'),'armOk':g.get('armOk'),'armAttested':g.get('armAttested'),'age':round(age,1),'reasons':g.get('reasons')}); sys.exit(0 if ok else 1)"; then
+              echo '=== WATCH TAIL ==='
+              tail -n 80 "$ROOT/auto-futures-v1/logs/github_watch.log" 2>/dev/null || true
+              echo 'ARM_REPAIR_VERIFIED=TRUE'
+              exit 0
             fi
             sleep 2
           done
