@@ -1,4 +1,4 @@
-name: Meme Alpha V394 RPC Recovery
+name: Meme Alpha Signer Eligibility Audit
 on:
   push:
     branches: [main]
@@ -7,79 +7,23 @@ on:
 permissions:
   contents: read
 jobs:
-  deploy:
+  audit:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Deploy V394 RPC recovery
+      - name: Inspect signer eligibility fields
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"
-          mkdir -p "$BASE"
-          SRC="$APP/src/safe-signal-export.js"
-          CAND="$BASE/v394-signal-tatum-rpc.js"
-          cp -a "$SRC" "$CAND"
-          python3 - "$CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="const V388_RPCS=[V388_CFG.rpc,'https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'].filter(Boolean);"
-          new="const V388_RPCS=[V388_CFG.rpc,'https://solana-mainnet.gateway.tatum.io','https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'].filter(Boolean);"
-          n=s.count(old)
-          if n!=1: raise SystemExit(f'V394_RPC_POOL_PATCH_COUNT={n}')
-          p.write_text(s.replace(old,new,1))
-          PY
-          node --check "$CAND"
-          OUT="$(node "$CAND" --self-test)"
-          printf '%s\n' "$OUT"
-          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$OUT"
-          grep -q 'SELL_ROUTE_REQUIRED=TRUE' <<<"$OUT"
-          grep -q 'TOKEN2022_HARD_BLOCK_PRESERVED=TRUE' <<<"$OUT"
-          grep -q 'solana-mainnet.gateway.tatum.io' "$CAND"
-          SHA="$(sha256sum "$CAND" | awk '{print $1}')"
-          echo V394_SIGNAL_SHA="$SHA"
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$CAND")" "$SHA"
-
-          echo '=== VERIFY AUDIT RECOVERY ==='
-          START=$(date +%s)
-          for i in $(seq 1 60); do
-            sleep 2
-            if python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); p=rt/'signal-snapshot.json'
-          assert p.exists() and time.time()-p.stat().st_mtime<25
-          d=json.loads(p.read_text()); rows=d.get('candidates') or []
-          assert rows
-          audits=[c for c in rows if c.get('v388RpcAudit')]
-          successes=[c for c in audits if not (c.get('v388RpcAudit') or {}).get('error')]
-          print('SIGNAL_COUNT',len(rows),'AUDITS',len(audits),'AUDIT_SUCCESSES',len(successes))
-          for c in rows[:20]: print('ROW',c.get('symbol'),c.get('securityDecision'),c.get('holderClusterDecision'),c.get('insiderRiskDecision'),c.get('sellRoute'),c.get('topHoldersPct'),c.get('holderClusterMaxAccountsSameOwner'),c.get('v388RpcAudit'))
-          assert successes
-          PY
-            then break; fi
-            [ "$i" -lt 60 ] || { echo V394_FAIL=NO_RPC_AUDIT_SUCCESS; exit 9; }
-          done
-
           python3 - <<'PY'
           import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); d=json.loads((rt/'signal-snapshot.json').read_text()); rows=d.get('candidates') or []
-          def n(v,d=0):
-            try:return float(v)
-            except:return d
-          def core(c):
-            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
-            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
-          safe=[c for c in rows if core(c)]
-          print('CORE_SAFE_COUNT',len(safe),'CORE_SAFE_SYMBOLS',[c.get('symbol') for c in safe[:20]])
-          g=json.loads((rt/'micro-live-gate.json').read_text())
-          print('GATE',{k:g.get(k) for k in ['version','gateContractRevision','allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
-          for name in ['capital-observability.json','allocator-status.json','last-execution.json']:
-            p=rt/name
-            print('FILE',name,'exists',p.exists())
-            if p.exists():
-              try: print(json.loads(p.read_text()))
-              except: pass
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); p=rt/'signal-snapshot.json'; d=json.loads(p.read_text())
+          print('AGE',round(time.time()-p.stat().st_mtime,2),'COUNT',len(d.get('candidates') or []))
+          fields=['symbol','mint','score','decision','universeClass','sourceUniverseClass','executionUniverseNormalized','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','hardReject','token2022','liquidityUsd','sellPriceImpactPct','consecutiveEligible','priceChange5m','netBuyers5m','avgNetBuyersLast2','scoreSlopeLast2','liquidityStableLast2','strategyRouter','topHoldersPct','holderClusterMaxAccountsSameOwner']
+          for c in d.get('candidates') or []:
+            if c.get('symbol')=='STONK' or (c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS'):
+              print('CAND',{k:c.get(k) for k in fields})
           PY
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo V394_RPC_RECOVERY=ACTIVE
-          echo HARD_SAFETY_BYPASS=FALSE
+          echo '=== ALLOCATOR ==='
+          for f in /opt/meme-alpha/app/runtime-status/allocator-status.json /opt/meme-alpha/app/runtime-status/capital-observability.json /opt/meme-alpha/app/runtime-status/last-execution.json; do [ -f "$f" ] && { echo ---$f---; cat "$f"; echo; } || true; done
+          echo SIGNER_ELIGIBILITY_AUDIT=COMPLETE
