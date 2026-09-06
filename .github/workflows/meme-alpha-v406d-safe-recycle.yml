@@ -1,0 +1,58 @@
+name: Meme Alpha V406D Safe Recycle
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v406d-safe-recycle.yml
+permissions:
+  contents: read
+jobs:
+  recycle:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Recycle micro-live onto validated V406
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; NAME=v406-executor-resilient-profit.js; SHA=043e82f2a4417960a21cfc64f8af39c5d630266b7fe692a2f4dca76d3743a1bb
+          CAND="$RT/deploy-candidates/$NAME"; EXE="$APP/src/micro-live-executor.js"
+          test -f "$CAND"; test "$(sha256sum "$CAND"|awk '{print $1}')" = "$SHA"
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"; grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"; grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); echo OLD_EXECUTOR_PID="$OLDPID"
+          set +e
+          DEPLOY_OUT=$(sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$NAME" "$SHA" 2>&1)
+          DEPLOY_RC=$?
+          set -e
+          printf '%s\n' "$DEPLOY_OUT"
+          echo SAFE_DEPLOY_RC="$DEPLOY_RC"
+          # Dispatcher rollback also restarts executor if the read-only arm write fails.
+          for i in $(seq 1 20); do
+            sleep 2
+            NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+            if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi
+            [ "$i" -lt 20 ] || { echo EXECUTOR_RECYCLE_NOT_OBSERVED; exit 9; }
+          done
+          sleep 8
+          NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+          echo NEW_EXECUTOR_PID="$NEWPID"
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
+          test "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA"
+          test "$NEWPID" != "$OLDPID"
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          grep -q 'function extremeTrendBreak' "$EXE"
+          grep -q 'AUTO_RUNNER_PROTECT_2' "$EXE"
+          grep -q 'UNHANDLED_REJECTION_RESTART' "$EXE"
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          g=json.loads((rt/'micro-live-gate.json').read_text())
+          print('GATE', {k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          assert g.get('armOk') is True and g.get('armAttested') is True
+          for name in ['portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          PY
+          echo V406_RESILIENT_PROFIT_MANAGEMENT=ACTIVE
