@@ -1,0 +1,92 @@
+name: Meme Alpha V417B PnL State Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v417b-pnl-state-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Snapshot micro-live PnL through paper bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; RUN="$APP/run-paper.sh"; ORIG="$RT/v417b-run-paper-original.sh"; OUT="$RT/v417b-profitability.json"
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' || true
+          import json,pathlib,datetime,time
+          DATA=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          OUT=pathlib.Path('/opt/meme-alpha/app/runtime-status/v417b-profitability.json')
+          now=datetime.datetime.now(datetime.timezone.utc); cutoff=now-datetime.timedelta(hours=26)
+          def parse_dt(v):
+            if not v: return None
+            try:
+              s=str(v).replace('Z','+00:00'); d=datetime.datetime.fromisoformat(s)
+              if d.tzinfo is None: d=d.replace(tzinfo=datetime.timezone.utc)
+              return d.astimezone(datetime.timezone.utc)
+            except: return None
+          st={}
+          sp=DATA/'state.json'
+          if sp.exists():
+            try: st=json.loads(sp.read_text())
+            except: st={}
+          ev=[]; ep=DATA/'events.jsonl'; total_lines=0; parsed_ts=0
+          if ep.exists():
+            lines=ep.read_text(errors='ignore').splitlines(); total_lines=len(lines)
+            for line in lines[-12000:]:
+              try:e=json.loads(line)
+              except: continue
+              dt=None
+              for k in ('at','ts','timestamp','updatedAt','time'):
+                dt=parse_dt(e.get(k))
+                if dt: break
+              if dt: parsed_ts+=1
+              if dt is None or dt>=cutoff: ev.append(e)
+          types={}
+          for e in ev: types[e.get('type','UNKNOWN')]=types.get(e.get('type','UNKNOWN'),0)+1
+          buy_types={'MICRO_BUY','MICRO_SCALE_IN'}; sell_types={'MICRO_SELL','MICRO_PARTIAL_SELL'}
+          buys=[e for e in ev if e.get('type') in buy_types]
+          sells=[e for e in ev if e.get('type') in sell_types]
+          buy_spend=sum(float(e.get('spentLamports') or 0) for e in buys)
+          sell_recv=sum(float(e.get('solLamportsReceived') or 0) for e in sells)
+          realized_events=sum(float(e.get('pnlLamports') or 0) for e in sells)
+          wins=sum(1 for e in sells if float(e.get('pnlLamports') or 0)>0)
+          losses=sum(1 for e in sells if float(e.get('pnlLamports') or 0)<0)
+          flats=len(sells)-wins-losses
+          reasons={}
+          for e in sells: reasons[e.get('reason','UNKNOWN')]=reasons.get(e.get('reason','UNKNOWN'),0)+1
+          per_symbol={}
+          for e in buys+sells:
+            sym=e.get('symbol') or e.get('mint') or 'UNKNOWN'; r=per_symbol.setdefault(sym,{'buys':0,'sells':0,'buySpendLamports':0.0,'sellReceivedLamports':0.0,'realizedPnlLamports':0.0})
+            if e.get('type') in buy_types: r['buys']+=1; r['buySpendLamports']+=float(e.get('spentLamports') or 0)
+            else: r['sells']+=1; r['sellReceivedLamports']+=float(e.get('solLamportsReceived') or 0); r['realizedPnlLamports']+=float(e.get('pnlLamports') or 0)
+          pos=[]; unreal=0.0; marked_cost=0.0
+          for p in st.get('positions') or []:
+            cost=float(p.get('costBasisLamports') or p.get('entrySolLamports') or 0); ret=p.get('lastReturnPct'); mark_at=parse_dt(p.get('lastMarkAt')); mark_age=(now-mark_at).total_seconds() if mark_at else None
+            est=None
+            try:
+              if ret is not None: est=cost*float(ret)/100.0; unreal+=est; marked_cost+=cost
+            except: pass
+            pos.append({'symbol':p.get('symbol'),'mint':p.get('mint'),'costBasisSol':cost/1e9,'lifetimeCostSol':float(p.get('lifetimeCostLamports') or cost)/1e9,'realizedPnlSol':float(p.get('realizedPnlLamports') or 0)/1e9,'lastReturnPct':ret,'peakReturnPct':p.get('peakReturnPct'),'estimatedUnrealizedSol':None if est is None else est/1e9,'markAgeSec':mark_age,'openedAt':p.get('openedAt'),'addCount':p.get('addCount'),'tp1Done':p.get('tp1Done'),'tp2Done':p.get('tp2Done'),'tp3Done':p.get('tp3Done'),'profitProtectDone':p.get('profitProtectDone')})
+          cap=st.get('capital') or {}; learn=st.get('learning') or {}
+          out={'generatedAt':now.isoformat(),'windowHours':26,'eventTotalFileLines':total_lines,'eventTimestampParsed':parsed_ts,'eventsSelected':len(ev),'eventTypes':types,'buys':len(buys),'sells':len(sells),'buySpendSol':buy_spend/1e9,'sellReceivedSol':sell_recv/1e9,'realizedPnlFromSelectedSellEventsSol':realized_events/1e9,'sellEventWins':wins,'sellEventLosses':losses,'sellEventFlats':flats,'sellEventWinRate':wins/(wins+losses) if wins+losses else None,'sellReasons':reasons,'perSymbol':per_symbol,'stateClosed':st.get('closed'),'stateCapital':cap,'stateLearning':learn,'openPositions':len(pos),'markedOpenCostSol':marked_cost/1e9,'estimatedOpenUnrealizedSol':unreal/1e9,'positions':pos}
+          tmp=OUT.with_suffix('.tmp'); tmp.write_text(json.dumps(out,ensure_ascii=False,indent=2)); tmp.replace(OUT)
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v417b-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 20); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          echo '=== V417B PROFITABILITY ==='
+          cat "$OUT"
+          echo '=== CURRENT CAPITAL ==='
+          cat "$RT/capital-observability.json"
+          echo V417B_PNL_STATE_AUDIT=PASS
