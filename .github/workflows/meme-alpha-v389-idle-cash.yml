@@ -1,4 +1,4 @@
-name: Meme Alpha V402 Allocation Audit
+name: Meme Alpha V402 Diversified Capital Allocation
 on:
   push:
     branches: [main]
@@ -7,20 +7,55 @@ on:
 permissions:
   contents: read
 jobs:
-  audit:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
-      - name: Inspect live allocation concentration
+      - name: Deploy V402 diversified allocator
         shell: bash
         run: |
           set -euo pipefail
-          EXE=/opt/meme-alpha/app/src/micro-live-executor.js
-          echo '=== ALLOCATION FUNCTIONS ==='
-          grep -nE 'function allocationProfile|function targetPlan|function requiredReserveLamports|function expectedEdge|function rank|async function placeBuy|async function maybeScaleIn|rankedCandidates|CAPITAL_HEADROOM_LOW|TARGET_ALREADY_SATISFIED' "$EXE" | head -260 || true
-          L=$(grep -n 'function allocationProfile' "$EXE"|head -1|cut -d: -f1 || true); if [ -n "$L" ]; then S=$((L-8)); [ $S -lt 1 ] && S=1; E=$((L+90)); sed -n "${S},${E}p" "$EXE"; fi
-          echo '=== POLICY / CAPITAL ==='
-          cat /etc/meme-alpha/micro-live-policy.json || true
-          cat /opt/meme-alpha/app/runtime-status/capital-observability.json || true
-          cat /opt/meme-alpha/app/runtime-status/portfolio-observability.json || true
-          echo V402_ALLOCATION_AUDIT=COMPLETE
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"; mkdir -p "$BASE"
+          EXE="$APP/src/micro-live-executor.js"; CAND="$BASE/v402-executor-diversified-allocation.js"; cp -a "$EXE" "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="const invested=portfolioInvested(st),exposure=clamp(invested/capitalBaseLamports,0,1),freeRatio=clamp((capitalBaseLamports-invested)/capitalBaseLamports,0,1),basePct=11+25*Math.pow(quality,.90),cashBoost=1+.55*freeRatio,perPositionCap=Math.min(60,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(12,perPositionCap),perPositionCap);"
+          new="const invested=portfolioInvested(st),exposure=clamp(invested/capitalBaseLamports,0,1),freeRatio=clamp((capitalBaseLamports-invested)/capitalBaseLamports,0,1),basePct=8+18*Math.pow(quality,.90),cashBoost=1+.30*freeRatio,safeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)).length),diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(8,perPositionCap),perPositionCap);"
+          if s.count(old)!=1: raise SystemExit(f'V402_PROFILE_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          old2="plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports});"
+          new2="plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});"
+          if s.count(old2)!=1: raise SystemExit(f'V402_TARGET_PATCH_COUNT={s.count(old2)}')
+          s=s.replace(old2,new2,1)
+          old3="return{name:'V381_FAST_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
+          new3="return{name:'V402_DIVERSIFIED_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
+          if s.count(old3)!=1: raise SystemExit(f'V402_PROFILE_META_PATCH_COUNT={s.count(old3)}')
+          s=s.replace(old3,new3,1)
+          p.write_text(s)
+          PY
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
+          grep -q 'profile.pct,p,{isNew' "$CAND"
+          grep -q 'V402_DIVERSIFIED_CAPITAL' "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V402_EXECUTOR_SHA="$SHA"
+          BACK="$RT/v402-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$CAND" "$EXE"; chmod 664 "$EXE" || true
+          sudo -n /usr/bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 50); do sleep 2; [ "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA" ] && systemctl is-active --quiet meme-alpha-paper.service && systemctl is-active --quiet meme-alpha-micro-live.service && systemctl is-active --quiet meme-alpha-signer.service && break; [ "$i" -lt 50 ] || exit 9; done
+          sleep 6
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
+          grep -nE 'V402_DIVERSIFIED_CAPITAL|diversificationCap|profile.pct,p' "$EXE" | head -40
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','last-execution.json','allocator-status.json']:
+            p=rt/name; print(name,json.loads(p.read_text()) if p.exists() else None)
+          PY
+          echo V402_DIVERSIFIED_ALLOCATION=ACTIVE
+          echo SINGLE_COIN_MAX_DYNAMIC_PCT=28
+          echo MULTI_COIN_BREADTH_CAPS=24_20_16
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
