@@ -34,15 +34,29 @@ if [[ "$ARM_VALUE" == 'ARMED=NO' ]]; then
   exit 0
 fi
 
-# Normal steady state: reconcile was completed and root ARM still exists.
-if [[ -f "$DONE" && "$ARM_VALUE" == 'ARMED=YES' ]]; then
+# A previous reconcile is healthy only if the content AND access metadata are
+# still valid for the unprivileged micro-live process. A root:root 0640 file
+# contains ARMED=YES but is unreadable to the signer-client group and must be
+# treated as drift, not as a healthy steady state.
+ARM_META_HEALTHY=0
+if [[ -f "$ARM" && "$ARM_VALUE" == 'ARMED=YES' ]] \
+   && [[ "$(stat -c %U "$ARM" 2>/dev/null || true)" == 'root' ]] \
+   && [[ "$(stat -c %G "$ARM" 2>/dev/null || true)" == 'meme-alpha-signer-client' ]] \
+   && [[ "$(stat -c %a "$ARM" 2>/dev/null || true)" == '640' ]]; then
+  ARM_META_HEALTHY=1
+fi
+if [[ -f "$DONE" && "$ARM_META_HEALTHY" -eq 1 ]]; then
   echo "MEME_V382_RECONCILE=ALREADY_COMPLETED_ARM_HEALTHY executor=$EXEC_GEN"
   exit 0
 fi
+if [[ -f "$DONE" && "$ARM_META_HEALTHY" -ne 1 ]]; then
+  echo "MEME_V382_RECONCILE=REPAIR_ARM_DRIFT executor=$EXEC_GEN value=${ARM_VALUE:-MISSING}"
+fi
 
-# If DONE exists but ARM disappeared (or was replaced by the legacy maintenance marker),
-# treat it as drift/corruption rather than an intentional disarm and allow a bounded repair.
-# Unknown non-empty states remain fail-closed.
+# If DONE exists but ARM disappeared, became unreadable, or was replaced by the
+# legacy maintenance marker, treat it as drift/corruption rather than an
+# intentional disarm and allow a bounded repair. Unknown non-empty states remain
+# fail-closed.
 if [[ -n "$ARM_VALUE" && "$ARM_VALUE" != 'ARMED=YES' && "$ARM_VALUE" != 'MAINTENANCE=V377' ]]; then
   echo "MEME_V382_RECONCILE=DEFER_UNKNOWN_ARM_STATE value=$ARM_VALUE"
   exit 0
@@ -83,6 +97,7 @@ rm -f "$TMP"
 # Verify the root-owned control immediately before restarting execution.
 [[ "$(cat "$ARM")" == 'ARMED=YES' ]] || { echo 'MEME_V382_RECONCILE=DEFER_ARM_WRITE_VERIFY'; exit 0; }
 [[ "$(stat -c %u "$ARM")" == '0' ]] || { echo 'MEME_V382_RECONCILE=DEFER_ARM_OWNER_VERIFY'; exit 0; }
+[[ "$(stat -c %G "$ARM")" == 'meme-alpha-signer-client' ]] || { echo 'MEME_V382_RECONCILE=DEFER_ARM_GROUP_VERIFY'; exit 0; }
 [[ "$(stat -c %a "$ARM")" == '640' ]] || { echo 'MEME_V382_RECONCILE=DEFER_ARM_MODE_VERIFY'; exit 0; }
 
 systemctl restart meme-alpha-micro-live.service
@@ -116,6 +131,6 @@ done
 [[ "$READY" -eq 1 ]] || { echo "MEME_V382_RECONCILE=DEFER_GATE_VERIFY executor=$EXEC_GEN"; exit 0; }
 
 mkdir -p "$(dirname "$DONE")"
-printf '{"version":"3.82","status":"ROOT_RECONCILED_AND_SELF_HEALED","timestamp":"%s","armRepair":true,"executor":"%s"}\n' "$(date -u +%FT%TZ)" "$EXEC_GEN" > "$DONE"
+printf '{"version":"3.82.1","status":"ROOT_RECONCILED_AND_SELF_HEALED","timestamp":"%s","armRepair":true,"executor":"%s"}\n' "$(date -u +%FT%TZ)" "$EXEC_GEN" > "$DONE"
 chmod 0600 "$DONE"
 echo "MEME_V382_RECONCILE=SUCCESS_ARM_REPAIRED executor=$EXEC_GEN"
