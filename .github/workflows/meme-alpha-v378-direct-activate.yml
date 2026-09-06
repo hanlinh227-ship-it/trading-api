@@ -1,4 +1,4 @@
-name: Meme Alpha V381 Repaired Selftest Inspect
+name: Meme Alpha V381 Fixture Inspect
 on:
   push:
     branches: [main]
@@ -6,17 +6,14 @@ on:
 jobs:
   inspect:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect repaired staged v381
+      - name: Inspect selftest fixture
         shell: bash
         run: |
           set +e
-          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
-          echo '=== SIGNAL ==='; node "$ST/safe-signal-export.js" --self-test; echo signal_rc=$?
-          echo '=== EXECUTOR ==='; node "$ST/micro-live-executor.js" --self-test; echo executor_rc=$?
-          echo '=== ENTRY ==='; grep -n 'function trendEntryEligible' "$ST/micro-live-executor.js" || true
-          echo '=== GATE ==='; cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json 2>/dev/null || true
-          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" /opt/meme-alpha/app/src/micro-live-executor.js | tail -1 || true
+          F=/opt/meme-alpha/app/runtime-status/v381-fast-capital/micro-live-executor.js
+          nl -ba "$F" | sed -n '282,294p'
+          grep -nE 'const c=|insiderRiskDecision|topHoldersPct|holderClusterMaxAccountsSameOwner' "$F" | tail -20
           exit 0
