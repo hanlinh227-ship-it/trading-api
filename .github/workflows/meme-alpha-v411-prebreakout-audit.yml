@@ -1,0 +1,50 @@
+name: Meme Alpha V411 Prebreakout Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v411-prebreakout-audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Audit prebreakout sensitivity and runtime conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
+          echo '=== RUNTIME ==='
+          date -u +%FT%TZ
+          echo EXEC_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+          echo EXEC_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)
+          sha256sum "$APP/src/micro-live-executor.js" "$APP/src/trend-pulse.js" "$APP/src/realtime-pool-pulse.js" "$APP/src/safe-signal-export.js" 2>/dev/null || true
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
+          echo '=== EXECUTOR ENTRY / BUY / SCALE ==='
+          grep -nE 'function (opportunityScore|opportunityLane|trendEntryEligible|bestCandidate|maybeScaleIn|placeBuy|targetPlan|coreSafe|holdSafe)|priceChange5m|volumeAcceleration|txnAcceleration|eventMomentum|events5s|pulseScore|BREAKOUT|FOMO|chase|overheat|exhaust|buySellRatio' "$APP/src/micro-live-executor.js" | head -240 || true
+          echo '=== TREND PULSE ==='
+          grep -nE 'volumeAcceleration|txnAcceleration|pulseScore|BREAKOUT|PRE|EARLY|EXHAUSTED|price5m|buySellRatio|events|momentum|status' "$APP/src/trend-pulse.js" | head -260 || true
+          echo '=== REALTIME PULSE ==='
+          grep -nE 'eventMomentum|events5s|buy|sell|burst|price|volume|pair|mint|updatedAt' "$APP/src/realtime-pool-pulse.js" | head -260 || true
+          echo '=== SIGNAL ROUTER ==='
+          grep -nE 'MOMENTUM|LAUNCH_FAST|RECOVERY_FLOW|promotionEligible|scoreOk|momentumOk|flowOk|priceChange5m|netBuyers5m|fastTrackReady|consecutiveEligible|decision' "$APP/src/safe-signal-export.js" | head -320 || true
+          echo '=== SNAPSHOTS ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','signal-snapshot.json','trend-pulse.json','realtime-pool-pulse.json','portfolio-observability.json','capital-observability.json','allocator-status.json']:
+            p=rt/name
+            if not p.exists(): print(name,'MISSING'); continue
+            d=json.loads(p.read_text()); print(name,'ageSec=',round(time.time()-p.stat().st_mtime,2))
+            if name=='signal-snapshot.json':
+              rows=d.get('candidates') or []
+              for x in rows[:15]: print('SIG',{k:x.get(k) for k in ['mint','symbol','score','decision','securityDecision','holderClusterDecision','token2022','sellRoute','liquidityUsd','sellPriceImpactPct','netBuyers5m','priceChange5m','buySellRatio5m','avgNetBuyersLast2','scoreSlopeLast2','fastTrackReady','consecutiveEligible']})
+            elif name=='trend-pulse.json':
+              for x in (d.get('rows') or [])[:20]: print('TREND',{k:x.get(k) for k in ['mint','symbol','status','pulseScore','price5m','buySellRatio','volumeAcceleration','txnAcceleration','narrative']})
+            elif name=='realtime-pool-pulse.json':
+              for x in (d.get('rows') or [])[:20]: print('RT',{k:x.get(k) for k in ['mint','symbol','events5s','eventMomentum','lastEventAgeMs','buyEvents5s','sellEvents5s']})
+            else: print(d)
+          PY
+          echo V411_PREBREAKOUT_AUDIT=COMPLETE
