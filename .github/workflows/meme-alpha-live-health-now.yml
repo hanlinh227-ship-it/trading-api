@@ -1,0 +1,40 @@
+name: Meme Alpha Live Health Now
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-live-health-now.yml']
+jobs:
+  check:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check current live health
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          GATE="$APP/runtime-status/micro-live-gate.json"
+          RADAR="$APP/runtime-status/new-listing-radar.json"
+          echo '=== SERVICES ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do echo "$s=$(systemctl is-active "$s" || true)"; done
+          echo '=== ARM ==='
+          ls -l /etc/meme-alpha/micro-live-armed 2>/dev/null || true
+          cat /etc/meme-alpha/micro-live-armed 2>/dev/null || true
+          echo '=== GATE ==='
+          cat "$GATE"
+          echo '=== RADAR ==='
+          python3 - "$RADAR" <<'PY'
+import json,os,time,sys
+p=sys.argv[1]; d=json.load(open(p)); print({'ageSec':round(time.time()-os.path.getmtime(p),1),'count':len(d.get('candidates') or []),'status':d.get('status')})
+PY
+          echo '=== RECENT MICRO LIVE LOG ==='
+          journalctl -u meme-alpha-micro-live.service --since '-15 min' --no-pager -n 120 || true
+          python3 - "$GATE" <<'PY'
+import json,sys,time,datetime
+p=sys.argv[1]; d=json.load(open(p)); ts=d.get('timestamp') or ''
+age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp() if ts else 999
+ok=(d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True and d.get('executionMode')=='MICRO_LIVE' and d.get('signer',{}).get('ok') is True and d.get('signer',{}).get('mode')=='READY' and d.get('sourceHealthy') is True and d.get('riskEntryAllowed') is True and d.get('liveRiskReady') is True and not (d.get('riskGlobalBlockReasons') or []) and not (d.get('riskLiveBlockReasons') or []) and not (d.get('reasons') or []) and age<90)
+print({'LIVE_HEALTHY':ok,'gateAgeSec':round(age,1)})
+raise SystemExit(0 if ok else 1)
+PY
