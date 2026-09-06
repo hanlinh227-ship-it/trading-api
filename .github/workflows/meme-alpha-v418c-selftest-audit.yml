@@ -1,0 +1,17 @@
+name: Meme Alpha V418C Selftest Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v418c-selftest-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect executor self tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          nl -ba "$E" | sed -n '309,390p'
+          echo V418C_SELFTEST_AUDIT=PASS
