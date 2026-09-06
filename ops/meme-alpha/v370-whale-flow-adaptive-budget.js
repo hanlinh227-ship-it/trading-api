@@ -9,17 +9,25 @@ const CFG=JSON.parse(fs.readFileSync(`${APP}/config/runtime.json`,'utf8'));
 const SELF_TEST=process.argv.includes('--self-test');
 const CYCLE_MS=15000;
 const RPC_SPACING_MS=1800;
+// These endpoints are used ONLY by this read-only whale/holder intelligence module.
+// No signed transaction, wallet secret, or execution payload is ever sent to them.
+const READ_ONLY_PUBLIC_FALLBACKS=[
+  'https://solana-rpc.publicnode.com',
+  'https://api.mainnet.solana.com',
+  'https://api.mainnet-beta.solana.com'
+];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const read=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
 const atomic=(p,x)=>{const t=p+'.tmp';fs.writeFileSync(t,JSON.stringify(x,null,2));fs.renameSync(t,p);try{fs.chmodSync(p,0o664)}catch{}};
 const num=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d;
 
 function endpointList(){
-  const raw=[CFG.rpc,CFG.solanaRpc,process.env.SOLANA_RPC_URL,...(Array.isArray(CFG.rpcFallbacks)?CFG.rpcFallbacks:[]),...(Array.isArray(CFG.rpcUrls)?CFG.rpcUrls:[]),...(Array.isArray(CFG.solanaRpcUrls)?CFG.solanaRpcUrls:[])];
+  const configured=[CFG.rpc,CFG.solanaRpc,process.env.SOLANA_RPC_URL,...(Array.isArray(CFG.rpcFallbacks)?CFG.rpcFallbacks:[]),...(Array.isArray(CFG.rpcUrls)?CFG.rpcUrls:[]),...(Array.isArray(CFG.solanaRpcUrls)?CFG.solanaRpcUrls:[])];
+  const raw=[...configured,...READ_ONLY_PUBLIC_FALLBACKS];
   return [...new Set(raw.filter(x=>typeof x==='string'&&/^https?:\/\//.test(x.trim())).map(x=>x.trim()))];
 }
 const ENDPOINTS=endpointList();
-const provider=new Map(ENDPOINTS.map((url,i)=>[url,{url,index:i,failures:0,cooldownUntil:0,lastOkAt:null,lastError:null}]));
+const provider=new Map(ENDPOINTS.map((url,i)=>[url,{url,index:i,kind:READ_ONLY_PUBLIC_FALLBACKS.includes(url)?'PUBLIC_READ_ONLY_FALLBACK':'CONFIGURED',failures:0,cooldownUntil:0,lastOkAt:null,lastError:null}]));
 let nextRpcAt=0;
 const supplyCache=new Map();
 let cycleIndex=0,heldCursor=0,otherCursor=0;
@@ -28,7 +36,8 @@ let lastRows=Array.isArray(prior.rows)?prior.rows.filter(r=>Date.now()-Date.pars
 for(const r of lastRows){if(Number.isFinite(Number(r?.supply))&&Number(r.supply)>0)supplyCache.set(r.mint,{value:Number(r.supply),at:Date.parse(r.observedAt)||Date.now(),cached:true})}
 
 function providerCooldown(failures){return Math.min(300000,30000*Math.pow(2,Math.min(4,Math.max(0,failures-1))))}
-function publicProviderView(){return [...provider.values()].map(p=>({index:p.index,failures:p.failures,cooldownMsRemaining:Math.max(0,p.cooldownUntil-Date.now()),lastOkAt:p.lastOkAt,lastError:p.lastError}));}
+function providerLabel(url){try{return new URL(url).hostname}catch{return 'unknown'}}
+function publicProviderView(){return [...provider.values()].map(p=>({index:p.index,label:providerLabel(p.url),kind:p.kind,failures:p.failures,cooldownMsRemaining:Math.max(0,p.cooldownUntil-Date.now()),lastOkAt:p.lastOkAt,lastError:p.lastError}));}
 async function rateShape(){const wait=Math.max(0,nextRpcAt-Date.now());if(wait)await sleep(wait);nextRpcAt=Date.now()+RPC_SPACING_MS;}
 async function callOne(p,method,params){
   await rateShape();
@@ -80,6 +89,8 @@ function statusOf({ok,rateLimit,rows}){if(!ENDPOINTS.length)return'NO_RPC_CONFIG
 if(SELF_TEST){
   if(providerCooldown(1)!==30000||providerCooldown(5)!==300000)throw new Error('PROVIDER_COOLDOWN_SELFTEST');
   if(CYCLE_MS!==15000||RPC_SPACING_MS!==1800)throw new Error('RPC_BUDGET_SELFTEST');
+  if(READ_ONLY_PUBLIC_FALLBACKS.length<2)throw new Error('READ_ONLY_FALLBACK_POOL_SELFTEST');
+  if(!ENDPOINTS.includes('https://solana-rpc.publicnode.com'))throw new Error('PUBLICNODE_FALLBACK_SELFTEST');
   const h=['H1','H2'],o=['O1','O2'];heldCursor=0;otherCursor=0;
   const seq=[0,1,2,3,4,5].map(i=>chooseNextMint(h,o,i)?.kind).join(',');
   if(seq!=='HELD,HELD,OTHER,HELD,HELD,OTHER')throw new Error('HELD_PRIORITY_SCHEDULER_SELFTEST');
@@ -90,6 +101,8 @@ if(SELF_TEST){
   console.log('RATE_LIMIT_COOLDOWN_UP_TO_300S=TRUE');
   console.log('FRESH_CACHED_ROWS_FAIL_SOFT=TRUE');
   console.log('HELD_PRIORITY_TWO_OF_THREE_CYCLES=TRUE');
+  console.log('READ_ONLY_PUBLIC_RPC_FAILOVER=TRUE');
+  console.log('NO_SIGNED_TX_TO_PUBLIC_FALLBACKS=TRUE');
   process.exit(0);
 }
 
@@ -99,9 +112,9 @@ async function cycle(){
   const held=new Set(heldMints());
   lastRows=lastRows.filter(r=>freshnessMs(r)<=180000||held.has(r.mint)&&freshnessMs(r)<=600000);
   const rows=lastRows.slice().sort((a,b)=>(held.has(b.mint)?1:0)-(held.has(a.mint)?1:0)||Date.parse(b.observedAt)-Date.parse(a.observedAt)).slice(0,120);
-  const out={version:'3.70.0-adaptive-whale',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:statusOf({ok,rateLimit,rows}),rpcConfigured:ENDPOINTS.length>0,providerCount:ENDPOINTS.length,providers:publicProviderView(),rateShaped:true,cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,oneMintPerCycle:true,supplyCacheMs:600000,rowFreshnessTtlMs:180000,heldRowTtlMs:600000,heldPositionsAlwaysMonitored:true,inspectedMint:mint,inspectedKind:pick?.kind||null,heldQueueSize:pick?.heldCount||0,otherQueueSize:pick?.otherCount||0,rows,error};
+  const out={version:'3.70.0-adaptive-whale',fallbackRevision:'read-only-public-pool-v1',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:statusOf({ok,rateLimit,rows}),rpcConfigured:ENDPOINTS.length>0,providerCount:ENDPOINTS.length,providers:publicProviderView(),rateShaped:true,cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,oneMintPerCycle:true,supplyCacheMs:600000,rowFreshnessTtlMs:180000,heldRowTtlMs:600000,heldPositionsAlwaysMonitored:true,readOnlyPublicFallbacks:true,inspectedMint:mint,inspectedKind:pick?.kind||null,heldQueueSize:pick?.heldCount||0,otherQueueSize:pick?.otherCount||0,rows,error};
   atomic(OUT,out);atomic(OBS,observability());
 }
 
 await cycle();
-setInterval(()=>cycle().catch(e=>atomic(OUT,{version:'3.70.0-adaptive-whale',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:'INTERNAL_ERROR',error:String(e?.message||e),rows:lastRows,providerCount:ENDPOINTS.length,providers:publicProviderView(),cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS})),CYCLE_MS);
+setInterval(()=>cycle().catch(e=>atomic(OUT,{version:'3.70.0-adaptive-whale',fallbackRevision:'read-only-public-pool-v1',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:'INTERNAL_ERROR',error:String(e?.message||e),rows:lastRows,providerCount:ENDPOINTS.length,providers:publicProviderView(),cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS})),CYCLE_MS);
