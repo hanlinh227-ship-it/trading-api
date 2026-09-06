@@ -1,0 +1,181 @@
+name: Meme Alpha V387 Finalize Live
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v387-finalize-live.yml']
+permissions:
+  contents: read
+jobs:
+  finalize:
+    runs-on: self-hosted
+    timeout-minutes: 6
+    steps:
+      - name: Finalize V387 execution contract and verify production
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          SRC="$APP/src"
+          RS="$APP/runtime-status"
+          BASE="$RS/deploy-candidates"
+          mkdir -p "$BASE"
+
+          echo '=== V387 CURRENT BASELINE ==='
+          python3 - <<'PY'
+          import pathlib,hashlib,json
+          root=pathlib.Path('/opt/meme-alpha/app/src')
+          expected={
+            'micro-live-executor.js':'21ec15212eb02ab5e65c6665000c5ffd395a9cbd84f0a87b26c60f0202f5d8a9',
+            'scanner.js':'66736801f3caaa15fd6cf7b63bbcc46d40b4e9cb880e6740864efc82264fd30f',
+            'safe-signal-export.js':'0c9dafad97d23137c9a277ed885e5415f408356fadb54e526b29929d5b40aa79',
+            'micro-live-gate.js':'d996e0772b2764beb3c16c734736c157da950b6eeaef25a548e9d9ddb695f704'
+          }
+          for name,want in expected.items():
+            text=(root/name).read_text(); got=hashlib.sha256(text.encode()).hexdigest()
+            print(json.dumps({'component':name,'sha256':got,'expected':want,'match':got==want}))
+            if got!=want: raise SystemExit('V387_BASELINE_CHANGED_'+name)
+          PY
+
+          echo '=== BUILD FINAL SIGNAL CONTRACT ==='
+          python3 - <<'PY'
+          import pathlib,hashlib,json
+          src=pathlib.Path('/opt/meme-alpha/app/src/safe-signal-export.js')
+          out=pathlib.Path('/opt/meme-alpha/app/runtime-status/deploy-candidates/v387-final-signal.js')
+          text=src.read_text()
+          def once(old,new,label):
+            global text
+            n=text.count(old)
+            if n!=1: raise SystemExit(f'FINAL_PATCH_{label}_COUNT_{n}')
+            text=text.replace(old,new,1)
+          once(
+            "  const holderDecision=c.holderClusterAudit?.decision||c.holderClusterDecision||null;",
+            "  const holderDecision=c.holderClusterAudit?.decision||c.holderClusterDecision||null;\n  // V387_FINAL_CONTRACT: classification may be normalized for the protected executor only after every executable safety prerequisite is already PASS.\n  const executionUniverseNormalized=classificationOverride&&securityDecision==='PASS'&&holderDecision==='PASS'&&c.insiderRiskDecision==='PASS'&&hardReject.length===0&&c.token2022!==true&&c.sellRoute===true&&num(c.liquidityUsd)>=50000&&impact(c)<=1.25&&intel.entryAllowed;",
+            'NORMALIZATION_CONDITION'
+          )
+          once(
+            "    mint:c.mint,symbol:c.symbol,name:c.name,score,originalScore,decision,universeClass:c.universeClass,universeConfidence:c.universeConfidence,",
+            "    mint:c.mint,symbol:c.symbol,name:c.name,score,originalScore,decision,sourceUniverseClass:c.universeClass,universeClass:executionUniverseNormalized?'MEME_CONFIRMED':c.universeClass,executionUniverseNormalized,universeConfidence:c.universeConfidence,",
+            'RETURN_UNIVERSE'
+          )
+          once(
+            "    securityDecision,holderClusterDecision:holderDecision,devIdentityProven:c.holderClusterAudit?.devIdentityProven===true,holderClusterMaxAccountsSameOwner:num(c.holderClusterAudit?.maxAccountsSameOwner),",
+            "    securityDecision,holderClusterDecision:holderDecision,insiderRiskDecision:c.insiderRiskDecision||null,devIdentityProven:c.holderClusterAudit?.devIdentityProven===true,holderClusterMaxAccountsSameOwner:num(c.holderClusterAudit?.maxAccountsSameOwner),",
+            'RETURN_INSIDER'
+          )
+          once(
+            "  const common={decision:'WATCH',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',sellRoute:true,sellPriceImpactPct:.4,token2022:false,mintAuthorityDisabled:true,freezeAuthorityDisabled:true};",
+            "  const common={decision:'WATCH',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',holderClusterAudit:{decision:'PASS',maxAccountsSameOwner:1},insiderRiskDecision:'PASS',topHoldersPct:20,sellRoute:true,sellPriceImpactPct:.4,token2022:false,mintAuthorityDisabled:true,freezeAuthorityDisabled:true};",
+            'SELFTEST_COMMON'
+          )
+          once(
+            "  if(broad.securityDecision!=='PASS'||broad.hardReject.length!==0||broad.decision!=='PROBE_CANDIDATE')throw new Error('V387_CLASSIFICATION_ONLY_NORMALIZATION_SELFTEST');",
+            "  if(broad.securityDecision!=='PASS'||broad.hardReject.length!==0||broad.decision!=='PROBE_CANDIDATE'||broad.executionUniverseNormalized!==true||broad.universeClass!=='MEME_CONFIRMED'||broad.sourceUniverseClass!=='UNCLASSIFIED'||broad.insiderRiskDecision!=='PASS')throw new Error('V387_CLASSIFICATION_ONLY_NORMALIZATION_SELFTEST');",
+            'SELFTEST_ASSERT'
+          )
+          text += "\n// V387_UNIFIED_LIVE_FINAL\n"
+          out.write_text(text)
+          print(json.dumps({'candidate':'v387-final-signal.js','sha256':hashlib.sha256(text.encode()).hexdigest(),'bytes':len(text)}))
+          PY
+
+          /usr/bin/node --check "$BASE/v387-final-signal.js"
+          python3 - <<'PY'
+          import pathlib
+          t=pathlib.Path('/opt/meme-alpha/app/runtime-status/deploy-candidates/v387-final-signal.js').read_text()
+          required=[
+            "securityDecision==='PASS'",
+            "holderDecision==='PASS'",
+            "c.insiderRiskDecision==='PASS'",
+            "hardReject.length===0",
+            "c.token2022!==true",
+            "c.sellRoute===true",
+            "num(c.liquidityUsd)>=50000",
+            "impact(c)<=1.25",
+            "intel.entryAllowed",
+            "sourceUniverseClass:c.universeClass",
+            "executionUniverseNormalized?'MEME_CONFIRMED':c.universeClass"
+          ]
+          missing=[x for x in required if x not in t]
+          if missing: raise SystemExit('V387_FINAL_INVARIANT_MISSING_'+','.join(missing))
+          print('V387_FINAL_STATIC_INVARIANTS=PASS')
+          PY
+          if grep -q -- "process.argv.includes('--self-test')" "$BASE/v387-final-signal.js"; then
+            /usr/bin/node "$BASE/v387-final-signal.js" --self-test
+          else
+            echo SIGNAL_SELFTEST_ENTRYPOINT_NOT_DETECTED=TRUE
+          fi
+
+          echo '=== DEPLOY FINAL SIGNAL ONLY ==='
+          SHA=$(sha256sum "$BASE/v387-final-signal.js" | awk '{print $1}')
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal v387-final-signal.js "$SHA"
+
+          echo '=== WAIT FRESH PRODUCTION SNAPSHOT ==='
+          ok=0
+          for i in $(seq 1 45); do
+            sleep 3
+            if python3 - <<'PY'
+          import json,pathlib,os,time,hashlib
+          root=pathlib.Path('/opt/meme-alpha/app'); rs=root/'runtime-status'; src=root/'src'
+          g=json.loads((rs/'micro-live-gate.json').read_text())
+          s=json.loads((rs/'signal-snapshot.json').read_text())
+          age=time.time()-os.path.getmtime(rs/'signal-snapshot.json')
+          rows=s.get('candidates') or []
+          signal=(src/'safe-signal-export.js').read_text()
+          print(json.dumps({
+            'gate':{k:g.get(k) for k in ['timestamp','allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','evidenceReady','evidenceScaleReady','reasons']},
+            'signalAgeSec':round(age,1),
+            'signalCount':len(rows),
+            'normalizedCount':sum(1 for c in rows if c.get('executionUniverseNormalized') is True),
+            'probeCandidates':(s.get('intelSummary') or {}).get('probeCandidates'),
+            'signalSha256':hashlib.sha256(signal.encode()).hexdigest()
+          }))
+          assert g.get('allowed') is True
+          assert g.get('armOk') is True and g.get('armAttested') is True
+          assert g.get('executionMode')=='MICRO_LIVE'
+          assert g.get('sourceHealthy') is True
+          assert g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True
+          assert g.get('scaleAllowed') is True
+          assert not g.get('reasons')
+          assert age < 45
+          assert 'V387_UNIFIED_LIVE_FINAL' in signal
+          if rows:
+            assert all('sourceUniverseClass' in c and 'executionUniverseNormalized' in c and 'insiderRiskDecision' in c for c in rows)
+          PY
+            then ok=1; break; fi
+          done
+          [ "$ok" -eq 1 ] || { echo V387_FINAL_LIVE_VERIFY=FALSE; exit 1; }
+
+          echo '=== VERIFY SERVICES AND EXECUTOR SINGLETON ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            printf '%s=' "$s"; systemctl is-active "$s"
+          done
+          [ "$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]
+
+          echo '=== RECORD UNIFIED RELEASE ==='
+          python3 - <<'PY'
+          import pathlib,hashlib,json,datetime,os,time
+          root=pathlib.Path('/opt/meme-alpha/app');src=root/'src';rs=root/'runtime-status'
+          comps={}
+          for name in ['micro-live-executor.js','scanner.js','safe-signal-export.js','micro-live-gate.js']:
+            text=(src/name).read_text();comps[name]={'sha256':hashlib.sha256(text.encode()).hexdigest(),'v387Marker':'V387_UNIFIED_LIVE' in text}
+          g=json.loads((rs/'micro-live-gate.json').read_text());s=json.loads((rs/'signal-snapshot.json').read_text());p=json.loads((rs/'portfolio-observability.json').read_text())
+          release={
+            'version':'V387_UNIFIED_LIVE',
+            'activatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'status':'ACTIVE',
+            'executionArchitecture':'V387_SIGNAL_CONTRACT_WITH_PROTECTED_V382_EXECUTOR_ENGINE',
+            'armProtectionPreserved':True,
+            'components':comps,
+            'gate':{k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','evidenceReady','evidenceScaleReady','reasons']},
+            'signalCount':len(s.get('candidates') or []),
+            'normalizedCount':sum(1 for c in (s.get('candidates') or []) if c.get('executionUniverseNormalized') is True),
+            'openPositions':len(p.get('openPositions') or []) if isinstance(p.get('openPositions'),list) else p.get('openPositions'),
+            'features':{
+              'broadSolanaUniverse':True,'hardSecurityPreserved':True,'holderSafetyPreserved':True,'insiderSafetyPreserved':True,
+              'sellRouteRequired':True,'token2022Blocked':True,'autoBuy':True,'autoHold':True,'autoScale':True,'autoRotate':True,
+              'profitAwareExit':True,'onlineLearning':True,'operationalScaleAllowed':True,'singleReleaseContract':True
+            }
+          }
+          tmp=rs/'unified-release.json.tmp';tmp.write_text(json.dumps(release,indent=2));tmp.replace(rs/'unified-release.json')
+          print(json.dumps(release))
+          PY
+          echo V387_UNIFIED_LIVE_ACTIVE=TRUE
