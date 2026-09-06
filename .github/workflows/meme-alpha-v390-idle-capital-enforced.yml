@@ -1,0 +1,20 @@
+name: Meme Alpha V390 Idle Capital Enforced
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v390-idle-capital-enforced.yml
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 7
+    steps:
+      - name: Activate V390 idle capital enforced
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/77c9d25fa853a08ba30da6817dd1232f70e50865/ops/meme-alpha-v390-idle-capital-enforced.sh -o /tmp/meme-alpha-v390-idle-capital-enforced.sh
+          chmod 0755 /tmp/meme-alpha-v390-idle-capital-enforced.sh
+          /tmp/meme-alpha-v390-idle-capital-enforced.sh
