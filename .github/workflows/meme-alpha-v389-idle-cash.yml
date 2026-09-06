@@ -11,32 +11,21 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Trace V390 executor runtime
+      - name: Inspect signer gate handshake
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DATA=/var/lib/meme-alpha/data/micro-live
-          PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
-          echo PID="$PID"
-          [ -n "$PID" ] && ps -o pid,ppid,user,group,lstart,etime,cmd -p "$PID" || true
-          [ -n "$PID" ] && { PPID2="$(ps -o ppid= -p "$PID" | tr -d ' ')"; [ -n "$PPID2" ] && ps -o pid,ppid,user,group,lstart,etime,cmd -p "$PPID2" || true; } || true
-          echo '=== UNIT ==='
-          systemctl cat meme-alpha-micro-live.service || true
-          systemctl status meme-alpha-micro-live.service --no-pager -l || true
-          echo '=== DIR_PERMS ==='
-          ls -ld "$APP" "$APP/src" "$RT" /var/lib/meme-alpha /var/lib/meme-alpha/data "$DATA" 2>&1 || true
-          ls -la "$RT" | tail -80 || true
-          ls -la "$DATA" 2>&1 | tail -100 || true
-          echo '=== STATE_META ==='
-          stat "$DATA/state.json" 2>&1 || true
-          head -c 2000 "$DATA/state.json" 2>&1 || true
-          echo
-          echo '=== ENV_RELEVANT ==='
-          [ -n "$PID" ] && tr '\0' '\n' < "/proc/$PID/environ" 2>/dev/null | grep -Ei 'MEME|MICRO|DATA|STATE|NODE|HOME|USER' || true
-          echo '=== FD ==='
-          [ -n "$PID" ] && ls -l "/proc/$PID/fd" 2>/dev/null | tail -80 || true
-          echo '=== JOURNAL_ALL ==='
-          journalctl _PID="$PID" --since '2026-09-06 14:57:00 UTC' --no-pager -n 500 2>/dev/null || true
-          echo '=== RUNNER ==='
-          sed -n '1,240p' "$APP/run-paper.sh" || true
-          echo V390_RUNTIME_TRACE=COMPLETE
+          APP=/opt/meme-alpha/app
+          echo '=== SIGNER_FILES ==='
+          find "$APP/src" -maxdepth 1 -type f -printf '%f\n' | sort | grep -Ei 'sign|micro|gate' || true
+          echo '=== GATE_CLOSED_REFERENCES ==='
+          grep -RniE 'SIGNER_MICRO_LIVE_GATE_CLOSED|MICRO_LIVE_GATE|armAttested|micro-live-armed|armed' "$APP/src" "$APP"/*.sh 2>/dev/null | head -300 || true
+          echo '=== SIGNER_UNIT ==='
+          systemctl cat meme-alpha-signer.service || true
+          systemctl status meme-alpha-signer.service --no-pager -l || true
+          echo '=== SIGNER_SOURCE ==='
+          for f in "$APP"/src/*sign*.js; do [ -f "$f" ] || continue; echo ---$f---; sed -n '1,320p' "$f"; done
+          echo '=== ARM_META ==='
+          ls -l /etc/meme-alpha /run/meme-alpha-signer 2>&1 || true
+          for f in /etc/meme-alpha/*arm* /etc/meme-alpha/*live* /run/meme-alpha-signer/*; do [ -f "$f" ] || continue; echo ---$f---; cat "$f" 2>&1 || true; done
+          echo SIGNER_GATE_HANDSHAKE_AUDIT=COMPLETE
