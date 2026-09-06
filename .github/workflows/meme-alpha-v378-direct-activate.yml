@@ -1,129 +1,25 @@
-name: Meme Alpha V381 Final Activate
-
+name: Meme Alpha V381 Final Selftest Inspect
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/meme-alpha-v378-direct-activate.yml'
-
+    paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  deploy:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 7
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
-      - name: Finalize staged v381, activate and runtime-verify
+      - name: Inspect final selftests
         shell: bash
         run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          START_EPOCH=$(date +%s)
-
-          # Preserve equity scaling while still deploying capital aggressively.
-          python3 - "$ST/micro-live-executor.js" <<'PY'
-          import sys
-          p=sys.argv[1];s=open(p).read()
-          old='perPositionCap=Math.min(42,p.maxUtilizationPct)'
-          new='perPositionCap=Math.min(60,p.maxUtilizationPct)'
-          if old in s:s=s.replace(old,new,1)
-          elif new not in s:raise SystemExit('V381_ALLOCATION_CAP_PATTERN_MISSING')
-          open(p,'w').write(s)
-          print('V381_ALLOCATION_CAP=60')
-          PY
-
-          mkdir -p "$APP/runtime-status/config"
-          cp "$APP/config/runtime.json" "$APP/runtime-status/config/runtime.json"
-          chmod 0644 "$APP/runtime-status/config/runtime.json"
-          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
-
-          # Scanner has no isolated self-test mode; validate syntax now and real output after deploy.
-          node --check "$ST/scanner.js"
-          node --check "$ST/safe-signal-export.js"
-          node --check "$ST/micro-live-executor.js"
-          node "$ST/safe-signal-export.js" --self-test > "$ST/signal-selftest-final.txt" 2>&1
-          node "$ST/micro-live-executor.js" --self-test > "$ST/executor-selftest-final.txt" 2>&1
-          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' "$ST/signal-selftest-final.txt"
-          grep -q 'EXECUTOR_CORE_SAFETY_CONTRACT_PRESERVED=TRUE' "$ST/signal-selftest-final.txt"
-          grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' "$ST/executor-selftest-final.txt"
-          grep -q 'OBJECTIVE_INSIDER_RISK_DEFENSE_IN_DEPTH=TRUE' "$ST/executor-selftest-final.txt"
-          grep -q 'EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE' "$ST/executor-selftest-final.txt"
-          echo 'V381_LOGIC_SELFTESTS=PASS'
-
-          grep -q 'const DISCOVERY_RADAR_ONLY_MAX = 360;' "$ST/scanner.js"
-          grep -q 'const JUPITER_MIN_INTERVAL_MS = 1900;' "$ST/scanner.js"
-          grep -q 'const MAX_SELLABILITY_CHECKS_V216=8;' "$ST/scanner.js"
-          grep -q 'slice(0, 36)' "$ST/scanner.js"
-          grep -q 'slice(0, 12)' "$ST/scanner.js"
-          grep -q "const promotionEligible=!!selected&&effectiveScore>=50;" "$ST/safe-signal-export.js"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$ST/micro-live-executor.js"
-
-          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v381-final.sh"
-          chmod 0755 "$ST/run-paper.pre-v381-final.sh"
-
-          cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
-          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
-          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
-          printf 'SCANNER_SWAP=TRUE\nSIGNAL_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
-          cp "$ST/run-paper.pre-v381-final.sh" "$APP/run-paper.sh"
-          chmod +x "$APP/run-paper.sh"
-          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill -9 "$p" 2>/dev/null || true; done
-          exec "$APP/run-paper.sh"
-          SH
-          chmod +x "$APP/run-paper.sh"
-
-          timeout 135s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-
-          # Require a genuinely new scanner/signal cycle, not a stale pre-deploy gate.
-          READY=0
-          for i in $(seq 1 110); do
-            if grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt" 2>/dev/null \
-              && grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
-              && systemctl is-active --quiet meme-alpha-paper.service \
-              && systemctl is-active --quiet meme-alpha-micro-live.service \
-              && systemctl is-active --quiet meme-alpha-signer.service \
-              && grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json" 2>/dev/null \
-              && grep -q '"sourceHealthy": true' "$APP/runtime-status/micro-live-gate.json" 2>/dev/null \
-              && grep -q '"riskEntryAllowed": true' "$APP/runtime-status/micro-live-gate.json" 2>/dev/null; then
-              SIG_MTIME=$(stat -c %Y "$APP/runtime-status/signal-snapshot.json" 2>/dev/null || echo 0)
-              if [ "$SIG_MTIME" -ge "$START_EPOCH" ]; then READY=1; break; fi
-            fi
-            sleep 2
-          done
-          [ "$READY" = 1 ]
-
-          echo '--- V381 HANDOFF ---'
-          cat "$ST/result.txt"
-          echo '--- SERVICES ---'
-          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
-          echo '--- GATE ---'
-          cat "$APP/runtime-status/micro-live-gate.json"
-          echo '--- RUNTIME COUNTS ---'
-          python3 - <<'PY'
-          import json,os,time
-          for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json']:
-            d=json.load(open(p)); rows=d.get('candidates') or []
-            print(p,{'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(rows),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in rows),'watch':sum(x.get('decision')=='WATCH' for x in rows),'routed':sum(bool(x.get('strategyRouter',{}).get('selectedLane')) for x in rows),'ageSec':round(time.time()-os.path.getmtime(p),1)})
-          try:
-            d=json.load(open('/var/lib/meme-alpha/data/micro-live/state.json'));print('openPositions=',len(d.get('positions') or []))
-          except Exception as ex: print('stateRead=',str(ex))
-          PY
-          echo '--- EXECUTOR PROCESS ---'
-          pgrep -af 'micro-live-executor.js' || true
-
-          grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'SIGNAL_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'EXECUTOR_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'const MAX_SELLABILITY_CHECKS_V216=8;' "$APP/src/scanner.js"
-          grep -q 'perPositionCap=Math.min(60,p.maxUtilizationPct)' "$APP/src/micro-live-executor.js"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js"
-          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"sourceHealthy": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"riskEntryAllowed": true' "$APP/runtime-status/micro-live-gate.json"
-          printf '{"version":"3.81.0","status":"DEPLOYED","profile":"FAST_CAPITAL_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v381-deployed.json"
-          echo 'V381_ACTIVE=TRUE'
+          set +e
+          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
+          echo '=== SIGNAL ==='
+          cat "$ST/signal-selftest-final.txt" 2>/dev/null || true
+          echo '=== EXECUTOR ==='
+          cat "$ST/executor-selftest-final.txt" 2>/dev/null || true
+          echo '=== CAP ==='
+          grep -o 'perPositionCap=Math.min([^;]*' "$ST/micro-live-executor.js" || true
+          echo '=== RUNTIME UNCHANGED CHECK ==='
+          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" /opt/meme-alpha/app/src/micro-live-executor.js | tail -1 || true
+          exit 0
