@@ -1,4 +1,4 @@
-name: Meme Alpha Signer Eligibility Audit
+name: Meme Alpha Buy Sizing Audit
 on:
   push:
     branches: [main]
@@ -11,19 +11,13 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect signer eligibility fields
+      - name: Inspect executor buy sizing
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); p=rt/'signal-snapshot.json'; d=json.loads(p.read_text())
-          print('AGE',round(time.time()-p.stat().st_mtime,2),'COUNT',len(d.get('candidates') or []))
-          fields=['symbol','mint','score','decision','universeClass','sourceUniverseClass','executionUniverseNormalized','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','hardReject','token2022','liquidityUsd','sellPriceImpactPct','consecutiveEligible','priceChange5m','netBuyers5m','avgNetBuyersLast2','scoreSlopeLast2','liquidityStableLast2','strategyRouter','topHoldersPct','holderClusterMaxAccountsSameOwner']
-          for c in d.get('candidates') or []:
-            if c.get('symbol')=='STONK' or (c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS'):
-              print('CAND',{k:c.get(k) for k in fields})
-          PY
-          echo '=== ALLOCATOR ==='
-          for f in /opt/meme-alpha/app/runtime-status/allocator-status.json /opt/meme-alpha/app/runtime-status/capital-observability.json /opt/meme-alpha/app/runtime-status/last-execution.json; do [ -f "$f" ] && { echo ---$f---; cat "$f"; echo; } || true; done
-          echo SIGNER_ELIGIBILITY_AUDIT=COMPLETE
+          SRC=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== BUY_SIZING ==='
+          sed -n '150,225p' "$SRC"
+          echo '=== POLICY_TARGET ==='
+          grep -nE 'function rootPolicy|function targetPlan|function allocationProfile|maxUtilizationPct|minOrderLamports|placeBuy|DYNAMIC_BUY' "$SRC" | head -200 || true
+          echo BUY_SIZING_AUDIT=COMPLETE
