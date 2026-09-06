@@ -9,62 +9,25 @@ permissions:
 jobs:
   deploy:
     runs-on: self-hosted
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
-      - name: Audit V389 idle capital blockers
+      - name: Inspect V389 allocation paths
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; SRC="$APP/src/micro-live-executor.js"; RT="$APP/runtime-status"
-          echo '=== V389 PRODUCTION ==='
+          SRC=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== SOURCE_SHA ==='
           sha256sum "$SRC"
-          grep -nE 'MICRO_LIVE_EXECUTOR_V389|function coreSafe|function bestCandidate|function allocationProfile|targetPlan\(beforeSol,st,existing,p.maxUtilizationPct' "$SRC" || true
-          echo '=== PROCESS/SERVICES ==='
+          echo '=== ALLOCATION_AND_TICK ==='
+          sed -n '120,286p' "$SRC"
+          echo '=== LIVE ==='
           pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo '=== GATE/CANDIDATES WITH BLOCKERS ==='
           python3 - <<'PY'
-          import json,pathlib,time,os
+          import json,pathlib,time
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          g=json.loads((rt/'micro-live-gate.json').read_text()); s=json.loads((rt/'signal-snapshot.json').read_text()); rows=s.get('candidates') or []
+          g=json.loads((rt/'micro-live-gate.json').read_text())
+          p=json.loads((rt/'portfolio-observability.json').read_text())
           print('GATE',{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','executionMode','reasons']})
-          print('AGES',{'gate':round(time.time()-(rt/'micro-live-gate.json').stat().st_mtime,1),'signal':round(time.time()-(rt/'signal-snapshot.json').stat().st_mtime,1),'rows':len(rows)})
-          def n(v,d=0):
-            try:return float(v)
-            except:return d
-          def evalc(c):
-            reasons=[]
-            if c.get('securityDecision')!='PASS': reasons.append('SECURITY_'+str(c.get('securityDecision')))
-            if c.get('holderClusterDecision')!='PASS': reasons.append('HOLDER_'+str(c.get('holderClusterDecision')))
-            x=c.get('insiderRiskDecision')
-            if x in ('BLOCK','REVIEW'): reasons.append('INSIDER_'+x)
-            elif x!='PASS':
-              top=n(c.get('topHoldersPct',c.get('top10Pct',c.get('top5Pct',c.get('topHolderPct')))),999)
-              cl=n(c.get('holderClusterMaxAccountsSameOwner',c.get('maxAccountsSameOwner',c.get('holderSameOwnerMax'))),999)
-              wb=c.get('whaleConcentrationDecision') in ('BLOCK','REVIEW') or c.get('whaleConcentrationSafe') is False
-              if not(c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and not wb and top<=35 and cl<=2): reasons.append('INSIDER_INFER_FAIL')
-            if c.get('token2022') is True: reasons.append('TOKEN2022')
-            if c.get('sellRoute') is not True: reasons.append('NO_SELL_ROUTE')
-            if c.get('hardReject'): reasons.append('HARD_REJECT:'+','.join(map(str,c.get('hardReject') or [])))
-            if n(c.get('liquidityUsd'))<50000: reasons.append('LIQ_LT_50K')
-            imp=abs(n(c.get('sellPriceImpactPct',c.get('priceImpactPct')),99))
-            if imp>1.25: reasons.append('IMPACT_GT_1_25')
-            return reasons
-          safe=[]
-          for c in rows:
-            r=evalc(c)
-            if not r:safe.append(c)
-            print('CAND',{'symbol':c.get('symbol'),'mint':c.get('mint'),'decision':c.get('decision'),'score':c.get('score'),'security':c.get('securityDecision'),'holder':c.get('holderClusterDecision'),'insider':c.get('insiderRiskDecision'),'sellRoute':c.get('sellRoute'),'token2022':c.get('token2022'),'liq':c.get('liquidityUsd'),'impact':c.get('sellPriceImpactPct',c.get('priceImpactPct')),'top':c.get('topHoldersPct'),'cluster':c.get('holderClusterMaxAccountsSameOwner'),'blockers':r})
-          print('CORE_SAFE_COUNT',len(safe),'CORE_SAFE_SYMBOLS',[c.get('symbol') for c in safe])
+          print('PORTFOLIO',p)
+          print('AGES',{'gate':round(time.time()-(rt/'micro-live-gate.json').stat().st_mtime,1),'portfolio':round(time.time()-(rt/'portfolio-observability.json').stat().st_mtime,1)})
           PY
-          echo '=== CAPITAL/STATE OBSERVABILITY ==='
-          find "$RT" /var/lib/meme-alpha/data/micro-live -maxdepth 2 -type f -readable 2>/dev/null | grep -Ei 'state|capital|portfolio|balance|observ|event|trade|fill|execution' | tail -80 || true
-          for f in "$RT"/portfolio-observability.json "$RT"/capital-observability.json /var/lib/meme-alpha/data/micro-live/state.json; do
-            [ -r "$f" ] || continue
-            echo FILE="$f"
-            tail -c 50000 "$f" || true
-            echo
-          done
-          echo '=== RECENT EXECUTION EVIDENCE ==='
-          journalctl -u meme-alpha-micro-live.service --since '2026-09-06 14:39:00 UTC' --no-pager -n 1000 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|BUY|ADD|WAIT|HOLD|ERROR|SIGNER|HEADROOM|TARGET_ALREADY|ALLOCATION|NO_' | tail -300 || true
-          echo V389_IDLE_AUDIT=COMPLETE
