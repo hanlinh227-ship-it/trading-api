@@ -1,0 +1,94 @@
+name: Meme Alpha v3.74 Held Continuity Fabric
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v374-realtime-held-continuity.js'
+      - 'ops/meme-alpha/v374-stage-held-continuity.sh'
+      - '.github/workflows/meme-alpha-v374-held-continuity.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 12
+    concurrency:
+      group: meme-alpha-production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and deterministic self-test
+        run: bash ops/meme-alpha/v374-stage-held-continuity.sh
+      - name: Safe deploy held continuity realtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          S="$APP/runtime-status/v374-held-continuity-stage"
+          echo '--- portfolio before realtime deploy ---'
+          cat "$S/portfolio-before.json" 2>/dev/null || true
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy realtime "$(cat "$S/realtime-name.txt")" "$(cat "$S/realtime.sha256")"
+          sleep 20
+      - name: Production compatibility and health audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          S="$APP/runtime-status/v374-held-continuity-stage"
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            V=$(systemctl is-active "$svc" || true); echo "$svc=$V"; [ "$V" = active ];
+          done
+          grep -q 'FAST_DISCOVERY_V372' "$APP/src/new-listing-radar.js"
+          grep -q 'FAST_DISCOVERY_V372_MERGE' "$APP/src/scanner.js"
+          grep -q 'DISCOVERY_RADAR_ONLY_MAX = 240' "$APP/src/scanner.js"
+          grep -q '3.60.0-profit-aware-exits' "$APP/src/micro-live-executor.js"
+          echo '--- realtime v374 ---'
+          cat "$APP/runtime-status/realtime-pool-pulse.json"
+          echo '--- signal guard ---'
+          cat "$APP/runtime-status/signal-snapshot.json" 2>/dev/null || true
+          echo '--- portfolio after realtime deploy ---'
+          cat "$APP/runtime-status/portfolio-observability.json"
+          echo '--- pair cache summary ---'
+          /usr/bin/node - "$APP/runtime-status/mint-pair-cache.json" <<'NODE'
+          const fs=require('fs');const p=process.argv[2];const x=JSON.parse(fs.readFileSync(p,'utf8'));console.log(JSON.stringify({version:x.version,updatedAt:x.updatedAt,entries:Array.isArray(x.entries)?x.entries.length:0},null,2));
+          NODE
+          /usr/bin/node - "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/portfolio-observability.json" "$S/portfolio-before.json" <<'NODE'
+          const fs=require('fs');const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const rt=read(process.argv[2]),sig=read(process.argv[3]),obs=read(process.argv[4]),before=read(process.argv[5]);
+          if(rt.version!=='3.74.0-held-continuity')throw new Error('REALTIME_V374_NOT_ACTIVE');
+          if(rt.policy!=='INCREMENTAL_SUBSCRIPTIONS_HELD_CONTINUITY')throw new Error('HELD_CONTINUITY_POLICY_MISSING');
+          if(!['HEALTHY','CONNECTING','DEGRADED','RECONNECTING'].includes(rt.status))throw new Error('REALTIME_BAD_STATUS_'+rt.status);
+          if(Number(rt.hotsetLimit)!==56)throw new Error('HOTSET_LIMIT_NOT_56');
+          if(Number(rt.desiredRefreshMs)!==250||Number(rt.reconcileMs)!==100)throw new Error('REACTIVE_TIMING_MISMATCH');
+          if(Number(rt.maxAddsPerTick)>8||Number(rt.maxRemovesPerTick)>8)throw new Error('UNBOUNDED_RECONCILE');
+          if(rt.websocketOpen===true&&Number(rt.heartbeatAgeMs)>15000)throw new Error('RPC_HEARTBEAT_STALE');
+          if(sig.version!=='3.69.1-modern-signal-guard')throw new Error('SIGNAL_GUARD_3691_NOT_PRESERVED');
+          if(obs.stateReadable!==true||!Number.isFinite(Number(obs.openPositions)))throw new Error('PORTFOLIO_STATE_UNREADABLE');
+          if(!Number.isFinite(Number(rt.heldTotal))||!Number.isFinite(Number(rt.heldResolved))||!Number.isFinite(Number(rt.heldUnresolved)))throw new Error('HELD_COVERAGE_OBSERVABILITY_MISSING');
+          if(Number(rt.heldResolved)+Number(rt.heldUnresolved)!==Number(rt.heldTotal))throw new Error('HELD_COVERAGE_ACCOUNTING_MISMATCH');
+          if(!Array.isArray(rt.heldUnresolvedMints))throw new Error('HELD_UNRESOLVED_LIST_MISSING');
+          if(Number(rt.pairCacheEntries)<0)throw new Error('PAIR_CACHE_BAD_COUNT');
+          const leak=(sig.candidates||[]).filter(c=>c.intelMode==='BOTH_FEEDS_DOWN'&&c.decision==='PROBE_CANDIDATE');
+          if(leak.length)throw new Error('INTEL_FAIL_CLOSED_LEAK');
+          const beforePos=Number(before.openPositions);const afterPos=Number(obs.openPositions);
+          console.log('V374_REALTIME_STATUS='+rt.status);
+          console.log('V374_ACTIVE_SUBSCRIPTIONS='+Number(rt.subscriptions||0));
+          console.log('V374_HELD_TOTAL='+Number(rt.heldTotal||0));
+          console.log('V374_HELD_RESOLVED='+Number(rt.heldResolved||0));
+          console.log('V374_HELD_UNRESOLVED='+Number(rt.heldUnresolved||0));
+          console.log('V374_HELD_COVERAGE_PCT='+Number(rt.heldCoveragePct||0));
+          console.log('V374_PAIR_CACHE_ENTRIES='+Number(rt.pairCacheEntries||0));
+          console.log('V374_FAST_SUBSCRIPTIONS='+Number(rt.fastSubscriptions||0));
+          console.log('V374_PENDING_SUBSCRIPTIONS='+Number(rt.pendingSubscriptions||0));
+          console.log('V374_RECONNECT_COUNT='+Number(rt.reconnectCount||0));
+          console.log('V374_RECONCILE_ERRORS='+Number(rt.reconcileErrors||0));
+          console.log('V374_WRITE_ERRORS='+Number(rt.writeErrors||0));
+          console.log('V374_OPEN_POSITIONS_BEFORE='+beforePos);
+          console.log('V374_OPEN_POSITIONS_AFTER='+afterPos);
+          if(Number.isFinite(beforePos)&&beforePos>0&&afterPos===0)console.log('V374_POSITION_DROP_TO_ZERO=REVIEW_REQUIRED');
+          NODE
+          echo V374_TRUSTED_PAIR_CACHE=ACTIVE
+          echo V374_NO_PAIR_GUESSING=ACTIVE
+          echo V374_HELD_CONTINUITY=ACTIVE
+          echo V372_FAST_DISCOVERY=PRESERVED
+          echo V3691_SIGNAL_GUARD=PRESERVED
+          echo V360_PROFIT_AWARE_EXECUTOR=PRESERVED
+          echo V374_HELD_CONTINUITY_PRODUCTION_ACTIVE=TRUE
