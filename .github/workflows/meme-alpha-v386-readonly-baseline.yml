@@ -22,6 +22,8 @@ jobs:
               p = root / 'src' / name
               text = p.read_text()
               print(json.dumps({'source':name,'sha256':hashlib.sha256(text.encode()).hexdigest(),'versionMarkers':sorted(set(re.findall(r'V[0-9]{3}[A-Z_]*', text)))}))
+              fnames=[m.group(1) for m in re.finditer(r'^(?:async )?function ([A-Za-z0-9_]+)[(]',text,re.M)]
+              print(json.dumps({'source':name,'functionNames':fnames}))
           for name, fields in [
               ('micro-live-gate.json',['timestamp','allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']),
               ('portfolio-observability.json',['timestamp','updatedAt','version','stateVersion','openPositionCount','openPositions','totalClosed'])
