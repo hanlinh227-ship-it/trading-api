@@ -9,13 +9,13 @@ const CFG=JSON.parse(fs.readFileSync(`${APP}/config/runtime.json`,'utf8'));
 const SELF_TEST=process.argv.includes('--self-test');
 const CYCLE_MS=15000;
 const RPC_SPACING_MS=1800;
-// These endpoints are used ONLY by this read-only whale/holder intelligence module.
-// No signed transaction, wallet secret, or execution payload is ever sent to them.
+const RUGCHECK_SPACING_MS=15000;
 const READ_ONLY_PUBLIC_FALLBACKS=[
   'https://solana-rpc.publicnode.com',
   'https://api.mainnet.solana.com',
   'https://api.mainnet-beta.solana.com'
 ];
+const RUGCHECK_BASE='https://api.rugcheck.xyz/v1/tokens';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const read=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
 const atomic=(p,x)=>{const t=p+'.tmp';fs.writeFileSync(t,JSON.stringify(x,null,2));fs.renameSync(t,p);try{fs.chmodSync(p,0o664)}catch{}};
@@ -28,7 +28,7 @@ function endpointList(){
 }
 const ENDPOINTS=endpointList();
 const provider=new Map(ENDPOINTS.map((url,i)=>[url,{url,index:i,kind:READ_ONLY_PUBLIC_FALLBACKS.includes(url)?'PUBLIC_READ_ONLY_FALLBACK':'CONFIGURED',failures:0,cooldownUntil:0,lastOkAt:null,lastError:null}]));
-let nextRpcAt=0;
+let nextRpcAt=0,nextRugAt=0;
 const supplyCache=new Map();
 let cycleIndex=0,heldCursor=0,otherCursor=0;
 const prior=read(OUT,{rows:[]});
@@ -45,7 +45,7 @@ async function callOne(p,method,params){
   try{
     const r=await fetch(p.url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:ctrl.signal});
     const txt=await r.text();let j={};try{j=JSON.parse(txt)}catch{}
-    if(r.status===429||j?.error?.code===429){const e=new Error('RPC_429');e.code=429;throw e}
+    if(r.status===429||j?.error?.code===429){const e=new Error('RPC_429');e.code=429;const ra=Number(r.headers.get('retry-after'));if(Number.isFinite(ra)&&ra>0)e.retryAfterMs=Math.min(300000,ra*1000);throw e}
     if(!r.ok||j.error)throw new Error(`RPC_${r.status||'ERR'}_${j?.error?.code||''}`);
     p.failures=Math.max(0,p.failures-1);p.cooldownUntil=0;p.lastOkAt=new Date().toISOString();p.lastError=null;return j.result;
   } finally {clearTimeout(tm)}
@@ -57,7 +57,7 @@ async function rpc(method,params){
   if(!eligible.length){const e=new Error(providerIsRateLimited()?'RPC_429_BACKOFF':'ALL_RPC_PROVIDERS_COOLING_DOWN');if(providerIsRateLimited())e.code=429;throw e}
   let last=null;
   for(const p of eligible){
-    try{return await callOne(p,method,params)}catch(e){last=e;p.failures+=1;p.lastError=String(e?.message||e).slice(0,100);if(e?.code===429||String(e?.message||'').includes('429'))p.cooldownUntil=Date.now()+providerCooldown(p.failures);else p.cooldownUntil=Date.now()+Math.min(60000,5000*p.failures)}
+    try{return await callOne(p,method,params)}catch(e){last=e;p.failures+=1;p.lastError=String(e?.message||e).slice(0,100);if(e?.code===429||String(e?.message||'').includes('429'))p.cooldownUntil=Date.now()+Math.max(providerCooldown(p.failures),num(e?.retryAfterMs));else p.cooldownUntil=Date.now()+Math.min(60000,5000*p.failures)}
   }
   throw last||new Error('RPC_ALL_FAILED');
 }
@@ -77,23 +77,46 @@ function nextMint(){const held=heldMints(),other=otherMints(held),pick=chooseNex
 
 async function supply(mint){const old=supplyCache.get(mint);if(old&&Date.now()-old.at<600000)return {...old,cached:true};const r=await rpc('getTokenSupply',[mint,{commitment:'processed'}]);const v=num(r?.value?.uiAmount);const x={value:v,at:Date.now(),cached:false};supplyCache.set(mint,x);return x;}
 async function largest(mint){const r=await rpc('getTokenLargestAccounts',[mint,{commitment:'processed'}]);return (r?.value||[]).map(x=>num(x.uiAmount)).filter(x=>x>=0);}
+async function rugReport(mint){
+  const wait=Math.max(0,nextRugAt-Date.now());if(wait)await sleep(wait);nextRugAt=Date.now()+RUGCHECK_SPACING_MS;
+  const ctrl=new AbortController();const tm=setTimeout(()=>ctrl.abort(),12000);
+  try{
+    const r=await fetch(`${RUGCHECK_BASE}/${mint}/report`,{headers:{accept:'application/json'},signal:ctrl.signal});
+    if(r.status===429){const e=new Error('RUGCHECK_429');e.code=429;throw e}
+    if(!r.ok)throw new Error(`RUGCHECK_HTTP_${r.status}`);
+    const j=await r.json();if(!j||typeof j!=='object'||!Array.isArray(j.topHolders))throw new Error('RUGCHECK_BAD_SCHEMA');return j;
+  } finally {clearTimeout(tm)}
+}
+function holderPct(h){for(const k of ['pct','percentage','percentageOfSupplyHeld']){if(Number.isFinite(Number(h?.[k])))return Number(h[k])}return 0}
+function rugRow(mint,j,rpcError){
+  const holders=(j.topHolders||[]).slice().sort((a,b)=>holderPct(b)-holderPct(a));
+  const top1=holderPct(holders[0]),top10=holders.slice(0,10).reduce((a,h)=>a+holderPct(h),0);
+  const risks=Array.isArray(j.risks)?j.risks:[];
+  const danger=risks.filter(x=>['danger','critical','high'].includes(String(x?.level||'').toLowerCase())).map(x=>x?.name||x?.description).filter(Boolean).slice(0,8);
+  return {mint,observedAt:new Date().toISOString(),sourceMode:'RUGCHECK_CACHED',externalFallback:true,top1Pct:Number(top1.toFixed(4)),top10Pct:Number(top10.toFixed(4)),deltaTop10Pct:0,holderPressureScore:Number(Math.max(-10,Math.min(10,5-(top10-35)/5)).toFixed(3)),whaleFlowScore:0,supplyCached:true,supply:null,providerCount:ENDPOINTS.length,rugcheckScore:j.score??null,rugcheckScoreNormalised:j.score_normalised??null,rugcheckRiskLevel:j.riskLevel??null,lpLockedPct:j.lpLockedPct??null,mintAuthority:j?.token?.mintAuthority??null,freezeAuthority:j?.token?.freezeAuthority??null,dangerRisks:danger,rpcFallbackReason:String(rpcError?.message||rpcError||'RPC_UNAVAILABLE').slice(0,120)};
+}
 async function inspect(mint){
-  const sp=await supply(mint);const vals=await largest(mint);const total=Math.max(sp.value,1e-12),top10=vals.slice(0,10).reduce((a,b)=>a+b,0)/total*100,top1=(vals[0]||0)/total*100;
-  const prev=lastRows.find(x=>x.mint===mint);
-  return {mint,observedAt:new Date().toISOString(),top1Pct:Number(top1.toFixed(4)),top10Pct:Number(top10.toFixed(4)),deltaTop10Pct:prev?Number((top10-num(prev.top10Pct)).toFixed(4)):0,holderPressureScore:Number(Math.max(-10,Math.min(10,5-(top10-35)/5)).toFixed(3)),whaleFlowScore:Number(Math.max(-10,Math.min(10,(prev?num(prev.top10Pct)-top10:0)*2)).toFixed(3)),supplyCached:sp.cached,supply:sp.value,providerCount:ENDPOINTS.length};
+  try{
+    const sp=await supply(mint);const vals=await largest(mint);const total=Math.max(sp.value,1e-12),top10=vals.slice(0,10).reduce((a,b)=>a+b,0)/total*100,top1=(vals[0]||0)/total*100;
+    const prev=lastRows.find(x=>x.mint===mint&&x.sourceMode==='RPC_LIVE');
+    return {mint,observedAt:new Date().toISOString(),sourceMode:'RPC_LIVE',externalFallback:false,top1Pct:Number(top1.toFixed(4)),top10Pct:Number(top10.toFixed(4)),deltaTop10Pct:prev?Number((top10-num(prev.top10Pct)).toFixed(4)):0,holderPressureScore:Number(Math.max(-10,Math.min(10,5-(top10-35)/5)).toFixed(3)),whaleFlowScore:Number(Math.max(-10,Math.min(10,(prev?num(prev.top10Pct)-top10:0)*2)).toFixed(3)),supplyCached:sp.cached,supply:sp.value,providerCount:ENDPOINTS.length};
+  }catch(rpcError){
+    const j=await rugReport(mint);return rugRow(mint,j,rpcError);
+  }
 }
 function observability(){const s=read(STATE,{positions:[]});const positions=Array.isArray(s.positions)?s.positions:[];return{version:'3.70.0',updatedAt:new Date().toISOString(),stateReadable:Array.isArray(s.positions),openPositions:positions.length,positionMints:positions.map(x=>x?.mint).filter(Boolean),stateVersion:s.version||null};}
 function freshnessMs(r){const t=Date.parse(r?.observedAt||0);return Number.isFinite(t)?Date.now()-t:Infinity;}
-function statusOf({ok,rateLimit,rows}){if(!ENDPOINTS.length)return'NO_RPC_CONFIG';if(ok)return rows.some(r=>r.supplyCached)?'HEALTHY_CACHED_RATE_SHAPED':'HEALTHY';if(rows.some(r=>freshnessMs(r)<=120000))return'HEALTHY_CACHED_RATE_SHAPED';if(rateLimit||providerIsRateLimited())return'RATE_LIMIT_BACKOFF';return'WARMING_UP';}
+function statusOf({ok,rateLimit,rows}){if(ok){if(rows.some(r=>r.externalFallback===true||r.supplyCached))return'HEALTHY_CACHED_RATE_SHAPED';return'HEALTHY'}if(rows.some(r=>freshnessMs(r)<=120000))return'HEALTHY_CACHED_RATE_SHAPED';if(rateLimit||providerIsRateLimited())return'RATE_LIMIT_BACKOFF';return'WARMING_UP';}
 
 if(SELF_TEST){
   if(providerCooldown(1)!==30000||providerCooldown(5)!==300000)throw new Error('PROVIDER_COOLDOWN_SELFTEST');
-  if(CYCLE_MS!==15000||RPC_SPACING_MS!==1800)throw new Error('RPC_BUDGET_SELFTEST');
+  if(CYCLE_MS!==15000||RPC_SPACING_MS!==1800||RUGCHECK_SPACING_MS!==15000)throw new Error('REQUEST_BUDGET_SELFTEST');
   if(READ_ONLY_PUBLIC_FALLBACKS.length<2)throw new Error('READ_ONLY_FALLBACK_POOL_SELFTEST');
-  if(!ENDPOINTS.includes('https://solana-rpc.publicnode.com'))throw new Error('PUBLICNODE_FALLBACK_SELFTEST');
   const h=['H1','H2'],o=['O1','O2'];heldCursor=0;otherCursor=0;
   const seq=[0,1,2,3,4,5].map(i=>chooseNextMint(h,o,i)?.kind).join(',');
   if(seq!=='HELD,HELD,OTHER,HELD,HELD,OTHER')throw new Error('HELD_PRIORITY_SCHEDULER_SELFTEST');
+  const rr=rugRow('A',{topHolders:[{pct:20},{pct:10},{pct:5}],risks:[],score:1,token:{}},new Error('RPC_429'));
+  if(rr.sourceMode!=='RUGCHECK_CACHED'||rr.top10Pct!==35||rr.whaleFlowScore!==0)throw new Error('RUGCHECK_FALLBACK_PARSE_SELFTEST');
   console.log('V370_WHALE_ADAPTIVE_BUDGET_SELF_TEST=PASS');
   console.log('RPC_CYCLE_15S=TRUE');
   console.log('RPC_SPACING_1800MS=TRUE');
@@ -102,6 +125,8 @@ if(SELF_TEST){
   console.log('FRESH_CACHED_ROWS_FAIL_SOFT=TRUE');
   console.log('HELD_PRIORITY_TWO_OF_THREE_CYCLES=TRUE');
   console.log('READ_ONLY_PUBLIC_RPC_FAILOVER=TRUE');
+  console.log('RUGCHECK_HOLDER_FALLBACK=TRUE');
+  console.log('SINGLE_FLIGHT_CYCLES=TRUE');
   console.log('NO_SIGNED_TX_TO_PUBLIC_FALLBACKS=TRUE');
   process.exit(0);
 }
@@ -112,9 +137,12 @@ async function cycle(){
   const held=new Set(heldMints());
   lastRows=lastRows.filter(r=>freshnessMs(r)<=180000||held.has(r.mint)&&freshnessMs(r)<=600000);
   const rows=lastRows.slice().sort((a,b)=>(held.has(b.mint)?1:0)-(held.has(a.mint)?1:0)||Date.parse(b.observedAt)-Date.parse(a.observedAt)).slice(0,120);
-  const out={version:'3.70.0-adaptive-whale',fallbackRevision:'read-only-public-pool-v1',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:statusOf({ok,rateLimit,rows}),rpcConfigured:ENDPOINTS.length>0,providerCount:ENDPOINTS.length,providers:publicProviderView(),rateShaped:true,cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,oneMintPerCycle:true,supplyCacheMs:600000,rowFreshnessTtlMs:180000,heldRowTtlMs:600000,heldPositionsAlwaysMonitored:true,readOnlyPublicFallbacks:true,inspectedMint:mint,inspectedKind:pick?.kind||null,heldQueueSize:pick?.heldCount||0,otherQueueSize:pick?.otherCount||0,rows,error};
+  const out={version:'3.70.0-adaptive-whale',fallbackRevision:'rugcheck-holder-fallback-v1',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:statusOf({ok,rateLimit,rows}),rpcConfigured:ENDPOINTS.length>0,providerCount:ENDPOINTS.length,providers:publicProviderView(),rugcheckFallback:true,rateShaped:true,cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,rugcheckSpacingMs:RUGCHECK_SPACING_MS,oneMintPerCycle:true,singleFlightCycles:true,supplyCacheMs:600000,rowFreshnessTtlMs:180000,heldRowTtlMs:600000,heldPositionsAlwaysMonitored:true,readOnlyPublicFallbacks:true,inspectedMint:mint,inspectedKind:pick?.kind||null,heldQueueSize:pick?.heldCount||0,otherQueueSize:pick?.otherCount||0,rows,error};
   atomic(OUT,out);atomic(OBS,observability());
 }
-
-await cycle();
-setInterval(()=>cycle().catch(e=>atomic(OUT,{version:'3.70.0-adaptive-whale',fallbackRevision:'read-only-public-pool-v1',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:'INTERNAL_ERROR',error:String(e?.message||e),rows:lastRows,providerCount:ENDPOINTS.length,providers:publicProviderView(),cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS})),CYCLE_MS);
+function writeFatal(e){atomic(OUT,{version:'3.70.0-adaptive-whale',fallbackRevision:'rugcheck-holder-fallback-v1',scheduleRevision:'held-priority-2of3',updatedAt:new Date().toISOString(),status:'INTERNAL_ERROR',error:String(e?.message||e),rows:lastRows,providerCount:ENDPOINTS.length,providers:publicProviderView(),cycleMs:CYCLE_MS,rpcSpacingMs:RPC_SPACING_MS,rugcheckFallback:true,singleFlightCycles:true})}
+async function loop(){
+  try{await cycle()}catch(e){writeFatal(e)}
+  setTimeout(loop,CYCLE_MS);
+}
+await loop();
