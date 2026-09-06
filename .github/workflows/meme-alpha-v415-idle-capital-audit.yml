@@ -1,0 +1,67 @@
+name: Meme Alpha V415 Idle Capital Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v415-idle-capital-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Diagnose deployable capital blockers
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"
+          date -u +%FT%TZ
+          echo '=== SERVICES ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"; done
+          echo '=== EXECUTOR DECISION SOURCE ==='
+          grep -nE 'function (coreSafe|trendEntryEligible|preBreakoutSignal|rankedCandidates|bestCandidate|maybeScaleIn)|const (coreSafe|trendEntryEligible)|AUTONOMOUS_PORTFOLIO_MONITORING|NO_.*CANDIDATE|placeBuy\(' "$E" | head -220 || true
+          echo '=== RUNTIME ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n,d=None):
+            p=rt/n
+            if not p.exists(): return d, None
+            try:return json.loads(p.read_text()),round(time.time()-p.stat().st_mtime,2)
+            except Exception as e:return {'_error':str(e)},round(time.time()-p.stat().st_mtime,2)
+          g,ga=load('micro-live-gate.json',{}); co,ca=load('capital-observability.json',{}); al,aa=load('allocator-status.json',{}); s,sa=load('signal-snapshot.json',{}); tr,ta=load('trend-pulse.json',{}); rp,ra=load('realtime-pool-pulse.json',{}); po,pa=load('portfolio-observability.json',{})
+          print('GATE_AGE',ga,{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          print('CAPITAL_AGE',ca,{k:co.get(k) for k in ['walletSol','investedSol','deployableSol','reserveSol','minOrderLamports','openPositions','scaleAllowed']})
+          print('ALLOC_AGE',aa,{k:al.get(k) for k in ['action','reason','symbol','targetSymbol','openPositions','scaleAllowed','error']})
+          print('REALTIME_AGE',ra,{k:rp.get(k) for k in ['status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','lastError']})
+          print('PORTFOLIO_AGE',pa,{k:po.get(k) for k in ['openPositions','stateReadable']})
+          cs=s.get('candidates') or []
+          rows=tr.get('rows') or []
+          tm={x.get('mint'):x for x in rows if isinstance(x,dict) and x.get('mint')}
+          print('SIGNAL_AGE',sa,'COUNT',len(cs),'INTEL',s.get('intelSummary'))
+          print('TREND_AGE',ta,'VERSION',tr.get('version'),'ROWS',len(rows),'STATUS_COUNTS', {z:sum(1 for x in rows if x.get('status')==z) for z in ['PREBREAKOUT','BREAKOUT','WARMING','NEUTRAL','EXHAUSTED']})
+          def val(x,*ks):
+            for k in ks:
+              if isinstance(x,dict) and k in x:return x.get(k)
+            return None
+          for i,c in enumerate(cs[:30],1):
+            if not isinstance(c,dict):continue
+            r=c.get('result') if isinstance(c.get('result'),dict) else {}
+            mint=c.get('mint') or r.get('mint'); t=tm.get(mint,{})
+            out={
+              'i':i,'symbol':c.get('symbol') or r.get('symbol'),'mint':mint,
+              'route':c.get('route') or r.get('route'),'tier':c.get('tier') or r.get('tier'),
+              'score':val(c,'score','finalScore') or val(r,'score','finalScore'),
+              'security':val(c,'securityDecision','security') or val(r,'securityDecision','security'),
+              'holder':val(c,'holderClusterDecision') or val(r,'holderClusterDecision'),
+              'insider':val(c,'insiderDecision') or val(r,'insiderDecision'),
+              'sellRoute':val(c,'sellRoute') if val(c,'sellRoute') is not None else val(r,'sellRoute'),
+              'hardReject':val(c,'hardReject') or val(r,'hardReject'),
+              'liq':val(c,'liquidityUsd') or val(r,'liquidityUsd'),
+              'impact':val(c,'sellImpactPct','impactPct') or val(r,'sellImpactPct','impactPct'),
+              'trend':t.get('status'),'p5':t.get('price5m'),'va':t.get('volumeAcceleration'),'ta':t.get('txnAcceleration'),'bs':t.get('buySellRatio'),'rise':t.get('flowRiseConfirmed')
+            }
+            print('CAND',out)
+          le,lea=load('last-execution.json',{}); print('LAST_EXEC_AGE',lea,le)
+          PY
+          echo V415_IDLE_CAPITAL_AUDIT=PASS
