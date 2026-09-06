@@ -1,4 +1,4 @@
-name: Meme Alpha V399 RPC and Fill Audit
+name: Meme Alpha V400 RPC Resilience Finalization
 on:
   push:
     branches: [main]
@@ -7,25 +7,78 @@ on:
 permissions:
   contents: read
 jobs:
-  audit:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 7
     steps:
-      - name: Inspect executor RPC and verify fills
+      - name: Deploy V400 RPC resilience
         shell: bash
         run: |
           set -euo pipefail
-          EXE=/opt/meme-alpha/app/src/micro-live-executor.js
-          echo '=== EXECUTOR TOP / RPC ==='
-          sed -n '1,75p' "$EXE"
-          grep -nE '^async function rpc|function rpc|RPC_|getBalance|getTokenAccountBalance|getRecentPrioritizationFees' "$EXE" | head -180 || true
-          echo '=== VERIFY STONK TRANSACTIONS ON TATUM ==='
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"; mkdir -p "$BASE"
+
+          echo '=== SIGNAL RPC RATE / METHOD ROUTING ==='
+          SIG="$APP/src/safe-signal-export.js"; SIGC="$BASE/v400-signal-rpc-throttle.js"; cp -a "$SIG" "$SIGC"
+          python3 - "$SIGC" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="const V388_CACHE='/opt/meme-alpha/app/runtime-status/v388-rpc-audit-cache.json';\nconst V388_TTL_MS=10*60*1000;"
+          new="const V388_CACHE='/opt/meme-alpha/app/runtime-status/v388-rpc-audit-cache.json';\nconst V388_RATE='/opt/meme-alpha/app/runtime-status/v388-rpc-rate.json';\nconst V388_TTL_MS=10*60*1000;"
+          if s.count(old)!=1: raise SystemExit(f'V400_RATE_CONST_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          old2="async function v388Rpc(method,params){\n  let last=null;\n  for(const ep of V388_UNIQUE_RPCS){\n    const tries=String(ep).includes('gateway.tatum.io')?2:1;\n    for(let i=0;i<tries;i++){\n      try{return await v388RpcOne(ep,method,params)}catch(e){last=e;if(i+1<tries)await new Promise(r=>setTimeout(r,120))}\n    }\n  }\n  throw new Error(`V388_ALL_RPC_FAILED_${method}_${String(last?.message||last||'UNKNOWN').slice(0,80)}`)\n}"
+          new2="async function v388Rpc(method,params){\n  let last=null;const tatum='https://solana-mainnet.gateway.tatum.io',expensive=method==='getTokenLargestAccounts'||method==='getMultipleAccounts';\n  const ordered=[...(expensive?[tatum]:[]),...V388_UNIQUE_RPCS.filter(x=>x!==tatum),...(expensive?[]:[tatum])];\n  for(const ep of ordered){\n    const tries=String(ep).includes('gateway.tatum.io')?1:2;\n    for(let i=0;i<tries;i++){try{return await v388RpcOne(ep,method,params)}catch(e){last=e;if(i+1<tries)await new Promise(r=>setTimeout(r,180*(i+1)))}}\n  }\n  throw new Error(`V388_ALL_RPC_FAILED_${method}_${String(last?.message||last||'UNKNOWN').slice(0,80)}`)\n}\nfunction v388TakeAuditSlot(){\n  const now=Date.now();let r=readFile(V388_RATE,{windowStart:now,count:0});if(!Number.isFinite(Number(r.windowStart))||now-Number(r.windowStart)>=60000)r={windowStart:now,count:0};\n  if(Number(r.count)>=2)return false;r.count=Number(r.count)+1;try{const t=V388_RATE+'.tmp';fs.writeFileSync(t,JSON.stringify(r));fs.renameSync(t,V388_RATE)}catch{}return true;\n}"
+          if s.count(old2)!=1: raise SystemExit(f'V400_RPC_IMPL_PATCH_COUNT={s.count(old2)}')
+          s=s.replace(old2,new2,1)
+          old3="if(v388AuditUsed>=V388_MAX_AUDITS)return c;v388AuditUsed++;"
+          new3="if(v388AuditUsed>=V388_MAX_AUDITS||!v388TakeAuditSlot())return c;v388AuditUsed++;"
+          if s.count(old3)!=1: raise SystemExit(f'V400_AUDIT_SLOT_PATCH_COUNT={s.count(old3)}')
+          s=s.replace(old3,new3,1)
+          p.write_text(s)
+          PY
+          node --check "$SIGC"
+          ST="$(node "$SIGC" --self-test)"; printf '%s\n' "$ST"; grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$ST"; grep -q 'SECURITY_PASS_REQUIRED=TRUE' <<<"$ST"; grep -q 'HOLDER_PASS_REQUIRED=TRUE' <<<"$ST"
+          SIGSHA=$(sha256sum "$SIGC" | awk '{print $1}'); echo V400_SIGNAL_SHA="$SIGSHA"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$SIGC")" "$SIGSHA"
+
+          echo '=== EXECUTOR READ RPC FALLBACK / GET RETRY ==='
+          EXE="$APP/src/micro-live-executor.js"; EXEC="$BASE/v400-executor-rpc-fallback.js"; cp -a "$EXE" "$EXEC"
+          python3 - "$EXEC" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="async function getJson(url){const r=await fetch(url,{headers:{'accept':'application/json','user-agent':'meme-alpha-v336-autonomous-portfolio'},signal:AbortSignal.timeout(12000)});const txt=await r.text();let j;try{j=JSON.parse(txt)}catch{j={raw:txt}};if(!r.ok)throw new Error(`HTTP_${r.status}`);return j}"
+          new="async function getJson(url){let last=null;for(let i=0;i<3;i++){try{const r=await fetch(url,{headers:{'accept':'application/json','user-agent':'meme-alpha-v400-autonomous-portfolio'},signal:AbortSignal.timeout(12000)});const txt=await r.text();let j;try{j=JSON.parse(txt)}catch{j={raw:txt}};if(!r.ok)throw new Error(`HTTP_${r.status}`);return j}catch(e){last=e;if(i<2)await sleep(250*(i+1))}}throw last||new Error('HTTP_READ_FAILED')}"
+          if s.count(old)!=1: raise SystemExit(f'V400_GETJSON_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          old2="async function rpc(method,params){const cfg=read(`${APP}/config/runtime.json`);const r=await fetch(cfg.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(10000)});const j=await r.json();if(j.error)throw new Error(`RPC_${j.error.code}`);return j.result}"
+          new2="async function rpc(method,params){const cfg=read(`${APP}/config/runtime.json`),eps=[cfg.rpc,'https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com','https://solana-mainnet.gateway.tatum.io'].filter(Boolean),uniq=[...new Set(eps)];let last=null;for(const ep of uniq){for(let i=0;i<2;i++){try{const r=await fetch(ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:Date.now(),method,params}),signal:AbortSignal.timeout(9000)});if(!r.ok)throw new Error(`HTTP_${r.status}`);const j=await r.json();if(j.error)throw new Error(`RPC_${j.error.code}`);return j.result}catch(e){last=e;if(i<1)await sleep(180)}}}throw new Error(`RPC_FALLBACK_EXHAUSTED_${method}_${String(last?.message||last||'UNKNOWN').slice(0,80)}`)}"
+          if s.count(old2)!=1: raise SystemExit(f'V400_RPC_PATCH_COUNT={s.count(old2)}')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+          node --check "$EXEC"
+          ET="$(node "$EXEC" --self-test)"; printf '%s\n' "$ET"; grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$ET"; grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$ET"
+          EXESHA=$(sha256sum "$EXEC" | awk '{print $1}'); echo V400_EXECUTOR_SHA="$EXESHA"
+          BACK="$RT/v400-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$EXEC" "$EXE"; chmod 664 "$EXE" || true
+          sudo -n /usr/bin/systemctl restart meme-alpha-paper.service
+
+          echo '=== VERIFY FINAL RUNTIME ==='
+          for i in $(seq 1 50); do sleep 2; [ "$(sha256sum "$EXE"|awk '{print $1}')" = "$EXESHA" ] && systemctl is-active --quiet meme-alpha-paper.service && systemctl is-active --quiet meme-alpha-micro-live.service && systemctl is-active --quiet meme-alpha-signer.service && break; [ "$i" -lt 50 ] || exit 9; done
+          sleep 8
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','last-execution.json','allocator-status.json']:
+            p=rt/name;print(name, json.loads(p.read_text()) if p.exists() else None)
+          PY
+          echo '=== CHAIN STATUS VIA MAINNET FALLBACK ==='
           node - <<'NODE'
-          const ep='https://solana-mainnet.gateway.tatum.io';
           const sigs=['pGJN2d8gwJX9jXaySvTLKmcBydwgaVQpbRJqHHATpXigagApHUoD2KRMma5CwSPem4VCd47x6xWwGRhPV9SvtP6','4A9F297Soafj1DxKU9gniT52YuUpE51vVyqZKpgJTmD3FfXp2HExBhQNrxKxxdRkBnG3MZ2ADq7ag9uwS22EY8qV'];
-          async function rpc(method,params){const r=await fetch(ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});const j=await r.json();console.log(method,JSON.stringify(j));}
-          await rpc('getSignatureStatuses',[sigs,{searchTransactionHistory:true}]);
+          const eps=['https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com','https://solana-mainnet.gateway.tatum.io'];
+          for(const ep of eps){try{const r=await fetch(ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getSignatureStatuses',params:[sigs,{searchTransactionHistory:true}]})});const j=await r.json();console.log('CHAIN',ep,JSON.stringify(j));if(j?.result?.value?.some(x=>x&&['confirmed','finalized'].includes(x.confirmationStatus)))break}catch(e){console.log('CHAIN_ERR',ep,String(e.message||e))}}
           NODE
-          echo '=== CURRENT CAPITAL / POSITION ==='
-          for f in /opt/meme-alpha/app/runtime-status/portfolio-observability.json /opt/meme-alpha/app/runtime-status/capital-observability.json /opt/meme-alpha/app/runtime-status/last-execution.json /opt/meme-alpha/app/runtime-status/allocator-status.json; do [ -f "$f" ] && { echo ---$f---; cat "$f"; echo; } || true; done
-          echo V399_RPC_FILL_AUDIT=COMPLETE
+          echo V400_RPC_RESILIENCE=ACTIVE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
