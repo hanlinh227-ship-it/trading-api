@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-      - name: Test read-only Solana RPC providers
+      - name: Test read-only Solana data providers
         shell: bash
         run: |
           set -euo pipefail
@@ -26,7 +26,7 @@ jobs:
             const configured=[cfg.rpc,cfg.solanaRpc,process.env.SOLANA_RPC_URL,...(Array.isArray(cfg.rpcFallbacks)?cfg.rpcFallbacks:[]),...(Array.isArray(cfg.rpcUrls)?cfg.rpcUrls:[]),...(Array.isArray(cfg.solanaRpcUrls)?cfg.solanaRpcUrls:[])];
             const urls=[...new Set([...configured,...builtins].filter(x=>typeof x==='string'&&/^https?:\/\//.test(x.trim())).map(x=>x.trim()))];
             const label=u=>{try{return new URL(u).hostname}catch{return 'unknown'}};
-            async function call(url,method,params=[]){
+            async function rpcCall(url,method,params=[]){
               const ctrl=new AbortController();const tm=setTimeout(()=>ctrl.abort(),10000);const t=Date.now();
               try{
                 const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:ctrl.signal});
@@ -38,11 +38,18 @@ jobs:
             console.log(`RPC_DIAG_PROVIDER_COUNT=${urls.length}`);
             for(let i=0;i<urls.length;i++){
               const u=urls[i],base={index:i,label:label(u),kind:builtins.includes(u)?'PUBLIC_READ_ONLY_FALLBACK':'CONFIGURED'};
-              const health=await call(u,'getHealth',[]);
-              const supply=await call(u,'getTokenSupply',[mint,{commitment:'processed'}]);
-              const largest=await call(u,'getTokenLargestAccounts',[mint,{commitment:'processed'}]);
+              const health=await rpcCall(u,'getHealth',[]);
+              const supply=await rpcCall(u,'getTokenSupply',[mint,{commitment:'processed'}]);
+              const largest=await rpcCall(u,'getTokenLargestAccounts',[mint,{commitment:'processed'}]);
               console.log('RPC_DIAG='+JSON.stringify({...base,health,supply,largest}));
             }
+            const rcUrl=`https://api.rugcheck.xyz/v1/tokens/${mint}/report`;
+            const ctrl=new AbortController();const tm=setTimeout(()=>ctrl.abort(),15000);const t=Date.now();
+            try{
+              const r=await fetch(rcUrl,{headers:{accept:'application/json'},signal:ctrl.signal});
+              const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
+              console.log('RUGCHECK_DIAG='+JSON.stringify({ok:r.ok,http:r.status,ms:Date.now()-t,hasTopHolders:Array.isArray(j?.topHolders),topHolders:Array.isArray(j?.topHolders)?j.topHolders.length:0,hasToken:!!j?.token,hasRisks:Array.isArray(j?.risks),score:j?.score??null,error:j?.error||null}));
+            }catch(e){console.log('RUGCHECK_DIAG='+JSON.stringify({ok:false,http:null,ms:Date.now()-t,error:String(e?.message||e)}))}finally{clearTimeout(tm)}
             console.log('V371_RPC_CAPABILITY_DIAGNOSTIC_COMPLETE=TRUE');
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
