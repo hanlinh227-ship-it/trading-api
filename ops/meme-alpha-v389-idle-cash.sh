@@ -10,53 +10,35 @@ cp -a "$SRC/micro-live-executor.js" "$CAND"
 chmod 0644 "$CAND"
 
 python3 - "$CAND" <<'PY'
-import pathlib,sys
+import pathlib,re,sys
 p=pathlib.Path(sys.argv[1]); s=p.read_text()
-def rep(old,new,label):
-    global s
-    n=s.count(old)
-    if n!=1: raise SystemExit(f'PATCH_{label}_COUNT={n}')
-    s=s.replace(old,new,1)
 
-rep("function allocationProfile(c,p,st,capitalBase){\n  if(!trendEntryEligible(c))return{pct:0,quality:0,growth:1,equityRatio:1,freeRatio:0,learnedBoost:0};",
-    "function allocationProfile(c,p,st,capitalBase){\n  if(!coreSafe(c))return{pct:0,quality:0,growth:1,equityRatio:1,freeRatio:0,learnedBoost:0};",
-    'ALLOC_CORE_SAFE')
-rep("function bestCandidate(p,exclude=new Set(),st=null,override=[]){return candidates().filter(c=>trendEntryEligible(c)&&!exclude.has(c.mint)&&!blocked(c,st)&&!(override||[]).includes(c.mint)).sort((a,b)=>expectedEdgeScore(b,st)-expectedEdgeScore(a,st))[0]||null}",
+def sub(pattern,repl,label,flags=0):
+    global s
+    s2,n=re.subn(pattern,repl,s,count=1,flags=flags)
+    if n!=1: raise SystemExit(f'PATCH_{label}_COUNT={n}')
+    s=s2
+
+# 1) A hard-safe candidate may receive capital even when soft trend confirmation is absent.
+sub(r'(function allocationProfile\(c,p,st,capitalBase\)\{[\s\S]{0,500}?if\(!)trendEntryEligible\(c\)',
+    r'\1coreSafe(c)', 'ALLOC_CORE_SAFE')
+
+# 2) New entries rank all hard-safe candidates; trend remains a preference, not a blocker.
+sub(r'function bestCandidate\(p,exclude=new Set\(\),st=null,override=\[\]\)\{return candidates\(\)\.filter\(c=>trendEntryEligible\(c\)&&!exclude\.has\(c\.mint\)&&!blocked\(c,st\)&&!\(override\|\|\[\]\)\.includes\(c\.mint\)\)\.sort\(\(a,b\)=>expectedEdgeScore\(b,st\)-expectedEdgeScore\(a,st\)\)\[0\]\|\|null\}',
     "function bestCandidate(p,exclude=new Set(),st=null,override=[]){return candidates().filter(c=>coreSafe(c)&&!exclude.has(c.mint)&&!blocked(c,st)&&!(override||[]).includes(c.mint)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdgeScore(b,st)-expectedEdgeScore(a,st)))[0]||null}",
     'BEST_CORE_SAFE')
-rep("async function placeBuy(st,c,posIndex=-1){",
-    "async function placeBuy(st,c,posIndex=-1,targetPctOverride=null){",
-    'BUY_OVERRIDE_SIGNATURE')
-rep("  const beforeSol=await solBalance(h.publicKey),capitalBase=Math.max(0,beforeSol+portfolioInvested(st)),profile=allocationProfile(c,p,st,capitalBase),exitHeadroomLamports=await networkExitHeadroomLamports(p),plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});",
-    "  const beforeSol=await solBalance(h.publicKey),capitalBase=Math.max(0,beforeSol+portfolioInvested(st)),profile=allocationProfile(c,p,st,capitalBase);\n  if(targetPctOverride!==null&&Number.isFinite(Number(targetPctOverride)))profile.pct=clamp(Math.max(profile.pct,n(targetPctOverride)),0,p.maxUtilizationPct);\n  const exitHeadroomLamports=await networkExitHeadroomLamports(p),plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});",
-    'BUY_OVERRIDE_PROFILE')
-anchor="function rotationSource(st,newC){"
-if s.count(anchor)!=1: raise SystemExit(f'PATCH_IDLE_ANCHOR_COUNT={s.count(anchor)}')
-idle="""async function deployIdleCash(st,p){
-  const ranked=candidates().filter(c=>coreSafe(c)&&!blocked(c,st)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdgeScore(b,st)-expectedEdgeScore(a,st)));
-  for(const c of ranked){
-    const idx=st.positions.findIndex(x=>x.mint===c.mint);
-    if(idx>=0&&st.positions[idx].scaleInLockedAfterProfit)continue;
-    const r=await placeBuy(st,c,idx,p.maxUtilizationPct);
-    if(r.placed)return{action:idx>=0?'ADD':'BUY',reason:'IDLE_CASH_FORCE_DEPLOY',symbol:c.symbol};
-    if(r.reason==='CAPITAL_HEADROOM_LOW'||r.reason==='TARGET_ALREADY_SATISFIED')return null;
-    if(r.reason==='ALLOCATION_BELOW_MIN_ORDER')continue;
-    return{action:'WAIT',reason:r.reason};
-  }
-  return null;
-}
 
-"""
-s=s.replace(anchor,idle+anchor,1)
-rep("    const add=await maybeScaleIn(st,p);if(add)return add;\n  }",
-    "    const add=await maybeScaleIn(st,p);if(add)return add;\n    const idle=await deployIdleCash(st,p);if(idle)return idle;\n  }",
-    'TICK_IDLE_DEPLOY')
-rep("reason:st.positions.length?'AUTONOMOUS_PORTFOLIO_MONITORING':'NO_TREND_QUALIFIED_CANDIDATE'",
-    "reason:st.positions.length?'AUTONOMOUS_PORTFOLIO_MONITORING':'NO_HARD_SAFE_CAPITAL_DEPLOYMENT'",
-    'FINAL_REASON')
-if s.count("MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED")!=1:
-    raise SystemExit('PATCH_VERSION_MARKER_COUNT='+str(s.count("MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED")))
-s=s.replace("MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED","MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED",1)
+# 3) Whenever placeBuy is reached, target the configured maximum utilization (94%).
+# targetPlan still subtracts base reserve, per-position exit reserve, network headroom and fees.
+sub(r'plan=targetPlan\(beforeSol,st,existing,profile\.pct,p,\{isNew:!isAdd,exitHeadroomLamports\}\)',
+    'plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports})',
+    'MAX_UTILIZATION_TARGET')
+
+# Production marker only.
+if 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' not in s:
+    sub(r'MICRO_LIVE_EXECUTOR_V(?:387_UNIFIED_PRODUCTION|382_NO_SOFT_GATE_FAST_PIPELINE)=STARTED',
+        'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED','VERSION_MARKER')
+
 p.write_text(s)
 PY
 
@@ -64,9 +46,8 @@ node --check "$CAND"
 testout="$(node "$CAND" --self-test)"
 printf '%s\n' "$testout"
 for k in MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE; do grep -q "$k" <<<"$testout"; done
-grep -q 'function deployIdleCash' "$CAND"
-grep -q 'IDLE_CASH_FORCE_DEPLOY' "$CAND"
 grep -q 'filter(c=>coreSafe(c)' "$CAND"
+grep -q 'targetPlan(beforeSol,st,existing,p.maxUtilizationPct' "$CAND"
 grep -q 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' "$CAND"
 
 WANT="$(sha256sum "$CAND" | awk '{print $1}')"
@@ -113,32 +94,32 @@ NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor
 echo NEW_EXECUTOR_PID="$NEW_PID"
 node --check "$SRC/micro-live-executor.js"
 grep -q 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' "$SRC/micro-live-executor.js"
-grep -q 'IDLE_CASH_FORCE_DEPLOY' "$SRC/micro-live-executor.js"
+grep -q 'filter(c=>coreSafe(c)' "$SRC/micro-live-executor.js"
+grep -q 'targetPlan(beforeSol,st,existing,p.maxUtilizationPct' "$SRC/micro-live-executor.js"
 
 LIVE=0
 for i in $(seq 1 60); do
   sleep 2
   if python3 - <<'PY'
-import json,pathlib,os,time
+import json,pathlib,time
 rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-gp=rt/'micro-live-gate.json'; sp=rt/'signal-snapshot.json'
-g=json.loads(gp.read_text()); s=json.loads(sp.read_text()); rows=s.get('candidates') or []
-def num(v,d=0):
+g=json.loads((rt/'micro-live-gate.json').read_text()); s=json.loads((rt/'signal-snapshot.json').read_text()); rows=s.get('candidates') or []
+def n(v,d=0):
     try:return float(v)
     except:return d
 def insider(c):
     x=c.get('insiderRiskDecision')
-    if x in ('BLOCK','REVIEW'): return False
-    if x=='PASS': return True
-    top=num(c.get('topHoldersPct',c.get('top10Pct',c.get('top5Pct',c.get('topHolderPct')))),999)
-    cluster=num(c.get('holderClusterMaxAccountsSameOwner',c.get('maxAccountsSameOwner',c.get('holderSameOwnerMax'))),999)
-    whale_bad=c.get('whaleConcentrationDecision') in ('BLOCK','REVIEW') or c.get('whaleConcentrationSafe') is False
-    return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and not whale_bad and top<=35 and cluster<=2
-safe=[c for c in rows if c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and insider(c) and c.get('token2022') is not True and c.get('sellRoute') is True and not (c.get('hardReject') or []) and num(c.get('liquidityUsd'))>=50000 and abs(num(c.get('sellPriceImpactPct',c.get('priceImpactPct'))))<=1.25]
-print('V389_LIVE',{'gateAge':round(time.time()-gp.stat().st_mtime,1),'signalAge':round(time.time()-sp.stat().st_mtime,1),'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'signalCount':len(rows),'hardSafeCount':len(safe),'hardSafeSymbols':[c.get('symbol') for c in safe[:10]],'reasons':g.get('reasons')})
+    if x in ('BLOCK','REVIEW'):return False
+    if x=='PASS':return True
+    top=n(c.get('topHoldersPct',c.get('top10Pct',c.get('top5Pct',c.get('topHolderPct')))),999)
+    cluster=n(c.get('holderClusterMaxAccountsSameOwner',c.get('maxAccountsSameOwner',c.get('holderSameOwnerMax'))),999)
+    wb=c.get('whaleConcentrationDecision') in ('BLOCK','REVIEW') or c.get('whaleConcentrationSafe') is False
+    return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and not wb and top<=35 and cluster<=2
+safe=[c for c in rows if c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and insider(c) and c.get('token2022') is not True and c.get('sellRoute') is True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and abs(n(c.get('sellPriceImpactPct',c.get('priceImpactPct'))))<=1.25]
+print('V389_LIVE',{'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'signalCount':len(rows),'hardSafeCount':len(safe),'hardSafeSymbols':[c.get('symbol') for c in safe[:10]],'signalAgeSec':round(time.time()-(rt/'signal-snapshot.json').stat().st_mtime,1),'reasons':g.get('reasons')})
 assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
-assert time.time()-sp.stat().st_mtime < 60
-assert len(safe)>=1
+assert time.time()-(rt/'signal-snapshot.json').stat().st_mtime<60
+assert safe
 PY
   then LIVE=1; break; fi
 done
@@ -149,9 +130,9 @@ for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-sig
   echo "$svc=active"
 done
 [ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ] || { echo V389_FAIL=EXECUTOR_PROCESS_COUNT; exit 8; }
+
 echo V389_IDLE_CASH_DEPLOYMENT=ACTIVE
 echo HARD_SAFE_FIRST=TRUE
-echo IDLE_CASH_FORCE_DEPLOY=TRUE
-echo MAX_UTILIZATION_PCT=94
+echo IDLE_CAPITAL_TARGET_UTILIZATION_PCT=94
 echo SCALE_ALLOWED=TRUE
 echo HARD_SECURITY_HOLDER_INSIDER_SELLABILITY=ENFORCED
