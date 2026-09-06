@@ -1,63 +1,25 @@
-name: Meme Alpha V385 Coverage Monitor
+name: Meme Alpha V385 Coverage Monitor (Legacy Manual Only)
+
+# Historical read-only monitor. It previously ran on pushes and could report false
+# failures during expected source-health warm-up, while also competing for the
+# self-hosted trading runner. Keep it manual-only; production stack is V412B/V413C.
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/meme-alpha-v384-direct-activate.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
-  monitor:
+  legacy-monitor:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@v4
-      - name: Observe sequential cluster coverage
+      - name: Legacy monitor retired from automatic runs
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app
-          RS="$APP/runtime-status"
-          echo '=== V385 CONFIG ==='
-          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|V385_BUCKET_COUNT|V385_BUCKET_INDEX|MAX_SELLABILITY_CHECKS_V216' "$APP/src/scanner.js"
-          echo '=== SERVICES ==='
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
-          echo '=== GATE ==='
-          python3 -c "import json; d=json.load(open('$RS/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']})"
-          echo '=== RADAR FILES ==='
-          find "$RS" -maxdepth 1 -type f \( -iname '*radar*.json' -o -iname '*listing*.json' \) -printf '%f %s bytes\n' | sort || true
-          rm -f /tmp/v385_seen_mints.txt
-          touch /tmp/v385_seen_mints.txt
-          for i in 1 2 3 4 5; do
-            echo "=== SAMPLE $i ==="
-            python3 - "$RS" <<'PY'
-import json, os, sys, time, glob
-rs=sys.argv[1]
-g=json.load(open(os.path.join(rs,'micro-live-gate.json')))
-sp=os.path.join(rs,'signal-snapshot.json')
-s=json.load(open(sp))
-c=s.get('candidates') or []
-rows=[]
-for x in c:
-    if not isinstance(x,dict): continue
-    mint=x.get('mint') or (x.get('result') or {}).get('mint') or x.get('address')
-    sym=x.get('symbol') or (x.get('result') or {}).get('symbol')
-    if mint: rows.append((str(mint),str(sym or '')))
-print({'ts':time.time(),'gate':{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady']},'signalAgeSec':round(time.time()-os.path.getmtime(sp),1),'signalCount':len(c),'probe':(s.get('intelSummary') or {}).get('probeCandidates'),'routed':(s.get('intelSummary') or {}).get('routedCandidates'),'sampleMints':rows[:12]})
-with open('/tmp/v385_seen_mints.txt','a') as f:
-    for mint,sym in rows: f.write(mint+'\t'+sym+'\n')
-# Best-effort radar inventory count.
-for p in sorted(glob.glob(os.path.join(rs,'*radar*.json'))+glob.glob(os.path.join(rs,'*listing*.json'))):
-    try:
-        d=json.load(open(p))
-        if isinstance(d,list): n=len(d)
-        elif isinstance(d,dict):
-            n=max([len(v) for v in d.values() if isinstance(v,list)] or [0])
-        else: n=0
-        print({'radarFile':os.path.basename(p),'inventoryCount':n,'ageSec':round(time.time()-os.path.getmtime(p),1)})
-    except Exception as e: print({'radarFile':os.path.basename(p),'error':str(e)})
-PY
-            [ "$i" -eq 5 ] || sleep 35
-          done
-          echo '=== DISTINCT SIGNAL CANDIDATES SEEN ==='
-          sort -u /tmp/v385_seen_mints.txt | tee /tmp/v385_seen_unique.txt
-          echo "distinct=$(wc -l < /tmp/v385_seen_unique.txt)"
-          echo '=== FINAL GATE ==='
-          python3 -c "import json; d=json.load(open('$RS/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']}); assert d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True"
+          echo LEGACY_AUTO_MONITOR_DISABLED=TRUE
+          echo OBSOLETE_MONITOR=V385
+          echo CURRENT_REALTIME=V412B
+          echo CURRENT_PREBREAKOUT=V413C
+          echo PRODUCTION_MUTATION=FALSE
