@@ -16,31 +16,33 @@ jobs:
           set -euo pipefail
           /usr/bin/node <<'NODE'
           const fs=require('fs');
-          const APP='/opt/meme-alpha/app';
-          const cfg=JSON.parse(fs.readFileSync(`${APP}/config/runtime.json`,'utf8'));
-          const obs=JSON.parse(fs.readFileSync(`${APP}/runtime-status/portfolio-observability.json`,'utf8'));
-          const mint=(obs.positionMints||[])[0];
-          if(!mint)throw new Error('NO_POSITION_MINT_FOR_RPC_TEST');
-          const builtins=['https://solana-rpc.publicnode.com','https://api.mainnet.solana.com','https://api.mainnet-beta.solana.com'];
-          const configured=[cfg.rpc,cfg.solanaRpc,process.env.SOLANA_RPC_URL,...(Array.isArray(cfg.rpcFallbacks)?cfg.rpcFallbacks:[]),...(Array.isArray(cfg.rpcUrls)?cfg.rpcUrls:[]),...(Array.isArray(cfg.solanaRpcUrls)?cfg.solanaRpcUrls:[])];
-          const urls=[...new Set([...configured,...builtins].filter(x=>typeof x==='string'&&/^https?:\/\//.test(x.trim())).map(x=>x.trim()))];
-          const label=u=>{try{return new URL(u).hostname}catch{return 'unknown'}};
-          async function call(url,method,params=[]){
-            const ctrl=new AbortController();const tm=setTimeout(()=>ctrl.abort(),10000);const t=Date.now();
-            try{
-              const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:ctrl.signal});
-              const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
-              return {ok:r.ok&&!j?.error,http:r.status,ms:Date.now()-t,rpcError:j?.error?.code??null,retryAfter:r.headers.get('retry-after')||null};
-            }catch(e){return {ok:false,http:null,ms:Date.now()-t,error:String(e?.message||e)}}finally{clearTimeout(tm)}
-          }
-          console.log(`RPC_DIAG_MINT=${mint}`);
-          console.log(`RPC_DIAG_PROVIDER_COUNT=${urls.length}`);
-          for(let i=0;i<urls.length;i++){
-            const u=urls[i],base={index:i,label:label(u),kind:builtins.includes(u)?'PUBLIC_READ_ONLY_FALLBACK':'CONFIGURED'};
-            const health=await call(u,'getHealth',[]);
-            const supply=await call(u,'getTokenSupply',[mint,{commitment:'processed'}]);
-            const largest=await call(u,'getTokenLargestAccounts',[mint,{commitment:'processed'}]);
-            console.log('RPC_DIAG='+JSON.stringify({...base,health,supply,largest}));
-          }
-          console.log('V371_RPC_CAPABILITY_DIAGNOSTIC_COMPLETE=TRUE');
+          (async()=>{
+            const APP='/opt/meme-alpha/app';
+            const cfg=JSON.parse(fs.readFileSync(`${APP}/config/runtime.json`,'utf8'));
+            const obs=JSON.parse(fs.readFileSync(`${APP}/runtime-status/portfolio-observability.json`,'utf8'));
+            const mint=(obs.positionMints||[])[0];
+            if(!mint)throw new Error('NO_POSITION_MINT_FOR_RPC_TEST');
+            const builtins=['https://solana-rpc.publicnode.com','https://api.mainnet.solana.com','https://api.mainnet-beta.solana.com'];
+            const configured=[cfg.rpc,cfg.solanaRpc,process.env.SOLANA_RPC_URL,...(Array.isArray(cfg.rpcFallbacks)?cfg.rpcFallbacks:[]),...(Array.isArray(cfg.rpcUrls)?cfg.rpcUrls:[]),...(Array.isArray(cfg.solanaRpcUrls)?cfg.solanaRpcUrls:[])];
+            const urls=[...new Set([...configured,...builtins].filter(x=>typeof x==='string'&&/^https?:\/\//.test(x.trim())).map(x=>x.trim()))];
+            const label=u=>{try{return new URL(u).hostname}catch{return 'unknown'}};
+            async function call(url,method,params=[]){
+              const ctrl=new AbortController();const tm=setTimeout(()=>ctrl.abort(),10000);const t=Date.now();
+              try{
+                const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:ctrl.signal});
+                const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
+                return {ok:r.ok&&!j?.error,http:r.status,ms:Date.now()-t,rpcError:j?.error?.code??null,retryAfter:r.headers.get('retry-after')||null};
+              }catch(e){return {ok:false,http:null,ms:Date.now()-t,error:String(e?.message||e)}}finally{clearTimeout(tm)}
+            }
+            console.log(`RPC_DIAG_MINT=${mint}`);
+            console.log(`RPC_DIAG_PROVIDER_COUNT=${urls.length}`);
+            for(let i=0;i<urls.length;i++){
+              const u=urls[i],base={index:i,label:label(u),kind:builtins.includes(u)?'PUBLIC_READ_ONLY_FALLBACK':'CONFIGURED'};
+              const health=await call(u,'getHealth',[]);
+              const supply=await call(u,'getTokenSupply',[mint,{commitment:'processed'}]);
+              const largest=await call(u,'getTokenLargestAccounts',[mint,{commitment:'processed'}]);
+              console.log('RPC_DIAG='+JSON.stringify({...base,health,supply,largest}));
+            }
+            console.log('V371_RPC_CAPABILITY_DIAGNOSTIC_COMPLETE=TRUE');
+          })().catch(e=>{console.error(e);process.exit(1)});
           NODE
