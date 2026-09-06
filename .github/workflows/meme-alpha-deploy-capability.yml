@@ -1,0 +1,49 @@
+name: Meme Alpha Deploy Capability
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-deploy-capability.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  capability:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check non-interactive deploy capability
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/DEPLOY-CAPABILITY.md"
+          mkdir -p "$(dirname "$OUT")"
+          if sudo -n true >/dev/null 2>&1; then SUDO_OK=true; else SUDO_OK=false; fi
+          if [[ -w /opt/meme-alpha/app/src/micro-live-executor.js ]]; then APP_WRITE=true; else APP_WRITE=false; fi
+          if [[ -r /opt/meme-alpha-signer/ready_signer.py ]]; then SIGNER_READ=true; else SIGNER_READ=false; fi
+          if [[ -w /opt/meme-alpha-signer/ready_signer.py ]]; then SIGNER_WRITE=true; else SIGNER_WRITE=false; fi
+          cat > "$OUT" <<EOF
+          # Meme Alpha Deploy Capability
+
+          - sudo_noninteractive: \`$SUDO_OK\`
+          - app_source_writable_directly: \`$APP_WRITE\`
+          - signer_readable: \`$SIGNER_READ\`
+          - signer_writable_directly: \`$SIGNER_WRITE\`
+          - checked_at_utc: \`$(date -u +%FT%TZ)\`
+          EOF
+      - name: Commit capability result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/DEPLOY-CAPABILITY.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): record automated VPS deploy capability"
+          git push origin HEAD:main
