@@ -13,25 +13,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app
-          RS="$APP/runtime-status"
+          RS=/opt/meme-alpha/app/runtime-status
           echo '=== SERVICES ==='
           for svc in meme-alpha-paper meme-alpha-micro-live meme-alpha-realtime-pulse meme-alpha-signer meme-alpha-trend-pulse meme-alpha-whale-flow; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo '=== SAFE FILES ==='
-          find "$RS" -maxdepth 1 -type f -name '*.json' -printf '%f\n' | grep -Ev 'secret|private|seed|mnemonic|keypair|password|credential|config' | sort | head -n 120
           echo '=== SIGNAL SUMMARY ==='
-          /usr/bin/node - "$RS/signal-snapshot.json" <<'NODE'
-          const fs=require('fs'); const p=process.argv[2]; const x=JSON.parse(fs.readFileSync(p,'utf8'));
-          const cs=Array.isArray(x.candidates)?x.candidates:[];
-          const byDecision={}; const byReject={}; for(const c of cs){byDecision[c.decision||'NULL']=(byDecision[c.decision||'NULL']||0)+1; for(const r of c.hardReject||[])byReject[r]=(byReject[r]||0)+1}
-          console.log(JSON.stringify({version:x.version,timestamp:x.timestamp,sourceHealth:x.sourceHealth,risk:x.risk?{mode:x.risk.mode,entryAllowed:x.risk.entryAllowed,riskRegime:x.risk.riskRegime,riskMultiplier:x.risk.riskMultiplier,globalBlockReasons:x.risk.globalBlockReasons,limits:x.risk.limits,health:x.risk.health}:null,intelSummary:x.intelSummary,candidateCount:cs.length,byDecision,topRejects:Object.entries(byReject).sort((a,b)=>b[1]-a[1]).slice(0,12),topCandidates:cs.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,12).map(c=>({symbol:c.symbol,mint:c.mint,score:c.score,decision:c.decision,hardReject:c.hardReject,entryGuardReasons:c.entryGuardReasons,securityDecision:c.securityDecision,universeClass:c.universeClass,consecutiveEligible:c.consecutiveEligible,fastTrackReady:c.fastTrackReady,priceChange5m:c.priceChange5m,netBuyers5m:c.netBuyers5m,liquidityUsd:c.liquidityUsd,intelMode:c.intelMode}))},null,2));
-NODE
+          /usr/bin/node -e "const fs=require('fs'),x=JSON.parse(fs.readFileSync(process.argv[1],'utf8')),cs=x.candidates||[],d={},r={};for(const c of cs){d[c.decision||'NULL']=(d[c.decision||'NULL']||0)+1;for(const z of c.hardReject||[])r[z]=(r[z]||0)+1}console.log(JSON.stringify({version:x.version,timestamp:x.timestamp,sourceHealth:x.sourceHealth,risk:x.risk?{mode:x.risk.mode,entryAllowed:x.risk.entryAllowed,riskRegime:x.risk.riskRegime,riskMultiplier:x.risk.riskMultiplier,globalBlockReasons:x.risk.globalBlockReasons,limits:x.risk.limits,health:x.risk.health}:null,intelSummary:x.intelSummary,candidateCount:cs.length,byDecision:d,topRejects:Object.entries(r).sort((a,b)=>b[1]-a[1]).slice(0,12),topCandidates:cs.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,10).map(c=>({symbol:c.symbol,mint:c.mint,score:c.score,decision:c.decision,hardReject:c.hardReject,securityDecision:c.securityDecision,universeClass:c.universeClass,consecutiveEligible:c.consecutiveEligible,fastTrackReady:c.fastTrackReady,priceChange5m:c.priceChange5m,netBuyers5m:c.netBuyers5m,liquidityUsd:c.liquidityUsd,intelMode:c.intelMode}))},null,2))" "$RS/signal-snapshot.json"
           echo '=== REALTIME SUMMARY ==='
-          /usr/bin/node - "$RS/realtime-pool-pulse.json" <<'NODE'
-          const fs=require('fs'); const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8')); console.log(JSON.stringify({version:x.version,status:x.status,subscriptions:x.subscriptions,fastSubscriptions:x.fastSubscriptions,heldTotal:x.heldTotal,heldResolved:x.heldResolved,heldUnresolved:x.heldUnresolved,heartbeatAgeMs:x.heartbeatAgeMs,reconnectCount:x.reconnectCount,reconcileErrors:x.reconcileErrors,lastError:x.lastError},null,2));
-NODE
+          /usr/bin/node -e "const fs=require('fs'),x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));console.log(JSON.stringify({version:x.version,status:x.status,subscriptions:x.subscriptions,fastSubscriptions:x.fastSubscriptions,heldTotal:x.heldTotal,heldResolved:x.heldResolved,heldUnresolved:x.heldUnresolved,heartbeatAgeMs:x.heartbeatAgeMs,reconnectCount:x.reconnectCount,reconcileErrors:x.reconcileErrors,lastError:x.lastError},null,2))" "$RS/realtime-pool-pulse.json"
           echo '=== PORTFOLIO SUMMARY ==='
           cat "$RS/portfolio-observability.json" 2>/dev/null || true
           echo '=== EXECUTOR RECENT ==='
-          journalctl -u meme-alpha-micro-live.service -n 100 --no-pager 2>/dev/null | grep -E 'ACTION=|EXECUTOR_ERROR|CAPITAL_HEADROOM_LOW|TARGET_ALREADY_SATISFIED|NO_TREND_QUALIFIED_CANDIDATE|GATE_CLOSED|AUTO_ALLOC|MICRO_BUY|MICRO_SCALE_IN|ROTAT|WAIT|HOLD' | tail -n 80 || true
-          echo 'V374_OPPORTUNITY_DIAGNOSTIC=END'
+          journalctl -u meme-alpha-micro-live.service -n 120 --no-pager 2>/dev/null | grep -E 'ACTION=|EXECUTOR_ERROR|CAPITAL_HEADROOM_LOW|TARGET_ALREADY_SATISFIED|NO_TREND_QUALIFIED_CANDIDATE|GATE_CLOSED|AUTO_ALLOC|MICRO_BUY|MICRO_SCALE_IN|ROTAT|WAIT|HOLD' | tail -n 100 || true
+          echo V374_OPPORTUNITY_DIAGNOSTIC=END
