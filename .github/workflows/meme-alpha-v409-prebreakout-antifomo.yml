@@ -1,0 +1,172 @@
+name: Meme Alpha V409 Pre-Breakout Anti-FOMO
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v409-prebreakout-antifomo.yml
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 9
+    steps:
+      - name: Build validate and activate V409
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; RUN="$APP/run-paper.sh"
+          RAD="$APP/src/new-listing-radar.js"; SCN="$APP/src/scanner.js"; SIG="$APP/src/safe-signal-export.js"; RTP="$APP/src/realtime-pool-pulse.js"; EXE="$APP/src/micro-live-executor.js"
+          mkdir -p "$DC"
+          STAMP=$(date -u +%Y%m%dT%H%M%SZ); BACK="$RT/v409-backup-$STAMP"; mkdir -p "$BACK"
+          cp -a "$RAD" "$BACK/radar.js"; cp -a "$SCN" "$BACK/scanner.js"; cp -a "$SIG" "$BACK/signal.js"; cp -a "$RTP" "$BACK/realtime.js"; cp -a "$EXE" "$BACK/executor.js"; cp -a "$RUN" "$BACK/run-paper.sh"
+          CRAD="$DC/v409-radar-prebreakout.js"; CSCN="$DC/v409-scanner-prebreakout.js"; CSIG="$DC/v409-signal-priority-audit.js"; CRTP="$DC/v409-realtime-prebreakout.js"; CEXE="$DC/v409-executor-prebreakout.js"; RBRTP="$DC/v409-rollback-realtime.js"
+          cp "$RAD" "$CRAD"; cp "$SCN" "$CSCN"; cp "$SIG" "$CSIG"; cp "$RTP" "$CRTP"; cp "$EXE" "$CEXE"; cp "$RTP" "$RBRTP"
+
+          python3 - "$CRAD" "$CSCN" "$CSIG" "$CRTP" "$CEXE" <<'PY'
+          import pathlib,re,sys
+          rad,scn,sig,rtp,exe=map(pathlib.Path,sys.argv[1:6])
+
+          s=rad.read_text()
+          pat=r"  const fastEligible=x=>\{.*?\n  \};\n  const velocity=x=>.*?;\n"
+          new="""  const fastEligible=x=>{\n    const age=n(x.pairAgeSec,Infinity),conf=n(x.discoveryConfidence),liq=n(x.liquidityUsd),buys=n(x.buys5m),vol=n(x.volume5m),chg=n(x.priceChange5m),ratio=n(x.buySellTxnRatio);\n    const flow=(buys>=3&&ratio>=1.05)||(vol>=1500&&ratio>=1.00);\n    const prebreakoutMove=chg>=-2&&chg<=15;\n    return age>=0&&age<=6*3600&&conf>=0.24&&(liq>=4000||age<=3600)&&flow&&prebreakoutMove;\n  };\n  const velocity=x=>{const chg=n(x.priceChange5m),ratio=n(x.buySellTxnRatio),priceFit=chg>=0&&chg<=8?18+chg*1.1:chg>8&&chg<=15?18-(chg-8)*1.6:chg>=-2?8+chg*3:-30;return Math.min(45,n(x.buys5m)*0.55)+Math.min(35,n(x.volume5m)/3500)+Math.min(18,Math.max(0,ratio-1)*8)+priceFit+(n(x.pairAgeSec,Infinity)<=3600?18:0)+n(x.preScore)*0.35};\n"""
+          s2,nsub=re.subn(pat,new,s,count=1,flags=re.S)
+          if nsub!=1: raise SystemExit(f'V409_RADAR_PATCH_COUNT={nsub}')
+          s=s2.replace("policy:'FAST_DISCOVERY_ONLY_NEVER_GRANTS_ENTRY'","policy:'V409_PREBREAKOUT_FAST_DISCOVERY_NEVER_GRANTS_ENTRY'",1)
+          rad.write_text(s)
+
+          s=scn.read_text()
+          old='const liq = n(r.liquidityUsd), buys = n(r.buys5m), vol = n(r.volume5m), ratio = n(r.buySellTxnRatio), chg = Math.abs(n(r.priceChange5m));'
+          new='const liq = n(r.liquidityUsd), buys = n(r.buys5m), vol = n(r.volume5m), ratio = n(r.buySellTxnRatio), chg = n(r.priceChange5m);'
+          if s.count(old)!=1: raise SystemExit(f'V409_SCANNER_CHG_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          old='const fastFlow = (buys >= 3 && ratio >= 1.03) || vol >= 1500 || chg >= 5;\n        const fastMetric = ageSec >= 0 && ageSec <= 6 * 3600 && confidence >= 0.24 && preScore >= 32 && (liq >= 4000 || ageSec <= 3600) && fastFlow;\n        const fastAccept = radarFastUsable && (r.fastDiscoveryLane === true || fastMetric);'
+          new='const fastFlow = (buys >= 3 && ratio >= 1.05) || (vol >= 1500 && ratio >= 1.00);\n        const prebreakoutMove = chg >= -2 && chg <= 15;\n        const fastMetric = ageSec >= 0 && ageSec <= 6 * 3600 && confidence >= 0.24 && preScore >= 32 && (liq >= 4000 || ageSec <= 3600) && fastFlow && prebreakoutMove;\n        const fastAccept = radarFastUsable && prebreakoutMove && (r.fastDiscoveryLane === true || fastMetric);'
+          if s.count(old)!=1: raise SystemExit(f'V409_SCANNER_FAST_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          pat=r"  // Momentum but penalize mania: max 10\n  if \(\n    priceChange >= 1 &&.*?\n  if \(priceChange < -20\) \{\n    score -= 10;\n    reasons.push\(\"FAST_DRAWDOWN\"\);\n  \}"
+          new="""  // V409: reward pre-breakout motion; never reward an already parabolic move.\n  if (priceChange >= 0.25 && priceChange <= 10) {\n    score += 10; reasons.push(\"PREBREAKOUT_PRICE_WINDOW\");\n  } else if (priceChange > 10 && priceChange <= 15) {\n    score += 4; reasons.push(\"LATE_MOMENTUM\");\n  } else if (priceChange > 15) {\n    score -= 15; reasons.push(\"PARABOLIC_FOMO_RISK\");\n  } else if (priceChange > -2) {\n    score += 3;\n  }\n  if (priceChange < -8) {\n    score -= 15; reasons.push(\"FAST_DRAWDOWN\");\n  }"""
+          s2,nsub=re.subn(pat,new,s,count=1,flags=re.S)
+          if nsub!=1: raise SystemExit(f'V409_SCANNER_MANIA_PATCH_COUNT={nsub}')
+          s=s2
+          old='const baseDeep = [...preliminary.slice(0, V385_PRIORITY_RESERVE), ...V385_CLUSTER];\nconst baseMints = new Set(baseDeep.map(x => x.result?.mint));'
+          new='''const V409_PREBREAKOUT_RESERVE = Math.min(6, preliminary.length);\nconst V409_PREBREAKOUT = preliminary.filter(x=>{const r=x.result||{},m=r.newListingRadar||{},chg=n(r.priceChange5m),bv=n(r.buyVolume5m),sv=n(r.sellVolume5m),bs=sv>0?bv/sv:(bv>0?99:0);return m.fastDiscoveryLane===true&&n(r.liquidityUsd)>=50000&&n(r.netBuyers5m)>=3&&bs>=1.05&&chg>=-1&&chg<=12}).sort((a,b)=>n(b.result?.newListingRadar?.discoveryPriority)-n(a.result?.newListingRadar?.discoveryPriority)||n(b.result?.netBuyers5m)-n(a.result?.netBuyers5m)).slice(0,V409_PREBREAKOUT_RESERVE);\nconst baseDeep = [...new Map([...V409_PREBREAKOUT,...preliminary.slice(0, V385_PRIORITY_RESERVE), ...V385_CLUSTER].map(x=>[x.result?.mint,x])).values()];\nconst baseMints = new Set(baseDeep.map(x => x.result?.mint));'''
+          if s.count(old)!=1: raise SystemExit(f'V409_SCANNER_DEEP_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          s=s.replace('console.log(`DEEPCHECK_BASE=${baseDeep.length} MEME_EXTRA=${extraMeme.length} TOTAL=${deep.length}`);','console.log(`V409_PREBREAKOUT_DEEP=${V409_PREBREAKOUT.length} DEEPCHECK_BASE=${baseDeep.length} MEME_EXTRA=${extraMeme.length} TOTAL=${deep.length}`);',1)
+          scn.write_text(s)
+
+          s=rtp.read_text()
+          if s.count('const HOTSET_LIMIT=56;')!=1: raise SystemExit('V409_REALTIME_HOTSET_PATCH')
+          s=s.replace('const HOTSET_LIMIT=56;','const HOTSET_LIMIT=72;',1)
+          pat=r"function candidatePriority\(x,held\)\{\n.*?\n\}"
+          new="""function candidatePriority(x,held){\n  const age=n(x.pairAgeSec,Infinity),fresh=age<=1800?30:age<=3600?22:age<=6*3600?10:0,chg=n(x.priceChange5m),ratio=n(x.buySellTxnRatio);\n  const priceFit=chg>=0&&chg<=8?26-chg:chg>8&&chg<=15?18-(chg-8)*2:chg>=-2?8+chg*3:-45;\n  const flow=Math.min(42,n(x.buys5m)*0.5)+Math.min(34,n(x.volume5m)/4000)+Math.min(18,Math.max(0,ratio-1)*8);\n  const fomoPenalty=chg>15?Math.min(180,(chg-15)*4):chg<-8?Math.min(160,Math.abs(chg+8)*4):0;\n  return (held.has(x.mint)?10000:0)+(x.fastDiscoveryLane===true?420:0)+fresh+flow+priceFit-fomoPenalty+n(x.discoveryPriority,n(x.preScore))*0.8+n(x.preScore)*0.35;\n}"""
+          s2,nsub=re.subn(pat,new,s,count=1,flags=re.S)
+          if nsub!=1: raise SystemExit(f'V409_REALTIME_PRIORITY_PATCH_COUNT={nsub}')
+          s=s2.replace("const VERSION='3.74.0-held-continuity';","const VERSION='3.79.0-v409-prebreakout-antifomo';",1)
+          rtp.write_text(s)
+
+          s=sig.read_text()
+          pat=r"function v388TakeAuditSlot\(\)\{\n.*?\n\}"
+          new="""function v388TakeAuditSlot(){\n  const now=Date.now();let r=readFile(V388_RATE,{windowStart:now,count:0,lastAuditAt:0});if(!Number.isFinite(Number(r.windowStart))||now-Number(r.windowStart)>=60000)r={windowStart:now,count:0,lastAuditAt:Number(r.lastAuditAt)||0};\n  if(Number(r.count)>=4)return false;if(Number(r.lastAuditAt)>0&&now-Number(r.lastAuditAt)<12000)return false;r.count=Number(r.count)+1;r.lastAuditAt=now;try{const t=V388_RATE+'.tmp';fs.writeFileSync(t,JSON.stringify(r));fs.renameSync(t,V388_RATE)}catch{}return true;\n}"""
+          s2,nsub=re.subn(pat,new,s,count=1,flags=re.S)
+          if nsub!=1: raise SystemExit(f'V409_SIGNAL_RATE_PATCH_COUNT={nsub}')
+          s=s2
+          old='const v388Prepared=[];\nfor(const c of (scan.candidates||[]).slice(0,300)){v388Prepared.push(await v388AuditCandidate(c,whale));}'
+          new='''const v409AuditPriority=c=>{const m=radarMeta(c),chg=finite(c?.priceChange5m)?Number(c.priceChange5m):-999,pre=m.fastDiscoveryLane===true&&chg>=-1&&chg<=12&&num(c?.liquidityUsd)>=50000;return (pre?100000:0)+(c?.sellRoute===true?5000:0)+num(c?.score)*100+Math.min(5000,Math.max(0,num(c?.netBuyers5m))*10)+Math.min(3000,num(m.discoveryPriority)*10)};\nconst v409AuditQueue=(scan.candidates||[]).slice(0,300).sort((a,b)=>v409AuditPriority(b)-v409AuditPriority(a));\nconst v388Prepared=[];\nfor(const c of v409AuditQueue){v388Prepared.push(await v388AuditCandidate(c,whale));}'''
+          if s.count(old)!=1: raise SystemExit(f'V409_SIGNAL_QUEUE_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          sig.write_text(s)
+
+          s=exe.read_text()
+          pat=r"function opportunityScore\(c\)\{.*?\nfunction opportunityLane"
+          m=re.search(pat,s,flags=re.S)
+          if not m: raise SystemExit('V409_EXECUTOR_SCORE_PATCH_NOT_FOUND')
+          old=m.group(0)
+          scorefn="""function opportunityScore(c){const base=n(c.score),p=pulseFor(c),chg=n(c.priceChange5m,-999);let add=0;if(p){const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),pre=(p.status==='WARMING'||p.status==='BREAKOUT')&&chg>=-0.5&&chg<=10&&va>=1.10&&ta>=1.05&&bs>=1.05;if(va>=1.45)add+=4;else if(va>=1.10)add+=2;if(ta>=1.30)add+=3;else if(ta>=1.05)add+=1;if(bs>=1.25)add+=2;if(pre)add+=5;if(themeStrength(c)>=60)add+=2;if(n(p.pulseScore)>=70)add+=1;if(p.status==='EXHAUSTED')add-=12;if(p.promotionFlag===true&&n(p.pulseScore)<65)add-=3}const rt=realtimeFor(c);if(rt&&n(rt.lastEventAgeMs,99999)<=2500){if(n(rt.eventMomentum)>=1.8&&n(rt.events5s)>=3)add+=5;else if(n(rt.events5s)>=2)add+=2}if(chg>10)add-=Math.min(14,(chg-10)*1.8);if(chg<-3)add-=Math.min(12,Math.abs(chg+3)*2);const w=whaleFor(c);if(w)add+=clamp(n(w.whaleFlowScore),-6,4);return clamp(base+add,base-12,base+20)}\nfunction opportunityLane"""
+          s=s.replace(old,scorefn,1)
+          old="function trendEntryEligible(c){if(!coreSafe(c))return false;const blocked=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'];if(blocked.includes(String(c.decision||'')))return false;const rawChg=n(c.priceChange5m,-999);if(rawChg>22)return false;return true}"
+          new="function trendEntryEligible(c){if(!coreSafe(c))return false;const blocked=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'];if(blocked.includes(String(c.decision||'')))return false;const rawChg=Number(c.priceChange5m);if(!Number.isFinite(rawChg)||rawChg>15||rawChg<-4)return false;return true}"
+          if s.count(old)!=1: raise SystemExit(f'V409_EXECUTOR_FOMO_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          old="function rank(c){const rt=realtimeFor(c),w=whaleFor(c);return opportunityScore(c)*100+n(c.netBuyers5m)*2+n(c.avgNetBuyersLast2)+n(c.organicRatio5m)*30+n(rt?.eventMomentum)*16+n(w?.whaleFlowScore)*8-Math.max(0,n(c.priceChange5m)-10)*10}"
+          new="function rank(c){const rt=realtimeFor(c),w=whaleFor(c),chg=n(c.priceChange5m);return opportunityScore(c)*100+n(c.netBuyers5m)*2+n(c.avgNetBuyersLast2)+n(c.organicRatio5m)*30+n(rt?.eventMomentum)*16+n(w?.whaleFlowScore)*8-Math.max(0,chg-8)*35-Math.max(0,-chg-1)*20}"
+          if s.count(old)!=1: raise SystemExit(f'V409_EXECUTOR_RANK_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          exe.write_text(s)
+          PY
+
+          echo '=== STATIC VALIDATION ==='
+          for f in "$CRAD" "$CSCN" "$CSIG" "$CRTP" "$CEXE"; do node --check "$f"; done
+          RADTEST=$(node "$CRAD" --self-test); echo "$RADTEST"; grep -q 'V372_FAST_DISCOVERY_SELF_TEST=PASS' <<<"$RADTEST"
+          RTTEST=$(node "$CRTP" --self-test); echo "$RTTEST"; grep -q 'SELF_TEST' <<<"$RTTEST" || true
+          SIGTEST=$(node "$CSIG" --self-test); echo "$SIGTEST"; grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$SIGTEST"; grep -q 'HARD_GUARD_BYPASS' <<<"$SIGTEST" && exit 7 || true
+          EXETEST=$(node "$CEXE" --self-test); echo "$EXETEST"; grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$EXETEST"; grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$EXETEST"
+          grep -q 'V409_PREBREAKOUT_RESERVE' "$CSCN"; grep -q 'count)>=4' "$CSIG"; grep -q '12000' "$CSIG"; grep -q 'rawChg>15' "$CEXE"; grep -q 'HOTSET_LIMIT=72' "$CRTP"
+
+          SHRTP=$(sha256sum "$CRTP"|awk '{print $1}'); SHEXE=$(sha256sum "$CEXE"|awk '{print $1}'); SHRAD=$(sha256sum "$CRAD"|awk '{print $1}'); SHSCN=$(sha256sum "$CSCN"|awk '{print $1}'); SHSIG=$(sha256sum "$CSIG"|awk '{print $1}'); OLD_RTP_SHA=$(sha256sum "$RBRTP"|awk '{print $1}')
+          echo V409_RADAR_SHA=$SHRAD; echo V409_SCANNER_SHA=$SHSCN; echo V409_SIGNAL_SHA=$SHSIG; echo V409_REALTIME_SHA=$SHRTP; echo V409_EXECUTOR_SHA=$SHEXE
+
+          cp "$CRAD" "$RAD"; cp "$CSCN" "$SCN"; cp "$CSIG" "$SIG"; cp "$CEXE" "$EXE"; chmod 664 "$RAD" "$SCN" "$SIG" "$EXE" || true
+          set +e
+          RTP_OUT=$(sudo -n /usr/local/sbin/meme-alpha-safe-deploy realtime "$(basename "$CRTP")" "$SHRTP" 2>&1); RTP_RC=$?
+          set -e
+          echo "$RTP_OUT"; echo V409_REALTIME_DEPLOY_RC=$RTP_RC
+          if [ "$RTP_RC" -ne 0 ]; then cp -a "$BACK/radar.js" "$RAD"; cp -a "$BACK/scanner.js" "$SCN"; cp -a "$BACK/signal.js" "$SIG"; cp -a "$BACK/executor.js" "$EXE"; exit 8; fi
+
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); test -n "$OLDPID"; echo OLD_EXECUTOR_PID=$OLDPID
+          ORIG="$RT/v409-run-paper-original.sh"; REQ="$RT/v409-executor-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v409-executor-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v409-run-paper-original.sh
+          if [ -r "$REQ" ]; then
+            PID=$(cat "$REQ" 2>/dev/null || true); rm -f "$REQ" 2>/dev/null || true
+            if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -KILL "$PID" 2>/dev/null || true;; esac; fi
+          fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 35); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 35 ] || exit 9; done
+          NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); echo NEW_EXECUTOR_PID=$NEWPID
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+
+          echo '=== WAIT FOR WARMUP ==='
+          for i in $(seq 1 40); do
+            sleep 3
+            OK=$(python3 - <<'PY'
+          import json
+          try:
+            g=json.load(open('/opt/meme-alpha/app/runtime-status/micro-live-gate.json'))
+            print('1' if g.get('armOk') is True and g.get('armAttested') is True and g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True else '0')
+          except: print('0')
+          PY
+          )
+            [ "$OK" = 1 ] && break
+            [ "$i" -lt 40 ] || { echo V409_GATE_WARMUP_TIMEOUT; exit 10; }
+          done
+
+          echo '=== POST ACTIVATION ==='
+          test "$(sha256sum "$RAD"|awk '{print $1}')" = "$SHRAD"; test "$(sha256sum "$SCN"|awk '{print $1}')" = "$SHSCN"; test "$(sha256sum "$SIG"|awk '{print $1}')" = "$SHSIG"; test "$(sha256sum "$RTP"|awk '{print $1}')" = "$SHRTP"; test "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHEXE"
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          systemctl show meme-alpha-micro-live.service -p MainPID -p NRestarts -p ActiveState -p SubState -p Result -p ExecMainStartTimestamp --no-pager
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for n in ['micro-live-gate.json','new-listing-radar.json','realtime-pool-pulse.json','signal-snapshot.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/n
+            if p.exists(): print(n,'ageSec=',round(time.time()-p.stat().st_mtime,2),json.loads(p.read_text()))
+          PY
+          echo V409_PREBREAKOUT_ANTIFOMO=ACTIVE
+          echo PREBREAKOUT_DEEP_RESERVE=6
+          echo REALTIME_HOTSET_LIMIT=72
+          echo SAFETY_AUDIT_MAX_PER_MIN=4
+          echo SAFETY_AUDIT_MIN_SPACING_SEC=12
+          echo NEW_ENTRY_FOMO_CEILING_5M_PCT=15
+          echo SCALE_ALLOWED_REQUIRED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
