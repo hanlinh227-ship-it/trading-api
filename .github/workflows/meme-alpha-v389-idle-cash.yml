@@ -11,30 +11,32 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Audit V390 idle capital consumption
+      - name: Trace V390 executor runtime
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; SRC="$APP/src/micro-live-executor.js"
-          echo '=== PRODUCTION ==='
-          sha256sum "$SRC"
-          grep -nE 'V390_IDLE_CAPITAL|holderSafe|IDLE_CAPITAL_SCALE|targetPlan\(beforeSol,st,existing,p.maxUtilizationPct' "$SRC" || true
-          echo '=== PROCESS_SERVICES ==='
-          pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo '=== GATE_PORTFOLIO ==='
-          python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json']:
-            p=rt/name
-            print('FILE',name,'exists',p.exists(),'readable',p.is_file() and p.exists())
-            if p.exists():
-              try: print(name,json.loads(p.read_text()),'ageSec',round(time.time()-p.stat().st_mtime,1))
-              except Exception as e: print(name,'READ_ERR',repr(e))
-          PY
-          echo '=== RECENT_EXECUTION ==='
-          journalctl -u meme-alpha-micro-live.service --since '2026-09-06 14:54:00 UTC' --no-pager -n 2000 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|CAPITAL_|BUY_TOKEN|SIGNER_|EXECUTOR_ERROR|TARGET_ALREADY|HEADROOM|ALLOCATION|IDLE_CAPITAL' | tail -500 || true
-          echo '=== PAPER_RECENT ==='
-          journalctl -u meme-alpha-paper.service --since '2026-09-06 14:54:00 UTC' --no-pager -n 300 2>/dev/null | tail -120 || true
-          echo V390_POST_ACTIVE_AUDIT=COMPLETE
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DATA=/var/lib/meme-alpha/data/micro-live
+          PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
+          echo PID="$PID"
+          [ -n "$PID" ] && ps -o pid,ppid,user,group,lstart,etime,cmd -p "$PID" || true
+          [ -n "$PID" ] && { PPID2="$(ps -o ppid= -p "$PID" | tr -d ' ')"; [ -n "$PPID2" ] && ps -o pid,ppid,user,group,lstart,etime,cmd -p "$PPID2" || true; } || true
+          echo '=== UNIT ==='
+          systemctl cat meme-alpha-micro-live.service || true
+          systemctl status meme-alpha-micro-live.service --no-pager -l || true
+          echo '=== DIR_PERMS ==='
+          ls -ld "$APP" "$APP/src" "$RT" /var/lib/meme-alpha /var/lib/meme-alpha/data "$DATA" 2>&1 || true
+          ls -la "$RT" | tail -80 || true
+          ls -la "$DATA" 2>&1 | tail -100 || true
+          echo '=== STATE_META ==='
+          stat "$DATA/state.json" 2>&1 || true
+          head -c 2000 "$DATA/state.json" 2>&1 || true
+          echo
+          echo '=== ENV_RELEVANT ==='
+          [ -n "$PID" ] && tr '\0' '\n' < "/proc/$PID/environ" 2>/dev/null | grep -Ei 'MEME|MICRO|DATA|STATE|NODE|HOME|USER' || true
+          echo '=== FD ==='
+          [ -n "$PID" ] && ls -l "/proc/$PID/fd" 2>/dev/null | tail -80 || true
+          echo '=== JOURNAL_ALL ==='
+          journalctl _PID="$PID" --since '2026-09-06 14:57:00 UTC' --no-pager -n 500 2>/dev/null || true
+          echo '=== RUNNER ==='
+          sed -n '1,240p' "$APP/run-paper.sh" || true
+          echo V390_RUNTIME_TRACE=COMPLETE
