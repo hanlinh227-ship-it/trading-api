@@ -153,3 +153,10 @@ Record:
 ## Important interpretation
 "Production active" does not mean guaranteed profit.
 Actual BUY/SELL must be confirmed by runtime/on-chain evidence before reporting it as fact.
+
+## 2026-09-06 12:09 UTC — verified baseline and V386 proposal
+
+Latest read-only audit: https://github.com/hanlinh227-ship-it/trading-api/actions/runs/34032286546
+Executor marker V382; scanner V385; 4 open positions; gate allowed=true; scaleAllowed=false. Signal snapshot count/probe/routed=0 at sample time. This supersedes older component-version snapshots above, not their historical records. No new on-chain trade confirmed.
+
+V386 pure portfolio policy: branch codex/meme-v386-cost-aware-policy; code/test commit b704a27e6827080bef9182ec07b344f3d808a0d0; 33/33 local unit tests PASS. NOT INTEGRATED / NOT DEPLOYED / NOT BACKTESTED. See ops/meme-alpha/v386/README.md on that branch for exact hashes, remaining integration and independent review requirements. Existing production untouched. Stored source snapshot V360 is not the live V382 source; previous snapshot-based entry-blocker claims are not proven for live production.
