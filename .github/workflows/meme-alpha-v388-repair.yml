@@ -10,23 +10,16 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect scanner loop and holder RPC client
+      - name: Inspect production signal insertion points
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; SRC="$APP/src"
-          echo '=== SCANNER ANALYZE ==='
-          sed -n '580,910p' "$SRC/scanner.js"
-          echo '=== SCANNER MAIN ==='
-          sed -n '1080,1215p' "$SRC/scanner.js"
-          echo '=== HOLDER RPC CLIENT ==='
-          sed -n '1,450p' "$SRC/holder-cluster.js"
-          echo '=== RUNTIME CONFIG SAFE KEYS ==='
-          python3 - <<'PY'
-          import json,pathlib
-          p=pathlib.Path('/opt/meme-alpha/app/config/runtime.json'); d=json.loads(p.read_text())
-          for k,v in d.items():
-            if any(x in k.lower() for x in ['key','secret','token','private','seed']): continue
-            if isinstance(v,(str,int,float,bool)) or v is None: print(k,repr(v))
-          PY
-          echo V388_LOOP_RPC_INSPECT=COMPLETE
+          SRC=/opt/meme-alpha/app/src
+          echo '=== SIGNAL MARKERS ==='
+          grep -nE 'guardCandidate|candidates|map\(|for \(|writeFile|signal-snapshot|holderCluster|securityDecision|sellRoute|PROBE_CANDIDATE|routeCandidate|main|async' "$SRC/safe-signal-export.js" | head -260 || true
+          echo '=== SIGNAL GUARD AREA ==='
+          n=$(grep -n 'function guardCandidate' "$SRC/safe-signal-export.js" | head -1 | cut -d: -f1 || true)
+          if [ -n "$n" ]; then a=$((n-80)); [ "$a" -lt 1 ] && a=1; b=$((n+260)); sed -n "${a},${b}p" "$SRC/safe-signal-export.js"; fi
+          echo '=== SIGNAL TAIL ==='
+          tail -260 "$SRC/safe-signal-export.js"
+          echo V388_SIGNAL_INSERTION_INSPECT=COMPLETE
