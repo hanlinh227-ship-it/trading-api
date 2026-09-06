@@ -14,6 +14,9 @@ trap cleanup EXIT
 exec 7>"$LOCK"
 if ! flock -n 7; then echo 'MEME_V378_DEPLOY=DEFER_LOCK_BUSY'; exit 0; fi
 for f in "$EXECUTOR" "$PATCHER"; do [[ -f "$f" ]] || { echo "MEME_V378_DEPLOY=DEFER_MISSING_FILE name=$(basename "$f")"; exit 0; }; done
+# v3.79 is a strict successor of v3.78. Never downgrade a live v3.79 executor
+# when this legacy root hook is invoked only to reconcile an older maintenance state.
+if grep -q 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$EXECUTOR"; then echo 'MEME_V378_DEPLOY=ALREADY_SUPERSEDED_BY_V379'; exit 0; fi
 if grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXECUTOR"; then echo 'MEME_V378_DEPLOY=ALREADY_APPLIED'; exit 0; fi
 cp -a "$EXECUTOR" "$TMP/micro-live-executor.js"
 python3 "$PATCHER" "$TMP/micro-live-executor.js"
