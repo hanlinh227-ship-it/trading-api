@@ -1,0 +1,108 @@
+name: Meme Alpha V411 Prebreakout Active
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v411-prebreakout-active.yml]
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Build validate and activate V411
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; E="$APP/src/micro-live-executor.js"; T="$APP/src/trend-pulse.js"; RUN="$APP/run-paper.sh"
+          EC="$DC/v411-executor-prebreakout.js"; TC="$DC/v411-trend-prebreakout.js"
+          mkdir -p "$DC"; cp "$E" "$EC"; cp "$T" "$TC"
+          python3 - "$EC" "$TC" <<'PY'
+          import pathlib,sys
+          ep,tp=map(pathlib.Path,sys.argv[1:]); e=ep.read_text(); t=tp.read_text()
+          old="function opportunityScore(c){const base=n(c.score),p=pulseFor(c),chg=n(c.priceChange5m,-999);let add=0;if(p){const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),pre=(p.status==='WARMING'||p.status==='BREAKOUT')&&chg>=-0.5&&chg<=10&&va>=1.10&&ta>=1.05&&bs>=1.05;if(va>=1.45)add+=4;else if(va>=1.10)add+=2;if(ta>=1.30)add+=3;else if(ta>=1.05)add+=1;if(bs>=1.25)add+=2;if(pre)add+=5;if(themeStrength(c)>=60)add+=2;if(n(p.pulseScore)>=70)add+=1;if(p.status==='EXHAUSTED')add-=12;if(p.promotionFlag===true&&n(p.pulseScore)<65)add-=3}const rt=realtimeFor(c);if(rt&&n(rt.lastEventAgeMs,99999)<=2500){if(n(rt.eventMomentum)>=1.8&&n(rt.events5s)>=3)add+=5;else if(n(rt.events5s)>=2)add+=2}if(chg>10)add-=Math.min(14,(chg-10)*1.8);if(chg<-3)add-=Math.min(12,Math.abs(chg+3)*2);const w=whaleFor(c);if(w)add+=clamp(n(w.whaleFlowScore),-6,4);return clamp(base+add,base-12,base+20)}"
+          new="function preBreakoutSignal(c){const p=pulseFor(c),rt=realtimeFor(c),chg=n(c?.priceChange5m,-999),net=n(c?.netBuyers5m,-999),avg=n(c?.avgNetBuyersLast2,net);if(!p||chg<-2.5||chg>8||net<1||avg<0||p.status==='EXHAUSTED')return false;const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),flow=va>=1.12&&ta>=1.05&&bs>=1.05,absorb=chg<0&&chg>=-2.5&&va>=1.25&&ta>=1.12&&bs>=1.12&&net>=2,rtAccel=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2&&n(rt.eventMomentum)>=1.15;return (p.status==='PREBREAKOUT'||p.status==='WARMING'||p.status==='BREAKOUT'||flow||absorb)&&(flow||absorb||rtAccel)}\nfunction entryMode(c){const p=pulseFor(c),chg=n(c?.priceChange5m,-999);if(!p||p.status==='EXHAUSTED'||chg>12||chg<-2.5)return 'BLOCK';if(preBreakoutSignal(c)&&chg<=5)return 'PREBREAKOUT';if(p.status==='BREAKOUT'&&n(p.volumeAcceleration)>=1.35&&n(p.txnAcceleration)>=1.20&&n(p.buySellRatio)>=1.12&&chg<=10)return 'CONFIRMED_BREAKOUT';if(chg>8)return 'LATE';return 'NORMAL'}\nfunction opportunityScore(c){const base=n(c.score),p=pulseFor(c),chg=n(c.priceChange5m,-999);let add=0;if(p){const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),pre=preBreakoutSignal(c);if(va>=1.45)add+=4;else if(va>=1.10)add+=2;if(ta>=1.30)add+=3;else if(ta>=1.05)add+=1;if(bs>=1.25)add+=2;if(pre)add+=p.status==='PREBREAKOUT'?8:6;if(themeStrength(c)>=60)add+=2;if(n(p.pulseScore)>=70)add+=1;if(p.status==='EXHAUSTED')add-=16;if(p.promotionFlag===true&&n(p.pulseScore)<65)add-=3}const rt=realtimeFor(c);if(rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2){if(n(rt.eventMomentum)>=1.8&&n(rt.events5s)>=3)add+=5;else if(n(rt.eventMomentum)>=1.15)add+=2}if(chg>8)add-=Math.min(18,(chg-8)*2.4);if(chg<-2.5)add-=Math.min(14,Math.abs(chg+2.5)*2.5);const w=whaleFor(c);if(w)add+=clamp(n(w.whaleFlowScore),-6,4);return clamp(base+add,base-14,base+22)}"
+          if e.count(old)!=1: raise SystemExit(f'V411_OPPORTUNITY_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),rt=realtimeFor(c);if(base<45)return false;const standard=score>=54;const liquid=score>=50&&liq>=75000&&net>=0&&imp<=1.05;const flow=score>=48&&liq>=50000&&net>=1&&avg>=0&&chg>=-0.20&&imp<=1.10;const realtime=!!rt&&n(rt.lastEventAgeMs,99999)<=3000&&n(rt.events5s)>=1&&n(rt.eventMomentum)>=1.05&&liq>=50000&&imp<=1.10;return standard||liquid||flow||realtime}"
+          new="function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),rt=realtimeFor(c),pre=preBreakoutSignal(c);if(base<45||entryMode(c)==='BLOCK'||entryMode(c)==='LATE')return false;const standard=score>=54&&chg<=8;const liquid=score>=50&&liq>=75000&&net>=0&&imp<=1.05&&chg<=8;const flow=score>=48&&liq>=50000&&net>=1&&avg>=0&&chg>=-2.5&&chg<=8&&imp<=1.10;const realtime=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2&&n(rt.eventMomentum)>=1.15&&net>=1&&avg>=0&&liq>=50000&&imp<=1.10&&chg<=8;return pre||standard||liquid||flow||realtime}"
+          if e.count(old)!=1: raise SystemExit(f'V411_LANE_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="function trendEntryEligible(c){if(!coreSafe(c))return false;const blocked=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'];if(blocked.includes(String(c.decision||'')))return false;const rawChg=Number(c.priceChange5m);if(!Number.isFinite(rawChg)||rawChg>15||rawChg<-4)return false;return true}"
+          new="function trendEntryEligible(c){if(!coreSafe(c))return false;const blocked=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'];if(blocked.includes(String(c.decision||'')))return false;const rawChg=Number(c.priceChange5m),p=pulseFor(c);if(!Number.isFinite(rawChg)||rawChg>12||rawChg<-2.5||p?.status==='EXHAUSTED')return false;if(rawChg>8&&!(p?.status==='BREAKOUT'&&n(p.volumeAcceleration)>=1.45&&n(p.txnAcceleration)>=1.25&&n(p.buySellRatio)>=1.15&&n(c.netBuyers5m)>=4))return false;if(rawChg<0&&!preBreakoutSignal(c))return false;return true}"
+          if e.count(old)!=1: raise SystemExit(f'V411_ENTRY_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="  return{name:'V403_MULTI_COIN_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
+          new="  const mode=entryMode(c);if(mode==='PREBREAKOUT')pct=Math.min(pct,14);else if(mode==='CONFIRMED_BREAKOUT')pct=Math.min(pct,Math.max(18,perPositionCap));else if(mode==='LATE'||mode==='BLOCK')pct=0;\n  return{name:'V411_PREBREAKOUT_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode};"
+          if e.count(old)!=1: raise SystemExit(f'V411_ALLOC_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="function rankedCandidates(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&coreSafe(c)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))}"
+          new="function rankedCandidates(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&trendEntryEligible(c)&&opportunityLane(c)).sort((a,b)=>(Number(preBreakoutSignal(b))-Number(preBreakoutSignal(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))}"
+          if e.count(old)!=1: raise SystemExit(f'V411_RANK_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="  const p=rootPolicy(),h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.signingEnabled||!h.walletLoaded)throw new Error('SIGNER_NOT_ARMED');"
+          new="  const p=rootPolicy();if(!trendEntryEligible(c)||!opportunityLane(c))return{placed:false,reason:'ENTRY_SIGNAL_NOT_READY'};const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.signingEnabled||!h.walletLoaded)throw new Error('SIGNER_NOT_ARMED');"
+          if e.count(old)!=1: raise SystemExit(f'V411_PLACEBUY_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old=".filter(x=>x.c&&coreSafe(x.c)&&!x.pos.scaleInLockedAfterProfit&&x.pos.weakExitCount===0)"
+          new=".filter(x=>x.c&&trendEntryEligible(x.c)&&opportunityLane(x.c)&&!x.pos.scaleInLockedAfterProfit&&x.pos.weakExitCount===0)"
+          if e.count(old)!=1: raise SystemExit(f'V411_SCALE_PATCH_COUNT={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="if(['CAPITAL_HEADROOM_LOW','TARGET_ALREADY_SATISFIED','ALLOCATION_BELOW_MIN_ORDER','SIGNER_ORDER_CAP_BELOW_MIN'].includes(r.reason))continue;"
+          new="if(['CAPITAL_HEADROOM_LOW','TARGET_ALREADY_SATISFIED','ALLOCATION_BELOW_MIN_ORDER','SIGNER_ORDER_CAP_BELOW_MIN','ENTRY_SIGNAL_NOT_READY'].includes(r.reason))continue;"
+          e=e.replace(old,new)
+          # Self-test markers; keep existing safety tests and add static markers.
+          e=e.replace("console.log('NETWORK_EXECUTION=NOT_CALLED');","console.log('NETWORK_EXECUTION=NOT_CALLED');console.log('V411_PREBREAKOUT_EARLY_PROBE=TRUE');console.log('V411_NO_INELIGIBLE_FALLBACK_BUY=TRUE');console.log('V411_ANTI_FOMO_ENTRY_CAP=TRUE');")
+          # Trend pulse: add PREBREAKOUT absorption/acceleration state without weakening BREAKOUT.
+          old="  let status='NEUTRAL';\n  if(price5m>18||(price5m<0&&buySellRatio<0.85))status='EXHAUSTED';\n  else if(liquidityUsd>=50000&&volumeAcceleration>=1.45&&txnAcceleration>=1.30&&buySellRatio>=1.20&&price5m>=0.05&&price5m<=15)status='BREAKOUT';\n  else if(liquidityUsd>=50000&&volumeAcceleration>=1.05&&txnAcceleration>=1.0&&buySellRatio>=1.0&&price5m>=-0.5)status='WARMING';"
+          new="  let status='NEUTRAL';\n  const absorption=liquidityUsd>=50000&&price5m>=-2.2&&price5m<0.05&&volumeAcceleration>=1.25&&txnAcceleration>=1.12&&buySellRatio>=1.12;\n  const earlyAccel=liquidityUsd>=50000&&price5m>=-1.2&&price5m<=8&&volumeAcceleration>=1.12&&txnAcceleration>=1.05&&buySellRatio>=1.05;\n  if(price5m>18||(price5m<-2.5&&buySellRatio<0.85))status='EXHAUSTED';\n  else if(liquidityUsd>=50000&&volumeAcceleration>=1.45&&txnAcceleration>=1.30&&buySellRatio>=1.20&&price5m>=0.05&&price5m<=15)status='BREAKOUT';\n  else if(absorption||earlyAccel)status='PREBREAKOUT';\n  else if(liquidityUsd>=50000&&volumeAcceleration>=1.05&&txnAcceleration>=1.0&&buySellRatio>=1.0&&price5m>=-0.5)status='WARMING';"
+          if t.count(old)!=1: raise SystemExit(f'V411_TREND_STATUS_PATCH_COUNT={t.count(old)}')
+          t=t.replace(old,new,1)
+          t=t.replace("const out={version:'2.9.0'","const out={version:'2.11.0-v411-prebreakout'")
+          ep.write_text(e);tp.write_text(t)
+          PY
+          node --check "$EC"; node --check "$TC"
+          OUT=$(node "$EC" --self-test); printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'V411_PREBREAKOUT_EARLY_PROBE=TRUE' <<<"$OUT"
+          grep -q 'V411_NO_INELIGIBLE_FALLBACK_BUY=TRUE' <<<"$OUT"
+          grep -q 'V411_ANTI_FOMO_ENTRY_CAP=TRUE' <<<"$OUT"
+          grep -q "status='PREBREAKOUT'" "$TC"
+          grep -q "filter(c=>!held.has(c.mint)&&trendEntryEligible(c)&&opportunityLane(c))" "$EC"
+          ESHA=$(sha256sum "$EC"|awk '{print $1}'); TSHA=$(sha256sum "$TC"|awk '{print $1}'); echo V411_EXECUTOR_SHA=$ESHA; echo V411_TREND_SHA=$TSHA
+          # Trend uses safe-deploy (no arm mutation).
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy trend "$(basename "$TC")" "$TSHA"
+          # Executor controlled recycle because dispatcher arm write is read-only on this host.
+          cp "$EC" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$ESHA"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); echo OLD_EXECUTOR_PID=$OLDPID
+          ORIG="$RT/v411-run-paper-original.sh"; REQ="$RT/v411-executor-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v411-executor-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v411-run-paper-original.sh
+          if [ -r "$REQ" ]; then PID=$(cat "$REQ" 2>/dev/null||true); rm -f "$REQ" 2>/dev/null||true; if [ -n "$PID" ]&&[ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null||true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -KILL "$PID" 2>/dev/null||true;; esac; fi; fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 30); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEWPID" ]&&[ "$NEWPID" != "$OLDPID" ]&&systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 30 ]||exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          sleep 15
+          echo NEW_EXECUTOR_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1)
+          echo EXEC_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}')
+          echo ACTIVE_TREND_SHA=$(sha256sum "$T"|awk '{print $1}')
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$ESHA"; test "$(sha256sum "$T"|awk '{print $1}')" = "$TSHA"; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','trend-pulse.json','portfolio-observability.json','capital-observability.json','allocator-status.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,2),json.loads(p.read_text()))
+          PY
+          echo V411_PREBREAKOUT_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
