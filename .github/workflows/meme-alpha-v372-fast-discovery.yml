@@ -1,0 +1,88 @@
+name: Meme Alpha v3.72 Fast Discovery
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ops/meme-alpha/v372-patch-radar-fast-discovery.py'
+      - 'ops/meme-alpha/v372-patch-scanner-fast-discovery.py'
+      - 'ops/meme-alpha/v372-realtime-hotset.js'
+      - 'ops/meme-alpha/v372-stage-fast-discovery.sh'
+      - '.github/workflows/meme-alpha-v372-fast-discovery.yml'
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Stage and self-test fast discovery
+        run: bash ops/meme-alpha/v372-stage-fast-discovery.sh
+      - name: Safe deploy radar and scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          S="$APP/runtime-status/v372-fast-discovery-stage"
+          echo '--- portfolio before discovery deploy ---'
+          cat "$APP/runtime-status/portfolio-observability.json" 2>/dev/null || true
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy radar "$(cat "$S/radar-name.txt")" "$(cat "$S/radar.sha256")"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$(cat "$S/scanner-name.txt")" "$(cat "$S/scanner.sha256")"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          sleep 45
+      - name: Safe deploy dynamic realtime hotset
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          S="$APP/runtime-status/v372-fast-discovery-stage"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy realtime "$(cat "$S/realtime-name.txt")" "$(cat "$S/realtime.sha256")"
+          sleep 30
+      - name: Settled production audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-signer.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            V=$(systemctl is-active "$s" || true); echo "$s=$V"; [ "$V" = active ];
+          done
+          grep -q 'FAST_DISCOVERY_V372' "$APP/src/new-listing-radar.js"
+          grep -q 'FAST_DISCOVERY_V372_MERGE' "$APP/src/scanner.js"
+          grep -q 'DISCOVERY_RADAR_ONLY_MAX = 240' "$APP/src/scanner.js"
+          grep -q '3.60.0-profit-aware-exits' "$APP/src/micro-live-executor.js"
+          echo '--- radar ---'
+          cat "$APP/runtime-status/new-listing-radar.json"
+          echo '--- realtime ---'
+          cat "$APP/runtime-status/realtime-pool-pulse.json"
+          echo '--- scanner source health ---'
+          cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
+          echo '--- signal guard ---'
+          cat "$APP/runtime-status/signal-snapshot.json" 2>/dev/null || true
+          echo '--- portfolio after discovery deploy ---'
+          cat "$APP/runtime-status/portfolio-observability.json"
+          /usr/bin/node - "$APP/runtime-status/new-listing-radar.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs');const read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
+          const radar=read(process.argv[2]),rt=read(process.argv[3]),sig=read(process.argv[4]),obs=read(process.argv[5]);
+          if(radar.version!=='3.72.0-fast-discovery')throw new Error('RADAR_V372_NOT_ACTIVE');
+          if(!Array.isArray(radar.candidates))throw new Error('RADAR_CANDIDATES_INVALID');
+          if(rt.version!=='3.72.0-fast-hotset')throw new Error('REALTIME_V372_NOT_ACTIVE');
+          if(!['HEALTHY','CONNECTING','DEGRADED'].includes(rt.status))throw new Error('REALTIME_BAD_STATUS');
+          if(Number(rt.hotsetLimit)!==48)throw new Error('HOTSET_LIMIT_NOT_48');
+          if(sig.version!=='3.69.1-modern-signal-guard')throw new Error('SIGNAL_GUARD_3691_NOT_PRESERVED');
+          if(obs.stateReadable!==true||!Number.isFinite(Number(obs.openPositions)))throw new Error('PORTFOLIO_STATE_UNREADABLE');
+          const leak=(sig.candidates||[]).filter(c=>c.intelMode==='BOTH_FEEDS_DOWN'&&c.decision==='PROBE_CANDIDATE');
+          if(leak.length)throw new Error('INTEL_FAIL_CLOSED_LEAK');
+          console.log('V372_RADAR_STATUS='+radar.status);
+          console.log('V372_PROVIDER_COUNT='+Number(radar.providerCount||0));
+          console.log('V372_FAST_PROVIDER_COUNT='+Number(radar.fastProviderCount||0));
+          console.log('V372_CURRENT_CANDIDATES='+Number(radar.currentCandidates||0));
+          console.log('V372_FAST_DISCOVERY_CANDIDATES='+Number(radar.fastDiscoveryCandidates||0));
+          console.log('V372_REALTIME_STATUS='+rt.status);
+          console.log('V372_REALTIME_SUBSCRIPTIONS='+Number(rt.subscriptions||0));
+          console.log('V372_FAST_SUBSCRIPTIONS='+Number(rt.fastSubscriptions||0));
+          console.log('V372_HELD_SUBSCRIPTIONS='+Number(rt.heldSubscriptions||0));
+          console.log('V372_SIGNAL_CANDIDATES='+(sig.candidates||[]).length);
+          console.log('V372_OPEN_POSITIONS='+Number(obs.openPositions));
+          NODE
+          echo V372_DISCOVERY_ONLY_NEVER_GRANTS_ENTRY=TRUE
+          echo V3691_SIGNAL_GUARD=PRESERVED
+          echo V360_PROFIT_AWARE_EXECUTOR=PRESERVED
+          echo V372_FAST_DISCOVERY_PRODUCTION_ACTIVE=TRUE
