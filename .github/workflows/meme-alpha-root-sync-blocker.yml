@@ -1,0 +1,66 @@
+name: Meme Alpha Root Sync Blocker
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-root-sync-blocker.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Classify blocker without exposing trade details
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/ROOT-SYNC-BLOCKER.md"
+          ROOT=/opt/trading/trading-api
+          WATCHLOG="$ROOT/auto-futures-v1/logs/github_watch.log"
+          UPDATELOG="$ROOT/auto-futures-v1/logs/auto_update.log"
+          EXPECT=400bb05a43b1f79d8cca902335f5cc044c9533bf
+          LOCAL="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo UNKNOWN)"
+          REMOTE="$(git ls-remote https://github.com/hanlinh227-ship-it/trading-api.git refs/heads/auto-futures-v1 2>/dev/null | awk '{print $1}' || true)"
+          [[ -n "$REMOTE" ]] || REMOTE=UNKNOWN
+          REASON=UNKNOWN
+          if [[ "$LOCAL" == "$EXPECT" ]]; then
+            REASON=SYNCED
+          elif grep -q 'DEPLOY_DEFER open_live=' "$UPDATELOG" 2>/dev/null; then
+            REASON=FUTURES_SAFETY_PREFLIGHT_DEFER
+          elif grep -q 'DEPLOY_LOCK_BUSY' "$UPDATELOG" 2>/dev/null; then
+            REASON=UPDATER_LOCK_BUSY
+          elif grep -q 'UPDATE FAILED' "$UPDATELOG" 2>/dev/null; then
+            REASON=UPDATER_LAST_ERROR
+          elif grep -q 'STARTING SAFE UPDATE' "$WATCHLOG" 2>/dev/null; then
+            REASON=UPDATE_ATTEMPTED_NOT_YET_SYNCED
+          fi
+          TIMER="$(systemctl is-active auto-futures-update.timer 2>/dev/null || echo unknown)"
+          SERVICE="$(systemctl is-failed auto-futures-update.service 2>/dev/null || true)"
+          cat > "$OUT" <<EOF
+          # Meme Alpha Root Sync Blocker
+
+          - local_matches_v377_hook_commit: \`$([[ "$LOCAL" == "$EXPECT" ]] && echo true || echo false)\`
+          - remote_branch_at_v377_hook_commit: \`$([[ "$REMOTE" == "$EXPECT" ]] && echo true || echo false)\`
+          - blocker_category: \`$REASON\`
+          - updater_timer: \`$TIMER\`
+          - updater_service_failed_state: \`${SERVICE:-unknown}\`
+          - checked_at_utc: \`$(date -u +%FT%TZ)\`
+          EOF
+      - name: Commit classification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/ROOT-SYNC-BLOCKER.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): record root updater sync blocker"
+          git push origin HEAD:main
