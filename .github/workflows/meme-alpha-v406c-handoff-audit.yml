@@ -9,34 +9,17 @@ permissions:
 jobs:
   audit:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Inspect active process and handoff controls
+      - name: Inspect safe deploy executor path
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"
-          echo '=== TIME ==='; date -u +%FT%TZ
-          echo '=== SOURCE / PID ==='
-          sha256sum "$EXE" || true
+          echo '=== SAFE DEPLOY SOURCE ==='
+          sed -n '1,320p' /usr/local/sbin/meme-alpha-safe-deploy
+          echo '=== MICRO LIVE UNIT ==='
+          systemctl cat meme-alpha-micro-live.service --no-pager || true
+          echo '=== CURRENT PID/SHA ==='
           pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
-          systemctl show meme-alpha-micro-live.service -p MainPID -p ActiveState -p SubState -p Restart -p NRestarts -p ExecMainStartTimestamp -p ExecMainPID --no-pager || true
-          systemctl show meme-alpha-paper.service -p MainPID -p ActiveState -p SubState -p Restart -p NRestarts -p ExecMainStartTimestamp -p ExecMainPID --no-pager || true
-          echo '=== PAPER UNIT / RUN SCRIPT ==='
-          systemctl cat meme-alpha-paper.service --no-pager || true
-          sed -n '1,260p' "$APP/run-paper.sh" 2>&1 || true
-          echo '=== SAFE DEPLOY DISPATCHER META ==='
-          ls -l /usr/local/sbin/meme-alpha-safe-deploy || true
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
-          echo '=== V406 BACKUPS ==='
-          ls -lt "$RT"/v406*-executor-backup-*.js 2>/dev/null | head -10 || true
-          for f in $(ls -t "$RT"/v406*-executor-backup-*.js 2>/dev/null | head -3); do sha256sum "$f"; done
-          echo '=== CURRENT GATE/PORTFOLIO ==='
-          python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
-            p=rt/name
-            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
-          PY
-          echo V406C_HANDOFF_AUDIT=COMPLETE
+          sha256sum /opt/meme-alpha/app/src/micro-live-executor.js || true
+          echo V406C_DISPATCHER_AUDIT=COMPLETE
