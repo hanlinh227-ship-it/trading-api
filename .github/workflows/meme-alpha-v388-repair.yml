@@ -10,29 +10,34 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect source-health and signal pipeline
+      - name: Compact live diagnosis
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app
-          SRC="$APP/src"
-          RT="$APP/runtime-status"
-          echo '=== SAFE SIGNAL SOURCE ==='
-          sed -n '1,280p' "$SRC/safe-signal-export.js"
-          echo '=== GATE SOURCE ==='
-          sed -n '1,260p' "$SRC/micro-live-gate.js"
-          echo '=== SCANNER SOURCE ==='
-          sed -n '1,260p' "$SRC/scanner.js"
-          echo '=== RUN PAPER ==='
-          sed -n '1,260p' "$APP/run-paper.sh"
-          echo '=== UNIVERSE ==='
-          cat "$RT/universe.json" || true
-          echo '=== RADAR ==='
-          cat "$RT/new-listing-radar.json" || true
-          echo '=== PULSE ==='
-          cat "$RT/realtime-pool-pulse.json" || true
-          echo '=== TREND ==='
-          cat "$RT/trend-pulse.json" || true
-          echo '=== WHALE ==='
-          cat "$RT/whale-flow-intel.json" || true
-          echo V388_INSPECT=COMPLETE
+          APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"
+          echo '=== PROCESSES ==='
+          pgrep -af 'scanner.js|safe-signal-export.js|new-listing-radar|realtime-pool-pulse|trend-pulse|whale-flow-intel|micro-live-gate|micro-live-executor' || true
+          echo '=== SIGNAL LOGIC ==='
+          grep -nE 'function .*guard|function .*route|sourceHealthy|SOURCE_HEALTH|riskEntryAllowed|candidates|universe|radar|PROBE_CANDIDATE|classificationOverride|writeFile|signal-snapshot' "$SRC/safe-signal-export.js" | head -180 || true
+          echo '=== GATE LOGIC ==='
+          grep -nE 'sourceHealthy|SOURCE_HEALTH|riskEntryAllowed|liveRiskReady|allowed|candidate|signal|scaleAllowed' "$SRC/micro-live-gate.js" | head -140 || true
+          echo '=== SCANNER LOGIC ==='
+          grep -nE 'universe|candidate|snapshot|writeFile|radar|scan|filter' "$SRC/scanner.js" | head -180 || true
+          echo '=== RUNTIME SUMMARY ==='
+          python3 - <<'PY'
+          import json,pathlib,time,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for fn in ['universe.json','new-listing-radar.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json','signal-snapshot.json','micro-live-gate.json','portfolio-observability.json']:
+            p=rt/fn
+            print('\n',fn,'exists',p.exists(),'age',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
+            if not p.exists(): continue
+            try:d=json.loads(p.read_text())
+            except Exception as e: print('parse',e); continue
+            print('keys',list(d)[:30] if isinstance(d,dict) else type(d).__name__)
+            if isinstance(d,dict):
+              for k,v in d.items():
+                if isinstance(v,list): print('list',k,len(v),'samplekeys',list(v[0])[:30] if v and isinstance(v[0],dict) else None)
+              for k in ['version','status','healthy','sourceHealthy','allowed','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons','updatedAt','timestamp','source','executionMode','openPositions']:
+                if k in d: print(k,repr(d[k]))
+          PY
+          echo V388_COMPACT_DIAG=COMPLETE
