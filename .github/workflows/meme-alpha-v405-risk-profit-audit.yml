@@ -9,46 +9,19 @@ permissions:
 jobs:
   audit:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Audit resilience and position management
+      - name: Inspect exact profit plan and exit timing
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; EXE="$APP/src/micro-live-executor.js"; RT="$APP/runtime-status"
-          echo '=== TIME ==='; date -u +%FT%TZ
-          echo '=== LIVE SERVICES ==='
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
-            echo "--- $s ---"
-            systemctl show "$s" -p ActiveState -p SubState -p MainPID -p Restart -p RestartUSec -p NRestarts -p StartLimitIntervalUSec -p StartLimitBurst -p Result -p ExecMainStatus --no-pager || true
-          done
-          echo '=== EXECUTOR LOOP / ERROR HANDLING ==='
-          grep -nE 'async function loop|function loop|setTimeout\(loop|process\.on|uncaughtException|unhandledRejection|globalBuyError|catch\(e\)|catch \(e\)' "$EXE" | tail -120 || true
-          echo '=== PROFIT / RISK FUNCTIONS ==='
-          grep -nE 'function hardSafetyBroken|function softTrendWeak|function severeTrendBreak|async function previewExitReturn|async function sellFraction|async function manage|async function safetyPass|async function maybeRotate|profitProtect|tp1Done|tp2Done|tp3Done|weakExit|peakReturnPct|lastReturnPct|ROTATION|HARD_SAFETY_BREAK|PROFIT' "$EXE" | head -280 || true
-          echo '=== MANAGEMENT SOURCE BLOCK ==='
-          L=$(grep -n 'async function safetyPass' "$EXE"|head -1|cut -d: -f1 || true)
-          if [ -n "$L" ]; then S=$((L-90)); [ $S -lt 1 ] && S=1; E=$((L+170)); sed -n "${S},${E}p" "$EXE"; fi
-          echo '=== POLICY CONSTANTS ==='
-          grep -nE 'TP|PROFIT|TRAIL|WEAK|LOSS|STOP|ROTATE|MIN_|MAX_|RETURN|DRAWDOWN|EXIT|HOLD|SCALE' "$EXE" | head -260 || true
-          echo '=== RUNTIME SNAPSHOTS ==='
-          python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','signal-snapshot.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
-            p=rt/name
-            if not p.exists(): print(name,'MISSING'); continue
-            try: d=json.loads(p.read_text())
-            except Exception as e: print(name,'BAD_JSON',e); continue
-            print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),d)
-          print('FILES')
-          for p in sorted(rt.glob('*.json')):
-            print(p.name,p.stat().st_size,round(time.time()-p.stat().st_mtime,1))
-          PY
-          echo '=== UNIT FILES ==='
-          systemctl cat meme-alpha-micro-live.service --no-pager || true
-          systemctl cat meme-alpha-signer.service --no-pager || true
-          echo '=== DISK/MEM ==='
-          df -h / /opt /var/lib 2>/dev/null || true
-          free -m || true
-          echo V405_RISK_PROFIT_AUDIT=COMPLETE
+          EXE=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== CORE RISK/PROFIT LOGIC LINES 85-130 ==='
+          sed -n '85,130p' "$EXE"
+          echo '=== MANAGE / ROTATION LINES 220-290 ==='
+          sed -n '220,290p' "$EXE"
+          echo '=== TOP CONSTANTS / POLICY READER ==='
+          sed -n '1,48p' "$EXE"
+          echo '=== CURRENT EXECUTOR SHA ==='
+          sha256sum "$EXE"
+          echo V405_PROFIT_PLAN_DETAIL=COMPLETE
