@@ -1,48 +1,47 @@
-name: Meme Alpha V385 Cluster Activate
+name: Meme Alpha V385 Recovery
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/meme-alpha-v384-direct-activate.yml'
-      - '.github/scripts/patch_v385_scanner.py'
+    paths: ['.github/workflows/meme-alpha-v384-direct-activate.yml']
 jobs:
-  activate:
+  recover:
     runs-on: self-hosted
-    timeout-minutes: 4
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Activate sequential cluster scanner safely
+      - name: Restart scanner pipeline and verify recovery
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          SRC="$APP/src/scanner.js"
-          SIGNAL="$APP/src/safe-signal-export.js"
-          BASE="$APP/runtime-status/deploy-candidates"
-          NAME=v385-scanner.js
-          STAGE="$BASE/$NAME"
-          mkdir -p "$BASE"
-          cp -a "$SRC" "$STAGE"
-          python3 .github/scripts/patch_v385_scanner.py "$STAGE"
-          node --check "$STAGE"
-          echo '=== STAGED V385 MARKERS ==='
-          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|V385_BUCKET_INDEX|MAX_SELLABILITY_CHECKS_V216' "$STAGE"
-          grep -q 'V385_SEQUENTIAL_CLUSTER_SCAN' "$STAGE"
-          grep -q 'V385_CLUSTER_SIZE' "$STAGE"
-          grep -q 'MAX_SELLABILITY_CHECKS_V216=8' "$STAGE"
-          grep -q 'NO_SELL_ROUTE' "$STAGE"
-          grep -qi 'token2022' "$STAGE"
-          grep -q 'DEX_LIQUIDITY_FAIL' "$STAGE"
-          # Security/holder hard gates live in safe-signal, not scanner scheduling.
-          grep -q 'securityDecision' "$SIGNAL"
-          grep -q 'holderClusterDecision' "$SIGNAL"
-          grep -q 'sellRoute' "$SIGNAL"
-          grep -qi 'token2022' "$SIGNAL"
-          SHA=$(sha256sum "$STAGE" | awk '{print $1}')
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$NAME" "$SHA"
-          echo '=== VERIFY ACTIVE ==='
-          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|V385_BUCKET_INDEX|MAX_SELLABILITY_CHECKS_V216' "$SRC"
+          echo '=== BEFORE ==='
+          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|MAX_SELLABILITY_CHECKS_V216' "$APP/src/scanner.js" || true
+          python3 -c "import json; d=json.load(open('$APP/runtime-status/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']})" || true
+          echo '=== RESTART PAPER/SCANNER ==='
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          sleep 4
           sudo -n /bin/systemctl is-active meme-alpha-paper.service
-          sleep 20
-          python3 -c "import json,os,time; p='$APP/runtime-status/signal-snapshot.json'; d=json.load(open(p)); print({'signalAgeSec':round(time.time()-os.path.getmtime(p),1),'count':len(d.get('candidates') or []),'probe':(d.get('intelSummary') or {}).get('probeCandidates'),'routed':(d.get('intelSummary') or {}).get('routedCandidates')})"
-          python3 -c "import json; d=json.load(open('$APP/runtime-status/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']}); assert d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True"
+          echo '=== SERVICES ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
+          echo '=== WAIT LIVE HEALTH ==='
+          ok=0
+          for i in $(seq 1 30); do
+            sleep 3
+            python3 - <<'PY' && { ok=1; break; } || true
+import json, os, time
+app='/opt/meme-alpha/app/runtime-status'
+g=json.load(open(app+'/micro-live-gate.json'))
+s=json.load(open(app+'/signal-snapshot.json'))
+print({'gate':{k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']},'signalAgeSec':round(time.time()-os.path.getmtime(app+'/signal-snapshot.json'),1),'signalCount':len(s.get('candidates') or []),'intelSummary':s.get('intelSummary')})
+assert g.get('armOk') is True
+assert g.get('armAttested') is True
+assert g.get('executionMode') == 'MICRO_LIVE'
+assert g.get('sourceHealthy') is True
+assert g.get('riskEntryAllowed') is True
+assert g.get('liveRiskReady') is True
+assert g.get('allowed') is True
+assert time.time()-os.path.getmtime(app+'/signal-snapshot.json') < 45
+PY
+          done
+          [ "$ok" -eq 1 ] || { echo LIVE_RECOVERY=FALSE; exit 1; }
+          echo LIVE_RECOVERY=TRUE
