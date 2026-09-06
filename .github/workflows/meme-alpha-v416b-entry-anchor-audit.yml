@@ -1,0 +1,19 @@
+name: Meme Alpha V416B Entry Anchor Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v416b-entry-anchor-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Inspect entry mode and router anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          nl -ba "$E" | sed -n '60,130p'
+          echo V416B_ENTRY_ANCHOR_AUDIT=PASS
