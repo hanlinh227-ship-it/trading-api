@@ -1,4 +1,4 @@
-name: Meme Alpha Arm Interface Inspect
+name: Meme Alpha Safe Deploy Script Inspect
 on:
   push:
     branches: [main]
@@ -9,15 +9,11 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect safe deploy arming interface
+      - name: Inspect safe deploy script
         shell: bash
         run: |
           set +e
-          echo '=== NOW ==='; date -u +%FT%TZ
-          echo '=== SUDO ==='; sudo -n -l 2>&1 || true
-          echo '=== SAFE DEPLOY HELP ==='
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy help 2>&1 || true
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy status 2>&1 || true
-          echo '=== GATE ==='; cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json 2>&1 || true
-          echo ARM_INTERFACE_INSPECT=PASS
+          echo '=== SAFE DEPLOY SCRIPT ==='
+          ls -l /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          echo SCRIPT_INSPECT=PASS
