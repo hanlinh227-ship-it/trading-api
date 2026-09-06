@@ -1,4 +1,4 @@
-name: Meme Alpha V406G Resilience Audit
+name: Meme Alpha V406H Held Safety Audit
 on:
   push:
     branches: [main]
@@ -11,30 +11,26 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 2
     steps:
-      - name: Audit signer and storage resilience
+      - name: Audit held position exit safety
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== SIGNER UNIT ==='
-          systemctl cat meme-alpha-signer.service --no-pager || true
-          systemctl show meme-alpha-signer.service -p ActiveState -p SubState -p MainPID -p Restart -p RestartUSec -p NRestarts -p StartLimitIntervalUSec -p StartLimitBurst -p Result -p ExecMainStatus -p ExecMainStartTimestamp --no-pager || true
-          echo '=== SIGNER SOURCE CONTROL FLOW ==='
-          grep -nE 'while |serve|socket|signal|SIG|sys.exit|exit\(|except|try:|finally|main\(' /opt/meme-alpha-signer/ready_signer.py | tail -180 || true
-          tail -80 /opt/meme-alpha-signer/ready_signer.py 2>/dev/null || true
-          echo '=== STORAGE / LOGS ==='
-          df -h / /opt /var/lib /var/log 2>/dev/null || true
-          du -sh /var/log/meme-alpha /opt/meme-alpha/app/runtime-status /var/lib/meme-alpha 2>/dev/null || true
-          find /var/log/meme-alpha /opt/meme-alpha/app/runtime-status /var/lib/meme-alpha -xdev -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -30 || true
-          echo '=== LOGROTATE ==='
-          grep -RniE 'meme-alpha|/var/log/meme-alpha' /etc/logrotate.conf /etc/logrotate.d 2>/dev/null || true
-          echo '=== LIVE V406 ==='
-          echo PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
-          echo SHA=$(sha256sum /opt/meme-alpha/app/src/micro-live-executor.js|awk '{print $1}')
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"
+          echo '=== HARD HELPERS ==='
+          sed -n '65,100p' "$EXE"
+          echo '=== HELD CANDIDATE SAFETY ==='
           python3 - <<'PY'
           import json,pathlib,time
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','allocator-status.json']:
-            p=rt/name
-            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          p=json.loads((rt/'portfolio-observability.json').read_text()); held=set(p.get('positionMints') or [])
+          s=json.loads((rt/'signal-snapshot.json').read_text()); rows=s.get('candidates') or []
+          by={x.get('mint'):x for x in rows if isinstance(x,dict) and x.get('mint')}
+          print('heldCount',len(held),'signalCount',len(rows))
+          for m in held:
+            x=by.get(m)
+            if not x: print({'mint':m,'signalRow':'MISSING'}); continue
+            print({k:x.get(k) for k in ['mint','symbol','decision','universeClass','securityDecision','holderClusterDecision','insiderRiskDecision','token2022','sellRoute','liquidityUsd','sellPriceImpactPct','hardReject','securityReviewReasons','securityBlockReasons','holderBlockReasons','realtimeRowFresh','whaleRowFresh']})
           PY
-          echo V406G_RESILIENCE_AUDIT=COMPLETE
+          echo '=== EXIT EVENTS RECENT ==='
+          grep -RhsE 'MICRO_SELL|MICRO_PARTIAL_SELL|HARD_SAFETY_BREAK|SEVERE_TREND_BREAK|PROFIT_AWARE|RUNNER_PROTECT|ROTATE' /var/lib/meme-alpha/data/micro-live /opt/meme-alpha/app/runtime-status 2>/dev/null | tail -80 || true
+          echo V406H_HELD_SAFETY_AUDIT=COMPLETE
