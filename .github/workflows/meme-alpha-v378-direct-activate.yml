@@ -1,4 +1,4 @@
-name: Meme Alpha V381 Realtime Inspect
+name: Meme Alpha V381 Bottleneck Inspect
 on:
   push:
     branches: [main]
@@ -9,29 +9,15 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect v381 realtime behavior
+      - name: Inspect exact soft gates and throughput
         shell: bash
         run: |
           set +e
-          APP=/opt/meme-alpha/app
-          echo '=== NOW ==='; date -u +%FT%TZ
-          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
-          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1 || true
-          echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js' || true
-          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
-          echo '=== PIPELINE ==='
-          python3 - <<'PY'
-          import json,os,time
-          paths=['new-listing-radar.json','signal-snapshot.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json','portfolio-observability.json']
-          base='/opt/meme-alpha/app/runtime-status/'
-          for f in paths:
-            p=base+f
-            try:
-              d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
-              print(f,{'ts':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'count':len(r) if isinstance(r,list) else None,'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r) if isinstance(r,list) else None,'watch':sum(x.get('decision')=='WATCH' for x in r) if isinstance(r,list) else None,'ageSec':round(time.time()-os.path.getmtime(p),1)})
-            except Exception as e: print(f,'ERR',e)
-          PY
-          echo '=== RECENT EVENTS 120 ==='; tail -n 120 /var/lib/meme-alpha/data/micro-live/events.jsonl 2>/dev/null || true
-          echo '=== EXECUTOR LOG 120 ==='; journalctl -u meme-alpha-micro-live.service -n 120 --no-pager 2>/dev/null || true
-          echo '=== PAPER LOG 80 ==='; journalctl -u meme-alpha-paper.service -n 80 --no-pager 2>/dev/null || true
+          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
+          echo '=== SCANNER ==='
+          grep -nE 'DISCOVERY_RADAR_ONLY_MAX|JUPITER_MIN_INTERVAL_MS|MAX_SELLABILITY_CHECKS_V216|preliminary.slice|slice\(0, *12\)|sleep\(' "$ST/scanner.js" | head -80
+          echo '=== SIGNAL ==='
+          grep -nE 'effectiveScore|slice\(0, *120\)|PROBE_CANDIDATE|WATCH|entryAllowed|consecutiveEligible|stable|liquidityStable' "$ST/safe-signal-export.js" | head -120
+          echo '=== EXECUTOR ==='
+          grep -nE 'function trendEntryEligible|function opportunityLane|consecutiveEligible|liquidityStable|decisionOk|buyerFlow|pulseFlow|realtimeFlow|sleep\(1500\)' "$ST/micro-live-executor.js" | head -100
           exit 0
