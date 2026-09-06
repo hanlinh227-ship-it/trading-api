@@ -1,0 +1,58 @@
+name: Meme Alpha Root Handoff Discovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-root-handoff-discovery.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  discover:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Discover non-secret deployment handoff
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/ROOT-HANDOFF.md"
+          mkdir -p "$(dirname "$OUT")"
+          bool(){ if "$@" >/dev/null 2>&1; then echo true; else echo false; fi; }
+          {
+            echo '# Meme Alpha Root Handoff Discovery'
+            echo
+            echo "- app_ops_writable: \`$(bool test -w /opt/meme-alpha/app/ops/meme-alpha)\`"
+            echo "- app_ops_parent_writable: \`$(bool test -w /opt/meme-alpha/app/ops)\`"
+            echo "- app_runtime_status_writable: \`$(bool test -w /opt/meme-alpha/app/runtime-status)\`"
+            echo "- var_lib_meme_alpha_writable: \`$(bool test -w /var/lib/meme-alpha)\`"
+            echo "- systemctl_restart_paper_authorized: \`$(systemctl show meme-alpha-paper.service -p CanReload --value 2>/dev/null || echo unknown)\`"
+            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
+            echo
+            echo '## Potential privileged deployment units/timers'
+            echo '```'
+            (systemctl list-unit-files --no-pager 2>/dev/null || true) | grep -iE 'meme.*(deploy|apply|stage|update|sync)|deploy.*meme|github.*deploy|root.*apply' || true
+            (systemctl list-timers --all --no-pager 2>/dev/null || true) | grep -iE 'meme|deploy|apply|update|sync' || true
+            echo '```'
+            echo
+            echo '## Known root-apply scripts already staged'
+            echo '```'
+            (find /opt/meme-alpha/app/ops/meme-alpha -maxdepth 1 -type f -name '*root*' -printf '%f\n' 2>/dev/null || true) | sort | tail -n 100
+            echo '```'
+          } > "$OUT"
+      - name: Commit discovery report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/ROOT-HANDOFF.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): record root deployment handoff discovery"
+          git push origin HEAD:main
