@@ -1,0 +1,55 @@
+name: Fix Root Updater Executable Bits
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-root-updater-executable-bits.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Checkout deployment branch
+        uses: actions/checkout@v4
+        with:
+          ref: auto-futures-v1
+          fetch-depth: 0
+      - name: Restore intended executable modes
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            auto-futures-v1/runtime/watch_github.sh
+            auto-futures-v1/runtime/update_auto_futures.sh
+            auto-futures-v1/runtime/unified_bootstrap.sh
+            auto-futures-v1/runtime/deploy_meme_alpha_v377.sh
+            signal-only-v10/runtime/install_signal_v10.sh
+          )
+          for f in "${files[@]}"; do
+            test -f "$f"
+            chmod 0755 "$f"
+            git update-index --chmod=+x "$f"
+          done
+          bash -n auto-futures-v1/runtime/watch_github.sh
+          bash -n auto-futures-v1/runtime/update_auto_futures.sh
+          bash -n auto-futures-v1/runtime/unified_bootstrap.sh
+          bash -n auto-futures-v1/runtime/deploy_meme_alpha_v377.sh
+          bash -n signal-only-v10/runtime/install_signal_v10.sh
+      - name: Commit mode repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "root-updater-mode-repair-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          if git diff --cached --quiet; then
+            echo "Executable modes already correct"
+            exit 0
+          fi
+          git commit -m "fix(ops): restore updater and deploy executable bits"
+          git push origin HEAD:auto-futures-v1
