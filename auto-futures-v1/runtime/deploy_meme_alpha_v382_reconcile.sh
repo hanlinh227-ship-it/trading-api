@@ -14,7 +14,17 @@ exec 7>"$LOCK"
 if ! flock -n 7; then echo 'MEME_V382_RECONCILE=DEFER_LOCK_BUSY'; exit 0; fi
 
 [[ -f "$EXECUTOR" ]] || { echo 'MEME_V382_RECONCILE=DEFER_EXECUTOR_MISSING'; exit 0; }
-grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$EXECUTOR" || { echo 'MEME_V382_RECONCILE=DEFER_NOT_V382'; exit 0; }
+EXEC_GEN=""
+if grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$EXECUTOR"; then
+  EXEC_GEN=V382
+elif grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$EXECUTOR"; then
+  # v3.81 is an explicitly supported safe fallback already accepted by the strict
+  # live verifier. Keep all root ARM/signer/source/risk gates identical.
+  EXEC_GEN=V381_FALLBACK
+else
+  echo 'MEME_V382_RECONCILE=DEFER_UNSUPPORTED_EXECUTOR'
+  exit 0
+fi
 
 # Explicit manual disarm always wins. Never auto-override ARMED=NO.
 ARM_VALUE=""
@@ -24,9 +34,9 @@ if [[ "$ARM_VALUE" == 'ARMED=NO' ]]; then
   exit 0
 fi
 
-# Normal steady state: one-time reconcile was completed and root ARM still exists.
+# Normal steady state: reconcile was completed and root ARM still exists.
 if [[ -f "$DONE" && "$ARM_VALUE" == 'ARMED=YES' ]]; then
-  echo 'MEME_V382_RECONCILE=ALREADY_COMPLETED_ARM_HEALTHY'
+  echo "MEME_V382_RECONCILE=ALREADY_COMPLETED_ARM_HEALTHY executor=$EXEC_GEN"
   exit 0
 fi
 
@@ -44,13 +54,18 @@ done
 
 # Require existing signer/source/risk checks to be healthy before any root ARM repair.
 python3 - "$GATE" <<'PY'
-import json,sys
+import json,sys,time,datetime
 p=sys.argv[1]
 try: g=json.load(open(p))
 except Exception: raise SystemExit(2)
+ts=g.get('timestamp') or ''
+age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp() if ts else 999
+assert age < 90
 assert g.get('sourceHealthy') is True
 assert g.get('riskEntryAllowed') is True
 assert g.get('liveRiskReady') is True
+assert not (g.get('riskGlobalBlockReasons') or [])
+assert not (g.get('riskLiveBlockReasons') or [])
 s=g.get('signer') or {}
 assert s.get('ok') is True and s.get('mode')=='READY'
 assert s.get('signingEnabled') is True and s.get('walletLoaded') is True
@@ -98,9 +113,9 @@ PY
   then READY=1; break; fi
   sleep 2
 done
-[[ "$READY" -eq 1 ]] || { echo 'MEME_V382_RECONCILE=DEFER_GATE_VERIFY'; exit 0; }
+[[ "$READY" -eq 1 ]] || { echo "MEME_V382_RECONCILE=DEFER_GATE_VERIFY executor=$EXEC_GEN"; exit 0; }
 
 mkdir -p "$(dirname "$DONE")"
-printf '{"version":"3.82","status":"ROOT_RECONCILED_AND_SELF_HEALED","timestamp":"%s","armRepair":true}\n' "$(date -u +%FT%TZ)" > "$DONE"
+printf '{"version":"3.82","status":"ROOT_RECONCILED_AND_SELF_HEALED","timestamp":"%s","armRepair":true,"executor":"%s"}\n' "$(date -u +%FT%TZ)" "$EXEC_GEN" > "$DONE"
 chmod 0600 "$DONE"
-echo 'MEME_V382_RECONCILE=SUCCESS_ARM_REPAIRED'
+echo "MEME_V382_RECONCILE=SUCCESS_ARM_REPAIRED executor=$EXEC_GEN"
