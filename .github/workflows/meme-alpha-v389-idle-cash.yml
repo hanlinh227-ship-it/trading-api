@@ -1,4 +1,4 @@
-name: Meme Alpha V392 Execution Audit
+name: Meme Alpha V392 Evidence Audit
 on:
   push:
     branches: [main]
@@ -11,58 +11,32 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Audit V392 execution readiness
+      - name: Inspect V392 candidate evidence gaps
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
-          echo '=== SERVICES ==='
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo '=== EXECUTOR ==='
-          pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
-          echo '=== SNAPSHOTS ==='
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; P=/var/lib/meme-alpha/data/paper
           python3 - <<'PY'
-          import json,pathlib,time,collections
+          import json,pathlib,time
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','capital-observability.json','allocator-status.json','last-execution.json','portfolio-observability.json']:
+          sig=json.loads((rt/'signal-snapshot.json').read_text())
+          print('SIGNAL_AGE',round(time.time()-(rt/'signal-snapshot.json').stat().st_mtime,2),'COUNT',len(sig.get('candidates') or []))
+          keys=['symbol','mint','score','decision','securityDecision','securityReviewReasons','securityBlockReasons','securityEvidence','holderClusterDecision','holderReviewReasons','holderBlockReasons','holderEvidence','insiderRiskDecision','sellRoute','sellQuoteHttp','sellQuoteError','sellPriceImpactPct','liquidityUsd','topHoldersPct','holderClusterMaxAccountsSameOwner','mintAuthorityDisabled','freezeAuthorityDisabled','v388RpcAudit','whaleTop10Pct','whaleDeltaTop10Pct']
+          for c in (sig.get('candidates') or [])[:20]: print('SIGROW',{k:c.get(k) for k in keys})
+          for name in ['v388-rpc-audit-cache.json','micro-live-gate.json','capital-observability.json','allocator-status.json']:
             p=rt/name
-            print('\nFILE',name,'exists',p.exists(),'ageSec',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
+            print('\nFILE',name,'exists',p.exists(),'age',round(time.time()-p.stat().st_mtime,2) if p.exists() else None)
             if p.exists():
-              try: print(json.loads(p.read_text()))
+              try:
+                d=json.loads(p.read_text())
+                if name=='v388-rpc-audit-cache.json':
+                  print('AUDIT_CACHE_KEYS',len(d));
+                  for k,v in list(d.items())[-15:]: print('AUDIT',k,v)
+                else: print(d)
               except Exception as e: print('ERR',repr(e))
-          p=rt/'signal-snapshot.json'
-          print('\nFILE signal-snapshot.json exists',p.exists(),'ageSec',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
-          if p.exists():
-            d=json.loads(p.read_text()); rows=d.get('candidates') or []
-            def n(v,d=0):
-              try:return float(v)
-              except:return d
-            def reasons(c):
-              r=[]
-              if c.get('securityDecision')!='PASS':r.append('SECURITY_'+str(c.get('securityDecision')))
-              if c.get('holderClusterDecision')!='PASS':r.append('HOLDER_'+str(c.get('holderClusterDecision')))
-              if c.get('insiderRiskDecision')!='PASS':r.append('INSIDER_'+str(c.get('insiderRiskDecision')))
-              if c.get('sellRoute') is not True:r.append('SELL_ROUTE')
-              if c.get('token2022') is True:r.append('TOKEN2022')
-              if c.get('hardReject'):r.append('HARD_REJECT:'+'|'.join(map(str,c.get('hardReject') or [])))
-              if n(c.get('liquidityUsd'))<50000:r.append('LIQ_LT_50K')
-              imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
-              if imp>1.25:r.append('IMPACT_GT_1.25')
-              return r
-            safe=[]; details=[]
-            counts=collections.Counter()
-            for c in rows:
-              rs=reasons(c)
-              for r in rs: counts[r]+=1
-              x={k:c.get(k) for k in ['symbol','mint','score','decision','universeClass','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','token2022','liquidityUsd','sellPriceImpactPct','priceChange5m','netBuyers5m','consecutiveEligible']}
-              x['blockers']=rs
-              if not rs:safe.append(x)
-              details.append(x)
-            print('SIGNAL_COUNT',len(rows),'CORE_SAFE_COUNT',len(safe))
-            print('CORE_SAFE',safe[:20])
-            print('BLOCKER_COUNTS',counts.most_common(30))
-            print('TOP_ROWS',details[:20])
           PY
-          echo '=== EXECUTOR_ERRORS ==='
-          journalctl -u meme-alpha-micro-live.service --since '-20 min' --no-pager -n 1200 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|MICRO_LIVE_GATE_CLOSED|TREND_SIGNAL_NOT_ELIGIBLE|SIGNER_|EXECUTOR_ERROR|BUY_TOKEN|CAPITAL_|IDLE_CAPITAL' | tail -300 || true
-          echo V392_EXECUTION_AUDIT=COMPLETE
+          echo '=== SCANNER RELEVANT SOURCE ==='
+          grep -nE 'sellRoute|sellQuote|priceImpact|JUP|quote|holderCount|holderCluster|securityDecision' "$APP/src/scanner.js" | head -260 || true
+          echo '=== SIGNAL AUDIT LOGIC ==='
+          grep -nE 'v388AuditCandidate|eligible=|sellOk|holderUnknown|authorityUnknown|V388_MAX_AUDITS|v388ApplyAudit' "$APP/src/safe-signal-export.js" | head -220 || true
+          echo V392_EVIDENCE_AUDIT=COMPLETE
