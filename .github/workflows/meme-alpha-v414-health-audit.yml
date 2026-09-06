@@ -1,0 +1,43 @@
+name: Meme Alpha V414 Health Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v414-health-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Live production health audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
+          date -u +%FT%TZ
+          echo PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true)
+          echo COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          echo EXEC_SHA=$(sha256sum "$APP/src/micro-live-executor.js"|awk '{print $1}')
+          echo TREND_SHA=$(sha256sum "$APP/src/trend-pulse.js"|awk '{print $1}')
+          echo RT_SHA=$(sha256sum "$APP/src/realtime-pool-pulse.js"|awk '{print $1}')
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n):
+            p=rt/n; d=json.loads(p.read_text()); return d, round(time.time()-p.stat().st_mtime,2)
+          g,ga=load('micro-live-gate.json'); print('GATE_AGE',ga,'GATE',{k:g.get(k) for k in ['allowed','armOk','armAttested','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          tr,ta=load('trend-pulse.json'); rows=tr.get('rows') or []; print('TREND_AGE',ta,'TREND',{'version':tr.get('version'),'rows':len(rows),'prebreakout':sum(x.get('status')=='PREBREAKOUT' for x in rows),'breakout':sum(x.get('status')=='BREAKOUT' for x in rows),'rising':sum(x.get('flowRiseConfirmed') is True for x in rows)})
+          rp,ra=load('realtime-pool-pulse.json'); print('REALTIME_AGE',ra,'REALTIME',{k:rp.get(k) for k in ['version','status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','activeSetSize','lastError']})
+          po,pa=load('portfolio-observability.json'); print('PORTFOLIO_AGE',pa,'PORTFOLIO',{k:po.get(k) for k in ['openPositions','stateReadable','positionMints']})
+          co,ca=load('capital-observability.json'); print('CAPITAL_AGE',ca,'CAPITAL',{k:co.get(k) for k in ['walletSol','investedSol','deployableSol','reserveSol','openPositions','scaleAllowed']})
+          al,aa=load('allocator-status.json'); print('ALLOC_AGE',aa,'ALLOC',{k:al.get(k) for k in ['action','reason','symbol','targetSymbol','openPositions','scaleAllowed']})
+          le=rt/'last-execution.json'
+          if le.exists(): print('LAST_EXEC_AGE',round(time.time()-le.stat().st_mtime,2),'LAST_EXEC',json.loads(le.read_text()))
+          assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          assert rp.get('status')=='HEALTHY' and int(rp.get('heldUnresolved') or 0)==0 and int(rp.get('heldSubscriptions') or 0)>=int(rp.get('heldTotal') or 0)
+          assert po.get('stateReadable') is True
+          PY
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          echo V414_HEALTH_AUDIT=PASS
