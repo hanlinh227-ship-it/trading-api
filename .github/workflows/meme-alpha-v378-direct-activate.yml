@@ -1,47 +1,25 @@
-name: Meme Alpha Capacity Repair
+name: Meme Alpha Writable Paths Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  repair:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Trim log bloat, restart radar pipeline and verify
+      - name: Inspect writable paths and radar child state
         shell: bash
         run: |
-          set -euo pipefail
-          ROOT=/opt/trading/trading-api
-          BOT="$ROOT/auto-futures-v1"
+          set +e
+          BOT=/opt/trading/trading-api/auto-futures-v1
           APP=/opt/meme-alpha/app
-          echo '=== LARGE LOGS BEFORE ==='
-          find "$BOT/logs" -maxdepth 1 -type f -size +2M -printf '%s %m %u:%g %p\n' 2>/dev/null | sort -nr | head -40 || true
-          for f in "$BOT"/logs/*.log; do
-            [ -f "$f" ] || continue
-            sz=$(stat -c %s "$f" 2>/dev/null || echo 0)
-            if [ "$sz" -gt 2097152 ] && [ -w "$f" ]; then
-              tail -n 4000 "$f" > "$f.trim" || true
-              cat "$f.trim" > "$f"
-              rm -f "$f.trim"
-            fi
-          done
-          echo '=== BOT SIZE AFTER ==='; du -sh "$BOT" || true
-          timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-          READY=0
-          for i in $(seq 1 70); do
-            if systemctl is-active --quiet meme-alpha-paper.service; then
-              AGE=$(python3 -c "import os,time; print(round(time.time()-os.path.getmtime('$APP/runtime-status/new-listing-radar.json'),1))" 2>/dev/null || echo 9999)
-              COUNT=$(python3 -c "import json; d=json.load(open('$APP/runtime-status/new-listing-radar.json')); print(len(d.get('candidates') or []))" 2>/dev/null || echo 0)
-              echo "radarAge=$AGE count=$COUNT"
-              python3 -c "import sys; sys.exit(0 if float('$AGE') < 30 and int('$COUNT') > 0 else 1)" && READY=1 && break || true
-            fi
-            sleep 2
-          done
-          echo '=== SERVICES ==='
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
-          echo '=== RADAR PROCESS ==='; pgrep -af 'new-listing-radar.js|run-paper.sh|scanner.js' || true
-          echo '=== RADAR TAIL ==='; tail -n 30 "$APP/runtime-status/new-listing-radar-runtime.log" || true
-          [ "$READY" = 1 ]
-          echo CAPACITY_REPAIR=PASS
+          echo '=== LOG DIR ==='; ls -ld "$BOT/logs"; id; [ -w "$BOT/logs" ] && echo LOG_DIR_WRITABLE=YES || echo LOG_DIR_WRITABLE=NO
+          echo '=== LOG FILES ==='; find "$BOT/logs" -maxdepth 1 -type f -size +2M -printf '%s %m %u:%g %p\n' | sort -nr | head -20
+          echo '=== APP/RUNTIME DIR ==='; ls -ld "$APP" "$APP/runtime-status"; [ -w "$APP/run-paper.sh" ] && echo RUN_PAPER_WRITABLE=YES || echo RUN_PAPER_WRITABLE=NO; [ -w "$APP/runtime-status" ] && echo RUNTIME_DIR_WRITABLE=YES || echo RUNTIME_DIR_WRITABLE=NO
+          echo '=== RADAR FILE PERMS ==='; ls -l "$APP/src/new-listing-radar.js" "$APP/runtime-status/new-listing-radar-runtime.log" "$APP/runtime-status/new-listing-radar.json" 2>&1 || true
+          echo '=== PAPER PROCESSES ==='; ps -eo pid,ppid,user,stat,wchan:32,etime,cmd | grep -E 'run-paper.sh|new-listing-radar.js|scanner.js' | grep -v grep || true
+          echo '=== CHILDREN ==='; P=$(systemctl show -p MainPID --value meme-alpha-paper.service); echo main=$P; ps --ppid "$P" -o pid,ppid,user,stat,wchan:32,etime,cmd 2>&1 || true
+          echo '=== PAPER STATUS ==='; systemctl show meme-alpha-paper.service -p ActiveState -p SubState -p MainPID -p NRestarts -p ExecMainStatus --no-pager || true
+          echo INSPECT_PATHS=PASS
