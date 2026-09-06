@@ -65,7 +65,7 @@ enter_maintenance(){
   original="$( [[ -f "$ARM" ]] && cat "$ARM" || echo MISSING )"
   mkdir -p "$(dirname "$MAINT_STATE")"
   python3 - "$MAINT_STATE" "$original" <<'PY'
-import json,os,sys,tempfile,time
+import json,os,sys,time
 p=sys.argv[1];orig=sys.argv[2]
 t=p+'.tmp';open(t,'w').write(json.dumps({'original':orig,'startedAt':time.time(),'version':'v377'},separators=(',',':')));os.chmod(t,0o600);os.replace(t,p)
 PY
@@ -103,6 +103,16 @@ except Exception: print(-1)
 PY
 }
 
+# v3.79 is a strict successor of the v3.77/v3.78 executor line. If an old
+# v3.77 deployment was interrupted after entering maintenance, recovery must
+# restore the original root arm state even while positions are open. This path
+# performs no source patch, no service stop, and no position close.
+if grep -q 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$EXECUTOR" 2>/dev/null; then
+  restore_maintenance
+  echo 'MEME_V377_DEPLOY=ALREADY_SUPERSEDED_BY_V379'
+  exit 0
+fi
+
 if already_hardened; then
   restore_maintenance
   echo 'MEME_V377_DEPLOY=ALREADY_APPLIED'
@@ -122,7 +132,6 @@ if [[ "$OPEN" -gt 0 ]]; then
   exit 0
 fi
 
-# Stage from current production source, patch deterministically, and test offline.
 cp -a "$SIGNAL" "$TMP/safe-signal-export.js"
 cp -a "$EXECUTOR" "$TMP/micro-live-executor.js"
 cp -a "$SIGNER" "$TMP/ready_signer.py"
@@ -161,8 +170,6 @@ rollback(){
 }
 trap rollback ERR
 
-# Stop new execution first, then close the remaining two processes only after
-# confirming no position opened during the staging window.
 systemctl stop meme-alpha-micro-live.service
 SERVICES_STOPPED=1
 OPEN="$(position_count)"
