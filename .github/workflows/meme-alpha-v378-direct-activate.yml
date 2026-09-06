@@ -1,4 +1,4 @@
-name: Meme Alpha V379 High Opportunity Activate
+name: Meme Alpha V379 Arm Diagnose
 
 on:
   push:
@@ -6,184 +6,25 @@ on:
     paths:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
-permissions:
-  contents: write
-
 jobs:
-  activate:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 6
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Stage and activate v379
+      - name: Inspect arm attestation
         shell: bash
         run: |
-          set -Eeuo pipefail
-          APP=/opt/meme-alpha/app
-          H="$APP/runtime-status/v379-handoff"
-          RUN="$APP/run-paper.sh"
-          EXEC="$APP/src/micro-live-executor.js"
-          GATE="$APP/src/micro-live-gate.js"
-          RISK="$APP/src/risk.js"
-          rm -rf "$H" && mkdir -p "$H" && chmod 0777 "$H"
-          cp -a "$RUN" "$H/original-run-paper.sh" && chmod 0755 "$H/original-run-paper.sh"
-          cp -a "$EXEC" "$H/executor.js"
-          cp -a "$GATE" "$H/gate.js"
-          cp -a "$RISK" "$H/risk.js"
-          cp -a "$EXEC" "$H/executor.backup.js"
-          cp -a "$GATE" "$H/gate.backup.js"
-          cp -a "$RISK" "$H/risk.backup.js"
-
-          python3 - "$H/executor.js" "$H/gate.js" "$H/risk.js" <<'PY'
-          from pathlib import Path
-          import sys
-          ep,gp,rp=map(Path,sys.argv[1:4])
-          e=ep.read_text(); g=gp.read_text(); r=rp.read_text()
-
-          def rep(s,a,b,name):
-              if b in s: return s
-              if a not in s: raise SystemExit(f'PATCH_MISMATCH:{name}')
-              return s.replace(a,b,1)
-
-          e=rep(e,
-          "function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net);if(base<55)return false;const standard=score>=69;const liquid=score>=63&&liq>=300000&&net>=1&&imp<=0.90;const flow=score>=59&&liq>=75000&&net>=4&&avg>=2.5&&chg>=0.05&&imp<=0.90;return standard||liquid||flow}",
-          "function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net);if(base<52)return false;const standard=score>=65;const liquid=score>=60&&liq>=200000&&net>=1&&imp<=1.00;const flow=score>=56&&liq>=50000&&net>=3&&avg>=2&&chg>=0.00&&imp<=1.00;return standard||liquid||flow}", 'opportunity')
-          e=rep(e,
-          "function trendEntryEligible(c){if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;const p=pulseFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=52&&n(p.volumeAcceleration)>=1.02&&n(p.txnAcceleration)>=0.95&&n(p.buySellRatio)>=1.05&&n(p.tx5)>=3;const buyerFlow=net>=1&&avg>=1;const fastFlow=net>=1&&pulseFlow;const momentumFloor=pulseFlow?0.00:0.10;return chg>=momentumFloor&&chg<=18&&(buyerFlow||fastFlow)&&slope>=-6&&stable&&opportunityLane(c)}",
-          "function trendEntryEligible(c){if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;const p=pulseFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=50&&n(p.volumeAcceleration)>=1.00&&n(p.txnAcceleration)>=0.90&&n(p.buySellRatio)>=1.02&&n(p.tx5)>=2;const buyerFlow=net>=1&&avg>=0.5;const fastFlow=net>=1&&pulseFlow;const momentumFloor=pulseFlow?-0.15:0.00;return chg>=momentumFloor&&chg<=22&&(buyerFlow||fastFlow)&&slope>=-8&&stable&&opportunityLane(c)}", 'entry')
-          e=e.replace("const switchingCost=(newImpact+Math.max(0,n(x.pos.lastPreviewImpactPct,impact(x.c))))*1.25,advantage=ns-x.oldScore-switchingCost,ret=n(x.pos.lastReturnPct),peak=n(x.pos.peakReturnPct),winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(now-Date.parse(x.pos.openedAt||now))/60000),stagnant=ageMin>=18&&ret<=4&&peak<10&&n(x.c.netBuyers5m)<=2&&n(x.c.avgNetBuyersLast2)<=2;",
-                      "const switchingCost=(newImpact+Math.max(0,n(x.pos.lastPreviewImpactPct,impact(x.c))))*1.10,advantage=ns-x.oldScore-switchingCost,ret=n(x.pos.lastReturnPct),peak=n(x.pos.peakReturnPct),winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(now-Date.parse(x.pos.openedAt||now))/60000),stagnant=ageMin>=12&&ret<=5&&peak<12&&n(x.c.netBuyers5m)<=3&&n(x.c.avgNetBuyersLast2)<=3;")
-          e=e.replace("const threshold=x.severe?0:(stagnant?4:(winner?(ret>=12||peak>=20?24:18):(x.weak?3:8)));",
-                      "const threshold=x.severe?0:(stagnant?2.5:(winner?(ret>=12||peak>=20?20:15):(x.weak?2:5)));")
-          e=e.replace("const frac=x.severe?.65:x.stagnant?.60:x.winner?clamp(.20+x.advantage/150,.20,.35):x.weak?.65:clamp(.30+x.advantage/90,.30,.60),reason=x.winner?'AUTO_WINNER_ROTATE_TO_STRONGER_OPPORTUNITY':'AUTO_ROTATE_TO_STRONGER_OPPORTUNITY';",
-                      "const frac=x.severe?.72:x.stagnant?.70:x.winner?clamp(.22+x.advantage/130,.22,.40):x.weak?.70:clamp(.40+x.advantage/80,.40,.65),reason=x.winner?'AUTO_WINNER_ROTATE_TO_STRONGER_OPPORTUNITY':'AUTO_ROTATE_TO_STRONGER_OPPORTUNITY';")
-          e=e.replace("basePct=5+28*Math.pow(quality,1.12),cashBoost=1+0.45*freeRatio",
-                      "basePct=6+30*Math.pow(quality,1.08),cashBoost=1+0.55*freeRatio")
-          if "MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY" not in e:
-              e=e.replace("MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION=STARTED","MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED")
-
-          anchor="const event=x=>{fs.mkdirSync(DATA,{recursive:true});fs.appendFileSync(eventsPath,JSON.stringify({timestamp:new Date().toISOString(),...x})+'\\n')};"
-          attest="""\nconst ARM='/etc/meme-alpha/micro-live-armed',ARM_ATTEST=`${DATA}/arm-attestation.json`;\nfunction refreshArmAttestation(){let o={timestamp:new Date().toISOString(),armOk:false,sourceUid:null,sourceMode:null,expected:'UNKNOWN'};try{const st=fs.statSync(ARM),v=fs.readFileSync(ARM,'utf8').trim(),mode=(st.mode&0o777).toString(8).padStart(3,'0');o={timestamp:new Date().toISOString(),armOk:st.uid===0&&mode==='640'&&v==='ARMED=YES',sourceUid:st.uid,sourceMode:mode,expected:v==='ARMED=YES'?'ARMED=YES':'OTHER'}}catch(err){o.error=err?.code||'ARM_READ_ERROR'}atomic(ARM_ATTEST,o);return o.armOk}\n"""
-          if 'function refreshArmAttestation()' not in e:
-              if anchor not in e: raise SystemExit('PATCH_MISMATCH:attestation_anchor')
-              e=e.replace(anchor,anchor+attest,1)
-          oldmain="async function main(){fs.mkdirSync(DATA,{recursive:true});console.log('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED');while(true){try{const d=await tick();"
-          newmain="async function main(){fs.mkdirSync(DATA,{recursive:true});refreshArmAttestation();console.log('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED');while(true){try{refreshArmAttestation();const d=await tick();"
-          e=rep(e,oldmain,newmain,'main_attestation')
-
-          g=rep(g,"const DATA='/var/lib/meme-alpha/data/paper';","const DATA='/var/lib/meme-alpha/data/paper';\nconst LIVE_DATA='/var/lib/meme-alpha/data/micro-live';",'gate_live_data')
-          g=rep(g,"const risk=readJson(`${DATA}/risk-state.json`);","const risk=readJson(`${DATA}/risk-state.json`);\nconst armAtt=readJson(`${LIVE_DATA}/arm-attestation.json`);",'gate_att_read')
-          g=rep(g,"const mode=executionMode();\nconst reasons=[];","const mode=executionMode();\nconst armAttOk=armAtt?.armOk===true&&armAtt?.sourceUid===0&&armAtt?.sourceMode==='640'&&armAtt?.expected==='ARMED=YES'&&ageSec(armAtt?.timestamp)<15;\nconst armOk=rootControl(ARM,'ARMED=YES')||armAttOk;\nconst reasons=[];",'gate_arm_logic')
-          g=rep(g,"if(!rootControl(ARM,'ARMED=YES'))reasons.push('ROOT_ARMING_FILE_ABSENT_OR_INVALID');","if(!armOk)reasons.push('ROOT_ARMING_FILE_ABSENT_OR_INVALID');",'gate_arm_reason')
-          g=rep(g,"armOk:rootControl(ARM,'ARMED=YES'),","armOk,armAttested:armAttOk,",'gate_arm_out')
-
-          r=rep(r,'const sourceHealthHealthy=!!sourceHealth && sourceHealth.status==="HEALTHY" && sourceHealthAgeSec<180 && sourceHealth.allowNewEntries===true && sourceHealth.usingCache!==true && n(sourceHealth.successfulSources)>=2;',
-                'const sourceHealthHealthy=!!sourceHealth && sourceHealth.status==="HEALTHY" && sourceHealthAgeSec<180 && sourceHealth.allowNewEntries===true && sourceHealth.usingCache!==true;','risk_health_semantics')
-          r=rep(r,'if(sourceHealth.status!=="HEALTHY" || sourceHealth.usingCache===true || n(sourceHealth.successfulSources)<2) reasons.push("SOURCE_HEALTH_DEGRADED");',
-                'if(sourceHealth.status!=="HEALTHY" || sourceHealth.usingCache===true) reasons.push("SOURCE_HEALTH_DEGRADED");','risk_health_block')
-          ep.write_text(e);gp.write_text(g);rp.write_text(r)
-          print('V379_PATCH=PASS')
-          PY
-
-          node --check "$H/executor.js"
-          node --check "$H/gate.js"
-          node --check "$H/risk.js"
-          node "$H/executor.js" --self-test > "$H/selftest.txt" 2>&1
-          grep -q 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$H/executor.js"
-          grep -q 'function refreshArmAttestation' "$H/executor.js"
-          grep -q 'armAttested' "$H/gate.js"
-          grep -q 'sourceHealth.usingCache===true) reasons.push' "$H/risk.js"
-          chmod 0644 "$H/executor.js" "$H/gate.js" "$H/risk.js" "$H"/*.backup.js
-          rm -f "$H/result.txt"
-
-          cat > "$RUN" <<'SH'
-          #!/usr/bin/env bash
           set -u
           APP=/opt/meme-alpha/app
-          H="$APP/runtime-status/v379-handoff"
-          RESULT="$H/result.txt"
-          if [[ ! -f "$RESULT" ]]; then
-            rc=0
-            {
-              echo "HANDOFF_USER=$(id -un)"
-              echo "SRC_WRITABLE=$([[ -w "$APP/src" ]] && echo true || echo false)"
-              if [[ ! -w "$APP/src" ]]; then rc=42; else
-                cp "$H/executor.js" "$APP/src/.executor.v379.tmp" && mv -f "$APP/src/.executor.v379.tmp" "$APP/src/micro-live-executor.js" || rc=43
-                cp "$H/gate.js" "$APP/src/.gate.v379.tmp" && mv -f "$APP/src/.gate.v379.tmp" "$APP/src/micro-live-gate.js" || rc=44
-                cp "$H/risk.js" "$APP/src/.risk.v379.tmp" && mv -f "$APP/src/.risk.v379.tmp" "$APP/src/risk.js" || rc=45
-                chmod 0644 "$APP/src/micro-live-executor.js" "$APP/src/micro-live-gate.js" "$APP/src/risk.js" 2>/dev/null || true
-                node --check "$APP/src/micro-live-executor.js" || rc=46
-                node --check "$APP/src/micro-live-gate.js" || rc=47
-                node --check "$APP/src/risk.js" || rc=48
-                if [[ "$rc" -eq 0 ]]; then
-                  echo 'V379_SWAP=TRUE'
-                  pkill -KILL -f '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' 2>/dev/null || true
-                else
-                  cp "$H/executor.backup.js" "$APP/src/micro-live-executor.js" 2>/dev/null || true
-                  cp "$H/gate.backup.js" "$APP/src/micro-live-gate.js" 2>/dev/null || true
-                  cp "$H/risk.backup.js" "$APP/src/risk.js" 2>/dev/null || true
-                  echo 'V379_SWAP=FALSE'
-                fi
-              fi
-              echo "HANDOFF_RC=$rc"
-            } > "$RESULT"
-          fi
-          exec "$H/original-run-paper.sh"
-          SH
-          chmod 0775 "$RUN"
-          sudo -n /bin/systemctl restart meme-alpha-paper.service
-          sleep 2
-          cp -a "$H/original-run-paper.sh" "$RUN"
-          chmod 0775 "$RUN"
-          sleep 12
-          cat "$H/result.txt"
-          grep -q 'V379_SWAP=TRUE' "$H/result.txt"
-          grep -q 'HANDOFF_RC=0' "$H/result.txt"
-          grep -q 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$EXEC"
-          systemctl is-active --quiet meme-alpha-paper.service
-          systemctl is-active --quiet meme-alpha-micro-live.service
-          systemctl is-active --quiet meme-alpha-signer.service
-          [[ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ]]
-          printf '{"version":"3.79.0","status":"DEPLOYED","profile":"HIGH_OPPORTUNITY_CAPTURE","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v379-deployed.json"
-
-          for i in $(seq 1 8); do
-            sleep 4
-            node "$RISK" >/tmp/v379-risk.out 2>&1 || true
-            node "$GATE" >/tmp/v379-gate.out 2>&1 || true
-            [[ -f "$APP/runtime-status/micro-live-gate.json" ]] && cat "$APP/runtime-status/micro-live-gate.json"
-            if grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json" 2>/dev/null; then break; fi
-          done
-          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"armOk": true' "$APP/runtime-status/micro-live-gate.json"
-          echo 'V379_LIVE_ENTRY_ACTIVE=TRUE'
-
-      - name: Record v379 runtime proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V379-ACTIVE.md"
-          G="$APP/runtime-status/micro-live-gate.json"
-          {
-            echo '# Meme Alpha V379 ACTIVE'
-            echo
-            echo "- executor_marker: \`$([[ -f "$APP/src/micro-live-executor.js" ]] && grep -q 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$APP/src/micro-live-executor.js" && echo true || echo false)\`"
-            echo "- deployment_marker: \`$([[ -f "$APP/runtime-status/v379-deployed.json" ]] && echo true || echo false)\`"
-            echo "- live_entry_allowed: \`$([[ -f "$G" ]] && grep -q '"allowed": true' "$G" && echo true || echo false)\`"
-            echo "- arm_ok: \`$([[ -f "$G" ]] && grep -q '"armOk": true' "$G" && echo true || echo false)\`"
-            echo "- micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`"
-            echo "- paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`"
-            echo "- signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`"
-            echo "- micro_live_processes: \`$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)\`"
-            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
-          } > "$OUT"
-          grep -q 'executor_marker: `true`' "$OUT"
-          grep -q 'live_entry_allowed: `true`' "$OUT"
-          grep -q 'arm_ok: `true`' "$OUT"
-          git config user.name "meme-alpha-vps-bot"
-          git config user.email "actions-bot@users.noreply.github.com"
-          git add meme-alpha-runtime/V379-ACTIVE.md
-          git commit -m 'chore(meme): confirm v379 live entry active' || true
-          git push origin HEAD:main
+          echo '--- SERVICES ---'
+          systemctl show meme-alpha-micro-live.service -p User -p Group -p SupplementaryGroups -p MainPID -p ActiveState -p SubState 2>/dev/null || true
+          echo '--- ATTESTATION ---'
+          ls -l /var/lib/meme-alpha/data/micro-live/arm-attestation.json 2>&1 || true
+          cat /var/lib/meme-alpha/data/micro-live/arm-attestation.json 2>&1 || true
+          echo '--- GATE ---'
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          echo '--- EXEC MARKER ---'
+          grep -nE 'V379_HIGH_OPPORTUNITY|refreshArmAttestation|ARM_ATTEST' "$APP/src/micro-live-executor.js" 2>/dev/null || true
+          echo '--- RECENT MICRO LIVE LOGS ---'
+          journalctl -u meme-alpha-micro-live.service -n 80 --no-pager 2>&1 || true
