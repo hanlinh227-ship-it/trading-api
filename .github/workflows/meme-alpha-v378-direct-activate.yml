@@ -48,9 +48,9 @@ jobs:
           e=sub1(e,r'function trendEntryEligible\(c\)\{.*?\}\nfunction softTrendWeak',
           "function trendEntryEligible(c){if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;const p=pulseFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=50&&n(p.volumeAcceleration)>=1.00&&n(p.txnAcceleration)>=.92&&n(p.buySellRatio)>=1.02&&n(p.tx5)>=2;const buyerFlow=net>=1&&avg>=.5;const fastFlow=net>=3||n(realtimeFor(c)?.events5s)>=2;const momentumFloor=p?0:.05;return stable&&chg>=momentumFloor&&chg<=20&&slope>=-7&&opportunityLane(c)&&(pulseFlow||buyerFlow||fastFlow)}\nfunction softTrendWeak",
           'ENTRY',re.S)
-          e=sub1(e,r'function rotationSource\(st,newC\)\{.*?\}\nasync function rotateFor',
-          "function rotationSource(st,newC){const newEdge=expectedEdge(st,newC),now=Date.now();const rows=(st.positions||[]).map((pos,i)=>{const c=candidate(pos.mint),ret=n(pos.lastReturnPct),peak=n(pos.peakReturnPct),ageMin=Math.max(0,(now-Date.parse(pos.openedAt||now))/60000),flow=n(c?.netBuyers5m,-99),avg=n(c?.avgNetBuyersLast2,flow),weak=!c||softTrendWeak(c),severe=!c||severeTrendBreak(c),stagnant=ageMin>=7&&ret<=5&&peak<12&&flow<=3&&avg<=3,winner=ret>0||peak>=8;const oldEdge=c?expectedEdge(st,c):0;const threshold=severe?0:stagnant?2:weak?2:winner?(ret>=12||peak>=20?20:14):6;return{i,pos,c,ret,peak,ageMin,weak,severe,stagnant,winner,oldEdge,gap:newEdge-oldEdge,threshold}}).filter(x=>x.gap>=x.threshold).sort((a,b)=>(b.severe-a.severe)||(b.stagnant-a.stagnant)||(b.weak-a.weak)||(b.gap-a.gap));return rows[0]||null}\nasync function rotateFor",
-          'ROTATION',re.S)
+          e=sub1(e,r'basePct=[^,;]+,cashBoost=[^,;]+,pct=clamp\(basePct\*growth\*cashBoost,0,p\.maxUtilizationPct\)',
+          'basePct=8+36*Math.pow(quality,1.00),cashBoost=1+0.60*freeRatio,pct=clamp(basePct*growth*cashBoost,0,p.maxUtilizationPct)',
+          'ALLOCATION')
           if 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED' not in e: raise SystemExit('PATCH_MISMATCH_MARKER')
           e=e.replace('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED','MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW=STARTED')
           open(rp,'w').write(r);open(sp,'w').write(s);open(ep,'w').write(e)
