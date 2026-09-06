@@ -10,35 +10,24 @@ cp -a "$SRC/micro-live-executor.js" "$CAND"
 chmod 0644 "$CAND"
 
 python3 - "$CAND" <<'PY'
-import pathlib,re,sys
+import pathlib,sys
 p=pathlib.Path(sys.argv[1]); s=p.read_text()
-
-def sub(pattern,repl,label,flags=0):
+def rep(old,new,label):
     global s
-    s2,n=re.subn(pattern,repl,s,count=1,flags=flags)
+    n=s.count(old)
     if n!=1: raise SystemExit(f'PATCH_{label}_COUNT={n}')
-    s=s2
+    s=s.replace(old,new,1)
 
-# 1) A hard-safe candidate may receive capital even when soft trend confirmation is absent.
-sub(r'(function allocationProfile\(c,p,st,capitalBase\)\{[\s\S]{0,500}?if\(!)trendEntryEligible\(c\)',
-    r'\1coreSafe(c)', 'ALLOC_CORE_SAFE')
-
-# 2) New entries rank all hard-safe candidates; trend remains a preference, not a blocker.
-sub(r'function bestCandidate\(p,exclude=new Set\(\),st=null,override=\[\]\)\{return candidates\(\)\.filter\(c=>trendEntryEligible\(c\)&&!exclude\.has\(c\.mint\)&&!blocked\(c,st\)&&!\(override\|\|\[\]\)\.includes\(c\.mint\)\)\.sort\(\(a,b\)=>expectedEdgeScore\(b,st\)-expectedEdgeScore\(a,st\)\)\[0\]\|\|null\}',
-    "function bestCandidate(p,exclude=new Set(),st=null,override=[]){return candidates().filter(c=>coreSafe(c)&&!exclude.has(c.mint)&&!blocked(c,st)&&!(override||[]).includes(c.mint)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdgeScore(b,st)-expectedEdgeScore(a,st)))[0]||null}",
+rep("  if(!trendEntryEligible(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};",
+    "  if(!coreSafe(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};",
+    'ALLOC_CORE_SAFE')
+rep("function bestCandidate(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&trendEntryEligible(c)).sort((a,b)=>expectedEdge(st,b)-expectedEdge(st,a)||rank(b)-rank(a))[0]||null}",
+    "function bestCandidate(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&coreSafe(c)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))[0]||null}",
     'BEST_CORE_SAFE')
-
-# 3) Whenever placeBuy is reached, target the configured maximum utilization (94%).
-# targetPlan still subtracts base reserve, per-position exit reserve, network headroom and fees.
-sub(r'plan=targetPlan\(beforeSol,st,existing,profile\.pct,p,\{isNew:!isAdd,exitHeadroomLamports\}\)',
-    'plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports})',
+rep("plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports})",
+    "plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports})",
     'MAX_UTILIZATION_TARGET')
-
-# Production marker only.
-if 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' not in s:
-    sub(r'MICRO_LIVE_EXECUTOR_V(?:387_UNIFIED_PRODUCTION|382_NO_SOFT_GATE_FAST_PIPELINE)=STARTED',
-        'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED','VERSION_MARKER')
-
+rep("MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED","MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED",'VERSION_MARKER')
 p.write_text(s)
 PY
 
@@ -46,7 +35,8 @@ node --check "$CAND"
 testout="$(node "$CAND" --self-test)"
 printf '%s\n' "$testout"
 for k in MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE; do grep -q "$k" <<<"$testout"; done
-grep -q 'filter(c=>coreSafe(c)' "$CAND"
+grep -q "if(!coreSafe(c)||capitalBaseLamports<=0)" "$CAND"
+grep -q 'filter(c=>!held.has(c.mint)&&coreSafe(c))' "$CAND"
 grep -q 'targetPlan(beforeSol,st,existing,p.maxUtilizationPct' "$CAND"
 grep -q 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' "$CAND"
 
@@ -94,7 +84,8 @@ NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor
 echo NEW_EXECUTOR_PID="$NEW_PID"
 node --check "$SRC/micro-live-executor.js"
 grep -q 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' "$SRC/micro-live-executor.js"
-grep -q 'filter(c=>coreSafe(c)' "$SRC/micro-live-executor.js"
+grep -q "if(!coreSafe(c)||capitalBaseLamports<=0)" "$SRC/micro-live-executor.js"
+grep -q 'filter(c=>!held.has(c.mint)&&coreSafe(c))' "$SRC/micro-live-executor.js"
 grep -q 'targetPlan(beforeSol,st,existing,p.maxUtilizationPct' "$SRC/micro-live-executor.js"
 
 LIVE=0
