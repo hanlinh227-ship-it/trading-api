@@ -46,14 +46,24 @@ git fetch origin "$BRANCH";git checkout -f "$BRANCH";git reset --hard "origin/$B
 MEME_RECON="$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"
 run_meme_reconcile POST_SYNC
 
-# v3.83 breadth-only scanner deployment: inspect more radar candidates per scan while
-# preserving security/holder/token2022/sell-route/liquidity/impact hard gates.
+# v3.83 breadth-only scanner deployment.
 MEME_V383="$BOT/runtime/deploy_meme_alpha_v383_scanner_breadth.sh"
 if [[ -f "$MEME_V383" ]]; then
   set +e
   V383_OUT="$(/bin/bash "$MEME_V383" 2>&1)"; V383_RC=$?
   set -e
   log "MEME_V383_SCANNER rc=$V383_RC result=$(echo "$V383_OUT" | tail -n 1)"
+fi
+
+# v3.84 adaptive opportunity queue: keep top-quality candidates every cycle and
+# rotate a bounded tail so every preliminary candidate gets repeated opportunities
+# without saturating Jupiter/Dexscreener. Hard safety remains fail-closed.
+MEME_V384="$BOT/runtime/deploy_meme_alpha_v384_adaptive_breadth.sh"
+if [[ -f "$MEME_V384" ]]; then
+  set +e
+  V384_OUT="$(/bin/bash "$MEME_V384" 2>&1)"; V384_RC=$?
+  set -e
+  log "MEME_V384_ADAPTIVE rc=$V384_RC result=$(echo "$V384_OUT" | tail -n 1)"
 fi
 
 FILES=( auto-futures-v1/paper_trader.py auto-futures-v1/ai/common.py auto-futures-v1/ai/ai_budget_governor.py auto-futures-v1/ai/ai_coordination.py auto-futures-v1/ai/claude_trader.py auto-futures-v1/ai/deepseek_trader.py auto-futures-v1/ai/codex_trader.py auto-futures-v1/ai/consensus.py auto-futures-v1/risk/risk_engine.py auto-futures-v1/execution/execution_guard.py auto-futures-v1/execution/live_preflight.py auto-futures-v1/execution/approval_queue.py auto-futures-v1/execution/live_executor.py auto-futures-v1/execution/hub_control_bridge.py auto-futures-v1/research/market_context_monitor.py auto-futures-v1/research/signal_quality_guard.py auto-futures-v1/research/reliability_learner.py auto-futures-v1/position/ai_position_guardian.py auto-futures-v1/position/position_manager.py signal-only-v10/ai_council_worker.py )
