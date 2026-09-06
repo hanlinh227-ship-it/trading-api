@@ -1,0 +1,32 @@
+name: Meme Alpha V422 Live Stability Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v422-live-stability-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Audit current production stability
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          echo '=== EXECUTOR ==='
+          echo SHA=$(sha256sum "$E" | awk '{print $1}')
+          echo PIDS=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js' | tr '\n' ' ')
+          echo COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          echo '=== GATE ==='; cat "$RT/micro-live-gate.json"
+          echo '=== CAPITAL ==='; cat "$RT/capital-observability.json"
+          echo '=== ALLOC ==='; cat "$RT/allocator-status.json"
+          echo '=== REALTIME ==='; cat "$RT/realtime-pool-pulse.json"
+          echo '=== PORTFOLIO ==='; cat "$RT/portfolio-observability.json"
+          echo '=== SYSTEMD RESTARTS ==='
+          for svc in meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do systemctl show "$svc" -p NRestarts -p ActiveState -p SubState --no-pager; done
+          echo V422_LIVE_STABILITY_AUDIT=PASS
