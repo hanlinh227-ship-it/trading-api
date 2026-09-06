@@ -3,6 +3,19 @@ set -Eeuo pipefail
 ROOT="/opt/trading/trading-api";BOT="$ROOT/auto-futures-v1";BRANCH="auto-futures-v1";BACKUP_ROOT="/opt/trading/auto-futures-backups";LOG="$BOT/logs/auto_update.log";LOCK="/tmp/auto-futures-deploy.lock";TS="$(date +%Y%m%d_%H%M%S)";BACKUP="$BACKUP_ROOT/release_$TS";BACKUP_READY=0
 mkdir -p "$BACKUP_ROOT" "$BOT/logs";log(){ echo "$(date -u -Is) $*" | tee -a "$LOG"; };cd "$ROOT";exec 8>"$LOCK";if ! flock -n 8;then log "DEPLOY_SKIP reason=DEPLOY_LOCK_BUSY";exit 0;fi
 LIVE_TRADING="false";LIVE_ARMED="false";if [[ -f /opt/trading/.env.binance ]];then set -a;source /opt/trading/.env.binance;set +a;LIVE_TRADING="${BINANCE_LIVE_TRADING:-false}";LIVE_ARMED="${BINANCE_LIVE_ARMED:-false}";fi
+
+# Meme Alpha v3.82 reconciliation is intentionally independent from the Binance/Auto-Futures
+# deployment gate. A live/pending Binance position must never prevent the root-owned Meme Alpha
+# ARM state from being reconciled. Legacy v3.77/v3.78 hooks are no longer invoked here because
+# v3.82 is their strict successor and replaying obsolete patchers can create version conflicts.
+MEME_RECON="$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"
+if [[ -f "$MEME_RECON" ]]; then
+  set +e
+  MEME_OUT="$(/bin/bash "$MEME_RECON" 2>&1)"; MEME_RC=$?
+  set -e
+  log "MEME_RECONCILE_EARLY rc=$MEME_RC result=$(echo "$MEME_OUT" | tail -n 1)"
+fi
+
 pending_count(){ python3 - <<'PY'
 import json
 from pathlib import Path
@@ -32,13 +45,4 @@ BOOTSTRAP_SKIP_GIT=1 "$BOT/runtime/unified_bootstrap.sh" >/tmp/auto_futures_boot
 chmod 700 "$ROOT/signal-only-v10/runtime/install_signal_v10.sh";"$ROOT/signal-only-v10/runtime/install_signal_v10.sh" >/tmp/signal_v10_install.out 2>&1;log "SIGNAL V10 COUNCIL RECONCILE PASS"
 if [[ -f /opt/trading/.env.binance ]];then set -a;source /opt/trading/.env.binance;set +a;[[ "${BINANCE_LIVE_TRADING:-false}" == "$LIVE_TRADING" ]];[[ "${BINANCE_LIVE_ARMED:-false}" == "$LIVE_ARMED" ]];fi
 sleep 2;POSITION="$(systemctl is-active auto-futures-position.service || true)";SCAN="$(systemctl is-active auto-futures-scan.timer || true)";UPDATE="$(systemctl is-active auto-futures-update.timer || true)";HUB="$(systemctl is-active auto-futures-hub-bridge.service || true)";SIGV10="$(systemctl is-active signal-v10-council.service || true)";[[ "$POSITION" == "active" ]];[[ "$SCAN" == "active" ]];[[ "$UPDATE" == "active" ]];[[ "$SIGV10" == "active" ]];log "HEALTH position=$POSITION scan=$SCAN update=$UPDATE hub=$HUB signal_v10=$SIGV10"
-# Meme Alpha deploy lane: root-only, isolated from Auto Futures rollback semantics.
-for HOOK in "$BOT/runtime/deploy_meme_alpha_v377.sh" "$BOT/runtime/deploy_meme_alpha_v378.sh" "$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"; do
-  if [[ -f "$HOOK" ]]; then
-    set +e
-    OUT="$(/bin/bash "$HOOK" 2>&1)"; RC=$?
-    set -e
-    log "MEME_HOOK name=$(basename "$HOOK") rc=$RC result=$(echo "$OUT" | tail -n 1)"
-  fi
-done
 find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'release_*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true;log "PRODUCTION UPDATE COMPLETE live=$LIVE_TRADING armed=$LIVE_ARMED signal_v10=$SIGV10";trap - ERR;exit 0
