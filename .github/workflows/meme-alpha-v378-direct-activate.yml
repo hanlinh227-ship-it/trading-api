@@ -17,55 +17,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Stage, self-test and safe-deploy v378 executor
+      - name: Inspect root bridge handoff
         shell: bash
         run: |
-          set -Eeuo pipefail
-          APP=/opt/meme-alpha/app
-          EXEC="$APP/src/micro-live-executor.js"
-          BASE="$APP/runtime-status/deploy-candidates"
-          NAME=micro-live-executor-v378.js
-          STAGED="$BASE/$NAME"
-          TMP=$(mktemp -d /tmp/meme-v378-safe.XXXXXX)
-          trap 'rm -rf "$TMP"' EXIT
-          mkdir -p "$BASE"
-          git show origin/auto-futures-v1:auto-futures-v1/runtime/meme_alpha_patch_v378.py > "$TMP/patch.py"
-          cp -a "$EXEC" "$TMP/executor.js"
-          python3 "$TMP/patch.py" "$TMP/executor.js"
-          node --check "$TMP/executor.js"
-          node "$TMP/executor.js" --self-test >/tmp/meme_v378_safe_selftest.out 2>&1
-          grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$TMP/executor.js"
-          install -m 0644 "$TMP/executor.js" "$STAGED"
-          SHA=$(sha256sum "$STAGED" | awk '{print $1}')
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$NAME" "$SHA" | tee /tmp/meme_v378_safe_deploy.out
-          grep -q 'SAFE_DEPLOY_SUCCESS=TRUE' /tmp/meme_v378_safe_deploy.out
-          sleep 1
-          systemctl is-active --quiet meme-alpha-micro-live.service
-          grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXEC"
-          printf '{"version":"3.78.0","status":"DEPLOYED","profile":"AGGRESSIVE_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v378-deployed.json"
-          echo 'V378_ACTIVE=TRUE'
-      - name: Record production verification
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V378-ACTIVE.md"
-          {
-            echo '# Meme Alpha V378 ACTIVE'
-            echo
-            echo "- executor_marker: \`$([[ -f "$APP/src/micro-live-executor.js" ]] && grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$APP/src/micro-live-executor.js" && echo true || echo false)\`"
-            echo "- deployment_marker: \`$([[ -f "$APP/runtime-status/v378-deployed.json" ]] && echo true || echo false)\`"
-            echo "- micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`"
-            echo "- paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`"
-            echo "- signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`"
-            echo "- active_processes: \`$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)\`"
-            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
-          } > "$OUT"
-          grep -q 'executor_marker: `true`' "$OUT"
-          grep -q 'deployment_marker: `true`' "$OUT"
-          grep -q 'micro_live_service: `active`' "$OUT"
-          git config user.name "meme-alpha-vps-bot"
-          git config user.email "actions-bot@users.noreply.github.com"
-          git add meme-alpha-runtime/V378-ACTIVE.md
-          git commit -m 'chore(meme): confirm v378 active' || true
-          git push origin HEAD:main
+          set -u
+          echo '--- BRIDGE SERVICE ---'
+          systemctl cat trading-vps-bridge.service 2>&1 || true
+          systemctl show trading-vps-bridge.service -p User -p Group -p ExecStart -p FragmentPath -p MainPID 2>&1 || true
+          echo '--- BRIDGE SCRIPT ---'
+          for p in /usr/local/bin/trading-vps-bridge.sh /usr/local/sbin/trading-vps-bridge /usr/local/bin/trading-vps-bridge; do
+            if [[ -f "$p" ]]; then echo "PATH=$p"; ls -l "$p"; sed -n '1,320p' "$p"; fi
+          done
+          echo '--- BRIDGE DIRS ---'
+          find /var/lib /run /opt -maxdepth 3 \( -iname '*vps*bridge*' -o -iname '*meme*deploy*' -o -iname '*deploy*queue*' \) -printf '%p %u:%g %m\n' 2>/dev/null | head -n 120 || true
