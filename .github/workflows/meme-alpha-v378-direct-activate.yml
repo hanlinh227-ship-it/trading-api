@@ -1,19 +1,39 @@
-name: Meme Alpha V381 Fixture Inspect
+name: Meme Alpha V381 Safe Fixture Repair
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  repair:
     runs-on: self-hosted
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect selftest fixture
+      - name: Repair and validate staged v381
         shell: bash
         run: |
-          set +e
-          F=/opt/meme-alpha/app/runtime-status/v381-fast-capital/micro-live-executor.js
-          nl -ba "$F" | sed -n '282,294p'
-          grep -nE 'const c=|insiderRiskDecision|topHoldersPct|holderClusterMaxAccountsSameOwner' "$F" | tail -20
-          exit 0
+          set -euo pipefail
+          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
+          F="$ST/micro-live-executor.js"
+          python3 - "$F" <<'PY'
+          import sys
+          p=sys.argv[1]; e=open(p).read()
+          old="holderClusterDecision:'PASS',decision:'PROBE_CANDIDATE'"
+          new="holderClusterDecision:'PASS',insiderRiskDecision:'PASS',topHoldersPct:20,holderClusterMaxAccountsSameOwner:1,decision:'PROBE_CANDIDATE'"
+          if old in e:
+              e=e.replace(old,new,1)
+          elif "insiderRiskDecision:'PASS'" not in e:
+              raise SystemExit('FIXTURE_PATCH_MISMATCH')
+          oldtest="trendEntryEligible({...c,token2022:true}))throw new Error('ENTRY_SAFETY_SELFTEST');"
+          newtest="trendEntryEligible({...c,token2022:true})||trendEntryEligible({...c,insiderRiskDecision:'BLOCK'}))throw new Error('ENTRY_SAFETY_SELFTEST');"
+          if oldtest in e: e=e.replace(oldtest,newtest,1)
+          open(p,'w').write(e)
+          print('V381_FIXTURE_REPAIR=PASS')
+          PY
+          node --check "$F"
+          node "$ST/safe-signal-export.js" --self-test
+          node "$F" --self-test
+          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$F"
+          grep -q "insiderRiskDecision:'PASS'" "$F"
+          grep -q "insiderRiskDecision:'BLOCK'" "$F"
+          echo V381_STAGED_VALIDATION=PASS
