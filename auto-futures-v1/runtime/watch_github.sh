@@ -6,6 +6,7 @@ LOG="$ROOT/auto-futures-v1/logs/github_watch.log"
 LOCK="/tmp/auto-futures-update.lock"
 BRANCH="auto-futures-v1"
 BOT="$ROOT/auto-futures-v1"
+MEME_DEPLOY="$BOT/runtime/deploy_meme_alpha_v377.sh"
 
 mkdir -p "$(dirname "$LOG")"
 log(){ echo "$(date -u -Is) $*" >> "$LOG"; }
@@ -24,6 +25,19 @@ if [[ "$LOCAL" != "$REMOTE" ]]; then
   "$BOT/runtime/update_auto_futures.sh" >> "$LOG" 2>&1
   log "UPDATE FINISHED"
   exit 0
+fi
+
+# Isolated meme-alpha deployment hook. It never modifies futures state and it
+# returns success while deferred. Its own fail-closed checks require root,
+# zero meme positions, offline self-tests, backups, health validation and
+# rollback before a production source change can persist.
+if [[ -x "$MEME_DEPLOY" ]]; then
+  if "$MEME_DEPLOY" >> "$LOG" 2>&1; then
+    :
+  else
+    rc=$?
+    log "MEME_ALPHA_DEPLOY_HOOK_FAILED rc=$rc"
+  fi
 fi
 
 # Self-heal the one-Hub architecture after an older updater has pulled the new release.
