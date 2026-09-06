@@ -1,23 +1,120 @@
-name: Meme Alpha V381 Bottleneck Inspect
+name: Meme Alpha V382 Fast Pipeline Activate
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect exact soft gates and throughput
+      - name: Patch throughput, remove soft entry waits, activate and verify
         shell: bash
         run: |
-          set +e
-          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
-          echo '=== SCANNER ==='
-          grep -nE 'DISCOVERY_RADAR_ONLY_MAX|JUPITER_MIN_INTERVAL_MS|MAX_SELLABILITY_CHECKS_V216|preliminary.slice|slice\(0, *12\)|sleep\(' "$ST/scanner.js" | head -80
-          echo '=== SIGNAL ==='
-          grep -nE 'effectiveScore|slice\(0, *120\)|PROBE_CANDIDATE|WATCH|entryAllowed|consecutiveEligible|stable|liquidityStable' "$ST/safe-signal-export.js" | head -120
-          echo '=== EXECUTOR ==='
-          grep -nE 'function trendEntryEligible|function opportunityLane|consecutiveEligible|liquidityStable|decisionOk|buyerFlow|pulseFlow|realtimeFlow|sleep\(1500\)' "$ST/micro-live-executor.js" | head -100
-          exit 0
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v381-fast-capital"
+          START_EPOCH=$(date +%s)
+
+          python3 - "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js" <<'PY'
+          import sys
+          s_path,g_path,e_path=sys.argv[1:]
+          s=open(s_path).read(); g=open(g_path).read(); e=open(e_path).read()
+
+          reps_s=[
+            ('const DISCOVERY_RADAR_ONLY_MAX = 360;', 'const DISCOVERY_RADAR_ONLY_MAX = 900;'),
+            ('const JUPITER_MIN_INTERVAL_MS = 1900;', 'const JUPITER_MIN_INTERVAL_MS = 1200;'),
+            ('const MAX_SELLABILITY_CHECKS_V216=8;', 'const MAX_SELLABILITY_CHECKS_V216=16;'),
+            ('const baseDeep = preliminary.slice(0, 36);', 'const baseDeep = preliminary.slice(0, 72);'),
+            ('.slice(0, 12);', '.slice(0, 24);'),
+          ]
+          for old,new in reps_s:
+            if old not in s and new not in s: raise SystemExit('SCANNER_PATCH_MISMATCH:'+old)
+            s=s.replace(old,new,1)
+
+          if 'effectiveScore>=50' in g: g=g.replace('effectiveScore>=50','effectiveScore>=42',1)
+          elif 'effectiveScore>=42' not in g: raise SystemExit('SIGNAL_SCORE_PATCH_MISMATCH')
+          if ').sort((a,b)=>b.score-a.score).slice(0,120);' in g:
+            g=g.replace(').sort((a,b)=>b.score-a.score).slice(0,120);',').sort((a,b)=>b.score-a.score).slice(0,300);',1)
+          elif ').sort((a,b)=>b.score-a.score).slice(0,300);' not in g: raise SystemExit('SIGNAL_CAP_PATCH_MISMATCH')
+
+          old="function trendEntryEligible(c){if(!coreSafe(c))return false;const decisionOk=c.decision==='PROBE_CANDIDATE'||c.decision==='WATCH';if(!decisionOk)return false;const rawChg=n(c.priceChange5m,-999);if(rawChg>22)return false;const p=pulseFor(c),rt=realtimeFor(c),chg=p?n(p.price5m,-999):rawChg,net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=48&&n(p.volumeAcceleration)>=0.95&&n(p.txnAcceleration)>=0.85&&n(p.buySellRatio)>=0.98&&n(p.tx5)>=2;const realtimeFlow=!!rt&&n(rt.lastEventAgeMs,99999)<=3000&&n(rt.events5s)>=1&&n(rt.eventMomentum)>=1.05;const buyerFlow=net>=1||avg>=0.5;return chg>=-0.35&&chg<=22&&(buyerFlow||pulseFlow||realtimeFlow)&&slope>=-10&&stable&&opportunityLane(c)}"
+          new="function trendEntryEligible(c){if(!coreSafe(c))return false;const blocked=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'];if(blocked.includes(String(c.decision||'')))return false;const rawChg=n(c.priceChange5m,-999);if(rawChg>22)return false;return true}"
+          if old in e: e=e.replace(old,new,1)
+          elif new not in e: raise SystemExit('EXECUTOR_ENTRY_PATCH_MISMATCH')
+          e=e.replace("MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED","MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED",1)
+          e=e.replace('await sleep(1500)}}','await sleep(900)}}',1)
+
+          open(s_path,'w').write(s); open(g_path,'w').write(g); open(e_path,'w').write(e)
+          print('V382_PATCH=PASS')
+          PY
+
+          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
+          node --check "$ST/scanner.js"
+          node --check "$ST/safe-signal-export.js"
+          node --check "$ST/micro-live-executor.js"
+          node "$ST/safe-signal-export.js" --self-test > "$ST/v382-signal-selftest.txt" 2>&1
+          node "$ST/micro-live-executor.js" --self-test > "$ST/v382-executor-selftest.txt" 2>&1
+          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' "$ST/v382-signal-selftest.txt"
+          grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' "$ST/v382-executor-selftest.txt"
+          grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$ST/micro-live-executor.js"
+          grep -q 'DISCOVERY_RADAR_ONLY_MAX = 900' "$ST/scanner.js"
+          grep -q 'JUPITER_MIN_INTERVAL_MS = 1200' "$ST/scanner.js"
+          grep -q 'MAX_SELLABILITY_CHECKS_V216=16' "$ST/scanner.js"
+          grep -q 'preliminary.slice(0, 72)' "$ST/scanner.js"
+          grep -q 'slice(0,300)' "$ST/safe-signal-export.js"
+
+          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v382.sh"
+          chmod 0755 "$ST/run-paper.pre-v382.sh"
+          cat > "$APP/run-paper.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v381-fast-capital"
+          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
+          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
+          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
+          printf 'V382_SCANNER_SWAP=TRUE\nV382_SIGNAL_SWAP=TRUE\nV382_EXECUTOR_SWAP=TRUE\n' > "$ST/v382-result.txt"
+          cp "$ST/run-paper.pre-v382.sh" "$APP/run-paper.sh"
+          chmod 0755 "$APP/run-paper.sh"
+          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill "$p" 2>/dev/null || true; done
+          exec "$APP/run-paper.sh"
+          SH
+          chmod 0755 "$APP/run-paper.sh"
+          timeout 150s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+
+          READY=0
+          for i in $(seq 1 100); do
+            G="$APP/runtime-status/micro-live-gate.json"
+            S="$APP/runtime-status/signal-snapshot.json"
+            if grep -q 'V382_EXECUTOR_SWAP=TRUE' "$ST/v382-result.txt" 2>/dev/null \
+              && grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
+              && pgrep -f 'node .*micro-live-executor.js' >/dev/null \
+              && grep -q '"allowed": true' "$G" 2>/dev/null \
+              && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
+              && grep -q '"riskEntryAllowed": true' "$G" 2>/dev/null; then
+              MT=$(stat -c %Y "$S" 2>/dev/null || echo 0)
+              if [ "$MT" -ge "$START_EPOCH" ]; then READY=1; break; fi
+            fi
+            sleep 2
+          done
+          [ "$READY" = 1 ]
+
+          echo '=== V382 RESULT ==='; cat "$ST/v382-result.txt"
+          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
+          echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js'
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
+          echo '=== PIPELINE ==='
+          python3 - <<'PY'
+          import json,os,time
+          base='/opt/meme-alpha/app/runtime-status/'
+          for f in ['new-listing-radar.json','signal-snapshot.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']:
+            p=base+f
+            try:
+              d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
+              print(f,{'ts':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'count':len(r) if isinstance(r,list) else None,'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r) if isinstance(r,list) else None,'watch':sum(x.get('decision')=='WATCH' for x in r) if isinstance(r,list) else None,'ageSec':round(time.time()-os.path.getmtime(p),1)})
+            except Exception as ex: print(f,'ERR',ex)
+          PY
+          printf '{"version":"3.82.0","status":"DEPLOYED","profile":"NO_SOFT_GATE_FAST_PIPELINE","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v382-deployed.json"
+          echo V382_ACTIVE=TRUE
