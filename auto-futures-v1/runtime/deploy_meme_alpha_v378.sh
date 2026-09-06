@@ -24,6 +24,21 @@ if grep -Eq 'MICRO_LIVE_EXECUTOR_V38[1-9]|V381_FAST_CAPITAL' "$EXECUTOR"; then
   for u in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
     systemctl is-active --quiet "$u" || { echo "MEME_V38X_ARM=DEFER_SERVICE unit=$u"; exit 0; }
   done
+
+  # Explicit manual disarm always wins. Missing/stale/legacy state may be
+  # repaired only after signer/source/risk preconditions pass below.
+  if [[ -f "$ARM" ]]; then
+    ARM_VALUE="$(cat "$ARM" 2>/dev/null || true)"
+    if [[ "$ARM_VALUE" == 'ARMED=NO' ]]; then
+      echo 'MEME_V38X_ARM=DEFER_EXPLICIT_DISARM'
+      exit 0
+    fi
+    if [[ -n "$ARM_VALUE" && "$ARM_VALUE" != 'ARMED=YES' && "$ARM_VALUE" != 'MAINTENANCE=V377' ]]; then
+      echo "MEME_V38X_ARM=DEFER_UNKNOWN_STATE value=$ARM_VALUE"
+      exit 0
+    fi
+  fi
+
   python3 - "$GATE" <<'PY'
 import json,sys,time,datetime
 p=sys.argv[1]
@@ -42,11 +57,30 @@ ts=d.get('timestamp'); assert ts
 age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp()
 assert age < 90, age
 PY
+
+  # micro-live runs unprivileged. The old root:root 0640 handoff made a valid
+  # ARMED=YES file unreadable and was therefore reported as absent/invalid.
+  # Restore the known-good signer-client group ownership used by v3.79+.
   mkdir -p "$(dirname "$ARM")"
-  T="$(mktemp /tmp/meme-alpha-arm-v38x.XXXXXX)"
-  printf 'ARMED=YES\n' > "$T"
-  install -o root -g root -m 0640 "$T" "$ARM"
-  rm -f "$T"
+  chown root:meme-alpha-signer-client "$(dirname "$ARM")"
+  chmod 0750 "$(dirname "$ARM")"
+  NEED_ARM_REPAIR=1
+  if [[ -f "$ARM" ]] && [[ "$(cat "$ARM" 2>/dev/null || true)" == 'ARMED=YES' ]] \
+     && [[ "$(stat -c %U "$ARM" 2>/dev/null || true)" == 'root' ]] \
+     && [[ "$(stat -c %G "$ARM" 2>/dev/null || true)" == 'meme-alpha-signer-client' ]] \
+     && [[ "$(stat -c %a "$ARM" 2>/dev/null || true)" == '640' ]]; then
+    NEED_ARM_REPAIR=0
+  fi
+  if [[ "$NEED_ARM_REPAIR" -eq 1 ]]; then
+    T="$(mktemp /tmp/meme-alpha-arm-v38x.XXXXXX)"
+    printf 'ARMED=YES\n' > "$T"
+    install -o root -g meme-alpha-signer-client -m 0640 "$T" "$ARM"
+    rm -f "$T"
+    echo 'MEME_V38X_ARM_FILE=REPAIRED'
+  else
+    echo 'MEME_V38X_ARM_FILE=VALID'
+  fi
+
   systemctl restart meme-alpha-micro-live.service
   sleep 3
   systemctl is-active --quiet meme-alpha-micro-live.service
