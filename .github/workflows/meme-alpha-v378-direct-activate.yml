@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Source Inspect
+name: Meme Alpha V379 Executor Inspect
 
 on:
   push:
@@ -12,16 +12,13 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect exact source
+      - name: Inspect executor header
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
-          echo '--- MICRO LIVE GATE SOURCE ---'
-          sed -n '1,180p' "$APP/src/micro-live-gate.js" 2>/dev/null || true
-          echo '--- RISK SOURCE ---'
-          sed -n '1,180p' "$APP/src/risk.js" 2>/dev/null || true
-          echo '--- HEALTH FILE REFERENCES ---'
-          grep -RniE 'scanner-source-health|source-health|allowNewEntries|successfulSources|usingCache' "$APP/src" 2>/dev/null | head -n 260 || true
-          echo '--- EXISTING HEALTH FILES ---'
-          find /opt/meme-alpha /var/lib/meme-alpha -maxdepth 5 -type f \( -iname '*source*health*.json' -o -iname '*scanner*health*.json' \) -print -exec sh -c 'echo FILE=$1; tail -c 5000 "$1" 2>/dev/null || true; echo' _ {} \; 2>/dev/null | head -n 500 || true
+          stat -c '%n %U:%G %a' "$APP/src/micro-live-executor.js" "$APP/src/micro-live-gate.js" "$APP/src/risk.js" "$APP/src" 2>/dev/null || true
+          echo '--- EXECUTOR HEAD ---'
+          sed -n '1,120p' "$APP/src/micro-live-executor.js" 2>/dev/null || true
+          echo '--- EXECUTOR LOOP REFERENCES ---'
+          grep -nE 'while|setInterval|main\(|tick\(|MICRO_LIVE_EXECUTOR_V378|allocationProfile|coreSafe' "$APP/src/micro-live-executor.js" 2>/dev/null | head -n 180 || true
