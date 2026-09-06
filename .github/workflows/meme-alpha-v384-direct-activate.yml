@@ -1,4 +1,4 @@
-name: Meme Alpha V385 Recovery
+name: Meme Alpha V385 Manual Recovery
 on:
   push:
     branches: [main]
@@ -6,28 +6,42 @@ on:
 jobs:
   recover:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Restart scanner pipeline and verify recovery
+      - name: Manually restart scanner and feed pipeline, then verify live health
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
+          BASE="$APP/runtime-status/deploy-candidates"
+          mkdir -p "$BASE"
           echo '=== BEFORE ==='
           grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|MAX_SELLABILITY_CHECKS_V216' "$APP/src/scanner.js" || true
           python3 -c "import json; d=json.load(open('$APP/runtime-status/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']})" || true
-          echo '=== RESTART PAPER/SCANNER ==='
-          sudo -n /bin/systemctl restart meme-alpha-paper.service
-          sleep 4
-          sudo -n /bin/systemctl is-active meme-alpha-paper.service
+
+          echo '=== SAFE RESTART FEEDS ==='
+          for spec in \
+            'realtime:realtime-pool-pulse.js' \
+            'trend:trend-pulse.js' \
+            'whale:whale-flow-intel.js' \
+            'scanner:scanner.js'; do
+            comp="${spec%%:*}"; file="${spec##*:}"
+            src="$APP/src/$file"; name="manual-recover-$comp.js"; stage="$BASE/$name"
+            cp -a "$src" "$stage"
+            node --check "$stage"
+            sha=$(sha256sum "$stage" | awk '{print $1}')
+            sudo -n /usr/local/sbin/meme-alpha-safe-deploy "$comp" "$name" "$sha"
+          done
+
           echo '=== SERVICES ==='
           for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
+
           echo '=== WAIT LIVE HEALTH ==='
           ok=0
-          for i in $(seq 1 30); do
+          for i in $(seq 1 40); do
             sleep 3
             if python3 -c "import json,os,time; app='$APP/runtime-status'; g=json.load(open(app+'/micro-live-gate.json')); s=json.load(open(app+'/signal-snapshot.json')); print({'gate':{k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']},'signalAgeSec':round(time.time()-os.path.getmtime(app+'/signal-snapshot.json'),1),'signalCount':len(s.get('candidates') or []),'intelSummary':s.get('intelSummary')}); assert g.get('armOk') is True and g.get('armAttested') is True and g.get('executionMode')=='MICRO_LIVE' and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and g.get('allowed') is True and time.time()-os.path.getmtime(app+'/signal-snapshot.json') < 45"; then ok=1; break; fi
           done
-          [ "$ok" -eq 1 ] || { echo LIVE_RECOVERY=FALSE; exit 1; }
-          echo LIVE_RECOVERY=TRUE
+          [ "$ok" -eq 1 ] || { echo MANUAL_LIVE_RECOVERY=FALSE; exit 1; }
+          echo MANUAL_LIVE_RECOVERY=TRUE
