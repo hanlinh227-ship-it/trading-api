@@ -1,0 +1,22 @@
+name: Meme Alpha V416 Source Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v416-source-audit.yml']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Inspect allocation and entry anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== LINES 130-240 ==='
+          nl -ba "$E" | sed -n '130,240p'
+          echo '=== LINES 270-310 ==='
+          nl -ba "$E" | sed -n '270,310p'
+          echo V416_SOURCE_AUDIT=PASS
