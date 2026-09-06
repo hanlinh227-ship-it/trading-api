@@ -15,7 +15,7 @@ jobs:
           set -euo pipefail
           APP=/opt/meme-alpha/app
           ST="$APP/runtime-status"
-          ARCH=/opt/meme-alpha/archive/legacy-pre-v381
+          ARCH="$ST/_legacy-pre-v381"
           mkdir -p "$ARCH"
 
           echo '=== PRE-CLEAN CAPACITY ==='
@@ -23,20 +23,18 @@ jobs:
           free -h
           df -h /
 
-          # Quarantine only old deployment/stage artifacts. Active snapshots, v381 staging used by v382,
-          # current source, signer, and all six current services are untouched.
           for p in "$ST"/v3[0-7][0-9]* "$ST"/v380-* "$ST"/v378-* "$ST"/v379-* "$ST"/deploy-candidates "$ST"/safe-deploy-backup-*; do
             [ -e "$p" ] || continue
             b=$(basename "$p")
             case "$b" in
-              v381-fast-capital|v381-deployed.json|v382-deployed.json) continue ;;
+              v381-fast-capital|v381-deployed.json|v382-deployed.json|_legacy-pre-v381) continue ;;
             esac
+            [ "$p" = "$ARCH" ] && continue
             mv "$p" "$ARCH/$b" 2>/dev/null || true
           done
           find "$ST" -maxdepth 1 -type f -name 'run-paper-pre-v3*.sh' -exec mv -t "$ARCH" {} + 2>/dev/null || true
           rm -f "$ST/paper-v382-trace.log" 2>/dev/null || true
 
-          # Rotate the discovery log if it has grown beyond 1 MiB; keep recent diagnostics.
           if [ -f "$ST/new-listing-radar-runtime.log" ] && [ "$(stat -c %s "$ST/new-listing-radar-runtime.log")" -gt 1048576 ]; then
             tail -n 2500 "$ST/new-listing-radar-runtime.log" > "$ST/new-listing-radar-runtime.log.trim" || true
             mv "$ST/new-listing-radar-runtime.log.trim" "$ST/new-listing-radar-runtime.log" || true
