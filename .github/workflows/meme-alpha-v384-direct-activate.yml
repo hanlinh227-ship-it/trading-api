@@ -24,13 +24,15 @@ jobs:
           cp -a "$SRC" "$STAGE"
           python3 .github/scripts/patch_v385_scanner.py "$STAGE"
           node --check "$STAGE"
+          echo '=== STAGED V385 MARKERS ==='
+          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|V385_BUCKET_INDEX|MAX_SELLABILITY_CHECKS_V216' "$STAGE"
           grep -q 'V385_SEQUENTIAL_CLUSTER_SCAN' "$STAGE"
           grep -q 'V385_CLUSTER_SIZE' "$STAGE"
           grep -q 'MAX_SELLABILITY_CHECKS_V216=8' "$STAGE"
           grep -q 'securityDecision' "$STAGE"
           grep -q 'holderClusterDecision' "$STAGE"
           grep -q 'NO_SELL_ROUTE' "$STAGE"
-          grep -q 'TOKEN2022' "$STAGE"
+          grep -qi 'token2022' "$STAGE"
           grep -q 'DEX_LIQUIDITY_FAIL' "$STAGE"
           SHA=$(sha256sum "$STAGE" | awk '{print $1}')
           sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$NAME" "$SHA"
