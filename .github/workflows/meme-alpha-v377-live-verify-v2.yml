@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
 
+# retrigger: 2026-09-06T04:20Z — verify autonomous root-timer sync/deploy only
 jobs:
   verify:
     runs-on: self-hosted
