@@ -25,6 +25,14 @@ jobs:
           set -u
           OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/DIAGNOSTICS.md"
           mkdir -p "$(dirname "$OUT")"
+          UNITS=(
+            meme-alpha-paper.service
+            meme-alpha-micro-live.service
+            meme-alpha-realtime-pulse.service
+            meme-alpha-trend-pulse.service
+            meme-alpha-whale-flow.service
+            meme-alpha-signer.service
+          )
           {
             echo '# Meme Alpha VPS Diagnostics'
             echo
@@ -58,6 +66,17 @@ jobs:
             echo '## Meme-related service runtime states'
             echo '```'
             (systemctl list-units --type=service --all --no-pager 2>/dev/null || true) | grep -iE 'meme|solana|jupiter' || true
+            echo '```'
+            echo
+            echo '## Service execution topology'
+            echo '```'
+            for u in "${UNITS[@]}"; do
+              echo "[$u]"
+              systemctl show "$u" --no-pager \
+                -p ActiveState -p SubState -p User -p Group \
+                -p FragmentPath -p WorkingDirectory -p ExecStart 2>/dev/null || true
+              echo
+            done
             echo '```'
             echo
             echo '## User-level meme services'
