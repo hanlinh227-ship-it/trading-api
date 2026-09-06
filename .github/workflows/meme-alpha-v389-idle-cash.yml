@@ -9,12 +9,32 @@ permissions:
 jobs:
   deploy:
     runs-on: self-hosted
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
-      - name: Inspect holder safety contract
+      - name: Audit V390 idle capital consumption
         shell: bash
         run: |
           set -euo pipefail
-          SRC=/opt/meme-alpha/app/src/micro-live-executor.js
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; SRC="$APP/src/micro-live-executor.js"
+          echo '=== PRODUCTION ==='
           sha256sum "$SRC"
-          sed -n '55,90p' "$SRC"
+          grep -nE 'V390_IDLE_CAPITAL|holderSafe|IDLE_CAPITAL_SCALE|targetPlan\(beforeSol,st,existing,p.maxUtilizationPct' "$SRC" || true
+          echo '=== PROCESS_SERVICES ==='
+          pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo '=== GATE_PORTFOLIO ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json']:
+            p=rt/name
+            print('FILE',name,'exists',p.exists(),'readable',p.is_file() and p.exists())
+            if p.exists():
+              try: print(name,json.loads(p.read_text()),'ageSec',round(time.time()-p.stat().st_mtime,1))
+              except Exception as e: print(name,'READ_ERR',repr(e))
+          PY
+          echo '=== RECENT_EXECUTION ==='
+          journalctl -u meme-alpha-micro-live.service --since '2026-09-06 14:54:00 UTC' --no-pager -n 2000 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|CAPITAL_|BUY_TOKEN|SIGNER_|EXECUTOR_ERROR|TARGET_ALREADY|HEADROOM|ALLOCATION|IDLE_CAPITAL' | tail -500 || true
+          echo '=== PAPER_RECENT ==='
+          journalctl -u meme-alpha-paper.service --since '2026-09-06 14:54:00 UTC' --no-pager -n 300 2>/dev/null | tail -120 || true
+          echo V390_POST_ACTIVE_AUDIT=COMPLETE
