@@ -1,0 +1,43 @@
+name: Meme Alpha V418 Equity Exit Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v418-equity-exit-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect equity scaling and exit preview failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== EQUITY/ALLOCATION FUNCTIONS ==='
+          nl -ba "$E" | sed -n '130,235p'
+          echo '=== POSITION MANAGEMENT ==='
+          nl -ba "$E" | sed -n '235,315p'
+          echo '=== EXIT PREVIEW FAILURE REASONS ==='
+          python3 - <<'PY'
+          import json,collections,pathlib
+          p=pathlib.Path('/var/lib/meme-alpha/data/micro-live/events.jsonl')
+          c=collections.Counter(); n=0
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-15000:]:
+              try:e=json.loads(line)
+              except:continue
+              if e.get('type')=='EXIT_PREVIEW_FAIL':
+                n+=1;c[str(e.get('error','UNKNOWN'))[:180]]+=1
+          print('EXIT_PREVIEW_FAIL_COUNT',n)
+          for k,v in c.most_common(25): print(v,k)
+          PY
+          echo '=== CURRENT STATE LEARNING/CAPITAL ==='
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('/var/lib/meme-alpha/data/micro-live/state.json')
+          j=json.loads(p.read_text())
+          print('capital',j.get('capital'))
+          print('learning',j.get('learning'))
+          print('positions',[(x.get('symbol'),x.get('costBasisLamports'),x.get('lastReturnPct'),x.get('peakReturnPct'),x.get('addCount'),x.get('scaleInLockedAfterProfit')) for x in j.get('positions',[])])
+          PY
+          echo V418_EQUITY_EXIT_AUDIT=PASS
