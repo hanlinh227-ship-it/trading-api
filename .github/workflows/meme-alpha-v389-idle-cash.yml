@@ -1,4 +1,4 @@
-name: Meme Alpha V401 Fee Headroom Finalization
+name: Meme Alpha V402 Allocation Audit
 on:
   push:
     branches: [main]
@@ -7,43 +7,20 @@ on:
 permissions:
   contents: read
 jobs:
-  deploy:
+  audit:
     runs-on: self-hosted
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
-      - name: Deploy V401 fee headroom
+      - name: Inspect live allocation concentration
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"; mkdir -p "$BASE"
-          EXE="$APP/src/micro-live-executor.js"; CAND="$BASE/v401-executor-fee-headroom.js"; cp -a "$EXE" "$CAND"
-          python3 - "$CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="overhead=isNew?Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports):0,available=Math.max(0,solBalanceLamports-reserve-overhead)"
-          new="overhead=Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports),available=Math.max(0,solBalanceLamports-reserve-overhead)"
-          if s.count(old)!=1: raise SystemExit(f'V401_HEADROOM_PATCH_COUNT={s.count(old)}')
-          s=s.replace(old,new,1)
-          p.write_text(s)
-          PY
-          node --check "$CAND"
-          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
-          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
-          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
-          grep -q 'overhead=Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports)' "$CAND"
-          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V401_EXECUTOR_SHA="$SHA"
-          BACK="$RT/v401-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$CAND" "$EXE"; chmod 664 "$EXE" || true
-          sudo -n /usr/bin/systemctl restart meme-alpha-paper.service
-          for i in $(seq 1 50); do sleep 2; [ "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA" ] && systemctl is-active --quiet meme-alpha-paper.service && systemctl is-active --quiet meme-alpha-micro-live.service && systemctl is-active --quiet meme-alpha-signer.service && break; [ "$i" -lt 50 ] || exit 9; done
-          sleep 6
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
-          python3 - <<'PY'
-          import json,pathlib
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','last-execution.json','allocator-status.json']:
-            p=rt/name; print(name,json.loads(p.read_text()) if p.exists() else None)
-          PY
-          echo V401_FEE_HEADROOM=ACTIVE
-          echo SCALE_ALLOWED=TRUE
-          echo HARD_SAFETY_BYPASS=FALSE
+          EXE=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== ALLOCATION FUNCTIONS ==='
+          grep -nE 'function allocationProfile|function targetPlan|function requiredReserveLamports|function expectedEdge|function rank|async function placeBuy|async function maybeScaleIn|rankedCandidates|CAPITAL_HEADROOM_LOW|TARGET_ALREADY_SATISFIED' "$EXE" | head -260 || true
+          L=$(grep -n 'function allocationProfile' "$EXE"|head -1|cut -d: -f1 || true); if [ -n "$L" ]; then S=$((L-8)); [ $S -lt 1 ] && S=1; E=$((L+90)); sed -n "${S},${E}p" "$EXE"; fi
+          echo '=== POLICY / CAPITAL ==='
+          cat /etc/meme-alpha/micro-live-policy.json || true
+          cat /opt/meme-alpha/app/runtime-status/capital-observability.json || true
+          cat /opt/meme-alpha/app/runtime-status/portfolio-observability.json || true
+          echo V402_ALLOCATION_AUDIT=COMPLETE
