@@ -1,0 +1,167 @@
+name: Meme Alpha Insider Risk Hardening
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-hardening-patch.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: meme-alpha-hardening-patch
+  cancel-in-progress: false
+
+jobs:
+  patch-and-test:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply objective insider-risk contract to sanitized runtime source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p=Path(path); s=p.read_text()
+              n=s.count(old)
+              if n!=1:
+                  raise SystemExit(f'{path}: expected one replacement, found {n}: {old[:100]!r}')
+              p.write_text(s.replace(old,new,1))
+
+          sig='meme-alpha-runtime/source/external/signer/ready_signer.py'
+          exe='meme-alpha-runtime/source/src/micro-live-executor.js'
+          exp='meme-alpha-runtime/source/src/safe-signal-export.js'
+
+          # Signal contract: explicit, auditable insider-risk decision. We do not
+          # claim to know developer identity; PASS means objective concentration
+          # and wallet-cluster evidence passed.
+          replace_once(exp,
+            "const VERSION='3.76.0-multi-strategy-router';",
+            "const VERSION='3.77.0-objective-insider-risk';")
+
+          replace_once(exp,
+            "  const holderDecision=c.holderClusterAudit?.decision||c.holderClusterDecision||null;\n",
+            "  const holderDecision=c.holderClusterAudit?.decision||c.holderClusterDecision||null;\n"
+            "  const holderMaxAccounts=num(c.holderClusterAudit?.maxAccountsSameOwner,c.holderClusterMaxAccountsSameOwner??999);\n"
+            "  const holderTopPct=finite(c.topHoldersPct)?Number(c.topHoldersPct):null;\n"
+            "  const whaleTop10Pct=finite(intel.whaleRow?.top10Pct)?Number(intel.whaleRow.top10Pct):null;\n"
+            "  const whaleDeltaTop10Pct=finite(intel.whaleRow?.deltaTop10Pct)?Number(intel.whaleRow.deltaTop10Pct):null;\n"
+            "  const insiderRiskReasons=[];\n"
+            "  let insiderRiskDecision='PASS';\n"
+            "  const insiderReview=r=>{insiderRiskReasons.push(r);if(insiderRiskDecision!=='BLOCK')insiderRiskDecision='REVIEW'};\n"
+            "  const insiderBlock=r=>{insiderRiskReasons.push(r);insiderRiskDecision='BLOCK'};\n"
+            "  if(holderDecision==='BLOCK')insiderBlock('HOLDER_CLUSTER_BLOCK');else if(holderDecision!=='PASS')insiderReview('HOLDER_CLUSTER_NOT_PASS');\n"
+            "  if(holderTopPct===null)insiderReview('TOP_HOLDERS_UNKNOWN');else if(holderTopPct>50)insiderBlock('TOP_HOLDERS_OVER_50');else if(holderTopPct>35)insiderReview('TOP_HOLDERS_OVER_35');\n"
+            "  if(holderMaxAccounts>=5)insiderBlock('SEVERE_MULTI_ACCOUNT_OWNER_CLUSTER');else if(holderMaxAccounts>=3)insiderReview('MULTI_ACCOUNT_OWNER_CLUSTER');\n"
+            "  if(whaleTop10Pct!==null&&whaleTop10Pct>=70&&whaleTop10Pct<100)insiderBlock('WHALE_TOP10_CONCENTRATION');\n"
+            "  if(whaleDeltaTop10Pct!==null&&whaleDeltaTop10Pct>=8)insiderBlock('WHALE_CONCENTRATION_SPIKE');\n")
+
+          replace_once(exp,
+            "  if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){\n    decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);\n  }\n",
+            "  if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){\n    decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);\n  }\n"
+            "  if(insiderRiskDecision!=='PASS'&&decision==='PROBE_CANDIDATE'){decision='INSIDER_RISK_BLOCK';entryGuardReasons.push(`V377_INSIDER_${insiderRiskDecision}`);}\n")
+
+          replace_once(exp,
+            "    securityDecision,holderClusterDecision:holderDecision,devIdentityProven:c.holderClusterAudit?.devIdentityProven===true,holderClusterMaxAccountsSameOwner:num(c.holderClusterAudit?.maxAccountsSameOwner),\n",
+            "    securityDecision,holderClusterDecision:holderDecision,insiderRiskDecision,insiderRiskReasons:[...new Set(insiderRiskReasons)],insiderRiskModel:'OBJECTIVE_ONCHAIN_CONCENTRATION_V1',devIdentityStatus:c.holderClusterAudit?.devIdentityProven===true?'PROVEN':'UNATTRIBUTED',devIdentityProven:c.holderClusterAudit?.devIdentityProven===true,holderClusterMaxAccountsSameOwner:holderMaxAccounts,\n")
+
+          replace_once(exp,
+            "  const common={decision:'WATCH',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',sellRoute:true,sellPriceImpactPct:.4,token2022:false,mintAuthorityDisabled:true,freezeAuthorityDisabled:true};",
+            "  const common={decision:'WATCH',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',holderClusterAudit:{decision:'PASS',maxAccountsSameOwner:1,devIdentityProven:false},topHoldersPct:20,sellRoute:true,sellPriceImpactPct:.4,token2022:false,mintAuthorityDisabled:true,freezeAuthorityDisabled:true};")
+
+          replace_once(exp,
+            "  if(review.decision==='PROBE_CANDIDATE')throw new Error('SECURITY_REVIEW_PROMOTION_SELFTEST');\n",
+            "  if(review.decision==='PROBE_CANDIDATE')throw new Error('SECURITY_REVIEW_PROMOTION_SELFTEST');\n"
+            "  const insider=guardCandidate({...common,mint:'I',score:85,liquidityUsd:700000,netBuyers5m:20,priceChange5m:2,buyVolume5m:300,sellVolume5m:100,holderClusterAudit:{decision:'REVIEW',maxAccountsSameOwner:3,devIdentityProven:false}},rt,wh,regime);\n"
+            "  if(insider.decision==='PROBE_CANDIDATE'||insider.insiderRiskDecision==='PASS')throw new Error('INSIDER_RISK_PROMOTION_SELFTEST');\n")
+
+          replace_once(exp,
+            "  console.log('HOLDER_PASS_REQUIRED=TRUE');\n",
+            "  console.log('HOLDER_PASS_REQUIRED=TRUE');\n  console.log('OBJECTIVE_INSIDER_RISK_PASS_REQUIRED=TRUE');\n  console.log('DEV_IDENTITY_UNKNOWN_IS_NOT_MISREPRESENTED=TRUE');\n")
+
+          # Executor contract: new entries must pass the explicit insider gate and
+          # redundant raw concentration limits even if an upstream field regresses.
+          replace_once(exe,
+            "function impact(c){return Math.abs(n(c?.sellPriceImpactPct??c?.sellImpactPct??c?.priceImpactPct,99))}\n",
+            "function impact(c){return Math.abs(n(c?.sellPriceImpactPct??c?.sellImpactPct??c?.priceImpactPct,99))}\n"
+            "function insiderSafe(c){if(!c||c.insiderRiskDecision!=='PASS')return false;const top=Number(c.topHoldersPct),cluster=Number(c.holderClusterMaxAccountsSameOwner);if(!Number.isFinite(top)||top>35||!Number.isFinite(cluster)||cluster>2)return false;const wt=c.whaleTop10Pct,wd=c.whaleDeltaTop10Pct;if(wt!==null&&wt!==undefined&&wt!==''&&Number.isFinite(Number(wt))&&Number(wt)>=70&&Number(wt)<100)return false;if(wd!==null&&wd!==undefined&&wd!==''&&Number.isFinite(Number(wd))&&Number(wd)>=8)return false;return true}\n")
+
+          replace_once(exe,
+            "function coreSafe(c){return !!c&&c.universeClass==='MEME_CONFIRMED'&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&!c.token2022&&c.sellRoute===true&&hardRejectEmpty(c.hardReject)&&n(c.liquidityUsd)>=50_000&&impact(c)<=1.25}\n",
+            "function coreSafe(c){return !!c&&c.universeClass==='MEME_CONFIRMED'&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&insiderSafe(c)&&!c.token2022&&c.sellRoute===true&&hardRejectEmpty(c.hardReject)&&n(c.liquidityUsd)>=50_000&&impact(c)<=1.25}\n")
+
+          replace_once(exe,
+            "  const c={mint:'C',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',decision:'PROBE_CANDIDATE',token2022:false,sellRoute:true,hardReject:[],score:84,liquidityUsd:600000,sellPriceImpactPct:.3,consecutiveEligible:5,priceChange5m:2.5,netBuyers5m:20,avgNetBuyersLast2:15,scoreSlopeLast2:0,liquidityStableLast2:true,organicRatio5m:.3};",
+            "  const c={mint:'C',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',insiderRiskDecision:'PASS',topHoldersPct:20,holderClusterMaxAccountsSameOwner:1,whaleTop10Pct:25,whaleDeltaTop10Pct:0,decision:'PROBE_CANDIDATE',token2022:false,sellRoute:true,hardReject:[],score:84,liquidityUsd:600000,sellPriceImpactPct:.3,consecutiveEligible:5,priceChange5m:2.5,netBuyers5m:20,avgNetBuyersLast2:15,scoreSlopeLast2:0,liquidityStableLast2:true,organicRatio5m:.3};")
+
+          replace_once(exe,
+            "  if(!trendEntryEligible(c)||trendEntryEligible({...c,priceChange5m:25})||trendEntryEligible({...c,securityDecision:'REVIEW'})||trendEntryEligible({...c,sellRoute:false})||trendEntryEligible({...c,token2022:true}))throw new Error('ENTRY_SAFETY_SELFTEST');",
+            "  if(!trendEntryEligible(c)||trendEntryEligible({...c,priceChange5m:25})||trendEntryEligible({...c,securityDecision:'REVIEW'})||trendEntryEligible({...c,sellRoute:false})||trendEntryEligible({...c,token2022:true})||trendEntryEligible({...c,insiderRiskDecision:'REVIEW'})||trendEntryEligible({...c,topHoldersPct:40})||trendEntryEligible({...c,holderClusterMaxAccountsSameOwner:3}))throw new Error('ENTRY_SAFETY_SELFTEST');")
+
+          replace_once(exe,
+            "  console.log('MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS');",
+            "  console.log('MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS');console.log('OBJECTIVE_INSIDER_RISK_DEFENSE_IN_DEPTH=TRUE');")
+
+          # Signer is the final fail-closed boundary. Require the explicit signal
+          # contract and repeat concentration checks before it signs a BUY.
+          replace_once(sig,
+            "def candidate_ok(mint_out,p):\n",
+            "def objective_insider_ok(c):\n"
+            " try:\n"
+            "  top=float(c.get('topHoldersPct'));cluster=int(c.get('holderClusterMaxAccountsSameOwner'))\n"
+            " except:return False\n"
+            " if c.get('insiderRiskDecision')!='PASS' or top>35 or cluster>2:return False\n"
+            " wt=c.get('whaleTop10Pct');wd=c.get('whaleDeltaTop10Pct')\n"
+            " try:\n"
+            "  if wt is not None and 70<=float(wt)<100:return False\n"
+            " except:return False\n"
+            " try:\n"
+            "  if wd is not None and float(wd)>=8:return False\n"
+            " except:return False\n"
+            " return True\n"
+            "def candidate_ok(mint_out,p):\n")
+
+          replace_once(sig,
+            "  hard=c.get('universeClass')=='MEME_CONFIRMED' and c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('decision')=='PROBE_CANDIDATE' and not c.get('token2022') and c.get('sellRoute') is True and hard_empty(c.get('hardReject')) and liq>=50000 and impact<=float(p['maxBuyPriceImpactPct'])\n",
+            "  hard=c.get('universeClass')=='MEME_CONFIRMED' and c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and objective_insider_ok(c) and c.get('decision')=='PROBE_CANDIDATE' and not c.get('token2022') and c.get('sellRoute') is True and hard_empty(c.get('hardReject')) and liq>=50000 and impact<=float(p['maxBuyPriceImpactPct'])\n")
+
+          replace_once(sig,"'version':'7.0'","'version':'8.0'")
+          replace_once(sig,"'buyPolicy':'FAST_TREND_9_10_HARD_SAFETY_STAGED_CAPITAL'","'buyPolicy':'FAST_TREND_OBJECTIVE_INSIDER_HARD_SAFETY_STAGED_CAPITAL'")
+
+          replace_once(sig,
+            " assert s[1:65]!=b'\\0'*64;assert b58d(b58e(pk))==pk;assert hard_empty([]) and not hard_empty(['x'])\n",
+            " assert s[1:65]!=b'\\0'*64;assert b58d(b58e(pk))==pk;assert hard_empty([]) and not hard_empty(['x']);assert objective_insider_ok({'insiderRiskDecision':'PASS','topHoldersPct':20,'holderClusterMaxAccountsSameOwner':1,'whaleTop10Pct':25,'whaleDeltaTop10Pct':0});assert not objective_insider_ok({'insiderRiskDecision':'REVIEW','topHoldersPct':20,'holderClusterMaxAccountsSameOwner':1});assert not objective_insider_ok({'insiderRiskDecision':'PASS','topHoldersPct':40,'holderClusterMaxAccountsSameOwner':1});assert not objective_insider_ok({'insiderRiskDecision':'PASS','topHoldersPct':20,'holderClusterMaxAccountsSameOwner':3})\n")
+          PY
+
+      - name: Syntax and self tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check meme-alpha-runtime/source/src/safe-signal-export.js
+          node --check meme-alpha-runtime/source/src/micro-live-executor.js
+          python3 -m py_compile meme-alpha-runtime/source/external/signer/ready_signer.py
+          node meme-alpha-runtime/source/src/safe-signal-export.js --self-test
+          node meme-alpha-runtime/source/src/micro-live-executor.js --self-test
+          python3 meme-alpha-runtime/source/external/signer/ready_signer.py --self-test
+
+      - name: Commit hardened source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-hardening-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/source/src/safe-signal-export.js \
+                  meme-alpha-runtime/source/src/micro-live-executor.js \
+                  meme-alpha-runtime/source/external/signer/ready_signer.py
+          if git diff --cached --quiet; then echo 'No changes'; exit 0; fi
+          git commit -m "feat(meme): enforce objective insider risk at signal executor signer"
+          git push origin HEAD:main
