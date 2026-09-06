@@ -1,4 +1,4 @@
-name: Meme Alpha V378 Direct Activate
+name: Meme Alpha V378 Runtime Diagnose
 
 on:
   push:
@@ -10,110 +10,63 @@ permissions:
   contents: write
 
 jobs:
-  activate:
+  diagnose:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Activate v378 with writable one-shot handoff
+      - name: Inspect live behavior
         shell: bash
         run: |
-          set -Eeuo pipefail
-          APP=/opt/meme-alpha/app
-          EXEC="$APP/src/micro-live-executor.js"
-          RUN="$APP/run-paper.sh"
-          H="$APP/runtime-status/v378-paper-handoff-final"
-          rm -rf "$H"
-          mkdir -p "$H"
-          chmod 0777 "$H"
-          cp -a "$RUN" "$H/original-run-paper.sh"
-          chmod 0755 "$H/original-run-paper.sh"
-          git show origin/auto-futures-v1:auto-futures-v1/runtime/meme_alpha_patch_v378.py > "$H/patch.py"
-          cp -a "$EXEC" "$H/executor.v378.js"
-          cp -a "$EXEC" "$H/executor.backup.js"
-          python3 "$H/patch.py" "$H/executor.v378.js"
-          node --check "$H/executor.v378.js"
-          node "$H/executor.v378.js" --self-test > "$H/selftest.txt" 2>&1
-          grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$H/executor.v378.js"
-          chmod 0644 "$H/executor.v378.js" "$H/executor.backup.js"
-          rm -f "$H/result.txt"
-          cat > "$RUN" <<'SH'
-          #!/usr/bin/env bash
           set -u
           APP=/opt/meme-alpha/app
-          H="$APP/runtime-status/v378-paper-handoff-final"
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V378-BEHAVIOR-DIAG.md"
           EXEC="$APP/src/micro-live-executor.js"
-          RESULT="$H/result.txt"
-          if [[ ! -f "$RESULT" ]]; then
-            rc=0
-            {
-              echo "HANDOFF_USER=$(id -un)"
-              echo "SRC_DIR=$(stat -c '%U:%G %a' "$APP/src" 2>/dev/null || echo missing)"
-              echo "SRC_WRITABLE=$([[ -w "$APP/src" ]] && echo true || echo false)"
-              if [[ ! -w "$APP/src" ]]; then
-                echo 'EXECUTOR_SWAP=FALSE'
-                rc=42
-              else
-                cp "$H/executor.v378.js" "$APP/src/.micro-live-executor.v378.tmp"
-                chmod 0644 "$APP/src/.micro-live-executor.v378.tmp"
-                mv -f "$APP/src/.micro-live-executor.v378.tmp" "$EXEC"
-                if node --check "$EXEC" && grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXEC"; then
-                  echo 'EXECUTOR_SWAP=TRUE'
-                  pkill -KILL -f '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' 2>/dev/null || true
-                else
-                  cp "$H/executor.backup.js" "$EXEC" 2>/dev/null || true
-                  echo 'EXECUTOR_SWAP=FALSE'
-                  rc=43
-                fi
-              fi
-              echo "HANDOFF_RC=$rc"
-            } > "$RESULT"
-          fi
-          exec "$H/original-run-paper.sh"
-          SH
-          chmod 0775 "$RUN"
-          sudo -n /bin/systemctl restart meme-alpha-paper.service
-          sleep 2
-          cp -a "$H/original-run-paper.sh" "$RUN"
-          chmod 0775 "$RUN"
-          sleep 8
-          cat "$H/result.txt"
-          grep -q 'EXECUTOR_SWAP=TRUE' "$H/result.txt"
-          grep -q 'HANDOFF_RC=0' "$H/result.txt"
-          grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXEC"
-          systemctl is-active --quiet meme-alpha-paper.service
-          systemctl is-active --quiet meme-alpha-micro-live.service
-          systemctl is-active --quiet meme-alpha-signer.service
-          [[ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ]]
-          printf '{"version":"3.78.0","status":"DEPLOYED","profile":"AGGRESSIVE_ROTATION","activation":"PAPER_HANDOFF","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v378-deployed.json"
-          echo 'V378_ACTIVE=TRUE'
-      - name: Record active verification
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V378-ACTIVE.md"
           {
-            echo '# Meme Alpha V378 ACTIVE'
+            echo '# Meme Alpha V378 behavior diagnostic'
             echo
-            echo "- executor_marker: \`$([[ -f "$APP/src/micro-live-executor.js" ]] && grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$APP/src/micro-live-executor.js" && echo true || echo false)\`"
-            echo "- deployment_marker: \`$([[ -f "$APP/runtime-status/v378-deployed.json" ]] && echo true || echo false)\`"
+            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
+            echo "- executor_marker: \`$([[ -f "$EXEC" ]] && grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXEC" && echo true || echo false)\`"
             echo "- micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`"
             echo "- paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`"
             echo "- signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`"
-            echo "- micro_live_processes: \`$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)\`"
-            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
+            echo "- micro_live_pid_count: \`$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)\`"
+            echo
+            echo '## Runtime files'
+            for f in \
+              "$APP/runtime-status/micro-live-gate.json" \
+              "$APP/runtime-status/signal-snapshot.json" \
+              "$APP/runtime-status/whale-flow-intel.json" \
+              "$APP/runtime-status/trend-pulse.json" \
+              "$APP/runtime-status/realtime-pool-pulse.json" \
+              "$APP/runtime-status/v378-deployed.json" \
+              /var/lib/meme-alpha/data/micro-live/state.json \
+              /var/lib/meme-alpha/data/micro-live/execution-state.json \
+              /var/lib/meme-alpha/data/micro-live/trades.json \
+              /var/lib/meme-alpha/data/paper/scanner-latest.json \
+              /var/lib/meme-alpha/data/paper/scanner-source-health.json; do
+              if [[ -f "$f" ]]; then
+                echo
+                echo "### $f"
+                echo '```json'
+                tail -c 14000 "$f" 2>/dev/null || echo READ_FAILED
+                echo
+                echo '```'
+              fi
+            done
+            echo
+            echo '## Recent textual runtime logs'
+            for f in "$APP/runtime-status"/*.log /var/log/meme-alpha/*.log; do
+              [[ -f "$f" ]] || continue
+              echo
+              echo "### $f"
+              echo '```text'
+              tail -n 120 "$f" 2>/dev/null || true
+              echo '```'
+            done
           } > "$OUT"
-          grep -q 'executor_marker: `true`' "$OUT"
-          grep -q 'deployment_marker: `true`' "$OUT"
-          grep -q 'micro_live_service: `active`' "$OUT"
-          grep -q 'paper_service: `active`' "$OUT"
-          grep -q 'signer_service: `active`' "$OUT"
-          grep -q 'micro_live_processes: `1`' "$OUT"
           git config user.name "meme-alpha-vps-bot"
           git config user.email "actions-bot@users.noreply.github.com"
-          git add meme-alpha-runtime/V378-ACTIVE.md
-          git commit -m 'chore(meme): confirm v378 active runtime' || true
+          git add meme-alpha-runtime/V378-BEHAVIOR-DIAG.md
+          git commit -m 'chore(meme): capture v378 behavior diagnostic' || true
           git push origin HEAD:main
