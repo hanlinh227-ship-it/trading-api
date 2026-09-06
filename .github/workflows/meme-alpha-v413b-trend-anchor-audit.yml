@@ -1,0 +1,21 @@
+name: Meme Alpha V413B Trend Anchor Audit
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v413b-trend-anchor-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Inspect stable trend anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          T=/opt/meme-alpha/app/src/trend-pulse.js
+          sed -n '1,120p' "$T"
+          echo '=== ANCHORS ==='
+          grep -nE '^function |^const .*=>|buySellRatio|earlyAccel|PREBREAKOUT|const out=' "$T" | head -180 || true
+          echo V413B_ANCHOR_AUDIT=COMPLETE
