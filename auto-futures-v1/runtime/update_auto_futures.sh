@@ -34,9 +34,9 @@ if [[ -f /opt/trading/.env.binance ]];then set -a;source /opt/trading/.env.binan
 sleep 2;POSITION="$(systemctl is-active auto-futures-position.service || true)";SCAN="$(systemctl is-active auto-futures-scan.timer || true)";UPDATE="$(systemctl is-active auto-futures-update.timer || true)";HUB="$(systemctl is-active auto-futures-hub-bridge.service || true)";SIGV10="$(systemctl is-active signal-v10-council.service || true)";[[ "$POSITION" == "active" ]];[[ "$SCAN" == "active" ]];[[ "$UPDATE" == "active" ]];[[ "$SIGV10" == "active" ]];log "HEALTH position=$POSITION scan=$SCAN update=$UPDATE hub=$HUB signal_v10=$SIGV10"
 # Meme Alpha deploy lane: root-only, isolated from Auto Futures rollback semantics.
 for HOOK in "$BOT/runtime/deploy_meme_alpha_v377.sh" "$BOT/runtime/deploy_meme_alpha_v378.sh" "$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"; do
-  if [[ -x "$HOOK" ]]; then
+  if [[ -f "$HOOK" ]]; then
     set +e
-    OUT="$("$HOOK" 2>&1)"; RC=$?
+    OUT="$(/bin/bash "$HOOK" 2>&1)"; RC=$?
     set -e
     log "MEME_HOOK name=$(basename "$HOOK") rc=$RC result=$(echo "$OUT" | tail -n 1)"
   fi
