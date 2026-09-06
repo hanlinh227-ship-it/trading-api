@@ -10,31 +10,21 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Read exact current patch targets
+      - name: Inspect current production execution path without mutation
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import pathlib,re,json,hashlib
-          root=pathlib.Path('/opt/meme-alpha/app/src')
-          for name in ['safe-signal-export.js','micro-live-executor.js','micro-live-gate.js']:
-              text=(root/name).read_text()
-              print(json.dumps({'file':name,'sha256':hashlib.sha256(text.encode()).hexdigest()}))
-              if name=='safe-signal-export.js':
-                  for needle in ['function guardCandidate','hardReject','securityDecision','holderDecision','actionableSafe','const common={watchLike','securityBlockReasons','universeClass:c.universeClass']:
-                      hits=[]
-                      for i,line in enumerate(text.splitlines(),1):
-                          if needle in line:
-                              lo=max(1,i-2); hi=min(len(text.splitlines()),i+3)
-                              lines=text.splitlines()
-                              hits.append({'line':i,'context':'\n'.join(f'{j}: {lines[j-1]}' for j in range(lo,hi+1))})
-                      print(json.dumps({'needle':needle,'hits':hits[:8]}))
-              elif name=='micro-live-executor.js':
-                  for i,line in enumerate(text.splitlines(),1):
-                      if 'function coreSafe' in line or 'MICRO_LIVE_EXECUTOR_' in line:
-                          print(json.dumps({'executorLine':i,'text':line}))
-              else:
-                  for i,line in enumerate(text.splitlines(),1):
-                      if 'scaleAllowed' in line or "version:'" in line:
-                          print(json.dumps({'gateLine':i,'text':line}))
-          PY
+          APP=/opt/meme-alpha/app
+          echo '=== WHO ==='; id
+          echo '=== PATH PERMS ==='; ls -ld "$APP" "$APP/src" "$APP/runtime-status"; ls -l "$APP/src/micro-live-executor.js" "$APP/src/micro-live-gate.js" "$APP/run-paper.sh" /usr/local/sbin/meme-alpha-safe-deploy /etc/meme-alpha/micro-live-armed || true
+          echo '=== WRITABLE ==='
+          for p in "$APP/src" "$APP/src/micro-live-executor.js" "$APP/run-paper.sh" /usr/local/sbin/meme-alpha-safe-deploy /etc/meme-alpha/micro-live-armed; do if [ -w "$p" ]; then echo "$p writable=yes"; else echo "$p writable=no"; fi; done
+          echo '=== MOUNTS ==='; findmnt -T /etc/meme-alpha/micro-live-armed || true; findmnt -T "$APP/src/micro-live-executor.js" || true
+          echo '=== PAPER UNIT ==='; systemctl cat meme-alpha-paper.service || true
+          echo '=== EXECUTOR UNIT ==='; systemctl cat meme-alpha-micro-live.service || true
+          echo '=== RUN PAPER HEAD ==='; sed -n '1,120p' "$APP/run-paper.sh" || true
+          echo '=== SWAP STAGE ==='; ls -la "$APP/runtime-status/v387-unified-final" || true; cat "$APP/runtime-status/v387-unified-final/SWAP_OK" 2>/dev/null || true
+          echo '=== SERVICE STATUS ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service || true
+          echo '=== PROCESSES ==='; pgrep -af 'micro-live-executor.js|scanner.js|run-paper.sh' || true
+          echo '=== JOURNAL PAPER ==='; journalctl -u meme-alpha-paper.service -n 80 --no-pager || true
+          echo '=== SUDO CAPABILITIES ==='; sudo -n -l || true
