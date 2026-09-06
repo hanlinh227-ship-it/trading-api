@@ -1,0 +1,38 @@
+name: Meme Alpha V410B Held Pair Source Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v410b-held-pair-source-audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - name: Inspect executor position schema and trusted pair sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"
+          echo '=== EXECUTOR STATE / POSITION CREATION ==='
+          grep -nE 'statePath|positions\.push|pairAddress|pair:|entryPair|mint-pair-cache|positionMints|openPositions|lastExecution|MICRO_BUY|MICRO_SCALE_IN' "$EXE" | head -240 || true
+          echo '=== OBSERVABILITY WRITER ==='
+          grep -RniE 'portfolio-observability|positionMints|stateReadable' "$APP/src" "$APP/run-paper.sh" 2>/dev/null | head -160 || true
+          echo '=== PAIR CACHE LOOKUP FOR HELD MINTS ==='
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          obs=json.loads((rt/'portfolio-observability.json').read_text()); held=obs.get('positionMints') or []
+          cache=json.loads((rt/'mint-pair-cache.json').read_text()); entries=cache.get('entries') or []
+          by={x.get('mint'):x for x in entries if isinstance(x,dict)}
+          radar=json.loads((rt/'new-listing-radar.json').read_text()); sig=json.loads((rt/'signal-snapshot.json').read_text())
+          rr={x.get('mint'):x for x in radar.get('candidates',[]) if isinstance(x,dict)}; ss={x.get('mint'):x for x in sig.get('candidates',[]) if isinstance(x,dict)}
+          for m in held:
+            c=by.get(m); r=rr.get(m); s=ss.get(m)
+            print({'mint':m,'cache':c,'radarPair':(r or {}).get('pairAddress') or (r or {}).get('pair'),'signalPair':(s or {}).get('pairAddress') or (s or {}).get('pair'),'radarSymbol':(r or {}).get('symbol'),'signalSymbol':(s or {}).get('symbol')})
+          le=rt/'last-execution.json'
+          if le.exists(): print('LAST_EXECUTION',json.loads(le.read_text()))
+          PY
+          echo V410B_HELD_PAIR_SOURCE_AUDIT=COMPLETE
