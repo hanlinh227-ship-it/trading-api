@@ -17,6 +17,7 @@ jobs:
           set -euo pipefail
           APP=/opt/meme-alpha/app
           SRC="$APP/src/scanner.js"
+          SIGNAL="$APP/src/safe-signal-export.js"
           BASE="$APP/runtime-status/deploy-candidates"
           NAME=v385-scanner.js
           STAGE="$BASE/$NAME"
@@ -29,11 +30,14 @@ jobs:
           grep -q 'V385_SEQUENTIAL_CLUSTER_SCAN' "$STAGE"
           grep -q 'V385_CLUSTER_SIZE' "$STAGE"
           grep -q 'MAX_SELLABILITY_CHECKS_V216=8' "$STAGE"
-          grep -q 'securityDecision' "$STAGE"
-          grep -q 'holderClusterDecision' "$STAGE"
           grep -q 'NO_SELL_ROUTE' "$STAGE"
           grep -qi 'token2022' "$STAGE"
           grep -q 'DEX_LIQUIDITY_FAIL' "$STAGE"
+          # Security/holder hard gates live in safe-signal, not scanner scheduling.
+          grep -q 'securityDecision' "$SIGNAL"
+          grep -q 'holderClusterDecision' "$SIGNAL"
+          grep -q 'sellRoute' "$SIGNAL"
+          grep -qi 'token2022' "$SIGNAL"
           SHA=$(sha256sum "$STAGE" | awk '{print $1}')
           sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$NAME" "$SHA"
           echo '=== VERIFY ACTIVE ==='
