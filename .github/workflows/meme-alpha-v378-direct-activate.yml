@@ -1,25 +1,42 @@
-name: Meme Alpha Arm State Inspect
+name: Meme Alpha V382 Root Reconcile Verify
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  verify:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect arm attestation and maintenance state
+      - name: Wait for root updater and verify current live pipeline
         shell: bash
         run: |
-          set +e
-          echo '=== ARM ATTEST ==='
-          cat /var/lib/meme-alpha/data/micro-live/arm-attestation.json 2>&1 || true
-          echo '=== V377 MAINT ==='
-          ls -l /var/lib/meme-alpha/deploy-v377-maintenance.json 2>&1 || true
-          cat /var/lib/meme-alpha/deploy-v377-maintenance.json 2>&1 || true
-          echo '=== EXECUTOR USER ACCESS ==='
-          systemctl show meme-alpha-micro-live.service -p User -p Group -p SupplementaryGroups -p ProtectSystem -p ReadOnlyPaths -p InaccessiblePaths --no-pager 2>&1 || true
-          echo '=== PATH PERMS ==='
-          namei -l /etc/meme-alpha/micro-live-armed 2>&1 || true
-          echo INSPECT_COMPLETE=TRUE
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          TARGET=f3373180b83d71793e510c29c774a3099a4e6609
+          READY=0
+          for i in $(seq 1 160); do
+            ROOT_HEAD=$(git -C /opt/trading/trading-api rev-parse HEAD 2>/dev/null || true)
+            G="$APP/runtime-status/micro-live-gate.json"
+            if [ "$ROOT_HEAD" = "$TARGET" ] \
+              && grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
+              && systemctl is-active --quiet meme-alpha-paper.service \
+              && systemctl is-active --quiet meme-alpha-micro-live.service \
+              && systemctl is-active --quiet meme-alpha-signer.service \
+              && grep -q '"allowed": true' "$G" 2>/dev/null \
+              && grep -q '"armOk": true' "$G" 2>/dev/null \
+              && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
+              && grep -q '"riskEntryAllowed": true' "$G" 2>/dev/null; then
+              READY=1; break
+            fi
+            sleep 2
+          done
+          echo '=== ROOT HEAD ==='; git -C /opt/trading/trading-api rev-parse HEAD || true
+          echo '=== UPDATER LOG ==='; tail -n 100 /opt/trading/trading-api/auto-futures-v1/logs/auto_update.log 2>/dev/null || true
+          echo '=== SERVICES ==='; for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
+          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" || true
+          echo '=== PIPELINE ==='; python3 -c "import os,time,json; b='$APP/runtime-status/'; fs=['new-listing-radar.json','signal-snapshot.json','micro-live-gate.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']; [(lambda p,d: print(f,{'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(d.get('candidates') or d.get('rows') or []),'status':d.get('status')}))(b+f,json.load(open(b+f))) for f in fs]" || true
+          [ "$READY" = 1 ]
+          echo V382_ROOT_RECONCILE_ACTIVE=TRUE
