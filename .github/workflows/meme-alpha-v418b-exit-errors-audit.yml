@@ -1,0 +1,42 @@
+name: Meme Alpha V418B Exit Errors Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v418b-exit-errors-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect HTTP helpers and exit errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; RUN="$APP/run-paper.sh"; ORIG="$RT/v418b-run-paper-original.sh"; OUT="$RT/v418b-exit-errors.txt"
+          echo '=== HTTP/JUPITER HELPERS ==='
+          nl -ba "$E" | sed -n '1,75p'
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v418b-exit-errors.txt 2>&1 || true
+          import json,collections,pathlib
+          p=pathlib.Path('/var/lib/meme-alpha/data/micro-live/events.jsonl')
+          c=collections.Counter(); n=0
+          for line in p.read_text(errors='ignore').splitlines()[-15000:]:
+            try:e=json.loads(line)
+            except:continue
+            if e.get('type')=='EXIT_PREVIEW_FAIL':
+              n+=1;c[str(e.get('error','UNKNOWN'))[:220]]+=1
+          print('EXIT_PREVIEW_FAIL_COUNT',n)
+          for k,v in c.most_common(30): print(v,repr(k))
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v418b-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 20); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          echo '=== EXIT ERROR SUMMARY ==='; cat "$OUT"
+          echo V418B_EXIT_ERROR_AUDIT=PASS
