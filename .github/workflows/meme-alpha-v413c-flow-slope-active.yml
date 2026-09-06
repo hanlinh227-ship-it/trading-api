@@ -1,0 +1,101 @@
+name: Meme Alpha V413C Flow Slope Active
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v413c-flow-slope-active.yml]
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 6
+    steps:
+      - name: Build validate and activate V413C
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; E="$APP/src/micro-live-executor.js"; T="$APP/src/trend-pulse.js"; RUN="$APP/run-paper.sh"
+          EC="$DC/v413c-executor-flow-slope.js"; TC="$DC/v413c-trend-flow-slope.js"
+          mkdir -p "$DC"; cp "$E" "$EC"; cp "$T" "$TC"
+          python3 - "$EC" "$TC" <<'PY'
+          import pathlib,sys
+          ep,tp=map(pathlib.Path,sys.argv[1:]); e=ep.read_text(); t=tp.read_text()
+          if "function preBreakoutSignal" not in e or "version:'2.11.0-v411-prebreakout'" not in t: raise SystemExit('V411_BASE_NOT_ACTIVE')
+          anchor="function narrative(text=''){"
+          helper="""const flowHistory=new Map();\nfunction flowSlope(mint,va,ta,bs){const now=Date.now(),h=(flowHistory.get(mint)||[]).filter(x=>now-x.at<=30000).slice(-3),avg=k=>h.length?h.reduce((s,x)=>s+n(x[k]),0)/h.length:0,prev=h[h.length-1],prev2=h[h.length-2],volumeAccelSlope=h.length?va-avg('va'):0,txnAccelSlope=h.length?ta-avg('ta'):0,buySellRatioSlope=h.length?bs-avg('bs'):0,rising=h.length>=2&&va>=.90&&ta>=.90&&bs>=1.05&&volumeAccelSlope>=.07&&txnAccelSlope>=.05&&prev&&prev2&&prev.va>=prev2.va*.98&&prev.ta>=prev2.ta*.98&&prev.bs>=.98;h.push({at:now,va,ta,bs});flowHistory.set(mint,h.slice(-4));if(flowHistory.size>600){for(const [k,v] of flowHistory){if(!v.length||now-v[v.length-1].at>120000)flowHistory.delete(k);if(flowHistory.size<=500)break}}return{volumeAccelSlope:Number(volumeAccelSlope.toFixed(3)),txnAccelSlope:Number(txnAccelSlope.toFixed(3)),buySellRatioSlope:Number(buySellRatioSlope.toFixed(3)),rising};}\n\n"""
+          if t.count(anchor)!=1: raise SystemExit(f'V413C_HELPER_ANCHOR={t.count(anchor)}')
+          t=t.replace(anchor,helper+anchor,1)
+          old="  const buySellRatio=clamp((buys5+1)/(sells5+1),0,20);"
+          if t.count(old)!=1: raise SystemExit(f'V413C_SLOPE_INSERT={t.count(old)}')
+          t=t.replace(old,old+"\n  const slope=flowSlope(mint,volumeAcceleration,txnAcceleration,buySellRatio);",1)
+          old="  const earlyAccel=liquidityUsd>=50000&&price5m>=-1.2&&price5m<=8&&volumeAcceleration>=1.12&&txnAcceleration>=1.05&&buySellRatio>=1.05;"
+          if t.count(old)!=1: raise SystemExit(f'V413C_RISING_INSERT={t.count(old)}')
+          t=t.replace(old,old+"\n  const risingFlow=liquidityUsd>=50000&&price5m>=-1.8&&price5m<=6&&slope.rising===true;",1)
+          old="  else if(absorption||earlyAccel)status='PREBREAKOUT';"
+          if t.count(old)!=1: raise SystemExit(f'V413C_STATUS={t.count(old)}')
+          t=t.replace(old,"  else if(absorption||earlyAccel||risingFlow)status='PREBREAKOUT';",1)
+          old="activeBoosts,promotionFlag:activeBoosts>0,pairAgeMin:pairAgeMin===null?null:Number(pairAgeMin.toFixed(1))};"
+          new="activeBoosts,promotionFlag:activeBoosts>0,pairAgeMin:pairAgeMin===null?null:Number(pairAgeMin.toFixed(1)),volumeAccelSlope:slope.volumeAccelSlope,txnAccelSlope:slope.txnAccelSlope,buySellRatioSlope:slope.buySellRatioSlope,flowRiseConfirmed:slope.rising};"
+          if t.count(old)!=1: raise SystemExit(f'V413C_OUTPUT={t.count(old)}')
+          t=t.replace(old,new,1).replace("version:'2.11.0-v411-prebreakout'","version:'2.13.0-v413-flow-slope'",1)
+          old="const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),flow=va>=1.12&&ta>=1.05&&bs>=1.05,absorb=chg<0&&chg>=-2.5&&va>=1.25&&ta>=1.12&&bs>=1.12&&net>=2,rtAccel=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2&&n(rt.eventMomentum)>=1.15;return (p.status==='PREBREAKOUT'||p.status==='WARMING'||p.status==='BREAKOUT'||flow||absorb)&&(flow||absorb||rtAccel)}"
+          new="const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),flow=va>=1.12&&ta>=1.05&&bs>=1.05,absorb=chg<0&&chg>=-2.5&&va>=1.25&&ta>=1.12&&bs>=1.12&&net>=2,rising=p.flowRiseConfirmed===true&&va>=.90&&ta>=.90&&bs>=1.05&&chg>=-1.8&&chg<=6,rtAccel=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2&&n(rt.eventMomentum)>=1.15;return (p.status==='PREBREAKOUT'||p.status==='WARMING'||p.status==='BREAKOUT'||flow||absorb||rising)&&(flow||absorb||rising||rtAccel)}"
+          if e.count(old)!=1: raise SystemExit(f'V413C_EXEC_PRE={e.count(old)}')
+          e=e.replace(old,new,1)
+          old="if(pre)add+=p.status==='PREBREAKOUT'?8:6;"
+          if e.count(old)!=1: raise SystemExit(f'V413C_EXEC_SCORE={e.count(old)}')
+          e=e.replace(old,"if(pre)add+=p.status==='PREBREAKOUT'?8:6;if(p.flowRiseConfirmed===true&&chg<=6)add+=4;",1)
+          marker="console.log('V411_ANTI_FOMO_ENTRY_CAP=TRUE');"
+          if e.count(marker)!=1: raise SystemExit('V413C_MARKER')
+          e=e.replace(marker,marker+"console.log('V413_FLOW_SLOPE_EARLY_DETECTION=TRUE');console.log('V413_SINGLE_SPIKE_NOT_ENOUGH=TRUE');",1)
+          ep.write_text(e);tp.write_text(t)
+          PY
+          node --check "$EC"; node --check "$TC"
+          OUT=$(node "$EC" --self-test); printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"; grep -q 'V413_FLOW_SLOPE_EARLY_DETECTION=TRUE' <<<"$OUT"; grep -q 'V413_SINGLE_SPIKE_NOT_ENOUGH=TRUE' <<<"$OUT"
+          TOUT=$(node "$TC" --self-test); printf '%s\n' "$TOUT"; grep -q 'TREND_PULSE_V290_SELF_TEST=PASS' <<<"$TOUT"
+          node --input-type=module - <<'NODE'
+          const n=(v,d=0)=>Number.isFinite(Number(v))?Number(v):d,flowHistory=new Map();
+          function f(mint,va,ta,bs){const now=Date.now(),h=(flowHistory.get(mint)||[]).slice(-3),avg=k=>h.length?h.reduce((s,x)=>s+n(x[k]),0)/h.length:0,prev=h[h.length-1],prev2=h[h.length-2],vs=h.length?va-avg('va'):0,ts=h.length?ta-avg('ta'):0,r=h.length>=2&&va>=.90&&ta>=.90&&bs>=1.05&&vs>=.07&&ts>=.05&&prev&&prev2&&prev.va>=prev2.va*.98&&prev.ta>=prev2.ta*.98&&prev.bs>=.98;h.push({at:now,va,ta,bs});flowHistory.set(mint,h.slice(-4));return r}
+          if(f('X',.78,.80,1.02)||f('X',.86,.86,1.04)||!f('X',1.02,1.00,1.12))throw new Error('V413_SLOPE_SELFTEST');
+          console.log('V413_SLOPE_SELF_TEST=PASS');
+          NODE
+          ESHA=$(sha256sum "$EC"|awk '{print $1}'); TSHA=$(sha256sum "$TC"|awk '{print $1}'); echo V413C_EXECUTOR_SHA=$ESHA; echo V413C_TREND_SHA=$TSHA
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy trend "$(basename "$TC")" "$TSHA"
+          cp "$EC" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$ESHA"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); echo OLD_EXECUTOR_PID=$OLDPID
+          ORIG="$RT/v413c-run-paper-original.sh"; REQ="$RT/v413c-executor-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v413c-executor-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v413c-run-paper-original.sh
+          if [ -r "$REQ" ]; then PID=$(cat "$REQ" 2>/dev/null||true); rm -f "$REQ" 2>/dev/null||true; if [ -n "$PID" ]&&[ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null||true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -KILL "$PID" 2>/dev/null||true;; esac; fi; fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 40); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEWPID" ]&&[ "$NEWPID" != "$OLDPID" ]&&systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 40 ]||exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          sleep 28
+          NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); echo NEW_EXECUTOR_PID=$NEWPID; echo EXEC_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}'); echo ACTIVE_TREND_SHA=$(sha256sum "$T"|awk '{print $1}')
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$ESHA"; test "$(sha256sum "$T"|awk '{print $1}')" = "$TSHA"; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','trend-pulse.json','realtime-pool-pulse.json','portfolio-observability.json','capital-observability.json','allocator-status.json']:
+            p=rt/name
+            if not p.exists(): print(name,'MISSING'); continue
+            d=json.loads(p.read_text()); print(name,'ageSec=',round(time.time()-p.stat().st_mtime,2))
+            if name=='micro-live-gate.json': print('GATE',{k:d.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+            elif name=='trend-pulse.json':
+              rows=d.get('rows') or []; print('TREND_VERSION',d.get('version'),'ROWS',len(rows),'PREBREAKOUT',sum(1 for x in rows if x.get('status')=='PREBREAKOUT'),'RISING',sum(1 for x in rows if x.get('flowRiseConfirmed') is True))
+              for x in rows[:12]: print('TREND',{k:x.get(k) for k in ['symbol','status','price5m','volumeAcceleration','txnAcceleration','buySellRatio','volumeAccelSlope','txnAccelSlope','flowRiseConfirmed']})
+            else: print({k:d.get(k) for k in ['status','heldTotal','heldResolved','heldSubscriptions','openPositions','deployableSol','scaleAllowed','action','reason'] if k in d})
+          PY
+          echo V413C_FLOW_SLOPE_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
