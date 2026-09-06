@@ -9,25 +9,12 @@ permissions:
 jobs:
   deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Inspect V389 allocation paths
+      - name: Inspect holder safety contract
         shell: bash
         run: |
           set -euo pipefail
           SRC=/opt/meme-alpha/app/src/micro-live-executor.js
-          echo '=== SOURCE_SHA ==='
           sha256sum "$SRC"
-          echo '=== ALLOCATION_AND_TICK ==='
-          sed -n '120,286p' "$SRC"
-          echo '=== LIVE ==='
-          pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
-          python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          g=json.loads((rt/'micro-live-gate.json').read_text())
-          p=json.loads((rt/'portfolio-observability.json').read_text())
-          print('GATE',{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','executionMode','reasons']})
-          print('PORTFOLIO',p)
-          print('AGES',{'gate':round(time.time()-(rt/'micro-live-gate.json').stat().st_mtime,1),'portfolio':round(time.time()-(rt/'portfolio-observability.json').stat().st_mtime,1)})
-          PY
+          sed -n '55,90p' "$SRC"
