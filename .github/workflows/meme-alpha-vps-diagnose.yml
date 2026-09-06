@@ -22,7 +22,7 @@ jobs:
       - name: Collect non-secret runtime topology
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/DIAGNOSTICS.md"
           mkdir -p "$(dirname "$OUT")"
           {
@@ -35,7 +35,7 @@ jobs:
             echo '## /opt/meme-alpha directories'
             echo '```'
             if [[ -d /opt/meme-alpha ]]; then
-              find /opt/meme-alpha -maxdepth 5 -type d -print 2>/dev/null | sort | sed -n '1,500p'
+              (find /opt/meme-alpha -maxdepth 5 -type d -print 2>/dev/null || true) | sort | sed -n '1,500p'
             else
               echo '/opt/meme-alpha missing'
             fi
@@ -44,7 +44,7 @@ jobs:
             echo '## /opt/meme-alpha files (names only; no contents)'
             echo '```'
             if [[ -d /opt/meme-alpha ]]; then
-              find /opt/meme-alpha -maxdepth 6 -type f -print 2>/dev/null | sort | sed -n '1,1000p'
+              (find /opt/meme-alpha -maxdepth 6 -type f -print 2>/dev/null || true) | sort | sed -n '1,1000p'
             else
               echo '/opt/meme-alpha missing'
             fi
@@ -52,19 +52,20 @@ jobs:
             echo
             echo '## Meme-related system services'
             echo '```'
-            systemctl list-unit-files --type=service --no-pager 2>/dev/null | grep -iE 'meme|solana|jupiter' || true
+            (systemctl list-unit-files --type=service --no-pager 2>/dev/null || true) | grep -iE 'meme|solana|jupiter' || true
             echo '```'
             echo
             echo '## Meme-related service runtime states'
             echo '```'
-            systemctl list-units --type=service --all --no-pager 2>/dev/null | grep -iE 'meme|solana|jupiter' || true
+            (systemctl list-units --type=service --all --no-pager 2>/dev/null || true) | grep -iE 'meme|solana|jupiter' || true
             echo '```'
             echo
             echo '## User-level meme services'
             echo '```'
-            systemctl --user list-units --type=service --all --no-pager 2>/dev/null | grep -iE 'meme|solana|jupiter' || true
+            (systemctl --user list-units --type=service --all --no-pager 2>/dev/null || true) | grep -iE 'meme|solana|jupiter' || true
             echo '```'
           } > "$OUT"
+          test -s "$OUT"
 
       - name: Commit diagnostics
         shell: bash
