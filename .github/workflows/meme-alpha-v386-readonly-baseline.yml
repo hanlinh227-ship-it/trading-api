@@ -22,8 +22,6 @@ jobs:
               p = root / 'src' / name
               text = p.read_text()
               print(json.dumps({'source':name,'sha256':hashlib.sha256(text.encode()).hexdigest(),'versionMarkers':sorted(set(re.findall(r'V[0-9]{3}[A-Z_]*', text)))}))
-              fnames=[m.group(1) for m in re.finditer(r'^(?:async )?function ([A-Za-z0-9_]+)[(]',text,re.M)]
-              print(json.dumps({'source':name,'functionNames':fnames}))
           for name, fields in [
               ('micro-live-gate.json',['timestamp','allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']),
               ('portfolio-observability.json',['timestamp','updatedAt','version','stateVersion','openPositionCount','openPositions','totalClosed'])
@@ -35,8 +33,7 @@ jobs:
               except (OSError,ValueError) as e:
                   print(json.dumps({'file':name,'unavailable':type(e).__name__}))
           p=root/'runtime-status'/'signal-snapshot.json'
-          d=json.loads(p.read_text())
-          rows=d.get('candidates') or []
+          d=json.loads(p.read_text()); rows=d.get('candidates') or []
           from collections import Counter
           counts=Counter()
           for c in rows:
@@ -44,35 +41,14 @@ jobs:
                   for reason in c.get(k) or []:
                       if isinstance(reason,str): counts[k+':'+reason]+=1
           print(json.dumps({'signalTimestamp':d.get('timestamp'),'count':len(rows),'intelSummary':d.get('intelSummary'),'blockReasons':dict(counts)}))
-          for filename, names in [
-              ('micro-live-executor.js', ['coreSafe','trendEntryEligible','bestCandidate','allocationProfile','targetPlan','rotationSource','maybeRotate','maybeScaleIn','placeBuy','tick']),
-              ('scanner.js', ['discovery','analyze']),
-              ('safe-signal-export.js', ['marketRegime','laneBoost','routeCandidate','guardCandidate']),
-              ('micro-live-gate.js', [])
-          ]:
-              text = (root/'src'/filename).read_text()
-              if names:
-                  starts=list(re.finditer(r'^(?:async )?function ([A-Za-z0-9_]+)[(]',text,re.M))
-                  for i,m in enumerate(starts):
-                      if m.group(1) in names:
-                          end=starts[i+1].start() if i+1<len(starts) else len(text)
-                          snippet=text[m.start():end]
-                          if re.search(r'(?:sk-[A-Za-z0-9]{20}|ghp_[A-Za-z0-9]+|BEGIN .*PRIVATE KEY)',snippet):
-                              raise RuntimeError('SOURCE_REDACTION_REQUIRED')
-                          print(json.dumps({'businessFunction':m.group(1),'source':filename,'text':snippet}))
-              else:
-                  print(json.dumps({'gateSha256':hashlib.sha256(text.encode()).hexdigest(),'scaleLines':[line for line in text.splitlines() if 'evidenceReady' in line or 'scaleAllowed' in line or 'completed>=' in line]}))
-          for filename in ['scanner.js','safe-signal-export.js']:
-              text=(root/'src'/filename).read_text()
-              focus=[]
-              for i,line in enumerate(text.splitlines(),1):
-                  if any(k in line for k in ['preliminary','baseDeep','const deep','MEME_CONFIRMED','universeClass','candidates =','candidates=','.filter(','routeCandidate(','guardCandidate(']):
-                      focus.append({'line':i,'text':line})
-              print(json.dumps({'source':filename,'focusLines':focus[:180]}))
-          for p in sorted((root/'src').glob('*.js')):
-              for i,line in enumerate(p.read_text().splitlines(),1):
-                  if 'scaleAllowed' in line:
-                      print(json.dumps({'scaleConsumer':p.name,'line':i,'text':line}))
+          for filename, start, end in [('scanner.js',1015,1180),('safe-signal-export.js',180,215)]:
+              lines=(root/'src'/filename).read_text().splitlines()
+              snippet='\n'.join(f'{i+1}: {lines[i]}' for i in range(start-1,min(end,len(lines))))
+              if re.search(r'(?:sk-[A-Za-z0-9]{20}|ghp_[A-Za-z0-9]+|BEGIN .*PRIVATE KEY)',snippet):
+                  raise RuntimeError('SOURCE_REDACTION_REQUIRED')
+              print(json.dumps({'sourceSlice':filename,'start':start,'end':end,'text':snippet}))
+          text=(root/'src'/'micro-live-gate.js').read_text()
+          print(json.dumps({'gateSha256':hashlib.sha256(text.encode()).hexdigest(),'scaleLines':[line for line in text.splitlines() if 'evidenceReady' in line or 'scaleAllowed' in line or 'completed>=' in line]}))
           deploy=pathlib.Path('/usr/local/sbin/meme-alpha-safe-deploy')
           print(json.dumps({'deployDispatcher':deploy.read_text()}))
           PY
