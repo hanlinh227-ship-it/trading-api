@@ -1,4 +1,4 @@
-name: Meme Alpha RPC Fallback Audit
+name: Meme Alpha RPC Method Probe
 on:
   push:
     branches: [main]
@@ -11,20 +11,14 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect holder RPC fallback pool
+      - name: Probe Solana RPC methods
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app
-          echo '=== HOLDER_CLUSTER_RPC_SOURCE ==='
-          grep -nEi 'rpc|endpoint|publicnode|ankr|mainnet|helius|solana' "$APP/src/holder-cluster.js" | head -260 || true
-          sed -n '1,220p' "$APP/src/holder-cluster.js" || true
-          echo '=== RUNTIME_CONFIG_RPC_KEYS ==='
-          python3 - <<'PY'
-          import json,pathlib
-          p=pathlib.Path('/opt/meme-alpha/app/config/runtime.json')
-          if p.exists():
-            d=json.loads(p.read_text())
-            print({k:v for k,v in d.items() if 'rpc' in k.lower() or 'solana' in k.lower()})
-          PY
-          echo RPC_FALLBACK_AUDIT=COMPLETE
+          /usr/bin/node - <<'NODE'
+          const mint='LYFtxVQVdHNzS96azFJc6PsFiks7xH86JXQJnyopump';
+          const eps=['https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com','https://solana-mainnet.gateway.tatum.io','https://rpc.ankr.com/solana'];
+          async function one(ep,method,params){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),6000);try{const r=await fetch(ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:ac.signal});let text=await r.text();let j={};try{j=JSON.parse(text)}catch{};return {http:r.status,ok:r.ok,rpcError:j?.error?.code||null,rpcMessage:j?.error?.message||null,hasResult:j?.result!==undefined};}catch(e){return {error:String(e.message||e)}}finally{clearTimeout(t)}}
+          for(const ep of eps){for(const [method,params] of [['getAccountInfo',[mint,{encoding:'jsonParsed',commitment:'confirmed'}]],['getTokenSupply',[mint,{commitment:'confirmed'}]],['getTokenLargestAccounts',[mint,{commitment:'confirmed'}]]]){console.log('PROBE',ep,method,await one(ep,method,params));}}
+          NODE
+          echo RPC_METHOD_PROBE=COMPLETE
