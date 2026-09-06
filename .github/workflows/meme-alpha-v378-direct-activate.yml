@@ -48,9 +48,6 @@ jobs:
           e=sub1(e,r'function trendEntryEligible\(c\)\{.*?\}\nfunction softTrendWeak',
           "function trendEntryEligible(c){if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;const p=pulseFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=50&&n(p.volumeAcceleration)>=1.00&&n(p.txnAcceleration)>=.92&&n(p.buySellRatio)>=1.02&&n(p.tx5)>=2;const buyerFlow=net>=1&&avg>=.5;const fastFlow=net>=3||n(realtimeFor(c)?.events5s)>=2;const momentumFloor=p?0:.05;return stable&&chg>=momentumFloor&&chg<=20&&slope>=-7&&opportunityLane(c)&&(pulseFlow||buyerFlow||fastFlow)}\nfunction softTrendWeak",
           'ENTRY',re.S)
-          e=sub1(e,r'basePct=[^,;]+,cashBoost=[^,;]+,pct=clamp\(basePct\*growth\*cashBoost,0,p\.maxUtilizationPct\)',
-          'basePct=8+36*Math.pow(quality,1.00),cashBoost=1+0.60*freeRatio,pct=clamp(basePct*growth*cashBoost,0,p.maxUtilizationPct)',
-          'ALLOCATION')
           if 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED' not in e: raise SystemExit('PATCH_MISMATCH_MARKER')
           e=e.replace('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED','MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW=STARTED')
           open(rp,'w').write(r);open(sp,'w').write(s);open(ep,'w').write(e)
