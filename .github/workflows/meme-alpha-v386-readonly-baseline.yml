@@ -10,49 +10,28 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Read version and decision counters without trading changes
+      - name: Read exact live classification source without mutation
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, pathlib, hashlib, re, datetime
-          root = pathlib.Path('/opt/meme-alpha/app')
-          print('AUDIT_UTC=' + datetime.datetime.now(datetime.timezone.utc).isoformat())
-          for name in ['micro-live-executor.js', 'scanner.js', 'safe-signal-export.js']:
-              p = root / 'src' / name
-              text = p.read_text()
-              print(json.dumps({'source':name,'sha256':hashlib.sha256(text.encode()).hexdigest(),'versionMarkers':sorted(set(re.findall(r'V[0-9]{3}[A-Z_]*', text)))}))
-          for name, fields in [
-              ('micro-live-gate.json',['timestamp','allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']),
-              ('portfolio-observability.json',['timestamp','updatedAt','version','stateVersion','openPositionCount','openPositions','totalClosed'])
-          ]:
-              p = root / 'runtime-status' / name
-              try:
-                  d=json.loads(p.read_text())
-                  print(json.dumps({'file':name,'data':{k:d.get(k) for k in fields if k in d and not isinstance(d[k],dict)}}))
-              except (OSError,ValueError) as e:
-                  print(json.dumps({'file':name,'unavailable':type(e).__name__}))
-          p=root/'runtime-status'/'signal-snapshot.json'
-          d=json.loads(p.read_text()); rows=d.get('candidates') or []
-          from collections import Counter
-          counts=Counter()
-          for c in rows:
-              for k in ['hardReject','entryGuardReasons','securityBlockReasons','securityReviewReasons']:
-                  for reason in c.get(k) or []:
-                      if isinstance(reason,str): counts[k+':'+reason]+=1
-          print(json.dumps({'signalTimestamp':d.get('timestamp'),'count':len(rows),'intelSummary':d.get('intelSummary'),'blockReasons':dict(counts)}))
-          summary_fields=['symbol','mint','score','decision','universeClass','securityDecision','holderClusterDecision','sellRoute','liquidityUsd','sellImpactPct','priceImpactPct','token2022','netBuyers5m','priceChange5m','intelMode','hardReject','securityBlockReasons','securityReviewReasons','entryGuardReasons']
-          print(json.dumps({'candidateSummaries':[{k:c.get(k) for k in summary_fields} for c in rows[:60]]}))
-          stext=(root/'src'/'scanner.js').read_text(); slines=stext.splitlines()
-          for needle in ['MEME_EVIDENCE_INSUFFICIENT','NON_MEME_UNIVERSE','universeClass','securityDecision','securityBlockReasons']:
+          import json,pathlib,re,hashlib,datetime
+          root=pathlib.Path('/opt/meme-alpha/app')
+          print('AUDIT_UTC='+datetime.datetime.now(datetime.timezone.utc).isoformat())
+          for needle in ['MEME_EVIDENCE_INSUFFICIENT','NON_MEME_UNIVERSE','MEME_CONFIRMED']:
               hits=[]
-              for i,line in enumerate(slines,1):
-                  if needle in line:
-                      lo=max(1,i-8); hi=min(len(slines),i+12)
-                      hits.append({'line':i,'context':'\n'.join(f'{j}: {slines[j-1]}' for j in range(lo,hi+1))})
-              print(json.dumps({'scannerNeedle':needle,'hits':hits[:12]}))
-          text=(root/'src'/'micro-live-gate.js').read_text()
-          print(json.dumps({'gateSha256':hashlib.sha256(text.encode()).hexdigest(),'scaleLines':[line for line in text.splitlines() if 'evidenceReady' in line or 'scaleAllowed' in line or 'completed>=' in line]}))
-          deploy=pathlib.Path('/usr/local/sbin/meme-alpha-safe-deploy')
-          print(json.dumps({'deployDispatcher':deploy.read_text()}))
+              for p in sorted((root/'src').glob('*.js')):
+                  lines=p.read_text().splitlines()
+                  for i,line in enumerate(lines,1):
+                      if needle in line:
+                          lo=max(1,i-10);hi=min(len(lines),i+14)
+                          ctx='\n'.join(f'{j}: {lines[j-1]}' for j in range(lo,hi+1))
+                          if re.search(r'(?:sk-[A-Za-z0-9]{20}|ghp_[A-Za-z0-9]+|BEGIN .*PRIVATE KEY)',ctx):
+                              ctx='REDACTED'
+                          hits.append({'file':p.name,'line':i,'context':ctx})
+              print(json.dumps({'needle':needle,'hits':hits[:30]}))
+          for name in ['micro-live-executor.js','scanner.js','safe-signal-export.js','micro-live-gate.js']:
+              p=root/'src'/name;text=p.read_text();print(json.dumps({'source':name,'sha256':hashlib.sha256(text.encode()).hexdigest()}))
+          d=json.loads((root/'runtime-status'/'micro-live-gate.json').read_text());print(json.dumps({'gate':{k:d.get(k) for k in ['timestamp','allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']}}))
+          s=json.loads((root/'runtime-status'/'signal-snapshot.json').read_text());print(json.dumps({'signalTimestamp':s.get('timestamp'),'count':len(s.get('candidates') or []),'intelSummary':s.get('intelSummary')}))
           PY
