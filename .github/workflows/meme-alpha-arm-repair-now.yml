@@ -1,0 +1,25 @@
+name: Meme Alpha ARM Repair Now
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-arm-repair-now.yml']
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect root-safe deploy interface
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== SUDO ==='
+          sudo -n -l || true
+          echo '=== SAFE DEPLOY SCRIPT ==='
+          if [ -r /usr/local/sbin/meme-alpha-safe-deploy ]; then
+            sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy
+          else
+            ls -l /usr/local/sbin/meme-alpha-safe-deploy || true
+          fi
+          echo '=== CURRENT ARM/GATE ==='
+          cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json || true
