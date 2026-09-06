@@ -1,69 +1,28 @@
-name: Meme Alpha Runtime Cleanup And Capacity Verify
+name: Meme Alpha Root Arm Helper Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  cleanup:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Quarantine obsolete runtime artifacts and verify current v382 pipeline
+      - name: Inspect root arm helper and gate
         shell: bash
         run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status"
-          ARCH="$ST/_legacy-pre-v381"
-          mkdir -p "$ARCH"
-
-          echo '=== PRE-CLEAN CAPACITY ==='
-          uptime
-          free -h
-          df -h /
-
-          for p in "$ST"/v3[0-7][0-9]* "$ST"/v380-* "$ST"/v378-* "$ST"/v379-* "$ST"/deploy-candidates "$ST"/safe-deploy-backup-*; do
-            [ -e "$p" ] || continue
-            b=$(basename "$p")
-            case "$b" in
-              v381-fast-capital|v381-deployed.json|v382-deployed.json|_legacy-pre-v381) continue ;;
-            esac
-            [ "$p" = "$ARCH" ] && continue
-            mv "$p" "$ARCH/$b" 2>/dev/null || true
-          done
-          find "$ST" -maxdepth 1 -type f -name 'run-paper-pre-v3*.sh' -exec mv -t "$ARCH" {} + 2>/dev/null || true
-          rm -f "$ST/paper-v382-trace.log" 2>/dev/null || true
-
-          if [ -f "$ST/new-listing-radar-runtime.log" ] && [ "$(stat -c %s "$ST/new-listing-radar-runtime.log")" -gt 1048576 ]; then
-            tail -n 2500 "$ST/new-listing-radar-runtime.log" > "$ST/new-listing-radar-runtime.log.trim" || true
-            mv "$ST/new-listing-radar-runtime.log.trim" "$ST/new-listing-radar-runtime.log" || true
-          fi
-
-          echo '=== CURRENT SERVICES ==='
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
-            printf '%s=' "$s"; systemctl is-active "$s" || true
-          done
-
-          echo '=== CURRENT EXECUTOR ==='
-          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
-          pgrep -af 'micro-live-executor.js' || true
-
-          echo '=== DUPLICATE CURRENT COMPONENTS ==='
-          for pat in 'micro-live-executor.js' 'realtime-pool-pulse.js' 'trend-pulse.js' 'whale-flow-intel.js' 'ready_signer.py'; do
-            echo "$pat count=$(pgrep -fc "$pat" || true)"
-          done
-
-          echo '=== RUNTIME AFTER CLEAN ==='
-          du -sh "$ST" "$ARCH" 2>/dev/null || true
-          ls -1 "$ST" | grep -E '^v3|^safe-deploy|^deploy-candidates' | sort || true
-
-          echo '=== FRESH PIPELINE/GATE ==='
-          cat "$ST/micro-live-gate.json" || true
-          python3 -c "import os,time,json; b='$ST/'; fs=['new-listing-radar.json','signal-snapshot.json','micro-live-gate.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']; [(lambda p,d: print(f,{'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(d.get('candidates') or d.get('rows') or []),'status':d.get('status'),'allowed':d.get('allowed'),'sourceHealthy':d.get('sourceHealthy'),'riskEntryAllowed':d.get('riskEntryAllowed'),'reasons':d.get('reasons'),'blocks':d.get('blocks') or d.get('blockReasons')}))(b+f,json.load(open(b+f))) for f in fs]" || true
-
-          echo '=== POST-CLEAN CAPACITY ==='
-          uptime
-          free -h
-          ps -eo pid,user,%cpu,%mem,rss,etime,cmd --sort=-%cpu | head -20
-          echo CLEANUP_COMPLETE=TRUE
+          set +e
+          echo '=== SUDO ==='
+          sudo -n -l 2>&1 || true
+          echo '=== SAFE DEPLOY FILE ==='
+          ls -l /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          file /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          echo '=== SAFE DEPLOY HELP ==='
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
+          echo '=== ARM FILE ==='
+          ls -l /etc/meme-alpha/micro-live-armed 2>&1 || true
+          stat /etc/meme-alpha/micro-live-armed 2>&1 || true
+          echo '=== GATE ==='
+          cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json 2>&1 || true
+          echo INSPECT_COMPLETE=TRUE
