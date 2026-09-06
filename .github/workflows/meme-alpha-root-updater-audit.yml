@@ -1,0 +1,61 @@
+name: Meme Alpha Root Updater Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-root-updater-audit.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Snapshot updater code with secret redaction
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/ROOT-UPDATER-AUDIT.md"
+          TARGET=/opt/trading/trading-api/auto-futures-v1/runtime/watch_github.sh
+          python3 - "$TARGET" "$OUT" <<'PY'
+          from pathlib import Path
+          import re,sys,subprocess
+          src=Path(sys.argv[1]);out=Path(sys.argv[2])
+          lines=['# Root Updater Audit','']
+          lines.append(f'- updater_exists: `{src.is_file()}`')
+          lines.append(f'- updater_readable: `{src.is_file() and src.stat().st_mode is not None}`')
+          if src.is_file():
+              text=src.read_text(errors='replace')
+              red=[]
+              for ln in text.splitlines():
+                  if re.search(r'(?i)(token|secret|password|authorization|bearer|private[_-]?key)',ln):
+                      red.append('# [REDACTED_SENSITIVE_LINE]')
+                  else:
+                      ln=re.sub(r'https://[^/@\s]+:[^/@\s]+@','https://[REDACTED]@',ln)
+                      red.append(ln)
+              lines += ['', '## Sanitized updater source', '```bash', *red, '```']
+          try:
+              url=subprocess.check_output(['git','-C','/opt/trading/trading-api','remote','get-url','origin'],text=True,stderr=subprocess.DEVNULL).strip()
+              url=re.sub(r'https://[^/@\s]+:[^/@\s]+@','https://[REDACTED]@',url)
+          except Exception:
+              url='UNKNOWN'
+          lines += ['', f'- updater_repo_origin: `{url}`']
+          out.parent.mkdir(parents=True,exist_ok=True);out.write_text('\n'.join(lines)+'\n')
+          PY
+      - name: Commit audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/ROOT-UPDATER-AUDIT.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): audit existing root updater"
+          git push origin HEAD:main
