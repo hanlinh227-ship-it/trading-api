@@ -23,21 +23,22 @@ jobs:
           ST="$APP/runtime-status/v380-handoff"
           mkdir -p "$ST"
           chmod 0777 "$ST"
+          cp "$APP/src/new-listing-radar.js" "$ST/radar.js"
           cp "$APP/src/scanner.js" "$ST/scanner.js"
           cp "$APP/src/micro-live-executor.js" "$ST/executor.js"
           cp "$APP/run-paper.sh" "$ST/run-paper.backup.sh"
           cat > "$ST/patch.py" <<'PY'
           import re,sys
-          sp,ep=sys.argv[1:3]
-          s=open(sp).read(); e=open(ep).read()
+          rp,sp,ep=sys.argv[1:4]
+          r=open(rp).read(); s=open(sp).read(); e=open(ep).read()
           def sub1(txt,pat,repl,label,flags=0):
               out,n=re.subn(pat,repl,txt,count=1,flags=flags)
               if n!=1: raise SystemExit(f'PATCH_MISMATCH_{label}_{n}')
               return out
-          s=sub1(s,r'const MAX_CURRENT=\d+;', 'const MAX_CURRENT=720;', 'MAX_CURRENT')
-          s=sub1(s,r'const FAST_DISCOVERY_RESERVE=\d+;', 'const FAST_DISCOVERY_RESERVE=320;', 'FAST_RESERVE')
-          s=sub1(s,r'const MAX_OUTPUT=\d+;', 'const MAX_OUTPUT=900;', 'MAX_OUTPUT')
-          s=sub1(s,r'const DISCOVERY_RADAR_ONLY_MAX\s*=\s*\d+;', 'const DISCOVERY_RADAR_ONLY_MAX = 520;', 'RADAR_MAX')
+          r=sub1(r,r'const MAX_CURRENT=\d+;', 'const MAX_CURRENT=720;', 'RADAR_MAX_CURRENT')
+          r=sub1(r,r'const FAST_DISCOVERY_RESERVE=\d+;', 'const FAST_DISCOVERY_RESERVE=320;', 'RADAR_FAST_RESERVE')
+          r=sub1(r,r'const MAX_OUTPUT=\d+;', 'const MAX_OUTPUT=900;', 'RADAR_MAX_OUTPUT')
+          s=sub1(s,r'const DISCOVERY_RADAR_ONLY_MAX\s*=\s*\d+;', 'const DISCOVERY_RADAR_ONLY_MAX = 520;', 'SCANNER_RADAR_MAX')
           s=s.replace('keep the best 30, then add at most 10 high-signal meme/launchpad candidates','keep the best 80, then add at most 40 high-signal meme/launchpad candidates')
           s=s.replace('.slice(0, 30)', '.slice(0, 80)').replace('.slice(0,30)', '.slice(0,80)')
           s=s.replace('.slice(0, 10)', '.slice(0, 40)').replace('.slice(0,10)', '.slice(0,40)')
@@ -50,13 +51,16 @@ jobs:
           e=sub1(e,r'function rotationSource\(st,newC\)\{.*?\}\nasync function rotateFor',
           "function rotationSource(st,newC){const newEdge=expectedEdge(st,newC),now=Date.now();const rows=(st.positions||[]).map((pos,i)=>{const c=candidate(pos.mint),ret=n(pos.lastReturnPct),peak=n(pos.peakReturnPct),ageMin=Math.max(0,(now-Date.parse(pos.openedAt||now))/60000),flow=n(c?.netBuyers5m,-99),avg=n(c?.avgNetBuyersLast2,flow),weak=!c||softTrendWeak(c),severe=!c||severeTrendBreak(c),stagnant=ageMin>=7&&ret<=5&&peak<12&&flow<=3&&avg<=3,winner=ret>0||peak>=8;const oldEdge=c?expectedEdge(st,c):0;const threshold=severe?0:stagnant?2:weak?2:winner?(ret>=12||peak>=20?20:14):6;return{i,pos,c,ret,peak,ageMin,weak,severe,stagnant,winner,oldEdge,gap:newEdge-oldEdge,threshold}}).filter(x=>x.gap>=x.threshold).sort((a,b)=>(b.severe-a.severe)||(b.stagnant-a.stagnant)||(b.weak-a.weak)||(b.gap-a.gap));return rows[0]||null}\nasync function rotateFor",
           'ROTATION',re.S)
+          if 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED' not in e: raise SystemExit('PATCH_MISMATCH_MARKER')
           e=e.replace('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED','MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW=STARTED')
-          open(sp,'w').write(s);open(ep,'w').write(e)
+          open(rp,'w').write(r);open(sp,'w').write(s);open(ep,'w').write(e)
           print('V380_PATCH=PASS')
           PY
-          python3 "$ST/patch.py" "$ST/scanner.js" "$ST/executor.js"
+          python3 "$ST/patch.py" "$ST/radar.js" "$ST/scanner.js" "$ST/executor.js"
+          node --check "$ST/radar.js"
           node --check "$ST/scanner.js"
           node --check "$ST/executor.js"
+          node "$ST/radar.js" --self-test > "$ST/radar-selftest.txt" 2>&1
           node "$ST/scanner.js" --self-test > "$ST/scanner-selftest.txt" 2>&1
           node "$ST/executor.js" --self-test > "$ST/executor-selftest.txt" 2>&1
           grep -q 'MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW' "$ST/executor.js"
@@ -65,9 +69,10 @@ jobs:
           set -euo pipefail
           APP=/opt/meme-alpha/app
           ST="$APP/runtime-status/v380-handoff"
+          install -m 0664 "$ST/radar.js" "$APP/src/new-listing-radar.js"
           install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
           install -m 0664 "$ST/executor.js" "$APP/src/micro-live-executor.js"
-          printf 'SCANNER_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
+          printf 'RADAR_SWAP=TRUE\nSCANNER_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
           cp "$ST/run-paper.backup.sh" "$APP/run-paper.sh"
           chmod +x "$APP/run-paper.sh"
           exec "$APP/run-paper.sh"
