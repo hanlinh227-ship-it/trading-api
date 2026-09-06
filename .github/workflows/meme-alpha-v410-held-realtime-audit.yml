@@ -1,4 +1,4 @@
-name: Meme Alpha V410B Held Pair Source Audit
+name: Meme Alpha V410C Held Pair Resolver Audit
 on:
   push:
     branches: [main]
@@ -9,35 +9,35 @@ permissions:
 jobs:
   audit:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
-      - name: Inspect executor position schema and trusted pair mapping
+      - name: Verify trusted DEX pair fallback for held positions
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"
-          echo '=== EXECUTOR POSITION SCHEMA ==='
-          grep -nE 'statePath|positions\.push|pairAddress|pair:|entryPair|mint-pair-cache|MICRO_BUY|MICRO_SCALE_IN|positionMints' "$EXE" | head -260 || true
-          echo '=== PORTFOLIO OBS WRITER ==='
-          grep -RniE 'portfolio-observability|positionMints|stateReadable' "$APP/src" "$APP/run-paper.sh" 2>/dev/null | head -180 || true
-          echo '=== HELD PAIR SOURCES ==='
+          RT=/opt/meme-alpha/app/runtime-status
           python3 - <<'PY'
-          import json,pathlib,time
+          import json,pathlib,subprocess,time
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
           obs=json.loads((rt/'portfolio-observability.json').read_text()); held=obs.get('positionMints') or []
-          cache=json.loads((rt/'mint-pair-cache.json').read_text()); entries=cache.get('entries') or []
-          by={x.get('mint'):x for x in entries if isinstance(x,dict)}
-          radar=json.loads((rt/'new-listing-radar.json').read_text()); sig=json.loads((rt/'signal-snapshot.json').read_text()); real=json.loads((rt/'realtime-pool-pulse.json').read_text())
-          rr={x.get('mint'):x for x in radar.get('candidates',[]) if isinstance(x,dict)}; ss={x.get('mint'):x for x in sig.get('candidates',[]) if isinstance(x,dict)}; rtrows={x.get('mint'):x for x in real.get('rows',[]) if isinstance(x,dict)}
-          print('HELD_TOTAL',len(held))
-          for m in held:
-            c=by.get(m); r=rr.get(m) or {}; s=ss.get(m) or {}; q=rtrows.get(m) or {}
-            print({'mint':m,'cachePair':(c or {}).get('pair'),'cacheSource':(c or {}).get('source'),'cacheSymbol':(c or {}).get('symbol'),'radarPair':r.get('pairAddress') or r.get('pair'),'radarSymbol':r.get('symbol'),'signalPair':s.get('pairAddress') or s.get('pair'),'signalSymbol':s.get('symbol'),'realtimePair':q.get('pair'),'realtimeHeld':q.get('held')})
-          le=rt/'last-execution.json'
-          if le.exists(): print('LAST_EXECUTION',json.loads(le.read_text()))
-          cap=rt/'capital-observability.json'
-          if cap.exists(): print('CAPITAL',json.loads(cap.read_text()))
+          cache=json.loads((rt/'mint-pair-cache.json').read_text()); known={x.get('mint') for x in cache.get('entries',[]) if isinstance(x,dict) and x.get('pair')}
+          unresolved=[m for m in held if m not in known]
+          print('UNRESOLVED_COUNT',len(unresolved))
+          for mint in unresolved:
+            url=f'https://api.dexscreener.com/latest/dex/tokens/{mint}'
+            try:
+              p=subprocess.run(['curl','-fsSL','--max-time','8',url],capture_output=True,text=True,timeout=10)
+              if p.returncode: print({'mint':mint,'http':'FAIL','stderr':p.stderr[-120:]}); continue
+              j=json.loads(p.stdout); pairs=[]
+              for x in j.get('pairs') or []:
+                if x.get('chainId')!='solana': continue
+                b=(x.get('baseToken') or {}).get('address'); q=(x.get('quoteToken') or {}).get('address')
+                if mint not in (b,q): continue
+                pa=x.get('pairAddress'); liq=float((x.get('liquidity') or {}).get('usd') or 0); vol=float((x.get('volume') or {}).get('h24') or 0); dex=x.get('dexId')
+                if pa: pairs.append((liq,vol,pa,dex,b,q))
+              pairs.sort(reverse=True)
+              print({'mint':mint,'pairCount':len(pairs),'best':pairs[0] if pairs else None,'top3':pairs[:3]})
+            except Exception as e: print({'mint':mint,'error':repr(e)})
+            time.sleep(.3)
           PY
-          echo '=== RECENT BUY EVENTS / PAIR FIELDS ==='
-          grep -RhsE 'MICRO_BUY|MICRO_SCALE_IN' /opt/meme-alpha/app/runtime-status /var/lib/meme-alpha/data/micro-live 2>/dev/null | tail -40 || true
-          echo V410B_HELD_PAIR_SOURCE_AUDIT=COMPLETE
+          echo V410C_HELD_PAIR_RESOLVER_AUDIT=COMPLETE
