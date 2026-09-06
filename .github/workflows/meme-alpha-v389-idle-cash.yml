@@ -15,6 +15,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/b6b226129cec706417f3511e2b6c2154224d0a21/ops/meme-alpha-v389-idle-cash.sh -o /tmp/meme-alpha-v389-idle-cash.sh
+          curl -fsSL https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/e75ec5a7fd0c4398ac5053dcc3b516968695dab4/ops/meme-alpha-v389-idle-cash.sh -o /tmp/meme-alpha-v389-idle-cash.sh
           chmod 0755 /tmp/meme-alpha-v389-idle-cash.sh
           /tmp/meme-alpha-v389-idle-cash.sh
