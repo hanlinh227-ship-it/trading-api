@@ -8,6 +8,7 @@ BRANCH="auto-futures-v1"
 BOT="$ROOT/auto-futures-v1"
 MEME_DEPLOY_V377="$BOT/runtime/deploy_meme_alpha_v377.sh"
 MEME_DEPLOY_V378="$BOT/runtime/deploy_meme_alpha_v378.sh"
+MEME_RECON_V382="$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"
 
 mkdir -p "$(dirname "$LOG")"
 log(){ echo "$(date -u -Is) $*" >> "$LOG"; }
@@ -34,11 +35,15 @@ if [[ "$LOCAL" != "$REMOTE" ]]; then
   fi
 fi
 
-# Isolated meme-alpha reconcile lane. Run both legacy-retirement and current
-# v38x root-arm hooks on every watcher tick, even when Auto Futures update
-# failed or there is no Git delta. Each hook remains fail-closed and cannot
-# bypass signer/source/risk/candidate hard-safety gates.
-for MEME_DEPLOY in "$MEME_DEPLOY_V377" "$MEME_DEPLOY_V378"; do
+# Isolated meme-alpha reconcile lane. Legacy hooks are retained only for
+# controlled retirement/compatibility, while v3.82 root ARM reconciliation is
+# now executed on EVERY watcher tick (including NO-GIT-DELTA ticks). This fixes
+# the failure mode where /etc/meme-alpha/micro-live-armed disappears after a
+# successful deploy and the previous watcher never re-runs the current healer.
+# The v3.82 reconcile script remains fail-closed: explicit ARMED=NO wins, unknown
+# states are rejected, and signer/source/risk checks must all be healthy before
+# any ARMED=YES repair is written.
+for MEME_DEPLOY in "$MEME_DEPLOY_V377" "$MEME_DEPLOY_V378" "$MEME_RECON_V382"; do
   if [[ -x "$MEME_DEPLOY" ]]; then
     set +e
     "$MEME_DEPLOY" >> "$LOG" 2>&1
