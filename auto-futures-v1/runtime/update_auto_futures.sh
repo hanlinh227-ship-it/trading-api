@@ -6,15 +6,18 @@ LIVE_TRADING="false";LIVE_ARMED="false";if [[ -f /opt/trading/.env.binance ]];th
 
 # Meme Alpha v3.82 reconciliation is intentionally independent from the Binance/Auto-Futures
 # deployment gate. A live/pending Binance position must never prevent the root-owned Meme Alpha
-# ARM state from being reconciled. Legacy v3.77/v3.78 hooks are no longer invoked here because
-# v3.82 is their strict successor and replaying obsolete patchers can create version conflicts.
+# ARM state from being reconciled.
 MEME_RECON="$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"
-if [[ -f "$MEME_RECON" ]]; then
+run_meme_reconcile(){
+  local phase="$1" out rc
+  [[ -f "$MEME_RECON" ]] || { log "MEME_RECONCILE_${phase} rc=0 result=SCRIPT_MISSING"; return 0; }
   set +e
-  MEME_OUT="$(/bin/bash "$MEME_RECON" 2>&1)"; MEME_RC=$?
+  out="$(/bin/bash "$MEME_RECON" 2>&1)"; rc=$?
   set -e
-  log "MEME_RECONCILE_EARLY rc=$MEME_RC result=$(echo "$MEME_OUT" | tail -n 1)"
-fi
+  log "MEME_RECONCILE_${phase} rc=$rc result=$(echo "$out" | tail -n 1)"
+  return 0
+}
+run_meme_reconcile EARLY
 
 pending_count(){ python3 - <<'PY'
 import json
@@ -38,6 +41,11 @@ log "========================================";log "PRODUCTION UPDATE START live
 rollback(){ rc=$?;trap - ERR;log "UPDATE FAILED rc=$rc";if [[ "$BACKUP_READY" -eq 1 && -d "$BACKUP/auto-futures-v1" ]];then log "ROLLBACK START";systemctl stop auto-futures-scan.timer auto-futures-scan.service auto-futures-hub-bridge.service auto-futures-position.service signal-v10-council.service 2>/dev/null || true;rm -rf "$ROOT/auto-futures-v1.failed.$TS" 2>/dev/null || true;[[ -d "$BOT" ]]&&mv "$BOT" "$ROOT/auto-futures-v1.failed.$TS";cp -a "$BACKUP/auto-futures-v1" "$BOT";systemctl daemon-reload || true;systemctl start auto-futures-position.service auto-futures-hub-bridge.service auto-futures-scan.timer signal-v10-council.service 2>/dev/null || true;log "ROLLBACK COMPLETE";fi;exit "$rc";};trap rollback ERR
 systemctl stop auto-futures-scan.timer auto-futures-scan.service 2>/dev/null || true;pkill -f '/auto-futures-v1/ai/(claude|deepseek|codex)_trader.py' 2>/dev/null || true
 git fetch origin "$BRANCH";git checkout -f "$BRANCH";git reset --hard "origin/$BRANCH";log "GITHUB SOURCE SYNC PASS: $(git rev-parse HEAD)"
+# Critical second pass: EARLY ran the pre-sync script. Rebind to the freshly pulled
+# reconcile code and execute it immediately, before the slower Auto-Futures bootstrap.
+# This closes the upgrade window where the old healer could not repair a missing ARM.
+MEME_RECON="$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"
+run_meme_reconcile POST_SYNC
 FILES=( auto-futures-v1/paper_trader.py auto-futures-v1/ai/common.py auto-futures-v1/ai/ai_budget_governor.py auto-futures-v1/ai/ai_coordination.py auto-futures-v1/ai/claude_trader.py auto-futures-v1/ai/deepseek_trader.py auto-futures-v1/ai/codex_trader.py auto-futures-v1/ai/consensus.py auto-futures-v1/risk/risk_engine.py auto-futures-v1/execution/execution_guard.py auto-futures-v1/execution/live_preflight.py auto-futures-v1/execution/approval_queue.py auto-futures-v1/execution/live_executor.py auto-futures-v1/execution/hub_control_bridge.py auto-futures-v1/research/market_context_monitor.py auto-futures-v1/research/signal_quality_guard.py auto-futures-v1/research/reliability_learner.py auto-futures-v1/position/ai_position_guardian.py auto-futures-v1/position/position_manager.py signal-only-v10/ai_council_worker.py )
 for f in "${FILES[@]}";do [[ -f "$ROOT/$f" ]]||{ log "FAIL missing=$f";exit 30;};done
 python3 -m py_compile "${FILES[@]}";bash -n "$BOT/run_pipeline.sh" "$BOT/runtime/scan_loop.sh" "$BOT/runtime/watch_github.sh" "$BOT/runtime/update_auto_futures.sh" "$BOT/runtime/unified_bootstrap.sh" "$ROOT/signal-only-v10/runtime/install_signal_v10.sh";log "STATIC VALIDATION PASS"
