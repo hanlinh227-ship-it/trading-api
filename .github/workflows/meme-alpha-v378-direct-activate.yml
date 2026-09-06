@@ -1,4 +1,4 @@
-name: Meme Alpha V382 Failed Updater Inspect
+name: Meme Alpha Updater Failure Detail
 on:
   push:
     branches: [main]
@@ -9,19 +9,15 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect latest failed updater snapshot
+      - name: Inspect updater stderr and bot size
         shell: bash
         run: |
           set +e
           ROOT=/opt/trading/trading-api
-          F="$ROOT/auto-futures-v1.failed.20260906_083243"
-          echo '=== FAILED TREE ==='; find "$F/runtime" -maxdepth 1 -type f -printf '%f %s\n' 2>&1 | sort || true
-          echo '=== UPDATER ==='; sed -n '1,260p' "$F/runtime/update_auto_futures.sh" 2>&1 || true
-          echo '=== RECONCILE ==='; sed -n '1,260p' "$F/runtime/deploy_meme_alpha_v382_reconcile.sh" 2>&1 || true
-          echo '=== FAILED LOG ==='; tail -n 220 "$F/logs/auto_update.log" 2>&1 || true
-          echo '=== MISSING REQUIRED FILES ==='
-          for p in paper_trader.py ai/common.py ai/ai_budget_governor.py ai/ai_coordination.py ai/claude_trader.py ai/deepseek_trader.py ai/codex_trader.py ai/consensus.py risk/risk_engine.py execution/execution_guard.py execution/live_preflight.py execution/approval_queue.py execution/live_executor.py execution/hub_control_bridge.py research/market_context_monitor.py research/signal_quality_guard.py research/reliability_learner.py position/ai_position_guardian.py position/position_manager.py; do [ -f "$F/$p" ] || echo MISSING:$p; done
-          echo '=== CURRENT ROOT HEAD/REMOTE ==='
-          git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD 2>&1 || true
-          git -c safe.directory="$ROOT" -C "$ROOT" rev-parse origin/auto-futures-v1 2>&1 || true
-          echo INSPECT_DONE=TRUE
+          BOT="$ROOT/auto-futures-v1"
+          echo '=== BOT SIZE ==='; du -sh "$BOT" 2>&1 || true; du -h --max-depth=1 "$BOT" 2>&1 | sort -h | tail -30 || true
+          echo '=== BACKUPS SIZE ==='; du -sh /opt/trading/auto-futures-backups 2>&1 || true; ls -ld /opt/trading/auto-futures-backups/release_20260906_08* 2>&1 || true
+          echo '=== WATCH LOG ==='; tail -n 320 "$BOT/logs/github_watch.log" 2>&1 || true
+          echo '=== ROOT FS ==='; df -h / /opt 2>&1 || true; df -i / /opt 2>&1 || true
+          echo '=== FAILED 083243 META ==='; stat "$ROOT/auto-futures-v1.failed.20260906_083243" 2>&1 || true
+          echo DETAIL_DONE=TRUE
