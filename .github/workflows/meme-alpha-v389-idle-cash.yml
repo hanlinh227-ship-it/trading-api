@@ -1,4 +1,4 @@
-name: Meme Alpha V395 Signer-Compatible Buy Sizing
+name: Meme Alpha V396 Full Blocker Audit
 on:
   push:
     branches: [main]
@@ -7,78 +7,66 @@ on:
 permissions:
   contents: read
 jobs:
-  deploy:
+  audit:
     runs-on: self-hosted
-    timeout-minutes: 7
+    timeout-minutes: 5
     steps:
-      - name: Deploy and activate V395
+      - name: Audit every live buy blocker
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"
-          SRC="$APP/src/micro-live-executor.js"; CAND="$BASE/v395-executor-signer-cap.js"
-          mkdir -p "$BASE"; cp -a "$SRC" "$CAND"
-          python3 - "$CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="if(plan.targetInvestedLamports<p.minOrderLamports)return{placed:false,reason:'ALLOCATION_BELOW_MIN_ORDER',plan,profile};if(plan.availableLamports<p.minOrderLamports)return{placed:false,reason:'CAPITAL_HEADROOM_LOW',plan,profile};if(plan.amountLamports<p.minOrderLamports)return{placed:false,reason:'TARGET_ALREADY_SATISFIED',plan,profile};\n  const beforeTok=await tokenBalance(h.publicKey,c.mint),o=await signer({op:'order',inputMint:WSOL,outputMint:c.mint,amount:String(plan.amountLamports),maxPriceImpactPct:p.maxBuyPriceImpactPct});if(!o.ok)throw new Error(`SIGNER_${o.error}`);if(Math.abs(n(o.priceImpactPct,99))>p.maxBuyPriceImpactPct)throw new Error('ORDER_IMPACT_GUARD');"
-          new="if(plan.targetInvestedLamports<p.minOrderLamports)return{placed:false,reason:'ALLOCATION_BELOW_MIN_ORDER',plan,profile};if(plan.availableLamports<p.minOrderLamports)return{placed:false,reason:'CAPITAL_HEADROOM_LOW',plan,profile};if(plan.amountLamports<p.minOrderLamports)return{placed:false,reason:'TARGET_ALREADY_SATISFIED',plan,profile};\n  const signerOrderCapLamports=Math.max(0,Math.floor(beforeSol*0.88)),orderAmountLamports=Math.min(plan.amountLamports,signerOrderCapLamports);if(orderAmountLamports<p.minOrderLamports)return{placed:false,reason:'SIGNER_ORDER_CAP_BELOW_MIN',plan,profile,signerOrderCapLamports};\n  const beforeTok=await tokenBalance(h.publicKey,c.mint),o=await signer({op:'order',inputMint:WSOL,outputMint:c.mint,amount:String(orderAmountLamports),maxPriceImpactPct:p.maxBuyPriceImpactPct});if(!o.ok)throw new Error(`SIGNER_${o.error}`);if(Math.abs(n(o.priceImpactPct,99))>p.maxBuyPriceImpactPct)throw new Error('ORDER_IMPACT_GUARD');"
-          if s.count(old)!=1: raise SystemExit(f'V395_BUY_PATCH_COUNT={s.count(old)}')
-          s=s.replace(old,new,1)
-          old2="if(spent>plan.amountLamports+Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports))event({type:'POST_FILL_SPEND_OVER_PLAN',mint:c.mint,spentLamports:spent,plannedLamports:plan.amountLamports});"
-          new2="if(spent>orderAmountLamports+Math.max(ENTRY_OVERHEAD_LAMPORTS,exitHeadroomLamports))event({type:'POST_FILL_SPEND_OVER_PLAN',mint:c.mint,spentLamports:spent,plannedLamports:orderAmountLamports});"
-          if s.count(old2)!=1: raise SystemExit(f'V395_SPEND_GUARD_PATCH_COUNT={s.count(old2)}')
-          s=s.replace(old2,new2,1)
-          p.write_text(s)
-          PY
-          node --check "$CAND"
-          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
-          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
-          grep -q 'signerOrderCapLamports' "$CAND"
-          grep -q 'amount:String(orderAmountLamports)' "$CAND"
-          SHA="$(sha256sum "$CAND" | awk '{print $1}')"; echo V395_EXECUTOR_SHA="$SHA"
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; SRC="$APP/src/micro-live-executor.js"
+          echo "AUDIT_START=$(date -u +%FT%TZ)"
+          echo '=== SERVICES / PROCESS ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          pgrep -af 'micro-live-executor|ready_signer|run-paper' || true
+          echo EXECUTOR_SHA=$(sha256sum "$SRC" | awk '{print $1}')
 
-          echo '=== DEPLOY EXECUTOR ==='
-          if sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$(basename "$CAND")" "$SHA"; then
-            echo V395_SAFE_DEPLOY=TRUE
-          else
-            echo V395_SAFE_DEPLOY=FALLBACK_HANDOFF
-            BACK="$RT/v395-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"
-            cp -a "$SRC" "$BACK"
-            cp "$CAND" "$SRC"
-            chmod 664 "$SRC" || true
-            sudo -n /usr/bin/systemctl restart meme-alpha-paper.service
-          fi
+          echo '=== DEPLOY / ARM PATH ==='
+          ls -ld /etc/meme-alpha /etc/meme-alpha/micro-live-armed 2>/dev/null || true
+          sed -n '1,180p' /usr/local/sbin/meme-alpha-safe-deploy 2>/dev/null || true
+          systemctl cat meme-alpha-paper.service || true
+          systemctl cat meme-alpha-micro-live.service || true
 
-          echo '=== VERIFY ACTIVE SOURCE ==='
-          for i in $(seq 1 45); do
-            sleep 2
-            ACTUAL="$(sha256sum "$SRC" | awk '{print $1}')"
-            [ "$ACTUAL" = "$SHA" ] && break
-            [ "$i" -lt 45 ] || { echo V395_FAIL=SOURCE_SHA_MISMATCH; exit 9; }
-          done
-          echo V395_ACTIVE_SHA="$(sha256sum "$SRC" | awk '{print $1}')"
-          systemctl is-active meme-alpha-paper.service
-          systemctl is-active meme-alpha-micro-live.service
-          systemctl is-active meme-alpha-signer.service
+          echo '=== EXECUTOR BUY PATH ==='
+          grep -nE 'function coreSafe|function insiderSafe|function holderSafe|function bestCandidate|function placeBuy|function maybeScaleIn|function idleCapitalScale|async function tick|AUTO_ALLOC|IDLE_CAPITAL|SIGNER_ORDER_CAP|trendEntryEligible' "$SRC" | head -260 || true
+          sed -n '60,155p' "$SRC" || true
+          sed -n '180,310p' "$SRC" || true
 
-          echo '=== LIVE PROOF ==='
-          for i in $(seq 1 45); do
-            sleep 2
-            python3 - <<'PY' && break || true
-          import json,pathlib,time
+          echo '=== SIGNER BLOCKERS ==='
+          grep -nE 'MICRO_LIVE_GATE|DYNAMIC_BUY|TREND_SIGNAL|ELIGIBLE|LIMIT|REJECT|BLOCK|MAX_|amount|score|PROBE|MEME_CONFIRMED|securityDecision|holderClusterDecision|sellRoute' /opt/meme-alpha-signer/ready_signer.py | head -320 || true
+
+          echo '=== LIVE SNAPSHOT LOOP ==='
+          python3 - <<'PY'
+          import json,pathlib,time,datetime
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          g=json.loads((rt/'micro-live-gate.json').read_text())
-          assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
-          cap=json.loads((rt/'capital-observability.json').read_text()) if (rt/'capital-observability.json').exists() else {}
-          alloc=json.loads((rt/'allocator-status.json').read_text()) if (rt/'allocator-status.json').exists() else {}
-          print('GATE',{k:g.get(k) for k in ['version','allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
-          print('CAPITAL',cap)
-          print('ALLOCATOR',alloc)
-          reason=str(alloc.get('reason') or '')
-          assert reason!='SIGNER_DYNAMIC_BUY_SIZE_LIMIT'
+          def n(v,d=0):
+            try:return float(v)
+            except:return d
+          def core(c):
+            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
+            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
+          for i in range(16):
+            try:
+              sig=json.loads((rt/'signal-snapshot.json').read_text()); rows=sig.get('candidates') or []
+            except Exception as e: rows=[]; sig={}
+            safe=[c for c in rows if core(c)]
+            try:g=json.loads((rt/'micro-live-gate.json').read_text())
+            except:g={}
+            try:a=json.loads((rt/'allocator-status.json').read_text())
+            except:a={}
+            try:cap=json.loads((rt/'capital-observability.json').read_text())
+            except:cap={}
+            try:le=json.loads((rt/'last-execution.json').read_text())
+            except:le={}
+            print('SNAP',i,datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  'count',len(rows),'safe',[(c.get('symbol'),c.get('score'),c.get('decision'),c.get('priceChange5m'),c.get('netBuyers5m')) for c in safe[:8]],
+                  'gate',{k:g.get(k) for k in ['allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']},
+                  'alloc',{k:a.get(k) for k in ['updatedAt','action','reason','symbol','targetSymbol']},
+                  'deployable',cap.get('deployableSol'),'lastExec',{k:le.get(k) for k in ['updatedAt','type','symbol','spentSol','signature']})
+            if rows:
+              for c in rows[:12]:
+                print('ROW',c.get('symbol'),c.get('score'),c.get('decision'),c.get('securityDecision'),c.get('holderClusterDecision'),c.get('insiderRiskDecision'),c.get('sellRoute'),c.get('token2022'),c.get('liquidityUsd'),c.get('sellPriceImpactPct'),c.get('priceChange5m'),c.get('netBuyers5m'),c.get('consecutiveEligible'),c.get('strategyRouter'))
+            time.sleep(3)
           PY
-          done
-          for f in "$RT/last-execution.json" "$RT/allocator-status.json" "$RT/capital-observability.json"; do [ -f "$f" ] && { echo ---$f---; cat "$f"; echo; } || true; done
-          echo V395_SIGNER_COMPATIBLE_BUY_SIZING=ACTIVE
-          echo SCALE_ALLOWED=TRUE
+          echo V396_FULL_BLOCKER_AUDIT=COMPLETE
