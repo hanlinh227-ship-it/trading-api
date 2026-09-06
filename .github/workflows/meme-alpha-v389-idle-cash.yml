@@ -32,6 +32,10 @@ jobs:
           new3="return{name:'V402_DIVERSIFIED_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
           if s.count(old3)!=1: raise SystemExit(f'V402_PROFILE_META_PATCH_COUNT={s.count(old3)}')
           s=s.replace(old3,new3,1)
+          old4="if(!(p2.pct>p1.pct))throw new Error('EQUITY_SCALE_FACTOR');"
+          new4="if(!(p2.pct>=p1.pct&&p2.pct<=p2.perPositionCap))throw new Error('EQUITY_SCALE_FACTOR');"
+          if s.count(old4)!=1: raise SystemExit(f'V402_SELFTEST_PATCH_COUNT={s.count(old4)}')
+          s=s.replace(old4,new4,1)
           p.write_text(s)
           PY
           node --check "$CAND"
