@@ -1,35 +1,23 @@
-name: Meme Alpha Radar Permission Repair
+name: Meme Alpha Arm Interface Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  repair:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Restore radar log access and inspect root updater failure
+      - name: Inspect safe deploy arming interface
         shell: bash
         run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          RLOG="$APP/runtime-status/new-listing-radar-runtime.log"
-          chmod 0664 "$RLOG"
-          echo '=== RADAR LOG FIXED ==='; ls -l "$RLOG"
-          READY=0
-          for i in $(seq 1 35); do
-            AGE=$(python3 -c "import os,time; print(round(time.time()-os.path.getmtime('$APP/runtime-status/new-listing-radar.json'),1))" 2>/dev/null || echo 9999)
-            echo "radarAge=$AGE"
-            python3 -c "import sys; sys.exit(0 if float('$AGE') < 25 else 1)" && READY=1 && break || true
-            sleep 2
-          done
-          echo '=== RADAR PROCESS ==='; pgrep -af 'new-listing-radar.js|run-paper.sh' || true
-          echo '=== RADAR TAIL ==='; tail -n 25 "$RLOG" || true
-          echo '=== ROOT UPDATE JOURNAL 08:27-08:33 ==='
-          journalctl -u auto-futures-update.service --since '2026-09-06 08:27:00' --until '2026-09-06 08:33:20' --no-pager -o cat 2>&1 | tail -n 260 || true
-          echo '=== RELEASE BACKUP CONTENT ==='
-          du -sh /opt/trading/auto-futures-backups/release_20260906_083243 2>&1 || true
-          find /opt/trading/auto-futures-backups/release_20260906_083243 -maxdepth 3 -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -25 || true
-          [ "$READY" = 1 ]
-          echo RADAR_PERMISSION_REPAIR=PASS
+          set +e
+          echo '=== NOW ==='; date -u +%FT%TZ
+          echo '=== SUDO ==='; sudo -n -l 2>&1 || true
+          echo '=== SAFE DEPLOY HELP ==='
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy help 2>&1 || true
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy status 2>&1 || true
+          echo '=== GATE ==='; cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json 2>&1 || true
+          echo ARM_INTERFACE_INSPECT=PASS
