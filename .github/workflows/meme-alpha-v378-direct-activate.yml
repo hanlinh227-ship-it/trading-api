@@ -1,4 +1,4 @@
-name: Meme Alpha V380 Patch Target Inspect
+name: Meme Alpha V380 Wide Discovery Fast Flow
 
 on:
   push:
@@ -6,22 +6,81 @@ on:
     paths:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
+permissions:
+  contents: write
+
 jobs:
-  inspect:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 4
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect v380 patch targets
+      - name: Stage v380
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           APP=/opt/meme-alpha/app
-          echo '--- SCANNER TARGETS ---'
-          grep -n -A80 -B20 -E 'keep the best 30|const final|slice\(0, ?30|high-signal meme|MAX_SELLABILITY_CHECKS' "$APP/src/scanner.js" 2>/dev/null || true
-          echo '--- EXECUTOR ALLOCATION / ROTATION ---'
-          grep -n -A100 -B20 -E 'function allocationProfile|function targetPlan|function rotationSource|function opportunityLane|function trendEntryEligible|reserve|utilization|freeRatio|basePct|cashBoost' "$APP/src/micro-live-executor.js" 2>/dev/null | head -n 900 || true
-          echo '--- PERMISSIONS ---'
-          stat -c '%U %G %a %n' "$APP/src/scanner.js" "$APP/src/micro-live-executor.js" "$APP/run-paper.sh" 2>/dev/null || true
-          echo '--- LIVE GATE ---'
-          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          ST="$APP/runtime-status/v380-handoff"
+          mkdir -p "$ST"
+          chmod 0777 "$ST"
+          cp "$APP/src/scanner.js" "$ST/scanner.js"
+          cp "$APP/src/micro-live-executor.js" "$ST/executor.js"
+          cp "$APP/run-paper.sh" "$ST/run-paper.backup.sh"
+          cat > "$ST/patch.py" <<'PY'
+          import re,sys
+          sp,ep=sys.argv[1:3]
+          s=open(sp).read(); e=open(ep).read()
+          def sub1(txt,pat,repl,label,flags=0):
+              out,n=re.subn(pat,repl,txt,count=1,flags=flags)
+              if n!=1: raise SystemExit(f'PATCH_MISMATCH_{label}_{n}')
+              return out
+          s=sub1(s,r'const MAX_CURRENT=\d+;', 'const MAX_CURRENT=720;', 'MAX_CURRENT')
+          s=sub1(s,r'const FAST_DISCOVERY_RESERVE=\d+;', 'const FAST_DISCOVERY_RESERVE=320;', 'FAST_RESERVE')
+          s=sub1(s,r'const MAX_OUTPUT=\d+;', 'const MAX_OUTPUT=900;', 'MAX_OUTPUT')
+          s=sub1(s,r'const DISCOVERY_RADAR_ONLY_MAX\s*=\s*\d+;', 'const DISCOVERY_RADAR_ONLY_MAX = 520;', 'RADAR_MAX')
+          s=s.replace('keep the best 30, then add at most 10 high-signal meme/launchpad candidates','keep the best 80, then add at most 40 high-signal meme/launchpad candidates')
+          s=s.replace('.slice(0, 30)', '.slice(0, 80)').replace('.slice(0,30)', '.slice(0,80)')
+          s=s.replace('.slice(0, 10)', '.slice(0, 40)').replace('.slice(0,10)', '.slice(0,40)')
+          e=sub1(e,r'function opportunityLane\(c\)\{.*?\}\nfunction trendEntryEligible',
+          "function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net);if(base<54)return false;const standard=score>=66;const liquid=score>=61&&liq>=220000&&net>=0&&imp<=.95;const flow=score>=58&&liq>=75000&&net>=3&&avg>=2&&chg>=0&&imp<=.95;const fast=score>=57&&liq>=90000&&net>=5&&chg>=0&&imp<=.90;return standard||liquid||flow||fast}\nfunction trendEntryEligible",
+          'OPPORTUNITY',re.S)
+          e=sub1(e,r'function trendEntryEligible\(c\)\{.*?\}\nfunction softTrendWeak',
+          "function trendEntryEligible(c){if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;const p=pulseFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=50&&n(p.volumeAcceleration)>=1.00&&n(p.txnAcceleration)>=.92&&n(p.buySellRatio)>=1.02&&n(p.tx5)>=2;const buyerFlow=net>=1&&avg>=.5;const fastFlow=net>=3||n(realtimeFor(c)?.events5s)>=2;const momentumFloor=p?0:.05;return stable&&chg>=momentumFloor&&chg<=20&&slope>=-7&&opportunityLane(c)&&(pulseFlow||buyerFlow||fastFlow)}\nfunction softTrendWeak",
+          'ENTRY',re.S)
+          e=sub1(e,r'function rotationSource\(st,newC\)\{.*?\}\nasync function rotateFor',
+          "function rotationSource(st,newC){const newEdge=expectedEdge(st,newC),now=Date.now();const rows=(st.positions||[]).map((pos,i)=>{const c=candidate(pos.mint),ret=n(pos.lastReturnPct),peak=n(pos.peakReturnPct),ageMin=Math.max(0,(now-Date.parse(pos.openedAt||now))/60000),flow=n(c?.netBuyers5m,-99),avg=n(c?.avgNetBuyersLast2,flow),weak=!c||softTrendWeak(c),severe=!c||severeTrendBreak(c),stagnant=ageMin>=7&&ret<=5&&peak<12&&flow<=3&&avg<=3,winner=ret>0||peak>=8;const oldEdge=c?expectedEdge(st,c):0;const threshold=severe?0:stagnant?2:weak?2:winner?(ret>=12||peak>=20?20:14):6;return{i,pos,c,ret,peak,ageMin,weak,severe,stagnant,winner,oldEdge,gap:newEdge-oldEdge,threshold}}).filter(x=>x.gap>=x.threshold).sort((a,b)=>(b.severe-a.severe)||(b.stagnant-a.stagnant)||(b.weak-a.weak)||(b.gap-a.gap));return rows[0]||null}\nasync function rotateFor",
+          'ROTATION',re.S)
+          e=e.replace('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED','MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW=STARTED')
+          open(sp,'w').write(s);open(ep,'w').write(e)
+          print('V380_PATCH=PASS')
+          PY
+          python3 "$ST/patch.py" "$ST/scanner.js" "$ST/executor.js"
+          node --check "$ST/scanner.js"
+          node --check "$ST/executor.js"
+          node "$ST/scanner.js" --self-test > "$ST/scanner-selftest.txt" 2>&1
+          node "$ST/executor.js" --self-test > "$ST/executor-selftest.txt" 2>&1
+          grep -q 'MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW' "$ST/executor.js"
+          cat > "$APP/run-paper.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v380-handoff"
+          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
+          install -m 0664 "$ST/executor.js" "$APP/src/micro-live-executor.js"
+          printf 'SCANNER_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
+          cp "$ST/run-paper.backup.sh" "$APP/run-paper.sh"
+          chmod +x "$APP/run-paper.sh"
+          exec "$APP/run-paper.sh"
+          SH
+          chmod +x "$APP/run-paper.sh"
+          sudo systemctl restart meme-alpha-paper.service
+          sleep 8
+          sudo systemctl restart meme-alpha-micro-live.service
+          sleep 8
+          grep -q 'MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW' "$APP/src/micro-live-executor.js"
+          systemctl is-active --quiet meme-alpha-paper.service
+          systemctl is-active --quiet meme-alpha-micro-live.service
+          systemctl is-active --quiet meme-alpha-signer.service
+          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
+          printf '{"version":"3.80.0","status":"DEPLOYED","profile":"WIDE_DISCOVERY_FAST_FLOW","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v380-deployed.json"
+          echo 'V380_ACTIVE=TRUE'
