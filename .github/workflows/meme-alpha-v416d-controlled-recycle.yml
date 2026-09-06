@@ -1,0 +1,73 @@
+name: Meme Alpha V416D Controlled Recycle
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v416d-controlled-recycle.yml']
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 7
+    steps:
+      - name: Activate validated V416 with controlled systemd recycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; RUN="$APP/run-paper.sh"; C="$RT/deploy-candidates/v416-idle-capital-flex.js"
+          EXPECT=ccb729c9bbec72eeb1313199ee00b1f287d157c3337577dd1606aecfa1427624
+          test -f "$C"; test "$(sha256sum "$C"|awk '{print $1}')" = "$EXPECT"; node --check "$C"
+          OUT=$(node "$C" --self-test); grep -q 'V416_IDLE_CAPITAL_EARLY_PROBE=TRUE' <<<"$OUT"; grep -q 'V416_HARD_SAFETY_UNCHANGED=TRUE' <<<"$OUT"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); echo OLD_EXECUTOR_PID=$OLDPID
+          cp "$C" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$EXPECT"
+          ORIG="$RT/v416d-run-paper-original.sh"; REQ="$RT/v416d-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v416d-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v416d-run-paper-original.sh
+          if [ -r "$REQ" ]; then
+            PID=$(cat "$REQ" 2>/dev/null || true); rm -f "$REQ" 2>/dev/null || true
+            if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then
+              CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || true)
+              case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -USR2 "$PID" 2>/dev/null || true;; esac
+            fi
+          fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          NEWPID=''
+          for i in $(seq 1 55); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 55 ] || exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          echo NEW_EXECUTOR_PID=$NEWPID
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}')
+          [ "$NEWPID" != "$OLDPID" ]; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]; test "$(sha256sum "$E"|awk '{print $1}')" = "$EXPECT"
+          sleep 42
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n):
+            p=rt/n; return json.loads(p.read_text()),round(time.time()-p.stat().st_mtime,2)
+          g,ga=load('micro-live-gate.json'); co,ca=load('capital-observability.json'); al,aa=load('allocator-status.json'); rp,ra=load('realtime-pool-pulse.json'); po,pa=load('portfolio-observability.json'); s,sa=load('signal-snapshot.json'); tr,ta=load('trend-pulse.json')
+          print('GATE_AGE',ga,{k:g.get(k) for k in ['allowed','armOk','armAttested','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+          print('CAPITAL_AGE',ca,{k:co.get(k) for k in ['walletSol','investedSol','deployableSol','reserveSol','openPositions','scaleAllowed']})
+          print('ALLOC_AGE',aa,{k:al.get(k) for k in ['action','reason','symbol','targetSymbol','openPositions','scaleAllowed']})
+          print('REALTIME_AGE',ra,{k:rp.get(k) for k in ['status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','lastError']})
+          print('PORTFOLIO_AGE',pa,{k:po.get(k) for k in ['openPositions','stateReadable']})
+          print('SIGNAL_AGE',sa,'COUNT',len(s.get('candidates') or []),'INTEL',s.get('intelSummary'))
+          print('TREND_AGE',ta,'VERSION',tr.get('version'),'ROWS',len(tr.get('rows') or []))
+          le=rt/'last-execution.json'
+          if le.exists(): print('LAST_EXEC_AGE',round(time.time()-le.stat().st_mtime,2),'LAST_EXEC',json.loads(le.read_text()))
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('armAttested') is True and g.get('sourceHealthy') is True and g.get('riskEntryAllowed') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          assert rp.get('status')=='HEALTHY' and int(rp.get('heldUnresolved') or 0)==0 and int(rp.get('heldSubscriptions') or 0)>=int(rp.get('heldTotal') or 0)
+          assert po.get('stateReadable') is True
+          PY
+          echo V416_IDLE_CAPITAL_FLEX=ACTIVE
+          echo V416_PROBE_MAX_CAPITAL_PCT=5
+          echo V416_PROBE_MAX_DEPLOYABLE_SHARE_PCT=15
+          echo V416_SCALE_STANDARD_CONFIRMATION_ONLY=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
