@@ -42,46 +42,73 @@ jobs:
 
           SRC="$SRC" DST="$DST" META="$META" python3 - <<'PY'
           from pathlib import Path
-          import hashlib, os, re, shutil, subprocess, sys, datetime
+          import hashlib, os, re, subprocess, sys, datetime
 
           src = Path(os.environ['SRC']).resolve()
           dst = Path(os.environ['DST']).resolve()
           meta = Path(os.environ['META']).resolve()
 
-          allowed_names = {'requirements.txt', 'pyproject.toml', 'poetry.lock'}
-          allowed_suffixes = {'.py'}
-          blocked_parts = {'.git', '.venv', 'venv', '__pycache__', 'node_modules'}
-          blocked_name_tokens = ('secret', 'private_key', 'private-key', 'mnemonic', 'seed_phrase', 'seed-phrase', '.env', 'wallet-key', 'wallet_key')
-          secret_assignment = re.compile(
-              r"(?im)^\s*[A-Z0-9_]*(?:PRIVATE_KEY|SECRET_KEY|MNEMONIC|SEED_PHRASE|API_KEY|BOT_TOKEN|ACCESS_TOKEN)[A-Z0-9_]*\s*=\s*['\"][^'\"]{16,}['\"]"
+          allowed_names = {
+              'requirements.txt', 'pyproject.toml', 'poetry.lock',
+              'package.json', 'package-lock.json', 'npm-shrinkwrap.json'
+          }
+          allowed_suffixes = {'.py', '.js', '.mjs', '.cjs', '.sh'}
+          blocked_parts = {'.git', '.venv', 'venv', '__pycache__', 'node_modules', 'runtime-status', 'logs'}
+          blocked_name_tokens = (
+              'secret', 'private_key', 'private-key', 'mnemonic', 'seed_phrase',
+              'seed-phrase', '.env', 'wallet-key', 'wallet_key', 'keypair'
           )
 
+          secret_patterns = [
+              re.compile(r"(?im)^\s*(?:export\s+)?[A-Z0-9_]*(?:PRIVATE_KEY|SECRET_KEY|MNEMONIC|SEED_PHRASE|API_KEY|BOT_TOKEN|ACCESS_TOKEN|AUTH_TOKEN)[A-Z0-9_]*\s*[=:]\s*['\"][^'\"]{16,}['\"]"),
+              re.compile(r"\b\d{7,12}:[A-Za-z0-9_-]{30,}\b"),
+              re.compile(r"(?i)authorization\s*[:=]\s*['\"]bearer\s+[A-Za-z0-9._~+/-]{16,}['\"]"),
+              re.compile(r"(?i)https?://[^\s'\"]+[?&](?:api[_-]?key|token|key)=[A-Za-z0-9._~+/-]{12,}"),
+          ]
+
+          def secret_reason(text):
+              for idx, pat in enumerate(secret_patterns, 1):
+                  if pat.search(text):
+                      return f'possible hard-coded secret pattern {idx}'
+              return None
+
           copied, skipped = [], []
+
+          def copy_checked(p: Path, rel: Path):
+              lname = p.name.lower()
+              if any(tok in lname for tok in blocked_name_tokens):
+                  skipped.append((str(rel), 'blocked filename'))
+                  return
+              if not (p.suffix.lower() in allowed_suffixes or p.name in allowed_names):
+                  return
+              try:
+                  text = p.read_text(encoding='utf-8')
+              except Exception:
+                  skipped.append((str(rel), 'non-UTF8/unreadable'))
+                  return
+              why = secret_reason(text)
+              if why:
+                  skipped.append((str(rel), why))
+                  return
+              out = dst / rel
+              out.parent.mkdir(parents=True, exist_ok=True)
+              out.write_text(text, encoding='utf-8')
+              sha = hashlib.sha256(text.encode()).hexdigest()
+              copied.append((str(rel), sha))
+
           for p in src.rglob('*'):
               if not p.is_file():
                   continue
               rel = p.relative_to(src)
               if any(part in blocked_parts for part in rel.parts):
                   continue
-              lname = p.name.lower()
-              if any(tok in lname for tok in blocked_name_tokens):
-                  skipped.append((str(rel), 'blocked filename'))
-                  continue
-              if not (p.suffix.lower() in allowed_suffixes or p.name in allowed_names):
-                  continue
-              try:
-                  text = p.read_text(encoding='utf-8')
-              except Exception:
-                  skipped.append((str(rel), 'non-UTF8/unreadable'))
-                  continue
-              if secret_assignment.search(text):
-                  skipped.append((str(rel), 'possible hard-coded secret'))
-                  continue
-              out = dst / rel
-              out.parent.mkdir(parents=True, exist_ok=True)
-              out.write_text(text, encoding='utf-8')
-              sha = hashlib.sha256(text.encode()).hexdigest()
-              copied.append((str(rel), sha))
+              copy_checked(p, rel)
+
+          signer = Path('/opt/meme-alpha-signer/ready_signer.py')
+          if signer.is_file() and os.access(signer, os.R_OK):
+              copy_checked(signer, Path('external/signer/ready_signer.py'))
+          elif signer.exists():
+              skipped.append(('external/signer/ready_signer.py', 'runtime signer not readable by GitHub runner'))
 
           compile_failures = []
           for p in dst.rglob('*.py'):
@@ -89,31 +116,48 @@ jobs:
               if cp.returncode:
                   compile_failures.append((str(p.relative_to(dst)), (cp.stderr or cp.stdout).strip()))
 
-          try:
-              active = subprocess.run(['systemctl', 'is-active', 'meme-alpha.service'], capture_output=True, text=True).stdout.strip() or 'unknown'
-          except Exception:
-              active = 'unknown'
+          node_failures = []
+          if subprocess.run(['bash', '-lc', 'command -v node >/dev/null 2>&1']).returncode == 0:
+              for p in dst.rglob('*'):
+                  if p.is_file() and p.suffix.lower() in {'.js', '.mjs', '.cjs'}:
+                      cp = subprocess.run(['node', '--check', str(p)], capture_output=True, text=True)
+                      if cp.returncode:
+                          node_failures.append((str(p.relative_to(dst)), (cp.stderr or cp.stdout).strip()))
+
+          units = [
+              'meme-alpha-paper.service', 'meme-alpha-micro-live.service',
+              'meme-alpha-realtime-pulse.service', 'meme-alpha-trend-pulse.service',
+              'meme-alpha-whale-flow.service', 'meme-alpha-signer.service'
+          ]
+          states = []
+          for unit in units:
+              cp = subprocess.run(['systemctl', 'is-active', unit], capture_output=True, text=True)
+              states.append((unit, cp.stdout.strip() or 'unknown'))
 
           lines = [
               '# Meme Alpha VPS Inventory', '',
               f'- Snapshot UTC: {datetime.datetime.now(datetime.timezone.utc).isoformat()}',
               f'- Runtime source: `{src}`',
-              f'- Service active: `{active}`',
               f'- Python: `{sys.version.split()[0]}`',
               f'- Source files copied: `{len(copied)}`',
               f'- Files skipped by secret guard: `{len(skipped)}`',
-              f'- Python compile failures: `{len(compile_failures)}`', '',
-              '## Copied files',
+              f'- Python compile failures: `{len(compile_failures)}`',
+              f'- Node syntax failures: `{len(node_failures)}`', '',
+              '## Service states',
           ]
+          lines += [f'- `{u}`: `{s}`' for u, s in states]
+          lines += ['', '## Copied files']
           lines += [f'- `{rel}` — `{sha[:16]}`' for rel, sha in copied] or ['- none']
-          lines += ['', '## Secret-guard skips']
+          lines += ['', '## Secret-guard / access skips']
           lines += [f'- `{rel}` — {why}' for rel, why in skipped] or ['- none']
-          lines += ['', '## Compile failures']
+          lines += ['', '## Python compile failures']
           lines += [f'- `{rel}` — `{err[:300]}`' for rel, err in compile_failures] or ['- none']
+          lines += ['', '## Node syntax failures']
+          lines += [f'- `{rel}` — `{err[:300]}`' for rel, err in node_failures] or ['- none']
           meta.parent.mkdir(parents=True, exist_ok=True)
           meta.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
-          print(f'Copied {len(copied)} files; skipped {len(skipped)}; compile failures {len(compile_failures)}; service={active}')
+          print(f'Copied {len(copied)} files; skipped {len(skipped)}; py failures {len(compile_failures)}; node failures {len(node_failures)}')
           PY
 
       - name: Commit sanitized snapshot
