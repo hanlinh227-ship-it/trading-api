@@ -9,12 +9,19 @@ permissions:
 jobs:
   deploy:
     runs-on: self-hosted
-    timeout-minutes: 7
+    timeout-minutes: 3
     steps:
-      - name: Run V389 idle cash deployment
+      - name: Inspect exact live allocator source
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/e75ec5a7fd0c4398ac5053dcc3b516968695dab4/ops/meme-alpha-v389-idle-cash.sh -o /tmp/meme-alpha-v389-idle-cash.sh
-          chmod 0755 /tmp/meme-alpha-v389-idle-cash.sh
-          /tmp/meme-alpha-v389-idle-cash.sh
+          SRC=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== ALLOCATION ==='
+          grep -n -A18 -B3 'function allocationProfile' "$SRC" || true
+          echo '=== BEST ==='
+          grep -n -A12 -B3 'function bestCandidate' "$SRC" || true
+          echo '=== PLACE BUY ==='
+          grep -n -A18 -B3 'async function placeBuy' "$SRC" || true
+          echo '=== TICK ==='
+          grep -n -A28 -B3 'async function tick' "$SRC" || true
+          echo V389_EXACT_SOURCE_INSPECT=COMPLETE
