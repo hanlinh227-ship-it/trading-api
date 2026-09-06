@@ -1,0 +1,21 @@
+name: Meme Alpha V411B Entry Flow Audit
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v411b-entry-flow-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Inspect exact entry allocation flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== 130-225 ==='; sed -n '130,225p' "$E"
+          echo '=== 260-325 ==='; sed -n '260,325p' "$E"
+          echo '=== CURRENT SELFTEST ==='; node "$E" --self-test
+          echo V411B_ENTRY_FLOW_AUDIT=COMPLETE
