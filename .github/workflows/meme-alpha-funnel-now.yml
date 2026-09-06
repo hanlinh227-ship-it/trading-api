@@ -1,0 +1,40 @@
+name: Meme Alpha Funnel Now
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-funnel-now.yml']
+jobs:
+  inspect:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect live candidate funnel
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          echo '=== FILES ==='
+          find "$APP/runtime-status" -maxdepth 2 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 80
+          echo '=== GATE ==='
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          echo '=== SIGNAL SNAPSHOT ==='
+          for p in "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/safe-signal.json" "$APP/runtime-status/signals.json"; do if [ -f "$p" ]; then echo "--- $p"; python3 - "$p" <<'PY'
+import json,sys
+p=sys.argv[1]
+try:d=json.load(open(p))
+except Exception as e: print('ERR',e); raise SystemExit
+print(json.dumps(d,ensure_ascii=False)[:30000])
+PY
+          fi; done
+          echo '=== MICRO LIVE STATE/RECENT ==='
+          for p in "$APP/runtime-status/micro-live"/*.json "$APP/runtime-status"/*micro*live*.json; do [ -f "$p" ] || continue; echo "--- $p"; python3 - "$p" <<'PY'
+import json,sys
+try:d=json.load(open(sys.argv[1])); print(json.dumps(d,ensure_ascii=False)[:20000])
+except Exception as e: print('ERR',e)
+PY
+          done
+          echo '=== DATA RECENT FILES ==='
+          find /var/lib/meme-alpha/data -maxdepth 3 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 100
+          echo '=== RECENT BUY/SELL/EVENT TEXT ==='
+          grep -RniE 'BUY|SELL|EXECUT|PROBE_CANDIDATE|candidate|reject|block|eligible' /var/lib/meme-alpha/data "$APP/runtime-status" 2>/dev/null | tail -n 250 || true
