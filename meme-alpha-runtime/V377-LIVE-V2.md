@@ -3,8 +3,8 @@
 - root_repo_head: `UNKNOWN`
 - root_repo_branch: `DETACHED_OR_UNKNOWN`
 - root_repo_synced_to_mode_repair_commit: `false`
-- remote_branch_head: `4beac900808d1ebbf318aba42e7674f611a80cde`
-- remote_branch_is_mode_repair_commit: `true`
+- remote_branch_head: `0bb8bc951d6d72b55f62fc19f7d0f181cf399152`
+- remote_branch_is_mode_repair_commit: `false`
 - approved_root_watcher_blob_match: `true`
 - approved_hook_blob_match: `true`
 - approved_patcher_blob_match: `true`
@@ -20,4 +20,4 @@
 - paper_service: `active`
 - micro_live_service: `active`
 - signer_service: `active`
-- checked_at_utc: `2026-09-06T04:37:30Z`
+- checked_at_utc: `2026-09-06T04:40:50Z`
