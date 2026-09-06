@@ -10,19 +10,20 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect live V387 partial state and signal return contract
+      - name: Inspect executor deploy permissions without mutation
         shell: bash
         run: |
           set -euo pipefail
+          echo '=== EXECUTOR FILE ==='
+          ls -l /opt/meme-alpha/app/src/micro-live-executor.js
+          test -w /opt/meme-alpha/app/src/micro-live-executor.js && echo RUNNER_EXECUTOR_WRITABLE=TRUE || echo RUNNER_EXECUTOR_WRITABLE=FALSE
+          echo '=== SUDO RULES ==='
+          sudo -n -l || true
+          echo '=== LIVE STATE ==='
           python3 - <<'PY'
-          import json,pathlib,hashlib,datetime,re,os,time
-          root=pathlib.Path('/opt/meme-alpha/app'); src=root/'src'; rs=root/'runtime-status'
-          print('AUDIT_UTC='+datetime.datetime.now(datetime.timezone.utc).isoformat())
+          import json,pathlib,hashlib,os,time
+          root=pathlib.Path('/opt/meme-alpha/app');rs=root/'runtime-status';src=root/'src'
           for name in ['micro-live-executor.js','scanner.js','safe-signal-export.js','micro-live-gate.js']:
-              text=(src/name).read_text(); print(json.dumps({'source':name,'sha256':hashlib.sha256(text.encode()).hexdigest(),'v387':'V387_UNIFIED_LIVE' in text}))
-          lines=(src/'safe-signal-export.js').read_text().splitlines(); lo=105;hi=min(175,len(lines)); snippet='\n'.join(f'{i}: {lines[i-1]}' for i in range(lo,hi+1));
-          if re.search(r'(?:sk-[A-Za-z0-9]{20}|ghp_[A-Za-z0-9]+|BEGIN .*PRIVATE KEY)',snippet): raise RuntimeError('REDACTION_REQUIRED')
-          print(json.dumps({'signalReturnSlice':snippet}))
-          g=json.loads((rs/'micro-live-gate.json').read_text()); s=json.loads((rs/'signal-snapshot.json').read_text()); p=json.loads((rs/'portfolio-observability.json').read_text())
-          print(json.dumps({'gate':{k:g.get(k) for k in ['timestamp','allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','evidenceReady','evidenceScaleReady','reasons']},'signalAgeSec':round(time.time()-os.path.getmtime(rs/'signal-snapshot.json'),1),'signalCount':len(s.get('candidates') or []),'intelSummary':s.get('intelSummary'),'openPositions':p.get('openPositions')}))
+            t=(src/name).read_text();print(json.dumps({'source':name,'sha256':hashlib.sha256(t.encode()).hexdigest(),'v387':'V387_UNIFIED_LIVE' in t}))
+          g=json.loads((rs/'micro-live-gate.json').read_text());s=json.loads((rs/'signal-snapshot.json').read_text());print(json.dumps({'gate':{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']},'signalAgeSec':round(time.time()-os.path.getmtime(rs/'signal-snapshot.json'),1),'signalCount':len(s.get('candidates') or []),'intelSummary':s.get('intelSummary')}))
           PY
