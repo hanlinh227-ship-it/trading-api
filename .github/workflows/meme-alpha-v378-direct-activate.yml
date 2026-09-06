@@ -1,4 +1,4 @@
-name: Meme Alpha V380 Wide Discovery Fast Flow
+name: Meme Alpha V380 Discovery Expansion Layer
 
 on:
   push:
@@ -6,33 +6,29 @@ on:
     paths:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
-permissions:
-  contents: write
-
 jobs:
   deploy:
     runs-on: self-hosted
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Stage v380
+      - name: Activate v380 discovery expansion
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v380-handoff"
+          ST="$APP/runtime-status/v380-discovery"
           mkdir -p "$ST"
           chmod 0777 "$ST"
           cp "$APP/src/new-listing-radar.js" "$ST/radar.js"
           cp "$APP/src/scanner.js" "$ST/scanner.js"
-          cp "$APP/src/micro-live-executor.js" "$ST/executor.js"
           cp "$APP/run-paper.sh" "$ST/run-paper.backup.sh"
-          cat > "$ST/patch.py" <<'PY'
+          python3 - "$ST/radar.js" "$ST/scanner.js" <<'PY'
           import re,sys
-          rp,sp,ep=sys.argv[1:4]
-          r=open(rp).read(); s=open(sp).read(); e=open(ep).read()
-          def sub1(txt,pat,repl,label,flags=0):
-              out,n=re.subn(pat,repl,txt,count=1,flags=flags)
+          rp,sp=sys.argv[1:3]
+          r=open(rp).read(); s=open(sp).read()
+          def sub1(txt,pat,repl,label):
+              out,n=re.subn(pat,repl,txt,count=1)
               if n!=1: raise SystemExit(f'PATCH_MISMATCH_{label}_{n}')
               return out
           r=sub1(r,r'const MAX_CURRENT=\d+;', 'const MAX_CURRENT=720;', 'RADAR_MAX_CURRENT')
@@ -42,47 +38,34 @@ jobs:
           s=s.replace('keep the best 30, then add at most 10 high-signal meme/launchpad candidates','keep the best 80, then add at most 40 high-signal meme/launchpad candidates')
           s=s.replace('.slice(0, 30)', '.slice(0, 80)').replace('.slice(0,30)', '.slice(0,80)')
           s=s.replace('.slice(0, 10)', '.slice(0, 40)').replace('.slice(0,10)', '.slice(0,40)')
-          e=sub1(e,r'function opportunityLane\(c\)\{.*?\}\nfunction trendEntryEligible',
-          "function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net);if(base<54)return false;const standard=score>=66;const liquid=score>=61&&liq>=220000&&net>=0&&imp<=.95;const flow=score>=58&&liq>=75000&&net>=3&&avg>=2&&chg>=0&&imp<=.95;const fast=score>=57&&liq>=90000&&net>=5&&chg>=0&&imp<=.90;return standard||liquid||flow||fast}\nfunction trendEntryEligible",
-          'OPPORTUNITY',re.S)
-          e=sub1(e,r'function trendEntryEligible\(c\)\{.*?\}\nfunction softTrendWeak',
-          "function trendEntryEligible(c){if(!coreSafe(c)||c.decision!=='PROBE_CANDIDATE'||n(c.consecutiveEligible)<1)return false;const p=pulseFor(c),chg=p?n(p.price5m,-999):n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),slope=n(c.scoreSlopeLast2,0),stable=c.liquidityStableLast2!==false;const pulseFlow=!!p&&p.status!=='EXHAUSTED'&&n(p.pulseScore)>=50&&n(p.volumeAcceleration)>=1.00&&n(p.txnAcceleration)>=.92&&n(p.buySellRatio)>=1.02&&n(p.tx5)>=2;const buyerFlow=net>=1&&avg>=.5;const fastFlow=net>=3||n(realtimeFor(c)?.events5s)>=2;const momentumFloor=p?0:.05;return stable&&chg>=momentumFloor&&chg<=20&&slope>=-7&&opportunityLane(c)&&(pulseFlow||buyerFlow||fastFlow)}\nfunction softTrendWeak",
-          'ENTRY',re.S)
-          if 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED' not in e: raise SystemExit('PATCH_MISMATCH_MARKER')
-          e=e.replace('MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY=STARTED','MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW=STARTED')
-          open(rp,'w').write(r);open(sp,'w').write(s);open(ep,'w').write(e)
-          print('V380_PATCH=PASS')
+          open(rp,'w').write(r);open(sp,'w').write(s)
+          print('V380_DISCOVERY_PATCH=PASS')
           PY
-          python3 "$ST/patch.py" "$ST/radar.js" "$ST/scanner.js" "$ST/executor.js"
           node --check "$ST/radar.js"
           node --check "$ST/scanner.js"
-          node --check "$ST/executor.js"
           node "$ST/radar.js" --self-test > "$ST/radar-selftest.txt" 2>&1
           node "$ST/scanner.js" --self-test > "$ST/scanner-selftest.txt" 2>&1
-          node "$ST/executor.js" --self-test > "$ST/executor-selftest.txt" 2>&1
-          grep -q 'MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW' "$ST/executor.js"
           cat > "$APP/run-paper.sh" <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v380-handoff"
+          ST="$APP/runtime-status/v380-discovery"
           install -m 0664 "$ST/radar.js" "$APP/src/new-listing-radar.js"
           install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
-          install -m 0664 "$ST/executor.js" "$APP/src/micro-live-executor.js"
-          printf 'RADAR_SWAP=TRUE\nSCANNER_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
+          printf 'RADAR_SWAP=TRUE\nSCANNER_SWAP=TRUE\n' > "$ST/result.txt"
           cp "$ST/run-paper.backup.sh" "$APP/run-paper.sh"
           chmod +x "$APP/run-paper.sh"
           exec "$APP/run-paper.sh"
           SH
           chmod +x "$APP/run-paper.sh"
           sudo systemctl restart meme-alpha-paper.service
-          sleep 8
-          sudo systemctl restart meme-alpha-micro-live.service
-          sleep 8
-          grep -q 'MICRO_LIVE_EXECUTOR_V380_WIDE_DISCOVERY_FAST_FLOW' "$APP/src/micro-live-executor.js"
+          sleep 10
           systemctl is-active --quiet meme-alpha-paper.service
           systemctl is-active --quiet meme-alpha-micro-live.service
           systemctl is-active --quiet meme-alpha-signer.service
           grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
-          printf '{"version":"3.80.0","status":"DEPLOYED","profile":"WIDE_DISCOVERY_FAST_FLOW","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v380-deployed.json"
+          grep -q 'const MAX_CURRENT=720;' "$APP/src/new-listing-radar.js"
+          grep -q 'const FAST_DISCOVERY_RESERVE=320;' "$APP/src/new-listing-radar.js"
+          grep -q 'const DISCOVERY_RADAR_ONLY_MAX = 520;' "$APP/src/scanner.js"
+          printf '{"version":"3.80.0","status":"DEPLOYED","profile":"DISCOVERY_EXPANSION_LAYER","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v380-deployed.json"
           echo 'V380_ACTIVE=TRUE'
