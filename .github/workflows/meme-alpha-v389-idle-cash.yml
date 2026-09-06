@@ -11,21 +11,15 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect signer gate handshake
+      - name: Inspect isolated signer gate logic
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app
-          echo '=== SIGNER_FILES ==='
-          find "$APP/src" -maxdepth 1 -type f -printf '%f\n' | sort | grep -Ei 'sign|micro|gate' || true
-          echo '=== GATE_CLOSED_REFERENCES ==='
-          grep -RniE 'SIGNER_MICRO_LIVE_GATE_CLOSED|MICRO_LIVE_GATE|armAttested|micro-live-armed|armed' "$APP/src" "$APP"/*.sh 2>/dev/null | head -300 || true
-          echo '=== SIGNER_UNIT ==='
-          systemctl cat meme-alpha-signer.service || true
-          systemctl status meme-alpha-signer.service --no-pager -l || true
-          echo '=== SIGNER_SOURCE ==='
-          for f in "$APP"/src/*sign*.js; do [ -f "$f" ] || continue; echo ---$f---; sed -n '1,320p' "$f"; done
-          echo '=== ARM_META ==='
-          ls -l /etc/meme-alpha /run/meme-alpha-signer 2>&1 || true
-          for f in /etc/meme-alpha/*arm* /etc/meme-alpha/*live* /run/meme-alpha-signer/*; do [ -f "$f" ] || continue; echo ---$f---; cat "$f" 2>&1 || true; done
-          echo SIGNER_GATE_HANDSHAKE_AUDIT=COMPLETE
+          echo '=== SIGNER_DIR ==='
+          ls -ld /opt/meme-alpha-signer 2>&1 || true
+          ls -la /opt/meme-alpha-signer 2>&1 || true
+          echo '=== READY_SIGNER ==='
+          sed -n '1,420p' /opt/meme-alpha-signer/ready_signer.py 2>&1 || true
+          echo '=== GATE_REFS ==='
+          grep -RniE 'GATE_CLOSED|micro-live|armed|ARMED|attest|gate' /opt/meme-alpha-signer 2>/dev/null | head -400 || true
+          echo SIGNER_SOURCE_AUDIT=COMPLETE
