@@ -8,53 +8,32 @@ permissions:
 jobs:
   repair:
     runs-on: self-hosted
-    timeout-minutes: 7
+    timeout-minutes: 5
     steps:
-      - name: Patch scanner and restore executable candidates
+      - name: Diagnose post-scanner blockers
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"
-          mkdir -p "$BASE"
-          CAND="$BASE/v388-scanner-radar-flow-holder.js"
-          cp "$SRC/scanner.js" "$CAND"
-          python3 - "$CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="            holderCount:n(r.holderCount),\n            organicScore:n(r.organicScore),\n            stats5m:{\n              numBuys:n(r.buys5m), numSells:n(r.sells5m),\n              buyVolume:n(r.volume5m) * (n(r.buys5m)/(Math.max(1,n(r.buys5m)+n(r.sells5m)))),\n              sellVolume:n(r.volume5m) * (n(r.sells5m)/(Math.max(1,n(r.buys5m)+n(r.sells5m))))\n            },"
-          new="            holderCount:n(r.holderCount),\n            holderCountKnown:n(r.holderCount)>0,\n            organicScore:n(r.organicScore),\n            stats5m:{\n              numBuys:n(r.buys5m), numSells:n(r.sells5m),\n              numNetBuyers:Math.max(0,n(r.buys5m)-n(r.sells5m)),\n              numTraders:Math.max(0,n(r.buys5m)+n(r.sells5m)),\n              priceChange:n(r.priceChange5m),\n              buyVolume:n(r.volume5m) * (n(r.buys5m)/(Math.max(1,n(r.buys5m)+n(r.sells5m)))),\n              sellVolume:n(r.volume5m) * (n(r.sells5m)/(Math.max(1,n(r.buys5m)+n(r.sells5m))))\n            },"
-          if old not in s: raise SystemExit('V388_FAIL=RADAR_MAPPING_PATTERN_NOT_FOUND')
-          s=s.replace(old,new,1)
-          old2="  if (holders < 30) {\n    hardReject.push(\"TOO_FEW_HOLDERS\");\n  }"
-          new2="  // V388_RADAR_HOLDER_PENDING: zero from discovery means unknown, not proven zero.\n  // Unknown holder count may enter analysis only; downstream holder-cluster PASS remains mandatory.\n  const holderCountKnown = token.holderCountKnown === true || holders > 0;\n  if (holderCountKnown && holders < 30) {\n    hardReject.push(\"TOO_FEW_HOLDERS\");\n  } else if (!holderCountKnown) {\n    reasons.push(\"HOLDER_COUNT_PENDING_DOWNSTREAM_AUDIT\");\n  }"
-          if old2 not in s: raise SystemExit('V388_FAIL=HOLDER_GATE_PATTERN_NOT_FOUND')
-          s=s.replace(old2,new2,1)
-          s=s.replace('// FAST_DISCOVERY_V372_MERGE','// V388_RADAR_FLOW_MAPPING\n  // FAST_DISCOVERY_V372_MERGE',1)
-          p.write_text(s)
-          print('V388_PATCH=APPLIED')
-          PY
-          node --check "$CAND"
-          grep -q 'V388_RADAR_FLOW_MAPPING' "$CAND"
-          grep -q 'HOLDER_COUNT_PENDING_DOWNSTREAM_AUDIT' "$CAND"
-          sha="$(sha256sum "$CAND" | awk '{print $1}')"
-          echo V388_SCANNER_SHA="$sha"
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$(basename "$CAND")" "$sha"
+          APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"
           grep -q 'V388_RADAR_FLOW_MAPPING' "$SRC/scanner.js"
-          sudo -n /bin/systemctl restart meme-alpha-paper.service
-          echo '=== VERIFY LIVE PIPELINE ==='
           python3 - <<'PY'
-          import json,pathlib,time,os,sys
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); deadline=time.time()+150; best=None
-          while time.time()<deadline:
-            time.sleep(3)
-            try:
-              s=json.loads((rt/'signal-snapshot.json').read_text()); g=json.loads((rt/'micro-live-gate.json').read_text()); rows=s.get('candidates') or []
-              safe=[c for c in rows if c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not (c.get('hardReject') or []) and float(c.get('liquidityUsd') or 0)>=50000]
-              probes=[c for c in safe if c.get('decision')=='PROBE_CANDIDATE']
-              best={'signalAge':round(time.time()-os.path.getmtime(rt/'signal-snapshot.json'),1),'rows':len(rows),'safe':len(safe),'probes':len(probes),'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'riskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons'),'symbols':[c.get('symbol') for c in safe[:8]]}
-              print('V388_LIVE',best,flush=True)
-              if rows and safe and g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True:
-                print('V388_PIPELINE_RESTORED=TRUE'); sys.exit(0)
-            except Exception as e: print('VERIFY_RETRY',repr(e),flush=True)
-          print('V388_PIPELINE_RESTORED=FALSE',best); sys.exit(5)
+          import json,pathlib,collections,time,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          s=json.loads((rt/'signal-snapshot.json').read_text()); g=json.loads((rt/'micro-live-gate.json').read_text()); rows=s.get('candidates') or []
+          print('SUMMARY',{'age':round(time.time()-os.path.getmtime(rt/'signal-snapshot.json'),1),'rows':len(rows),'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'riskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons')})
+          for k in ['decision','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','token2022']:
+            print(k,dict(collections.Counter(str(c.get(k)) for c in rows)))
+          hard=collections.Counter(); guards=collections.Counter(); sec=collections.Counter(); hold=collections.Counter()
+          for c in rows:
+            for x in c.get('hardReject') or []: hard[str(x)]+=1
+            for x in c.get('entryGuardReasons') or []: guards[str(x)]+=1
+            for x in c.get('securityBlockReasons') or []: sec[str(x)]+=1
+            for x in c.get('holderBlockReasons') or []: hold[str(x)]+=1
+          print('HARD',hard.most_common(30)); print('GUARDS',guards.most_common(30)); print('SEC_BLOCK',sec.most_common(30)); print('HOLDER_BLOCK',hold.most_common(30))
+          for c in sorted(rows,key=lambda x:float(x.get('score') or 0),reverse=True)[:30]:
+            print('ROW',{k:c.get(k) for k in ['symbol','mint','score','originalScore','decision','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','liquidityUsd','sellPriceImpactPct','token2022','hardReject','securityReviewReasons','securityBlockReasons','holderReviewReasons','holderBlockReasons','topHoldersPct','holderClusterMaxAccountsSameOwner','intelMode','entryGuardReasons']})
           PY
+          echo '=== SECURITY/HOLDER SOURCE MARKERS ==='
+          grep -nE 'decision|PASS|REVIEW|BLOCK|holder|mintAuthority|freezeAuthority|topHolders|unknown|missing|scanner-latest|universe' "$SRC/security.js" | head -180 || true
+          grep -nE 'decision|PASS|REVIEW|BLOCK|holder|cluster|unknown|missing|scanner-latest|security' "$SRC/holder-cluster.js" | head -220 || true
+          echo V388_BLOCKER_DIAG=COMPLETE
