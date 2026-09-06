@@ -1,0 +1,24 @@
+name: Meme Alpha v3.75 Gate Diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v375-gate-diagnostic.yml']
+  workflow_dispatch:
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect executor gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          F="$APP/src/micro-live-executor.js"
+          echo '=== GATE CODE ==='
+          grep -nE 'function gate|gate\.|maxPositions|maxExposure|maxSingle|risk-state|entryAllowed|allowed:' "$F" | head -n 120 || true
+          echo '=== RISK ==='
+          cat /var/lib/meme-alpha/data/paper/risk-state.json 2>/dev/null || true
+          echo '=== PORTFOLIO ==='
+          cat "$APP/runtime-status/portfolio-observability.json" 2>/dev/null || true
+          echo V375_GATE_DIAGNOSTIC=END
