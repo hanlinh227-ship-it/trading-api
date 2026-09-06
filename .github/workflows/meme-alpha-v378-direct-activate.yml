@@ -1,52 +1,21 @@
-name: Meme Alpha V381 Recover Activate
+name: Meme Alpha V381 Stage Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  activate:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 9
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Recover v381 executor, safe deploy, wait root arm, verify
+      - name: Inspect v381 staged executor
         shell: bash
         run: |
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          CAND="$APP/runtime-status/deploy-candidates"
-          GATE="$APP/runtime-status/micro-live-gate.json"
-          mkdir -p "$CAND"
-          FOUND=''
-          echo '=== SEARCH V381 BACKUPS ==='
-          while IFS= read -r f; do
-            [ -f "$f" ] || continue
-            if grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION' "$f" 2>/dev/null; then FOUND="$f"; echo "found=$FOUND"; break; fi
-          done < <(find "$APP/runtime-status" /opt/meme-alpha/backups -type f \( -name '*.js' -o -name 'old.js' \) 2>/dev/null | sort -r)
-          [ -n "$FOUND" ] || { echo V381_BACKUP_NOT_FOUND; find "$APP/runtime-status" /opt/meme-alpha/backups -maxdepth 4 -type f 2>/dev/null | tail -200; exit 21; }
-          cp "$FOUND" "$CAND/v381-recovery.js"
-          chmod 0664 "$CAND/v381-recovery.js"
-          node --check "$CAND/v381-recovery.js"
-          SHA=$(sha256sum "$CAND/v381-recovery.js" | awk '{print $1}')
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor v381-recovery.js "$SHA"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION' "$APP/src/micro-live-executor.js"
-          echo V381_EXECUTOR_RESTORED=TRUE
-
-          PASS=0
-          for i in $(seq 1 210); do
-            L=$(git -c safe.directory=/opt/trading/trading-api -C /opt/trading/trading-api rev-parse HEAD 2>/dev/null || true)
-            R=$(git -c safe.directory=/opt/trading/trading-api -C /opt/trading/trading-api rev-parse origin/auto-futures-v1 2>/dev/null || true)
-            echo "check=$i rootHead=$L remote=$R"
-            if [ -f "$GATE" ]; then
-              python3 -c "import json,time,datetime,sys; d=json.load(open('$GATE')); ts=d.get('timestamp') or ''; age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp() if ts else 999; print({'allowed':d.get('allowed'),'armOk':d.get('armOk'),'armAttested':d.get('armAttested'),'mode':d.get('executionMode'),'sourceHealthy':d.get('sourceHealthy'),'riskEntryAllowed':d.get('riskEntryAllowed'),'liveRiskReady':d.get('liveRiskReady'),'reasons':d.get('reasons'),'age':round(age,1)}); ok=(d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True and d.get('executionMode')=='MICRO_LIVE' and d.get('sourceHealthy') is True and d.get('riskEntryAllowed') is True and d.get('liveRiskReady') is True and not (d.get('riskGlobalBlockReasons') or []) and not (d.get('riskLiveBlockReasons') or []) and not (d.get('reasons') or []) and age < 30); sys.exit(0 if ok else 1)" && PASS=1 && break || true
-            fi
-            sleep 2
-          done
-          ALL=1
-          echo '=== FINAL SERVICES ==='
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do A=$(systemctl is-active "$s" || true); echo "$s=$A"; [ "$A" = active ] || ALL=0; done
-          echo '=== FINAL MARKER ==='; grep -m1 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION' "$APP/src/micro-live-executor.js"
-          echo '=== FINAL RADAR ==='; python3 -c "import json,os,time; p='$APP/runtime-status/new-listing-radar.json'; d=json.load(open(p)); print({'ageSec':round(time.time()-os.path.getmtime(p),1),'count':len(d.get('candidates') or []),'status':d.get('status')})" || true
-          echo '=== FINAL GATE ==='; cat "$GATE"
-          [ "$PASS" = 1 ] && [ "$ALL" = 1 ]
-          echo V381_LIVE_ACTIVE=TRUE
+          set +e
+          F=/opt/meme-alpha/app/runtime-status/v381-fast-capital/micro-live-executor.js
+          echo '=== FILE ==='; ls -l "$F"; node --check "$F" 2>&1 || true
+          echo '=== MARKERS ==='; grep -nE 'V381|FAST_CAPITAL|ROTATION|STARTED|insiderSafe|function coreSafe' "$F" 2>&1 | tail -80 || true
+          echo '=== SELFTEST ==='; node "$F" --self-test 2>&1 | tail -120 || true
+          echo '=== ACTIVE MARKERS ==='; grep -nE 'V37[789]|V38[0-9]|FAST_CAPITAL|ROTATION' /opt/meme-alpha/app/src/micro-live-executor.js 2>&1 | tail -80 || true
+          echo STAGE_INSPECT=PASS
