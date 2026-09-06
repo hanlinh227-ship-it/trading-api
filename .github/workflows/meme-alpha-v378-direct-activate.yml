@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Candidate Turnover Diagnose
+name: Meme Alpha V380 Patch Target Inspect
 
 on:
   push:
@@ -7,24 +7,21 @@ on:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: self-hosted
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect candidate turnover
+      - name: Inspect v380 patch targets
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
-          echo '--- SERVICES ---'
-          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
-          for round in 1 2; do
-            echo "=== ROUND $round ==="
-            date -u +%FT%TZ
-            for f in "$APP/runtime-status/new-listing-radar.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/trend-pulse.json" "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/universe.json" "$APP/runtime-status/micro-live-gate.json"; do
-              echo "### $f"
-              if [ -f "$f" ]; then head -c 32000 "$f"; echo; fi
-            done
-            [ "$round" -eq 1 ] && sleep 18
-          done
+          echo '--- SCANNER TARGETS ---'
+          grep -n -A80 -B20 -E 'keep the best 30|const final|slice\(0, ?30|high-signal meme|MAX_SELLABILITY_CHECKS' "$APP/src/scanner.js" 2>/dev/null || true
+          echo '--- EXECUTOR ALLOCATION / ROTATION ---'
+          grep -n -A100 -B20 -E 'function allocationProfile|function targetPlan|function rotationSource|function opportunityLane|function trendEntryEligible|reserve|utilization|freeRatio|basePct|cashBoost' "$APP/src/micro-live-executor.js" 2>/dev/null | head -n 900 || true
+          echo '--- PERMISSIONS ---'
+          stat -c '%U %G %a %n' "$APP/src/scanner.js" "$APP/src/micro-live-executor.js" "$APP/run-paper.sh" 2>/dev/null || true
+          echo '--- LIVE GATE ---'
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
