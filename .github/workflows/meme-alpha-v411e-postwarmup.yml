@@ -1,0 +1,40 @@
+name: Meme Alpha V411E Postwarmup
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v411e-postwarmup.yml]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Verify V411D after source warmup
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; sleep 28
+          date -u +%FT%TZ
+          echo PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true)
+          echo COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          echo EXEC_SHA=$(sha256sum "$APP/src/micro-live-executor.js"|awk '{print $1}')
+          echo TREND_SHA=$(sha256sum "$APP/src/trend-pulse.js"|awk '{print $1}')
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"||true; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','scanner-source-health.json','signal-snapshot.json','trend-pulse.json','realtime-pool-pulse.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if not p.exists(): print(name,'MISSING'); continue
+            d=json.loads(p.read_text()); print(name,'ageSec=',round(time.time()-p.stat().st_mtime,2))
+            if name=='micro-live-gate.json': print('GATE',{k:d.get(k) for k in ['allowed','armOk','armAttested','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']})
+            elif name=='scanner-source-health.json': print('SOURCE',d)
+            elif name=='signal-snapshot.json': print('SIGNAL_COUNT',len(d.get('candidates') or []),'TS',d.get('timestamp'))
+            elif name=='trend-pulse.json':
+              rows=d.get('rows') or []; print('TREND_VERSION',d.get('version'),'ROWS',len(rows),'PREBREAKOUT',sum(1 for x in rows if x.get('status')=='PREBREAKOUT'),'BREAKOUT',sum(1 for x in rows if x.get('status')=='BREAKOUT'))
+              for x in rows[:12]: print('TREND',{k:x.get(k) for k in ['mint','symbol','status','pulseScore','price5m','volumeAcceleration','txnAcceleration','buySellRatio']})
+            elif name=='realtime-pool-pulse.json': print('RT_STATUS',d.get('status'),'ROWS',len(d.get('rows') or []),'HELD_SUBS',d.get('heldSubscriptions'),'ACTIVE',d.get('activeSetSize'))
+            else: print(d)
+          PY
+          echo V411E_POSTWARMUP=COMPLETE
