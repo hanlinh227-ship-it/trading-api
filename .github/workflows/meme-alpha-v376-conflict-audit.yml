@@ -1,0 +1,51 @@
+name: Meme Alpha v3.76 Conflict Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v376-conflict-audit.yml']
+jobs:
+  audit:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit legacy runtime conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          echo '=== CORE SERVICES ==='
+          for svc in meme-alpha-paper meme-alpha-micro-live meme-alpha-realtime-pulse meme-alpha-signer meme-alpha-trend-pulse meme-alpha-whale-flow; do
+            printf '%s=' "$svc"; systemctl is-active "$svc.service" || true
+            systemctl show "$svc.service" -p MainPID -p ExecStart -p FragmentPath -p DropInPaths --no-pager || true
+          done
+          echo '=== MEME ALPHA UNITS ==='
+          systemctl list-units --all --plain --no-legend 'meme-alpha*' || true
+          echo '=== MEME ALPHA TIMERS ==='
+          systemctl list-timers --all --plain --no-legend | grep -i 'meme-alpha' || true
+          echo '=== ACTIVE SIGNAL ==='
+          /usr/bin/node - <<'NODE'
+          const fs=require('fs');
+          const s=JSON.parse(fs.readFileSync('/opt/meme-alpha/app/runtime-status/signal-snapshot.json','utf8'));
+          console.log(JSON.stringify({version:s.version,updatedAt:s.updatedAt,marketRegime:s.marketRegime,intelSummary:s.intelSummary},null,2));
+          if(s.version!=='3.76.0-multi-strategy-router')throw new Error('ACTIVE_SIGNAL_NOT_V376');
+          NODE
+          grep -q '3.76.0-multi-strategy-router' "$APP/src/safe-signal-export.js"
+          if grep -q '3.75.0-opportunity-accelerator' "$APP/src/safe-signal-export.js"; then
+            echo ACTIVE_SIGNAL_CONTAINS_V375=TRUE
+            exit 1
+          else
+            echo ACTIVE_SIGNAL_CONTAINS_V375=FALSE
+          fi
+          echo '=== RUNTIME ARTIFACTS ==='
+          for p in \
+            "$APP/runtime-status/v375-opportunity-stage" \
+            "$APP/runtime-status/deploy-candidates/safe-signal-export-v375-opportunity-accelerator.js" \
+            "$APP/runtime-status/v376-router-stage" \
+            "$APP/runtime-status/deploy-candidates/safe-signal-export-v376-multi-strategy-router.js"; do
+            if [ -e "$p" ]; then stat -c 'EXISTS %U:%G %a %n' "$p" || true; else echo "ABSENT $p"; fi
+          done
+          echo '=== ACTIVE SRC FILES ==='
+          find "$APP/src" -maxdepth 1 -type f -printf '%f\n' | sort | grep -E 'signal|realtime|scanner|radar|executor|whale|trend' || true
+          echo V376_CONFLICT_AUDIT=PASS
