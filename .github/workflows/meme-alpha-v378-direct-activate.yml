@@ -1,4 +1,4 @@
-name: Meme Alpha V382 Latency First Hotfix
+name: Meme Alpha V382 Hotfix Repair Activate
 on:
   push:
     branches: [main]
@@ -9,7 +9,7 @@ jobs:
     timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Reduce blocking work per cycle and verify fresh runtime
+      - name: Repair hotfix targeting, activate, and verify
         shell: bash
         run: |
           set -euo pipefail
@@ -19,33 +19,51 @@ jobs:
 
           python3 - "$ST/scanner.js" <<'PY'
           import sys
-          p=sys.argv[1]; s=open(p).read()
-          reps=[
-            ('const MAX_SELLABILITY_CHECKS_V216=16;', 'const MAX_SELLABILITY_CHECKS_V216=8;'),
-            ('const baseDeep = preliminary.slice(0, 72);', 'const baseDeep = preliminary.slice(0, 24);'),
-            ('.slice(0, 24);', '.slice(0, 8);'),
-          ]
-          for old,new in reps:
-            if old in s: s=s.replace(old,new,1)
-            elif new not in s: raise SystemExit('HOTFIX_PATCH_MISMATCH:'+old)
+          p=sys.argv[1]
+          lines=open(p).read().splitlines()
+          out=[]
+          extra_done=False
+          for line in lines:
+              if 'const baseDeep = preliminary.slice(0, 8);' in line or 'const baseDeep = preliminary.slice(0, 72);' in line:
+                  line=line.replace('const baseDeep = preliminary.slice(0, 8);','const baseDeep = preliminary.slice(0, 24);').replace('const baseDeep = preliminary.slice(0, 72);','const baseDeep = preliminary.slice(0, 24);')
+              elif '.slice(0, 24);' in line and 'baseDeep' not in line and not extra_done:
+                  line=line.replace('.slice(0, 24);','.slice(0, 8);',1)
+                  extra_done=True
+              out.append(line)
+          s='\n'.join(out)+'\n'
+          if 'const MAX_SELLABILITY_CHECKS_V216=16;' in s:
+              s=s.replace('const MAX_SELLABILITY_CHECKS_V216=16;','const MAX_SELLABILITY_CHECKS_V216=8;',1)
+          if 'const MAX_SELLABILITY_CHECKS_V216=8;' not in s: raise SystemExit('SELLABILITY_TARGET_MISSING')
+          if 'const baseDeep = preliminary.slice(0, 24);' not in s: raise SystemExit('BASEDEEP_TARGET_MISSING')
+          if '.slice(0, 8);' not in s: raise SystemExit('EXTRA_TARGET_MISSING')
           open(p,'w').write(s)
-          print('V382_LATENCY_HOTFIX_PATCH=PASS')
+          print('V382_HOTFIX_REPAIR=PASS')
           PY
 
+          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
           node --check "$ST/scanner.js"
           node --check "$ST/safe-signal-export.js"
           node --check "$ST/micro-live-executor.js"
-          grep -q 'DISCOVERY_RADAR_ONLY_MAX = 900' "$ST/scanner.js"
-          grep -q 'JUPITER_MIN_INTERVAL_MS = 1200' "$ST/scanner.js"
-          grep -q 'MAX_SELLABILITY_CHECKS_V216=8' "$ST/scanner.js"
-          grep -q 'preliminary.slice(0, 24)' "$ST/scanner.js"
-          grep -q 'slice(0, 8)' "$ST/scanner.js"
-          grep -q 'slice(0,300)' "$ST/safe-signal-export.js"
-          grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$ST/micro-live-executor.js"
+          python3 - "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js" <<'PY'
+          import sys
+          s,g,e=[open(x).read() for x in sys.argv[1:]]
+          checks=[
+            ('radar900','DISCOVERY_RADAR_ONLY_MAX = 900' in s),
+            ('jupiter1200','JUPITER_MIN_INTERVAL_MS = 1200' in s),
+            ('sell8','MAX_SELLABILITY_CHECKS_V216=8' in s),
+            ('deep24','const baseDeep = preliminary.slice(0, 24);' in s),
+            ('extra8','.slice(0, 8);' in s),
+            ('signal300','slice(0,300)' in g),
+            ('marker382','MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' in e),
+            ('loop900','await sleep(900)}}' in e),
+          ]
+          bad=[k for k,v in checks if not v]
+          if bad: raise SystemExit('VALIDATION_FAIL:'+','.join(bad))
+          print('V382_STATIC_VALIDATION=PASS')
+          PY
 
-          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v382-hotfix.sh"
-          chmod 0755 "$ST/run-paper.pre-v382-hotfix.sh"
-          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
+          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v382-repair.sh"
+          chmod 0755 "$ST/run-paper.pre-v382-repair.sh"
           cat > "$APP/run-paper.sh" <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -54,8 +72,8 @@ jobs:
           install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
           install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
           install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
-          printf 'V382_HOTFIX_SCANNER_SWAP=TRUE\nV382_HOTFIX_SIGNAL_SWAP=TRUE\nV382_HOTFIX_EXECUTOR_SWAP=TRUE\n' > "$ST/v382-hotfix-result.txt"
-          cp "$ST/run-paper.pre-v382-hotfix.sh" "$APP/run-paper.sh"
+          printf 'V382_REPAIR_SCANNER_SWAP=TRUE\nV382_REPAIR_SIGNAL_SWAP=TRUE\nV382_REPAIR_EXECUTOR_SWAP=TRUE\n' > "$ST/v382-repair-result.txt"
+          cp "$ST/run-paper.pre-v382-repair.sh" "$APP/run-paper.sh"
           chmod 0755 "$APP/run-paper.sh"
           for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill "$p" 2>/dev/null || true; done
           exec "$APP/run-paper.sh"
@@ -68,7 +86,7 @@ jobs:
             G="$APP/runtime-status/micro-live-gate.json"
             R="$APP/runtime-status/new-listing-radar.json"
             S="$APP/runtime-status/signal-snapshot.json"
-            if grep -q 'V382_HOTFIX_EXECUTOR_SWAP=TRUE' "$ST/v382-hotfix-result.txt" 2>/dev/null \
+            if grep -q 'V382_REPAIR_EXECUTOR_SWAP=TRUE' "$ST/v382-repair-result.txt" 2>/dev/null \
               && grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
               && pgrep -f 'node .*micro-live-executor.js' >/dev/null \
               && grep -q '"allowed": true' "$G" 2>/dev/null \
@@ -82,18 +100,16 @@ jobs:
           done
           [ "$READY" = 1 ]
 
-          echo '=== RESULT ==='; cat "$ST/v382-hotfix-result.txt"
-          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service || true
+          echo '=== RESULT ==='; cat "$ST/v382-repair-result.txt"
           echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
           echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js'
           echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
-          echo '=== PIPELINE FRESHNESS ==='
+          echo '=== PIPELINE ==='
           python3 - <<'PY'
           import os,json,time
           base='/opt/meme-alpha/app/runtime-status/'
           for f in ['new-listing-radar.json','signal-snapshot.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']:
-            p=base+f
-            d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
+            p=base+f; d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
             print(f,{'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(r) if isinstance(r,list) else None,'status':d.get('status')})
           PY
           printf '{"version":"3.82.1","status":"DEPLOYED","profile":"NO_SOFT_GATE_LATENCY_FIRST","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v382-deployed.json"
