@@ -1,4 +1,4 @@
-name: Meme Alpha V402 Diversified Capital Allocation
+name: Meme Alpha V403 Multi-Coin Capital Reserve
 on:
   push:
     branches: [main]
@@ -11,55 +11,53 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 4
     steps:
-      - name: Deploy V402 diversified allocator
+      - name: Deploy V403 multi-coin allocator
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"; mkdir -p "$BASE"
-          EXE="$APP/src/micro-live-executor.js"; CAND="$BASE/v402-executor-diversified-allocation.js"; cp -a "$EXE" "$CAND"
+          EXE="$APP/src/micro-live-executor.js"; CAND="$BASE/v403-executor-multicoin-reserve.js"; cp -a "$EXE" "$CAND"
           python3 - "$CAND" <<'PY'
           import pathlib,sys
           p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="const invested=portfolioInvested(st),exposure=clamp(invested/capitalBaseLamports,0,1),freeRatio=clamp((capitalBaseLamports-invested)/capitalBaseLamports,0,1),basePct=11+25*Math.pow(quality,.90),cashBoost=1+.55*freeRatio,perPositionCap=Math.min(60,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(12,perPositionCap),perPositionCap);"
-          new="const invested=portfolioInvested(st),exposure=clamp(invested/capitalBaseLamports,0,1),freeRatio=clamp((capitalBaseLamports-invested)/capitalBaseLamports,0,1),basePct=8+18*Math.pow(quality,.90),cashBoost=1+.30*freeRatio,safeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)).length),diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(8,perPositionCap),perPositionCap);"
-          if s.count(old)!=1: raise SystemExit(f'V402_PROFILE_PATCH_COUNT={s.count(old)}')
+          old="basePct=8+18*Math.pow(quality,.90),cashBoost=1+.30*freeRatio,safeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)).length),diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(8,perPositionCap),perPositionCap);"
+          new="basePct=8+18*Math.pow(quality,.90),cashBoost=1+.30*freeRatio,heldMints=new Set((st.positions||[]).map(x=>x.mint)),newSafeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)&&!heldMints.has(x.mint)).length),safeBreadth=Math.max(1,candidates().filter(x=>coreSafe(x)).length),diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp(basePct*growth*cashBoost,Math.min(8,perPositionCap),perPositionCap);"
+          if s.count(old)!=1: raise SystemExit(f'V403_BREADTH_PATCH_COUNT={s.count(old)}')
           s=s.replace(old,new,1)
-          old2="plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports});"
-          new2="plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});"
-          if s.count(old2)!=1: raise SystemExit(f'V402_TARGET_PATCH_COUNT={s.count(old2)}')
+          old2="return{name:'V402_DIVERSIFIED_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
+          new2="return{name:'V403_MULTI_COIN_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
+          if s.count(old2)!=1: raise SystemExit(f'V403_META_PATCH_COUNT={s.count(old2)}')
           s=s.replace(old2,new2,1)
-          old3="return{name:'V381_FAST_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
-          new3="return{name:'V402_DIVERSIFIED_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c)};"
-          if s.count(old3)!=1: raise SystemExit(f'V402_PROFILE_META_PATCH_COUNT={s.count(old3)}')
+          old3="const signerOrderCapLamports=Math.max(0,Math.floor(beforeSol*0.88)),orderAmountLamports=Math.min(plan.amountLamports,signerOrderCapLamports);if(orderAmountLamports<p.minOrderLamports)return{placed:false,reason:'SIGNER_ORDER_CAP_BELOW_MIN',plan,profile,signerOrderCapLamports};"
+          new3="const signerOrderCapLamports=Math.max(0,Math.floor(beforeSol*0.88)),newEntryShare=profile.newSafeBreadth>=4?.25:profile.newSafeBreadth===3?.30:.40,diversificationOrderCapLamports=Math.max(0,Math.floor(plan.availableLamports*(isAdd?.20:newEntryShare))),orderAmountLamports=Math.min(plan.amountLamports,signerOrderCapLamports,diversificationOrderCapLamports);if(orderAmountLamports<p.minOrderLamports)return{placed:false,reason:'SIGNER_ORDER_CAP_BELOW_MIN',plan,profile,signerOrderCapLamports,diversificationOrderCapLamports,newEntryShare};"
+          if s.count(old3)!=1: raise SystemExit(f'V403_ORDER_CAP_PATCH_COUNT={s.count(old3)}')
           s=s.replace(old3,new3,1)
-          old4="if(!(p2.pct>p1.pct))throw new Error('EQUITY_SCALE_FACTOR');"
-          new4="if(!(p2.pct>=p1.pct&&p2.pct<=p2.perPositionCap))throw new Error('EQUITY_SCALE_FACTOR');"
-          if s.count(old4)!=1: raise SystemExit(f'V402_SELFTEST_PATCH_COUNT={s.count(old4)}')
-          s=s.replace(old4,new4,1)
           p.write_text(s)
           PY
           node --check "$CAND"
           OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
           grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
           grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
-          grep -q 'profile.pct,p,{isNew' "$CAND"
-          grep -q 'V402_DIVERSIFIED_CAPITAL' "$CAND"
-          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V402_EXECUTOR_SHA="$SHA"
-          BACK="$RT/v402-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$CAND" "$EXE"; chmod 664 "$EXE" || true
+          grep -q 'V403_MULTI_COIN_CAPITAL' "$CAND"
+          grep -q "newEntryShare=profile.newSafeBreadth>=4?.25" "$CAND"
+          grep -q "isAdd?.20:newEntryShare" "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V403_EXECUTOR_SHA="$SHA"
+          BACK="$RT/v403-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$CAND" "$EXE"; chmod 664 "$EXE" || true
           sudo -n /usr/bin/systemctl restart meme-alpha-paper.service
           for i in $(seq 1 50); do sleep 2; [ "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA" ] && systemctl is-active --quiet meme-alpha-paper.service && systemctl is-active --quiet meme-alpha-micro-live.service && systemctl is-active --quiet meme-alpha-signer.service && break; [ "$i" -lt 50 ] || exit 9; done
           sleep 6
           for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
           echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
-          grep -nE 'V402_DIVERSIFIED_CAPITAL|diversificationCap|profile.pct,p' "$EXE" | head -40
+          grep -nE 'V403_MULTI_COIN_CAPITAL|newSafeBreadth|newEntryShare|diversificationOrderCapLamports|profile.pct,p' "$EXE" | head -60
           python3 - <<'PY'
           import json,pathlib
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
           for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','last-execution.json','allocator-status.json']:
             p=rt/name; print(name,json.loads(p.read_text()) if p.exists() else None)
           PY
-          echo V402_DIVERSIFIED_ALLOCATION=ACTIVE
-          echo SINGLE_COIN_MAX_DYNAMIC_PCT=28
-          echo MULTI_COIN_BREADTH_CAPS=24_20_16
+          echo V403_MULTI_COIN_RESERVE=ACTIVE
+          echo MAX_NEW_BUY_SHARE_OF_DEPLOYABLE=40_PERCENT
+          echo MAX_SCALE_IN_SHARE_OF_DEPLOYABLE=20_PERCENT
+          echo SINGLE_COIN_MAX_PORTFOLIO_PCT=28
           echo SCALE_ALLOWED=TRUE
           echo HARD_SAFETY_BYPASS=FALSE
