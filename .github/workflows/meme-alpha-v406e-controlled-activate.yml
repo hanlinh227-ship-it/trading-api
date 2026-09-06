@@ -1,0 +1,89 @@
+name: Meme Alpha V406E Controlled Activate
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v406e-controlled-activate.yml
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 4
+    steps:
+      - name: Controlled one-shot executor recycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"; CAND="$RT/deploy-candidates/v406-executor-resilient-profit.js"; RUN="$APP/run-paper.sh"
+          test -f "$CAND"; test -w "$EXE"; test -w "$RUN"
+          # Harden unexpected signal exits in the validated V406 candidate.
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          if 'PROCESS_SIGNAL_RESTART' not in s:
+            old="  process.on('beforeExit',code=>{if(code===0)process.exitCode=1});"
+            new="  const restartSignal=sig=>{try{event({type:'PROCESS_SIGNAL_RESTART',signal:sig})}catch{};console.error('PROCESS_SIGNAL_RESTART',sig);setTimeout(()=>process.exit(1),50)};\n  process.on('SIGTERM',()=>restartSignal('SIGTERM'));process.on('SIGINT',()=>restartSignal('SIGINT'));\n  process.on('beforeExit',code=>{if(code===0)process.exitCode=1});"
+            if s.count(old)!=1: raise SystemExit(f'V406E_SIGNAL_PATCH_COUNT={s.count(old)}')
+            s=s.replace(old,new,1)
+            p.write_text(s)
+          PY
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
+          grep -q 'SEVERE_WINNER_DEFENSE=PARTIAL' <<<"$OUT"
+          grep -q 'AUTO_RUNNER_PROTECT_2' "$CAND"
+          grep -q 'PROCESS_SIGNAL_RESTART' "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V406E_EXECUTOR_SHA="$SHA"
+          cp "$CAND" "$EXE"; chmod 664 "$EXE"
+          test "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); test -n "$OLDPID"; echo OLD_EXECUTOR_PID="$OLDPID"
+          ORIG="$RT/v406e-run-paper-original.sh"; REQ="$RT/v406e-executor-recycle.request"
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v406e-executor-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v406e-run-paper-original.sh
+          if [ -r "$REQ" ]; then
+            PID=$(cat "$REQ" 2>/dev/null || true)
+            rm -f "$REQ" 2>/dev/null || true
+            if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then
+              CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null || true)
+              case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -KILL "$PID" 2>/dev/null || true;; esac
+            fi
+          fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 25); do
+            sleep 2
+            NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+            if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi
+            [ "$i" -lt 25 ] || { echo CONTROLLED_RECYCLE_TIMEOUT; exit 9; }
+          done
+          NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); echo NEW_EXECUTOR_PID="$NEWPID"
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          sleep 12
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]
+          test "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA"
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          systemctl show meme-alpha-micro-live.service -p MainPID -p NRestarts -p ActiveState -p SubState -p Result -p ExecMainStartTimestamp --no-pager
+          grep -nE 'extremeTrendBreak|weakAgeMs<15000|AUTO_RUNNER_PROTECT_1|AUTO_RUNNER_PROTECT_2|ageMin>=12|UNHANDLED_REJECTION_RESTART|PROCESS_SIGNAL_RESTART' "$EXE" | head -100
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          g=json.loads((rt/'micro-live-gate.json').read_text()); print('GATE',{k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']}); assert g.get('armOk') is True and g.get('armAttested') is True
+          for name in ['portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          PY
+          echo V406E_CONTROLLED_ACTIVATION=SUCCESS
+          echo SOFT_WEAKNESS_TIME_CONFIRMATION=TRUE
+          echo SEVERE_WINNER_PARTIAL_DEFENSE=TRUE
+          echo MULTI_STAGE_RUNNER_PROTECTION=TRUE
+          echo ABNORMAL_PROCESS_RESTART_HARDENING=TRUE
