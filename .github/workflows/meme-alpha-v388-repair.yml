@@ -10,18 +10,23 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Inspect RPC enrichment and holder audit path
+      - name: Inspect scanner loop and holder RPC client
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app; SRC="$APP/src"
-          echo '=== SCANNER RPC/AUDIT MARKERS ==='
-          grep -nE 'rpc|RPC|mintAuthority|freezeAuthority|tokenProgram|getAccountInfo|getTokenSupply|getProgramAccounts|audit|holderCount|token2022|TOKEN2022' "$SRC/scanner.js" | head -260 || true
-          echo '=== SCANNER TOP/DISCOVERY ==='
-          sed -n '1,220p' "$SRC/scanner.js"
-          sed -n '220,560p' "$SRC/scanner.js"
-          echo '=== SECURITY CORE ==='
-          sed -n '70,315p' "$SRC/security.js"
-          echo '=== HOLDER AUDIT CORE ==='
-          sed -n '450,645p' "$SRC/holder-cluster.js"
-          echo V388_RPC_PATH_INSPECT=COMPLETE
+          echo '=== SCANNER ANALYZE ==='
+          sed -n '580,910p' "$SRC/scanner.js"
+          echo '=== SCANNER MAIN ==='
+          sed -n '1080,1215p' "$SRC/scanner.js"
+          echo '=== HOLDER RPC CLIENT ==='
+          sed -n '1,450p' "$SRC/holder-cluster.js"
+          echo '=== RUNTIME CONFIG SAFE KEYS ==='
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('/opt/meme-alpha/app/config/runtime.json'); d=json.loads(p.read_text())
+          for k,v in d.items():
+            if any(x in k.lower() for x in ['key','secret','token','private','seed']): continue
+            if isinstance(v,(str,int,float,bool)) or v is None: print(k,repr(v))
+          PY
+          echo V388_LOOP_RPC_INSPECT=COMPLETE
