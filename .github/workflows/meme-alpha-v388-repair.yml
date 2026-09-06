@@ -8,18 +8,154 @@ permissions:
 jobs:
   repair:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 9
     steps:
-      - name: Inspect production signal insertion points
+      - name: Deploy V388 RPC-audited signal activation
         shell: bash
         run: |
           set -euo pipefail
-          SRC=/opt/meme-alpha/app/src
-          echo '=== SIGNAL MARKERS ==='
-          grep -nE 'guardCandidate|candidates|map\(|for \(|writeFile|signal-snapshot|holderCluster|securityDecision|sellRoute|PROBE_CANDIDATE|routeCandidate|main|async' "$SRC/safe-signal-export.js" | head -260 || true
-          echo '=== SIGNAL GUARD AREA ==='
-          n=$(grep -n 'function guardCandidate' "$SRC/safe-signal-export.js" | head -1 | cut -d: -f1 || true)
-          if [ -n "$n" ]; then a=$((n-80)); [ "$a" -lt 1 ] && a=1; b=$((n+260)); sed -n "${a},${b}p" "$SRC/safe-signal-export.js"; fi
-          echo '=== SIGNAL TAIL ==='
-          tail -260 "$SRC/safe-signal-export.js"
-          echo V388_SIGNAL_INSERTION_INSPECT=COMPLETE
+          APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"
+          mkdir -p "$BASE"
+          CAND="$BASE/v388-signal-rpc-audit.js"
+          cp "$SRC/safe-signal-export.js" "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          marker="const impact=c=>Math.abs(num(c?.sellPriceImpactPct??c?.sellImpactPct??c?.priceImpactPct,99));"
+          inject=r'''
+
+          // V388_RPC_EXECUTION_AUDIT: resolve radar-only safety UNKNOWNs with real Solana RPC evidence.
+          const V388_TOKEN_PROGRAM='TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+          const V388_TOKEN2022_PROGRAM='TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+          const V388_CACHE='/opt/meme-alpha/app/runtime-status/v388-rpc-audit-cache.json';
+          const V388_TTL_MS=5*60*1000;
+          const V388_MAX_AUDITS=6;
+          const V388_CFG=readFile('/opt/meme-alpha/app/config/runtime.json',{});
+          const V388_RPCS=[V388_CFG.rpc,'https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'].filter(Boolean);
+          const V388_UNIQUE_RPCS=[...new Set(V388_RPCS)];
+          let v388Cache=readFile(V388_CACHE,{}),v388AuditUsed=0;
+          const v388Uniq=xs=>[...new Set((xs||[]).map(String))];
+          async function v388RpcOne(endpoint,method,params){
+            const ac=new AbortController();const timer=setTimeout(()=>ac.abort(),2600);
+            try{const r=await fetch(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:Date.now()+Math.random(),method,params}),signal:ac.signal});if(!r.ok)throw new Error(`HTTP_${r.status}`);const j=await r.json();if(j.error)throw new Error(`RPC_${j.error.code}_${j.error.message||'ERROR'}`);return j.result}finally{clearTimeout(timer)}
+          }
+          async function v388Rpc(method,params){
+            try{return await Promise.any(V388_UNIQUE_RPCS.map(ep=>v388RpcOne(ep,method,params)))}catch(e){throw new Error(`V388_ALL_RPC_FAILED_${method}`)}
+          }
+          function v388WhaleConcentration(wh,mint){
+            if(!feedHealthy(wh,180))return null;
+            const r=(wh?.rows||[]).find(x=>x?.mint===mint);if(!r)return null;
+            const x=Number(r.top10Pct);return Number.isFinite(x)&&x>=0&&x<100?x:null;
+          }
+          function v388ApplyAudit(c,a){
+            const x={...c};
+            x.mintAuthorityDisabled=a.mintAuthorityDisabled;
+            x.freezeAuthorityDisabled=a.freezeAuthorityDisabled;
+            x.token2022=a.token2022===true;
+            x.needsExtensionAudit=x.token2022||x.needsExtensionAudit===true;
+            x.topHoldersPct=a.concentrationPct;
+            x.holderClusterAudit={version:'1.0.0-v388-rpc',checkedAt:a.checkedAt,decision:a.holderDecision,blockReasons:a.holderBlockReasons||[],reviewReasons:a.holderReviewReasons||[],evidence:a.holderEvidence||[],maxAccountsSameOwner:a.maxAccountsSameOwner,unresolvedOwners:a.unresolvedOwners,concentrationSource:a.concentrationSource,devIdentityProven:false};
+            x.holderClusterDecision=a.holderDecision;
+            const removable=new Set(['MINT_AUTHORITY_UNKNOWN','FREEZE_AUTHORITY_UNKNOWN','TOP_HOLDERS_UNKNOWN','TOP_HOLDERS_PERCENT_UNKNOWN']);
+            x.securityReviewReasons=(x.securityReviewReasons||[]).filter(r=>!removable.has(String(r)));
+            const classOnly=new Set(['MEME_EVIDENCE_INSUFFICIENT','NON_MEME_UNIVERSE']);
+            const nonClassBlocks=(x.securityBlockReasons||[]).filter(r=>!classOnly.has(String(r)));
+            x.hardReject=Array.isArray(x.hardReject)?[...x.hardReject]:[];
+            if(a.securityDecision==='BLOCK'){
+              x.securityDecision='BLOCK';x.securityBlockReasons=v388Uniq([...(x.securityBlockReasons||[]),...(a.securityBlockReasons||[])]);x.hardReject=v388Uniq([...x.hardReject,...(a.securityBlockReasons||[]),'SECURITY_BLOCK']);x.decision='IGNORE';
+            }else if(a.holderDecision==='BLOCK'){
+              x.securityDecision='BLOCK';x.hardReject=v388Uniq([...x.hardReject,...(a.holderBlockReasons||[]),'HOLDER_CLUSTER_BLOCK']);x.decision='IGNORE';
+            }else if(a.securityDecision==='PASS'&&a.holderDecision==='PASS'&&x.securityReviewReasons.length===0&&nonClassBlocks.length===0){
+              x.securityDecision='PASS';
+              if(Number(a.concentrationPct)<=35&&Number(a.maxAccountsSameOwner)<=2)x.insiderRiskDecision='PASS';
+              if(x.decision==='IGNORE'&&num(x.score)>=45)x.decision='WATCH';
+            }else{
+              x.securityDecision='REVIEW';if(x.decision==='PROBE_CANDIDATE')x.decision='WATCH';
+            }
+            x.securityEvidence=v388Uniq([...(x.securityEvidence||[]),...(a.securityEvidence||[])]);
+            x.v388RpcAudit={checkedAt:a.checkedAt,securityDecision:a.securityDecision,holderDecision:a.holderDecision,concentrationPct:a.concentrationPct,concentrationSource:a.concentrationSource,maxAccountsSameOwner:a.maxAccountsSameOwner,unresolvedOwners:a.unresolvedOwners};
+            return x;
+          }
+          async function v388AuditCandidate(c,wh){
+            const score=num(c?.score),liq=num(c?.liquidityUsd),sellOk=c?.sellRoute===true;
+            const authorityUnknown=typeof c?.mintAuthorityDisabled!=='boolean'||typeof c?.freezeAuthorityDisabled!=='boolean';
+            const holderUnknown=!(c?.holderClusterAudit?.decision||c?.holderClusterDecision);
+            const eligible=sellOk&&c?.token2022!==true&&liq>=50000&&score>=45&&(authorityUnknown||holderUnknown||c?.securityDecision==='REVIEW');
+            if(!eligible)return c;
+            const cached=v388Cache?.[c.mint];if(cached&&Number(cached.cachedAt)>0&&Date.now()-Number(cached.cachedAt)<=V388_TTL_MS)return v388ApplyAudit(c,cached.audit);
+            if(v388AuditUsed>=V388_MAX_AUDITS)return c;v388AuditUsed++;
+            try{
+              const [ai,supply,largest]=await Promise.all([
+                v388Rpc('getAccountInfo',[c.mint,{encoding:'jsonParsed',commitment:'confirmed'}]),
+                v388Rpc('getTokenSupply',[c.mint,{commitment:'confirmed'}]),
+                v388Rpc('getTokenLargestAccounts',[c.mint,{commitment:'confirmed'}])
+              ]);
+              const value=ai?.value,ownerProgram=value?.owner||null,info=value?.data?.parsed?.info||null;
+              const mintAuthorityDisabled=info?info.mintAuthority==null:null;
+              const freezeAuthorityDisabled=info?info.freezeAuthority==null:null;
+              const token2022=ownerProgram===V388_TOKEN2022_PROGRAM;
+              const standardProgram=ownerProgram===V388_TOKEN_PROGRAM;
+              const rows=(largest?.value||[]).slice(0,20);const addresses=rows.map(r=>r.address).filter(Boolean);
+              let ownerRows=[];
+              if(addresses.length){const multi=await v388Rpc('getMultipleAccounts',[addresses,{encoding:'jsonParsed',commitment:'confirmed'}]);ownerRows=(multi?.value||[]).map((v,i)=>({address:addresses[i],owner:v?.data?.parsed?.info?.owner||null}))}
+              const counts=new Map();let unresolved=0;for(const r of ownerRows){if(!r.owner){unresolved++;continue}counts.set(r.owner,(counts.get(r.owner)||0)+1)}
+              const maxAccountsSameOwner=Math.max(1,...counts.values());
+              let rpcTop20=null;try{const total=BigInt(String(supply?.value?.amount||'0'));let top=0n;for(const r of rows)top+=BigInt(String(r.amount||'0'));if(total>0n)rpcTop20=Number((top*10000n)/total)/100}catch{}
+              const whaleTop10=v388WhaleConcentration(wh,c.mint);
+              const concentrationPct=whaleTop10!==null?whaleTop10:rpcTop20;
+              const concentrationSource=whaleTop10!==null?'WHALE_TOP10':'RPC_TOP20';
+              const securityBlockReasons=[];const securityReviewReasons=[];const securityEvidence=[];
+              if(token2022)securityBlockReasons.push('V388_TOKEN2022_RPC');
+              if(!standardProgram&&!token2022)securityReviewReasons.push('V388_UNKNOWN_TOKEN_PROGRAM');
+              if(mintAuthorityDisabled===false)securityBlockReasons.push('V388_MINT_AUTHORITY_ACTIVE_RPC');else if(mintAuthorityDisabled===true)securityEvidence.push('V388_MINT_AUTHORITY_DISABLED_RPC');else securityReviewReasons.push('V388_MINT_AUTHORITY_UNRESOLVED');
+              if(freezeAuthorityDisabled===false)securityBlockReasons.push('V388_FREEZE_AUTHORITY_ACTIVE_RPC');else if(freezeAuthorityDisabled===true)securityEvidence.push('V388_FREEZE_AUTHORITY_DISABLED_RPC');else securityReviewReasons.push('V388_FREEZE_AUTHORITY_UNRESOLVED');
+              const holderBlockReasons=[];const holderReviewReasons=[];const holderEvidence=[];
+              if(!Number.isFinite(Number(concentrationPct)))holderReviewReasons.push('V388_HOLDER_CONCENTRATION_UNRESOLVED');else if(Number(concentrationPct)>50)holderBlockReasons.push('V388_HOLDER_CONCENTRATION_OVER_50');else if(Number(concentrationPct)>35)holderReviewReasons.push('V388_HOLDER_CONCENTRATION_OVER_35');else holderEvidence.push('V388_HOLDER_CONCENTRATION_PASS');
+              if(maxAccountsSameOwner>=5)holderBlockReasons.push('V388_SEVERE_OWNER_CLUSTER');else if(maxAccountsSameOwner>=3)holderReviewReasons.push('V388_OWNER_CLUSTER_REVIEW');else holderEvidence.push('V388_OWNER_CLUSTER_PASS');
+              if(unresolved>2)holderReviewReasons.push('V388_OWNER_RESOLUTION_INCOMPLETE');
+              const securityDecision=securityBlockReasons.length?'BLOCK':securityReviewReasons.length?'REVIEW':'PASS';
+              const holderDecision=holderBlockReasons.length?'BLOCK':holderReviewReasons.length?'REVIEW':'PASS';
+              const audit={checkedAt:new Date().toISOString(),mintAuthorityDisabled,freezeAuthorityDisabled,token2022,securityDecision,securityBlockReasons,securityReviewReasons,securityEvidence,holderDecision,holderBlockReasons,holderReviewReasons,holderEvidence,maxAccountsSameOwner,unresolvedOwners:unresolved,concentrationPct,concentrationSource};
+              v388Cache[c.mint]={cachedAt:Date.now(),audit};try{const t=V388_CACHE+'.tmp';fs.writeFileSync(t,JSON.stringify(v388Cache,null,2));fs.renameSync(t,V388_CACHE)}catch{}
+              return v388ApplyAudit(c,audit);
+            }catch(e){const x={...c,v388RpcAudit:{checkedAt:new Date().toISOString(),error:String(e?.message||e).slice(0,160)}};if(x.decision==='PROBE_CANDIDATE')x.decision='WATCH';x.securityDecision='REVIEW';return x}
+          }
+          '''
+          if marker not in s: raise SystemExit('V388_FAIL=SIGNAL_INSERT_MARKER_NOT_FOUND')
+          s=s.replace(marker,marker+inject,1)
+          old="""const candidates=(scan.candidates||[]).map(c=>{\n  const g=guardCandidate(c,realtime,whale,regime);\n  if(source?.allowNewEntries===false&&g.decision==='PROBE_CANDIDATE'){g.decision='SOURCE_HEALTH_BLOCK';g.entryGuardReasons.push('V369_SOURCE_HEALTH_BLOCK')}\n  return g;\n}).sort((a,b)=>b.score-a.score).slice(0,300);"""
+          new="""const v388Prepared=[];\nfor(const c of (scan.candidates||[]).slice(0,300)){v388Prepared.push(await v388AuditCandidate(c,whale));}\nconst candidates=v388Prepared.map(c=>{\n  const g=guardCandidate(c,realtime,whale,regime);\n  if(source?.allowNewEntries===false&&g.decision==='PROBE_CANDIDATE'){g.decision='SOURCE_HEALTH_BLOCK';g.entryGuardReasons.push('V369_SOURCE_HEALTH_BLOCK')}\n  return g;\n}).sort((a,b)=>b.score-a.score).slice(0,300);"""
+          if old not in s: raise SystemExit('V388_FAIL=SIGNAL_MAP_PATTERN_NOT_FOUND')
+          s=s.replace(old,new,1)
+          s += "\n// V388_RPC_EXECUTION_AUDIT_ACTIVE\n"
+          p.write_text(s)
+          print('V388_SIGNAL_RPC_PATCH=APPLIED')
+          PY
+          node --check "$CAND"
+          node "$CAND" --self-test
+          grep -q 'V388_RPC_EXECUTION_AUDIT_ACTIVE' "$CAND"
+          sha="$(sha256sum "$CAND" | awk '{print $1}')"
+          echo V388_SIGNAL_SHA="$sha"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$CAND")" "$sha"
+          grep -q 'V388_RPC_EXECUTION_AUDIT_ACTIVE' "$SRC/safe-signal-export.js"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          echo '=== V388 LIVE ACTIVATION VERIFY ==='
+          python3 - <<'PY'
+          import json,pathlib,time,os,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); deadline=time.time()+210; best=None
+          while time.time()<deadline:
+            time.sleep(3)
+            try:
+              s=json.loads((rt/'signal-snapshot.json').read_text()); g=json.loads((rt/'micro-live-gate.json').read_text()); rows=s.get('candidates') or []
+              safe=[c for c in rows if c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not (c.get('hardReject') or []) and float(c.get('liquidityUsd') or 0)>=50000]
+              probes=[c for c in safe if c.get('decision')=='PROBE_CANDIDATE']
+              audited=[c for c in rows if c.get('mintAuthorityDisabled') is True and c.get('freezeAuthorityDisabled') is True and c.get('holderClusterDecision') in ('PASS','REVIEW','BLOCK')]
+              best={'age':round(time.time()-os.path.getmtime(rt/'signal-snapshot.json'),1),'rows':len(rows),'audited':len(audited),'safe':len(safe),'probes':len(probes),'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'riskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons'),'safeSymbols':[c.get('symbol') for c in safe[:8]],'probeSymbols':[c.get('symbol') for c in probes[:8]]}
+              print('V388_ACTIVE_STATE',best,flush=True)
+              if g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and safe:
+                print('V388_RPC_AUDITED_PRODUCTION=ACTIVE');sys.exit(0)
+            except Exception as e: print('VERIFY_RETRY',repr(e),flush=True)
+          print('V388_RPC_AUDITED_PRODUCTION=NO_SAFE_CANDIDATE_YET',best);sys.exit(7)
+          PY
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; sudo -n /bin/systemctl is-active "$svc" || true; done
