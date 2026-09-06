@@ -1,0 +1,108 @@
+name: Meme Alpha V410 Durable Held Realtime Resolver
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v410d-held-realtime-resolver.yml
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 6
+    steps:
+      - name: Build validate deploy and verify held realtime resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; SRC="$APP/src/realtime-pool-pulse.js"; CAND="$DC/v410-realtime-held-resolver.js"
+          cp "$SRC" "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,re,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          if "3.80.0-v410-held-resolver" not in s:
+            s=s.replace("const VERSION='3.79.0-v409-prebreakout-antifomo';","const VERSION='3.80.0-v410-held-resolver';",1)
+            old='const CACHE_TTL_MS=7*24*60*60*1000;'
+            new="const CACHE_TTL_MS=7*24*60*60*1000;\nconst HELD_RESOLVE_INTERVAL_MS=30000;\nconst HELD_RESOLVE_TIMEOUT_MS=3500;"
+            if s.count(old)!=1: raise SystemExit(f'V410_CONST_PATCH_COUNT={s.count(old)}')
+            s=s.replace(old,new,1)
+            old='const pairMemoryByMint=new Map();'
+            new="const pairMemoryByMint=new Map();\nlet heldResolveInFlight=false,lastHeldResolveAt=0,heldResolveAttempts=0,heldResolveSuccess=0,heldResolveErrors=0,heldResolveLastError=null;"
+            if s.count(old)!=1: raise SystemExit(f'V410_STATE_PATCH_COUNT={s.count(old)}')
+            s=s.replace(old,new,1)
+            marker="function refreshTrustedSources(){\n  ingestRows(read(RADAR,{candidates:[]}).candidates,'RADAR');\n  ingestRows(read(SIGNAL,{candidates:[]}).candidates,'SIGNAL');\n}"
+            insert=marker+"""
+function bestHeldDexPair(j,mint){
+  const rows=(Array.isArray(j?.pairs)?j.pairs:[]).filter(x=>x?.chainId==='solana'&&isAddress(x?.pairAddress)&&((x?.baseToken?.address===mint)||(x?.quoteToken?.address===mint)));
+  rows.sort((a,b)=>n(b?.liquidity?.usd)-n(a?.liquidity?.usd)||n(b?.volume?.h24)-n(a?.volume?.h24));
+  const x=rows[0];if(!x||n(x?.liquidity?.usd)<1000)return null;return{pair:x.pairAddress,symbol:x?.baseToken?.address===mint?x?.baseToken?.symbol:x?.quoteToken?.symbol,liquidityUsd:n(x?.liquidity?.usd),dexId:x?.dexId||null};
+}
+async function resolveHeldPairs(){
+  if(SELF_TEST||heldResolveInFlight)return;const now=Date.now();if(now-lastHeldResolveAt<HELD_RESOLVE_INTERVAL_MS)return;
+  const unresolved=[...heldSet()].filter(m=>!pairMemoryByMint.get(m)?.pair);lastHeldResolveAt=now;if(!unresolved.length){heldResolveLastError=null;return}
+  heldResolveInFlight=true;
+  try{
+    for(const mint of unresolved.slice(0,12)){
+      heldResolveAttempts++;const ac=new AbortController(),to=setTimeout(()=>ac.abort(),HELD_RESOLVE_TIMEOUT_MS);
+      try{
+        const r=await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`,{headers:{accept:'application/json','user-agent':'meme-alpha-v410-held-resolver'},signal:ac.signal});if(!r.ok)throw new Error(`HTTP_${r.status}`);
+        const best=bestHeldDexPair(await r.json(),mint);if(!best)throw new Error('NO_SAFE_PAIR');
+        remember(mint,best.pair,'HELD_DEX_FALLBACK',{symbol:best.symbol,pairAgeSec:null});heldResolveSuccess++;heldResolveLastError=null;
+      }catch(e){heldResolveErrors++;heldResolveLastError=`${mint}:${String(e?.message||e).slice(0,100)}`}
+      finally{clearTimeout(to)}
+      await sleep(180);
+    }
+    persistPairCache();
+  }finally{heldResolveInFlight=false}
+}
+"""
+            if s.count(marker)!=1: raise SystemExit(f'V410_RESOLVER_INSERT_COUNT={s.count(marker)}')
+            s=s.replace(marker,insert,1)
+            old='function refreshDesired(){\n  const pairs=desiredPairs(),next=new Map(pairs.map(x=>[x.pair,x]));'
+            new='function refreshDesired(){\n  void resolveHeldPairs();\n  const pairs=desiredPairs(),next=new Map(pairs.map(x=>[x.pair,x]));'
+            if s.count(old)!=1: raise SystemExit(f'V410_REFRESH_PATCH_COUNT={s.count(old)}')
+            s=s.replace(old,new,1)
+            old='pairCacheEntries:pairMemoryByMint.size,pairCacheTtlMs:CACHE_TTL_MS,lastConnectAt:'
+            new='pairCacheEntries:pairMemoryByMint.size,pairCacheTtlMs:CACHE_TTL_MS,heldResolveInFlight,heldResolveAttempts,heldResolveSuccess,heldResolveErrors,heldResolveLastError,heldResolveIntervalMs:HELD_RESOLVE_INTERVAL_MS,lastConnectAt:'
+            if s.count(old)!=1: raise SystemExit(f'V410_SNAPSHOT_PATCH_COUNT={s.count(old)}')
+            s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          node --check "$CAND"
+          OUT=$(node "$CAND" --self-test); printf '%s\n' "$OUT"; grep -q 'V374_HELD_CONTINUITY_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'bestHeldDexPair' "$CAND"; grep -q 'HELD_DEX_FALLBACK' "$CAND"; grep -q 'heldResolveSuccess' "$CAND"; grep -q 'void resolveHeldPairs' "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V410_REALTIME_SHA=$SHA
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy realtime "$(basename "$CAND")" "$SHA"
+          test "$(sha256sum "$SRC"|awk '{print $1}')" = "$SHA"
+          echo '=== WAIT HELD COVERAGE ==='
+          for i in $(seq 1 35); do
+            sleep 3
+            OK=$(python3 - <<'PY'
+          import json
+          try:
+            x=json.load(open('/opt/meme-alpha/app/runtime-status/realtime-pool-pulse.json'))
+            total=int(x.get('heldTotal') or 0); unresolved=int(x.get('heldUnresolved') or 0); healthy=x.get('status')=='HEALTHY' and x.get('websocketOpen') is True and x.get('lastError') is None
+            print('1' if healthy and total>0 and unresolved==0 and int(x.get('heldSubscriptions') or 0)>=total else '0')
+          except: print('0')
+          PY
+          )
+            [ "$OK" = 1 ] && break
+            [ "$i" -lt 35 ] || { echo V410_HELD_COVERAGE_TIMEOUT; exit 14; }
+          done
+          sleep 5
+          echo '=== FINAL ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          echo EXECUTOR_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+          echo EXECUTOR_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for n in ['realtime-pool-pulse.json','portfolio-observability.json','micro-live-gate.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/n
+            if p.exists(): print(n,'ageSec=',round(time.time()-p.stat().st_mtime,2),json.loads(p.read_text()))
+          PY
+          echo V410_HELD_REALTIME_RESOLVER=ACTIVE
+          echo HELD_PAIR_FALLBACK=DEX_HIGHEST_LIQUIDITY_SOLANA
+          echo PAIR_CACHE_TTL_DAYS=7
+          echo HARD_SAFETY_CHANGED=FALSE
+          echo SCALE_ALLOWED_REQUIRED=TRUE
