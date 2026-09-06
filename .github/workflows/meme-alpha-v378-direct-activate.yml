@@ -18,22 +18,11 @@ jobs:
           PASS=0
           for i in $(seq 1 150); do
             echo "check=$i time=$(date -u +%FT%TZ)"
-            git -c safe.directory=/opt/trading/trading-api -C /opt/trading/trading-api fetch origin auto-futures-v1 >/dev/null 2>&1 || true
             L=$(git -c safe.directory=/opt/trading/trading-api -C /opt/trading/trading-api rev-parse HEAD 2>/dev/null || true)
             R=$(git -c safe.directory=/opt/trading/trading-api -C /opt/trading/trading-api rev-parse origin/auto-futures-v1 2>/dev/null || true)
             echo "rootHead=$L remote=$R"
             if [ -f "$GATE" ]; then
-              python3 - "$GATE" <<'PY' && PASS=1 && break || true
-import json,sys,time,datetime
-p=sys.argv[1]
-d=json.load(open(p))
-ts=d.get('timestamp') or ''
-try: age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp()
-except Exception: age=999
-print({'allowed':d.get('allowed'),'armOk':d.get('armOk'),'armAttested':d.get('armAttested'),'mode':d.get('executionMode'),'sourceHealthy':d.get('sourceHealthy'),'riskEntryAllowed':d.get('riskEntryAllowed'),'liveRiskReady':d.get('liveRiskReady'),'reasons':d.get('reasons'),'age':round(age,1)})
-ok=(d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True and d.get('executionMode')=='MICRO_LIVE' and d.get('sourceHealthy') is True and d.get('riskEntryAllowed') is True and d.get('liveRiskReady') is True and not (d.get('reasons') or []) and age < 30)
-raise SystemExit(0 if ok else 1)
-PY
+              python3 -c "import json,time,datetime,sys; d=json.load(open('$GATE')); ts=d.get('timestamp') or ''; age=time.time()-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp() if ts else 999; print({'allowed':d.get('allowed'),'armOk':d.get('armOk'),'armAttested':d.get('armAttested'),'mode':d.get('executionMode'),'sourceHealthy':d.get('sourceHealthy'),'riskEntryAllowed':d.get('riskEntryAllowed'),'liveRiskReady':d.get('liveRiskReady'),'reasons':d.get('reasons'),'age':round(age,1)}); ok=(d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True and d.get('executionMode')=='MICRO_LIVE' and d.get('sourceHealthy') is True and d.get('riskEntryAllowed') is True and d.get('liveRiskReady') is True and not (d.get('reasons') or []) and age < 30); sys.exit(0 if ok else 1)" && PASS=1 && break || true
             fi
             sleep 2
           done
