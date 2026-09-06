@@ -1,0 +1,20 @@
+name: Meme Alpha V384 Direct Activate
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v384-direct-activate.yml']
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect direct activation path
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== SAFE DEPLOY ==='
+          ls -l /usr/local/sbin/meme-alpha-safe-deploy || true
+          sed -n '1,280p' /usr/local/sbin/meme-alpha-safe-deploy 2>/dev/null || true
+          echo '=== SUDO ==='
+          sudo -n -l 2>/dev/null || true
