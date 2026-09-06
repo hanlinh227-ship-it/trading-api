@@ -1,4 +1,4 @@
-name: Meme Alpha V408 Prebreakout Audit
+name: Meme Alpha V408B Prebreakout Scheduling Audit
 on:
   push:
     branches: [main]
@@ -11,43 +11,30 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Audit entry sensitivity and runtime conflicts
+      - name: Inspect hot-candidate scheduling bottlenecks
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"
-          echo '=== RUNTIME ==='
-          date -u +%FT%TZ
-          echo PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
-          echo COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)
-          echo SHA=$(sha256sum "$EXE"|awk '{print $1}')
-          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
-          echo '=== EXECUTOR ENTRY / RANK / SIZE ==='
-          grep -nE 'function opportunityScore|function opportunityLane|function trendEntryEligible|function bestCandidate|function targetPlan|function buySizing|function maybeScaleIn|function maybeRotate|rawChg>|priceChange5m|events5s|eventMomentum|pulseScore|volumeAcceleration|txnAcceleration|buySellRatio|coreSafe|holdSafe|MAX_|minOrder|maxUtilization' "$EXE" | head -220 || true
-          echo '=== RADAR/TREND/REALTIME/WHale THRESHOLDS ==='
-          for f in "$APP/src/new-listing-radar.js" "$APP/src/trend-pulse.js" "$APP/src/realtime-pool-pulse.js" "$APP/src/whale-flow-intel.js" "$APP/src/safe-signal-export.js"; do echo ---$f; grep -nE 'score|threshold|burst|momentum|accel|events5s|price5m|priceChange5m|volume|buyers|buySell|fresh|age|fast|promotion|pairAge|whale|liquidity|impact|WATCH|OBSERVE|ROUTE|MOMENTUM|LAUNCH' "$f" | head -180 || true; done
-          echo '=== CURRENT CANDIDATE MATRIX ==='
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
+          echo '=== RADAR TOP ==='; sed -n '1,95p' "$APP/src/new-listing-radar.js"
+          echo '=== REALTIME TOP / DESIRED ==='; sed -n '1,125p' "$APP/src/realtime-pool-pulse.js"
+          echo '=== WHALE TOP / PICK ==='; sed -n '1,155p' "$APP/src/whale-flow-intel.js"
+          echo '=== SIGNAL AUDIT / ROUTER / MAIN ==='; sed -n '20,135p' "$APP/src/safe-signal-export.js"; sed -n '180,335p' "$APP/src/safe-signal-export.js"
+          echo '=== SCANNER ORDER ==='; grep -nE 'candidates|sort\(|slice\(|radar|new-listing|fastDiscovery|score|netBuyers|liquidity' "$APP/src/scanner.js" | tail -180 || true
+          echo '=== HOT SNAPSHOT CROSSCHECK ==='
           python3 - <<'PY'
           import json,pathlib,time
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          def read(n):
-            p=rt/n
-            try:return json.loads(p.read_text())
+          def r(n):
+            try:return json.loads((rt/n).read_text())
             except:return {}
-          sig=read('signal-snapshot.json'); trend=read('trend-pulse.json'); real=read('realtime-pool-pulse.json'); whale=read('whale-flow-intel.json'); radar=read('new-listing-radar.json')
-          tr={x.get('mint'):x for x in trend.get('rows',[]) if isinstance(x,dict)}
-          rr={x.get('mint'):x for x in real.get('rows',[]) if isinstance(x,dict)}
-          ww={x.get('mint'):x for x in whale.get('rows',[]) if isinstance(x,dict)}
-          rows=[]
-          for x in sig.get('candidates',[]):
-            if not isinstance(x,dict):continue
-            m=x.get('mint'); t=tr.get(m,{}) or {}; r=rr.get(m,{}) or {}; w=ww.get(m,{}) or {}; sr=x.get('strategyRouter') or {}; rd=sr.get('radar') or {}
-            rows.append({
-              'symbol':x.get('symbol'),'mint':m,'score':x.get('score'),'decision':x.get('decision'),'security':x.get('securityDecision'),'holder':x.get('holderClusterDecision'),'insider':x.get('insiderRiskDecision'),'hardReject':x.get('hardReject'),'sellRoute':x.get('sellRoute'),'token2022':x.get('token2022'),'liq':x.get('liquidityUsd'),'impact':x.get('sellPriceImpactPct'),'chg5m':x.get('priceChange5m'),'net5m':x.get('netBuyers5m'),'bs5m':x.get('buySellRatio5m'),'avgNet2':x.get('avgNetBuyersLast2'),'slope2':x.get('scoreSlopeLast2'),'pulse':t.get('pulseScore'),'pstatus':t.get('status'),'volAccel':t.get('volumeAcceleration'),'txnAccel':t.get('txnAcceleration'),'pprice5m':t.get('price5m'),'pbs':t.get('buySellRatio'),'rtEvents':r.get('events5s'),'rtMom':r.get('eventMomentum'),'rtAge':r.get('lastEventAgeMs'),'whaleScore':w.get('whaleFlowScore'),'pairAge':rd.get('pairAgeSec'),'fastLane':rd.get('fastDiscoveryLane'),'selectedLane':sr.get('selectedLane'),'promotion':sr.get('promotionEligible')})
-          rows.sort(key=lambda z:(z.get('score') or -999),reverse=True)
-          for z in rows[:20]: print(json.dumps(z,separators=(',',':'),ensure_ascii=False))
-          for n in ['micro-live-gate.json','capital-observability.json','allocator-status.json','portfolio-observability.json','last-execution.json']:
-            p=rt/n
-            if p.exists(): print(n,'ageSec',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          sig=r('signal-snapshot.json'); radar=r('new-listing-radar.json'); realtime=r('realtime-pool-pulse.json'); whale=r('whale-flow-intel.json'); trend=r('trend-pulse.json')
+          hot=sorted((radar.get('candidates') or []),key=lambda x:(x.get('discoveryPriority') or x.get('preScore') or 0),reverse=True)[:12]
+          sm={x.get('mint'):x for x in sig.get('candidates',[]) if isinstance(x,dict)}; rm={x.get('mint'):x for x in realtime.get('rows',[]) if isinstance(x,dict)}; wm={x.get('mint'):x for x in whale.get('rows',[]) if isinstance(x,dict)}; tm={x.get('mint'):x for x in trend.get('rows',[]) if isinstance(x,dict)}
+          for x in hot:
+            m=x.get('mint'); s=sm.get(m,{}) or {}; q=rm.get(m,{}) or {}; w=wm.get(m,{}) or {}; t=tm.get(m,{}) or {}
+            print({'symbol':x.get('symbol'),'mint':m,'fast':x.get('fastDiscoveryLane'),'priority':x.get('discoveryPriority'),'age':x.get('pairAgeSec'),'preScore':x.get('preScore'),'radarBuys5m':x.get('buys5m'),'radarVol5m':x.get('volume5m'),'radarChg5m':x.get('priceChange5m'),'signalDecision':s.get('decision'),'score':s.get('score'),'security':s.get('securityDecision'),'holder':s.get('holderClusterDecision'),'insider':s.get('insiderRiskDecision'),'hardReject':s.get('hardReject'),'sellRoute':s.get('sellRoute'),'rtSubscribed':q.get('subscribed'),'rtEvents5s':q.get('events5s'),'rtMom':q.get('eventMomentum'),'rtAge':q.get('lastEventAgeMs'),'whaleSource':w.get('sourceMode'),'whaleAgeMs':(time.time()*1000-(time.mktime(time.strptime(w.get('observedAt')[:19],'%Y-%m-%dT%H:%M:%S'))*1000) if w.get('observedAt') else None),'pulse':t.get('pulseScore'),'status':t.get('status'),'volAccel':t.get('volumeAcceleration'),'txnAccel':t.get('txnAcceleration')})
+          print('REALTIME_META',{k:realtime.get(k) for k in ['status','hotsetLimit','desiredRefreshMs','reconcileMs','snapshotMs','desiredSetSize','activeSetSize','fastSubscriptions','heldSubscriptions','lastError','reconnectFailures']})
+          print('WHALE_META',{k:whale.get(k) for k in ['status','cycleMs','rpcSpacingMs','oneMintPerCycle','inspectedMint','inspectedKind','heldQueueSize','otherQueueSize','error']})
           PY
-          echo V408_PREBREAKOUT_AUDIT=COMPLETE
+          echo V408B_SCHEDULING_AUDIT=COMPLETE
