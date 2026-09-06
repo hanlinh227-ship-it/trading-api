@@ -1,0 +1,33 @@
+name: Meme Alpha v3.74 Sizing Contract Diagnostic
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v374-sizing-diagnostic.yml'
+jobs:
+  diagnose:
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inspect active executor sizing contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          F="$APP/src/micro-live-executor.js"
+          test -s "$F"
+          echo 'V374_SIZING_DIAGNOSTIC=START'
+          grep -nE 'size|amount|allocation|notional|position|buy|entry|equity|portfolio|reserve|risk|signal|candidate|qty|quantity|lamport|usdc|solAmount|max.*(trade|position|buy)|scale' "$F" \
+            | grep -vE 'secret|private|seed|mnemonic|keypair|password|authorization|credential' \
+            | head -n 400 || true
+          echo '--- runtime signal candidate keys ---'
+          /usr/bin/node - "$APP/runtime-status/signal-snapshot.json" <<'NODE'
+          const fs=require('fs'); const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8')); const c=(x.candidates||[])[0]||{};
+          console.log(Object.keys(c).sort().join('\n'));
+          NODE
+          echo '--- portfolio keys ---'
+          /usr/bin/node - "$APP/runtime-status/portfolio-observability.json" <<'NODE'
+          const fs=require('fs'); const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8')); console.log(Object.keys(x).sort().join('\n'));
+          NODE
+          echo 'V374_SIZING_DIAGNOSTIC=END'
