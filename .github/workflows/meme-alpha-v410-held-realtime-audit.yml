@@ -1,4 +1,4 @@
-name: Meme Alpha V410 Held Realtime Audit
+name: Meme Alpha V410B Held Pair Source Audit
 on:
   push:
     branches: [main]
@@ -11,32 +11,33 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect realtime held-position source and permissions
+      - name: Inspect executor position schema and trusted pair mapping
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; RTP="$APP/src/realtime-pool-pulse.js"
-          echo '=== REALTIME UNIT ==='; systemctl cat meme-alpha-realtime-pulse.service --no-pager || true
-          echo '=== HELD SOURCE CODE ==='; grep -nE 'function heldMints|heldMints\(|state.json|portfolio-observability|micro-live|positionMints|heldSubscriptions|desiredPairs|desiredSet' "$RTP" | head -160 || true
-          sed -n '1,145p' "$RTP"
-          echo '=== SOURCE PERMISSIONS ==='
-          ls -ld /var/lib/meme-alpha /var/lib/meme-alpha/data /var/lib/meme-alpha/data/micro-live /var/lib/meme-alpha/data/paper /opt/meme-alpha/app/runtime-status 2>/dev/null || true
-          ls -l /var/lib/meme-alpha/data/micro-live/state.json /opt/meme-alpha/app/runtime-status/portfolio-observability.json 2>/dev/null || true
-          echo '=== TEST READ AS REALTIME USER ==='
-          RU=$(systemctl show meme-alpha-realtime-pulse.service -p User --value); echo REALTIME_USER="$RU"
-          if [ -n "$RU" ]; then
-            runuser -u "$RU" -- sh -c 'for p in /var/lib/meme-alpha/data/micro-live/state.json /opt/meme-alpha/app/runtime-status/portfolio-observability.json; do echo PATH=$p; test -r "$p" && echo READABLE=YES || echo READABLE=NO; done' || true
-          fi
-          echo '=== RUNTIME CROSSCHECK ==='
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"
+          echo '=== EXECUTOR POSITION SCHEMA ==='
+          grep -nE 'statePath|positions\.push|pairAddress|pair:|entryPair|mint-pair-cache|MICRO_BUY|MICRO_SCALE_IN|positionMints' "$EXE" | head -260 || true
+          echo '=== PORTFOLIO OBS WRITER ==='
+          grep -RniE 'portfolio-observability|positionMints|stateReadable' "$APP/src" "$APP/run-paper.sh" 2>/dev/null | head -180 || true
+          echo '=== HELD PAIR SOURCES ==='
           python3 - <<'PY'
           import json,pathlib,time
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for n in ['realtime-pool-pulse.json','portfolio-observability.json','micro-live-gate.json','allocator-status.json']:
-            p=rt/n
-            if p.exists(): print(n,'ageSec=',round(time.time()-p.stat().st_mtime,2),json.loads(p.read_text()))
-          p=pathlib.Path('/var/lib/meme-alpha/data/micro-live/state.json')
-          try:
-            x=json.loads(p.read_text()); print('MICRO_STATE_POSITIONS',len(x.get('positions') or x.get('openPositions') or []),[(z.get('symbol'),z.get('mint')) for z in (x.get('positions') or x.get('openPositions') or [])])
-          except Exception as e: print('MICRO_STATE_READ_ERROR',repr(e))
+          obs=json.loads((rt/'portfolio-observability.json').read_text()); held=obs.get('positionMints') or []
+          cache=json.loads((rt/'mint-pair-cache.json').read_text()); entries=cache.get('entries') or []
+          by={x.get('mint'):x for x in entries if isinstance(x,dict)}
+          radar=json.loads((rt/'new-listing-radar.json').read_text()); sig=json.loads((rt/'signal-snapshot.json').read_text()); real=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          rr={x.get('mint'):x for x in radar.get('candidates',[]) if isinstance(x,dict)}; ss={x.get('mint'):x for x in sig.get('candidates',[]) if isinstance(x,dict)}; rtrows={x.get('mint'):x for x in real.get('rows',[]) if isinstance(x,dict)}
+          print('HELD_TOTAL',len(held))
+          for m in held:
+            c=by.get(m); r=rr.get(m) or {}; s=ss.get(m) or {}; q=rtrows.get(m) or {}
+            print({'mint':m,'cachePair':(c or {}).get('pair'),'cacheSource':(c or {}).get('source'),'cacheSymbol':(c or {}).get('symbol'),'radarPair':r.get('pairAddress') or r.get('pair'),'radarSymbol':r.get('symbol'),'signalPair':s.get('pairAddress') or s.get('pair'),'signalSymbol':s.get('symbol'),'realtimePair':q.get('pair'),'realtimeHeld':q.get('held')})
+          le=rt/'last-execution.json'
+          if le.exists(): print('LAST_EXECUTION',json.loads(le.read_text()))
+          cap=rt/'capital-observability.json'
+          if cap.exists(): print('CAPITAL',json.loads(cap.read_text()))
           PY
-          echo V410_HELD_REALTIME_AUDIT=COMPLETE
+          echo '=== RECENT BUY EVENTS / PAIR FIELDS ==='
+          grep -RhsE 'MICRO_BUY|MICRO_SCALE_IN' /opt/meme-alpha/app/runtime-status /var/lib/meme-alpha/data/micro-live 2>/dev/null | tail -40 || true
+          echo V410B_HELD_PAIR_SOURCE_AUDIT=COMPLETE
