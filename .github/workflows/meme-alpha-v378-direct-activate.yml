@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Gate Inspect
+name: Meme Alpha V379 Source Inspect
 
 on:
   push:
@@ -6,30 +6,22 @@ on:
     paths:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
-permissions:
-  contents: write
-
 jobs:
   inspect:
     runs-on: self-hosted
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect v379 blockers
+      - name: Inspect exact source
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
-          echo '--- ARM FILE ---'
-          ls -l /etc/meme-alpha/micro-live-armed 2>&1 || true
-          sed -n '1,40p' /etc/meme-alpha/micro-live-armed 2>&1 || true
-          echo '--- ARM EXPECTATION IN SOURCE ---'
-          grep -RniE 'micro-live-armed|ROOT_ARMING_FILE_ABSENT_OR_INVALID|armOk|ARMED=' "$APP/src" 2>/dev/null | head -n 160 || true
-          echo '--- RISK SOURCE HEALTH LOGIC ---'
-          grep -RniE 'SOURCE_HEALTH_DEGRADED|sourceHealthy|riskEntryAllowed|liveRiskReady' "$APP/src" 2>/dev/null | head -n 220 || true
-          echo '--- CURRENT GATE ---'
-          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
-          echo '--- CURRENT SOURCE HEALTH ---'
-          cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
-          echo '--- EXEC ENTRY CONSTANTS ---'
-          grep -nE 'function opportunityLane|function trendEntryEligible|function rotationSource|basePct=' "$APP/src/micro-live-executor.js" 2>/dev/null || true
+          echo '--- MICRO LIVE GATE SOURCE ---'
+          sed -n '1,180p' "$APP/src/micro-live-gate.js" 2>/dev/null || true
+          echo '--- RISK SOURCE ---'
+          sed -n '1,180p' "$APP/src/risk.js" 2>/dev/null || true
+          echo '--- HEALTH FILE REFERENCES ---'
+          grep -RniE 'scanner-source-health|source-health|allowNewEntries|successfulSources|usingCache' "$APP/src" 2>/dev/null | head -n 260 || true
+          echo '--- EXISTING HEALTH FILES ---'
+          find /opt/meme-alpha /var/lib/meme-alpha -maxdepth 5 -type f \( -iname '*source*health*.json' -o -iname '*scanner*health*.json' \) -print -exec sh -c 'echo FILE=$1; tail -c 5000 "$1" 2>/dev/null || true; echo' _ {} \; 2>/dev/null | head -n 500 || true
