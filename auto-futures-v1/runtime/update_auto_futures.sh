@@ -43,9 +43,19 @@ systemctl stop auto-futures-scan.timer auto-futures-scan.service 2>/dev/null || 
 git fetch origin "$BRANCH";git checkout -f "$BRANCH";git reset --hard "origin/$BRANCH";log "GITHUB SOURCE SYNC PASS: $(git rev-parse HEAD)"
 # Critical second pass: EARLY ran the pre-sync script. Rebind to the freshly pulled
 # reconcile code and execute it immediately, before the slower Auto-Futures bootstrap.
-# This closes the upgrade window where the old healer could not repair a missing ARM.
 MEME_RECON="$BOT/runtime/deploy_meme_alpha_v382_reconcile.sh"
 run_meme_reconcile POST_SYNC
+
+# v3.83 breadth-only scanner deployment: inspect more radar candidates per scan while
+# preserving security/holder/token2022/sell-route/liquidity/impact hard gates.
+MEME_V383="$BOT/runtime/deploy_meme_alpha_v383_scanner_breadth.sh"
+if [[ -f "$MEME_V383" ]]; then
+  set +e
+  V383_OUT="$(/bin/bash "$MEME_V383" 2>&1)"; V383_RC=$?
+  set -e
+  log "MEME_V383_SCANNER rc=$V383_RC result=$(echo "$V383_OUT" | tail -n 1)"
+fi
+
 FILES=( auto-futures-v1/paper_trader.py auto-futures-v1/ai/common.py auto-futures-v1/ai/ai_budget_governor.py auto-futures-v1/ai/ai_coordination.py auto-futures-v1/ai/claude_trader.py auto-futures-v1/ai/deepseek_trader.py auto-futures-v1/ai/codex_trader.py auto-futures-v1/ai/consensus.py auto-futures-v1/risk/risk_engine.py auto-futures-v1/execution/execution_guard.py auto-futures-v1/execution/live_preflight.py auto-futures-v1/execution/approval_queue.py auto-futures-v1/execution/live_executor.py auto-futures-v1/execution/hub_control_bridge.py auto-futures-v1/research/market_context_monitor.py auto-futures-v1/research/signal_quality_guard.py auto-futures-v1/research/reliability_learner.py auto-futures-v1/position/ai_position_guardian.py auto-futures-v1/position/position_manager.py signal-only-v10/ai_council_worker.py )
 for f in "${FILES[@]}";do [[ -f "$ROOT/$f" ]]||{ log "FAIL missing=$f";exit 30;};done
 python3 -m py_compile "${FILES[@]}";bash -n "$BOT/run_pipeline.sh" "$BOT/runtime/scan_loop.sh" "$BOT/runtime/watch_github.sh" "$BOT/runtime/update_auto_futures.sh" "$BOT/runtime/unified_bootstrap.sh" "$ROOT/signal-only-v10/runtime/install_signal_v10.sh";log "STATIC VALIDATION PASS"
