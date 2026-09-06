@@ -41,12 +41,16 @@ jobs:
                   for reason in c.get(k) or []:
                       if isinstance(reason,str): counts[k+':'+reason]+=1
           print(json.dumps({'signalTimestamp':d.get('timestamp'),'count':len(rows),'intelSummary':d.get('intelSummary'),'blockReasons':dict(counts)}))
-          for filename, start, end in [('scanner.js',1015,1180),('safe-signal-export.js',180,215)]:
-              lines=(root/'src'/filename).read_text().splitlines()
-              snippet='\n'.join(f'{i+1}: {lines[i]}' for i in range(start-1,min(end,len(lines))))
-              if re.search(r'(?:sk-[A-Za-z0-9]{20}|ghp_[A-Za-z0-9]+|BEGIN .*PRIVATE KEY)',snippet):
-                  raise RuntimeError('SOURCE_REDACTION_REQUIRED')
-              print(json.dumps({'sourceSlice':filename,'start':start,'end':end,'text':snippet}))
+          summary_fields=['symbol','mint','score','decision','universeClass','securityDecision','holderClusterDecision','sellRoute','liquidityUsd','sellImpactPct','priceImpactPct','token2022','netBuyers5m','priceChange5m','intelMode','hardReject','securityBlockReasons','securityReviewReasons','entryGuardReasons']
+          print(json.dumps({'candidateSummaries':[{k:c.get(k) for k in summary_fields} for c in rows[:60]]}))
+          stext=(root/'src'/'scanner.js').read_text(); slines=stext.splitlines()
+          for needle in ['MEME_EVIDENCE_INSUFFICIENT','NON_MEME_UNIVERSE','universeClass','securityDecision','securityBlockReasons']:
+              hits=[]
+              for i,line in enumerate(slines,1):
+                  if needle in line:
+                      lo=max(1,i-8); hi=min(len(slines),i+12)
+                      hits.append({'line':i,'context':'\n'.join(f'{j}: {slines[j-1]}' for j in range(lo,hi+1))})
+              print(json.dumps({'scannerNeedle':needle,'hits':hits[:12]}))
           text=(root/'src'/'micro-live-gate.js').read_text()
           print(json.dumps({'gateSha256':hashlib.sha256(text.encode()).hexdigest(),'scaleLines':[line for line in text.splitlines() if 'evidenceReady' in line or 'scaleAllowed' in line or 'completed>=' in line]}))
           deploy=pathlib.Path('/usr/local/sbin/meme-alpha-safe-deploy')
