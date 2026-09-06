@@ -1,0 +1,66 @@
+name: Meme Alpha V411C Prebreakout Fix Active
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v411c-prebreakout-fix-active.yml]
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Fix candidate validate and activate V411C
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; E="$APP/src/micro-live-executor.js"; T="$APP/src/trend-pulse.js"; RUN="$APP/run-paper.sh"
+          EC="$DC/v411-executor-prebreakout.js"; TC="$DC/v411-trend-prebreakout.js"; test -f "$EC"; test -f "$TC"
+          python3 - "$EC" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="  const mode=entryMode(c);if(mode==='PREBREAKOUT')pct=Math.min(pct,14);else if(mode==='CONFIRMED_BREAKOUT')pct=Math.min(pct,Math.max(18,perPositionCap));else if(mode==='LATE'||mode==='BLOCK')pct=0;\n  return{name:'V411_PREBREAKOUT_CAPITAL',pct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode};"
+          new="  const mode=entryMode(c),finalPct=mode==='PREBREAKOUT'?Math.min(pct,14):mode==='CONFIRMED_BREAKOUT'?Math.min(pct,Math.max(18,perPositionCap)):(mode==='LATE'||mode==='BLOCK'?0:pct);\n  return{name:'V411_PREBREAKOUT_CAPITAL',pct:finalPct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode};"
+          if s.count(old)!=1: raise SystemExit(f'V411C_ALLOC_FIX_COUNT={s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check "$EC"; node --check "$TC"
+          OUT=$(node "$EC" --self-test); printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'V411_PREBREAKOUT_EARLY_PROBE=TRUE' <<<"$OUT"
+          grep -q 'V411_NO_INELIGIBLE_FALLBACK_BUY=TRUE' <<<"$OUT"
+          grep -q 'V411_ANTI_FOMO_ENTRY_CAP=TRUE' <<<"$OUT"
+          grep -q "function preBreakoutSignal" "$EC"; grep -q "status='PREBREAKOUT'" "$TC"
+          ESHA=$(sha256sum "$EC"|awk '{print $1}'); TSHA=$(sha256sum "$TC"|awk '{print $1}'); echo V411C_EXECUTOR_SHA=$ESHA; echo V411C_TREND_SHA=$TSHA
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy trend "$(basename "$TC")" "$TSHA"
+          cp "$EC" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$ESHA"
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); echo OLD_EXECUTOR_PID=$OLDPID
+          ORIG="$RT/v411c-run-paper-original.sh"; REQ="$RT/v411c-executor-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLDPID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v411c-executor-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v411c-run-paper-original.sh
+          if [ -r "$REQ" ]; then PID=$(cat "$REQ" 2>/dev/null||true); rm -f "$REQ" 2>/dev/null||true; if [ -n "$PID" ]&&[ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null||true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -KILL "$PID" 2>/dev/null||true;; esac; fi; fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 35); do sleep 2; NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEWPID" ]&&[ "$NEWPID" != "$OLDPID" ]&&systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 35 ]||exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          sleep 18
+          NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1); echo NEW_EXECUTOR_PID=$NEWPID; echo EXEC_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}'); echo ACTIVE_TREND_SHA=$(sha256sum "$T"|awk '{print $1}')
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$ESHA"; test "$(sha256sum "$T"|awk '{print $1}')" = "$TSHA"; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','trend-pulse.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,2),json.loads(p.read_text()))
+          PY
+          echo V411C_PREBREAKOUT_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
