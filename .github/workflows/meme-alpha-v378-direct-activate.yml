@@ -1,4 +1,4 @@
-name: Meme Alpha V380 Radar Expansion
+name: Meme Alpha V380 Runtime Verify
 
 on:
   push:
@@ -7,56 +7,38 @@ on:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
 jobs:
-  deploy:
+  verify:
     runs-on: self-hosted
-    timeout-minutes: 6
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Activate v380 radar expansion
+      - name: Verify v380 runtime
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v380-radar"
-          mkdir -p "$ST"
-          chmod 0777 "$ST"
-          cp "$APP/src/new-listing-radar.js" "$ST/radar.js"
-          cp "$APP/run-paper.sh" "$ST/run-paper.backup.sh"
-          python3 - "$ST/radar.js" <<'PY'
-          import re,sys
-          p=sys.argv[1]; r=open(p).read()
-          def sub1(txt,pat,repl,label):
-              out,n=re.subn(pat,repl,txt,count=1)
-              if n!=1: raise SystemExit(f'PATCH_MISMATCH_{label}_{n}')
-              return out
-          r=sub1(r,r'const MAX_CURRENT=\d+;', 'const MAX_CURRENT=720;', 'MAX_CURRENT')
-          r=sub1(r,r'const FAST_DISCOVERY_RESERVE=\d+;', 'const FAST_DISCOVERY_RESERVE=320;', 'FAST_RESERVE')
-          r=sub1(r,r'const MAX_OUTPUT=\d+;', 'const MAX_OUTPUT=900;', 'MAX_OUTPUT')
-          open(p,'w').write(r)
-          print('V380_RADAR_PATCH=PASS')
+          echo '--- HANDOFF ---'
+          cat "$APP/runtime-status/v380-radar/result.txt" 2>/dev/null || true
+          echo '--- CONSTANTS ---'
+          grep -E 'const (MAX_CURRENT|FAST_DISCOVERY_RESERVE|MAX_OUTPUT)=' "$APP/src/new-listing-radar.js"
+          echo '--- SERVICES ---'
+          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
+          echo '--- GATE ---'
+          cat "$APP/runtime-status/micro-live-gate.json"
+          echo '--- RADAR LIVE ---'
+          python3 - <<'PY'
+          import json
+          p='/opt/meme-alpha/app/runtime-status/new-listing-radar.json'
+          d=json.load(open(p))
+          print('status=',d.get('status'))
+          print('candidateCount=',len(d.get('candidates') or []))
+          print('updatedAt=',d.get('updatedAt'))
+          print('providerCount=',d.get('providerCount'))
+          print('fastProviderCount=',d.get('fastProviderCount'))
           PY
-          node --check "$ST/radar.js"
-          node "$ST/radar.js" --self-test > "$ST/radar-selftest.txt" 2>&1
-          cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v380-radar"
-          install -m 0664 "$ST/radar.js" "$APP/src/new-listing-radar.js"
-          printf 'RADAR_SWAP=TRUE\n' > "$ST/result.txt"
-          cp "$ST/run-paper.backup.sh" "$APP/run-paper.sh"
-          chmod +x "$APP/run-paper.sh"
-          exec "$APP/run-paper.sh"
-          SH
-          chmod +x "$APP/run-paper.sh"
-          sudo systemctl restart meme-alpha-paper.service
-          sleep 10
-          systemctl is-active --quiet meme-alpha-paper.service
-          systemctl is-active --quiet meme-alpha-micro-live.service
-          systemctl is-active --quiet meme-alpha-signer.service
-          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
+          grep -q 'RADAR_SWAP=TRUE' "$APP/runtime-status/v380-radar/result.txt"
           grep -q 'const MAX_CURRENT=720;' "$APP/src/new-listing-radar.js"
           grep -q 'const FAST_DISCOVERY_RESERVE=320;' "$APP/src/new-listing-radar.js"
           grep -q 'const MAX_OUTPUT=900;' "$APP/src/new-listing-radar.js"
-          printf '{"version":"3.80.0","status":"DEPLOYED","profile":"RADAR_EXPANSION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v380-deployed.json"
-          echo 'V380_ACTIVE=TRUE'
+          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
+          echo 'V380_RUNTIME_ACTIVE=TRUE'
