@@ -1,83 +1,37 @@
-name: Meme Alpha V381 Activate
+name: Meme Alpha V381 Realtime Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
-
 jobs:
-  deploy:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 8
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Activate v381 and verify runtime
+      - name: Inspect v381 realtime behavior
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          START_EPOCH=$(date +%s)
-
-          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
-          node --check "$ST/scanner.js"
-          node --check "$ST/safe-signal-export.js"
-          node --check "$ST/micro-live-executor.js"
-          node "$ST/safe-signal-export.js" --self-test > "$ST/signal-deploy-pass.txt" 2>&1
-          node "$ST/micro-live-executor.js" --self-test > "$ST/executor-deploy-pass.txt" 2>&1
-          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' "$ST/signal-deploy-pass.txt"
-          grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' "$ST/executor-deploy-pass.txt"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$ST/micro-live-executor.js"
-          grep -q "insiderRiskDecision:'BLOCK'" "$ST/micro-live-executor.js"
-
-          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v381-activate.sh"
-          chmod 0755 "$ST/run-paper.pre-v381-activate.sh"
-          cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
-          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
-          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
-          printf 'SCANNER_SWAP=TRUE\nSIGNAL_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
-          cp "$ST/run-paper.pre-v381-activate.sh" "$APP/run-paper.sh"
-          chmod 0755 "$APP/run-paper.sh"
-          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill "$p" 2>/dev/null || true; done
-          exec "$APP/run-paper.sh"
-          SH
-          chmod 0755 "$APP/run-paper.sh"
-          timeout 140s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-
-          READY=0
-          for i in $(seq 1 120); do
-            G="$APP/runtime-status/micro-live-gate.json"
-            S="$APP/runtime-status/signal-snapshot.json"
-            if grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt" 2>/dev/null \
-              && grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
-              && systemctl is-active --quiet meme-alpha-paper.service \
-              && systemctl is-active --quiet meme-alpha-micro-live.service \
-              && systemctl is-active --quiet meme-alpha-signer.service \
-              && grep -q '"allowed": true' "$G" 2>/dev/null \
-              && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
-              && grep -q '"riskEntryAllowed": true' "$G" 2>/dev/null; then
-              MT=$(stat -c %Y "$S" 2>/dev/null || echo 0)
-              if [ "$MT" -ge "$START_EPOCH" ]; then READY=1; break; fi
-            fi
-            sleep 2
-          done
-          [ "$READY" = 1 ]
-
-          echo '=== HANDOFF ==='; cat "$ST/result.txt"
-          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
-          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
-          echo '=== EXECUTOR ==='; pgrep -af 'micro-live-executor.js' || true
-          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
+          echo '=== NOW ==='; date -u +%FT%TZ
+          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
+          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1 || true
+          echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js' || true
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
           echo '=== PIPELINE ==='
           python3 - <<'PY'
           import json,os,time
-          for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json']:
-            d=json.load(open(p)); r=d.get('candidates') or []
-            print(p,{'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(r),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r),'watch':sum(x.get('decision')=='WATCH' for x in r),'ageSec':round(time.time()-os.path.getmtime(p),1)})
+          paths=['new-listing-radar.json','signal-snapshot.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json','portfolio-observability.json']
+          base='/opt/meme-alpha/app/runtime-status/'
+          for f in paths:
+            p=base+f
+            try:
+              d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
+              print(f,{'ts':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'count':len(r) if isinstance(r,list) else None,'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r) if isinstance(r,list) else None,'watch':sum(x.get('decision')=='WATCH' for x in r) if isinstance(r,list) else None,'ageSec':round(time.time()-os.path.getmtime(p),1)})
+            except Exception as e: print(f,'ERR',e)
           PY
-          printf '{"version":"3.81.0","status":"DEPLOYED","profile":"FAST_CAPITAL_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v381-deployed.json"
-          echo V381_ACTIVE=TRUE
+          echo '=== RECENT EVENTS 120 ==='; tail -n 120 /var/lib/meme-alpha/data/micro-live/events.jsonl 2>/dev/null || true
+          echo '=== EXECUTOR LOG 120 ==='; journalctl -u meme-alpha-micro-live.service -n 120 --no-pager 2>/dev/null || true
+          echo '=== PAPER LOG 80 ==='; journalctl -u meme-alpha-paper.service -n 80 --no-pager 2>/dev/null || true
+          exit 0
