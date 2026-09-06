@@ -1,0 +1,63 @@
+name: Meme Alpha V377 Live Verify v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v377-live-verify-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify production after mode repair
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V377-LIVE-V2.md"
+          ROOT=/opt/trading/trading-api
+          APP=/opt/meme-alpha/app
+          SIGNER=/opt/meme-alpha-signer/ready_signer.py
+          EXPECT=4beac900808d1ebbf318aba42e7674f611a80cde
+          LOCAL="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo UNKNOWN)"
+          REMOTE="$(git ls-remote https://github.com/hanlinh227-ship-it/trading-api.git refs/heads/auto-futures-v1 2>/dev/null | awk '{print $1}' || true)"
+          HOOK="$ROOT/auto-futures-v1/runtime/deploy_meme_alpha_v377.sh"
+          if [[ -x "$HOOK" ]]; then HOOK_OK=true; else HOOK_OK=false; fi
+          if grep -q '3.77.0-objective-insider-risk' "$APP/src/safe-signal-export.js" 2>/dev/null \
+             && grep -q 'function insiderSafe(c)' "$APP/src/micro-live-executor.js" 2>/dev/null \
+             && grep -q 'def objective_insider_ok(c):' "$SIGNER" 2>/dev/null \
+             && grep -q "'version':'8.0'" "$SIGNER" 2>/dev/null; then LIVE=true; else LIVE=false; fi
+          cat > "$OUT" <<EOF
+          # Meme Alpha V377 Production Verify v2
+
+          - root_repo_synced_to_mode_repair_commit: \`$([[ "$LOCAL" == "$EXPECT" ]] && echo true || echo false)\`
+          - remote_branch_is_mode_repair_commit: \`$([[ "$REMOTE" == "$EXPECT" ]] && echo true || echo false)\`
+          - root_deploy_hook_executable: \`$HOOK_OK\`
+          - objective_insider_hardening_live: \`$LIVE\`
+          - deployment_marker_present: \`$([[ -f "$APP/runtime-status/v377-deployed.json" ]] && echo true || echo false)\`
+          - maintenance_drain_active: \`$([[ -f /var/lib/meme-alpha/deploy-v377-maintenance.json ]] && echo true || echo false)\`
+          - updater_timer: \`$(systemctl is-active auto-futures-update.timer 2>/dev/null || echo unknown)\`
+          - updater_service_state: \`$(systemctl is-active auto-futures-update.service 2>/dev/null || true)\`
+          - paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`
+          - micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`
+          - signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`
+          - checked_at_utc: \`$(date -u +%FT%TZ)\`
+          EOF
+      - name: Commit verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/V377-LIVE-V2.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(meme): verify v377 after executable mode repair"
+          git push origin HEAD:main
