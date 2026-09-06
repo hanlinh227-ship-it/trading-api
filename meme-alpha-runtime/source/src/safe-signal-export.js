@@ -5,7 +5,7 @@ const OUT='/opt/meme-alpha/app/runtime-status/signal-snapshot.json';
 const REALTIME='/opt/meme-alpha/app/runtime-status/realtime-pool-pulse.json';
 const WHALE='/opt/meme-alpha/app/runtime-status/whale-flow-intel.json';
 const SELF_TEST=process.argv.includes('--self-test');
-const VERSION='3.76.0-multi-strategy-router';
+const VERSION='3.77.0-objective-insider-risk';
 
 const readFile=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
 const read=(n,d={})=>readFile(`${P}/${n}`,d);
@@ -128,6 +128,19 @@ function guardCandidate(c,rt,wh,regime){
   let decision=c.decision;
   const securityDecision=hardReject.some(x=>String(x).startsWith('V369_'))?'BLOCK':c.securityDecision;
   const holderDecision=c.holderClusterAudit?.decision||c.holderClusterDecision||null;
+  const holderMaxAccounts=num(c.holderClusterAudit?.maxAccountsSameOwner,c.holderClusterMaxAccountsSameOwner??999);
+  const holderTopPct=finite(c.topHoldersPct)?Number(c.topHoldersPct):null;
+  const whaleTop10Pct=finite(intel.whaleRow?.top10Pct)?Number(intel.whaleRow.top10Pct):null;
+  const whaleDeltaTop10Pct=finite(intel.whaleRow?.deltaTop10Pct)?Number(intel.whaleRow.deltaTop10Pct):null;
+  const insiderRiskReasons=[];
+  let insiderRiskDecision='PASS';
+  const insiderReview=r=>{insiderRiskReasons.push(r);if(insiderRiskDecision!=='BLOCK')insiderRiskDecision='REVIEW'};
+  const insiderBlock=r=>{insiderRiskReasons.push(r);insiderRiskDecision='BLOCK'};
+  if(holderDecision==='BLOCK')insiderBlock('HOLDER_CLUSTER_BLOCK');else if(holderDecision!=='PASS')insiderReview('HOLDER_CLUSTER_NOT_PASS');
+  if(holderTopPct===null)insiderReview('TOP_HOLDERS_UNKNOWN');else if(holderTopPct>50)insiderBlock('TOP_HOLDERS_OVER_50');else if(holderTopPct>35)insiderReview('TOP_HOLDERS_OVER_35');
+  if(holderMaxAccounts>=5)insiderBlock('SEVERE_MULTI_ACCOUNT_OWNER_CLUSTER');else if(holderMaxAccounts>=3)insiderReview('MULTI_ACCOUNT_OWNER_CLUSTER');
+  if(whaleTop10Pct!==null&&whaleTop10Pct>=70&&whaleTop10Pct<100)insiderBlock('WHALE_TOP10_CONCENTRATION');
+  if(whaleDeltaTop10Pct!==null&&whaleDeltaTop10Pct>=8)insiderBlock('WHALE_CONCENTRATION_SPIKE');
   if(!intel.entryAllowed){entryGuardReasons.push('V369_BOTH_INTEL_FEEDS_DOWN');if(decision==='PROBE_CANDIDATE')decision='INTEL_DEGRADED'}
   if(c.needsExtensionAudit===true&&decision==='PROBE_CANDIDATE'){entryGuardReasons.push('V369_EXTENSION_AUDIT_REQUIRED');decision='EXTENSION_AUDIT_REQUIRED'}
 
@@ -136,11 +149,12 @@ function guardCandidate(c,rt,wh,regime){
   if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){
     decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);
   }
+  if(insiderRiskDecision!=='PASS'&&decision==='PROBE_CANDIDATE'){decision='INSIDER_RISK_BLOCK';entryGuardReasons.push(`V377_INSIDER_${insiderRiskDecision}`);}
   const originalScore=num(c.score);
   const score=router.promotionEligible?router.effectiveScore:Number((originalScore*intel.haircut).toFixed(4));
   return {
     mint:c.mint,symbol:c.symbol,name:c.name,score,originalScore,decision,universeClass:c.universeClass,universeConfidence:c.universeConfidence,
-    securityDecision,holderClusterDecision:holderDecision,devIdentityProven:c.holderClusterAudit?.devIdentityProven===true,holderClusterMaxAccountsSameOwner:num(c.holderClusterAudit?.maxAccountsSameOwner),
+    securityDecision,holderClusterDecision:holderDecision,insiderRiskDecision,insiderRiskReasons:[...new Set(insiderRiskReasons)],insiderRiskModel:'OBJECTIVE_ONCHAIN_CONCENTRATION_V1',devIdentityStatus:c.holderClusterAudit?.devIdentityProven===true?'PROVEN':'UNATTRIBUTED',devIdentityProven:c.holderClusterAudit?.devIdentityProven===true,holderClusterMaxAccountsSameOwner:holderMaxAccounts,
     hardReject,entryGuardReasons,token2022:!!c.token2022,pairAddress:c.pairAddress||null,sellRoute:c.sellRoute===true?true:(c.sellRoute===false?false:null),liquidityUsd:num(c.liquidityUsd),
     sellPriceImpactPct:finite(c.sellPriceImpactPct)?Number(c.sellPriceImpactPct):null,sellQuoteHttp:c.sellQuoteHttp??null,sellQuoteError:c.sellQuoteError??null,
     sellImpactPct:finite(c.sellPriceImpactPct)?Number(c.sellPriceImpactPct):(finite(c.sellImpactPct)?Number(c.sellImpactPct):(finite(c.priceImpactPct)?Number(c.priceImpactPct):null)),priceImpactPct:finite(c.priceImpactPct)?Number(c.priceImpactPct):null,
@@ -160,19 +174,23 @@ if(SELF_TEST){
   const wh={status:'HEALTHY',updatedAt:now,rows:[]};
   const regime={name:'HOT_MOMENTUM'};
   globalThis.__persistFind=m=>m==='R'?{consecutiveEligible:1,metrics:{avgNetBuyersLast2:9,scoreSlopeLast2:1.5,liquidityStableLast2:true}}:{consecutiveEligible:0,metrics:{fastTrackReady:false,liquidityStableLast2:true}};
-  const common={decision:'WATCH',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',sellRoute:true,sellPriceImpactPct:.4,token2022:false,mintAuthorityDisabled:true,freezeAuthorityDisabled:true};
+  const common={decision:'WATCH',universeClass:'MEME_CONFIRMED',securityDecision:'PASS',holderClusterDecision:'PASS',holderClusterAudit:{decision:'PASS',maxAccountsSameOwner:1,devIdentityProven:false},topHoldersPct:20,sellRoute:true,sellPriceImpactPct:.4,token2022:false,mintAuthorityDisabled:true,freezeAuthorityDisabled:true};
   const launch=guardCandidate({...common,mint:'L',score:60,liquidityUsd:180000,netBuyers5m:18,priceChange5m:2,buyVolume5m:250,sellVolume5m:120,newListingRadar:{fastDiscoveryLane:true,pairAgeSec:500}},rt,wh,regime);
   if(launch.decision!=='PROBE_CANDIDATE'||launch.strategyRouter.selectedLane!=='LAUNCH_FAST'||launch.score<58)throw new Error('LAUNCH_ROUTER_SELFTEST');
   const unsafe=guardCandidate({...common,mint:'B',score:80,liquidityUsd:500000,netBuyers5m:30,priceChange5m:3,buyVolume5m:300,sellVolume5m:100,token2022:true},rt,wh,regime);
   if(unsafe.decision==='PROBE_CANDIDATE'||!unsafe.hardReject.includes('V369_TOKEN2022_DANGEROUS'))throw new Error('HARD_GUARD_BYPASS_SELFTEST');
   const review=guardCandidate({...common,mint:'R',score:75,securityDecision:'REVIEW',liquidityUsd:700000,netBuyers5m:20,priceChange5m:2,buyVolume5m:300,sellVolume5m:100},rt,wh,regime);
   if(review.decision==='PROBE_CANDIDATE')throw new Error('SECURITY_REVIEW_PROMOTION_SELFTEST');
+  const insider=guardCandidate({...common,mint:'I',score:85,liquidityUsd:700000,netBuyers5m:20,priceChange5m:2,buyVolume5m:300,sellVolume5m:100,holderClusterAudit:{decision:'REVIEW',maxAccountsSameOwner:3,devIdentityProven:false}},rt,wh,regime);
+  if(insider.decision==='PROBE_CANDIDATE'||insider.insiderRiskDecision==='PASS')throw new Error('INSIDER_RISK_PROMOTION_SELFTEST');
   const down=guardCandidate({...common,mint:'X',score:90,decision:'PROBE_CANDIDATE',liquidityUsd:500000}, {}, {},regime);if(down.decision==='PROBE_CANDIDATE')throw new Error('BOTH_FEEDS_DOWN_LEAK_SELFTEST');
   console.log('V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS');
   console.log('LANES=LAUNCH_FAST,MOMENTUM,RECOVERY_FLOW,ESTABLISHED_ROTATION');
   console.log('EXECUTOR_CORE_SAFETY_CONTRACT_PRESERVED=TRUE');
   console.log('SECURITY_PASS_REQUIRED=TRUE');
   console.log('HOLDER_PASS_REQUIRED=TRUE');
+  console.log('OBJECTIVE_INSIDER_RISK_PASS_REQUIRED=TRUE');
+  console.log('DEV_IDENTITY_UNKNOWN_IS_NOT_MISREPRESENTED=TRUE');
   console.log('SELL_ROUTE_REQUIRED=TRUE');
   console.log('TOKEN2022_HARD_BLOCK_PRESERVED=TRUE');
   console.log('BOTH_FEEDS_DOWN_FAIL_CLOSED=TRUE');

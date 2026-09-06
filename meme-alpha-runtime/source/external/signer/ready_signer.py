@@ -78,6 +78,19 @@ def gate(p):
  path=str(p['gatePath']);g=readj(path)
  return g if file_fresh(path,180) and g.get('version')=='2.4.0' else {}
 def hard_empty(v):return len(v)==0 if isinstance(v,list) else not bool(v)
+def objective_insider_ok(c):
+ try:
+  top=float(c.get('topHoldersPct'));cluster=int(c.get('holderClusterMaxAccountsSameOwner'))
+ except:return False
+ if c.get('insiderRiskDecision')!='PASS' or top>35 or cluster>2:return False
+ wt=c.get('whaleTop10Pct');wd=c.get('whaleDeltaTop10Pct')
+ try:
+  if wt is not None and 70<=float(wt)<100:return False
+ except:return False
+ try:
+  if wd is not None and float(wd)>=8:return False
+ except:return False
+ return True
 def candidate_ok(mint_out,p):
  path=str(p['signalPath']);s=readj(path)
  if not file_fresh(path,180):return False
@@ -88,7 +101,7 @@ def candidate_ok(mint_out,p):
   try:
    impact=abs(float(impact));base=float(c.get('score',0));liq=float(c.get('liquidityUsd',0));scan_chg=float(c.get('priceChange5m'));net=float(c.get('netBuyers5m'));avg=float(c.get('avgNetBuyersLast2') if c.get('avgNetBuyersLast2') is not None else net);slope=float(c.get('scoreSlopeLast2') if c.get('scoreSlopeLast2') is not None else 0);con=int(c.get('consecutiveEligible',0))
   except:return False
-  hard=c.get('universeClass')=='MEME_CONFIRMED' and c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('decision')=='PROBE_CANDIDATE' and not c.get('token2022') and c.get('sellRoute') is True and hard_empty(c.get('hardReject')) and liq>=50000 and impact<=float(p['maxBuyPriceImpactPct'])
+  hard=c.get('universeClass')=='MEME_CONFIRMED' and c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and objective_insider_ok(c) and c.get('decision')=='PROBE_CANDIDATE' and not c.get('token2022') and c.get('sellRoute') is True and hard_empty(c.get('hardReject')) and liq>=50000 and impact<=float(p['maxBuyPriceImpactPct'])
   if not hard or con<1 or base<58:return False
   pulse=next((x for x in rows if x.get('mint')==mint_out),None);score=base;chg=scan_chg;pulse_flow=False
   if pulse:
@@ -101,7 +114,7 @@ def candidate_ok(mint_out,p):
   return chg>=floor and chg<=15 and (buyer_flow or fast_flow) and slope>=-4 and stable and (standard or liquid or flow)
  return False
 def rpc_balance(address,p):
- body=json.dumps({'jsonrpc':'2.0','id':1,'method':'getBalance','params':[address,{'commitment':'confirmed'}]}).encode();q=urllib.request.Request(str(p['rpcUrl']),data=body,headers={'content-type':'application/json','user-agent':'meme-alpha-signer-v7'})
+ body=json.dumps({'jsonrpc':'2.0','id':1,'method':'getBalance','params':[address,{'commitment':'confirmed'}]}).encode();q=urllib.request.Request(str(p['rpcUrl']),data=body,headers={'content-type':'application/json','user-agent':'meme-alpha-signer-v8'})
  with urllib.request.urlopen(q,timeout=8) as r:j=json.loads(r.read())
  if 'error' in j:raise ValueError('RPC_BALANCE')
  return int(j['result']['value'])
@@ -123,7 +136,7 @@ def mint(v):
  if not isinstance(v,str) or len(b58d(v))!=32:raise ValueError('MINT')
  return v
 def get(url):
- q=urllib.request.Request(url,headers={'accept':'application/json','user-agent':'meme-alpha-signer-v7'});
+ q=urllib.request.Request(url,headers={'accept':'application/json','user-agent':'meme-alpha-signer-v8'});
  with urllib.request.urlopen(q,timeout=10) as r:return json.loads(r.read())
 def buy_limit(address,p):
  bal=rpc_balance(address,p);by_pct=int(bal*float(p['maxSingleBuyPctOfBalance'])/100);by_reserve=max(0,bal-int(p['reserveLamports']));return bal,max(0,min(by_pct,by_reserve))
@@ -159,7 +172,7 @@ def serve(c,seed,pkey,address,p):
  try:r=json.loads(d.decode().strip() or '{}')
  except:return reply(c,{'ok':False,'error':'INVALID_JSON'})
  op=r.get('op')
- if op=='health':return reply(c,{'ok':True,'service':'meme-alpha-signer','version':'7.0','mode':'READY' if seed else 'LOCKED','walletLoaded':bool(seed),'signingEnabled':bool(seed and root_file(ENABLE,'ARMED=YES')),'publicKey':address,'arbitraryRawSign':False,'buyPolicy':'FAST_TREND_9_10_HARD_SAFETY_STAGED_CAPITAL','maxPortfolioUtilizationPct':p['maxPortfolioUtilizationPct']})
+ if op=='health':return reply(c,{'ok':True,'service':'meme-alpha-signer','version':'8.0','mode':'READY' if seed else 'LOCKED','walletLoaded':bool(seed),'signingEnabled':bool(seed and root_file(ENABLE,'ARMED=YES')),'publicKey':address,'arbitraryRawSign':False,'buyPolicy':'FAST_TREND_OBJECTIVE_INSIDER_HARD_SAFETY_STAGED_CAPITAL','maxPortfolioUtilizationPct':p['maxPortfolioUtilizationPct']})
  if op=='publicKey':return reply(c,{'ok':bool(seed),'publicKey':address,'error':None if seed else 'NO_WALLET'})
  if op=='order':
   if not seed:return reply(c,{'ok':False,'error':'NO_WALLET'})
@@ -169,7 +182,7 @@ def serve(c,seed,pkey,address,p):
  return reply(c,{'ok':False,'error':'UNSUPPORTED_OPERATION'})
 def selftest():
  seed=os.urandom(32);pk=pub(seed);msg=bytes([1,0,0,1])+pk+b'\0'*32+bytes([0]);tx=bytes([1])+b'\0'*64+msg;s=sign_tx(tx,seed,pk);assert s[1:65]!=b'\0'*64;assert b58d(b58e(pk))==pk;assert hard_empty([]) and not hard_empty(['x'])
- print('READY_SIGNER_V7_SELF_TEST=PASS');print('ARBITRARY_RAW_SIGN_OP=NOT_IMPLEMENTED');print('BUY_REQUIRES_FRESH_HARD_SAFETY_TREND_GATE=TRUE');print('BUY_SIZE_SCALES_WITH_WALLET_BALANCE=TRUE');print('SELL_BYPASSES_BUY_FREQUENCY_QUOTA=TRUE');print('MAX_PORTFOLIO_UTILIZATION_PCT=94')
+ print('READY_SIGNER_V8_SELF_TEST=PASS');print('ARBITRARY_RAW_SIGN_OP=NOT_IMPLEMENTED');print('BUY_REQUIRES_FRESH_HARD_SAFETY_TREND_GATE=TRUE');print('BUY_SIZE_SCALES_WITH_WALLET_BALANCE=TRUE');print('SELL_BYPASSES_BUY_FREQUENCY_QUOTA=TRUE');print('MAX_PORTFOLIO_UTILIZATION_PCT=94')
 def main():
  if '--self-test' in sys.argv:return selftest()
  seed,pkey,address=wallet();p=policy();os.makedirs(os.path.dirname(SOCK),exist_ok=True)
