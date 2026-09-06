@@ -1,4 +1,4 @@
-name: Meme Alpha RPC Method Probe
+name: Meme Alpha V394 RPC Recovery
 on:
   push:
     branches: [main]
@@ -7,18 +7,79 @@ on:
 permissions:
   contents: read
 jobs:
-  audit:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Probe Solana RPC methods
+      - name: Deploy V394 RPC recovery
         shell: bash
         run: |
           set -euo pipefail
-          /usr/bin/node - <<'NODE'
-          const mint='LYFtxVQVdHNzS96azFJc6PsFiks7xH86JXQJnyopump';
-          const eps=['https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com','https://solana-mainnet.gateway.tatum.io','https://rpc.ankr.com/solana'];
-          async function one(ep,method,params){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),6000);try{const r=await fetch(ep,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:ac.signal});let text=await r.text();let j={};try{j=JSON.parse(text)}catch{};return {http:r.status,ok:r.ok,rpcError:j?.error?.code||null,rpcMessage:j?.error?.message||null,hasResult:j?.result!==undefined};}catch(e){return {error:String(e.message||e)}}finally{clearTimeout(t)}}
-          for(const ep of eps){for(const [method,params] of [['getAccountInfo',[mint,{encoding:'jsonParsed',commitment:'confirmed'}]],['getTokenSupply',[mint,{commitment:'confirmed'}]],['getTokenLargestAccounts',[mint,{commitment:'confirmed'}]]]){console.log('PROBE',ep,method,await one(ep,method,params));}}
-          NODE
-          echo RPC_METHOD_PROBE=COMPLETE
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; BASE="$RT/deploy-candidates"
+          mkdir -p "$BASE"
+          SRC="$APP/src/safe-signal-export.js"
+          CAND="$BASE/v394-signal-tatum-rpc.js"
+          cp -a "$SRC" "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="const V388_RPCS=[V388_CFG.rpc,'https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'].filter(Boolean);"
+          new="const V388_RPCS=[V388_CFG.rpc,'https://solana-mainnet.gateway.tatum.io','https://api.mainnet-beta.solana.com','https://solana-rpc.publicnode.com'].filter(Boolean);"
+          n=s.count(old)
+          if n!=1: raise SystemExit(f'V394_RPC_POOL_PATCH_COUNT={n}')
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"
+          printf '%s\n' "$OUT"
+          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'SELL_ROUTE_REQUIRED=TRUE' <<<"$OUT"
+          grep -q 'TOKEN2022_HARD_BLOCK_PRESERVED=TRUE' <<<"$OUT"
+          grep -q 'solana-mainnet.gateway.tatum.io' "$CAND"
+          SHA="$(sha256sum "$CAND" | awk '{print $1}')"
+          echo V394_SIGNAL_SHA="$SHA"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$CAND")" "$SHA"
+
+          echo '=== VERIFY AUDIT RECOVERY ==='
+          START=$(date +%s)
+          for i in $(seq 1 60); do
+            sleep 2
+            if python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); p=rt/'signal-snapshot.json'
+          assert p.exists() and time.time()-p.stat().st_mtime<25
+          d=json.loads(p.read_text()); rows=d.get('candidates') or []
+          assert rows
+          audits=[c for c in rows if c.get('v388RpcAudit')]
+          successes=[c for c in audits if not (c.get('v388RpcAudit') or {}).get('error')]
+          print('SIGNAL_COUNT',len(rows),'AUDITS',len(audits),'AUDIT_SUCCESSES',len(successes))
+          for c in rows[:20]: print('ROW',c.get('symbol'),c.get('securityDecision'),c.get('holderClusterDecision'),c.get('insiderRiskDecision'),c.get('sellRoute'),c.get('topHoldersPct'),c.get('holderClusterMaxAccountsSameOwner'),c.get('v388RpcAudit'))
+          assert successes
+          PY
+            then break; fi
+            [ "$i" -lt 60 ] || { echo V394_FAIL=NO_RPC_AUDIT_SUCCESS; exit 9; }
+          done
+
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); d=json.loads((rt/'signal-snapshot.json').read_text()); rows=d.get('candidates') or []
+          def n(v,d=0):
+            try:return float(v)
+            except:return d
+          def core(c):
+            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
+            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
+          safe=[c for c in rows if core(c)]
+          print('CORE_SAFE_COUNT',len(safe),'CORE_SAFE_SYMBOLS',[c.get('symbol') for c in safe[:20]])
+          g=json.loads((rt/'micro-live-gate.json').read_text())
+          print('GATE',{k:g.get(k) for k in ['version','gateContractRevision','allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
+          for name in ['capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            print('FILE',name,'exists',p.exists())
+            if p.exists():
+              try: print(json.loads(p.read_text()))
+              except: pass
+          PY
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo V394_RPC_RECOVERY=ACTIVE
+          echo HARD_SAFETY_BYPASS=FALSE
