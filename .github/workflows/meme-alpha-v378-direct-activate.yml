@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Active Proof
+name: Meme Alpha V379 Scanner Diagnose
 
 on:
   push:
@@ -6,57 +6,45 @@ on:
     paths:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
-permissions:
-  contents: write
-
 jobs:
-  verify:
+  diagnose:
     runs-on: self-hosted
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Final verify
+      - name: Inspect live scanner and candidate flow
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           APP=/opt/meme-alpha/app
-          sleep 8
-          G="$APP/runtime-status/micro-live-gate.json"
-          echo '--- GATE ---'
-          cat "$G"
           echo '--- SERVICES ---'
-          systemctl is-active meme-alpha-paper.service
-          systemctl is-active meme-alpha-micro-live.service
-          systemctl is-active meme-alpha-signer.service
-          echo '--- EXECUTOR ---'
-          grep -n 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$APP/src/micro-live-executor.js"
-          echo '--- ROOT RECOVERY LOG ---'
-          grep -E '2026-09-06T05:5|MEME_HOOK|MEME_V377_MAINTENANCE|ALREADY_SUPERSEDED' /opt/trading/trading-api/auto-futures-v1/logs/auto_update.log 2>/dev/null | tail -n 100 || true
-          grep -q '"allowed": true' "$G"
-          grep -q '"armOk": true' "$G"
-          grep -q '"sourceHealthy": true' "$G"
-          grep -q '"riskEntryAllowed": true' "$G"
-          grep -q '"liveRiskReady": true' "$G"
-          [[ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ]]
-          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V379-ACTIVE.md"
-          {
-            echo '# Meme Alpha V379 ACTIVE'
-            echo
-            echo '- profile: `HIGH_OPPORTUNITY_CAPTURE`'
-            echo '- executor_marker: `true`'
-            echo '- live_entry_allowed: `true`'
-            echo '- arm_ok: `true`'
-            echo '- source_healthy: `true`'
-            echo '- risk_entry_allowed: `true`'
-            echo '- live_risk_ready: `true`'
-            echo '- micro_live_service: `active`'
-            echo '- paper_service: `active`'
-            echo '- signer_service: `active`'
-            echo '- micro_live_processes: `1`'
-            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
-          } > "$OUT"
-          git config user.name 'meme-alpha-vps-bot'
-          git config user.email 'actions-bot@users.noreply.github.com'
-          git add meme-alpha-runtime/V379-ACTIVE.md
-          git commit -m 'chore(meme): confirm v379 live entry active' || true
-          git push origin HEAD:main
+          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
+          echo '--- DATA FILES ---'
+          find /var/lib/meme-alpha/data -maxdepth 3 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TS %p\n' 2>/dev/null | sort -r | head -n 80 || true
+          echo '--- RUNTIME STATUS FILES ---'
+          find "$APP/runtime-status" -maxdepth 2 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TS %p\n' 2>/dev/null | sort -r | head -n 80 || true
+          echo '--- CANDIDATE/SCAN SNAPSHOTS ---'
+          for f in \
+            /var/lib/meme-alpha/data/paper/candidates.json \
+            /var/lib/meme-alpha/data/paper/scanner.json \
+            /var/lib/meme-alpha/data/paper/signal.json \
+            /var/lib/meme-alpha/data/paper/source-health.json \
+            /var/lib/meme-alpha/data/paper/risk-state.json \
+            /var/lib/meme-alpha/data/micro-live/state.json \
+            "$APP/runtime-status/micro-live-gate.json"; do
+            echo "### $f"
+            [[ -f "$f" ]] && python3 - "$f" <<'PY' || true
+import json,sys
+p=sys.argv[1]
+try:
+ d=json.load(open(p))
+ print(json.dumps(d,indent=2)[:24000])
+except Exception as e: print('ERR',e)
+PY
+          done
+          echo '--- RECENT EXEC EVENTS ---'
+          for f in /var/lib/meme-alpha/data/micro-live/events.jsonl /var/lib/meme-alpha/data/paper/events.jsonl; do
+            echo "### $f"; [[ -f "$f" ]] && tail -n 120 "$f" || true
+          done
+          echo '--- SOURCE REFERENCES IN CODE ---'
+          grep -RniE 'dexscreener|jupiter|candidate|watching|scanner|realtime|trend-pulse|whale-flow|PROBE_CANDIDATE|opportunityLane' "$APP/src" 2>/dev/null | head -n 220 || true
