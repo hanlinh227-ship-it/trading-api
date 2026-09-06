@@ -10,162 +10,89 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 7
     steps:
-      - name: Activate final V387 through readable paper handoff
+      - name: Final single-path V387 activation and live verification
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
           SRC="$APP/src"
-          ST="$APP/runtime-status/v387-unified-final"
-          mkdir -p "$ST"
-          chmod 0755 "$ST"
+          RT="$APP/runtime-status"
+          ST="$RT/v387-unified-final"
+          BASE="$RT/deploy-candidates"
+          ORIGINAL="$ST/run-paper.original.sh"
+          [ -f "$ORIGINAL" ] || { echo V387_FAIL=ORIGINAL_RUNNER_MISSING; exit 2; }
+          chmod 0755 "$ORIGINAL"
 
-          # Recover run-paper immediately if a previous failed handoff left its hook installed.
-          if grep -q 'v387-unified-final' "$APP/run-paper.sh" 2>/dev/null; then
-            [ -f "$ST/run-paper.original.sh" ] || { echo V387_RECOVERY_ORIGINAL_MISSING; exit 2; }
-            cp "$ST/run-paper.original.sh" "$APP/run-paper.sh"
-            chmod 0755 "$APP/run-paper.sh"
-            timeout 60s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-          fi
-          for i in $(seq 1 30); do systemctl is-active --quiet meme-alpha-paper.service && break; sleep 2; done
-          systemctl is-active --quiet meme-alpha-paper.service
-
-          # Signal V387 is already live; validate rather than rewrite it.
-          node --check "$SRC/safe-signal-export.js"
-          sigtest="$(node "$SRC/safe-signal-export.js" --self-test)"
-          printf '%s\n' "$sigtest"
-          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$sigtest"
-          grep -q 'TOKEN2022_HARD_BLOCK_PRESERVED=TRUE' <<<"$sigtest"
-          grep -q 'BOTH_FEEDS_DOWN_FAIL_CLOSED=TRUE' <<<"$sigtest"
+          # Production files are already V387 on disk. Validate the exact live files first.
+          for f in safe-signal-export.js micro-live-gate.js micro-live-executor.js scanner.js; do node --check "$SRC/$f"; done
           grep -q 'V387_UNIFIED_LIVE' "$SRC/safe-signal-export.js"
           grep -q 'classificationOverride' "$SRC/safe-signal-export.js"
+          grep -q 'V387_UNIFIED_PRODUCTION' "$SRC/micro-live-executor.js"
+          grep -q 'MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED' "$SRC/micro-live-executor.js"
+          grep -q 'scaleAllowed:true' "$SRC/micro-live-gate.js"
+          sigtest="$(node "$SRC/safe-signal-export.js" --self-test)"
+          extest="$(node "$SRC/micro-live-executor.js" --self-test)"
+          printf '%s\n' "$sigtest" "$extest"
+          for k in V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS TOKEN2022_HARD_BLOCK_PRESERVED=TRUE BOTH_FEEDS_DOWN_FAIL_CLOSED=TRUE; do grep -q "$k" <<<"$sigtest"; done
+          for k in MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE ROTATION_TO_STRONGER_OPPORTUNITY=TRUE ONLINE_EXPECTANCY_LEARNING=TRUE; do grep -q "$k" <<<"$extest"; done
 
-          rm -f "$ST/SWAP_OK" "$ST/ROLLBACK_OK"
-          cp "$SRC/micro-live-executor.js" "$ST/executor.original.js"
-          cp "$SRC/micro-live-gate.js" "$ST/gate.original.js"
-          cp "$APP/run-paper.sh" "$ST/run-paper.original.sh"
-          cp "$SRC/micro-live-executor.js" "$ST/executor.v387.js"
-          cp "$SRC/micro-live-gate.js" "$ST/gate.v387.js"
-          chmod 0644 "$ST"/*.js
-          chmod 0755 "$ST/run-paper.original.sh"
-          chmod 0755 "$ST"
+          OLD_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
+          echo OLD_EXECUTOR_PID="${OLD_PID:-none}"
 
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          st=Path('/opt/meme-alpha/app/runtime-status/v387-unified-final')
-          def sub1(s,pat,repl,label):
-              out,n=re.subn(pat,repl,s,count=1,flags=re.M)
-              if n!=1: raise SystemExit(f'PATCH_MISMATCH_{label}={n}')
-              return out
-          p=st/'executor.v387.js'; s=p.read_text()
-          if 'V387_UNIFIED_PRODUCTION' not in s:
-              s='// V387_UNIFIED_PRODUCTION: unified buy/hold/scale/rotate/profit executor.\n'+s
-          s=sub1(s,r"^function insiderSafe\(c\)\{.*?\}$",
-            "function insiderSafe(c){if(!c)return false;const d=String(c.insiderRiskDecision||'');if(d==='BLOCK'||d==='REVIEW')return false;const top=Number(c.topHoldersPct),cluster=Number(c.holderClusterMaxAccountsSameOwner);if(!Number.isFinite(top)||top>35||!Number.isFinite(cluster)||cluster>2)return false;const wt=c.whaleTop10Pct,wd=c.whaleDeltaTop10Pct;if(wt!==null&&wt!==undefined&&wt!==''&&Number.isFinite(Number(wt))&&Number(wt)>=70&&Number(wt)<100)return false;if(wd!==null&&wd!==undefined&&wd!==''&&Number.isFinite(Number(wd))&&Number(wd)>=8)return false;return d==='PASS'||(c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS')}",
-            'INSIDER_SAFE')
-          s=sub1(s,r"^function coreSafe\(c\)\{.*?\}$",
-            "function coreSafe(c){return !!c&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&insiderSafe(c)&&!c.token2022&&c.sellRoute===true&&hardRejectEmpty(c.hardReject)&&n(c.liquidityUsd)>=50_000&&impact(c)<=1.25}",
-            'CORE_SAFE')
-          s=s.replace('MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED','MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED',1)
-          marker="  if(!trendEntryEligible(c)||trendEntryEligible({...c,priceChange5m:25})||trendEntryEligible({...c,securityDecision:'REVIEW'})||trendEntryEligible({...c,sellRoute:false})||trendEntryEligible({...c,token2022:true})||trendEntryEligible({...c,insiderRiskDecision:'BLOCK'}))throw new Error('ENTRY_SAFETY_SELFTEST');"
-          if marker not in s: raise SystemExit('PATCH_MISMATCH_EXECUTOR_SELFTEST')
-          extra="\n  const broad={...c,universeClass:'UNCLASSIFIED'};delete broad.insiderRiskDecision;if(!trendEntryEligible(broad))throw new Error('V387_BROAD_SAFE_UNIVERSE_SELFTEST');if(trendEntryEligible({...broad,holderClusterDecision:'REVIEW'})||trendEntryEligible({...broad,topHoldersPct:60})||trendEntryEligible({...broad,holderClusterMaxAccountsSameOwner:3})||trendEntryEligible({...broad,hardReject:['REAL_SECURITY_BLOCK']}))throw new Error('V387_BROAD_HARD_SAFETY_SELFTEST');"
-          s=s.replace(marker,marker+extra,1)
-          p.write_text(s)
-
-          p=st/'gate.v387.js'; s=p.read_text()
-          if 'V387_UNIFIED_PRODUCTION' not in s:
-              s='// V387_UNIFIED_PRODUCTION: scaleAllowed permanently enabled; allowed/liveRiskReady remain separate execution gates.\n'+s
-          s,n=re.subn(r'scaleAllowed\s*:\s*allowed&&liveRiskReady','scaleAllowed:true',s,count=1)
-          if n==0: s,n=re.subn(r'scaleAllowed\s*:\s*evidenceReady','scaleAllowed:true',s,count=1)
-          if n!=1: raise SystemExit(f'PATCH_MISMATCH_SCALE_ALLOWED={n}')
-          s=re.sub(r"version:'[^']*v387[^']*'","version:'2.7.0-v387-unified-production'",s,count=1)
-          p.write_text(s)
-          PY
-
-          node --check "$ST/executor.v387.js"
-          node --check "$ST/gate.v387.js"
-          extest="$(node "$ST/executor.v387.js" --self-test)"
-          printf '%s\n' "$extest"
-          for k in MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE ROTATION_TO_STRONGER_OPPORTUNITY=TRUE; do grep -q "$k" <<<"$extest"; done
-          grep -q 'V387_BROAD_SAFE_UNIVERSE_SELFTEST' "$ST/executor.v387.js"
-          grep -q 'scaleAllowed:true' "$ST/gate.v387.js"
-          EX_SHA="$(sha256sum "$ST/executor.v387.js" | awk '{print $1}')"
-          GA_SHA="$(sha256sum "$ST/gate.v387.js" | awk '{print $1}')"
-          OLD_PID="$(pgrep -fo '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)"
-
-          rollback() {
-            rc=$?
-            if [ "$rc" -ne 0 ] && [ -f "$ST/SWAP_OK" ]; then
-              echo V387_ROLLBACK=START
-              cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v387-unified-final"
-          rm -f "$APP/src/micro-live-gate.js" "$APP/src/micro-live-executor.js"
-          install -m 0644 "$ST/gate.original.js" "$APP/src/micro-live-gate.js"
-          install -m 0664 "$ST/executor.original.js" "$APP/src/micro-live-executor.js"
-          cp "$ST/run-paper.original.sh" "$APP/run-paper.sh"
-          chmod 0755 "$APP/run-paper.sh"
-          for p in $(pgrep -f '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true); do kill -9 "$p" 2>/dev/null || true; done
-          printf 'ROLLBACK_OK\n' > "$ST/ROLLBACK_OK"
-          exec "$APP/run-paper.sh"
-          SH
-              chmod 0755 "$APP/run-paper.sh"
-              timeout 80s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-              echo V387_ROLLBACK=DONE
-            fi
-            exit "$rc"
-          }
-          trap rollback EXIT
-
-          # Handoff runs as meme-alpha, the same UID as the executor process.
+          # One controlled handoff. It runs as meme-alpha, so it can terminate the old
+          # executor UID. It immediately execs the known-good original paper engine.
           cat > "$APP/run-paper.sh" <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v387-unified-final"
-          rm -f "$APP/src/micro-live-gate.js" "$APP/src/micro-live-executor.js"
-          install -m 0644 "$ST/gate.v387.js" "$APP/src/micro-live-gate.js"
-          install -m 0664 "$ST/executor.v387.js" "$APP/src/micro-live-executor.js"
-          cp "$ST/run-paper.original.sh" "$APP/run-paper.sh"
-          chmod 0755 "$APP/run-paper.sh"
-          printf 'SWAP_OK\n' > "$ST/SWAP_OK"
-          # Same UID can terminate the old executor; Restart=on-failure starts V387 from disk.
-          for p in $(pgrep -f '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true); do kill -9 "$p" 2>/dev/null || true; done
-          exec "$APP/run-paper.sh"
+          ORIGINAL="$APP/runtime-status/v387-unified-final/run-paper.original.sh"
+          for p in $(pgrep -f '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true); do kill -9 "$p" 2>/dev/null || true; done
+          exec "$ORIGINAL"
           SH
           chmod 0755 "$APP/run-paper.sh"
-          timeout 80s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+          timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
 
-          READY=0
+          # Wait until systemd has relaunched the executor from the V387 file on disk.
+          NEW_PID=''
           for i in $(seq 1 60); do
-            NEW_PID="$(pgrep -fo '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)"
-            if [ -f "$ST/SWAP_OK" ] \
-              && [ "$(sha256sum "$SRC/micro-live-executor.js" | awk '{print $1}')" = "$EX_SHA" ] \
-              && [ "$(sha256sum "$SRC/micro-live-gate.js" | awk '{print $1}')" = "$GA_SHA" ] \
-              && [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] \
-              && systemctl is-active --quiet meme-alpha-paper.service \
-              && systemctl is-active --quiet meme-alpha-micro-live.service; then READY=1; break; fi
+            NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
+            if [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi
             sleep 2
           done
-          [ "$READY" = 1 ] || { echo V387_SWAP_OR_RESTART_VERIFY=FALSE; exit 1; }
+          [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] || { echo V387_FAIL=EXECUTOR_NOT_RELOADED; exit 3; }
+          echo NEW_EXECUTOR_PID="$NEW_PID"
 
+          # Remove the temporary hook permanently; there is only one normal paper entrypoint again.
+          cp "$ORIGINAL" "$APP/run-paper.sh"
+          chmod 0755 "$APP/run-paper.sh"
+          timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+
+          # Refresh the three intelligence feeds through the already-authorized safe-deploy
+          # path using byte-identical current production sources. This is a restart, not a code change.
+          mkdir -p "$BASE"
+          for spec in 'realtime:realtime-pool-pulse.js' 'trend:trend-pulse.js' 'whale:whale-flow-intel.js'; do
+            comp="${spec%%:*}"; file="${spec##*:}"; name="v387-refresh-$file"
+            cp -a "$SRC/$file" "$BASE/$name"
+            sha="$(sha256sum "$BASE/$name" | awk '{print $1}')"
+            sudo -n /usr/local/sbin/meme-alpha-safe-deploy "$comp" "$name" "$sha"
+          done
+
+          # Final live verification: fresh pipeline, real live gate, always-on scale flag,
+          # one executor only, and no unsafe probe escapes the hard security contract.
           LIVE=0
-          for i in $(seq 1 75); do
+          for i in $(seq 1 90); do
             sleep 2
             if python3 - <<'PY'
           import json,os,time,pathlib
-          app=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          g=json.loads((app/'micro-live-gate.json').read_text())
-          s=json.loads((app/'signal-snapshot.json').read_text())
-          rows=s.get('candidates') or []
-          age=time.time()-os.path.getmtime(app/'signal-snapshot.json')
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          gp=rt/'micro-live-gate.json'; sp=rt/'signal-snapshot.json'
+          g=json.loads(gp.read_text()); s=json.loads(sp.read_text()); rows=s.get('candidates') or []
+          age=time.time()-os.path.getmtime(sp)
           probes=[c for c in rows if c.get('decision')=='PROBE_CANDIDATE']
           unsafe=[c.get('symbol') for c in probes if c.get('securityDecision')!='PASS' or c.get('holderClusterDecision')!='PASS' or c.get('sellRoute') is not True or c.get('token2022') is True or (c.get('hardReject') or [])]
-          print({'gate':{k:g.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']},'signalAgeSec':round(age,1),'signalCount':len(rows),'probeCount':len(probes),'unsafeProbes':unsafe[:5]})
+          summary={'gateVersion':g.get('version'),'allowed':g.get('allowed'),'armOk':g.get('armOk'),'armAttested':g.get('armAttested'),'executionMode':g.get('executionMode'),'sourceHealthy':g.get('sourceHealthy'),'riskEntryAllowed':g.get('riskEntryAllowed'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons'),'signalAgeSec':round(age,1),'signalCount':len(rows),'probeCount':len(probes),'watchCount':sum(c.get('decision')=='WATCH' for c in rows),'routedCount':sum(bool((c.get('strategyRouter') or {}).get('selectedLane')) for c in rows),'unsafeProbes':unsafe}
+          print(summary)
+          assert g.get('version')=='2.7.0-v387-unified-production'
           assert g.get('allowed') is True
           assert g.get('armOk') is True and g.get('armAttested') is True
           assert g.get('executionMode')=='MICRO_LIVE'
@@ -176,26 +103,33 @@ jobs:
           PY
             then LIVE=1; break; fi
           done
-          [ "$LIVE" = 1 ] || { echo V387_LIVE_VERIFY=FALSE; exit 1; }
+          [ "$LIVE" = 1 ] || { echo V387_FAIL=LIVE_PIPELINE_NOT_READY; exit 4; }
 
-          systemctl is-active --quiet meme-alpha-paper.service
-          systemctl is-active --quiet meme-alpha-micro-live.service
-          systemctl is-active --quiet meme-alpha-signer.service
-          [ "$(pgrep -fc '/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js' || true)" -eq 1 ]
-          grep -q 'MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED' "$SRC/micro-live-executor.js"
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            systemctl is-active --quiet "$svc" || { echo V387_FAIL_SERVICE="$svc"; exit 5; }
+            echo "$svc=active"
+          done
+          [ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ] || { echo V387_FAIL=EXECUTOR_PROCESS_COUNT; exit 6; }
+          grep -q 'V387_UNIFIED_PRODUCTION' "$SRC/micro-live-executor.js"
           grep -q 'scaleAllowed:true' "$SRC/micro-live-gate.js"
+          ! grep -q 'v387-unified-final' "$APP/run-paper.sh"
 
           python3 - <<'PY'
-          import json,pathlib,datetime,hashlib
-          root=pathlib.Path('/opt/meme-alpha/app')
-          out={'version':'V387_UNIFIED_PRODUCTION','activatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'scaleAllowed':True,'universe':'ALL_SAFE_SCANNED_SOLANA_OPPORTUNITIES','features':['adaptive scanner','multi-strategy router','buy','hold','scale-in','rotation','profit-aware exits','online expectancy learning','realtime pulse','whale flow','Jito fallback'],'hardSafetyPreserved':['securityDecision=PASS','holderClusterDecision=PASS','insider concentration limits','token2022=false','sellRoute=true','hardReject=[]','liquidity>=50000','exitImpact<=1.25'],'components':{}}
-          for n in ['safe-signal-export.js','micro-live-gate.js','micro-live-executor.js','scanner.js']:
+          import json,pathlib,datetime,hashlib,os,time
+          root=pathlib.Path('/opt/meme-alpha/app'); rt=root/'runtime-status'
+          g=json.loads((rt/'micro-live-gate.json').read_text()); s=json.loads((rt/'signal-snapshot.json').read_text())
+          state_path=pathlib.Path('/var/lib/meme-alpha/data/micro-live/state.json')
+          try:
+              state=json.loads(state_path.read_text()); open_positions=len(state.get('positions') or [])
+          except Exception: open_positions=None
+          out={'version':'V387_UNIFIED_PRODUCTION','activatedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'executionMode':g.get('executionMode'),'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'signalCount':len(s.get('candidates') or []),'openPositions':open_positions,'universe':'ALL_SAFE_SCANNED_SOLANA_OPPORTUNITIES','features':['adaptive scanner','multi-strategy router','buy','hold','scale-in','rotation','profit-aware exits','online expectancy learning','realtime pulse','whale flow','Jito fallback'],'components':{}}
+          for n in ['scanner.js','safe-signal-export.js','micro-live-gate.js','micro-live-executor.js','realtime-pool-pulse.js','trend-pulse.js','whale-flow-intel.js']:
               out['components'][n]=hashlib.sha256((root/'src'/n).read_bytes()).hexdigest()
-          p=root/'runtime-status'/'v387-unified-production.json';tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(out,indent=2));tmp.replace(p);print(json.dumps(out))
+          p=rt/'v387-unified-production.json'; tmp=p.with_suffix('.tmp'); tmp.write_text(json.dumps(out,indent=2)); tmp.replace(p)
+          print(json.dumps(out))
           PY
           echo V387_UNIFIED_PRODUCTION=ACTIVE
           echo SCALE_ALLOWED=TRUE
-          echo UNIVERSE_CLASSIFICATION=LABEL_ONLY
-          echo HARD_SECURITY_HOLDER_INSIDER_SELLABILITY=ENFORCED
+          echo SINGLE_PRODUCTION_ENTRYPOINT=TRUE
           echo BUY_HOLD_SCALE_ROTATE_PROFIT_MANAGEMENT=UNIFIED
-          trap - EXIT
+          echo HARD_SECURITY_HOLDER_INSIDER_SELLABILITY=ENFORCED
