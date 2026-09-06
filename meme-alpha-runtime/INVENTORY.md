@@ -1,23 +1,143 @@
 # Meme Alpha VPS Inventory
 
-- Snapshot UTC: 2026-09-06T03:50:30.970100+00:00
+- Snapshot UTC: 2026-09-06T03:53:52.248484+00:00
 - Runtime source: `/opt/meme-alpha/app`
-- Service active: `inactive`
 - Python: `3.12.3`
-- Source files copied: `6`
+- Source files copied: `115`
 - Files skipped by secret guard: `0`
 - Python compile failures: `0`
+- Node syntax failures: `0`
+
+## Service states
+- `meme-alpha-paper.service`: `active`
+- `meme-alpha-micro-live.service`: `active`
+- `meme-alpha-realtime-pulse.service`: `active`
+- `meme-alpha-trend-pulse.service`: `active`
+- `meme-alpha-whale-flow.service`: `active`
+- `meme-alpha-signer.service`: `active`
 
 ## Copied files
+- `package.json` — `620b39081cc8b899`
+- `run-paper.sh` — `0770360e0f5706b3`
+- `src/persistence.js` — `b6646dcec2e8e288`
+- `src/token2022-audit.js` — `7f4e7e0b2ffe0e5a`
+- `src/entry-exit-intelligence.js` — `33114918cbc3b6ef`
+- `src/scanner.js` — `12ef2e0eb4090300`
+- `src/holder-cluster.js` — `e2ca8679cbd7958a`
+- `src/stress-test.js` — `870688f774027541`
+- `src/health.js` — `94710b041aae8eaa`
+- `src/micro-live-gate.js` — `9b6a4c9d18f0fc31`
+- `src/reaction-telemetry.js` — `0a9c0f84fa575fe3`
+- `src/safe-signal-export.js` — `5686a39ed886e698`
+- `src/realtime-pool-pulse.js` — `d6026482003ec2ea`
+- `src/validation.js` — `3db0c2dfe4e999c3`
+- `src/paper.js` — `39a81ee20050cc5e`
+- `src/risk.js` — `d43b7f07dcb94b25`
+- `src/universe.js` — `f9af4bf915f68259`
+- `src/stress-validation.js` — `57e0f13d3302606b`
+- `src/whale-flow-intel.js` — `358cf3aa8d6e6291`
+- `src/trend-pulse.js` — `56398f6043e3ffc2`
+- `src/new-listing-radar.js` — `f3c433f64409fccf`
+- `src/micro-live-executor.js` — `28abda723d5a035d`
+- `src/position.js` — `864b42a7d088587d`
+- `src/security.js` — `de1e921ef597aaab`
+- `code-backups/v250-20260905-093106/micro-live-executor.js` — `8aa267a54533bd03`
+- `code-backups/v240-20260905-083241/micro-live-gate.js` — `f9a301f5998ed05d`
+- `code-backups/v216-20260905-062811/persistence.js` — `54722e002e326149`
+- `code-backups/v216-20260905-062811/safe-signal-export.js` — `6e029ee17e194089`
+- `code-backups/v216-20260905-062811/run-paper.sh` — `00bd632e8187269f`
+- `code-backups/v240-20260905-083123/micro-live-gate.js` — `41e8bfcee636b729`
+- `code-backups/v250-20260905-093543/micro-live-executor.js` — `5d0a1b1573ee1365`
+- `code-backups/v160-20260905-054705/micro-live-gate.js` — `e2b616f522d76e2b`
+- `code-backups/v160-20260905-054705/validation.js` — `0ccfeeebe577d28f`
+- `code-backups/v160-20260905-054705/universe.js` — `db1043d17e7adc0a`
+- `code-backups/v160-20260905-054705/package.json` — `9ce89efc1a05d280`
+- `code-backups/v212-20260905-061835/holder-cluster.js` — `4e47857bc501e9f5`
+- `code-backups/v212-20260905-061835/safe-signal-export.js` — `a70d2b0e6599f135`
+- `code-backups/v222-20260905-064815/safe-signal-export.js` — `ffc73794e15a8796`
+- `code-backups/v222-20260905-064815/micro-live-executor.js` — `abf1bc2719b76873`
+- `code-backups/v216-20260905-062915/persistence.js` — `2ad82a42e9715309`
+- `code-backups/v216-20260905-062915/safe-signal-export.js` — `bb8acb17aa8c5bd1`
+- `code-backups/v216-20260905-062915/run-paper.sh` — `a04b9807c4a6a099`
+- `code-backups/v222-20260905-065906/safe-signal-export.js` — `2a481356d26103de`
+- `code-backups/v222-20260905-065906/micro-live-executor.js` — `8aa267a54533bd03`
+- `code-backups/v227-20260905-070420/scanner.js` — `9dfac3560bd6949c`
+- `code-backups/v227-20260905-070420/safe-signal-export.js` — `2a481356d26103de`
+- `code-backups/v227-20260905-070620/scanner.js` — `9dfac3560bd6949c`
+- `code-backups/v227-20260905-070620/safe-signal-export.js` — `2a481356d26103de`
+- `code-backups/v222-20260905-065831/safe-signal-export.js` — `2a481356d26103de`
+- `code-backups/v222-20260905-065831/micro-live-executor.js` — `8aa267a54533bd03`
+- `code-backups/v260-20260905-104944/micro-live-gate.js` — `f9a301f5998ed05d`
+- `code-backups/v260-20260905-104944/safe-signal-export.js` — `beb87acb0d8ad675`
+- `code-backups/v223-20260905-065156/scanner.js` — `c12ec1116ac61912`
+- `code-backups/v223-20260905-065156/safe-signal-export.js` — `df2159cfeff157a8`
+- `code-backups/v225-20260905-065928/run-paper.sh` — `2287df25a6583a54`
+- `code-backups/v261-20260905-105154/micro-live-executor.js` — `5d0a1b1573ee1365`
+- `code-backups/v227-20260905-070508/scanner.js` — `9dfac3560bd6949c`
+- `code-backups/v227-20260905-070508/safe-signal-export.js` — `2a481356d26103de`
+- `code-backups/v250-20260905-093409/micro-live-executor.js` — `5d0a1b1573ee1365`
+- `code-backups/v224-20260905-065544/persistence.js` — `2ad82a42e9715309`
+- `code-backups/v224-20260905-065544/holder-cluster.js` — `a31a62e4726aa528`
+- `code-backups/v224-20260905-065544/safe-signal-export.js` — `7b2fef0677b90507`
+- `code-backups/v224-20260905-065544/micro-live-executor.js` — `70ac52f5726829d3`
+- `code-backups/v224-20260905-065428/persistence.js` — `2ad82a42e9715309`
+- `code-backups/v224-20260905-065428/holder-cluster.js` — `a31a62e4726aa528`
+- `code-backups/v224-20260905-065428/safe-signal-export.js` — `7b2fef0677b90507`
+- `code-backups/v224-20260905-065428/micro-live-executor.js` — `70ac52f5726829d3`
+- `code-backups/v251-20260905-094131/micro-live-executor.js` — `5d0a1b1573ee1365`
+- `code-backups/v240-20260905-083428/micro-live-gate.js` — `f9a301f5998ed05d`
+- `code-backups/v220-20260905-064842/scanner.js` — `c12ec1116ac61912`
+- `code-backups/v220-20260905-064842/safe-signal-export.js` — `df2159cfeff157a8`
+- `code-backups/v220-20260905-064842/run-paper.sh` — `2287df25a6583a54`
+- `code-backups/v220-20260905-064428/scanner.js` — `a8c866cd899f4e4b`
+- `code-backups/v220-20260905-064428/safe-signal-export.js` — `3da5f810883f3b06`
+- `code-backups/v220-20260905-064428/run-paper.sh` — `a04b9807c4a6a099`
+- `code-backups/v200-20260905-060547/scanner.js` — `23393da9e7c17cfa`
+- `code-backups/v200-20260905-060547/universe.js` — `eed1245943634dd1`
+- `ops/meme-alpha/v280-root-apply-opportunity.sh` — `a288ddbf87c12d61`
+- `ops/meme-alpha/v215-root-apply-holder-fastfail.sh` — `d3210cc4b69e52a2`
+- `ops/meme-alpha/trend-pulse-v290.js` — `56398f6043e3ffc2`
+- `ops/meme-alpha/scanner-v216-fast.js` — `e5eac7cbcb80f384`
+- `ops/meme-alpha/v250-root-go-live.sh` — `9e792798fad382ab`
+- `ops/meme-alpha/v210-root-apply-smart-profit-exit.sh` — `862ca273e361ad9c`
+- `ops/meme-alpha/holder-cluster-v215.js` — `e2ca8679cbd7958a`
+- `ops/meme-alpha/v240-root-go-live.sh` — `37bd52df134cca0e`
+- `ops/meme-alpha/v290-root-apply-fast-trend.sh` — `0285be076fba576a`
+- `ops/meme-alpha/v216-stage-fast-pipeline.sh` — `105e803dc191fa19`
+- `ops/meme-alpha/portfolio-shadow-v220.js` — `abd552f637e56351`
+- `ops/meme-alpha/v216-root-apply-fast-pipeline.sh` — `9b7b69b6a8d58e8a`
+- `ops/meme-alpha/v215-stage-holder-fastfail.sh` — `71aafb831a48fbf2`
+- `ops/meme-alpha/v270-root-apply-full-capital.sh` — `4c6bc68677bdfa2a`
+- `ops/security/v191-root-install-micro-executor.sh` — `c6a344b36110d999`
+- `ops/security/v181-root-arm-micro-live-legacy.sh` — `57934f31906670d6`
+- `ops/security/v142-root-install-signer-isolation.sh` — `99c39f09eb9e4f09`
 - `ops/security/locked_signer.py` — `a13a2819ba29310e`
+- `ops/security/v194-root-disarm-micro-live.sh` — `b79f996eebeca6d8`
+- `ops/security/v193-root-arm-micro-live.sh` — `17c9baeecc3aac16`
+- `ops/security/micro-live-executor-v192.js` — `46b6bb7cfa80745c`
+- `ops/security/v192-root-emergency-disarm.sh` — `4d5cfe7aeaf212e8`
+- `ops/security/v181-root-arm-micro-live.sh` — `57934f31906670d6`
+- `ops/security/v192-root-install-micro-executor.sh` — `023333ca61b61776`
+- `ops/security/v180-root-create-wallet-after-validation.sh` — `66b0881c7c67d9f7`
 - `ops/security/ready_signer.py` — `eca8bbc96ca8a6fb`
+- `ops/security/micro-live-executor.js` — `1f1c6f5a63d24a35`
+- `ops/security/v170-root-install-ready-signer.sh` — `27bab4bbc71b637e`
 - `ops/meme-alpha/signer/ready_signer_v6.py` — `4b3d9e7c21d00c44`
 - `ops/meme-alpha/signer/ready_signer_v7.py` — `c3f8c749eb2b6737`
 - `ops/meme-alpha/signer/ready_signer_v4.py` — `db08f16bf9af7545`
 - `ops/meme-alpha/signer/ready_signer_v5.py` — `0efd8f089283e406`
+- `ops/meme-alpha/micro-live/micro-live-executor-v210.js` — `9caa3239eaf10366`
+- `ops/meme-alpha/micro-live/micro-live-executor-v280.js` — `b9e73fca9825b553`
+- `ops/meme-alpha/micro-live/micro-live-executor-v270.js` — `aba92ef0e3c8e761`
+- `ops/meme-alpha/micro-live/micro-live-executor-v290.js` — `415222d67d083f6f`
+- `ops/meme-alpha/micro-live/micro-live-executor-v218.js` — `d5d1e8d07d6e3518`
+- `external/signer/ready_signer.py` — `c3f8c749eb2b6737`
 
-## Secret-guard skips
+## Secret-guard / access skips
 - none
 
-## Compile failures
+## Python compile failures
+- none
+
+## Node syntax failures
 - none

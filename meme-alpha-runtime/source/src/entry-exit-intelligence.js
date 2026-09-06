@@ -1,0 +1,20 @@
+import fs from 'node:fs';
+const P='/var/lib/meme-alpha/data/paper';
+const read=(f,d)=>{try{return JSON.parse(fs.readFileSync(`${P}/${f}`,'utf8'))}catch{return d}};
+const scanner=read('scanner-latest.json',{candidates:[]});
+const persist=read('persistence-state.json',{candidates:{}});
+const health=read('scanner-source-health.json',{});
+const paper=read('state.json',{openPositions:[]});
+const now=Date.now(); const healthy=health.status==='HEALTHY'&&health.allowNewEntries===true&&health.usingCache!==true&&(now-Date.parse(health.checkedAt||0))<180000;
+const arr=(scanner.candidates||[]).map(c=>{
+ const p=(persist.candidates||{})[c.mint]||{}; const obs=(p.observations||[]).slice(-3); const scores=obs.map(x=>Number(x.score||0)); const buyers=obs.map(x=>Number(x.netBuyers5m||x.netBuyers||0));
+ const score=Number(c.score||0), avg2=scores.length>=2?(scores.at(-1)+scores.at(-2))/2:score, slope=scores.length>=2?scores.at(-1)-scores.at(-2):0, buyerSlope=buyers.length>=2?buyers.at(-1)-buyers.at(-2):0;
+ const impact=Number(c.sellImpactPct ?? c.priceImpactPct); const impactOk=Number.isFinite(impact)&&Math.abs(impact)<=1.25;
+ const hardSafe=c.securityDecision==='PASS'&&c.sellRoute===true&&!c.hardReject&&c.universe!=='NON_MEME'&&c.tokenProgram!=='Token-2022';
+ const fast=healthy&&hardSafe&&score>=82&&avg2>=79&&slope>=0&&buyerSlope>=0&&impactOk&&Number(c.liquidityUsd||0)>=50000&&Number(c.move5mPct||c.priceChange5m||0)<15;
+ return {mint:c.mint,symbol:c.symbol,score,avg2:+avg2.toFixed(2),scoreSlope:slope,buyerSlope,sellImpactPct:Number.isFinite(impact)?impact:null,liquidityUsd:c.liquidityUsd||0,shadowFastEntry:fast};
+}).sort((a,b)=>b.score-a.score);
+const positions=(paper.openPositions||[]).map(p=>({positionId:p.positionId||null,mint:p.mint,symbol:p.symbol,mfePct:p.mfePct||0,maePct:p.maePct||0,entryPrice:p.entryPrice||null,shadowExitRules:['LIQUIDITY_COLLAPSE','ADVERSE_SHOCK','PROFIT_GIVEBACK','THESIS_BREAK']}));
+const out={version:'1.2-shadow',timestamp:new Date().toISOString(),behaviorChange:false,sourceHealthy:healthy,shadowFastEntryCount:arr.filter(x=>x.shadowFastEntry).length,topCandidates:arr.slice(0,20),positions};
+fs.writeFileSync(`${P}/entry-exit-intelligence.json.tmp`,JSON.stringify(out,null,2)); fs.renameSync(`${P}/entry-exit-intelligence.json.tmp`,`${P}/entry-exit-intelligence.json`);
+console.log('=== MEME ALPHA v1.2 ENTRY EXIT INTELLIGENCE SHADOW ==='); console.log(`SOURCE_HEALTHY=${healthy}`); console.log(`SHADOW_FAST_ENTRY=${out.shadowFastEntryCount}`); console.log(`OPEN_POSITIONS=${positions.length}`); console.log('BEHAVIOR_CHANGE=false'); console.log('V120_SHADOW_PASS');

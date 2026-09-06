@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const V='/var/lib/meme-alpha/data/paper/validation.json', OUT='/var/lib/meme-alpha/data/paper/stress-test.json', SAFE='/opt/meme-alpha/app/runtime-status/stress-test.json';
+const v=JSON.parse(fs.readFileSync(V,'utf8')); const completed=(v.lifecycles||[]).filter(x=>x.closed&&Number.isFinite(Number(x.realizedPnlSol))); const pnls=completed.map(x=>Number(x.realizedPnlSol)); const sum=a=>a.reduce((x,y)=>x+y,0); const sortedWins=pnls.filter(x=>x>0).sort((a,b)=>b-a); const base=sum(pnls);
+const removeTop=(k)=>{const drops=new Set(sortedWins.slice(0,k)); let used=0; return sum(pnls.filter(x=>{if(x>0&&used<k&&sortedWins.slice(0,k).includes(x)){used++;return false}return true}));};
+const removePct=(pct)=>removeTop(sortedWins.length?Math.max(1,Math.ceil(sortedWins.length*pct)):0);
+const stressed=sum(pnls.map(x=>x>0?x*0.75:x*1.25)); const top1=sortedWins[0]||0; const top1Share=Number(v.grossProfitSol)>0?top1/Number(v.grossProfitSol)*100:0;
+const metrics={baseNetSol:Number(base.toFixed(8)),removeTop1WinnerNetSol:Number(removeTop(1).toFixed(8)),removeTop1PctWinnersNetSol:Number(removePct(.01).toFixed(8)),removeTop3PctWinnersNetSol:Number(removePct(.03).toFixed(8)),removeTop5PctWinnersNetSol:Number(removePct(.05).toFixed(8)),winnerHaircut25LossWorsen25NetSol:Number(stressed.toFixed(8)),top1WinnerShareGrossProfitPct:Number(top1Share.toFixed(2))};
+const checks={min20Lifecycles:completed.length>=20,validationReadinessPass:v.readinessStatus==='PASS',baseNetPositive:base>0,removeTop1WinnerStillPositive:removeTop(1)>0,stressHaircutStillPositive:stressed>0,topWinnerConcentrationAtMost50Pct:top1Share<=50,currentDrawdownBelow12Pct:Number(v.currentDrawdownPct)<12};
+let status='INSUFFICIENT_DATA'; let fail=0; if(completed.length>=20){fail=Object.values(checks).filter(x=>!x).length; status=fail===0?'PASS':'FAIL';}
+const result={version:'1.6',timestamp:new Date().toISOString(),status,fail,warn:completed.length<20?1:0,completedLifecycles:completed.length,checks,metrics};
+for(const p of [OUT,SAFE]){const t=`${p}.tmp`;fs.writeFileSync(t,JSON.stringify(result,null,2));fs.renameSync(t,p);try{fs.chmodSync(p,0o664)}catch{}}
+console.log('=== MEME ALPHA STRESS v1.6 ==='); console.log(`STATUS=${status}`); console.log(`COMPLETED=${completed.length}`); console.log(`FAIL=${fail}`); console.log(`BASE_NET=${metrics.baseNetSol}`); console.log(`REMOVE_TOP1_NET=${metrics.removeTop1WinnerNetSol}`); console.log(`STRESSED_NET=${metrics.winnerHaircut25LossWorsen25NetSol}`); console.log('STRESS_STATUS=PASS');

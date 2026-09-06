@@ -1,0 +1,33 @@
+import fs from 'node:fs';
+import net from 'node:net';
+const APP='/opt/meme-alpha/app';
+const DATA='/var/lib/meme-alpha/data/paper';
+const EXEC='/etc/meme-alpha/execution-mode';
+const ARM='/etc/meme-alpha/micro-live-armed';
+const SOCK='/run/meme-alpha-signer/signer.sock';
+const read=(p,d={})=>{try{return JSON.parse(fs.readFileSync(p,'utf8'))}catch{return d}};
+const age=ts=>Number.isFinite(Date.parse(ts))?(Date.now()-Date.parse(ts))/1000:Infinity;
+const rootControl=(path,expected)=>{try{const st=fs.statSync(path);const txt=fs.readFileSync(path,'utf8').trim();return st.uid===0&&(st.mode&0o777)===0o640&&txt===expected}catch{return false}};
+const text=(p,d='DISABLED')=>{try{return fs.readFileSync(p,'utf8').trim()}catch{return d}};
+async function signerHealth(){return await new Promise(resolve=>{const s=net.createConnection(SOCK);let d='',done=false;const fin=v=>{if(done)return;done=true;try{s.destroy()}catch{}resolve(v)};s.setTimeout(1200);s.on('connect',()=>s.write('{"op":"health"}\n'));s.on('data',b=>{d+=b.toString();if(d.includes('\n')){try{fin(JSON.parse(d.split('\n')[0]))}catch{fin({ok:false,error:'BAD_JSON'})}}});s.on('timeout',()=>fin({ok:false,error:'TIMEOUT'}));s.on('error',e=>fin({ok:false,error:e.code||e.message}))})}
+const runtime=read(`${APP}/config/runtime.json`),validation=read(`${DATA}/validation.json`),stress=read(`${DATA}/stress-test.json`),source=read(`${DATA}/scanner-source-health.json`),risk=read(`${DATA}/risk-state.json`),universe=read(`${APP}/runtime-status/universe.json`),signer=await signerHealth();
+const executionMode=text(EXEC,'DISABLED');
+const execControlled=rootControl(EXEC,'MICRO_LIVE');
+const armOk=rootControl(ARM,'ARMED=YES');
+const reasons=[];
+if(runtime.mode!=='PAPER') reasons.push('ANALYSIS_MODE_NOT_PAPER');
+if(!execControlled) reasons.push(`EXECUTION_MODE_${executionMode||'DISABLED'}_NOT_MICRO_LIVE_OR_INVALID_CONTROL`);
+if(!armOk) reasons.push('ROOT_MICRO_LIVE_ARM_ABSENT_OR_INVALID');
+if(!(signer?.ok===true&&signer?.mode==='READY'&&signer?.signingEnabled===true&&signer?.walletLoaded===true)) reasons.push('SIGNER_NOT_READY');
+if(!(source?.status==='HEALTHY'&&source?.allowNewEntries===true&&source?.usingCache!==true&&age(source?.checkedAt)<180)) reasons.push('SOURCE_HEALTH_NOT_READY');
+if(!(risk?.entryAllowed===true&&age(risk?.timestamp)<120)) reasons.push('RISK_NOT_READY');
+const completed=Number(validation?.completedLifecycleTrades||0);
+if(completed<20) reasons.push(`VALIDATION_LIFECYCLES_${completed}_LT_20`);
+if(validation?.readinessStatus!=='PASS') reasons.push(`VALIDATION_READINESS_${validation?.readinessStatus||'MISSING'}`);
+if(stress?.status!=='PASS') reasons.push(`STRESS_${stress?.status||'MISSING'}`);
+if(!(['1.6','1.6.1'].includes(universe?.version)&&universe?.unknownEntryEligible===false)) reasons.push('POSITIVE_MEME_GATE_NOT_PROVEN');
+const allowed=reasons.length===0;
+const out={version:'1.6.2',timestamp:new Date().toISOString(),allowed,analysisMode:runtime.mode||null,executionMode,executionModeRootControlled:execControlled,armOk,completedLifecycles:completed,validationReadiness:validation?.readinessStatus||null,stressStatus:stress?.status||null,universeVersion:universe?.version||null,sourceHealthy:source?.status==='HEALTHY',riskEntryAllowed:risk?.entryAllowed===true,signer:{ok:!!signer?.ok,mode:signer?.mode||null,signingEnabled:!!signer?.signingEnabled,walletLoaded:!!signer?.walletLoaded},reasons};
+for(const p of [`${DATA}/micro-live-gate.json`,`${APP}/runtime-status/micro-live-gate.json`]){const t=`${p}.tmp`;fs.writeFileSync(t,JSON.stringify(out,null,2));fs.renameSync(t,p);try{fs.chmodSync(p,0o664)}catch{}}
+console.log('=== MEME ALPHA MICRO LIVE GATE v1.6.2 ===');
+console.log(`MICRO_LIVE_ALLOWED=${allowed}`);console.log(`ANALYSIS_MODE=${out.analysisMode}`);console.log(`EXECUTION_MODE=${executionMode}`);console.log(`COMPLETED=${completed}`);console.log(`VALIDATION=${out.validationReadiness}`);console.log(`STRESS=${out.stressStatus}`);console.log(`SIGNER=${out.signer.mode}`);console.log(`BLOCK_REASONS=${reasons.join(',')||'NONE'}`);console.log('ROOT_CONTROLLED_EXECUTION_GATE=PASS');

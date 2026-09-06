@@ -1,0 +1,28 @@
+{
+  "name": "meme-alpha",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "health": "node src/health.js",
+    "paper": "node src/paper.js",
+    "scanner": "node src/scanner.js",
+    "persistence": "node src/persistence.js",
+    "cycle": "node src/scanner.js && node src/universe.js && node src/security.js && node src/token2022-audit.js && node src/holder-cluster.js && node src/persistence.js",
+    "position": "node src/position.js",
+    "cycle4": "node src/scanner.js && node src/universe.js && node src/security.js && node src/token2022-audit.js && node src/holder-cluster.js && node src/persistence.js && node src/position.js",
+    "risk": "node src/risk.js",
+    "cycle5": "node src/scanner.js && node src/universe.js && node src/security.js && node src/token2022-audit.js && node src/holder-cluster.js && node src/persistence.js && node src/reaction-telemetry.js && node src/risk.js && node src/safe-signal-export.js && node src/position.js && node src/validation.js && node src/stress-test.js && node src/micro-live-gate.js",
+    "validation": "node src/validation.js",
+    "universe": "node src/universe.js",
+    "security": "node src/security.js",
+    "token2022-audit": "node src/token2022-audit.js",
+    "holder-cluster": "node src/holder-cluster.js",
+    "reaction": "node src/reaction-telemetry.js",
+    "intelligence": "node src/entry-exit-intelligence.js",
+    "stress": "node src/stress-test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
