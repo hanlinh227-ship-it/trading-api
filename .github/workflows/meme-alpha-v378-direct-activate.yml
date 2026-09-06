@@ -1,4 +1,4 @@
-name: Meme Alpha V378 Runtime Diagnose
+name: Meme Alpha V379 Gate Inspect
 
 on:
   push:
@@ -10,63 +10,26 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: self-hosted
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect live behavior
+      - name: Inspect v379 blockers
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
-          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/V378-BEHAVIOR-DIAG.md"
-          EXEC="$APP/src/micro-live-executor.js"
-          {
-            echo '# Meme Alpha V378 behavior diagnostic'
-            echo
-            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
-            echo "- executor_marker: \`$([[ -f "$EXEC" ]] && grep -q 'MICRO_LIVE_EXECUTOR_V378_AGGRESSIVE_ROTATION' "$EXEC" && echo true || echo false)\`"
-            echo "- micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`"
-            echo "- paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`"
-            echo "- signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`"
-            echo "- micro_live_pid_count: \`$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)\`"
-            echo
-            echo '## Runtime files'
-            for f in \
-              "$APP/runtime-status/micro-live-gate.json" \
-              "$APP/runtime-status/signal-snapshot.json" \
-              "$APP/runtime-status/whale-flow-intel.json" \
-              "$APP/runtime-status/trend-pulse.json" \
-              "$APP/runtime-status/realtime-pool-pulse.json" \
-              "$APP/runtime-status/v378-deployed.json" \
-              /var/lib/meme-alpha/data/micro-live/state.json \
-              /var/lib/meme-alpha/data/micro-live/execution-state.json \
-              /var/lib/meme-alpha/data/micro-live/trades.json \
-              /var/lib/meme-alpha/data/paper/scanner-latest.json \
-              /var/lib/meme-alpha/data/paper/scanner-source-health.json; do
-              if [[ -f "$f" ]]; then
-                echo
-                echo "### $f"
-                echo '```json'
-                tail -c 14000 "$f" 2>/dev/null || echo READ_FAILED
-                echo
-                echo '```'
-              fi
-            done
-            echo
-            echo '## Recent textual runtime logs'
-            for f in "$APP/runtime-status"/*.log /var/log/meme-alpha/*.log; do
-              [[ -f "$f" ]] || continue
-              echo
-              echo "### $f"
-              echo '```text'
-              tail -n 120 "$f" 2>/dev/null || true
-              echo '```'
-            done
-          } > "$OUT"
-          git config user.name "meme-alpha-vps-bot"
-          git config user.email "actions-bot@users.noreply.github.com"
-          git add meme-alpha-runtime/V378-BEHAVIOR-DIAG.md
-          git commit -m 'chore(meme): capture v378 behavior diagnostic' || true
-          git push origin HEAD:main
+          echo '--- ARM FILE ---'
+          ls -l /etc/meme-alpha/micro-live-armed 2>&1 || true
+          sed -n '1,40p' /etc/meme-alpha/micro-live-armed 2>&1 || true
+          echo '--- ARM EXPECTATION IN SOURCE ---'
+          grep -RniE 'micro-live-armed|ROOT_ARMING_FILE_ABSENT_OR_INVALID|armOk|ARMED=' "$APP/src" 2>/dev/null | head -n 160 || true
+          echo '--- RISK SOURCE HEALTH LOGIC ---'
+          grep -RniE 'SOURCE_HEALTH_DEGRADED|sourceHealthy|riskEntryAllowed|liveRiskReady' "$APP/src" 2>/dev/null | head -n 220 || true
+          echo '--- CURRENT GATE ---'
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          echo '--- CURRENT SOURCE HEALTH ---'
+          cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
+          echo '--- EXEC ENTRY CONSTANTS ---'
+          grep -nE 'function opportunityLane|function trendEntryEligible|function rotationSource|basePct=' "$APP/src/micro-live-executor.js" 2>/dev/null || true
