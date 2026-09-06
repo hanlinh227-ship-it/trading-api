@@ -31,4 +31,14 @@ python3 -m py_compile "${FILES[@]}";bash -n "$BOT/run_pipeline.sh" "$BOT/runtime
 BOOTSTRAP_SKIP_GIT=1 "$BOT/runtime/unified_bootstrap.sh" >/tmp/auto_futures_bootstrap.out 2>&1;log "AUTO FUTURES SERVICE RECONCILE PASS"
 chmod 700 "$ROOT/signal-only-v10/runtime/install_signal_v10.sh";"$ROOT/signal-only-v10/runtime/install_signal_v10.sh" >/tmp/signal_v10_install.out 2>&1;log "SIGNAL V10 COUNCIL RECONCILE PASS"
 if [[ -f /opt/trading/.env.binance ]];then set -a;source /opt/trading/.env.binance;set +a;[[ "${BINANCE_LIVE_TRADING:-false}" == "$LIVE_TRADING" ]];[[ "${BINANCE_LIVE_ARMED:-false}" == "$LIVE_ARMED" ]];fi
-sleep 2;POSITION="$(systemctl is-active auto-futures-position.service || true)";SCAN="$(systemctl is-active auto-futures-scan.timer || true)";UPDATE="$(systemctl is-active auto-futures-update.timer || true)";HUB="$(systemctl is-active auto-futures-hub-bridge.service || true)";SIGV10="$(systemctl is-active signal-v10-council.service || true)";[[ "$POSITION" == "active" ]];[[ "$SCAN" == "active" ]];[[ "$UPDATE" == "active" ]];[[ "$SIGV10" == "active" ]];log "HEALTH position=$POSITION scan=$SCAN update=$UPDATE hub=$HUB signal_v10=$SIGV10";find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'release_*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true;log "PRODUCTION UPDATE COMPLETE live=$LIVE_TRADING armed=$LIVE_ARMED signal_v10=$SIGV10";trap - ERR;exit 0
+sleep 2;POSITION="$(systemctl is-active auto-futures-position.service || true)";SCAN="$(systemctl is-active auto-futures-scan.timer || true)";UPDATE="$(systemctl is-active auto-futures-update.timer || true)";HUB="$(systemctl is-active auto-futures-hub-bridge.service || true)";SIGV10="$(systemctl is-active signal-v10-council.service || true)";[[ "$POSITION" == "active" ]];[[ "$SCAN" == "active" ]];[[ "$UPDATE" == "active" ]];[[ "$SIGV10" == "active" ]];log "HEALTH position=$POSITION scan=$SCAN update=$UPDATE hub=$HUB signal_v10=$SIGV10"
+# Meme Alpha deploy lane: root-only, isolated from Auto Futures rollback semantics.
+for HOOK in "$BOT/runtime/deploy_meme_alpha_v377.sh" "$BOT/runtime/deploy_meme_alpha_v378.sh"; do
+  if [[ -x "$HOOK" ]]; then
+    set +e
+    OUT="$("$HOOK" 2>&1)"; RC=$?
+    set -e
+    log "MEME_HOOK name=$(basename "$HOOK") rc=$RC result=$(echo "$OUT" | tail -n 1)"
+  fi
+done
+find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'release_*' -mtime +14 -exec rm -rf {} + 2>/dev/null || true;log "PRODUCTION UPDATE COMPLETE live=$LIVE_TRADING armed=$LIVE_ARMED signal_v10=$SIGV10";trap - ERR;exit 0
