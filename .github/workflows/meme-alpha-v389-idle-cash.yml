@@ -11,46 +11,21 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Read-only audit current buy readiness
+      - name: Inspect privileged signer deployment path
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
-          echo '=== SERVICES ==='
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo '=== EXECUTOR ==='
-          pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
-          echo '=== SNAPSHOTS ==='
-          python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for name in ['micro-live-gate.json','capital-observability.json','allocator-observability.json','portfolio-observability.json']:
-            p=rt/name
-            print('\nFILE',name,'exists',p.exists(),'ageSec',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
-            if p.exists():
-              try: print(json.loads(p.read_text()))
-              except Exception as e: print('ERR',repr(e))
-          p=rt/'signal-snapshot.json'
-          print('\nFILE signal-snapshot.json exists',p.exists(),'ageSec',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
-          if p.exists():
-            d=json.loads(p.read_text()); rows=d.get('candidates') or []
-            safe=[]; signer_like=[]
-            for c in rows:
-              try:
-                imp=abs(float(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))) or 99))
-                hard=(c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and float(c.get('liquidityUsd') or 0)>=50000 and imp<=1.25)
-              except: hard=False
-              if hard:
-                x={k:c.get(k) for k in ['symbol','mint','score','decision','universeClass','consecutiveEligible','priceChange5m','netBuyers5m','avgNetBuyersLast2','scoreSlopeLast2','liquidityUsd','sellPriceImpactPct']};safe.append(x)
-                try:
-                  base=float(c.get('score') or 0); chg=float(c.get('priceChange5m')); net=float(c.get('netBuyers5m')); avg=float(c.get('avgNetBuyersLast2') if c.get('avgNetBuyersLast2') is not None else net); slope=float(c.get('scoreSlopeLast2') if c.get('scoreSlopeLast2') is not None else 0); con=int(c.get('consecutiveEligible') or 0); liq=float(c.get('liquidityUsd') or 0)
-                  strict=(c.get('universeClass')=='MEME_CONFIRMED' and c.get('decision')=='PROBE_CANDIDATE' and con>=1 and base>=58 and chg>=0.15 and chg<=15 and net>=2 and avg>=1.5 and slope>=-4 and liq>=50000)
-                except: strict=False
-                if strict: signer_like.append(x)
-            print('SIGNAL_COUNT',len(rows))
-            print('CORE_SAFE_COUNT',len(safe)); print('CORE_SAFE',safe[:15])
-            print('SIGNER_LIKE_COUNT',len(signer_like)); print('SIGNER_LIKE',signer_like[:15])
-          PY
-          echo '=== EXECUTION JOURNAL ==='
-          journalctl -u meme-alpha-micro-live.service --since '-20 min' --no-pager -n 1500 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|SIGNER_|TREND_SIGNAL_NOT_ELIGIBLE|MICRO_LIVE_GATE_CLOSED|EXECUTOR_ERROR|BUY_TOKEN' | tail -300 || true
-          echo CURRENT_BUY_READINESS_AUDIT=COMPLETE
+          echo '=== SUDO_L ==='
+          sudo -n -l 2>&1 || true
+          echo '=== LOCAL_SBIN ==='
+          ls -la /usr/local/sbin 2>&1 | grep -Ei 'meme|sign|deploy' || true
+          echo '=== SAFE_DEPLOY_HELP ==='
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy help 2>&1 || true
+          echo '=== SAFE_DEPLOY_SOURCE_HEAD ==='
+          sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          echo '=== SIGNER_DIR_PERMS ==='
+          stat -c '%A %a %U %G %n' /opt/meme-alpha-signer /opt/meme-alpha-signer/ready_signer.py /etc/meme-alpha/signer-policy.json /etc/meme-alpha/signer-enabled 2>&1 || true
+          echo '=== SYSTEMCTL_PERMS_TEST ==='
+          sudo -n /bin/systemctl is-active meme-alpha-signer.service 2>&1 || true
+          echo SIGNER_DEPLOY_PATH_AUDIT=COMPLETE
