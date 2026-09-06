@@ -10,34 +10,36 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Compact live diagnosis
+      - name: Isolate scanner candidate loss
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app; SRC="$APP/src"; RT="$APP/runtime-status"
-          echo '=== PROCESSES ==='
-          pgrep -af 'scanner.js|safe-signal-export.js|new-listing-radar|realtime-pool-pulse|trend-pulse|whale-flow-intel|micro-live-gate|micro-live-executor' || true
-          echo '=== SIGNAL LOGIC ==='
-          grep -nE 'function .*guard|function .*route|sourceHealthy|SOURCE_HEALTH|riskEntryAllowed|candidates|universe|radar|PROBE_CANDIDATE|classificationOverride|writeFile|signal-snapshot' "$SRC/safe-signal-export.js" | head -180 || true
-          echo '=== GATE LOGIC ==='
-          grep -nE 'sourceHealthy|SOURCE_HEALTH|riskEntryAllowed|liveRiskReady|allowed|candidate|signal|scaleAllowed' "$SRC/micro-live-gate.js" | head -140 || true
-          echo '=== SCANNER LOGIC ==='
-          grep -nE 'universe|candidate|snapshot|writeFile|radar|scan|filter' "$SRC/scanner.js" | head -180 || true
-          echo '=== RUNTIME SUMMARY ==='
+          echo '=== SCANNER DISCOVERY 300-470 ==='
+          sed -n '300,470p' "$SRC/scanner.js"
+          echo '=== SCANNER FINALIZATION 1010-1195 ==='
+          sed -n '1010,1195p' "$SRC/scanner.js"
+          echo '=== CURRENT SCANNER OUTPUT ==='
           python3 - <<'PY'
-          import json,pathlib,time,os
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          for fn in ['universe.json','new-listing-radar.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json','signal-snapshot.json','micro-live-gate.json','portfolio-observability.json']:
-            p=rt/fn
-            print('\n',fn,'exists',p.exists(),'age',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
+          import json,pathlib,time
+          paths=[pathlib.Path('/var/lib/meme-alpha/data/paper/scanner-latest.json'),pathlib.Path('/var/lib/meme-alpha/data/paper/scanner-source-health.json'),pathlib.Path('/opt/meme-alpha/app/runtime-status/signal-snapshot.json')]
+          for p in paths:
+            print('\nFILE',p,'exists',p.exists(),'age',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
             if not p.exists(): continue
             try:d=json.loads(p.read_text())
-            except Exception as e: print('parse',e); continue
-            print('keys',list(d)[:30] if isinstance(d,dict) else type(d).__name__)
+            except Exception as e: print('ERR',e); continue
             if isinstance(d,dict):
+              print('keys',list(d)[:60])
               for k,v in d.items():
-                if isinstance(v,list): print('list',k,len(v),'samplekeys',list(v[0])[:30] if v and isinstance(v[0],dict) else None)
-              for k in ['version','status','healthy','sourceHealthy','allowed','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons','updatedAt','timestamp','source','executionMode','openPositions']:
-                if k in d: print(k,repr(d[k]))
+                if isinstance(v,list): print('LIST',k,len(v),'sample',v[:1])
+                elif k in ['version','status','allowNewEntries','usingCache','checkedAt','updatedAt','timestamp','successfulSources','sourceCount','reason','reasons','errors','failures','scannerVersion','sourceHealth','risk','intelSummary']:
+                  print(k,repr(v))
           PY
-          echo V388_COMPACT_DIAG=COMPLETE
+          echo '=== RADAR TOP SAFE-RELATED FIELDS ==='
+          python3 - <<'PY'
+          import json,pathlib
+          d=json.loads(pathlib.Path('/opt/meme-alpha/app/runtime-status/new-listing-radar.json').read_text())
+          for r in (d.get('candidates') or [])[:12]:
+            print({k:r.get(k) for k in ['mint','symbol','preScore','entryEligible','liquidityUsd','priceChange5m','buys5m','sells5m','providerCount','sourceCount','fastDiscoveryLane','discoveryConfidence','pairAgeSec']})
+          PY
+          echo V388_SCANNER_ISOLATED=TRUE
