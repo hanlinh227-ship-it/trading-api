@@ -6,15 +6,62 @@ on:
 jobs:
   activate:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect direct activation path
+      - name: Activate adaptive opportunity queue safely
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== SAFE DEPLOY ==='
-          ls -l /usr/local/sbin/meme-alpha-safe-deploy || true
-          sed -n '1,280p' /usr/local/sbin/meme-alpha-safe-deploy 2>/dev/null || true
-          echo '=== SUDO ==='
-          sudo -n -l 2>/dev/null || true
+          APP=/opt/meme-alpha/app
+          SRC="$APP/src/scanner.js"
+          BASE="$APP/runtime-status/deploy-candidates"
+          NAME=v384-scanner.js
+          STAGE="$BASE/$NAME"
+          mkdir -p "$BASE"
+          cp -a "$SRC" "$STAGE"
+          python3 - "$STAGE" <<'PY'
+from pathlib import Path
+import sys,re
+p=Path(sys.argv[1]); s=p.read_text()
+if 'V384_ADAPTIVE_OPPORTUNITY_QUEUE' not in s:
+    s=re.sub(r"const MAX_SELLABILITY_CHECKS_V216=\d+;[^\n]*",
+             "const MAX_SELLABILITY_CHECKS_V216=12; // V384_ADAPTIVE_OPPORTUNITY_QUEUE: bounded sellability budget",
+             s,count=1)
+    pat=r"const baseDeep = preliminary\.slice\(0,\s*\d+\);[^\n]*\nconst baseMints = new Set\(baseDeep\.map\(x => x\.result\?\.mint\)\);"
+    rep="""// V384_ADAPTIVE_OPPORTUNITY_QUEUE
+const V384_TOP_PRIORITY = Math.min(24, preliminary.length);
+const V384_ROTATING_BUDGET = Math.min(40, Math.max(0, preliminary.length - V384_TOP_PRIORITY));
+const V384_TAIL = preliminary.slice(V384_TOP_PRIORITY);
+const V384_BUCKET = Math.max(1, V384_TAIL.length);
+const V384_OFFSET = V384_TAIL.length ? Math.floor(Date.now() / 30000) % V384_BUCKET : 0;
+const V384_ROTATED = V384_TAIL.length ? [...V384_TAIL.slice(V384_OFFSET), ...V384_TAIL.slice(0, V384_OFFSET)] : [];
+const baseDeep = [...preliminary.slice(0, V384_TOP_PRIORITY), ...V384_ROTATED.slice(0, V384_ROTATING_BUDGET)];
+const baseMints = new Set(baseDeep.map(x => x.result?.mint));"""
+    s,n=re.subn(pat,rep,s,count=1)
+    if n!=1: raise SystemExit('PATCH_MISMATCH_BASE_DEEP')
+    s=re.sub(r"const extraMeme = preliminary\n\s*\.slice\(\d+\)",
+             "const extraMeme = preliminary\n  .slice(V384_TOP_PRIORITY)",s,count=1)
+    s=re.sub(r"\n\s*\.slice\(0,\s*\d+\);\nconst deep = \[\.\.\.baseDeep, \.\.\.extraMeme\];",
+             "\n  .slice(0, 16);\nconst deep = [...baseDeep, ...extraMeme.filter(x=>!baseMints.has(x.result?.mint))];",
+             s,count=1)
+p.write_text(s)
+PY
+          node --check "$STAGE"
+          grep -q 'V384_ADAPTIVE_OPPORTUNITY_QUEUE' "$STAGE"
+          grep -q 'MAX_SELLABILITY_CHECKS_V216=12' "$STAGE"
+          grep -q 'V384_ROTATING_BUDGET' "$STAGE"
+          # Hard safety contract must remain present.
+          grep -q 'securityDecision' "$STAGE"
+          grep -q 'holderClusterDecision' "$STAGE"
+          grep -q 'NO_SELL_ROUTE' "$STAGE"
+          grep -q 'TOKEN2022' "$STAGE"
+          grep -q 'DEX_LIQUIDITY_FAIL' "$STAGE"
+          SHA=$(sha256sum "$STAGE" | awk '{print $1}')
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$NAME" "$SHA"
+          echo '=== VERIFY ACTIVE ==='
+          grep -nE 'V384_ADAPTIVE_OPPORTUNITY_QUEUE|MAX_SELLABILITY_CHECKS_V216|V384_TOP_PRIORITY|V384_ROTATING_BUDGET' "$SRC"
+          sudo -n /bin/systemctl is-active meme-alpha-paper.service
+          sleep 20
+          python3 -c "import json,os,time; p='$APP/runtime-status/signal-snapshot.json'; d=json.load(open(p)); print({'signalAgeSec':round(time.time()-os.path.getmtime(p),1),'count':len(d.get('candidates') or []),'probe':(d.get('intelSummary') or {}).get('probeCandidates'),'routed':(d.get('intelSummary') or {}).get('routedCandidates')})"
+          python3 -c "import json; d=json.load(open('$APP/runtime-status/micro-live-gate.json')); print({k:d.get(k) for k in ['allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','reasons']}); assert d.get('allowed') is True and d.get('armOk') is True and d.get('armAttested') is True"
