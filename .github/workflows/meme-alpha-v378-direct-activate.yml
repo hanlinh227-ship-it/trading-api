@@ -1,4 +1,4 @@
-name: Meme Alpha Root Arm Helper Inspect
+name: Meme Alpha Safe Deploy Interface Inspect
 on:
   push:
     branches: [main]
@@ -9,20 +9,12 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect root arm helper and gate
+      - name: Inspect safe deploy interface
         shell: bash
         run: |
           set +e
-          echo '=== SUDO ==='
-          sudo -n -l 2>&1 || true
-          echo '=== SAFE DEPLOY FILE ==='
-          ls -l /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
-          file /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
-          echo '=== SAFE DEPLOY HELP ==='
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
-          echo '=== ARM FILE ==='
-          ls -l /etc/meme-alpha/micro-live-armed 2>&1 || true
-          stat /etc/meme-alpha/micro-live-armed 2>&1 || true
-          echo '=== GATE ==='
-          cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json 2>&1 || true
+          echo '=== SAFE DEPLOY SOURCE ==='
+          sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          echo '=== APP CURRENT ==='
+          grep -nE 'MICRO_LIVE_EXECUTOR_V382|ARM|attestation|micro-live-armed' /opt/meme-alpha/app/src/micro-live-executor.js /opt/meme-alpha/app/src/micro-live-gate.js 2>/dev/null | head -120 || true
           echo INSPECT_COMPLETE=TRUE
