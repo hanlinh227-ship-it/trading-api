@@ -55,15 +55,24 @@ if [[ -f "$MEME_V383" ]]; then
   log "MEME_V383_SCANNER rc=$V383_RC result=$(echo "$V383_OUT" | tail -n 1)"
 fi
 
-# v3.84 adaptive opportunity queue: keep top-quality candidates every cycle and
-# rotate a bounded tail so every preliminary candidate gets repeated opportunities
-# without saturating Jupiter/Dexscreener. Hard safety remains fail-closed.
+# v3.84 adaptive opportunity queue: preparation layer for v3.85.
 MEME_V384="$BOT/runtime/deploy_meme_alpha_v384_adaptive_breadth.sh"
 if [[ -f "$MEME_V384" ]]; then
   set +e
   V384_OUT="$(/bin/bash "$MEME_V384" 2>&1)"; V384_RC=$?
   set -e
   log "MEME_V384_ADAPTIVE rc=$V384_RC result=$(echo "$V384_OUT" | tail -n 1)"
+fi
+
+# v3.85 sequential cluster scan: process one bounded cluster per scanner cycle,
+# allowing the executor to act on qualified coins before the next cluster is rotated in.
+# This expands fair coverage without performing expensive checks on the entire radar at once.
+MEME_V385="$BOT/runtime/deploy_meme_alpha_v385_cluster_scan.sh"
+if [[ -f "$MEME_V385" ]]; then
+  set +e
+  V385_OUT="$(/bin/bash "$MEME_V385" 2>&1)"; V385_RC=$?
+  set -e
+  log "MEME_V385_CLUSTER rc=$V385_RC result=$(echo "$V385_OUT" | tail -n 1)"
 fi
 
 FILES=( auto-futures-v1/paper_trader.py auto-futures-v1/ai/common.py auto-futures-v1/ai/ai_budget_governor.py auto-futures-v1/ai/ai_coordination.py auto-futures-v1/ai/claude_trader.py auto-futures-v1/ai/deepseek_trader.py auto-futures-v1/ai/codex_trader.py auto-futures-v1/ai/consensus.py auto-futures-v1/risk/risk_engine.py auto-futures-v1/execution/execution_guard.py auto-futures-v1/execution/live_preflight.py auto-futures-v1/execution/approval_queue.py auto-futures-v1/execution/live_executor.py auto-futures-v1/execution/hub_control_bridge.py auto-futures-v1/research/market_context_monitor.py auto-futures-v1/research/signal_quality_guard.py auto-futures-v1/research/reliability_learner.py auto-futures-v1/position/ai_position_guardian.py auto-futures-v1/position/position_manager.py signal-only-v10/ai_council_worker.py )
