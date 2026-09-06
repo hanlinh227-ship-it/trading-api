@@ -1,4 +1,4 @@
-name: Meme Alpha V384 Direct Activate
+name: Meme Alpha V385 Cluster Activate
 on:
   push:
     branches: [main]
@@ -9,14 +9,14 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Activate adaptive opportunity queue safely
+      - name: Activate sequential cluster scanner safely
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
           SRC="$APP/src/scanner.js"
           BASE="$APP/runtime-status/deploy-candidates"
-          NAME=v384-scanner.js
+          NAME=v385-scanner.js
           STAGE="$BASE/$NAME"
           mkdir -p "$BASE"
           cp -a "$SRC" "$STAGE"
@@ -24,10 +24,9 @@ jobs:
 from pathlib import Path
 import sys,re
 p=Path(sys.argv[1]); s=p.read_text()
-if 'V384_ADAPTIVE_OPPORTUNITY_QUEUE' not in s:
-    s=re.sub(r"const MAX_SELLABILITY_CHECKS_V216=\d+;[^\n]*",
-             "const MAX_SELLABILITY_CHECKS_V216=12; // V384_ADAPTIVE_OPPORTUNITY_QUEUE: bounded sellability budget",
-             s,count=1)
+
+# First normalize any older fixed breadth scanner to an adaptive block.
+if 'V384_ADAPTIVE_OPPORTUNITY_QUEUE' not in s and 'V385_SEQUENTIAL_CLUSTER_SCAN' not in s:
     pat=r"const baseDeep = preliminary\.slice\(0,\s*\d+\);[^\n]*\nconst baseMints = new Set\(baseDeep\.map\(x => x\.result\?\.mint\)\);"
     rep="""// V384_ADAPTIVE_OPPORTUNITY_QUEUE
 const V384_TOP_PRIORITY = Math.min(24, preliminary.length);
@@ -45,13 +44,41 @@ const baseMints = new Set(baseDeep.map(x => x.result?.mint));"""
     s=re.sub(r"\n\s*\.slice\(0,\s*\d+\);\nconst deep = \[\.\.\.baseDeep, \.\.\.extraMeme\];",
              "\n  .slice(0, 16);\nconst deep = [...baseDeep, ...extraMeme.filter(x=>!baseMints.has(x.result?.mint))];",
              s,count=1)
+
+# Replace adaptive breadth with sequential bounded clusters.
+if 'V385_SEQUENTIAL_CLUSTER_SCAN' not in s:
+    s,n=re.subn(r"const MAX_SELLABILITY_CHECKS_V216=\d+;[^\n]*",
+                "const MAX_SELLABILITY_CHECKS_V216=8; // V385_SEQUENTIAL_CLUSTER_SCAN: bounded expensive checks per cluster",
+                s,count=1)
+    if n!=1: raise SystemExit('PATCH_MISMATCH_SELLABILITY')
+    pat=r"// V384_ADAPTIVE_OPPORTUNITY_QUEUE.*?const baseMints = new Set\(baseDeep\.map\(x => x\.result\?\.mint\)\);"
+    rep="""// V385_SEQUENTIAL_CLUSTER_SCAN
+// One bounded group is deep-checked per cycle. Eight top candidates remain visible,
+// while the rest of the preliminary universe is traversed cluster-by-cluster.
+const V385_PRIORITY_RESERVE = Math.min(8, preliminary.length);
+const V385_CLUSTER_SIZE = Math.min(36, Math.max(0, preliminary.length - V385_PRIORITY_RESERVE));
+const V385_TAIL = preliminary.slice(V385_PRIORITY_RESERVE);
+const V385_BUCKET_COUNT = Math.max(1, Math.ceil(V385_TAIL.length / Math.max(1, V385_CLUSTER_SIZE)));
+const V385_BUCKET_INDEX = V385_TAIL.length ? Math.floor(Date.now() / 30000) % V385_BUCKET_COUNT : 0;
+const V385_START = V385_BUCKET_INDEX * V385_CLUSTER_SIZE;
+const V385_CLUSTER = V385_TAIL.slice(V385_START, V385_START + V385_CLUSTER_SIZE);
+const baseDeep = [...preliminary.slice(0, V385_PRIORITY_RESERVE), ...V385_CLUSTER];
+const baseMints = new Set(baseDeep.map(x => x.result?.mint));"""
+    s,n=re.subn(pat,rep,s,count=1,flags=re.S)
+    if n!=1: raise SystemExit('PATCH_MISMATCH_V384_BLOCK')
+    s=re.sub(r"const extraMeme = preliminary\n\s*\.slice\([^\n]+\)",
+             "const extraMeme = V385_CLUSTER",s,count=1)
+    s=re.sub(r"\n\s*\.slice\(0,\s*16\);\nconst deep = \[\.\.\.baseDeep, \.\.\.extraMeme\.filter\(x=>!baseMints\.has\(x\.result\?\.mint\)\)\];",
+             "\n  .slice(0, 8);\nconst deep = [...baseDeep, ...extraMeme.filter(x=>!baseMints.has(x.result?.mint))];",
+             s,count=1)
+
 p.write_text(s)
 PY
           node --check "$STAGE"
-          grep -q 'V384_ADAPTIVE_OPPORTUNITY_QUEUE' "$STAGE"
-          grep -q 'MAX_SELLABILITY_CHECKS_V216=12' "$STAGE"
-          grep -q 'V384_ROTATING_BUDGET' "$STAGE"
-          # Hard safety contract must remain present.
+          grep -q 'V385_SEQUENTIAL_CLUSTER_SCAN' "$STAGE"
+          grep -q 'V385_CLUSTER_SIZE' "$STAGE"
+          grep -q 'MAX_SELLABILITY_CHECKS_V216=8' "$STAGE"
+          # Hard safety remains fail-closed. Only scheduling/throughput changes.
           grep -q 'securityDecision' "$STAGE"
           grep -q 'holderClusterDecision' "$STAGE"
           grep -q 'NO_SELL_ROUTE' "$STAGE"
@@ -60,7 +87,7 @@ PY
           SHA=$(sha256sum "$STAGE" | awk '{print $1}')
           sudo -n /usr/local/sbin/meme-alpha-safe-deploy scanner "$NAME" "$SHA"
           echo '=== VERIFY ACTIVE ==='
-          grep -nE 'V384_ADAPTIVE_OPPORTUNITY_QUEUE|MAX_SELLABILITY_CHECKS_V216|V384_TOP_PRIORITY|V384_ROTATING_BUDGET' "$SRC"
+          grep -nE 'V385_SEQUENTIAL_CLUSTER_SCAN|V385_PRIORITY_RESERVE|V385_CLUSTER_SIZE|V385_BUCKET_INDEX|MAX_SELLABILITY_CHECKS_V216' "$SRC"
           sudo -n /bin/systemctl is-active meme-alpha-paper.service
           sleep 20
           python3 -c "import json,os,time; p='$APP/runtime-status/signal-snapshot.json'; d=json.load(open(p)); print({'signalAgeSec':round(time.time()-os.path.getmtime(p),1),'count':len(d.get('candidates') or []),'probe':(d.get('intelSummary') or {}).get('probeCandidates'),'routed':(d.get('intelSummary') or {}).get('routedCandidates')})"
