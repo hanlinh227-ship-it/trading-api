@@ -1,0 +1,75 @@
+name: Meme Alpha V416C Idle Capital Safe Deploy
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v416c-idle-capital-safe-deploy.yml']
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Build validate and safe deploy V416
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DC="$RT/deploy-candidates"; E="$APP/src/micro-live-executor.js"; C="$DC/v416-idle-capital-flex.js"
+          mkdir -p "$DC"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          lane="function opportunityLane(c){const score=opportunityScore(c),base=n(c.score),liq=n(c.liquidityUsd),imp=impact(c),chg=n(c.priceChange5m,-999),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net),rt=realtimeFor(c),pre=preBreakoutSignal(c);if(base<45||entryMode(c)==='BLOCK'||entryMode(c)==='LATE')return false;const standard=score>=54&&chg<=8;const liquid=score>=50&&liq>=75000&&net>=0&&imp<=1.05&&chg<=8;const flow=score>=48&&liq>=50000&&net>=1&&avg>=0&&chg>=-2.5&&chg<=8&&imp<=1.10;const realtime=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2&&n(rt.eventMomentum)>=1.15&&net>=1&&avg>=0&&liq>=50000&&imp<=1.10&&chg<=8;return pre||standard||liquid||flow||realtime}"
+          helper="function idleCapitalProbeEligible(c){if(!coreSafe(c))return false;const blocked=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'];if(blocked.includes(String(c.decision||'')))return false;const rawChg=Number(c.priceChange5m),p=pulseFor(c),rt=realtimeFor(c),net=n(c.netBuyers5m,-999),avg=n(c.avgNetBuyersLast2,net);if(!Number.isFinite(rawChg)||rawChg<-1.5||rawChg>6||!p||p.status==='EXHAUSTED'||net<2||avg<1)return false;const va=n(p.volumeAcceleration),ta=n(p.txnAcceleration),bs=n(p.buySellRatio),earlyFlow=va>=.95&&ta>=.95&&bs>=1.10,rising=p.flowRiseConfirmed===true&&va>=.90&&ta>=.90&&bs>=1.05,rtAccel=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=2&&n(rt.eventMomentum)>=1.15&&bs>=1.02;return preBreakoutSignal(c)||earlyFlow||rising||rtAccel}\nfunction newEntryMode(c){if(trendEntryEligible(c)&&opportunityLane(c))return 'STANDARD';if(idleCapitalProbeEligible(c))return 'IDLE_PROBE';return 'BLOCK'}\nfunction entryPriority(c){const m=newEntryMode(c);return m==='STANDARD'?2:m==='IDLE_PROBE'?1:0}"
+          assert s.count(lane)==1, 'V416_LANE_ANCHOR'
+          s=s.replace(lane,lane+'\n'+helper,1)
+          old="function rankedCandidates(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&trendEntryEligible(c)&&opportunityLane(c)).sort((a,b)=>(Number(preBreakoutSignal(b))-Number(preBreakoutSignal(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))}"
+          new="function rankedCandidates(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&newEntryMode(c)!=='BLOCK').sort((a,b)=>(entryPriority(b)-entryPriority(a))||(Number(preBreakoutSignal(b))-Number(preBreakoutSignal(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))}"
+          assert s.count(old)==1, 'V416_RANK_ANCHOR'; s=s.replace(old,new,1)
+          old="  const p=rootPolicy();if(!trendEntryEligible(c)||!opportunityLane(c))return{placed:false,reason:'ENTRY_SIGNAL_NOT_READY'};const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.signingEnabled||!h.walletLoaded)throw new Error('SIGNER_NOT_ARMED');"
+          new="  const p=rootPolicy(),isAdd=posIndex>=0,entryDecision=isAdd?(trendEntryEligible(c)&&opportunityLane(c)?'STANDARD_SCALE':'BLOCK'):newEntryMode(c);if(entryDecision==='BLOCK')return{placed:false,reason:'ENTRY_SIGNAL_NOT_READY'};const h=await signer({op:'health'});if(!h.ok||!h.publicKey||!h.signingEnabled||!h.walletLoaded)throw new Error('SIGNER_NOT_ARMED');"
+          assert s.count(old)==1, 'V416_PLACE_GATE'; s=s.replace(old,new,1)
+          old="  const isAdd=posIndex>=0,existing=isAdd?st.positions[posIndex]:null;if(!isAdd&&st.positions.some(x=>x.mint===c.mint))return{placed:false,reason:'MINT_ALREADY_HELD'};"
+          new="  const existing=isAdd?st.positions[posIndex]:null;if(!isAdd&&st.positions.some(x=>x.mint===c.mint))return{placed:false,reason:'MINT_ALREADY_HELD'};"
+          assert s.count(old)==1, 'V416_ISADD'; s=s.replace(old,new,1)
+          old="  const beforeSol=await solBalance(h.publicKey),capitalBase=Math.max(0,beforeSol+portfolioInvested(st)),profile=allocationProfile(c,p,st,capitalBase),exitHeadroomLamports=await networkExitHeadroomLamports(p),plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});"
+          new="  const beforeSol=await solBalance(h.publicKey),capitalBase=Math.max(0,beforeSol+portfolioInvested(st)),baseProfile=allocationProfile(c,p,st,capitalBase),profile=entryDecision==='IDLE_PROBE'?{...baseProfile,name:'V416_IDLE_CAPITAL_PROBE',pct:Math.min(baseProfile.pct,5),entryMode:'IDLE_PROBE'}:baseProfile,exitHeadroomLamports=await networkExitHeadroomLamports(p),plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports});"
+          assert s.count(old)==1, 'V416_PROFILE'; s=s.replace(old,new,1)
+          old="newEntryShare=profile.newSafeBreadth>=4?.25:profile.newSafeBreadth===3?.30:.40"
+          new="newEntryShare=entryDecision==='IDLE_PROBE'?.15:(profile.newSafeBreadth>=4?.25:profile.newSafeBreadth===3?.30:.40)"
+          assert s.count(old)==1, 'V416_SHARE'; s=s.replace(old,new,1)
+          old="event({type:'MICRO_BUY',mint:c.mint,symbol:c.symbol,allocationPct:profile.pct"
+          new="event({type:'MICRO_BUY',entryDecision,mint:c.mint,symbol:c.symbol,allocationPct:profile.pct"
+          assert s.count(old)==1, 'V416_EVENT'; s=s.replace(old,new,1)
+          old="atomic(`${DATA}/last-execution.json`,{version:'V391_RUNTIME_CAPITAL_ENFORCEMENT',updatedAt:new Date().toISOString(),type:isAdd?'MICRO_SCALE_IN':'MICRO_BUY',mint:c.mint"
+          new="atomic(`${DATA}/last-execution.json`,{version:'V416_IDLE_CAPITAL_FLEX',updatedAt:new Date().toISOString(),type:isAdd?'MICRO_SCALE_IN':'MICRO_BUY',entryDecision,mint:c.mint"
+          assert s.count(old)==1, 'V416_LAST_EXEC'; s=s.replace(old,new,1)
+          old="atomic(statePath,st);return{placed:true,plan,profile,spent,signature:sig};"
+          new="atomic(statePath,st);return{placed:true,plan,profile,entryDecision,spent,signature:sig};"
+          assert s.count(old)==1, 'V416_RETURN'; s=s.replace(old,new,1)
+          old="if(r.placed)return{action:'BUY',reason:'AUTO_ALLOC',symbol:c.symbol};"
+          new="if(r.placed)return{action:'BUY',reason:r.entryDecision==='IDLE_PROBE'?'IDLE_CAPITAL_EARLY_PROBE':'AUTO_ALLOC',symbol:c.symbol};"
+          assert s.count(old)==1, 'V416_TICK_BUY'; s=s.replace(old,new,1)
+          old="  await observeCapital(st);if(!gate.allowed)return{action:st.positions.length?'HOLD':'WAIT',reason:'GATE_CLOSED'};return{action:st.positions.length?'HOLD':'WAIT',reason:st.positions.length?'AUTONOMOUS_PORTFOLIO_MONITORING':'NO_TREND_QUALIFIED_CANDIDATE'};"
+          new="  await observeCapital(st);if(!gate.allowed)return{action:st.positions.length?'HOLD':'WAIT',reason:'GATE_CLOSED'};const capObs=read(`${DATA}/capital-observability.json`,{}),idle=n(capObs.deployableLamports)>=p.minOrderLamports,heldNow=new Set(st.positions.map(x=>x.mint));if(idle){const newSafe=candidates().filter(c=>!heldNow.has(c.mint)&&coreSafe(c));if(!newSafe.length)return{action:st.positions.length?'HOLD':'WAIT',reason:'IDLE_CAPITAL_WAITING_HARD_SAFE_EVIDENCE'};if(!newSafe.some(c=>newEntryMode(c)!=='BLOCK'))return{action:st.positions.length?'HOLD':'WAIT',reason:'IDLE_CAPITAL_WAITING_EARLY_FLOW'};return{action:st.positions.length?'HOLD':'WAIT',reason:'IDLE_CAPITAL_ENTRY_DEFERRED'}}return{action:st.positions.length?'HOLD':'WAIT',reason:st.positions.length?'AUTONOMOUS_PORTFOLIO_MONITORING':'NO_TREND_QUALIFIED_CANDIDATE'};"
+          assert s.count(old)==1, 'V416_REASON'; s=s.replace(old,new,1)
+          marker="console.log('V413_SINGLE_SPIKE_NOT_ENOUGH=TRUE');"
+          assert s.count(marker)==1, 'V416_MARKER'; s=s.replace(marker,marker+"console.log('V416_IDLE_CAPITAL_EARLY_PROBE=TRUE');console.log('V416_HARD_SAFETY_UNCHANGED=TRUE');console.log('V416_SCALE_REQUIRES_STANDARD_CONFIRMATION=TRUE');",1)
+          p.write_text(s)
+          PY
+          node --check "$C"
+          OUT=$(node "$C" --self-test); printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'V416_IDLE_CAPITAL_EARLY_PROBE=TRUE' <<<"$OUT"
+          grep -q "pct:Math.min(baseProfile.pct,5)" "$C"
+          grep -q "entryDecision==='IDLE_PROBE'?.15" "$C"
+          grep -q "IDLE_CAPITAL_WAITING_HARD_SAFE_EVIDENCE" "$C"
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V416_EXECUTOR_SHA=$SHA
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$(basename "$C")" "$SHA"
+          sleep 25
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}')
+          echo EXEC_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          echo V416_SAFE_DEPLOY=ACTIVE
