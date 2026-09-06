@@ -1,30 +1,34 @@
-name: Meme Alpha V381 Final Diagnose
+name: Meme Alpha Live Runtime Verify
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  verify:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect staged v381 exact failure
+      - name: Verify current live runtime
         shell: bash
         run: |
-          set +e
-          ST=/opt/meme-alpha/app/runtime-status/v381-fast-capital
-          echo '=== CHECKS ==='
-          node --check "$ST/scanner.js"; echo scanner_check=$?
-          node --check "$ST/safe-signal-export.js"; echo signal_check=$?
-          node --check "$ST/micro-live-executor.js"; echo executor_check=$?
-          echo '=== SIGNAL SELFTEST ==='
-          node "$ST/safe-signal-export.js" --self-test; echo signal_rc=$?
-          echo '=== EXECUTOR SELFTEST ==='
-          node "$ST/micro-live-executor.js" --self-test; echo executor_rc=$?
-          echo '=== KEY EXECUTOR LINES ==='
-          grep -nE 'function insiderSafe|function coreSafe|MICRO_LIVE_EXECUTOR_V381|perPositionCap|ageMin>=8|decision.*WATCH' "$ST/micro-live-executor.js" | head -30
-          echo '=== RUNTIME STATUS ==='
-          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" /opt/meme-alpha/app/src/micro-live-executor.js | tail -1
-          cat /opt/meme-alpha/app/runtime-status/micro-live-gate.json 2>/dev/null || true
-          exit 0
+          set -u
+          APP=/opt/meme-alpha/app
+          echo '=== SERVICES ==='
+          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
+          echo '=== GATE ==='
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          echo '=== RADAR/SIGNAL ==='
+          python3 - <<'PY'
+          import json,os,time
+          for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json']:
+            try:
+              d=json.load(open(p)); r=d.get('candidates') or []
+              print(p,{'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(r),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r),'watch':sum(x.get('decision')=='WATCH' for x in r),'ageSec':round(time.time()-os.path.getmtime(p),1)})
+            except Exception as e: print(p,'ERR',e)
+          PY
+          echo '=== EXECUTOR ==='
+          pgrep -af 'micro-live-executor.js' || true
+          grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" 2>/dev/null | tail -1 || true
+          echo '=== RECENT MICRO EVENTS ==='
+          tail -n 30 /var/lib/meme-alpha/data/micro-live/events.jsonl 2>/dev/null || true
