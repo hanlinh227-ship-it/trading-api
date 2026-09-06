@@ -65,8 +65,8 @@ Production deploy path `.github/workflows/deploy-cloudflare-worker.yml`. Source 
 
 ## Meme Alpha isolated writer — 2026-09-06
 
-LOCKED: true
+LOCKED: false
 OWNER: CHATGPT
 SCOPE: Meme Alpha only: source verification, safe-universe qualification, cost-aware rotation, held-position continuity, realized-capital sizing, regression tests and Meme checkpoint/handoff. No Bybit, signer/private-key or OS permission changes. Existing Bybit lock above is preserved.
 AUTHORITY: User explicitly authorized taking over Meme Alpha after the lock ambiguity was reported.
-STATUS: IMPLEMENTATION IN PROGRESS; no production deployment or trading state reset authorized by this lock alone. Independent review required before production-risk activation.
+STATUS: RELEASED — V386 pure policy and 33 tests committed on codex/meme-v386-cost-aware-policy; live strategy unchanged. Independent review and integration pending; see branch README. Bybit lock above remains unchanged.
