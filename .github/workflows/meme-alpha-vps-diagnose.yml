@@ -35,7 +35,7 @@ jobs:
             echo '## /opt/meme-alpha directories'
             echo '```'
             if [[ -d /opt/meme-alpha ]]; then
-              find /opt/meme-alpha -maxdepth 5 -type d -print 2>/dev/null | sort | head -n 500
+              find /opt/meme-alpha -maxdepth 5 -type d -print 2>/dev/null | sort | sed -n '1,500p'
             else
               echo '/opt/meme-alpha missing'
             fi
@@ -44,7 +44,7 @@ jobs:
             echo '## /opt/meme-alpha files (names only; no contents)'
             echo '```'
             if [[ -d /opt/meme-alpha ]]; then
-              find /opt/meme-alpha -maxdepth 6 -type f -print 2>/dev/null | sort | head -n 1000
+              find /opt/meme-alpha -maxdepth 6 -type f -print 2>/dev/null | sort | sed -n '1,1000p'
             else
               echo '/opt/meme-alpha missing'
             fi
