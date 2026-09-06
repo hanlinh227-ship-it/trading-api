@@ -17,6 +17,8 @@ jobs:
           F="$APP/src/micro-live-executor.js"
           echo '=== GATE CODE ==='
           grep -nE 'function gate|gate\.|maxPositions|maxExposure|maxSingle|risk-state|entryAllowed|allowed:' "$F" | head -n 120 || true
+          echo '=== LIVE GATE ==='
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
           echo '=== RISK ==='
           cat /var/lib/meme-alpha/data/paper/risk-state.json 2>/dev/null || true
           echo '=== PORTFOLIO ==='
