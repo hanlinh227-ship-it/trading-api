@@ -1,0 +1,67 @@
+name: Meme Alpha V404 Hard Stop Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v404-hard-stop-audit.yml
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 4
+    steps:
+      - name: Audit runtime hard-stop risks
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
+          echo '=== TIME ==='; date -u +%FT%TZ
+          echo '=== FAILED UNITS ==='; systemctl --failed --no-pager || true
+          echo '=== SERVICES / RESTART POLICY ==='
+          for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            echo "--- $s ---"
+            systemctl show "$s" -p ActiveState -p SubState -p MainPID -p NRestarts -p Restart -p RestartUSec -p StartLimitIntervalUSec -p StartLimitBurst -p Result -p ExecMainStatus -p FragmentPath --no-pager || true
+          done
+          echo '=== SINGLE EXECUTOR PID ==='
+          pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
+          echo "executor_count=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js' || true)"
+          echo '=== ARM / WRITABILITY / OWNERSHIP ==='
+          stat -c '%n uid=%u gid=%g mode=%a size=%s' /etc/meme-alpha/micro-live-armed /etc/meme-alpha/micro-live-policy.json "$APP/src/micro-live-executor.js" 2>&1 || true
+          printf 'arm='; cat /etc/meme-alpha/micro-live-armed 2>&1 || true
+          findmnt -no TARGET,OPTIONS / /etc /opt /var/lib 2>/dev/null || true
+          echo '=== DISK / INODES / MEMORY ==='
+          df -h / /opt /var/lib 2>/dev/null || true
+          df -i / /opt /var/lib 2>/dev/null || true
+          free -m || true
+          echo '=== GATE / CAPITAL / PORTFOLIO / AGES ==='
+          python3 - <<'PY'
+          import json,pathlib,time,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','signal-snapshot.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if not p.exists(): print(name,'MISSING'); continue
+            try: d=json.loads(p.read_text())
+            except Exception as e: print(name,'BAD_JSON',e); continue
+            age=round(time.time()-p.stat().st_mtime,1)
+            if name=='micro-live-gate.json': out={k:d.get(k) for k in ['version','allowed','armOk','armAttested','executionMode','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']}
+            elif name=='signal-snapshot.json': out={'candidates':len(d.get('candidates') or []),'timestamp':d.get('timestamp')}
+            elif name=='portfolio-observability.json': out={k:d.get(k) for k in ['stateReadable','openPositions','positionMints']}
+            elif name=='capital-observability.json': out={k:d.get(k) for k in ['walletSol','investedSol','deployableSol','reserveSol','openPositions','scaleAllowed']}
+            elif name=='allocator-status.json': out={k:d.get(k) for k in ['action','reason','symbol','targetSymbol','openPositions','scaleAllowed']}
+            else: out={k:d.get(k) for k in ['updatedAt','type','symbol','spentSol','signature','openPositions']}
+            print(name,'ageSec=',age,out)
+          PY
+          echo '=== EXECUTOR SHA / SOURCE CHECK ==='
+          sha256sum "$APP/src/micro-live-executor.js" || true
+          grep -nE 'V403_MULTI_COIN_CAPITAL|newEntryShare|diversificationOrderCapLamports|globalBuyError|setTimeout\(loop' "$APP/src/micro-live-executor.js" | head -80 || true
+          echo '=== RUNNER / SUDO PATHS ==='
+          id
+          sudo -n -l 2>&1 || true
+          echo '=== RECENT SERVICE ERRORS VIA SYSTEMCTL ==='
+          systemctl status meme-alpha-micro-live.service --no-pager -n 20 2>&1 || true
+          systemctl status meme-alpha-signer.service --no-pager -n 20 2>&1 || true
+          echo '=== CRON/TIMERS POTENTIAL CONFLICT ==='
+          systemctl list-timers --all --no-pager | grep -Ei 'meme|alpha|trading|github' || true
+          crontab -l 2>&1 || true
+          echo '=== HARD STOP AUDIT COMPLETE ==='
