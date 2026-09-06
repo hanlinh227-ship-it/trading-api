@@ -45,7 +45,9 @@ jobs:
                       if isinstance(reason,str): counts[k+':'+reason]+=1
           print(json.dumps({'signalTimestamp':d.get('timestamp'),'count':len(rows),'intelSummary':d.get('intelSummary'),'blockReasons':dict(counts)}))
           for filename, names in [
-              ('micro-live-executor.js', ['coreSafe','trendEntryEligible','allocationProfile','targetPlan','rotationSource','maybeRotate','maybeScaleIn','placeBuy','tick']),
+              ('micro-live-executor.js', ['coreSafe','trendEntryEligible','bestCandidate','allocationProfile','targetPlan','rotationSource','maybeRotate','maybeScaleIn','placeBuy','tick']),
+              ('scanner.js', ['discovery','analyze']),
+              ('safe-signal-export.js', ['marketRegime','laneBoost','routeCandidate','guardCandidate']),
               ('micro-live-gate.js', [])
           ]:
               text = (root/'src'/filename).read_text()
@@ -60,6 +62,13 @@ jobs:
                           print(json.dumps({'businessFunction':m.group(1),'source':filename,'text':snippet}))
               else:
                   print(json.dumps({'gateSha256':hashlib.sha256(text.encode()).hexdigest(),'scaleLines':[line for line in text.splitlines() if 'evidenceReady' in line or 'scaleAllowed' in line or 'completed>=' in line]}))
+          for filename in ['scanner.js','safe-signal-export.js']:
+              text=(root/'src'/filename).read_text()
+              focus=[]
+              for i,line in enumerate(text.splitlines(),1):
+                  if any(k in line for k in ['preliminary','baseDeep','const deep','MEME_CONFIRMED','universeClass','candidates =','candidates=','.filter(','routeCandidate(','guardCandidate(']):
+                      focus.append({'line':i,'text':line})
+              print(json.dumps({'source':filename,'focusLines':focus[:180]}))
           for p in sorted((root/'src').glob('*.js')):
               for i,line in enumerate(p.read_text().splitlines(),1):
                   if 'scaleAllowed' in line:
