@@ -10,28 +10,35 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 5
     steps:
-      - name: Verify V388 live executor and pipeline
+      - name: Audit immediate live buy status
         shell: bash
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
-          echo '=== SERVICES READ ONLY ==='
+          echo '=== NOW ==='; date -u +%FT%TZ
+          echo '=== SERVICES ==='
           for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          echo '=== EXECUTOR PROCESS ==='
-          pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
-          echo '=== CURRENT LIVE STATE ==='
+          echo '=== EXECUTOR ==='; pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
+          echo '=== GATE/SIGNAL ==='
           python3 - <<'PY'
           import json,pathlib,time,os
           rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          s=json.loads((rt/'signal-snapshot.json').read_text());g=json.loads((rt/'micro-live-gate.json').read_text());rows=s.get('candidates') or []
-          safe=[c for c in rows if c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not (c.get('hardReject') or []) and float(c.get('liquidityUsd') or 0)>=50000]
-          probes=[c for c in safe if c.get('decision')=='PROBE_CANDIDATE']
-          print('GATE',{'age':round(time.time()-os.path.getmtime(rt/'micro-live-gate.json'),1),'allowed':g.get('allowed'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'mode':g.get('executionMode'),'reasons':g.get('reasons')})
-          print('SIGNAL',{'age':round(time.time()-os.path.getmtime(rt/'signal-snapshot.json'),1),'rows':len(rows),'safe':len(safe),'probes':len(probes),'safeSymbols':[c.get('symbol') for c in safe[:10]],'probeSymbols':[c.get('symbol') for c in probes[:10]]})
-          for c in probes[:5]: print('PROBE',{k:c.get(k) for k in ['symbol','mint','score','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','liquidityUsd','topHoldersPct','holderClusterMaxAccountsSameOwner','strategyRouter']})
+          for fn in ['micro-live-gate.json','signal-snapshot.json']:
+            p=rt/fn; print(fn,'ageSec=',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
+          g=json.loads((rt/'micro-live-gate.json').read_text()); s=json.loads((rt/'signal-snapshot.json').read_text()); rows=s.get('candidates') or []
+          print('GATE',{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','executionMode','reasons']})
+          probes=[c for c in rows if c.get('decision')=='PROBE_CANDIDATE']
+          print('SIGNAL_COUNT',len(rows),'PROBE_COUNT',len(probes))
+          for c in probes[:10]:
+            print('PROBE',{k:c.get(k) for k in ['symbol','mint','score','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','liquidityUsd','sellPriceImpactPct','topHoldersPct','holderClusterMaxAccountsSameOwner','hardReject','entryGuardReasons']})
           PY
-          echo '=== READABLE LIVE FILES ==='
-          find "$RT" /var/lib/meme-alpha/data/micro-live -maxdepth 2 -type f -readable 2>/dev/null | grep -Ei 'event|trade|exec|state|order|fill|position|decision' | tail -40 || true
-          echo '=== RECENT BUY/EXECUTION EVIDENCE ==='
-          for f in $(find "$RT" /var/lib/meme-alpha/data/micro-live -maxdepth 2 -type f -readable 2>/dev/null | grep -Ei 'event|trade|exec|order|fill|state' | tail -20); do echo FILE=$f; tail -80 "$f" 2>/dev/null | grep -Ei 'KET|MICRO_BUY|SCALE_IN|BUY|SUBMIT|CONFIRM|EXECUT' | tail -20 || true; done
-          echo V388_EXECUTOR_POSTCHECK=COMPLETE
+          echo '=== EXECUTOR JOURNAL SINCE V388 ACTIVATION ==='
+          journalctl -u meme-alpha-micro-live.service --since '2026-09-06 14:13:30 UTC' --no-pager -n 1200 2>/dev/null | tail -1200 || true
+          echo '=== BUY/FILL/ERROR FILTER ==='
+          journalctl -u meme-alpha-micro-live.service --since '2026-09-06 14:13:30 UTC' --no-pager -n 2000 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|BUY|ORDER|FILL|SIGNATURE|EXECUTOR_ERROR|SIGNER_|IMPACT|HEADROOM|WAIT|NO_CANDIDATE|KET' | tail -300 || true
+          echo '=== READABLE EVENT/STATE FILES ==='
+          find "$RT" /var/lib/meme-alpha/data/micro-live -maxdepth 2 -type f -readable 2>/dev/null | grep -Ei 'event|trade|exec|state|order|fill|position|decision' | tail -60 || true
+          for f in $(find "$RT" /var/lib/meme-alpha/data/micro-live -maxdepth 2 -type f -readable 2>/dev/null | grep -Ei 'event|trade|exec|order|fill|state' | tail -30); do
+            echo FILE="$f"; tail -120 "$f" 2>/dev/null | grep -Ei 'MICRO_BUY|MICRO_SCALE_IN|KET|BUY|SELL|signature|EXECUTOR_ERROR|HEADROOM|WAIT' | tail -40 || true
+          done
+          echo V388_BUY_STATUS_AUDIT=COMPLETE
