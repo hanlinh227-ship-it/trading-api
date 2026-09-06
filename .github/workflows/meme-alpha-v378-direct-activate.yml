@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Root Recovery Inspect
+name: Meme Alpha V379 Final Verify
 
 on:
   push:
@@ -6,22 +6,30 @@ on:
     paths:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
+permissions:
+  contents: write
+
 jobs:
-  inspect:
+  verify:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect root recovery lane
+      - name: Verify v379 live entry
         shell: bash
         run: |
           set -u
-          echo '--- MAINT STATE ---'
-          ls -l /var/lib/meme-alpha/deploy-v377-maintenance.json 2>&1 || true
+          APP=/opt/meme-alpha/app
+          sleep 15
           echo '--- ROOT UPDATER ---'
           systemctl status auto-futures-update.timer auto-futures-update.service --no-pager 2>&1 || true
-          echo '--- UPDATER LOG TAIL ---'
-          tail -n 120 /opt/trading/trading-api/auto-futures-v1/logs/auto_update.log 2>&1 || true
-          echo '--- ARM ---'
-          stat -c 'uid=%u gid=%g mode=%a owner=%U group=%G' /etc/meme-alpha/micro-live-armed 2>&1 || true
-          cat /etc/meme-alpha/micro-live-armed 2>&1 || true
+          echo '--- ROOT SOURCE HEAD ---'
+          git -C /opt/trading/trading-api rev-parse HEAD 2>/dev/null || true
+          echo '--- GATE ---'
+          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          echo '--- V379 ---'
+          grep -n 'MICRO_LIVE_EXECUTOR_V379_HIGH_OPPORTUNITY' "$APP/src/micro-live-executor.js" 2>/dev/null || true
+          echo '--- SERVICES ---'
+          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service 2>/dev/null || true
+          echo '--- PROCESS COUNT ---'
+          pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
