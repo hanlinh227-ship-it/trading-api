@@ -17,16 +17,9 @@ def rep(old,new,label):
     n=s.count(old)
     if n!=1: raise SystemExit(f'PATCH_{label}_COUNT={n}')
     s=s.replace(old,new,1)
-
-rep("  if(!trendEntryEligible(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};",
-    "  if(!coreSafe(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};",
-    'ALLOC_CORE_SAFE')
-rep("function bestCandidate(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&trendEntryEligible(c)).sort((a,b)=>expectedEdge(st,b)-expectedEdge(st,a)||rank(b)-rank(a))[0]||null}",
-    "function bestCandidate(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&coreSafe(c)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))[0]||null}",
-    'BEST_CORE_SAFE')
-rep("plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports})",
-    "plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports})",
-    'MAX_UTILIZATION_TARGET')
+rep("  if(!trendEntryEligible(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};","  if(!coreSafe(c)||capitalBaseLamports<=0)return{name:'NONE',pct:0,quality:0};",'ALLOC_CORE_SAFE')
+rep("function bestCandidate(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&trendEntryEligible(c)).sort((a,b)=>expectedEdge(st,b)-expectedEdge(st,a)||rank(b)-rank(a))[0]||null}","function bestCandidate(p,held,st){return candidates().filter(c=>!held.has(c.mint)&&coreSafe(c)).sort((a,b)=>(Number(trendEntryEligible(b))-Number(trendEntryEligible(a)))||(expectedEdge(st,b)-expectedEdge(st,a))||rank(b)-rank(a))[0]||null}",'BEST_CORE_SAFE')
+rep("plan=targetPlan(beforeSol,st,existing,profile.pct,p,{isNew:!isAdd,exitHeadroomLamports})","plan=targetPlan(beforeSol,st,existing,p.maxUtilizationPct,p,{isNew:!isAdd,exitHeadroomLamports})",'MAX_UTILIZATION_TARGET')
 rep("MICRO_LIVE_EXECUTOR_V387_UNIFIED_PRODUCTION=STARTED","MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED",'VERSION_MARKER')
 p.write_text(s)
 PY
@@ -45,21 +38,25 @@ OLD_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor
 echo V389_EXPECTED_SHA="$WANT"
 echo OLD_EXECUTOR_PID="${OLD_PID:-none}"
 
-set +e
-sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$(basename "$CAND")" "$WANT"
-DEPLOY_RC=$?
-set -e
+# Atomic production source swap. Fail closed if the deploy runner is not allowed to write src.
+[ -w "$SRC" ] || { echo V389_FAIL=SRC_DIR_NOT_WRITABLE; exit 3; }
+BACKUP="$RT/v389-pre-activate-executor-$(date -u +%Y%m%dT%H%M%SZ).js"
+cp -a "$SRC/micro-live-executor.js" "$BACKUP"
+TMP="$SRC/.micro-live-executor.v389.$$"
+cp "$CAND" "$TMP"
+chmod 0644 "$TMP"
+[ "$(sha256sum "$TMP" | awk '{print $1}')" = "$WANT" ] || { rm -f "$TMP"; echo V389_FAIL=TMP_HASH; exit 4; }
+mv -f "$TMP" "$SRC/micro-live-executor.js"
 HAVE="$(sha256sum "$SRC/micro-live-executor.js" | awk '{print $1}')"
-echo SAFE_DEPLOY_RC="$DEPLOY_RC"
 echo PRODUCTION_SHA="$HAVE"
-[ "$HAVE" = "$WANT" ] || { echo V389_FAIL=SOURCE_NOT_DEPLOYED; exit 3; }
+[ "$HAVE" = "$WANT" ] || { cp "$BACKUP" "$SRC/micro-live-executor.js"; echo V389_FAIL=SOURCE_HASH; exit 5; }
 
-NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
-if [ -z "$NEW_PID" ] || [ "$NEW_PID" = "$OLD_PID" ]; then
-  ORIGINAL="$RT/v387-unified-final/run-paper.original.sh"
-  [ -f "$ORIGINAL" ] || { echo V389_FAIL=ORIGINAL_RUNNER_MISSING; exit 4; }
-  cp "$APP/run-paper.sh" "$RT/v389-run-paper.pre.sh"
-  cat > "$APP/run-paper.sh" <<'SH'
+# Proven service handoff: paper service runs as meme-alpha, kills old executor, then the
+# executor systemd unit restarts exactly once from the new production source.
+ORIGINAL="$RT/v387-unified-final/run-paper.original.sh"
+[ -f "$ORIGINAL" ] || { cp "$BACKUP" "$SRC/micro-live-executor.js"; echo V389_FAIL=ORIGINAL_RUNNER_MISSING; exit 6; }
+cp "$APP/run-paper.sh" "$RT/v389-run-paper.pre.sh"
+cat > "$APP/run-paper.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
 APP=/opt/meme-alpha/app
@@ -67,24 +64,28 @@ ORIGINAL="$APP/runtime-status/v387-unified-final/run-paper.original.sh"
 for p in $(pgrep -f '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true); do kill -9 "$p" 2>/dev/null || true; done
 exec "$ORIGINAL"
 SH
-  chmod 0755 "$APP/run-paper.sh"
-  timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-  for i in $(seq 1 45); do
-    NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
-    [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] && break
-    sleep 2
-  done
-  cp "$RT/v389-run-paper.pre.sh" "$APP/run-paper.sh"
-  chmod 0755 "$APP/run-paper.sh"
-  timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-fi
+chmod 0755 "$APP/run-paper.sh"
+timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+NEW_PID=""
+for i in $(seq 1 45); do
+  NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
+  [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] && break
+  sleep 2
+done
+cp "$RT/v389-run-paper.pre.sh" "$APP/run-paper.sh"
+chmod 0755 "$APP/run-paper.sh"
+timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
 
 NEW_PID="$(pgrep -fo '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
-[ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] || { echo V389_FAIL=EXECUTOR_NOT_RELOADED; exit 5; }
+if [ -z "$NEW_PID" ] || [ "$NEW_PID" = "$OLD_PID" ]; then
+  cp "$BACKUP" "$SRC/micro-live-executor.js"
+  echo V389_FAIL=EXECUTOR_NOT_RELOADED
+  exit 7
+fi
 echo NEW_EXECUTOR_PID="$NEW_PID"
 node --check "$SRC/micro-live-executor.js"
 grep -q 'MICRO_LIVE_EXECUTOR_V389_IDLE_CASH=STARTED' "$SRC/micro-live-executor.js"
-grep -q "if(!coreSafe(c)||capitalBaseLamports<=0)" "$SRC/micro-live-executor.js"
+grep -q "if(!coreSafe(c)||capitalBaseLamports<=0" "$SRC/micro-live-executor.js"
 grep -q 'filter(c=>!held.has(c.mint)&&coreSafe(c))' "$SRC/micro-live-executor.js"
 grep -q 'targetPlan(beforeSol,st,existing,p.maxUtilizationPct' "$SRC/micro-live-executor.js"
 
@@ -114,13 +115,13 @@ assert safe
 PY
   then LIVE=1; break; fi
 done
-[ "$LIVE" = 1 ] || { echo V389_FAIL=LIVE_HARD_SAFE_PIPELINE_NOT_READY; exit 6; }
+[ "$LIVE" = 1 ] || { echo V389_FAIL=LIVE_HARD_SAFE_PIPELINE_NOT_READY; exit 8; }
 
 for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
-  systemctl is-active --quiet "$svc" || { echo V389_FAIL_SERVICE="$svc"; exit 7; }
+  systemctl is-active --quiet "$svc" || { echo V389_FAIL_SERVICE="$svc"; exit 9; }
   echo "$svc=active"
 done
-[ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ] || { echo V389_FAIL=EXECUTOR_PROCESS_COUNT; exit 8; }
+[ "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1 ] || { echo V389_FAIL=EXECUTOR_PROCESS_COUNT; exit 10; }
 
 echo V389_IDLE_CASH_DEPLOYMENT=ACTIVE
 echo HARD_SAFE_FIRST=TRUE
