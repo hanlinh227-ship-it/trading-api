@@ -1,45 +1,27 @@
-name: Meme Alpha V382 Deep Diagnose
+name: Meme Alpha V382 Failed Updater Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  diagnose:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect rollback failure and radar watchdog
+      - name: Inspect latest failed updater snapshot
         shell: bash
         run: |
           set +e
-          APP=/opt/meme-alpha/app
           ROOT=/opt/trading/trading-api
-          echo '=== NOW ==='; date -u +%FT%TZ
-          echo '=== FAILED DEPLOY SNAPSHOTS ==='
-          ls -ld "$ROOT"/auto-futures-v1.failed.* 2>&1 | tail -20 || true
-          LAST=$(ls -1dt "$ROOT"/auto-futures-v1.failed.* 2>/dev/null | head -1)
-          echo "LAST_FAILED=$LAST"
-          if [ -n "$LAST" ]; then
-            echo '--- failed updater ---'; sed -n '1,260p' "$LAST/runtime/update_auto_futures.sh" 2>&1 || true
-            echo '--- failed log ---'; tail -n 160 "$LAST/logs/auto_update.log" 2>&1 || true
-            echo '--- reconcile exists ---'; ls -l "$LAST/runtime/deploy_meme_alpha_v382_reconcile.sh" 2>&1 || true
-          fi
-          echo '=== TMP FAILURE OUTPUTS ==='
-          for f in /tmp/auto_futures_bootstrap.out /tmp/signal_v10_install.out /tmp/auto_futures_preupdate_preflight.out /tmp/meme_v378_selftest.out; do echo "--- $f ---"; tail -n 160 "$f" 2>&1 || true; done
-          echo '=== CURRENT WATCHER/UPDATER ==='
-          sed -n '1,260p' "$ROOT/auto-futures-v1/runtime/watch_github.sh" 2>&1 || true
-          echo '--- current updater diff-ish markers ---'
-          grep -nE 'MEME_|STATIC VALIDATION|BOOTSTRAP|SIGNAL V10|FILES=' "$ROOT/auto-futures-v1/runtime/update_auto_futures.sh" 2>&1 || true
-          echo '=== RADAR WATCHDOG BLOCK ==='
-          sed -n '45,85p' "$APP/run-paper.sh" 2>&1 || true
-          echo '=== RADAR RUNTIME LOG ==='
-          tail -n 240 "$APP/runtime-status/new-listing-radar-runtime.log" 2>&1 || true
-          echo '=== LOCK ==='
-          ls -l /tmp/meme-alpha-solana-dex-universe.lock 2>&1 || true
-          cat /tmp/meme-alpha-solana-dex-universe.lock 2>&1 || true
-          if [ -f /tmp/meme-alpha-solana-dex-universe.lock ]; then stat /tmp/meme-alpha-solana-dex-universe.lock 2>&1 || true; fi
-          echo '=== PAPER TREE ==='
-          ps -eo pid,ppid,user,etime,stat,cmd --forest | grep -E 'run-paper|new-listing-radar|scanner.js|meme-alpha-paper' | grep -v grep || true
-          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" 2>&1 || true
-          echo DEEP_DIAGNOSE_COMPLETE=TRUE
+          F="$ROOT/auto-futures-v1.failed.20260906_083243"
+          echo '=== FAILED TREE ==='; find "$F/runtime" -maxdepth 1 -type f -printf '%f %s\n' 2>&1 | sort || true
+          echo '=== UPDATER ==='; sed -n '1,260p' "$F/runtime/update_auto_futures.sh" 2>&1 || true
+          echo '=== RECONCILE ==='; sed -n '1,260p' "$F/runtime/deploy_meme_alpha_v382_reconcile.sh" 2>&1 || true
+          echo '=== FAILED LOG ==='; tail -n 220 "$F/logs/auto_update.log" 2>&1 || true
+          echo '=== MISSING REQUIRED FILES ==='
+          for p in paper_trader.py ai/common.py ai/ai_budget_governor.py ai/ai_coordination.py ai/claude_trader.py ai/deepseek_trader.py ai/codex_trader.py ai/consensus.py risk/risk_engine.py execution/execution_guard.py execution/live_preflight.py execution/approval_queue.py execution/live_executor.py execution/hub_control_bridge.py research/market_context_monitor.py research/signal_quality_guard.py research/reliability_learner.py position/ai_position_guardian.py position/position_manager.py; do [ -f "$F/$p" ] || echo MISSING:$p; done
+          echo '=== CURRENT ROOT HEAD/REMOTE ==='
+          git -c safe.directory="$ROOT" -C "$ROOT" rev-parse HEAD 2>&1 || true
+          git -c safe.directory="$ROOT" -C "$ROOT" rev-parse origin/auto-futures-v1 2>&1 || true
+          echo INSPECT_DONE=TRUE
