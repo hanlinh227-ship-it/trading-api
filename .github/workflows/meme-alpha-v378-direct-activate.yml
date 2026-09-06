@@ -1,37 +1,100 @@
-name: Meme Alpha V382 Post Swap Diagnose
+name: Meme Alpha V382 Latency First Hotfix
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  inspect:
+  deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect v382 post swap state
+      - name: Reduce blocking work per cycle and verify fresh runtime
         shell: bash
         run: |
-          set +e
+          set -euo pipefail
           APP=/opt/meme-alpha/app
           ST="$APP/runtime-status/v381-fast-capital"
-          echo '=== NOW ==='; date -u +%FT%TZ
-          echo '=== RESULT ==='; cat "$ST/v382-result.txt" 2>/dev/null || true
-          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1 || true
-          echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js' || true
-          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
-          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
-          echo '=== AGES ==='
+          START_EPOCH=$(date +%s)
+
+          python3 - "$ST/scanner.js" <<'PY'
+          import sys
+          p=sys.argv[1]; s=open(p).read()
+          reps=[
+            ('const MAX_SELLABILITY_CHECKS_V216=16;', 'const MAX_SELLABILITY_CHECKS_V216=8;'),
+            ('const baseDeep = preliminary.slice(0, 72);', 'const baseDeep = preliminary.slice(0, 24);'),
+            ('.slice(0, 24);', '.slice(0, 8);'),
+          ]
+          for old,new in reps:
+            if old in s: s=s.replace(old,new,1)
+            elif new not in s: raise SystemExit('HOTFIX_PATCH_MISMATCH:'+old)
+          open(p,'w').write(s)
+          print('V382_LATENCY_HOTFIX_PATCH=PASS')
+          PY
+
+          node --check "$ST/scanner.js"
+          node --check "$ST/safe-signal-export.js"
+          node --check "$ST/micro-live-executor.js"
+          grep -q 'DISCOVERY_RADAR_ONLY_MAX = 900' "$ST/scanner.js"
+          grep -q 'JUPITER_MIN_INTERVAL_MS = 1200' "$ST/scanner.js"
+          grep -q 'MAX_SELLABILITY_CHECKS_V216=8' "$ST/scanner.js"
+          grep -q 'preliminary.slice(0, 24)' "$ST/scanner.js"
+          grep -q 'slice(0, 8)' "$ST/scanner.js"
+          grep -q 'slice(0,300)' "$ST/safe-signal-export.js"
+          grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$ST/micro-live-executor.js"
+
+          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v382-hotfix.sh"
+          chmod 0755 "$ST/run-paper.pre-v382-hotfix.sh"
+          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
+          cat > "$APP/run-paper.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          ST="$APP/runtime-status/v381-fast-capital"
+          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
+          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
+          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
+          printf 'V382_HOTFIX_SCANNER_SWAP=TRUE\nV382_HOTFIX_SIGNAL_SWAP=TRUE\nV382_HOTFIX_EXECUTOR_SWAP=TRUE\n' > "$ST/v382-hotfix-result.txt"
+          cp "$ST/run-paper.pre-v382-hotfix.sh" "$APP/run-paper.sh"
+          chmod 0755 "$APP/run-paper.sh"
+          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill "$p" 2>/dev/null || true; done
+          exec "$APP/run-paper.sh"
+          SH
+          chmod 0755 "$APP/run-paper.sh"
+          timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
+
+          READY=0
+          for i in $(seq 1 90); do
+            G="$APP/runtime-status/micro-live-gate.json"
+            R="$APP/runtime-status/new-listing-radar.json"
+            S="$APP/runtime-status/signal-snapshot.json"
+            if grep -q 'V382_HOTFIX_EXECUTOR_SWAP=TRUE' "$ST/v382-hotfix-result.txt" 2>/dev/null \
+              && grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
+              && pgrep -f 'node .*micro-live-executor.js' >/dev/null \
+              && grep -q '"allowed": true' "$G" 2>/dev/null \
+              && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
+              && grep -q '"riskEntryAllowed": true' "$G" 2>/dev/null; then
+              RM=$(stat -c %Y "$R" 2>/dev/null || echo 0)
+              SM=$(stat -c %Y "$S" 2>/dev/null || echo 0)
+              if [ "$RM" -ge "$START_EPOCH" ] && [ "$SM" -ge "$START_EPOCH" ]; then READY=1; break; fi
+            fi
+            sleep 2
+          done
+          [ "$READY" = 1 ]
+
+          echo '=== RESULT ==='; cat "$ST/v382-hotfix-result.txt"
+          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service || true
+          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
+          echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js'
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
+          echo '=== PIPELINE FRESHNESS ==='
           python3 - <<'PY'
           import os,json,time
           base='/opt/meme-alpha/app/runtime-status/'
           for f in ['new-listing-radar.json','signal-snapshot.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']:
             p=base+f
-            try:
-              d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
-              print(f, {'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(r) if isinstance(r,list) else None,'status':d.get('status')})
-            except Exception as e: print(f,'ERR',e)
+            d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
+            print(f,{'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(r) if isinstance(r,list) else None,'status':d.get('status')})
           PY
-          echo '=== CONSTANTS ==='
-          grep -nE 'DISCOVERY_RADAR_ONLY_MAX|JUPITER_MIN_INTERVAL_MS|MAX_SELLABILITY_CHECKS_V216|preliminary.slice\(0, 72\)|slice\(0,300\)|await sleep\(900\)' "$APP/src/scanner.js" "$APP/src/safe-signal-export.js" "$APP/src/micro-live-executor.js" 2>/dev/null || true
-          exit 0
+          printf '{"version":"3.82.1","status":"DEPLOYED","profile":"NO_SOFT_GATE_LATENCY_FIRST","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v382-deployed.json"
+          echo V382_ACTIVE=TRUE
