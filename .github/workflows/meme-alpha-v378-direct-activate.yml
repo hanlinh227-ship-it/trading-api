@@ -1,4 +1,4 @@
-name: Meme Alpha V379 Scanner Diagnose
+name: Meme Alpha V379 Candidate Turnover Diagnose
 
 on:
   push:
@@ -12,20 +12,19 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect scanner
+      - name: Inspect candidate turnover
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
           echo '--- SERVICES ---'
           systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
-          echo '--- RECENT DATA FILES ---'
-          find /var/lib/meme-alpha/data -maxdepth 3 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 100 || true
-          echo '--- RUNTIME STATUS ---'
-          find "$APP/runtime-status" -maxdepth 2 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 80 || true
-          echo '--- JSON SNAPSHOTS ---'
-          for f in /var/lib/meme-alpha/data/paper/candidates.json /var/lib/meme-alpha/data/paper/scanner.json /var/lib/meme-alpha/data/paper/signal.json /var/lib/meme-alpha/data/paper/source-health.json /var/lib/meme-alpha/data/paper/risk-state.json /var/lib/meme-alpha/data/micro-live/state.json "$APP/runtime-status/micro-live-gate.json"; do echo "### $f"; if [ -f "$f" ]; then head -c 24000 "$f"; echo; fi; done
-          echo '--- EVENTS ---'
-          for f in /var/lib/meme-alpha/data/micro-live/events.jsonl /var/lib/meme-alpha/data/paper/events.jsonl; do echo "### $f"; if [ -f "$f" ]; then tail -n 120 "$f"; fi; done
-          echo '--- CODE REFERENCES ---'
-          grep -RniE 'dexscreener|jupiter|candidate|watching|scanner|realtime|trend-pulse|whale-flow|PROBE_CANDIDATE|opportunityLane' "$APP/src" 2>/dev/null | head -n 240 || true
+          for round in 1 2; do
+            echo "=== ROUND $round ==="
+            date -u +%FT%TZ
+            for f in "$APP/runtime-status/new-listing-radar.json" "$APP/runtime-status/realtime-pool-pulse.json" "$APP/runtime-status/trend-pulse.json" "$APP/runtime-status/whale-flow-intel.json" "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/universe.json" "$APP/runtime-status/micro-live-gate.json"; do
+              echo "### $f"
+              if [ -f "$f" ]; then head -c 32000 "$f"; echo; fi
+            done
+            [ "$round" -eq 1 ] && sleep 18
+          done
