@@ -12,39 +12,20 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect live scanner and candidate flow
+      - name: Inspect scanner
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
           echo '--- SERVICES ---'
           systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
-          echo '--- DATA FILES ---'
-          find /var/lib/meme-alpha/data -maxdepth 3 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TS %p\n' 2>/dev/null | sort -r | head -n 80 || true
-          echo '--- RUNTIME STATUS FILES ---'
-          find "$APP/runtime-status" -maxdepth 2 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TS %p\n' 2>/dev/null | sort -r | head -n 80 || true
-          echo '--- CANDIDATE/SCAN SNAPSHOTS ---'
-          for f in \
-            /var/lib/meme-alpha/data/paper/candidates.json \
-            /var/lib/meme-alpha/data/paper/scanner.json \
-            /var/lib/meme-alpha/data/paper/signal.json \
-            /var/lib/meme-alpha/data/paper/source-health.json \
-            /var/lib/meme-alpha/data/paper/risk-state.json \
-            /var/lib/meme-alpha/data/micro-live/state.json \
-            "$APP/runtime-status/micro-live-gate.json"; do
-            echo "### $f"
-            [[ -f "$f" ]] && python3 - "$f" <<'PY' || true
-import json,sys
-p=sys.argv[1]
-try:
- d=json.load(open(p))
- print(json.dumps(d,indent=2)[:24000])
-except Exception as e: print('ERR',e)
-PY
-          done
-          echo '--- RECENT EXEC EVENTS ---'
-          for f in /var/lib/meme-alpha/data/micro-live/events.jsonl /var/lib/meme-alpha/data/paper/events.jsonl; do
-            echo "### $f"; [[ -f "$f" ]] && tail -n 120 "$f" || true
-          done
-          echo '--- SOURCE REFERENCES IN CODE ---'
-          grep -RniE 'dexscreener|jupiter|candidate|watching|scanner|realtime|trend-pulse|whale-flow|PROBE_CANDIDATE|opportunityLane' "$APP/src" 2>/dev/null | head -n 220 || true
+          echo '--- RECENT DATA FILES ---'
+          find /var/lib/meme-alpha/data -maxdepth 3 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 100 || true
+          echo '--- RUNTIME STATUS ---'
+          find "$APP/runtime-status" -maxdepth 2 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 80 || true
+          echo '--- JSON SNAPSHOTS ---'
+          for f in /var/lib/meme-alpha/data/paper/candidates.json /var/lib/meme-alpha/data/paper/scanner.json /var/lib/meme-alpha/data/paper/signal.json /var/lib/meme-alpha/data/paper/source-health.json /var/lib/meme-alpha/data/paper/risk-state.json /var/lib/meme-alpha/data/micro-live/state.json "$APP/runtime-status/micro-live-gate.json"; do echo "### $f"; if [ -f "$f" ]; then head -c 24000 "$f"; echo; fi; done
+          echo '--- EVENTS ---'
+          for f in /var/lib/meme-alpha/data/micro-live/events.jsonl /var/lib/meme-alpha/data/paper/events.jsonl; do echo "### $f"; if [ -f "$f" ]; then tail -n 120 "$f"; fi; done
+          echo '--- CODE REFERENCES ---'
+          grep -RniE 'dexscreener|jupiter|candidate|watching|scanner|realtime|trend-pulse|whale-flow|PROBE_CANDIDATE|opportunityLane' "$APP/src" 2>/dev/null | head -n 240 || true
