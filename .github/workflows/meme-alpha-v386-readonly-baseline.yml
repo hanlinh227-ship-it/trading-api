@@ -48,7 +48,7 @@ jobs:
           ]:
               text = (root/'src'/filename).read_text()
               if names:
-                  starts=list(re.finditer(r'^(?:async )?function ([A-Za-z0-9_]+)\\(',text,re.M))
+                  starts=list(re.finditer(r'^(?:async )?function ([A-Za-z0-9_]+)[(]',text,re.M))
                   for i,m in enumerate(starts):
                       if m.group(1) in names:
                           end=starts[i+1].start() if i+1<len(starts) else len(text)
