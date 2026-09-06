@@ -1,0 +1,56 @@
+name: Root Updater Permission Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/root-updater-permission-check.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect updater file permissions
+        shell: bash
+        run: |
+          set -u
+          OUT="$GITHUB_WORKSPACE/meme-alpha-runtime/ROOT-UPDATER-PERMISSIONS.md"
+          ROOT=/opt/trading/trading-api/auto-futures-v1/runtime
+          describe(){
+            local f="$1" label="$2"
+            if [[ -e "$f" ]]; then
+              echo "- ${label}_owner: \`$(stat -c %U:%G "$f")\`"
+              echo "- ${label}_mode: \`$(stat -c %a "$f")\`"
+              echo "- ${label}_executable: \`$([[ -x "$f" ]] && echo true || echo false)\`"
+              echo "- ${label}_writable_by_runner: \`$([[ -w "$f" ]] && echo true || echo false)\`"
+            else
+              echo "- ${label}_exists: \`false\`"
+            fi
+          }
+          {
+            echo '# Root Updater Permissions'
+            echo
+            describe "$ROOT/watch_github.sh" watcher
+            describe "$ROOT/update_auto_futures.sh" updater
+            echo "- runtime_dir_writable_by_runner: \`$([[ -w "$ROOT" ]] && echo true || echo false)\`"
+            echo "- runner_user: \`$(id -un)\`"
+            echo "- checked_at_utc: \`$(date -u +%FT%TZ)\`"
+          } > "$OUT"
+      - name: Commit report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "meme-alpha-vps-bot"
+          git config user.email "actions-bot@users.noreply.github.com"
+          git add meme-alpha-runtime/ROOT-UPDATER-PERMISSIONS.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: record root updater permissions"
+          git push origin HEAD:main
