@@ -39,11 +39,12 @@ jobs:
           echo ACTIVE_SIGNAL_SHA="$ACT"
           [ "$ACT" = "$EXPECT" ]
           for svc in meme-alpha-paper meme-alpha-micro-live meme-alpha-realtime-pulse meme-alpha-signer meme-alpha-trend-pulse meme-alpha-whale-flow; do systemctl is-active --quiet "$svc.service"; done
-          /usr/bin/node - "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/micro-live-gate.json" <<'NODE'
-          const fs=require('fs');const s=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const g=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+          /usr/bin/node - "$APP/runtime-status/signal-snapshot.json" "$APP/runtime-status/micro-live-gate.json" "$APP/runtime-status/realtime-pool-pulse.json" <<'NODE'
+          const fs=require('fs');const s=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));const g=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));const r=JSON.parse(fs.readFileSync(process.argv[4],'utf8'));
           if(s.version!=='3.75.0-opportunity-accelerator')throw new Error('SIGNAL_VERSION_NOT_V375');
           if(!Array.isArray(s.candidates)||!s.intelSummary)throw new Error('SIGNAL_SCHEMA_INVALID');
           if(g.allowed!==true)throw new Error('MICRO_LIVE_GATE_NOT_ALLOWED');
+          if(r.version!=='3.74.0-held-continuity'||r.status!=='HEALTHY')throw new Error('V374_REALTIME_NOT_HEALTHY');
           const unsafe=s.candidates.filter(c=>c.decision==='PROBE_CANDIDATE'&&((c.hardReject||[]).length||c.securityDecision==='BLOCK'||c.sellRoute!==true));
           if(unsafe.length)throw new Error('UNSAFE_PROMOTION_LEAK');
           const down=s.candidates.filter(c=>c.intelMode==='BOTH_FEEDS_DOWN'&&c.decision==='PROBE_CANDIDATE');if(down.length)throw new Error('BOTH_FEEDS_DOWN_ENTRY_LEAK');
@@ -53,9 +54,10 @@ jobs:
           console.log('PROMOTED_FAST_TRACK='+Number(s.intelSummary.promotedFastTrack||0));
           console.log('PROMOTED_PERSISTENCE='+Number(s.intelSummary.promotedPersistence||0));
           console.log('MICRO_LIVE_GATE_ALLOWED='+g.allowed);
+          console.log('REALTIME_VERSION='+r.version);
+          console.log('REALTIME_FAST_SUBSCRIPTIONS='+Number(r.fastSubscriptions||0));
           NODE
           grep -q '3.60.0-profit-aware-exits' "$APP/src/micro-live-executor.js"
-          grep -q '3.74.0-held-continuity' "$APP/src/realtime-pulse.js"
           echo V375_HARD_SAFETY_GUARDS=PRESERVED
           echo V375_REALTIME_BURST_CONFIRMATION=ACTIVE
           echo V375_FAST_DISCOVERY=PRESERVED
