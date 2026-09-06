@@ -6,7 +6,8 @@ LOG="$ROOT/auto-futures-v1/logs/github_watch.log"
 LOCK="/tmp/auto-futures-update.lock"
 BRANCH="auto-futures-v1"
 BOT="$ROOT/auto-futures-v1"
-MEME_DEPLOY="$BOT/runtime/deploy_meme_alpha_v377.sh"
+MEME_DEPLOY_V377="$BOT/runtime/deploy_meme_alpha_v377.sh"
+MEME_DEPLOY_V378="$BOT/runtime/deploy_meme_alpha_v378.sh"
 
 mkdir -p "$(dirname "$LOG")"
 log(){ echo "$(date -u -Is) $*" >> "$LOG"; }
@@ -22,23 +23,32 @@ REMOTE="$(git rev-parse "origin/$BRANCH")"
 if [[ "$LOCAL" != "$REMOTE" ]]; then
   log "NEW COMMIT: local=$LOCAL remote=$REMOTE"
   log "STARTING SAFE UPDATE"
+  set +e
   "$BOT/runtime/update_auto_futures.sh" >> "$LOG" 2>&1
-  log "UPDATE FINISHED"
-  exit 0
-fi
-
-# Isolated meme-alpha deployment hook. It never modifies futures state and it
-# returns success while deferred. Its own fail-closed checks require root,
-# zero meme positions, offline self-tests, backups, health validation and
-# rollback before a production source change can persist.
-if [[ -x "$MEME_DEPLOY" ]]; then
-  if "$MEME_DEPLOY" >> "$LOG" 2>&1; then
-    :
+  UPDATE_RC=$?
+  set -e
+  if [[ "$UPDATE_RC" -eq 0 ]]; then
+    log "UPDATE FINISHED"
   else
-    rc=$?
-    log "MEME_ALPHA_DEPLOY_HOOK_FAILED rc=$rc"
+    log "UPDATE FAILED rc=$UPDATE_RC; continuing isolated meme reconcile"
   fi
 fi
+
+# Isolated meme-alpha reconcile lane. Run both legacy-retirement and current
+# v38x root-arm hooks on every watcher tick, even when Auto Futures update
+# failed or there is no Git delta. Each hook remains fail-closed and cannot
+# bypass signer/source/risk/candidate hard-safety gates.
+for MEME_DEPLOY in "$MEME_DEPLOY_V377" "$MEME_DEPLOY_V378"; do
+  if [[ -x "$MEME_DEPLOY" ]]; then
+    set +e
+    "$MEME_DEPLOY" >> "$LOG" 2>&1
+    rc=$?
+    set -e
+    if [[ "$rc" -ne 0 ]]; then
+      log "MEME_ALPHA_DEPLOY_HOOK_FAILED name=$(basename "$MEME_DEPLOY") rc=$rc"
+    fi
+  fi
+done
 
 # Self-heal the one-Hub architecture after an older updater has pulled the new release.
 NEEDS_RECONCILE=0
@@ -49,5 +59,6 @@ if [[ "$NEEDS_RECONCILE" -eq 1 ]]; then
   "$BOT/runtime/unified_bootstrap.sh" >> "$LOG" 2>&1
   log "UNIFIED HUB RECONCILE FINISHED"
 else
-  log "NO UPDATE: $LOCAL | UNIFIED HUB HEALTHY"
+  LOCAL="$(git rev-parse HEAD 2>/dev/null || true)"
+  log "WATCH COMPLETE: ${LOCAL:-unknown} | UNIFIED HUB HEALTHY"
 fi
