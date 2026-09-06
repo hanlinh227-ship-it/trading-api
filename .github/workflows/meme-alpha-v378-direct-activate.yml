@@ -1,91 +1,33 @@
-name: Meme Alpha V382 Fast Rotating Batch Activate
+name: Meme Alpha V382 Scanner Stall Inspect
 on:
   push:
     branches: [main]
     paths: ['.github/workflows/meme-alpha-v378-direct-activate.yml']
 jobs:
-  deploy:
+  inspect:
     runs-on: self-hosted
-    timeout-minutes: 6
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Apply fast rotating scanner batch and verify live runtime
+      - name: Inspect paper scanner stall
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          START_EPOCH=$(date +%s)
-          python3 - "$ST/scanner.js" <<'PY'
-          import sys,re
-          p=sys.argv[1]; s=open(p).read()
-          s=re.sub(r'const DISCOVERY_RADAR_ONLY_MAX = \d+;', 'const DISCOVERY_RADAR_ONLY_MAX = 180;', s, count=1)
-          s=re.sub(r'const MAX_SELLABILITY_CHECKS_V216=\d+;', 'const MAX_SELLABILITY_CHECKS_V216=4;', s, count=1)
-          s=re.sub(r'const baseDeep = preliminary\.slice\(0, \d+\);', 'const baseDeep = preliminary.slice(0, 12);', s, count=1)
-          lines=s.splitlines(); out=[]; changed=False
-          for line in lines:
-              if not changed and '.slice(0, 8);' in line and 'baseDeep' not in line:
-                  line=line.replace('.slice(0, 8);','.slice(0, 4);',1); changed=True
-              elif not changed and '.slice(0, 24);' in line and 'baseDeep' not in line:
-                  line=line.replace('.slice(0, 24);','.slice(0, 4);',1); changed=True
-              out.append(line)
-          s='\n'.join(out)+'\n'
-          need=['DISCOVERY_RADAR_ONLY_MAX = 180','MAX_SELLABILITY_CHECKS_V216=4','preliminary.slice(0, 12)','.slice(0, 4)']
-          miss=[x for x in need if x not in s]
-          if miss: raise SystemExit('FAST_BATCH_PATCH_FAIL:'+','.join(miss))
-          open(p,'w').write(s)
-          print('V382_FAST_BATCH_PATCH=PASS')
-          PY
-          chmod 0644 "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js"
-          node --check "$ST/scanner.js"
-          node --check "$ST/safe-signal-export.js"
-          node --check "$ST/micro-live-executor.js"
-          grep -q 'slice(0,300)' "$ST/safe-signal-export.js"
-          grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$ST/micro-live-executor.js"
-          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v382-fast-batch.sh"
-          chmod 0755 "$ST/run-paper.pre-v382-fast-batch.sh"
-          cat > "$APP/run-paper.sh" <<'SH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          APP=/opt/meme-alpha/app
-          ST="$APP/runtime-status/v381-fast-capital"
-          install -m 0664 "$ST/scanner.js" "$APP/src/scanner.js"
-          install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
-          install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
-          printf 'V382_FAST_BATCH_SCANNER_SWAP=TRUE\nV382_FAST_BATCH_SIGNAL_SWAP=TRUE\nV382_FAST_BATCH_EXECUTOR_SWAP=TRUE\n' > "$ST/v382-fast-batch-result.txt"
-          cp "$ST/run-paper.pre-v382-fast-batch.sh" "$APP/run-paper.sh"
-          chmod 0755 "$APP/run-paper.sh"
-          for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill "$p" 2>/dev/null || true; done
-          exec "$APP/run-paper.sh"
-          SH
-          chmod 0755 "$APP/run-paper.sh"
-          timeout 90s sudo -n /bin/systemctl restart meme-alpha-paper.service || true
-          READY=0
-          for i in $(seq 1 120); do
-            G="$APP/runtime-status/micro-live-gate.json"; R="$APP/runtime-status/new-listing-radar.json"; S="$APP/runtime-status/signal-snapshot.json"
-            if grep -q 'V382_FAST_BATCH_EXECUTOR_SWAP=TRUE' "$ST/v382-fast-batch-result.txt" 2>/dev/null \
-              && grep -q 'MICRO_LIVE_EXECUTOR_V382_NO_SOFT_GATE_FAST_PIPELINE=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
-              && pgrep -f 'node .*micro-live-executor.js' >/dev/null \
-              && grep -q '"allowed": true' "$G" 2>/dev/null \
-              && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
-              && grep -q '"riskEntryAllowed": true' "$G" 2>/dev/null; then
-              RM=$(stat -c %Y "$R" 2>/dev/null || echo 0); SM=$(stat -c %Y "$S" 2>/dev/null || echo 0)
-              if [ "$RM" -ge "$START_EPOCH" ] && [ "$SM" -ge "$START_EPOCH" ]; then READY=1; break; fi
-            fi
-            sleep 2
-          done
-          [ "$READY" = 1 ]
-          echo '=== RESULT ==='; cat "$ST/v382-fast-batch-result.txt"
-          echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
-          echo '=== PROCESS ==='; pgrep -af 'micro-live-executor.js'
-          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
-          echo '=== PIPELINE ==='
+          echo '=== NOW ==='; date -u +%FT%TZ
+          echo '=== SERVICES ==='; systemctl status meme-alpha-paper.service meme-alpha-micro-live.service --no-pager -l 2>/dev/null | tail -120
+          echo '=== PROCESSES ==='; ps -eo pid,ppid,etime,stat,cmd | grep -E 'scanner.js|safe-signal-export.js|run-paper.sh|micro-live-executor.js' | grep -v grep || true
+          echo '=== PAPER JOURNAL ==='; journalctl -u meme-alpha-paper.service -n 160 --no-pager 2>/dev/null || true
+          echo '=== FILE AGES ===';
           python3 - <<'PY'
-          import os,json,time
+          import os,time,json
           base='/opt/meme-alpha/app/runtime-status/'
-          for f in ['new-listing-radar.json','signal-snapshot.json','realtime-pool-pulse.json','trend-pulse.json','whale-flow-intel.json']:
-              p=base+f; d=json.load(open(p)); r=d.get('candidates') or d.get('rows') or []
-              print(f,{'ageSec':round(time.time()-os.path.getmtime(p),1),'ts':d.get('timestamp') or d.get('updatedAt'),'count':len(r) if isinstance(r,list) else None,'status':d.get('status')})
+          for f in ['new-listing-radar.json','signal-snapshot.json','micro-live-gate.json','realtime-pool-pulse.json']:
+            p=base+f
+            try:
+              d=json.load(open(p)); print(f,round(time.time()-os.path.getmtime(p),1),d.get('timestamp') or d.get('updatedAt'))
+            except Exception as e: print(f,e)
           PY
-          printf '{"version":"3.82.2","status":"DEPLOYED","profile":"NO_SOFT_GATE_FAST_ROTATING_BATCH","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v382-deployed.json"
-          echo V382_ACTIVE=TRUE
+          echo '=== SCANNER LIMITS ==='; grep -nE 'DISCOVERY_RADAR_ONLY_MAX|JUPITER_MIN_INTERVAL_MS|MAX_SELLABILITY_CHECKS_V216|baseDeep|slice\(0, 4\)' "$APP/src/scanner.js" | head -30
+          echo '=== RUN PAPER HEAD ==='; sed -n '1,160p' "$APP/run-paper.sh" 2>/dev/null
+          exit 0
