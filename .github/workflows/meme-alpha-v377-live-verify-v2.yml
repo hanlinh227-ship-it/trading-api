@@ -10,7 +10,7 @@ on:
 permissions:
   contents: write
 
-# retrigger: 2026-09-06T04:20Z — verify autonomous root-timer sync/deploy only
+# retrigger: 2026-09-06T04:31Z — diagnose root checkout/timer without mutation
 jobs:
   verify:
     runs-on: self-hosted
@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Verify production after mode repair
+      - name: Verify production and updater state read-only
         shell: bash
         run: |
           set -u
@@ -29,6 +29,7 @@ jobs:
           SIGNER=/opt/meme-alpha-signer/ready_signer.py
           EXPECT=4beac900808d1ebbf318aba42e7674f611a80cde
           LOCAL="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo UNKNOWN)"
+          BRANCH="$(git -C "$ROOT" symbolic-ref --short -q HEAD 2>/dev/null || echo DETACHED_OR_UNKNOWN)"
           REMOTE="$(git ls-remote https://github.com/hanlinh227-ship-it/trading-api.git refs/heads/auto-futures-v1 2>/dev/null | awk '{print $1}' || true)"
           HOOK="$ROOT/auto-futures-v1/runtime/deploy_meme_alpha_v377.sh"
           if [[ -x "$HOOK" ]]; then HOOK_OK=true; else HOOK_OK=false; fi
@@ -36,17 +37,26 @@ jobs:
              && grep -q 'function insiderSafe(c)' "$APP/src/micro-live-executor.js" 2>/dev/null \
              && grep -q 'def objective_insider_ok(c):' "$SIGNER" 2>/dev/null \
              && grep -q "'version':'8.0'" "$SIGNER" 2>/dev/null; then LIVE=true; else LIVE=false; fi
+          TIMER_NEXT="$(systemctl show auto-futures-update.timer -p NextElapseUSecRealtime --value 2>/dev/null || echo unknown)"
+          LAST_RESULT="$(systemctl show auto-futures-update.service -p Result --value 2>/dev/null || echo unknown)"
+          LAST_EXIT="$(systemctl show auto-futures-update.service -p ExecMainStatus --value 2>/dev/null || echo unknown)"
           cat > "$OUT" <<EOF
           # Meme Alpha V377 Production Verify v2
 
+          - root_repo_head: \`$LOCAL\`
+          - root_repo_branch: \`$BRANCH\`
           - root_repo_synced_to_mode_repair_commit: \`$([[ "$LOCAL" == "$EXPECT" ]] && echo true || echo false)\`
+          - remote_branch_head: \`$REMOTE\`
           - remote_branch_is_mode_repair_commit: \`$([[ "$REMOTE" == "$EXPECT" ]] && echo true || echo false)\`
           - root_deploy_hook_executable: \`$HOOK_OK\`
           - objective_insider_hardening_live: \`$LIVE\`
           - deployment_marker_present: \`$([[ -f "$APP/runtime-status/v377-deployed.json" ]] && echo true || echo false)\`
           - maintenance_drain_active: \`$([[ -f /var/lib/meme-alpha/deploy-v377-maintenance.json ]] && echo true || echo false)\`
           - updater_timer: \`$(systemctl is-active auto-futures-update.timer 2>/dev/null || echo unknown)\`
+          - updater_timer_next: \`$TIMER_NEXT\`
           - updater_service_state: \`$(systemctl is-active auto-futures-update.service 2>/dev/null || true)\`
+          - updater_last_result: \`$LAST_RESULT\`
+          - updater_last_exit: \`$LAST_EXIT\`
           - paper_service: \`$(systemctl is-active meme-alpha-paper.service 2>/dev/null || echo unknown)\`
           - micro_live_service: \`$(systemctl is-active meme-alpha-micro-live.service 2>/dev/null || echo unknown)\`
           - signer_service: \`$(systemctl is-active meme-alpha-signer.service 2>/dev/null || echo unknown)\`
@@ -60,5 +70,5 @@ jobs:
           git config user.email "actions-bot@users.noreply.github.com"
           git add meme-alpha-runtime/V377-LIVE-V2.md
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "chore(meme): verify v377 after executable mode repair"
+          git commit -m "chore(meme): record updater sync diagnostics"
           git push origin HEAD:main
