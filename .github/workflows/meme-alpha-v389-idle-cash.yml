@@ -1,4 +1,4 @@
-name: Meme Alpha V396 Full Blocker Audit
+name: Meme Alpha V397 Source Contract Audit
 on:
   push:
     branches: [main]
@@ -9,64 +9,21 @@ permissions:
 jobs:
   audit:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Audit every live buy blocker
+      - name: Inspect live signal and executor contracts
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; SRC="$APP/src/micro-live-executor.js"
-          echo "AUDIT_START=$(date -u +%FT%TZ)"
-          echo '=== SERVICES / PROCESS ==='
-          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
-          pgrep -af 'micro-live-executor|ready_signer|run-paper' || true
-          echo EXECUTOR_SHA=$(sha256sum "$SRC" | awk '{print $1}')
-
-          echo '=== DEPLOY / ARM PATH ==='
-          ls -ld /etc/meme-alpha /etc/meme-alpha/micro-live-armed 2>/dev/null || true
-          sed -n '1,180p' /usr/local/sbin/meme-alpha-safe-deploy 2>/dev/null || true
-          systemctl cat meme-alpha-paper.service || true
-          systemctl cat meme-alpha-micro-live.service || true
-
-          echo '=== EXECUTOR BUY PATH ==='
-          grep -nE 'function coreSafe|function insiderSafe|function holderSafe|function bestCandidate|function placeBuy|function maybeScaleIn|function idleCapitalScale|async function tick|AUTO_ALLOC|IDLE_CAPITAL|SIGNER_ORDER_CAP|trendEntryEligible' "$SRC" | head -260 || true
-          sed -n '60,155p' "$SRC" || true
-          sed -n '180,310p' "$SRC" || true
-
-          echo '=== SIGNER BLOCKERS ==='
-          grep -nE 'MICRO_LIVE_GATE|DYNAMIC_BUY|TREND_SIGNAL|ELIGIBLE|LIMIT|REJECT|BLOCK|MAX_|amount|score|PROBE|MEME_CONFIRMED|securityDecision|holderClusterDecision|sellRoute' /opt/meme-alpha-signer/ready_signer.py | head -320 || true
-
-          echo '=== LIVE SNAPSHOT LOOP ==='
-          python3 - <<'PY'
-          import json,pathlib,time,datetime
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          def n(v,d=0):
-            try:return float(v)
-            except:return d
-          def core(c):
-            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
-            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
-          for i in range(16):
-            try:
-              sig=json.loads((rt/'signal-snapshot.json').read_text()); rows=sig.get('candidates') or []
-            except Exception as e: rows=[]; sig={}
-            safe=[c for c in rows if core(c)]
-            try:g=json.loads((rt/'micro-live-gate.json').read_text())
-            except:g={}
-            try:a=json.loads((rt/'allocator-status.json').read_text())
-            except:a={}
-            try:cap=json.loads((rt/'capital-observability.json').read_text())
-            except:cap={}
-            try:le=json.loads((rt/'last-execution.json').read_text())
-            except:le={}
-            print('SNAP',i,datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                  'count',len(rows),'safe',[(c.get('symbol'),c.get('score'),c.get('decision'),c.get('priceChange5m'),c.get('netBuyers5m')) for c in safe[:8]],
-                  'gate',{k:g.get(k) for k in ['allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']},
-                  'alloc',{k:a.get(k) for k in ['updatedAt','action','reason','symbol','targetSymbol']},
-                  'deployable',cap.get('deployableSol'),'lastExec',{k:le.get(k) for k in ['updatedAt','type','symbol','spentSol','signature']})
-            if rows:
-              for c in rows[:12]:
-                print('ROW',c.get('symbol'),c.get('score'),c.get('decision'),c.get('securityDecision'),c.get('holderClusterDecision'),c.get('insiderRiskDecision'),c.get('sellRoute'),c.get('token2022'),c.get('liquidityUsd'),c.get('sellPriceImpactPct'),c.get('priceChange5m'),c.get('netBuyers5m'),c.get('consecutiveEligible'),c.get('strategyRouter'))
-            time.sleep(3)
-          PY
-          echo V396_FULL_BLOCKER_AUDIT=COMPLETE
+          APP=/opt/meme-alpha/app
+          SIG="$APP/src/safe-signal-export.js"
+          EXE="$APP/src/micro-live-executor.js"
+          echo '=== V388 RPC IMPLEMENTATION ==='
+          grep -nE 'V388_RPCS|V388_MAX_AUDITS|v388Rpc|V388_CACHE|rpcAudit|auditCandidate|v388RpcAudit|sellRoute|holderClusterDecision' "$SIG" | head -320 || true
+          L=$(grep -n 'V388_RPCS' "$SIG" | head -1 | cut -d: -f1 || true); if [ -n "$L" ]; then S=$((L-15)); [ "$S" -lt 1 ] && S=1; E=$((L+180)); sed -n "${S},${E}p" "$SIG"; fi
+          echo '=== SIGNAL OUTPUT / PROMOTION ==='
+          grep -nE 'PROBE_CANDIDATE|executionUniverseNormalized|MEME_CONFIRMED|actionableSafe|promotionEligible|strategyRouter' "$SIG" | head -320 || true
+          echo '=== EXECUTOR SELECT / LOOP ==='
+          grep -nE 'function bestCandidate|async function maybeScaleIn|async function tick|while\(true\)|SIGNER_|AUTO_ALLOC|IDLE_CAPITAL_SCALE' "$EXE" | head -320 || true
+          sed -n '240,330p' "$EXE" || true
+          echo V397_SOURCE_CONTRACT_AUDIT=COMPLETE
