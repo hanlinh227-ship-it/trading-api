@@ -17,23 +17,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Discover and use authorized Meme-only root path
+      - name: Inspect authorized safe deploy interface
         shell: bash
         run: |
           set -u
-          APP=/opt/meme-alpha/app
-          EXEC="$APP/src/micro-live-executor.js"
-          echo "RUNNER=$(id -un) UID=$(id -u)"
-          echo "EXEC_STAT=$(stat -c '%U:%G %a' "$EXEC" 2>/dev/null || echo missing)"
-          echo "EXEC_WRITABLE=$([[ -w "$EXEC" ]] && echo true || echo false)"
-          echo '--- SUDO_N_LIST ---'
-          sudo -n -l 2>&1 || true
-          echo '--- SERVICE ---'
-          systemctl show meme-alpha-micro-live.service -p User -p Group -p MainPID -p Restart -p FragmentPath 2>/dev/null || true
-          systemctl cat meme-alpha-micro-live.service 2>/dev/null || true
-          echo '--- OPS ---'
-          find "$APP/ops/meme-alpha" -maxdepth 1 -type f -printf '%f %u:%g %m\n' 2>/dev/null | sort | tail -n 80 || true
-          echo '--- POSSIBLE ROOT UNITS ---'
-          systemctl list-unit-files --no-pager 2>/dev/null | grep -iE 'meme|deploy|apply|update' | head -n 120 || true
-          systemctl list-timers --all --no-pager 2>/dev/null | grep -iE 'meme|deploy|apply|update' | head -n 80 || true
-          echo 'ROOT_PATH_DISCOVERY=DONE'
+          echo '--- SAFE DEPLOY SCRIPT ---'
+          ls -l /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
+          echo '--- HELP ---'
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
