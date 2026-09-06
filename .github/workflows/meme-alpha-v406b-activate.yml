@@ -1,0 +1,70 @@
+name: Meme Alpha V406B Activate
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v406b-activate.yml
+permissions:
+  contents: read
+jobs:
+  activate:
+    runs-on: self-hosted
+    timeout-minutes: 5
+    steps:
+      - name: Validate and activate V406 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; EXE="$APP/src/micro-live-executor.js"; CAND="$RT/deploy-candidates/v406-executor-resilient-profit.js"
+          test -f "$CAND"
+          python3 - "$CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="const pc=profitAwareWeakDecision({ret:7,peak:12,giveback:5,minGiveback:5,weakCount:4,softWeak:true,severe:true,hadProfit:true});if(pc.mode!=='FULL'||pc.reason!=='SEVERE_TREND_BREAK')throw new Error('SEVERE_BREAK_MUST_FULL_EXIT');"
+          new="const pc=profitAwareWeakDecision({ret:7,peak:12,giveback:5,minGiveback:5,weakCount:4,softWeak:true,severe:true,hadProfit:true});if(pc.mode!=='TRIM'||pc.reason!=='SEVERE_WINNER_DEFENSE')throw new Error('SEVERE_WINNER_MUST_TRIM');const pe=profitAwareWeakDecision({ret:-4,peak:0,giveback:0,minGiveback:5,weakCount:4,softWeak:true,severe:true,hadProfit:false,severeAgeMs:7000});if(pe.mode!=='FULL'||pe.reason!=='SEVERE_TREND_BREAK')throw new Error('SEVERE_LOSER_MUST_FULL_EXIT');"
+          if s.count(old)!=1: raise SystemExit(f'V406B_SELFTEST_PATCH_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          old2="console.log('PROFIT_AWARE_WEAK_EXIT=TRUE');console.log('POSITIVE_SOFT_WEAKNESS=PARTIAL_ONLY');console.log('WINNER_ROTATION_PROTECTION=TRUE');console.log('NO_QUOTE_WINNER_DEFENSE=TRUE');console.log('SEVERE_TREND_BREAK_FULL_EXIT=KEPT');"
+          new2="console.log('PROFIT_AWARE_WEAK_EXIT=TRUE');console.log('POSITIVE_SOFT_WEAKNESS=TIME_CONFIRMED_PARTIAL');console.log('WINNER_ROTATION_PROTECTION=TRUE');console.log('NO_QUOTE_WINNER_DEFENSE=TRUE');console.log('SEVERE_WINNER_DEFENSE=PARTIAL');console.log('EXTREME_TREND_BREAK_FULL_EXIT=KEPT');"
+          if s.count(old2)!=1: raise SystemExit(f'V406B_SELFTEST_LOG_PATCH_COUNT={s.count(old2)}')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+          node --check "$CAND"
+          OUT="$(node "$CAND" --self-test)"; printf '%s\n' "$OUT"
+          grep -q 'MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS' <<<"$OUT"
+          grep -q 'NETWORK_EXECUTION=NOT_CALLED' <<<"$OUT"
+          grep -q 'SEVERE_WINNER_DEFENSE=PARTIAL' <<<"$OUT"
+          grep -q 'EXTREME_TREND_BREAK_FULL_EXIT=KEPT' <<<"$OUT"
+          grep -q 'AUTO_RUNNER_PROTECT_2' "$CAND"
+          grep -q 'weakAgeMs<15000' "$CAND"
+          grep -q 'UNHANDLED_REJECTION_RESTART' "$CAND"
+          SHA=$(sha256sum "$CAND"|awk '{print $1}'); echo V406_EXECUTOR_SHA="$SHA"
+          BACK="$RT/v406b-executor-backup-$(date +%Y%m%dT%H%M%SZ).js"; cp -a "$EXE" "$BACK"; cp "$CAND" "$EXE"; chmod 664 "$EXE" || true
+          OLDPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true); echo OLD_EXECUTOR_PID="$OLDPID"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 55); do
+            sleep 2
+            NEWPID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+            if [ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && [ "$(sha256sum "$EXE"|awk '{print $1}')" = "$SHA" ] && systemctl is-active --quiet meme-alpha-paper.service && systemctl is-active --quiet meme-alpha-micro-live.service && systemctl is-active --quiet meme-alpha-signer.service; then break; fi
+            [ "$i" -lt 55 ] || exit 9
+          done
+          sleep 8
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo NEW_EXECUTOR_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1 || true)
+          echo ACTIVE_EXECUTOR_SHA=$(sha256sum "$EXE"|awk '{print $1}')
+          grep -nE 'extremeTrendBreak|weakAgeMs<15000|AUTO_RUNNER_PROTECT_1|AUTO_RUNNER_PROTECT_2|ageMin>=12|UNHANDLED_REJECTION_RESTART' "$EXE" | head -80
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','portfolio-observability.json','capital-observability.json','allocator-status.json','last-execution.json']:
+            p=rt/name
+            if p.exists(): print(name,'ageSec=',round(time.time()-p.stat().st_mtime,1),json.loads(p.read_text()))
+          PY
+          echo V406_RESILIENT_PROFIT_MANAGEMENT=ACTIVE
+          echo HARD_SAFETY_IMMEDIATE_EXIT=TRUE
+          echo EXTREME_CRASH_IMMEDIATE_EXIT=TRUE
+          echo SOFT_WEAKNESS_TIME_CONFIRMATION=TRUE
+          echo SEVERE_WINNER_PARTIAL_DEFENSE=TRUE
+          echo MULTI_STAGE_RUNNER_PROTECTION=TRUE
+          echo RUNTIME_ABNORMAL_EXIT_RESTART_SIGNAL=TRUE
