@@ -35,15 +35,9 @@ if [[ "$LOCAL" != "$REMOTE" ]]; then
   fi
 fi
 
-# Isolated meme-alpha reconcile lane. Legacy hooks are retained only for
-# controlled retirement/compatibility, while v3.82 root ARM reconciliation is
-# now executed on EVERY watcher tick (including NO-GIT-DELTA ticks). This fixes
-# the failure mode where /etc/meme-alpha/micro-live-armed disappears after a
-# successful deploy and the previous watcher never re-runs the current healer.
-# The v3.82 reconcile script remains fail-closed: explicit ARMED=NO wins, unknown
-# states are rejected, and signer/source/risk checks must all be healthy before
-# any ARMED=YES repair is written.
-for MEME_DEPLOY in "$MEME_DEPLOY_V377" "$MEME_DEPLOY_V378" "$MEME_RECON_V382"; do
+# Legacy compatibility hooks. They remain fail-closed and must never downgrade
+# the currently installed executor.
+for MEME_DEPLOY in "$MEME_DEPLOY_V377" "$MEME_DEPLOY_V378"; do
   if [[ -x "$MEME_DEPLOY" ]]; then
     set +e
     "$MEME_DEPLOY" >> "$LOG" 2>&1
@@ -54,6 +48,24 @@ for MEME_DEPLOY in "$MEME_DEPLOY_V377" "$MEME_DEPLOY_V378" "$MEME_RECON_V382"; d
     fi
   fi
 done
+
+# Current v3.82 ARM self-heal lane. Run on EVERY watcher tick, even with no Git
+# delta, so loss/drift of /etc/meme-alpha/micro-live-armed is repaired quickly.
+# Invoke explicitly through /bin/bash instead of relying on the executable bit;
+# this gives the root watcher a second recovery path if file mode drift occurred.
+# The reconcile script itself remains fail-closed: ARMED=NO always wins; unknown
+# states are rejected; signer/source/risk must be healthy before writing ARMED=YES.
+if [[ -f "$MEME_RECON_V382" ]]; then
+  set +e
+  /bin/bash "$MEME_RECON_V382" >> "$LOG" 2>&1
+  rc=$?
+  set -e
+  if [[ "$rc" -ne 0 ]]; then
+    log "MEME_ALPHA_RECONCILE_FAILED name=$(basename "$MEME_RECON_V382") rc=$rc"
+  fi
+else
+  log "MEME_ALPHA_RECONCILE_MISSING name=$(basename "$MEME_RECON_V382")"
+fi
 
 # Self-heal the one-Hub architecture after an older updater has pulled the new release.
 NEEDS_RECONCILE=0
