@@ -1,0 +1,20 @@
+name: Meme Alpha V391 Runtime Capital Enforcement
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/meme-alpha-v391-runtime-capital-enforcement.yml
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 8
+    steps:
+      - name: Activate V391 runtime capital enforcement
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/hanlinh227-ship-it/trading-api/9c62080be3502a19bda2ea474deab0edb327fda8/ops/meme-alpha-v391-runtime-capital-enforcement.sh -o /tmp/meme-alpha-v391-runtime-capital-enforcement.sh
+          chmod 0755 /tmp/meme-alpha-v391-runtime-capital-enforcement.sh
+          /tmp/meme-alpha-v391-runtime-capital-enforcement.sh
