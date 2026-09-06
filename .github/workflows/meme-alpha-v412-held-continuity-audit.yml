@@ -1,0 +1,30 @@
+name: Meme Alpha V412 Held Continuity Audit
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/meme-alpha-v412-held-continuity-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: self-hosted
+    timeout-minutes: 2
+    steps:
+      - name: Inspect realtime held continuity
+        shell: bash
+        run: |
+          set -euo pipefail
+          R=/opt/meme-alpha/app/src/realtime-pool-pulse.js
+          sed -n '1,210p' "$R"
+          echo '=== CACHE HELD COVERAGE ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          obs=json.loads((rt/'portfolio-observability.json').read_text()); held=obs.get('positionMints') or []
+          cache=json.loads((rt/'mint-pair-cache.json').read_text()) if (rt/'mint-pair-cache.json').exists() else {}
+          entries={x.get('mint'):x for x in cache.get('entries',[]) if isinstance(x,dict) and x.get('mint')}
+          print('HELD',len(held),'CACHE_ENTRIES',len(entries))
+          for m in held: print(m,entries.get(m))
+          rp=json.loads((rt/'realtime-pool-pulse.json').read_text()); print('RT',{k:rp.get(k) for k in ['status','heldCount','heldResolved','heldUnresolved','heldSubscriptions','activeSetSize','desiredSetSize','hotsetLimit','pairCacheEntries','lastError']})
+          PY
+          echo V412_HELD_CONTINUITY_AUDIT=COMPLETE
