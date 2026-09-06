@@ -62,3 +62,11 @@ Normal path: `HOLD -> BREAKEVEN -> PROFIT_LOCK -> TRAIL -> TP/STOP`. Smart CUT i
 
 ## Deployment
 Production deploy path `.github/workflows/deploy-cloudflare-worker.yml`. Source validation + Cloudflare deploy + `/bybit/health` matching revision/version are mandatory before LIVE confirmation. Documentation-only commits must not be represented as production deploy evidence.
+
+## Meme Alpha isolated writer — 2026-09-06
+
+LOCKED: true
+OWNER: CHATGPT
+SCOPE: Meme Alpha only: source verification, safe-universe qualification, cost-aware rotation, held-position continuity, realized-capital sizing, regression tests and Meme checkpoint/handoff. No Bybit, signer/private-key or OS permission changes. Existing Bybit lock above is preserved.
+AUTHORITY: User explicitly authorized taking over Meme Alpha after the lock ambiguity was reported.
+STATUS: IMPLEMENTATION IN PROGRESS; no production deployment or trading state reset authorized by this lock alone. Independent review required before production-risk activation.
