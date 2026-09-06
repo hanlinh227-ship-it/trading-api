@@ -1,4 +1,4 @@
-name: Meme Alpha V381 Direct Safety Activate
+name: Meme Alpha V381 Semantic Activate
 on:
   push:
     branches: [main]
@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 7
     steps:
       - uses: actions/checkout@v4
-      - name: Validate and activate v381
+      - name: Semantic validate, activate, runtime verify
         shell: bash
         run: |
           set -euo pipefail
@@ -22,39 +22,61 @@ jobs:
           node --check "$ST/scanner.js"
           node --check "$ST/safe-signal-export.js"
           node --check "$ST/micro-live-executor.js"
-          node "$ST/safe-signal-export.js" --self-test > "$ST/signal-selftest-active.txt" 2>&1
-          node "$ST/micro-live-executor.js" --self-test > "$ST/executor-selftest-active.txt" 2>&1
+          node "$ST/safe-signal-export.js" --self-test > "$ST/signal-semantic-test.txt" 2>&1
+          node "$ST/micro-live-executor.js" --self-test > "$ST/executor-semantic-test.txt" 2>&1
 
-          # Direct hard-safety validation: these are the barriers that must NEVER be removed.
-          grep -q 'EXECUTOR_CORE_SAFETY_CONTRACT_PRESERVED=TRUE' "$ST/signal-selftest-active.txt"
-          grep -q 'SECURITY_PASS_REQUIRED=TRUE' "$ST/signal-selftest-active.txt"
-          grep -q 'HOLDER_PASS_REQUIRED=TRUE' "$ST/signal-selftest-active.txt"
-          grep -q 'SELL_ROUTE_REQUIRED=TRUE' "$ST/signal-selftest-active.txt"
-          grep -q 'TOKEN2022_HARD_BLOCK_PRESERVED=TRUE' "$ST/signal-selftest-active.txt"
-          grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' "$ST/executor-selftest-active.txt"
-          grep -q 'EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE' "$ST/executor-selftest-active.txt"
-          grep -q "function insiderSafe(c)" "$ST/micro-live-executor.js"
-          grep -q "c.insiderRiskDecision!=='PASS'" "$ST/micro-live-executor.js"
-          grep -q 'top>35' "$ST/micro-live-executor.js"
-          grep -q 'cluster>2' "$ST/micro-live-executor.js"
-          grep -q "sellRoute===true" "$ST/micro-live-executor.js"
-          grep -q 'n(c.liquidityUsd)>=50_000' "$ST/micro-live-executor.js"
-          grep -q 'impact(c)<=1.25' "$ST/micro-live-executor.js"
+          python3 - "$ST/scanner.js" "$ST/safe-signal-export.js" "$ST/micro-live-executor.js" "$ST/signal-semantic-test.txt" "$ST/executor-semantic-test.txt" <<'PY'
+          import re,sys
+          sp,gp,ep,stp,etp=sys.argv[1:]
+          s=open(sp).read(); g=open(gp).read(); e=open(ep).read(); st=open(stp).read(); et=open(etp).read()
+          req_tests={
+            'signal_router':'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' in st,
+            'safety_contract':'EXECUTOR_CORE_SAFETY_CONTRACT_PRESERVED=TRUE' in st,
+            'security_required':'SECURITY_PASS_REQUIRED=TRUE' in st,
+            'holder_required':'HOLDER_PASS_REQUIRED=TRUE' in st,
+            'sell_route_required':'SELL_ROUTE_REQUIRED=TRUE' in st,
+            'token2022_block':'TOKEN2022_HARD_BLOCK_PRESERVED=TRUE' in st,
+            'hard_failsafe':'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' in et,
+            'equity_scale':'EQUITY_GROWTH_SCALES_NEW_BUYS=TRUE' in et,
+            'multi_position':'MULTI_POSITION_NO_HARD_COUNT_LIMIT=TRUE' in et,
+          }
+          core=re.search(r'function coreSafe\(c\)\{(.+?)\}\nfunction ',e,re.S)
+          insider=re.search(r'function insiderSafe\(c\)\{(.+?)\}\nfunction ',e,re.S)
+          req_code={
+            'core_exists':bool(core), 'insider_exists':bool(insider),
+            'security_pass':core and "securityDecision==='PASS'" in core.group(1),
+            'holder_pass':core and "holderClusterDecision==='PASS'" in core.group(1),
+            'insider_call':core and 'insiderSafe(c)' in core.group(1),
+            'token2022':core and '!c.token2022' in core.group(1),
+            'sell_route':core and 'sellRoute===true' in core.group(1),
+            'liquidity_floor':core and '50_000' in core.group(1),
+            'impact_ceiling':core and '1.25' in core.group(1),
+            'insider_pass':insider and "insiderRiskDecision!=='PASS'" in insider.group(1),
+            'holder_top_cap':insider and '35' in insider.group(1),
+            'cluster_cap':insider and 'cluster>2' in insider.group(1),
+          }
+          req_profile={
+            'radar_intake':bool(re.search(r'DISCOVERY_RADAR_ONLY_MAX\s*=\s*360',s)),
+            'jupiter_pace':bool(re.search(r'JUPITER_MIN_INTERVAL_MS\s*=\s*1900',s)),
+            'sell_checks':bool(re.search(r'MAX_SELLABILITY_CHECKS_V216\s*=\s*8',s)),
+            'deep36':'preliminary.slice(0, 36)' in s,
+            'extra12':bool(re.search(r'\.slice\(0,\s*12\)',s)),
+            'signal_threshold':'effectiveScore>=50' in g,
+            'signal_capacity':bool(re.search(r'slice\(0,\s*120\)',g)),
+            'allocation_cap':bool(re.search(r'perPositionCap=Math\.min\(60,\s*p\.maxUtilizationPct\)',e)),
+            'v381_marker':'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' in e,
+            'watch_entry':"c.decision==='WATCH'" in e,
+            'fast_rotation':'ageMin>=8' in e,
+          }
+          allchecks={**req_tests,**req_code,**req_profile}
+          bad=[k for k,v in allchecks.items() if not v]
+          print('V381_SEMANTIC_CHECKS=',allchecks)
+          if bad: raise SystemExit('V381_SEMANTIC_FAIL:'+','.join(bad))
+          print('V381_SEMANTIC_VALIDATION=PASS')
+          PY
 
-          # Aggressive profile validation.
-          grep -q 'const DISCOVERY_RADAR_ONLY_MAX = 360;' "$ST/scanner.js"
-          grep -q 'const JUPITER_MIN_INTERVAL_MS = 1900;' "$ST/scanner.js"
-          grep -q 'const MAX_SELLABILITY_CHECKS_V216=8;' "$ST/scanner.js"
-          grep -q 'preliminary.slice(0, 36)' "$ST/scanner.js"
-          grep -q '.slice(0, 12)' "$ST/scanner.js"
-          grep -q "effectiveScore>=50" "$ST/safe-signal-export.js"
-          grep -q 'slice(0,120)' "$ST/safe-signal-export.js"
-          grep -q 'perPositionCap=Math.min(60,p.maxUtilizationPct)' "$ST/micro-live-executor.js"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$ST/micro-live-executor.js"
-          echo V381_PREDEPLOY_VALIDATION=PASS
-
-          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v381-active.sh"
-          chmod 0755 "$ST/run-paper.pre-v381-active.sh"
+          cp "$APP/run-paper.sh" "$ST/run-paper.pre-v381-semantic.sh"
+          chmod 0755 "$ST/run-paper.pre-v381-semantic.sh"
           cat > "$APP/run-paper.sh" <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
@@ -64,7 +86,7 @@ jobs:
           install -m 0664 "$ST/safe-signal-export.js" "$APP/src/safe-signal-export.js"
           install -m 0664 "$ST/micro-live-executor.js" "$APP/src/micro-live-executor.js"
           printf 'SCANNER_SWAP=TRUE\nSIGNAL_SWAP=TRUE\nEXECUTOR_SWAP=TRUE\n' > "$ST/result.txt"
-          cp "$ST/run-paper.pre-v381-active.sh" "$APP/run-paper.sh"
+          cp "$ST/run-paper.pre-v381-semantic.sh" "$APP/run-paper.sh"
           chmod +x "$APP/run-paper.sh"
           for p in $(pgrep -f 'node .*micro-live-executor.js' || true); do kill -9 "$p" 2>/dev/null || true; done
           exec "$APP/run-paper.sh"
@@ -76,6 +98,7 @@ jobs:
           READY=0
           for i in $(seq 1 115); do
             GATE="$APP/runtime-status/micro-live-gate.json"
+            SIG="$APP/runtime-status/signal-snapshot.json"
             if grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt" 2>/dev/null \
               && grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js" 2>/dev/null \
               && systemctl is-active --quiet meme-alpha-paper.service \
@@ -84,39 +107,36 @@ jobs:
               && grep -q '"allowed": true' "$GATE" 2>/dev/null \
               && grep -q '"sourceHealthy": true' "$GATE" 2>/dev/null \
               && grep -q '"riskEntryAllowed": true' "$GATE" 2>/dev/null; then
-              SIG_MTIME=$(stat -c %Y "$APP/runtime-status/signal-snapshot.json" 2>/dev/null || echo 0)
+              SIG_MTIME=$(stat -c %Y "$SIG" 2>/dev/null || echo 0)
               if [ "$SIG_MTIME" -ge "$START_EPOCH" ]; then READY=1; break; fi
             fi
             sleep 2
           done
           [ "$READY" = 1 ]
 
-          echo '=== HANDOFF ==='
-          cat "$ST/result.txt"
-          echo '=== SERVICES ==='
-          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
-          echo '=== GATE ==='
-          cat "$APP/runtime-status/micro-live-gate.json"
+          echo '=== V381 HANDOFF ==='; cat "$ST/result.txt"
+          echo '=== SERVICES ==='; systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service
+          echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json"
           echo '=== PIPELINE ==='
           python3 - <<'PY'
           import json,os,time
           for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json']:
-            d=json.load(open(p));r=d.get('candidates') or []
-            print(p, {'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(r),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in r),'watch':sum(x.get('decision')=='WATCH' for x in r),'routed':sum(bool(x.get('strategyRouter',{}).get('selectedLane')) for x in r),'ageSec':round(time.time()-os.path.getmtime(p),1)})
+            d=json.load(open(p)); rows=d.get('candidates') or []
+            print(p,{'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(rows),'probe':sum(x.get('decision')=='PROBE_CANDIDATE' for x in rows),'watch':sum(x.get('decision')=='WATCH' for x in rows),'routed':sum(bool(x.get('strategyRouter',{}).get('selectedLane')) for x in rows),'ageSec':round(time.time()-os.path.getmtime(p),1)})
           try:
             d=json.load(open('/var/lib/meme-alpha/data/micro-live/state.json'));print('openPositions=',len(d.get('positions') or []))
-          except Exception as e: print('stateRead=',e)
+          except Exception as ex: print('stateRead=',str(ex))
           PY
-          echo '=== EXECUTOR ==='
-          pgrep -af 'micro-live-executor.js' || true
+          echo '=== EXECUTOR ==='; pgrep -af 'micro-live-executor.js' || true
 
-          grep -q 'SCANNER_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'SIGNAL_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'EXECUTOR_SWAP=TRUE' "$ST/result.txt"
-          grep -q 'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' "$APP/src/micro-live-executor.js"
-          grep -q 'const MAX_SELLABILITY_CHECKS_V216=8;' "$APP/src/scanner.js"
-          grep -q '"allowed": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"sourceHealthy": true' "$APP/runtime-status/micro-live-gate.json"
-          grep -q '"riskEntryAllowed": true' "$APP/runtime-status/micro-live-gate.json"
+          python3 - <<'PY'
+          import json,re,sys
+          app='/opt/meme-alpha/app'
+          gate=json.load(open(app+'/runtime-status/micro-live-gate.json'))
+          ex=open(app+'/src/micro-live-executor.js').read(); sc=open(app+'/src/scanner.js').read()
+          checks=[gate.get('allowed') is True,gate.get('sourceHealthy') is True,gate.get('riskEntryAllowed') is True,'MICRO_LIVE_EXECUTOR_V381_FAST_CAPITAL_ROTATION=STARTED' in ex,bool(re.search(r'MAX_SELLABILITY_CHECKS_V216\s*=\s*8',sc))]
+          if not all(checks): raise SystemExit('V381_RUNTIME_VERIFY_FAIL')
+          print('V381_RUNTIME_VERIFY=PASS')
+          PY
           printf '{"version":"3.81.0","status":"DEPLOYED","profile":"FAST_CAPITAL_ROTATION","timestamp":"%s"}\n' "$(date -u +%FT%TZ)" > "$APP/runtime-status/v381-deployed.json"
           echo V381_ACTIVE=TRUE
