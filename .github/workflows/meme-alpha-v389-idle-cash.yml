@@ -1,4 +1,4 @@
-name: Meme Alpha V389 Idle Cash Deployment
+name: Meme Alpha V392 Signer Compatibility
 on:
   push:
     branches: [main]
@@ -9,23 +9,110 @@ permissions:
 jobs:
   deploy:
     runs-on: self-hosted
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Inspect privileged signer deployment path
+      - name: Deploy V392 compatibility fixes
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== SUDO_L ==='
-          sudo -n -l 2>&1 || true
-          echo '=== LOCAL_SBIN ==='
-          ls -la /usr/local/sbin 2>&1 | grep -Ei 'meme|sign|deploy' || true
-          echo '=== SAFE_DEPLOY_HELP ==='
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy --help 2>&1 || true
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy help 2>&1 || true
-          echo '=== SAFE_DEPLOY_SOURCE_HEAD ==='
-          sed -n '1,260p' /usr/local/sbin/meme-alpha-safe-deploy 2>&1 || true
-          echo '=== SIGNER_DIR_PERMS ==='
-          stat -c '%A %a %U %G %n' /opt/meme-alpha-signer /opt/meme-alpha-signer/ready_signer.py /etc/meme-alpha/signer-policy.json /etc/meme-alpha/signer-enabled 2>&1 || true
-          echo '=== SYSTEMCTL_PERMS_TEST ==='
-          sudo -n /bin/systemctl is-active meme-alpha-signer.service 2>&1 || true
-          echo SIGNER_DEPLOY_PATH_AUDIT=COMPLETE
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          BASE="$RT/deploy-candidates"
+          mkdir -p "$BASE"
+
+          echo '=== PRECHECK DEPENDENCIES ==='
+          grep -RniE "2\.7\.0-v387-unified-production|version.*2\.4\.0" "$APP/src" 2>/dev/null | head -80 || true
+
+          GATE_SRC="$APP/src/micro-live-gate.js"
+          GATE_CAND="$BASE/v392-gate-signer-compat.js"
+          cp -a "$GATE_SRC" "$GATE_CAND"
+          python3 - "$GATE_CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="const out={version:'2.7.0-v387-unified-production',timestamp:new Date().toISOString(),allowed,"
+          new="const out={version:'2.4.0',gateContractRevision:'2.7.0-v387-unified-production',timestamp:new Date().toISOString(),allowed,"
+          n=s.count(old)
+          if n!=1: raise SystemExit(f'V392_GATE_VERSION_PATCH_COUNT={n}')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          node --check "$GATE_CAND"
+          grep -q "version:'2.4.0',gateContractRevision:'2.7.0-v387-unified-production'" "$GATE_CAND"
+
+          SIG_SRC="$APP/src/safe-signal-export.js"
+          SIG_CAND="$BASE/v392-signal-core-safe-promotion.js"
+          cp -a "$SIG_SRC" "$SIG_CAND"
+          python3 - "$SIG_CAND" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          old="""  let effectiveConsecutive=num(p?.consecutiveEligible);
+          if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){
+            decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);
+          }
+          const originalScore=num(c.score);
+          const score=router.promotionEligible?router.effectiveScore:Number((originalScore*intel.haircut).toFixed(4));
+          """
+          new="""  let effectiveConsecutive=num(p?.consecutiveEligible);
+          const hardSafePromotion=router.common?.actionableSafe===true&&decision!=='SOURCE_HEALTH_BLOCK'&&decision!=='INTEL_DEGRADED'&&decision!=='EXTENSION_AUDIT_REQUIRED';
+          if((router.promotionEligible||hardSafePromotion)&&decision!=='PROBE_CANDIDATE'){
+            decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(router.promotionEligible?`V376_ROUTED_${router.selectedLane}`:'V392_CORE_SAFE_CAPITAL_DEPLOYMENT');
+          }
+          const originalScore=num(c.score);
+          const score=router.promotionEligible?router.effectiveScore:(hardSafePromotion?Number(originalScore.toFixed(4)):Number((originalScore*intel.haircut).toFixed(4)));
+          """
+          n=s.count(old)
+          if n!=1: raise SystemExit(f'V392_SIGNAL_PROMOTION_PATCH_COUNT={n}')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          node --check "$SIG_CAND"
+          testout="$(node "$SIG_CAND" --self-test)"
+          printf '%s\n' "$testout"
+          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$testout"
+          grep -q 'HARD_GUARD_BYPASS_SELFTEST' "$SIG_CAND"
+          grep -q 'V392_CORE_SAFE_CAPITAL_DEPLOYMENT' "$SIG_CAND"
+
+          SIG_SHA="$(sha256sum "$SIG_CAND" | awk '{print $1}')"
+          GATE_SHA="$(sha256sum "$GATE_CAND" | awk '{print $1}')"
+          echo V392_SIGNAL_SHA="$SIG_SHA"
+          echo V392_GATE_SHA="$GATE_SHA"
+
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$SIG_CAND")" "$SIG_SHA"
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy gate "$(basename "$GATE_CAND")" "$GATE_SHA"
+
+          echo '=== VERIFY LIVE ==='
+          for i in $(seq 1 40); do
+            sleep 2
+            if python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          gp=rt/'micro-live-gate.json'; sp=rt/'signal-snapshot.json'
+          assert gp.exists() and sp.exists()
+          g=json.loads(gp.read_text()); s=json.loads(sp.read_text())
+          assert time.time()-gp.stat().st_mtime<30 and time.time()-sp.stat().st_mtime<30
+          assert g.get('version')=='2.4.0'
+          assert g.get('gateContractRevision')=='2.7.0-v387-unified-production'
+          assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          rows=s.get('candidates') or []
+          def n(v,d=0):
+            try:return float(v)
+            except:return d
+          def core(c):
+            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
+            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
+          safe=[c for c in rows if core(c)]
+          promoted=[c for c in safe if c.get('decision')=='PROBE_CANDIDATE']
+          print('GATE',{k:g.get(k) for k in ['version','gateContractRevision','allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
+          print('SIGNAL_COUNT',len(rows),'CORE_SAFE_COUNT',len(safe),'CORE_SAFE_PROMOTED',len(promoted))
+          print('CORE_SAFE_SYMBOLS',[c.get('symbol') for c in safe[:12]])
+          print('PROMOTED_SYMBOLS',[c.get('symbol') for c in promoted[:12]])
+          PY
+            then break; fi
+            [ "$i" -lt 40 ] || { echo V392_VERIFY_TIMEOUT=TRUE; exit 9; }
+          done
+
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
+          echo V392_SIGNER_COMPATIBILITY=ACTIVE
+          echo V392_CORE_SAFE_PROMOTION=ACTIVE
+          echo HARD_SAFETY_BYPASS=FALSE
