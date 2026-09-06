@@ -10,20 +10,31 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
-      - name: Inspect executor deploy permissions without mutation
+      - name: Read exact current patch targets
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== EXECUTOR FILE ==='
-          ls -l /opt/meme-alpha/app/src/micro-live-executor.js
-          test -w /opt/meme-alpha/app/src/micro-live-executor.js && echo RUNNER_EXECUTOR_WRITABLE=TRUE || echo RUNNER_EXECUTOR_WRITABLE=FALSE
-          echo '=== SUDO RULES ==='
-          sudo -n -l || true
-          echo '=== LIVE STATE ==='
           python3 - <<'PY'
-          import json,pathlib,hashlib,os,time
-          root=pathlib.Path('/opt/meme-alpha/app');rs=root/'runtime-status';src=root/'src'
-          for name in ['micro-live-executor.js','scanner.js','safe-signal-export.js','micro-live-gate.js']:
-            t=(src/name).read_text();print(json.dumps({'source':name,'sha256':hashlib.sha256(t.encode()).hexdigest(),'v387':'V387_UNIFIED_LIVE' in t}))
-          g=json.loads((rs/'micro-live-gate.json').read_text());s=json.loads((rs/'signal-snapshot.json').read_text());print(json.dumps({'gate':{k:g.get(k) for k in ['allowed','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']},'signalAgeSec':round(time.time()-os.path.getmtime(rs/'signal-snapshot.json'),1),'signalCount':len(s.get('candidates') or []),'intelSummary':s.get('intelSummary')}))
+          import pathlib,re,json,hashlib
+          root=pathlib.Path('/opt/meme-alpha/app/src')
+          for name in ['safe-signal-export.js','micro-live-executor.js','micro-live-gate.js']:
+              text=(root/name).read_text()
+              print(json.dumps({'file':name,'sha256':hashlib.sha256(text.encode()).hexdigest()}))
+              if name=='safe-signal-export.js':
+                  for needle in ['function guardCandidate','hardReject','securityDecision','holderDecision','actionableSafe','const common={watchLike','securityBlockReasons','universeClass:c.universeClass']:
+                      hits=[]
+                      for i,line in enumerate(text.splitlines(),1):
+                          if needle in line:
+                              lo=max(1,i-2); hi=min(len(text.splitlines()),i+3)
+                              lines=text.splitlines()
+                              hits.append({'line':i,'context':'\n'.join(f'{j}: {lines[j-1]}' for j in range(lo,hi+1))})
+                      print(json.dumps({'needle':needle,'hits':hits[:8]}))
+              elif name=='micro-live-executor.js':
+                  for i,line in enumerate(text.splitlines(),1):
+                      if 'function coreSafe' in line or 'MICRO_LIVE_EXECUTOR_' in line:
+                          print(json.dumps({'executorLine':i,'text':line}))
+              else:
+                  for i,line in enumerate(text.splitlines(),1):
+                      if 'scaleAllowed' in line or "version:'" in line:
+                          print(json.dumps({'gateLine':i,'text':line}))
           PY
