@@ -1,4 +1,4 @@
-name: Meme Alpha V380 Scanner Health Diagnose
+name: Meme Alpha V380 Post Cycle Verify
 
 on:
   push:
@@ -7,32 +7,27 @@ on:
       - '.github/workflows/meme-alpha-v378-direct-activate.yml'
 
 jobs:
-  diagnose:
+  verify:
     runs-on: self-hosted
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - name: Diagnose scanner health
+      - name: Verify after scanner cycle
         shell: bash
         run: |
           set -u
           APP=/opt/meme-alpha/app
-          echo '--- SOURCE HEALTH ---'
-          cat /var/lib/meme-alpha/data/paper/scanner-source-health.json 2>/dev/null || true
-          echo '--- SCANNER LATEST META ---'
+          echo '--- SERVICES ---'
+          systemctl is-active meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service 2>/dev/null || true
+          echo '--- RADAR ---'
+          grep -E 'const (MAX_CURRENT|FAST_DISCOVERY_RESERVE|MAX_OUTPUT)=' "$APP/src/new-listing-radar.js" 2>/dev/null || true
           python3 - <<'PY'
           import json,os,time
-          for p in ['/var/lib/meme-alpha/data/paper/scanner-latest.json','/var/lib/meme-alpha/data/paper/risk-state.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json','/opt/meme-alpha/app/runtime-status/new-listing-radar.json']:
+          for p in ['/opt/meme-alpha/app/runtime-status/new-listing-radar.json','/opt/meme-alpha/app/runtime-status/signal-snapshot.json','/opt/meme-alpha/app/runtime-status/micro-live-gate.json']:
             print('###',p)
             try:
-              d=json.load(open(p)); print('timestamp',d.get('timestamp') or d.get('updatedAt')); print('candidates',len(d.get('candidates') or [])); print('status',d.get('status')); print('ageSec',round(time.time()-os.path.getmtime(p),1))
+              d=json.load(open(p));print(json.dumps(d if 'gate' in p else {'timestamp':d.get('timestamp') or d.get('updatedAt'),'status':d.get('status'),'candidates':len(d.get('candidates') or [])},ensure_ascii=False))
             except Exception as e: print('ERR',e)
           PY
-          echo '--- PAPER LOG ---'
-          tail -n 160 /var/log/meme-alpha/paper.log 2>/dev/null || true
-          echo '--- PAPER ERROR ---'
-          tail -n 160 /var/log/meme-alpha/paper-error.log 2>/dev/null || true
           echo '--- PROCESS ---'
-          ps -eo pid,etimes,cmd | grep -E 'scanner.js|run-paper.sh|safe-signal-export|risk.js' | grep -v grep || true
-          echo '--- GATE ---'
-          cat "$APP/runtime-status/micro-live-gate.json" 2>/dev/null || true
+          ps -eo pid,etimes,cmd | grep -E 'scanner.js|run-paper.sh' | grep -v grep || true
