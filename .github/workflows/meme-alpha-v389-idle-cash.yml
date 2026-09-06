@@ -1,4 +1,4 @@
-name: Meme Alpha V392 Signer Compatibility
+name: Meme Alpha V392 Execution Audit
 on:
   push:
     branches: [main]
@@ -7,97 +7,62 @@ on:
 permissions:
   contents: read
 jobs:
-  deploy:
+  audit:
     runs-on: self-hosted
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Deploy V392 compatibility fixes
+      - name: Audit V392 execution readiness
         shell: bash
         run: |
           set -euo pipefail
-          APP=/opt/meme-alpha/app
-          RT="$APP/runtime-status"
-          BASE="$RT/deploy-candidates"
-          mkdir -p "$BASE"
-
-          GATE_SRC="$APP/src/micro-live-gate.js"
-          GATE_CAND="$BASE/v392-gate-signer-compat.js"
-          cp -a "$GATE_SRC" "$GATE_CAND"
-          python3 - "$GATE_CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          old="const out={version:'2.7.0-v387-unified-production',timestamp:new Date().toISOString(),allowed,"
-          new="const out={version:'2.4.0',gateContractRevision:'2.7.0-v387-unified-production',timestamp:new Date().toISOString(),allowed,"
-          n=s.count(old)
-          if n!=1: raise SystemExit(f'V392_GATE_VERSION_PATCH_COUNT={n}')
-          p.write_text(s.replace(old,new,1))
-          PY
-          node --check "$GATE_CAND"
-
-          SIG_SRC="$APP/src/safe-signal-export.js"
-          SIG_CAND="$BASE/v392-signal-core-safe-promotion.js"
-          cp -a "$SIG_SRC" "$SIG_CAND"
-          python3 - "$SIG_CAND" <<'PY'
-          import pathlib,sys
-          p=pathlib.Path(sys.argv[1]); s=p.read_text()
-          reps=[
-            ("if(router.promotionEligible&&decision!=='PROBE_CANDIDATE'){","if((router.promotionEligible||(router.common?.actionableSafe===true&&decision!=='EXTENSION_AUDIT_REQUIRED'))&&decision!=='PROBE_CANDIDATE'){",'IF'),
-            ("decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(`V376_ROUTED_${router.selectedLane}`);","decision='PROBE_CANDIDATE';effectiveConsecutive=Math.max(1,effectiveConsecutive);entryGuardReasons.push(router.promotionEligible?`V376_ROUTED_${router.selectedLane}`:'V392_CORE_SAFE_CAPITAL_DEPLOYMENT');",'REASON'),
-            ("const score=router.promotionEligible?router.effectiveScore:Number((originalScore*intel.haircut).toFixed(4));","const score=router.promotionEligible?router.effectiveScore:(router.common?.actionableSafe===true?Number(originalScore.toFixed(4)):Number((originalScore*intel.haircut).toFixed(4)));",'SCORE')
-          ]
-          for old,new,label in reps:
-            n=s.count(old)
-            if n!=1: raise SystemExit(f'V392_SIGNAL_{label}_PATCH_COUNT={n}')
-            s=s.replace(old,new,1)
-          p.write_text(s)
-          PY
-          node --check "$SIG_CAND"
-          testout="$(node "$SIG_CAND" --self-test)"
-          printf '%s\n' "$testout"
-          grep -q 'V376_MULTI_STRATEGY_ROUTER_SELF_TEST=PASS' <<<"$testout"
-          grep -q 'HARD_GUARD_BYPASS_SELFTEST' "$SIG_CAND"
-          grep -q 'V392_CORE_SAFE_CAPITAL_DEPLOYMENT' "$SIG_CAND"
-
-          SIG_SHA="$(sha256sum "$SIG_CAND" | awk '{print $1}')"
-          GATE_SHA="$(sha256sum "$GATE_CAND" | awk '{print $1}')"
-          echo V392_SIGNAL_SHA="$SIG_SHA"
-          echo V392_GATE_SHA="$GATE_SHA"
-
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy signal "$(basename "$SIG_CAND")" "$SIG_SHA"
-          sudo -n /usr/local/sbin/meme-alpha-safe-deploy gate "$(basename "$GATE_CAND")" "$GATE_SHA"
-
-          for i in $(seq 1 40); do
-            sleep 2
-            if python3 - <<'PY'
-          import json,pathlib,time
-          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
-          gp=rt/'micro-live-gate.json'; sp=rt/'signal-snapshot.json'
-          assert gp.exists() and sp.exists()
-          g=json.loads(gp.read_text()); s=json.loads(sp.read_text())
-          assert time.time()-gp.stat().st_mtime<30 and time.time()-sp.stat().st_mtime<30
-          assert g.get('version')=='2.4.0'
-          assert g.get('gateContractRevision')=='2.7.0-v387-unified-production'
-          assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
-          rows=s.get('candidates') or []
-          def n(v,d=0):
-            try:return float(v)
-            except:return d
-          def core(c):
-            imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
-            return c.get('securityDecision')=='PASS' and c.get('holderClusterDecision')=='PASS' and c.get('insiderRiskDecision')=='PASS' and c.get('sellRoute') is True and c.get('token2022') is not True and not(c.get('hardReject') or []) and n(c.get('liquidityUsd'))>=50000 and imp<=1.25
-          safe=[c for c in rows if core(c)]
-          promoted=[c for c in safe if c.get('decision')=='PROBE_CANDIDATE']
-          print('GATE',{k:g.get(k) for k in ['version','gateContractRevision','allowed','sourceHealthy','liveRiskReady','scaleAllowed','reasons']})
-          print('SIGNAL_COUNT',len(rows),'CORE_SAFE_COUNT',len(safe),'CORE_SAFE_PROMOTED',len(promoted))
-          print('CORE_SAFE_SYMBOLS',[c.get('symbol') for c in safe[:12]])
-          print('PROMOTED_SYMBOLS',[c.get('symbol') for c in promoted[:12]])
-          PY
-            then break; fi
-            [ "$i" -lt 40 ] || { echo V392_VERIFY_TIMEOUT=TRUE; exit 9; }
-          done
-
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"
+          echo '=== SERVICES ==='
           for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc" || true; done
+          echo '=== EXECUTOR ==='
           pgrep -af '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true
-          echo V392_SIGNER_COMPATIBILITY=ACTIVE
-          echo V392_CORE_SAFE_PROMOTION=ACTIVE
-          echo HARD_SAFETY_BYPASS=FALSE
+          echo '=== SNAPSHOTS ==='
+          python3 - <<'PY'
+          import json,pathlib,time,collections
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','capital-observability.json','allocator-status.json','last-execution.json','portfolio-observability.json']:
+            p=rt/name
+            print('\nFILE',name,'exists',p.exists(),'ageSec',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
+            if p.exists():
+              try: print(json.loads(p.read_text()))
+              except Exception as e: print('ERR',repr(e))
+          p=rt/'signal-snapshot.json'
+          print('\nFILE signal-snapshot.json exists',p.exists(),'ageSec',round(time.time()-p.stat().st_mtime,1) if p.exists() else None)
+          if p.exists():
+            d=json.loads(p.read_text()); rows=d.get('candidates') or []
+            def n(v,d=0):
+              try:return float(v)
+              except:return d
+            def reasons(c):
+              r=[]
+              if c.get('securityDecision')!='PASS':r.append('SECURITY_'+str(c.get('securityDecision')))
+              if c.get('holderClusterDecision')!='PASS':r.append('HOLDER_'+str(c.get('holderClusterDecision')))
+              if c.get('insiderRiskDecision')!='PASS':r.append('INSIDER_'+str(c.get('insiderRiskDecision')))
+              if c.get('sellRoute') is not True:r.append('SELL_ROUTE')
+              if c.get('token2022') is True:r.append('TOKEN2022')
+              if c.get('hardReject'):r.append('HARD_REJECT:'+'|'.join(map(str,c.get('hardReject') or [])))
+              if n(c.get('liquidityUsd'))<50000:r.append('LIQ_LT_50K')
+              imp=abs(n(c.get('sellPriceImpactPct',c.get('sellImpactPct',c.get('priceImpactPct'))),99))
+              if imp>1.25:r.append('IMPACT_GT_1.25')
+              return r
+            safe=[]; details=[]
+            counts=collections.Counter()
+            for c in rows:
+              rs=reasons(c)
+              for r in rs: counts[r]+=1
+              x={k:c.get(k) for k in ['symbol','mint','score','decision','universeClass','securityDecision','holderClusterDecision','insiderRiskDecision','sellRoute','token2022','liquidityUsd','sellPriceImpactPct','priceChange5m','netBuyers5m','consecutiveEligible']}
+              x['blockers']=rs
+              if not rs:safe.append(x)
+              details.append(x)
+            print('SIGNAL_COUNT',len(rows),'CORE_SAFE_COUNT',len(safe))
+            print('CORE_SAFE',safe[:20])
+            print('BLOCKER_COUNTS',counts.most_common(30))
+            print('TOP_ROWS',details[:20])
+          PY
+          echo '=== EXECUTOR_ERRORS ==='
+          journalctl -u meme-alpha-micro-live.service --since '-20 min' --no-pager -n 1200 2>/dev/null | grep -Ei 'ACTION=|MICRO_BUY|MICRO_SCALE_IN|MICRO_LIVE_GATE_CLOSED|TREND_SIGNAL_NOT_ELIGIBLE|SIGNER_|EXECUTOR_ERROR|BUY_TOKEN|CAPITAL_|IDLE_CAPITAL' | tail -300 || true
+          echo V392_EXECUTION_AUDIT=COMPLETE
