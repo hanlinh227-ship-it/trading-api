@@ -7,7 +7,7 @@ on:
 jobs:
   cleanup:
     runs-on: [self-hosted, linux]
-    timeout-minutes: 4
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v5
       - name: Remove stale v3.75 runtime artifacts
@@ -32,6 +32,21 @@ jobs:
           test ! -e "$APP/runtime-status/deploy-candidates/safe-signal-export-v375-opportunity-accelerator.js"
           echo V375_STAGE_REMOVED=TRUE
           echo V375_DEPLOY_CANDIDATE_REMOVED=TRUE
+      - name: Wait for normal live gate state
+        shell: bash
+        run: |
+          set -euo pipefail
+          G=/opt/meme-alpha/app/runtime-status/micro-live-gate.json
+          for i in $(seq 1 44); do
+            if /usr/bin/node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.exit(x.allowed===true?0:1)" "$G" 2>/dev/null; then
+              echo V376_CLEANUP_GATE_READY_AFTER_SEC=$((i*5))
+              exit 0
+            fi
+            sleep 5
+          done
+          echo V376_CLEANUP_GATE_TIMEOUT=TRUE
+          cat "$G" 2>/dev/null || true
+          exit 1
       - name: Verify production unchanged
         shell: bash
         run: |
@@ -58,4 +73,6 @@ jobs:
           grep -q '3.60.0-profit-aware-exits' "$APP/src/micro-live-executor.js"
           grep -q 'FAST_DISCOVERY_V372' "$APP/src/new-listing-radar.js"
           grep -q 'FAST_DISCOVERY_V372_MERGE' "$APP/src/scanner.js"
+          test ! -e "$APP/runtime-status/v375-opportunity-stage"
+          test ! -e "$APP/runtime-status/deploy-candidates/safe-signal-export-v375-opportunity-accelerator.js"
           echo V376_RUNTIME_CLEANUP_VERIFIED=TRUE
