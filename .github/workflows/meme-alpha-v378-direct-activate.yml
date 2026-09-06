@@ -6,7 +6,7 @@ on:
 jobs:
   verify:
     runs-on: self-hosted
-    timeout-minutes: 6
+    timeout-minutes: 7
     steps:
       - uses: actions/checkout@v4
       - name: Wait for root updater and verify current live pipeline
@@ -14,9 +14,9 @@ jobs:
         run: |
           set -euo pipefail
           APP=/opt/meme-alpha/app
-          TARGET=f3373180b83d71793e510c29c774a3099a4e6609
+          TARGET=3a9691c6e3ea773cbb34648a8ee0ac700bbcbd1a
           READY=0
-          for i in $(seq 1 160); do
+          for i in $(seq 1 190); do
             ROOT_HEAD=$(git -C /opt/trading/trading-api rev-parse HEAD 2>/dev/null || true)
             G="$APP/runtime-status/micro-live-gate.json"
             if [ "$ROOT_HEAD" = "$TARGET" ] \
@@ -24,6 +24,9 @@ jobs:
               && systemctl is-active --quiet meme-alpha-paper.service \
               && systemctl is-active --quiet meme-alpha-micro-live.service \
               && systemctl is-active --quiet meme-alpha-signer.service \
+              && systemctl is-active --quiet meme-alpha-realtime-pulse.service \
+              && systemctl is-active --quiet meme-alpha-trend-pulse.service \
+              && systemctl is-active --quiet meme-alpha-whale-flow.service \
               && grep -q '"allowed": true' "$G" 2>/dev/null \
               && grep -q '"armOk": true' "$G" 2>/dev/null \
               && grep -q '"sourceHealthy": true' "$G" 2>/dev/null \
@@ -33,7 +36,7 @@ jobs:
             sleep 2
           done
           echo '=== ROOT HEAD ==='; git -C /opt/trading/trading-api rev-parse HEAD || true
-          echo '=== UPDATER LOG ==='; tail -n 100 /opt/trading/trading-api/auto-futures-v1/logs/auto_update.log 2>/dev/null || true
+          echo '=== UPDATER LOG ==='; tail -n 120 /opt/trading/trading-api/auto-futures-v1/logs/auto_update.log 2>/dev/null || true
           echo '=== SERVICES ==='; for s in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$s"; systemctl is-active "$s" || true; done
           echo '=== MARKER ==='; grep -o "MICRO_LIVE_EXECUTOR_[^']*=STARTED" "$APP/src/micro-live-executor.js" | tail -1
           echo '=== GATE ==='; cat "$APP/runtime-status/micro-live-gate.json" || true
