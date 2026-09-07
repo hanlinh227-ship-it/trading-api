@@ -1,0 +1,55 @@
+name: Provision SignalHub Tracker KV
+
+on:
+  push:
+    branches: [signalhub-android-v1]
+    paths:
+      - '.github/workflows/signalhub-kv-provision.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - name: Find or create isolated tracker namespace
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CF_TOKEN"
+          test -n "$CF_ACCOUNT"
+          API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/storage/kv/namespaces"
+          curl --fail --silent --show-error -H "Authorization: Bearer $CF_TOKEN" "$API?per_page=100" -o /tmp/list.json
+          python3 - <<'PY' >/tmp/current_id
+          import json
+          p=json.load(open('/tmp/list.json',encoding='utf-8'))
+          assert p.get('success') is True, p
+          for x in p.get('result',[]):
+              if x.get('title') == 'signalhub-forex-tracker-v1':
+                  print(x.get('id',''))
+                  break
+          PY
+          ID="$(cat /tmp/current_id)"
+          if [ -z "$ID" ]; then
+            curl --fail --silent --show-error -X POST \
+              -H "Authorization: Bearer $CF_TOKEN" \
+              -H 'content-type: application/json' \
+              --data '{"title":"signalhub-forex-tracker-v1"}' \
+              "$API" -o /tmp/create.json
+            ID="$(python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/create.json',encoding='utf-8'))
+          assert p.get('success') is True, p
+          print((p.get('result') or {}).get('id',''))
+          PY
+          )"
+          fi
+          test -n "$ID"
+          echo "SIGNALHUB_KV_ID=$ID"
