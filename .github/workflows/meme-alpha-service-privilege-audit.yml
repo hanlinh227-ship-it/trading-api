@@ -1,0 +1,22 @@
+name: Meme Alpha Service Privilege Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-service-privilege-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect service users and paper bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service; do
+            echo ---$svc---
+            systemctl show "$svc" -p User -p Group -p MainPID -p ExecStart -p FragmentPath --no-pager
+            PID=$(systemctl show "$svc" -p MainPID --value)
+            [ "$PID" != 0 ] && ps -p "$PID" -o pid=,user=,group=,ppid=,args= || true
+          done
+          echo '=== RUN-PAPER HEAD ==='
+          sed -n '1,110p' /opt/meme-alpha/app/run-paper.sh
+          echo SERVICE_PRIVILEGE_AUDIT=PASS
