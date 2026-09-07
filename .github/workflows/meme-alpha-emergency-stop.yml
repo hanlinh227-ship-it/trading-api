@@ -1,0 +1,55 @@
+name: Meme Alpha Emergency Stop
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-emergency-stop.yml'
+permissions:
+  contents: read
+jobs:
+  stop:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Stop live trading executor
+        shell: bash
+        run: |
+          set -euo pipefail
+          svc=meme-alpha-micro-live.service
+          pid="$(systemctl show "$svc" -p MainPID --value)"
+          echo "BEFORE_PID=$pid"
+          if sudo -n /bin/systemctl stop "$svc" 2>/dev/null; then
+            echo STOP_METHOD=SYSTEMCTL
+          else
+            APP=/opt/meme-alpha/app
+            RUN="$APP/run-paper.sh"
+            BAK="$APP/runtime-status/run-paper.emergency-stop.bak"
+            cp "$RUN" "$BAK"
+            trap 'cp "$BAK" "$RUN" 2>/dev/null || true' EXIT
+            cat > "$RUN" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+pid="$(systemctl show meme-alpha-micro-live.service -p MainPID --value)"
+if [ -n "$pid" ] && [ "$pid" != "0" ]; then
+  kill -STOP "$pid"
+fi
+exit 0
+EOF
+            chmod +x "$RUN"
+            sudo -n /bin/systemctl restart meme-alpha-paper.service
+            sleep 2
+            cp "$BAK" "$RUN"
+            sudo -n /bin/systemctl restart meme-alpha-paper.service
+            echo STOP_METHOD=SIGSTOP_RELAY
+          fi
+          sleep 2
+          npid="$(systemctl show "$svc" -p MainPID --value)"
+          state="$(ps -o stat= -p "$npid" 2>/dev/null | tr -d ' ' || true)"
+          active="$(systemctl is-active "$svc" || true)"
+          echo "AFTER_PID=$npid"
+          echo "SERVICE_STATE=$active"
+          echo "PROCESS_STAT=$state"
+          if [ "$active" = "inactive" ] || [[ "$state" == T* ]]; then
+            echo MEME_ALPHA_LIVE_TRADING_STOPPED=TRUE
+          else
+            echo MEME_ALPHA_LIVE_TRADING_STOPPED=FALSE
+            exit 1
+          fi
