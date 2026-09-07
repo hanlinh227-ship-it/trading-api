@@ -1,0 +1,17 @@
+name: Meme Alpha V427 Final Check
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427-final-check.yml'
+jobs:
+  check:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          node --check "$E"
+          grep -q 'V427_PUMP_LIFECYCLE=TRUE' "$E"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          echo V427_FINAL_CHECK=PASS
