@@ -1,0 +1,46 @@
+name: Meme Alpha V427 Post Active Conflict Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427-postactive-conflict-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Audit V427 conflicts and recent runtime errors
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=/var/lib/meme-alpha/data/micro-live; RT=/opt/meme-alpha/app/runtime-status; E=/opt/meme-alpha/app/src/micro-live-executor.js
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          python3 - <<'PY'
+          import json,pathlib,collections,datetime
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live'); ev=[]
+          cutoff=datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=20)
+          p=base/'events.jsonl'
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-50000:]:
+              try:
+                x=json.loads(line); ts=datetime.datetime.fromisoformat(str(x.get('timestamp','')).replace('Z','+00:00'))
+                if ts>=cutoff: ev.append(x)
+              except: pass
+          fatal=[x for x in ev if x.get('type') in ('EXECUTOR_ERROR','UNHANDLED_REJECTION_RESTART','UNCAUGHT_EXCEPTION_RESTART')]
+          signer=[x for x in ev if 'SIGNER_TREND_SIGNAL_NOT_ELIGIBLE' in str(x.get('reason','')) or 'SIGNER_TREND_SIGNAL_NOT_ELIGIBLE' in str(x.get('error',''))]
+          print('EVENTS',len(ev)); print('TYPES',dict(collections.Counter(x.get('type') for x in ev))); print('FATAL',len(fatal)); print('SIGNER_TREND_CONFLICTS',len(signer))
+          assert len(fatal)==0
+          assert len(signer)==0
+          PY
+          node --check "$E"
+          OUT=$(node "$E" --self-test); grep -q 'V427_PUMP_LIFECYCLE=TRUE' <<<"$OUT"; grep -q 'HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT' <<<"$OUT"
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); g=json.loads((rt/'micro-live-gate.json').read_text()); age=time.time()-(rt/'micro-live-gate.json').stat().st_mtime
+          assert age<180 and g.get('allowed') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          PY
+          echo V427_POST_ACTIVE_CONFLICT_AUDIT=CLEAN
