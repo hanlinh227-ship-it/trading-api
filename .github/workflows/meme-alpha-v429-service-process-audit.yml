@@ -1,0 +1,36 @@
+name: Meme Alpha V429 Service Process Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v429-service-process-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Inspect executor service mapping and process age
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== PROCESS ==='
+          pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
+          PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js' | head -1)
+          echo PID=$PID
+          ps -p "$PID" -o pid=,ppid=,lstart=,etime=,args=
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service; do
+            echo ---$svc---
+            systemctl show "$svc" -p MainPID -p ExecStart -p ActiveEnterTimestamp -p ExecMainStartTimestamp -p FragmentPath --no-pager || true
+            systemctl status "$svc" --no-pager -l | head -40 || true
+          done
+          echo '=== SOURCE MTIME/SHA ==='
+          stat -c 'mtime=%y size=%s' /opt/meme-alpha/app/src/micro-live-executor.js
+          sha256sum /opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== RECENT SERVICE STARTS ==='
+          journalctl --since '40 minutes ago' -u meme-alpha-paper.service -u meme-alpha-micro-live.service --no-pager 2>/dev/null | grep -Ei 'Started|Starting|Stopped|Stopping|MICRO_LIVE_EXECUTOR|V429|V428|V427' | tail -160 || true
+          echo V429_SERVICE_PROCESS_AUDIT=PASS
