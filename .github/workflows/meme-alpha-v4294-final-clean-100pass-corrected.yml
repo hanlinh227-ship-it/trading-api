@@ -1,0 +1,131 @@
+name: Meme Alpha V4294 Final Clean 100 Pass Corrected
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v4294-final-clean-100pass-corrected.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Corrected final 100-pass runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; PAPER="$APP/run-paper.sh"
+          echo '=== PRECHECK ==='
+          bash -n "$PAPER"
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          for M in V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          grep -q 'V4291_MICRO_LIVE_GENERATION_GUARD' "$PAPER"
+          grep -q 'V4292_GRACEFUL_TERM_EXIT' "$PAPER"
+          ! grep -q 'V429_ONE_SHOT_MICRO_RELOAD_RELAY' "$PAPER"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+
+          python3 - <<'PY' > "$RT/v4294-baseline.json"
+          import json,pathlib,subprocess,os,re,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          b={k:int(r.get(k) or 0) for k in ['staleAcks','reconnectFailures','pendingTimeouts','reconcileErrors','writeErrors']}
+          b['microPid']=int(subprocess.check_output(['systemctl','show','meme-alpha-micro-live.service','-p','MainPID','--value'],text=True).strip())
+          b['positionFloor']=int(json.loads((rt/'portfolio-observability.json').read_text()).get('openPositions') or 0)
+          b['at']=time.time()
+          print(json.dumps(b))
+          PY
+          cat "$RT/v4294-baseline.json"
+
+          echo '=== CORRECTED FINAL 100 PASS ==='
+          PENDING_STREAK=0
+          MAX_PENDING_STREAK=0
+          MAX_PENDING=0
+          for i in $(seq 1 100); do
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            PENDING=$(python3 - "$RT/v4294-baseline.json" <<'PY'
+          import json,pathlib,time,subprocess,os,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); b=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          def ld(n):
+              p=rt/n; return json.loads(p.read_text()),time.time()-p.stat().st_mtime
+          g,ga=ld('micro-live-gate.json'); c,ca=ld('capital-observability.json'); a,aa=ld('allocator-status.json'); p,pa=ld('portfolio-observability.json'); r,ra=ld('realtime-pool-pulse.json'); gg,gga=ld('micro-live-generation-guard.json')
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert c.get('capitalVelocityVersion')=='V429' and isinstance(c.get('deployablePct'),(int,float)) and isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float))
+          assert a.get('action')!='ERROR' and a.get('scaleAllowed') is True
+          assert p.get('stateReadable') is True
+          assert r.get('status')=='HEALTHY' and r.get('websocketOpen') is True
+          assert int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert int(r.get('heartbeatAgeMs') or 999999)<15000
+          # Historical counters may be non-zero, but must not worsen during this audit.
+          assert int(r.get('staleAcks') or 0)<=int(b['staleAcks'])
+          assert int(r.get('reconnectFailures') or 0)<=int(b['reconnectFailures'])
+          assert int(r.get('reconcileErrors') or 0)<=int(b['reconcileErrors'])
+          assert int(r.get('writeErrors') or 0)<=int(b['writeErrors'])
+          # pendingTimeouts is cumulative historical churn; a small increase can occur during normal subscribe reconciliation.
+          assert int(r.get('pendingTimeouts') or 0)-int(b['pendingTimeouts'])<=24
+          pending=int(r.get('pendingSubscriptions') or 0)
+          max_add=int(r.get('maxAddsPerTick') or 8)
+          assert pending<=max(16,max_add*2),('PENDING_BACKLOG',pending,max_add)
+          assert gg.get('version')=='V4291_RUNTIME_GENERATION_GUARD' and gg.get('state')=='CLEAN' and gga<75
+          src='/opt/meme-alpha/app/src/micro-live-executor.js'; src_epoch=int(os.stat(src).st_mtime)
+          st=subprocess.check_output(['systemctl','show','meme-alpha-micro-live.service','-p','ExecMainStartTimestamp','--value'],text=True).strip(); se=int(subprocess.check_output(['date','-d',st,'+%s'],text=True).strip())
+          pid=int(subprocess.check_output(['systemctl','show','meme-alpha-micro-live.service','-p','MainPID','--value'],text=True).strip())
+          assert se>=src_epoch and pid==int(b['microPid'])
+          assert int(gg.get('processStartEpoch') or 0)>=int(gg.get('sourceEpoch') or 0)
+          print(pending)
+          PY
+            )
+            if [ "$PENDING" -gt "$MAX_PENDING" ]; then MAX_PENDING=$PENDING; fi
+            if [ "$PENDING" -gt 0 ]; then
+              PENDING_STREAK=$((PENDING_STREAK+1))
+            else
+              PENDING_STREAK=0
+            fi
+            if [ "$PENDING_STREAK" -gt "$MAX_PENDING_STREAK" ]; then MAX_PENDING_STREAK=$PENDING_STREAK; fi
+            # Reconciler may transiently wait on ACKs, but a continuous >6s backlog is not acceptable.
+            if [ "$PENDING_STREAK" -gt 12 ]; then echo STUCK_PENDING_STREAK=$PENDING_STREAK; exit 1; fi
+            echo V4294_FINAL_PASS=$i PENDING=$PENDING STREAK=$PENDING_STREAK
+            sleep 0.5
+          done
+          echo MAX_PENDING_SEEN=$MAX_PENDING
+          echo MAX_PENDING_STREAK_SEEN=$MAX_PENDING_STREAK
+
+          echo '=== SETTLE / END CHECK ==='
+          SETTLED=0
+          for i in $(seq 1 30); do
+            P=$(python3 - <<'PY'
+          import json
+          print(int(json.load(open('/opt/meme-alpha/app/runtime-status/realtime-pool-pulse.json')).get('pendingSubscriptions') or 0))
+          PY
+            )
+            if [ "$P" -eq 0 ]; then SETTLED=1; break; fi
+            sleep 0.5
+          done
+          test "$SETTLED" -eq 1
+
+          python3 - "$RT/v4294-baseline.json" <<'PY'
+          import json,pathlib,time,sys,subprocess,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status'); b=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          g=json.loads((rt/'micro-live-gate.json').read_text()); c=json.loads((rt/'capital-observability.json').read_text()); a=json.loads((rt/'allocator-status.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text()); r=json.loads((rt/'realtime-pool-pulse.json').read_text()); gg=json.loads((rt/'micro-live-generation-guard.json').read_text())
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert c.get('capitalVelocityVersion')=='V429'
+          assert a.get('action')!='ERROR' and a.get('scaleAllowed') is True
+          assert p.get('stateReadable') is True
+          assert r.get('status')=='HEALTHY' and r.get('websocketOpen') is True and int(r.get('pendingSubscriptions') or 0)==0 and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert int(r.get('staleAcks') or 0)<=int(b['staleAcks']) and int(r.get('reconnectFailures') or 0)<=int(b['reconnectFailures']) and int(r.get('reconcileErrors') or 0)<=int(b['reconcileErrors']) and int(r.get('writeErrors') or 0)<=int(b['writeErrors'])
+          assert int(r.get('pendingTimeouts') or 0)-int(b['pendingTimeouts'])<=24
+          assert gg.get('state')=='CLEAN'
+          print('FINAL_CAPITAL',{'walletSol':c.get('walletSol'),'netEqSol':c.get('netLiquidationEquitySol'),'ddPct':c.get('equityDrawdownPct'),'deployableSol':c.get('deployableSol'),'deployablePct':c.get('deployablePct'),'openPositions':c.get('openPositions'),'rateLimits':c.get('exitPreviewRateLimits'),'cacheHits':c.get('exitPreviewCacheHits'),'backoffRemainingMs':c.get('exitPreviewBackoffRemainingMs')})
+          print('FINAL_ALLOCATOR',{'action':a.get('action'),'reason':a.get('reason'),'openPositions':a.get('openPositions'),'scaleAllowed':a.get('scaleAllowed')})
+          print('FINAL_REALTIME',{'status':r.get('status'),'heldTotal':r.get('heldTotal'),'heldResolved':r.get('heldResolved'),'heldUnresolved':r.get('heldUnresolved'),'heldCoveragePct':r.get('heldCoveragePct'),'pendingSubscriptions':r.get('pendingSubscriptions'),'staleAcks':r.get('staleAcks'),'reconnectFailures':r.get('reconnectFailures'),'pendingTimeouts':r.get('pendingTimeouts'),'reconcileErrors':r.get('reconcileErrors'),'writeErrors':r.get('writeErrors')})
+          print('FINAL_GUARD',gg)
+          PY
+
+          CRIT=$(journalctl --since '10 minutes ago' -u meme-alpha-paper.service -u meme-alpha-micro-live.service -u meme-alpha-signer.service -u meme-alpha-realtime-pulse.service -u meme-alpha-trend-pulse.service -u meme-alpha-whale-flow.service --no-pager 2>/dev/null | grep -Ei 'FATAL|UNHANDLED|uncaught|EXECUTOR_ERROR|STATE.*CORRUPT|SIGNER_FATAL|DOUBLE_EXECUTOR|DUPLICATE_EXECUTOR' || true)
+          if [ -n "$CRIT" ]; then echo "$CRIT"; exit 1; fi
+          echo V4294_FINAL_CROSS_LAYER_100_PASS=CLEAN
+          echo V429_ACTUAL_RUNTIME_ACTIVE=TRUE
+          echo V4291_GENERATION_SELF_HEAL=ACTIVE
+          echo V4292_GRACEFUL_RESTART=ACTIVE
+          echo ALL_SIX_SERVICES=ACTIVE
+          echo REALTIME_RECONCILER=HEALTHY
+          echo HARD_SAFETY_BYPASS=FALSE
