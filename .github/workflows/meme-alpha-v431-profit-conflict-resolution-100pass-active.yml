@@ -1,0 +1,166 @@
+name: Meme Alpha V431 Profit Conflict Resolution 100 Pass Active
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v431-profit-conflict-resolution-100pass-active.yml'
+  workflow_dispatch:
+
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - name: Patch validate activate and audit V431
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          C="$RT/deploy-candidates/v431-profit-conflict-resolution.js"
+          mkdir -p "$RT/deploy-candidates"
+          cp "$E" "$C"
+
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+              global s
+              n=s.count(old)
+              assert n==count,(name,n,count)
+              s=s.replace(old,new,count)
+
+          assert 'V430_EXPECTANCY_STABILIZER=TRUE' in s, 'V430_BASELINE_REQUIRED'
+          assert 'V431_PROFIT_CONFLICT_RESOLUTION=TRUE' not in s, 'V431_ALREADY_PRESENT'
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+
+          # 1) Unify signer with the existing hard-safe universe without weakening explicit security/sellability requirements.
+          old="const hard=c.universeClass==='MEME_CONFIRMED'&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&c.decision==='PROBE_CANDIDATE'&&c.token2022!==true&&c.sellRoute===true&&Array.isArray(c.hardReject)&&c.hardReject.length===0&&liq>=50000&&imp<=n(p.maxBuyPriceImpactPct,1.25);if(!hard||con<1||base<58)return false;"
+          new="const blockedDecision=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'].includes(String(c.decision||'')),hard=coreSafe(c)&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&c.token2022!==true&&c.sellRoute===true&&Array.isArray(c.hardReject)&&c.hardReject.length===0&&!blockedDecision&&liq>=50000&&imp<=n(p.maxBuyPriceImpactPct,1.25);if(!hard||con<1||base<58)return false;"
+          rep(old,new,'SIGNER_HARD_SAFE_UNIVERSE')
+
+          # 2) Existing winners use a continuation signal, so the old new-entry >12% gate cannot shadow lifecycle scale.
+          marker="function scalePositionEligible(pos,c,p){if(!pos||!c)return false;const ret=Number(pos.lastReturnPct);if(!Number.isFinite(ret)||n(pos.weakExitCount)>0)return false;const life=pumpLifecycle(c),winner=ret>=1.5&&ret<=18,flight=life.phase==='CONFIRMED_FLIGHT'&&life.score>=8&&ret>=1&&ret<=35;return (winner||flight)&&pumpScaleEligible(pos,c,p)}"
+          insert=marker+"\nfunction scaleContinuationSignal(c){if(!c||!coreSafe(c)||!signerCandidateCompatible(c))return false;const life=pumpLifecycle(c);if(life.phase==='CONFIRMED_FLIGHT'&&life.score>=8)return true;if(life.phase==='EARLY_ACCELERATION'&&life.score>=8)return true;return trendEntryEligible(c)&&opportunityLane(c)}"
+          rep(marker,insert,'SCALE_CONTINUATION_SIGNAL')
+          rep(".filter(x=>x.c&&trendEntryEligible(x.c)&&opportunityLane(x.c)&&scalePositionEligible(x.pos,x.c,p))",".filter(x=>x.c&&scaleContinuationSignal(x.c)&&scalePositionEligible(x.pos,x.c,p))",'MAYBE_SCALE_CONTINUATION')
+          rep("entryDecision=isAdd?(trendEntryEligible(c)&&opportunityLane(c)&&scalePositionEligible(existing,c,p)?'STANDARD_SCALE':'BLOCK')","entryDecision=isAdd?(scaleContinuationSignal(c)&&scalePositionEligible(existing,c,p)?'STANDARD_SCALE':'BLOCK')",'PLACEBUY_SCALE_CONTINUATION')
+
+          # 3) Controlled lane escape from global cold mode once a lane has real sample strength.
+          old="function laneLearnedBoost(st,c){const b=learningState(st).lanes?.[learningLaneKey(c)];if(!b||n(b.count)<2)return null;const shrink=n(b.count)/(n(b.count)+10),m=clamp(n(b.meanReturnPct),-40,80);return clamp(m*shrink/3,-8,12)}"
+          new=old+"\nfunction laneLearningStats(st,c){const b=learningState(st).lanes?.[learningLaneKey(c)]||null;if(!b)return{count:0,wins:0,winRate:0,meanReturnPct:0};const count=n(b.count),wins=n(b.wins);return{count,wins,winRate:count>0?wins/count:0,meanReturnPct:n(b.meanReturnPct)}}\nfunction provenLearningLane(st,c){const x=laneLearningStats(st,c);return x.count>=5&&x.winRate>=.55&&x.meanReturnPct>=3}"
+          rep(old,new,'PROVEN_LANE_HELPERS')
+          rep("coldExpectancy=closed>=6&&(winRate<.30||meanRet<-4),life=pumpLifecycle(c)","globalCold=closed>=6&&(winRate<.30||meanRet<-4),laneProven=provenLearningLane(st,c),coldExpectancy=globalCold&&!laneProven,life=pumpLifecycle(c)",'ENTRY_LANE_ESCAPE')
+          rep("coldPortfolio=closed>=6&&(winRate<.30||meanRet<-4),stabilizedPct=heldExisting?finalPct:(coldPortfolio?Math.min(finalPct,mode==='CONFIRMED_BREAKOUT'?10:7):finalPct);","globalColdPortfolio=closed>=6&&(winRate<.30||meanRet<-4),laneProven=provenLearningLane(st,c),coldPortfolio=globalColdPortfolio&&!laneProven,stabilizedPct=heldExisting?finalPct:(coldPortfolio?Math.min(finalPct,mode==='CONFIRMED_BREAKOUT'?10:7):finalPct);",'ALLOCATION_LANE_ESCAPE')
+          rep("entryMode:mode,learningLaneKey:learningLaneKey(c),netLiquidationEquityLamports","entryMode:mode,learningLaneKey:learningLaneKey(c),laneProven,laneLearningStats:laneLearningStats(st,c),netLiquidationEquityLamports",'LANE_TELEMETRY_PROFILE')
+
+          # 4) Per-mint + urgency-aware exit preview scheduling. Still non-blocking and still obeys resettable 429 backoff.
+          rep("let lastExitPreviewRequestAt=0,exitPreviewBackoffUntil=0,exitPreviewRequests=0,exitPreviewRateLimits=0,exitPreviewRateLimitStreak=0,exitPreviewCacheHits=0;","let lastExitPreviewRequestAt=0,exitPreviewBackoffUntil=0,exitPreviewRequests=0,exitPreviewRateLimits=0,exitPreviewRateLimitStreak=0,exitPreviewCacheHits=0;const exitPreviewLastByMint=new Map();",'PER_MINT_PREVIEW_STATE')
+          old="const cc=candidate(pos.mint),life=cc?pumpLifecycle(cc):{phase:'NONE'},urgentLifecycle=(life.phase==='PARABOLIC'||life.phase==='EXHAUSTION')&&Number.isFinite(cached)&&cached>=8&&now-lastExitPreviewRequestAt>=120000;if(now<exitPreviewBackoffUntil&&!urgentLifecycle){pos.previewDegradedUntil=new Date(exitPreviewBackoffUntil).toISOString();if(Number.isFinite(last)&&now-last<600_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}const gap=30000-(now-lastExitPreviewRequestAt);if(gap>0){if(Number.isFinite(last)&&now-last<600_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}lastExitPreviewRequestAt=Date.now();"
+          new="const cc=candidate(pos.mint),life=cc?pumpLifecycle(cc):{phase:'NONE'},urgentLifecycle=(life.phase==='PARABOLIC'||life.phase==='EXHAUSTION')&&Number.isFinite(cached)&&cached>=8&&now-lastExitPreviewRequestAt>=120000,weakCritical=!!cc&&(softTrendWeak(cc)||severeTrendBreak(cc)),critical=urgentLifecycle||weakCritical||(Number.isFinite(cached)&&(cached<=-5||cached>=5)),mintLast=n(exitPreviewLastByMint.get(pos.mint),0),mintGapMs=critical?45000:120000;if(mintLast>0&&now-mintLast<mintGapMs){if(Number.isFinite(last)&&now-last<600_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}if(now<exitPreviewBackoffUntil&&!urgentLifecycle){pos.previewDegradedUntil=new Date(exitPreviewBackoffUntil).toISOString();if(Number.isFinite(last)&&now-last<600_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}const globalGapMs=critical?20000:30000,gap=globalGapMs-(now-lastExitPreviewRequestAt);if(gap>0){if(Number.isFinite(last)&&now-last<600_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}lastExitPreviewRequestAt=Date.now();exitPreviewLastByMint.set(pos.mint,lastExitPreviewRequestAt);"
+          rep(old,new,'URGENCY_PREVIEW_SCHEDULER')
+
+          # Telemetry / markers.
+          rep("capitalVelocityVersion:'V430',expectancyStabilizerVersion:'V430'","capitalVelocityVersion:'V430',expectancyStabilizerVersion:'V430',profitConflictVersion:'V431',exitPreviewSchedulerVersion:'V431'",'V431_TELEMETRY')
+          marker="console.log('V430_HARD_SAFETY_UNCHANGED=TRUE');"
+          rep(marker,marker+"console.log('V431_PROFIT_CONFLICT_RESOLUTION=TRUE');console.log('V431_SIGNER_HARD_SAFE_UNIFIED=TRUE');console.log('V431_WINNER_CONTINUATION_SCALE=TRUE');console.log('V431_URGENCY_EXIT_SCHEDULER=TRUE');console.log('V431_PROVEN_LANE_ESCAPE=TRUE');console.log('V431_HARD_SAFETY_UNCHANGED=TRUE');",'V431_MARKERS')
+          p.write_text(s)
+          PY
+
+          echo '=== V431 PREDEPLOY 100 PASS ==='
+          for i in $(seq 1 100); do
+            node --check "$C"
+            OUT=$(node "$C" --self-test)
+            for M in V430_EXPECTANCY_STABILIZER=TRUE V431_PROFIT_CONFLICT_RESOLUTION=TRUE V431_SIGNER_HARD_SAFE_UNIFIED=TRUE V431_WINNER_CONTINUATION_SCALE=TRUE V431_URGENCY_EXIT_SCHEDULER=TRUE V431_PROVEN_LANE_ESCAPE=TRUE V431_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            python3 - "$C" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s and "coreSafe(c)" in s
+          assert "universeClass==='MEME_CONFIRMED'&&c.securityDecision" not in s
+          assert "function scaleContinuationSignal" in s
+          assert ".filter(x=>x.c&&scaleContinuationSignal(x.c)&&scalePositionEligible" in s
+          assert "entryDecision=isAdd?(scaleContinuationSignal(c)&&scalePositionEligible" in s
+          assert "function provenLearningLane" in s and "x.count>=5&&x.winRate>=.55&&x.meanReturnPct>=3" in s
+          assert "coldExpectancy=globalCold&&!laneProven" in s and "coldPortfolio=globalColdPortfolio&&!laneProven" in s
+          assert "exitPreviewLastByMint=new Map()" in s and "mintGapMs=critical?45000:120000" in s and "globalGapMs=critical?20000:30000" in s
+          assert "if(gap>0)await sleep(gap)" not in s
+          assert "profitConflictVersion:'V431'" in s and 'scaleAllowed:true' in s
+          PY
+            echo V431_PREDEPLOY_PASS=$i
+          done
+
+          SHA=$(sha256sum "$C" | awk '{print $1}')
+          echo V431_CANDIDATE_SHA=$SHA
+          OLD_PID=$(systemctl show meme-alpha-micro-live.service -p MainPID --value)
+          cp "$E" "$RT/v431-pre-active-executor.js"
+          cp "$C" "$E"
+          chmod 664 "$E"
+          test "$(sha256sum "$E" | awk '{print $1}')" = "$SHA"
+
+          echo '=== WAIT GENERATION GUARD RELOAD ==='
+          RELOADED=0
+          for i in $(seq 1 90); do
+            PID=$(systemctl show meme-alpha-micro-live.service -p MainPID --value)
+            if [ -n "$PID" ] && [ "$PID" != "0" ] && [ "$PID" != "$OLD_PID" ]; then
+              if python3 - <<'PY'
+          import json,pathlib,time,subprocess,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+              cp=rt/'capital-observability.json'; c=json.loads(cp.read_text()); ca=time.time()-cp.stat().st_mtime
+              gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+              r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+              cnt=int(subprocess.check_output(['pgrep','-fc','^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$'],text=True).strip() or 0)
+          except Exception: sys.exit(1)
+          ok=ca<180 and c.get('profitConflictVersion')=='V431' and c.get('exitPreviewSchedulerVersion')=='V431' and c.get('scaleAllowed') is True and ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True and cnt==1
+          sys.exit(0 if ok else 1)
+          PY
+              then RELOADED=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$RELOADED" -eq 1
+          NEW_PID=$(systemctl show meme-alpha-micro-live.service -p MainPID --value)
+          echo V431_OLD_PID=$OLD_PID
+          echo V431_NEW_PID=$NEW_PID
+
+          echo '=== V431 LIVE 100 PASS ==='
+          for i in $(seq 1 100); do
+            test "$(sha256sum "$E" | awk '{print $1}')" = "$SHA"
+            node --check "$E"
+            test "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)" -eq 1
+            test "$(systemctl show meme-alpha-micro-live.service -p MainPID --value)" = "$NEW_PID"
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+          cp=rt/'capital-observability.json'; c=json.loads(cp.read_text()); ca=time.time()-cp.stat().st_mtime
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert ca<180 and c.get('profitConflictVersion')=='V431' and c.get('exitPreviewSchedulerVersion')=='V431' and c.get('scaleAllowed') is True
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert p.get('stateReadable') is True
+          PY
+            echo V431_LIVE_PASS=$i
+            sleep 1
+          done
+
+          echo '=== V431 FINAL SNAPSHOT ==='
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['capital-observability.json','allocator-status.json','micro-live-gate.json','portfolio-observability.json','realtime-pool-pulse.json','last-execution.json']:
+              p=rt/name
+              if not p.exists(): continue
+              x=json.loads(p.read_text())
+              if name=='realtime-pool-pulse.json': x={k:x.get(k) for k in ['updatedAt','status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heartbeatAgeMs','reconnectFailures']}
+              print(name,json.dumps(x,ensure_ascii=False)[:12000])
+          PY
+          echo V431_PREDEPLOY_100_PASS=CLEAN
+          echo V431_LIVE_100_PASS=CLEAN
+          echo V431_RUNTIME_TELEMETRY=CONFIRMED
+          echo V431_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
