@@ -1,0 +1,25 @@
+name: Meme Alpha V425B Entry Contract Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v425b-entry-contract-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect entry and rotation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo SHA=$(sha256sum "$E"|awk '{print $1}')
+          python3 - "$E" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          for t in ['function trendEntryEligible','function newEntryMode','function rotationSource','async function maybeRotate','function rankedCandidates','function coreSafe']:
+            i=s.find(t); print('\n===',t,'===')
+            print(s[i:i+5200] if i>=0 else 'NOT_FOUND')
+          PY
+          echo V425B_ENTRY_AUDIT=PASS
