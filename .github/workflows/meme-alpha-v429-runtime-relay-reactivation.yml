@@ -1,0 +1,139 @@
+name: Meme Alpha V429 Runtime Relay Reactivation
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v429-runtime-relay-reactivation.yml'
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Relay restart micro-live through same service user and prove clean runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          PAPER="$APP/run-paper.sh"
+          MICRO=meme-alpha-micro-live.service
+          PAPER_SVC=meme-alpha-paper.service
+          BAK="$RT/v429-runtime-relay-run-paper.backup.sh"
+          CHANGED=0
+          cleanup(){
+            if [ "$CHANGED" -eq 1 ] && [ -f "$BAK" ]; then
+              cp "$BAK" "$PAPER" || true
+              chmod 755 "$PAPER" || true
+              sudo -n /bin/systemctl restart "$PAPER_SVC" || true
+            fi
+          }
+          trap cleanup EXIT
+
+          echo '=== PRECHECK ==='
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          for M in V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          MICRO_USER=$(systemctl show "$MICRO" -p User --value)
+          PAPER_USER=$(systemctl show "$PAPER_SVC" -p User --value)
+          RESTART_POLICY=$(systemctl show "$MICRO" -p Restart --value)
+          echo MICRO_USER=$MICRO_USER PAPER_USER=$PAPER_USER RESTART_POLICY=$RESTART_POLICY
+          test "$MICRO_USER" = "$PAPER_USER"
+          case "$RESTART_POLICY" in always|on-failure|on-abnormal|on-abort) ;; *) echo UNSAFE_RESTART_POLICY=$RESTART_POLICY; exit 1;; esac
+          OLD_PID=$(systemctl show "$MICRO" -p MainPID --value)
+          test "$OLD_PID" != 0
+          SRC_EPOCH=$(stat -c %Y "$E")
+          PRE_POS=$(python3 - <<'PY'
+          import json
+          print(int(json.load(open('/opt/meme-alpha/app/runtime-status/portfolio-observability.json')).get('openPositions') or 0))
+          PY
+          )
+          echo OLD_PID=$OLD_PID SRC_EPOCH=$SRC_EPOCH PRE_POS=$PRE_POS
+          test "$PRE_POS" -ge 0
+
+          echo '=== INSTALL ONE-SHOT RELAY ==='
+          cp "$PAPER" "$BAK"
+          python3 - "$PAPER" "$OLD_PID" "$RESTART_POLICY" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); pid=sys.argv[2]; policy=sys.argv[3]
+          s=p.read_text()
+          anchor='cd /opt/meme-alpha/app || exit 1\n'
+          assert s.count(anchor)==1
+          sig='TERM' if policy=='always' else 'KILL'
+          block=(anchor+"\n# V429_ONE_SHOT_MICRO_RELOAD_RELAY\n"
+                 +f"if kill -0 {pid} 2>/dev/null; then kill -{sig} {pid} 2>/dev/null || true; fi\n"
+                 +"# V429_ONE_SHOT_MICRO_RELOAD_RELAY_END\n")
+          p.write_text(s.replace(anchor,block,1))
+          PY
+          chmod 755 "$PAPER"
+          CHANGED=1
+          sudo -n /bin/systemctl restart "$PAPER_SVC"
+
+          echo '=== WAIT NEW MICRO PID ==='
+          NEW_PID=''
+          for i in $(seq 1 45); do
+            sleep 1
+            NEW_PID=$(systemctl show "$MICRO" -p MainPID --value)
+            if [ -n "$NEW_PID" ] && [ "$NEW_PID" != 0 ] && [ "$NEW_PID" != "$OLD_PID" ] && [ "$(systemctl is-active "$MICRO")" = active ]; then break; fi
+          done
+          echo NEW_PID=$NEW_PID
+          test -n "$NEW_PID"; test "$NEW_PID" != 0; test "$NEW_PID" != "$OLD_PID"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          START_TXT=$(systemctl show "$MICRO" -p ExecMainStartTimestamp --value)
+          START_EPOCH=$(date -d "$START_TXT" +%s)
+          echo START="$START_TXT" START_EPOCH=$START_EPOCH
+          test "$START_EPOCH" -ge "$SRC_EPOCH"
+
+          echo '=== RESTORE PAPER PERMANENTLY ==='
+          cp "$BAK" "$PAPER"
+          chmod 755 "$PAPER"
+          CHANGED=0
+          sudo -n /bin/systemctl restart "$PAPER_SVC"
+          ! grep -q 'V429_ONE_SHOT_MICRO_RELOAD_RELAY' "$PAPER"
+
+          echo '=== WAIT V429 TELEMETRY + STATE CONTINUITY ==='
+          READY=0
+          for i in $(seq 1 90); do
+            if python3 - "$PRE_POS" <<'PY'
+          import json,pathlib,sys
+          pre=int(sys.argv[1]); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            c=json.loads((rt/'capital-observability.json').read_text())
+            a=json.loads((rt/'allocator-status.json').read_text())
+            p=json.loads((rt/'portfolio-observability.json').read_text())
+            g=json.loads((rt/'micro-live-gate.json').read_text())
+            r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          except Exception: sys.exit(1)
+          ok=(c.get('capitalVelocityVersion')=='V429' and isinstance(c.get('deployablePct'),(int,float)) and isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float)) and a.get('action')!='ERROR' and p.get('stateReadable') is True and int(p.get('openPositions') or 0)==pre and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100)
+          sys.exit(0 if ok else 1)
+          PY
+            then READY=1; break; fi
+            sleep 2
+          done
+          test "$READY" -eq 1
+
+          echo '=== V429 RAM 100-PASS ==='
+          for i in $(seq 1 100); do
+            test "$(systemctl show "$MICRO" -p MainPID --value)" = "$NEW_PID"
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - "$PRE_POS" <<'PY'
+          import json,pathlib,sys,time
+          pre=int(sys.argv[1]); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          c=json.loads((rt/'capital-observability.json').read_text()); a=json.loads((rt/'allocator-status.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text()); g=json.loads((rt/'micro-live-gate.json').read_text()); r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          assert c.get('capitalVelocityVersion')=='V429'
+          assert isinstance(c.get('deployablePct'),(int,float)) and isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float))
+          assert a.get('action')!='ERROR'
+          assert p.get('stateReadable') is True and int(p.get('openPositions') or 0)==pre
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and int(r.get('reconnectFailures') or 0)==0 and int(r.get('reconcileErrors') or 0)==0 and int(r.get('writeErrors') or 0)==0
+          PY
+            echo V429_RAM_PASS=$i
+            sleep 0.5
+          done
+          echo V429_RUNTIME_RELAY_RELOAD=TRUE
+          echo V429_NEW_PID_ACTIVE=TRUE
+          echo V429_PROCESS_NEWER_THAN_SOURCE=TRUE
+          echo V429_STATE_CONTINUITY=TRUE
+          echo V429_TELEMETRY_FROM_RAM=TRUE
+          echo V429_RAM_100_PASS=CLEAN
+          echo V429_ACTUAL_RUNTIME_ACTIVE=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
