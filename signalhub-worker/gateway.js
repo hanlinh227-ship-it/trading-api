@@ -1,4 +1,4 @@
-import tracker from './index.js';
+import tracker from './engine-v21.js';
 
 const GATEWAY_VERSION = 'SIGNALHUB-GATEWAY-2.1.0';
 const TV_FOREX = 'https://scanner.tradingview.com/forex/scan';
@@ -29,6 +29,8 @@ const APP_RELEASE = {
     'Redesigned mobile layout with wider two-column navigation and less cramped controls.',
     'Foreground live quote feed with 5-second refresh for price and pip movement display.',
     'Automatic app-version checks and update notifications for future releases.',
+    'MARKET, LIMIT and STOP setups with one active setup allowed per symbol.',
+    'LIMIT/STOP remain PENDING until entry is touched; only then do TP/SL and R tracking start.',
     'Server-side signal history remains independent from app reinstall/update.'
   ]
 };
