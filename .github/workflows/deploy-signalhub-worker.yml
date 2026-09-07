@@ -13,12 +13,12 @@ permissions:
 
 env:
   SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
-  EXPECTED_VERSION: SIGNALHUB-FOREX-2.0.0
+  EXPECTED_VERSION: SIGNALHUB-FOREX-2.1.0
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -66,10 +66,38 @@ jobs:
           import json
           p=json.load(open('/tmp/status.json',encoding='utf-8'))
           assert p.get('ok') is True, p
-          assert p.get('version') == 'SIGNALHUB-FOREX-2.0.0', p
+          assert p.get('version') == 'SIGNALHUB-FOREX-2.1.0', p
+          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.0', p
           assert p.get('independentFromBybit') is True, p
           assert p.get('trackerStorage') is True, p
+          assert p.get('oneActiveSetupPerSymbol') is True, p
+          assert p.get('supportedOrderTypes') == ['MARKET','LIMIT','STOP'], p
           print('STATUS_OK',p.get('version'),p.get('trackerSummary'))
+          PY
+
+          curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/live-quotes?group=all" -o /tmp/live.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/live.json',encoding='utf-8'))
+          assert p.get('ok') is True, p
+          assert isinstance(p.get('quotes'),list) and len(p['quotes']) >= 1, p
+          assert p.get('suggestedRefreshMs') == 5000, p
+          assert p.get('streaming') is False, p
+          for q in p['quotes'][:3]:
+              assert q.get('price',0) > 0, q
+              assert q.get('pipSize',0) > 0, q
+          print('LIVE_QUOTES_OK',p.get('count'))
+          PY
+
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/app-version" -o /tmp/app-version.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/app-version.json',encoding='utf-8'))
+          a=p.get('app') or {}
+          assert p.get('ok') is True, p
+          assert a.get('versionCode') == 5, a
+          assert a.get('versionName') == '2.1.0', a
+          print('APP_VERSION_OK',a.get('versionName'))
           PY
 
           for group in forex metal energy; do
@@ -84,21 +112,30 @@ jobs:
           assert isinstance(p.get('analyses'),list), p
           tr=p.get('tracker') or {}
           assert tr.get('enabled') is True, tr
+          assert tr.get('oneActiveSetupPerSymbol') is True, tr
           assert isinstance(tr.get('events'),list), tr
-          print(g.upper()+'_OK','rows',p.get('sourceRows'),'actionable',p.get('actionableCount'),'events',len(tr.get('events',[])))
+          for a in p.get('analyses',[]):
+              if str(a.get('status','')).endswith('_SIGNAL'):
+                  assert a.get('orderType') in ('MARKET','LIMIT','STOP'), a
+          print(g.upper()+'_OK','rows',p.get('sourceRows'),'actionable',p.get('actionableCount'),'mix',p.get('orderMix'))
           PY
           done
 
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/signals?status=all&limit=20" -o /tmp/signals.json
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/signals?status=active&limit=100" -o /tmp/active.json
           curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/performance" -o /tmp/perf.json
           python3 - <<'PY'
           import json
-          s=json.load(open('/tmp/signals.json',encoding='utf-8'))
+          a=json.load(open('/tmp/active.json',encoding='utf-8'))
           p=json.load(open('/tmp/perf.json',encoding='utf-8'))
-          assert s.get('ok') is True and isinstance(s.get('signals'),list), s
+          assert a.get('ok') is True and isinstance(a.get('signals'),list), a
+          symbols=[]
+          for s in a['signals']:
+              assert s.get('status') in ('PENDING','OPEN'), s
+              assert s.get('orderType','MARKET') in ('MARKET','LIMIT','STOP'), s
+              symbols.append(s.get('symbol'))
+          assert len(symbols) == len(set(symbols)), ('duplicate active symbols',symbols)
           perf=p.get('performance') or {}
-          assert p.get('ok') is True, p
-          for k in ['totalSignals','open','closed','tp','sl','winRateResolved','netRResolved']:
+          for k in ['totalSignals','active','pending','open','closed','tp','sl','winRateResolved','netRResolved','byOrderType']:
               assert k in perf, (k,perf)
-          print('TRACKER_OK','signals',s.get('count'),'performance',perf)
+          print('TRACKER_OK','active',a.get('count'),'performance',perf)
           PY
