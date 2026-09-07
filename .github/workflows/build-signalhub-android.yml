@@ -46,6 +46,27 @@ jobs:
           unzip -l "$APK" | grep -q 'AndroidManifest.xml'
           unzip -l "$APK" | grep -q 'classes.dex'
 
+      - name: Smoke test live SignalHub backend
+        run: |
+          BASE='https://trading-v77-scanner.hanlinh227.workers.dev'
+          curl --fail --silent --show-error --max-time 20 "$BASE/status" -o /tmp/status.json
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/status.json',encoding='utf-8'))
+          assert isinstance(p,dict), p
+          assert p.get('version') or p.get('service') or p.get('ok') is not None, p
+          print('status ok:', p.get('version') or p.get('service') or p.get('ok'))
+          PY
+          curl --fail --silent --show-error --max-time 20 "$BASE/latest-scan?group=forex" -o /tmp/forex.json
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/forex.json',encoding='utf-8'))
+          assert isinstance(p,dict), p
+          assert p.get('group') == 'forex', p
+          assert 'snapshot' in p, p
+          print('forex latest-scan ok; snapshot type:', type(p.get('snapshot')).__name__)
+          PY
+
       - name: Prepare artifact
         run: |
           mkdir -p dist
