@@ -41,7 +41,7 @@ jobs:
         working-directory: signalhub-android
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Verify APK structure
+      - name: Verify APK structure and tracker code
         run: |
           set -euo pipefail
           APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
@@ -50,9 +50,15 @@ jobs:
           unzip -t "$APK"
           unzip -l "$APK" | grep -q 'AndroidManifest.xml'
           unzip -l "$APK" | grep -q 'classes.dex'
-          unzip -p "$APK" classes.dex | strings | grep -q 'SIGNALHUB FX'
-          unzip -p "$APK" classes.dex | strings | grep -q '/performance'
-          unzip -p "$APK" classes.dex | strings | grep -q '/signals?status=open'
+          : > /tmp/all-dex-strings.txt
+          while IFS= read -r dex; do
+            echo "Inspecting $dex"
+            unzip -p "$APK" "$dex" | strings >> /tmp/all-dex-strings.txt
+          done < <(unzip -Z1 "$APK" | grep -E '^classes([0-9]+)?\.dex$')
+          grep -Fq 'SIGNALHUB FX' /tmp/all-dex-strings.txt
+          grep -Fq '/performance' /tmp/all-dex-strings.txt
+          grep -Fq '/signals?status=open' /tmp/all-dex-strings.txt
+          grep -Fq 'SERVER TRACKER' /tmp/all-dex-strings.txt
 
       - name: Smoke test live tracker backend
         shell: bash
