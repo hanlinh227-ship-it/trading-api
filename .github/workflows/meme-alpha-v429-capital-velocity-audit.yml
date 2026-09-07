@@ -1,0 +1,29 @@
+name: Meme Alpha V429 Capital Velocity Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v429-capital-velocity-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Audit V428 capital velocity hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          printf '%s\n' "$OUT" | grep -E 'V428_|V427_|V426_|V425_|V424_|V421_|V418_|HARD_SECURITY|CAPITAL_UTILIZATION|ROTATION|EXPECTANCY' || true
+          echo '=== CAPITAL / ROTATION / QUOTE HOOKS ==='
+          grep -nE 'function allocationProfile|function equityCompoundingState|function exitPreview|function preview|exitPreviewBackoffUntil|exitPreviewRateLimits|function concentrationReleaseSource|function rotationSource|function proactiveRotationEligible|async function maybeRotate|async function maybeScaleIn|async function main|IDLE_CAPITAL_WAITING_SIGNER_CONTRACT|portfolioExpectancyFactor|diversificationCap|trimReady|ageMin>=|lastConcentrationTrimAt|lastCapitalReleaseAt|markFresh|lastMarkAt' "$E" | head -360 || true
+          echo '=== SELECTED RUNTIME ==='
+          for f in micro-live-gate.json capital-observability.json allocator-status.json portfolio-observability.json realtime-pool-pulse.json; do echo "---$f---"; cat "$RT/$f" 2>/dev/null || true; echo; done
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          echo V429_CAPITAL_VELOCITY_AUDIT=PASS
