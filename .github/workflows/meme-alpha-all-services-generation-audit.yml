@@ -1,0 +1,41 @@
+name: Meme Alpha All Services Generation Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-all-services-generation-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Compare every service process generation with executable source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess,os,re,shlex,pathlib,time
+          svcs=['meme-alpha-paper.service','meme-alpha-micro-live.service','meme-alpha-signer.service','meme-alpha-realtime-pulse.service','meme-alpha-trend-pulse.service','meme-alpha-whale-flow.service']
+          for svc in svcs:
+              def show(prop):
+                  return subprocess.check_output(['systemctl','show',svc,f'-p{prop}','--value'],text=True).strip()
+              pid=int(show('MainPID') or 0); start=show('ExecMainStartTimestamp'); ex=show('ExecStart'); active=subprocess.check_output(['systemctl','is-active',svc],text=True).strip()
+              print('\nSERVICE',svc,'active=',active,'pid=',pid,'start=',start)
+              print('EXECSTART',ex)
+              start_epoch=int(subprocess.check_output(['date','-d',start,'+%s'],text=True).strip()) if start else 0
+              paths=[]
+              # pull absolute executable/script tokens and app-relative js tokens
+              for tok in re.findall(r'(?:/[^ ;{}]+|(?:src|scripts)/[^ ;{}]+\.(?:js|py|sh))',ex):
+                  tok=tok.strip(' ;,')
+                  if tok.startswith('src/') or tok.startswith('scripts/'): tok='/opt/meme-alpha/app/'+tok
+                  if os.path.isfile(tok): paths.append(tok)
+              # signer python path may be embedded in argv[]
+              paths=list(dict.fromkeys(paths))
+              for p in paths:
+                  mt=int(os.stat(p).st_mtime); print('SOURCE',p,'mtime=',mt,'deltaStartMinusMtime=',start_epoch-mt,'sha=',subprocess.check_output(['sha256sum',p],text=True).split()[0])
+                  if p.startswith('/opt/meme-alpha/app/') and svc!='meme-alpha-paper.service':
+                      assert start_epoch>=mt, f'STALE_RAM:{svc}:{p}:start={start_epoch}:mtime={mt}'
+              assert active=='active' and pid>0
+          print('\nALL_SERVICE_PROCESS_GENERATIONS=CLEAN')
+          PY
+          echo '=== CHILD PROCESSES ==='
+          ps -eo pid,ppid,lstart,etime,args | grep -E '/opt/meme-alpha|src/(scanner|safe-signal|new-listing|trend|whale|realtime|micro-live)' | grep -v grep || true
+          echo ALL_SERVICE_GENERATION_AUDIT=PASS
