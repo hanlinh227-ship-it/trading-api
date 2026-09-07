@@ -1,0 +1,165 @@
+name: Meme Alpha V430 Expectancy Stabilizer 100 Pass Active
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v430-expectancy-stabilizer-100pass-active.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - name: Patch validate activate and audit V430 expectancy stabilizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; C="$RT/deploy-candidates/v430-expectancy-stabilizer.js"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+            global s
+            n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+          assert 'V429_CAPITAL_VELOCITY=TRUE' in s, 'V429_BASELINE_REQUIRED'
+          assert 'V430_EXPECTANCY_STABILIZER=TRUE' not in s, 'V430_ALREADY_PRESENT'
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+
+          # 1) Lane-aware learning: preserve historical buckets, learn future entry/lifecycle lanes separately.
+          old="function learningState(st){if(!st.learning||typeof st.learning!=='object')st.learning={version:1,totalClosed:0,totalWins:0,meanReturnPct:0,buckets:{}};if(!st.learning.buckets)st.learning.buckets={};return st.learning}"
+          new="function learningState(st){if(!st.learning||typeof st.learning!=='object')st.learning={version:2,totalClosed:0,totalWins:0,meanReturnPct:0,buckets:{},lanes:{}};if(!st.learning.buckets)st.learning.buckets={};if(!st.learning.lanes)st.learning.lanes={};st.learning.version=Math.max(2,n(st.learning.version,1));return st.learning}"
+          rep(old,new,'LANE_LEARNING_STATE')
+
+          old="function learnedBoost(st,c){const L=learningState(st),vals=[];for(const k of featureKeys(c)){const b=L.buckets[k];if(!b||n(b.count)<1)continue;const shrink=n(b.count)/(n(b.count)+18),m=clamp(n(b.meanReturnPct),-40,80);vals.push(m*shrink)}if(!vals.length)return 0;return clamp(vals.reduce((a,b)=>a+b,0)/vals.length/4,-8,12)}\nfunction captureEntryFeatures(c,profile={}){return{keys:featureKeys(c),score:n(c.score),opportunityScore:opportunityScore(c),liquidityUsd:n(c.liquidityUsd),netBuyers5m:n(c.netBuyers5m),impactPct:impact(c),allocationPct:n(profile.pct),capturedAt:new Date().toISOString()}}"
+          new="function learningLaneKey(c){return `${entryMode(c)}:${pumpLifecycle(c).phase}`}\nfunction laneLearnedBoost(st,c){const b=learningState(st).lanes?.[learningLaneKey(c)];if(!b||n(b.count)<2)return null;const shrink=n(b.count)/(n(b.count)+10),m=clamp(n(b.meanReturnPct),-40,80);return clamp(m*shrink/3,-8,12)}\nfunction learnedBoost(st,c){const L=learningState(st),vals=[];for(const k of featureKeys(c)){const b=L.buckets[k];if(!b||n(b.count)<1)continue;const shrink=n(b.count)/(n(b.count)+18),m=clamp(n(b.meanReturnPct),-40,80);vals.push(m*shrink)}const base=vals.length?clamp(vals.reduce((a,b)=>a+b,0)/vals.length/4,-8,12):0,lane=laneLearnedBoost(st,c);return lane===null?base:clamp(base*.65+lane*.35,-8,12)}\nfunction captureEntryFeatures(c,profile={}){const lk=learningLaneKey(c);return{keys:featureKeys(c),laneKey:lk,entryMode:entryMode(c),lifecyclePhase:pumpLifecycle(c).phase,score:n(c.score),opportunityScore:opportunityScore(c),liquidityUsd:n(c.liquidityUsd),netBuyers5m:n(c.netBuyers5m),impactPct:impact(c),allocationPct:n(profile.pct),capturedAt:new Date().toISOString()}}"
+          rep(old,new,'LANE_LEARNING_FEATURES')
+
+          old="function learnClosedTrade(st,pos){const life=Math.max(1,n(pos.lifetimeCostLamports,n(pos.costBasisLamports))),pnl=n(pos.realizedPnlLamports),ret=clamp(pnl/life*100,-95,300),L=learningState(st);L.totalClosed=n(L.totalClosed)+1;L.totalWins=n(L.totalWins)+(ret>0?1:0);L.meanReturnPct+=(ret-n(L.meanReturnPct))/L.totalClosed;for(const k of pos.entryFeatures?.keys||[]){const b=L.buckets[k]||(L.buckets[k]={count:0,wins:0,meanReturnPct:0});b.count=n(b.count)+1;b.wins=n(b.wins)+(ret>0?1:0);b.meanReturnPct+=(ret-n(b.meanReturnPct))/b.count}event({type:'ONLINE_LEARNING_UPDATE',mint:pos.mint,symbol:pos.symbol,returnPct:ret,totalClosed:L.totalClosed,winRate:L.totalClosed?L.totalWins/L.totalClosed:0})}"
+          new="function learnClosedTrade(st,pos){const life=Math.max(1,n(pos.lifetimeCostLamports,n(pos.costBasisLamports))),pnl=n(pos.realizedPnlLamports),ret=clamp(pnl/life*100,-95,300),L=learningState(st);L.totalClosed=n(L.totalClosed)+1;L.totalWins=n(L.totalWins)+(ret>0?1:0);L.meanReturnPct+=(ret-n(L.meanReturnPct))/L.totalClosed;for(const k of pos.entryFeatures?.keys||[]){const b=L.buckets[k]||(L.buckets[k]={count:0,wins:0,meanReturnPct:0});b.count=n(b.count)+1;b.wins=n(b.wins)+(ret>0?1:0);b.meanReturnPct+=(ret-n(b.meanReturnPct))/b.count}const lk=pos.entryFeatures?.laneKey;if(lk){const b=L.lanes[lk]||(L.lanes[lk]={count:0,wins:0,meanReturnPct:0});b.count=n(b.count)+1;b.wins=n(b.wins)+(ret>0?1:0);b.meanReturnPct+=(ret-n(b.meanReturnPct))/b.count}event({type:'ONLINE_LEARNING_UPDATE',mint:pos.mint,symbol:pos.symbol,returnPct:ret,totalClosed:L.totalClosed,winRate:L.totalClosed?L.totalWins/L.totalClosed:0,laneKey:lk||null,lane:L.lanes?.[lk]||null})}"
+          rep(old,new,'LANE_LEARNING_CLOSE')
+
+          # 2) Cold-expectancy entry floor: poor portfolio history makes NEW entries prove stronger live/lifecycle quality.
+          old="const edge=expectedEdge(st,c),pulse=pulseFor(c),rt=realtimeFor(c),trustedEarly=preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.eventMomentum)>=1.10,baseFloor=mode==='IDLE_PROBE'?60:56,floor=trustedEarly?Math.max(52,baseFloor-4):baseFloor;\n  if(edge<floor)return{ready:false,mode,reason:'EXPECTANCY_EDGE_BELOW_FLOOR',expectedEdge:edge,edgeFloor:floor,trustedEarly};return{ready:true,mode,reason:'READY',expectedEdge:edge,edgeFloor:floor,trustedEarly}"
+          new="const edge=expectedEdge(st,c),pulse=pulseFor(c),rt=realtimeFor(c),trustedEarly=preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.eventMomentum)>=1.10,L=learningState(st),closed=n(L.totalClosed),winRate=closed>0?n(L.totalWins)/closed:0,meanRet=n(L.meanReturnPct),coldExpectancy=closed>=6&&(winRate<.30||meanRet<-4),life=pumpLifecycle(c),strongLife=(life.phase==='CONFIRMED_FLIGHT'&&life.score>=9)||(life.phase==='EARLY_ACCELERATION'&&life.score>=8),liveProof=!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.events5s)>=3&&n(rt.eventMomentum)>=1.35&&n(c.netBuyers5m)>=3,baseFloor=mode==='IDLE_PROBE'?60:56,floor=coldExpectancy?baseFloor+8:(trustedEarly?Math.max(52,baseFloor-4):baseFloor);\n  if(coldExpectancy&&!(strongLife||liveProof))return{ready:false,mode,reason:'COLD_EXPECTANCY_QUALITY_NOT_PROVEN',expectedEdge:edge,edgeFloor:floor,coldExpectancy,lifePhase:life.phase,lifeScore:life.score,liveProof};if(edge<floor)return{ready:false,mode,reason:'EXPECTANCY_EDGE_BELOW_FLOOR',expectedEdge:edge,edgeFloor:floor,trustedEarly,coldExpectancy};return{ready:true,mode,reason:'READY',expectedEdge:edge,edgeFloor:floor,trustedEarly,coldExpectancy,lifePhase:life.phase,lifeScore:life.score,liveProof}"
+          rep(old,new,'COLD_EXPECTANCY_ENTRY_FLOOR')
+
+          # 3) Small initial risk while expectancy is cold; existing winners retain full compounding allocation logic.
+          old="const mode=entryMode(c),finalPct=mode==='PREBREAKOUT'?Math.min(pct,12):mode==='CONFIRMED_BREAKOUT'?Math.min(pct,Math.max(18,perPositionCap)):pct;\n  return{name:'V418_EQUITY_EXPECTANCY',pct:finalPct,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,learnFactor,portfolioExpectancyFactor,rawExpectancyFactor,expectancyConfidence,learningMeanReturnPct:meanRet,learningWinRate:winRate,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode,netLiquidationEquityLamports:eq.equityLamports,equityHighWaterLamports:eq.equityHighWaterLamports,equityDrawdownPct:eq.drawdownPct};"
+          new="const mode=entryMode(c),finalPct=mode==='PREBREAKOUT'?Math.min(pct,12):mode==='CONFIRMED_BREAKOUT'?Math.min(pct,Math.max(18,perPositionCap)):pct,coldPortfolio=closed>=6&&(winRate<.30||meanRet<-4),stabilizedPct=heldExisting?finalPct:(coldPortfolio?Math.min(finalPct,mode==='CONFIRMED_BREAKOUT'?10:7):finalPct);\n  return{name:'V430_EXPECTANCY_STABILIZER',pct:stabilizedPct,preStabilizerPct:finalPct,coldPortfolio,quality,growth,exposure,freeRatio,cashBoost,newSafeBreadth,safeBreadth,diversificationCap,perPositionCap,learnedBoost:learn,learnFactor,portfolioExpectancyFactor,rawExpectancyFactor,expectancyConfidence,learningMeanReturnPct:meanRet,learningWinRate:winRate,expectedEdge:expectedEdge(st,c),score:opportunityScore(c),entryMode:mode,learningLaneKey:learningLaneKey(c),netLiquidationEquityLamports:eq.equityLamports,equityHighWaterLamports:eq.equityHighWaterLamports,equityDrawdownPct:eq.drawdownPct};"
+          rep(old,new,'COLD_EXPECTANCY_INITIAL_SIZE')
+
+          # 4) Winner-biased scale only; remove recovery averaging and fix V429 proxy freshness being shadowed by outer 90s gate.
+          old="function scalePositionEligible(pos,c,p){if(!pos||!c)return false;const lastMark=Date.parse(pos.lastMarkAt||0),markFresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,ret=Number(pos.lastReturnPct),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000);if(!markFresh||!Number.isFinite(ret)||!intervalOk||n(pos.weakExitCount)>0)return false;const pulse=pulseFor(c),life=pumpLifecycle(c),winner=ret>=1.5&&ret<=18,flight=life.phase==='CONFIRMED_FLIGHT'&&ret>=1&&ret<=35,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&n(c.netBuyers5m)>=6&&n(c.avgNetBuyersLast2,n(c.netBuyers5m))>=4;return (winner||flight||recovery)&&pumpScaleEligible(pos,c,p)}"
+          new="function scalePositionEligible(pos,c,p){if(!pos||!c)return false;const ret=Number(pos.lastReturnPct);if(!Number.isFinite(ret)||n(pos.weakExitCount)>0)return false;const life=pumpLifecycle(c),winner=ret>=1.5&&ret<=18,flight=life.phase==='CONFIRMED_FLIGHT'&&life.score>=8&&ret>=1&&ret<=35;return (winner||flight)&&pumpScaleEligible(pos,c,p)}"
+          rep(old,new,'WINNER_BIASED_SCALE_AND_PROXY_FIX')
+          rep("if(life.phase==='EARLY_ACCELERATION')return ret>=-.5&&ret<=12","if(life.phase==='EARLY_ACCELERATION')return ret>=1&&ret<=12",'NO_NEGATIVE_EARLY_SCALE')
+
+          # 5) Exit preview must never sleep/block the whole executor tick; rate-limit backoff uses a resettable streak.
+          rep("let lastExitPreviewRequestAt=0,exitPreviewBackoffUntil=0,exitPreviewRequests=0,exitPreviewRateLimits=0,exitPreviewCacheHits=0;","let lastExitPreviewRequestAt=0,exitPreviewBackoffUntil=0,exitPreviewRequests=0,exitPreviewRateLimits=0,exitPreviewRateLimitStreak=0,exitPreviewCacheHits=0;",'RATE_STREAK_STATE')
+          rep("const gap=30000-(now-lastExitPreviewRequestAt);if(gap>0)await sleep(gap);lastExitPreviewRequestAt=Date.now();","const gap=30000-(now-lastExitPreviewRequestAt);if(gap>0){if(Number.isFinite(last)&&now-last<600_000&&Number.isFinite(cached)){exitPreviewCacheHits++;return cached}return null}lastExitPreviewRequestAt=Date.now();",'NONBLOCKING_PREVIEW_GAP')
+          old="if(String(e?.message||e).includes('HTTP_429')){exitPreviewRateLimits++;exitPreviewBackoffUntil=Date.now()+Math.min(2_400_000,600_000*Math.pow(2,Math.min(2,Math.max(0,exitPreviewRateLimits-1))));pos.previewDegradedUntil=new Date(exitPreviewBackoffUntil).toISOString();"
+          new="if(String(e?.message||e).includes('HTTP_429')){exitPreviewRateLimits++;exitPreviewRateLimitStreak++;exitPreviewBackoffUntil=Date.now()+Math.min(600_000,90_000*Math.pow(2,Math.min(3,Math.max(0,exitPreviewRateLimitStreak-1))));pos.previewDegradedUntil=new Date(exitPreviewBackoffUntil).toISOString();"
+          rep(old,new,'RESETTABLE_RATE_BACKOFF')
+          rep("return null}throw e}\n  const out=","return null}throw e}exitPreviewRateLimitStreak=0;exitPreviewBackoffUntil=0;\n  const out=",'RESET_RATE_STREAK_ON_SUCCESS')
+
+          # 6) Quiet held coin becomes a rotation priority only together with weak/flat price/peak evidence.
+          old="const ns=expectedEdge(st,newC),newImpact=impact(newC),rows=st.positions.map((pos,index)=>({pos,index,c:candidate(pos.mint)})).filter(x=>x.c).map(x=>({...x,oldScore:expectedEdge(st,x.c),weak:softTrendWeak(x.c),severe:severeTrendBreak(x.c)})).sort((a,b)=>a.oldScore-b.oldScore);\n  for(const x of rows){\n    const switchingCost=(newImpact+Math.max(0,n(x.pos.lastPreviewImpactPct,impact(x.c))))*1.15,advantage=ns-x.oldScore-switchingCost,ret=n(x.pos.lastReturnPct),peak=n(x.pos.peakReturnPct),winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(Date.now()-Date.parse(x.pos.openedAt||0))/60000),stagnant=ageMin>=12&&ret<=5&&peak<10&&n(x.c.netBuyers5m)<=2&&n(x.c.avgNetBuyersLast2,n(x.c.netBuyers5m))<=2;\n    const threshold=x.severe?0:(stagnant?3:(winner?(ret>=12||peak>=20?18:14):(x.weak?3:5)));\n    if(x.severe||advantage>=threshold)return{...x,advantage,switchingCost,winner,stagnant,threshold,ret,peak,ageMin};"
+          new="const ns=expectedEdge(st,newC),newImpact=impact(newC),rows=st.positions.map((pos,index)=>({pos,index,c:candidate(pos.mint)})).filter(x=>x.c).map(x=>{const rt=realtimeFor(x.c),rtInactive=!!rt&&n(rt.lastEventAgeMs,0)>=120000;return{...x,oldScore:expectedEdge(st,x.c),weak:softTrendWeak(x.c),severe:severeTrendBreak(x.c),rtInactive,rtEventAgeMs:rt?n(rt.lastEventAgeMs):null}}).sort((a,b)=>a.oldScore-b.oldScore);\n  for(const x of rows){\n    const switchingCost=(newImpact+Math.max(0,n(x.pos.lastPreviewImpactPct,impact(x.c))))*1.15,ret=n(x.pos.lastReturnPct),peak=n(x.pos.peakReturnPct),activityPenalty=x.rtInactive&&ret<=2&&peak<5?4:0,advantage=ns-(x.oldScore-activityPenalty)-switchingCost,winner=ret>0||peak>=8||x.pos.tp1Done||x.pos.tp2Done||x.pos.tp3Done||x.pos.profitProtectDone,ageMin=Math.max(0,(Date.now()-Date.parse(x.pos.openedAt||0))/60000),weakFlow=n(x.c.netBuyers5m)<=2&&n(x.c.avgNetBuyersLast2,n(x.c.netBuyers5m))<=2,stagnant=ageMin>=12&&ret<=5&&peak<10&&(weakFlow||(x.rtInactive&&ageMin>=20&&ret<=2&&peak<5));\n    const threshold=x.severe?0:(stagnant?3:(winner?(ret>=12||peak>=20?18:14):(x.weak?3:5)));\n    if(x.severe||advantage>=threshold)return{...x,advantage,switchingCost,activityPenalty,winner,stagnant,threshold,ret,peak,ageMin};"
+          rep(old,new,'REALTIME_DEAD_CAPITAL_PRIORITY')
+
+          # 7) Telemetry and self-test markers.
+          old="exitPreviewRequests,exitPreviewRateLimits,exitPreviewCacheHits,exitPreviewBackoffUntil,exitPreviewBackoffRemainingMs:Math.max(0,exitPreviewBackoffUntil-Date.now()),deployablePct:netLiquidationEquityLamportsNow>0?deployableLamports/netLiquidationEquityLamportsNow*100:0,capitalVelocityVersion:'V429'"
+          new="exitPreviewRequests,exitPreviewRateLimits,exitPreviewRateLimitStreak,exitPreviewCacheHits,exitPreviewBackoffUntil,exitPreviewBackoffRemainingMs:Math.max(0,exitPreviewBackoffUntil-Date.now()),deployablePct:netLiquidationEquityLamportsNow>0?deployableLamports/netLiquidationEquityLamportsNow*100:0,capitalVelocityVersion:'V430',expectancyStabilizerVersion:'V430'"
+          rep(old,new,'V430_TELEMETRY')
+
+          marker="console.log('V429_HARD_SAFETY_UNCHANGED=TRUE');"
+          rep(marker,marker+"console.log('V430_EXPECTANCY_STABILIZER=TRUE');console.log('V430_WINNER_BIASED_SCALE=TRUE');console.log('V430_NONBLOCKING_EXIT_PREVIEW=TRUE');console.log('V430_RESETTABLE_429_BACKOFF=TRUE');console.log('V430_REALTIME_DEAD_CAPITAL_PRIORITY=TRUE');console.log('V430_SEGMENTED_LEARNING=TRUE');console.log('V430_HARD_SAFETY_UNCHANGED=TRUE');",'V430_MARKERS')
+          p.write_text(s)
+          PY
+
+          echo '=== V430 PREDEPLOY 100-PASS ==='
+          for i in $(seq 1 100); do
+            node --check "$C"
+            OUT=$(node "$C" --self-test)
+            for M in V429_CAPITAL_VELOCITY=TRUE V430_EXPECTANCY_STABILIZER=TRUE V430_WINNER_BIASED_SCALE=TRUE V430_NONBLOCKING_EXIT_PREVIEW=TRUE V430_RESETTABLE_429_BACKOFF=TRUE V430_REALTIME_DEAD_CAPITAL_PRIORITY=TRUE V430_SEGMENTED_LEARNING=TRUE V430_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            python3 - "$C" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+          assert "coldExpectancy=closed>=6&&(winRate<.30||meanRet<-4)" in s and "COLD_EXPECTANCY_QUALITY_NOT_PROVEN" in s
+          assert "coldPortfolio=closed>=6&&(winRate<.30||meanRet<-4)" in s and "mode==='CONFIRMED_BREAKOUT'?10:7" in s
+          assert "return (winner||flight)&&pumpScaleEligible" in s and "recovery=ret>=-.5" not in s
+          assert "if(life.phase==='EARLY_ACCELERATION')return ret>=1&&ret<=12" in s
+          assert "if(gap>0){if(Number.isFinite(last)" in s and "if(gap>0)await sleep(gap)" not in s
+          assert "exitPreviewRateLimitStreak++" in s and "Math.min(600_000,90_000*Math.pow" in s
+          assert "activityPenalty=x.rtInactive&&ret<=2&&peak<5?4:0" in s
+          assert "function learningLaneKey" in s and "L.lanes[lk]" in s
+          assert 'scaleAllowed:true' in s
+          PY
+            echo V430_PREDEPLOY_PASS=$i
+          done
+
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V430_CANDIDATE_SHA=$SHA
+          cp "$E" "$RT/v430-pre-active-executor.js"; cp "$C" "$E"; chmod 664 "$E"
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          sudo -n /bin/systemctl restart meme-alpha-micro-live.service
+
+          echo '=== WAIT V430 RECOVERY ==='
+          RECOVERED=0
+          for i in $(seq 1 48); do
+            if python3 - <<'PY'
+          import json,pathlib,time,subprocess,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+            r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+            procs=subprocess.run(['pgrep','-fc','/opt/meme-alpha/app/src/micro-live-executor.js'],capture_output=True,text=True).stdout.strip()
+          except Exception: sys.exit(1)
+          ok=ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True and int(procs or 0)==1
+          sys.exit(0 if ok else 1)
+          PY
+            then RECOVERED=1; break; fi
+            sleep 5
+          done
+          test "$RECOVERED" -eq 1
+
+          echo '=== V430 LIVE 100-PASS ==='
+          for i in $(seq 1 100); do
+            node --check "$E"
+            OUT=$(node "$E" --self-test)
+            for M in V430_EXPECTANCY_STABILIZER=TRUE V430_WINNER_BIASED_SCALE=TRUE V430_NONBLOCKING_EXIT_PREVIEW=TRUE V430_RESETTABLE_429_BACKOFF=TRUE V430_REALTIME_DEAD_CAPITAL_PRIORITY=TRUE V430_SEGMENTED_LEARNING=TRUE V430_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - "$E" <<'PY'
+          import json,pathlib,time,sys
+          e=pathlib.Path(sys.argv[1]); s=e.read_text(); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          assert 'V430_EXPECTANCY_STABILIZER=TRUE' in s and "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+          gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          PY
+            echo V430_LIVE_PASS=$i
+            sleep 1
+          done
+
+          echo '=== V430 POST-ACTIVE SNAPSHOT ==='
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['capital-observability.json','allocator-status.json','micro-live-gate.json','portfolio-observability.json','realtime-pool-pulse.json']:
+            p=rt/name
+            if p.exists():
+              x=json.loads(p.read_text())
+              if name=='realtime-pool-pulse.json': x={k:x.get(k) for k in ['updatedAt','status','heldTotal','heldUnresolved','heldCoveragePct','heartbeatAgeMs']}
+              print(name,json.dumps(x,ensure_ascii=False)[:10000])
+          PY
+          echo V430_PREDEPLOY_100_PASS=CLEAN
+          echo V430_LIVE_100_PASS=CLEAN
+          echo V430_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
