@@ -1,0 +1,74 @@
+name: Meme Alpha V424B Recovery Compounding Active
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v424b-recovery-compounding-active.yml'
+permissions:
+  contents: write
+  actions: write
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Build validate activate V424B
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; C="$RT/deploy-candidates/v424b-recovery-compounding.js"; RUN="$APP/run-paper.sh"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+            global s
+            n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+          rep("function positionMarkedValue(pos,maxAgeMs=120000){if(!pos)return 0;const cost=Math.max(0,n(pos.costBasisLamports||pos.entrySolLamports)),ret=Number(pos.lastReturnPct),last=Date.parse(pos.lastMarkAt||0),fresh=Number.isFinite(last)&&Date.now()-last>=0&&Date.now()-last<=maxAgeMs;if(fresh&&Number.isFinite(ret))return Math.max(0,Math.floor(cost*(1+clamp(ret,-95,300)/100)));return Math.floor(cost*.95)}",
+              "function positionMarkedValue(pos,maxAgeMs=600000){if(!pos)return 0;const cost=Math.max(0,n(pos.costBasisLamports||pos.entrySolLamports)),ret=Number(pos.lastReturnPct),last=Date.parse(pos.lastMarkAt||0),age=Number.isFinite(last)?Date.now()-last:Infinity;if(Number.isFinite(ret)&&age>=0){const marked=Math.max(0,Math.floor(cost*(1+clamp(ret,-95,300)/100)));if(age<=Math.min(120000,maxAgeMs))return marked;if(age<=maxAgeMs)return Math.floor(marked*.985);if(age<=maxAgeMs*3)return Math.floor(marked*.95)}return Math.floor(cost*.95)}",'STALE_MARK_DECAY')
+          rep("portfolioExpectancyFactor=closed>=6?clamp(.82+meanRet/50+(winRate-.45)*.25,.65,1.10):1","rawExpectancyFactor=closed>=6?clamp(.82+meanRet/50+(winRate-.45)*.25,.65,1.10):1,expectancyConfidence=closed>=6?clamp((closed-5)/20,0,1):0,portfolioExpectancyFactor=1+(rawExpectancyFactor-1)*expectancyConfidence",'SAMPLE_AWARE_EXPECTANCY')
+          rep("portfolioExpectancyFactor,learningMeanReturnPct:meanRet","portfolioExpectancyFactor,rawExpectancyFactor,expectancyConfidence,learningMeanReturnPct:meanRet",'EXPECTANCY_TELEMETRY')
+          rep("if(!isAdd){const edge=expectedEdge(st,c),floor=entryDecision==='IDLE_PROBE'?60:56;if(edge<floor)return{placed:false,reason:'EXPECTANCY_EDGE_BELOW_FLOOR',expectedEdge:edge,edgeFloor:floor}}","if(!isAdd){const edge=expectedEdge(st,c),pulse=pulseFor(c),rt=realtimeFor(c),trustedEarly=preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&!!rt&&n(rt.lastEventAgeMs,99999)<=2000&&n(rt.eventMomentum)>=1.10,baseFloor=entryDecision==='IDLE_PROBE'?60:56,floor=trustedEarly?Math.max(52,baseFloor-4):baseFloor;if(edge<floor)return{placed:false,reason:'EXPECTANCY_EDGE_BELOW_FLOOR',expectedEdge:edge,edgeFloor:floor,trustedEarly}}",'TRUSTED_EARLY_EDGE_FLOOR')
+          rep("const signerOrderCapLamports=Math.max(0,Math.floor(beforeSol*0.88)),newEntryShare=entryDecision==='IDLE_PROBE'?.15:(profile.newSafeBreadth>=4?.25:profile.newSafeBreadth===3?.30:.40),diversificationOrderCapLamports=Math.max(0,Math.floor(plan.availableLamports*(isAdd?.20:newEntryShare))),orderAmountLamports=Math.min(plan.amountLamports,signerOrderCapLamports,diversificationOrderCapLamports);if(orderAmountLamports<p.minOrderLamports)return{placed:false,reason:'SIGNER_ORDER_CAP_BELOW_MIN',plan,profile,signerOrderCapLamports,diversificationOrderCapLamports,newEntryShare};","const signerOrderCapLamports=Math.max(0,Math.floor(beforeSol*0.88)),newEntryShare=entryDecision==='IDLE_PROBE'?.15:(profile.newSafeBreadth>=4?.25:profile.newSafeBreadth===3?.30:.40),diversificationOrderCapLamports=Math.min(plan.availableLamports,Math.max(p.minOrderLamports,Math.floor(plan.availableLamports*(isAdd?.20:newEntryShare)))),orderAmountLamports=Math.min(plan.amountLamports,signerOrderCapLamports,diversificationOrderCapLamports);if(orderAmountLamports<p.minOrderLamports)return{placed:false,reason:'SIGNER_ORDER_CAP_BELOW_MIN',plan,profile,signerOrderCapLamports,diversificationOrderCapLamports,newEntryShare};",'MIN_ORDER_DEADLOCK_FIX')
+          rep("const pulse=pulseFor(c),winner=ret>=1.5,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true","const pulse=pulseFor(c),winner=ret>=1.5&&ret<=18,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true",'ANTI_FOMO_WINNER_SCALE')
+          rep("cacheMs=Number.isFinite(cached)&&(cached>=5||cached<=-5)?30_000:90_000","cacheMs=Number.isFinite(cached)&&(cached>=5||cached<=-5)?45_000:120_000",'EXIT_CACHE_BUDGET')
+          rep("now-last<240_000","now-last<600_000",'BACKOFF_CACHE_AGE')
+          rep("const gap=15000-(now-lastExitPreviewRequestAt)","const gap=30000-(now-lastExitPreviewRequestAt)",'EXIT_GLOBAL_GAP')
+          rep("exitPreviewBackoffUntil=Date.now()+180_000","exitPreviewBackoffUntil=Date.now()+600_000",'EXIT_BACKOFF_10M')
+          marker="console.log('V421_DEGRADED_QUOTE_PANIC_SELL_GUARD=TRUE');"
+          rep(marker,marker+"console.log('V424_MIN_ORDER_DEADLOCK_FIXED=TRUE');console.log('V424_SAMPLE_AWARE_EXPECTANCY=TRUE');console.log('V424_STALE_MARK_DECAY=TRUE');console.log('V424_TRUSTED_EARLY_RECOVERY_ENTRY=TRUE');console.log('V424_ANTI_FOMO_WINNER_SCALE=TRUE');console.log('V424_EXIT_PREVIEW_30S_BUDGET=TRUE');console.log('V424_EXIT_BACKOFF_600S=TRUE');",'V424_MARKERS')
+          p.write_text(s)
+          PY
+          node --check "$C"
+          OUT=$(node "$C" --self-test); printf '%s\n' "$OUT"
+          for M in MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS V418_WINNER_ONLY_SCALE=TRUE V421_DEGRADED_QUOTE_PANIC_SELL_GUARD=TRUE V424_MIN_ORDER_DEADLOCK_FIXED=TRUE V424_SAMPLE_AWARE_EXPECTANCY=TRUE V424_STALE_MARK_DECAY=TRUE V424_ANTI_FOMO_WINNER_SCALE=TRUE V424_EXIT_PREVIEW_30S_BUDGET=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V424_SHA=$SHA
+          OLD_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1)
+          cp "$E" "$RT/v424-pre-active-executor.js"; cp "$C" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          ORIG="$RT/v424-run-paper-original.sh"; REQ="$RT/v424-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLD_PID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }; trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v424-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v424-run-paper-original.sh
+          if [ -r "$REQ" ]; then PID=$(cat "$REQ" 2>/dev/null||true); rm -f "$REQ" 2>/dev/null||true; if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null||true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -USR2 "$PID" 2>/dev/null||true;; esac; fi; fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          NEW_PID=''; for i in $(seq 1 65); do sleep 2; NEW_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 65 ] || exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          echo OLD_PID=$OLD_PID; echo NEW_PID=$NEW_PID; echo ACTIVE_SHA=$(sha256sum "$E"|awk '{print $1}'); [ "$NEW_PID" != "$OLD_PID" ]; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          sleep 120
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n): p=rt/n; return json.loads(p.read_text()),round(time.time()-p.stat().st_mtime,2)
+          g,ga=load('micro-live-gate.json'); co,ca=load('capital-observability.json'); rp,ra=load('realtime-pool-pulse.json'); po,pa=load('portfolio-observability.json'); al,aa=load('allocator-status.json')
+          print('GATE',ga,{k:g.get(k) for k in ['allowed','armOk','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']}); print('CAPITAL',ca,co); print('ALLOC',aa,al); print('REALTIME',ra,{k:rp.get(k) for k in ['status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','lastError']}); print('PORTFOLIO',pa,{k:po.get(k) for k in ['openPositions','stateReadable']})
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          assert rp.get('status')=='HEALTHY' and int(rp.get('heldUnresolved') or 0)==0 and int(rp.get('heldSubscriptions') or 0)>=int(rp.get('heldTotal') or 0) and po.get('stateReadable') is True
+          assert int(co.get('exitPreviewRequests') or 0)<=5 and int(co.get('exitPreviewRateLimits') or 0)<=1
+          PY
+          echo V424_RECOVERY_COMPOUNDING=ACTIVE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
