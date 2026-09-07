@@ -1,0 +1,78 @@
+name: Deploy SignalHub Forex Worker
+
+on:
+  push:
+    branches: [signalhub-android-v1]
+    paths:
+      - 'signalhub-worker/**'
+      - '.github/workflows/deploy-signalhub-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate Worker source
+        working-directory: signalhub-worker
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/signalhub-dryrun
+
+      - name: Deploy isolated Worker
+        working-directory: signalhub-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Smoke test live Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/status" -o /tmp/status.json; then break; fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/status.json',encoding='utf-8'))
+          assert p.get('ok') is True, p
+          assert p.get('version') == 'SIGNALHUB-FOREX-1.1.0', p
+          assert p.get('independentFromBybit') is True, p
+          print('STATUS_OK',p.get('version'),p.get('groups'))
+          PY
+
+          curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/latest-scan?group=forex" -o /tmp/fx.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/fx.json',encoding='utf-8'))
+          s=p.get('snapshot') or {}
+          assert p.get('ok') is True, p
+          assert s.get('group') == 'forex', s
+          assert s.get('status') in ('OK','MARKET_CLOSED_OR_NO_DATA'), s
+          assert isinstance(s.get('analyses'),list), s
+          print('FOREX_OK','rows',s.get('sourceRows'),'setups',len(s.get('analyses',[])),'actionable',s.get('actionableCount'))
+          PY
+
+          curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/latest-scan?group=metal" -o /tmp/metal.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/metal.json',encoding='utf-8'))
+          s=p.get('snapshot') or {}
+          assert p.get('ok') is True, p
+          assert s.get('group') == 'metal', s
+          assert isinstance(s.get('analyses'),list), s
+          print('METAL_OK','rows',s.get('sourceRows'),'setups',len(s.get('analyses',[])))
+          PY
