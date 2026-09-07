@@ -1,0 +1,90 @@
+name: Meme Alpha V4293 Final Clean 100 Pass
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v4293-final-clean-100pass.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Final cross-layer 100-pass runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; PAPER="$APP/run-paper.sh"
+          echo '=== STATIC / GENERATION PRECHECK ==='
+          bash -n "$PAPER"
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          for M in V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          grep -q 'V4291_MICRO_LIVE_GENERATION_GUARD' "$PAPER"
+          grep -q 'V4292_GRACEFUL_TERM_EXIT' "$PAPER"
+          ! grep -q 'V429_ONE_SHOT_MICRO_RELOAD_RELAY' "$PAPER"
+          python3 - <<'PY'
+          import subprocess,os,re
+          svcs=['meme-alpha-paper.service','meme-alpha-micro-live.service','meme-alpha-signer.service','meme-alpha-realtime-pulse.service','meme-alpha-trend-pulse.service','meme-alpha-whale-flow.service']
+          for svc in svcs:
+              def sh(prop): return subprocess.check_output(['systemctl','show',svc,'-p',prop,'--value'],text=True).strip()
+              assert subprocess.check_output(['systemctl','is-active',svc],text=True).strip()=='active'
+              pid=int(sh('MainPID') or 0); assert pid>0
+              st=sh('ExecMainStartTimestamp'); se=int(subprocess.check_output(['date','-d',st,'+%s'],text=True).strip())
+              ex=sh('ExecStart')
+              paths=[]
+              for tok in re.findall(r'(?:/[^ ;{}]+|(?:src|scripts)/[^ ;{}]+\.(?:js|py|sh))',ex):
+                  tok=tok.strip(' ;,')
+                  if tok.startswith(('src/','scripts/')): tok='/opt/meme-alpha/app/'+tok
+                  if os.path.isfile(tok): paths.append(tok)
+              for p in dict.fromkeys(paths):
+                  if (p.startswith('/opt/meme-alpha/app/') or p.startswith('/opt/meme-alpha-signer/')):
+                      assert se>=int(os.stat(p).st_mtime),(svc,p,se,int(os.stat(p).st_mtime))
+          print('ALL_SERVICE_GENERATIONS_PRE=CLEAN')
+          PY
+
+          echo '=== FINAL 100 PASS ==='
+          for i in $(seq 1 100); do
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - <<'PY'
+          import json,pathlib,time,subprocess,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def ld(n):
+              p=rt/n; return json.loads(p.read_text()),time.time()-p.stat().st_mtime
+          g,ga=ld('micro-live-gate.json'); c,ca=ld('capital-observability.json'); a,aa=ld('allocator-status.json'); p,pa=ld('portfolio-observability.json'); r,ra=ld('realtime-pool-pulse.json'); gg,gga=ld('micro-live-generation-guard.json')
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert c.get('capitalVelocityVersion')=='V429' and isinstance(c.get('deployablePct'),(int,float)) and isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float))
+          assert a.get('action')!='ERROR' and a.get('scaleAllowed') is True
+          assert p.get('stateReadable') is True
+          assert r.get('status')=='HEALTHY' and r.get('websocketOpen') is True and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert int(r.get('pendingSubscriptions') or 0)==0 and int(r.get('staleAcks') or 0)==0 and int(r.get('reconnectFailures') or 0)==0 and int(r.get('reconcileErrors') or 0)==0 and int(r.get('writeErrors') or 0)==0
+          assert int(r.get('heartbeatAgeMs') or 999999)<15000
+          assert gg.get('version')=='V4291_RUNTIME_GENERATION_GUARD' and gg.get('state')=='CLEAN' and gga<75
+          src='/opt/meme-alpha/app/src/micro-live-executor.js'; src_epoch=int(os.stat(src).st_mtime)
+          st=subprocess.check_output(['systemctl','show','meme-alpha-micro-live.service','-p','ExecMainStartTimestamp','--value'],text=True).strip(); se=int(subprocess.check_output(['date','-d',st,'+%s'],text=True).strip())
+          assert se>=src_epoch
+          assert int(gg.get('processStartEpoch') or 0)>=int(gg.get('sourceEpoch') or 0)
+          PY
+            echo V4293_FINAL_PASS=$i
+            sleep 0.5
+          done
+
+          echo '=== END GENERATION / ERROR CHECK ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          gg=json.loads((rt/'micro-live-generation-guard.json').read_text())
+          c=json.loads((rt/'capital-observability.json').read_text())
+          a=json.loads((rt/'allocator-status.json').read_text())
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          print('FINAL_GUARD',gg)
+          print('FINAL_CAPITAL',{'walletSol':c.get('walletSol'),'netEqSol':c.get('netLiquidationEquitySol'),'ddPct':c.get('equityDrawdownPct'),'deployableSol':c.get('deployableSol'),'deployablePct':c.get('deployablePct'),'openPositions':c.get('openPositions'),'rateLimits':c.get('exitPreviewRateLimits'),'cacheHits':c.get('exitPreviewCacheHits'),'backoffRemainingMs':c.get('exitPreviewBackoffRemainingMs')})
+          print('FINAL_ALLOCATOR',{'action':a.get('action'),'reason':a.get('reason'),'openPositions':a.get('openPositions'),'scaleAllowed':a.get('scaleAllowed')})
+          print('FINAL_REALTIME',{'status':r.get('status'),'heldTotal':r.get('heldTotal'),'heldResolved':r.get('heldResolved'),'heldUnresolved':r.get('heldUnresolved'),'heldCoveragePct':r.get('heldCoveragePct'),'pendingSubscriptions':r.get('pendingSubscriptions'),'staleAcks':r.get('staleAcks'),'reconnectFailures':r.get('reconnectFailures'),'pendingTimeoutsCumulative':r.get('pendingTimeouts'),'reconcileErrors':r.get('reconcileErrors'),'writeErrors':r.get('writeErrors')})
+          PY
+          CRIT=$(journalctl --since '12 minutes ago' -u meme-alpha-paper.service -u meme-alpha-micro-live.service -u meme-alpha-signer.service -u meme-alpha-realtime-pulse.service -u meme-alpha-trend-pulse.service -u meme-alpha-whale-flow.service --no-pager 2>/dev/null | grep -Ei 'FATAL|UNHANDLED|uncaught|EXECUTOR_ERROR|SIGNER.*(ERROR|FAIL)|BUY.*FAIL|SELL.*FAIL|ROTATION.*FAIL|SCALE.*FAIL|STATE.*CORRUPT|CONFLICT' || true)
+          if [ -n "$CRIT" ]; then echo "$CRIT"; exit 1; fi
+          echo V4293_FINAL_CROSS_LAYER_100_PASS=CLEAN
+          echo V429_ACTUAL_RUNTIME_ACTIVE=TRUE
+          echo V4291_GENERATION_SELF_HEAL=ACTIVE
+          echo V4292_GRACEFUL_RESTART=ACTIVE
+          echo ALL_SIX_SERVICES=ACTIVE
+          echo HARD_SAFETY_BYPASS=FALSE
