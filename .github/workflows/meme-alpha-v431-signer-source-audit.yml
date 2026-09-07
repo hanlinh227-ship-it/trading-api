@@ -1,0 +1,38 @@
+name: Meme Alpha V431 Signer Source Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v431-signer-source-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect isolated signer source and recent status
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=/opt/meme-alpha-signer/ready_signer.py
+          echo '=== SIGNER FILE ==='
+          ls -l "$F" || true
+          python3 - "$F" <<'PY'
+          import pathlib,sys,re
+          p=pathlib.Path(sys.argv[1])
+          if not p.exists():
+              print('MISSING'); raise SystemExit
+          s=p.read_text(errors='replace')
+          for key in ['ORDER_REJECTED','HTTPError','def handle','op ==','op==','jupiter','requests','urllib','maxPriceImpact','order']:
+              print('\n###',key)
+              for m in list(re.finditer(re.escape(key),s,re.I))[:12]:
+                  a=max(0,m.start()-1000); b=min(len(s),m.end()+1800); print(s[a:b]); print('---')
+          PY
+          echo '=== CURRENT ALLOCATOR / CAPITAL ==='
+          cat /opt/meme-alpha/app/runtime-status/allocator-status.json || true; echo
+          cat /opt/meme-alpha/app/runtime-status/capital-observability.json || true; echo
+          echo '=== SIGNER PROCESS ==='
+          ps -fp $(systemctl show meme-alpha-signer.service -p MainPID --value) || true
+          echo V431_SIGNER_SOURCE_AUDIT=COMPLETE
