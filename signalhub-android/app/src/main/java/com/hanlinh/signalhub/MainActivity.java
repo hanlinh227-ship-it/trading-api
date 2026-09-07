@@ -21,11 +21,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
+    private static final int REQ_NOTIFICATIONS = 42;
+
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView content;
     private TextView state;
     private String active = "SIGNALS";
+    private boolean monitorStarted = false;
 
     private static final int BG = Color.rgb(6, 9, 14);
     private static final int PANEL = Color.rgb(14, 20, 28);
@@ -36,9 +39,13 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         buildUi();
-        requestNotificationPermission();
-        startMonitor();
         showSignals();
+        ensureMonitor(true);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (state != null) ensureMonitor(false);
     }
 
     private TextView tv(String text, int sp, int color) {
@@ -109,17 +116,47 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
-    private void requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 42);
+    private boolean hasNotificationPermission() {
+        return Build.VERSION.SDK_INT < 33 ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void ensureMonitor(boolean requestIfNeeded) {
+        if (monitorStarted) return;
+        if (!hasNotificationPermission()) {
+            getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", false).apply();
+            state.setText("MONITOR • NOTIFICATION PERMISSION REQUIRED • DASHBOARD ACTIVE");
+            if (requestIfNeeded && Build.VERSION.SDK_INT >= 33) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
+            }
+            return;
+        }
+        startMonitorSafely();
+    }
+
+    private void startMonitorSafely() {
+        try {
+            Intent i = new Intent(this, MonitorService.class);
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
+            monitorStarted = true;
+            getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", true).apply();
+            state.setText("MONITOR • AUTO SCAN ON • ~5 MIN");
+        } catch (Throwable e) {
+            monitorStarted = false;
+            getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", false).apply();
+            state.setText("MONITOR • BACKGROUND OFF • DASHBOARD ACTIVE");
         }
     }
 
-    private void startMonitor() {
-        getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", true).apply();
-        Intent i = new Intent(this, MonitorService.class);
-        if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
-        state.setText("MONITOR • AUTO SCAN ON • ~5 MIN");
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQ_NOTIFICATIONS) return;
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            ensureMonitor(false);
+        } else {
+            getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", false).apply();
+            state.setText("MONITOR • NOTIFICATIONS OFF • DASHBOARD ACTIVE");
+        }
     }
 
     private void setLoading(String title) {
@@ -137,7 +174,7 @@ public class MainActivity extends Activity {
                     String raw = ApiClient.get("/latest-scan?group=" + g);
                     b.append(SignalFormatter.formatScan(g, raw));
                 } catch (Exception e) {
-                    b.append(g.toUpperCase()).append(" • unavailable\n").append(e.getMessage());
+                    b.append(g.toUpperCase()).append(" • unavailable\n").append(shortError(e));
                 }
                 b.append("\n\n────────────────────────\n\n");
             }
@@ -153,9 +190,12 @@ public class MainActivity extends Activity {
                 String raw = ApiClient.get("/run-now?group=" + group);
                 post(SignalFormatter.formatScan(group, raw));
             } catch (Exception e) {
-                post("SCAN ERROR\n\n" + e.getMessage());
+                post("SCAN ERROR\n\n" + shortError(e));
             }
-            main.post(() -> state.setText("MONITOR • AUTO SCAN ON • ~5 MIN"));
+            main.post(() -> {
+                if (monitorStarted) state.setText("MONITOR • AUTO SCAN ON • ~5 MIN");
+                else state.setText("MONITOR • BACKGROUND OFF • DASHBOARD ACTIVE");
+            });
         });
     }
 
@@ -164,10 +204,10 @@ public class MainActivity extends Activity {
         io.execute(() -> {
             StringBuilder b = new StringBuilder("LIVE BOOKS / HISTORY VIEW\n\n");
             try { b.append(ApiClient.get("/books")); }
-            catch (Exception e) { b.append("/books unavailable: ").append(e.getMessage()); }
+            catch (Exception e) { b.append("/books unavailable: ").append(shortError(e)); }
             b.append("\n\nSHADOW CALIBRATION\n\n");
             try { b.append(ApiClient.get("/shadow")); }
-            catch (Exception e) { b.append("/shadow unavailable: ").append(e.getMessage()); }
+            catch (Exception e) { b.append("/shadow unavailable: ").append(shortError(e)); }
             post(b.toString());
         });
     }
@@ -176,29 +216,37 @@ public class MainActivity extends Activity {
         setLoading("SOURCES");
         io.execute(() -> {
             try { post(SignalFormatter.formatStatus(ApiClient.get("/status"))); }
-            catch (Exception e) { post("STATUS ERROR\n\n" + e.getMessage()); }
+            catch (Exception e) { post("STATUS ERROR\n\n" + shortError(e)); }
         });
     }
 
     private void showSystem() {
         active = "SYSTEM";
-        boolean on = getSharedPreferences("signalhub", MODE_PRIVATE).getBoolean("monitoring", true);
+        boolean on = getSharedPreferences("signalhub", MODE_PRIVATE).getBoolean("monitoring", false);
         String text = "SYSTEM\n\n" +
-                "APP        SignalHub 1.0.0\n" +
+                "APP        SignalHub 1.0.1\n" +
                 "PACKAGE    com.hanlinh.signalhub\n" +
                 "CORE       " + ApiClient.BASE_URL + "\n" +
                 "MONITOR    " + (on ? "ON" : "OFF") + "\n" +
                 "AUTO SCAN  Forex → Metal → Crypto, staggered\n" +
                 "POLL       ~5 minute cycle\n" +
                 "SECRETS    server-side only\n\n" +
-                "Forex/Metal reference prices are not treated as broker execution prices. " +
-                "MARKET/LIMIT only becomes executable when the backend has execution authority.\n\n" +
+                "Foreground monitor failures no longer close the app. The dashboard remains usable even if Android blocks background notifications.\n\n" +
                 "The service rejects BUSY/RATE_BUDGET_WAIT snapshots instead of recycling an old WATCH as fresh.";
         content.setText(text);
     }
 
+    private String shortError(Throwable e) {
+        String m = e == null ? null : e.getMessage();
+        if (m == null || m.trim().isEmpty()) return e == null ? "Unknown error" : e.getClass().getSimpleName();
+        if (m.length() > 240) return m.substring(0, 240) + "…";
+        return m;
+    }
+
     private void post(String s) {
-        main.post(() -> content.setText(s));
+        main.post(() -> {
+            if (!isFinishing() && content != null) content.setText(s);
+        });
     }
 
     @Override protected void onDestroy() {
