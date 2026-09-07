@@ -1,0 +1,25 @@
+name: Meme Alpha Safe Deploy Helper Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-safe-deploy-helper-audit.yml']
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect safe deploy helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          H=/usr/local/sbin/meme-alpha-safe-deploy
+          echo '=== FILE ==='
+          ls -l "$H"; file "$H" || true
+          echo '=== HELP ==='
+          sudo -n "$H" --help || true
+          echo '=== SOURCE IF READABLE ==='
+          sed -n '1,260p' "$H" 2>/dev/null || true
+          echo '=== STRINGS ==='
+          strings "$H" 2>/dev/null | head -n 300 || true
+          echo SAFE_DEPLOY_HELPER_AUDIT=COMPLETE
