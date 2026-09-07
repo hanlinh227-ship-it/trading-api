@@ -1,8 +1,11 @@
 import tracker from './engine-v21.js';
 
-const GATEWAY_VERSION = 'SIGNALHUB-GATEWAY-2.1.0';
+const GATEWAY_VERSION = 'SIGNALHUB-GATEWAY-2.1.1';
 const TV_FOREX = 'https://scanner.tradingview.com/forex/scan';
 const TV_CFD = 'https://scanner.tradingview.com/cfd/scan';
+const DEDUPE_MARKER = 'migration:active-dedupe-v211';
+const SIGNAL_TTL_SECONDS = 60 * 60 * 24 * 90;
+const ACTIVE_TTL_SECONDS = 60 * 60 * 36;
 
 const FOREX = [
   'AUDCAD','AUDCHF','AUDJPY','AUDNZD','AUDUSD','CADCHF','CADJPY','CHFJPY',
@@ -82,7 +85,7 @@ async function scanQuotes(group) {
         'user-agent': 'SignalHub-LiveQuote/2.1',
       },
       body: JSON.stringify(body),
-      signal: controller.signal,
+      signal:controller.signal,
     });
   } finally {
     clearTimeout(timer);
@@ -149,12 +152,73 @@ async function handleLiveQuotes(url) {
   }, quotes.length > 0 ? 200 : 503);
 }
 
-async function augmentStatus(req, env, ctx) {
+function isActiveSignal(s) {
+  return s && (s.status === 'PENDING' || s.status === 'OPEN') && s.symbol;
+}
+
+async function reconcileLegacyActiveSignals(env) {
+  const kv = env?.SIGNALS_KV;
+  if (!kv) return { ran:false, reason:'NO_KV' };
+  if (await kv.get(DEDUPE_MARKER)) return { ran:false, reason:'ALREADY_RECONCILED' };
+
+  const listing = await kv.list({ prefix:'signal:', limit:1000 });
+  const keys = listing.keys || [];
+  const signals = [];
+  for (let i = 0; i < keys.length; i += 50) {
+    const batch = keys.slice(i, i + 50);
+    const raws = await Promise.all(batch.map(k => kv.get(k.name)));
+    for (const raw of raws) {
+      if (!raw) continue;
+      try {
+        const s = JSON.parse(raw);
+        if (isActiveSignal(s)) signals.push(s);
+      } catch (_) {}
+    }
+  }
+
+  const bySymbol = new Map();
+  for (const s of signals) {
+    const arr = bySymbol.get(s.symbol) || [];
+    arr.push(s);
+    bySymbol.set(s.symbol, arr);
+  }
+
+  const now = new Date().toISOString();
+  let duplicatesClosed = 0;
+  let activePointersRepaired = 0;
+  for (const [symbol, arr] of bySymbol.entries()) {
+    arr.sort((a, b) => Date.parse(a.issuedAt || 0) - Date.parse(b.issuedAt || 0));
+    const keeper = arr[0];
+    await kv.put(`active:${symbol}`, keeper.id, { expirationTtl: ACTIVE_TTL_SECONDS });
+    activePointersRepaired++;
+
+    for (const duplicate of arr.slice(1)) {
+      duplicate.status = 'CLOSED';
+      duplicate.outcome = 'CANCELLED';
+      duplicate.closedAt = now;
+      duplicate.lastCheckedAt = now;
+      duplicate.exitPrice = duplicate.lastPrice ?? duplicate.sourcePrice ?? duplicate.entry ?? null;
+      duplicate.resultR = null;
+      duplicate.resolution = 'DUPLICATE_ACTIVE_SYMBOL_RECONCILED_KEEP_OLDEST';
+      duplicate.duplicateOf = keeper.id;
+      duplicate.orderType = duplicate.orderType || 'MARKET';
+      await kv.put(`signal:${duplicate.id}`, JSON.stringify(duplicate), { expirationTtl: SIGNAL_TTL_SECONDS });
+      duplicatesClosed++;
+    }
+  }
+
+  const summary = { at:now, activeSymbols:bySymbol.size, duplicatesClosed, activePointersRepaired };
+  await kv.put(DEDUPE_MARKER, JSON.stringify(summary));
+  return { ran:true, ...summary };
+}
+
+async function augmentStatus(req, env, ctx, reconciliation) {
   const response = await tracker.fetch(req, env, ctx);
   try {
     const body = await response.json();
     body.gatewayVersion = GATEWAY_VERSION;
     body.appLatest = APP_RELEASE;
+    body.activeSymbolReconciliation = reconciliation;
     body.liveQuotes = {
       endpoint: '/live-quotes?group=all',
       suggestedRefreshMs: 5000,
@@ -168,6 +232,7 @@ async function augmentStatus(req, env, ctx) {
 }
 
 async function handle(req, env, ctx) {
+  const reconciliation = await reconcileLegacyActiveSignals(env);
   const url = new URL(req.url);
   if (req.method === 'OPTIONS') {
     return new Response(null, { status:204, headers:{
@@ -186,11 +251,16 @@ async function handle(req, env, ctx) {
     });
   }
   if (url.pathname === '/live-quotes') return handleLiveQuotes(url);
-  if (url.pathname === '/' || url.pathname === '/status') return augmentStatus(req, env, ctx);
+  if (url.pathname === '/' || url.pathname === '/status') return augmentStatus(req, env, ctx, reconciliation);
   return tracker.fetch(req, env, ctx);
+}
+
+async function scheduled(event, env, ctx) {
+  await reconcileLegacyActiveSignals(env);
+  return tracker.scheduled(event, env, ctx);
 }
 
 export default {
   fetch: handle,
-  scheduled: tracker.scheduled,
+  scheduled,
 };
