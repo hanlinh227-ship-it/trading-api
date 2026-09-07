@@ -1,0 +1,33 @@
+name: Meme Alpha V426B Signer Contract Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v426b-signer-contract-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Print exact signer and executor contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/opt/meme-alpha-signer/ready_signer.py').read_text(errors='ignore')
+          e=Path('/opt/meme-alpha/app/src/micro-live-executor.js').read_text(errors='ignore')
+          def fblock(src,name):
+              i=src.find(name)
+              if i<0:
+                  print('###',name,'NOT_FOUND'); return
+              j=src.find('\ndef ',i+5) if name.startswith('def ') else -1
+              if j<0 and name.startswith('function '):
+                  j=src.find('\nfunction ',i+10)
+              if j<0: j=len(src)
+              print('\n### '+name+'\n'+src[i:j])
+          for n in ['def candidate_ok','def gate','def enforce_orders','def buy_limit']:
+              fblock(s,n)
+          for n in ['function candidates','function candidate','function opportunityLane','function expectedEdge','function normalizePosition']:
+              fblock(e,n)
+          print('\nV426B_SIGNER_CONTRACT_AUDIT=PASS')
+          PY
