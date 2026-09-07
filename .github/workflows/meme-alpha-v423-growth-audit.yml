@@ -1,0 +1,77 @@
+name: Meme Alpha V423 Growth Audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v423-growth-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Audit growth since V421 activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          RUN="$APP/run-paper.sh"
+          ORIG="$RT/v423-run-paper-original.sh"
+          OUT="$RT/v423-growth.txt"
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }
+          trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v423-growth.txt 2>&1 || true
+          import json,pathlib,collections
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          state=json.loads((base/'state.json').read_text())
+          ev=[]
+          p=base/'events.jsonl'
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-50000:]:
+              try: ev.append(json.loads(line))
+              except: pass
+          cutoff='2026-09-06T22:59:35Z'
+          post=[e for e in ev if str(e.get('timestamp',''))>=cutoff]
+          buys=[e for e in post if e.get('type') in ('MICRO_BUY','MICRO_SCALE_IN')]
+          sells=[e for e in post if e.get('type') in ('MICRO_SELL','MICRO_PARTIAL_SELL')]
+          full=[e for e in sells if e.get('type')=='MICRO_SELL']
+          partial=[e for e in sells if e.get('type')=='MICRO_PARTIAL_SELL']
+          pnl=sum(float(e.get('pnlLamports') or 0) for e in sells)
+          fullpnl=sum(float(e.get('pnlLamports') or 0) for e in full)
+          wins=[e for e in full if float(e.get('pnlLamports') or 0)>0]
+          losses=[e for e in full if float(e.get('pnlLamports') or 0)<0]
+          types=collections.Counter(e.get('type') for e in post)
+          print('CUTOFF',cutoff)
+          print('POST_EVENTS',len(post))
+          print('POST_TYPES',dict(types))
+          print('POST_BUY_SCALE',len(buys))
+          print('POST_SELL_EVENTS',len(sells),'FULL',len(full),'PARTIAL',len(partial))
+          print('POST_FULL_WINS',len(wins),'LOSSES',len(losses))
+          print('POST_REALIZED_PNL_SOL',pnl/1e9)
+          print('POST_FULL_CLOSE_PNL_SOL',fullpnl/1e9)
+          print('STATE_REALIZED_TRADING_PNL_SOL',float((state.get('capital') or {}).get('realizedTradingPnlLamports') or 0)/1e9)
+          print('OPEN_POSITIONS',len(state.get('positions') or []))
+          rows=[]
+          for x in state.get('positions') or []:
+            rows.append({'symbol':x.get('symbol'),'returnPct':x.get('lastReturnPct'),'peakPct':x.get('peakReturnPct'),'adds':x.get('addCount'),'costSol':float(x.get('costBasisLamports') or 0)/1e9,'realizedSol':float(x.get('realizedPnlLamports') or 0)/1e9})
+          print('POSITIONS',rows)
+          print('LEARNING',state.get('learning'))
+          print('AUTONOMY',state.get('autonomy'))
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v423-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 25); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          echo '=== CAPITAL ==='; cat "$RT/capital-observability.json"
+          echo '=== ALLOC ==='; cat "$RT/allocator-status.json"
+          echo '=== GATE ==='; cat "$RT/micro-live-gate.json"
+          echo '=== GROWTH ==='; cat "$OUT"
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          echo V423_GROWTH_AUDIT=PASS
