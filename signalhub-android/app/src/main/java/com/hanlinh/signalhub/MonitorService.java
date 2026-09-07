@@ -25,7 +25,14 @@ public class MonitorService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(FOREGROUND_ID, monitorNotification("Auto scan active • Forex / Metal / Crypto"));
+        try {
+            startForeground(FOREGROUND_ID, monitorNotification("Auto scan active • Forex / Metal / Crypto"));
+        } catch (Throwable e) {
+            getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", false).apply();
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         if (!running) {
             running = true;
             worker = Executors.newSingleThreadExecutor();
@@ -57,13 +64,14 @@ public class MonitorService extends Service {
             if (hit.key().equals(last)) return;
             p.edit().putString("last_hit_" + group, hit.key()).apply();
             notifyHit(hit);
-        } catch (Exception ignored) {
-            // Fail closed: no stale fallback notification.
+        } catch (Throwable ignored) {
+            // Fail closed: no stale fallback notification and no service crash.
         }
     }
 
     private void createChannels() {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (nm == null) return;
         NotificationChannel monitor = new NotificationChannel(CH_MONITOR, "SignalHub monitor", NotificationManager.IMPORTANCE_LOW);
         monitor.setDescription("Persistent status for the automatic market scanner");
         nm.createNotificationChannel(monitor);
@@ -76,7 +84,8 @@ public class MonitorService extends Service {
     private PendingIntent openAppIntent() {
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        return PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        return PendingIntent.getActivity(this, 0, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private Notification monitorNotification(String text) {
@@ -100,11 +109,12 @@ public class MonitorService extends Service {
                 .setContentIntent(openAppIntent())
                 .build();
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(Math.abs(h.key().hashCode()), n);
+        if (nm != null) nm.notify(Math.abs(h.key().hashCode()), n);
     }
 
     private void sleep(long ms) {
-        try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        try { Thread.sleep(ms); }
+        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
     @Override public void onDestroy() {
