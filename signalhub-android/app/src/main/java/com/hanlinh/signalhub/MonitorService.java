@@ -19,20 +19,14 @@ public class MonitorService extends Service {
     private volatile boolean running;
     private ExecutorService worker;
 
-    @Override public void onCreate() {
-        super.onCreate();
-        createChannels();
-    }
+    @Override public void onCreate() { super.onCreate(); createChannels(); }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        try {
-            startForeground(FOREGROUND_ID, monitorNotification("Auto scan active • Forex / Metal / Crypto"));
-        } catch (Throwable e) {
+        try { startForeground(FOREGROUND_ID, monitorNotification("Live scan • Forex / Metal / Brent Oil")); }
+        catch (Throwable e) {
             getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", false).apply();
-            stopSelf();
-            return START_NOT_STICKY;
+            stopSelf(); return START_NOT_STICKY;
         }
-
         if (!running) {
             running = true;
             worker = Executors.newSingleThreadExecutor();
@@ -43,14 +37,9 @@ public class MonitorService extends Service {
 
     private void loop() {
         while (running) {
-            scanGroup("forex");
-            sleep(20000);
-            if (!running) break;
-            scanGroup("metal");
-            sleep(20000);
-            if (!running) break;
-            scanGroup("crypto");
-            sleep(260000);
+            scanGroup("forex"); sleep(20000); if (!running) break;
+            scanGroup("metal"); sleep(20000); if (!running) break;
+            scanGroup("energy"); sleep(260000);
         }
     }
 
@@ -65,7 +54,7 @@ public class MonitorService extends Service {
             p.edit().putString("last_hit_" + group, hit.key()).apply();
             notifyHit(hit);
         } catch (Throwable ignored) {
-            // Fail closed: no stale fallback notification and no service crash.
+            // Fail closed: no stale signal and no service crash.
         }
     }
 
@@ -73,55 +62,35 @@ public class MonitorService extends Service {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel monitor = new NotificationChannel(CH_MONITOR, "SignalHub monitor", NotificationManager.IMPORTANCE_LOW);
-        monitor.setDescription("Persistent status for the automatic market scanner");
-        nm.createNotificationChannel(monitor);
+        monitor.setDescription("Persistent status for Forex/metal/oil signal scanning"); nm.createNotificationChannel(monitor);
         NotificationChannel signal = new NotificationChannel(CH_SIGNAL, "Trading signals", NotificationManager.IMPORTANCE_HIGH);
-        signal.setDescription("Fresh A/A+ market setup alerts");
-        signal.enableVibration(true);
-        nm.createNotificationChannel(signal);
+        signal.setDescription("Fresh MARKET_SIGNAL alerts"); signal.enableVibration(true); nm.createNotificationChannel(signal);
     }
 
     private PendingIntent openAppIntent() {
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        return PendingIntent.getActivity(this, 0, open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        return PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private Notification monitorNotification(String text) {
         return new Notification.Builder(this, CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub • LIVE")
-                .setContentText(text)
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setContentIntent(openAppIntent())
-                .build();
+                .setContentTitle("SignalHub FX • LIVE")
+                .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(openAppIntent()).build();
     }
 
     private void notifyHit(SignalFormatter.Hit h) {
         Notification n = new Notification.Builder(this, CH_SIGNAL)
                 .setSmallIcon(android.R.drawable.stat_sys_warning)
-                .setContentTitle(h.title())
-                .setContentText(h.text())
+                .setContentTitle(h.title()).setContentText(h.text())
                 .setStyle(new Notification.BigTextStyle().bigText(h.group.toUpperCase() + " • " + h.text()))
-                .setAutoCancel(true)
-                .setContentIntent(openAppIntent())
-                .build();
+                .setAutoCancel(true).setContentIntent(openAppIntent()).build();
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(Math.abs(h.key().hashCode()), n);
     }
 
-    private void sleep(long ms) {
-        try { Thread.sleep(ms); }
-        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-    }
-
-    @Override public void onDestroy() {
-        running = false;
-        if (worker != null) worker.shutdownNow();
-        super.onDestroy();
-    }
-
+    private void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); } }
+    @Override public void onDestroy() { running = false; if (worker != null) worker.shutdownNow(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
 }
