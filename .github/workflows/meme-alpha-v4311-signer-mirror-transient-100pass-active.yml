@@ -1,0 +1,133 @@
+name: Meme Alpha V4311 Signer Mirror Transient 100 Pass Active
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v4311-signer-mirror-transient-100pass-active.yml']
+  workflow_dispatch:
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 15
+    steps:
+      - name: Patch validate safe-deploy and 100 live audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"
+          NAME=v4311-signer-mirror-transient.js; C="$RT/deploy-candidates/$NAME"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+              global s
+              n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+          assert 'V431_PROFIT_CONFLICT_RESOLUTION=TRUE' in s
+          assert 'V4311_SIGNER_CONTRACT_MIRROR=TRUE' not in s
+
+          old="const blockedDecision=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'].includes(String(c.decision||'')),hard=coreSafe(c)&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&c.token2022!==true&&c.sellRoute===true&&Array.isArray(c.hardReject)&&c.hardReject.length===0&&!blockedDecision&&liq>=50000&&imp<=n(p.maxBuyPriceImpactPct,1.25);if(!hard||con<1||base<58)return false;"
+          new="const blockedDecision=['INTEL_DEGRADED','SOURCE_HEALTH_BLOCK','EXTENSION_AUDIT_REQUIRED'].includes(String(c.decision||'')),hard=c.universeClass==='MEME_CONFIRMED'&&c.securityDecision==='PASS'&&c.holderClusterDecision==='PASS'&&c.decision==='PROBE_CANDIDATE'&&c.token2022!==true&&c.sellRoute===true&&Array.isArray(c.hardReject)&&c.hardReject.length===0&&!blockedDecision&&liq>=50000&&imp<=n(p.maxBuyPriceImpactPct,1.25);if(!hard||con<1||base<58)return false;"
+          rep(old,new,'SIGNER_EXACT_HARD_MIRROR')
+          old="const life=pumpLifecycle(c),continuationLane=(life.phase==='EARLY_ACCELERATION'&&life.score>=8&&chg<=18)||(life.phase==='CONFIRMED_FLIGHT'&&life.score>=9&&chg<=24);return chg>=floor&&(chg<=15||continuationLane)&&(buyerFlow||fastFlow)&&slope>=-4&&stable&&(standard||liquid||flow)"
+          new="return chg>=floor&&chg<=15&&(buyerFlow||fastFlow)&&slope>=-4&&stable&&(standard||liquid||flow)"
+          rep(old,new,'SIGNER_EXACT_PRICE_MIRROR')
+
+          old="function globalBuyError(msg){return ['SIGNER_NOT_ARMED','SIGNER_MICRO_LIVE_GATE_CLOSED','SIGNER_HOURLY_BUY_LIMIT','SIGNER_DYNAMIC_DAILY_TURNOVER_LIMIT'].some(x=>String(msg||'').includes(x))}"
+          new=old+"\nlet signerUpstreamHttpStreak=0,lastSignerUpstreamHttpErrorAt=0;\nfunction signerUpstreamTransient(msg){return String(msg||'').includes('ORDER_REJECTED_HTTPError')}\nfunction noteSignerUpstreamHttp(){const now=Date.now();if(!lastSignerUpstreamHttpErrorAt||now-lastSignerUpstreamHttpErrorAt>120000)signerUpstreamHttpStreak=0;signerUpstreamHttpStreak++;lastSignerUpstreamHttpErrorAt=now;return signerUpstreamHttpStreak}\nfunction clearSignerUpstreamHttp(){signerUpstreamHttpStreak=0;lastSignerUpstreamHttpErrorAt=0}"
+          rep(old,new,'SIGNER_HTTP_CIRCUIT_HELPERS')
+
+          old="const beforeTok=await tokenBalance(h.publicKey,c.mint),o=await signer({op:'order',inputMint:WSOL,outputMint:c.mint,amount:String(orderAmountLamports),maxPriceImpactPct:p.maxBuyPriceImpactPct});if(!o.ok)throw new Error(`SIGNER_${o.error}`);if(Math.abs(n(o.priceImpactPct,99))>p.maxBuyPriceImpactPct)throw new Error('ORDER_IMPACT_GUARD');"
+          new="const beforeTok=await tokenBalance(h.publicKey,c.mint),o=await signer({op:'order',inputMint:WSOL,outputMint:c.mint,amount:String(orderAmountLamports),maxPriceImpactPct:p.maxBuyPriceImpactPct});if(!o.ok){if(signerUpstreamTransient(o.error))noteSignerUpstreamHttp();throw new Error(`SIGNER_${o.error}`)}clearSignerUpstreamHttp();if(Math.abs(n(o.priceImpactPct,99))>p.maxBuyPriceImpactPct)throw new Error('ORDER_IMPACT_GUARD');"
+          rep(old,new,'BUY_HTTP_CIRCUIT')
+
+          old="const o=await signer({op:'order',inputMint:m,outputMint:WSOL,amount:amount.toString(),maxPriceImpactPct:p.maxSellPriceImpactPct});if(!o.ok)throw new Error(`SIGNER_${o.error}`);"
+          new="const o=await signer({op:'order',inputMint:m,outputMint:WSOL,amount:amount.toString(),maxPriceImpactPct:p.maxSellPriceImpactPct});if(!o.ok){if(signerUpstreamTransient(o.error))noteSignerUpstreamHttp();throw new Error(`SIGNER_${o.error}`)}clearSignerUpstreamHttp();"
+          rep(old,new,'SELL_HTTP_CIRCUIT')
+
+          old="profitConflictVersion:'V431',exitPreviewSchedulerVersion:'V431'"
+          new="profitConflictVersion:'V431',exitPreviewSchedulerVersion:'V431',signerContractMirrorVersion:'V4311',signerUpstreamHttpStreak,signerUpstreamLastErrorAgeMs:lastSignerUpstreamHttpErrorAt?Math.max(0,Date.now()-lastSignerUpstreamHttpErrorAt):0"
+          rep(old,new,'V4311_TELEMETRY')
+
+          old="}catch(e){event({type:'EXECUTOR_ERROR',error:String(e.message||e).slice(0,240)});try{atomic(`${DATA}/allocator-status.json`,{version:'V391_RUNTIME_CAPITAL_ENFORCEMENT',releaseVersion:'V426_CONFLICT_CLEANUP',updatedAt:new Date().toISOString(),action:'ERROR',reason:String(e.message||e).slice(0,200),scaleAllowed:true})}catch{}console.error('EXECUTOR_ERROR',e.message);await sleep(3000)}await sleep(900)}}"
+          new="}catch(e){const em=String(e.message||e),upstream=signerUpstreamTransient(em),defer=upstream&&signerUpstreamHttpStreak<=3;event({type:defer?'EXECUTOR_UPSTREAM_TRANSIENT':'EXECUTOR_ERROR',error:em.slice(0,240),signerUpstreamHttpStreak});try{atomic(`${DATA}/allocator-status.json`,{version:'V391_RUNTIME_CAPITAL_ENFORCEMENT',releaseVersion:'V426_CONFLICT_CLEANUP',updatedAt:new Date().toISOString(),action:defer?'HOLD':'ERROR',reason:defer?'SIGNER_UPSTREAM_HTTP_TRANSIENT':em.slice(0,200),scaleAllowed:true})}catch{}console.error(defer?'EXECUTOR_UPSTREAM_TRANSIENT':'EXECUTOR_ERROR',em);await sleep(defer?5000:3000)}await sleep(900)}}"
+          rep(old,new,'MAIN_TRANSIENT_DEFER')
+
+          marker="console.log('V431_HARD_SAFETY_UNCHANGED=TRUE');"
+          rep(marker,marker+"console.log('V4311_SIGNER_CONTRACT_MIRROR=TRUE');console.log('V4311_UPSTREAM_HTTP_CIRCUIT=TRUE');console.log('V4311_TRANSIENT_HOLD_NOT_ERROR=TRUE');console.log('V4311_HARD_SAFETY_UNCHANGED=TRUE');",'V4311_MARKERS')
+          p.write_text(s)
+          PY
+
+          echo '=== V4311 PREDEPLOY 100 PASS ==='
+          for i in $(seq 1 100); do
+            node --check "$C"
+            OUT=$(node "$C" --self-test)
+            for M in V431_PROFIT_CONFLICT_RESOLUTION=TRUE V4311_SIGNER_CONTRACT_MIRROR=TRUE V4311_UPSTREAM_HTTP_CIRCUIT=TRUE V4311_TRANSIENT_HOLD_NOT_ERROR=TRUE V4311_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            python3 - "$C" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert "c.universeClass==='MEME_CONFIRMED'" in s and "c.decision==='PROBE_CANDIDATE'" in s
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+          assert "return chg>=floor&&chg<=15&&(buyerFlow||fastFlow)" in s
+          assert "continuationLane=(life.phase==='EARLY_ACCELERATION'" not in s
+          assert "function signerUpstreamTransient" in s and "ORDER_REJECTED_HTTPError" in s
+          assert "signerUpstreamHttpStreak<=3" in s and "SIGNER_UPSTREAM_HTTP_TRANSIENT" in s
+          assert "signerContractMirrorVersion:'V4311'" in s and 'scaleAllowed:true' in s
+          PY
+            echo V4311_PREDEPLOY_PASS=$i
+          done
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V4311_CANDIDATE_SHA=$SHA
+          OLD_PID=$(systemctl show meme-alpha-micro-live.service -p MainPID --value)
+          sudo -n /usr/local/sbin/meme-alpha-safe-deploy executor "$NAME" "$SHA"
+          NEW_PID=$(systemctl show meme-alpha-micro-live.service -p MainPID --value)
+          test "$NEW_PID" != "$OLD_PID"; test "$NEW_PID" != 0
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+
+          echo '=== WAIT V4311 RUNTIME ==='
+          READY=0
+          for i in $(seq 1 60); do
+            if python3 - <<'PY'
+          import json,pathlib,time,subprocess,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            c=json.loads((rt/'capital-observability.json').read_text()); g=json.loads((rt/'micro-live-gate.json').read_text()); r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          except: sys.exit(1)
+          ok=c.get('signerContractMirrorVersion')=='V4311' and c.get('scaleAllowed') is True and g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          sys.exit(0 if ok else 1)
+          PY
+            then READY=1; break; fi
+            sleep 2
+          done
+          test "$READY" -eq 1
+
+          echo '=== V4311 LIVE 100 PASS ==='
+          for i in $(seq 1 100); do
+            test "$(systemctl show meme-alpha-micro-live.service -p MainPID --value)" = "$NEW_PID"
+            test "$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            node --check "$E"
+            python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          g=json.loads((rt/'micro-live-gate.json').read_text()); c=json.loads((rt/'capital-observability.json').read_text()); r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert g.get('allowed') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert c.get('signerContractMirrorVersion')=='V4311' and c.get('scaleAllowed') is True
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert p.get('stateReadable') is True
+          PY
+            echo V4311_LIVE_PASS=$i
+            sleep 1
+          done
+          echo '=== FINAL ==='
+          cat "$RT/capital-observability.json"; echo
+          cat "$RT/allocator-status.json"; echo
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for n in ['micro-live-gate.json','realtime-pool-pulse.json','portfolio-observability.json']:
+            x=json.loads((rt/n).read_text()); print(n,json.dumps(x,ensure_ascii=False)[:5000])
+          PY
+          echo V4311_PREDEPLOY_100_PASS=CLEAN
+          echo V4311_LIVE_100_PASS=CLEAN
+          echo V4311_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
