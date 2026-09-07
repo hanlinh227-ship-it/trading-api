@@ -1,0 +1,53 @@
+name: Meme Alpha V424C Post Active Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v424c-post-active-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Audit V424 executions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; RUN="$APP/run-paper.sh"; ORIG="$RT/v424c-run-paper-original.sh"; OUT="$RT/v424c-post-active.txt"
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }; trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v424c-post-active.txt 2>&1 || true
+          import json,pathlib
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          cutoff='2026-09-07T01:10:53Z'
+          ev=[]
+          p=base/'events.jsonl'
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-30000:]:
+              try:
+                x=json.loads(line)
+                if str(x.get('timestamp',''))>=cutoff: ev.append(x)
+              except: pass
+          wanted={'MICRO_BUY','MICRO_SCALE_IN','MICRO_SELL','MICRO_PARTIAL_SELL','ONLINE_LEARNING_UPDATE','EQUITY_LOSS_CONTROL','PROFIT_AWARE_EXIT_DECISION','AUTO_ROTATION','WINNER_ROTATION','NO_QUOTE_EXIT_DECISION','EXECUTOR_ERROR','EXIT_PREVIEW_FAIL'}
+          rows=[x for x in ev if x.get('type') in wanted]
+          print('POST_V424_EVENTS',len(ev))
+          print('POST_V424_KEY_EVENTS',len(rows))
+          for x in rows[-80:]: print(json.dumps(x,separators=(',',':')))
+          st=json.loads((base/'state.json').read_text())
+          print('OPEN_POSITIONS',len(st.get('positions') or []))
+          print('LEARNING',st.get('learning'))
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v424c-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 25); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          cat "$OUT"
+          echo '=== RUNTIME ==='
+          echo SHA=$(sha256sum /opt/meme-alpha/app/src/micro-live-executor.js|awk '{print $1}')
+          echo PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1)
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          echo V424C_POST_ACTIVE_AUDIT=PASS
