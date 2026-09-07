@@ -1,0 +1,18 @@
+name: Meme Alpha V427 Activation Proof
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  proof:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          grep -q 'V427_PUMP_LIFECYCLE=TRUE' "$E"
+          grep -q 'V427_FLIGHT_SCALE_TO_35PCT=TRUE' "$E"
+          grep -q 'V427_ADAPTIVE_PROFIT_HARVEST=TRUE' "$E"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          echo V427_ACTIVATION_PROOF=PASS
