@@ -1,0 +1,49 @@
+name: SignalHub Backend Diagnostic
+
+on:
+  push:
+    branches: [signalhub-android-v1]
+    paths:
+      - '.github/workflows/signalhub-backend-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check required secret presence
+        id: secrets
+        shell: bash
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TD_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          KV_ID: ${{ secrets.TRADING_KV_NAMESPACE_ID }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          present(){ if [ -n "$2" ]; then echo "$1=PRESENT"; else echo "$1=MISSING"; fi; }
+          present CLOUDFLARE_API_TOKEN "$CF_TOKEN"
+          present CLOUDFLARE_ACCOUNT_ID "$CF_ACCOUNT"
+          present TWELVE_DATA_API_KEY "$TD_KEY"
+          present TRADING_KV_NAMESPACE_ID "$KV_ID"
+          present TELEGRAM_BOT_TOKEN "$TG_TOKEN"
+          present TELEGRAM_CHAT_ID "$TG_CHAT"
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then echo 'cf_ready=true' >> "$GITHUB_OUTPUT"; else echo 'cf_ready=false' >> "$GITHUB_OUTPUT"; fi
+      - name: Verify Cloudflare account access
+        if: steps.secrets.outputs.cf_ready == 'true'
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm install --no-audit --no-fund
+          npx wrangler whoami
