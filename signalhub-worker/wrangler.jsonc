@@ -4,5 +4,14 @@
   "main": "index.js",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "kv_namespaces": [
+    {
+      "binding": "SIGNALS_KV",
+      "id": "96ca4ccc87a4462c8797c7f5e20cea4b"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }
