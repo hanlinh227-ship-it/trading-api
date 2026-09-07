@@ -1,7 +1,12 @@
-const VERSION = 'SIGNALHUB-FOREX-1.1.0';
-const SERVICE = 'SignalHub Forex / Metals / Energy';
+const VERSION = 'SIGNALHUB-FOREX-2.0.0';
+const SERVICE = 'SignalHub Forex / Metals / Energy Tracker';
 const TV_FOREX = 'https://scanner.tradingview.com/forex/scan';
 const TV_CFD = 'https://scanner.tradingview.com/cfd/scan';
+const SIGNAL_TTL_SECONDS = 60 * 60 * 24 * 90;
+const ACTIVE_TTL_SECONDS = 60 * 60 * 36;
+const COOLDOWN_MS = 30 * 60 * 1000;
+const SIGNAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const MAX_NEW_PER_SCAN = 3;
 
 const FOREX = [
   'AUDCAD','AUDCHF','AUDJPY','AUDNZD','AUDUSD','CADCHF','CADJPY','CHFJPY',
@@ -20,7 +25,8 @@ const COLUMNS = [
   'name','close','change','Recommend.All',
   'Recommend.All|5','Recommend.All|15','Recommend.All|60','Recommend.All|240',
   'RSI|15','MACD.macd|15','MACD.signal|15',
-  'EMA20|15','EMA50|15','EMA200|15','ATR|15'
+  'EMA20|15','EMA50|15','EMA200|15','ATR|15',
+  'high|5','low|5','close|5'
 ];
 
 const json = (body, status=200) => new Response(JSON.stringify(body, null, 2), {
@@ -39,11 +45,19 @@ const num = v => {
 const sign = v => v > 0.05 ? 1 : v < -0.05 ? -1 : 0;
 const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
 const round = (v,d=6) => Number(Number(v).toFixed(d));
+const nowIso = () => new Date().toISOString();
 
 function canonical(ticker, name) {
   if (ticker === 'TVC:SILVER') return 'XAGUSD';
   if (ticker === 'FX:UKOIL') return 'UKOIL';
   return String(name || ticker.split(':').pop() || '').toUpperCase();
+}
+
+function decimals(symbol) {
+  if (symbol.includes('JPY')) return 3;
+  if (symbol === 'XAUUSD') return 2;
+  if (symbol === 'XAGUSD' || symbol === 'UKOIL') return 3;
+  return 5;
 }
 
 async function tvScan(group) {
@@ -62,7 +76,7 @@ async function tvScan(group) {
       headers:{
         'content-type':'application/json',
         'accept':'application/json',
-        'user-agent':'SignalHub-Worker/1.1',
+        'user-agent':'SignalHub-Worker/2.0',
       },
       body:JSON.stringify(body),
       signal:controller.signal,
@@ -76,10 +90,26 @@ async function tvScan(group) {
   return p.data;
 }
 
+function quoteFromRow(row) {
+  const d = Array.isArray(row?.d) ? row.d : [];
+  if (d.length < COLUMNS.length) return null;
+  const symbol = canonical(row.s, d[0]);
+  const price = num(d[1]);
+  if (!(price > 0)) return null;
+  return {
+    symbol,
+    price,
+    high5:num(d[15]) ?? price,
+    low5:num(d[16]) ?? price,
+    close5:num(d[17]) ?? price,
+    ticker:String(row.s || ''),
+  };
+}
+
 function buildAnalysis(row, group, receivedAt) {
   const d = Array.isArray(row?.d) ? row.d : [];
   if (d.length < COLUMNS.length) return null;
-  const [name, close, change, all, r5, r15, r60, r240, rsi15, macd, macdSignal, ema20, ema50, ema200, atr15] = d;
+  const [name, close, change, all, r5, r15, r60, r240, rsi15, macd, macdSignal, ema20, ema50, ema200, atr15, high5, low5, close5] = d;
   const price = num(close), atr = num(atr15);
   const vals = [r5,r15,r60,r240].map(v => num(v) ?? 0);
   if (!(price > 0) || !(atr > 0)) return null;
@@ -111,17 +141,19 @@ function buildAnalysis(row, group, receivedAt) {
   const sl = direction > 0 ? entry-risk : entry+risk;
   const tp = direction > 0 ? entry+risk*2.2 : entry-risk*2.2;
   const symbol = canonical(row.s, name);
+  const dp = decimals(symbol);
 
   return {
     symbol,
+    group,
     side,
     status: actionable ? 'MARKET_SIGNAL' : 'WATCH',
     score,
     reason: actionable ? 'MTF_ALIGNMENT_CONFIRMED' : 'WAIT_FOR_STRONGER_ALIGNMENT',
     planned: {
-      entry: round(entry, symbol.includes('JPY') ? 3 : symbol === 'XAUUSD' ? 2 : symbol === 'XAGUSD' || symbol === 'UKOIL' ? 3 : 5),
-      sl: round(sl, symbol.includes('JPY') ? 3 : symbol === 'XAUUSD' ? 2 : symbol === 'XAGUSD' || symbol === 'UKOIL' ? 3 : 5),
-      tp: round(tp, symbol.includes('JPY') ? 3 : symbol === 'XAUUSD' ? 2 : symbol === 'XAGUSD' || symbol === 'UKOIL' ? 3 : 5),
+      entry: round(entry, dp),
+      sl: round(sl, dp),
+      tp: round(tp, dp),
       targetRR: 2.2,
     },
     analysisQuote: {
@@ -130,6 +162,7 @@ function buildAnalysis(row, group, receivedAt) {
       fresh: true,
       receivedAt,
       freshnessBasis: 'LIVE_SCAN_RESPONSE_NO_PROVIDER_TIMESTAMP',
+      high5:num(high5), low5:num(low5), close5:num(close5),
     },
     technical: {
       recommend5m: round(vals[0],3), recommend15m: round(vals[1],3),
@@ -140,15 +173,171 @@ function buildAnalysis(row, group, receivedAt) {
   };
 }
 
-async function scan(group) {
+async function kvGetJson(kv, key) {
+  if (!kv) return null;
+  const raw = await kv.get(key);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+async function kvPutJson(kv, key, value, ttl=SIGNAL_TTL_SECONDS) {
+  if (!kv) return;
+  await kv.put(key, JSON.stringify(value), { expirationTtl: ttl });
+}
+
+async function getActiveSignal(kv, symbol) {
+  const id = await kv.get(`active:${symbol}`);
+  if (!id) return null;
+  const s = await kvGetJson(kv, `signal:${id}`);
+  if (!s || s.status !== 'OPEN') {
+    await kv.delete(`active:${symbol}`);
+    return null;
+  }
+  return s;
+}
+
+async function closeSignal(kv, s, outcome, exitPrice, resultR, checkedAt, resolution) {
+  s.status = 'CLOSED';
+  s.outcome = outcome;
+  s.exitPrice = round(exitPrice, decimals(s.symbol));
+  s.resultR = resultR === null ? null : round(resultR, 3);
+  s.closedAt = checkedAt;
+  s.lastCheckedAt = checkedAt;
+  s.resolution = resolution;
+  await kvPutJson(kv, `signal:${s.id}`, s);
+  await kv.delete(`active:${s.symbol}`);
+  await kv.put(`cooldown:${s.symbol}`, String(Date.now()), { expirationTtl: 60*60 });
+  return s;
+}
+
+async function updateOpenSignals(kv, group, rows, checkedAt) {
+  const events = [];
+  if (!kv) return events;
+  const quotes = new Map();
+  for (const row of rows) {
+    const q = quoteFromRow(row);
+    if (q) quotes.set(q.symbol, q);
+  }
+
+  for (const [symbol, q] of quotes.entries()) {
+    const s = await getActiveSignal(kv, symbol);
+    if (!s || s.group !== group) continue;
+
+    const risk = Math.abs(Number(s.entry) - Number(s.sl));
+    if (!(risk > 0)) continue;
+    const direction = s.side === 'LONG' ? 1 : -1;
+    const currentR = direction * (q.price - s.entry) / risk;
+    const favorablePx = s.side === 'LONG' ? q.high5 : q.low5;
+    const adversePx = s.side === 'LONG' ? q.low5 : q.high5;
+    const favorableR = direction * (favorablePx - s.entry) / risk;
+    const adverseR = direction * (adversePx - s.entry) / risk;
+
+    s.lastPrice = round(q.price, decimals(symbol));
+    s.lastCheckedAt = checkedAt;
+    s.currentR = round(currentR, 3);
+    s.maxFavorableR = round(Math.max(Number(s.maxFavorableR ?? -999), favorableR), 3);
+    s.maxAdverseR = round(Math.min(Number(s.maxAdverseR ?? 999), adverseR), 3);
+    s.lastCandle5 = { high:round(q.high5,decimals(symbol)), low:round(q.low5,decimals(symbol)), close:round(q.close5,decimals(symbol)) };
+
+    const tpHit = s.side === 'LONG' ? q.high5 >= s.tp : q.low5 <= s.tp;
+    const slHit = s.side === 'LONG' ? q.low5 <= s.sl : q.high5 >= s.sl;
+    const ageMs = Date.now() - Date.parse(s.issuedAt);
+
+    let closed = null;
+    if (ageMs > 60_000 && tpHit && slHit) {
+      closed = await closeSignal(kv, s, 'AMBIGUOUS', q.price, null, checkedAt, 'TP_AND_SL_TOUCHED_INSIDE_SAME_5M_CANDLE_ORDER_UNKNOWN');
+    } else if (ageMs > 60_000 && tpHit) {
+      closed = await closeSignal(kv, s, 'TP', s.tp, Number(s.targetRR || 2.2), checkedAt, 'TP_LEVEL_TOUCHED_BY_5M_HIGH_LOW');
+    } else if (ageMs > 60_000 && slHit) {
+      closed = await closeSignal(kv, s, 'SL', s.sl, -1, checkedAt, 'SL_LEVEL_TOUCHED_BY_5M_HIGH_LOW');
+    } else if (Date.now() >= Date.parse(s.expiresAt)) {
+      closed = await closeSignal(kv, s, 'EXPIRED', q.price, currentR, checkedAt, 'MAX_TRACKING_AGE_REACHED');
+    } else {
+      await kvPutJson(kv, `signal:${s.id}`, s);
+    }
+    if (closed) events.push({ type:'OUTCOME', signal:closed });
+  }
+  return events;
+}
+
+async function maybeCreateSignals(kv, group, actionable, scannedAt) {
+  const events = [];
+  if (!kv) return events;
+  let created = 0;
+  for (const a of actionable) {
+    if (created >= MAX_NEW_PER_SCAN) break;
+    const existing = await getActiveSignal(kv, a.symbol);
+    if (existing) {
+      a.tracker = { signalId:existing.id, status:existing.status, currentR:existing.currentR ?? 0, outcome:existing.outcome || null };
+      continue;
+    }
+    const cooldown = Number(await kv.get(`cooldown:${a.symbol}`) || 0);
+    if (cooldown && Date.now() - cooldown < COOLDOWN_MS) {
+      a.tracker = { status:'COOLDOWN', remainingSec:Math.ceil((COOLDOWN_MS-(Date.now()-cooldown))/1000) };
+      continue;
+    }
+
+    const id = `${a.symbol}-${a.side}-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
+    const risk = Math.abs(a.planned.entry - a.planned.sl);
+    const s = {
+      id,
+      schema:'SIGNALHUB_TRACKED_SIGNAL_V1',
+      group,
+      symbol:a.symbol,
+      side:a.side,
+      score:a.score,
+      status:'OPEN',
+      outcome:null,
+      entry:a.planned.entry,
+      sl:a.planned.sl,
+      tp:a.planned.tp,
+      targetRR:a.planned.targetRR,
+      riskDistance:round(risk, 8),
+      issuedAt:scannedAt,
+      expiresAt:new Date(Date.parse(scannedAt) + SIGNAL_EXPIRY_MS).toISOString(),
+      source:a.analysisQuote?.source || 'TRADINGVIEW_SCANNER',
+      sourcePrice:a.analysisQuote?.price ?? a.planned.entry,
+      lastPrice:a.analysisQuote?.price ?? a.planned.entry,
+      lastCheckedAt:scannedAt,
+      currentR:0,
+      maxFavorableR:0,
+      maxAdverseR:0,
+      reason:a.reason,
+      technicalAtIssue:a.technical,
+    };
+    await kvPutJson(kv, `signal:${id}`, s);
+    await kv.put(`active:${a.symbol}`, id, { expirationTtl: ACTIVE_TTL_SECONDS });
+    a.tracker = { signalId:id, status:'OPEN', currentR:0, outcome:null };
+    events.push({ type:'NEW_SIGNAL', signal:s });
+    created++;
+  }
+  return events;
+}
+
+async function annotateAnalyses(kv, analyses) {
+  if (!kv) return;
+  for (const a of analyses) {
+    if (a.tracker) continue;
+    const s = await getActiveSignal(kv, a.symbol);
+    if (s) a.tracker = { signalId:s.id, status:s.status, currentR:s.currentR ?? 0, outcome:s.outcome || null };
+  }
+}
+
+async function scan(group, env, options={}) {
   const started = Date.now();
-  const receivedAt = new Date().toISOString();
+  const scannedAt = nowIso();
   try {
     const rows = await tvScan(group);
-    const analyses = rows.map(r => buildAnalysis(r,group,receivedAt)).filter(Boolean)
+    const analyses = rows.map(r => buildAnalysis(r,group,scannedAt)).filter(Boolean)
       .sort((a,b) => b.score-a.score);
     const actionable = analyses.filter(x => x.status === 'MARKET_SIGNAL');
-    const display = actionable.length ? [...actionable, ...analyses.filter(x=>x.status!=='MARKET_SIGNAL')].slice(0,5) : analyses.slice(0,5);
+    const trackerEvents = [];
+    if (env?.SIGNALS_KV) {
+      trackerEvents.push(...await updateOpenSignals(env.SIGNALS_KV, group, rows, scannedAt));
+      if (options.emitSignals !== false) trackerEvents.push(...await maybeCreateSignals(env.SIGNALS_KV, group, actionable, scannedAt));
+      await annotateAnalyses(env.SIGNALS_KV, analyses);
+    }
+    const display = actionable.length ? [...actionable, ...analyses.filter(x=>x.status!=='MARKET_SIGNAL')].slice(0,8) : analyses.slice(0,8);
     const marketClosed = rows.length === 0;
     return {
       ok:true,
@@ -156,7 +345,7 @@ async function scan(group) {
       group,
       status: marketClosed ? 'MARKET_CLOSED_OR_NO_DATA' : 'OK',
       scanId:`${group}-${Date.now()}`,
-      scannedAt:new Date().toISOString(),
+      scannedAt,
       source:'TRADINGVIEW_SCANNER',
       sourceRows:rows.length,
       requested:GROUPS[group].tickers.length,
@@ -166,7 +355,8 @@ async function scan(group) {
       elapsedMs:Date.now()-started,
       analyses:display,
       actionableCount:actionable.length,
-      note:'Signals are technical setup alerts, not guaranteed outcomes. Broker execution prices can differ.',
+      tracker:{ enabled:Boolean(env?.SIGNALS_KV), events:trackerEvents },
+      note:'Tracked signals persist server-side. TP/SL outcomes use 5m candle high/low; same-candle dual touches are marked AMBIGUOUS and excluded from resolved win rate.',
     };
   } catch (e) {
     return {
@@ -175,28 +365,119 @@ async function scan(group) {
       group,
       status:'SOURCE_UNAVAILABLE',
       scanId:`${group}-${Date.now()}`,
-      scannedAt:new Date().toISOString(),
+      scannedAt,
       analyses:[],
+      tracker:{ enabled:Boolean(env?.SIGNALS_KV), events:[] },
       error:String(e?.message||e),
       elapsedMs:Date.now()-started,
     };
   }
 }
 
-async function handle(req) {
+async function listSignals(env, filters={}) {
+  if (!env?.SIGNALS_KV) return [];
+  const listing = await env.SIGNALS_KV.list({ prefix:'signal:', limit:1000 });
+  const items = [];
+  const keys = listing.keys || [];
+  for (let i=0; i<keys.length; i+=50) {
+    const batch = keys.slice(i,i+50);
+    const vals = await Promise.all(batch.map(k => kvGetJson(env.SIGNALS_KV, k.name)));
+    for (const s of vals) if (s) items.push(s);
+  }
+  let out = items;
+  if (filters.group && GROUPS[filters.group]) out = out.filter(s => s.group === filters.group);
+  if (filters.status === 'open') out = out.filter(s => s.status === 'OPEN');
+  if (filters.status === 'closed') out = out.filter(s => s.status === 'CLOSED');
+  if (filters.outcome) out = out.filter(s => String(s.outcome||'').toUpperCase() === filters.outcome.toUpperCase());
+  out.sort((a,b) => Date.parse(b.issuedAt||0) - Date.parse(a.issuedAt||0));
+  const limit = clamp(Number(filters.limit || 100),1,500);
+  return out.slice(0, limit);
+}
+
+function performanceFromSignals(signals) {
+  const closed = signals.filter(s => s.status === 'CLOSED');
+  const open = signals.filter(s => s.status === 'OPEN');
+  const tp = closed.filter(s => s.outcome === 'TP');
+  const sl = closed.filter(s => s.outcome === 'SL');
+  const expired = closed.filter(s => s.outcome === 'EXPIRED');
+  const ambiguous = closed.filter(s => s.outcome === 'AMBIGUOUS');
+  const resolved = [...tp,...sl].sort((a,b)=>Date.parse(a.closedAt||0)-Date.parse(b.closedAt||0));
+  const winRate = resolved.length ? tp.length/resolved.length*100 : 0;
+  const grossWinR = tp.reduce((n,s)=>n+Number(s.resultR||0),0);
+  const grossLossR = Math.abs(sl.reduce((n,s)=>n+Number(s.resultR||0),0));
+  const netR = resolved.reduce((n,s)=>n+Number(s.resultR||0),0);
+  const avgR = resolved.length ? netR/resolved.length : 0;
+  const profitFactor = grossLossR > 0 ? grossWinR/grossLossR : (grossWinR > 0 ? null : 0);
+
+  let currentWinStreak=0,currentLossStreak=0,maxWinStreak=0,maxLossStreak=0;
+  for (const s of resolved) {
+    if (s.outcome === 'TP') { currentWinStreak++; currentLossStreak=0; maxWinStreak=Math.max(maxWinStreak,currentWinStreak); }
+    else { currentLossStreak++; currentWinStreak=0; maxLossStreak=Math.max(maxLossStreak,currentLossStreak); }
+  }
+
+  const byGroup = {};
+  for (const g of Object.keys(GROUPS)) {
+    const arr = signals.filter(s=>s.group===g);
+    const w = arr.filter(s=>s.outcome==='TP').length;
+    const l = arr.filter(s=>s.outcome==='SL').length;
+    byGroup[g] = { total:arr.length, open:arr.filter(s=>s.status==='OPEN').length, tp:w, sl:l, winRate:(w+l)?round(w/(w+l)*100,1):0 };
+  }
+
+  const symbolMap = {};
+  for (const s of signals) {
+    const x = symbolMap[s.symbol] || {symbol:s.symbol,total:0,tp:0,sl:0,open:0,netR:0};
+    x.total++;
+    if (s.status==='OPEN') x.open++;
+    if (s.outcome==='TP') x.tp++;
+    if (s.outcome==='SL') x.sl++;
+    if (s.outcome==='TP' || s.outcome==='SL') x.netR += Number(s.resultR||0);
+    symbolMap[s.symbol] = x;
+  }
+  const bySymbol = Object.values(symbolMap).map(x=>({ ...x, netR:round(x.netR,2), winRate:(x.tp+x.sl)?round(x.tp/(x.tp+x.sl)*100,1):0 }))
+    .sort((a,b)=>b.total-a.total).slice(0,20);
+
+  return {
+    totalSignals:signals.length,
+    open:open.length,
+    closed:closed.length,
+    resolved:resolved.length,
+    tp:tp.length,
+    sl:sl.length,
+    expired:expired.length,
+    ambiguous:ambiguous.length,
+    winRateResolved:round(winRate,1),
+    netRResolved:round(netR,2),
+    avgRResolved:round(avgR,2),
+    grossWinR:round(grossWinR,2),
+    grossLossR:round(grossLossR,2),
+    profitFactor:profitFactor===null?null:round(profitFactor,2),
+    maxWinStreak,
+    maxLossStreak,
+    byGroup,
+    bySymbol,
+    methodology:'Win rate = TP / (TP + SL). EXPIRED and AMBIGUOUS are excluded from resolved win rate.',
+  };
+}
+
+async function handle(req, env) {
   const u = new URL(req.url);
   if (req.method === 'OPTIONS') return new Response(null,{status:204,headers:{'access-control-allow-origin':'*','access-control-allow-methods':'GET,OPTIONS'}});
   if (req.method !== 'GET') return json({ok:false,error:'GET_ONLY'},405);
 
   if (u.pathname === '/' || u.pathname === '/status') {
+    const all = env?.SIGNALS_KV ? await listSignals(env,{limit:500}) : [];
+    const perf = performanceFromSignals(all);
     return json({
       ok:true, version:VERSION, service:SERVICE,
       independentFromBybit:true,
       dataSource:'TRADINGVIEW_SCANNER',
+      trackerStorage:Boolean(env?.SIGNALS_KV),
+      trackerCheckInterval:'5m scheduled + manual scans',
       groups:Object.keys(GROUPS),
       symbols:{forex:FOREX,metal:['XAUUSD','XAGUSD'],energy:['UKOIL']},
       staleFallback:false,
-      generatedAt:new Date().toISOString(),
+      trackerSummary:{open:perf.open,closed:perf.closed,tp:perf.tp,sl:perf.sl,winRateResolved:perf.winRateResolved,netRResolved:perf.netRResolved},
+      generatedAt:nowIso(),
     });
   }
   if (u.pathname === '/symbols') {
@@ -208,14 +489,45 @@ async function handle(req) {
   if (u.pathname === '/latest-scan' || u.pathname === '/run-now') {
     const g=u.searchParams.get('group');
     if (!GROUPS[g]) return json({ok:false,error:'INVALID_GROUP'},400);
-    const result=await scan(g);
-    // Keep /latest-scan compatible with the Android parser while still scanning live.
+    const result=await scan(g,env,{emitSignals:true});
     if (u.pathname === '/latest-scan') return json({ok:result.ok,group:g,snapshot:result},result.ok?200:503);
     return json(result,result.ok?200:503);
   }
-  if (u.pathname === '/books') return json({ok:true,forex:{marketActive:[]},metal:{marketActive:[]},energy:{marketActive:[]},note:'Signal-only service; no execution book.'});
-  if (u.pathname === '/shadow') return json({ok:true,rows:[],note:'Shadow history not enabled on stateless worker.'});
-  return json({ok:false,error:'NOT_FOUND',endpoints:['/status','/latest-scan?group=forex|metal|energy','/run-now?group=forex|metal|energy','/symbols?group=forex|metal|energy','/books','/shadow']},404);
+  if (u.pathname === '/signals') {
+    const status=(u.searchParams.get('status')||'all').toLowerCase();
+    const group=(u.searchParams.get('group')||'').toLowerCase();
+    const outcome=u.searchParams.get('outcome')||'';
+    const limit=u.searchParams.get('limit')||'100';
+    const signals=await listSignals(env,{status,group,outcome,limit});
+    return json({ok:true,version:VERSION,status,group:group||'all',count:signals.length,signals,generatedAt:nowIso()});
+  }
+  if (u.pathname === '/signal') {
+    const id=u.searchParams.get('id');
+    if (!id) return json({ok:false,error:'ID_REQUIRED'},400);
+    const s=await kvGetJson(env?.SIGNALS_KV,`signal:${id}`);
+    return s ? json({ok:true,signal:s}) : json({ok:false,error:'SIGNAL_NOT_FOUND'},404);
+  }
+  if (u.pathname === '/performance') {
+    const signals=await listSignals(env,{limit:500});
+    return json({ok:true,version:VERSION,performance:performanceFromSignals(signals),generatedAt:nowIso()});
+  }
+  if (u.pathname === '/books') {
+    const active=await listSignals(env,{status:'open',limit:100});
+    return json({ok:true,marketActive:active,openCount:active.length,note:'Read-only tracked signal book; no broker execution.'});
+  }
+  if (u.pathname === '/shadow') {
+    const closed=await listSignals(env,{status:'closed',limit:100});
+    return json({ok:true,rows:closed,closedCount:closed.length,note:'Outcome history for emitted SignalHub signals.'});
+  }
+  return json({ok:false,error:'NOT_FOUND',endpoints:['/status','/latest-scan?group=forex|metal|energy','/run-now?group=forex|metal|energy','/signals?status=open|closed|all','/signal?id=...','/performance','/symbols?group=forex|metal|energy','/books','/shadow']},404);
 }
 
-export default { fetch: handle };
+async function scheduled(_event, env, ctx) {
+  ctx.waitUntil((async()=>{
+    for (const g of ['forex','metal','energy']) {
+      try { await scan(g,env,{emitSignals:true}); } catch (_) {}
+    }
+  })());
+}
+
+export default { fetch: handle, scheduled };
