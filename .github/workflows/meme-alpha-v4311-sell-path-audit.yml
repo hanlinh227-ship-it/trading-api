@@ -1,0 +1,18 @@
+name: Meme Alpha V4311 Sell Path Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v4311-sell-path-audit.yml']
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 3
+    steps:
+      - name: Read current sell path
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          nl -ba "$E" | sed -n '250,285p'
+          nl -ba "$E" | sed -n '345,375p'
+          echo SELL_PATH_AUDIT=COMPLETE
