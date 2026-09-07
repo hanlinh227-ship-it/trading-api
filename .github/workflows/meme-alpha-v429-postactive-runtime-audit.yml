@@ -1,0 +1,80 @@
+name: Meme Alpha V429 Post-Active Runtime Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v429-postactive-runtime-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Audit V429 live runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          DATA=/var/lib/meme-alpha/data/micro-live
+
+          echo '=== CODE / PROCESS ==='
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          printf '%s\n' "$OUT" | grep -E 'V429_|V428_|V427_|V426_|HARD_SECURITY|FAILSAFE' || true
+          echo EXECUTOR_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do echo SERVICE_${svc//[-.]/_}=$(systemctl is-active "$svc" || true); done
+
+          echo '=== RUNTIME HEALTH ==='
+          python3 - <<'PY'
+          import json,pathlib,time,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n):
+              p=rt/n
+              try:return json.loads(p.read_text()), time.time()-p.stat().st_mtime
+              except Exception as e:return {'_error':str(e)},999999
+          g,ga=load('micro-live-gate.json')
+          c,ca=load('capital-observability.json')
+          a,aa=load('allocator-status.json')
+          p,pa=load('portfolio-observability.json')
+          r,ra=load('realtime-pool-pulse.json')
+          print('GATE',{'ageSec':round(ga,1),'allowed':g.get('allowed'),'armOk':g.get('armOk'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons')})
+          print('CAPITAL',{'ageSec':round(ca,1),'walletSol':c.get('walletSol'),'netEqSol':c.get('netLiquidationEquitySol'),'hwm':(c.get('equityHighWaterLamports') or 0)/1e9,'ddPct':c.get('equityDrawdownPct'),'deployableSol':c.get('deployableSol'),'deployablePct':c.get('deployablePct'),'openPositions':c.get('openPositions'),'rateLimits':c.get('exitPreviewRateLimits'),'cacheHits':c.get('exitPreviewCacheHits'),'backoffRemainingMs':c.get('exitPreviewBackoffRemainingMs'),'velocityVersion':c.get('capitalVelocityVersion'),'learningClosed':c.get('learningClosed'),'learningWins':c.get('learningWins'),'learningMeanRet':c.get('learningMeanReturnPct')})
+          print('ALLOCATOR',{'ageSec':round(aa,1),'action':a.get('action'),'reason':a.get('reason'),'symbol':a.get('symbol'),'targetSymbol':a.get('targetSymbol'),'openPositions':a.get('openPositions'),'scaleAllowed':a.get('scaleAllowed')})
+          print('PORTFOLIO',{'ageSec':round(pa,1),'stateReadable':p.get('stateReadable'),'openPositions':p.get('openPositions'),'stateVersion':p.get('stateVersion')})
+          rows=r.get('rows') or []
+          held=[x for x in rows if x.get('held')]
+          stale=[{'symbol':x.get('symbol'),'memoryFallback':x.get('memoryFallback',False),'lastEventAgeMs':x.get('lastEventAgeMs'),'events15s':x.get('events15s')} for x in held if x.get('lastEventAgeMs') is None or (isinstance(x.get('lastEventAgeMs'),(int,float)) and x.get('lastEventAgeMs')>300000)]
+          mem=[{'symbol':x.get('symbol'),'lastEventAgeMs':x.get('lastEventAgeMs'),'events15s':x.get('events15s')} for x in held if x.get('memoryFallback')]
+          print('REALTIME',{'ageSec':round(ra,1),'status':r.get('status'),'websocketOpen':r.get('websocketOpen'),'heldTotal':r.get('heldTotal'),'heldResolved':r.get('heldResolved'),'heldUnresolved':r.get('heldUnresolved'),'heldCoveragePct':r.get('heldCoveragePct'),'heartbeatAgeMs':r.get('heartbeatAgeMs'),'reconnectFailures':r.get('reconnectFailures'),'pendingTimeouts':r.get('pendingTimeouts'),'reconcileErrors':r.get('reconcileErrors'),'writeErrors':r.get('writeErrors')})
+          print('HELD_MEMORY_FALLBACK_COUNT',len(mem)); print('HELD_MEMORY_FALLBACK',mem)
+          print('HELD_EVENT_STALE_GT5M_COUNT',len(stale)); print('HELD_EVENT_STALE_GT5M',stale)
+          critical=[]
+          if ga>=180 or g.get('allowed') is not True or g.get('armOk') is not True or g.get('sourceHealthy') is not True or g.get('liveRiskReady') is not True or g.get('scaleAllowed') is not True or g.get('reasons'): critical.append('GATE')
+          if r.get('status')!='HEALTHY' or int(r.get('heldUnresolved') or 0)!=0 or int(r.get('heldCoveragePct') or 0)!=100: critical.append('REALTIME')
+          if p.get('stateReadable') is not True: critical.append('PORTFOLIO')
+          print('CRITICAL_RUNTIME_FAULTS',critical)
+          PY
+
+          echo '=== RECENT ERROR SIGNALS ==='
+          if [ -d "$DATA" ]; then
+            find "$DATA" -maxdepth 2 -type f -mmin -30 -print | head -80 || true
+            grep -RniE 'EXECUTOR_ERROR|SIGNER.*(ERROR|FAIL)|FATAL|UNHANDLED|CONFLICT|RATE_LIMIT|HTTP_429|SELL.*FAIL|BUY.*FAIL|ROTATION.*FAIL|SCALE.*FAIL' "$DATA" 2>/dev/null | tail -120 || true
+          fi
+          journalctl --since '20 minutes ago' -u meme-alpha-paper.service -u meme-alpha-micro-live.service -u meme-alpha-signer.service --no-pager 2>/dev/null | grep -Ei 'error|fail|fatal|429|conflict|exception|rejection' | tail -100 || true
+
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          PY
+          echo V429_POSTACTIVE_RUNTIME_AUDIT=PASS
