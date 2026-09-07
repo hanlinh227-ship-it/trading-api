@@ -1,4 +1,4 @@
 package com.hanlinh.signalhub;
 
-public class MainActivity extends TrackerActivity {
+public class MainActivity extends SignalHubActivity {
 }
