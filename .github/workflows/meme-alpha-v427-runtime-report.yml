@@ -1,0 +1,17 @@
+name: Meme Alpha V427 Runtime Report
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  report:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo SHA=$(sha256sum "$E"|awk '{print $1}')
+          node --check "$E"
+          node "$E" --self-test | tail -80
+          pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
