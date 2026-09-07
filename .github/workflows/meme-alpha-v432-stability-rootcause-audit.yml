@@ -1,0 +1,38 @@
+name: Meme Alpha V432 Stability Rootcause Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v432-stability-rootcause-audit.yml'
+permissions:
+  contents: write
+  actions: write
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect live V4311 stability bottlenecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          E="$APP/src/micro-live-executor.js"
+          echo '=== EXECUTOR PREVIEW / HELD / ROTATION LOGIC ==='
+          nl -ba "$E" | sed -n '100,180p'
+          nl -ba "$E" | sed -n '245,370p'
+          echo '=== REALTIME SERVICE ==='
+          systemctl cat meme-alpha-realtime-pulse.service || true
+          echo '=== REALTIME PROCESS ==='
+          ps -fp "$(systemctl show meme-alpha-realtime-pulse.service -p MainPID --value)" || true
+          echo '=== REALTIME SOURCE CANDIDATES ==='
+          for f in "$APP"/src/*realtime* "$APP"/src/*pulse*; do
+            [ -f "$f" ] || continue
+            echo "--- $f ---"
+            grep -nE 'memoryFallback|held|pendingTimeout|lastEventAge|heartbeat|reconcile|DEXSCREENER_HELD_RESOLVE|pairCache' "$f" | head -n 240 || true
+          done
+          echo '=== CURRENT SNAPSHOT ==='
+          for f in capital-observability.json allocator-status.json realtime-pool-pulse.json portfolio-observability.json; do
+            echo "--- $f ---"; cat "$APP/runtime-status/$f" || true; echo
+          done
+          echo '=== JOURNAL 30M ERROR/RATE LIMIT ==='
+          journalctl -u meme-alpha-micro-live.service -u meme-alpha-realtime-pulse.service --since '30 minutes ago' --no-pager | grep -E '429|RATE|ERROR|WARN|timeout|TIMEOUT|reconnect|RECONNECT|UPSTREAM' | tail -n 300 || true
+          echo V432_STABILITY_ROOTCAUSE_AUDIT=COMPLETE
