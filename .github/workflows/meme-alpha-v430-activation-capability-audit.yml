@@ -1,0 +1,36 @@
+name: Meme Alpha V430 Activation Capability Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v430-activation-capability-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect live file process ownership and restart policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo '=== FILE ==='
+          sha256sum "$E"
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          grep -E 'V429_|V430_|HARD_SECURITY' <<<"$OUT" || true
+          echo '=== PROCESS ==='
+          PIDS=$(pgrep -f '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)
+          echo "PIDS=$PIDS"
+          for p in $PIDS; do ps -o user=,uid=,pid=,ppid=,lstart=,etimes=,cmd= -p "$p"; done
+          echo "RUNNER_USER=$(id -un) RUNNER_UID=$(id -u)"
+          echo '=== UNIT ==='
+          systemctl show meme-alpha-micro-live.service -p Id -p User -p Group -p MainPID -p ExecMainPID -p Restart -p RestartUSec -p ActiveState -p SubState -p ExecStart -p FragmentPath -p UnitFileState
+          systemctl cat meme-alpha-micro-live.service || true
+          echo '=== FILE OWNERSHIP ==='
+          stat -c 'owner=%U uid=%u group=%G gid=%g mode=%a' "$E"
+          echo V430_ACTIVATION_CAPABILITY_AUDIT=COMPLETE
