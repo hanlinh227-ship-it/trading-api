@@ -1,0 +1,65 @@
+name: Meme Alpha V427 Growth Bottleneck Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427-growth-bottleneck-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Audit growth and scaling bottlenecks
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; BASE=/var/lib/meme-alpha/data/micro-live
+          node --check "$E"
+          OUT=$(node "$E" --self-test); printf '%s\n' "$OUT" | grep -E 'V427_|V426_|V425_|V424_|V421_|V418_|HARD_SECURITY|CONTINUOUS_ALLOCATION|CAPITAL_UTILIZATION|EQUITY_GROWTH|ROTATION' || true
+          echo '=== GROWTH LOGIC ==='
+          grep -nE 'function allocationProfile|function targetPlan|function expectedEdge|function equityCompoundingState|function scalePositionEligible|function pumpScaleEligible|function maybeScale|function maybeRotate|function proactiveRotationEligible|function rotationSource|maxUtilizationPct|minOrderLamports|minAddIntervalSec|reserve|EXPECTANCY_EDGE_BELOW_FLOOR|TARGET_ALREADY_SATISFIED|CAPITAL_HEADROOM_LOW|SIGNER_ORDER_CAP_BELOW_MIN|ALLOCATION_BELOW_MIN_ORDER|scaleInLockedAfterProfit|releaseCooldownOk' "$E" | head -260 || true
+          echo '=== RUNTIME SNAPSHOTS ==='
+          for f in micro-live-gate.json capital-observability.json allocator-status.json portfolio-observability.json realtime-pool-pulse.json; do echo "--- $f ---"; cat "$RT/$f" 2>/dev/null || true; echo; done
+          python3 - <<'PY'
+          import json,pathlib,collections,datetime,time
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live'); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          st=json.loads((base/'state.json').read_text())
+          pos=st.get('positions') or []
+          total=sum(float(x.get('costBasisLamports') or 0) for x in pos)
+          print('OPEN_POSITIONS',len(pos),'INVESTED_SOL',round(total/1e9,6))
+          rows=[]
+          now=datetime.datetime.now(datetime.timezone.utc)
+          for x in pos:
+            try: age=(now-datetime.datetime.fromisoformat(str(x.get('openedAt')).replace('Z','+00:00'))).total_seconds()/60
+            except: age=None
+            rows.append({k:x.get(k) for k in ['symbol','lastReturnPct','peakReturnPct','addCount','weakExitCount','scaleInLockedAfterProfit','tp1Done','tp2Done','tp3Done','profitProtectDone','pumpHarvestDone','lastAddAt','lastCapitalReleaseAt','lastConcentrationTrimAt']}|{'costSol':round(float(x.get('costBasisLamports') or 0)/1e9,6),'ageMin':None if age is None else round(age,1)})
+          print('POSITIONS',json.dumps(rows,separators=(',',':')))
+          ev=[]; ep=base/'events.jsonl'
+          if ep.exists():
+            for line in ep.read_text(errors='ignore').splitlines()[-30000:]:
+              try: ev.append(json.loads(line))
+              except: pass
+          cutoff=time.time()-7200
+          recent=[]
+          for x in ev:
+            ts=x.get('timestamp')
+            try: t=datetime.datetime.fromisoformat(str(ts).replace('Z','+00:00')).timestamp()
+            except: t=0
+            if t>=cutoff: recent.append(x)
+          if not recent: recent=ev[-10000:]
+          types=collections.Counter(str(x.get('type')) for x in recent)
+          skips=collections.Counter(str(x.get('reason')) for x in recent if x.get('type') in ('BUY_CANDIDATE_SKIP','SCALE_CANDIDATE_SKIP'))
+          print('EVENTS_ANALYZED',len(recent))
+          print('TOP_TYPES',dict(types.most_common(30)))
+          print('SKIP_REASONS',dict(skips.most_common(40)))
+          keys=['EXPECTANCY_EDGE_BELOW_FLOOR','TARGET_ALREADY_SATISFIED','CAPITAL_HEADROOM_LOW','SIGNER_ORDER_CAP_BELOW_MIN','ALLOCATION_BELOW_MIN_ORDER','SCALE_LOCKED','ADD_INTERVAL','IDLE_CAPITAL_WAITING_SIGNER_CONTRACT','IDLE_CAPITAL_WAITING_EXPECTANCY_EDGE']
+          print('BOTTLENECK_COUNTS',{k:skips.get(k,0) for k in keys})
+          print('BUYS',types.get('MICRO_BUY',0),'SCALE_INS',types.get('MICRO_SCALE_IN',0),'PARTIAL_SELLS',types.get('MICRO_PARTIAL_SELL',0),'SELLS',types.get('MICRO_SELL',0),'ROTATIONS',types.get('AUTO_ROTATION',0)+types.get('WINNER_ROTATION',0),'PUMP_HARVESTS',types.get('PUMP_LIFECYCLE_HARVEST',0))
+          print('LEARNING',json.dumps(st.get('learning'),separators=(',',':')))
+          PY
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          echo V427_GROWTH_BOTTLENECK_AUDIT=PASS
