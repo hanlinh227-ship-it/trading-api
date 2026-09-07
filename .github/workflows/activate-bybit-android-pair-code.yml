@@ -18,8 +18,8 @@ jobs:
       - name: Activate one-time pairing hash only
         shell: bash
         env:
-          PAIR_SHA256: dde894b6b16e2d126f8d5823d1ab5f461fedb5a9d3092b92e769e8718d7b089c
-          PAIR_EXPIRES_AT: '1789147927037'
+          PAIR_SHA256: 07e13ba1bf654a05367346236223eec3c34e565a99ce89190f75edb2ee6c7c49
+          PAIR_EXPIRES_AT: '1788835575047'
         run: |
           set -euo pipefail
           set -a; source /etc/trading-v11-ai.env; set +a
