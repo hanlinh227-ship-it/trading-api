@@ -22,59 +22,27 @@ jobs:
           cat >/tmp/tv.json <<'JSON'
           {"symbols":{"tickers":["OANDA:EURUSD","OANDA:USDJPY","OANDA:GBPUSD"],"query":{"types":[]}},"columns":["name","close","change","Recommend.All","Recommend.All|5","Recommend.All|15","Recommend.All|60","Recommend.All|240","RSI|15","MACD.macd|15","MACD.signal|15","EMA20|15","EMA50|15","EMA200|15","ATR|15"]}
           JSON
-          code=$(curl -sS --max-time 20 -o /tmp/tv.out -w '%{http_code}' -H 'content-type: application/json' --data-binary @/tmp/tv.json https://scanner.tradingview.com/forex/scan || true)
-          echo "TV_FOREX_HTTP=$code"
+          curl --fail --silent --show-error --max-time 20 -o /tmp/tv.out -H 'content-type: application/json' --data-binary @/tmp/tv.json https://scanner.tradingview.com/forex/scan
           python3 - <<'PY'
           import json
-          p=json.load(open('/tmp/tv.out',encoding='utf-8'))
-          rows=p.get('data',[]) if isinstance(p,dict) else []
+          p=json.load(open('/tmp/tv.out',encoding='utf-8')); rows=p.get('data',[])
           print('TV_FOREX_ROWS',len(rows))
-          for r in rows[:10]: print('TV_FOREX',r.get('s'),r.get('d'))
-          assert len(rows)>=3, p
-          assert all(len(r.get('d') or [])>=15 for r in rows), rows
+          for r in rows: print('TV_FOREX',r.get('s'),r.get('d'))
+          assert len(rows)>=3
           PY
 
-      - name: Probe TradingView CFD scanners
+      - name: Probe TradingView metal and energy tickers
         shell: bash
         run: |
           set -euo pipefail
           cat >/tmp/cfd.json <<'JSON'
-          {"symbols":{"tickers":["OANDA:XAUUSD","OANDA:XAGUSD","OANDA:WTICOUSD","OANDA:BCOUSD","TVC:GOLD","TVC:SILVER","TVC:USOIL","TVC:UKOIL"],"query":{"types":[]}},"columns":["name","close","change","Recommend.All","Recommend.All|5","Recommend.All|15","Recommend.All|60","Recommend.All|240","RSI|15","MACD.macd|15","MACD.signal|15","EMA20|15","EMA50|15","EMA200|15","ATR|15"]}
+          {"symbols":{"tickers":["OANDA:XAUUSD","OANDA:XAGUSD","TVC:GOLD","TVC:SILVER","FX:USOILSPOT","FXCM:USOIL","TVC:USOIL","CXM:USOIL","BLACKBULL:WTI","EASYMARKETS:OILUSD","FX:UKOIL","FXCM:UKOIL","TVC:UKOIL"],"query":{"types":[]}},"columns":["name","close","change","Recommend.All","Recommend.All|5","Recommend.All|15","Recommend.All|60","Recommend.All|240","RSI|15","MACD.macd|15","MACD.signal|15","EMA20|15","EMA50|15","EMA200|15","ATR|15"]}
           JSON
-          for market in cfd america futures; do
-            code=$(curl -sS --max-time 20 -o "/tmp/$market.out" -w '%{http_code}' -H 'content-type: application/json' --data-binary @/tmp/cfd.json "https://scanner.tradingview.com/$market/scan" || true)
-            echo "TV_${market^^}_HTTP=$code"
-            python3 - "$market" <<'PY'
-          import json,sys
-          m=sys.argv[1]
-          try:p=json.load(open('/tmp/'+m+'.out',encoding='utf-8'))
-          except Exception as e:
-              print('TV_'+m.upper()+'_PARSE_ERROR',type(e).__name__);raise SystemExit(0)
-          rows=p.get('data',[]) if isinstance(p,dict) else []
-          print('TV_'+m.upper()+'_ROWS',len(rows))
-          for r in rows[:20]: print('TV_'+m.upper(),r.get('s'),r.get('d'))
-          PY
-          done
-
-      - name: Probe Yahoo chart freshness
-        shell: bash
-        run: |
-          set -euo pipefail
+          curl --fail --silent --show-error --max-time 20 -o /tmp/cfd.out -H 'content-type: application/json' --data-binary @/tmp/cfd.json https://scanner.tradingview.com/cfd/scan
           python3 - <<'PY'
-          import json,time,urllib.request,urllib.parse
-          syms=['EURUSD=X','JPY=X','GC=F','SI=F','CL=F']
-          for sym in syms:
-              url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(sym,safe='')+'?interval=1m&range=1d'
-              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 SignalHub/1.0'})
-              try:
-                  with urllib.request.urlopen(req,timeout=20) as r: p=json.load(r)
-                  res=p['chart']['result'][0]
-                  ts=(res.get('timestamp') or [])[-1]
-                  q=res['indicators']['quote'][0]
-                  closes=q.get('close') or []
-                  close=next((x for x in reversed(closes) if x is not None),None)
-                  age=max(0,int(time.time()-ts))
-                  print('YAHOO',sym,'close',close,'ageSec',age)
-              except Exception as e:
-                  print('YAHOO',sym,'ERROR',type(e).__name__,str(e)[:120])
+          import json
+          p=json.load(open('/tmp/cfd.out',encoding='utf-8')); rows=p.get('data',[])
+          print('TV_CFD_ROWS',len(rows))
+          for r in rows: print('TV_CFD',r.get('s'),r.get('d'))
+          assert any((r.get('s') or '').endswith('XAUUSD') for r in rows)
           PY
