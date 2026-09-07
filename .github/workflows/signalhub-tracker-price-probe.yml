@@ -1,0 +1,41 @@
+name: SignalHub Tracker Price Probe
+
+on:
+  push:
+    branches: [signalhub-android-v1]
+    paths:
+      - '.github/workflows/signalhub-tracker-price-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify 5m OHLC scanner fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/body.json <<'JSON'
+          {"symbols":{"tickers":["OANDA:EURUSD","OANDA:USDJPY","OANDA:XAUUSD","TVC:SILVER","FX:UKOIL"],"query":{"types":[]}},"columns":["name","close","high|5","low|5","close|5","high|15","low|15"]}
+          JSON
+          for market in forex cfd; do
+            curl --fail --silent --show-error --max-time 20 \
+              -H 'content-type: application/json' --data-binary @/tmp/body.json \
+              "https://scanner.tradingview.com/$market/scan" -o "/tmp/$market.json"
+            python3 - "$market" <<'PY'
+          import json,sys
+          m=sys.argv[1]
+          p=json.load(open('/tmp/'+m+'.json',encoding='utf-8'))
+          rows=p.get('data',[])
+          print(m,'ROWS',len(rows))
+          for r in rows:
+              print(r.get('s'),r.get('d'))
+              d=r.get('d') or []
+              assert len(d)>=7
+              assert d[1] is not None and d[2] is not None and d[3] is not None
+          PY
+          done
