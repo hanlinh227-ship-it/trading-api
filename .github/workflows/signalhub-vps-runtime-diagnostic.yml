@@ -1,0 +1,63 @@
+name: SignalHub Forex VPS Runtime Diagnostic
+
+on:
+  push:
+    branches: [signalhub-android-v1]
+    paths:
+      - '.github/workflows/signalhub-vps-runtime-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Safe runtime inventory
+        shell: bash
+        run: |
+          set +e
+          echo "HOST=$(hostname)"
+          echo "UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for s in mt5-forex.service mt5-forex-bridge.service trading-vps-bridge.service trading-ai-controller.service v11-manual-ai-bridge.service forex-research-loop.service; do
+            printf '%s=' "$s"
+            systemctl is-active "$s" 2>/dev/null || true
+          done
+          echo '--- matching processes ---'
+          ps -eo comm,args --no-headers | grep -Ei 'mt5|forex|trading.*bridge|manual_ai_bridge' | grep -v grep | sed -E 's/(Bearer|token|secret|key|password)[^ ]*/REDACTED/Ig' | head -40 || true
+          echo '--- runtime files ---'
+          python3 - <<'PY'
+          import json, os, pathlib, time
+          roots=[pathlib.Path('/var/lib/trading/mt5-forex'), pathlib.Path('/opt/trading')]
+          names=['bridge-health.json','pulse.json','decision.json','broker-authenticated.marker']
+          for root in roots:
+              if not root.exists():
+                  print(f'{root}:MISSING')
+                  continue
+              print(f'{root}:PRESENT')
+              for name in names:
+                  matches=list(root.rglob(name)) if root.name!='mt5-forex' else list(root.glob('**/'+name))
+                  for p in matches[:4]:
+                      try:
+                          st=p.stat(); age=max(0,int(time.time()-st.st_mtime))
+                          print(f'FILE {p} ageSec={age} size={st.st_size}')
+                          if p.suffix=='.json':
+                              obj=json.loads(p.read_text(encoding='utf-8',errors='replace'))
+                              if isinstance(obj,dict):
+                                  safe_keys=[k for k in obj.keys() if k.lower() not in {'account','login','balance','equity','margin','freemargin','token','secret','password','apikey','api_key'}]
+                                  print('KEYS '+','.join(sorted(safe_keys)[:40]))
+                                  if 'snapshots' in obj and isinstance(obj['snapshots'],list):
+                                      syms=[]
+                                      for x in obj['snapshots'][:50]:
+                                          if isinstance(x,dict) and x.get('symbol'): syms.append(str(x['symbol']))
+                                      print('SNAPSHOT_COUNT',len(obj['snapshots']),'SYMBOLS',','.join(syms[:30]))
+                                  for k in ('updatedAt','timestamp','ts','status','mode','symbol','side','orderType','decision'):
+                                      if k in obj and not isinstance(obj[k],(dict,list)):
+                                          print(f'{k}={str(obj[k])[:120]}')
+                      except Exception as e:
+                          print(f'FILE_READ_ERROR {p.name} {type(e).__name__}')
+          PY
+          echo '--- listening ports ---'
+          ss -lntp 2>/dev/null | sed -E 's/users:.*/users:REDACTED/' | head -60 || true
