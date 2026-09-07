@@ -1,0 +1,91 @@
+name: Meme Alpha V425 Capital Recovery Active
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v425-capital-recovery-active.yml'
+permissions:
+  contents: write
+  actions: write
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Build validate activate V425
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; C="$RT/deploy-candidates/v425-capital-recovery.js"; RUN="$APP/run-paper.sh"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+            global s
+            n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+
+          rep("function newEntryMode(c){if(trendEntryEligible(c)&&opportunityLane(c))return 'STANDARD';if(idleCapitalProbeEligible(c))return 'IDLE_PROBE';return 'BLOCK'}",
+              "function newEntryMode(c){if(trendEntryEligible(c)&&opportunityLane(c))return 'STANDARD';if(trendEntryEligible(c)&&idleCapitalProbeEligible(c))return 'IDLE_PROBE';return 'BLOCK'}",
+              'SIGNER_COMPATIBLE_IDLE_PROBE')
+
+          old="if(!pos.weakSince)pos.weakSince=null;if(!pos.lastWeakCountAt)pos.lastWeakCountAt=null;if(!pos.severeBreakSince)pos.severeBreakSince=null;if(!pos.lowLiquiditySince)pos.lowLiquiditySince=null;if(!pos.lossSince)pos.lossSince=null;if(!pos.previewDegradedUntil)pos.previewDegradedUntil=null;if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;"
+          new=old+"if(!Number.isFinite(Number(pos.concentrationTrimCount)))pos.concentrationTrimCount=0;if(!pos.lastConcentrationTrimAt)pos.lastConcentrationTrimAt=null;"
+          rep(old,new,'CONCENTRATION_STATE')
+
+          marker="function rotationSource(st,newC){"
+          insert="""function concentrationReleaseSource(st){
+            const a=ensureAutonomy(st),hwm=Math.max(1,n(a.equityHighWaterLamports)),eq=Math.max(1,n(a.lastNetLiquidationEquityLamports,hwm)),dd=Math.max(0,(hwm-eq)/hwm*100);if(dd<5)return null;
+            const total=Math.max(1,portfolioInvested(st)),globalLast=Date.parse(a.lastConcentrationReleaseAt||0);if(Number.isFinite(globalLast)&&globalLast>0&&Date.now()-globalLast<300000)return null;
+            const rows=(st.positions||[]).map((pos,index)=>{const c=candidate(pos.mint),cost=Math.max(0,n(pos.costBasisLamports||pos.entrySolLamports)),share=cost/total,ret=Number(pos.lastReturnPct),peak=Number(pos.peakReturnPct),opened=Date.parse(pos.openedAt||0),ageMin=Number.isFinite(opened)&&opened>0?Math.max(0,(Date.now()-opened)/60000):0,last=Date.parse(pos.lastConcentrationTrimAt||0),trimReady=(!Number.isFinite(last)||last<=0||Date.now()-last>=2700000)&&n(pos.concentrationTrimCount)<2,currentOpportunity=!!c&&trendEntryEligible(c)&&opportunityLane(c),winner=(Number.isFinite(ret)&&ret>2)||(Number.isFinite(peak)&&peak>=8)||pos.tp1Done||pos.tp2Done||pos.tp3Done||pos.profitProtectDone,longLoser=ageMin>=360&&share>=.12&&Number.isFinite(ret)&&ret<=-3&&n(peak)<3,concentratedStagnant=ageMin>=180&&share>=.18&&Number.isFinite(ret)&&ret<=1.5&&n(peak)<3&&!currentOpportunity;return{pos,index,c,cost,share,ret,peak:n(peak),ageMin,trimReady,currentOpportunity,winner,longLoser,concentratedStagnant,priority:(longLoser?100:0)+(concentratedStagnant?50:0)+share*100-Math.max(0,n(ret))*2}}).filter(x=>x.trimReady&&!x.winner&&(x.longLoser||x.concentratedStagnant)).sort((a,b)=>b.priority-a.priority);
+            return rows[0]||null;
+          }
+          async function maybeConcentrationRelease(st){
+            const x=concentrationReleaseSource(st);if(!x)return null;const frac=x.ret<=-5?.30:x.ret<=-3?.25:.18,reason=x.longLoser?'AUTO_LONG_STAGNANT_LOSER_RELEASE':'AUTO_DRAWDOWN_CONCENTRATION_RELEASE';
+            try{const r=await sellFraction(st,x.index,frac,reason),a=ensureAutonomy(st);a.lastConcentrationReleaseAt=new Date().toISOString();const pos=st.positions.find(z=>z.mint===x.pos.mint);if(pos&&!r.closed){pos.concentrationTrimCount=n(pos.concentrationTrimCount)+1;pos.lastConcentrationTrimAt=new Date().toISOString();pos.scaleInLockedAfterProfit=true}atomic(statePath,st);event({type:'CAPITAL_CONCENTRATION_RELEASE',mint:x.pos.mint,symbol:x.pos.symbol,reason,fraction:frac,sharePct:x.share*100,ret:x.ret,peak:x.peak,ageMin:x.ageMin,drawdownPct:Math.max(0,(n(a.equityHighWaterLamports)-n(a.lastNetLiquidationEquityLamports))/Math.max(1,n(a.equityHighWaterLamports))*100),closed:r.closed});return{action:r.closed?'SELL':'PARTIAL_SELL',reason,symbol:x.pos.symbol}}catch(e){event({type:'CAPITAL_CONCENTRATION_RELEASE_FAIL',mint:x.pos.mint,symbol:x.pos.symbol,error:String(e?.message||e).slice(0,180)});return null}
+          }
+          """+marker
+          rep(marker,insert,'CONCENTRATION_RELEASE_HOOK')
+
+          old="const gate=read(GATE,{allowed:false}),st=normalizeState(read(statePath,{})),p=rootPolicy();await observeCapital(st);const emergency=await safetyPass(st,gate);if(emergency)return emergency;const managed=await manageOnePosition(st,gate,p);if(managed)return managed;"
+          new=old+"if(gate.allowed){const release=await maybeConcentrationRelease(st);if(release)return release;}"
+          rep(old,new,'TICK_CONCENTRATION_RELEASE')
+
+          rep("exitPreviewBackoffUntil=Date.now()+600_000","exitPreviewBackoffUntil=Date.now()+Math.min(2_400_000,600_000*Math.pow(2,Math.min(2,Math.max(0,exitPreviewRateLimits-1))))",'PROGRESSIVE_EXIT_BACKOFF')
+
+          rep("console.log('V424_EXIT_BACKOFF_600S=TRUE');","console.log('V424_EXIT_BACKOFF_600S=TRUE');console.log('V425_SIGNER_COMPATIBLE_IDLE_PROBE=TRUE');console.log('V425_DRAWDOWN_CONCENTRATION_RELEASE=TRUE');console.log('V425_STAGNANT_LOSER_RELEASE=TRUE');console.log('V425_PROGRESSIVE_EXIT_BACKOFF=TRUE');",'V425_MARKERS')
+          p.write_text(s)
+          PY
+          node --check "$C"
+          OUT=$(node "$C" --self-test); printf '%s\n' "$OUT"
+          for M in MICRO_EXECUTOR_V360_PROFIT_AWARE_SELF_TEST=PASS V418_WINNER_ONLY_SCALE=TRUE V421_DEGRADED_QUOTE_PANIC_SELL_GUARD=TRUE V424_MIN_ORDER_DEADLOCK_FIXED=TRUE V425_SIGNER_COMPATIBLE_IDLE_PROBE=TRUE V425_DRAWDOWN_CONCENTRATION_RELEASE=TRUE V425_STAGNANT_LOSER_RELEASE=TRUE V425_PROGRESSIVE_EXIT_BACKOFF=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V425_SHA=$SHA
+          OLD_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1)
+          cp "$E" "$RT/v425-pre-active-executor.js"; cp "$C" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          ORIG="$RT/v425-run-paper-original.sh"; REQ="$RT/v425-recycle.request"; cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"; printf '%s\n' "$OLD_PID" > "$REQ"; chmod 664 "$REQ"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; rm -f "$REQ" 2>/dev/null || true; }; trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          REQ=/opt/meme-alpha/app/runtime-status/v425-recycle.request
+          ORIG=/opt/meme-alpha/app/runtime-status/v425-run-paper-original.sh
+          if [ -r "$REQ" ]; then PID=$(cat "$REQ" 2>/dev/null||true); rm -f "$REQ" 2>/dev/null||true; if [ -n "$PID" ] && [ -r "/proc/$PID/cmdline" ]; then CMD=$(tr '\0' ' ' < "/proc/$PID/cmdline" 2>/dev/null||true); case "$CMD" in *'/opt/meme-alpha/app/src/micro-live-executor.js'*) kill -USR2 "$PID" 2>/dev/null||true;; esac; fi; fi
+          exec "$ORIG"
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          NEW_PID=''; for i in $(seq 1 65); do sleep 2; NEW_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1||true); if [ -n "$NEW_PID" ] && [ "$NEW_PID" != "$OLD_PID" ] && systemctl is-active --quiet meme-alpha-micro-live.service; then break; fi; [ "$i" -lt 65 ] || exit 9; done
+          cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; rm -f "$REQ"; trap - EXIT
+          echo OLD_PID=$OLD_PID; echo NEW_PID=$NEW_PID; echo ACTIVE_SHA=$(sha256sum "$E"|awk '{print $1}'); [ "$NEW_PID" != "$OLD_PID" ]; [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          sleep 150
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def load(n): p=rt/n; return json.loads(p.read_text()),round(time.time()-p.stat().st_mtime,2)
+          g,ga=load('micro-live-gate.json'); co,ca=load('capital-observability.json'); rp,ra=load('realtime-pool-pulse.json'); po,pa=load('portfolio-observability.json'); al,aa=load('allocator-status.json')
+          print('GATE',ga,{k:g.get(k) for k in ['allowed','armOk','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']}); print('CAPITAL',ca,co); print('ALLOC',aa,al); print('REALTIME',ra,{k:rp.get(k) for k in ['status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','lastError']}); print('PORTFOLIO',pa,{k:po.get(k) for k in ['openPositions','stateReadable']})
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True
+          assert rp.get('status')=='HEALTHY' and int(rp.get('heldUnresolved') or 0)==0 and int(rp.get('heldSubscriptions') or 0)>=int(rp.get('heldTotal') or 0) and po.get('stateReadable') is True
+          assert int(co.get('exitPreviewRequests') or 0)<=3
+          PY
+          echo V425_CAPITAL_RECOVERY=ACTIVE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
