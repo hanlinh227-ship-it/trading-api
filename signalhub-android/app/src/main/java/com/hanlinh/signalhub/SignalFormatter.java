@@ -10,8 +10,14 @@ public final class SignalFormatter {
 
     public static JSONObject unwrap(String raw) throws Exception {
         JSONObject root = new JSONObject(raw);
-        if (root.optJSONObject("scan") != null) return root.optJSONObject("scan");
-        if (root.optJSONObject("result") != null) return root.optJSONObject("result");
+        // /latest-scan wraps the actual scan payload in "snapshot".
+        // /run-now may return the scan directly, while older gateways used
+        // "scan" or "result". Support all of them so the dashboard and
+        // notifications parse the same payload reliably.
+        for (String key : new String[]{"snapshot", "scan", "result"}) {
+            JSONObject nested = root.optJSONObject(key);
+            if (nested != null) return nested;
+        }
         return root;
     }
 
