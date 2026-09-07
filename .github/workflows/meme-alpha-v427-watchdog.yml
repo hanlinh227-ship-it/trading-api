@@ -1,0 +1,8 @@
+name: Meme Alpha V427 Watchdog
+on:
+  workflow_dispatch:
+jobs:
+  watchdog:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - run: echo watchdog
