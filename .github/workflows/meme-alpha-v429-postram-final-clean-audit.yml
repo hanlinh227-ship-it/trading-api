@@ -1,0 +1,58 @@
+name: Meme Alpha V429 Post-RAM Final Clean Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v429-postram-final-clean-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Independent final runtime audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; MICRO=meme-alpha-micro-live.service
+          echo '=== PROCESS GENERATION ==='
+          SRC_EPOCH=$(stat -c %Y "$E")
+          PID=$(systemctl show "$MICRO" -p MainPID --value)
+          START_TXT=$(systemctl show "$MICRO" -p ExecMainStartTimestamp --value)
+          START_EPOCH=$(date -d "$START_TXT" +%s)
+          echo SRC_EPOCH=$SRC_EPOCH PID=$PID START="$START_TXT" START_EPOCH=$START_EPOCH
+          test "$PID" != 0
+          test "$START_EPOCH" -ge "$SRC_EPOCH"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do echo $svc=$(systemctl is-active "$svc"); test "$(systemctl is-active "$svc")" = active; done
+          echo '=== SELF TEST ==='
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          printf '%s\n' "$OUT" | grep -E 'V429_|V428_|V427_|V426_|HARD_SECURITY|FAILSAFE' || true
+          for M in V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          echo '=== RUNTIME SNAPSHOT ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def ld(n):
+              p=rt/n; return json.loads(p.read_text()),time.time()-p.stat().st_mtime
+          g,ga=ld('micro-live-gate.json'); c,ca=ld('capital-observability.json'); a,aa=ld('allocator-status.json'); p,pa=ld('portfolio-observability.json'); r,ra=ld('realtime-pool-pulse.json')
+          print('GATE',{'ageSec':round(ga,2),'allowed':g.get('allowed'),'armOk':g.get('armOk'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons')})
+          print('CAPITAL',{'ageSec':round(ca,2),'version':c.get('capitalVelocityVersion'),'walletSol':c.get('walletSol'),'netEqSol':c.get('netLiquidationEquitySol'),'ddPct':c.get('equityDrawdownPct'),'deployableSol':c.get('deployableSol'),'deployablePct':c.get('deployablePct'),'openPositions':c.get('openPositions'),'rateLimits':c.get('exitPreviewRateLimits'),'cacheHits':c.get('exitPreviewCacheHits'),'backoffRemainingMs':c.get('exitPreviewBackoffRemainingMs'),'learningClosed':c.get('learningClosed'),'learningWins':c.get('learningWins'),'learningMeanRet':c.get('learningMeanReturnPct')})
+          print('ALLOCATOR',{'ageSec':round(aa,2),'action':a.get('action'),'reason':a.get('reason'),'symbol':a.get('symbol'),'targetSymbol':a.get('targetSymbol'),'openPositions':a.get('openPositions'),'scaleAllowed':a.get('scaleAllowed')})
+          print('PORTFOLIO',{'ageSec':round(pa,2),'stateReadable':p.get('stateReadable'),'openPositions':p.get('openPositions'),'stateVersion':p.get('stateVersion')})
+          rows=r.get('rows') or []; held=[x for x in rows if x.get('held')]
+          mem=[{'symbol':x.get('symbol'),'lastEventAgeMs':x.get('lastEventAgeMs'),'events15s':x.get('events15s')} for x in held if x.get('memoryFallback')]
+          stale=[{'symbol':x.get('symbol'),'memoryFallback':x.get('memoryFallback',False),'lastEventAgeMs':x.get('lastEventAgeMs'),'events15s':x.get('events15s')} for x in held if x.get('lastEventAgeMs') is None or (isinstance(x.get('lastEventAgeMs'),(int,float)) and x.get('lastEventAgeMs')>300000)]
+          print('REALTIME',{'ageSec':round(ra,2),'status':r.get('status'),'websocketOpen':r.get('websocketOpen'),'heldTotal':r.get('heldTotal'),'heldResolved':r.get('heldResolved'),'heldUnresolved':r.get('heldUnresolved'),'heldCoveragePct':r.get('heldCoveragePct'),'heartbeatAgeMs':r.get('heartbeatAgeMs'),'reconnectFailures':r.get('reconnectFailures'),'pendingTimeouts':r.get('pendingTimeouts'),'reconcileErrors':r.get('reconcileErrors'),'writeErrors':r.get('writeErrors')})
+          print('MEMORY_FALLBACK_COUNT',len(mem)); print('MEMORY_FALLBACK',mem)
+          print('STALE_GT5M_COUNT',len(stale)); print('STALE_GT5M',stale)
+          assert c.get('capitalVelocityVersion')=='V429'
+          assert isinstance(c.get('deployablePct'),(int,float)) and isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float))
+          assert a.get('action')!='ERROR'
+          assert p.get('stateReadable') is True
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and r.get('websocketOpen') is True and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert int(r.get('reconnectFailures') or 0)==0 and int(r.get('reconcileErrors') or 0)==0 and int(r.get('writeErrors') or 0)==0
+          PY
+          echo '=== RECENT ERRORS 30M ==='
+          journalctl --since '30 minutes ago' -u meme-alpha-paper.service -u meme-alpha-micro-live.service -u meme-alpha-signer.service --no-pager 2>/dev/null | grep -Ei 'EXECUTOR_ERROR|FATAL|UNHANDLED|exception|SIGNER.*(ERROR|FAIL)|BUY.*FAIL|SELL.*FAIL|ROTATION.*FAIL|SCALE.*FAIL|CONFLICT' | tail -120 || true
+          echo V429_POSTRAM_FINAL_CRITICAL_AUDIT=PASS
