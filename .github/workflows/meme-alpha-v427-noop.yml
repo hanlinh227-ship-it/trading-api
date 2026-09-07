@@ -1,0 +1,8 @@
+name: Meme Alpha V427 Noop
+on:
+  workflow_dispatch:
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo noop
