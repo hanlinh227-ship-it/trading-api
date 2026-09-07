@@ -1,0 +1,92 @@
+name: Meme Alpha V426 Cross Layer Conflict Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v426-conflict-audit.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Audit executor signer allocation exit conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; S=/opt/meme-alpha-signer/ready_signer.py; RUN="$APP/run-paper.sh"; ORIG="$RT/v426-run-paper-original.sh"; OUT="$RT/v426-conflict-audit.txt"
+          echo '=== SOURCE ==='
+          echo EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}')
+          echo EXECUTOR_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1)
+          python3 - "$E" "$S" <<'PY'
+          import pathlib,sys,re
+          e=pathlib.Path(sys.argv[1]).read_text()
+          s=pathlib.Path(sys.argv[2]).read_text(errors='ignore') if pathlib.Path(sys.argv[2]).exists() else ''
+          def block(src,name,span=4200):
+            i=src.find(name); print('\n###',name); print(src[i:i+span] if i>=0 else 'NOT_FOUND')
+          for n in ['function allocationProfile','function targetPlan','function placeBuy','function scalePositionEligible','function newEntryMode','function idleCapitalProbeEligible','function concentrationReleaseSource','async function maybeConcentrationRelease','function rotationSource','async function maybeRotate','async function manageOnePosition','async function previewExitReturn','async function tick']:
+            block(e,n)
+          print('\n=== STATIC_CONFLICT_CHECKS ===')
+          checks={
+            'rotation_only_headroom': "if(r.reason==='CAPITAL_HEADROOM_LOW'){const rotate=await maybeRotate" in e,
+            'concentration_after_manage': 'const managed=await manageOnePosition(st,gate,p);if(managed)return managed;if(gate.allowed){const release=await maybeConcentrationRelease(st)' in e,
+            'concentration_sets_profit_lock': 'pos.scaleInLockedAfterProfit=true' in e,
+            'probe_requires_trend': "if(trendEntryEligible(c)&&idleCapitalProbeEligible(c))return 'IDLE_PROBE'" in e,
+            'stale_candidate_counts_not_opportunity': 'currentOpportunity=!!c&&trendEntryEligible(c)&&opportunityLane(c)' in e,
+            'backoff_progressive': 'Math.min(2_400_000,600_000*Math.pow(2' in e,
+          }
+          for k,v in checks.items(): print(k,'=',v)
+          print('\n=== SIGNER MATCHES ===')
+          for pat in ['TREND_SIGNAL_NOT_ELIGIBLE','minOrder','hourly','turnover','reserve','priceImpact','trend']:
+            print('\n--',pat,'--')
+            hits=[m.start() for m in re.finditer(pat,s,re.I)]
+            for i in hits[:8]: print(s[max(0,i-450):i+900])
+          PY
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }; trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v426-conflict-audit.txt 2>&1 || true
+          import json,pathlib,collections,datetime,time
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          st=json.loads((base/'state.json').read_text())
+          cutoff='2026-09-07T01:40:45Z'
+          ev=[]
+          p=base/'events.jsonl'
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-30000:]:
+              try:
+                x=json.loads(line)
+                if str(x.get('timestamp',''))>=cutoff: ev.append(x)
+              except: pass
+          print('POST_V425_EVENTS',len(ev))
+          print('POST_V425_TYPES',dict(collections.Counter(x.get('type') for x in ev)))
+          print('POST_V425_SKIPS',dict(collections.Counter(str(x.get('reason')) for x in ev if x.get('type') in ('BUY_CANDIDATE_SKIP','SCALE_CANDIDATE_SKIP'))))
+          keys={'CAPITAL_CONCENTRATION_RELEASE','CAPITAL_CONCENTRATION_RELEASE_FAIL','AUTO_ROTATION','WINNER_ROTATION','MICRO_BUY','MICRO_SCALE_IN','MICRO_SELL','MICRO_PARTIAL_SELL','EXECUTOR_ERROR','EXIT_PREVIEW_FAIL','NO_QUOTE_SOFT_EXIT_SUPPRESSED'}
+          for x in [z for z in ev if z.get('type') in keys][-120:]: print(json.dumps(x,separators=(',',':')))
+          total=sum(float(x.get('costBasisLamports') or 0) for x in st.get('positions') or []) or 1
+          rows=[]
+          now=datetime.datetime.now(datetime.timezone.utc)
+          for x in st.get('positions') or []:
+            age=None
+            try: age=(now-datetime.datetime.fromisoformat(str(x.get('openedAt')).replace('Z','+00:00'))).total_seconds()/60
+            except: pass
+            rows.append({'symbol':x.get('symbol'),'costSol':float(x.get('costBasisLamports') or 0)/1e9,'sharePct':float(x.get('costBasisLamports') or 0)/total*100,'ret':x.get('lastReturnPct'),'peak':x.get('peakReturnPct'),'ageMin':age,'adds':x.get('addCount'),'concTrims':x.get('concentrationTrimCount'),'lastConcTrim':x.get('lastConcentrationTrimAt'),'profitLock':x.get('scaleInLockedAfterProfit'),'lastMarkAt':x.get('lastMarkAt'),'previewDegradedUntil':x.get('previewDegradedUntil')})
+          rows.sort(key=lambda z:z['costSol'],reverse=True)
+          print('POSITIONS',json.dumps(rows,separators=(',',':')))
+          print('TOP3_SHARE',sum(x['sharePct'] for x in rows[:3]))
+          print('LEARNING',json.dumps(st.get('learning'),separators=(',',':')))
+          print('AUTONOMY',json.dumps(st.get('autonomy'),separators=(',',':')))
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v426-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 30); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          echo '=== RUNTIME FILES ==='
+          for f in capital-observability.json allocator-status.json micro-live-gate.json realtime-pool-pulse.json portfolio-observability.json; do echo "--- $f ---"; cat "$RT/$f"; done
+          echo '=== PROTECTED STATE AUDIT ==='; cat "$OUT"
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          echo V426_CONFLICT_AUDIT=PASS
