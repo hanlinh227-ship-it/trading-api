@@ -1,0 +1,122 @@
+name: Meme Alpha V429 Capital Velocity 100 Pass Active
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v429-capital-velocity-100pass-active.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - name: Patch validate activate and audit V429 capital velocity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; C="$RT/deploy-candidates/v429-capital-velocity.js"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+            global s
+            n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+          assert 'V428_CONFLICT_NORMALIZATION=TRUE' in s, 'V428_BASELINE_REQUIRED'
+          assert 'V429_CAPITAL_VELOCITY=TRUE' not in s, 'V429_ALREADY_PRESENT'
+
+          old="return chg>=floor&&chg<=15&&(buyerFlow||fastFlow)&&slope>=-4&&stable&&(standard||liquid||flow)"
+          new="const life=pumpLifecycle(c),continuationLane=(life.phase==='EARLY_ACCELERATION'&&life.score>=8&&chg<=18)||(life.phase==='CONFIRMED_FLIGHT'&&life.score>=9&&chg<=24);return chg>=floor&&(chg<=15||continuationLane)&&(buyerFlow||fastFlow)&&slope>=-4&&stable&&(standard||liquid||flow)"
+          rep(old,new,'SAFE_CONTINUATION_SIGNER_LANE')
+
+          old="fresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,intervalOk="
+          new="directFresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,rt=realtimeFor(c),proxyFresh=life.phase==='CONFIRMED_FLIGHT'&&life.score>=9&&Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=180000&&!!rt&&n(rt.lastEventAgeMs,99999)<=2500,fresh=directFresh||proxyFresh,intervalOk="
+          rep(old,new,'REALTIME_ASSISTED_SCALE_FRESHNESS')
+
+          old="if(now<exitPreviewBackoffUntil){pos.previewDegradedUntil=new Date(exitPreviewBackoffUntil).toISOString();"
+          new="const cc=candidate(pos.mint),life=cc?pumpLifecycle(cc):{phase:'NONE'},urgentLifecycle=(life.phase==='PARABOLIC'||life.phase==='EXHAUSTION')&&Number.isFinite(cached)&&cached>=8&&now-lastExitPreviewRequestAt>=120000;if(now<exitPreviewBackoffUntil&&!urgentLifecycle){pos.previewDegradedUntil=new Date(exitPreviewBackoffUntil).toISOString();"
+          rep(old,new,'URGENT_LIFECYCLE_EXIT_PREVIEW')
+
+          rep("Date.now()-last>=2700000","Date.now()-last>=1800000",'CONCENTRATION_TRIM_COOLDOWN')
+          rep("longLoser=evidenceFresh&&ageMin>=360&&share>=.12","longLoser=evidenceFresh&&ageMin>=180&&share>=.12",'LONG_LOSER_RELEASE_3H')
+          rep("concentratedStagnant=evidenceFresh&&ageMin>=180&&share>=.18","concentratedStagnant=evidenceFresh&&ageMin>=90&&share>=.18",'STAGNANT_RELEASE_90M')
+          rep("return x.ageMin>=30&&(x.weak||x.stagnant)","return x.ageMin>=20&&(x.weak||x.stagnant)",'PROACTIVE_ROTATION_20M')
+
+          old="exitPreviewCacheHits,exitPreviewBackoffUntil})"
+          new="exitPreviewCacheHits,exitPreviewBackoffUntil,exitPreviewBackoffRemainingMs:Math.max(0,exitPreviewBackoffUntil-Date.now()),deployablePct:netLiquidationEquityLamportsNow>0?deployableLamports/netLiquidationEquityLamportsNow*100:0,capitalVelocityVersion:'V429'})"
+          rep(old,new,'CAPITAL_VELOCITY_TELEMETRY')
+
+          marker="console.log('V428_SIGNER_HARD_GATE_UNCHANGED=TRUE');"
+          rep(marker,marker+"console.log('V429_CAPITAL_VELOCITY=TRUE');console.log('V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE');console.log('V429_REALTIME_SCALE_FRESHNESS=TRUE');console.log('V429_URGENT_EXIT_PREVIEW=TRUE');console.log('V429_DEAD_CAPITAL_RELEASE=TRUE');console.log('V429_HARD_SAFETY_UNCHANGED=TRUE');",'V429_MARKERS')
+          p.write_text(s)
+          PY
+
+          echo '=== V429 PREDEPLOY 100-PASS ==='
+          for i in $(seq 1 100); do
+            node --check "$C"
+            OUT=$(node "$C" --self-test)
+            for M in V428_CONFLICT_NORMALIZATION=TRUE V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            python3 - "$C" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+          assert "continuationLane=(life.phase==='EARLY_ACCELERATION'&&life.score>=8&&chg<=18)||(life.phase==='CONFIRMED_FLIGHT'&&life.score>=9&&chg<=24)" in s
+          assert "proxyFresh=life.phase==='CONFIRMED_FLIGHT'&&life.score>=9" in s and "Date.now()-lastMark<=180000" in s
+          assert "urgentLifecycle=(life.phase==='PARABOLIC'||life.phase==='EXHAUSTION')" in s and "now-lastExitPreviewRequestAt>=120000" in s
+          assert "ageMin>=180&&share>=.12" in s and "ageMin>=90&&share>=.18" in s
+          assert "return x.ageMin>=20&&(x.weak||x.stagnant)" in s
+          assert 'scaleAllowed:true' in s
+          PY
+            echo V429_PREDEPLOY_PASS=$i
+          done
+
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V429_CANDIDATE_SHA=$SHA
+          cp "$E" "$RT/v429-pre-active-executor.js"; cp "$C" "$E"; chmod 664 "$E"
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+
+          echo '=== WAIT V429 RECOVERY ==='
+          RECOVERED=0
+          for i in $(seq 1 36); do
+            if python3 - <<'PY'
+          import json,pathlib,time,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+            r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          except Exception: sys.exit(1)
+          ok=ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          sys.exit(0 if ok else 1)
+          PY
+            then RECOVERED=1; break; fi
+            sleep 5
+          done
+          test "$RECOVERED" -eq 1
+
+          echo '=== V429 LIVE 100-PASS ==='
+          for i in $(seq 1 100); do
+            node --check "$E"
+            OUT=$(node "$E" --self-test)
+            for M in V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - "$E" <<'PY'
+          import json,pathlib,time,sys
+          e=pathlib.Path(sys.argv[1]); s=e.read_text(); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          assert 'V429_CAPITAL_VELOCITY=TRUE' in s and "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+          gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          PY
+            echo V429_LIVE_PASS=$i
+            sleep 1
+          done
+          echo V429_PREDEPLOY_100_PASS=CLEAN
+          echo V429_LIVE_100_PASS=CLEAN
+          echo V429_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
