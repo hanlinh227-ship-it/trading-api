@@ -1,0 +1,67 @@
+name: Meme Alpha V425 Stagnation Concentration Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v425-stagnation-concentration-audit.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Audit current stagnation and concentration
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; RUN="$APP/run-paper.sh"; ORIG="$RT/v425-run-paper-original.sh"; OUT="$RT/v425-stagnation.txt"
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }; trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v425-stagnation.txt 2>&1 || true
+          import json,pathlib,collections,time
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          st=json.loads((base/'state.json').read_text())
+          ev=[]; p=base/'events.jsonl'
+          if p.exists():
+            for line in p.read_text(errors='ignore').splitlines()[-25000:]:
+              try: ev.append(json.loads(line))
+              except: pass
+          print('STATE_VERSION',st.get('version'))
+          print('OPEN_POSITIONS',len(st.get('positions') or []))
+          total=sum(float(x.get('costBasisLamports') or 0) for x in st.get('positions') or []) or 1
+          rows=[]
+          now=time.time()*1000
+          for x in st.get('positions') or []:
+            opened=x.get('openedAt'); ageMin=None
+            try:
+              import datetime
+              ageMin=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(opened.replace('Z','+00:00'))).total_seconds()/60 if opened else None
+            except: pass
+            rows.append({'symbol':x.get('symbol'),'mint':x.get('mint'),'costSol':float(x.get('costBasisLamports') or 0)/1e9,'sharePct':float(x.get('costBasisLamports') or 0)/total*100,'ret':x.get('lastReturnPct'),'peak':x.get('peakReturnPct'),'adds':x.get('addCount'),'ageMin':ageMin,'weak':x.get('weakExitCount'),'lastMarkAt':x.get('lastMarkAt'),'previewDegradedUntil':x.get('previewDegradedUntil')})
+          rows.sort(key=lambda z:z['costSol'],reverse=True)
+          print('POSITIONS',json.dumps(rows,separators=(',',':')))
+          print('TOP3_SHARE_PCT',sum(x['sharePct'] for x in rows[:3]))
+          types=collections.Counter(x.get('type') for x in ev[-8000:])
+          print('EVENT_TYPES_LAST8000',dict(types))
+          skips=collections.Counter(str(x.get('reason')) for x in ev[-8000:] if x.get('type') in ('BUY_CANDIDATE_SKIP','SCALE_CANDIDATE_SKIP'))
+          print('SKIP_REASONS',dict(skips))
+          rots=[x for x in ev[-8000:] if x.get('type') in ('AUTO_ROTATION','WINNER_ROTATION')]
+          print('ROTATIONS',len(rots),json.dumps(rots[-20:],separators=(',',':')))
+          sells=[x for x in ev[-8000:] if x.get('type') in ('MICRO_SELL','MICRO_PARTIAL_SELL')]
+          print('SELLS',len(sells),json.dumps(sells[-20:],separators=(',',':')))
+          print('LEARNING',json.dumps(st.get('learning'),separators=(',',':')))
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v425-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 25); do [ -s "$OUT" ] && break; sleep 1; done
+          test -s "$OUT"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          echo '=== CAPITAL ==='; cat "$RT/capital-observability.json"
+          echo '=== ALLOC ==='; cat "$RT/allocator-status.json"
+          echo '=== GATE ==='; cat "$RT/micro-live-gate.json"
+          echo '=== AUDIT ==='; cat "$OUT"
+          echo '=== SOURCE SHA/PID ==='; sha256sum /opt/meme-alpha/app/src/micro-live-executor.js; pgrep -af '/opt/meme-alpha/app/src/micro-live-executor.js' || true
+          echo V425_STAGNATION_AUDIT=PASS
