@@ -1,0 +1,145 @@
+name: Meme Alpha V4291 Runtime Generation Guard
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v4291-runtime-generation-guard.yml'
+jobs:
+  install:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Install self-healing disk-to-RAM generation guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          PAPER="$APP/run-paper.sh"
+          C="$RT/run-paper-v4291-generation-guard.candidate.sh"
+          B="$RT/run-paper-v4291-generation-guard.backup.sh"
+          cp "$PAPER" "$B"
+          cp "$PAPER" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          assert 'V4291_MICRO_LIVE_GENERATION_GUARD' not in s
+          old='CAPITAL_BRIDGE_PID=""\n'
+          assert s.count(old)==1
+          s=s.replace(old,old+'GENERATION_GUARD_PID=""\n',1)
+          anchor='cleanup_runtime_helpers() {\n'
+          assert s.count(anchor)==1
+          guard=r'''# V4291_MICRO_LIVE_GENERATION_GUARD
+          emit_generation_guard_status() {
+            local state="${1:-UNKNOWN}" src_epoch="${2:-0}" start_epoch="${3:-0}" pid="${4:-0}" note="${5:-NONE}"
+            local out="/opt/meme-alpha/app/runtime-status/micro-live-generation-guard.json"
+            local tmp="$out.tmp"
+            printf '{\n  "version": "V4291_RUNTIME_GENERATION_GUARD",\n  "updatedAt": "%s",\n  "state": "%s",\n  "sourceEpoch": %s,\n  "processStartEpoch": %s,\n  "pid": %s,\n  "note": "%s"\n}\n' \
+              "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$state" "$src_epoch" "$start_epoch" "$pid" "$note" > "$tmp" 2>/dev/null || return 0
+            chmod 0664 "$tmp" 2>/dev/null || true
+            mv -f "$tmp" "$out" 2>/dev/null || rm -f "$tmp" 2>/dev/null || true
+          }
+          start_generation_guard() {
+            (
+              local src="/opt/meme-alpha/app/src/micro-live-executor.js"
+              local svc="meme-alpha-micro-live.service"
+              local last_emit=0
+              while true; do
+                local src_epoch pid start_txt start_epoch now
+                src_epoch=$(stat -c %Y "$src" 2>/dev/null || echo 0)
+                pid=$(systemctl show "$svc" -p MainPID --value 2>/dev/null || echo 0)
+                start_txt=$(systemctl show "$svc" -p ExecMainStartTimestamp --value 2>/dev/null || true)
+                start_epoch=$(date -d "$start_txt" +%s 2>/dev/null || echo 0)
+                now=$(date +%s)
+                if [[ "$src_epoch" =~ ^[0-9]+$ && "$pid" =~ ^[0-9]+$ && "$start_epoch" =~ ^[0-9]+$ ]] && [ "$src_epoch" -gt 0 ] && [ "$pid" -gt 0 ] && [ "$src_epoch" -gt "$start_epoch" ]; then
+                  local sha1 sha2 src_epoch2 pid2 start_txt2 start_epoch2 policy new_pid new_start_txt new_start_epoch reloaded
+                  sha1=$(sha256sum "$src" 2>/dev/null | awk '{print $1}' || true)
+                  sleep 10
+                  sha2=$(sha256sum "$src" 2>/dev/null | awk '{print $1}' || true)
+                  src_epoch2=$(stat -c %Y "$src" 2>/dev/null || echo 0)
+                  pid2=$(systemctl show "$svc" -p MainPID --value 2>/dev/null || echo 0)
+                  start_txt2=$(systemctl show "$svc" -p ExecMainStartTimestamp --value 2>/dev/null || true)
+                  start_epoch2=$(date -d "$start_txt2" +%s 2>/dev/null || echo 0)
+                  if [ -n "$sha1" ] && [ "$sha1" = "$sha2" ] && [ "$src_epoch" = "$src_epoch2" ] && [[ "$pid2" =~ ^[0-9]+$ ]] && [ "$pid2" -gt 0 ] && [[ "$start_epoch2" =~ ^[0-9]+$ ]] && [ "$src_epoch2" -gt "$start_epoch2" ]; then
+                    if /usr/bin/node --check "$src" >/dev/null 2>&1; then
+                      policy=$(systemctl show "$svc" -p Restart --value 2>/dev/null || true)
+                      if [ "$policy" = "on-failure" ] || [ "$policy" = "on-abnormal" ] || [ "$policy" = "on-abort" ]; then
+                        emit_generation_guard_status "RELOADING" "$src_epoch2" "$start_epoch2" "$pid2" "STALE_RAM_DETECTED"
+                        kill -KILL "$pid2" 2>/dev/null || true
+                        reloaded=0
+                        for _ in $(seq 1 30); do
+                          sleep 1
+                          new_pid=$(systemctl show "$svc" -p MainPID --value 2>/dev/null || echo 0)
+                          new_start_txt=$(systemctl show "$svc" -p ExecMainStartTimestamp --value 2>/dev/null || true)
+                          new_start_epoch=$(date -d "$new_start_txt" +%s 2>/dev/null || echo 0)
+                          if [[ "$new_pid" =~ ^[0-9]+$ ]] && [ "$new_pid" -gt 0 ] && [ "$new_pid" != "$pid2" ] && [[ "$new_start_epoch" =~ ^[0-9]+$ ]] && [ "$new_start_epoch" -ge "$src_epoch2" ] && [ "$(systemctl is-active "$svc" 2>/dev/null || true)" = "active" ]; then reloaded=1; break; fi
+                        done
+                        if [ "$reloaded" -eq 1 ]; then emit_generation_guard_status "CLEAN" "$src_epoch2" "$new_start_epoch" "$new_pid" "AUTO_RELOADED_STALE_RAM"; else emit_generation_guard_status "RELOAD_FAILED" "$src_epoch2" "$start_epoch2" "$pid2" "SYSTEMD_DID_NOT_RECOVER"; fi
+                      else
+                        emit_generation_guard_status "BLOCKED" "$src_epoch2" "$start_epoch2" "$pid2" "UNSAFE_RESTART_POLICY"
+                      fi
+                    else
+                      emit_generation_guard_status "BLOCKED" "$src_epoch2" "$start_epoch2" "$pid2" "SOURCE_SYNTAX_INVALID"
+                    fi
+                  fi
+                elif [ $((now-last_emit)) -ge 30 ]; then
+                  emit_generation_guard_status "CLEAN" "$src_epoch" "$start_epoch" "$pid" "PROCESS_CURRENT"
+                  last_emit=$now
+                fi
+                sleep 5
+              done
+            ) &
+            GENERATION_GUARD_PID=$!
+            echo "V4291_GENERATION_GUARD_PID=$GENERATION_GUARD_PID"
+          }
+          # V4291_MICRO_LIVE_GENERATION_GUARD_END
+          '''
+          s=s.replace(anchor,guard+anchor,1)
+          old_cleanup='''cleanup_runtime_helpers() {
+            cleanup_new_listing_radar
+            [ -n "${CAPITAL_BRIDGE_PID:-}" ] && kill "$CAPITAL_BRIDGE_PID" 2>/dev/null || true
+          }
+          '''
+          assert s.count(old_cleanup)==1
+          new_cleanup='''cleanup_runtime_helpers() {
+            cleanup_new_listing_radar
+            [ -n "${CAPITAL_BRIDGE_PID:-}" ] && kill "$CAPITAL_BRIDGE_PID" 2>/dev/null || true
+            [ -n "${GENERATION_GUARD_PID:-}" ] && kill "$GENERATION_GUARD_PID" 2>/dev/null || true
+          }
+          '''
+          s=s.replace(old_cleanup,new_cleanup,1)
+          old_start='start_new_listing_radar\nstart_capital_bridge\n\n# V305_LIVE_FRESHNESS_GUARD'
+          assert s.count(old_start)==1
+          s=s.replace(old_start,'start_new_listing_radar\nstart_capital_bridge\nstart_generation_guard\n\n# V305_LIVE_FRESHNESS_GUARD',1)
+          p.write_text(s)
+          PY
+          bash -n "$C"
+          grep -q 'V4291_MICRO_LIVE_GENERATION_GUARD' "$C"
+          grep -q 'start_generation_guard' "$C"
+          grep -q 'SOURCE_SYNTAX_INVALID' "$C"
+          grep -q 'AUTO_RELOADED_STALE_RAM' "$C"
+          cp "$C" "$PAPER"
+          chmod 755 "$PAPER"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          READY=0
+          for i in $(seq 1 30); do
+            sleep 1
+            if [ "$(systemctl is-active meme-alpha-paper.service)" = active ] && grep -q 'V4291_MICRO_LIVE_GENERATION_GUARD' "$PAPER" && [ -f "$RT/micro-live-generation-guard.json" ]; then READY=1; break; fi
+          done
+          if [ "$READY" -ne 1 ]; then
+            cp "$B" "$PAPER"; chmod 755 "$PAPER"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+            exit 1
+          fi
+          cat "$RT/micro-live-generation-guard.json"
+          python3 - <<'PY'
+          import json,time,pathlib,subprocess,os
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          g=json.loads((rt/'micro-live-generation-guard.json').read_text())
+          assert g.get('version')=='V4291_RUNTIME_GENERATION_GUARD'
+          assert g.get('state')=='CLEAN'
+          src='/opt/meme-alpha/app/src/micro-live-executor.js'
+          src_epoch=int(os.stat(src).st_mtime)
+          start_txt=subprocess.check_output(['systemctl','show','meme-alpha-micro-live.service','-p','ExecMainStartTimestamp','--value'],text=True).strip()
+          start_epoch=int(subprocess.check_output(['date','-d',start_txt,'+%s'],text=True).strip())
+          assert start_epoch>=src_epoch
+          PY
+          echo V4291_RUNTIME_GENERATION_GUARD=ACTIVE
+          echo V4291_CURRENT_PROCESS_GENERATION=CLEAN
