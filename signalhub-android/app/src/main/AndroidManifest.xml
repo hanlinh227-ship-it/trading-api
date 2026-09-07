@@ -9,7 +9,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="SignalHub"
+        android:label="SignalHub FX Tracker"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity
