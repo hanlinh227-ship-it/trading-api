@@ -1,0 +1,84 @@
+name: Meme Alpha V426C Final Independent Conflict Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v426c-final-conflict-audit.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Independently verify V426 cross-layer cleanliness
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; RUN="$APP/run-paper.sh"; OUT="$RT/v426c-final-audit.txt"; ORIG="$RT/v426c-run-paper-original.sh"
+          echo SOURCE_SHA=$(sha256sum "$E"|awk '{print $1}')
+          echo SOURCE_PID=$(pgrep -f '/opt/meme-alpha/app/src/micro-live-executor.js'|head -1)
+          [ "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1 ]
+          python3 - "$E" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          checks={
+            'release_marker':"V426_CONFLICT_CLEANUP=PASS" in s,
+            'signer_contract_exact_core':all(x in s for x in ["c.universeClass==='MEME_CONFIRMED'","c.securityDecision==='PASS'","c.holderClusterDecision==='PASS'","c.decision==='PROBE_CANDIDATE'","con<1||base<58","score>=72","score>=66&&liq>=500000","score>=62&&liq>=100000"]),
+            'signer_trend_fresh_10s':"runtimeFileFresh(trendPath,10000)" in s,
+            'ranking_unified':"filter(c=>!held.has(c.mint)&&entryReadiness(st,c,p).ready)" in s,
+            'placebuy_unified':"readiness=isAdd?null:entryReadiness(st,c,p)" in s,
+            'proactive_rotation':"if(proactiveRotationEligible(st,c))" in s,
+            'rotation_cooldown':"Date.now()-lastRotation<300000" in s,
+            'release_requires_fresh_evidence':"evidenceFresh=!!c&&runtimeFileFresh(SIGNAL,180000)" in s and "Date.now()-markAt<=600000" in s,
+            'no_false_concentration_lock':"pos.lastConcentrationTrimAt=new Date().toISOString();pos.scaleInLockedAfterProfit=true" not in s,
+            'partial_lock_reason_aware':"function partialSellLocksScale(reason)" in s and "if(partialSellLocksScale(reason)){pos.scaleInLockedAfterProfit=true" in s,
+            'release_scale_cooldown':"releaseCooldownOk" in s and "lastCapitalReleaseAt||pos.lastConcentrationTrimAt" in s,
+            'migration_false_lock':"n(pos.concentrationTrimCount)>0" in s and "pos.scaleInLockedAfterProfit=false" in s,
+            'allocator_reason_sync':all(x in s for x in ['IDLE_CAPITAL_WAITING_SIGNER_CONTRACT','IDLE_CAPITAL_WAITING_EXPECTANCY_EDGE']),
+            'hard_safety_preserved':all(x in s for x in ['HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT','V416_HARD_SAFETY_UNCHANGED=TRUE','V418_WINNER_ONLY_SCALE=TRUE']),
+            'scale_allowed_preserved':"scaleAllowed:true" in s,
+          }
+          print('STATIC_FINAL',checks); assert all(checks.values())
+          PY
+          cp -a "$RUN" "$ORIG"; chmod 755 "$ORIG"
+          cleanup(){ cp -a "$ORIG" "$RUN" 2>/dev/null || true; chmod 755 "$RUN" 2>/dev/null || true; }; trap cleanup EXIT
+          cat > "$RUN" <<'SH'
+          #!/bin/bash
+          set -u
+          python3 - <<'PY' >/opt/meme-alpha/app/runtime-status/v426c-final-audit.txt 2>&1 || true
+          import json,pathlib,collections
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live'); cut='2026-09-07T02:10:44Z'; ev=[]
+          for line in (base/'events.jsonl').read_text(errors='ignore').splitlines()[-50000:]:
+            try:
+              x=json.loads(line)
+              if str(x.get('timestamp',''))>=cut: ev.append(x)
+            except: pass
+          tr=[x for x in ev if 'SIGNER_TREND_SIGNAL_NOT_ELIGIBLE' in str(x.get('reason','')) or 'SIGNER_TREND_SIGNAL_NOT_ELIGIBLE' in str(x.get('error',''))]
+          errs=[x for x in ev if x.get('type') in ('EXECUTOR_ERROR','UNHANDLED_REJECTION_RESTART','UNCAUGHT_EXCEPTION_RESTART')]
+          print('EVENTS',len(ev)); print('TYPES',dict(collections.Counter(x.get('type') for x in ev))); print('SKIPS',dict(collections.Counter(str(x.get('reason')) for x in ev if x.get('type') in ('BUY_CANDIDATE_SKIP','SCALE_CANDIDATE_SKIP')))); print('SIGNER_TREND_CONFLICTS',len(tr)); print('EXECUTOR_FATAL_ERRORS',len(errs))
+          st=json.loads((base/'state.json').read_text()); false=[]
+          for x in st.get('positions') or []:
+            if x.get('scaleInLockedAfterProfit') and int(x.get('concentrationTrimCount') or 0)>0 and not any(x.get(k) for k in ['tp1Done','tp2Done','tp3Done','profitProtectDone']) and int(x.get('runnerProtectStage') or 0)<1 and float(x.get('peakReturnPct') or 0)<4:false.append(x.get('symbol'))
+          print('FALSE_PROFIT_LOCKS',false)
+          PY
+          exec /opt/meme-alpha/app/runtime-status/v426c-run-paper-original.sh
+          SH
+          chmod 755 "$RUN"; sudo -n /bin/systemctl restart meme-alpha-paper.service
+          for i in $(seq 1 30); do [ -s "$OUT" ] && break; sleep 1; done; test -s "$OUT"; cp -a "$ORIG" "$RUN"; chmod 755 "$RUN"; trap - EXIT
+          cat "$OUT"; grep -q 'SIGNER_TREND_CONFLICTS 0' "$OUT"; grep -q 'EXECUTOR_FATAL_ERRORS 0' "$OUT"; grep -q 'FALSE_PROFIT_LOCKS \[\]' "$OUT"
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          def l(n):
+            p=rt/n; return json.loads(p.read_text()),time.time()-p.stat().st_mtime
+          g,ga=l('micro-live-gate.json'); c,ca=l('capital-observability.json'); a,aa=l('allocator-status.json'); r,ra=l('realtime-pool-pulse.json'); p,pa=l('portfolio-observability.json')
+          print('GATE_AGE',ga,'GATE',{k:g.get(k) for k in ['allowed','armOk','sourceHealthy','riskEntryAllowed','liveRiskReady','scaleAllowed','reasons']}); print('CAPITAL',c); print('ALLOCATOR',a); print('REALTIME',{k:r.get(k) for k in ['status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heldSubscriptions','lastError']}); print('PORTFOLIO',{k:p.get(k) for k in ['stateReadable','openPositions']})
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert c.get('releaseVersion')=='V426_CONFLICT_CLEANUP' and a.get('releaseVersion')=='V426_CONFLICT_CLEANUP'
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          PY
+          echo V426C_FINAL_INDEPENDENT_CONFLICT_AUDIT=CLEAN
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
