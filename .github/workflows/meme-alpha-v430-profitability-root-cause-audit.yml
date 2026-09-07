@@ -1,0 +1,64 @@
+name: Meme Alpha V430 Profitability Root Cause Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v430-profitability-root-cause-audit.yml'
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Audit profitability root causes and residual runtime issues
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            printf '%s ' "$svc"; systemctl is-active "$svc"; systemctl show "$svc" -p MainPID -p ExecMainStartTimestamp --no-pager | tr '\n' ' '; echo
+          done
+          echo '=== CURRENT CAPITAL ==='
+          cat "$RT/capital-observability.json" || true
+          echo '=== CURRENT PORTFOLIO ==='
+          cat "$RT/portfolio-observability.json" || true
+          echo '=== CURRENT ALLOCATOR ==='
+          cat "$RT/allocator-status.json" || true
+          echo '=== CURRENT GATE ==='
+          cat "$RT/micro-live-gate.json" || true
+          echo '=== CURRENT REALTIME SUMMARY ==='
+          python3 - <<'PY'
+          import json,pathlib,statistics
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          rows=r.get('rows') or []
+          held=[x for x in rows if x.get('held')]
+          print({k:r.get(k) for k in ['status','websocketOpen','heartbeatAgeMs','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','pendingSubscriptions','staleAcks','reconnectFailures','pendingTimeouts','reconcileErrors','writeErrors']})
+          print('HELD_ROWS')
+          for x in held:
+              print({k:x.get(k) for k in ['symbol','mint','pairSource','memoryFallback','subscribed','events5s','events15s','eventMomentum','lastEventAgeMs']})
+          ages=[x.get('lastEventAgeMs') for x in held if isinstance(x.get('lastEventAgeMs'),(int,float))]
+          print('HELD_EVENT_AGE_STATS',{'count':len(ages),'medianMs':statistics.median(ages) if ages else None,'maxMs':max(ages) if ages else None,'stale60s':sum(1 for a in ages if a>60000),'stale300s':sum(1 for a in ages if a>300000)})
+          PY
+          echo '=== PROFIT / LOSS EVENT JOURNAL 12H ==='
+          journalctl --since '12 hours ago' -u meme-alpha-micro-live.service --no-pager 2>/dev/null | grep -Ei 'BUY|BOUGHT|ENTRY|ADD|SCALE|SELL|SOLD|EXIT|CLOSE|ROTAT|TP1|TP2|TP3|HARVEST|PROFIT|LOSS|STOP|WEAK|CONCENTRATION|NO_QUOTE|PREVIEW|429|RATE' | tail -1200 || true
+          echo '=== SOURCE ENTRY / EXIT / LEARNING THRESHOLDS ==='
+          grep -nE 'function (preBreakoutSignal|opportunityScore|opportunityLane|idleCapitalProbeEligible|candidate|entry|expectedEdge|learning|expectancy|profit|exit|sell|weak|rotation|stagnant|concentration|position|size|allocation)|learningClosed|learningWins|meanReturnPct|totalClosed|totalWins|tp1|tp2|tp3|profitProtect|runnerProtect|weakExitCount|lossSince|severeBreakSince|stagnant|rotation|opportunityCost|entryMode|coreSafe|signerCandidateCompatible' "$E" | head -420 || true
+          echo '=== SOURCE EVENT TYPES ==='
+          grep -oE "type:'[A-Z0-9_]+" "$E" | sort | uniq -c | sort -nr | head -180 || true
+          echo '=== RUNTIME FILE INVENTORY ==='
+          find "$RT" -maxdepth 1 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TS %s %f\n' | sort | tail -140
+          echo '=== POSSIBLE TRADE HISTORY FILES ==='
+          find "$RT" -maxdepth 1 -type f \( -iname '*trade*' -o -iname '*exec*' -o -iname '*learn*' -o -iname '*profit*' -o -iname '*position*' -o -iname '*history*' \) -print -exec sh -c 'echo ---$1---; tail -n 200 "$1" 2>/dev/null || true' _ {} \;
+          echo '=== 90 SECOND STABILITY/PROFIT TRACE ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for i in range(30):
+              try:
+                  c=json.loads((rt/'capital-observability.json').read_text()); r=json.loads((rt/'realtime-pool-pulse.json').read_text()); a=json.loads((rt/'allocator-status.json').read_text())
+                  print(i,{'eq':c.get('netLiquidationEquitySol'),'hwm':c.get('equityHighWaterLamports'),'dd':c.get('equityDrawdownPct'),'wallet':c.get('walletSol'),'deployable':c.get('deployableSol'),'positions':c.get('openPositions'),'closed':c.get('learningClosed'),'wins':c.get('learningWins'),'mean':c.get('learningMeanReturnPct'),'preview429':c.get('exitPreviewRateLimits'),'backoff':c.get('exitPreviewBackoffRemainingMs'),'allocator':a.get('reason'),'hb':r.get('heartbeatAgeMs'),'pending':r.get('pendingSubscriptions')})
+              except Exception as e: print('TRACE_ERR',repr(e))
+              time.sleep(3)
+          PY
+          echo '=== CRITICAL JOURNAL 30M ==='
+          journalctl --since '30 minutes ago' -u meme-alpha-paper.service -u meme-alpha-micro-live.service -u meme-alpha-signer.service -u meme-alpha-realtime-pulse.service -u meme-alpha-trend-pulse.service -u meme-alpha-whale-flow.service --no-pager 2>/dev/null | grep -Ei 'FATAL|UNHANDLED|uncaught|ERROR|FAIL|CORRUPT|DOUBLE_EXECUTOR|DUPLICATE_EXECUTOR|timeout|429|rate.?limit' | tail -400 || true
+          echo V430_PROFITABILITY_ROOT_CAUSE_AUDIT=COMPLETE
