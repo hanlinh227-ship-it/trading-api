@@ -1,0 +1,61 @@
+name: SignalHub Public Data Diagnostic
+
+on:
+  push:
+    branches: [signalhub-android-v1]
+    paths:
+      - '.github/workflows/signalhub-public-data-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe TradingView scanner
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/tv.json <<'JSON'
+          {"symbols":{"tickers":["OANDA:EURUSD","OANDA:USDJPY","OANDA:GBPUSD","OANDA:XAUUSD","OANDA:XAGUSD"],"query":{"types":[]}},"columns":["name","close","change","Recommend.All","RSI","MACD.macd","MACD.signal","EMA20","EMA50","EMA200"]}
+          JSON
+          code=$(curl -sS --max-time 20 -o /tmp/tv.out -w '%{http_code}' -H 'content-type: application/json' --data-binary @/tmp/tv.json https://scanner.tradingview.com/forex/scan || true)
+          echo "TV_HTTP=$code"
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/tv.out',encoding='utf-8'))
+          rows=p.get('data',[]) if isinstance(p,dict) else []
+          print('TV_ROWS',len(rows))
+          for r in rows[:10]:
+              print('TV',r.get('s'),r.get('d'))
+          assert len(rows)>=3, p
+          PY
+
+      - name: Probe Yahoo chart freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,time,urllib.request,urllib.parse
+          syms=['EURUSD=X','JPY=X','GC=F','SI=F','CL=F']
+          ok=0
+          for sym in syms:
+              url='https://query1.finance.yahoo.com/v8/finance/chart/'+urllib.parse.quote(sym,safe='')+'?interval=1m&range=1d'
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 SignalHub/1.0'})
+              try:
+                  with urllib.request.urlopen(req,timeout=20) as r: p=json.load(r)
+                  res=p['chart']['result'][0]
+                  ts=(res.get('timestamp') or [])[-1]
+                  q=res['indicators']['quote'][0]
+                  closes=q.get('close') or []
+                  close=next((x for x in reversed(closes) if x is not None),None)
+                  age=max(0,int(time.time()-ts))
+                  print('YAHOO',sym,'close',close,'ageSec',age)
+                  if close is not None: ok+=1
+              except Exception as e:
+                  print('YAHOO',sym,'ERROR',type(e).__name__,str(e)[:120])
+          assert ok>=3, ok
+          PY
