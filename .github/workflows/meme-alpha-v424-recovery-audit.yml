@@ -1,0 +1,35 @@
+name: Meme Alpha V424 Recovery Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v424-recovery-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Inspect recovery compounding hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          echo SHA=$(sha256sum "$E"|awk '{print $1}')
+          python3 - "$E" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          terms=['function allocationProfile','function targetPlan','function scalePositionEligible','async function placeBuy','function profitAwareWeakAction','NO_QUOTE_SOFT_EXIT_SUPPRESSED','BUY_CANDIDATE_SKIP','expectedEdge','IDLE_CAPITAL_ENTRY_DEFERRED','softTrendWeak','lossSince','stagn']
+          for t in terms:
+            print('\n===',t,'===')
+            start=0; found=0
+            while True:
+              i=s.find(t,start)
+              if i<0: break
+              found+=1
+              a=max(0,i-1400); b=min(len(s),i+2600)
+              print(s[a:b])
+              start=i+len(t)
+              if found>=3: break
+            if not found: print('NOT_FOUND')
+          PY
+          echo V424_RECOVERY_AUDIT=PASS
