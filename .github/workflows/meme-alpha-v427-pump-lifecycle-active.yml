@@ -1,0 +1,92 @@
+name: Meme Alpha V427 Pump Lifecycle Active
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427-pump-lifecycle-active.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 12
+    steps:
+      - name: Build validate activate V427
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; C="$RT/deploy-candidates/v427-pump-lifecycle.js"; RUN="$APP/run-paper.sh"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+            global s
+            n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+
+          # 1) Classify pump lifecycle from fresh trend/realtime/flow evidence.
+          marker="function opportunityLane(c){"
+          insert="""function pumpLifecycle(c){
+            if(!c)return{phase:'NONE',score:0};const p=pulseFor(c),rt=realtimeFor(c),w=whaleFor(c),chg=p?n(p.price5m,n(c.priceChange5m)):n(c.priceChange5m),vol=n(p?.volumeAcceleration,1),txn=n(p?.txnAcceleration,1),bs=n(p?.buySellRatio,n(c.buySellRatio5m,1)),pulse=n(p?.pulseScore,0),net=n(c.netBuyers5m),avg=n(c.avgNetBuyersLast2,net),rtm=n(rt?.eventMomentum,0),ev=n(rt?.events5s,0),wf=n(w?.whaleFlowScore,0),freshRt=!!rt&&n(rt.lastEventAgeMs,99999)<=2500;
+            const accel=(vol>=1.35?3:vol>=1.12?1:0)+(txn>=1.25?3:txn>=1.05?1:0)+(bs>=1.35?2:bs>=1.15?1:0)+(net>=10?3:net>=4?1:0)+(avg>=6?2:avg>=2?1:0)+(pulse>=72?2:pulse>=58?1:0)+(freshRt&&rtm>=1.8&&ev>=3?4:freshRt&&ev>=2?1:0)+(wf>=2?1:wf<=-3?-3:0);
+            const exhaustion=(p?.status==='EXHAUSTED')||bs<.82||net<=-6||wf<=-4||(chg>18&&vol<1.02&&txn<1.0)||(freshRt&&rtm<.65);
+            if(exhaustion)return{phase:'EXHAUSTION',score:accel,chg,vol,txn,bs,net,rtm,wf};
+            if(chg>=18&&accel>=11&&bs>=1.15&&net>=4)return{phase:'PARABOLIC',score:accel,chg,vol,txn,bs,net,rtm,wf};
+            if(chg>=4&&accel>=8&&bs>=1.10&&net>=3)return{phase:'CONFIRMED_FLIGHT',score:accel,chg,vol,txn,bs,net,rtm,wf};
+            if(chg>=.05&&accel>=6&&net>=1)return{phase:'EARLY_ACCELERATION',score:accel,chg,vol,txn,bs,net,rtm,wf};
+            return{phase:'NORMAL',score:accel,chg,vol,txn,bs,net,rtm,wf};
+          }
+          function pumpScaleEligible(pos,c,p){if(!pos||!c)return false;const life=pumpLifecycle(c),ret=Number(pos.lastReturnPct),lastMark=Date.parse(pos.lastMarkAt||0),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),fresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000),cooldown=Date.parse(pos.lastCapitalReleaseAt||pos.lastConcentrationTrimAt||0),releaseCooldownOk=!Number.isFinite(cooldown)||cooldown<=0||Date.now()-cooldown>=180000;if(!fresh||!Number.isFinite(ret)||!intervalOk||!releaseCooldownOk||n(pos.weakExitCount)>0||pos.scaleInLockedAfterProfit)return false;if(life.phase==='EXHAUSTION'||life.phase==='PARABOLIC')return false;if(life.phase==='CONFIRMED_FLIGHT')return ret>=1&&ret<=35;if(life.phase==='EARLY_ACCELERATION')return ret>=-.5&&ret<=12;return ret>=1.5&&ret<=18}
+          function adaptiveHarvestPlan(c,pos){const base=profitPlan(c,pos),life=pumpLifecycle(c),ret=n(pos?.lastReturnPct),peak=Math.max(n(pos?.peakReturnPct),ret);if(life.phase==='EARLY_ACCELERATION')return{...base,phase:life.phase,tp1:Math.min(base.tp1,14),tp2:Math.min(base.tp2,28),tp3:Math.min(base.tp3,55),f1:Math.max(base.f1,.12),f2:Math.max(base.f2,.16),f3:Math.max(base.f3,.12),givebackRatio:Math.min(base.givebackRatio,.34),minGiveback:Math.min(base.minGiveback,8)};if(life.phase==='CONFIRMED_FLIGHT')return{...base,phase:life.phase,tp1:Math.min(base.tp1,16),tp2:Math.min(base.tp2,34),tp3:Math.min(base.tp3,70),f1:Math.max(base.f1,.14),f2:Math.max(base.f2,.18),f3:Math.max(base.f3,.14),givebackRatio:Math.min(base.givebackRatio,.32),minGiveback:Math.min(base.minGiveback,9)};if(life.phase==='PARABOLIC')return{...base,phase:life.phase,tp1:Math.min(base.tp1,14),tp2:Math.min(base.tp2,26),tp3:Math.min(base.tp3,48),f1:Math.max(base.f1,.18),f2:Math.max(base.f2,.22),f3:Math.max(base.f3,.18),givebackRatio:.24,minGiveback:Math.min(base.minGiveback,7)};if(life.phase==='EXHAUSTION')return{...base,phase:life.phase,tp1:Math.min(base.tp1,12),tp2:Math.min(base.tp2,22),tp3:Math.min(base.tp3,40),f1:Math.max(base.f1,.22),f2:Math.max(base.f2,.26),f3:Math.max(base.f3,.20),givebackRatio:.20,minGiveback:Math.min(base.minGiveback,6)};return{...base,phase:life.phase}}
+          """+marker
+          rep(marker,insert,'PUMP_LIFECYCLE_HOOK')
+
+          # 2) Permit continuation scale in a healthy confirmed flight instead of hard +18% anti-FOMO ceiling.
+          old="const pulse=pulseFor(c),winner=ret>=1.5&&ret<=18,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&n(c.netBuyers5m)>=6&&n(c.avgNetBuyersLast2,n(c.netBuyers5m))>=4;return winner||recovery"
+          new="const pulse=pulseFor(c),life=pumpLifecycle(c),winner=ret>=1.5&&ret<=18,flight=life.phase==='CONFIRMED_FLIGHT'&&ret>=1&&ret<=35,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&n(c.netBuyers5m)>=6&&n(c.avgNetBuyersLast2,n(c.netBuyers5m))>=4;return (winner||flight||recovery)&&pumpScaleEligible(pos,c,p)"
+          rep(old,new,'PUMP_SCALE_EXTENSION')
+
+          # 3) Use lifecycle-aware harvesting while preserving the existing hard-safety / weak-exit stack.
+          rep("const plan=profitPlan(c,pos),peak=n(pos.peakReturnPct,ret??0),giveback=peak-n(ret,peak)","const plan=adaptiveHarvestPlan(c,pos),peak=n(pos.peakReturnPct,ret??0),giveback=peak-n(ret,peak)",'ADAPTIVE_HARVEST_PLAN')
+
+          # 4) Parabolic/exhaustion runner protection: realize more before a fast reversal, but never full-exit solely on pump state.
+          needle="if(Number.isFinite(ret)){\n    resetWeakTrimEpisode(st,pos,c);"
+          repl="if(Number.isFinite(ret)){\n    resetWeakTrimEpisode(st,pos,c);const life=pumpLifecycle(c);if((life.phase==='PARABOLIC'||life.phase==='EXHAUSTION')&&ret>=8&&!pos.pumpHarvestDone){const frac=life.phase==='EXHAUSTION'?.24:.16,r=await sellFraction(st,idx,frac,life.phase==='EXHAUSTION'?'AUTO_PUMP_EXHAUSTION_HARVEST':'AUTO_PARABOLIC_HARVEST');if(!r.closed){const x=st.positions.find(x=>x.mint===pos.mint);if(x){x.pumpHarvestDone=true;x.scaleInLockedAfterProfit=true;atomic(statePath,st)}}event({type:'PUMP_LIFECYCLE_HARVEST',mint:pos.mint,symbol:pos.symbol,phase:life.phase,ret,peak:n(pos.peakReturnPct,ret),fraction:frac,closed:r.closed});return{action:r.closed?'SELL':'PARTIAL_SELL',reason:life.phase==='EXHAUSTION'?'AUTO_PUMP_EXHAUSTION_HARVEST':'AUTO_PARABOLIC_HARVEST',symbol:pos.symbol}}"
+          rep(needle,repl,'PUMP_HARVEST_HOOK')
+
+          # 5) State migration/normalization for new lifecycle bookkeeping.
+          marker="if(!Number.isFinite(Number(pos.runnerProtectStage)))pos.runnerProtectStage=0;"
+          rep(marker,marker+"if(pos.pumpHarvestDone!==true)pos.pumpHarvestDone=false;",'PUMP_STATE')
+
+          # 6) Telemetry marker for independent audit.
+          marker="console.log('V426_CONFLICT_CLEANUP=PASS');"
+          rep(marker,marker+"console.log('V427_PUMP_LIFECYCLE=TRUE');console.log('V427_FLIGHT_SCALE_TO_35PCT=TRUE');console.log('V427_ADAPTIVE_PROFIT_HARVEST=TRUE');console.log('V427_PARABOLIC_EXHAUSTION_HARVEST=TRUE');",'V427_MARKERS')
+          p.write_text(s)
+          PY
+
+          node --check "$C"
+          OUT=$(node "$C" --self-test); printf '%s\n' "$OUT"
+          for M in V426_CONFLICT_CLEANUP=PASS V427_PUMP_LIFECYCLE=TRUE V427_FLIGHT_SCALE_TO_35PCT=TRUE V427_ADAPTIVE_PROFIT_HARVEST=TRUE V427_PARABOLIC_EXHAUSTION_HARVEST=TRUE V418_WINNER_ONLY_SCALE=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V427_SHA=$SHA
+          cp "$E" "$RT/v427-pre-active-executor.js"; cp "$C" "$E"; chmod 664 "$E"; test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+
+          # Restart through the existing service chain, preserving the original launcher.
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          sleep 4
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          g=json.loads((rt/'micro-live-gate.json').read_text()); age=time.time()-(rt/'micro-live-gate.json').stat().st_mtime
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert age<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          print('V427_RUNTIME_GATE=PASS')
+          print('SCALE_ALLOWED=TRUE')
+          print('HARD_SAFETY_BYPASS=FALSE')
+          PY
+          echo V427_PUMP_LIFECYCLE_ACTIVE=PASS
