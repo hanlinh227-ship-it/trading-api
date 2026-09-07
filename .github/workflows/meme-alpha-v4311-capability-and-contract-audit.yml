@@ -1,0 +1,29 @@
+name: Meme Alpha V4311 Capability and Contract Audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/meme-alpha-v4311-capability-and-contract-audit.yml']
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Inspect signer deploy capability and contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== SUDO ==='
+          sudo -n -l || true
+          echo '=== SIGNER NUMBERED SOURCE 80-220 ==='
+          nl -ba /opt/meme-alpha-signer/ready_signer.py | sed -n '80,220p'
+          echo '=== EXECUTOR GLOBAL BUY ERROR / SIGNER ==='
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          grep -nE 'globalBuyError|SIGNER_|signer\(' "$E" | head -n 100
+          echo '=== ROOT/DEPLOY HELPERS ==='
+          find /opt/meme-alpha /opt/meme-alpha-signer -maxdepth 3 -type f \( -name '*.sh' -o -name '*.py' \) -printf '%m %u:%g %p\n' 2>/dev/null | grep -Ei 'deploy|install|signer|restart|reload|guard|bootstrap' | head -n 200 || true
+          echo '=== SERVICE PERMISSIONS / UIDS ==='
+          id
+          getent passwd meme-alpha-signer || true
+          systemctl show meme-alpha-signer.service -p MainPID -p Restart -p User -p Group -p ExecStart -p ActiveState -p SubState
+          echo V4311_CAPABILITY_AUDIT=COMPLETE
