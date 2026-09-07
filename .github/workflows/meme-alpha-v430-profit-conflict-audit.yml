@@ -1,0 +1,86 @@
+name: Meme Alpha V430 Profit Conflict Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v430-profit-conflict-audit.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Read-only audit profit conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          echo '=== PROCESS / SERVICES ==='
+          sha256sum "$E"
+          node --check "$E"
+          echo "EXECUTOR_COUNT=$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$'||true)"
+          systemctl show meme-alpha-micro-live.service -p MainPID -p ActiveState -p SubState -p NRestarts -p ExecMainStartTimestamp
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do echo "$svc=$(systemctl is-active "$svc" || true)"; done
+
+          echo '=== SELF TEST MARKERS ==='
+          node "$E" --self-test | grep -E 'V429_|V430_|HARD_SECURITY|SCALE_ALLOWED|FAILSAFE' || true
+
+          echo '=== CURRENT RUNTIME STATUS ==='
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          wanted=['capital-observability.json','allocator-status.json','micro-live-gate.json','portfolio-observability.json','realtime-pool-pulse.json','last-execution.json','trend-pulse.json','whale-flow.json']
+          for name in wanted:
+            p=rt/name
+            if not p.exists():
+              print(name,'MISSING'); continue
+            try:x=json.loads(p.read_text())
+            except Exception as e: print(name,'BAD_JSON',e); continue
+            age=round(time.time()-p.stat().st_mtime,2)
+            print('\nFILE',name,'AGE_SEC',age)
+            if name=='capital-observability.json':
+              keys=['updatedAt','walletSol','investedSol','markedInvestedSol','netLiquidationEquitySol','equityHighWaterLamports','equityDrawdownPct','reserveSol','deployableSol','deployablePct','openPositions','scaleAllowed','learningClosed','learningWins','learningMeanReturnPct','exitPreviewRequests','exitPreviewRateLimits','exitPreviewRateLimitStreak','exitPreviewCacheHits','exitPreviewBackoffRemainingMs','capitalVelocityVersion','expectancyStabilizerVersion']
+              print(json.dumps({k:x.get(k) for k in keys},ensure_ascii=False))
+            elif name=='allocator-status.json':
+              print(json.dumps(x,ensure_ascii=False)[:5000])
+            elif name=='micro-live-gate.json':
+              keys=['timestamp','allowed','armOk','sourceHealthy','liveRiskReady','scaleAllowed','evidenceScaleReady','validationCompletedLifecycles','stressStatus','stressFail','evidenceReady','reasons']
+              print(json.dumps({k:x.get(k) for k in keys},ensure_ascii=False))
+            elif name=='portfolio-observability.json':
+              print(json.dumps(x,ensure_ascii=False)[:8000])
+            elif name=='realtime-pool-pulse.json':
+              keys=['updatedAt','status','heldTotal','heldResolved','heldUnresolved','heldCoveragePct','heartbeatAgeMs','reconnectFailures']
+              print(json.dumps({k:x.get(k) for k in keys},ensure_ascii=False))
+            else:
+              print(json.dumps(x,ensure_ascii=False)[:8000])
+
+          print('\n=== RUNTIME JSON INVENTORY ===')
+          for p in sorted(rt.glob('*.json')):
+            print(p.name, round(time.time()-p.stat().st_mtime,1))
+          PY
+
+          echo '=== SOURCE ECONOMIC LOGIC EXCERPTS ==='
+          python3 - "$E" <<'PY'
+          import pathlib,sys,re
+          s=pathlib.Path(sys.argv[1]).read_text()
+          names=['entryReadiness','allocationProfile','scalePositionEligible','pumpScaleEligible','profitScaleRearmEligible','proactiveRotationEligible','rotationSource','concentrationReleaseSource','previewExitReturn','expectedEdge','learnedBoost','laneLearnedBoost','learningLaneKey','signerCompatible','entryMode','pumpLifecycle']
+          for name in names:
+            m=re.search(r'function\s+'+re.escape(name)+r'\s*\(',s)
+            if not m:
+              print('\n###',name,'NOT_FOUND'); continue
+            start=m.start(); nxt=re.search(r'\nfunction\s+[A-Za-z0-9_]+\s*\(',s[m.end():])
+            end=m.end()+nxt.start() if nxt else min(len(s),start+12000)
+            block=s[start:end]
+            print('\n###',name)
+            print(block[:12000])
+          print('\n=== KEY STRING COUNTS ===')
+          for token in ['IDLE_CAPITAL_WAITING_SIGNER_CONTRACT','EXPECTANCY_EDGE_BELOW_FLOOR','COLD_EXPECTANCY_QUALITY_NOT_PROVEN','2700000','1800000','900000','600_000','90_000','32','scaleAllowed:true']:
+            print(token,s.count(token))
+          PY
+
+          echo '=== RECENT MICRO-LIVE JOURNAL ECONOMIC EVENTS ==='
+          journalctl -u meme-alpha-micro-live.service --since '45 minutes ago' --no-pager 2>/dev/null | grep -Ei 'BUY|SELL|SCALE|ROTAT|RELEASE|HARVEST|429|RATE|EXPECT|SIGNER|IDLE|PROFIT|LOSS|EXIT|ERROR|WARN' | tail -n 300 || true
+
+          echo '=== AUDIT COMPLETE ==='
+          echo V430_PROFIT_CONFLICT_AUDIT=COMPLETE
