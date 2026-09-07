@@ -13,6 +13,7 @@ permissions:
 
 env:
   SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+  EXPECTED_VERSION: SIGNALHUB-FOREX-2.0.0
 
 jobs:
   build:
@@ -42,56 +43,97 @@ jobs:
 
       - name: Verify APK structure
         run: |
+          set -euo pipefail
           APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK"
-          test "$(stat -c%s "$APK")" -gt 10000
+          test "$(stat -c%s "$APK")" -gt 15000
           unzip -t "$APK"
           unzip -l "$APK" | grep -q 'AndroidManifest.xml'
           unzip -l "$APK" | grep -q 'classes.dex'
+          unzip -p "$APK" classes.dex | strings | grep -q 'SIGNALHUB FX'
+          unzip -p "$APK" classes.dex | strings | grep -q '/performance'
+          unzip -p "$APK" classes.dex | strings | grep -q '/signals?status=open'
 
-      - name: Smoke test live SignalHub backend
+      - name: Smoke test live tracker backend
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/status" -o /tmp/status.json
+          ready=0
+          for n in $(seq 1 20); do
+            code=$(curl --silent --show-error --max-time 20 -o /tmp/status.json -w '%{http_code}' "$SIGNALHUB_URL/status" || true)
+            if [ "$code" = "200" ]; then
+              version=$(python3 - <<'PY'
+          import json
+          try:
+              p=json.load(open('/tmp/status.json',encoding='utf-8'))
+              print(p.get('version',''))
+          except Exception:
+              print('')
+          PY
+          )
+              echo "backend attempt=$n version=$version"
+              if [ "$version" = "$EXPECTED_VERSION" ]; then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = "1"
+
           python3 - <<'PY'
           import json
           p=json.load(open('/tmp/status.json',encoding='utf-8'))
           assert p.get('ok') is True, p
-          assert p.get('version') == 'SIGNALHUB-FOREX-1.1.0', p
+          assert p.get('version') == 'SIGNALHUB-FOREX-2.0.0', p
+          assert p.get('trackerStorage') is True, p
           assert p.get('independentFromBybit') is True, p
           assert set(p.get('groups') or []) == {'forex','metal','energy'}, p
-          print('STATUS_OK',p['version'])
+          print('STATUS_OK',p['version'],p.get('trackerSummary'))
           PY
 
           for group in forex metal energy; do
-            curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/latest-scan?group=$group" -o "/tmp/$group.json"
+            curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/run-now?group=$group" -o "/tmp/$group.json"
             python3 - "$group" <<'PY'
           import json,sys
           g=sys.argv[1]
-          p=json.load(open('/tmp/'+g+'.json',encoding='utf-8'))
-          s=p.get('snapshot') or {}
-          assert p.get('ok') is True, p
-          assert p.get('group') == g, p
+          s=json.load(open('/tmp/'+g+'.json',encoding='utf-8'))
+          assert s.get('ok') is True, s
           assert s.get('group') == g, s
           assert s.get('status') in ('OK','MARKET_CLOSED_OR_NO_DATA'), s
           assert isinstance(s.get('analyses'),list), s
-          if g in ('forex','metal'):
-              assert (s.get('sourceRows') or 0) > 0, s
-          print(g.upper()+'_OK','rows',s.get('sourceRows'),'shown',len(s.get('analyses',[])),'actionable',s.get('actionableCount'))
+          tr=s.get('tracker') or {}
+          assert tr.get('enabled') is True, tr
+          assert isinstance(tr.get('events'),list), tr
+          print(g.upper()+'_OK','rows',s.get('sourceRows'),'actionable',s.get('actionableCount'),'events',len(tr.get('events',[])))
           PY
           done
 
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/signals?status=open&limit=100" -o /tmp/open.json
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/signals?status=closed&limit=100" -o /tmp/closed.json
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/performance" -o /tmp/perf.json
+          python3 - <<'PY'
+          import json
+          op=json.load(open('/tmp/open.json',encoding='utf-8'))
+          cl=json.load(open('/tmp/closed.json',encoding='utf-8'))
+          p=json.load(open('/tmp/perf.json',encoding='utf-8'))
+          assert op.get('ok') is True and isinstance(op.get('signals'),list), op
+          assert cl.get('ok') is True and isinstance(cl.get('signals'),list), cl
+          perf=p.get('performance') or {}
+          assert p.get('ok') is True, p
+          for k in ['totalSignals','open','closed','resolved','tp','sl','expired','ambiguous','winRateResolved','netRResolved','byGroup','bySymbol']:
+              assert k in perf, (k,perf)
+          print('TRACKER_OK','open',op.get('count'),'closed',cl.get('count'),'wr',perf.get('winRateResolved'),'netR',perf.get('netRResolved'))
+          PY
+
       - name: Prepare artifact
         run: |
+          set -euo pipefail
           mkdir -p dist
-          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-FX-v1.0.2.apk
-          sha256sum dist/SignalHub-FX-v1.0.2.apk | tee dist/SHA256SUMS.txt
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-FX-Tracker-v2.0.0.apk
+          sha256sum dist/SignalHub-FX-Tracker-v2.0.0.apk | tee dist/SHA256SUMS.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SignalHub-FX-Android-v1.0.2
+          name: SignalHub-FX-Tracker-Android-v2.0.0
           path: dist/
           if-no-files-found: error
           retention-days: 30
