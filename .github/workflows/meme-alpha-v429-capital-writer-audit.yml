@@ -1,0 +1,35 @@
+name: Meme Alpha V429 Capital Writer Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v429-capital-writer-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Identify capital observability writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          echo '=== ALL WRITERS ==='
+          grep -Rni --include='*.js' --include='*.sh' --include='*.mjs' --include='*.cjs' 'capital-observability.json' "$APP" 2>/dev/null | head -200 || true
+          echo '=== BACKUP CONSTANTS ==='
+          for f in "$RT"/v42*-pre-active-executor.js "$RT"/deploy-candidates/v42*.js; do
+            [ -f "$f" ] || continue
+            echo ---$f---
+            grep -nE "^const DATA=|capital-observability.json|capitalVelocityVersion" "$f" | head -20 || true
+          done
+          echo '=== RUNTIME WRITER TIMING ==='
+          for i in 1 2 3; do
+            stat -c '%y %s %i' "$RT/capital-observability.json" 2>/dev/null || true
+            sleep 2
+          done
+          echo V429_CAPITAL_WRITER_AUDIT=PASS
