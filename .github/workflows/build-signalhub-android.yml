@@ -94,11 +94,16 @@ jobs:
           p=json.load(open('/tmp/status.json',encoding='utf-8'))
           assert p.get('ok') is True, p
           assert p.get('version') == 'SIGNALHUB-FOREX-2.1.0', p
-          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.1', p
+          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', p
           assert p.get('trackerStorage') is True, p
           assert p.get('oneActiveSetupPerSymbol') is True, p
           assert p.get('supportedOrderTypes') == ['MARKET','LIMIT','STOP'], p
-          print('STATUS_OK',p['version'],p.get('trackerSummary'))
+          policy=p.get('signalCadencePolicy') or {}
+          assert policy.get('mode') == 'MODERATE_QUALITY_FIRST', policy
+          assert policy.get('minGlobalSpacingMinutes') == 20, policy
+          assert policy.get('maxNewPerScan') == 1, policy
+          assert policy.get('maxActiveTotal') == 12, policy
+          print('STATUS_OK',p['version'],p.get('gatewayVersion'),p.get('trackerSummary'),policy)
           PY
 
           curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/live-quotes?group=all" -o /tmp/live.json
@@ -113,6 +118,7 @@ jobs:
           perf=json.load(open('/tmp/perf.json',encoding='utf-8')).get('performance') or {}
           assert live.get('ok') is True and len(live.get('quotes') or []) >= 1, live
           assert live.get('suggestedRefreshMs') == 5000, live
+          assert app.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', app
           assert app.get('app',{}).get('versionCode') == 5, app
           assert app.get('app',{}).get('versionName') == '2.1.0', app
           symbols=[s.get('symbol') for s in active.get('signals',[])]
