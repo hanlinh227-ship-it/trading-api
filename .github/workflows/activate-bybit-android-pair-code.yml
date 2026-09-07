@@ -22,8 +22,7 @@ jobs:
           PAIR_EXPIRES_AT: '1788835575047'
         run: |
           set -euo pipefail
-          set -a; source /etc/trading-v11-ai.env; set +a
-          SECRET="${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"
+          SECRET=$(sudo -n bash -c 'set -a; source /etc/trading-v11-ai.env; printf "%s" "${BYBIT_VPS_BRIDGE_SECRET:-${V11_AI_BRIDGE_SECRET:-}}"')
           test -n "$SECRET"
           RESP=$(curl -fsS --max-time 30 -X POST \
             -H 'content-type: application/json' \
