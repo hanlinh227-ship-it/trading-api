@@ -37,16 +37,25 @@ jobs:
         working-directory: signalhub-android
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
+      - name: Verify APK structure
+        run: |
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 10000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q 'AndroidManifest.xml'
+          unzip -l "$APK" | grep -q 'classes.dex'
+
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v1.0.0.apk
-          sha256sum dist/SignalHub-v1.0.0.apk | tee dist/SHA256SUMS.txt
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v1.0.1.apk
+          sha256sum dist/SignalHub-v1.0.1.apk | tee dist/SHA256SUMS.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SignalHub-Android-APK
+          name: SignalHub-Android-APK-v1.0.1
           path: dist/
           if-no-files-found: error
           retention-days: 30
