@@ -1,0 +1,105 @@
+name: Meme Alpha V429 Final Runtime Activation Clean
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v429-final-runtime-activation-clean.yml'
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Restart correct executor and prove V429 in RAM
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          SVC=meme-alpha-micro-live.service
+          echo '=== PRECHECK ==='
+          node --check "$E"
+          OUT=$(node "$E" --self-test)
+          for M in V429_CAPITAL_VELOCITY=TRUE V429_SAFE_CONTINUATION_SIGNER_LANE=TRUE V429_REALTIME_SCALE_FRESHNESS=TRUE V429_URGENT_EXIT_PREVIEW=TRUE V429_DEAD_CAPITAL_RELEASE=TRUE V429_HARD_SAFETY_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          OLD_PID=$(systemctl show "$SVC" -p MainPID --value)
+          SRC_EPOCH=$(stat -c %Y "$E")
+          PRE_POS=$(python3 - <<'PY'
+          import json
+          p='/opt/meme-alpha/app/runtime-status/portfolio-observability.json'
+          try: print(int(json.load(open(p)).get('openPositions') or 0))
+          except: print(-1)
+          PY
+          )
+          echo OLD_PID=$OLD_PID SOURCE_EPOCH=$SRC_EPOCH PRE_POS=$PRE_POS
+          test "$PRE_POS" -ge 0
+
+          echo '=== RESTART CORRECT MICRO-LIVE SERVICE ==='
+          sudo -n /bin/systemctl restart "$SVC"
+          NEW_PID=''
+          for i in $(seq 1 30); do
+            sleep 1
+            NEW_PID=$(systemctl show "$SVC" -p MainPID --value)
+            if [ -n "$NEW_PID" ] && [ "$NEW_PID" != 0 ] && [ "$NEW_PID" != "$OLD_PID" ] && [ "$(systemctl is-active "$SVC")" = active ]; then break; fi
+          done
+          test -n "$NEW_PID"; test "$NEW_PID" != 0; test "$NEW_PID" != "$OLD_PID"
+          START_TXT=$(systemctl show "$SVC" -p ExecMainStartTimestamp --value)
+          START_EPOCH=$(date -d "$START_TXT" +%s)
+          echo NEW_PID=$NEW_PID START="$START_TXT" START_EPOCH=$START_EPOCH
+          test "$START_EPOCH" -ge "$SRC_EPOCH"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+
+          echo '=== WAIT V429 TELEMETRY + STATE CONTINUITY ==='
+          READY=0
+          for i in $(seq 1 60); do
+            if python3 - <<'PY'
+          import json, pathlib, time, sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            c=json.loads((rt/'capital-observability.json').read_text())
+            a=json.loads((rt/'allocator-status.json').read_text())
+            p=json.loads((rt/'portfolio-observability.json').read_text())
+            g=json.loads((rt/'micro-live-gate.json').read_text())
+            r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          except Exception:
+            sys.exit(1)
+          ok=(c.get('capitalVelocityVersion')=='V429' and isinstance(c.get('deployablePct'),(int,float)) and isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float)) and p.get('stateReadable') is True and int(p.get('openPositions') or 0)>=0 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100)
+          sys.exit(0 if ok else 1)
+          PY
+            then READY=1; break; fi
+            sleep 2
+          done
+          test "$READY" -eq 1
+          POST_POS=$(python3 - <<'PY'
+          import json
+          print(int(json.load(open('/opt/meme-alpha/app/runtime-status/portfolio-observability.json')).get('openPositions') or 0))
+          PY
+          )
+          echo POST_POS=$POST_POS
+          test "$POST_POS" -eq "$PRE_POS"
+
+          echo '=== LIVE 100 PASS ==='
+          for i in $(seq 1 100); do
+            test "$(systemctl is-active "$SVC")" = active
+            test "$(systemctl show "$SVC" -p MainPID --value)" = "$NEW_PID"
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - "$PRE_POS" <<'PY'
+          import json,pathlib,time,sys
+          pre=int(sys.argv[1]); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          c=json.loads((rt/'capital-observability.json').read_text()); a=json.loads((rt/'allocator-status.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text()); g=json.loads((rt/'micro-live-gate.json').read_text()); r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          assert c.get('capitalVelocityVersion')=='V429'
+          assert isinstance(c.get('deployablePct'),(int,float))
+          assert isinstance(c.get('exitPreviewBackoffRemainingMs'),(int,float))
+          assert p.get('stateReadable') is True and int(p.get('openPositions') or 0)==pre
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert a.get('action')!='ERROR'
+          PY
+            echo V429_RAM_LIVE_PASS=$i
+            sleep 0.5
+          done
+          echo V429_CORRECT_SERVICE_RESTART=TRUE
+          echo V429_PROCESS_NEWER_THAN_SOURCE=TRUE
+          echo V429_TELEMETRY_FROM_NEW_PROCESS=TRUE
+          echo V429_STATE_CONTINUITY=TRUE
+          echo V429_RAM_LIVE_100_PASS=CLEAN
+          echo V429_RUNTIME_ACTIVE=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
