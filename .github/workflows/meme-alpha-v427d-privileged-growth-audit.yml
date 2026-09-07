@@ -1,0 +1,63 @@
+name: Meme Alpha V427D Privileged Growth Conflict Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427d-privileged-growth-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Audit live growth conflicts with state access
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; BASE=/var/lib/meme-alpha/data/micro-live
+          node --check "$E"
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          echo '=== RUNTIME ==='
+          cat "$RT/capital-observability.json"
+          cat "$RT/allocator-status.json"
+          echo '=== STATE/EVENT AUDIT ==='
+          sudo -n python3 - <<'PY'
+          import json,pathlib,collections,datetime,time
+          base=pathlib.Path('/var/lib/meme-alpha/data/micro-live')
+          st=json.loads((base/'state.json').read_text())
+          pos=st.get('positions') or []
+          now=datetime.datetime.now(datetime.timezone.utc)
+          rows=[]
+          for x in pos:
+            def age(key):
+              v=x.get(key)
+              if not v:return None
+              try:return round((now-datetime.datetime.fromisoformat(str(v).replace('Z','+00:00'))).total_seconds(),1)
+              except:return None
+            rows.append({
+              'symbol':x.get('symbol'),'ret':x.get('lastReturnPct'),'peak':x.get('peakReturnPct'),'costSol':round(float(x.get('costBasisLamports') or 0)/1e9,6),
+              'addCount':x.get('addCount'),'weakExitCount':x.get('weakExitCount'),'locked':x.get('scaleInLockedAfterProfit'),
+              'tp1':x.get('tp1Done'),'tp2':x.get('tp2Done'),'tp3':x.get('tp3Done'),'profitProtect':x.get('profitProtectDone'),'pumpHarvest':x.get('pumpHarvestDone'),
+              'markAgeSec':age('lastMarkAt'),'addAgeSec':age('lastAddAt'),'profitActionAgeSec':age('lastProfitActionAt'),'releaseAgeSec':age('lastCapitalReleaseAt'),'trimAgeSec':age('lastConcentrationTrimAt')
+            })
+          print('POSITIONS',json.dumps(rows,separators=(',',':')))
+          ev=[]; ep=base/'events.jsonl'
+          if ep.exists():
+            for line in ep.read_text(errors='ignore').splitlines()[-50000:]:
+              try:ev.append(json.loads(line))
+              except:pass
+          types=collections.Counter(str(x.get('type')) for x in ev)
+          reasons=collections.Counter(str(x.get('reason')) for x in ev if x.get('reason'))
+          skips=collections.Counter(str(x.get('reason')) for x in ev if x.get('type') in ('BUY_CANDIDATE_SKIP','SCALE_CANDIDATE_SKIP'))
+          alloc=[x for x in ev if x.get('type') in ('ALLOCATOR_STATUS','BUY_CANDIDATE_SKIP','SCALE_CANDIDATE_SKIP')]
+          print('TOP_EVENT_TYPES',dict(types.most_common(30)))
+          print('TOP_REASONS',dict(reasons.most_common(50)))
+          print('SKIP_REASONS',dict(skips.most_common(50)))
+          print('RECENT_SCALE_EVENTS',json.dumps([x for x in ev if x.get('type') in ('MICRO_SCALE_IN','SCALE_CANDIDATE_SKIP')][-50:],separators=(',',':')))
+          print('RECENT_PROFIT_ACTIONS',json.dumps([x for x in ev if x.get('type') in ('MICRO_PARTIAL_SELL','PUMP_LIFECYCLE_HARVEST')][-50:],separators=(',',':')))
+          print('LEARNING',json.dumps(st.get('learning'),separators=(',',':')))
+          PY
+          echo V427D_PRIVILEGED_GROWTH_AUDIT=PASS
