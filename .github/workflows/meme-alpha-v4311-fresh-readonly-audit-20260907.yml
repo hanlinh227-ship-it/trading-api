@@ -1,0 +1,111 @@
+name: Meme Alpha V4311 Fresh Readonly Audit 20260907
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Fresh read-only runtime audit
+        shell: bash
+        run: |
+          set -u
+          APP=/opt/meme-alpha/app
+          RT="$APP/runtime-status"
+          E="$APP/src/micro-live-executor.js"
+          echo '=== TIME ==='
+          date -u +%Y-%m-%dT%H:%M:%SZ
+          echo '=== SERVICES ==='
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do
+            echo "SERVICE=$svc ACTIVE=$(systemctl is-active "$svc" 2>/dev/null || true) MAINPID=$(systemctl show "$svc" -p MainPID --value 2>/dev/null || true) NRESTARTS=$(systemctl show "$svc" -p NRestarts --value 2>/dev/null || true)"
+          done
+          echo "EXECUTOR_PROCESS_COUNT=$(pgrep -fc '^/usr/bin/node /opt/meme-alpha/app/src/micro-live-executor.js$' || true)"
+          echo "EXECUTOR_SHA=$(sha256sum "$E" 2>/dev/null | awk '{print $1}')"
+          grep -o "V4311_[A-Z0-9_]*=TRUE" "$E" | sort -u || true
+
+          echo '=== SIGNER HEALTH ==='
+          python3 - <<'PY'
+          import socket,json
+          s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+          try:
+            s.settimeout(3); s.connect('/run/meme-alpha-signer/ready.sock'); s.sendall(b'{"op":"health"}\n'); data=b''
+            while not data.endswith(b'\n'):
+              x=s.recv(4096)
+              if not x: break
+              data+=x
+            print(data.decode().strip())
+          except Exception as e: print('SIGNER_HEALTH_ERROR='+repr(e))
+          finally:
+            try:s.close()
+            except:pass
+          PY
+
+          echo '=== CORE JSON SNAPSHOTS ==='
+          for f in micro-live-gate.json capital-observability.json allocator-status.json realtime-pool-pulse.json portfolio-observability.json; do
+            echo "--- $f ---"
+            cat "$RT/$f" 2>/dev/null || echo MISSING
+            echo
+          done
+
+          echo '=== FRESHNESS / CONSISTENCY ==='
+          python3 - <<'PY'
+          import json,pathlib,datetime,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          now=time.time()
+          def load(n):
+            try:return json.loads((rt/n).read_text())
+            except Exception as e:return {'_error':repr(e)}
+          for n in ['micro-live-gate.json','capital-observability.json','allocator-status.json','realtime-pool-pulse.json','portfolio-observability.json']:
+            x=load(n); ts=x.get('updatedAt') or x.get('timestamp')
+            age=None
+            if ts:
+              try: age=now-datetime.datetime.fromisoformat(ts.replace('Z','+00:00')).timestamp()
+              except: pass
+            print(n,'AGE_SEC=',None if age is None else round(age,3),'KEY=',{k:x.get(k) for k in ['allowed','action','reason','scaleAllowed','status','heldCoveragePct','heldUnresolved','stateReadable','openPositions','signerContractMirrorVersion','signerUpstreamHttpStreak','exitPreviewRateLimitStreak','exitPreviewBackoffRemainingMs'] if k in x})
+          g=load('micro-live-gate.json'); c=load('capital-observability.json'); a=load('allocator-status.json'); r=load('realtime-pool-pulse.json'); p=load('portfolio-observability.json')
+          checks={
+            'gate_allowed':g.get('allowed') is True,
+            'gate_source_healthy':g.get('sourceHealthy') is True,
+            'gate_live_ready':g.get('liveRiskReady') is True,
+            'gate_scale_allowed':g.get('scaleAllowed') is True,
+            'gate_reasons_empty':not (g.get('reasons') or []),
+            'capital_v4311':c.get('signerContractMirrorVersion')=='V4311',
+            'capital_scale_allowed':c.get('scaleAllowed') is True,
+            'signer_http_streak_clear':int(c.get('signerUpstreamHttpStreak') or 0)==0,
+            'exit_rate_limit_streak_clear':int(c.get('exitPreviewRateLimitStreak') or 0)==0,
+            'exit_backoff_clear':int(c.get('exitPreviewBackoffRemainingMs') or 0)==0,
+            'realtime_healthy':r.get('status')=='HEALTHY',
+            'held_resolved':int(r.get('heldUnresolved') or 0)==0,
+            'held_coverage_100':int(r.get('heldCoveragePct') or 0)==100,
+            'portfolio_readable':p.get('stateReadable') is True,
+            'allocator_not_error':a.get('action')!='ERROR',
+          }
+          print('CHECKS='+json.dumps(checks,sort_keys=True))
+          print('FAILED_CHECKS='+json.dumps([k for k,v in checks.items() if not v]))
+          PY
+
+          echo '=== RECENT EXECUTOR JOURNAL ERRORS 20M ==='
+          journalctl -u meme-alpha-micro-live.service --since '20 minutes ago' --no-pager 2>/dev/null | grep -E 'EXECUTOR_ERROR|UPSTREAM_TRANSIENT|ORDER_REJECTED|HTTP_429|SIGNER_|UNHANDLED|UNCAUGHT|PROCESS_SIGNAL|SAFE|ERROR' | tail -n 200 || true
+          echo '=== RECENT EXECUTOR JOURNAL TAIL ==='
+          journalctl -u meme-alpha-micro-live.service --since '5 minutes ago' --no-pager 2>/dev/null | tail -n 120 || true
+
+          echo '=== SIGNER CONTRACT SOURCE CHECK ==='
+          nl -ba /opt/meme-alpha-signer/ready_signer.py 2>/dev/null | sed -n '81,102p' || true
+          grep -n "function signerCandidateCompatible" "$E" | head -n 2 || true
+
+          echo '=== HELD ACTIVITY QUALITY ==='
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('/opt/meme-alpha/app/runtime-status/realtime-pool-pulse.json')
+          try:x=json.loads(p.read_text())
+          except Exception as e: print('READ_ERROR',e); raise SystemExit
+          held=[r for r in x.get('rows',[]) if r.get('held')]
+          stale=[r for r in held if (r.get('lastEventAgeMs') or 0)>300000]
+          fallback=[r for r in held if r.get('memoryFallback')]
+          print('HELD_TOTAL',len(held),'MEMORY_FALLBACK',len(fallback),'EVENT_AGE_GT_5M',len(stale))
+          for r in sorted(held,key=lambda z:z.get('lastEventAgeMs') or 0,reverse=True)[:10]:
+            print(r.get('symbol'), 'ageMs=',r.get('lastEventAgeMs'),'memoryFallback=',r.get('memoryFallback'),'events15s=',r.get('events15s'),'source=',r.get('pairSource'))
+          PY
+          echo FRESH_READONLY_AUDIT=COMPLETE
