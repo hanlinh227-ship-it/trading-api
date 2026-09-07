@@ -1,0 +1,77 @@
+name: Meme Alpha V4292 Graceful Shutdown Fix
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v4292-graceful-shutdown-fix.yml'
+jobs:
+  fix:
+    runs-on: [self-hosted, trading-vps]
+    steps:
+      - name: Fix paper TERM handling and verify restart no longer waits stop timeout
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; P="$APP/run-paper.sh"
+          C="$RT/run-paper-v4292-graceful-shutdown.candidate.sh"; B="$RT/run-paper-v4292-graceful-shutdown.backup.sh"
+          cp "$P" "$B"; cp "$P" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          assert 'V4291_MICRO_LIVE_GENERATION_GUARD' in s
+          assert 'V4292_GRACEFUL_TERM_EXIT' not in s
+          old='trap cleanup_runtime_helpers EXIT TERM INT\n'
+          assert s.count(old)==1
+          new='''# V4292_GRACEFUL_TERM_EXIT
+          shutdown_runtime_helpers() {
+            trap - TERM INT
+            cleanup_runtime_helpers
+            trap - EXIT
+            exit 0
+          }
+          trap cleanup_runtime_helpers EXIT
+          trap shutdown_runtime_helpers TERM INT
+          # V4292_GRACEFUL_TERM_EXIT_END
+          '''
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          bash -n "$C"
+          grep -q 'V4292_GRACEFUL_TERM_EXIT' "$C"
+          grep -q 'trap shutdown_runtime_helpers TERM INT' "$C"
+          cp "$C" "$P"; chmod 755 "$P"
+
+          echo '=== LOAD V4292 SHUTDOWN HANDLER ==='
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          test "$(systemctl is-active meme-alpha-paper.service)" = active
+          grep -q 'V4292_GRACEFUL_TERM_EXIT' "$P"
+          sleep 2
+
+          echo '=== MEASURE SECOND RESTART WITH NEW HANDLER ==='
+          T0=$(date +%s%3N)
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+          T1=$(date +%s%3N)
+          DUR=$((T1-T0))
+          echo V4292_SECOND_RESTART_MS=$DUR
+          if [ "$DUR" -gt 15000 ]; then
+            echo GRACEFUL_RESTART_TOO_SLOW=$DUR
+            exit 1
+          fi
+          test "$(systemctl is-active meme-alpha-paper.service)" = active
+          sleep 2
+          test "$(systemctl is-active meme-alpha-micro-live.service)" = active
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          python3 - <<'PY'
+          import json,pathlib
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          gg=json.loads((rt/'micro-live-generation-guard.json').read_text())
+          assert gg.get('version')=='V4291_RUNTIME_GENERATION_GUARD'
+          assert gg.get('state')=='CLEAN'
+          g=json.loads((rt/'micro-live-gate.json').read_text())
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text())
+          p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100
+          assert p.get('stateReadable') is True
+          PY
+          echo V4292_GRACEFUL_SHUTDOWN=ACTIVE
+          echo V4292_RESTART_TIMEOUT_CONFLICT=FIXED
