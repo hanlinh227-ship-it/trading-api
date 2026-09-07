@@ -67,12 +67,19 @@ jobs:
           p=json.load(open('/tmp/status.json',encoding='utf-8'))
           assert p.get('ok') is True, p
           assert p.get('version') == 'SIGNALHUB-FOREX-2.1.0', p
-          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.1', p
+          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', p
           assert p.get('independentFromBybit') is True, p
           assert p.get('trackerStorage') is True, p
           assert p.get('oneActiveSetupPerSymbol') is True, p
           assert p.get('supportedOrderTypes') == ['MARKET','LIMIT','STOP'], p
-          print('STATUS_OK',p.get('version'),p.get('trackerSummary'))
+          policy=p.get('signalCadencePolicy') or {}
+          assert policy.get('mode') == 'MODERATE_QUALITY_FIRST', policy
+          assert policy.get('minGlobalSpacingMinutes') == 20, policy
+          assert policy.get('maxNewPerScan') == 1, policy
+          assert policy.get('maxActiveTotal') == 12, policy
+          assert policy.get('maxActiveByGroup') == {'forex':8,'metal':2,'energy':2}, policy
+          assert policy.get('minScore') == {'MARKET':93,'LIMIT':88,'STOP':90}, policy
+          print('STATUS_OK',p.get('version'),p.get('gatewayVersion'),policy)
           PY
 
           curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/live-quotes?group=all" -o /tmp/live.json
@@ -95,6 +102,7 @@ jobs:
           p=json.load(open('/tmp/app-version.json',encoding='utf-8'))
           a=p.get('app') or {}
           assert p.get('ok') is True, p
+          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', p
           assert a.get('versionCode') == 5, a
           assert a.get('versionName') == '2.1.0', a
           print('APP_VERSION_OK',a.get('versionName'))
@@ -114,10 +122,15 @@ jobs:
           assert tr.get('enabled') is True, tr
           assert tr.get('oneActiveSetupPerSymbol') is True, tr
           assert isinstance(tr.get('events'),list), tr
+          q=p.get('qualityPolicy') or {}
+          assert q.get('version') == 'QUALITY_GATE_V212', q
+          assert q.get('maxNewPerScan') == 1, q
+          assert q.get('minGlobalSpacingMinutes') == 20, q
+          assert q.get('approvedNewSignals',0) <= 1, q
           for a in p.get('analyses',[]):
               if str(a.get('status','')).endswith('_SIGNAL'):
                   assert a.get('orderType') in ('MARKET','LIMIT','STOP'), a
-          print(g.upper()+'_OK','rows',p.get('sourceRows'),'actionable',p.get('actionableCount'),'mix',p.get('orderMix'))
+          print(g.upper()+'_OK','rows',p.get('sourceRows'),'quality',q)
           PY
           done
 
