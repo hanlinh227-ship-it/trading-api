@@ -1,0 +1,49 @@
+name: Meme Alpha V427C Post Restart Recovery Audit
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427c-postrestart-recovery-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 8
+    steps:
+      - name: Verify live V427 after source warmup
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"
+          node --check "$E"
+          OUT=$(node "$E" --self-test); printf '%s\n' "$OUT"
+          for M in V426_CONFLICT_CLEANUP=PASS V427_PUMP_LIFECYCLE=TRUE V427_FLIGHT_SCALE_TO_35PCT=TRUE V427_ADAPTIVE_PROFIT_HARVEST=TRUE V427_PARABOLIC_EXHAUSTION_HARVEST=TRUE V418_WINNER_ONLY_SCALE=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+          test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do printf '%s=' "$svc"; systemctl is-active "$svc"; done
+
+          PASS=0
+          for i in $(seq 1 30); do
+            if python3 - <<'PY'
+          import json,pathlib,time,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+            rp=rt/'realtime-pool-pulse.json'; r=json.loads(rp.read_text()); ra=time.time()-rp.stat().st_mtime
+            pp=rt/'portfolio-observability.json'; p=json.loads(pp.read_text()); pa=time.time()-pp.stat().st_mtime
+          except Exception as e:
+            print('READ_FAIL',e); sys.exit(1)
+          print('CHECK',{'gateAge':round(ga,1),'allowed':g.get('allowed'),'armOk':g.get('armOk'),'sourceHealthy':g.get('sourceHealthy'),'liveRiskReady':g.get('liveRiskReady'),'scaleAllowed':g.get('scaleAllowed'),'reasons':g.get('reasons'),'realtimeStatus':r.get('status'),'heldUnresolved':r.get('heldUnresolved'),'heldCoveragePct':r.get('heldCoveragePct'),'portfolioReadable':p.get('stateReadable')})
+          ok=ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          sys.exit(0 if ok else 1)
+          PY
+            then PASS=1; break; fi
+            sleep 5
+          done
+          test "$PASS" -eq 1
+          echo V427C_POST_RESTART_RECOVERY=CLEAN
+          echo V427_LIVE_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
