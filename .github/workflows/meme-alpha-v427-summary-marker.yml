@@ -1,0 +1,8 @@
+name: Meme Alpha V427 Summary Marker
+on:
+  workflow_dispatch:
+jobs:
+  marker:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo V427_SUMMARY_MARKER=READY
