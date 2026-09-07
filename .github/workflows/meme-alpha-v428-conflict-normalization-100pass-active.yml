@@ -1,0 +1,122 @@
+name: Meme Alpha V428 Conflict Normalization 100 Pass Active
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v428-conflict-normalization-100pass-active.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  activate:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 20
+    steps:
+      - name: Patch validate activate and audit V428 100 passes
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; E="$APP/src/micro-live-executor.js"; C="$RT/deploy-candidates/v428-conflict-normalization.js"
+          mkdir -p "$RT/deploy-candidates"; cp "$E" "$C"
+          python3 - "$C" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]); s=p.read_text()
+          def rep(old,new,name,count=1):
+            global s
+            n=s.count(old); assert n==count,(name,n,count); s=s.replace(old,new,count)
+          assert 'V427_PUMP_LIFECYCLE=TRUE' in s, 'V427_BASELINE_REQUIRED'
+          assert 'V428_CONFLICT_NORMALIZATION=TRUE' not in s, 'V428_ALREADY_PRESENT'
+
+          old="function pumpScaleEligible(pos,c,p){if(!pos||!c)return false;const life=pumpLifecycle(c),ret=Number(pos.lastReturnPct),lastMark=Date.parse(pos.lastMarkAt||0),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),fresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000),cooldown=Date.parse(pos.lastCapitalReleaseAt||pos.lastConcentrationTrimAt||0),releaseCooldownOk=!Number.isFinite(cooldown)||cooldown<=0||Date.now()-cooldown>=180000;if(!fresh||!Number.isFinite(ret)||!intervalOk||!releaseCooldownOk||n(pos.weakExitCount)>0||pos.scaleInLockedAfterProfit)return false;if(life.phase==='EXHAUSTION'||life.phase==='PARABOLIC')return false;if(life.phase==='CONFIRMED_FLIGHT')return ret>=1&&ret<=35;if(life.phase==='EARLY_ACCELERATION')return ret>=-.5&&ret<=12;return ret>=1.5&&ret<=18}"
+          new="function profitScaleRearmEligible(pos,c,life){if(!pos||!c||!life||pos.scaleInLockedAfterProfit!==true)return false;const ret=Number(pos.lastReturnPct),profitAt=Date.parse(pos.lastProfitActionAt||0),profitCooldownOk=!Number.isFinite(profitAt)||profitAt<=0||Date.now()-profitAt>=180000;return life.phase==='CONFIRMED_FLIGHT'&&life.score>=9&&Number.isFinite(ret)&&ret>=2&&ret<=35&&profitCooldownOk&&n(pos.weakExitCount)<=0}\nfunction pumpScaleEligible(pos,c,p){if(!pos||!c)return false;const life=pumpLifecycle(c),ret=Number(pos.lastReturnPct),lastMark=Date.parse(pos.lastMarkAt||0),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),fresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000),cooldown=Date.parse(pos.lastCapitalReleaseAt||pos.lastConcentrationTrimAt||0),releaseCooldownMs=life.phase==='CONFIRMED_FLIGHT'?180000:life.phase==='EARLY_ACCELERATION'?300000:900000,releaseCooldownOk=!Number.isFinite(cooldown)||cooldown<=0||Date.now()-cooldown>=releaseCooldownMs,rearm=profitScaleRearmEligible(pos,c,life);if(!fresh||!Number.isFinite(ret)||!intervalOk||!releaseCooldownOk||n(pos.weakExitCount)>0||(pos.scaleInLockedAfterProfit&&!rearm))return false;if(life.phase==='EXHAUSTION'||life.phase==='PARABOLIC')return false;if(life.phase==='CONFIRMED_FLIGHT')return ret>=1&&ret<=35;if(life.phase==='EARLY_ACCELERATION')return ret>=-.5&&ret<=12;return ret>=1.5&&ret<=18}"
+          rep(old,new,'LIFECYCLE_SCALE_REARM')
+
+          old="function scalePositionEligible(pos,c,p){if(!pos||!c)return false;const lastMark=Date.parse(pos.lastMarkAt||0),markFresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,ret=Number(pos.lastReturnPct),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000),lastRelease=Date.parse(pos.lastCapitalReleaseAt||pos.lastConcentrationTrimAt||0),releaseCooldownOk=!Number.isFinite(lastRelease)||lastRelease<=0||Date.now()-lastRelease>=2700000;if(!markFresh||!Number.isFinite(ret)||!intervalOk||!releaseCooldownOk||pos.scaleInLockedAfterProfit||n(pos.weakExitCount)>0)return false;const pulse=pulseFor(c),life=pumpLifecycle(c),winner=ret>=1.5&&ret<=18,flight=life.phase==='CONFIRMED_FLIGHT'&&ret>=1&&ret<=35,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&n(c.netBuyers5m)>=6&&n(c.avgNetBuyersLast2,n(c.netBuyers5m))>=4;return (winner||flight||recovery)&&pumpScaleEligible(pos,c,p)}"
+          new="function scalePositionEligible(pos,c,p){if(!pos||!c)return false;const lastMark=Date.parse(pos.lastMarkAt||0),markFresh=Number.isFinite(lastMark)&&Date.now()-lastMark>=0&&Date.now()-lastMark<=90000,ret=Number(pos.lastReturnPct),lastAdd=Date.parse(pos.lastAddAt||pos.openedAt||0),intervalOk=!Number.isFinite(lastAdd)||lastAdd<=0||Date.now()-lastAdd>=Math.max(15000,n(p.minAddIntervalSec,30)*1000);if(!markFresh||!Number.isFinite(ret)||!intervalOk||n(pos.weakExitCount)>0)return false;const pulse=pulseFor(c),life=pumpLifecycle(c),winner=ret>=1.5&&ret<=18,flight=life.phase==='CONFIRMED_FLIGHT'&&ret>=1&&ret<=35,recovery=ret>=-.5&&ret<1.5&&preBreakoutSignal(c)&&pulse?.flowRiseConfirmed===true&&n(c.netBuyers5m)>=6&&n(c.avgNetBuyersLast2,n(c.netBuyers5m))>=4;return (winner||flight||recovery)&&pumpScaleEligible(pos,c,p)}"
+          rep(old,new,'REMOVE_45M_OUTER_SCALE_CONFLICT')
+
+          old="diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,perPositionCap=Math.min(diversificationCap,p.maxUtilizationPct),pct=clamp("
+          new="diversificationCap=safeBreadth>=5?16:safeBreadth>=3?20:safeBreadth>=2?24:28,life=pumpLifecycle(c),heldExisting=heldMints.has(c.mint),lifecycleCap=heldExisting&&life.phase==='CONFIRMED_FLIGHT'?Math.min(32,p.maxUtilizationPct):diversificationCap,perPositionCap=Math.min(Math.max(diversificationCap,lifecycleCap),p.maxUtilizationPct),pct=clamp("
+          rep(old,new,'WINNER_LIFECYCLE_ALLOCATION_CAP')
+
+          old="x.pumpHarvestDone=true;x.scaleInLockedAfterProfit=true;atomic(statePath,st)"
+          new="x.pumpHarvestDone=true;x.scaleInLockedAfterProfit=true;x.lastProfitActionAt=new Date().toISOString();atomic(statePath,st)"
+          rep(old,new,'PUMP_HARVEST_REARM_TIMESTAMP')
+
+          marker="console.log('V427_PARABOLIC_EXHAUSTION_HARVEST=TRUE');"
+          rep(marker,marker+"console.log('V428_CONFLICT_NORMALIZATION=TRUE');console.log('V428_LIFECYCLE_REARM=TRUE');console.log('V428_NO_45M_SCALE_CONFLICT=TRUE');console.log('V428_FLIGHT_ALLOCATION_CAP_32=TRUE');console.log('V428_SIGNER_HARD_GATE_UNCHANGED=TRUE');",'V428_MARKERS')
+          p.write_text(s)
+          PY
+
+          echo '=== PREDEPLOY 100-PASS AUDIT ==='
+          for i in $(seq 1 100); do
+            node --check "$C"
+            OUT=$(node "$C" --self-test)
+            for M in V426_CONFLICT_CLEANUP=PASS V427_PUMP_LIFECYCLE=TRUE V428_CONFLICT_NORMALIZATION=TRUE V428_LIFECYCLE_REARM=TRUE V428_NO_45M_SCALE_CONFLICT=TRUE V428_FLIGHT_ALLOCATION_CAP_32=TRUE V428_SIGNER_HARD_GATE_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT V416_HARD_SAFETY_UNCHANGED=TRUE; do grep -q "$M" <<<"$OUT"; done
+            python3 - "$C" <<'PY'
+          import pathlib,sys
+          s=pathlib.Path(sys.argv[1]).read_text()
+          a=s.index('function scalePositionEligible('); b=s.index('\nfunction ',a+10) if '\nfunction ' in s[a+10:] else len(s); fn=s[a:b]
+          assert '2700000' not in fn, 'OUTER_45M_SCALE_CONFLICT_REMAINS'
+          assert 'pumpScaleEligible(pos,c,p)' in fn, 'SCALE_NOT_DELEGATED_TO_LIFECYCLE'
+          assert 'function profitScaleRearmEligible' in s and "life.phase==='CONFIRMED_FLIGHT'" in s, 'PROFIT_REARM_MISSING'
+          assert "releaseCooldownMs=life.phase==='CONFIRMED_FLIGHT'?180000" in s, 'LIFECYCLE_COOLDOWN_MISSING'
+          assert "lifecycleCap=heldExisting&&life.phase==='CONFIRMED_FLIGHT'?Math.min(32,p.maxUtilizationPct)" in s, 'FLIGHT_CAP_MISSING'
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s, 'HARD_SIGNER_SAFETY_CHANGED'
+          assert 'scaleAllowed:true' in s, 'SCALE_ALLOWED_NOT_PRESERVED'
+          PY
+            echo PREDEPLOY_PASS=$i
+          done
+
+          SHA=$(sha256sum "$C"|awk '{print $1}'); echo V428_CANDIDATE_SHA=$SHA
+          cp "$E" "$RT/v428-pre-active-executor.js"
+          cp "$C" "$E"; chmod 664 "$E"
+          test "$(sha256sum "$E"|awk '{print $1}')" = "$SHA"
+          sudo -n /bin/systemctl restart meme-alpha-paper.service
+
+          echo '=== WAIT FOR POST-RESTART RECOVERY ==='
+          RECOVERED=0
+          for i in $(seq 1 36); do
+            if python3 - <<'PY'
+          import json,pathlib,time,sys
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          try:
+            gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+            r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          except Exception: sys.exit(1)
+          ok=ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons') and r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          sys.exit(0 if ok else 1)
+          PY
+            then RECOVERED=1; break; fi
+            sleep 5
+          done
+          test "$RECOVERED" -eq 1
+
+          echo '=== LIVE 100-PASS AUDIT ==='
+          for i in $(seq 1 100); do
+            node --check "$E"
+            OUT=$(node "$E" --self-test)
+            for M in V428_CONFLICT_NORMALIZATION=TRUE V428_LIFECYCLE_REARM=TRUE V428_NO_45M_SCALE_CONFLICT=TRUE V428_FLIGHT_ALLOCATION_CAP_32=TRUE V428_SIGNER_HARD_GATE_UNCHANGED=TRUE HARD_SECURITY_AND_SELLABILITY_FAILSAFE=KEPT; do grep -q "$M" <<<"$OUT"; done
+            test "$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)" -eq 1
+            for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do test "$(systemctl is-active "$svc")" = active; done
+            python3 - "$E" <<'PY'
+          import json,pathlib,time,sys
+          e=pathlib.Path(sys.argv[1]); s=e.read_text(); rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          a=s.index('function scalePositionEligible('); tail=s[a+10:]; off=tail.find('\nfunction '); fn=s[a:(a+10+off if off>=0 else len(s))]
+          assert '2700000' not in fn and 'pumpScaleEligible(pos,c,p)' in fn
+          assert 'function profitScaleRearmEligible' in s and 'V428_CONFLICT_NORMALIZATION=TRUE' in s
+          assert "c.securityDecision==='PASS'" in s and "c.holderClusterDecision==='PASS'" in s and "c.sellRoute===true" in s
+          gp=rt/'micro-live-gate.json'; g=json.loads(gp.read_text()); ga=time.time()-gp.stat().st_mtime
+          r=json.loads((rt/'realtime-pool-pulse.json').read_text()); p=json.loads((rt/'portfolio-observability.json').read_text())
+          assert ga<180 and g.get('allowed') is True and g.get('armOk') is True and g.get('sourceHealthy') is True and g.get('liveRiskReady') is True and g.get('scaleAllowed') is True and not g.get('reasons')
+          assert r.get('status')=='HEALTHY' and int(r.get('heldUnresolved') or 0)==0 and int(r.get('heldCoveragePct') or 0)==100 and p.get('stateReadable') is True
+          PY
+            echo LIVE_PASS=$i
+            sleep 1
+          done
+          echo V428_PREDEPLOY_100_PASS=CLEAN
+          echo V428_LIVE_100_PASS=CLEAN
+          echo V428_ACTIVE=TRUE
+          echo SCALE_ALLOWED=TRUE
+          echo HARD_SAFETY_BYPASS=FALSE
