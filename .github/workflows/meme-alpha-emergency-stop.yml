@@ -23,21 +23,15 @@ jobs:
             RUN="$APP/run-paper.sh"
             BAK="$APP/runtime-status/run-paper.emergency-stop.bak"
             cp "$RUN" "$BAK"
-            trap 'cp "$BAK" "$RUN" 2>/dev/null || true' EXIT
-            cat > "$RUN" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-pid="$(systemctl show meme-alpha-micro-live.service -p MainPID --value)"
-if [ -n "$pid" ] && [ "$pid" != "0" ]; then
-  kill -STOP "$pid"
-fi
-exit 0
-EOF
+            restore(){ cp "$BAK" "$RUN" 2>/dev/null || true; }
+            trap restore EXIT
+            printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'pid="$(systemctl show meme-alpha-micro-live.service -p MainPID --value)"' 'if [ -n "$pid" ] && [ "$pid" != "0" ]; then kill -STOP "$pid"; fi' 'exit 0' > "$RUN"
             chmod +x "$RUN"
             sudo -n /bin/systemctl restart meme-alpha-paper.service
             sleep 2
-            cp "$BAK" "$RUN"
+            restore
             sudo -n /bin/systemctl restart meme-alpha-paper.service
+            trap - EXIT
             echo STOP_METHOD=SIGSTOP_RELAY
           fi
           sleep 2
