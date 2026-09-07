@@ -7,7 +7,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public final class ApiClient {
-    public static final String BASE_URL = "https://trading-v77-scanner.hanlinh227.workers.dev";
+    public static final String BASE_URL = "https://signalhub-forex.hanlinh227.workers.dev";
 
     private ApiClient() {}
 
@@ -15,10 +15,11 @@ public final class ApiClient {
         URL url = new URL(path.startsWith("http") ? path : BASE_URL + path);
         HttpURLConnection c = (HttpURLConnection) url.openConnection();
         c.setRequestMethod("GET");
-        c.setConnectTimeout(15000);
-        c.setReadTimeout(120000);
+        c.setConnectTimeout(12000);
+        c.setReadTimeout(30000);
         c.setRequestProperty("Accept", "application/json");
-        c.setRequestProperty("User-Agent", "SignalHub-Android/1.0");
+        c.setRequestProperty("Cache-Control", "no-cache");
+        c.setRequestProperty("User-Agent", "SignalHub-Android/1.0.2");
         int code = c.getResponseCode();
         BufferedReader br = new BufferedReader(new InputStreamReader(
                 code >= 200 && code < 400 ? c.getInputStream() : c.getErrorStream(),
