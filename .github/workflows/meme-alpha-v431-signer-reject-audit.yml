@@ -1,0 +1,38 @@
+name: Meme Alpha V431 Signer Reject Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v431-signer-reject-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Diagnose signer rejection
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=/opt/meme-alpha/app; RT="$APP/runtime-status"; DATA=/var/lib/meme-alpha/data/micro-live
+          echo '=== STATUS ==='
+          cat "$RT/allocator-status.json" || true; echo
+          cat "$RT/last-execution.json" || true; echo
+          echo '=== MICRO LIVE JOURNAL ==='
+          journalctl -u meme-alpha-micro-live.service --since '15 minutes ago' --no-pager 2>/dev/null | tail -n 500 || true
+          echo '=== SIGNER JOURNAL ==='
+          journalctl -u meme-alpha-signer.service --since '15 minutes ago' --no-pager 2>/dev/null | tail -n 500 || true
+          echo '=== SIGNER UNIT ==='
+          systemctl show meme-alpha-signer.service -p ExecStart -p MainPID -p User -p Group -p ActiveState -p SubState
+          systemctl cat meme-alpha-signer.service || true
+          echo '=== RECENT DATA FILES ==='
+          find "$DATA" -maxdepth 2 -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 30 || true
+          echo '=== EVENT TAILS ==='
+          for f in "$DATA"/*.ndjson "$DATA"/*.log "$DATA"/*event*; do [ -f "$f" ] || continue; echo "--- $f"; tail -n 200 "$f" | grep -Ei 'SIGNER|ORDER|BUY|REJECT|HTTP|ERROR|SKIP|CANDIDATE' || true; done
+          echo '=== SIGNER SOURCE HINTS ==='
+          EX=$(systemctl show meme-alpha-signer.service -p ExecStart --value | sed -n 's/.*path=\([^ ;]*\).*/\1/p')
+          echo "EXTRACTED=$EX"
+          grep -RniE 'order|reject|PROBE_CANDIDATE|MEME_CONFIRMED|securityDecision|holderCluster|sellRoute|maxPriceImpact|HTTP' "$APP"/src "$APP"/scripts 2>/dev/null | head -n 300 || true
+          echo V431_SIGNER_REJECT_AUDIT=COMPLETE
