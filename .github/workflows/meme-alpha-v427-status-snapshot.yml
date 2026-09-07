@@ -1,0 +1,30 @@
+name: Meme Alpha V427 Status Snapshot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/meme-alpha-v427-status-snapshot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  snapshot:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Snapshot V427 live state
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js; RT=/opt/meme-alpha/app/runtime-status
+          echo EXECUTOR_SHA=$(sha256sum "$E"|awk '{print $1}')
+          echo EXECUTOR_COUNT=$(pgrep -fc '/opt/meme-alpha/app/src/micro-live-executor.js'||true)
+          grep -E 'V426_CONFLICT_CLEANUP=PASS|V427_PUMP_LIFECYCLE=TRUE|V427_FLIGHT_SCALE_TO_35PCT=TRUE|V427_ADAPTIVE_PROFIT_HARVEST=TRUE|V427_PARABOLIC_EXHAUSTION_HARVEST=TRUE' "$E"
+          for svc in meme-alpha-paper.service meme-alpha-micro-live.service meme-alpha-signer.service meme-alpha-realtime-pulse.service meme-alpha-trend-pulse.service meme-alpha-whale-flow.service; do echo "$svc=$(systemctl is-active "$svc")"; done
+          python3 - <<'PY'
+          import json,pathlib,time
+          rt=pathlib.Path('/opt/meme-alpha/app/runtime-status')
+          for name in ['micro-live-gate.json','realtime-pool-pulse.json','portfolio-observability.json','capital-observability.json','allocator-status.json']:
+            p=rt/name; d=json.loads(p.read_text()); print(name,'ageSec',round(time.time()-p.stat().st_mtime,1),d)
+          PY
