@@ -1,0 +1,34 @@
+name: Meme Alpha V430 Profit Conflict Audit B
+on:
+  push:
+    paths:
+      - '.github/workflows/meme-alpha-v430-profit-conflict-audit-b.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: [self-hosted, trading-vps]
+    timeout-minutes: 6
+    steps:
+      - name: Inspect remaining source conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          E=/opt/meme-alpha/app/src/micro-live-executor.js
+          python3 - "$E" <<'PY'
+          import pathlib,sys,re
+          s=pathlib.Path(sys.argv[1]).read_text()
+          names=['signerCandidateCompatible','newEntryMode','maybeScaleIn','manageOnePosition','rankedCandidates','placeBuy','targetPlan','profitAwareWeakDecision','manageWeakTrend','maybePumpHarvest','opportunityLane','trendEntryEligible','idleCapitalProbeEligible']
+          for name in names:
+            m=re.search(r'(?:async\s+)?function\s+'+re.escape(name)+r'\s*\(',s)
+            print('\n###',name)
+            if not m: print('NOT_FOUND'); continue
+            start=m.start(); nxt=re.search(r'\n(?:async\s+)?function\s+[A-Za-z0-9_]+\s*\(',s[m.end():])
+            end=m.end()+nxt.start() if nxt else min(len(s),start+15000)
+            print(s[start:end][:15000])
+          PY
+          echo '=== STATUS ==='
+          cat /opt/meme-alpha/app/runtime-status/allocator-status.json || true
+          echo
+          cat /opt/meme-alpha/app/runtime-status/capital-observability.json || true
+          echo
+          echo V430_PROFIT_CONFLICT_AUDIT_B=COMPLETE
