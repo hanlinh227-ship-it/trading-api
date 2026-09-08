@@ -130,16 +130,37 @@ async function patchSignalFromBrokerEvent(env, evt, receivedAt) {
     s.brokerDealTicket = String(evt?.dealTicket || '');
     s.brokerOrderTicket = String(evt?.orderTicket || '');
   } else if (event === 'BROKER_CLOSE_CONFIRMED') {
+    const reason = String(evt?.dealReason || 'BROKER_CLOSE').toUpperCase();
     s.brokerClosedAt = receivedAt;
     s.brokerClosePrice = isFinitePositive(price) ? price : null;
     s.brokerCloseConfirmed = true;
-    s.brokerCloseReason = String(evt?.dealReason || 'BROKER_CLOSE');
+    s.brokerCloseReason = reason;
+    s.executionSource = 'EXNESS_MT5_DEAL';
+    // V2.02 reports DEAL_REASON. TP/SL can therefore be closed from broker truth.
+    // Older bridge events without an exact reason remain non-destructive.
+    if ((reason === 'TP' || reason === 'SL') && isFinitePositive(price)) {
+      const entry = num(s.actualEntry ?? s.entry);
+      const stop = num(s.sl);
+      const risk = isFinitePositive(entry) && isFinitePositive(stop) ? Math.abs(entry - stop) : null;
+      const dir = String(s.side || '').toUpperCase() === 'LONG' ? 1 : -1;
+      s.status = 'CLOSED';
+      s.outcome = reason;
+      s.closedAt = receivedAt;
+      s.exitPrice = price;
+      if (risk && risk > 0) s.resultR = Number((dir * (price - entry) / risk).toFixed(4));
+      s.resolution = 'BROKER_CONFIRMED_' + reason;
+    }
   } else {
     return {patched:false,reason:'EVENT_NOT_PATCHABLE'};
   }
   s.lastCheckedAt = receivedAt;
   await env.SIGNALS_KV.put(key, JSON.stringify(s), {expirationTtl: MT5_EVENT_TTL});
-  return {patched:true,status:s.status};
+  if (s.status === 'CLOSED' && s.symbol) {
+    const activeKey = `active:${s.symbol}`;
+    const activeId = await env.SIGNALS_KV.get(activeKey);
+    if (activeId === id) await env.SIGNALS_KV.delete(activeKey);
+  }
+  return {patched:true,status:s.status,outcome:s.outcome || null};
 }
 
 async function mt5Event(req, env) {
@@ -196,6 +217,7 @@ async function mt5Live(env) {
       signalId:lastEvent.signalId || '',
       brokerSymbol:lastEvent.brokerSymbol || '',
       price:num(lastEvent.price),
+      dealReason:lastEvent.dealReason || '',
       receivedAt:lastEvent.receivedAt,
     } : null,
   }, quotes ? 200 : 503);
