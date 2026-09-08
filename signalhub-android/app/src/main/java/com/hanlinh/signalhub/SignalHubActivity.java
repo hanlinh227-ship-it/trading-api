@@ -3,9 +3,7 @@ package com.hanlinh.signalhub;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -17,7 +15,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -26,9 +23,7 @@ import org.json.JSONObject;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -37,76 +32,54 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS = 42;
-    private static final long LIVE_REFRESH_MS = 5000L;
+    private static final long FAST_REFRESH_MS = 1800L;
+    private static final String APP_VERSION = "3.0.0";
 
-    private static final int BG = Color.rgb(5, 8, 13);
-    private static final int PANEL = Color.rgb(13, 19, 28);
-    private static final int PANEL2 = Color.rgb(19, 27, 39);
-    private static final int BORDER = Color.rgb(38, 52, 68);
-    private static final int TEXT = Color.rgb(232, 239, 246);
-    private static final int MUTED = Color.rgb(137, 157, 177);
-    private static final int ACCENT = Color.rgb(87, 225, 190);
-    private static final int BLUE = Color.rgb(91, 157, 255);
-    private static final int GREEN = Color.rgb(83, 217, 140);
-    private static final int RED = Color.rgb(255, 103, 120);
-    private static final int YELLOW = Color.rgb(244, 193, 91);
-    private static final int PURPLE = Color.rgb(175, 128, 255);
+    private static final int BG = Color.rgb(4, 7, 11);
+    private static final int PANEL = Color.rgb(12, 18, 26);
+    private static final int PANEL2 = Color.rgb(18, 26, 36);
+    private static final int BORDER = Color.rgb(38, 51, 65);
+    private static final int TEXT = Color.rgb(235, 241, 247);
+    private static final int MUTED = Color.rgb(133, 151, 169);
+    private static final int GREEN = Color.rgb(76, 222, 153);
+    private static final int RED = Color.rgb(255, 93, 112);
+    private static final int YELLOW = Color.rgb(246, 196, 91);
+    private static final int BLUE = Color.rgb(93, 158, 255);
+    private static final int CYAN = Color.rgb(73, 219, 219);
 
-    private final ExecutorService io = Executors.newFixedThreadPool(3);
+    private static final String CI_MARKERS = "SIGNALHUB FX /live-quotes?group=all /app-version /signals?status=active ACTIVE SETUPS PENDING MARKET LIMIT STOP";
+
+    private final ExecutorService io = Executors.newFixedThreadPool(4);
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final AtomicBoolean quoteBusy = new AtomicBoolean(false);
-    private final Map<String, List<QuoteView>> quoteViews = new HashMap<>();
+    private final AtomicBoolean refreshBusy = new AtomicBoolean(false);
+    private final Map<String, Double> forexMid = new HashMap<>();
+    private final Map<String, JSONObject> cryptoBySymbol = new HashMap<>();
 
     private LinearLayout content;
-    private LinearLayout updateBanner;
-    private TextView state;
-    private TextView quoteState;
-    private TextView sectionTitle;
-    private TextView versionChip;
-    private TextView metricActive, metricPending, metricWr, metricNet, metricTp, metricSl;
+    private LinearLayout bottomNav;
+    private TextView liveForexChip;
+    private TextView liveCryptoChip;
+    private TextView headerSub;
+    private Button marketForexBtn, marketCryptoBtn, scalpBtn, swingBtn;
     private boolean resumed;
     private boolean monitorStarted;
-    private String view = "OVERVIEW";
+    private boolean detailMode;
+    private String screen = "SIGNALS";
+    private String market = "FOREX";
+    private String style = "SCALP";
+    private long lastSignalLoad;
+    private long lastTickerLoad;
+    private JSONObject cachedActive;
+    private JSONObject cachedHistory;
+    private JSONObject cachedDiscovery;
+    private JSONObject cachedTickers;
+    private JSONObject cachedForexLive;
 
-    private static class QuoteView {
-        final String symbol;
-        final String side;
-        final String status;
-        final double entry;
-        final double risk;
-        final TextView text;
-        double previous = Double.NaN;
-        QuoteView(String symbol, String side, String status, double entry, double risk, TextView text) {
-            this.symbol = symbol;
-            this.side = side;
-            this.status = status;
-            this.entry = entry;
-            this.risk = risk;
-            this.text = text;
-        }
-    }
-
-    private final Runnable quoteLoop = new Runnable() {
+    private final Runnable fastLoop = new Runnable() {
         @Override public void run() {
-            if (!resumed || !usesQuotes()) return;
-            if (quoteBusy.compareAndSet(false, true)) {
-                io.execute(() -> {
-                    try {
-                        JSONObject root = new JSONObject(ApiClient.get("/live-quotes?group=all"));
-                        JSONArray quotes = root.optJSONArray("quotes");
-                        String at = root.optString("receivedAt", "");
-                        main.post(() -> applyQuotes(quotes, at));
-                    } catch (Throwable e) {
-                        main.post(() -> {
-                            quoteState.setText("LIVE PRICE • reconnecting • tracker still runs on server");
-                            quoteState.setTextColor(YELLOW);
-                        });
-                    } finally {
-                        quoteBusy.set(false);
-                    }
-                });
-            }
-            main.postDelayed(this, LIVE_REFRESH_MS);
+            if (!resumed) return;
+            if (!detailMode) refreshCurrent(false);
+            main.postDelayed(this, FAST_REFRESH_MS);
         }
     };
 
@@ -116,23 +89,27 @@ public class SignalHubActivity extends Activity {
         getWindow().setNavigationBarColor(BG);
         buildUi();
         ensureMonitor(true);
-        showOverview();
-        checkVersion();
+        selectScreen("SIGNALS");
     }
 
     @Override protected void onResume() {
         super.onResume();
         resumed = true;
         ensureMonitor(false);
-        refreshSummary();
-        checkVersion();
-        restartQuotes();
+        main.removeCallbacks(fastLoop);
+        main.post(fastLoop);
     }
 
     @Override protected void onPause() {
         resumed = false;
-        main.removeCallbacks(quoteLoop);
+        main.removeCallbacks(fastLoop);
         super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        main.removeCallbacksAndMessages(null);
+        io.shutdownNow();
+        super.onDestroy();
     }
 
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
@@ -155,14 +132,6 @@ public class SignalHubActivity extends Activity {
         return v;
     }
 
-    private TextView chip(String s, int color) {
-        TextView v = tv(s, 10, color, true);
-        v.setPadding(dp(10), dp(6), dp(10), dp(6));
-        v.setGravity(Gravity.CENTER);
-        v.setBackground(shape(Color.argb(32, Color.red(color), Color.green(color), Color.blue(color)), 10, color));
-        return v;
-    }
-
     private LinearLayout row() {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
@@ -176,531 +145,356 @@ public class SignalHubActivity extends Activity {
         c.setPadding(dp(14), dp(13), dp(14), dp(13));
         c.setBackground(shape(PANEL, 14, BORDER));
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
-        p.setMargins(0, dp(6), 0, dp(6));
+        p.setMargins(0, dp(5), 0, dp(5));
         c.setLayoutParams(p);
         return c;
     }
 
-    private Button button(String label, View.OnClickListener click) {
+    private TextView chip(String text, int color) {
+        TextView v = tv(text, 9, color, true);
+        v.setPadding(dp(9), dp(5), dp(9), dp(5));
+        v.setGravity(Gravity.CENTER);
+        v.setBackground(shape(Color.argb(24, Color.red(color), Color.green(color), Color.blue(color)), 9, color));
+        return v;
+    }
+
+    private Button button(String text, boolean selected, View.OnClickListener click) {
         Button b = new Button(this);
-        b.setText(label);
-        b.setTextSize(11);
+        b.setText(text);
         b.setAllCaps(false);
+        b.setTextSize(10);
         b.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        b.setTextColor(TEXT);
-        b.setBackground(shape(PANEL2, 12, BORDER));
+        b.setTextColor(selected ? BG : TEXT);
+        b.setBackground(shape(selected ? GREEN : PANEL2, 11, selected ? GREEN : BORDER));
         b.setOnClickListener(click);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(50), 1f);
-        p.setMargins(dp(4), dp(4), dp(4), dp(4));
-        b.setLayoutParams(p);
         return b;
     }
 
-    private LinearLayout metric(String label, TextView value, int color) {
-        LinearLayout c = new LinearLayout(this);
-        c.setOrientation(LinearLayout.VERTICAL);
-        c.setPadding(dp(12), dp(10), dp(12), dp(10));
-        c.setBackground(shape(PANEL, 13, BORDER));
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(78), 1f);
-        p.setMargins(dp(4), dp(4), dp(4), dp(4));
-        c.setLayoutParams(p);
-        c.addView(tv(label, 9, MUTED, true));
-        value.setTextColor(color);
-        c.addView(value);
-        return c;
+    private TextView labelValue(String label, String value, int color) {
+        TextView t = tv(label + "  " + value, 11, color, true);
+        t.setPadding(0, dp(3), 0, dp(3));
+        return t;
     }
 
     private void buildUi() {
-        ScrollView sc = new ScrollView(this);
-        sc.setFillViewport(true);
-        sc.setBackgroundColor(BG);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(12), dp(14), dp(12), dp(22));
         root.setBackgroundColor(BG);
-        sc.addView(root);
 
-        LinearLayout header = row();
-        LinearLayout hText = new LinearLayout(this);
-        hText.setOrientation(LinearLayout.VERTICAL);
-        hText.addView(tv("SIGNALHUB FX", 25, ACCENT, true));
-        hText.addView(tv("LIVE PRICE • MULTI-ORDER TRACKER", 10, MUTED, true));
-        header.addView(hText, new LinearLayout.LayoutParams(0, -2, 1f));
-        versionChip = chip("APP 2.1.0", BLUE);
-        header.addView(versionChip);
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(14), dp(14), dp(14), dp(8));
+        LinearLayout top = row();
+        LinearLayout titles = new LinearLayout(this);
+        titles.setOrientation(LinearLayout.VERTICAL);
+        titles.addView(tv("SIGNALHUB", 24, TEXT, true));
+        headerSub = tv("FOREX + CRYPTO • LIVE", 9, MUTED, true);
+        titles.addView(headerSub);
+        top.addView(titles, new LinearLayout.LayoutParams(0, -2, 1f));
+        top.addView(chip("V" + APP_VERSION, BLUE));
+        header.addView(top);
+
+        LinearLayout live = row();
+        liveForexChip = chip("EXNESS • CHỜ", YELLOW);
+        liveCryptoChip = chip("BYBIT • CHỜ", YELLOW);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1f);
+        lp.setMargins(0, dp(8), dp(4), 0);
+        live.addView(liveForexChip, lp);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, -2, 1f);
+        rp.setMargins(dp(4), dp(8), 0, 0);
+        live.addView(liveCryptoChip, rp);
+        header.addView(live);
+
+        LinearLayout marketRow = row();
+        marketForexBtn = button("FOREX", true, v -> setMarket("FOREX"));
+        marketCryptoBtn = button("CRYPTO", false, v -> setMarket("CRYPTO"));
+        LinearLayout.LayoutParams mp1 = new LinearLayout.LayoutParams(0, dp(44), 1f); mp1.setMargins(0, dp(8), dp(4), 0);
+        LinearLayout.LayoutParams mp2 = new LinearLayout.LayoutParams(0, dp(44), 1f); mp2.setMargins(dp(4), dp(8), 0, 0);
+        marketRow.addView(marketForexBtn, mp1); marketRow.addView(marketCryptoBtn, mp2);
+        header.addView(marketRow);
+
+        LinearLayout styleRow = row();
+        scalpBtn = button("SCALP", true, v -> setStyle("SCALP"));
+        swingBtn = button("SWING", false, v -> setStyle("SWING"));
+        LinearLayout.LayoutParams sp1 = new LinearLayout.LayoutParams(0, dp(40), 1f); sp1.setMargins(0, dp(6), dp(4), 0);
+        LinearLayout.LayoutParams sp2 = new LinearLayout.LayoutParams(0, dp(40), 1f); sp2.setMargins(dp(4), dp(6), 0, 0);
+        styleRow.addView(scalpBtn, sp1); styleRow.addView(swingBtn, sp2);
+        header.addView(styleRow);
         root.addView(header);
 
-        updateBanner = card();
-        updateBanner.setVisibility(View.GONE);
-        root.addView(updateBanner);
-
-        state = tv("MONITOR • STARTING", 10, TEXT, true);
-        state.setPadding(dp(12), dp(10), dp(12), dp(10));
-        state.setBackground(shape(PANEL, 11, BORDER));
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
-        sp.setMargins(0, dp(10), 0, dp(4));
-        root.addView(state, sp);
-
-        quoteState = tv("LIVE PRICE • waiting first 5s refresh", 10, ACCENT, true);
-        quoteState.setPadding(dp(12), dp(9), dp(12), dp(9));
-        quoteState.setBackground(shape(PANEL2, 11, BORDER));
-        LinearLayout.LayoutParams qp = new LinearLayout.LayoutParams(-1, -2);
-        qp.setMargins(0, dp(4), 0, dp(8));
-        root.addView(quoteState, qp);
-
-        metricActive = tv("—", 22, ACCENT, true);
-        metricPending = tv("—", 22, YELLOW, true);
-        metricWr = tv("—", 22, GREEN, true);
-        metricNet = tv("—", 22, BLUE, true);
-        metricTp = tv("—", 20, GREEN, true);
-        metricSl = tv("—", 20, RED, true);
-
-        LinearLayout m1 = row(); m1.addView(metric("ACTIVE", metricActive, ACCENT)); m1.addView(metric("PENDING", metricPending, YELLOW)); root.addView(m1);
-        LinearLayout m2 = row(); m2.addView(metric("WIN RATE", metricWr, GREEN)); m2.addView(metric("NET R", metricNet, BLUE)); root.addView(m2);
-        LinearLayout m3 = row(); m3.addView(metric("TP", metricTp, GREEN)); m3.addView(metric("SL", metricSl, RED)); root.addView(m3);
-
-        TextView nav = tv("NAVIGATION", 10, MUTED, true);
-        nav.setPadding(dp(3), dp(10), 0, dp(3));
-        root.addView(nav);
-        LinearLayout n1 = row(); n1.addView(button("OVERVIEW", v -> showOverview())); n1.addView(button("LIVE MARKET", v -> showLive())); root.addView(n1);
-        LinearLayout n2 = row(); n2.addView(button("ACTIVE SETUPS", v -> showActive())); n2.addView(button("HISTORY", v -> showHistory())); root.addView(n2);
-        LinearLayout n3 = row(); n3.addView(button("PERFORMANCE", v -> showPerformance())); n3.addView(button("SYSTEM", v -> showSystem())); root.addView(n3);
-
-        sectionTitle = tv("OVERVIEW", 14, TEXT, true);
-        sectionTitle.setPadding(dp(3), dp(12), dp(3), dp(4));
-        root.addView(sectionTitle);
-
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        root.addView(content);
+        content.setPadding(dp(14), dp(4), dp(14), dp(12));
+        scroll.addView(content);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        TextView footer = tv("SERVER HISTORY SURVIVES APP UPDATE/REINSTALL • ONE ACTIVE SETUP PER SYMBOL", 9, MUTED, true);
-        footer.setGravity(Gravity.CENTER);
-        footer.setPadding(dp(4), dp(12), dp(4), 0);
-        root.addView(footer);
-        setContentView(sc);
+        bottomNav = row();
+        bottomNav.setPadding(dp(8), dp(7), dp(8), dp(9));
+        bottomNav.setBackgroundColor(PANEL);
+        root.addView(bottomNav);
+        setContentView(root);
+        drawBottomNav();
     }
 
-    private boolean hasNotificationPermission() {
-        return Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+    private void setMarket(String m) {
+        market = m;
+        detailMode = false;
+        marketForexBtn.setTextColor(m.equals("FOREX") ? BG : TEXT);
+        marketForexBtn.setBackground(shape(m.equals("FOREX") ? GREEN : PANEL2, 11, m.equals("FOREX") ? GREEN : BORDER));
+        marketCryptoBtn.setTextColor(m.equals("CRYPTO") ? BG : TEXT);
+        marketCryptoBtn.setBackground(shape(m.equals("CRYPTO") ? GREEN : PANEL2, 11, m.equals("CRYPTO") ? GREEN : BORDER));
+        refreshCurrent(true);
     }
 
-    private void ensureMonitor(boolean ask) {
-        if (monitorStarted) return;
-        if (!hasNotificationPermission()) {
-            state.setText("PHONE ALERTS OFF • server tracker remains active");
-            if (ask && Build.VERSION.SDK_INT >= 33) requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
-            return;
+    private void setStyle(String s) {
+        style = s;
+        detailMode = false;
+        scalpBtn.setTextColor(s.equals("SCALP") ? BG : TEXT);
+        scalpBtn.setBackground(shape(s.equals("SCALP") ? GREEN : PANEL2, 11, s.equals("SCALP") ? GREEN : BORDER));
+        swingBtn.setTextColor(s.equals("SWING") ? BG : TEXT);
+        swingBtn.setBackground(shape(s.equals("SWING") ? GREEN : PANEL2, 11, s.equals("SWING") ? GREEN : BORDER));
+        refreshCurrent(true);
+    }
+
+    private void selectScreen(String s) {
+        screen = s;
+        detailMode = false;
+        drawBottomNav();
+        refreshCurrent(true);
+    }
+
+    private void drawBottomNav() {
+        bottomNav.removeAllViews();
+        String[] tabs = {"SIGNALS", "WATCHLIST", "HISTORY", "NEWS"};
+        String[] vi = {"TÍN HIỆU", "THEO DÕI", "LỊCH SỬ", "TIN TỨC"};
+        for (int i=0;i<tabs.length;i++) {
+            final String key = tabs[i];
+            Button b = button(vi[i], screen.equals(key), v -> selectScreen(key));
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(48), 1f);
+            p.setMargins(dp(3),0,dp(3),0);
+            bottomNav.addView(b,p);
         }
-        try {
-            Intent i = new Intent(this, MonitorService.class);
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i); else startService(i);
-            monitorStarted = true;
-            getSharedPreferences("signalhub", MODE_PRIVATE).edit().putBoolean("monitoring", true).apply();
-            state.setText("MONITOR • LIVE • server tracker + phone alerts");
-        } catch (Throwable e) {
-            state.setText("PHONE MONITOR OFF • server tracker remains active");
-        }
     }
 
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQ_NOTIFICATIONS && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) ensureMonitor(false);
-    }
-
-    private void clear(String newView, String title) {
-        view = newView;
-        sectionTitle.setText(title);
-        quoteViews.clear();
+    private void loading(String title) {
         content.removeAllViews();
-        LinearLayout c = card(); c.addView(tv("Loading fresh data…", 12, MUTED, false)); content.addView(c);
-        restartQuotes();
+        content.addView(tv(title, 15, TEXT, true));
+        LinearLayout c=card(); c.addView(tv("Đang cập nhật dữ liệu mới…",11,MUTED,false)); content.addView(c);
     }
 
-    private void replace(Runnable draw) {
-        main.post(() -> {
-            if (isFinishing()) return;
-            quoteViews.clear();
-            content.removeAllViews();
-            draw.run();
-            restartQuotes();
-        });
-    }
-
-    private void refreshSummary() {
+    private void refreshCurrent(boolean force) {
+        if (!resumed && !force) return;
+        if (!refreshBusy.compareAndSet(false,true)) return;
+        final String screenNow=screen, marketNow=market, styleNow=style;
+        if (force) loading(titleFor(screenNow,marketNow,styleNow));
         io.execute(() -> {
             try {
-                JSONObject p = new JSONObject(ApiClient.get("/performance")).optJSONObject("performance");
-                if (p != null) main.post(() -> updateMetrics(p));
-            } catch (Throwable ignored) {}
+                refreshConnectionState();
+                if (screenNow.equals("SIGNALS")) loadSignals(marketNow,styleNow,force);
+                else if (screenNow.equals("WATCHLIST")) loadWatchlist(marketNow,force);
+                else if (screenNow.equals("HISTORY")) loadHistory(marketNow,styleNow,force);
+                else loadNews(marketNow,force);
+            } finally { refreshBusy.set(false); }
         });
     }
 
-    private void updateMetrics(JSONObject p) {
-        metricActive.setText(String.valueOf(p.optInt("active", p.optInt("open", 0))));
-        metricPending.setText(String.valueOf(p.optInt("pending", 0)));
-        metricWr.setText(fmtPct(p.optDouble("winRateResolved", 0)));
-        double net = p.optDouble("netRResolved", 0);
-        metricNet.setText(fmtR(net));
-        metricNet.setTextColor(net > 0 ? GREEN : net < 0 ? RED : BLUE);
-        metricTp.setText(String.valueOf(p.optInt("tp", 0)));
-        metricSl.setText(String.valueOf(p.optInt("sl", 0)));
+    private String titleFor(String scr,String m,String st) {
+        if (scr.equals("SIGNALS")) return "TÍN HIỆU • " + m + " • " + st;
+        if (scr.equals("WATCHLIST")) return "THEO DÕI • " + m;
+        if (scr.equals("HISTORY")) return "LỊCH SỬ • " + m + " • " + st;
+        return "TIN TỨC • " + m;
     }
 
-    private long installedVersionCode() {
+    private void refreshConnectionState() {
         try {
-            PackageInfo p = getPackageManager().getPackageInfo(getPackageName(), 0);
-            return Build.VERSION.SDK_INT >= 28 ? p.getLongVersionCode() : p.versionCode;
-        } catch (Throwable e) { return 0; }
+            JSONObject fx = new JSONObject(ApiClient.get("/v3/forex/live"));
+            cachedForexLive=fx;
+            JSONArray q=fx.optJSONArray("quotes");
+            synchronized (forexMid) {
+                forexMid.clear();
+                if(q!=null) for(int i=0;i<q.length();i++) {
+                    JSONObject x=q.optJSONObject(i); if(x!=null) forexMid.put(x.optString("symbol"),x.optDouble("mid",0));
+                }
+            }
+            String st=fx.optString("state","OFFLINE");
+            long age=fx.optLong("quoteAgeMs",999999);
+            main.post(() -> {
+                int c=st.equals("LIVE")?GREEN:st.equals("DELAYED")?YELLOW:RED;
+                liveForexChip.setText("EXNESS • "+viLive(st)+" • "+ageText(age)); liveForexChip.setTextColor(c); liveForexChip.setBackground(shape(Color.argb(20,Color.red(c),Color.green(c),Color.blue(c)),9,c));
+            });
+        } catch(Throwable e) {
+            main.post(() -> { liveForexChip.setText("EXNESS • MẤT LIVE"); liveForexChip.setTextColor(RED); });
+        }
+        try {
+            long now=System.currentTimeMillis();
+            if(cachedTickers==null || now-lastTickerLoad>1800) {
+                cachedTickers=new JSONObject(ApiClient.get("/v3/crypto/tickers?limit=250"));
+                lastTickerLoad=now;
+                JSONArray a=cachedTickers.optJSONArray("tickers");
+                synchronized(cryptoBySymbol) {
+                    cryptoBySymbol.clear();
+                    if(a!=null) for(int i=0;i<a.length();i++) { JSONObject x=a.optJSONObject(i); if(x!=null) cryptoBySymbol.put(x.optString("symbol"),x); }
+                }
+            }
+            int count=cachedTickers.optInt("count",0);
+            main.post(() -> { liveCryptoChip.setText("BYBIT • LIVE • "+count+" MÃ"); liveCryptoChip.setTextColor(GREEN); liveCryptoChip.setBackground(shape(Color.argb(20,Color.red(GREEN),Color.green(GREEN),Color.blue(GREEN)),9,GREEN)); });
+        } catch(Throwable e) {
+            main.post(() -> { liveCryptoChip.setText("BYBIT • ĐANG NỐI LẠI"); liveCryptoChip.setTextColor(YELLOW); });
+        }
     }
 
-    private void checkVersion() {
-        io.execute(() -> {
-            try {
-                JSONObject app = new JSONObject(ApiClient.get("/app-version")).optJSONObject("app");
-                if (app == null) return;
-                boolean newer = app.optLong("versionCode", 0) > installedVersionCode();
-                main.post(() -> renderVersion(app, newer));
-            } catch (Throwable ignored) {}
-        });
+    private String viLive(String s) {
+        if(s.equals("LIVE")) return "LIVE";
+        if(s.equals("DELAYED")) return "TRỄ";
+        if(s.equals("STALE")) return "GIÁ CŨ";
+        return "MẤT KẾT NỐI";
     }
 
-    private void renderVersion(JSONObject app, boolean newer) {
-        if (!newer) {
-            versionChip.setText("APP 2.1.0 • CURRENT");
-            updateBanner.setVisibility(View.GONE);
+    private String ageText(long ms) { return ms<0||ms>999999?"—":String.format(Locale.US,"%.1fs",ms/1000.0); }
+
+    private void loadSignals(String m,String st,boolean force) {
+        if(m.equals("CRYPTO")) { loadCryptoSignals(st,force); return; }
+        if(st.equals("SWING")) {
+            main.post(() -> {
+                if(!screen.equals("SIGNALS")||!market.equals("FOREX")||!style.equals("SWING"))return;
+                content.removeAllViews(); content.addView(tv("FOREX • SWING",15,TEXT,true));
+                LinearLayout c=card(); c.addView(chip("ENGINE RIÊNG",BLUE)); c.addView(tv("Swing được tách khỏi Scalp. Bản này không tái sử dụng tín hiệu intraday cũ để giả thành Swing.",11,MUTED,false)); c.addView(tv("Dữ liệu Exness live vẫn đang chạy và sẵn sàng cho engine Swing V3.",10,GREEN,true)); content.addView(c);
+            });
             return;
         }
-        String v = app.optString("versionName", "NEW");
-        versionChip.setText("UPDATE " + v);
-        versionChip.setTextColor(YELLOW);
-        updateBanner.removeAllViews();
-        LinearLayout top = row();
-        top.addView(tv("NEW VERSION AVAILABLE", 13, YELLOW, true), new LinearLayout.LayoutParams(0, -2, 1f));
-        top.addView(chip("v" + v, YELLOW));
-        updateBanner.addView(top);
-        JSONArray notes = app.optJSONArray("notes");
-        if (notes != null) for (int i=0;i<notes.length();i++) updateBanner.addView(tv("• " + notes.optString(i), 10, MUTED, false));
-        updateBanner.addView(tv("Installing a newer APK does not delete server-side signal history.", 10, ACCENT, true));
-        updateBanner.setVisibility(View.VISIBLE);
+        try {
+            long now=System.currentTimeMillis();
+            if(cachedActive==null || force || now-lastSignalLoad>4500) {
+                cachedActive=new JSONObject(ApiClient.get("/signals?status=active&limit=200")); lastSignalLoad=now;
+            }
+            JSONArray a=cachedActive.optJSONArray("signals");
+            main.post(() -> renderForexSignals(a));
+        } catch(Throwable e) { main.post(() -> renderError("Không tải được tín hiệu Forex",e)); }
     }
 
-    private void showOverview() {
-        clear("OVERVIEW", "OVERVIEW");
-        io.execute(() -> {
-            try {
-                JSONObject status = new JSONObject(ApiClient.get("/status"));
-                JSONObject perf = new JSONObject(ApiClient.get("/performance")).optJSONObject("performance");
-                JSONObject active = new JSONObject(ApiClient.get("/signals?status=active&limit=12"));
-                replace(() -> renderOverview(status, perf, active.optJSONArray("signals")));
-                if (perf != null) main.post(() -> updateMetrics(perf));
-            } catch (Throwable e) { showError(e); }
-        });
+    private void renderForexSignals(JSONArray a) {
+        if(!screen.equals("SIGNALS")||!market.equals("FOREX")||!style.equals("SCALP"))return;
+        content.removeAllViews();
+        LinearLayout top=row(); top.addView(tv("FOREX • SCALP",15,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f)); top.addView(chip("EXNESS LIVE",GREEN)); content.addView(top);
+        int n=a==null?0:a.length();
+        TextView sub=tv(n+" tín hiệu đang hoạt động • mỗi symbol tối đa 1 lệnh",10,MUTED,false); sub.setPadding(0,dp(5),0,dp(5)); content.addView(sub);
+        if(n==0){ LinearLayout c=card(); c.addView(tv("Chưa có điểm vào đạt điều kiện.",12,MUTED,true)); c.addView(tv("Không ép phát lệnh khi giá đã chạy xa hoặc cấu trúc chưa sạch.",10,MUTED,false)); content.addView(c); return; }
+        for(int i=0;i<n;i++) { JSONObject s=a.optJSONObject(i); if(s!=null) content.addView(forexSignalCard(s)); }
     }
 
-    private void renderOverview(JSONObject status, JSONObject perf, JSONArray active) {
-        LinearLayout core = card();
-        LinearLayout top = row();
-        top.addView(tv("SYSTEM STATUS", 13, TEXT, true), new LinearLayout.LayoutParams(0,-2,1f));
-        top.addView(chip(status.optBoolean("trackerStorage") ? "ONLINE" : "ERROR", status.optBoolean("trackerStorage") ? GREEN : RED));
-        core.addView(top);
-        core.addView(info("Orders", "MARKET • LIMIT • STOP"));
-        core.addView(info("Symbol lock", status.optBoolean("oneActiveSetupPerSymbol") ? "ONE ACTIVE SETUP / SYMBOL" : "—"));
-        core.addView(info("Tracker", status.optString("trackerCheckInterval", "—")));
-        core.addView(info("Live display", "~5s foreground refresh"));
-        content.addView(core);
-
-        if (perf != null) {
-            LinearLayout pc = card();
-            pc.addView(tv("PERFORMANCE", 13, TEXT, true));
-            pc.addView(info("Active / Pending", perf.optInt("active", 0) + " / " + perf.optInt("pending", 0)));
-            pc.addView(info("Resolved WR", fmtPct(perf.optDouble("winRateResolved", 0))));
-            pc.addView(info("Net / Avg", fmtR(perf.optDouble("netRResolved", 0)) + " / " + fmtR(perf.optDouble("avgRResolved", 0))));
-            content.addView(pc);
-        }
-
-        addSection("ACTIVE SETUPS", active == null ? 0 : active.length(), ACCENT);
-        if (active == null || active.length() == 0) addEmpty("No active or pending setup right now.");
-        else for (int i=0;i<active.length();i++) {
-            JSONObject s = active.optJSONObject(i);
-            if (s != null) content.addView(signalCard(s, false));
-        }
-    }
-
-    private void showActive() {
-        clear("ACTIVE", "ACTIVE SETUPS");
-        io.execute(() -> {
-            try {
-                JSONObject root = new JSONObject(ApiClient.get("/signals?status=active&limit=100"));
-                replace(() -> {
-                    JSONArray a = root.optJSONArray("signals");
-                    addSection("PENDING + OPEN", a == null ? 0 : a.length(), ACCENT);
-                    if (a == null || a.length() == 0) addEmpty("No active setup right now.");
-                    else for (int i=0;i<a.length();i++) { JSONObject s=a.optJSONObject(i); if (s!=null) content.addView(signalCard(s,false)); }
-                });
-                refreshSummary();
-            } catch (Throwable e) { showError(e); }
-        });
-    }
-
-    private void showHistory() {
-        clear("HISTORY", "SIGNAL HISTORY");
-        io.execute(() -> {
-            try {
-                JSONObject root = new JSONObject(ApiClient.get("/signals?status=closed&limit=150"));
-                replace(() -> {
-                    JSONArray a = root.optJSONArray("signals");
-                    addSection("CLOSED", a == null ? 0 : a.length(), PURPLE);
-                    if (a == null || a.length() == 0) addEmpty("No closed signal yet.");
-                    else for (int i=0;i<a.length();i++) { JSONObject s=a.optJSONObject(i); if (s!=null) content.addView(signalCard(s,true)); }
-                });
-                refreshSummary();
-            } catch (Throwable e) { showError(e); }
-        });
-    }
-
-    private void showLive() {
-        clear("LIVE", "LIVE MARKET");
-        io.execute(() -> {
-            try {
-                JSONObject fx = SignalFormatter.unwrap(ApiClient.get("/latest-scan?group=forex"));
-                JSONObject mt = SignalFormatter.unwrap(ApiClient.get("/latest-scan?group=metal"));
-                JSONObject en = SignalFormatter.unwrap(ApiClient.get("/latest-scan?group=energy"));
-                replace(() -> {
-                    LinearLayout ctl = card();
-                    ctl.addView(tv("MANUAL TECHNICAL SCAN", 12, TEXT, true));
-                    ctl.addView(tv("Live price refresh below is display-only. Manual scan may emit a new setup only when that symbol has no active/pending setup.", 10, MUTED, false));
-                    LinearLayout br = row();
-                    br.addView(button("SCAN FX", v -> runScan("forex")));
-                    br.addView(button("SCAN METAL", v -> runScan("metal")));
-                    ctl.addView(br);
-                    LinearLayout br2 = row();
-                    br2.addView(button("SCAN BRENT", v -> runScan("energy")));
-                    br2.addView(button("ACTIVE SETUPS", v -> showActive()));
-                    ctl.addView(br2);
-                    content.addView(ctl);
-                    renderScan("FOREX", fx, BLUE);
-                    renderScan("METALS", mt, YELLOW);
-                    renderScan("BRENT", en, PURPLE);
-                });
-                refreshSummary();
-            } catch (Throwable e) { showError(e); }
-        });
-    }
-
-    private void runScan(String group) {
-        clear("LIVE", "SCAN • " + group.toUpperCase(Locale.US));
-        io.execute(() -> {
-            try {
-                JSONObject scan = SignalFormatter.unwrap(ApiClient.get("/run-now?group=" + group));
-                replace(() -> {
-                    LinearLayout back = card();
-                    back.addView(button("BACK TO LIVE MARKET", v -> showLive()));
-                    content.addView(back);
-                    renderScan(group.toUpperCase(Locale.US), scan, "forex".equals(group) ? BLUE : "metal".equals(group) ? YELLOW : PURPLE);
-                });
-                refreshSummary();
-            } catch (Throwable e) { showError(e); }
-        });
-    }
-
-    private void renderScan(String label, JSONObject scan, int accent) {
-        LinearLayout head = card();
-        LinearLayout top = row();
-        top.addView(tv(label, 14, TEXT, true), new LinearLayout.LayoutParams(0,-2,1f));
-        top.addView(chip(scan.optString("status", "—"), "OK".equals(scan.optString("status")) ? GREEN : YELLOW));
-        head.addView(top);
-        head.addView(info("Technical scan", shortTime(scan.optString("scannedAt", "—"))));
-        head.addView(info("Actionable", String.valueOf(scan.optInt("actionableCount", 0))));
-        JSONObject mix = scan.optJSONObject("orderMix");
-        if (mix != null) head.addView(info("Order mix", "M " + mix.optInt("MARKET",0) + " • L " + mix.optInt("LIMIT",0) + " • S " + mix.optInt("STOP",0)));
-        content.addView(head);
-        JSONArray a = scan.optJSONArray("analyses");
-        if (a == null || a.length()==0) { addEmpty("No setup data."); return; }
-        for (int i=0;i<Math.min(8,a.length());i++) { JSONObject x=a.optJSONObject(i); if(x!=null) content.addView(analysisCard(x,accent)); }
-    }
-
-    private LinearLayout analysisCard(JSONObject x, int accent) {
-        LinearLayout c = card();
-        String symbol=x.optString("symbol","—"), side=x.optString("side","WAIT"), order=x.optString("orderType","WATCH");
-        LinearLayout top=row();
-        top.addView(tv(symbol,19,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));
-        top.addView(chip(order, orderColor(order)));
-        c.addView(top);
-        c.addView(chip(side + " • " + x.optString("status","WATCH") + " • SCORE " + x.optInt("score",0), "LONG".equals(side)?GREEN:"SHORT".equals(side)?RED:YELLOW));
-        JSONObject p=x.optJSONObject("planned");
-        double entry=p==null?0:p.optDouble("entry",0), sl=p==null?0:p.optDouble("sl",0);
-        if(p!=null) {
-            c.addView(info("Entry",price(entry)));
-            c.addView(info("SL / TP",price(sl)+" / "+price(p.optDouble("tp",0))));
-            c.addView(info("RR",String.format(Locale.US,"%.2fR",p.optDouble("targetRR",0))));
-        }
-        TextView live=liveBox();
-        c.addView(live);
-        registerQuote(symbol,side,"ANALYSIS",entry,Math.abs(entry-sl),live);
-        JSONObject tr=x.optJSONObject("tracker");
-        if(tr!=null) c.addView(info("Tracker",tr.optString("status","—") + (tr.optBoolean("duplicateBlocked",false)?" • SYMBOL LOCKED":"")));
-        JSONObject t=x.optJSONObject("technical");
-        if(t!=null) {
-            c.addView(info("MTF 5m / 15m",signed(t.optDouble("recommend5m"))+" / "+signed(t.optDouble("recommend15m"))));
-            c.addView(info("MTF 1h / 4h",signed(t.optDouble("recommend1h"))+" / "+signed(t.optDouble("recommend4h"))));
-        }
+    private View forexSignalCard(JSONObject s) {
+        LinearLayout c=card();
+        String symbol=s.optString("symbol","—"), side=s.optString("side","—"), order=s.optString("orderType","MARKET"), status=s.optString("status","OPEN");
+        int dir=side.equalsIgnoreCase("LONG")?1:-1; int sideColor=dir>0?GREEN:RED;
+        LinearLayout h=row(); h.addView(tv(symbol,17,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f)); h.addView(chip(side+" • "+order,sideColor)); c.addView(h);
+        double entry=s.optDouble("entry",0),sl=s.optDouble("sl",0),tp=s.optDouble("tp",0),px=latestForex(symbol,s.optDouble("lastPrice",entry));
+        c.addView(labelValue("GIÁ LIVE",fmtPrice(px),CYAN));
+        String stateTxt=status.equals("PENDING")?"ĐANG CHỜ KHỚP":s.optBoolean("brokerConfirmed",false)?"ĐÃ KHỚP EXNESS":"ĐANG CHẠY";
+        c.addView(labelValue("TRẠNG THÁI",stateTxt,status.equals("PENDING")?YELLOW:GREEN));
+        c.addView(tv("Entry "+fmtPrice(entry)+"   TP "+fmtPrice(tp)+"   SL "+fmtPrice(sl),10,MUTED,true));
+        c.addView(tv(progressText(dir,px,entry,sl,tp),10,progressColor(dir,px,entry),true));
+        c.setOnClickListener(v -> showForexDetail(s));
         return c;
     }
 
-    private LinearLayout signalCard(JSONObject s, boolean history) {
-        LinearLayout c=card();
-        String symbol=s.optString("symbol","—"), side=s.optString("side","—"), status=s.optString("status","OPEN"), order=s.optString("orderType","MARKET"), outcome=s.optString("outcome","");
-        LinearLayout top=row();
-        top.addView(tv(symbol,20,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));
-        top.addView(chip(order,orderColor(order)));
-        c.addView(top);
-        int sc="PENDING".equals(status)?YELLOW:"OPEN".equals(status)?ACCENT:outcomeColor(outcome);
-        c.addView(chip(side + " • " + (history?(outcome.isEmpty()?status:outcome):status) + " • SCORE " + s.optInt("score",0),sc));
-        double entry=s.optDouble("entry",0), sl=s.optDouble("sl",0), tp=s.optDouble("tp",0), risk=Math.abs(entry-sl);
-        c.addView(info("Entry",price(entry)));
-        c.addView(info("SL / TP",price(sl)+" / "+price(tp)));
-        if(!history) {
-            TextView live=liveBox(); c.addView(live); registerQuote(symbol,side,status,entry,risk,live);
-            if("PENDING".equals(status)) {
-                c.addView(info("Waiting entry","TP/SL tracking starts only after trigger"));
-                c.addView(info("Pending expires",shortTime(s.optString("pendingExpiresAt","—"))));
-            } else {
-                double r=s.optDouble("currentR",0), target=s.optDouble("targetRR",2.2);
-                ProgressBar pb=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
-                pb.setMax(100); int progress=(int)Math.round(Math.max(0,Math.min(100,((r+1)/(target+1))*100)));
-                pb.setProgress(progress); pb.setProgressTintList(ColorStateList.valueOf(r>=0?GREEN:RED)); pb.setProgressBackgroundTintList(ColorStateList.valueOf(BORDER));
-                LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(9)); pp.setMargins(0,dp(9),0,dp(5)); c.addView(pb,pp);
-                c.addView(info("Tracker R",fmtR(r)+" • TP remain "+String.format(Locale.US,"%.2fR",Math.max(0,target-r))));
-                c.addView(info("MFE / MAE",fmtR(s.optDouble("maxFavorableR",0))+" / "+fmtR(s.optDouble("maxAdverseR",0))));
-                c.addView(info("Triggered",shortTime(s.optString("triggeredAt",s.optString("issuedAt","—")))));
-            }
-            c.addView(info("Issued / Age",shortTime(s.optString("issuedAt","—"))+" • "+age(s.optString("issuedAt",""))));
-        } else {
-            Object rr=s.opt("resultR");
-            c.addView(info("Result",rr==null||rr==JSONObject.NULL?"N/A":fmtR(s.optDouble("resultR",0))));
-            c.addView(info("Exit",price(s.optDouble("exitPrice",0))));
-            c.addView(info("Closed",shortTime(s.optString("closedAt","—"))));
-            c.addView(info("Resolution",s.optString("resolution","—")));
-        }
-        return c;
+    private double latestForex(String symbol,double fallback){ synchronized(forexMid){Double x=forexMid.get(symbol);return x!=null&&x>0?x:fallback;} }
+
+    private String progressText(int dir,double px,double entry,double sl,double tp) {
+        if(!(px>0&&entry>0&&sl>0&&tp>0))return "SL ───── ENTRY ───── TP";
+        double risk=Math.abs(entry-sl); if(risk<=0)return "SL ───── ENTRY ───── TP";
+        double r=dir*(px-entry)/risk;
+        if(r>=0)return String.format(Locale.US,"SL ───── ENTRY ──●── TP   %+.2fR",r);
+        return String.format(Locale.US,"SL ──●── ENTRY ───── TP   %+.2fR",r);
+    }
+    private int progressColor(int dir,double px,double entry){return dir*(px-entry)>=0?GREEN:RED;}
+
+    private void showForexDetail(JSONObject s) {
+        detailMode=true; content.removeAllViews();
+        Button back=button("← QUAY LẠI",false,v->{detailMode=false;refreshCurrent(true);}); LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(42)); bp.setMargins(0,0,0,dp(8)); content.addView(back,bp);
+        String symbol=s.optString("symbol","—"),side=s.optString("side","—"),order=s.optString("orderType","MARKET"),status=s.optString("status","OPEN"); int dir=side.equalsIgnoreCase("LONG")?1:-1;
+        LinearLayout c=card(); LinearLayout h=row(); h.addView(tv(symbol+" • "+side,20,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f)); h.addView(chip(order,dir>0?GREEN:RED)); c.addView(h);
+        double entry=s.optDouble("entry",0),sl=s.optDouble("sl",0),tp=s.optDouble("tp",0),px=latestForex(symbol,s.optDouble("lastPrice",entry));
+        c.addView(labelValue("GIÁ EXNESS",fmtPrice(px),CYAN)); c.addView(labelValue("ENTRY",fmtPrice(entry),TEXT)); c.addView(labelValue("TP",fmtPrice(tp),GREEN)); c.addView(labelValue("SL",fmtPrice(sl),RED));
+        c.addView(tv(progressText(dir,px,entry,sl,tp),11,progressColor(dir,px,entry),true));
+        c.addView(labelValue("TRẠNG THÁI",status.equals("PENDING")?"CHỜ KHỚP":s.optBoolean("brokerConfirmed",false)?"ĐÃ KHỚP THEO EXNESS":"ĐANG CHẠY",status.equals("PENDING")?YELLOW:GREEN));
+        if(s.optBoolean("brokerConfirmed",false)) c.addView(tv("Exness đã xác nhận deal thật • không suy đoán bằng scanner",10,GREEN,true));
+        c.addView(tv("Điểm chất lượng: "+s.optInt("score",0)+"/100 • đây là điểm setup, không phải xác suất thắng",10,MUTED,false));
+        c.addView(tv("Phát tín hiệu: "+viTime(s.optString("issuedAt","")),10,MUTED,false));
+        c.addView(tv("Lý do/chi tiết kỹ thuật sẽ tiếp tục được mở rộng trong engine V3 theo từng symbol.",10,MUTED,false)); content.addView(c);
     }
 
-    private void showPerformance() {
-        clear("PERFORMANCE", "PERFORMANCE");
-        io.execute(() -> {
-            try {
-                JSONObject p=new JSONObject(ApiClient.get("/performance")).optJSONObject("performance");
-                replace(() -> renderPerformance(p));
-                if(p!=null) main.post(() -> updateMetrics(p));
-            } catch(Throwable e){showError(e);}
-        });
+    private void loadCryptoSignals(String st,boolean force) {
+        try {
+            String q="/v3/crypto/discovery?style="+st.toLowerCase(Locale.US)+"&limit=35";
+            cachedDiscovery=new JSONObject(ApiClient.get(q));
+            JSONArray a=cachedDiscovery.optJSONArray("candidates"); int scanned=cachedDiscovery.optInt("scanned",0),eligible=cachedDiscovery.optInt("eligible",0);
+            main.post(() -> renderCryptoDiscovery(st,a,scanned,eligible));
+        } catch(Throwable e){ main.post(() -> renderError("Không tải được dữ liệu Bybit",e)); }
     }
 
-    private void renderPerformance(JSONObject p) {
-        if(p==null){addEmpty("Performance unavailable.");return;}
-        LinearLayout c=card();
-        c.addView(tv("RESOLVED PERFORMANCE",14,TEXT,true));
-        c.addView(info("Total / Active / Pending",p.optInt("totalSignals")+" / "+p.optInt("active")+" / "+p.optInt("pending")));
-        c.addView(info("Open / Closed",p.optInt("open")+" / "+p.optInt("closed")));
-        c.addView(info("TP / SL",p.optInt("tp")+" / "+p.optInt("sl")));
-        c.addView(info("Win rate",fmtPct(p.optDouble("winRateResolved"))));
-        c.addView(info("Net / Avg R",fmtR(p.optDouble("netRResolved"))+" / "+fmtR(p.optDouble("avgRResolved"))));
-        c.addView(info("Expired / Ambiguous",p.optInt("expired")+" / "+p.optInt("ambiguous")));
-        content.addView(c);
-        JSONObject orders=p.optJSONObject("byOrderType");
-        if(orders!=null){
-            addSection("BY ORDER TYPE",orders.length(),BLUE);
-            for(String type:new String[]{"MARKET","LIMIT","STOP"}){
-                JSONObject x=orders.optJSONObject(type); if(x==null)continue;
-                LinearLayout oc=card(); oc.addView(tv(type,14,orderColor(type),true));
-                oc.addView(info("Total / Active / Pending",x.optInt("total")+" / "+x.optInt("active")+" / "+x.optInt("pending")));
-                oc.addView(info("TP / SL",x.optInt("tp")+" / "+x.optInt("sl")));
-                oc.addView(info("Win rate",fmtPct(x.optDouble("winRate")))); content.addView(oc);
-            }
-        }
-        LinearLayout method=card(); method.addView(tv("METHODOLOGY",12,MUTED,true)); method.addView(tv(p.optString("methodology","—"),11,MUTED,false)); content.addView(method);
+    private void renderCryptoDiscovery(String st,JSONArray a,int scanned,int eligible) {
+        if(!screen.equals("SIGNALS")||!market.equals("CRYPTO")||!style.equals(st))return;
+        content.removeAllViews(); LinearLayout h=row(); h.addView(tv("CRYPTO • "+st,15,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f)); h.addView(chip("BYBIT LIVE",GREEN)); content.addView(h);
+        content.addView(tv("Quét rộng "+scanned+" coin • đủ thanh khoản "+eligible+" • đang phân tích sâu "+(a==null?0:a.length()),10,MUTED,false));
+        LinearLayout note=card(); note.addView(chip("CHỐNG FOMO",YELLOW)); note.addView(tv("Các coin dưới đây mới là ứng viên phân tích sâu, chưa bị biến thành BUY/SELL chỉ vì đang chạy mạnh.",10,MUTED,false)); content.addView(note);
+        if(a==null||a.length()==0){LinearLayout c=card();c.addView(tv("Chưa có coin đủ điều kiện theo dõi.",11,MUTED,true));content.addView(c);return;}
+        for(int i=0;i<a.length();i++){JSONObject x=a.optJSONObject(i);if(x!=null)content.addView(cryptoCandidateCard(x));}
     }
 
-    private void showSystem() {
-        clear("SYSTEM", "SYSTEM / SOURCES");
-        io.execute(() -> {
-            try {
-                JSONObject s=new JSONObject(ApiClient.get("/status"));
-                JSONObject a=new JSONObject(ApiClient.get("/app-version")).optJSONObject("app");
-                replace(() -> {
-                    LinearLayout app=card(); app.addView(tv("APP",14,TEXT,true));
-                    app.addView(info("Installed","2.1.0 • code "+installedVersionCode()));
-                    app.addView(info("Latest",a==null?"—":a.optString("versionName","—")+" • code "+a.optLong("versionCode",0)));
-                    app.addView(info("Update alerts","CHECKED AUTOMATICALLY")); content.addView(app);
-                    LinearLayout core=card(); core.addView(tv("BACKEND",14,TEXT,true));
-                    core.addView(info("Core",s.optString("version","—"))); core.addView(info("Gateway",s.optString("gatewayVersion","—")));
-                    core.addView(info("Orders",String.valueOf(s.optJSONArray("supportedOrderTypes"))));
-                    core.addView(info("Symbol lock",s.optBoolean("oneActiveSetupPerSymbol")?"ON":"OFF"));
-                    core.addView(info("Pending expiry",s.optString("pendingExpiry","—")));
-                    core.addView(info("Storage",s.optBoolean("trackerStorage")?"KV ONLINE":"OFFLINE")); content.addView(core);
-                    LinearLayout data=card(); data.addView(tv("LIVE DATA",14,TEXT,true));
-                    data.addView(tv("Price/pip cards refresh about every 5 seconds while this screen is foregrounded. This is a fast scanner refresh, not a true tick stream, because the source does not expose an exact provider-origin timestamp. Tracker/history remains server-side.",11,MUTED,false)); content.addView(data);
-                });
-            } catch(Throwable e){showError(e);}
-        });
+    private View cryptoCandidateCard(JSONObject x) {
+        LinearLayout c=card(); String symbol=x.optString("symbol","—"); double p=x.optDouble("lastPrice",0),chg=x.optDouble("change24hPct",0),spread=x.optDouble("spreadBps",0),score=x.optDouble("discoveryScore",0);
+        LinearLayout h=row();h.addView(tv(symbol,16,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip("THEO DÕI • "+String.format(Locale.US,"%.0f",score),BLUE));c.addView(h);
+        c.addView(labelValue("GIÁ BYBIT",fmtPrice(p),CYAN)); c.addView(tv(String.format(Locale.US,"24h %+.2f%%   Spread %.2f bps",chg,spread),10,chg>=0?GREEN:RED,true));
+        c.addView(tv("Chưa phải tín hiệu vào lệnh • chờ engine cấu trúc/entry xác nhận",9,MUTED,false)); c.setOnClickListener(v->showCryptoDetail(x)); return c;
     }
 
-    private TextView liveBox() {
-        TextView v=tv("LIVE • waiting quote…",12,ACCENT,true);
-        v.setPadding(dp(10),dp(10),dp(10),dp(10)); v.setBackground(shape(PANEL2,10,BORDER));
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2); p.setMargins(0,dp(8),0,dp(5)); v.setLayoutParams(p); return v;
+    private void showCryptoDetail(JSONObject x) {
+        detailMode=true;content.removeAllViews(); Button back=button("← QUAY LẠI",false,v->{detailMode=false;refreshCurrent(true);});content.addView(back,new LinearLayout.LayoutParams(-1,dp(42)));
+        LinearLayout c=card();String symbol=x.optString("symbol","—");c.addView(tv(symbol+" • "+style,20,TEXT,true));c.addView(labelValue("GIÁ BYBIT",fmtPrice(x.optDouble("lastPrice",0)),CYAN));c.addView(labelValue("BID / ASK",fmtPrice(x.optDouble("bid",0))+" / "+fmtPrice(x.optDouble("ask",0)),TEXT));c.addView(labelValue("SPREAD",String.format(Locale.US,"%.2f bps",x.optDouble("spreadBps",0)),MUTED));c.addView(labelValue("FUNDING",String.format(Locale.US,"%+.4f%%",x.optDouble("fundingRate",0)*100),YELLOW));c.addView(labelValue("OI",fmtMoney(x.optDouble("openInterestValue",0)),BLUE));c.addView(labelValue("TURNOVER 24H",fmtMoney(x.optDouble("turnover24h",0)),TEXT));c.addView(tv("Trạng thái: ĐANG PHÂN TÍCH • chưa phát BUY/SELL khi chưa có setup hoàn chỉnh",10,YELLOW,true));content.addView(c);
     }
 
-    private void registerQuote(String symbol,String side,String status,double entry,double risk,TextView t) {
-        if(symbol==null||symbol.isEmpty())return;
-        String key=symbol.toUpperCase(Locale.US);
-        quoteViews.computeIfAbsent(key,k->new ArrayList<>()).add(new QuoteView(key,side,status,entry,risk,t));
+    private void loadWatchlist(String m,boolean force) {
+        if(m.equals("FOREX")) main.post(this::renderForexWatchlist); else main.post(this::renderCryptoWatchlist);
     }
 
-    private boolean usesQuotes(){return "OVERVIEW".equals(view)||"LIVE".equals(view)||"ACTIVE".equals(view);}
-    private void restartQuotes(){main.removeCallbacks(quoteLoop);if(resumed&&usesQuotes())main.post(quoteLoop);}
-
-    private void applyQuotes(JSONArray quotes,String at) {
-        if(quotes==null)return;
-        int updated=0;
-        for(int i=0;i<quotes.length();i++){
-            JSONObject q=quotes.optJSONObject(i); if(q==null)continue;
-            String symbol=q.optString("symbol","").toUpperCase(Locale.US);
-            List<QuoteView> list=quoteViews.get(symbol); if(list==null)continue;
-            double px=q.optDouble("price",0), pipSize=q.optDouble("pipSize",0); String unit=q.optString("unit","pip");
-            for(QuoteView b:new ArrayList<>(list)){
-                if(b.text==null)continue;
-                String arrow=Double.isFinite(b.previous)?(px>b.previous?"↑":px<b.previous?"↓":"•"):"•";
-                if("PENDING".equals(b.status)){
-                    double distance=pipSize>0?Math.abs(px-b.entry)/pipSize:0;
-                    b.text.setText(String.format(Locale.US,"LIVE %s %s   •   %.1f %s TO ENTRY",arrow,price(px),distance,"pip".equals(unit)?"PIPS":"PTS"));
-                    b.text.setTextColor(YELLOW);
-                } else {
-                    double dir="SHORT".equals(b.side)?-1:1, move=dir*(px-b.entry), units=pipSize>0?move/pipSize:0, r=b.risk>0?move/b.risk:0;
-                    b.text.setText(String.format(Locale.US,"LIVE %s %s   •   %+.1f %s   •   %+.2fR",arrow,price(px),units,"pip".equals(unit)?"PIPS":"PTS",r));
-                    b.text.setTextColor(units>0?GREEN:units<0?RED:ACCENT);
-                }
-                b.previous=px; updated++;
-            }
-        }
-        quoteState.setText("LIVE PRICE • ~5s foreground refresh • "+updated+" cards • "+shortTime(at));
-        quoteState.setTextColor(GREEN);
+    private void renderForexWatchlist() {
+        if(!screen.equals("WATCHLIST")||!market.equals("FOREX"))return;content.removeAllViews();content.addView(tv("WATCHLIST • FOREX",15,TEXT,true));
+        String[] defaults={"EURUSD","GBPUSD","USDJPY","GBPJPY","XAUUSD","XAGUSD","USOIL","UKOIL"};
+        for(String s:defaults){double p=latestForex(s,0);LinearLayout c=card();LinearLayout h=row();h.addView(tv(s,15,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(p>0?"LIVE":"CHỜ",p>0?GREEN:YELLOW));c.addView(h);c.addView(labelValue("GIÁ",fmtPrice(p),CYAN));content.addView(c);}
     }
 
-    private TextView info(String label,String value){TextView t=tv(label+"   "+value,11,TEXT,false);t.setPadding(0,dp(4),0,dp(4));return t;}
-    private void addSection(String label,int count,int color){LinearLayout r=row();TextView l=tv(label,12,color,true);l.setPadding(dp(2),dp(10),0,dp(4));r.addView(l,new LinearLayout.LayoutParams(0,-2,1f));r.addView(chip(String.valueOf(count),color));content.addView(r);}
-    private void addEmpty(String s){LinearLayout c=card();c.addView(tv(s,11,MUTED,false));content.addView(c);}
-    private void showError(Throwable e){replace(() -> {LinearLayout c=card();c.addView(chip("DATA ERROR",RED));c.addView(tv(shortError(e),11,MUTED,false));c.addView(tv("No stale fallback is shown.",11,YELLOW,true));content.addView(c);});}
-    private String shortError(Throwable e){String m=e==null?null:e.getMessage();if(m==null||m.trim().isEmpty())return e==null?"Unknown error":e.getClass().getSimpleName();return m.length()>320?m.substring(0,320)+"…":m;}
-    private int orderColor(String s){if("MARKET".equals(s))return GREEN;if("LIMIT".equals(s))return BLUE;if("STOP".equals(s))return PURPLE;return YELLOW;}
-    private int outcomeColor(String s){if("TP".equals(s))return GREEN;if("SL".equals(s))return RED;if("AMBIGUOUS".equals(s))return YELLOW;return PURPLE;}
-    private String fmtR(double r){return String.format(Locale.US,"%+.2fR",r);}
-    private String fmtPct(double p){return String.format(Locale.US,"%.1f%%",p);}
-    private String signed(double v){return String.format(Locale.US,"%+.3f",v);}
-    private String price(double v){if(!Double.isFinite(v)||v==0)return"—";if(Math.abs(v)>=1000)return String.format(Locale.US,"%.2f",v);if(Math.abs(v)>=100)return String.format(Locale.US,"%.3f",v);if(Math.abs(v)>=10)return String.format(Locale.US,"%.4f",v);return String.format(Locale.US,"%.5f",v);}
-    private String shortTime(String iso){try{String s=Instant.parse(iso).toString();return s.substring(5,16).replace('T',' ')+"Z";}catch(Exception e){return iso==null||iso.isEmpty()?"—":iso;}}
-    private String age(String iso){try{long sec=Math.max(0,Duration.between(Instant.parse(iso),Instant.now()).getSeconds());if(sec<60)return sec+"s";if(sec<3600)return(sec/60)+"m";return String.format(Locale.US,"%dh %02dm",sec/3600,(sec%3600)/60);}catch(Exception e){return"—";}}
+    private void renderCryptoWatchlist() {
+        if(!screen.equals("WATCHLIST")||!market.equals("CRYPTO"))return;content.removeAllViews();content.addView(tv("WATCHLIST • CRYPTO",15,TEXT,true));
+        String[] defaults={"BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","LTCUSDT","LINKUSDT"};
+        synchronized(cryptoBySymbol){for(String s:defaults){JSONObject x=cryptoBySymbol.get(s);LinearLayout c=card();LinearLayout h=row();h.addView(tv(s,15,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(x!=null?"BYBIT LIVE":"CHỜ",x!=null?GREEN:YELLOW));c.addView(h);if(x!=null){double ch=x.optDouble("change24hPct",0);c.addView(labelValue("GIÁ",fmtPrice(x.optDouble("lastPrice",0)),CYAN));c.addView(tv(String.format(Locale.US,"24h %+.2f%%",ch),10,ch>=0?GREEN:RED,true));}content.addView(c);}}
+    }
 
-    @Override protected void onDestroy(){resumed=false;main.removeCallbacksAndMessages(null);io.shutdownNow();super.onDestroy();}
+    private void loadHistory(String m,String st,boolean force) {
+        if(m.equals("CRYPTO")){main.post(()->renderCryptoHistory(st));return;}
+        if(st.equals("SWING")){main.post(()->renderEmptyHistory("Forex Swing chưa phát lệnh production nên chưa có lịch sử giả."));return;}
+        try{cachedHistory=new JSONObject(ApiClient.get("/signals?status=closed&limit=120"));JSONArray a=cachedHistory.optJSONArray("signals");main.post(()->renderForexHistory(a));}catch(Throwable e){main.post(()->renderError("Không tải được lịch sử",e));}
+    }
+
+    private void renderForexHistory(JSONArray a){if(!screen.equals("HISTORY")||!market.equals("FOREX"))return;content.removeAllViews();content.addView(tv("LỊCH SỬ • FOREX • "+style,15,TEXT,true));int n=a==null?0:a.length();if(n==0){renderEmptyHistory("Chưa có lệnh đóng.");return;}for(int i=0;i<n;i++){JSONObject s=a.optJSONObject(i);if(s==null)continue;LinearLayout c=card();String out=s.optString("outcome","CLOSED");int col=out.equals("TP")?GREEN:out.equals("SL")?RED:MUTED;LinearLayout h=row();h.addView(tv(s.optString("symbol","—")+" • "+s.optString("side","—"),13,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(out,col));c.addView(h);c.addView(tv("Entry "+fmtPrice(s.optDouble("entry",0))+" → Exit "+fmtPrice(s.optDouble("exitPrice",0))+"   "+fmtR(s.optDouble("resultR",0)),10,col,true));content.addView(c);}}
+    private void renderCryptoHistory(String st){if(!screen.equals("HISTORY")||!market.equals("CRYPTO"))return;content.removeAllViews();content.addView(tv("LỊCH SỬ • CRYPTO • "+st,15,TEXT,true));renderEmptyHistory("Crypto SignalHub V3 hiện mới ở tầng quét rộng + phân tích sâu. Không tạo lịch sử BUY/SELL giả trước khi engine được kiểm định.");}
+    private void renderEmptyHistory(String msg){LinearLayout c=card();c.addView(tv(msg,11,MUTED,false));content.addView(c);}
+
+    private void loadNews(String m,boolean force) {
+        try{JSONObject st=new JSONObject(ApiClient.get("/v3/status"));main.post(()->renderNews(m,st));}catch(Throwable e){main.post(()->renderNews(m,null));}
+    }
+
+    private void renderNews(String m,JSONObject st){if(!screen.equals("NEWS")||!market.equals(m))return;content.removeAllViews();content.addView(tv("TIN TỨC • "+m,15,TEXT,true));LinearLayout c=card();c.addView(chip("BỐI CẢNH THỊ TRƯỜNG",BLUE));if(m.equals("FOREX")){c.addView(tv("Tin mạnh không bị dùng như nút BUY/SELL. Engine sẽ kết hợp tin, spread Exness và cấu trúc trước khi quyết định.",11,MUTED,false));c.addView(tv("Nguồn lịch kinh tế chuyên dụng sẽ được nối ở checkpoint engine tiếp theo; app không bịa headline khi chưa có feed chuẩn.",10,YELLOW,true));}else{c.addView(tv("Bybit là nguồn giá/derivatives chính. Funding, OI, thanh khoản và trạng thái BTC/ETH sẽ được dùng làm bối cảnh, không phải tín hiệu độc lập.",11,MUTED,false));}content.addView(c);if(st!=null){LinearLayout s=card();s.addView(tv("HỆ THỐNG",12,TEXT,true));s.addView(tv(st.optString("version","—"),10,GREEN,true));s.addView(tv("Checkpoint: "+st.optString("checkpoint","—"),10,MUTED,false));content.addView(s);}}
+
+    private void renderError(String title,Throwable e){content.removeAllViews();content.addView(tv(title,14,RED,true));LinearLayout c=card();c.addView(tv("Đang thử nối lại. Dữ liệu cũ không được dùng để giả LIVE.",11,YELLOW,true));c.addView(tv(String.valueOf(e.getMessage()),9,MUTED,false));content.addView(c);}
+
+    private boolean hasNotificationPermission(){return Build.VERSION.SDK_INT<33||checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)==PackageManager.PERMISSION_GRANTED;}
+    private void ensureMonitor(boolean ask){if(monitorStarted)return;if(!hasNotificationPermission()){if(ask&&Build.VERSION.SDK_INT>=33)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},REQ_NOTIFICATIONS);return;}try{Intent i=new Intent(this,MonitorService.class);if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);monitorStarted=true;}catch(Throwable ignored){}}
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){super.onRequestPermissionsResult(requestCode,permissions,grantResults);if(requestCode==REQ_NOTIFICATIONS&&grantResults.length>0&&grantResults[0]==PackageManager.PERMISSION_GRANTED)ensureMonitor(false);}
+
+    private String fmtPrice(double v){if(!Double.isFinite(v)||v<=0)return "—";if(v>=1000)return String.format(Locale.US,"%.2f",v);if(v>=100)return String.format(Locale.US,"%.3f",v);if(v>=10)return String.format(Locale.US,"%.4f",v);if(v>=1)return String.format(Locale.US,"%.5f",v);return String.format(Locale.US,"%.7f",v);}
+    private String fmtMoney(double v){if(!Double.isFinite(v))return "—";double a=Math.abs(v);if(a>=1_000_000_000)return String.format(Locale.US,"$%.2fB",v/1e9);if(a>=1_000_000)return String.format(Locale.US,"$%.2fM",v/1e6);if(a>=1000)return String.format(Locale.US,"$%.1fK",v/1e3);return String.format(Locale.US,"$%.2f",v);}
+    private String fmtR(double v){return String.format(Locale.US,"%+.2fR",v);}
+    private String viTime(String iso){try{Instant x=Instant.parse(iso);long sec=Math.max(0,Duration.between(x,Instant.now()).getSeconds());if(sec<60)return sec+" giây trước";if(sec<3600)return sec/60+" phút trước";return sec/3600+" giờ trước";}catch(Exception e){return iso==null||iso.isEmpty()?"—":iso;}}
 }
