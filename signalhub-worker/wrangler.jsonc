@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "signalhub-forex",
-  "main": "gateway.js",
+  "main": "gateway-v3.js",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
   "observability": { "enabled": true },
