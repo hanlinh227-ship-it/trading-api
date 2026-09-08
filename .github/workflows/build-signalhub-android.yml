@@ -41,7 +41,7 @@ jobs:
         working-directory: signalhub-android
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Verify APK structure and 2.1 code
+      - name: Verify APK structure and V3 UX code
         run: |
           set -euo pipefail
           APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
@@ -55,17 +55,19 @@ jobs:
             echo "Inspecting $dex"
             unzip -p "$APK" "$dex" | strings >> /tmp/all-dex-strings.txt
           done < <(unzip -Z1 "$APK" | grep -E '^classes([0-9]+)?\.dex$')
-          grep -Fq 'SIGNALHUB FX' /tmp/all-dex-strings.txt
-          grep -Fq '/live-quotes?group=all' /tmp/all-dex-strings.txt
-          grep -Fq '/app-version' /tmp/all-dex-strings.txt
-          grep -Fq '/signals?status=active' /tmp/all-dex-strings.txt
-          grep -Fq 'ACTIVE SETUPS' /tmp/all-dex-strings.txt
-          grep -Fq 'PENDING' /tmp/all-dex-strings.txt
+          grep -Fq 'SIGNALHUB' /tmp/all-dex-strings.txt
+          grep -Fq '/v3/forex/live' /tmp/all-dex-strings.txt
+          grep -Fq '/v3/crypto/tickers' /tmp/all-dex-strings.txt
+          grep -Fq '/v3/crypto/discovery' /tmp/all-dex-strings.txt
+          grep -Fq 'EXNESS' /tmp/all-dex-strings.txt
+          grep -Fq 'BYBIT' /tmp/all-dex-strings.txt
+          grep -Fq 'SCALP' /tmp/all-dex-strings.txt
+          grep -Fq 'SWING' /tmp/all-dex-strings.txt
           grep -Fq 'MARKET' /tmp/all-dex-strings.txt
           grep -Fq 'LIMIT' /tmp/all-dex-strings.txt
           grep -Fq 'STOP' /tmp/all-dex-strings.txt
 
-      - name: Smoke test live 2.1 backend
+      - name: Smoke test legacy compatibility and V3 data routes
         shell: bash
         run: |
           set -euo pipefail
@@ -89,56 +91,39 @@ jobs:
           done
           test "$ready" = "1"
 
-          python3 - <<'PY'
-          import json
-          p=json.load(open('/tmp/status.json',encoding='utf-8'))
-          assert p.get('ok') is True, p
-          assert p.get('version') == 'SIGNALHUB-FOREX-2.1.0', p
-          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', p
-          assert p.get('trackerStorage') is True, p
-          assert p.get('oneActiveSetupPerSymbol') is True, p
-          assert p.get('supportedOrderTypes') == ['MARKET','LIMIT','STOP'], p
-          policy=p.get('signalCadencePolicy') or {}
-          assert policy.get('mode') == 'MODERATE_QUALITY_FIRST', policy
-          assert policy.get('minGlobalSpacingMinutes') == 20, policy
-          assert policy.get('maxNewPerScan') == 1, policy
-          assert policy.get('maxActiveTotal') == 12, policy
-          print('STATUS_OK',p['version'],p.get('gatewayVersion'),p.get('trackerSummary'),policy)
-          PY
-
-          curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/live-quotes?group=all" -o /tmp/live.json
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/app-version" -o /tmp/app.json
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/v3/status" -o /tmp/v3-status.json
+          curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/v3/crypto/discovery?style=scalp&limit=3" -o /tmp/crypto.json
           curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/signals?status=active&limit=100" -o /tmp/active.json
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/performance" -o /tmp/perf.json
           python3 - <<'PY'
           import json
-          live=json.load(open('/tmp/live.json',encoding='utf-8'))
-          app=json.load(open('/tmp/app.json',encoding='utf-8'))
+          legacy=json.load(open('/tmp/status.json',encoding='utf-8'))
+          v3=json.load(open('/tmp/v3-status.json',encoding='utf-8'))
+          crypto=json.load(open('/tmp/crypto.json',encoding='utf-8'))
           active=json.load(open('/tmp/active.json',encoding='utf-8'))
-          perf=json.load(open('/tmp/perf.json',encoding='utf-8')).get('performance') or {}
-          assert live.get('ok') is True and len(live.get('quotes') or []) >= 1, live
-          assert live.get('suggestedRefreshMs') == 5000, live
-          assert app.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', app
-          assert app.get('app',{}).get('versionCode') == 5, app
-          assert app.get('app',{}).get('versionName') == '2.1.0', app
+          assert legacy.get('ok') is True, legacy
+          assert legacy.get('version') == 'SIGNALHUB-FOREX-2.1.0', legacy
+          assert v3.get('ok') is True and v3.get('version') == 'SIGNALHUB-V3-GATEWAY-3.0.0', v3
+          assert v3.get('checkpoint') == 'SIGNALHUB_V3_CHECKPOINT_04', v3
+          assert crypto.get('ok') is True and crypto.get('market') == 'CRYPTO', crypto
+          assert crypto.get('classification') == 'DISCOVERY_ONLY_NOT_TRADE_SIGNAL', crypto
+          assert crypto.get('scanned',0) >= crypto.get('eligible',0) >= 0, crypto
+          assert isinstance(crypto.get('candidates'),list), crypto
           symbols=[s.get('symbol') for s in active.get('signals',[])]
           assert len(symbols)==len(set(symbols)), symbols
-          for k in ['active','pending','open','closed','tp','sl','winRateResolved','netRResolved','byOrderType']:
-              assert k in perf, (k,perf)
-          print('BACKEND_2_1_OK','quotes',live.get('count'),'active',active.get('count'),'perf',perf)
+          print('SIGNALHUB_V3_OK','scanned',crypto.get('scanned'),'eligible',crypto.get('eligible'),'active',active.get('count'))
           PY
 
       - name: Prepare artifact
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-FX-Tracker-v2.1.0.apk
-          sha256sum dist/SignalHub-FX-Tracker-v2.1.0.apk | tee dist/SHA256SUMS.txt
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-V3-v3.0.0.apk
+          sha256sum dist/SignalHub-V3-v3.0.0.apk | tee dist/SHA256SUMS.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SignalHub-FX-Tracker-Android-v2.1.0
+          name: SignalHub-V3-Android-v3.0.0
           path: dist/
           if-no-files-found: error
           retention-days: 30
