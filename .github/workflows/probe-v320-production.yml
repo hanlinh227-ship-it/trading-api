@@ -1,0 +1,23 @@
+name: Probe V320 Production
+on:
+  push:
+    branches: [signalhub-v320-stable100-continuous]
+    paths: ['.github/workflows/probe-v320-production.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read production state
+        run: |
+          set -euo pipefail
+          B='https://signalhub-forex.hanlinh227.workers.dev'
+          curl -fsS --max-time 30 "$B/v3/status?p=$RANDOM" -o /tmp/s.json
+          curl -fsS --max-time 30 "$B/v3/portfolio?p=$RANDOM" -o /tmp/p.json
+          curl -fsS --max-time 30 "$B/v3/crypto/stable100?p=$RANDOM" -o /tmp/u.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/s.json'));p=json.load(open('/tmp/p.json'));u=json.load(open('/tmp/u.json'))
+          print('VERSION',s.get('version'))
+          print('PORTFOLIO',p.get('portfolio'))
+          print('STABLE100',u.get('provider'),u.get('target'),u.get('count'),(u.get('symbols') or [])[:30])
+          PY
