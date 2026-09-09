@@ -28,8 +28,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Apply patch
-        run: python3 scripts/patch_signalhub_v36_market_judgment.py
+      - name: Apply fixed V3.6 patch
+        run: python3 scripts/patch_signalhub_v36_market_judgment_fixed.py
       - name: Verify source contract
         run: |
           set -euo pipefail
