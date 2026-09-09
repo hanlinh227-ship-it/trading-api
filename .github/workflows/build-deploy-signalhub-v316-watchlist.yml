@@ -1,0 +1,218 @@
+name: Build Deploy SignalHub V3.16 Watchlist
+
+on:
+  push:
+    branches: [signalhub-v316-watchlist]
+    paths:
+      - 'scripts/patch_signalhub_v316_watchlist.py'
+      - '.github/workflows/build-deploy-signalhub-v316-watchlist.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.16 watchlist patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v316_watchlist.py
+
+      - name: Verify V3.16 source contracts
+        run: |
+          set -euo pipefail
+          node --check signalhub-worker/gateway-v3.js
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          for x in [
+              "SIGNALHUB-V3-GATEWAY-3.16.0",
+              "targetActivePerStyle:2",
+              "maxActivePerStyle:2",
+              "maxActiveTotal:4",
+              "standbyPerStyle:3",
+              "DURABLE_OBJECT_HOT_SPARE_ATOMIC_RESERVE_POOL",
+              "function normalizeWatchSymbol(raw)",
+              "async function watchAnalyze(url,env)",
+              "portfolioImpact:'NONE_READ_ONLY'",
+              "/v3/watch/analyze",
+          ]: assert x in w,x
+          for x in [
+              'APP_VERSION="3.16.0"',
+              '"HOME","SIGNALS","WATCH","STATS","SETTINGS"',
+              'renderWatchlist',
+              '/v3/watch/analyze?symbol=',
+              'KHÔNG CHIẾM 2+2 SLOT',
+              'R.drawable.ic_watchlist',
+          ]: assert x in a,x
+          assert "versionCode 21" in g and "versionName '3.16.0'" in g
+          assert Path('signalhub-android/app/src/main/res/drawable/ic_watchlist.xml').is_file()
+          print('V3.16 source contract OK')
+          PY
+
+      - name: Validate Worker dry-run
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v316-worker
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+
+      - name: Deploy V3.16 worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for production V3.16
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 50); do
+            if curl -A 'SignalHub-CI/3.16' -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.16.0',s.get('version')
+          assert s.get('forexDisabled') is True,s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('targetActivePerStyle')==2,p
+          assert p.get('maxActiveTotal')==4,p
+          assert p.get('standbyPerStyle')==3,p
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Refill exact 2 SCALP + 2 SWING on V3.16
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 12); do
+            curl -A 'SignalHub-CI/3.16' -fsS --max-time 120 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SCALP&probe=$RANDOM-$attempt" >/tmp/scalp.json || true
+            curl -A 'SignalHub-CI/3.16' -fsS --max-time 120 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SWING&probe=$RANDOM-$attempt" >/tmp/swing.json || true
+            curl -A 'SignalHub-CI/3.16' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM-$attempt" >/tmp/portfolio.json
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {})
+          st=p.get('styles') or {}
+          print('portfolio',p.get('activeTotal'),st)
+          assert p.get('activeTotal')==4,p
+          assert st.get('SCALP')==2 and st.get('SWING')==2,st
+          PY
+            then ok=1; break; fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Verify Watchlist is read-only and useful
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.16' -fsS --max-time 45 "$SIGNALHUB_URL/v3/portfolio?probe=before-$RANDOM" >/tmp/before.json
+          for sym in BTC ETH SOL; do
+            curl -A 'SignalHub-CI/3.16' -fsS --max-time 90 "$SIGNALHUB_URL/v3/watch/analyze?symbol=$sym&probe=$RANDOM" > "/tmp/watch-$sym.json"
+          done
+          curl -A 'SignalHub-CI/3.16' -fsS --max-time 45 "$SIGNALHUB_URL/v3/portfolio?probe=after-$RANDOM" >/tmp/after.json
+          python3 - <<'PY'
+          import json
+          before=(json.load(open('/tmp/before.json')).get('portfolio') or {})
+          after=(json.load(open('/tmp/after.json')).get('portfolio') or {})
+          assert before.get('activeTotal')==4 and after.get('activeTotal')==4,(before,after)
+          assert before.get('styles')==after.get('styles')=={'SCALP':2,'SWING':2},(before,after)
+          for sym in ('BTC','ETH','SOL'):
+              p=json.load(open('/tmp/watch-'+sym+'.json'))
+              assert p.get('ok') is True,p
+              assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.16.0',p
+              assert p.get('analysisOnly') is True and p.get('portfolioImpact')=='NONE_READ_ONLY',p
+              assert p.get('symbol')==sym+'USDT',p
+              assert (p.get('ticker') or {}).get('lastPrice',0)>0,p
+              styles=p.get('styles') or {}
+              assert set(styles.keys())=={'SCALP','SWING'},styles
+              for st,x in styles.items():
+                  assert x.get('state') in ('ACTIVE_SIGNAL','TRADEABLE_NOW','CONDITIONAL_WAIT','NO_TRADE'),(st,x)
+              print(sym,styles['SCALP'].get('state'),styles['SWING'].get('state'))
+          PY
+
+      - name: Verify exact 2x2 remains intact
+        run: |
+          set -euo pipefail
+          for n in $(seq 1 10); do
+            curl -A 'SignalHub-CI/3.16' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM-$n" >/tmp/p.json
+            python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {})
+          st=p.get('styles') or {}
+          assert p.get('activeTotal')==4,p
+          assert st.get('SCALP')==2 and st.get('SWING')==2,st
+          PY
+            sleep 1
+          done
+
+      - name: Stage APK and checksum
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.16.0-Fixed-2x2-Watchlist.apk
+          sha256sum dist/SignalHub-v3.16.0-Fixed-2x2-Watchlist.apk | tee dist/SignalHub-v3.16.0-Fixed-2x2-Watchlist-SHA256SUMS.txt
+
+      - name: Commit generated V3.16 source
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  signalhub-android/app/src/main/res/drawable/ic_watchlist.xml
+          git commit -m "SignalHub v3.16 fixed 2x2 watchlist" || true
+          git push origin HEAD:signalhub-v316-watchlist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.16.0-Fixed-2x2-Watchlist
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.16 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.16.0-fixed-2x2-watchlist'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v316-watchlist --prerelease \
+              --title 'SignalHub v3.16.0 Fixed 2x2 + Watchlist' \
+              --notes 'Keeps exactly 2 SCALP + 2 SWING active reference signals with reserve-pool replacement. Adds a local Android Watchlist for user-selected crypto symbols. Watchlist analysis is read-only and does not consume active slots; it reports active signal, strict tradeable setup, conditional wait, or no-trade independently for SCALP and SWING.'
+          fi
