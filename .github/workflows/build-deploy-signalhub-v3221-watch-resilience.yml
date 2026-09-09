@@ -1,0 +1,176 @@
+name: Build Deploy SignalHub V3.22.1 Resilient Watch
+
+on:
+  push:
+    branches: [signalhub-v322-universe-watch-engine]
+    paths:
+      - 'scripts/patch_signalhub_v3221_watch_resilience.py'
+      - '.github/workflows/build-deploy-signalhub-v3221-watch-resilience.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply full V3.22.1 patch chain
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 scripts/patch_signalhub_v321_precompat.py
+          python3 scripts/patch_signalhub_v321_standardized_watch_ideal.py
+          python3 scripts/patch_signalhub_v322_universe_watch_engine.py
+          python3 scripts/patch_signalhub_v3221_watch_resilience.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.22.1 source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          for x in ['SIGNALHUB-V3-GATEWAY-3.22.1','V322_STYLE_READ','WATCH_TF_CACHE_SCHEMA','V3221_WATCH_TF_STATS_1','okxHistoryCandlesV3221','watchStatsBundleV3221','secondary venue consensus','CRYPTO_MARKET_ROW_V3']:
+              assert x in w,x
+          for x in ['APP_VERSION="3.22.1"','100 coin có thể theo dõi','Không cần tìm kiếm','renderWatchDetail','RECENT VALID CACHE','10 SCALP + 5 SWING']:
+              assert x in a,x
+          assert "versionCode 30" in g and "versionName '3.22.1'" in g
+          print('V3.22.1 source contracts PASS')
+          PY
+
+      - name: Worker dry run and Android build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3221-worker
+          cd signalhub-android && gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.1 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Verify production identity
+        run: |
+          set -euo pipefail
+          ok=0
+          for n in $(seq 1 50); do
+            curl -fsS --max-time 20 "$BASE/v3/status?v3221=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.1',s.get('version')
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('stableUniverseSize')==100,p
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('dataSchema')=='CRYPTO_MARKET_ROW_V3',p
+          PY
+            then ok=1;break;fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Verify standardized Stable100
+        run: |
+          curl -fsS --max-time 120 "$BASE/v3/crypto/stable100?v3221=$RANDOM" >/tmp/u.json
+          python3 - <<'PY'
+          import json
+          u=json.load(open('/tmp/u.json'));rows=u.get('rows') or []
+          assert u.get('ok') is True,u
+          assert u.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.1',u
+          assert len(rows)==100 and len({r.get('symbol') for r in rows})==100
+          assert all(r.get('assetClass')=='CRYPTO' for r in rows)
+          assert not (set(r.get('symbol') for r in rows)&{'XAUUSDT','XAGUSDT','PAXGUSDT','XAUTUSDT','AAPLUSDT','NVDAUSDT','TSLAUSDT'})
+          print('STABLE100 PASS', [r.get('symbol') for r in rows[:15]])
+          PY
+
+      - name: Verify Watch tap ideal plans with resilient TF data
+        run: |
+          set -euo pipefail
+          for sym in BTCUSDT ETHUSDT SOLUSDT; do
+            ok=0
+            for n in $(seq 1 4); do
+              curl -fsS --max-time 150 "$BASE/v3/watch/analyze?symbol=$sym&v3221=$RANDOM-$n" >"/tmp/w-$sym.json" || true
+              if python3 - "$sym" <<'PY'
+          import json,sys
+          sym=sys.argv[1]
+          try:x=json.load(open('/tmp/w-'+sym+'.json'))
+          except:raise SystemExit(1)
+          assert x.get('ok') is True,x
+          styles=x.get('styles') or {}
+          for st in ['SCALP','SWING']:
+              s=styles.get(st) or {};state=s.get('state')
+              assert state in ('ACTIVE_SIGNAL','TRADEABLE_NOW','CONDITIONAL_WAIT','IDEAL_REFERENCE'),(sym,st,s)
+              for k in ['entry','sl','tp1','tp2','tp3']: assert float(s.get(k) or 0)>0,(sym,st,k,s)
+              side=str(s.get('side') or '').upper();e=float(s['entry']);sl=float(s['sl']);t1=float(s['tp1']);t2=float(s['tp2']);t3=float(s['tp3'])
+              if side in ('LONG','BUY'): assert sl<e<t1<t2<t3,(sym,st,s)
+              else: assert sl>e>t1>t2>t3,(sym,st,s)
+              if state=='IDEAL_REFERENCE': assert s.get('watchReference') is True and s.get('studyOnly') is True and s.get('occupiesActiveSlot') is False,s
+          print('WATCH PASS',sym,{k:(v or {}).get('state') for k,v in styles.items()},{k:(v or {}).get('watchDataMode') for k,v in styles.items()})
+          PY
+              then ok=1;break;fi
+              sleep 2
+            done
+            test "$ok" = 1
+          done
+
+      - name: Audit portfolio boundaries and integrity
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/data-integrity?v3221=$RANDOM" >/tmp/i.json
+          for style in SCALP SWING; do curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=$style&v3221=$RANDOM" >"/tmp/$style.json" || true; done
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?v3221=$RANDOM" >/tmp/p.json
+          python3 - <<'PY'
+          import json
+          i=json.load(open('/tmp/i.json'));assert i.get('ok') is True and not i.get('problems'),i
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {});st=p.get('styles') or {};pol=p.get('policy') or {}
+          assert int(p.get('activeTotal') or 0)<=15,p
+          assert int(st.get('SCALP') or 0)<=10 and int(st.get('SWING') or 0)<=5,p
+          assert pol.get('stableUniverseSize')==100 and pol.get('standbyPerStyle')==20,pol
+          print('PORTFOLIO',p.get('activeTotal'),st)
+          PY
+
+      - name: Stage checkpoint and APK
+        run: |
+          set -euo pipefail
+          cat > SIGNALHUB_V3_CHECKPOINT_14_UNIVERSE_WATCH_REFINED_READ.md <<'EOF'
+          # SignalHub V3.22.1 — Universe Watch + Resilient Refined Read
+          Watch directly renders the standardized Stable100 universe, no search workflow. Tapping a coin opens separate read-only SCALP and SWING ideal plans with Entry, structural SL, TP1/TP2/TP3 and RR. Watch timeframe data is resolved per frame across OKX/Bybit/Binance and can fall back only to a recent versioned, validated TF-stat cache with explicit age/mode labeling; stale data beyond frame-specific TTL is rejected. SCALP reads 5m execution + 15m structure + 1h direction. SWING reads 1h execution + 4h structure + 1D direction. Market setups use categorical context/structure/momentum/location/liquidity evidence plus secondary venue consensus; no predicted win-rate score is used. Portfolio boundaries remain 10 SCALP + 5 SWING, Stable100 dynamic universe, and hot-spare refill.
+          EOF
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.1-Universe-Watch-Resilient-Read.apk
+          sha256sum dist/SignalHub-v3.22.1-Universe-Watch-Resilient-Read.apk | tee dist/SignalHub-v3.22.1-Universe-Watch-Resilient-Read-SHA256SUMS.txt
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java SIGNALHUB_V3_CHECKPOINT_14_UNIVERSE_WATCH_REFINED_READ.md
+          git commit -m 'SignalHub v3.22.1 resilient Universe Watch read' || true
+          git push origin HEAD:signalhub-v322-universe-watch-engine
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.22.1-Universe-Watch-Resilient-Read
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.22.1 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.22.1-universe-watch-resilient-read
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v322-universe-watch-engine --prerelease --title 'SignalHub v3.22.1 — Universe Watch + Resilient Read' --notes 'Stable100 direct Watch browser, tap-to-ideal SCALP/SWING plans, resilient per-timeframe data with explicit freshness, refined style-specific market read, standardized data compatibility, and 10+5 portfolio boundaries.'
