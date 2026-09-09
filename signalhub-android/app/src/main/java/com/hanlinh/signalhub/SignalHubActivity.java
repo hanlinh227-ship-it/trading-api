@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS=42;
-    private static final String APP_VERSION="3.6.0";
+    private static final String APP_VERSION="3.7.0";
     private static final long LIVE_REFRESH_MS=500L; // REST fallback; WebSocket is primary
     private static final long PAGE_REFRESH_MS=3000L;
     private static final long SCAN_MS=30000L;
@@ -116,7 +116,7 @@ public class SignalHubActivity extends Activity {
         LinearLayout root=column();root.setBackgroundColor(BG);
         LinearLayout head=column();head.setPadding(dp(14),dp(12),dp(14),dp(7));
         LinearLayout top=row();LinearLayout titles=column();
-        TextView logo=tv("SIGNALHUB",22,TEXT,true);subtitle=tv("MARKET JUDGMENT • REALTIME EXECUTION • V3.6",8,MUTED,true);
+        TextView logo=tv("SIGNALHUB",22,TEXT,true);subtitle=tv("STRUCTURE • LIQUIDITY • REALTIME • V3.7",8,MUTED,true);
         titles.addView(logo);titles.addView(subtitle);top.addView(titles,new LinearLayout.LayoutParams(0,-2,1f));top.addView(chip("V"+APP_VERSION,BLUE));head.addView(top);
 
         LinearLayout live=row();fxLive=chip("EXNESS • OFFLINE",RED);cryptoLive=chip("CRYPTO • OFFLINE",RED);
@@ -249,7 +249,7 @@ public class SignalHubActivity extends Activity {
         double px=priceFor(s,s.optDouble("entry",0));TextView pv=tv(fmt(px),29,TEXT,true);pv.setPadding(0,dp(10),0,dp(3));c.addView(pv);priceViews.put(id,pv);viewMarkets.put(id,market);TextView sv=tv(sourceText(market),10,stateColor(market.equals("FOREX")?fxState:cryptoState),true);c.addView(sv);sourceViews.put(id,sv);
         TextView pnl=tv(tradeStatusText(s,px),14,tradeStatusColor(s,px),true);pnl.setPadding(0,dp(12),0,dp(5));c.addView(pnl);pnlViews.put(id,pnl);if(isDisplayLive(s,px)){TradeGauge gauge=new TradeGauge();gauge.setData(currentR(s,px),targetR(s));c.addView(gauge,new LinearLayout.LayoutParams(-1,dp(72)));gaugeViews.put(id,gauge);}else{EntryGauge eg=new EntryGauge();eg.setData(s,px);c.addView(eg,new LinearLayout.LayoutParams(-1,dp(76)));entryGaugeViews.put(id,eg);}
         c.addView(line("ENTRY",fmt(s.optDouble("entry",0)),TEXT));c.addView(line("SL",fmt(s.optDouble("sl",0)),RED));c.addView(line("TP1",fmt(s.optDouble("tp1",0)),GREEN));c.addView(line("TP2",fmt(s.optDouble("tp2",0)),GREEN));c.addView(line("TP3",fmt(s.optDouble("tp3",s.optDouble("tp",0))),GREEN));c.addView(line("RR","1 : "+String.format(Locale.US,"%.2f",targetR(s)),CYAN));
-        c.addView(line("MARKET REGIME",s.optString("marketRegime","MARKET READ").replace('_',' '),BLUE));c.addView(line("BOT DECISION",s.optString("judgment","BOT MARKET JUDGMENT"),CYAN));c.addView(tv("Không chấm điểm • không score gate • không cooldown tín hiệu. "+historicalWr(market,signalStyle)+".",9,YELLOW,false));
+        c.addView(line("MARKET REGIME",s.optString("marketRegime","MARKET READ").replace('_',' '),BLUE));c.addView(line("ENTRY MODEL",s.optString("entryModel","BOT MARKET JUDGMENT").replace('_',' '),YELLOW));c.addView(line("SL MODEL",s.optString("slModel","STRUCTURE INVALIDATION").replace('_',' '),RED));c.addView(line("TP MODEL",s.optString("tpModel","STRUCTURE TARGETS").replace('_',' '),GREEN));c.addView(line("BOT DECISION",s.optString("judgment","BOT MARKET JUDGMENT"),CYAN));c.addView(tv("Không chấm điểm • không score gate • không cooldown tín hiệu. "+historicalWr(market,signalStyle)+".",9,YELLOW,false));
         JSONArray why=s.optJSONArray("rationale");if(why!=null&&why.length()>0){TextView w=tv("LÝ DO VÀO LỆNH",11,TEXT,true);w.setPadding(0,dp(10),0,dp(2));c.addView(w);for(int i=0;i<why.length();i++)c.addView(tv("• "+why.optString(i),10,MUTED,false));}
         c.addView(tv("Phát: "+time(s.optString("issuedAt",""))+" • ID: "+id,9,MUTED,false));content.addView(c);
     };if(animate)swap(body);else body.run();updateAllPriceViews();}

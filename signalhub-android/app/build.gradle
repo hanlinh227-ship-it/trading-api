@@ -10,8 +10,8 @@ android {
         applicationId 'com.hanlinh.signalhub'
         minSdk 26
         targetSdk 33
-        versionCode 12
-        versionName '3.6.0'
+        versionCode 13
+        versionName '3.7.0'
     }
 
     buildTypes {
