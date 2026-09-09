@@ -1,0 +1,205 @@
+name: Build Deploy SignalHub V3.22.2 Scan Refill Recovery
+
+on:
+  push:
+    branches: [signalhub-v3222-scan-refill-fix]
+    paths:
+      - 'scripts/patch_signalhub_v3222_scan_refill_fix.py'
+      - '.github/workflows/build-deploy-signalhub-v3222-scan-refill-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply complete V3.22.2 patch chain
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 scripts/patch_signalhub_v321_precompat.py
+          python3 scripts/patch_signalhub_v321_standardized_watch_ideal.py
+          python3 scripts/patch_signalhub_v322_universe_watch_engine.py
+          python3 scripts/patch_signalhub_v3221_watch_resilience.py
+          python3 scripts/patch_signalhub_v3222_scan_refill_fix.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify repaired source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.22.2' in w
+          assert 'async function analyzeCryptoBatch(' in w
+          assert 'await analyzeCryptoCandidate(source[i],style)' in w
+          assert "error:'SCAN_RUNTIME_ERROR'" in w
+          assert 'V322_STYLE_READ' in w and 'WATCH_TF_CACHE_SCHEMA' in w
+          assert 'CRYPTO_MARKET_ROW_V3' in w
+          assert 'APP_VERSION="3.22.2"' in a
+          assert '10 SCALP + 5 SWING' in a
+          assert 'versionCode 31' in g and "versionName '3.22.2'" in g
+          print('V3.22.2 SOURCE CONTRACTS PASS')
+          PY
+
+      - name: Worker dry-run and Android build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3222-worker
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.2 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Verify production identity and Stable100
+        run: |
+          set -euo pipefail
+          ok=0
+          for n in $(seq 1 40); do
+            curl -fsS --max-time 20 "$BASE/v3/status?v3222=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.2',s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('stableUniverseSize')==100,p
+          assert p.get('dataSchema')=='CRYPTO_MARKET_ROW_V3',p
+          PY
+            then ok=1; break; fi
+            sleep 2
+          done
+          test "$ok" = 1
+          curl -fsS --max-time 120 "$BASE/v3/crypto/stable100?v3222=$RANDOM" >/tmp/stable100.json
+          python3 - <<'PY'
+          import json
+          u=json.load(open('/tmp/stable100.json'));rows=u.get('rows') or []
+          assert u.get('ok') is True,u
+          assert len(rows)==100 and len({r.get('symbol') for r in rows})==100,(len(rows),len({r.get('symbol') for r in rows}))
+          assert all(r.get('assetClass')=='CRYPTO' for r in rows)
+          print('STABLE100 PASS')
+          PY
+
+      - name: Hard audit scan endpoint and refill active book
+        run: |
+          set -euo pipefail
+          success=0
+          for round in $(seq 1 5); do
+            echo "REFILL ROUND $round"
+            for style in SCALP SWING; do
+              code=$(curl -sS --max-time 180 -o "/tmp/scan-$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&v3222=$RANDOM-$round" || true)
+              echo "$style HTTP=$code"
+              cat "/tmp/scan-$style.json" || true
+              test "$code" = 200
+              python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1]
+          x=json.load(open('/tmp/scan-'+st+'.json'))
+          assert x.get('ok') is True,x
+          assert x.get('market')=='CRYPTO' and x.get('style')==st,x
+          assert x.get('live') is True,x
+          assert int(x.get('stable100Count') or 0)==100,x
+          assert int(x.get('deepAnalyzed') or 0)>0,x
+          assert 'error' not in x,x
+          print('SCAN PASS',st,'evaluated=',x.get('evaluated'),'actionable=',x.get('actionable'),'created=',x.get('created'))
+          PY
+            done
+            curl -fsS --max-time 30 "$BASE/v3/portfolio?v3222=$RANDOM-$round" >/tmp/portfolio.json
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {});st=p.get('styles') or {}
+          print('PORTFOLIO',p.get('activeTotal'),st)
+          assert int(st.get('SCALP') or 0)>0,p
+          assert int(st.get('SWING') or 0)>0,p
+          assert int(p.get('activeTotal') or 0)>0,p
+          PY
+            then success=1; break; fi
+            sleep 3
+          done
+          test "$success" = 1
+
+      - name: Verify app-facing signals are visible
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            curl -fsS --max-time 30 "$BASE/v3/signals?market=CRYPTO&style=$style&v3222=$RANDOM" >"/tmp/signals-$style.json"
+            python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/signals-'+st+'.json'))
+          rows=x.get('signals') or x.get('rows') or []
+          active=[r for r in rows if str(r.get('status','')).upper() in ('OPEN','PENDING')]
+          assert x.get('ok') is True,x
+          assert active,(st,x)
+          for r in active:
+              assert r.get('symbol') and float(r.get('entry') or 0)>0 and float(r.get('sl') or 0)>0 and float(r.get('tp3') or r.get('tp') or 0)>0,r
+          print('APP SIGNALS PASS',st,len(active),[r.get('symbol') for r in active[:5]])
+          PY
+          done
+
+      - name: Verify Watch and data integrity remain healthy
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/data-integrity?v3222=$RANDOM" >/tmp/integrity.json
+          curl -fsS --max-time 150 "$BASE/v3/watch/analyze?symbol=BTCUSDT&v3222=$RANDOM" >/tmp/watch.json
+          python3 - <<'PY'
+          import json
+          i=json.load(open('/tmp/integrity.json'));assert i.get('ok') is True and not i.get('problems'),i
+          w=json.load(open('/tmp/watch.json'));assert w.get('ok') is True,w
+          for st in ['SCALP','SWING']:
+              s=(w.get('styles') or {}).get(st) or {}
+              assert s.get('state') in ('ACTIVE_SIGNAL','TRADEABLE_NOW','CONDITIONAL_WAIT','IDEAL_REFERENCE'),(st,s)
+          print('INTEGRITY + WATCH PASS')
+          PY
+
+      - name: Stage audited APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.2-Scan-Refill-Recovery.apk
+          sha256sum dist/SignalHub-v3.22.2-Scan-Refill-Recovery.apk | tee dist/SignalHub-v3.22.2-Scan-Refill-Recovery-SHA256SUMS.txt
+          cat > SIGNALHUB_V3_CHECKPOINT_15_SCAN_REFILL_RECOVERY.md <<'EOF'
+          # SignalHub V3.22.2 — Scan / Refill Recovery
+          Repairs the missing runtime analyzeCryptoBatch helper that caused /v3/scan HTTP 500 and an empty active portfolio. Batch candidate analysis now uses bounded concurrency and isolates single-symbol data failures. Production CI is fail-closed: both SCALP and SWING scan endpoints must return HTTP 200 + ok=true, both styles must contain at least one active signal after refill attempts, app-facing /v3/signals must expose active rows with valid Entry/SL/TP, Stable100 must contain 100 unique crypto markets, and data integrity/Watch checks must remain healthy before the APK is published.
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java SIGNALHUB_V3_CHECKPOINT_15_SCAN_REFILL_RECOVERY.md
+          git commit -m 'SignalHub v3.22.2 audited scan/refill recovery' || true
+          git push origin HEAD:signalhub-v3222-scan-refill-fix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.22.2-Scan-Refill-Recovery
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.22.2 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.22.2-scan-refill-recovery
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v3222-scan-refill-fix --prerelease --title 'SignalHub v3.22.2 — Scan Refill Recovery' --notes 'Fixes the production /v3/scan runtime failure and empty active book. Release is published only after production SCALP/SWING scans succeed, both styles have active signals, app-facing signal rows are visible, and integrity/Watch checks pass.'
