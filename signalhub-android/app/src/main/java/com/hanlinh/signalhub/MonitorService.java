@@ -20,10 +20,12 @@ import java.util.concurrent.Executors;
 public class MonitorService extends Service {
     private static final String CH_MONITOR="signalhub_monitor_v33", CH_SIGNAL="signalhub_signal_v33";
     private static final int FOREGROUND_ID=7201;
-    private static final long LOOP_MS=1000L;
+    private static final long LOOP_MS=3000L;
+    private static final long SCAN_MS=30000L;
     private static final long RECENT_NEW_MS=10*60*1000L;
     private volatile boolean running;
     private ExecutorService worker;
+    private long lastScalpScanMs=0L,lastSwingScanMs=0L;
 
     @Override public void onCreate(){
         super.onCreate();
@@ -52,17 +54,39 @@ public class MonitorService extends Service {
     }
 
     private void syncAll(){
-        try{ApiClient.getLive("/v3/crypto/tickers?limit=1000");}catch(Throwable ignored){}
         int active=0,failed=0;
         for(String style:new String[]{"SCALP","SWING"}){
             int styleActive=0;
             try{
-                JSONObject root=new JSONObject(ApiClient.get("/v3/signals?market=CRYPTO&style="+style+"&status=all&limit=120"));JSONArray arr=root.optJSONArray("signals");
-                if(arr!=null)for(int i=0;i<arr.length();i++){JSONObject s=arr.optJSONObject(i);if(s==null)continue;String st=s.optString("status","");if("PENDING".equals(st)||"OPEN".equals(st)){active++;styleActive++;}process("CRYPTO",style,s,"SERVER_MONITORED");}
+                JSONObject root=new JSONObject(ApiClient.get("/v3/signals?market=CRYPTO&style="+style+"&status=all&limit=120"));
+                JSONArray arr=root.optJSONArray("signals");
+                if(arr!=null)for(int i=0;i<arr.length();i++){
+                    JSONObject s=arr.optJSONObject(i);if(s==null)continue;
+                    String st=s.optString("status","");
+                    if("PENDING".equals(st)||"OPEN".equals(st)){active++;styleActive++;}
+                    process("CRYPTO",style,s,"SERVER_MONITORED");
+                }
             }catch(Throwable e){failed++;}
-            if(styleActive==0)try{ApiClient.get("/v3/scan?market=CRYPTO&style="+style);}catch(Throwable ignored){}
+            if(styleActive==0)scanIfDue(style);
         }
-        NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);if(n!=null){String text=failed==0?"CRYPTO LIVE • "+active+" tín hiệu SCALP/SWING đang theo dõi":"DEGRADED • "+failed+"/2 luồng đang nối lại • "+active+" active";n.notify(FOREGROUND_ID,monitor(text));}
+        NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        if(n!=null){
+            String text=failed==0
+                    ?"CRYPTO LIVE • "+active+" tín hiệu SCALP/SWING đang theo dõi"
+                    :"DEGRADED • "+failed+"/2 luồng đang nối lại • "+active+" active";
+            n.notify(FOREGROUND_ID,monitor(text));
+        }
+    }
+
+    private void scanIfDue(String style){
+        long now=System.currentTimeMillis();
+        long last="SCALP".equals(style)?lastScalpScanMs:lastSwingScanMs;
+        if(now-last<SCAN_MS)return;
+        try{
+            ApiClient.get("/v3/scan?market=CRYPTO&style="+style);
+            if("SCALP".equals(style))lastScalpScanMs=System.currentTimeMillis();
+            else lastSwingScanMs=System.currentTimeMillis();
+        }catch(Throwable ignored){}
     }
 
     private void process(String market,String style,JSONObject s,String dataState){
@@ -101,7 +125,6 @@ public class MonitorService extends Service {
         notifyHigh(title,b.toString(),key);
     }
 
-
     private void appendHistory(String title,String body){
         try{
             SharedPreferences p=getSharedPreferences("signalhub_v32",MODE_PRIVATE);
@@ -116,7 +139,7 @@ public class MonitorService extends Service {
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.13 • CRYPTO QUALITY LIVE")
+                .setContentTitle("SignalHub V3.14 • CRYPTO STABLE LIVE")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 
