@@ -1,0 +1,3 @@
+SIGNALHUB_V3.2_REBUILD_DEPLOY
+checkpoint=SIGNALHUB_V3_CHECKPOINT_05_FINAL
+purpose=deploy partition integrity, canonical lifecycle and TP1/TP2/TP3 response contract
