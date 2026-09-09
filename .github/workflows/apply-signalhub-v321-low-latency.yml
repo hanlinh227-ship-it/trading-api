@@ -1,4 +1,4 @@
-name: Apply SignalHub V3.2.1 Low Latency
+name: Apply SignalHub V3.2.0 Low Latency
 
 on:
   push:
@@ -32,7 +32,6 @@ jobs:
                   raise SystemExit(f'MISSING_PATTERN:{path}:{old[:80]}')
               p.write_text(s.replace(old,new),encoding='utf-8')
 
-          # Android: live quote polling every 1s, page/signal refresh remains slower.
           activity='signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java'
           replace_required(activity,
               'private static final long REFRESH_MS=2500L;\n    private static final long SCAN_MS=30000L;',
@@ -49,21 +48,11 @@ jobs:
           replace_required(activity,
               'new JSONObject(ApiClient.get("/v3/crypto/tickers?limit=1000"))',
               'new JSONObject(ApiClient.getLive("/v3/crypto/tickers?limit=1000"))')
-          replace_required(activity,
-              'private static final String APP_VERSION="3.2.0";',
-              'private static final String APP_VERSION="3.2.1";')
 
-          # Android API client: fast timeout for quote endpoints, normal timeout for scans/history.
           api=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java')
-          api.write_text('''package com.hanlinh.signalhub;\n\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;\nimport java.net.HttpURLConnection;\nimport java.net.URL;\nimport java.nio.charset.StandardCharsets;\n\npublic final class ApiClient {\n    public static final String BASE_URL = "https://signalhub-forex.hanlinh227.workers.dev";\n\n    private ApiClient() {}\n\n    public static String get(String path) throws Exception {\n        return getInternal(path,7000,12000);\n    }\n\n    public static String getLive(String path) throws Exception {\n        return getInternal(path,2500,3500);\n    }\n\n    private static String getInternal(String path,int connectTimeoutMs,int readTimeoutMs) throws Exception {\n        URL url = new URL(path.startsWith("http") ? path : BASE_URL + path);\n        HttpURLConnection c = (HttpURLConnection) url.openConnection();\n        c.setRequestMethod("GET");\n        c.setConnectTimeout(connectTimeoutMs);\n        c.setReadTimeout(readTimeoutMs);\n        c.setUseCaches(false);\n        c.setRequestProperty("Accept", "application/json");\n        c.setRequestProperty("Cache-Control", "no-cache, no-store");\n        c.setRequestProperty("Pragma", "no-cache");\n        c.setRequestProperty("User-Agent", "SignalHub-Android/3.2.1");\n        int code = c.getResponseCode();\n        BufferedReader br = new BufferedReader(new InputStreamReader(\n                code >= 200 && code < 400 ? c.getInputStream() : c.getErrorStream(),\n                StandardCharsets.UTF_8));\n        StringBuilder out = new StringBuilder();\n        String line;\n        while ((line = br.readLine()) != null) out.append(line).append('\\n');\n        br.close();\n        c.disconnect();\n        if (code < 200 || code >= 300) throw new RuntimeException("HTTP " + code + ": " + out);\n        return out.toString();\n    }\n}\n''',encoding='utf-8')
+          api.write_text('''package com.hanlinh.signalhub;\n\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;\nimport java.net.HttpURLConnection;\nimport java.net.URL;\nimport java.nio.charset.StandardCharsets;\n\npublic final class ApiClient {\n    public static final String BASE_URL = "https://signalhub-forex.hanlinh227.workers.dev";\n\n    private ApiClient() {}\n\n    public static String get(String path) throws Exception {\n        return getInternal(path,7000,12000);\n    }\n\n    public static String getLive(String path) throws Exception {\n        return getInternal(path,2500,3500);\n    }\n\n    private static String getInternal(String path,int connectTimeoutMs,int readTimeoutMs) throws Exception {\n        URL url = new URL(path.startsWith("http") ? path : BASE_URL + path);\n        HttpURLConnection c = (HttpURLConnection) url.openConnection();\n        c.setRequestMethod("GET");\n        c.setConnectTimeout(connectTimeoutMs);\n        c.setReadTimeout(readTimeoutMs);\n        c.setUseCaches(false);\n        c.setRequestProperty("Accept", "application/json");\n        c.setRequestProperty("Cache-Control", "no-cache, no-store");\n        c.setRequestProperty("Pragma", "no-cache");\n        c.setRequestProperty("User-Agent", "SignalHub-Android/3.2.0-low-latency");\n        int code = c.getResponseCode();\n        BufferedReader br = new BufferedReader(new InputStreamReader(\n                code >= 200 && code < 400 ? c.getInputStream() : c.getErrorStream(),\n                StandardCharsets.UTF_8));\n        StringBuilder out = new StringBuilder();\n        String line;\n        while ((line = br.readLine()) != null) out.append(line).append('\\n');\n        br.close();\n        c.disconnect();\n        if (code < 200 || code >= 300) throw new RuntimeException("HTTP " + code + ": " + out);\n        return out.toString();\n    }\n}\n''',encoding='utf-8')
 
-          # Android package version.
-          replace_required('signalhub-android/app/build.gradle',"versionCode 8\n        versionName '3.2.0'","versionCode 9\n        versionName '3.2.1'")
-
-          # Worker: slightly wider jitter tolerance while still exposing real failures.
           worker='signalhub-worker/gateway-v3.js'
-          replace_required(worker,"const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.1.0';","const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.2.1-LOW-LATENCY';")
-          replace_required(worker,"versionCode: 8,\n  versionName: '3.2.0',\n  title: 'SignalHub 3.2.0',","versionCode: 9,\n  versionName: '3.2.1',\n  title: 'SignalHub 3.2.1 Low Latency',")
           replace_required(worker,
               "state=ageMs<=2500?'LIVE':ageMs<=10000?'DELAYED':'STALE'",
               "state=ageMs<=3500?'LIVE':ageMs<=8000?'DELAYED':'STALE'")
@@ -72,19 +61,11 @@ jobs:
               "const terminalConnected=heartbeat?.terminalConnected!==false;\n  const state=quoteAgeMs===null?'OFFLINE':!terminalConnected?'OFFLINE':heartbeatAgeMs!==null&&heartbeatAgeMs>15000?'OFFLINE':quoteAgeMs<=3500?'LIVE':quoteAgeMs<=8000?'DELAYED':quoteAgeMs<=20000?'STALE':'OFFLINE';")
           replace_required(worker,
               "'V3.2 rebuild: hard partition integrity for FOREX/CRYPTO and SCALP/SWING.',",
-              "'V3.2.1 low latency: Exness bridge cadence, heartbeat-aware health, and faster Android quote refresh.',\n    'V3.2 rebuild: hard partition integrity for FOREX/CRYPTO and SCALP/SWING.',")
-
-          # CI/release expectations.
-          bw=Path('.github/workflows/build-signalhub-v32-rebuild.yml')
-          bs=bw.read_text(encoding='utf-8').replace('3.2.0','3.2.1').replace('signalhub-v3.2.0-rebuild','signalhub-v3.2.1-low-latency')
-          bw.write_text(bs,encoding='utf-8')
-          dw=Path('.github/workflows/deploy-signalhub-v32-rebuild.yml')
-          ds=dw.read_text(encoding='utf-8').replace("versionName')=='3.2.0'","versionName')=='3.2.1'")
-          dw.write_text(ds,encoding='utf-8')
+              "'Low-latency Exness patch: 500ms bridge target, heartbeat-aware health, faster Android live refresh.',\n    'V3.2 rebuild: hard partition integrity for FOREX/CRYPTO and SCALP/SWING.',")
           PY
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add signalhub-android signalhub-worker .github/workflows/build-signalhub-v32-rebuild.yml .github/workflows/deploy-signalhub-v32-rebuild.yml
-          git commit -m "perf(signalhub): apply V3.2.1 low-latency Exness chain"
+          git add signalhub-android signalhub-worker
+          git commit -m "perf(signalhub): apply low-latency Exness chain"
           git push origin HEAD:signalhub-v3-rebuild-20260909
