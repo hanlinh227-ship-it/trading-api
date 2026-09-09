@@ -1,0 +1,150 @@
+name: Finalize SignalHub V3.13 Crypto Only Quality
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/run-signalhub-v313-crypto-only-quality-final.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  final-audit-build:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: signalhub-v313-crypto-only-quality
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Generate V3.13 source
+        run: python3 scripts/patch_signalhub_v313_crypto_only_quality.py
+
+      - name: Deploy production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v313
+          npx --yes wrangler@latest deploy --config signalhub-worker/wrangler.jsonc
+
+      - name: Audit crypto-only production
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 30); do
+            curl -A 'SignalHub-CI/3.13-final' -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:p=json.load(open('/tmp/status.json'))
+          except: raise SystemExit(1)
+          pp=((p.get('decisionPolicy') or {}).get('portfolioPolicy') or {})
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.13.0'
+          assert p.get('mode')=='CRYPTO_ONLY_QUALITY' and p.get('forexDisabled') is True
+          assert set((p.get('engines') or {}).keys())=={'cryptoScalp','cryptoSwing'}
+          assert pp.get('maxActiveTotal')==4 and pp.get('maxActivePerStyle')==2 and pp.get('minActivePerStyle')==1
+          PY
+            then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          code=$(curl -A 'SignalHub-CI/3.13-final' -sS -o /tmp/fx.json -w '%{http_code}' --max-time 30 "$SIGNALHUB_URL/v3/scan?market=FOREX&style=SCALP")
+          test "$code" = 410
+
+          for round in $(seq 1 8); do
+            for st in SCALP SWING; do
+              curl -A 'SignalHub-CI/3.13-final' -fsS --retry 2 --max-time 150 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=$st&probe=final-$round-$RANDOM" >"/tmp/scan-$st.json" || true
+            done
+            curl -A 'SignalHub-CI/3.13-final' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM-$round" >/tmp/pf.json
+            if python3 - <<'PY'
+          import json
+          b=(json.load(open('/tmp/pf.json')).get('portfolio') or {}); st=b.get('styles') or {}; c=b.get('counts') or {}
+          assert int(c.get('FOREX') or 0)==0 and int(c.get('CRYPTO') or 0)>=2
+          assert int(st.get('SCALP') or 0)>=1 and int(st.get('SWING') or 0)>=1
+          assert int(b.get('activeTotal') or 0)<=4
+          print('PORTFOLIO_OK',b)
+          PY
+            then break; fi
+            sleep 3
+          done
+
+          curl -A 'SignalHub-CI/3.13-final' -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?kick=1&probe=$RANDOM" >/tmp/mon1.json
+          c1=$(python3 -c "import json;print(int((json.load(open('/tmp/mon1.json')).get('status') or {}).get('cycle') or 0))")
+          sleep 4
+          curl -A 'SignalHub-CI/3.13-final' -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?probe=$RANDOM" >/tmp/CRYPTO-MONITOR-AUDIT.json
+          C1="$c1" python3 - <<'PY'
+          import json,os
+          s=(json.load(open('/tmp/CRYPTO-MONITOR-AUDIT.json')).get('status') or {})
+          assert s.get('running') is True and int(s.get('cycle') or 0)>int(os.environ['C1'])
+          print('MONITOR_OK',s)
+          PY
+
+          for st in SCALP SWING; do
+            curl -A 'SignalHub-CI/3.13-final' -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=100&probe=$RANDOM" >"/tmp/book-$st.json"
+          done
+          python3 - <<'PY'
+          import json
+          sig=[]
+          for st in ['SCALP','SWING']:
+              p=json.load(open('/tmp/book-'+st+'.json')); sig += p.get('signals',[])
+          rows=[(x.get('style'),x.get('symbol'),x.get('orderType'),x.get('status'),x.get('executionPriceAuthority')) for x in sig]
+          assert 2<=len(sig)<=4,rows
+          assert any(x.get('style')=='SCALP' for x in sig) and any(x.get('style')=='SWING' for x in sig)
+          assert all(x.get('market')=='CRYPTO' for x in sig)
+          assert all(x.get('executionPriceAuthority') in ('BYBIT','OKX','BINANCE') for x in sig)
+          json.dump(sig,open('/tmp/ACTIVE-BOOK-AUDIT.json','w'),indent=2)
+          open('/tmp/ACTIVE-BOOK-SUMMARY.txt','w').write('ACTIVE_TOTAL=%d\nSCALP=%d\nSWING=%d\nROWS=%s\n'%(len(sig),sum(x.get('style')=='SCALP' for x in sig),sum(x.get('style')=='SWING' for x in sig),rows))
+          print('ACTIVE_BOOK_OK',rows)
+          PY
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Stage release files
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -t "$APK"
+          cp "$APK" dist/SignalHub-v3.13.0-Crypto-Only-Quality.apk
+          sha256sum dist/SignalHub-v3.13.0-Crypto-Only-Quality.apk > dist/SHA256SUMS.txt
+          cp /tmp/ACTIVE-BOOK-AUDIT.json /tmp/ACTIVE-BOOK-SUMMARY.txt /tmp/CRYPTO-MONITOR-AUDIT.json /tmp/status.json dist/
+
+      - name: Commit generated source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java
+          git commit -m 'SignalHub v3.13 crypto-only quality engine' || true
+          git push origin HEAD:signalhub-v313-crypto-only-quality
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.13.0-Crypto-Only-Quality
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='signalhub-v3.13.0-crypto-only-quality'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v313-crypto-only-quality --prerelease --title 'SignalHub v3.13.0 Crypto Only Quality' --notes 'Crypto-only build. Forex signal generation disabled. Separate SCALP and SWING quality engines, provider-pinned lifecycle monitor, cross-provider confirmation, maximum four active crypto setups.'
+          fi
