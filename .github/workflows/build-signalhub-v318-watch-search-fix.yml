@@ -1,0 +1,157 @@
+name: Build SignalHub V3.18 Watch Search Fix
+
+on:
+  push:
+    branches: [signalhub-v318-watch-search-fix]
+    paths:
+      - 'scripts/patch_signalhub_v318_watch_search_fix.py'
+      - '.github/workflows/build-signalhub-v318-watch-search-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.18 Watchlist search fix
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v318_watch_search_fix.py
+
+      - name: Verify Watchlist source contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          m=Path('signalhub-android/app/src/main/AndroidManifest.xml').read_text()
+          required=[
+            'APP_VERSION="3.18.0"',
+            'private EditText watchSearchInput',
+            'private LinearLayout watchSuggestions',
+            'private boolean watchSearchHasFocus()',
+            'private void showWatchKeyboard(',
+            'private List<String> watchMatches(',
+            'private void renderWatchSuggestions(',
+            'private void commitWatchSearch()',
+            'setFocusableInTouchMode(true)',
+            'EditorInfo.IME_ACTION_SEARCH',
+            'InputMethodManager.SHOW_IMPLICIT',
+            '!watchSearchHasFocus()',
+            'Tìm / thêm',
+            'Ô tìm kiếm coin Watchlist',
+          ]
+          for x in required: assert x in a,x
+          assert "versionCode 23" in g and "versionName '3.18.0'" in g
+          assert 'android:windowSoftInputMode="adjustResize"' in m
+          # Regression root cause: auto-refresh must not rebuild Watchlist while typing.
+          assert 'screen.equals("WATCH")&&!watchSearchHasFocus()&&System.currentTimeMillis()-watchLastRenderMs>2000' in a
+          assert 'if(screen.equals("WATCH")&&!watchSearchHasFocus())renderWatchlist(false);' in a
+          print('V3.18 Watchlist search source contract OK')
+          PY
+
+      - name: Smoke production coin lookup endpoints
+        run: |
+          set -euo pipefail
+          BASE='https://signalhub-forex.hanlinh227.workers.dev'
+          curl -fsS "$BASE/v3/crypto/tickers?limit=1000" -o /tmp/tickers.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/tickers.json'))
+          rows=p.get('tickers') or []
+          assert len(rows)>0, 'no crypto tickers'
+          syms={str(x.get('symbol','')).upper() for x in rows}
+          assert 'BTCUSDT' in syms, 'BTCUSDT missing from live ticker feed'
+          print('ticker feed OK',len(rows))
+          PY
+          curl -fsS "$BASE/v3/watch/analyze?symbol=BTCUSDT" -o /tmp/watch.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/watch.json'))
+          assert str(p.get('symbol','')).upper()=='BTCUSDT',p
+          assert isinstance(p.get('styles'),dict),p
+          print('watch analyze BTCUSDT OK')
+          PY
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK structure
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          unzip -l "$APK" | grep -q AndroidManifest.xml
+
+      - name: Create V3.18 checkpoint
+        run: |
+          cat > SIGNALHUB_V3_CHECKPOINT_09_WATCH_SEARCH_FIX.md <<'EOF'
+          # SignalHub V3.18 Watch Search Fix Checkpoint
+
+          - Root cause fixed: Watchlist was fully re-rendered by live ticker/analysis refreshes while the EditText was focused. That destroyed the input view, dropped focus, and prevented the software keyboard/search flow from being usable.
+          - Watchlist search now owns persistent focus while typing; background live refreshes do not rebuild the Watchlist until input focus is released.
+          - Explicit keyboard invocation via InputMethodManager and Activity adjustResize added for OEM keyboards/HyperOS behavior.
+          - Search supports BTC, BTCUSDT, BTC/USDT and similar input normalization.
+          - Live suggestions are generated from the current Crypto ticker universe and can be tapped to add/analyze a coin.
+          - Keyboard IME Search/Done submits directly; the Tìm / thêm button also explicitly opens the keyboard when the field is empty.
+          - Watchlist remains read-only analysis and does not consume the fixed 2 SCALP + 2 SWING signal slots.
+          - Backend signal engine is unchanged from V3.16/V3.17 in this checkpoint.
+          - Build signing remains debug signing.
+          EOF
+
+      - name: Stage APK and checksum
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.18.0-Watch-Search-Fix.apk
+          sha256sum dist/SignalHub-v3.18.0-Watch-Search-Fix.apk | tee dist/SignalHub-v3.18.0-Watch-Search-Fix-SHA256SUMS.txt
+
+      - name: Commit generated V3.18 source and checkpoint
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/AndroidManifest.xml \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  SIGNALHUB_V3_CHECKPOINT_09_WATCH_SEARCH_FIX.md
+          git commit -m "SignalHub v3.18 fix Watchlist search and keyboard" || true
+          git push origin HEAD:signalhub-v318-watch-search-fix
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.18.0-Watch-Search-Fix
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.18 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.18.0-watch-search-fix'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v318-watch-search-fix --prerelease \
+              --title 'SignalHub v3.18.0 Watch Search Fix' \
+              --notes 'Fixes Watchlist search focus/keyboard loss caused by realtime full-list rerenders. Adds explicit keyboard handling, adjustResize, live coin suggestions, IME search submit, and robust symbol normalization. Crypto 2 SCALP + 2 SWING signal engine remains unchanged.'
+          fi
