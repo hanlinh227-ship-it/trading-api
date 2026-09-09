@@ -1,0 +1,171 @@
+name: Run SignalHub V3.7 Structure Liquidity Now
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/run-signalhub-v37-structure-liquidity-now.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: signalhub-v37-structure-liquidity
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Apply V3.7 structure liquidity patch
+        run: python3 scripts/patch_signalhub_v37_structure_liquidity.py
+      - name: Verify source contract
+        run: |
+          set -euo pipefail
+          grep -q "SIGNALHUB-V3-GATEWAY-3.7.0" signalhub-worker/gateway-v3.js
+          grep -q "INVALIDATION_STRUCTURE_PLUS_VOLATILITY_BUFFER" signalhub-worker/gateway-v3.js
+          grep -q "STRUCTURE_LIQUIDITY_CONTEXT" signalhub-worker/gateway-v3.js
+          grep -q "LIQUIDITY_SWEEP_RECLAIM" signalhub-worker/gateway-v3.js
+          grep -q "LIQUIDITY_REJECTION" signalhub-worker/gateway-v3.js
+          grep -q "versionName '3.7.0'" signalhub-android/app/build.gradle
+          ! grep -q "passesV35QualityGate\|admissionMinScore\|admissionMinRR" signalhub-worker/gateway-v3.js
+      - name: Validate Worker
+        run: npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v37-worker
+      - name: Deploy worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config signalhub-worker/wrangler.jsonc
+      - name: Wait for V3.7 production
+        run: |
+          set -euo pipefail
+          for endpoint in "/v3/status" "/v3/scan?market=FOREX&style=SCALP" "/v3/signals?market=FOREX&style=SCALP&status=active&limit=5"; do
+            ready=0
+            for n in $(seq 1 30); do
+              sep='?'; [[ "$endpoint" == *'?'* ]] && sep='&'
+              if curl -fsS --max-time 75 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL${endpoint}${sep}probe=$RANDOM-$n" >/tmp/probe.json; then
+                if python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/probe.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.7.0',p.get('version')
+          PY
+                then ready=1; break; fi
+              fi
+              sleep 2
+            done
+            test "$ready" = 1
+          done
+      - name: Smoke production realtime
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM" >/tmp/status.json
+          curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'));p=s.get('decisionPolicy') or {}
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.7.0',s
+          assert p.get('name')=='BOT_MARKET_JUDGMENT' and p.get('scoreGate') is False and p.get('timeGate') is False and p.get('rrGate') is False,p
+          assert p.get('stopModel')=='INVALIDATION_STRUCTURE_PLUS_VOLATILITY_BUFFER',p
+          x=json.load(open('/tmp/live.json'))
+          assert x.get('transport')=='DURABLE_OBJECT_REALTIME',x
+          assert x.get('count',0)>=30,x
+          print('FOREX LIVE',x.get('state'),'age',x.get('quoteAgeMs'),'count',x.get('count'))
+          PY
+      - name: Exercise all 4 structure judgments
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              ok=0
+              for n in $(seq 1 12); do
+                if curl -fsS --max-time 75 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=$RANDOM-$n" >/tmp/scan.json; then
+                  if M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/scan.json'));q=p.get('decisionPolicy') or {}
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.7.0',p.get('version')
+          assert q.get('name')=='BOT_MARKET_JUDGMENT' and q.get('scoreGate') is False and q.get('timeGate') is False and q.get('rrGate') is False,q
+          for x in p.get('topAnalyses',[]):
+              assert x.get('entryModel') and x.get('slModel') and x.get('tpModel'),x
+              e=float(x['entry']);sl=float(x['sl']);t1=float(x['tp1']);t2=float(x['tp2']);t3=float(x['tp3'])
+              side=x.get('side')
+              if side in ('LONG','BUY'): assert sl<e<t1<t2<t3,(e,sl,t1,t2,t3)
+              else: assert sl>e>t1>t2>t3,(e,sl,t1,t2,t3)
+          print(os.environ['M'],os.environ['S'],'created',p.get('created'),'actionable',p.get('actionable'))
+          PY
+                  then ok=1; break; fi
+                fi
+                sleep 2
+              done
+              test "$ok" = 1
+            done
+          done
+      - name: Verify signal payloads
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=120&probe=$RANDOM" >/tmp/s.json
+              python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/s.json'));q=p.get('decisionPolicy') or {}
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.7.0',p.get('version')
+          assert q.get('name')=='BOT_MARKET_JUDGMENT' and q.get('scoreGate') is False and q.get('timeGate') is False and q.get('rrGate') is False,q
+          for x in p.get('signals',[]):
+              assert x.get('orderType') in ('MARKET','LIMIT','STOP'),x
+              assert 'score' not in x and 'qualityGrade' not in x and 'admissionGate' not in x,x
+              e=float(x.get('entry',0));sl=float(x.get('sl',0));tp=float(x.get('tp3',x.get('tp',0)));side=x.get('side')
+              if e and sl and tp:
+                  if side in ('LONG','BUY'): assert sl<e<tp,x
+                  else: assert sl>e>tp,x
+          PY
+            done
+          done
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Verify and stage APK
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          mkdir -p dist
+          cp "$APK" dist/SignalHub-v3.7.0-Structure-Liquidity.apk
+          sha256sum dist/SignalHub-v3.7.0-Structure-Liquidity.apk > dist/SHA256SUMS.txt
+      - name: Commit generated source to V3.7 branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java
+          git commit -m "SignalHub v3.7 structure liquidity adaptive entries exits" || true
+          git push origin HEAD:signalhub-v37-structure-liquidity
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.7.0-Structure-Liquidity
+          path: dist/
+          retention-days: 30
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.7.0-structure-liquidity'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/SignalHub-v3.7.0-Structure-Liquidity.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/SignalHub-v3.7.0-Structure-Liquidity.apk dist/SHA256SUMS.txt --target signalhub-v37-structure-liquidity --prerelease --title 'SignalHub v3.7.0 Structure Liquidity' --notes 'Structure-first Market Judgment: dynamic MARKET/LIMIT/STOP entry routing; SL beyond invalidation/liquidity with volatility buffer; TP1/2/3 use structure/liquidity objectives then expansion. No setup score, score gate, RR admission gate, session/time gate or signal cooldown.'
+          fi
