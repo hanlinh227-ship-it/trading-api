@@ -1,0 +1,224 @@
+name: Build Deploy SignalHub V3.14 Simple Stability
+
+on:
+  push:
+    branches: [signalhub-v314-simple-ui-stability]
+    paths:
+      - 'scripts/patch_signalhub_v314_simple_stability.py'
+      - '.github/workflows/build-deploy-signalhub-v314-simple-stability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.14 stability and UI patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v314_simple_stability.py
+
+      - name: Verify V3.14 source contracts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          assert "SIGNALHUB-V3-GATEWAY-3.14.0" in w
+          assert "SIGNALHUB_V3_CHECKPOINT_06" in w
+          assert "V314_CRYPTO_EVIDENCE_CHECKS_NO_NUMERIC_SCORE" in w
+          assert "maxMemeActiveTotal:1" in w and "cryptoRiskCluster" in w
+          assert "PROVIDER_BID_ASK_TRIGGERED" in w
+          assert "/v3/stability" in w
+          assert "APP_VERSION=\"3.14.0\"" in a
+          assert 'String[] keys={"HOME","SIGNALS","STATS","SETTINGS"}' in a
+          assert 'R.drawable.ic_crypto_coin' in a and 'R.drawable.ic_signalhub' in a
+          assert 'CRYPTO REALTIME' in a
+          assert "versionName '3.14.0'" in Path('signalhub-android/app/build.gradle').read_text()
+          for p in ['ic_signalhub.xml','ic_home.xml','ic_signal.xml','ic_stats.xml','ic_settings.xml','ic_crypto_coin.xml','ic_signal_notify.xml']:
+              assert Path('signalhub-android/app/src/main/res/drawable/'+p).is_file(),p
+          assert Path('SIGNALHUB_V3_CHECKPOINT_06_CRYPTO_STABILITY_UI.md').is_file()
+          print('source contract OK')
+          PY
+
+      - name: Validate Worker dry-run
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v314-worker
+
+      - name: Build Android before production deploy
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify predeploy APK
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+
+      - name: Deploy V3.14 worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for production V3.14
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 40); do
+            if curl -A 'SignalHub-CI/3.14' -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.14.0',s.get('version')
+          assert s.get('forexDisabled') is True,s
+          assert s.get('checkpoint')=='SIGNALHUB_V3_CHECKPOINT_06',s
+          p=s.get('decisionPolicy') or {}
+          assert p.get('scoreGate') is False and p.get('timeGate') is False,p
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Verify Forex remains disabled
+        run: |
+          set -euo pipefail
+          code=$(curl -A 'SignalHub-CI/3.14' -sS -o /tmp/fx.json -w '%{http_code}' --max-time 20 "$SIGNALHUB_URL/v3/signals?market=FOREX&style=SCALP")
+          test "$code" = 410
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/fx.json'));assert x.get('error')=='FOREX_DISABLED_CRYPTO_ONLY',x
+          PY
+
+      - name: Re-evaluate SCALP and SWING with V3.14
+        run: |
+          set -euo pipefail
+          for pass in 1 2; do
+            for st in SCALP SWING; do
+              echo "scan $pass $st"
+              curl -A 'SignalHub-CI/3.14' -fsS --max-time 90 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=$st&probe=$RANDOM-$pass" > "/tmp/scan-$st-$pass.json"
+              ST="$st" PASS="$pass" python3 - <<'PY'
+          import json,os
+          p=json.load(open(f"/tmp/scan-{os.environ['ST']}-{os.environ['PASS']}.json"))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.14.0',p
+          assert p.get('market')=='CRYPTO' and p.get('style')==os.environ['ST'],p
+          q=p.get('decisionPolicy') or {};assert q.get('scoreGate') is False and q.get('timeGate') is False,q
+          print(os.environ['ST'],'evaluated',p.get('evaluated'),'actionable',p.get('actionable'),'created',p.get('created'),'rejected',p.get('rejectedByAssessment'))
+          PY
+            done
+          done
+
+      - name: Verify active book and quality evidence
+        run: |
+          set -euo pipefail
+          for st in SCALP SWING; do
+            curl -A 'SignalHub-CI/3.14' -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=100&probe=$RANDOM" > "/tmp/active-$st.json"
+          done
+          curl -A 'SignalHub-CI/3.14' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM" >/tmp/portfolio.json
+          python3 - <<'PY'
+          import json
+          rows=[]
+          for st in ('SCALP','SWING'):
+              p=json.load(open('/tmp/active-'+st+'.json'));assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.14.0',p
+              for s in p.get('signals',[]):
+                  assert s.get('market')=='CRYPTO' and s.get('style')==st,s
+                  assert s.get('status') in ('PENDING','OPEN'),s
+                  assert s.get('orderType') in ('MARKET','LIMIT','STOP'),s
+                  assert s.get('engineVersion')=='SIGNALHUB-V3-GATEWAY-3.14.0',s
+                  assert 'score' not in s and 'qualityGrade' not in s,s
+                  a=s.get('entryAssessment') or {};assert a.get('verdict')=='PASS',a
+                  assert a.get('method')=='V314_CRYPTO_EVIDENCE_CHECKS_NO_NUMERIC_SCORE',a
+                  e=s.get('qualityEvidence') or {}
+                  for k in ('contextAligned','secondaryProviderConfirmed','entryNotChasing','invalidationStructural','targetPathClear'):
+                      assert e.get(k) is True,(k,e,s.get('symbol'))
+                  rows.append(s)
+          syms=[x.get('symbol') for x in rows];assert len(syms)==len(set(syms)),syms
+          assert len(rows)<=4,len(rows)
+          meme=[x for x in rows if x.get('riskCluster')=='MEME'];assert len(meme)<=1,[x.get('symbol') for x in meme]
+          pf=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {});assert pf.get('counts',{}).get('FOREX',0)==0,pf;assert pf.get('activeTotal',0)<=4,pf
+          print('active',len(rows),'symbols',syms,'meme',len(meme),'portfolio',pf.get('styles'))
+          PY
+
+      - name: Verify provider monitor and stability truth
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.14' -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?kick=1&probe=$RANDOM" >/tmp/monitor.json
+          sleep 2
+          curl -A 'SignalHub-CI/3.14' -fsS --max-time 30 "$SIGNALHUB_URL/v3/stability?probe=$RANDOM" >/tmp/stability.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/stability.json'))
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.14.0',x
+          assert x.get('checkpoint')=='SIGNALHUB_V3_CHECKPOINT_06',x
+          infra=x.get('infrastructure') or {};trade=x.get('tradingEvidence') or {}
+          assert infra.get('state') in ('STABLE','DEGRADED'),infra
+          assert trade.get('state') in ('NOT_YET_PROVEN','MATURE'),trade
+          assert set((trade.get('styles') or {}).keys())=={'SCALP','SWING'},trade
+          print('infra',infra.get('state'),'tradingEvidence',trade.get('state'),'warnings',x.get('warnings'))
+          print(json.dumps(trade,indent=2))
+          PY
+
+      - name: Stage APK and checksum
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p dist
+          cp "$APK" dist/SignalHub-v3.14.0-Simple-Stable-Crypto.apk
+          sha256sum dist/SignalHub-v3.14.0-Simple-Stable-Crypto.apk | tee dist/SignalHub-v3.14.0-Simple-Stable-Crypto-SHA256SUMS.txt
+
+      - name: Commit generated V3.14 source and checkpoint
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/AndroidManifest.xml \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java \
+                  signalhub-android/app/src/main/res/drawable \
+                  SIGNALHUB_V3_CHECKPOINT_06_CRYPTO_STABILITY_UI.md
+          git commit -m "SignalHub v3.14 crypto stability and simple UI checkpoint" || true
+          git push origin HEAD:signalhub-v314-simple-ui-stability
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.14.0-Simple-Stable-Crypto
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.14 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.14.0-simple-stable-crypto'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v314-simple-ui-stability --prerelease \
+              --title 'SignalHub v3.14.0 Simple Stable Crypto' \
+              --notes 'Crypto-only SCALP/SWING. Confirmation-first entry logic, stronger secondary-provider evidence, provider bid/ask lifecycle, structural pending invalidation, risk-cluster concentration control, explicit stability telemetry, and a simplified four-tab Android UI with local vector graphics. Historical WR remains resolved TP/SL only and is not a predicted probability.'
+          fi
