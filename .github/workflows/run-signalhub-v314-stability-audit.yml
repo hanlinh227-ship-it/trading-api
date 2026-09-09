@@ -1,0 +1,75 @@
+name: SignalHub V3.14 Stability Audit
+
+on:
+  push:
+    branches: [signalhub-v314-simple-ui-stability]
+    paths:
+      - '.github/workflows/run-signalhub-v314-stability-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit production crypto engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          UA='SignalHub-CI/3.14-stability-audit'
+          curl -A "$UA" -fsS --max-time 30 "$SIGNALHUB_URL/v3/status?probe=$RANDOM" > audit/status.json
+          curl -A "$UA" -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM" > audit/portfolio.json
+          curl -A "$UA" -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?probe=$RANDOM" > audit/monitor.json
+          for st in SCALP SWING; do
+            curl -A "$UA" -fsS --max-time 30 "$SIGNALHUB_URL/v3/performance?market=CRYPTO&style=$st&probe=$RANDOM" > "audit/perf-$st.json"
+            curl -A "$UA" -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=100&probe=$RANDOM" > "audit/active-$st.json"
+            curl -A "$UA" -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=closed&limit=300&probe=$RANDOM" > "audit/closed-$st.json"
+          done
+          python3 - <<'PY'
+          import json, collections, statistics, time
+          from pathlib import Path
+          out={}
+          status=json.load(open('audit/status.json'))
+          pf=(json.load(open('audit/portfolio.json')).get('portfolio') or {})
+          mon=json.load(open('audit/monitor.json'))
+          out['version']=status.get('version'); out['portfolio']=pf; out['monitor']=mon
+          for st in ('SCALP','SWING'):
+              perf=(json.load(open(f'audit/perf-{st}.json')).get('performance') or {})
+              active=json.load(open(f'audit/active-{st}.json')).get('signals',[])
+              closed=json.load(open(f'audit/closed-{st}.json')).get('signals',[])
+              by_reg=collections.defaultdict(lambda:{'TP':0,'SL':0,'CANCELLED':0,'OTHER':0,'netR':0.0})
+              by_order=collections.defaultdict(lambda:{'TP':0,'SL':0,'CANCELLED':0,'OTHER':0,'netR':0.0})
+              by_provider=collections.defaultdict(lambda:{'TP':0,'SL':0,'CANCELLED':0,'OTHER':0,'netR':0.0})
+              for s in closed:
+                  o=str(s.get('outcome') or 'OTHER').upper(); o=o if o in ('TP','SL','CANCELLED') else 'OTHER'
+                  r=float(s.get('resultR') or 0)
+                  reg=str(s.get('marketRegime') or 'UNKNOWN')
+                  ordt=str(s.get('orderType') or 'UNKNOWN').upper()
+                  prov=str(s.get('executionPriceAuthority') or s.get('provider') or 'UNKNOWN').upper()
+                  for d,k in ((by_reg,reg),(by_order,ordt),(by_provider,prov)):
+                      d[k][o]+=1; d[k]['netR']+=r
+              def summarize(d):
+                  z={}
+                  for k,v in d.items():
+                      resolved=v['TP']+v['SL']; z[k]={**v,'resolved':resolved,'wr':round(v['TP']/resolved*100,1) if resolved else None,'netR':round(v['netR'],2)}
+                  return z
+              out[st]={
+                'performance':perf,
+                'activeCount':len(active),
+                'active':[{'symbol':s.get('symbol'),'side':s.get('side'),'orderType':s.get('orderType'),'status':s.get('status'),'provider':s.get('executionPriceAuthority'),'regime':s.get('marketRegime'),'issuedAt':s.get('issuedAt'),'entry':s.get('entry'),'sl':s.get('sl'),'tp3':s.get('tp3')} for s in active],
+                'closedCount':len(closed),
+                'outcomes':dict(collections.Counter(str(s.get('outcome') or 'UNKNOWN').upper() for s in closed)),
+                'byRegime':summarize(by_reg),'byOrderType':summarize(by_order),'byProvider':summarize(by_provider)
+              }
+          Path('audit/summary.json').write_text(json.dumps(out,indent=2,ensure_ascii=False))
+          print('STABILITY_AUDIT')
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-v3.14-Stability-Audit
+          path: audit/
+          retention-days: 30
