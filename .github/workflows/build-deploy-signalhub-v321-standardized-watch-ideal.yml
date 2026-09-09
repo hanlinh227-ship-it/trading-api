@@ -1,0 +1,215 @@
+name: Build Deploy SignalHub V3.21 Standardized Watch Ideal
+
+on:
+  push:
+    branches: [signalhub-v321-standardized-watch-ideal]
+    paths:
+      - 'scripts/patch_signalhub_v321_standardized_watch_ideal.py'
+      - '.github/workflows/build-deploy-signalhub-v321-standardized-watch-ideal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply V3.19 -> V3.19.1 -> V3.20 -> V3.20.1 -> V3.21
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 scripts/patch_signalhub_v321_standardized_watch_ideal.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.21 source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          required=['SIGNALHUB-V3-GATEWAY-3.21.0','CRYPTO_MARKET_ROW_V3','2026-09-STANDARDIZED-LIQUIDITY-V3','v321:crypto:stable100:schema3','MULTI_VENUE_COMPOSITE','NON_CRYPTO_BASE_EXCLUDE','IDEAL_REFERENCE','WATCH_IDEAL_STRUCTURE_PULLBACK_LIMIT','WATCH_IDEAL_CONFIRMATION_STOP','occupiesActiveSlot:false','performanceEligible:false','/v3/data-integrity','cacheCompatibility']
+          for x in required: assert x in w,x
+          assert "const STABLE100_CACHE_KEY='v320:crypto:stable100'" not in w
+          assert 'APP_VERSION="3.21.0"' in a
+          assert 'LỆNH LÝ TƯỞNG' in a and 'KHÔNG PHẢI LỆNH ACTIVE' in a
+          assert "versionCode 28" in g and "versionName '3.21.0'" in g
+          print('V3.21 source contracts PASS')
+          PY
+
+      - name: Worker dry run and Android build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v321-worker
+          cd signalhub-android && gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.21 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for V3.21 production
+        run: |
+          set -euo pipefail
+          ok=0
+          for n in $(seq 1 60); do
+            curl -fsS --max-time 20 "$BASE/v3/status?v321=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.21.0',s.get('version')
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('stableUniverseSize')==100,p
+          assert p.get('dataSchema')=='CRYPTO_MARKET_ROW_V3',p
+          assert p.get('cacheCompatibility')=='VERSION_SCHEMA_NORMALIZATION_STRICT',p
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':10,'SWING':5},p
+          PY
+            then ok=1;break;fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Build and prove standardized Stable100
+        run: |
+          set -euo pipefail
+          # First request may rebuild the new schema namespace from all three venues.
+          ok=0
+          for n in $(seq 1 8); do
+            curl -fsS --max-time 120 "$BASE/v3/crypto/stable100?v321=$RANDOM-$n" >/tmp/u.json || true
+            if python3 - <<'PY'
+          import json
+          try:u=json.load(open('/tmp/u.json'))
+          except:raise SystemExit(1)
+          rows=u.get('rows') or [];syms=u.get('symbols') or []
+          print('STABLE100',u.get('version'),u.get('provider'),u.get('providers'),u.get('count'),syms[:20])
+          assert u.get('ok') is True,u
+          assert u.get('version')=='SIGNALHUB-V3-GATEWAY-3.21.0',u
+          assert u.get('schemaVersion')=='CRYPTO_MARKET_ROW_V3',u
+          assert u.get('normalizationVersion')=='2026-09-STANDARDIZED-LIQUIDITY-V3',u
+          assert u.get('target')==100 and u.get('count')==100,u
+          assert len(rows)==100 and len(syms)==100 and len(set(syms))==100
+          assert u.get('ranking')=='QUALITY_TIER_THEN_QUOTE_TURNOVER_OI_SPREAD_MOVE',u
+          banned={'AAPLUSDT','NVDAUSDT','TSLAUSDT','INTCUSDT','MUUSDT','MSTRUSDT','SOXLUSDT','XAUUSDT','XAGUSDT','PAXGUSDT','XAUTUSDT'}
+          assert not (set(syms)&banned),(set(syms)&banned)
+          stable={'USDCUSDT','USDEUSDT','FDUSDUSDT','DAIUSDT','TUSDUSDT','USDPUSDT','BUSDUSDT','EURUSDT','EURCUSDT','PYUSDUSDT'}
+          assert not (set(syms)&stable),(set(syms)&stable)
+          for i,r in enumerate(rows,1):
+              assert r.get('assetClass')=='CRYPTO',r
+              assert r.get('schemaVersion')=='CRYPTO_MARKET_ROW_V3',r
+              assert r.get('normalizationVersion')=='2026-09-STANDARDIZED-LIQUIDITY-V3',r
+              assert r.get('canonicalSymbol')==r.get('symbol'),r
+              assert r.get('rank')==i,(i,r.get('rank'))
+              assert r.get('qualityTier') in ('A','B','C'),r
+              assert float(r.get('turnover24hQuote') or 0)>0,r
+              assert r.get('venue') in ('BYBIT','OKX','BINANCE'),r
+          PY
+            then ok=1;break;fi
+            sleep 3
+          done
+          test "$ok" = 1
+
+      - name: Prove data-integrity endpoint
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/data-integrity?v321=$RANDOM" >/tmp/i.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/i.json'));print('INTEGRITY',x)
+          assert x.get('ok') is True,x
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.21.0',x
+          assert x.get('schemaVersion')=='CRYPTO_MARKET_ROW_V3',x
+          assert x.get('normalizationVersion')=='2026-09-STANDARDIZED-LIQUIDITY-V3',x
+          s=x.get('stable100') or {};assert s.get('count')==100 and s.get('target')==100,s
+          assert not x.get('problems'),x
+          PY
+
+      - name: Prove Watchlist always has ideal Entry SL TP reference when market data is available
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?before=$RANDOM" >/tmp/p0.json
+          for sym in BTCUSDT ETHUSDT SOLUSDT; do
+            curl -fsS --max-time 120 "$BASE/v3/watch/analyze?symbol=$sym&v321=$RANDOM" >"/tmp/w-$sym.json"
+          done
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?after=$RANDOM" >/tmp/p1.json
+          python3 - <<'PY'
+          import json
+          for sym in ['BTCUSDT','ETHUSDT','SOLUSDT']:
+              x=json.load(open('/tmp/w-'+sym+'.json'));print('WATCH',sym,x.get('provider'),{k:(v or {}).get('state') for k,v in (x.get('styles') or {}).items()})
+              assert x.get('ok') is True,x
+              for style in ['SCALP','SWING']:
+                  s=(x.get('styles') or {}).get(style) or {};state=s.get('state')
+                  assert state in ('ACTIVE_SIGNAL','TRADEABLE_NOW','CONDITIONAL_WAIT','IDEAL_REFERENCE'),(sym,style,s)
+                  for k in ['entry','sl','tp1','tp2','tp3']: assert float(s.get(k) or 0)>0,(sym,style,k,s)
+                  side=str(s.get('side') or '').upper();e=float(s['entry']);sl=float(s['sl']);t1=float(s['tp1']);t2=float(s['tp2']);t3=float(s['tp3'])
+                  if side in ('LONG','BUY'): assert sl<e<t1<t2<t3,(sym,style,s)
+                  else: assert sl>e>t1>t2>t3,(sym,style,s)
+                  if state=='IDEAL_REFERENCE':
+                      assert s.get('watchReference') is True and s.get('studyOnly') is True,s
+                      assert s.get('occupiesActiveSlot') is False and s.get('performanceEligible') is False,s
+          p0=(json.load(open('/tmp/p0.json')).get('portfolio') or {});p1=(json.load(open('/tmp/p1.json')).get('portfolio') or {})
+          assert p0.get('activeTotal')==p1.get('activeTotal'),(p0,p1)
+          assert p0.get('styles')==p1.get('styles'),(p0,p1)
+          print('WATCH isolation PASS',p0.get('activeTotal'),p0.get('styles'))
+          PY
+
+      - name: Refresh scanner and audit portfolio boundaries
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=$style&v321=$RANDOM" >"/tmp/$style.json" || true; done
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?v321=$RANDOM" >/tmp/p.json
+          python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {});print('PORTFOLIO',p)
+          assert int(p.get('activeTotal') or 0)<=15,p
+          st=p.get('styles') or {};assert int(st.get('SCALP') or 0)<=10 and int(st.get('SWING') or 0)<=5,p
+          pol=p.get('policy') or {};assert pol.get('standbyPerStyle')==20 and pol.get('stableUniverseSize')==100,pol
+          for style in ['SCALP','SWING']:
+              try:
+                  q=json.load(open('/tmp/'+style+'.json'));print(style,{k:q.get(k) for k in ['stable100Count','liquidUniverse','deepAnalyzed','evaluated','actionable','created']})
+              except Exception as e: print(style,'scan output unavailable',e)
+          PY
+
+      - name: Stage V3.21 APK and checkpoint
+        run: |
+          set -euo pipefail
+          cat > SIGNALHUB_V3_CHECKPOINT_13_STANDARDIZED_WATCH_IDEAL.md <<'EOF'
+          # SignalHub V3.21 — Standardized Data + Ideal Watchlist
+          Stable100 now has a versioned CRYPTO_MARKET_ROW_V3 schema, a normalization-version identity and a V3.21-specific cache namespace. Old/incompatible snapshots cannot silently survive an engine update. The crypto universe is composed from live Bybit, OKX and Binance perpetual tickers, canonicalized by symbol, normalized to quote turnover, ranked by quality tier/turnover/OI/spread/move, and stripped of known tokenized TradFi/metals/stablecoin bases. The scanner retains stricter SCALP/SWING liquidity rules and the 10 SCALP + 5 SWING portfolio target with 20 hot spares/style. Watchlist analysis is read-only. When a confirmed/conditional active-style setup is unavailable but valid live ticker+candle data exist, Watchlist generates an IDEAL_REFERENCE LIMIT/STOP plan with structure-derived Entry, invalidation-buffered SL and TP1/TP2/TP3. Reference plans explicitly set studyOnly=true, occupiesActiveSlot=false and performanceEligible=false and are never persisted as active signals.
+          EOF
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.21.0-Standardized-Watch-Ideal.apk
+          sha256sum dist/SignalHub-v3.21.0-Standardized-Watch-Ideal.apk | tee dist/SignalHub-v3.21.0-Standardized-Watch-Ideal-SHA256SUMS.txt
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java SIGNALHUB_V3_CHECKPOINT_13_STANDARDIZED_WATCH_IDEAL.md
+          git commit -m 'SignalHub v3.21 standardized data and ideal Watchlist' || true
+          git push origin HEAD:signalhub-v321-standardized-watch-ideal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.21.0-Standardized-Watch-Ideal
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.21 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.21.0-standardized-watch-ideal
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v321-standardized-watch-ideal --prerelease --title 'SignalHub v3.21.0 — Standardized Data + Ideal Watchlist' --notes 'Version-safe market schema/cache, multi-venue Stable100, crypto-only asset filtering, data-integrity audit, and study-only ideal Watchlist Entry/SL/TP plans.'
