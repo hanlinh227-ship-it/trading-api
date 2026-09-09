@@ -1,0 +1,94 @@
+name: Build Final SignalHub V3.13 Crypto Only APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/run-signalhub-v313-crypto-only-quality-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-final:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: signalhub-v313-crypto-only-quality
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Generate and fix V3.13 source
+        run: |
+          python3 scripts/patch_signalhub_v313_crypto_only_quality.py
+          python3 scripts/fix_signalhub_v313_android_compile.py
+          grep -q 'private void renderSignals(boolean animate)' signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+
+      - name: Verify production crypto-only state
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.13-apk' -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM" >/tmp/status.json
+          curl -A 'SignalHub-CI/3.13-apk' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM" >/tmp/pf.json
+          for st in SCALP SWING; do curl -A 'SignalHub-CI/3.13-apk' -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=100&probe=$RANDOM" >"/tmp/book-$st.json"; done
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json')); b=(json.load(open('/tmp/pf.json')).get('portfolio') or {}); c=b.get('counts') or {}; st=b.get('styles') or {}
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.13.0' and s.get('forexDisabled') is True
+          assert int(c.get('FOREX') or 0)==0 and int(c.get('CRYPTO') or 0)>=2
+          assert int(st.get('SCALP') or 0)>=1 and int(st.get('SWING') or 0)>=1
+          sig=[]
+          for x in ['SCALP','SWING']: sig += json.load(open('/tmp/book-'+x+'.json')).get('signals',[])
+          assert all(x.get('market')=='CRYPTO' for x in sig)
+          assert all(x.get('style') in ('SCALP','SWING') for x in sig)
+          assert all(x.get('executionPriceAuthority') in ('BYBIT','OKX','BINANCE') for x in sig)
+          rows=[(x.get('style'),x.get('symbol'),x.get('orderType'),x.get('status'),x.get('executionPriceAuthority')) for x in sig]
+          print('V313_PROD_OK',b);print('ACTIVE',rows)
+          json.dump(sig,open('/tmp/ACTIVE-BOOK-AUDIT.json','w'),indent=2)
+          PY
+          code=$(curl -A 'SignalHub-CI/3.13-apk' -sS -o /tmp/fx.json -w '%{http_code}' --max-time 30 "$SIGNALHUB_URL/v3/scan?market=FOREX&style=SCALP")
+          test "$code" = 410
+          curl -A 'SignalHub-CI/3.13-apk' -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?probe=$RANDOM" >/tmp/CRYPTO-MONITOR-AUDIT.json
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify and stage APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -t "$APK"
+          cp "$APK" dist/SignalHub-v3.13.0-Crypto-Only-Quality.apk
+          sha256sum dist/SignalHub-v3.13.0-Crypto-Only-Quality.apk > dist/SHA256SUMS.txt
+          cp /tmp/status.json /tmp/pf.json /tmp/ACTIVE-BOOK-AUDIT.json /tmp/CRYPTO-MONITOR-AUDIT.json dist/
+
+      - name: Commit generated V3.13 source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java
+          git commit -m 'SignalHub v3.13 crypto-only quality final' || true
+          git push origin HEAD:signalhub-v313-crypto-only-quality
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.13.0-Crypto-Only-Quality
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='signalhub-v3.13.0-crypto-only-quality'
+          if gh release view "$TAG" >/dev/null 2>&1; then gh release upload "$TAG" dist/* --clobber; else gh release create "$TAG" dist/* --target signalhub-v313-crypto-only-quality --prerelease --title 'SignalHub v3.13.0 Crypto Only Quality' --notes 'Crypto-only. Forex signal generation disabled. Separate SCALP and SWING hard-quality engines with provider-pinned lifecycle monitoring and cross-provider confirmation.'; fi
