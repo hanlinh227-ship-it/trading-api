@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.11.0';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.12.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_05';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,14 +16,17 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 17,
-  versionName: '3.11.0',
-  title: 'SignalHub 3.11.0',
+  versionCode: 18,
+  versionName: '3.12.0',
+  title: 'SignalHub 3.12.0',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.11.0',
+  artifactName: 'SignalHub-Android-v3.12.0',
   notes: [
+    'V3.12 fixes Crypto LIMIT/STOP lifecycle gaps: active crypto orders are now evaluated server-side by a Durable Object alarm without depending on the app or /crypto/tickers polling.',
+    'V3.12 pins every Crypto signal to its creation exchange and only that exchange may trigger its Entry/SL/TP lifecycle, preventing cross-exchange false or missed fills.',
+    'V3.12 adds always-on dual-market coverage: MT5 realtime packets atomically claim an empty FOREX/CRYPTO market and launch an immediate structure-qualified refill in the background.',
     'V3.11 Atomic Quality Book reserves every active slot transactionally inside one Durable Object so concurrent scans cannot overbook the portfolio.',
     'V3.11 also caps Forex currency concentration at two active ideas per currency and tightens market-entry location / pending-trigger reachability checks.',
     'V3.10 Disciplined Book keeps the clean market story model and adds portfolio-level concurrency discipline plus a mandatory hard-check assessment for every order.',
@@ -87,7 +90,7 @@ const MARKET_JUDGMENT_POLICY = Object.freeze({
   qualityMode:'CLEAN_MARKET_STORY_NO_SCORE',
   lifecycleSource:'DURABLE_OBJECT_REALTIME_SINGLE_SOURCE',
   entryAssessment:'HARD_STRUCTURE_CHECKS_NO_NUMERIC_SCORE',
-  portfolioPolicy:{maxActiveTotal:6,maxActivePerMarket:4,maxActivePerStyle:3,maxNewPerScan:2,maxForexPerCurrency:2,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC'}
+  portfolioPolicy:{maxActiveTotal:6,maxActivePerMarket:4,maxActivePerStyle:3,maxNewPerScan:2,maxForexPerCurrency:2,minActivePerMarket:1,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC',coverageMode:'ALWAYS_ON_DUAL_MARKET',cryptoPendingMonitor:'DURABLE_OBJECT_ALARM_1S'}
 });
 
 const STYLE_EXECUTION_POLICY = Object.freeze({
@@ -126,6 +129,54 @@ export class MT5LiveState {
   async registry(){if(this.signalRegistry===null)this.signalRegistry=(await this.state.storage.get('signalRegistry'))||{};return this.signalRegistry;}
   async persistRegistry(){await this.state.storage.put('signalRegistry',this.signalRegistry||{});}
   broadcast(obj){const msg=JSON.stringify(obj);for(const ws of [...this.clients]){try{ws.send(msg);}catch{this.clients.delete(ws);}}}
+  activeRows(reg){return Object.values(reg||{}).filter(x=>x&&(x.status==='PENDING'||x.status==='OPEN'));}
+  portfolioFrom(reg){
+    const active=this.activeRows(reg),counts={FOREX:0,CRYPTO:0},styles={SCALP:0,SWING:0};
+    for(const s of active){const m=String(s.market||'').toUpperCase(),st=String(s.style||'').toUpperCase();if(m in counts)counts[m]++;if(st in styles)styles[st]++;}
+    return {activeTotal:active.length,counts,styles,uniqueSymbols:new Set(active.map(x=>`${String(x.market||'').toUpperCase()}:${canonical(x.symbol)}`)).size,policy:PORTFOLIO_POLICY};
+  }
+  async portfolioSnapshot(){return this.portfolioFrom(await this.registry());}
+  async ensureCryptoMonitor(delayMs=25){
+    const reg=await this.registry(),active=this.activeRows(reg).filter(x=>String(x.market||'').toUpperCase()==='CRYPTO');
+    if(!active.length){try{await this.state.storage.deleteAlarm();}catch{}return {ok:true,running:false,activeCrypto:0};}
+    const target=Date.now()+Math.max(25,Number(delayMs)||25),old=await this.state.storage.getAlarm();
+    if(old===null||Number(old)>target+250)await this.state.storage.setAlarm(target);
+    return {ok:true,running:true,activeCrypto:active.length,nextAlarmMs:target};
+  }
+  async claimCoverage(){
+    const now=Date.now();let out={claimed:[],portfolio:null};
+    await this.state.storage.transaction(async txn=>{
+      const reg=(await txn.get('signalRegistry'))||{},portfolio=this.portfolioFrom(reg),locks=(await txn.get('coverageLocks'))||{},claimed=[];
+      for(const market of ['FOREX','CRYPTO']){
+        const lock=locks[market],stale=lock&&now-Number(lock.claimedAt||0)>30000;
+        if(stale)delete locks[market];
+        if(Number(portfolio.counts?.[market]||0)<PORTFOLIO_POLICY.minActivePerMarket&&!locks[market]){locks[market]={claimedAt:now};claimed.push(market);}
+      }
+      await txn.put('coverageLocks',locks);out={claimed,portfolio};
+    });
+    return out;
+  }
+  async releaseCoverage(payload){
+    const market=String(payload?.market||'').toUpperCase();if(!['FOREX','CRYPTO'].includes(market))return {ok:false,error:'BAD_MARKET'};
+    await this.state.storage.transaction(async txn=>{const locks=(await txn.get('coverageLocks'))||{};delete locks[market];await txn.put('coverageLocks',locks);});return {ok:true,market};
+  }
+  async cryptoMonitorCycle(){
+    const reg=await this.registry(),active=this.activeRows(reg).filter(x=>String(x.market||'').toUpperCase()==='CRYPTO');
+    const previous=(await this.state.storage.get('cryptoMonitorStatus'))||{},cycle=Number(previous.cycle||0)+1,at=nowIso();
+    if(!active.length){const status={ok:true,running:false,cycle,activeCrypto:0,receivedAt:at};await this.state.storage.put('cryptoMonitorStatus',status);return status;}
+    const providers=[...new Set(active.map(x=>String(x.executionPriceAuthority||x.provider||x.exchange||'BYBIT').toUpperCase()))],events=[],errors=[];let quotes=0;
+    for(const provider of providers){
+      try{const snap=await cryptoSnapshotForProvider(this.env,provider);if(snap.live===false||!snap.rows?.length){errors.push(`${provider}:NO_LIVE_ROWS`);continue;}quotes+=snap.rows.length;events.push(...await this.evaluate('CRYPTO',snap.rows,snap.receivedAt||at));}
+      catch(e){errors.push(`${provider}:${String(e?.message||e)}`);}
+    }
+    const status={ok:errors.length<providers.length,running:true,cycle,activeCrypto:active.length,providers,quotes,events:events.length,errors,receivedAt:at};
+    await this.state.storage.put('cryptoMonitorStatus',status);this.broadcast({type:'crypto_monitor',...status});return status;
+  }
+  async alarm(){
+    try{await this.cryptoMonitorCycle();}catch(e){await this.state.storage.put('cryptoMonitorStatus',{ok:false,running:true,error:String(e?.message||e),receivedAt:nowIso()});}
+    const reg=await this.registry(),still=this.activeRows(reg).some(x=>String(x.market||'').toUpperCase()==='CRYPTO');
+    if(still)await this.state.storage.setAlarm(Date.now()+1000);else try{await this.state.storage.deleteAlarm();}catch{}
+  }
   async registerSignal(payload){
     const s=payload?.signal||payload,id=String(s?.id||s?.signalId||'');if(!id)return {ok:false,accepted:false,error:'NO_SIGNAL_ID'};
     const result=await this.state.storage.transaction(async txn=>{
@@ -150,7 +201,9 @@ export class MT5LiveState {
       }
       reg[id]={...s,kvKey};await txn.put('signalRegistry',reg);return {ok:true,accepted:true,id,status:s.status,activeTotal:active.length+1,reg};
     });
-    this.signalRegistry=result.reg||this.signalRegistry;delete result.reg;return result;
+    this.signalRegistry=result.reg||this.signalRegistry;delete result.reg;
+    if(result.accepted&&(s.status==='PENDING'||s.status==='OPEN')&&String(s.market||'').toUpperCase()==='CRYPTO')try{await this.ensureCryptoMonitor(25);}catch{}
+    return result;
   }
   async unregisterSignal(payload){
     const id=String(payload?.id||payload?.signalId||'');if(!id)return {ok:false};
@@ -158,12 +211,13 @@ export class MT5LiveState {
   }
   async evaluate(market,rows,receivedAt){
     const reg=await this.registry(),by=new Map();
-    for(const q of rows||[]){const sym=canonical(q?.symbol);if(!sym)continue;by.set(sym,q);}
+    for(const q of rows||[]){const sym=canonical(q?.symbol);if(!sym)continue;by.set(sym,q);const provider=String(q?.exchange||q?.provider||'').toUpperCase();if(provider)by.set(`${provider}:${sym}`,q);}
     const changed=[],at=receivedAt||nowIso();let dirty=false;
     for(const [id,s] of Object.entries(reg)){
       if(String(s.market||'').toUpperCase()!==String(market||'').toUpperCase())continue;
       if(s.status!=='PENDING'&&s.status!=='OPEN'){delete reg[id];dirty=true;continue;}
-      const q=by.get(canonical(s.symbol));if(!q)continue;
+      const sym=canonical(s.symbol),authority=String(s.executionPriceAuthority||s.provider||s.exchange||'').toUpperCase();
+      const q=String(market).toUpperCase()==='CRYPTO'&&authority?by.get(`${authority}:${sym}`):by.get(sym);if(!q)continue;
       const dir=String(s.side||'').toUpperCase()==='LONG'||String(s.side||'').toUpperCase()==='BUY'?1:-1;
       let entryPx,exitPx;
       if(String(market).toUpperCase()==='FOREX'){
@@ -206,9 +260,13 @@ export class MT5LiveState {
     }
     if(req.method==='POST'&&url.pathname==='/register-signal'){const p=await req.json();return new Response(JSON.stringify(await this.registerSignal(p)),{headers:{'content-type':'application/json'}});}
     if(req.method==='POST'&&url.pathname==='/unregister-signal'){const p=await req.json();return new Response(JSON.stringify(await this.unregisterSignal(p)),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/kick-crypto-monitor'){return new Response(JSON.stringify(await this.ensureCryptoMonitor(25)),{headers:{'content-type':'application/json'}});}
+    if(req.method==='GET'&&url.pathname==='/crypto-monitor-status'){const status=(await this.state.storage.get('cryptoMonitorStatus'))||{ok:true,running:false,cycle:0};return new Response(JSON.stringify(status),{headers:{'content-type':'application/json'}});}
+    if(req.method==='GET'&&url.pathname==='/portfolio-snapshot'){return new Response(JSON.stringify(await this.portfolioSnapshot()),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/release-coverage'){const p=await req.json();return new Response(JSON.stringify(await this.releaseCoverage(p)),{headers:{'content-type':'application/json'}});}
     if(req.method==='POST'&&url.pathname==='/evaluate'){const p=await req.json(),events=await this.evaluate(p.market,p.rows||[],p.receivedAt);return new Response(JSON.stringify({ok:true,events}),{headers:{'content-type':'application/json'}});}
     if(req.method==='POST'&&url.pathname==='/prices'){
-      const packet=await req.json();await this.state.storage.put('quotes',packet);this.broadcast({type:'quotes',...packet});const events=await this.evaluate('FOREX',packet.quotes||[],packet.receivedAt);return new Response(JSON.stringify({ok:true,accepted:Number(packet.count||0),receivedAt:packet.receivedAt,events:events.length}),{headers:{'content-type':'application/json'}});
+      const packet=await req.json();await this.state.storage.put('quotes',packet);this.broadcast({type:'quotes',...packet});const events=await this.evaluate('FOREX',packet.quotes||[],packet.receivedAt),coverage=await this.claimCoverage();return new Response(JSON.stringify({ok:true,accepted:Number(packet.count||0),receivedAt:packet.receivedAt,events:events.length,coverageClaims:coverage.claimed,portfolio:coverage.portfolio}),{headers:{'content-type':'application/json'}});
     }
     if(req.method==='POST'&&url.pathname==='/heartbeat'){const heartbeat=await req.json();await this.state.storage.put('heartbeat',heartbeat);this.broadcast({type:'heartbeat',heartbeat});return new Response(JSON.stringify({ok:true,receivedAt:heartbeat.receivedAt}),{headers:{'content-type':'application/json'}});}
     if(url.pathname==='/snapshot'){const [quotes,heartbeat]=await Promise.all([this.state.storage.get('quotes'),this.state.storage.get('heartbeat')]);return new Response(JSON.stringify({ok:!!quotes,quotes:quotes||null,heartbeat:heartbeat||null}),{headers:{'content-type':'application/json','cache-control':'no-store'}});}
@@ -218,6 +276,26 @@ export class MT5LiveState {
 function mt5LiveStub(env){
   if(!env?.MT5_LIVE)return null;
   return env.MT5_LIVE.get(env.MT5_LIVE.idFromName('primary'));
+}
+async function realtimePortfolioSnapshot(env){
+  const stub=mt5LiveStub(env);if(!stub)return {activeTotal:0,counts:{FOREX:0,CRYPTO:0},styles:{SCALP:0,SWING:0}};
+  try{const r=await stub.fetch('https://mt5-live/portfolio-snapshot');if(r.ok)return await r.json();}catch{}return {activeTotal:0,counts:{FOREX:0,CRYPTO:0},styles:{SCALP:0,SWING:0}};
+}
+async function releaseCoverageClaim(env,market){const stub=mt5LiveStub(env);if(!stub)return;try{await stub.fetch('https://mt5-live/release-coverage',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({market})});}catch{}}
+async function kickCryptoServerMonitor(env){const stub=mt5LiveStub(env);if(!stub)return {ok:false,running:false};try{const r=await stub.fetch('https://mt5-live/kick-crypto-monitor',{method:'POST'});return r.ok?await r.json():{ok:false,running:false};}catch(e){return {ok:false,running:false,error:String(e?.message||e)};}}
+async function cryptoServerMonitorStatus(env){const stub=mt5LiveStub(env);if(!stub)return {ok:false,running:false};try{const r=await stub.fetch('https://mt5-live/crypto-monitor-status');return r.ok?await r.json():{ok:false,running:false};}catch(e){return {ok:false,running:false,error:String(e?.message||e)};}}
+async function refillMarketCoverage(env,market){
+  const m=String(market||'').toUpperCase();let success=false;
+  try{
+    let p=await realtimePortfolioSnapshot(env);if(Number(p.counts?.[m]||0)>=PORTFOLIO_POLICY.minActivePerMarket){success=true;return;}
+    if(m==='FOREX'){
+      await scanForexScalp(env).catch(()=>{});p=await realtimePortfolioSnapshot(env);if(Number(p.counts?.FOREX||0)<PORTFOLIO_POLICY.minActivePerMarket)await scanForexSwing(env).catch(()=>{});
+    }else if(m==='CRYPTO'){
+      await scanCrypto(env,'SCALP').catch(()=>{});p=await realtimePortfolioSnapshot(env);if(Number(p.counts?.CRYPTO||0)<PORTFOLIO_POLICY.minActivePerMarket)await scanCrypto(env,'SWING').catch(()=>{});await kickCryptoServerMonitor(env);
+    }
+    p=await realtimePortfolioSnapshot(env);success=Number(p.counts?.[m]||0)>=PORTFOLIO_POLICY.minActivePerMarket;
+  }finally{await releaseCoverageClaim(env,m);}
+  return success;
 }
 
 async function syncRealtimeSignal(env,s,kvKey){
@@ -275,14 +353,14 @@ function sanitizeQuote(q) {
   if (!symbol || !isFinitePositive(bid) || !isFinitePositive(ask) || ask < bid) return null;
   return {symbol,brokerSymbol,bid,ask,mid:(bid+ask)/2,last:isFinitePositive(last)?last:null,spreadPoints:Number.isFinite(spreadPoints)?spreadPoints:null,tickTimeMsc:tickTimeMsc>0?tickTimeMsc:null};
 }
-async function mt5Prices(req, env) {
+async function mt5Prices(req, env, ctx) {
   if (!bridgeAllowed(req,env)) return json({ok:false,error:'MT5_BRIDGE_UNAUTHORIZED'},401);
   const body=await readJson(req,2_000_000), quotes=(Array.isArray(body?.quotes)?body.quotes:[]).slice(0,120).map(sanitizeQuote).filter(Boolean), receivedAt=nowIso();
   const packet={ok:true,version:V3_VERSION,source:'EXNESS_MT5',bridgeVersion:String(body?.bridgeVersion||''),server:String(body?.server||''),receivedAt,quotes,count:quotes.length};
   const stub=mt5LiveStub(env);
   if(stub){
     const r=await stub.fetch('https://mt5-live/prices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
-    if(r.ok)return json({ok:true,accepted:quotes.length,receivedAt,transport:'DURABLE_OBJECT_REALTIME'});
+    if(r.ok){let state={};try{state=await r.json();}catch{}for(const market of state.coverageClaims||[])if(ctx?.waitUntil)ctx.waitUntil(Promise.resolve(refillMarketCoverage(env,market)).catch(()=>{}));return json({ok:true,accepted:quotes.length,receivedAt,transport:'DURABLE_OBJECT_REALTIME',coverageClaims:state.coverageClaims||[]});}
   }
   if(!env?.SIGNALS_KV)return json({ok:false,error:'NO_REALTIME_STORE'},503);
   await env.SIGNALS_KV.put('v3:mt5:quotes:latest',JSON.stringify(packet),{expirationTtl:MT5_QUOTE_TTL});
@@ -374,6 +452,13 @@ async function loadCryptoSnapshot(env){
   if(env?.SIGNALS_KV){const raw=await env.SIGNALS_KV.get('v31:crypto:tickers:lastgood');if(raw){try{const old=JSON.parse(raw),ageMs=Math.max(0,Date.now()-Date.parse(old.receivedAt||''));return {...old,live:false,staleFallback:true,ageMs,errors};}catch{}}}
   throw new Error('CRYPTO_ALL_PROVIDERS_UNAVAILABLE:'+errors.join('|'));
 }
+async function cryptoSnapshotForProvider(env,provider){
+  const p=String(provider||'BYBIT').toUpperCase();
+  try{
+    const snap=p==='OKX'?await okxTickers():p==='BINANCE'?await binanceTickers():await bybitTickers();
+    return {...snap,provider:p,live:true};
+  }catch(e){return {rows:[],provider:p,live:false,receivedAt:nowIso(),error:String(e?.message||e)};}
+}
 async function cryptoTickers(url,env){
   const snap=await loadCryptoSnapshot(env),limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit')||1000)));
   if(snap.live!==false){const stub=mt5LiveStub(env);if(stub){try{await stub.fetch('https://mt5-live/evaluate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({market:'CRYPTO',rows:snap.rows,receivedAt:snap.receivedAt})});}catch{}}}
@@ -457,7 +542,7 @@ function buildCryptoSetup(t,style,stats){
   if(dir>0){tp1=above([a.priorHigh,a.recentHigh],entry+risk*.90);tp2=above([b.priorHigh,b.recentHigh],Math.max(tp1+risk*.30,entry+risk*1.55));tp3=above([c.priorHigh,c.recentHigh],Math.max(tp2+risk*.35,entry+risk*(style==='SCALP'?2.15:2.95)));}
   else{tp1=below([a.priorLow,a.recentLow],entry-risk*.90);tp2=below([b.priorLow,b.recentLow],Math.min(tp1-risk*.30,entry-risk*1.55));tp3=below([c.priorLow,c.recentLow],Math.min(tp2-risk*.35,entry-risk*(style==='SCALP'?2.15:2.95)));}
   const rr=Math.abs(tp3-entry)/risk,spreadState=spread>(style==='SCALP'?12:30)?'WIDE':'NORMAL',judgment=`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} • CLEAN STORY`;
-  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp1:Number(tp1.toPrecision(10)),tp2:Number(tp2.toPrecision(10)),tp3:Number(tp3.toPrecision(10)),tp:Number(tp3.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,marketRegime:regime,marketStory:story,judgment,entryModel,slModel:'VALIDATED_SWING_LIQUIDITY_INVALIDATION_PLUS_VOLATILITY_SPREAD_BUFFER',tpModel:'CLEAN_LIQUIDITY_LADDER_THEN_STRUCTURE_EXPANSION',invalidationLevel:Number(anchor.toPrecision(10)),styleExecutionModel:profile.name,executionFrames:profile.frames,executionCaution:spreadState,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread,sweepHigh:a.sweepHigh,sweepLow:a.sweepLow,bosUp:a.bosUp,bosDown:a.bosDown,recentHigh:a.recentHigh,recentLow:a.recentLow},rationale:[story,`entry ${entryModel}`,`SL outside invalidation ${Number(anchor.toPrecision(8))} plus volatility/spread buffer`,`TP ladder targets local, context and HTF liquidity before expansion`,`RSI ${a.rsi.toFixed(1)} • extension ${a.extensionAtr.toFixed(2)} ATR • spread ${spread.toFixed(2)} bps`]},'CRYPTO',style);
+  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp1:Number(tp1.toPrecision(10)),tp2:Number(tp2.toPrecision(10)),tp3:Number(tp3.toPrecision(10)),tp:Number(tp3.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,executionPriceAuthority:t.exchange,marketRegime:regime,marketStory:story,judgment,entryModel,slModel:'VALIDATED_SWING_LIQUIDITY_INVALIDATION_PLUS_VOLATILITY_SPREAD_BUFFER',tpModel:'CLEAN_LIQUIDITY_LADDER_THEN_STRUCTURE_EXPANSION',invalidationLevel:Number(anchor.toPrecision(10)),styleExecutionModel:profile.name,executionFrames:profile.frames,executionCaution:spreadState,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread,sweepHigh:a.sweepHigh,sweepLow:a.sweepLow,bosUp:a.bosUp,bosDown:a.bosDown,recentHigh:a.recentHigh,recentLow:a.recentLow},rationale:[story,`entry ${entryModel}`,`SL outside invalidation ${Number(anchor.toPrecision(8))} plus volatility/spread buffer`,`TP ladder targets local, context and HTF liquidity before expansion`,`RSI ${a.rsi.toFixed(1)} • extension ${a.extensionAtr.toFixed(2)} ATR • spread ${spread.toFixed(2)} bps`]},'CRYPTO',style);
 }
 async function analyzeCryptoCandidate(t,style){try{const rows=await Promise.all(intervalMap[style].map(i=>providerCandles(t.symbol,i,t.exchange))),stats=rows.map(tfStats);if(stats.some(x=>!x))return null;return buildCryptoSetup(t,style,stats)}catch{return null;}}
 
@@ -477,7 +562,7 @@ async function writeV31Signal(env,s){
 async function trackV31Signals(env,market,style,priceMap){
   return [];
 }
-const PORTFOLIO_POLICY=Object.freeze({maxActiveTotal:6,maxActivePerMarket:4,maxActivePerStyle:3,maxNewPerScan:2,maxForexPerCurrency:2,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC'});
+const PORTFOLIO_POLICY=Object.freeze({maxActiveTotal:6,maxActivePerMarket:4,maxActivePerStyle:3,maxNewPerScan:2,maxForexPerCurrency:2,minActivePerMarket:1,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC',coverageMode:'ALWAYS_ON_DUAL_MARKET',cryptoPendingMonitor:'DURABLE_OBJECT_ALARM_1S'});
 function signOf(v){const n=Number(v);return n>0?1:n<0?-1:0;}
 function assessEntrySetup(raw){
   const s=raw||{},dir=String(s.side||'').toUpperCase()==='LONG'||String(s.side||'').toUpperCase()==='BUY'?1:-1;
@@ -521,7 +606,7 @@ async function retireLegacyActiveSignals(env,market,style){
   if(!env?.SIGNALS_KV)return[];const all=await getV31Signals(env,market,style),events=[],at=nowIso();
   for(const s of all){
     if((s.status!=='PENDING'&&s.status!=='OPEN')||String(s.engineVersion||'')===V3_VERSION)continue;
-    s.status='CANCELLED';s.entryState='CANCELLED';s.lifecycle='REPLACED_BY_V310_DISCIPLINED_BOOK';s.outcome='CONTEXT_REFRESH';s.cancelledAt=at;s.resolution='V310_ACTIVE_BOOK_RESET';s.lastCheckedAt=at;s.resultR=null;s.brokerAction='NONE_SIGNAL_FEED_ONLY';
+    s.status='CANCELLED';s.entryState='CANCELLED';s.lifecycle='REPLACED_BY_V312_ALWAYS_ON_DUAL_MARKET';s.outcome='CONTEXT_REFRESH';s.cancelledAt=at;s.resolution='V312_ACTIVE_BOOK_RESET';s.lastCheckedAt=at;s.resultR=null;s.brokerAction='NONE_SIGNAL_FEED_ONLY';
     await writeV31Signal(env,s);events.push({type:'CANCELLED',id:s.id,symbol:s.symbol,reason:s.lifecycle});
   }
   return events;
@@ -542,7 +627,7 @@ async function maybeCreateV31(env,market,style,setups){
     if(made.length>=PORTFOLIO_POLICY.maxNewPerScan||activeTotal()>=PORTFOLIO_POLICY.maxActiveTotal||marketCount()>=PORTFOLIO_POLICY.maxActivePerMarket||styleCount()>=PORTFOLIO_POLICY.maxActivePerStyle)break;
     const setup=stampMarketJudgment({...rawSetup},market,style);if(!validSignalStructure(setup))continue;
     if(book.some(x=>x.market===market&&x.symbol===setup.symbol))continue;
-    const issuedAt=nowIso(),id=`V311-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
+    const issuedAt=nowIso(),id=`V312-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
     const s=normalizeDisplaySignal({...setup,id,issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT,portfolioPolicy:PORTFOLIO_POLICY,reservationMode:'DURABLE_OBJECT_ATOMIC'},market,style),kvKey=v31Prefix(market,style)+id;
     const reservation=await reserveRealtimeSignal(env,s,kvKey);if(!reservation?.accepted)continue;
     s.portfolioReservation={accepted:true,mode:'DURABLE_OBJECT_ATOMIC',activeTotal:Number(reservation.activeTotal||0)};
@@ -553,8 +638,9 @@ async function maybeCreateV31(env,market,style,setups){
 }
 async function scanCrypto(env,style){
   const trackerEvents=await retireAllLegacyActiveSignals(env);
-  const snap=await loadCryptoSnapshot(env),all=snap.rows;
-  const ranked=all.filter(x=>Number(x.lastPrice)>0).sort((a,b)=>Number(b.turnover24h||0)-Number(a.turnover24h||0)).slice(0,style==='SCALP'?12:10);
+  const snap=await loadCryptoSnapshot(env),all=snap.rows,portfolio=await realtimePortfolioSnapshot(env),marketEmpty=Number(portfolio.counts?.CRYPTO||0)<PORTFOLIO_POLICY.minActivePerMarket;
+  const rankedLimit=marketEmpty?(style==='SCALP'?16:14):(style==='SCALP'?12:10);
+  const ranked=all.filter(x=>Number(x.lastPrice)>0).sort((a,b)=>Number(b.turnover24h||0)-Number(a.turnover24h||0)).slice(0,rankedLimit);
   const rawAnalyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean),assessed=rawAnalyses.map(x=>({...x,entryAssessment:assessEntrySetup(x)})),analyses=assessed.filter(x=>x.entryAssessment.verdict==='PASS');
   const created=await maybeCreateV31(env,'CRYPTO',style,analyses);
   return {ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,deepAnalyzed:ranked.length,evaluated:rawAnalyses.length,actionable:analyses.length,rejectedByAssessment:rawAnalyses.length-analyses.length,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,portfolioBlocked:Math.max(0,analyses.length-created.length),newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'Every order must PASS hard structure checks. No numeric score gate. Atomic Durable Object reservation and portfolio caps prevent duplicate and excessive simultaneous entries.'};
@@ -697,20 +783,22 @@ async function scanRoute(url,env,ctx){
   return json(await scanForexJudgment(env,style));
 }
 async function v3Status(env){
-  const snap=await readMt5Realtime(env),mt5=snap?.heartbeat||null;
-  return json({ok:true,version:V3_VERSION,service:'SignalHub multi-market gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,forex:{executionPriceAuthority:'EXNESS_MT5',transport:mt5LiveStub(env)?'DURABLE_OBJECT_REALTIME_WEBSOCKET':'KV_FALLBACK',scalp:'V36_MARKET_JUDGMENT_5M_15M_1H',swing:'V36_MARKET_JUDGMENT_1H_4H_1D'},crypto:{priceAuthority:'BYBIT_PREFERRED_WITH_LABELED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'V36_MARKET_JUDGMENT_MULTI_TF',swing:'V36_MARKET_JUDGMENT_MULTI_TF',antiFomo:false},engines:{forexScalp:'ACTIVE',forexSwing:'ACTIVE_REQUIRES_FRESH_EXNESS',cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},mt5Heartbeat:mt5?{bridgeVersion:mt5.bridgeVersion,terminalConnected:mt5.terminalConnected,tradeAllowed:mt5.tradeAllowed,resolvedSymbols:mt5.resolvedSymbols,receivedAt:mt5.receivedAt}:null,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
+  const snap=await readMt5Realtime(env),mt5=snap?.heartbeat||null,portfolio=await realtimePortfolioSnapshot(env),cryptoMonitor=await cryptoServerMonitorStatus(env);
+  return json({ok:true,version:V3_VERSION,service:'SignalHub multi-market gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,forex:{executionPriceAuthority:'EXNESS_MT5',transport:mt5LiveStub(env)?'DURABLE_OBJECT_REALTIME_WEBSOCKET':'KV_FALLBACK',scalp:'V36_MARKET_JUDGMENT_5M_15M_1H',swing:'V36_MARKET_JUDGMENT_1H_4H_1D'},crypto:{priceAuthority:'BYBIT_PREFERRED_WITH_LABELED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'V36_MARKET_JUDGMENT_MULTI_TF',swing:'V36_MARKET_JUDGMENT_MULTI_TF',antiFomo:false},engines:{forexScalp:'ACTIVE',forexSwing:'ACTIVE_REQUIRES_FRESH_EXNESS',cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},mt5Heartbeat:mt5?{bridgeVersion:mt5.bridgeVersion,terminalConnected:mt5.terminalConnected,tradeAllowed:mt5.tradeAllowed,resolvedSymbols:mt5.resolvedSymbols,receivedAt:mt5.receivedAt}:null,portfolio,cryptoMonitor,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
 }
 async function handleV3(req,env,ctx){
   const url=new URL(req.url);if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'content-type, authorization, x-signalhub-bridge','access-control-allow-methods':'GET,POST,OPTIONS'}});
   try{
     if(url.pathname==='/v3/status'&&req.method==='GET')return v3Status(env);
     if(url.pathname==='/v3/app-version'&&req.method==='GET')return json({ok:true,version:V3_VERSION,checkpoint:CHECKPOINT,app:V31_RELEASE});
-    if(url.pathname==='/v3/mt5/prices'&&req.method==='POST')return mt5Prices(req,env);
+    if(url.pathname==='/v3/mt5/prices'&&req.method==='POST')return mt5Prices(req,env,ctx);
     if(url.pathname==='/v3/mt5/heartbeat'&&req.method==='POST')return mt5Heartbeat(req,env);
     if(url.pathname==='/v3/mt5/events'&&req.method==='POST')return mt5Event(req,env);
     if(url.pathname==='/v3/forex/live'&&req.method==='GET')return mt5Live(env);
     if(url.pathname==='/v3/forex/stream'&&req.method==='GET'&&String(req.headers.get('Upgrade')||'').toLowerCase()==='websocket')return mt5Stream(req,env);
     if(url.pathname==='/v3/crypto/tickers'&&req.method==='GET')return cryptoTickers(url,env);
+    if(url.pathname==='/v3/crypto/monitor'&&req.method==='GET'){const kick=url.searchParams.get('kick')==='1'?await kickCryptoServerMonitor(env):null;return json({ok:true,version:V3_VERSION,status:await cryptoServerMonitorStatus(env),kick,portfolio:await realtimePortfolioSnapshot(env)});}
+    if(url.pathname==='/v3/portfolio'&&req.method==='GET')return json({ok:true,version:V3_VERSION,portfolio:await realtimePortfolioSnapshot(env),policy:PORTFOLIO_POLICY});
     if(url.pathname==='/v3/crypto/discovery'&&req.method==='GET')return cryptoDiscovery(url,env);
     if(url.pathname==='/v3/scan'&&req.method==='GET')return scanRoute(url,env,ctx);
     if(url.pathname==='/v3/signals'&&req.method==='GET')return unifiedSignals(url,env);
@@ -723,6 +811,6 @@ export default {
   async fetch(req,env,ctx){const v3=await handleV3(req,env,ctx);if(v3)return v3;return legacy.fetch(req,env,ctx);},
   async scheduled(event,env,ctx){
     if(typeof legacy.scheduled==='function')ctx.waitUntil(Promise.resolve(legacy.scheduled(event,env,ctx)).catch(()=>{}));
-    ctx.waitUntil((async()=>{await scanForexScalp(env).catch(()=>{});await sleep(100);await scanForexSwing(env).catch(()=>{});await sleep(100);await scanCrypto(env,'SCALP').catch(()=>{});await sleep(100);await scanCrypto(env,'SWING').catch(()=>{});})());
+    ctx.waitUntil((async()=>{await scanForexScalp(env).catch(()=>{});await sleep(100);await scanForexSwing(env).catch(()=>{});await sleep(100);await scanCrypto(env,'SCALP').catch(()=>{});await sleep(100);await scanCrypto(env,'SWING').catch(()=>{});await kickCryptoServerMonitor(env).catch(()=>{});})());
   },
 };

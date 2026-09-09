@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 public class MonitorService extends Service {
     private static final String CH_MONITOR="signalhub_monitor_v33", CH_SIGNAL="signalhub_signal_v33";
     private static final int FOREGROUND_ID=7201;
-    private static final long LOOP_MS=2000L;
+    private static final long LOOP_MS=1000L;
     private static final long RECENT_NEW_MS=10*60*1000L;
     private volatile boolean running;
     private ExecutorService worker;
