@@ -33,17 +33,28 @@ jobs:
       - name: Verify source contract
         run: |
           set -euo pipefail
-          grep -q "SIGNALHUB-V3-GATEWAY-3.9.0" signalhub-worker/gateway-v3.js
-          grep -q "CLEAN_MARKET_STORY_NO_SCORE" signalhub-worker/gateway-v3.js
-          grep -q "DURABLE_OBJECT_REALTIME_SINGLE_SOURCE" signalhub-worker/gateway-v3.js
-          grep -q "REALTIME_PENDING_INVALIDATION" signalhub-worker/gateway-v3.js
-          grep -q "REPLACED_BY_V39_CLEAN_STORY" signalhub-worker/gateway-v3.js
-          grep -q "V39-${market:-FOREX}" signalhub-worker/gateway-v3.js || grep -q 'V39-${market}' signalhub-worker/gateway-v3.js
-          grep -q "versionName '3.9.0'" signalhub-android/app/build.gradle
-          grep -q "MARKET STORY" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
-          grep -q "3.9.0-clean-market-story" signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java
-          ! grep -q "TRANSITION_MOMENTUM" signalhub-worker/gateway-v3.js
-          ! grep -q "passesV35QualityGate\|admissionMinScore\|admissionMinRR" signalhub-worker/gateway-v3.js
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          api=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          required=[
+            'SIGNALHUB-V3-GATEWAY-3.9.0','CLEAN_MARKET_STORY_NO_SCORE',
+            'DURABLE_OBJECT_REALTIME_SINGLE_SOURCE','REALTIME_PENDING_INVALIDATION',
+            'REPLACED_BY_V39_CLEAN_STORY','V39-${market}-${style}',
+            "regime='NO_TRADE'",'marketStory:story',
+            'H1 alone cannot define the trade'
+          ]
+          missing=[x for x in required if x not in w]
+          assert not missing,('missing worker contract',missing)
+          assert "async function trackV31Signals(env,market,style,priceMap){\n  return [];\n}" in w,'scanner lifecycle tracker still active'
+          assert 'passesV35QualityGate' not in w and 'admissionMinScore' not in w and 'admissionMinRR' not in w
+          assert "versionName '3.9.0'" in g
+          assert 'APP_VERSION="3.9.0"' in a
+          assert '3.9.0-clean-market-story' in api
+          print('V3.9 source contract OK')
+          PY
       - name: Validate Worker
         run: npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v39-worker
       - name: Deploy worker
