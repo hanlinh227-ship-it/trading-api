@@ -18,7 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MonitorService extends Service {
-    private static final String CH_MONITOR="signalhub_monitor_v32", CH_SIGNAL="signalhub_signal_v32";
+    private static final String CH_MONITOR="signalhub_monitor_v33", CH_SIGNAL="signalhub_signal_v33";
     private static final int FOREGROUND_ID=7201;
     private static final long LOOP_MS=5000L;
     private static final long RECENT_NEW_MS=10*60*1000L;
@@ -109,13 +109,26 @@ public class MonitorService extends Service {
         b.append("\n").append(market).append(" • ").append(s.optString("orderType","MARKET"));
         if(!dataState.isEmpty())b.append(" • ").append(dataState);
         b.append(" • Setup ").append(s.optInt("score",0)).append("/100");
+        appendHistory(title,b.toString());
         notifyHigh(title,b.toString(),key);
+    }
+
+
+    private void appendHistory(String title,String body){
+        try{
+            SharedPreferences p=getSharedPreferences("signalhub_v32",MODE_PRIVATE);
+            JSONArray old=new JSONArray(p.getString("alert_history_v33","[]"));
+            JSONArray out=new JSONArray();
+            JSONObject now=new JSONObject();now.put("ts",System.currentTimeMillis());now.put("title",title);now.put("body",body);out.put(now);
+            for(int i=0;i<old.length()&&i<49;i++)out.put(old.opt(i));
+            p.edit().putString("alert_history_v33",out.toString()).apply();
+        }catch(Throwable ignored){}
     }
 
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.2 • LIVE MONITOR")
+                .setContentTitle("SignalHub V3.3 • LIVE MONITOR")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 
