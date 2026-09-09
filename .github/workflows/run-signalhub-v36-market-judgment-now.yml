@@ -36,6 +36,7 @@ jobs:
           grep -q "SIGNALHUB-V3-GATEWAY-3.6.0" signalhub-worker/gateway-v3.js
           grep -q "BOT_MARKET_JUDGMENT" signalhub-worker/gateway-v3.js
           grep -q "NO_SCORE_NO_TIME_GATE" signalhub-worker/gateway-v3.js
+          grep -q "return json(await scanForexJudgment(env,style))" signalhub-worker/gateway-v3.js
           ! grep -q "V35_QUALITY_POLICY\|passesV35QualityGate\|stampV35Quality\|admissionMinScore\|admissionMinRR\|minGap=" signalhub-worker/gateway-v3.js
           ! grep -q "SETUP QUALITY\|Setup quality\|score ≥" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
           grep -q "versionName '3.6.0'" signalhub-android/app/build.gradle
@@ -46,25 +47,36 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@latest deploy --config signalhub-worker/wrangler.jsonc
-      - name: Smoke production
+      - name: Wait for V3.6 production everywhere we exercise
         run: |
           set -euo pipefail
-          ready=0
-          for n in $(seq 1 30); do
-            if curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
-              if python3 - <<'PY'
+          for endpoint in "/v3/status" "/v3/scan?market=FOREX&style=SCALP" "/v3/signals?market=FOREX&style=SCALP&status=active&limit=5"; do
+            ready=0
+            for n in $(seq 1 30); do
+              sep='?'; [[ "$endpoint" == *'?'* ]] && sep='&'
+              if curl -fsS --max-time 75 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL${endpoint}${sep}probe=$RANDOM-$n" >/tmp/probe.json; then
+                if python3 - <<'PY'
           import json
-          s=json.load(open('/tmp/status.json'))
-          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',s
-          p=s.get('decisionPolicy') or {}
-          assert p.get('name')=='BOT_MARKET_JUDGMENT' and p.get('scoreGate') is False and p.get('timeGate') is False,p
+          p=json.load(open('/tmp/probe.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',p.get('version')
           PY
-              then ready=1; break; fi
-            fi
-            sleep 2
+                then ready=1; break; fi
+              fi
+              sleep 2
+            done
+            test "$ready" = 1
           done
-          test "$ready" = 1
-          curl -fsS --max-time 15 "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
+      - name: Smoke production realtime
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM" >/tmp/status.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'));p=s.get('decisionPolicy') or {}
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',s
+          assert p.get('name')=='BOT_MARKET_JUDGMENT' and p.get('scoreGate') is False and p.get('timeGate') is False and p.get('rrGate') is False,p
+          PY
+          curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
           python3 - <<'PY'
           import json
           x=json.load(open('/tmp/live.json'))
@@ -77,15 +89,22 @@ jobs:
           set -euo pipefail
           for m in FOREX CRYPTO; do
             for s in SCALP SWING; do
-              curl -fsS --max-time 75 "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=$RANDOM" >/tmp/scan.json
-              M="$m" S="$s" python3 - <<'PY'
+              ok=0
+              for n in $(seq 1 15); do
+                if curl -fsS --max-time 75 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=$RANDOM-$n" >/tmp/scan.json; then
+                  if M="$m" S="$s" python3 - <<'PY'
           import json,os
-          p=json.load(open('/tmp/scan.json'))
-          q=p.get('decisionPolicy') or {}
-          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',p
-          assert q.get('name')=='BOT_MARKET_JUDGMENT' and q.get('scoreGate') is False and q.get('timeGate') is False,q
+          p=json.load(open('/tmp/scan.json'));q=p.get('decisionPolicy') or {}
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',p.get('version')
+          assert q.get('name')=='BOT_MARKET_JUDGMENT' and q.get('scoreGate') is False and q.get('timeGate') is False and q.get('rrGate') is False,q
+          assert 'legacy' not in p,p
           print(os.environ['M'],os.environ['S'],'created',p.get('created'),'actionable',p.get('actionable'))
           PY
+                  then ok=1; break; fi
+                fi
+                sleep 2
+              done
+              test "$ok" = 1
             done
           done
       - name: Verify signal payloads
@@ -93,17 +112,25 @@ jobs:
           set -euo pipefail
           for m in FOREX CRYPTO; do
             for s in SCALP SWING; do
-              curl -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=120&probe=$RANDOM" >/tmp/s.json
-              python3 - <<'PY'
+              ok=0
+              for n in $(seq 1 15); do
+                if curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=120&probe=$RANDOM-$n" >/tmp/s.json; then
+                  if python3 - <<'PY'
           import json
           p=json.load(open('/tmp/s.json'));q=p.get('decisionPolicy') or {}
-          assert q.get('name')=='BOT_MARKET_JUDGMENT' and q.get('scoreGate') is False and q.get('timeGate') is False,q
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',p.get('version')
+          assert q.get('name')=='BOT_MARKET_JUDGMENT' and q.get('scoreGate') is False and q.get('timeGate') is False and q.get('rrGate') is False,q
           assert 'qualityPolicy' not in p
           for x in p.get('signals',[]):
               assert x.get('orderType') in ('MARKET','LIMIT','STOP'),x
               assert 'score' not in x and 'qualityGrade' not in x and 'admissionGate' not in x,x
               assert x.get('decisionMode')=='BOT_MARKET_JUDGMENT',x
           PY
+                  then ok=1; break; fi
+                fi
+                sleep 2
+              done
+              test "$ok" = 1
             done
           done
       - name: Build APK
