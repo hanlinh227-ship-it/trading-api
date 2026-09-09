@@ -1,0 +1,29 @@
+name: Diagnose V321 Analyze Function
+on:
+  push:
+    branches: [signalhub-v321-standardized-watch-ideal]
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate and print analysis helpers
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          for term,endterm in [('async function analyzeCryptoCandidate','async function scanCrypto'),('async function cryptoCandles','function stats'),('async function loadCryptoCandles','function'),('function buildStableReferenceSetup','async function analyzeCryptoCandidate')]:
+              p=w.find(term)
+              print('\n===== '+term+' =====')
+              if p<0: print('NOT FOUND'); continue
+              q=w.find(endterm,p+len(term)) if endterm else -1
+              if q<0 or q-p>30000:q=min(len(w),p+30000)
+              print(w[p:q])
+          PY
