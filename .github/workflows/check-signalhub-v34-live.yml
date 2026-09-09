@@ -1,0 +1,48 @@
+name: Check SignalHub V3.4 Live Cadence
+
+on:
+  push:
+    branches: [signalhub-v34-realtime]
+    paths: ['.github/workflows/check-signalhub-v34-live.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe 15 realtime samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://signalhub-forex.hanlinh227.workers.dev/v3/forex/live'
+          rm -f /tmp/samples.jsonl
+          for i in $(seq 1 15); do
+            curl -fsS --max-time 10 -H 'Cache-Control: no-cache' "$URL?probe=$RANDOM-$i" >/tmp/live.json
+            python3 - <<'PY' | tee -a /tmp/samples.jsonl
+          import json
+          p=json.load(open('/tmp/live.json'))
+          h=p.get('heartbeat') or {}
+          print(json.dumps({'state':p.get('state'),'age':p.get('quoteAgeMs'),'hbAge':p.get('heartbeatAgeMs'),'count':p.get('count'),'transport':p.get('transport'),'bridge':h.get('bridgeVersion'),'connected':h.get('terminalConnected')},separators=(',',':')))
+          PY
+            sleep 0.5
+          done
+          python3 - <<'PY'
+          import json,statistics
+          rows=[json.loads(x) for x in open('/tmp/samples.jsonl') if x.strip()]
+          ages=[x['age'] for x in rows if isinstance(x.get('age'),(int,float))]
+          print('states=',[x['state'] for x in rows])
+          print('transport=',sorted(set(x['transport'] for x in rows)))
+          print('bridge=',sorted(set(str(x['bridge']) for x in rows)))
+          print('quoteAge ms min/median/max=',min(ages),statistics.median(ages),max(ages))
+          print('counts=',sorted(set(x['count'] for x in rows)))
+          assert len(rows)==15
+          assert all(x['transport']=='DURABLE_OBJECT_REALTIME' for x in rows)
+          assert all(x['connected'] is True for x in rows)
+          assert all(x['count']>=30 for x in rows)
+          assert all(x['state']=='LIVE' for x in rows), rows
+          assert max(ages) <= 1800, max(ages)
+          PY
