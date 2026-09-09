@@ -1,0 +1,96 @@
+name: Build SignalHub V3.14 Crypto Stability UI APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/run-signalhub-v314-crypto-stability-ui-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-v314:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: signalhub-v314-crypto-stability-ui
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.14 Activity stability UI patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v314_stability_ui.py
+          grep -q 'APP_VERSION="3.14.0"' signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q 'LIVE_REFRESH_MS=1000L' signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q 'LOOP_MS=3000L' signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java
+          grep -q "versionName '3.14.0'" signalhub-android/app/build.gradle
+
+      - name: Verify production crypto gateway is reachable
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.14-apk' -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM" >/tmp/status.json
+          curl -A 'SignalHub-CI/3.14-apk' -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/tickers?limit=5&probe=$RANDOM" >/tmp/tickers.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          t=json.load(open('/tmp/tickers.json'))
+          assert s.get('ok') is True
+          assert s.get('forexDisabled') is True
+          assert isinstance(t.get('tickers'), list)
+          print('V314_GATEWAY_OK', s.get('version'), 'tickers', len(t.get('tickers') or []))
+          PY
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify and stage APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK"
+          cp "$APK" dist/SignalHub-v3.14.0-Crypto-Stability-UI.apk
+          sha256sum dist/SignalHub-v3.14.0-Crypto-Stability-UI.apk > dist/SHA256SUMS.txt
+          cp /tmp/status.json /tmp/tickers.json dist/
+
+      - name: Commit generated V3.14 Activity source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          git commit -m 'SignalHub v3.14 generated Activity stability UI' || true
+          git push origin HEAD:signalhub-v314-crypto-stability-ui
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.14.0-Crypto-Stability-UI
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='signalhub-v3.14.0-crypto-stability-ui'
+          NOTES='Crypto-only Android refinement. SCALP/SWING remain hard-separated. Clear LIVE price plus Entry/SL/TP hierarchy. Shared OkHttp connection pooling, bounded retries, lower foreground request pressure, 3s background monitor cadence, and 30s scan throttling.'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v314-crypto-stability-ui --prerelease --title 'SignalHub v3.14.0 Crypto Stability UI' --notes "$NOTES"
+          fi
