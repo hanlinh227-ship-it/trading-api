@@ -1,0 +1,183 @@
+name: Run SignalHub V3.8 Style Immediate Now
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/run-signalhub-v38-style-immediate-now.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: signalhub-v38-style-immediate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Apply V3.8 style and realtime patch
+        run: python3 scripts/patch_signalhub_v38_style_immediate.py
+      - name: Verify source contract
+        run: |
+          set -euo pipefail
+          grep -q "SIGNALHUB-V3-GATEWAY-3.8.0" signalhub-worker/gateway-v3.js
+          grep -q "SCALP_MICROSTRUCTURE" signalhub-worker/gateway-v3.js
+          grep -q "SWING_HTF_STRUCTURE" signalhub-worker/gateway-v3.js
+          grep -q "PRICE_TOUCH_EVENT_DRIVEN_NO_COOLDOWN" signalhub-worker/gateway-v3.js
+          grep -q "register-signal" signalhub-worker/gateway-v3.js
+          grep -q "signal_event" signalhub-worker/gateway-v3.js
+          grep -q "entryPx=dir>0?ask:bid" signalhub-worker/gateway-v3.js
+          grep -q "exitPx=dir>0?bid:ask" signalhub-worker/gateway-v3.js
+          grep -q "versionName '3.8.0'" signalhub-android/app/build.gradle
+          grep -q "applyRealtimeSignal" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q '"crons": \["\* \* \* \* \*"\]' signalhub-worker/wrangler.jsonc
+          ! grep -q "passesV35QualityGate\|admissionMinScore\|admissionMinRR" signalhub-worker/gateway-v3.js
+      - name: Validate Worker
+        run: npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v38-worker
+      - name: Deploy worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config signalhub-worker/wrangler.jsonc
+      - name: Wait for V3.8 production
+        run: |
+          set -euo pipefail
+          for endpoint in "/v3/status" "/v3/signals?market=FOREX&style=SCALP&status=active&limit=5" "/v3/signals?market=FOREX&style=SWING&status=active&limit=5"; do
+            ready=0
+            for n in $(seq 1 30); do
+              sep='?'; [[ "$endpoint" == *'?'* ]] && sep='&'
+              if curl -fsS --max-time 75 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL${endpoint}${sep}probe=$RANDOM-$n" >/tmp/probe.json; then
+                if python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/probe.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.8.0',p.get('version')
+          PY
+                then ready=1; break; fi
+              fi
+              sleep 2
+            done
+            test "$ready" = 1
+          done
+      - name: Smoke production realtime and policy
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM" >/tmp/status.json
+          curl -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'));p=s.get('decisionPolicy') or {}
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.8.0',s
+          assert p.get('name')=='BOT_MARKET_JUDGMENT',p
+          assert p.get('scoreGate') is False and p.get('timeGate') is False and p.get('rrGate') is False,p
+          assert p.get('styleSeparation')=='SCALP_MICROSTRUCTURE_VS_SWING_HTF_STRUCTURE',p
+          assert p.get('pendingActivation')=='PRICE_TOUCH_EVENT_DRIVEN_NO_COOLDOWN',p
+          x=json.load(open('/tmp/live.json'))
+          assert x.get('transport')=='DURABLE_OBJECT_REALTIME',x
+          assert x.get('count',0)>=30,x
+          print('FOREX',x.get('state'),'age',x.get('quoteAgeMs'),'count',x.get('count'))
+          PY
+      - name: Exercise all 4 judgment engines
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              ok=0
+              for n in $(seq 1 12); do
+                if curl -fsS --max-time 90 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=$RANDOM-$n" >/tmp/scan.json; then
+                  if M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/scan.json'));q=p.get('decisionPolicy') or {}
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.8.0',p.get('version')
+          assert q.get('scoreGate') is False and q.get('timeGate') is False and q.get('rrGate') is False,q
+          expected='SCALP_MICROSTRUCTURE' if os.environ['S']=='SCALP' else 'SWING_HTF_STRUCTURE'
+          for x in p.get('topAnalyses',[]):
+              assert x.get('styleExecutionModel')==expected,(expected,x.get('styleExecutionModel'),x)
+              assert x.get('entryModel') and x.get('slModel') and x.get('tpModel'),x
+              e=float(x['entry']);sl=float(x['sl']);t1=float(x['tp1']);t2=float(x['tp2']);t3=float(x['tp3'])
+              side=x.get('side')
+              if side in ('LONG','BUY'): assert sl<e<t1<t2<t3,(e,sl,t1,t2,t3)
+              else: assert sl>e>t1>t2>t3,(e,sl,t1,t2,t3)
+          print(os.environ['M'],os.environ['S'],'actionable',p.get('actionable'),'created',p.get('created'))
+          PY
+                  then ok=1; break; fi
+                fi
+                sleep 2
+              done
+              test "$ok" = 1
+            done
+          done
+      - name: Verify active payloads and crypto trigger path
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/crypto/tickers?limit=1000&probe=$RANDOM" >/tmp/crypto.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/crypto.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.8.0',p.get('version')
+          assert p.get('count',0)>0,p
+          PY
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=120&probe=$RANDOM" >/tmp/s.json
+              M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/s.json'));q=p.get('decisionPolicy') or {}
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.8.0',p.get('version')
+          assert q.get('pendingActivation')=='PRICE_TOUCH_EVENT_DRIVEN_NO_COOLDOWN',q
+          for x in p.get('signals',[]):
+              assert x.get('orderType') in ('MARKET','LIMIT','STOP'),x
+              assert 'score' not in x and 'qualityGrade' not in x and 'admissionGate' not in x,x
+          PY
+            done
+          done
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Verify and stage APK
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          mkdir -p dist
+          cp "$APK" dist/SignalHub-v3.8.0-Scalp-Swing-Immediate.apk
+          sha256sum dist/SignalHub-v3.8.0-Scalp-Swing-Immediate.apk > dist/SHA256SUMS.txt
+      - name: Commit generated source to V3.8 branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js signalhub-worker/wrangler.jsonc signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java
+          git commit -m "SignalHub v3.8 scalp swing separation immediate activation" || true
+          git push origin HEAD:signalhub-v38-style-immediate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.8.0-Scalp-Swing-Immediate
+          path: dist/
+          retention-days: 30
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.8.0-scalp-swing-immediate'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/SignalHub-v3.8.0-Scalp-Swing-Immediate.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/SignalHub-v3.8.0-Scalp-Swing-Immediate.apk dist/SHA256SUMS.txt --target signalhub-v38-style-immediate --prerelease --title 'SignalHub v3.8.0 Scalp Swing Immediate' --notes 'SCALP and SWING use separate execution profiles. Structure/liquidity first entries and invalidation-based SL/TP. LIMIT/STOP activation is driven by live price events with no signal cooldown, score gate, RR admission gate or session/time gate. Forex trigger semantics use MT5 Ask for buys and Bid for sells.'
+          fi
