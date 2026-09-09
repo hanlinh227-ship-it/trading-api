@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 W=Path('signalhub-worker/gateway-v3.js')
 A=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java')
@@ -11,12 +10,6 @@ def rep(text,old,new,label):
         raise SystemExit('missing '+label)
     return text.replace(old,new)
 
-def sub1(text,pattern,repl,label,flags=0):
-    out,n=re.subn(pattern,repl,text,count=1,flags=flags)
-    if n!=1:
-        raise SystemExit(f'missing {label} matches={n}')
-    return out
-
 # Version bump after V3.19 + V3.19.1 patches.
 w=rep(w,"SIGNALHUB-V3-GATEWAY-3.19.1","SIGNALHUB-V3-GATEWAY-3.20.0",'worker version')
 a=rep(a,'private static final String APP_VERSION="3.19.1";','private static final String APP_VERSION="3.20.0";','app version')
@@ -27,13 +20,13 @@ w=w.replace("title: 'SignalHub 3.19.1 Stable Reference Coverage'","title: 'Signa
 w=w.replace("artifactName: 'SignalHub-Android-v3.19.1-10Scalp-5Swing-StableUniverse'","artifactName: 'SignalHub-Android-v3.20.0-Stable100-Continuous'")
 a=a.replace('CRYPTO • 10 SCALP + 5 SWING','CRYPTO • TOP 100 • 10 SCALP + 5 SWING')
 
-# Portfolio policy: active book remains 10 SCALP + 5 SWING, but a larger reserve pool is maintained.
+# Portfolio policy: active book remains 10 SCALP + 5 SWING, with a deeper hot-spare pool.
 policy_old="standbyPerStyle:12,replacementMode:'DURABLE_OBJECT_HOT_SPARE_ATOMIC_RESERVE_POOL',universeRefresh:'FULL_LIVE_PROVIDER_SNAPSHOT_EVERY_CRON_AND_REFILL'"
 policy_new="standbyPerStyle:20,replacementMode:'DURABLE_OBJECT_HOT_SPARE_ATOMIC_RESERVE_POOL',universeRefresh:'DYNAMIC_STABLE100_EVERY_SERVER_CYCLE_PLUS_ON_DEMAND',stableUniverseSize:100,stableUniversePolicy:'TOP_100_STABLE_USDT_PERP_DYNAMIC',deepScanRotation:'LIQUIDITY_CORE_PLUS_ROTATING_COVERAGE',continuousRefill:'TARGET_10_SCALP_5_SWING_FROM_HOT_SPARES'"
 w=rep(w,policy_old,policy_new,'portfolio stable100 metadata')
 
-# Dynamic top-100 stable/liquid market universe. This is a broad universe guard; stricter per-style
-# SCALP/SWING filters still apply before a signal can occupy an active slot.
+# Dynamic top-100 stable/liquid market universe. This broad universe is refreshed from every live ticker snapshot.
+# The existing stricter per-style liquidity filter still decides which coin may occupy a SCALP/SWING signal slot.
 needle='function signalLiquidityFacts(s){'
 if needle not in w: raise SystemExit('signalLiquidityFacts needle missing')
 helper=r'''const STABLE100_SIZE=100;
@@ -73,29 +66,37 @@ function rotatingStableCandidates(rows,style,limit){
 '''
 w=w.replace(needle,helper+needle,1)
 
-# A secondary venue that is neutral must not discard a stable pending LIMIT/STOP reference.
-# Only a directly opposing secondary context rejects that pending idea. This does not relax MARKET confirmation.
+# A neutral secondary venue may keep a conditional LIMIT/STOP candidate. Only a directly opposing
+# secondary context rejects that pending reference. MARKET confirmation rules are not relaxed.
 w=w.replace("setup.technicalAtIssue.crossMomentum=sec.momentum;setup.crossProviderConfirmation=confirmed;",
             "setup.technicalAtIssue.crossMomentum=sec.momentum;setup.technicalAtIssue.crossOpposing=opposing;setup.crossProviderConfirmation=confirmed;")
 w=rep(w,"if(setup.referenceFallback&&checked&&!setup.crossProviderConfirmation)return null;",
       "if(setup.referenceFallback&&checked&&setup.technicalAtIssue?.crossOpposing===true)return null;",'neutral secondary pending rule')
 
-# Replace the V3.19.1 selection block robustly. All live tickers are reviewed into stable100 each scan;
-# deeper candles use a liquidity core plus rotating coverage to avoid exchange API bursts.
-scan_pattern=r"const all=snap\.rows,portfolio=await realtimePortfolioSnapshot\(env\),styleUnderfilled=Number\(portfolio\.styles\?\.\[style\]\|\|0\)<styleTarget\(style\);\s*const liquid=all\.filter\(x=>stableUniverseEligible\(x,style\)\);\s*const rankedLimit=style==='SCALP'\?\(styleUnderfilled\?Math\.min\(64,liquid\.length\):32\):\(styleUnderfilled\?Math\.min\(44,liquid\.length\):24\);\s*const ranked=liquid\.sort\(stableUniverseCompare\)\.slice\(0,rankedLimit\);"
-scan_new="""const all=snap.rows,stable100=await persistStable100(env,snap,all),portfolio=await realtimePortfolioSnapshot(env),styleUnderfilled=Number(portfolio.styles?.[style]||0)<styleTarget(style);
-  const liquid=stable100.filter(x=>stableUniverseEligible(x,style));
-  const rankedLimit=style==='SCALP'?(styleUnderfilled?Math.min(72,liquid.length):Math.min(52,liquid.length)):(styleUnderfilled?Math.min(58,liquid.length):Math.min(42,liquid.length));
-  const ranked=rotatingStableCandidates(liquid,style,rankedLimit);"""
-w=sub1(w,scan_pattern,scan_new,'scan stable100 selection')
+# Anchor-based replacement so the V3.20 patch is resilient to compact formatting in generated V3.19.1 source.
+scan_fn=w.index('async function scanCrypto')
+sel_start=w.index('const all=snap.rows',scan_fn)
+raw_start=w.index('const rawAnalyses=',sel_start)
+indent=w[w.rfind('\n',0,sel_start)+1:sel_start]
+scan_new=(
+    "const all=snap.rows,stable100=await persistStable100(env,snap,all),portfolio=await realtimePortfolioSnapshot(env),styleUnderfilled=Number(portfolio.styles?.[style]||0)<styleTarget(style);\n"
+    +indent+"const liquid=stable100.filter(x=>stableUniverseEligible(x,style));\n"
+    +indent+"const rankedLimit=style==='SCALP'?(styleUnderfilled?Math.min(72,liquid.length):Math.min(52,liquid.length)):(styleUnderfilled?Math.min(58,liquid.length):Math.min(42,liquid.length));\n"
+    +indent+"const ranked=rotatingStableCandidates(liquid,style,rankedLimit);\n"
+    +indent
+)
+w=w[:sel_start]+scan_new+w[raw_start:]
 
-# Expose universe telemetry on scan response.
-resp_pattern=r"scanned:all\.length,liquidUniverse:liquid\.length,deepAnalyzed:ranked\.length,"
-w=sub1(w,resp_pattern,"scanned:all.length,stable100Target:STABLE100_SIZE,stable100Count:stable100.length,stable100Symbols:stable100.map(x=>x.symbol),liquidUniverse:liquid.length,deepAnalyzed:ranked.length,",'scan telemetry')
+# Expose universe telemetry in scan response if the compact response marker is present.
+tele_old='scanned:all.length,liquidUniverse:liquid.length,deepAnalyzed:ranked.length,'
+tele_new='scanned:all.length,stable100Target:STABLE100_SIZE,stable100Count:stable100.length,stable100Symbols:stable100.map(x=>x.symbol),liquidUniverse:liquid.length,deepAnalyzed:ranked.length,'
+if tele_old in w[scan_fn:]:
+    before=w[:scan_fn]; after=w[scan_fn:].replace(tele_old,tele_new,1); w=before+after
 
-# Maintenance runs every existing one-minute server cron. It refreshes both style pools and promotes a hot spare
-# immediately when the realtime portfolio is below the style target.
-maint_pattern=r"async function cryptoOnlyMaintenance\(env\)\{.*?\n\}\n\nasync function exnessQuoteMap"
+# Existing one-minute cron calls this maintenance function. Refresh both style pools every cycle,
+# and promote a hot spare immediately whenever a style falls below its 10/5 target.
+maint_start=w.index('async function cryptoOnlyMaintenance')
+maint_end=w.index('async function exnessQuoteMap',maint_start)
 maint_new="""async function cryptoOnlyMaintenance(env){
   let p=await realtimePortfolioSnapshot(env),attempted=[];
   for(const style of ['SCALP','SWING']){
@@ -106,15 +107,14 @@ maint_new="""async function cryptoOnlyMaintenance(env){
   await kickCryptoServerMonitor(env).catch(()=>{});return {mode:'STABLE100_CONTINUOUS',stableUniverse:await readStable100(env),attempted,portfolio:p,standbys:await cryptoStandbyStatus(env)};
 }
 
-async function exnessQuoteMap"""
-w=sub1(w,maint_pattern,maint_new,'maintenance loop',re.S)
+"""
+w=w[:maint_start]+maint_new+w[maint_end:]
 
-# Read-only endpoint for app/diagnostics; it never consumes an active trading slot.
+# Read-only universe endpoint for diagnostics/app display; it does not consume an active signal slot.
 route_needle="if(path==='/v3/crypto/tickers')return cryptoTickers(url,env);"
 if route_needle not in w: raise SystemExit('crypto ticker route missing')
 w=w.replace(route_needle,route_needle+"\n    if(path==='/v3/crypto/stable100'){const cached=await readStable100(env);if(cached)return json({ok:true,...cached});const snap=await loadCryptoSnapshot(env),rows=await persistStable100(env,snap,snap.rows);return json({ok:true,version:V3_VERSION,provider:snap.provider,receivedAt:snap.receivedAt,refreshedAt:nowIso(),target:STABLE100_SIZE,count:rows.length,symbols:rows.map(x=>x.symbol),rows});}",1)
 
-# Release notes, if the marker exists in the generated base.
 marker="'V3.19 targets exactly 10 SCALP + 5 SWING active reference signals, counting both OPEN market entries and PENDING LIMIT/STOP entries.',"
 if marker in w:
     w=w.replace(marker,"'V3.20 continuously maintains a dynamic top-100 stable USDT perpetual universe. All 100 are refreshed at ticker/liquidity level each server maintenance cycle and on-demand scan; deep candle analysis rotates through the universe while preserving a high-liquidity core.',\n    'V3.20 keeps 20 hot-spare candidates per style and continuously refills toward 10 SCALP + 5 SWING without forcing weak-liquidity or MARKET fallback entries.',\n    "+marker,1)
