@@ -1,0 +1,127 @@
+name: Build SignalHub V3.17 UX Polish
+
+on:
+  push:
+    branches: [signalhub-v317-ux-polish]
+    paths:
+      - 'scripts/patch_signalhub_v317_ux_polish.py'
+      - '.github/workflows/build-signalhub-v317-ux-polish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.17 UX polish
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v317_ux_polish.py
+
+      - name: Verify UX source contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          for x in [
+              'APP_VERSION="3.17.0"',
+              'private View navItem(',
+              'private View levelBox(',
+              'private View miniStat(',
+              'private void openSignalDetail(',
+              '4 tín hiệu tham khảo',
+              'Không chiếm 4 slot tín hiệu chính',
+              'Win rate chỉ là kết quả lịch sử',
+              'setVerticalScrollBarEnabled(false)',
+              'setContentDescription',
+              'Trang chủ','Tín hiệu','Theo dõi','Thống kê','Cài đặt',
+          ]: assert x in a,x
+          assert "versionCode 22" in g and "versionName '3.17.0'" in g
+          print('V3.17 UX source contract OK')
+          PY
+          git diff --exit-code -- signalhub-worker/gateway-v3.js
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK structure
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          unzip -l "$APK" | grep -q ic_watchlist.xml
+          unzip -l "$APK" | grep -q ic_signalhub.xml
+
+      - name: Create V3.17 checkpoint
+        run: |
+          cat > SIGNALHUB_V3_CHECKPOINT_08_UX_POLISH.md <<'EOF'
+          # SignalHub V3.17 UX Polish Checkpoint
+
+          - Scope: Android UX/UI only. Signal engine and production backend are intentionally unchanged from V3.16.
+          - Navigation: 5 compact destinations — Home, Signals, Watchlist, Stats, Settings.
+          - Home: simplified system state, 2 SCALP + 2 SWING counters, empirical closed-trade evidence, and four reference-signal cards.
+          - Signals: clearer SCALP/SWING segmented control, separate LIVE and pending-entry counts, simplified cards, larger price hierarchy, Entry/SL/TP3 tiles, existing live/pending gauges retained.
+          - Detail: trade plan and market-analysis hierarchy separated; Entry/SL/TP/RR remain visible without dense text walls.
+          - Watchlist: simpler add flow and compact per-symbol SCALP/SWING analysis; read-only and does not consume the fixed 2+2 portfolio.
+          - Stats: only realized TP/SL history; sample-size caveat remains explicit.
+          - Accessibility/polish: >=44dp primary controls, content descriptions for key icons, larger body text, cleaner spacing, hidden scroll bar, consistent rounded surfaces and semantic colors.
+          - Signal behavior: no score/time/RR gate changes and no backend signal-selection changes in this checkpoint.
+          - Build signing: debug signing remains in use.
+          EOF
+
+      - name: Stage APK and checksum
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.17.0-UX-Polish.apk
+          sha256sum dist/SignalHub-v3.17.0-UX-Polish.apk | tee dist/SignalHub-v3.17.0-UX-Polish-SHA256SUMS.txt
+
+      - name: Commit generated V3.17 source and checkpoint
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  SIGNALHUB_V3_CHECKPOINT_08_UX_POLISH.md
+          git commit -m "SignalHub v3.17 UX polish" || true
+          git push origin HEAD:signalhub-v317-ux-polish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.17.0-UX-Polish
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.17 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.17.0-ux-polish'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v317-ux-polish --prerelease \
+              --title 'SignalHub v3.17.0 UX Polish' \
+              --notes 'Android UX/UI polish only. Keeps the V3.16 crypto-only fixed 2 SCALP + 2 SWING signal engine and Watchlist behavior unchanged while simplifying navigation, signal cards, trade detail, Watchlist, stats, spacing, hierarchy, and accessibility.'
+          fi
