@@ -3,6 +3,7 @@ package com.hanlinh.signalhub;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Canvas;
@@ -15,6 +16,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.view.MotionEvent;
 import android.view.View;
 import android.content.SharedPreferences;
@@ -25,6 +29,9 @@ import android.widget.Toast;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.text.InputType;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -48,7 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS=42;
-    private static final String APP_VERSION="3.17.0";
+    private static final String APP_VERSION="3.18.0";
     private static final long LIVE_REFRESH_MS=500L; // REST fallback; WebSocket is primary
     private static final long PAGE_REFRESH_MS=2500L;
     private static final long SCAN_MS=30000L;
@@ -73,6 +80,8 @@ public class SignalHubActivity extends Activity {
     private final Map<String,Button> filterButtons=new ConcurrentHashMap<>();
     private final Map<String,JSONObject> watchCache=new ConcurrentHashMap<>();
     private final Map<String,Boolean> watchLoading=new ConcurrentHashMap<>();
+    private EditText watchSearchInput;
+    private LinearLayout watchSuggestions;
 
     private LinearLayout content,bottom,signalControls;
     private TextView fxLive,cryptoLive,subtitle;
@@ -96,7 +105,7 @@ public class SignalHubActivity extends Activity {
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
-        getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
+        getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         buildUi();ensureMonitor(true);renderCurrent(true);
     }
     @Override protected void onResume(){super.onResume();resumed=true;ensureMonitor(false);main.removeCallbacks(loop);main.post(loop);}
@@ -309,6 +318,29 @@ public class SignalHubActivity extends Activity {
     }
 
 
+    private boolean watchSearchHasFocus(){return screen.equals("WATCH")&&watchSearchInput!=null&&watchSearchInput.hasFocus();}
+    private void showWatchKeyboard(EditText input){
+        if(input==null)return;input.setFocusable(true);input.setFocusableInTouchMode(true);input.requestFocus();input.setSelection(input.getText().length());
+        main.postDelayed(()->{try{InputMethodManager imm=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);if(imm!=null)imm.showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);}catch(Throwable ignored){}},80);
+    }
+    private void hideWatchKeyboard(){try{if(watchSearchInput!=null){InputMethodManager imm=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);if(imm!=null)imm.hideSoftInputFromWindow(watchSearchInput.getWindowToken(),0);watchSearchInput.clearFocus();}}catch(Throwable ignored){}}
+    private String watchQuery(String raw){return raw==null?"":raw.toUpperCase(Locale.US).replaceAll("[^A-Z0-9]","").replace("USDT","");}
+    private List<String> watchMatches(String raw){
+        String q=watchQuery(raw);List<String> rows=new ArrayList<>();if(q.isEmpty())return rows;
+        List<String> keys=new ArrayList<>(cryptoPrices.keySet());keys.sort((a,b)->{String aa=a.replace("USDT",""),bb=b.replace("USDT","");boolean ap=aa.startsWith(q),bp=bb.startsWith(q);if(ap!=bp)return ap?-1:1;return aa.compareTo(bb);});
+        for(String sym:keys){String base=sym.replace("USDT","");if((base.startsWith(q)||base.contains(q))&&!rows.contains(sym)){rows.add(sym);if(rows.size()>=8)break;}}
+        return rows;
+    }
+    private void renderWatchSuggestions(String raw){
+        if(watchSuggestions==null)return;watchSuggestions.removeAllViews();String q=watchQuery(raw);if(q.isEmpty())return;List<String> rows=watchMatches(q);
+        if(rows.isEmpty()){TextView none=tv("Không thấy trong feed hiện tại • vẫn có thể bấm Tìm / thêm để backend kiểm tra mã này",9,YELLOW,false);none.setPadding(dp(4),dp(5),dp(4),dp(5));watchSuggestions.addView(none);return;}
+        for(String sym:rows){JSONObject live=cryptoPrices.get(sym);double px=live==null?0:live.optDouble("lastPrice",0);Button b=button(sym.replace("USDT","")+"   "+fmt(px),false,v->{if(watchSearchInput!=null)watchSearchInput.setText(sym.replace("USDT",""));commitWatchSearch();});LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(42));lp.setMargins(0,dp(3),0,dp(3));watchSuggestions.addView(b,lp);}
+    }
+    private void commitWatchSearch(){
+        if(watchSearchInput==null)return;String raw=watchSearchInput.getText().toString();String symbol=normalizeWatch(raw);if(symbol.isEmpty()){showWatchKeyboard(watchSearchInput);Toast.makeText(this,"Nhập mã coin, ví dụ BTC hoặc XRP",Toast.LENGTH_SHORT).show();return;}
+        watchSearchInput.setText("");hideWatchKeyboard();addWatch(symbol);
+    }
+
     private SharedPreferences watchPrefs(){return getSharedPreferences("signalhub_watch",MODE_PRIVATE);}
     private String normalizeWatch(String raw){String s=raw==null?"":raw.toUpperCase(Locale.US).replaceAll("[^A-Z0-9]","");if(s.isEmpty())return"";if(!s.endsWith("USDT"))s+="USDT";return s.length()<=24?s:"";}
     private List<String> watchSymbols(){
@@ -318,11 +350,25 @@ public class SignalHubActivity extends Activity {
     private void addWatch(String raw){String s=normalizeWatch(raw);if(s.isEmpty()){Toast.makeText(this,"Mã coin không hợp lệ",Toast.LENGTH_SHORT).show();return;}List<String> rows=watchSymbols();if(rows.contains(s)){refreshWatchSymbol(s,true);return;}if(rows.size()>=12){Toast.makeText(this,"Watchlist tối đa 12 coin",Toast.LENGTH_SHORT).show();return;}rows.add(s);saveWatchSymbols(rows);watchCache.remove(s);renderWatchlist(false);refreshWatchSymbol(s,true);}
     private void removeWatch(String symbol){List<String> rows=watchSymbols();rows.remove(symbol);saveWatchSymbols(rows);watchCache.remove(symbol);renderWatchlist(false);}
     private void refreshWatchlistAnalyses(boolean force){long now=System.currentTimeMillis();if(!force&&now-watchLastBulkMs<30000)return;watchLastBulkMs=now;for(String s:watchSymbols())refreshWatchSymbol(s,false);}
-    private void refreshWatchSymbol(String symbol,boolean force){if(Boolean.TRUE.equals(watchLoading.putIfAbsent(symbol,true)))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.get("/v3/watch/analyze?symbol="+symbol));watchCache.put(symbol,p);lastApiOkMs=System.currentTimeMillis();}catch(Throwable e){try{JSONObject err=new JSONObject();err.put("ok",false);err.put("symbol",symbol);err.put("error",String.valueOf(e.getMessage()));watchCache.put(symbol,err);}catch(Throwable ignored){}}finally{watchLoading.remove(symbol);main.post(()->{if(screen.equals("WATCH"))renderWatchlist(false);});}});}
+    private void refreshWatchSymbol(String symbol,boolean force){if(Boolean.TRUE.equals(watchLoading.putIfAbsent(symbol,true)))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.get("/v3/watch/analyze?symbol="+symbol));watchCache.put(symbol,p);lastApiOkMs=System.currentTimeMillis();}catch(Throwable e){try{JSONObject err=new JSONObject();err.put("ok",false);err.put("symbol",symbol);err.put("error",String.valueOf(e.getMessage()));watchCache.put(symbol,err);}catch(Throwable ignored){}}finally{watchLoading.remove(symbol);main.post(()->{if(screen.equals("WATCH")&&!watchSearchHasFocus())renderWatchlist(false);});}});}
     private int watchStateColor(String state){String x=state==null?"":state.toUpperCase(Locale.US);if(x.equals("ACTIVE_SIGNAL"))return GREEN;if(x.equals("TRADEABLE_NOW"))return CYAN;if(x.equals("CONDITIONAL_WAIT")||x.equals("DATA_UNAVAILABLE"))return YELLOW;return RED;}
     private String watchStateVi(String state){String x=state==null?"":state.toUpperCase(Locale.US);return switch(x){case "ACTIVE_SIGNAL"->"CÓ LỆNH";case "TRADEABLE_NOW"->"SETUP ĐẸP";case "CONDITIONAL_WAIT"->"CHỜ ĐIỀU KIỆN";case "DATA_UNAVAILABLE"->"DỮ LIỆU TẠM THIẾU";case "NO_TRADE"->"NO TRADE";default->"ĐANG PHÂN TÍCH";};}
     private View watchStyleBlock(String styleName,JSONObject x){LinearLayout c=column();c.setPadding(0,dp(9),0,dp(4));String state=x==null?"LOADING":x.optString("state","NO_TRADE"),side=sideVi(x==null?"":x.optString("side","")),order=x==null?"":x.optString("orderType","");LinearLayout h=row();h.addView(tv(styleName,11,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(watchStateVi(state),watchStateColor(state)));c.addView(h);if(x==null){TextView z=tv("Đang đọc cấu trúc…",9,MUTED,false);z.setPadding(0,dp(5),0,0);c.addView(z);return c;}String regime=x.optString("marketRegime","");if(!side.isEmpty()&&!order.isEmpty()){TextView d=tv(side+" • "+order+(regime.isEmpty()?"":" • "+regime),10,side.equals("BUY")?GREEN:RED,true);d.setPadding(0,dp(5),0,0);c.addView(d);}else if(!regime.isEmpty()){TextView d=tv(regime,9,MUTED,true);d.setPadding(0,dp(5),0,0);c.addView(d);}double e=x.optDouble("entry",0),sl=x.optDouble("sl",0),tp=x.optDouble("tp3",0);if(e>0&&sl>0&&tp>0)c.addView(tv("Entry "+fmt(e)+"  •  SL "+fmt(sl)+"  •  TP3 "+fmt(tp),9,TEXT,true));String story=x.optString("marketStory","");if(!story.isEmpty()&&(state.equals("TRADEABLE_NOW")||state.equals("ACTIVE_SIGNAL")||state.equals("CONDITIONAL_WAIT")))c.addView(tv(story,9,MUTED,false));JSONArray failed=x.optJSONArray("failedChecks");if(state.equals("NO_TRADE")&&failed!=null&&failed.length()>0)c.addView(tv("Chưa đạt: "+failed.optString(0),8,YELLOW,false));return c;}
-    private void renderWatchlist(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("WATCHLIST • PHÂN TÍCH RIÊNG");content.addView(tv("Theo dõi coin",20,TEXT,true));content.addView(tv("Không chiếm 4 slot tín hiệu chính",9,MUTED,false));LinearLayout add=row();EditText input=new EditText(this);input.setHint("Nhập BTC, ETH, XRP…");input.setHintTextColor(MUTED);input.setTextColor(TEXT);input.setTextSize(12);input.setSingleLine(true);input.setPadding(dp(13),0,dp(13),0);input.setBackground(shape(PANEL2,14,BORDER));Button addBtn=button("Thêm",true,v->{String x=input.getText().toString();input.setText("");addWatch(x);});LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(0,dp(46),1f);ip.setMargins(0,dp(12),dp(5),dp(8));add.addView(input,ip);LinearLayout.LayoutParams ab=new LinearLayout.LayoutParams(dp(78),dp(46));ab.setMargins(dp(5),dp(12),0,dp(8));add.addView(addBtn,ab);content.addView(add);List<String> symbols=watchSymbols();if(symbols.isEmpty()){LinearLayout z=card();z.addView(tv("Chưa có coin nào trong Watchlist.",11,TEXT,true));z.addView(tv("Nhập mã phía trên để xem phân tích SCALP và SWING riêng.",9,MUTED,false));content.addView(z);return;}for(String sym:symbols){JSONObject root=watchCache.get(sym),ticker=root==null?null:root.optJSONObject("ticker"),live=cryptoPrices.get(sym);double px=live!=null?live.optDouble("lastPrice",0):(ticker==null?0:ticker.optDouble("lastPrice",0));LinearLayout c=card();LinearLayout h=row();LinearLayout n=column();n.addView(tv(sym.replace("USDT"," / USDT"),16,TEXT,true));String provider=live!=null?cryptoProvider:(ticker==null?"—":ticker.optString("provider","—"));n.addView(tv(provider+" • "+cryptoState,8,stateColor(cryptoState),false));h.addView(n,new LinearLayout.LayoutParams(0,-2,1f));TextView price=tv(fmt(px),15,CYAN,true);h.addView(price);Button rm=button("×",false,v->removeWatch(sym));LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(40),dp(36));rp.setMargins(dp(8),0,0,0);h.addView(rm,rp);c.addView(h);JSONObject styles=root==null?null:root.optJSONObject("styles");c.addView(watchStyleBlock("SCALP  •  5m / 15m / 1h",styles==null?null:styles.optJSONObject("SCALP")));c.addView(watchStyleBlock("SWING  •  1h / 4h / 1D",styles==null?null:styles.optJSONObject("SWING")));Button refresh=button(Boolean.TRUE.equals(watchLoading.get(sym))?"Đang phân tích…":"Phân tích lại",false,v->refreshWatchSymbol(sym,true));LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(42));fp.setMargins(0,dp(7),0,0);c.addView(refresh,fp);content.addView(c);} };if(animate)swap(body);else body.run();}
+    private void renderWatchlist(boolean animate){Runnable body=()->{
+        content.removeAllViews();subtitle.setText("WATCHLIST • TÌM & PHÂN TÍCH COIN");content.addView(tv("Theo dõi coin",20,TEXT,true));content.addView(tv("Tìm coin theo mã • không chiếm 4 slot tín hiệu chính",9,MUTED,false));
+
+        LinearLayout searchCard=card();searchCard.addView(tv("TÌM COIN",10,CYAN,true));searchCard.addView(tv("Gõ BTC, ETH, XRP, ZEC… rồi chọn gợi ý hoặc bấm Tìm / thêm",9,MUTED,false));
+        LinearLayout add=row();EditText input=new EditText(this);watchSearchInput=input;input.setHint("Nhập mã coin…");input.setHintTextColor(MUTED);input.setTextColor(TEXT);input.setTextSize(14);input.setSingleLine(true);input.setFocusable(true);input.setFocusableInTouchMode(true);input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);input.setPadding(dp(14),0,dp(14),0);input.setBackground(shape(PANEL2,14,CYAN));input.setContentDescription("Ô tìm kiếm coin Watchlist");
+        input.setOnClickListener(v->showWatchKeyboard(input));input.setOnFocusChangeListener((v,has)->{if(has)showWatchKeyboard(input);});input.setOnEditorActionListener((v,action,event)->{if(action==EditorInfo.IME_ACTION_SEARCH||action==EditorInfo.IME_ACTION_DONE){commitWatchSearch();return true;}return false;});
+        input.addTextChangedListener(new TextWatcher(){public void beforeTextChanged(CharSequence x,int a,int b,int c){}public void onTextChanged(CharSequence x,int a,int b,int c){renderWatchSuggestions(String.valueOf(x));}public void afterTextChanged(Editable e){}});
+        Button addBtn=button("Tìm / thêm",true,v->{if(input.getText().toString().trim().isEmpty())showWatchKeyboard(input);else commitWatchSearch();});
+        LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(0,dp(50),1f);ip.setMargins(0,dp(10),dp(5),dp(4));add.addView(input,ip);LinearLayout.LayoutParams ab=new LinearLayout.LayoutParams(dp(104),dp(50));ab.setMargins(dp(5),dp(10),0,dp(4));add.addView(addBtn,ab);searchCard.addView(add);
+        watchSuggestions=column();searchCard.addView(watchSuggestions);content.addView(searchCard);
+
+        List<String> symbols=watchSymbols();if(symbols.isEmpty()){LinearLayout z=card();z.addView(tv("Chưa có coin nào trong Watchlist.",11,TEXT,true));z.addView(tv("Chạm ô Tìm coin để mở bàn phím và thêm mã muốn phân tích.",9,MUTED,false));content.addView(z);return;}
+        content.addView(sectionHeader("WATCHLIST CỦA BẠN",symbols.size()+" coin • SCALP + SWING phân tích riêng",CYAN));
+        for(String sym:symbols){JSONObject root=watchCache.get(sym),ticker=root==null?null:root.optJSONObject("ticker"),live=cryptoPrices.get(sym);double px=live!=null?live.optDouble("lastPrice",0):(ticker==null?0:ticker.optDouble("lastPrice",0));LinearLayout c=card();LinearLayout h=row();LinearLayout n=column();n.addView(tv(sym.replace("USDT"," / USDT"),16,TEXT,true));String provider=live!=null?cryptoProvider:(ticker==null?"—":ticker.optString("provider","—"));n.addView(tv(provider+" • "+cryptoState,8,stateColor(cryptoState),false));h.addView(n,new LinearLayout.LayoutParams(0,-2,1f));TextView price=tv(fmt(px),15,CYAN,true);h.addView(price);Button rm=button("×",false,v->removeWatch(sym));LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(dp(40),dp(36));rp.setMargins(dp(8),0,0,0);h.addView(rm,rp);c.addView(h);JSONObject styles=root==null?null:root.optJSONObject("styles");c.addView(watchStyleBlock("SCALP  •  5m / 15m / 1h",styles==null?null:styles.optJSONObject("SCALP")));c.addView(watchStyleBlock("SWING  •  1h / 4h / 1D",styles==null?null:styles.optJSONObject("SWING")));Button refresh=button(Boolean.TRUE.equals(watchLoading.get(sym))?"Đang phân tích…":"Phân tích lại",false,v->refreshWatchSymbol(sym,true));LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,dp(42));fp.setMargins(0,dp(7),0,0);c.addView(refresh,fp);content.addView(c);}
+    };if(animate)swap(body);else body.run();}
 
     private void loadAllPerformance(){boolean changed=false;for(String st:new String[]{"SCALP","SWING"}){try{JSONObject p=new JSONObject(ApiClient.get("/v3/performance?market=CRYPTO&style="+st)).optJSONObject("performance");if(p!=null){String k="CRYPTO:"+st,old=perfCache.containsKey(k)?perfCache.get(k).toString():"";perfCache.put(k,p);if(!old.equals(p.toString()))changed=true;lastApiOkMs=System.currentTimeMillis();}}catch(Throwable ignored){}}if(changed&&screen.equals("STATS"))main.post(()->renderStats(false));}
     private void renderStats(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("THỐNG KÊ • CHỈ LỆNH ĐÃ ĐÓNG");content.addView(tv("Hiệu suất",20,TEXT,true));content.addView(tv("Win rate chỉ là kết quả lịch sử, không phải xác suất thắng của lệnh kế tiếp.",9,MUTED,false));for(String st:new String[]{"SCALP","SWING"})content.addView(perfCard("CRYPTO",st));};if(animate)swap(body);else body.run();}
@@ -360,7 +406,7 @@ public class SignalHubActivity extends Activity {
     }
 
     private void refreshForexLive(){if(!fxBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.getLive("/v3/forex/live"));JSONArray a=p.optJSONArray("quotes");fxPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null){double mid=q.optDouble("mid",0);if(mid>0)fxPrices.put(q.optString("symbol",""),mid);}}fxState=p.optString("state","OFFLINE");fxQuoteAgeMs=p.optLong("quoteAgeMs",-1);fxCount=p.optInt("count",a==null?0:a.length());fxLastOkMs=System.currentTimeMillis();lastApiOkMs=fxLastOkMs;}catch(Throwable e){long age=fxLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-fxLastOkMs;fxState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{fxBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);});}});}
-    private void refreshCryptoLive(){if(!cryptoBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.getLive("/v3/crypto/tickers?limit=1000"));JSONArray a=p.optJSONArray("tickers");cryptoPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null)cryptoPrices.put(q.optString("symbol",""),q);}cryptoProvider=p.optString("provider","CRYPTO");cryptoState=p.optBoolean("live",true)?"LIVE":"DELAYED";cryptoCount=p.optInt("count",a==null?0:a.length());cryptoLastOkMs=System.currentTimeMillis();lastApiOkMs=cryptoLastOkMs;}catch(Throwable e){long age=cryptoLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-cryptoLastOkMs;cryptoState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{cryptoBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);if(screen.equals("WATCH")&&System.currentTimeMillis()-watchLastRenderMs>2000){watchLastRenderMs=System.currentTimeMillis();renderWatchlist(false);}});}});}
+    private void refreshCryptoLive(){if(!cryptoBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.getLive("/v3/crypto/tickers?limit=1000"));JSONArray a=p.optJSONArray("tickers");cryptoPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null)cryptoPrices.put(q.optString("symbol",""),q);}cryptoProvider=p.optString("provider","CRYPTO");cryptoState=p.optBoolean("live",true)?"LIVE":"DELAYED";cryptoCount=p.optInt("count",a==null?0:a.length());cryptoLastOkMs=System.currentTimeMillis();lastApiOkMs=cryptoLastOkMs;}catch(Throwable e){long age=cryptoLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-cryptoLastOkMs;cryptoState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{cryptoBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);if(screen.equals("WATCH")&&!watchSearchHasFocus()&&System.currentTimeMillis()-watchLastRenderMs>2000){watchLastRenderMs=System.currentTimeMillis();renderWatchlist(false);}});}});}
 
     private void updateConnectionViews(){int cc=stateColor(cryptoState);cryptoLive.setText(cryptoProvider+" • "+cryptoState);cryptoLive.setTextColor(cc);cryptoLive.setBackground(shape(Color.argb(28,Color.red(cc),Color.green(cc),Color.blue(cc)),9,cc));}
     private void updateAllPriceViews(){
