@@ -1,0 +1,163 @@
+name: Build Deploy SignalHub V3.5 Modern Quality
+
+on:
+  push:
+    branches: [signalhub-v35-modern-quality]
+    paths:
+      - '.github/workflows/build-deploy-signalhub-v35-modern-quality.yml'
+      - 'scripts/patch_signalhub_v35_modern_quality.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.5 patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v35_modern_quality.py
+
+      - name: Verify source contract
+        run: |
+          set -euo pipefail
+          grep -q "SIGNALHUB-V3-GATEWAY-3.5.0" signalhub-worker/gateway-v3.js
+          grep -q "V35_QUALITY_POLICY" signalhub-worker/gateway-v3.js
+          grep -q "V35_STRICT" signalhub-worker/gateway-v3.js
+          grep -q "class EntryGauge" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "LỆNH LIMIT" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "LỆNH STOP" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "TỚI ENTRY" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "versionName '3.5.0'" signalhub-android/app/build.gradle
+
+      - name: Validate Worker
+        working-directory: signalhub-worker
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v35-worker
+
+      - name: Deploy V3.5 worker
+        working-directory: signalhub-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Smoke production V3.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 30); do
+            if curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.5.0', s.get('version')
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 15 "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/live.json'))
+          assert x.get('transport')=='DURABLE_OBJECT_REALTIME',x
+          assert x.get('count',0)>=30,x
+          print('forex',x.get('state'),'age',x.get('quoteAgeMs'),'count',x.get('count'))
+          PY
+
+      - name: Verify V3.5 quality policy on all active partitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=100&probe=$RANDOM" >/tmp/s.json
+              M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/s.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.5.0',p.get('version')
+          q=p.get('qualityPolicy') or {}
+          assert q.get('name')=='V35_STRICT',q
+          for x in p.get('signals',[]):
+              assert x.get('orderType') in ('MARKET','LIMIT','STOP'),x
+              assert x.get('status') in ('PENDING','OPEN'),x
+              assert x.get('score',0)>=q.get('minScore',90),x
+              assert x.get('targetRR',0)>=q.get('minRR',2.0),x
+              e,sl,tp=x.get('entry',0),x.get('sl',0),x.get('tp3',x.get('tp',0))
+              assert e and sl and tp,x
+          print(os.environ['M'],os.environ['S'],'active',len(p.get('signals',[])),'policy',q)
+          PY
+            done
+          done
+
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          mkdir -p dist
+          cp "$APK" dist/SignalHub-v3.5.0-Modern-Quality.apk
+          sha256sum dist/SignalHub-v3.5.0-Modern-Quality.apk > dist/SHA256SUMS.txt
+
+      - name: Commit V3.5 generated source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java
+          git commit -m "SignalHub v3.5 modern UI + strict quality admission" || true
+          git push origin HEAD:signalhub-v35-modern-quality
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.5.0-Modern-Quality
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.5.0-modern-quality'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/SignalHub-v3.5.0-Modern-Quality.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/SignalHub-v3.5.0-Modern-Quality.apk dist/SHA256SUMS.txt \
+              --target signalhub-v35-modern-quality --prerelease \
+              --title 'SignalHub v3.5.0 Modern Quality' \
+              --notes 'Modern realtime trading UI; separate LIVE, LIMIT and STOP sections; yellow pending-entry progress gauge; strict central admission gate; honest historical WR from resolved TP/SL only; Exness Durable Object realtime transport retained.'
+          fi
