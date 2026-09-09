@@ -32,7 +32,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@latest deploy --config wrangler.jsonc
-      - name: Smoke test V3.1 and legacy compatibility
+      - name: Smoke test V3.1 and EA compatibility
         shell: bash
         run: |
           set -euo pipefail
@@ -52,15 +52,15 @@ jobs:
             sleep 2
           done
           test "$ready" = 1
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/status" -o /tmp/legacy.json
+          curl --fail --silent --show-error --max-time 25 "$SIGNALHUB_URL/signals?status=active&limit=20" -o /tmp/legacy-signals.json
           curl --fail --silent --show-error --max-time 35 "$SIGNALHUB_URL/v3/crypto/tickers?limit=3" -o /tmp/tick.json
           curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/v3/app-version" -o /tmp/app.json
           python3 - <<'PY'
           import json
-          v=json.load(open('/tmp/v3.json')); l=json.load(open('/tmp/legacy.json')); t=json.load(open('/tmp/tick.json')); a=json.load(open('/tmp/app.json'))
+          v=json.load(open('/tmp/v3.json')); l=json.load(open('/tmp/legacy-signals.json')); t=json.load(open('/tmp/tick.json')); a=json.load(open('/tmp/app.json'))
           assert v.get('ok') is True and v.get('checkpoint')=='SIGNALHUB_V3_CHECKPOINT_05',v
-          assert l.get('ok') is True and l.get('version')=='SIGNALHUB-FOREX-2.1.0',l
+          assert l.get('ok') is True and isinstance(l.get('signals'),list),l
           assert t.get('ok') is True and t.get('count',0)>=1,t
           assert a.get('app',{}).get('versionName')=='3.1.0',a
-          print('DEPLOY_OK',v.get('version'),t.get('provider'),t.get('count'))
+          print('DEPLOY_OK',v.get('version'),t.get('provider'),t.get('count'),'legacy-active',l.get('count'))
           PY
