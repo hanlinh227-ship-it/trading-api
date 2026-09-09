@@ -95,7 +95,7 @@ public class MonitorService extends Service {
         if("OPEN".equals(status))notifySignal(s.optBoolean("brokerConfirmed",false)?"ĐÃ KHỚP EXNESS":"ACTIVE",market,style,s,dataState,id+":open");
         else if("CLOSED".equals(status)&&"TP".equals(outcome))notifySignal("TP ĐẠT",market,style,s,dataState,id+":tp");
         else if("CLOSED".equals(status)&&"SL".equals(outcome))notifySignal("SL CHẠM",market,style,s,dataState,id+":sl");
-        else if("CLOSED".equals(status)&&"CANCELLED".equals(outcome))notifySignal("ĐÃ HỦY",market,style,s,dataState,id+":cancel");
+        else if("CANCELLED".equals(status))notifySignal("ĐÃ HỦY / SETUP MẤT HIỆU LỰC",market,style,s,dataState,id+":cancel");
     }
 
     private void notifySignal(String event,String market,String style,JSONObject s,String dataState,String key){
@@ -129,7 +129,7 @@ public class MonitorService extends Service {
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.8 • LIVE MONITOR")
+                .setContentTitle("SignalHub V3.9 • CLEAN STORY LIVE")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 

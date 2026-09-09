@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS=42;
-    private static final String APP_VERSION="3.8.0";
+    private static final String APP_VERSION="3.9.0";
     private static final long LIVE_REFRESH_MS=500L; // REST fallback; WebSocket is primary
     private static final long PAGE_REFRESH_MS=3000L;
     private static final long SCAN_MS=30000L;
@@ -116,7 +116,7 @@ public class SignalHubActivity extends Activity {
         LinearLayout root=column();root.setBackgroundColor(BG);
         LinearLayout head=column();head.setPadding(dp(14),dp(12),dp(14),dp(7));
         LinearLayout top=row();LinearLayout titles=column();
-        TextView logo=tv("SIGNALHUB",22,TEXT,true);subtitle=tv("SCALP ≠ SWING • STRUCTURE • REALTIME • V3.8",8,MUTED,true);
+        TextView logo=tv("SIGNALHUB",22,TEXT,true);subtitle=tv("SCALP ≠ SWING • STRUCTURE • CLEAN STORY • REALTIME • V3.9",8,MUTED,true);
         titles.addView(logo);titles.addView(subtitle);top.addView(titles,new LinearLayout.LayoutParams(0,-2,1f));top.addView(chip("V"+APP_VERSION,BLUE));head.addView(top);
 
         LinearLayout live=row();fxLive=chip("EXNESS • OFFLINE",RED);cryptoLive=chip("CRYPTO • OFFLINE",RED);
