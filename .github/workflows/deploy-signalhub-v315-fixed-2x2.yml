@@ -1,0 +1,163 @@
+name: Deploy SignalHub V3.15 Fixed 2x2
+
+on:
+  push:
+    branches: [signalhub-v315-fixed-2x2]
+    paths:
+      - 'scripts/patch_signalhub_v315_fixed_2x2.py'
+      - '.github/workflows/deploy-signalhub-v315-fixed-2x2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply V3.15 fixed 2x2 patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v315_fixed_2x2.py
+
+      - name: Verify V3.15 source contracts
+        run: |
+          set -euo pipefail
+          node --check signalhub-worker/gateway-v3.js
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          assert "SIGNALHUB-V3-GATEWAY-3.15.0" in w
+          assert "SIGNALHUB_V3_CHECKPOINT_07" in w
+          assert "targetActivePerStyle:2" in w
+          assert "minActivePerStyle:2" in w
+          assert "maxActivePerStyle:2" in w
+          assert "maxActiveTotal:4" in w
+          assert "maxNewPerScan:2" in w
+          assert "CRYPTO_FIXED_2X2_STRICT_THEN_CONDITIONAL" in w
+          assert "V315_FIXED_2X2_HARD_SAFETY" in w
+          assert "BEST_AVAILABLE_CONDITIONAL" in w
+          assert "coverageFallback" in w
+          assert "status==='active'&&rows.length<PORTFOLIO_POLICY.targetActivePerStyle" in w
+          assert Path('SIGNALHUB_V3_CHECKPOINT_07_FIXED_2X2.md').is_file()
+          print('V3.15 source contract OK')
+          PY
+
+      - name: Validate Worker dry-run
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v315-worker
+
+      - name: Deploy V3.15 worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for production V3.15
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 40); do
+            if curl -A 'SignalHub-CI/3.15' -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.15.0',s.get('version')
+          assert s.get('forexDisabled') is True,s
+          assert s.get('checkpoint')=='SIGNALHUB_V3_CHECKPOINT_07',s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('targetActivePerStyle')==2 and p.get('minActivePerStyle')==2,p
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Fill fixed 2x2 active book
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 8); do
+            echo "2x2 refill attempt $attempt"
+            curl -A 'SignalHub-CI/3.15' -fsS --max-time 120 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SCALP&probe=$RANDOM-$attempt" > /tmp/scan-scalp.json || true
+            curl -A 'SignalHub-CI/3.15' -fsS --max-time 120 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SWING&probe=$RANDOM-$attempt" > /tmp/scan-swing.json || true
+            curl -A 'SignalHub-CI/3.15' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM-$attempt" > /tmp/portfolio.json
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {})
+          st=p.get('styles') or {}
+          print('portfolio',p)
+          assert p.get('activeTotal')==4,p
+          assert st.get('SCALP')==2,st
+          assert st.get('SWING')==2,st
+          PY
+            then ok=1; break; fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Verify exact 2 SCALP and 2 SWING contracts
+        run: |
+          set -euo pipefail
+          for st in SCALP SWING; do
+            curl -A 'SignalHub-CI/3.15' -fsS --max-time 120 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=20&probe=$RANDOM" > "/tmp/active-$st.json"
+          done
+          python3 - <<'PY'
+          import json
+          allrows=[]
+          for st in ('SCALP','SWING'):
+              p=json.load(open('/tmp/active-'+st+'.json'))
+              assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.15.0',p
+              rows=p.get('signals') or []
+              assert len(rows)==2,(st,len(rows),rows)
+              for s in rows:
+                  assert s.get('market')=='CRYPTO' and s.get('style')==st,s
+                  assert s.get('status') in ('PENDING','OPEN'),s
+                  assert s.get('orderType') in ('MARKET','LIMIT','STOP'),s
+                  assert s.get('engineVersion')=='SIGNALHUB-V3-GATEWAY-3.15.0',s
+                  a=s.get('entryAssessment') or {}
+                  assert a.get('verdict')=='PASS',a
+                  if s.get('coverageTier')=='BEST_AVAILABLE_CONDITIONAL':
+                      assert s.get('coverageFallback') is True,s
+                      assert s.get('orderType') in ('LIMIT','STOP'),s
+                      assert a.get('method')=='V315_FIXED_2X2_HARD_SAFETY',a
+                  allrows.append(s)
+          syms=[s.get('symbol') for s in allrows]
+          assert len(syms)==4 and len(set(syms))==4,syms
+          meme=[s for s in allrows if s.get('riskCluster')=='MEME']
+          assert len(meme)<=1,[s.get('symbol') for s in meme]
+          print('fixed 2x2 OK',[(s.get('style'),s.get('symbol'),s.get('orderType'),s.get('coverageTier')) for s in allrows])
+          PY
+
+      - name: Verify Forex remains disabled and monitor is running
+        run: |
+          set -euo pipefail
+          code=$(curl -A 'SignalHub-CI/3.15' -sS -o /tmp/fx.json -w '%{http_code}' --max-time 20 "$SIGNALHUB_URL/v3/signals?market=FOREX&style=SCALP")
+          test "$code" = 410
+          curl -A 'SignalHub-CI/3.15' -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?kick=1&probe=$RANDOM" > /tmp/monitor.json
+          python3 - <<'PY'
+          import json
+          m=json.load(open('/tmp/monitor.json'))
+          p=m.get('portfolio') or {}
+          assert p.get('activeTotal')==4,p
+          assert (p.get('styles') or {}).get('SCALP')==2,p
+          assert (p.get('styles') or {}).get('SWING')==2,p
+          print('monitor',m.get('status'))
+          PY
+
+      - name: Commit generated V3.15 source and checkpoint
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js SIGNALHUB_V3_CHECKPOINT_07_FIXED_2X2.md
+          git commit -m "SignalHub v3.15 fixed 2x2 crypto book checkpoint" || true
+          git push origin HEAD:signalhub-v315-fixed-2x2
