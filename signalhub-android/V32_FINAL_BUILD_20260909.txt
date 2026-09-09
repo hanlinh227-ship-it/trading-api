@@ -1,0 +1,4 @@
+SIGNALHUB_V3.2_FINAL_BUILD
+checkpoint=SIGNALHUB_V3_CHECKPOINT_05_FINAL
+backend=production_v3.2_deployed
+ux=final_rebuild
