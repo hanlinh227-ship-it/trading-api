@@ -1,0 +1,31 @@
+name: Diagnose V321 Watch Data
+on:
+  push:
+    branches: [signalhub-v321-standardized-watch-ideal]
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate current source and inspect
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          def dump(text,term,before=2500,after=9000):
+              p=text.find(term)
+              print('\n===== '+term+' =====')
+              print(text[max(0,p-before):min(len(text),p+after)] if p>=0 else 'NOT FOUND')
+          for term in ['async function watchAnalyze','function buildWatch','/v3/watch/analyze','async function loadCryptoSnapshot','async function bybitTickers','async function okxTickers','async function binanceTickers','function buildStable100Universe','async function persistStable100','async function readStable100']:
+              dump(w,term)
+          for term in ['watch','Watch','renderWatch','watchlist','WATCH']:
+              dump(a,term,3500,12000)
+          PY
