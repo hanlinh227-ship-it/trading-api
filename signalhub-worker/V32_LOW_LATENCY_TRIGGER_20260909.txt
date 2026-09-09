@@ -1,0 +1,2 @@
+SignalHub V3.2.0 low-latency worker deploy trigger.
+Forex health: heartbeat-aware and wider jitter tolerance without hiding real stale/offline states.
