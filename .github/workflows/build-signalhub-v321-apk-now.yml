@@ -1,0 +1,47 @@
+name: Build SignalHub V3.21 APK Now
+
+on:
+  push:
+    branches: [signalhub-v321-standardized-watch-ideal]
+    paths:
+      - '.github/workflows/build-signalhub-v321-apk-now.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+      - name: Apply finalized V3.21 source
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 scripts/patch_signalhub_v321_precompat.py
+          python3 scripts/patch_signalhub_v321_standardized_watch_ideal.py
+          node --check signalhub-worker/gateway-v3.js
+      - name: Build and verify APK
+        run: |
+          set -euo pipefail
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.21.0-Standardized-Watch-Ideal.apk
+          sha256sum dist/SignalHub-v3.21.0-Standardized-Watch-Ideal.apk | tee dist/SignalHub-v3.21.0-Standardized-Watch-Ideal-SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.21.0-Standardized-Watch-Ideal
+          path: dist/
+          retention-days: 30
