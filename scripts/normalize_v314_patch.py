@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# V3.14 pipeline trigger: root Wrangler config is now available for dry-run/deploy.
 P=Path('scripts/patch_signalhub_v314_simple_stability.py')
 s=P.read_text()
 
