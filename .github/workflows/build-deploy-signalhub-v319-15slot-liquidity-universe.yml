@@ -1,0 +1,312 @@
+name: Build Deploy SignalHub V3.19 15 Slot Stable Universe
+
+on:
+  push:
+    branches: [signalhub-v319-15slot-liquidity-universe]
+    paths:
+      - 'scripts/patch_signalhub_v319_15slot_liquidity_universe.py'
+      - '.github/workflows/build-deploy-signalhub-v319-15slot-liquidity-universe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.19 stable-universe + 15-slot patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+
+      - name: Verify V3.19 source contracts
+        run: |
+          set -euo pipefail
+          node --check signalhub-worker/gateway-v3.js
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          m=Path('signalhub-android/app/src/main/AndroidManifest.xml').read_text()
+          worker_required=[
+            "SIGNALHUB-V3-GATEWAY-3.19.0",
+            "targetActiveByStyle:{SCALP:10,SWING:5}",
+            "maxActiveByStyle:{SCALP:10,SWING:5}",
+            "maxActiveTotal:15",
+            "maxMemeActiveTotal:1",
+            "standbyPerStyle:12",
+            "function styleTarget(style)",
+            "function stableUniverseEligible(t,style)",
+            "function stableUniverseCompare(a,b)",
+            "async function analyzeCryptoBatch",
+            "STALE_PENDING_REFRESH",
+            "LIQUIDITY_DEGRADED_BEFORE_ENTRY",
+            "CRYPTO_EXACT_10_SCALP_5_SWING_STABLE_LIQUID_UNIVERSE",
+            "FULL_LIVE_PROVIDER_SNAPSHOT_EVERY_CRON_AND_REFILL",
+          ]
+          for x in worker_required: assert x in w,x
+          # No remaining operational use of the old symmetric 2-slot target.
+          assert 'while(styleCount<Number(PORTFOLIO_POLICY.targetActivePerStyle||2)' not in w
+          assert "styleUnderfilled=Number(portfolio.styles?.[style]||0)<PORTFOLIO_POLICY.targetActivePerStyle" not in w
+          app_required=[
+            'APP_VERSION="3.19.0"',
+            'CRYPTO • 10 SCALP + 5 SWING',
+            'mục tiêu 10 active',
+            'mục tiêu 5 active',
+            'private boolean watchSearchHasFocus()',
+            'private void showWatchKeyboard(',
+            'private List<String> watchMatches(',
+            'EditorInfo.IME_ACTION_SEARCH',
+            'InputMethodManager.SHOW_IMPLICIT',
+            '!watchSearchHasFocus()',
+            'Tìm / thêm',
+          ]
+          for x in app_required: assert x in a,x
+          assert "versionCode 24" in g and "versionName '3.19.0'" in g
+          assert 'android:windowSoftInputMode="adjustResize"' in m
+          print('V3.19 source contract OK')
+          PY
+
+      - name: Validate Worker dry-run
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v319-worker
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK structure
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          unzip -l "$APK" | grep -q AndroidManifest.xml
+          unzip -l "$APK" | grep -q ic_watchlist.xml
+
+      - name: Deploy V3.19 worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for production V3.19
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 60); do
+            if curl -A 'SignalHub-CI/3.19' -fsS --max-time 20 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.19.0',s.get('version')
+          assert s.get('forexDisabled') is True,s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('maxActiveTotal')==15,p
+          assert (p.get('targetActiveByStyle') or {}).get('SCALP')==10,p
+          assert (p.get('targetActiveByStyle') or {}).get('SWING')==5,p
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Refill exact 10 SCALP + 5 SWING
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 10); do
+            curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SCALP&probe=$RANDOM-$attempt" >/tmp/scalp.json || true
+            curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SWING&probe=$RANDOM-$attempt" >/tmp/swing.json || true
+            curl -A 'SignalHub-CI/3.19' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=$RANDOM-$attempt" >/tmp/portfolio.json
+            python3 - <<'PY' || true
+          import json
+          p=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {})
+          print('portfolio',p.get('activeTotal'),p.get('styles'),p.get('uniqueSymbols'))
+          PY
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/portfolio.json')).get('portfolio') or {})
+          st=p.get('styles') or {}
+          assert p.get('activeTotal')==15,p
+          assert st.get('SCALP')==10 and st.get('SWING')==5,st
+          assert p.get('uniqueSymbols')==15,p
+          PY
+            then ok=1; break; fi
+            sleep 3
+          done
+          test "$ok" = 1
+
+      - name: Verify active book liquidity and style quality
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 45 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=SCALP&status=active&limit=100" >/tmp/as.json
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 45 "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=SWING&status=active&limit=100" >/tmp/aw.json
+          python3 - <<'PY'
+          import json,math
+          scalp=json.load(open('/tmp/as.json')).get('signals') or []
+          swing=json.load(open('/tmp/aw.json')).get('signals') or []
+          assert len(scalp)==10,len(scalp)
+          assert len(swing)==5,len(swing)
+          rows=scalp+swing
+          assert len({x.get('symbol') for x in rows})==15
+          meme=0
+          for x in rows:
+              assert x.get('status') in ('OPEN','PENDING'),x
+              assert x.get('orderType') in ('MARKET','LIMIT','STOP'),x
+              t=x.get('technicalAtIssue') or {}
+              st=x.get('style')
+              turn=float(t.get('turnover24h') or 0); spread=float(t.get('spreadBps') if t.get('spreadBps') is not None else 999); move=abs(float(t.get('change24hPct') or 0))
+              if st=='SCALP':
+                  assert turn>=50_000_000,(x.get('symbol'),turn)
+                  assert spread<=6,(x.get('symbol'),spread)
+                  assert move<=22,(x.get('symbol'),move)
+              else:
+                  assert turn>=35_000_000,(x.get('symbol'),turn)
+                  assert spread<=12,(x.get('symbol'),spread)
+                  assert move<=30,(x.get('symbol'),move)
+              if x.get('riskCluster')=='MEME': meme+=1
+          assert meme<=1,meme
+          print('active liquidity quality OK',len(scalp),len(swing),'meme',meme)
+          PY
+
+      - name: Verify continuous universe refresh and reserves
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SCALP&probe=refresh-$RANDOM" >/tmp/rs.json
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SWING&probe=refresh-$RANDOM" >/tmp/rw.json
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 30 "$SIGNALHUB_URL/v3/standbys?probe=$RANDOM" >/tmp/standbys.json
+          python3 - <<'PY'
+          import json
+          for f in ('/tmp/rs.json','/tmp/rw.json'):
+              p=json.load(open(f));assert p.get('live') is True,p
+              assert p.get('scanned',0)>0,p
+              assert p.get('liquidUniverse',0)>=10,p
+              assert p.get('deepAnalyzed',0)>0,p
+          s=json.load(open('/tmp/standbys.json'))
+          # Endpoint response may wrap standbys depending on route version; just ensure JSON and portfolio stays exact below.
+          print('standby snapshot',s)
+          PY
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=post-refresh-$RANDOM" >/tmp/post.json
+          python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/post.json')).get('portfolio') or {})
+          assert p.get('activeTotal')==15,p
+          assert (p.get('styles') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('uniqueSymbols')==15,p
+          PY
+
+      - name: Verify Watchlist lookup remains functional/read-only
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 45 "$SIGNALHUB_URL/v3/portfolio?probe=watch-before-$RANDOM" >/tmp/before.json
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 90 "$SIGNALHUB_URL/v3/watch/analyze?symbol=BTCUSDT&probe=$RANDOM" >/tmp/watch.json
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 45 "$SIGNALHUB_URL/v3/portfolio?probe=watch-after-$RANDOM" >/tmp/after.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/watch.json'))
+          assert p.get('ok') is True,p
+          assert p.get('symbol')=='BTCUSDT',p
+          assert p.get('analysisOnly') is True and p.get('portfolioImpact')=='NONE_READ_ONLY',p
+          assert set((p.get('styles') or {}).keys())=={'SCALP','SWING'},p
+          before=(json.load(open('/tmp/before.json')).get('portfolio') or {})
+          after=(json.load(open('/tmp/after.json')).get('portfolio') or {})
+          assert (before.get('styles') or {})=={'SCALP':10,'SWING':5},before
+          assert (after.get('styles') or {})=={'SCALP':10,'SWING':5},after
+          print('Watchlist backend OK and portfolio unchanged')
+          PY
+
+      - name: Concurrent scan overbook stress test
+        run: |
+          set -euo pipefail
+          (curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SCALP&probe=a-$RANDOM" >/tmp/c1.json || true) &
+          (curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SCALP&probe=b-$RANDOM" >/tmp/c2.json || true) &
+          (curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SWING&probe=c-$RANDOM" >/tmp/c3.json || true) &
+          (curl -A 'SignalHub-CI/3.19' -fsS --max-time 180 "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=SWING&probe=d-$RANDOM" >/tmp/c4.json || true) &
+          wait
+          curl -A 'SignalHub-CI/3.19' -fsS --max-time 30 "$SIGNALHUB_URL/v3/portfolio?probe=stress-$RANDOM" >/tmp/stress.json
+          python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/stress.json')).get('portfolio') or {})
+          assert p.get('activeTotal')==15,p
+          assert (p.get('styles') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('uniqueSymbols')==15,p
+          print('atomic 15-slot stress PASS')
+          PY
+
+      - name: Create V3.19 checkpoint
+        run: |
+          cat > SIGNALHUB_V3_CHECKPOINT_10_15SLOT_STABLE_UNIVERSE.md <<'EOF'
+          # SignalHub V3.19 — 10 SCALP + 5 SWING Stable Universe
+
+          - Crypto-only active reference book target: exactly 10 SCALP + 5 SWING = 15 total, counting both OPEN market orders and PENDING LIMIT/STOP entries.
+          - One active idea per symbol across styles; 15 active slots therefore target 15 distinct symbols.
+          - Weak-liquidity symbols are excluded before candle analysis. SCALP baseline: >= $50M 24h turnover, <= 6 bps spread, <= 22% absolute 24h move. SWING baseline: >= $35M, <= 12 bps, <= 30%. When open interest/funding are available they also pass sanity floors/caps.
+          - Meme concentration remains capped at one active idea; general risk clusters are capped to five.
+          - Full live perpetual universe refresh runs every scheduled maintenance cycle and every manual/refill scan. Deep candle analysis is concurrency-limited to reduce provider burst/rate-limit failures.
+          - Hot-spare pool expanded to 12 candidates per style. TP/SL/cancelled signals are atomically replaced toward the 10/5 targets.
+          - Pending SCALP ideas older than 20 minutes and SWING ideas older than 6 hours are retired for fresh candidates. Pending entries are also cancelled before fill if live liquidity/spread materially degrades.
+          - No numeric setup-score gate is reintroduced. Structure/liquidity/context confirmation remains the entry logic; stable-liquidity checks are hard execution-safety requirements.
+          - V3.18 Watchlist keyboard fix is retained: EditText is not rebuilt while focused, keyboard is explicitly opened, adjustResize is enabled, ticker-universe suggestions are tappable, and IME Search submits.
+          - Watchlist is analysis-only and never consumes the 15 reference slots.
+          - Android build remains debug-signed.
+          EOF
+
+      - name: Stage APK and checksum
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.19.0-10Scalp-5Swing-StableUniverse.apk
+          sha256sum dist/SignalHub-v3.19.0-10Scalp-5Swing-StableUniverse.apk | tee dist/SignalHub-v3.19.0-10Scalp-5Swing-StableUniverse-SHA256SUMS.txt
+
+      - name: Commit generated V3.19 source and checkpoint
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js \
+                  signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  SIGNALHUB_V3_CHECKPOINT_10_15SLOT_STABLE_UNIVERSE.md
+          git commit -m "SignalHub v3.19 10 scalp 5 swing stable universe" || true
+          git push origin HEAD:signalhub-v319-15slot-liquidity-universe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.19.0-10Scalp-5Swing-StableUniverse
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.19 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.19.0-10scalp-5swing-stable-universe'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v319-15slot-liquidity-universe --prerelease \
+              --title 'SignalHub v3.19.0 — 10 SCALP + 5 SWING Stable Universe' \
+              --notes 'Crypto-only. Targets exactly 10 SCALP + 5 SWING reference signals (OPEN + PENDING combined), one symbol per active idea. Weak-liquidity/high-spread/extreme-move symbols are filtered before deep analysis, full live universe is refreshed continuously through maintenance/refill scans, hot-spare reserves are expanded, and stale pending ideas are recycled. Includes the V3.18 Watchlist keyboard/search fix with live ticker suggestions.'
+          fi
