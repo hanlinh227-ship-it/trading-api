@@ -1,1 +1,1 @@
-3e4c0a6f73a9863e70448e510aff65f2a6c1a950d39108217fa714849bd0a5fd  dist/SignalHub-v3.2.0.apk
+38dfadbf9b8a87c279348107c83bb482ac6bd395cda0247aeaaf96b152300ac5  dist/SignalHub-v3.2.0.apk
