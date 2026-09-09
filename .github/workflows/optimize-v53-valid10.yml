@@ -1,0 +1,30 @@
+name: Optimize Bybit V5.3 Valid10
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/scripts/optimize-v53-valid10.py'
+      - '.github/workflows/optimize-v53-valid10.yml'
+permissions:
+  contents: read
+jobs:
+  optimize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+      - name: Run economically feasible 10-round optimizer
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/optimize-v53-valid10.py | tee v53-valid10.log
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v53-valid10-results
+          path: |
+            v53-valid10-report.json
+            v53-valid10.log
+          retention-days: 30

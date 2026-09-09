@@ -1,0 +1,57 @@
+name: Stage Bybit V5.0 Scalp Quality Source
+on:
+  push:
+    branches: [bybit-v500-scalp-quality]
+    paths:
+      - '.github/workflows/stage-bybit-v500-scalp-quality.yml'
+      - '.github/scripts/apply-bybit-v500-profit-floor-v3.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bybit-v500-scalp-quality
+          fetch-depth: 0
+      - name: Apply and validate V5.0 source
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply-bybit-v500-profit-floor-v3.py
+          cd cloudflare-worker
+          npm install --no-audit --no-fund
+          npm run check
+          node --input-type=module <<'NODE'
+          import {BYBIT_AUTO_CONFIG} from './bybit-auto-config.js';
+          import {BYBIT_RUNTIME_CONTRACT} from './bybit-runtime-contract.js';
+          const c=BYBIT_AUTO_CONFIG,r=BYBIT_RUNTIME_CONTRACT;
+          const checks={
+            minNetUsd:c.scalp.minPlannedNetProfitUsd>=1,
+            minViableUsd:c.scalp.minViableNetProfitUsd>=1,
+            floorPct:c.scalp.minPlannedNetProfitPct>=1,
+            noFloorRelax:c.scalp.allowFloorRelaxationForFastScalp===false,
+            earlyHarvestFloor:c.positionControl.earlyHarvestMinNetUsd>=1,
+            runtimeFloor:r.plannedNetProfitFloorStartsAtOneUsd===true,
+            runtimeMin:Number(r.minimumNewEntryPlannedNetProfitUsd)>=1,
+            runtimeNoRelax:r.profitFloorRelaxationDisabled===true,
+            riskUnchanged:c.risk.baseEntryRiskPct<=1&&c.risk.absoluteSingleEntryRiskPct<=2.25&&c.risk.maxActiveRiskPct<=7,
+            targetStillScalp:c.scalp.adaptiveProtection.maxTargetR<=2.2,
+            noMartingale:c.risk.martingale===false&&c.positionControl.recoveryMartingale===false,
+            noAddToLoser:c.risk.addToLoser===false&&c.positionControl.recoveryAddToLoser===false
+          };
+          console.log(JSON.stringify(checks,null,2));
+          if(!Object.values(checks).every(Boolean))process.exit(51);
+          NODE
+      - name: Commit validated source to feature branch
+        run: |
+          set -euo pipefail
+          git config user.name "bybit-v500-stager"
+          git config user.email "actions@users.noreply.github.com"
+          git add cloudflare-worker/bybit-runtime-contract.js cloudflare-worker/bybit-auto-config.js cloudflare-worker/validate-btc-hyperscale.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "Raise Bybit V5.0 minimum planned net profit to one dollar"
+            git push origin HEAD:bybit-v500-scalp-quality
+          fi

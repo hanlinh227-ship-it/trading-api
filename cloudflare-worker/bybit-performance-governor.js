@@ -38,22 +38,23 @@ export async function buildBybitPerformanceGovernor(env,api,{equityUsd=0,highWat
 
 export function bybitPerformanceDecision(state={},candidate={},equityUsd=0,highWaterUsd=0){
   const symbol=normalizeBybitSymbol(candidate.symbol||''),g72=state?.summary?.h72||{},g24=state?.summary?.h24||{},s72=state?.symbols?.[symbol]?.h72||{},s24=state?.symbols?.[symbol]?.h24||{},equity=Math.max(.01,num(equityUsd)),high=Math.max(equity,num(highWaterUsd)||num(state?.summary?.highWaterUsd)||equity),dd=high>0?(high-equity)/high*100:0;
-  const strength=String(candidate.strength||'NORMAL'),tier=String(candidate.entryTier||'CONFIRM'),quality=num(candidate.quality),edge=num(candidate.edgeScore),rr=num(candidate.netRR),aligned=candidate.localCounterTrend!==true||candidate.reversalValidated===true,exceptional=strength==='A_PLUS'&&tier==='FULL'&&quality>=.38&&edge>=.075&&rr>=2.20&&aligned;
+  const strength=String(candidate.strength||'NORMAL'),tier=String(candidate.entryTier||'CONFIRM'),quality=num(candidate.quality),edge=num(candidate.edgeScore),rr=num(candidate.netRR),aligned=candidate.localCounterTrend!==true||candidate.reversalValidated===true,exceptional=strength==='A_PLUS'&&tier==='FULL'&&quality>=.58&&edge>=.16&&rr>=.80&&aligned;
   let block=null;
   if(dd>=10&&strength==='NORMAL')block='RECOVERY_MODE_REQUIRES_STRONG_EDGE';
-  if(num(g24.trades)>=4&&num(g24.expectancy)<-.04&&num(g24.consecutiveLosses)>=3&&!exceptional)block='GLOBAL_NEGATIVE_EXPECTANCY_GUARD';
-  if(num(s72.trades)>=3&&num(s72.expectancy)<-.035&&!exceptional)block='SYMBOL_NEGATIVE_EXPECTANCY_QUARANTINE';
+  if(num(g24.trades)>=8&&((num(g24.expectancy)<=0&&num(g24.profitFactor)<1.02)||num(g24.profitFactor)<.90)&&!exceptional)block='GLOBAL_POSITIVE_EDGE_REQUALIFICATION';
+  if(num(g72.trades)>=12&&num(g72.expectancy)<=0&&num(g72.profitFactor)<1.03&&!exceptional)block='GLOBAL_72H_POSITIVE_EDGE_REQUALIFICATION';
+  if(num(s72.trades)>=6&&(num(s72.expectancy)<=0||num(s72.profitFactor)<1.00)&&!exceptional)block='SYMBOL_POSITIVE_EDGE_QUARANTINE';
   if(num(s72.consecutiveLosses)>=2&&!exceptional)block='SYMBOL_LOSS_STREAK_REQUALIFICATION_REQUIRED';
   let riskMult=1;
   if(dd>=15)riskMult*=.55;else if(dd>=10)riskMult*=.70;else if(dd>=6)riskMult*=.84;
-  if(num(g24.trades)>=3&&num(g24.expectancy)<0)riskMult*=.82;
-  if(num(s72.trades)>=2&&num(s72.expectancy)<0)riskMult*=.68;
-  else if(num(s72.trades)>=2&&num(s72.expectancy)>0&&num(s72.profitFactor)>=1.25)riskMult*=1.00;
+  if(num(g24.trades)>=6&&(num(g24.expectancy)<=0||num(g24.profitFactor)<1.02))riskMult*=.72;
+  if(num(s72.trades)>=4&&(num(s72.expectancy)<=0||num(s72.profitFactor)<1.00))riskMult*=.55;
+  else if(num(s72.trades)>=6&&num(s72.expectancy)>0&&num(s72.profitFactor)>=1.20)riskMult*=1.00;
   if(num(s72.consecutiveLosses)>=1)riskMult*=.82;
   if(!isCoreTradeSymbol(symbol)&&num(s72.trades)===0)riskMult*=.70;
   if(strength==='NORMAL')riskMult*=.90;
-  riskMult=clamp(riskMult,.40,1.00);
-  return {symbol,block,riskMult:Number(riskMult.toFixed(3)),exceptional,drawdownPct:Number(dd.toFixed(3)),global24:g24,global72:g72,symbol24:s24,symbol72:s72,authority:'REALIZED_NET_EXPECTANCY_CAPITAL_PRESERVATION'};
+  riskMult=clamp(riskMult,.25,1.00);
+  return {symbol,block,riskMult:Number(riskMult.toFixed(3)),exceptional,drawdownPct:Number(dd.toFixed(3)),global24:g24,global72:g72,symbol24:s24,symbol72:s72,authority:'REALIZED_NET_POSITIVE_EDGE_SCALP_QUALITY_V2'};
 }
 
-export const BYBIT_PERFORMANCE_GOVERNOR_VERSION='BYBIT_PERFORMANCE_GOVERNOR_V1_REALIZED_NET_EXPECTANCY';
+export const BYBIT_PERFORMANCE_GOVERNOR_VERSION='BYBIT_PERFORMANCE_GOVERNOR_V2_POSITIVE_EDGE_SCALP_QUALITY';
