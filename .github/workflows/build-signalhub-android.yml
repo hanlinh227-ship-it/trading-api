@@ -74,15 +74,15 @@ jobs:
           import json
           p=json.load(open('/tmp/c.json'));assert p.get('ok') is True and p.get('count',0)>0
           PY
-      - name: Export handoff APK
+      - name: Prepare APK
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p handoff
-          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk "handoff/SignalHub-v${APP_VERSION}.apk"
-          sha256sum "handoff/SignalHub-v${APP_VERSION}.apk" > handoff/SHA256SUMS.txt
-          base64 -w 0 "handoff/SignalHub-v${APP_VERSION}.apk" > "handoff/SignalHub-v${APP_VERSION}.apk.b64"
-          rm "handoff/SignalHub-v${APP_VERSION}.apk"
+          mkdir -p dist handoff
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk "dist/SignalHub-v${APP_VERSION}.apk"
+          sha256sum "dist/SignalHub-v${APP_VERSION}.apk" > dist/SHA256SUMS.txt
+          cp dist/SHA256SUMS.txt handoff/SHA256SUMS.txt
+          base64 -w 0 "dist/SignalHub-v${APP_VERSION}.apk" > "handoff/SignalHub-v${APP_VERSION}.apk.b64"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f handoff/
@@ -91,5 +91,18 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: SignalHub-Android-v3.1.0
-          path: signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          path: dist/
           retention-days: 30
+      - name: Publish downloadable release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="signalhub-v${APP_VERSION}"
+          APK="dist/SignalHub-v${APP_VERSION}.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$APK" dist/SHA256SUMS.txt --target "$GITHUB_SHA" --title "SignalHub v${APP_VERSION}" --notes "SignalHub 3.1.0 — FOREX/CRYPTO, SCALP/SWING, Exness live execution truth, crypto live provider labeling, signal detail, history/performance and Vietnamese UX/UI. Win rate is historical resolved TP/SL only, not a guaranteed probability."
+          fi
