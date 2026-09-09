@@ -1,0 +1,59 @@
+name: Check SignalHub Live V3.3
+
+on:
+  push:
+    branches: [signalhub-v3-rebuild-20260909]
+    paths:
+      - '.github/workflows/check-signalhub-live-v33.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe live Forex bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://signalhub-forex.hanlinh227.workers.dev/v3/forex/live'
+          STATUS='https://signalhub-forex.hanlinh227.workers.dev/v3/status'
+          echo '=== STATUS ==='
+          curl -fsS --max-time 15 "$STATUS" | tee /tmp/status.json
+          echo
+          echo '=== 12 LIVE SAMPLES (1s interval) ==='
+          rm -f /tmp/samples.txt
+          for i in $(seq 1 12); do
+            curl -fsS --max-time 15 "$URL" >/tmp/live.json
+            python3 - <<'PY' | tee -a /tmp/samples.txt
+          import json,time
+          p=json.load(open('/tmp/live.json'))
+          hb=p.get('heartbeat') or {}
+          print(f"sample state={p.get('state')} quoteAgeMs={p.get('quoteAgeMs')} heartbeatAgeMs={p.get('heartbeatAgeMs')} count={p.get('count')} terminalConnected={hb.get('terminalConnected')} resolvedSymbols={hb.get('resolvedSymbols')} bridgeVersion={hb.get('bridgeVersion')}")
+          PY
+            sleep 1
+          done
+          echo '=== SUMMARY ==='
+          python3 - <<'PY'
+          import re,statistics
+          lines=open('/tmp/samples.txt').read().splitlines()
+          ages=[]; states=[]; hbs=[]; counts=[]; versions=[]
+          for s in lines:
+              m=re.search(r'state=(\S+) quoteAgeMs=([^ ]+) heartbeatAgeMs=([^ ]+) count=([^ ]+) terminalConnected=([^ ]+) resolvedSymbols=([^ ]+) bridgeVersion=(.*)$',s)
+              if not m: continue
+              states.append(m.group(1)); versions.append(m.group(7))
+              try: ages.append(float(m.group(2)))
+              except: pass
+              try: hbs.append(float(m.group(3)))
+              except: pass
+              try: counts.append(int(m.group(4)))
+              except: pass
+          print('states=',states)
+          if ages: print('quoteAgeMs min/median/max=',min(ages),statistics.median(ages),max(ages))
+          if hbs: print('heartbeatAgeMs min/median/max=',min(hbs),statistics.median(hbs),max(hbs))
+          if counts: print('quote count min/max=',min(counts),max(counts))
+          print('bridgeVersions=',sorted(set(versions)))
+          PY
