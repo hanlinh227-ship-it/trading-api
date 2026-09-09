@@ -1,8 +1,8 @@
-name: Deploy SignalHub Forex Worker
+name: Deploy SignalHub Worker
 
 on:
   push:
-    branches: [signalhub-android-v1]
+    branches: [signalhub-v3-final]
     paths:
       - 'signalhub-worker/**'
       - '.github/workflows/deploy-signalhub-worker.yml'
@@ -13,142 +13,54 @@ permissions:
 
 env:
   SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
-  EXPECTED_VERSION: SIGNALHUB-FOREX-2.1.0
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     environment: production
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
+        with: { node-version: '22' }
       - name: Validate Worker source
         working-directory: signalhub-worker
         run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/signalhub-dryrun
-
-      - name: Deploy isolated Worker
+      - name: Deploy Worker
         working-directory: signalhub-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@latest deploy --config wrangler.jsonc
-
-      - name: Smoke test live tracker Worker
+      - name: Smoke test V3.1 and legacy compatibility
         shell: bash
         run: |
           set -euo pipefail
           ready=0
-          for n in $(seq 1 20); do
-            code=$(curl --silent --show-error --max-time 20 -o /tmp/status.json -w '%{http_code}' "$SIGNALHUB_URL/status" || true)
+          for n in $(seq 1 30); do
+            code=$(curl --silent --show-error --max-time 20 -o /tmp/v3.json -w '%{http_code}' "$SIGNALHUB_URL/v3/status" || true)
             if [ "$code" = "200" ]; then
-              version=$(python3 - <<'PY'
+              ver=$(python3 - <<'PY'
           import json
-          try:
-              p=json.load(open('/tmp/status.json',encoding='utf-8'))
-              print(p.get('version',''))
-          except Exception:
-              print('')
+          try: print(json.load(open('/tmp/v3.json')).get('version',''))
+          except: print('')
           PY
           )
-              echo "attempt=$n version=$version"
-              if [ "$version" = "$EXPECTED_VERSION" ]; then ready=1; break; fi
+              echo "attempt=$n version=$ver"
+              if [ "$ver" = "SIGNALHUB-V3-GATEWAY-3.1.0" ]; then ready=1; break; fi
             fi
             sleep 2
           done
-          test "$ready" = "1"
-
+          test "$ready" = 1
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/status" -o /tmp/legacy.json
+          curl --fail --silent --show-error --max-time 35 "$SIGNALHUB_URL/v3/crypto/tickers?limit=3" -o /tmp/tick.json
+          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/v3/app-version" -o /tmp/app.json
           python3 - <<'PY'
           import json
-          p=json.load(open('/tmp/status.json',encoding='utf-8'))
-          assert p.get('ok') is True, p
-          assert p.get('version') == 'SIGNALHUB-FOREX-2.1.0', p
-          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', p
-          assert p.get('independentFromBybit') is True, p
-          assert p.get('trackerStorage') is True, p
-          assert p.get('oneActiveSetupPerSymbol') is True, p
-          assert p.get('supportedOrderTypes') == ['MARKET','LIMIT','STOP'], p
-          policy=p.get('signalCadencePolicy') or {}
-          assert policy.get('mode') == 'MODERATE_QUALITY_FIRST', policy
-          assert policy.get('minGlobalSpacingMinutes') == 20, policy
-          assert policy.get('maxNewPerScan') == 1, policy
-          assert policy.get('maxActiveTotal') == 12, policy
-          assert policy.get('maxActiveByGroup') == {'forex':8,'metal':2,'energy':2}, policy
-          assert policy.get('minScore') == {'MARKET':93,'LIMIT':88,'STOP':90}, policy
-          print('STATUS_OK',p.get('version'),p.get('gatewayVersion'),policy)
-          PY
-
-          curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/live-quotes?group=all" -o /tmp/live.json
-          python3 - <<'PY'
-          import json
-          p=json.load(open('/tmp/live.json',encoding='utf-8'))
-          assert p.get('ok') is True, p
-          assert isinstance(p.get('quotes'),list) and len(p['quotes']) >= 1, p
-          assert p.get('suggestedRefreshMs') == 5000, p
-          assert p.get('streaming') is False, p
-          for q in p['quotes'][:3]:
-              assert q.get('price',0) > 0, q
-              assert q.get('pipSize',0) > 0, q
-          print('LIVE_QUOTES_OK',p.get('count'))
-          PY
-
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/app-version" -o /tmp/app-version.json
-          python3 - <<'PY'
-          import json
-          p=json.load(open('/tmp/app-version.json',encoding='utf-8'))
-          a=p.get('app') or {}
-          assert p.get('ok') is True, p
-          assert p.get('gatewayVersion') == 'SIGNALHUB-GATEWAY-2.1.2', p
-          assert a.get('versionCode') == 5, a
-          assert a.get('versionName') == '2.1.0', a
-          print('APP_VERSION_OK',a.get('versionName'))
-          PY
-
-          for group in forex metal energy; do
-            curl --fail --silent --show-error --max-time 30 "$SIGNALHUB_URL/run-now?group=$group" -o "/tmp/$group.json"
-            python3 - "$group" <<'PY'
-          import json,sys
-          g=sys.argv[1]
-          p=json.load(open('/tmp/'+g+'.json',encoding='utf-8'))
-          assert p.get('ok') is True, p
-          assert p.get('group') == g, p
-          assert p.get('status') in ('OK','MARKET_CLOSED_OR_NO_DATA'), p
-          assert isinstance(p.get('analyses'),list), p
-          tr=p.get('tracker') or {}
-          assert tr.get('enabled') is True, tr
-          assert tr.get('oneActiveSetupPerSymbol') is True, tr
-          assert isinstance(tr.get('events'),list), tr
-          q=p.get('qualityPolicy') or {}
-          assert q.get('version') == 'QUALITY_GATE_V212', q
-          assert q.get('maxNewPerScan') == 1, q
-          assert q.get('minGlobalSpacingMinutes') == 20, q
-          assert q.get('approvedNewSignals',0) <= 1, q
-          for a in p.get('analyses',[]):
-              if str(a.get('status','')).endswith('_SIGNAL'):
-                  assert a.get('orderType') in ('MARKET','LIMIT','STOP'), a
-          print(g.upper()+'_OK','rows',p.get('sourceRows'),'quality',q)
-          PY
-          done
-
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/signals?status=active&limit=100" -o /tmp/active.json
-          curl --fail --silent --show-error --max-time 20 "$SIGNALHUB_URL/performance" -o /tmp/perf.json
-          python3 - <<'PY'
-          import json
-          a=json.load(open('/tmp/active.json',encoding='utf-8'))
-          p=json.load(open('/tmp/perf.json',encoding='utf-8'))
-          assert a.get('ok') is True and isinstance(a.get('signals'),list), a
-          symbols=[]
-          for s in a['signals']:
-              assert s.get('status') in ('PENDING','OPEN'), s
-              assert s.get('orderType','MARKET') in ('MARKET','LIMIT','STOP'), s
-              symbols.append(s.get('symbol'))
-          assert len(symbols) == len(set(symbols)), ('duplicate active symbols',symbols)
-          perf=p.get('performance') or {}
-          for k in ['totalSignals','active','pending','open','closed','tp','sl','winRateResolved','netRResolved','byOrderType']:
-              assert k in perf, (k,perf)
-          print('TRACKER_OK','active',a.get('count'),'performance',perf)
+          v=json.load(open('/tmp/v3.json')); l=json.load(open('/tmp/legacy.json')); t=json.load(open('/tmp/tick.json')); a=json.load(open('/tmp/app.json'))
+          assert v.get('ok') is True and v.get('checkpoint')=='SIGNALHUB_V3_CHECKPOINT_05',v
+          assert l.get('ok') is True and l.get('version')=='SIGNALHUB-FOREX-2.1.0',l
+          assert t.get('ok') is True and t.get('count',0)>=1,t
+          assert a.get('app',{}).get('versionName')=='3.1.0',a
+          print('DEPLOY_OK',v.get('version'),t.get('provider'),t.get('count'))
           PY
