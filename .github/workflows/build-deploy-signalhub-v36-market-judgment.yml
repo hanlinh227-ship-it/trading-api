@@ -1,0 +1,187 @@
+name: Build Deploy SignalHub V3.6 Market Judgment
+
+on:
+  push:
+    branches: [signalhub-v36-market-judgment]
+    paths:
+      - 'scripts/patch_signalhub_v36_market_judgment.py'
+      - '.github/workflows/build-deploy-signalhub-v36-market-judgment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.6 market judgment patch
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v36_market_judgment.py
+
+      - name: Verify no score or time admission gates
+        run: |
+          set -euo pipefail
+          grep -q "SIGNALHUB-V3-GATEWAY-3.6.0" signalhub-worker/gateway-v3.js
+          grep -q "BOT_MARKET_JUDGMENT" signalhub-worker/gateway-v3.js
+          grep -q "NO_SCORE_NO_TIME_GATE" signalhub-worker/gateway-v3.js
+          grep -q "V36_MARKET_JUDGMENT_5M_15M_1H" signalhub-worker/gateway-v3.js
+          grep -q "LỆNH LIMIT" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "LỆNH STOP" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "TỚI ENTRY" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "Score Gate.*OFF" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          ! grep -q "V35_QUALITY_POLICY\|passesV35QualityGate\|stampV35Quality\|admissionMinScore\|admissionMinRR\|minGap=" signalhub-worker/gateway-v3.js
+          ! grep -q "SETUP QUALITY\|Setup quality\|score ≥" signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q "versionName '3.6.0'" signalhub-android/app/build.gradle
+
+      - name: Validate Worker
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v36-worker
+
+      - name: Deploy V3.6 worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Smoke production V3.6 realtime
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 30); do
+            if curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',s.get('version')
+          p=s.get('decisionPolicy') or {}
+          assert p.get('name')=='BOT_MARKET_JUDGMENT',p
+          assert p.get('scoreGate') is False,p
+          assert p.get('timeGate') is False,p
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 15 "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/live.json'))
+          assert x.get('transport')=='DURABLE_OBJECT_REALTIME',x
+          assert x.get('count',0)>=30,x
+          print('forex',x.get('state'),'age',x.get('quoteAgeMs'),'count',x.get('count'))
+          PY
+
+      - name: Exercise market judgment scans
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              echo "scan $m $s"
+              curl -fsS --max-time 75 "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=$RANDOM" >/tmp/scan.json
+              M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/scan.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',p
+          q=p.get('decisionPolicy') or {}
+          assert q.get('name')=='BOT_MARKET_JUDGMENT',q
+          assert q.get('scoreGate') is False,q
+          assert q.get('timeGate') is False,q
+          print(os.environ['M'],os.environ['S'],'created',p.get('created'),'actionable',p.get('actionable'))
+          PY
+            done
+          done
+
+      - name: Verify active signal contract without scores
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=120&probe=$RANDOM" >/tmp/s.json
+              M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/s.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.6.0',p.get('version')
+          q=p.get('decisionPolicy') or {}
+          assert q.get('name')=='BOT_MARKET_JUDGMENT',q
+          assert q.get('scoreGate') is False,q
+          assert q.get('timeGate') is False,q
+          assert 'qualityPolicy' not in p,p
+          for x in p.get('signals',[]):
+              assert x.get('orderType') in ('MARKET','LIMIT','STOP'),x
+              assert x.get('status') in ('PENDING','OPEN'),x
+              assert 'score' not in x,x
+              assert 'qualityGrade' not in x,x
+              assert 'admissionGate' not in x,x
+              assert x.get('decisionMode')=='BOT_MARKET_JUDGMENT',x
+              e,sl,tp=x.get('entry',0),x.get('sl',0),x.get('tp3',x.get('tp',0))
+              assert e and sl and tp,x
+          print(os.environ['M'],os.environ['S'],'active',len(p.get('signals',[])))
+          PY
+            done
+          done
+
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 50000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          mkdir -p dist
+          cp "$APK" dist/SignalHub-v3.6.0-Market-Judgment.apk
+          sha256sum dist/SignalHub-v3.6.0-Market-Judgment.apk > dist/SHA256SUMS.txt
+
+      - name: Commit V3.6 generated source
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java
+          git commit -m "SignalHub v3.6 market judgment no score no cooldown" || true
+          git push origin HEAD:signalhub-v36-market-judgment
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.6.0-Market-Judgment
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.6.0-market-judgment'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/SignalHub-v3.6.0-Market-Judgment.apk dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/SignalHub-v3.6.0-Market-Judgment.apk dist/SHA256SUMS.txt \
+              --target signalhub-v36-market-judgment --prerelease \
+              --title 'SignalHub v3.6.0 Market Judgment' \
+              --notes 'No score gate, no minimum-score filter, no RR admission threshold and no signal cooldown. Bot classifies market regime and dynamically routes MARKET/LIMIT/STOP. LIVE orders keep SL↔TP red/green gauge; LIMIT/STOP keep yellow distance-to-entry gauge. Exness Durable Object realtime transport retained.'
+          fi
