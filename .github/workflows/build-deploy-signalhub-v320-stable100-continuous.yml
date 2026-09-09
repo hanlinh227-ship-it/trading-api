@@ -1,0 +1,194 @@
+name: Build Deploy SignalHub V3.20 Stable100 Continuous
+
+on:
+  push:
+    branches: [signalhub-v320-stable100-continuous]
+    paths:
+      - 'scripts/patch_signalhub_v320_stable100_continuous.py'
+      - '.github/workflows/build-deploy-signalhub-v320-stable100-continuous.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply V3.19 -> V3.19.1 -> V3.20 patches
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.20 source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          for x in ['SIGNALHUB-V3-GATEWAY-3.20.0','STABLE100_SIZE=100','buildStable100Universe','stable100Eligible','rotatingStableCandidates','stableUniverseSize:100','standbyPerStyle:20','DYNAMIC_STABLE100_EVERY_SERVER_CYCLE_PLUS_ON_DEMAND','CONTINUOUS_STABLE100_REFILL','/v3/crypto/stable100','targetActiveByStyle:{SCALP:10,SWING:5}']:
+              assert x in w,x
+          for x in ['APP_VERSION="3.20.0"','CRYPTO • TOP 100 • 10 SCALP + 5 SWING','watchSearchHasFocus','showWatchKeyboard']:
+              assert x in a,x
+          assert "versionCode 26" in g and "versionName '3.20.0'" in g
+          print('V3.20 source contract PASS')
+          PY
+
+      - name: Dry run and Android build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v320-worker
+          cd signalhub-android && gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.20 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for V3.20 production
+        run: |
+          set -euo pipefail
+          ok=0
+          for n in $(seq 1 60); do
+            curl -fsS --max-time 20 "$BASE/v3/status?v320=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.20.0',s.get('version')
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('stableUniverseSize')==100,p
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':10,'SWING':5},p
+          PY
+            then ok=1;break;fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Prove dynamic stable100 universe
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 45 "$BASE/v3/crypto/stable100?probe=$RANDOM" >/tmp/u.json
+          python3 - <<'PY'
+          import json
+          u=json.load(open('/tmp/u.json'))
+          print('stable100',u.get('provider'),u.get('count'),(u.get('symbols') or [])[:20])
+          assert u.get('ok') is True,u
+          assert u.get('target')==100,u
+          assert u.get('count')==100,u
+          syms=u.get('symbols') or []
+          assert len(syms)==100 and len(set(syms))==100
+          rows=u.get('rows') or []
+          assert len(rows)==100
+          for r in rows:
+              assert float(r.get('turnover24h') or 0)>=20_000_000,r.get('symbol')
+              assert float(r.get('spreadBps') if r.get('spreadBps') is not None else 999)<=15,r.get('symbol')
+              assert abs(float(r.get('change24hPct') or 0))<=35,r.get('symbol')
+          print('dynamic stable100 PASS')
+          PY
+
+      - name: Refill toward exact 10 scalp + 5 swing from stable100
+        run: |
+          set -euo pipefail
+          reached=0
+          for n in $(seq 1 14); do
+            curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SCALP&v320=$RANDOM-$n" >/tmp/s.json || true
+            curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SWING&v320=$RANDOM-$n" >/tmp/w.json || true
+            curl -fsS --max-time 30 "$BASE/v3/portfolio?v320=$RANDOM-$n" >/tmp/p.json
+            python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {})
+          print('portfolio',p.get('activeTotal'),p.get('styles'),p.get('uniqueSymbols'))
+          for name,path in [('SCALP','/tmp/s.json'),('SWING','/tmp/w.json')]:
+              try:
+                  q=json.load(open(path));print(name,{k:q.get(k) for k in ['stable100Count','liquidUniverse','deepAnalyzed','evaluated','actionable','created']})
+              except:pass
+          PY
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {})
+          assert p.get('activeTotal')==15,p
+          assert (p.get('styles') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('uniqueSymbols')==15,p
+          PY
+            then reached=1;break;fi
+            sleep 2
+          done
+          test "$reached" = 1
+
+      - name: Audit active slots and stable100 isolation
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 45 "$BASE/v3/signals?market=CRYPTO&style=SCALP&status=active&limit=100" >/tmp/as.json
+          curl -fsS --max-time 45 "$BASE/v3/signals?market=CRYPTO&style=SWING&status=active&limit=100" >/tmp/aw.json
+          curl -fsS --max-time 45 "$BASE/v3/crypto/stable100?audit=$RANDOM" >/tmp/u.json
+          python3 - <<'PY'
+          import json
+          ss=json.load(open('/tmp/as.json')).get('signals') or [];sw=json.load(open('/tmp/aw.json')).get('signals') or [];u=json.load(open('/tmp/u.json'));univ=set(u.get('symbols') or [])
+          assert len(ss)==10,len(ss);assert len(sw)==5,len(sw)
+          rows=ss+sw;assert len({x.get('symbol') for x in rows})==15
+          for x in rows:
+              assert x.get('symbol') in univ,(x.get('symbol'),'not stable100')
+              assert x.get('status') in ('OPEN','PENDING')
+              assert x.get('orderType') in ('MARKET','LIMIT','STOP')
+          print('active 15 all inside current stable100 PASS')
+          PY
+
+      - name: Verify one-minute maintenance and reserve depth
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 45 "$BASE/v3/standbys?probe=$RANDOM" >/tmp/st.json || true
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?probe=$RANDOM" >/tmp/p.json
+          python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {})
+          pol=p.get('policy') or {}
+          assert pol.get('standbyPerStyle')==20,pol
+          assert pol.get('stableUniverseSize')==100,pol
+          assert p.get('activeTotal')==15,p
+          print('continuous refill policy PASS',pol.get('universeRefresh'),pol.get('continuousRefill'))
+          PY
+
+      - name: Stage checkpoint and APK
+        run: |
+          set -euo pipefail
+          cat > SIGNALHUB_V3_CHECKPOINT_11_STABLE100_CONTINUOUS.md <<'EOF'
+          # SignalHub V3.20 — Stable100 Continuous Universe
+          Crypto-only dynamic universe. The server refreshes a top-100 stable USDT perpetual watch universe on every one-minute maintenance cycle and on-demand scan. Universe eligibility rejects weak turnover, wide spread, extreme 24h movement, low OI when available, extreme funding, and stablecoin bases. Ranking prioritizes turnover/open-interest depth before spread and daily move. Ticker/liquidity review covers all 100; deep candle analysis keeps a high-liquidity core and rotates through the remaining universe to control provider burst limits. Active reference book remains 10 SCALP + 5 SWING, OPEN and PENDING combined, one active symbol across styles. Hot-spare pool is 20 per style and immediate reserve promotion is used when a slot closes or is invalidated. No weak-liquidity forced MARKET fallback. Watchlist search/keyboard fix remains.
+          EOF
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.20.0-Stable100-Continuous.apk
+          sha256sum dist/SignalHub-v3.20.0-Stable100-Continuous.apk | tee dist/SignalHub-v3.20.0-Stable100-Continuous-SHA256SUMS.txt
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java SIGNALHUB_V3_CHECKPOINT_11_STABLE100_CONTINUOUS.md
+          git commit -m 'SignalHub v3.20 stable100 continuous universe' || true
+          git push origin HEAD:signalhub-v320-stable100-continuous
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.20.0-Stable100-Continuous
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.20.0-stable100-continuous
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v320-stable100-continuous --prerelease --title 'SignalHub v3.20 — Stable100 Continuous' --notes 'Dynamic top-100 stable crypto universe, rotating deep analysis, 20 hot spares per style, continuous refill toward 10 SCALP + 5 SWING, and fixed Watchlist keyboard/search.'
