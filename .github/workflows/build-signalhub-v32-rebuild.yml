@@ -1,0 +1,91 @@
+name: Build SignalHub V3.2 Rebuild APK
+
+on:
+  push:
+    branches: [signalhub-v3-rebuild-20260909]
+    paths:
+      - 'signalhub-android/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+  APP_VERSION: 3.2.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 20000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+      - name: Smoke production API contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 25 "$SIGNALHUB_URL/v3/status" >/tmp/status.json
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 35 "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=50" >/tmp/signals.json
+              curl -fsS --max-time 35 "$SIGNALHUB_URL/v3/performance?market=$m&style=$s" >/tmp/perf.json
+              python3 - <<'PY'
+          import json
+          a=json.load(open('/tmp/signals.json')); p=json.load(open('/tmp/perf.json'))
+          assert a.get('ok') is True and isinstance(a.get('signals'), list)
+          assert p.get('ok') is True and isinstance(p.get('performance'), dict)
+          PY
+            done
+          done
+      - name: Prepare handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist handoff
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk "dist/SignalHub-v${APP_VERSION}.apk"
+          sha256sum "dist/SignalHub-v${APP_VERSION}.apk" > dist/SHA256SUMS.txt
+          cp dist/SHA256SUMS.txt handoff/SHA256SUMS-v3.2.0.txt
+          base64 -w 0 "dist/SignalHub-v${APP_VERSION}.apk" > "handoff/SignalHub-v${APP_VERSION}.apk.b64"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f handoff/SignalHub-v3.2.0.apk.b64 handoff/SHA256SUMS-v3.2.0.txt
+          git commit -m "SignalHub v3.2.0 rebuild APK handoff" || true
+          git push origin HEAD:${GITHUB_REF_NAME}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.2.0
+          path: dist/
+          retention-days: 30
+      - name: Publish downloadable prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="signalhub-v3.2.0-rebuild"
+          APK="dist/SignalHub-v3.2.0.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$APK" dist/SHA256SUMS.txt --target "$GITHUB_SHA" --prerelease --title "SignalHub v3.2.0 Rebuild" --notes "SignalHub V3.2 rebuild: separated SCALP/SWING presentation, explicit ENTRY/SL/TP1/TP2/TP3, live-data health, smoother cached navigation, clearer source/system status, and lifecycle-aware notifications."
+          fi
