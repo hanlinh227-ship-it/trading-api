@@ -27,9 +27,12 @@ jobs:
           base64 -d /tmp/bundle.b64 > /tmp/bundle.txz
           echo '34220b5c1850bde7c06a9403a121c8418aba328155a544be64ab5b5bbad1df9b  /tmp/bundle.txz' | sha256sum -c -
           tar -xJf /tmp/bundle.txz -C .
+          echo 'VALIDATE_GATEWAY_JS'
           node --check signalhub-worker/gateway-v3.js
-          grep -Fq "SIGNALHUB-V3-GATEWAY-3.1.0" signalhub-worker/gateway-v3.js
-          grep -Fq "SIGNALHUB_V3_CHECKPOINT_05" SIGNALHUB_V3_CHECKPOINT_05.md
+          grep -Fq 'SIGNALHUB-V3-GATEWAY-3.1.0' signalhub-worker/gateway-v3.js
+          echo 'VALIDATE_CHECKPOINT'
+          grep -Fq '# SIGNALHUB V3 CHECKPOINT 05' SIGNALHUB_V3_CHECKPOINT_05.md
+          echo 'VALIDATE_ANDROID_VERSION'
           grep -Fq "versionName '3.1.0'" signalhub-android/app/build.gradle
           git config user.name 'signalhub-bot'
           git config user.email 'signalhub-bot@users.noreply.github.com'
