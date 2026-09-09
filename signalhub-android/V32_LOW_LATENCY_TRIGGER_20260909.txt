@@ -1,0 +1,3 @@
+SignalHub V3.2.0 low-latency Android rebuild trigger.
+Live quote refresh target: 1000 ms.
+Page/signal refresh remains decoupled at 3000 ms.
