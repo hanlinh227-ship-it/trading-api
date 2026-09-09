@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.22.1';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.22.4';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_10';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -17,13 +17,19 @@ const FOREX = [
 ];
 const V31_RELEASE = {
   versionCode: 30,
-  versionName: '3.22.1',
-  title: 'SignalHub 3.22.1 Universe Watch + Resilient Read',
+  versionName: '3.22.4',
+  title: 'SignalHub 3.22.4 Responsive Style Target Read',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.22.1-Universe-Watch-Resilient-Read',
+  artifactName: 'SignalHub-Android-v3.22.4-Responsive-Style-Target-Read',
   notes: [
+    'V3.22.4 fixes the app-facing SWING target mismatch: active reads now use the canonical 10 SCALP / 5 SWING targets instead of forcing both styles toward 10.',
+    'V3.22.4 keeps deep refill asynchronous from interactive signal reads, preventing the 30-second app/API timeout while continuous maintenance still restores missing slots.',
+    'V3.22.3 reconnects the existing stable-liquid reference pending builder to the real scan/refill path. When strict immediate structure is absent, the engine may emit only a hard-safety-passing structure-derived LIMIT/STOP wait setup; it does not force a MARKET trade.',
+    'V3.22.3 keeps liquidity, spread, invalidation, target path and pending reachability hard checks and adds scan rejection diagnostics for production audit.',
+    'V3.22.2 repairs the missing analyzeCryptoBatch runtime helper that caused /v3/scan HTTP 500 and empty active books; batch analysis is now bounded-concurrency and isolates per-symbol failures.',
+    'V3.22.2 production audit fails unless both SCALP and SWING scans return ok and the live portfolio contains at least one active signal in each style after refill attempts.',
     'V3.20.1 normalizes OKX swap base-currency 24h volume into quote-USDT turnover before liquidity ranking, preventing tiny-price high-token-count markets from being falsely ranked as the deepest markets.',
     'V3.20 continuously maintains a dynamic top-100 stable USDT perpetual universe. All 100 are refreshed at ticker/liquidity level each server maintenance cycle and on-demand scan; deep candle analysis rotates through the universe while preserving a high-liquidity core.',
     'V3.20 keeps 20 hot-spare candidates per style and continuously refills toward 10 SCALP + 5 SWING without forcing weak-liquidity or MARKET fallback entries.',
@@ -742,7 +748,7 @@ function v322MarketRead(t,style,stats,setup){
 async function analyzeCryptoCandidate(t,style){
   try{
     const rows=await Promise.all(intervalMap[style].map(i=>providerCandles(t.symbol,i,t.exchange))),stats=rows.map(tfStats);if(stats.some(x=>!x))return null;
-    const setup=buildCryptoSetup(t,style,stats);if(!setup)return null;
+    let setup=buildCryptoSetup(t,style,stats);if(!setup)setup=buildStableReferenceSetup(t,style,stats);if(!setup)return null;
     const read=v322MarketRead(t,style,stats,setup),dir=String(setup.side||'').toUpperCase()==='LONG'?1:-1,contextInterval=intervalMap[style][1],primary=String(t.exchange||'').toUpperCase();
     setup.marketReadV322=read;setup.executionRead=read.state;setup.qualityEvidence={...(setup.qualityEvidence||{}),v322ContextAligned:read.contextAligned,v322ExecutionEvent:read.executionEvent,v322ExecutionMomentum:read.executionMomentum,v322LiquidityOk:read.liquidityOk,v322MarketEntryReady:read.marketEntryReady};
     setup.technicalAtIssue={...(setup.technicalAtIssue||{}),v322Context:read.contextLabel,v322Read:read.state};setup.rationale=[...(setup.rationale||[]),...read.reasons.map(x=>'V3.22 '+x)];
@@ -944,6 +950,21 @@ async function maybeCreateV31(env,market,style,setups){
   }
   return made;
 }
+async function analyzeCryptoBatch(rows,style,concurrency=6){
+  const source=Array.isArray(rows)?rows.filter(Boolean):[];
+  if(!source.length)return[];
+  const out=new Array(source.length).fill(null);let cursor=0;
+  const workers=Math.max(1,Math.min(Number(concurrency)||6,source.length,8));
+  async function run(){
+    while(true){
+      const i=cursor++;if(i>=source.length)return;
+      try{out[i]=await analyzeCryptoCandidate(source[i],style);}catch(e){out[i]=null;}
+    }
+  }
+  await Promise.all(Array.from({length:workers},()=>run()));
+  return out.filter(Boolean);
+}
+
 async function scanCrypto(env,style){
   style=String(style||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';
   const trackerEvents=await retireAllLegacyActiveSignals(env);
@@ -952,9 +973,9 @@ async function scanCrypto(env,style){
   const liquid=stable100.filter(x=>stableUniverseEligible(x,style));
   const rankedLimit=style==='SCALP'?(styleUnderfilled?Math.min(72,liquid.length):Math.min(52,liquid.length)):(styleUnderfilled?Math.min(58,liquid.length):Math.min(42,liquid.length));
   const ranked=rotatingStableCandidates(liquid,style,rankedLimit);
-  const rawAnalyses=await analyzeCryptoBatch(ranked,style,6),assessed=rawAnalyses.map(x=>{const strict=assessEntrySetup(x);const assessment=strict.verdict==='PASS'?strict:(x.coverageFallback?assessCoverageSetup(x):strict);return {...x,entryAssessment:assessment};}),analyses=assessed.filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority);
+  const rawAnalyses=await analyzeCryptoBatch(ranked,style,6),assessed=rawAnalyses.map(x=>{const strict=assessEntrySetup(x);const assessment=strict.verdict==='PASS'?strict:(x.coverageFallback?assessCoverageSetup(x):strict);return {...x,entryAssessment:assessment};}),analyses=assessed.filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority),assessmentFailures=assessed.filter(x=>x.entryAssessment.verdict!=='PASS').slice(0,12).map(x=>({symbol:x.symbol,coverageFallback:Boolean(x.coverageFallback),orderType:x.orderType,failed:x.entryAssessment.failed||[]}));
   const created=await maybeCreateV31(env,'CRYPTO',style,analyses),activeBook=await getActiveBook(env),activeSymbols=new Set(activeBook.map(x=>canonical(x.symbol))),standbyCandidates=rawAnalyses.map(toStandbyCandidate).filter(Boolean).filter(x=>!activeSymbols.has(canonical(x.symbol))).sort(compareSetupPriority).slice(0,PORTFOLIO_POLICY.standbyPerStyle),standby=await setCryptoStandbys(env,style,standbyCandidates);let promotion=null,afterCreate=await realtimePortfolioSnapshot(env);if(Number(afterCreate.styles?.[style]||0)<styleTarget(style))promotion=await promoteCryptoStandby(env,style,'SCAN_IMMEDIATE_REFILL');await kickCryptoServerMonitor(env).catch(()=>{});
-  return {ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market:'CRYPTO',style,provider:snap.provider,live:true,scanned:all.length,stable100Target:STABLE100_SIZE,stable100Count:stable100.length,stable100Symbols:stable100.map(x=>x.symbol),liquidUniverse:liquid.length,deepAnalyzed:ranked.length,evaluated:rawAnalyses.length,actionable:analyses.length,rejectedByAssessment:rawAnalyses.length-analyses.length,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,portfolioBlocked:Math.max(0,analyses.length-created.length),standby,promotion,newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'V3.19 stable-universe 15-slot engine: target 10 SCALP + 5 SWING. Full live universe is refreshed every maintenance cycle; weak-liquidity/high-spread/fragile candidates are excluded before deep analysis; strict signals are preferred and fresh conditional LIMIT/STOP reserves refill depleted slots.'};
+  return {ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market:'CRYPTO',style,provider:snap.provider,live:true,scanned:all.length,stable100Target:STABLE100_SIZE,stable100Count:stable100.length,stable100Symbols:stable100.map(x=>x.symbol),liquidUniverse:liquid.length,deepAnalyzed:ranked.length,evaluated:rawAnalyses.length,actionable:analyses.length,rejectedByAssessment:rawAnalyses.length-analyses.length,assessmentFailures,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,portfolioBlocked:Math.max(0,analyses.length-created.length),standby,promotion,newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'V3.19 stable-universe 15-slot engine: target 10 SCALP + 5 SWING. Full live universe is refreshed every maintenance cycle; weak-liquidity/high-spread/fragile candidates are excluded before deep analysis; strict signals are preferred and fresh conditional LIMIT/STOP reserves refill depleted slots.'};
 }
 
 async function cryptoOnlyMaintenance(env){
@@ -1123,13 +1144,17 @@ async function unifiedSignals(url,env,ctx){
   const market='CRYPTO',style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP',status=String(url.searchParams.get('status')||'active').toLowerCase(),limit=Math.min(300,Math.max(1,Number(url.searchParams.get('limit')||120)));
   let rows=await getV31Signals(env,market,style);rows=rows.map(x=>normalizeDisplaySignal(x,market,style));
   rows=rows.filter(s=>status==='all'||(status==='active'&&(s.status==='PENDING'||s.status==='OPEN'))||(status==='closed'&&s.status==='CLOSED')||String(s.status||'').toLowerCase()===status).slice(0,limit);
-  if(status==='active'&&rows.length<PORTFOLIO_POLICY.targetActivePerStyle){
-    for(let attempt=0;attempt<3&&rows.length<PORTFOLIO_POLICY.targetActivePerStyle;attempt++){
-      await promoteCryptoStandby(env,style,'ACTIVE_READ_REFILL').catch(()=>{});await scanCrypto(env,style).catch(()=>{});await promoteCryptoStandby(env,style,'ACTIVE_READ_REFILL_AFTER_SCAN').catch(()=>{});
-      let refreshed=await getV31Signals(env,market,style);refreshed=refreshed.map(x=>normalizeDisplaySignal(x,market,style));rows=refreshed.filter(s=>s.status==='PENDING'||s.status==='OPEN').slice(0,limit);
+  const targetActive=styleTarget(style);
+  if(status==='active'&&rows.length<targetActive){
+    // One bounded refill attempt is enough for an interactive read. Continuous/server
+    // maintenance owns deeper refill work; the app request must stay responsive.
+    await promoteCryptoStandby(env,style,'ACTIVE_READ_REFILL').catch(()=>{});
+    let refreshed=await getV31Signals(env,market,style);refreshed=refreshed.map(x=>normalizeDisplaySignal(x,market,style));rows=refreshed.filter(s=>s.status==='PENDING'||s.status==='OPEN').slice(0,limit);
+    if(rows.length<targetActive&&ctx?.waitUntil){
+      ctx.waitUntil(Promise.resolve(scanCrypto(env,style)).then(()=>promoteCryptoStandby(env,style,'ACTIVE_READ_BACKGROUND_REFILL')).catch(()=>{}));
     }
   }
-  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market,style,partitionKey:`CRYPTO:${style}`,status,count:rows.length,targetActive:PORTFOLIO_POLICY.targetActivePerStyle,dataHealth:{provider:'LIVE_CRYPTO_PROVIDER_PINNED',state:'SERVER_MONITORED'},decisionPolicy:MARKET_JUDGMENT_POLICY,signals:rows});
+  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market,style,partitionKey:`CRYPTO:${style}`,status,count:rows.length,targetActive,dataHealth:{provider:'LIVE_CRYPTO_PROVIDER_PINNED',state:'SERVER_MONITORED'},decisionPolicy:MARKET_JUDGMENT_POLICY,signals:rows});
 }
 
 async function unifiedPerformance(url,env){
@@ -1139,7 +1164,9 @@ async function unifiedPerformance(url,env){
 }
 async function scanRoute(url,env,ctx){
   const requested=String(url.searchParams.get('market')||'CRYPTO').toUpperCase();if(requested!=='CRYPTO')return json({ok:false,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',error:'FOREX_DISABLED_CRYPTO_ONLY'},410);
-  const style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';return json(await scanCrypto(env,style));
+  const style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';
+  try{const body=await scanCrypto(env,style);return json(body,body?.ok===false?503:200);}
+  catch(e){return json({ok:false,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market:'CRYPTO',style,error:'SCAN_RUNTIME_ERROR',detail:String(e?.message||e),portfolio:await realtimePortfolioSnapshot(env).catch(()=>null)},503);}
 }
 
 async function v315Stability(env){
