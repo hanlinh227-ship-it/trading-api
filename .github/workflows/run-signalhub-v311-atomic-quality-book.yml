@@ -1,0 +1,239 @@
+name: Run SignalHub V3.11 Atomic Quality Book
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/run-signalhub-v311-atomic-quality-book.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    env:
+      SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: signalhub-v311-atomic-quality-book
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Generate V3.11 source
+        run: |
+          python3 scripts/patch_signalhub_v310_disciplined_book.py
+          python3 scripts/patch_signalhub_v311_atomic_quality_book.py
+
+      - name: Verify quality and concurrency contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          api=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          for x in [
+            'SIGNALHUB-V3-GATEWAY-3.11.0','DURABLE_OBJECT_ATOMIC','state.storage.transaction',
+            'HARD_STRUCTURE_CHECKS_NO_NUMERIC_SCORE','maxActiveTotal:6','maxActivePerMarket:4',
+            'maxActivePerStyle:3','maxNewPerScan:2','maxForexPerCurrency:2',
+            'oneActivePerSymbolAcrossStyles:true','pendingReachable','rationaleComplete',
+            'executionConditions','retireAllLegacyActiveSignals','reserveRealtimeSignal',
+            'V311-${market}-${style}','portfolioReservation'
+          ]: assert x in w,x
+          assert 'scoreGate:false' in w and 'timeGate:false' in w and 'rrGate:false' in w
+          assert 'APP_VERSION="3.11.0"' in a
+          assert '3.11.0-atomic-quality-book' in api
+          assert "versionName '3.11.0'" in g
+          print('V311_SOURCE_CONTRACT_OK')
+          PY
+
+      - name: Validate Worker bundle
+        run: npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v311-worker
+
+      - name: Deploy V3.11 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config signalhub-worker/wrangler.jsonc
+
+      - name: Wait for V3.11 production contract
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 40); do
+            if curl -A 'SignalHub-CI/3.11' -fsS --max-time 25 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+              if python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/status.json')); q=p.get('decisionPolicy') or {}; pp=q.get('portfolioPolicy') or {}
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.11.0'
+          assert q.get('scoreGate') is False and q.get('timeGate') is False and q.get('rrGate') is False
+          assert q.get('entryAssessment')=='HARD_STRUCTURE_CHECKS_NO_NUMERIC_SCORE'
+          assert pp=={'maxActiveTotal':6,'maxActivePerMarket':4,'maxActivePerStyle':3,'maxNewPerScan':2,'maxForexPerCurrency':2,'oneActivePerSymbolAcrossStyles':True,'reservation':'DURABLE_OBJECT_ATOMIC'},pp
+          PY
+              then ready=1; break; fi
+            fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Retire legacy feed and run two qualification passes
+        run: |
+          set -euo pipefail
+          : >/tmp/engine-summary.txt
+          for passno in 1 2; do
+            for m in FOREX CRYPTO; do
+              for s in SCALP SWING; do
+                ok=0
+                for n in $(seq 1 8); do
+                  if curl -A 'SignalHub-CI/3.11' -fsS --max-time 100 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=$RANDOM-$passno-$n" >/tmp/scan.json; then
+                    if M="$m" S="$s" PASSNO="$passno" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/scan.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.11.0',p.get('version')
+          pp=p.get('portfolioPolicy') or {}; assert pp.get('reservation')=='DURABLE_OBJECT_ATOMIC' and pp.get('maxActiveTotal')==6
+          assert int(p.get('created') or 0)<=2,p
+          for x in p.get('topAnalyses',[]):
+              ea=x.get('entryAssessment') or {}; checks=ea.get('checks') or {}
+              assert ea.get('verdict')=='PASS' and ea.get('method')=='HARD_STRUCTURE_CHECKS_NO_NUMERIC_SCORE',ea
+              assert checks and all(checks.values()),checks
+          print('PASS',os.environ['PASSNO'],os.environ['M'],os.environ['S'],'evaluated',p.get('evaluated'),'qualified',p.get('actionable'),'created',p.get('created'),'portfolioBlocked',p.get('portfolioBlocked'))
+          PY
+                    then ok=1; break; fi
+                  fi
+                  sleep 2
+                done
+                test "$ok" = 1
+                M="$m" S="$s" PASSNO="$passno" python3 - <<'PY' >>/tmp/engine-summary.txt
+          import json,os
+          p=json.load(open('/tmp/scan.json'))
+          print('pass',os.environ['PASSNO'],os.environ['M'],os.environ['S'],'evaluated',p.get('evaluated'),'qualified',p.get('actionable'),'created',p.get('created'),'blocked',p.get('portfolioBlocked'))
+          PY
+              done
+            done
+          done
+          cat /tmp/engine-summary.txt
+
+      - name: Concurrent scan stress test atomic reservation
+        run: |
+          set -u
+          pids=''
+          for round in 1 2; do
+            for spec in 'FOREX SCALP' 'FOREX SWING' 'CRYPTO SCALP' 'CRYPTO SWING'; do
+              set -- $spec; m=$1; s=$2
+              curl -A 'SignalHub-CI/3.11-stress' -fsS --max-time 120 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=$m&style=$s&probe=stress-$round-$m-$s-$RANDOM" >"/tmp/stress-$round-$m-$s.json" &
+              pids="$pids $!"
+            done
+          done
+          for p in $pids; do wait "$p" || true; done
+          echo 'Concurrent stress requests completed'
+
+      - name: Audit live active book
+        run: |
+          set -euo pipefail
+          i=0
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              i=$((i+1))
+              curl -A 'SignalHub-CI/3.11-audit' -fsS --retry 3 --retry-delay 1 --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=200&probe=audit-$RANDOM-$i" >"/tmp/book-$i.json"
+            done
+          done
+          python3 - <<'PY'
+          import json,glob
+          sig=[]
+          for f in sorted(glob.glob('/tmp/book-*.json')):
+              p=json.load(open(f)); assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.11.0',p.get('version')
+              sig += [x for x in p.get('signals',[]) if x.get('status') in ('OPEN','PENDING')]
+          print('ACTIVE_TOTAL',len(sig))
+          rows=[(x.get('market'),x.get('style'),x.get('symbol'),x.get('orderType')) for x in sig]
+          print('ACTIVE_ROWS',rows)
+          assert len(sig)<=6,rows
+          assert sum(x.get('market')=='FOREX' for x in sig)<=4,rows
+          assert sum(x.get('market')=='CRYPTO' for x in sig)<=4,rows
+          assert sum(x.get('style')=='SCALP' for x in sig)<=3,rows
+          assert sum(x.get('style')=='SWING' for x in sig)<=3,rows
+          keys=[(x.get('market'),x.get('symbol')) for x in sig]; assert len(keys)==len(set(keys)),keys
+          for x in sig:
+              assert x.get('engineVersion')=='SIGNALHUB-V3-GATEWAY-3.11.0',x
+              ea=x.get('entryAssessment') or {}; assert ea.get('verdict')=='PASS',x
+              pr=x.get('portfolioReservation') or {}; assert pr.get('mode')=='DURABLE_OBJECT_ATOMIC',x
+          fx=[x for x in sig if x.get('market')=='FOREX']
+          for ccy in ['USD','EUR','GBP','JPY','AUD','NZD','CAD','CHF']:
+              n=0
+              for x in fx:
+                  z=''.join(ch for ch in str(x.get('symbol','')).upper() if ch.isalnum())
+                  if len(z)==6 and (z[:3]==ccy or z[3:]==ccy): n+=1
+              assert n<=2,(ccy,n,rows)
+          json.dump(sig,open('/tmp/ACTIVE-BOOK-AUDIT.json','w'),indent=2)
+          open('/tmp/ACTIVE-BOOK-SUMMARY.txt','w').write(f'ACTIVE_TOTAL={len(sig)}\nUNIQUE_MARKET_SYMBOLS={len(set(keys))}\nROWS={rows}\n')
+          print('UNIQUE_MARKET_SYMBOLS',len(set(keys)))
+          PY
+          cat /tmp/ACTIVE-BOOK-SUMMARY.txt
+
+      - name: Verify realtime Forex price bus
+        run: |
+          set -euo pipefail
+          curl -A 'SignalHub-CI/3.11-live' -fsS --retry 3 --max-time 25 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/forex/live?probe=$RANDOM" >/tmp/live.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/live.json'))
+          assert p.get('version')=='SIGNALHUB-V3-GATEWAY-3.11.0'
+          assert p.get('transport')=='DURABLE_OBJECT_REALTIME'
+          assert p.get('count',0)>=28,p
+          print('FOREX_LIVE_STATE',p.get('state'),'QUOTE_AGE_MS',p.get('quoteAgeMs'),'COUNT',p.get('count'))
+          PY
+
+      - name: Build Android APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify and stage V3.11 APK
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          mkdir -p dist
+          cp "$APK" dist/SignalHub-v3.11.0-Atomic-Quality-Book.apk
+          sha256sum dist/SignalHub-v3.11.0-Atomic-Quality-Book.apk > dist/SHA256SUMS.txt
+          cp /tmp/engine-summary.txt dist/ENGINE-SUMMARY.txt
+          cp /tmp/ACTIVE-BOOK-AUDIT.json dist/ACTIVE-BOOK-AUDIT.json
+          cp /tmp/ACTIVE-BOOK-SUMMARY.txt dist/ACTIVE-BOOK-SUMMARY.txt
+
+      - name: Commit generated V3.11 source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java
+          git commit -m 'SignalHub v3.11 atomic quality book' || true
+          git push origin HEAD:signalhub-v311-atomic-quality-book
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.11.0-Atomic-Quality-Book
+          path: dist/
+          retention-days: 30
+
+      - name: Publish V3.11 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG='signalhub-v3.11.0-atomic-quality-book'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --target signalhub-v311-atomic-quality-book --prerelease --title 'SignalHub v3.11.0 Atomic Quality Book' --notes 'Every signal must pass hard structure/context/entry/invalidation/target checks. No numeric score/time/RR admission gate. Durable Object transactionally reserves slots: max 6 active total, 4 per market, 3 per style, 2 new per scan, one active idea per symbol across styles, and max 2 Forex exposures per currency. Legacy signal-feed entries are retired without broker actions.'
+          fi
