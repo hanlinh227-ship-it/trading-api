@@ -9,13 +9,12 @@ if 'def between(text,start,end,repl,label):' not in s:
     if anchor not in s: raise SystemExit('sub1 helper anchor missing')
     s=s.replace(anchor,anchor+helper,1)
 
-def convert(label,start_marker,end_marker,strip_suffix):
+def convert(label,start_marker,end_marker,strip_suffix=''):
     global s
     token=f"''','{label}')"
     end=s.find(token)
     if end<0:
         print(label,'already converted or missing');return
-    # Find the closest Android a=sub1 call before this label.
     call=s.rfind('a=sub1(a,',0,end)
     if call<0: raise SystemExit(f'{label}: call missing')
     triple=s.find("r'''",call,end)
@@ -27,6 +26,9 @@ def convert(label,start_marker,end_marker,strip_suffix):
     s=s[:call]+new+s[end+len(token):]
     print('converted',label)
 
+# One-line Java methods confuse regexes that expect a closing brace on its own line.
+# Convert them to deterministic start/end marker replacements before the main patch runs.
+convert('performance summary','    private String performanceSummary(){','    private View signalCard(JSONObject s){')
 convert('signal card','    private View signalCard(JSONObject s){','    private TextView metric(','    private TextView metric')
 convert('signals screen','    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(','    private void addCryptoSignalGroup')
 
