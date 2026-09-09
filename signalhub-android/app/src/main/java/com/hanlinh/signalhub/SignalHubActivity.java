@@ -45,12 +45,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS=42;
-    private static final String APP_VERSION="3.4.0";
+    private static final String APP_VERSION="3.5.0";
     private static final long LIVE_REFRESH_MS=500L; // REST fallback; WebSocket is primary
     private static final long PAGE_REFRESH_MS=3000L;
     private static final long SCAN_MS=30000L;
-    private static final int BG=Color.rgb(3,7,11),PANEL=Color.rgb(9,16,23),PANEL2=Color.rgb(15,25,35),BORDER=Color.rgb(30,49,64);
-    private static final int TEXT=Color.rgb(238,246,252),MUTED=Color.rgb(126,151,169),GREEN=Color.rgb(44,226,155),RED=Color.rgb(255,82,104),YELLOW=Color.rgb(246,194,76),BLUE=Color.rgb(68,170,255),CYAN=Color.rgb(60,220,235);
+    private static final int BG=Color.rgb(2,6,10),PANEL=Color.rgb(7,14,21),PANEL2=Color.rgb(12,23,33),BORDER=Color.rgb(28,52,70);
+    private static final int TEXT=Color.rgb(242,248,252),MUTED=Color.rgb(123,148,166),GREEN=Color.rgb(48,232,159),RED=Color.rgb(255,76,102),YELLOW=Color.rgb(255,201,67),BLUE=Color.rgb(78,154,255),CYAN=Color.rgb(59,224,238);
 
     private final ExecutorService io=Executors.newFixedThreadPool(6);
     private final Handler main=new Handler(Looper.getMainLooper());
@@ -63,6 +63,7 @@ public class SignalHubActivity extends Activity {
     private final Map<String,TextView> priceViews=new ConcurrentHashMap<>();
     private final Map<String,TextView> sourceViews=new ConcurrentHashMap<>();
     private final Map<String,TradeGauge> gaugeViews=new ConcurrentHashMap<>();
+    private final Map<String,EntryGauge> entryGaugeViews=new ConcurrentHashMap<>();
     private final Map<String,TextView> pnlViews=new ConcurrentHashMap<>();
     private final Map<String,String> viewMarkets=new ConcurrentHashMap<>();
     private final Map<String,Long> lastScanAt=new ConcurrentHashMap<>();
@@ -115,7 +116,7 @@ public class SignalHubActivity extends Activity {
         LinearLayout root=column();root.setBackgroundColor(BG);
         LinearLayout head=column();head.setPadding(dp(14),dp(12),dp(14),dp(7));
         LinearLayout top=row();LinearLayout titles=column();
-        TextView logo=tv("SignalHub V3",22,TEXT,true);subtitle=tv("LIVE TRADING SIGNALS • FAST • CLEAR • ACTIONABLE",8,MUTED,true);
+        TextView logo=tv("SIGNALHUB",22,TEXT,true);subtitle=tv("REALTIME EXECUTION INTELLIGENCE • V3.5",8,MUTED,true);
         titles.addView(logo);titles.addView(subtitle);top.addView(titles,new LinearLayout.LayoutParams(0,-2,1f));top.addView(chip("V"+APP_VERSION,BLUE));head.addView(top);
 
         LinearLayout live=row();fxLive=chip("EXNESS • OFFLINE",RED);cryptoLive=chip("CRYPTO • OFFLINE",RED);
@@ -206,13 +207,14 @@ public class SignalHubActivity extends Activity {
 
     private void renderSignals(boolean animate){
         if(detail&&selectedSignal!=null){renderDetail(selectedSignal,animate);return;}
-        Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();pnlViews.clear();subtitle.setText("EXNESS REALTIME • LIVE / LIMIT / STOP");
+        Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();subtitle.setText("EXNESS REALTIME • LIVE / LIMIT / STOP");
             LinearLayout title=row();title.addView(tv("TÍN HIỆU GIAO DỊCH",16,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));title.addView(chip(style,CYAN));content.addView(title);
-            List<JSONObject> rows=collectSignals(),liveRows=new ArrayList<>(),pendingRows=new ArrayList<>();
-            for(JSONObject s:rows){double px=priceFor(s,s.optDouble("entry",0));if(isDisplayLive(s,px))liveRows.add(s);else pendingRows.add(s);}
-            LinearLayout summary=card();summary.addView(tv("LIVE "+liveRows.size()+"   •   LIMIT/STOP "+pendingRows.size(),12,TEXT,true));summary.addView(tv(performanceSummary(),9,MUTED,true));summary.addView(tv("LIMIT/STOP tự chuyển sang LIVE ngay khi giá realtime chạm điều kiện kích hoạt.",9,YELLOW,false));content.addView(summary);
-            addOrderSection("●  LỆNH LIVE",liveRows,GREEN,"Đã khớp / đang chạy theo giá hiện tại");
-            addOrderSection("◷  LỆNH CHỜ • LIMIT / STOP",pendingRows,YELLOW,"Chưa khớp Entry • tách riêng khỏi lệnh đang chạy");
+            List<JSONObject> rows=collectSignals(),liveRows=new ArrayList<>(),limitRows=new ArrayList<>(),stopRows=new ArrayList<>();
+            for(JSONObject s:rows){double px=priceFor(s,s.optDouble("entry",0));if(isDisplayLive(s,px))liveRows.add(s);else if("STOP".equalsIgnoreCase(s.optString("orderType","")))stopRows.add(s);else limitRows.add(s);}
+            LinearLayout summary=card();summary.addView(tv("EXECUTION BOARD",10,CYAN,true));summary.addView(tv("LIVE "+liveRows.size()+"   •   LIMIT "+limitRows.size()+"   •   STOP "+stopRows.size(),14,TEXT,true));summary.addView(tv(performanceSummary(),9,MUTED,true));summary.addView(tv("V3.5 STRICT • chỉ phát setup vượt quality gate; WR vẫn chỉ tính TP/SL đã đóng.",9,YELLOW,false));content.addView(summary);
+            addOrderSection("●  LỆNH LIVE",liveRows,GREEN,"Đã khớp • thanh đỏ/xanh đo tiến độ SL ↔ TP3");
+            addOrderSection("◷  LỆNH LIMIT",limitRows,YELLOW,"Thanh vàng đo tiến độ giá hiện tại → Entry");
+            addOrderSection("△  LỆNH STOP",stopRows,YELLOW,"Thanh vàng đo tiến độ giá hiện tại → Entry");
         };if(animate)swap(body);else body.run();updateAllPriceViews();
     }
     private void addOrderSection(String title,List<JSONObject> rows,int color,String sub){
@@ -231,7 +233,7 @@ public class SignalHubActivity extends Activity {
         TextView pv=tv(fmt(px),21,CYAN,true);pv.setPadding(0,dp(8),0,0);c.addView(pv);priceViews.put(id,pv);viewMarkets.put(id,market);
         TextView sv=tv(sourceText(market),9,stateColor(market.equals("FOREX")?fxState:cryptoState),true);c.addView(sv);sourceViews.put(id,sv);
         TextView pnl=tv(tradeStatusText(s,px),11,tradeStatusColor(s,px),true);pnl.setPadding(0,dp(7),0,dp(2));c.addView(pnl);pnlViews.put(id,pnl);
-        TradeGauge gauge=new TradeGauge();gauge.setData(currentR(s,px),targetR(s));c.addView(gauge,new LinearLayout.LayoutParams(-1,dp(58)));gaugeViews.put(id,gauge);
+        if(isDisplayLive(s,px)){TradeGauge gauge=new TradeGauge();gauge.setData(currentR(s,px),targetR(s));c.addView(gauge,new LinearLayout.LayoutParams(-1,dp(58)));gaugeViews.put(id,gauge);}else{EntryGauge eg=new EntryGauge();eg.setData(s,px);c.addView(eg,new LinearLayout.LayoutParams(-1,dp(64)));entryGaugeViews.put(id,eg);}
         LinearLayout levels=row();LinearLayout left=column(),right=column();left.addView(metric("ENTRY",fmt(e),TEXT));left.addView(metric("SL",fmt(sl),RED));left.addView(metric("RR","1 : "+String.format(Locale.US,"%.2f",targetR(s)),CYAN));right.addView(metric("TP1",fmt(s.optDouble("tp1",0)),GREEN));right.addView(metric("TP2",fmt(s.optDouble("tp2",0)),GREEN));right.addView(metric("TP3",fmt(tp3),GREEN));levels.addView(left,new LinearLayout.LayoutParams(0,-2,1f));LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,-2,1f);rp.setMargins(dp(16),0,0,0);levels.addView(right,rp);c.addView(levels);
         c.addView(tv("Setup quality "+s.optInt("score",0)+"/100 • "+historicalWr(market,signalStyle),9,MUTED,false));
         pressFeedback(c);c.setClickable(true);c.setOnClickListener(v->{selectedSignal=s;detail=true;renderDetail(s,true);});return c;
@@ -240,12 +242,12 @@ public class SignalHubActivity extends Activity {
     private TextView metric(String k,String v,int color){TextView t=tv(String.format(Locale.US,"%-6s %s",k,v),11,color,true);t.setPadding(0,dp(3),0,dp(3));return t;}
     private String historicalWr(String market){return historicalWr(market,style);}
 
-    private void renderDetail(JSONObject s,boolean animate){Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();pnlViews.clear();subtitle.setText("CHI TIẾT TÍN HIỆU • LIVE");
+    private void renderDetail(JSONObject s,boolean animate){Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();subtitle.setText("CHI TIẾT LỆNH • LIVE / PENDING ENTRY");
         Button back=button("‹  QUAY LẠI",false,v->{detail=false;selectedSignal=null;renderSignals(true);});content.addView(back,new LinearLayout.LayoutParams(-1,dp(42)));
         LinearLayout c=card();String market=s.optString("market","FOREX"),signalStyle=s.optString("style",style),side=sideVi(s.optString("side","—")),id=s.optString("signalId",s.optString("id","detail"));int col=side.equals("BUY")?GREEN:RED;
         LinearLayout h=row();h.addView(tv(s.optString("symbol","—"),24,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(side,col));c.addView(h);c.addView(tv(signalStyle+" • "+orderDisplay(s,priceFor(s,s.optDouble("entry",0)))+" • "+lifecycleVi(s),10,orderColor(s,priceFor(s,s.optDouble("entry",0))),true));
         double px=priceFor(s,s.optDouble("entry",0));TextView pv=tv(fmt(px),29,TEXT,true);pv.setPadding(0,dp(10),0,dp(3));c.addView(pv);priceViews.put(id,pv);viewMarkets.put(id,market);TextView sv=tv(sourceText(market),10,stateColor(market.equals("FOREX")?fxState:cryptoState),true);c.addView(sv);sourceViews.put(id,sv);
-        TextView pnl=tv(tradeStatusText(s,px),14,tradeStatusColor(s,px),true);pnl.setPadding(0,dp(12),0,dp(5));c.addView(pnl);pnlViews.put(id,pnl);TradeGauge gauge=new TradeGauge();gauge.setData(currentR(s,px),targetR(s));c.addView(gauge,new LinearLayout.LayoutParams(-1,dp(72)));gaugeViews.put(id,gauge);
+        TextView pnl=tv(tradeStatusText(s,px),14,tradeStatusColor(s,px),true);pnl.setPadding(0,dp(12),0,dp(5));c.addView(pnl);pnlViews.put(id,pnl);if(isDisplayLive(s,px)){TradeGauge gauge=new TradeGauge();gauge.setData(currentR(s,px),targetR(s));c.addView(gauge,new LinearLayout.LayoutParams(-1,dp(72)));gaugeViews.put(id,gauge);}else{EntryGauge eg=new EntryGauge();eg.setData(s,px);c.addView(eg,new LinearLayout.LayoutParams(-1,dp(76)));entryGaugeViews.put(id,eg);}
         c.addView(line("ENTRY",fmt(s.optDouble("entry",0)),TEXT));c.addView(line("SL",fmt(s.optDouble("sl",0)),RED));c.addView(line("TP1",fmt(s.optDouble("tp1",0)),GREEN));c.addView(line("TP2",fmt(s.optDouble("tp2",0)),GREEN));c.addView(line("TP3",fmt(s.optDouble("tp3",s.optDouble("tp",0))),GREEN));c.addView(line("RR","1 : "+String.format(Locale.US,"%.2f",targetR(s)),CYAN));
         c.addView(line("SETUP QUALITY",s.optInt("score",0)+"/100 • "+s.optString("qualityGrade",grade(s.optInt("score",0))),BLUE));c.addView(tv("Điểm setup không phải xác suất thắng. "+historicalWr(market,signalStyle)+".",9,YELLOW,false));
         JSONArray why=s.optJSONArray("rationale");if(why!=null&&why.length()>0){TextView w=tv("LÝ DO VÀO LỆNH",11,TEXT,true);w.setPadding(0,dp(10),0,dp(2));c.addView(w);for(int i=0;i<why.length();i++)c.addView(tv("• "+why.optString(i),10,MUTED,false));}
@@ -271,8 +273,8 @@ public class SignalHubActivity extends Activity {
 
     private View statTile(String icon,String title,String value,String sub,int color){LinearLayout c=card();LinearLayout h=row();h.addView(tv(icon,18,color,true));TextView t=tv(title,9,MUTED,true);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,-2,1f);tp.setMargins(dp(8),0,0,0);h.addView(t,tp);c.addView(h);c.addView(tv(value,23,TEXT,true));c.addView(tv(sub,9,color,false));return c;}
 
-    private void renderHome(boolean animate){Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();pnlViews.clear();subtitle.setText("TRADE SMARTER • REAL SIGNALS • REAL RESULTS");
-        LinearLayout hero=card();LinearLayout h=row();LinearLayout l=column();l.addView(tv("TÍN HIỆU CHẤT LƯỢNG",17,TEXT,true));l.addView(tv("CƠ HỘI THẬT",20,CYAN,true));l.addView(tv("KỶ LUẬT  •  DỮ LIỆU  •  KẾT QUẢ",9,MUTED,true));h.addView(l,new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(fxState,stateColor(fxState)));hero.addView(h);content.addView(hero);
+    private void renderHome(boolean animate){Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();subtitle.setText("REALTIME CONTROL CENTER • EXNESS + SIGNAL ENGINE");
+        LinearLayout hero=card();LinearLayout h=row();LinearLayout l=column();l.addView(tv("EXECUTION INTELLIGENCE",15,TEXT,true));l.addView(tv("REALTIME CONTROL",21,CYAN,true));l.addView(tv("LIVE  •  LIMIT  •  STOP  •  QUALITY GATE",9,MUTED,true));h.addView(l,new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(fxState,stateColor(fxState)));hero.addView(h);content.addView(hero);
         LinearLayout r1=row();View a=statTile("◎","Tín hiệu đang chạy",String.valueOf(activeCount(null)),"LIVE • chờ "+pendingCount(),CYAN);View b=statTile("⚡","Scalp",String.valueOf(activeCount("SCALP")),"đang theo dõi",GREEN);LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(0,-2,1f);p1.setMargins(0,0,dp(3),0);LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(0,-2,1f);p2.setMargins(dp(3),0,0,0);r1.addView(a,p1);r1.addView(b,p2);content.addView(r1);
         LinearLayout r2=row();View d=statTile("▥","Swing",String.valueOf(activeCount("SWING")),"đang theo dõi",BLUE);View e=statTile("★","Tỷ lệ thắng",combinedWr(),"resolved TP/SL",GREEN);r2.addView(d,p1);r2.addView(e,p2);content.addView(r2);
         LinearLayout r3=row();View f=statTile("$","Net kết quả",String.format(Locale.US,"%+.1fR",totalNetR()),"lịch sử đã đóng",totalNetR()>=0?GREEN:RED);View g=statTile("✓","Hệ thống",systemState,"API + engine",stateColor(systemState));r3.addView(f,p1);r3.addView(g,p2);content.addView(r3);
@@ -288,7 +290,7 @@ public class SignalHubActivity extends Activity {
         LinearLayout notify=card();notify.addView(tv("🔔  THÔNG BÁO",12,TEXT,true));notify.addView(statusRow("Push Monitor",monitorStarted?"RUNNING":"OFFLINE"));notify.addView(statusRow("Quyền thông báo",notifyPermission()?"ONLINE":"OFFLINE"));if(!monitorStarted){Button b=button("BẬT PUSH MONITOR",true,v->ensureMonitor(true));notify.addView(b,new LinearLayout.LayoutParams(-1,dp(42)));}content.addView(notify);
         LinearLayout source=card();source.addView(tv("◉  NGUỒN DỮ LIỆU",12,TEXT,true));source.addView(statusRow("Exness MT5",fxState));source.addView(line("Quote age",fxQuoteAgeMs<0?"—":String.format(Locale.US,"%.2fs",fxQuoteAgeMs/1000.0),stateColor(fxState)));source.addView(line("Forex symbols",String.valueOf(fxCount),TEXT));source.addView(statusRow(cryptoProvider,cryptoState));source.addView(line("Crypto symbols",String.valueOf(cryptoCount),TEXT));content.addView(source);
         LinearLayout sys=card();sys.addView(tv("⚙  HỆ THỐNG",12,TEXT,true));sys.addView(statusRow("Signal Engine",systemState));sys.addView(statusRow("API Connectivity",lastApiOkMs>0&&System.currentTimeMillis()-lastApiOkMs<15000?"ONLINE":"DEGRADED"));sys.addView(line("App version",APP_VERSION,BLUE));if(systemStatus!=null){sys.addView(line("Backend",systemStatus.optString("version","—"),TEXT));sys.addView(line("Checkpoint",systemStatus.optString("checkpoint","—"),MUTED));}content.addView(sys);
-        LinearLayout ui=card();ui.addView(tv("✦  GIAO DIỆN",12,TEXT,true));ui.addView(line("Chủ đề","Dark cyber-finance",CYAN));ui.addView(line("Ngôn ngữ","Tiếng Việt",TEXT));ui.addView(line("Forex transport","WebSocket realtime + REST fallback",GREEN));ui.addView(line("Fallback refresh","500 ms",MUTED));content.addView(ui);
+        LinearLayout ui=card();ui.addView(tv("✦  GIAO DIỆN",12,TEXT,true));ui.addView(line("Chủ đề","Dark cyber-finance",CYAN));ui.addView(line("Ngôn ngữ","Tiếng Việt",TEXT));ui.addView(line("Forex transport","WebSocket realtime + REST fallback",GREEN));ui.addView(line("Fallback refresh","500 ms",MUTED));ui.addView(line("Quality Gate","V3.5 STRICT",YELLOW));ui.addView(line("Forex Scalp","score ≥90 • RR ≥2.0",TEXT));ui.addView(line("Forex Swing","score ≥90 • RR ≥2.3",TEXT));ui.addView(line("Crypto Scalp","score ≥92 • RR ≥2.0",TEXT));ui.addView(line("Crypto Swing","score ≥90 • RR ≥2.3",TEXT));content.addView(ui);
     };if(animate)swap(body);else body.run();}
 
     private double pxForOrder(JSONObject s){return priceFor(s,s.optDouble("entry",0));}
@@ -305,13 +307,21 @@ public class SignalHubActivity extends Activity {
     private boolean isDisplayLive(JSONObject s,double px){return "OPEN".equalsIgnoreCase(s.optString("status",""))||pendingTriggered(s,px);}
     private String orderDisplay(JSONObject s,double px){if(isDisplayLive(s,px))return "LIVE";String o=s.optString("orderType","MARKET").toUpperCase(Locale.US);return o.equals("LIMIT")?"LIMIT":o.equals("STOP")?"STOP":"MARKET";}
     private int orderColor(JSONObject s,double px){String o=orderDisplay(s,px);return o.equals("LIVE")?GREEN:o.equals("LIMIT")?YELLOW:o.equals("STOP")?BLUE:CYAN;}
-    private String pendingDistanceText(JSONObject s,double px){double e=s.optDouble("entry",0),sl=s.optDouble("sl",0);double base=Math.max(Math.abs(e-sl),1e-12),dist=Math.abs(px-e)/base;return s.optString("orderType","LIMIT").toUpperCase(Locale.US)+" • CHỜ KHỚP • cách Entry "+String.format(Locale.US,"%.2fR",dist);}
+    private double entryProgressPct(JSONObject s,double px){double e=s.optDouble("entry",0),start=s.optDouble("sourcePrice",s.optDouble("lastPrice",0));double initial=Math.abs(start-e);if(!(initial>0)){double sl=s.optDouble("sl",0);initial=Math.max(Math.abs(e-sl),1e-12);}double remaining=Math.abs(px-e);return Math.max(0,Math.min(100,(1.0-remaining/initial)*100.0));}
+    private String pendingDistanceText(JSONObject s,double px){double e=s.optDouble("entry",0);double pct=entryProgressPct(s,px),remain=Math.abs(px-e);return s.optString("orderType","LIMIT").toUpperCase(Locale.US)+" • CHỜ ENTRY • "+String.format(Locale.US,"%.0f%% tiến độ • còn %s",pct,fmt(remain));}
 
     private String historicalWr(String market,String st){JSONObject p=perfCache.get(market+":"+st);if(p==null)return"WR: chưa đủ dữ liệu";return "WR lịch sử "+p.optString("winRateLabel","—");}
     private double targetR(JSONObject s){double rr=s.optDouble("targetRR",0);if(rr>0)return rr;double e=s.optDouble("entry",0),sl=s.optDouble("sl",0),tp=s.optDouble("tp3",s.optDouble("tp",0));double risk=Math.abs(e-sl);return risk>0&&tp>0?Math.max(0.1,Math.abs(tp-e)/risk):1.0;}
     private double currentR(JSONObject s,double px){double e=s.optDouble("entry",0),sl=s.optDouble("sl",0),risk=Math.abs(e-sl);if(!(risk>0)||!(px>0))return 0;String side=sideVi(s.optString("side",""));return (side.equals("SELL")?(e-px):(px-e))/risk;}
     private String tradeStatusText(JSONObject s,double px){if(!isDisplayLive(s,px))return pendingDistanceText(s,px);double r=currentR(s,px),rr=targetR(s);if(r<0){int pct=(int)Math.round(Math.min(100,Math.max(0,-r*100)));return String.format(Locale.US,"ÂM  %+.2fR  •  %d%% TỚI SL",r,pct);}int pct=(int)Math.round(Math.min(100,Math.max(0,r/Math.max(.1,rr)*100)));return String.format(Locale.US,"DƯƠNG  %+.2fR  •  %d%% TỚI TP3",r,pct);}
     private int tradeStatusColor(JSONObject s,double px){if(!isDisplayLive(s,px))return orderColor(s,px);return currentR(s,px)>=0?GREEN:RED;}
+
+    private class EntryGauge extends View{
+        private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);private double progress=0,current=0,entry=0;
+        EntryGauge(){super(SignalHubActivity.this);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+        void setData(JSONObject s,double px){current=px;entry=s.optDouble("entry",0);progress=entryProgressPct(s,px);invalidate();}
+        @Override protected void onDraw(Canvas c){super.onDraw(c);float w=getWidth(),h=getHeight(),cy=h*.62f,barH=dp(11);p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(47,42,20));c.drawRoundRect(new RectF(dp(2),cy-barH/2,w-dp(2),cy+barH/2),barH/2,barH/2,p);float x=dp(2)+(float)((w-dp(4))*progress/100.0);p.setColor(YELLOW);p.setShadowLayer(dp(8),0,0,YELLOW);c.drawRoundRect(new RectF(dp(2),cy-barH/2,Math.max(dp(3),x),cy+barH/2),barH/2,barH/2,p);p.clearShadowLayer();p.setColor(TEXT);c.drawCircle(x,cy,dp(5),p);p.setTypeface(Typeface.create(Typeface.MONOSPACE,Typeface.BOLD));p.setTextSize(dp(9));p.setTextAlign(Paint.Align.LEFT);p.setColor(MUTED);c.drawText("NOW  "+fmt(current),dp(2),dp(13),p);p.setTextAlign(Paint.Align.RIGHT);p.setColor(YELLOW);c.drawText("ENTRY  "+fmt(entry),w-dp(2),dp(13),p);p.setTextAlign(Paint.Align.CENTER);p.setColor(YELLOW);c.drawText(String.format(Locale.US,"%.0f%% TỚI ENTRY",progress),w*.5f,h-dp(3),p);}
+    }
 
     private class TradeGauge extends View{
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);private double r=0,target=1;
@@ -352,7 +362,7 @@ public class SignalHubActivity extends Activity {
             String id=e.getKey(),m=viewMarkets.getOrDefault(id,"FOREX");JSONObject s=findSignal(id);double fallback=s==null?0:s.optDouble("entry",0),px=s==null?fallback:priceFor(s,fallback);
             e.getValue().setText(fmt(px));e.getValue().setTextColor(TEXT);
             TextView sv=sourceViews.get(id);if(sv!=null){String state=m.equals("FOREX")?fxState:cryptoState;sv.setText(sourceText(m));sv.setTextColor(stateColor(state));}
-            if(s!=null){TextView pnl=pnlViews.get(id);if(pnl!=null){pnl.setText(tradeStatusText(s,px));pnl.setTextColor(tradeStatusColor(s,px));}TradeGauge g=gaugeViews.get(id);if(g!=null)g.setData(currentR(s,px),targetR(s));}
+            if(s!=null){TextView pnl=pnlViews.get(id);if(pnl!=null){pnl.setText(tradeStatusText(s,px));pnl.setTextColor(tradeStatusColor(s,px));}TradeGauge g=gaugeViews.get(id);if(g!=null)g.setData(currentR(s,px),targetR(s));EntryGauge eg=entryGaugeViews.get(id);if(eg!=null)eg.setData(s,px);}
         }
     }
     private JSONObject findSignal(String id){if(selectedSignal!=null&&id.equals(selectedSignal.optString("signalId",selectedSignal.optString("id",""))))return selectedSignal;for(JSONArray a:signalCache.values())for(int i=0;i<a.length();i++){JSONObject s=a.optJSONObject(i);if(s!=null&&id.equals(s.optString("signalId",s.optString("id",""))))return s;}return null;}

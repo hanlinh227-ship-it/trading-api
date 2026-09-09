@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.4.0';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.5.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_05';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,14 +16,16 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 10,
-  versionName: '3.4.0',
-  title: 'SignalHub 3.4.0',
+  versionCode: 11,
+  versionName: '3.5.0',
+  title: 'SignalHub 3.5.0',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.4.0',
+  artifactName: 'SignalHub-Android-v3.5.0',
   notes: [
+    'V3.5 strict admission gate: fewer but higher-quality signals; historical win rate remains resolved TP/SL only.',
+    'Modern LIVE / LIMIT / STOP UI with yellow pending-entry progress gauge.',
     'Realtime Durable Object price bus + WebSocket stream for Exness MT5 quotes.',
     'LIMIT and STOP pending orders are displayed separately and become LIVE immediately when trigger price is crossed.',
     'Low-latency Exness patch: 500ms bridge target, heartbeat-aware health, faster Android live refresh.',
@@ -55,6 +57,41 @@ const nowIso = () => new Date().toISOString();
 const canonical = s => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 const isFinitePositive = v => Number.isFinite(Number(v)) && Number(v) > 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+
+const V35_QUALITY_POLICY = Object.freeze({
+  FOREX_SCALP: {minScore:90,minRR:2.0},
+  FOREX_SWING: {minScore:90,minRR:2.3},
+  CRYPTO_SCALP:{minScore:92,minRR:2.0},
+  CRYPTO_SWING:{minScore:90,minRR:2.3},
+});
+function v35Policy(market,style){
+  return V35_QUALITY_POLICY[`${String(market||'FOREX').toUpperCase()}_${String(style||'SCALP').toUpperCase()}`]||{minScore:90,minRR:2.0};
+}
+function passesV35QualityGate(signal,market,style){
+  if(!signal)return false;
+  const p=v35Policy(market,style),score=Number(signal.score||0),rr=Number(signal.targetRR||0),entry=Number(signal.entry||0),sl=Number(signal.sl||0),tp=Number(signal.tp3||signal.tp||0);
+  if(!(entry>0&&sl>0&&tp>0))return false;
+  if(Math.abs(entry-sl)<=0)return false;
+  if(score<p.minScore)return false;
+  if(!(rr>=p.minRR))return false;
+  const side=String(signal.side||'').toUpperCase();
+  const dir=(side==='LONG'||side==='BUY')?1:(side==='SHORT'||side==='SELL')?-1:0;
+  if(!dir)return false;
+  if(dir>0&&!(sl<entry&&tp>entry))return false;
+  if(dir<0&&!(sl>entry&&tp<entry))return false;
+  const order=String(signal.orderType||'MARKET').toUpperCase();
+  if(!['MARKET','LIMIT','STOP'].includes(order))return false;
+  return true;
+}
+function stampV35Quality(signal,market,style){
+  const p=v35Policy(market,style);
+  signal.admissionGate='V35_STRICT';
+  signal.admissionMinScore=p.minScore;
+  signal.admissionMinRR=p.minRR;
+  signal.entryState=String(signal.orderType||'MARKET').toUpperCase()==='MARKET'?'LIVE':'PENDING_ENTRY';
+  return signal;
+}
 
 
 export class MT5LiveState {
@@ -325,6 +362,8 @@ async function maybeCreateV31(env,market,style,setups,maxNew=1){
   const made=[];
   for(const setup of setups){
     if(made.length>=maxNew)break;
+    if(!passesV35QualityGate(setup,market,style))continue;
+    stampV35Quality(setup,market,style);
     if(active.some(x=>x.symbol===setup.symbol))continue;
     const ptr=await env.SIGNALS_KV.get(activePointer(market,style,setup.symbol));
     if(ptr)continue;
@@ -416,13 +455,16 @@ async function unifiedSignals(url,env){
   const limit=Math.min(300,Math.max(1,Number(url.searchParams.get('limit')||120)));
   let rows=market==='FOREX'&&style==='SCALP'?await legacyScalpSignals(env):await getV31Signals(env,market,style);
   rows=rows.map(x=>normalizeDisplaySignal(x,market,style));
+  // V3.5 admission is intentionally applied to ACTIVE delivery only. Closed history is never rewritten,
+  // so historical WR remains honest and comparable instead of being retroactively cherry-picked.
+  if(status==='active') rows=rows.filter(s=>passesV35QualityGate(s,market,style)).map(s=>stampV35Quality(s,market,style));
   rows=rows.filter(s=>status==='all'||(status==='active'&&(s.status==='PENDING'||s.status==='OPEN'))||(status==='closed'&&s.status==='CLOSED')||String(s.status||'').toLowerCase()===status).slice(0,limit);
   let dataHealth=null;
   if(market==='FOREX'){
     const ex=await exnessQuoteMap(env);
     dataHealth={provider:'EXNESS_MT5',state:ex.state,quoteAgeMs:ex.ageMs};
   }
-  return json({ok:true,version:V3_VERSION,market,style,partitionKey:`${market}:${style}`,status,count:rows.length,dataHealth,signals:rows});
+  return json({ok:true,version:V3_VERSION,market,style,partitionKey:`${market}:${style}`,status,count:rows.length,dataHealth,qualityPolicy:{name:'V35_STRICT',...v35Policy(market,style),historicalWinRateMode:'RESOLVED_TP_SL_ONLY'},signals:rows});
 }
 
 async function unifiedPerformance(url,env){
