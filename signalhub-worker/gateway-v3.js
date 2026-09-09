@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.15.2';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.16.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_07';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,14 +16,16 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 20,
-  versionName: '3.14.0',
-  title: 'SignalHub 3.14.0 Crypto Stability',
+  versionCode: 21,
+  versionName: '3.16.0',
+  title: 'SignalHub 3.16.0 Fixed 2x2 + Watchlist',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.14.0-Simple-Stable-Crypto',
+  artifactName: 'SignalHub-Android-v3.16.0-Fixed-2x2-Watchlist',
   notes: [
+    'V3.16 adds a read-only Watchlist analyzer for user-selected crypto symbols; Watchlist analysis never consumes the fixed 2 SCALP + 2 SWING active book.',
+    'Watchlist reports active signal / strict tradeable setup / conditional wait / no-trade separately for SCALP and SWING, with current provider price and Entry/SL/TP when available.',
     'V3.14 stability pass: SCALP no longer accepts a generic EMA trend pullback by itself; it needs a sweep/reclaim, displacement+reclaim, or confirmed breakout story.',
     'V3.14 tightens secondary-exchange confirmation and live execution spread/liquidity conditions without reintroducing a numeric setup score.',
     'V3.14 adds crypto risk-cluster concentration control so correlated meme-beta trades cannot occupy the whole active book.',
@@ -878,6 +880,61 @@ async function legacyScalpSignals(env){
   return out;
 }
 
+
+function normalizeWatchSymbol(raw){
+  let s=canonical(raw);if(!s)return'';if(!s.endsWith('USDT'))s+='USDT';return s.length<=24?s:'';
+}
+function watchFlatSignal(src,state,assessment){
+  const s=src||{},a=assessment||s.entryAssessment||{};
+  return {
+    state,
+    activeSignal:state==='ACTIVE_SIGNAL',
+    symbol:s.symbol||null,side:s.side||null,orderType:s.orderType||null,status:s.status||null,
+    entry:num(s.actualEntry??s.entry),sl:num(s.sl),tp1:num(s.tp1),tp2:num(s.tp2),tp3:num(s.tp3??s.tp),targetRR:num(s.targetRR),
+    marketRegime:s.marketRegime||null,marketStory:s.marketStory||null,judgment:s.judgment||null,entryModel:s.entryModel||null,
+    coverageTier:s.coverageTier||null,coverageFallback:Boolean(s.coverageFallback),
+    assessmentMethod:a.method||null,failedChecks:Array.isArray(a.failed)?a.failed:[],
+    rationale:Array.isArray(s.rationale)?s.rationale.slice(0,6):[],
+    provider:s.executionPriceAuthority||s.provider||s.exchange||null,
+    issuedAt:s.issuedAt||null,lastCheckedAt:s.lastCheckedAt||null
+  };
+}
+async function loadWatchSnapshot(env){
+  let last=null,lastError=null;
+  for(let i=0;i<3;i++){
+    try{const snap=await loadCryptoSnapshot(env);last=snap;if(snap?.live!==false&&Array.isArray(snap?.rows)&&snap.rows.length)return snap;}catch(e){lastError=String(e?.message||e);}
+    if(i<2)await sleep(250*(i+1));
+  }
+  if(last)return last;
+  return {rows:[],provider:null,live:false,staleFallback:false,receivedAt:null,errors:lastError?[lastError]:['NO_WATCH_SNAPSHOT']};
+}
+function watchUnavailable(symbol,provider,reason){return {state:'DATA_UNAVAILABLE',activeSignal:false,symbol,side:null,orderType:null,status:null,entry:null,sl:null,tp1:null,tp2:null,tp3:null,targetRR:null,marketRegime:'DATA_UNAVAILABLE',marketStory:'Dữ liệu thị trường tạm thời chưa đủ mới để phân tích an toàn. Không suy diễn tín hiệu từ giá cũ.',judgment:'DATA_UNAVAILABLE',entryModel:null,coverageTier:null,coverageFallback:false,assessmentMethod:null,failedChecks:[reason||'FRESH_DATA_UNAVAILABLE'],rationale:[],provider:provider||null};}
+async function watchAnalyze(url,env){
+  const symbol=normalizeWatchSymbol(url.searchParams.get('symbol')||'');
+  if(!symbol)return json({ok:false,version:V3_VERSION,error:'BAD_WATCH_SYMBOL'},400);
+  const snap=await loadWatchSnapshot(env),ticker=(snap.rows||[]).find(x=>canonical(x.symbol)===symbol),fresh=snap.live!==false;
+  if(!ticker){
+    const unavailable=watchUnavailable(symbol,snap.provider,'SYMBOL_NOT_AVAILABLE_IN_CURRENT_SNAPSHOT');
+    return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',analysisOnly:true,portfolioImpact:'NONE_READ_ONLY',symbol,ticker:null,dataHealth:{state:fresh?'LIVE_SYMBOL_MISSING':'UNAVAILABLE',live:false,staleFallback:snap.staleFallback===true,provider:snap.provider||null,providerErrors:snap.errors||[]},styles:{SCALP:unavailable,SWING:{...unavailable}},activeBook:{targetScalp:2,targetSwing:2,note:'Watchlist does not consume or replace active slots.'},analyzedAt:nowIso()});
+  }
+  const baseTicker={lastPrice:num(ticker.lastPrice),bid:num(ticker.bid),ask:num(ticker.ask),spreadBps:num(ticker.spreadBps),turnover24h:num(ticker.turnover24h),provider:ticker.exchange||snap.provider||null,source:ticker.source||null};
+  if(!fresh){
+    const unavailable=watchUnavailable(symbol,baseTicker.provider,'FRESH_TICKER_UNAVAILABLE');
+    return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',analysisOnly:true,portfolioImpact:'NONE_READ_ONLY',symbol,ticker:baseTicker,dataHealth:{state:'STALE',live:false,staleFallback:true,ageMs:snap.ageMs??null,receivedAt:snap.receivedAt||null,provider:baseTicker.provider,providerErrors:snap.errors||[]},styles:{SCALP:unavailable,SWING:{...unavailable}},activeBook:{targetScalp:2,targetSwing:2,note:'Watchlist does not consume or replace active slots.'},analyzedAt:nowIso()});
+  }
+  const activeBook=await getActiveBook(env),styles={};
+  await Promise.all(['SCALP','SWING'].map(async style=>{
+    const active=activeBook.find(x=>String(x.style||'').toUpperCase()===style&&canonical(x.symbol)===symbol);
+    if(active){styles[style]=watchFlatSignal(active,'ACTIVE_SIGNAL',active.entryAssessment);return;}
+    const setup=await analyzeCryptoCandidate(ticker,style);
+    if(!setup){styles[style]={state:'NO_TRADE',activeSignal:false,symbol,side:null,orderType:null,status:null,entry:null,sl:null,tp1:null,tp2:null,tp3:null,targetRR:null,marketRegime:'NO_TRADE',marketStory:'Chưa có cấu trúc đủ rõ cho style này ở thời điểm phân tích.',judgment:'NO_TRADE',entryModel:null,coverageTier:null,coverageFallback:false,assessmentMethod:null,failedChecks:['NO_COHERENT_SETUP'],rationale:[],provider:baseTicker.provider};return;}
+    const strict=assessEntrySetup(setup),conditional=setup.coverageFallback?assessCoverageSetup(setup):strict;
+    const state=strict.verdict==='PASS'?'TRADEABLE_NOW':conditional.verdict==='PASS'?'CONDITIONAL_WAIT':'NO_TRADE';
+    styles[style]=watchFlatSignal(setup,state,state==='TRADEABLE_NOW'?strict:conditional);
+  }));
+  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',analysisOnly:true,portfolioImpact:'NONE_READ_ONLY',symbol,ticker:baseTicker,dataHealth:{state:'LIVE',live:true,staleFallback:false,receivedAt:snap.receivedAt||null,provider:baseTicker.provider,providerErrors:snap.errors||[]},styles,activeBook:{targetScalp:2,targetSwing:2,note:'Watchlist does not consume or replace active slots.'},analyzedAt:nowIso()});
+}
+
 async function unifiedSignals(url,env,ctx){
   const requested=String(url.searchParams.get('market')||'CRYPTO').toUpperCase();if(requested!=='CRYPTO')return json({ok:false,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',error:'FOREX_DISABLED_CRYPTO_ONLY'},410);
   const market='CRYPTO',style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP',status=String(url.searchParams.get('status')||'active').toLowerCase(),limit=Math.min(300,Math.max(1,Number(url.searchParams.get('limit')||120)));
@@ -916,7 +973,7 @@ async function v315Stability(env){
 async function v3Status(env,ctx){
   const portfolio=await realtimePortfolioSnapshot(env),cryptoMonitor=await cryptoServerMonitorStatus(env),missing=['SCALP','SWING'].filter(st=>Number(portfolio.styles?.[st]||0)<PORTFOLIO_POLICY.minActivePerStyle);
   if(missing.length&&ctx?.waitUntil)ctx.waitUntil(Promise.resolve(cryptoOnlyMaintenance(env)).catch(()=>{}));
-  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',service:'SignalHub Crypto Fixed 2x2 SCALP/SWING gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,crypto:{priceAuthority:'PROVIDER_PINNED_BYBIT_PREFERRED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'FIXED_2_ACTIVE_STRICT_THEN_CONDITIONAL_5M_15M_1H',swing:'FIXED_2_ACTIVE_STRICT_THEN_CONDITIONAL_1H_4H_1D',pendingLifecycle:'DURABLE_OBJECT_ALARM_1S',crossProviderContextCheck:true},engines:{cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},forexDisabled:true,portfolio,missingStyles:missing,cryptoMonitor,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
+  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',service:'SignalHub Crypto Fixed 2x2 + Watchlist gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,crypto:{priceAuthority:'PROVIDER_PINNED_BYBIT_PREFERRED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'FIXED_2_ACTIVE_STRICT_THEN_CONDITIONAL_5M_15M_1H',swing:'FIXED_2_ACTIVE_STRICT_THEN_CONDITIONAL_1H_4H_1D',pendingLifecycle:'DURABLE_OBJECT_ALARM_1S',crossProviderContextCheck:true},engines:{cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},forexDisabled:true,portfolio,missingStyles:missing,cryptoMonitor,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
 }
 async function handleV3(req,env,ctx){
   const url=new URL(req.url);if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'content-type, authorization, x-signalhub-bridge','access-control-allow-methods':'GET,POST,OPTIONS'}});
@@ -931,6 +988,7 @@ async function handleV3(req,env,ctx){
     if(url.pathname==='/v3/portfolio'&&req.method==='GET')return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',portfolio:await realtimePortfolioSnapshot(env),policy:PORTFOLIO_POLICY});
     if(url.pathname==='/v3/standbys'&&req.method==='GET')return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',standbys:await cryptoStandbyStatus(env)});
     if(url.pathname==='/v3/crypto/discovery'&&req.method==='GET')return cryptoDiscovery(url,env);
+    if(url.pathname==='/v3/watch/analyze'&&req.method==='GET')return watchAnalyze(url,env);
     if(url.pathname==='/v3/scan'&&req.method==='GET')return scanRoute(url,env,ctx);
     if(url.pathname==='/v3/signals'&&req.method==='GET')return unifiedSignals(url,env,ctx);
     if(url.pathname==='/v3/performance'&&req.method==='GET')return unifiedPerformance(url,env);

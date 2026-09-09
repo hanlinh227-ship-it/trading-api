@@ -43,7 +43,7 @@ public final class ApiClient {
         c.setRequestProperty("Accept", "application/json");
         c.setRequestProperty("Cache-Control", "no-cache, no-store");
         c.setRequestProperty("Pragma", "no-cache");
-        c.setRequestProperty("User-Agent", "SignalHub-Android/3.13.0-crypto-only-quality");
+        c.setRequestProperty("User-Agent", "SignalHub-Android/3.16.0-fixed-2x2-watchlist");
         int code = c.getResponseCode();
         BufferedReader br = new BufferedReader(new InputStreamReader(
                 code >= 200 && code < 400 ? c.getInputStream() : c.getErrorStream(),
