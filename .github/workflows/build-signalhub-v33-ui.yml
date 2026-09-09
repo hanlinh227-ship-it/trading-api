@@ -1,0 +1,133 @@
+name: Build SignalHub V3.3 Cyber UI APK
+
+on:
+  push:
+    branches: [signalhub-v3-rebuild-20260909]
+    paths:
+      - 'scripts/patch_signalhub_v33_ui.py'
+      - '.github/workflows/build-signalhub-v33-ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SIGNALHUB_URL: https://signalhub-forex.hanlinh227.workers.dev
+  APP_VERSION: 3.3.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Apply V3.3 UI patch
+        run: python3 scripts/patch_signalhub_v33_ui.py
+
+      - name: Verify requested UI contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java
+          grep -q 'private String screen="HOME"' "$F"
+          grep -q 'class TradeGauge' "$F"
+          grep -q 'ÂM  %+.2fR' "$F"
+          grep -q 'DƯƠNG  %+.2fR' "$F"
+          grep -q 'TRANG CHỦ' "$F"
+          grep -q 'THÔNG BÁO' "$F"
+          grep -q 'CÀI ĐẶT' "$F"
+          grep -q "versionName '3.3.0'" signalhub-android/app/build.gradle
+
+      - name: Build APK
+        working-directory: signalhub-android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          test "$(stat -c%s "$APK")" -gt 25000
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q classes.dex
+          mkdir -p dist
+          cp "$APK" "dist/SignalHub-v${APP_VERSION}-CyberUI.apk"
+          sha256sum "dist/SignalHub-v${APP_VERSION}-CyberUI.apk" > dist/SHA256SUMS.txt
+
+      - name: Smoke production APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 "$SIGNALHUB_URL/v3/status" >/tmp/status.json
+          curl -fsS --max-time 20 "$SIGNALHUB_URL/v3/forex/live" >/tmp/forex.json || true
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/status.json'))
+          assert s.get('ok') is True
+          assert s.get('checkpoint')=='SIGNALHUB_V3_CHECKPOINT_05'
+          print('backend=',s.get('version'),'checkpoint=',s.get('checkpoint'))
+          try:
+              f=json.load(open('/tmp/forex.json'))
+              print('forex_state=',f.get('state'),'quoteAgeMs=',f.get('quoteAgeMs'),'count=',f.get('count'))
+          except Exception:
+              print('forex live endpoint unavailable during smoke; APK build remains valid')
+          PY
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 "$SIGNALHUB_URL/v3/signals?market=$m&style=$s&status=active&limit=30" >/tmp/s.json
+              M="$m" S="$s" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/s.json'))
+          assert p.get('ok') is True
+          assert p.get('market')==os.environ['M'] and p.get('style')==os.environ['S']
+          assert isinstance(p.get('signals'),list)
+          PY
+            done
+          done
+
+      - name: Commit V3.3 Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java \
+                  signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java \
+                  signalhub-android/app/build.gradle
+          git commit -m "feat(signalhub): V3.3 cyber UI with live PnL gauge" || true
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.3.0-CyberUI
+          path: dist/
+          retention-days: 30
+
+      - name: Publish downloadable prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="signalhub-v3.3.0-cyber-ui"
+          APK="dist/SignalHub-v${APP_VERSION}-CyberUI.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$APK" dist/SHA256SUMS.txt --target "$GITHUB_SHA" --prerelease \
+              --title "SignalHub v3.3.0 Cyber UI" \
+              --notes "Functional Android build with Home/Signals/Stats/Alerts/Settings, live Exness quote display, red/green SL-to-TP progress gauge, live +/- R status, lifecycle-aware alerts, source/system health and 500ms UI refresh."
+          fi
