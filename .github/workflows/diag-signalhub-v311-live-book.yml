@@ -1,0 +1,63 @@
+name: Diagnose SignalHub V3.11 Live Book
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-signalhub-v311-live-book.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect active book before crypto evaluation
+        env:
+          BASE: https://signalhub-forex.hanlinh227.workers.dev
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$BASE/v3/signals?market=$m&style=$s&status=active&limit=200&probe=diag-before-$RANDOM" > "/tmp/${m}-${s}-before.json"
+            done
+          done
+          python3 - <<'PY'
+          import json,glob
+          for f in sorted(glob.glob('/tmp/*-before.json')):
+              p=json.load(open(f)); print('\n',f)
+              for x in p.get('signals',[]):
+                  if x.get('status') in ('OPEN','PENDING'):
+                      print(x.get('market'),x.get('style'),x.get('symbol'),x.get('status'),x.get('orderType'),'side',x.get('side'),'entry',x.get('entry'),'last',x.get('lastPrice'),'triggeredAt',x.get('triggeredAt'))
+          PY
+      - name: Pull live crypto tickers to force current V3.11 evaluator
+        env:
+          BASE: https://signalhub-forex.hanlinh227.workers.dev
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 40 -H 'Cache-Control: no-cache' "$BASE/v3/crypto/tickers?limit=1000&probe=diag-trigger-$RANDOM" >/tmp/tickers.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/tickers.json'))
+          print('CRYPTO_TICKERS provider=',p.get('provider'),'live=',p.get('live'),'ageMs=',p.get('ageMs'),'count=',p.get('count'))
+          PY
+          sleep 2
+      - name: Inspect active book after crypto evaluation
+        env:
+          BASE: https://signalhub-forex.hanlinh227.workers.dev
+        run: |
+          set -euo pipefail
+          for m in FOREX CRYPTO; do
+            for s in SCALP SWING; do
+              curl -fsS --max-time 30 -H 'Cache-Control: no-cache' "$BASE/v3/signals?market=$m&style=$s&status=active&limit=200&probe=diag-after-$RANDOM" > "/tmp/${m}-${s}-after.json"
+            done
+          done
+          python3 - <<'PY'
+          import json,glob
+          counts={'FOREX':0,'CRYPTO':0}
+          for f in sorted(glob.glob('/tmp/*-after.json')):
+              p=json.load(open(f)); print('\n',f)
+              for x in p.get('signals',[]):
+                  if x.get('status') in ('OPEN','PENDING'):
+                      counts[x.get('market')]=counts.get(x.get('market'),0)+1
+                      print(x.get('market'),x.get('style'),x.get('symbol'),x.get('status'),x.get('orderType'),'side',x.get('side'),'entry',x.get('entry'),'last',x.get('lastPrice'),'triggeredAt',x.get('triggeredAt'),'executionStatus',x.get('executionStatus'))
+          print('ACTIVE_COUNTS',counts)
+          PY
