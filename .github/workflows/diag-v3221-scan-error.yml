@@ -1,0 +1,29 @@
+name: Diagnose SignalHub V3.22.1 Scan Error
+
+on:
+  push:
+    branches: [signalhub-v322-universe-watch-engine]
+    paths:
+      - '.github/workflows/diag-v3221-scan-error.yml'
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe production scan responses
+        run: |
+          set -euo pipefail
+          BASE='https://signalhub-forex.hanlinh227.workers.dev'
+          for style in SCALP SWING; do
+            code=$(curl -sS --max-time 180 -o "/tmp/${style}.body" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&diag=$RANDOM" || true)
+            echo "===== $style HTTP $code ====="
+            cat "/tmp/${style}.body" || true
+            echo
+          done
+          echo '===== PORTFOLIO ====='
+          curl -sS --max-time 30 "$BASE/v3/portfolio?diag=$RANDOM" || true
+          echo
+          echo '===== STATUS ====='
+          curl -sS --max-time 30 "$BASE/v3/status?diag=$RANDOM" || true
+          echo
