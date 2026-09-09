@@ -1,0 +1,25 @@
+name: Diagnose SignalHub V3.19 Refill
+on:
+  push:
+    branches: [signalhub-v319-15slot-liquidity-universe]
+    paths: ['.github/workflows/diagnose-signalhub-v319.yml']
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe production scans
+        run: |
+          set -euo pipefail
+          BASE='https://signalhub-forex.hanlinh227.workers.dev'
+          curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SCALP&diag=$RANDOM" -o /tmp/s.json
+          curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SWING&diag=$RANDOM" -o /tmp/w.json
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?diag=$RANDOM" -o /tmp/p.json
+          python3 - <<'PY'
+          import json
+          for name,path in [('SCALP','/tmp/s.json'),('SWING','/tmp/w.json')]:
+              p=json.load(open(path))
+              print(name,{k:p.get(k) for k in ['version','provider','scanned','liquidUniverse','deepAnalyzed','evaluated','actionable','rejectedByAssessment','created','portfolioBlocked']})
+              print(name,'standby=',p.get('standby'),'promotion=',p.get('promotion'))
+              print(name,'top=',[(x.get('symbol'),x.get('marketRegime'),x.get('orderType'),(x.get('entryAssessment') or {}).get('verdict')) for x in (p.get('topAnalyses') or [])])
+          print('PORTFOLIO',json.load(open('/tmp/p.json')).get('portfolio'))
+          PY
