@@ -1,0 +1,189 @@
+name: Build Deploy SignalHub V3.19.1 Reference Coverage
+
+on:
+  push:
+    branches: [signalhub-v319-15slot-liquidity-universe]
+    paths:
+      - 'scripts/patch_signalhub_v3191_reference_fallback.py'
+      - '.github/workflows/build-deploy-signalhub-v3191-reference-coverage.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply V3.19 + V3.19.1 patches
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text(); a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text(); g=Path('signalhub-android/app/build.gradle').read_text(); m=Path('signalhub-android/app/src/main/AndroidManifest.xml').read_text()
+          for x in ['SIGNALHUB-V3-GATEWAY-3.19.1','targetActiveByStyle:{SCALP:10,SWING:5}','maxActiveTotal:15','function buildStableReferenceSetup(','STABLE_LIQUID_REFERENCE_WAIT','STABLE_UNIVERSE_PULLBACK_LIMIT','STABLE_UNIVERSE_CONFIRMATION_STOP','standbyPerStyle:12','STALE_PENDING_REFRESH','LIQUIDITY_DEGRADED_BEFORE_ENTRY']:
+              assert x in w,x
+          for x in ['APP_VERSION="3.19.1"','CRYPTO • 10 SCALP + 5 SWING','private boolean watchSearchHasFocus()','private void showWatchKeyboard(','InputMethodManager.SHOW_IMPLICIT','EditorInfo.IME_ACTION_SEARCH','Tìm / thêm','!watchSearchHasFocus()']:
+              assert x in a,x
+          assert "versionCode 25" in g and "versionName '3.19.1'" in g
+          assert 'android:windowSoftInputMode="adjustResize"' in m
+          print('source contract PASS')
+          PY
+
+      - name: Dry run and Android build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3191-worker
+          cd signalhub-android && gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Wait for V3.19.1
+        run: |
+          set -euo pipefail
+          ok=0
+          for n in $(seq 1 60); do
+            curl -fsS --max-time 20 "$BASE/v3/status?wait=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.19.1'
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':10,'SWING':5}
+          PY
+            then ok=1;break;fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Fill and prove exact 10 + 5
+        run: |
+          set -euo pipefail
+          ok=0
+          for n in $(seq 1 12); do
+            curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SCALP&fill=$RANDOM-$n" >/tmp/s.json || true
+            curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SWING&fill=$RANDOM-$n" >/tmp/w.json || true
+            curl -fsS --max-time 30 "$BASE/v3/portfolio?fill=$RANDOM-$n" >/tmp/p.json
+            python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {}); print('attempt portfolio',p.get('activeTotal'),p.get('styles'),p.get('uniqueSymbols'))
+          for name,path in [('S','/tmp/s.json'),('W','/tmp/w.json')]:
+              try:q=json.load(open(path));print(name,{k:q.get(k) for k in ['scanned','liquidUniverse','deepAnalyzed','evaluated','actionable','created']})
+              except:pass
+          PY
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {})
+          assert p.get('activeTotal')==15,p
+          assert (p.get('styles') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('uniqueSymbols')==15,p
+          PY
+            then ok=1;break;fi
+            sleep 2
+          done
+          test "$ok" = 1
+
+      - name: Audit 15 active signals
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 45 "$BASE/v3/signals?market=CRYPTO&style=SCALP&status=active&limit=100" >/tmp/as.json
+          curl -fsS --max-time 45 "$BASE/v3/signals?market=CRYPTO&style=SWING&status=active&limit=100" >/tmp/aw.json
+          python3 - <<'PY'
+          import json
+          ss=json.load(open('/tmp/as.json')).get('signals') or []; sw=json.load(open('/tmp/aw.json')).get('signals') or []
+          assert len(ss)==10,(len(ss),[x.get('symbol') for x in ss]);assert len(sw)==5,len(sw)
+          rows=ss+sw;assert len({x.get('symbol') for x in rows})==15
+          meme=0
+          for x in rows:
+              assert x.get('status') in ('OPEN','PENDING'); assert x.get('orderType') in ('MARKET','LIMIT','STOP')
+              t=x.get('technicalAtIssue') or {}; st=x.get('style'); turn=float(t.get('turnover24h') or 0); spread=float(t.get('spreadBps') if t.get('spreadBps') is not None else 999); move=abs(float(t.get('change24hPct') or 0))
+              assert turn >= (50_000_000 if st=='SCALP' else 35_000_000),(x.get('symbol'),turn)
+              assert spread <= (6 if st=='SCALP' else 12),(x.get('symbol'),spread)
+              assert move <= (22 if st=='SCALP' else 30),(x.get('symbol'),move)
+              if x.get('riskCluster')=='MEME':meme+=1
+          assert meme<=1,meme
+          print('15-signal audit PASS:',[x.get('symbol') for x in ss],'|',[x.get('symbol') for x in sw])
+          PY
+
+      - name: Watchlist backend and 15-slot isolation
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?before=$RANDOM" >/tmp/b.json
+          for s in BTCUSDT ETHUSDT XRPUSDT; do curl -fsS --max-time 90 "$BASE/v3/watch/analyze?symbol=$s&watch=$RANDOM" -o "/tmp/$s.json"; done
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?after=$RANDOM" >/tmp/a.json
+          python3 - <<'PY'
+          import json
+          for s in ['BTCUSDT','ETHUSDT','XRPUSDT']:
+              p=json.load(open('/tmp/'+s+'.json'));assert p.get('ok') is True,p;assert p.get('symbol')==s,p;assert p.get('analysisOnly') is True;assert set((p.get('styles') or {}).keys())=={'SCALP','SWING'}
+          for f in ['/tmp/b.json','/tmp/a.json']:
+              p=(json.load(open(f)).get('portfolio') or {});assert (p.get('styles') or {})=={'SCALP':10,'SWING':5},p
+          print('Watchlist backend isolation PASS')
+          PY
+
+      - name: Refresh stability and atomic stress
+        run: |
+          set -euo pipefail
+          (curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SCALP&stress=a-$RANDOM" >/dev/null || true)&
+          (curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SCALP&stress=b-$RANDOM" >/dev/null || true)&
+          (curl -fsS --max-time 180 "$BASE/v3/scan?market=CRYPTO&style=SWING&stress=c-$RANDOM" >/dev/null || true)&
+          wait
+          curl -fsS --max-time 30 "$BASE/v3/portfolio?stress=$RANDOM" >/tmp/stress.json
+          python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/stress.json')).get('portfolio') or {})
+          assert p.get('activeTotal')==15,p;assert (p.get('styles') or {})=={'SCALP':10,'SWING':5},p;assert p.get('uniqueSymbols')==15,p
+          print('atomic stress PASS')
+          PY
+
+      - name: Checkpoint, APK, release
+        run: |
+          set -euo pipefail
+          cat > SIGNALHUB_V3_CHECKPOINT_10_15SLOT_STABLE_UNIVERSE.md <<'EOF'
+          # SignalHub V3.19.1 checkpoint
+          Crypto only. Exact target 10 SCALP + 5 SWING active reference ideas, OPEN + PENDING combined, one symbol per active idea. Stable-liquidity universe is refreshed from the full live perpetual snapshot; SCALP requires >=$50M 24h turnover / <=6 bps spread / <=22% 24h move; SWING >=$35M / <=12 bps / <=30%. Strict market setups are preferred; missing coverage is filled only with pending LIMIT/STOP reference triggers from the same stable-liquid universe, never forced MARKET fallbacks. Pending ideas refresh on age/liquidity deterioration. V3.18 Watchlist keyboard/focus fix is retained and Watchlist is read-only. Debug signing remains.
+          EOF
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.19.1-10Scalp-5Swing-StableUniverse.apk
+          sha256sum dist/SignalHub-v3.19.1-10Scalp-5Swing-StableUniverse.apk | tee dist/SignalHub-v3.19.1-10Scalp-5Swing-StableUniverse-SHA256SUMS.txt
+          git config user.name 'github-actions[bot]';git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java SIGNALHUB_V3_CHECKPOINT_10_15SLOT_STABLE_UNIVERSE.md
+          git commit -m 'SignalHub v3.19.1 stable reference coverage' || true
+          git push origin HEAD:signalhub-v319-15slot-liquidity-universe
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.19.1-10Scalp-5Swing-StableUniverse
+          path: dist/
+          retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.19.1-10scalp-5swing-stable-universe
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v319-15slot-liquidity-universe --prerelease --title 'SignalHub v3.19.1 — 10 SCALP + 5 SWING' --notes 'Exact 10 SCALP + 5 SWING reference book, stable-liquidity universe, fresh conditional pending coverage, continuous universe refresh, and fixed Watchlist keyboard/search.'
