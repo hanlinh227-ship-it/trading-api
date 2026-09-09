@@ -1,1 +1,1 @@
-placeholder
+import legacy from './gateway.js';
