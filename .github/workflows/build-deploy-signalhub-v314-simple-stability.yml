@@ -5,6 +5,7 @@ on:
     branches: [signalhub-v314-simple-ui-stability]
     paths:
       - 'scripts/patch_signalhub_v314_simple_stability.py'
+      - 'scripts/normalize_v314_patch.py'
       - '.github/workflows/build-deploy-signalhub-v314-simple-stability.yml'
   workflow_dispatch:
 
@@ -34,6 +35,7 @@ jobs:
       - name: Apply V3.14 stability and UI patch
         run: |
           set -euo pipefail
+          python3 scripts/normalize_v314_patch.py
           python3 scripts/patch_signalhub_v314_simple_stability.py
 
       - name: Verify V3.14 source contracts
@@ -149,8 +151,8 @@ jobs:
                   assert s.get('orderType') in ('MARKET','LIMIT','STOP'),s
                   assert s.get('engineVersion')=='SIGNALHUB-V3-GATEWAY-3.14.0',s
                   assert 'score' not in s and 'qualityGrade' not in s,s
-                  a=s.get('entryAssessment') or {};assert a.get('verdict')=='PASS',a
-                  assert a.get('method')=='V314_CRYPTO_EVIDENCE_CHECKS_NO_NUMERIC_SCORE',a
+                  aa=s.get('entryAssessment') or {};assert aa.get('verdict')=='PASS',aa
+                  assert aa.get('method')=='V314_CRYPTO_EVIDENCE_CHECKS_NO_NUMERIC_SCORE',aa
                   e=s.get('qualityEvidence') or {}
                   for k in ('contextAligned','secondaryProviderConfirmed','entryNotChasing','invalidationStructural','targetPathClear'):
                       assert e.get(k) is True,(k,e,s.get('symbol'))
