@@ -1,0 +1,27 @@
+name: Diagnose V320 Generated Routes
+on:
+  push:
+    branches: [signalhub-v320-stable100-continuous]
+    paths: ['.github/workflows/diag-v320-generated-routes.yml']
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate and inspect routes
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          for term in ['cryptoTickers','/v3/crypto','async fetch','path===','url.pathname']:
+              print('\n###',term)
+              start=0
+              for i in range(12):
+                  p=w.find(term,start)
+                  if p<0: break
+                  print(w[max(0,p-260):min(len(w),p+520)].replace('\n','\\n'))
+                  start=p+len(term)
+          PY
