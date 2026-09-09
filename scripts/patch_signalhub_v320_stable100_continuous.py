@@ -25,8 +25,6 @@ policy_old="standbyPerStyle:12,replacementMode:'DURABLE_OBJECT_HOT_SPARE_ATOMIC_
 policy_new="standbyPerStyle:20,replacementMode:'DURABLE_OBJECT_HOT_SPARE_ATOMIC_RESERVE_POOL',universeRefresh:'DYNAMIC_STABLE100_EVERY_SERVER_CYCLE_PLUS_ON_DEMAND',stableUniverseSize:100,stableUniversePolicy:'TOP_100_STABLE_USDT_PERP_DYNAMIC',deepScanRotation:'LIQUIDITY_CORE_PLUS_ROTATING_COVERAGE',continuousRefill:'TARGET_10_SCALP_5_SWING_FROM_HOT_SPARES'"
 w=rep(w,policy_old,policy_new,'portfolio stable100 metadata')
 
-# Dynamic top-100 stable/liquid market universe. This broad universe is refreshed from every live ticker snapshot.
-# The existing stricter per-style liquidity filter still decides which coin may occupy a SCALP/SWING signal slot.
 needle='function signalLiquidityFacts(s){'
 if needle not in w: raise SystemExit('signalLiquidityFacts needle missing')
 helper=r'''const STABLE100_SIZE=100;
@@ -66,14 +64,13 @@ function rotatingStableCandidates(rows,style,limit){
 '''
 w=w.replace(needle,helper+needle,1)
 
-# A neutral secondary venue may keep a conditional LIMIT/STOP candidate. Only a directly opposing
-# secondary context rejects that pending reference. MARKET confirmation rules are not relaxed.
+# Neutral secondary venue may keep conditional pending; directly opposing context rejects it.
 w=w.replace("setup.technicalAtIssue.crossMomentum=sec.momentum;setup.crossProviderConfirmation=confirmed;",
             "setup.technicalAtIssue.crossMomentum=sec.momentum;setup.technicalAtIssue.crossOpposing=opposing;setup.crossProviderConfirmation=confirmed;")
 w=rep(w,"if(setup.referenceFallback&&checked&&!setup.crossProviderConfirmation)return null;",
       "if(setup.referenceFallback&&checked&&setup.technicalAtIssue?.crossOpposing===true)return null;",'neutral secondary pending rule')
 
-# Anchor-based replacement so the V3.20 patch is resilient to compact formatting in generated V3.19.1 source.
+# Stable100 selection with resilient function anchors.
 scan_fn=w.index('async function scanCrypto')
 sel_start=w.index('const all=snap.rows',scan_fn)
 raw_start=w.index('const rawAnalyses=',sel_start)
@@ -87,14 +84,12 @@ scan_new=(
 )
 w=w[:sel_start]+scan_new+w[raw_start:]
 
-# Expose universe telemetry in scan response if the compact response marker is present.
 tele_old='scanned:all.length,liquidUniverse:liquid.length,deepAnalyzed:ranked.length,'
 tele_new='scanned:all.length,stable100Target:STABLE100_SIZE,stable100Count:stable100.length,stable100Symbols:stable100.map(x=>x.symbol),liquidUniverse:liquid.length,deepAnalyzed:ranked.length,'
 if tele_old in w[scan_fn:]:
-    before=w[:scan_fn]; after=w[scan_fn:].replace(tele_old,tele_new,1); w=before+after
+    w=w[:scan_fn]+w[scan_fn:].replace(tele_old,tele_new,1)
 
-# Existing one-minute cron calls this maintenance function. Refresh both style pools every cycle,
-# and promote a hot spare immediately whenever a style falls below its 10/5 target.
+# Every existing one-minute scheduled maintenance refreshes stable100 and both style pools.
 maint_start=w.index('async function cryptoOnlyMaintenance')
 maint_end=w.index('async function exnessQuoteMap',maint_start)
 maint_new="""async function cryptoOnlyMaintenance(env){
@@ -110,10 +105,11 @@ maint_new="""async function cryptoOnlyMaintenance(env){
 """
 w=w[:maint_start]+maint_new+w[maint_end:]
 
-# Read-only universe endpoint for diagnostics/app display; it does not consume an active signal slot.
-route_needle="if(path==='/v3/crypto/tickers')return cryptoTickers(url,env);"
+# Read-only endpoint; never consumes an active slot.
+route_needle="if(url.pathname==='/v3/crypto/tickers'&&req.method==='GET')return cryptoTickers(url,env);"
 if route_needle not in w: raise SystemExit('crypto ticker route missing')
-w=w.replace(route_needle,route_needle+"\n    if(path==='/v3/crypto/stable100'){const cached=await readStable100(env);if(cached)return json({ok:true,...cached});const snap=await loadCryptoSnapshot(env),rows=await persistStable100(env,snap,snap.rows);return json({ok:true,version:V3_VERSION,provider:snap.provider,receivedAt:snap.receivedAt,refreshedAt:nowIso(),target:STABLE100_SIZE,count:rows.length,symbols:rows.map(x=>x.symbol),rows});}",1)
+stable_route="if(url.pathname==='/v3/crypto/stable100'&&req.method==='GET'){const cached=await readStable100(env);if(cached)return json({ok:true,...cached});const snap=await loadCryptoSnapshot(env),rows=await persistStable100(env,snap,snap.rows);return json({ok:true,version:V3_VERSION,provider:snap.provider,receivedAt:snap.receivedAt,refreshedAt:nowIso(),target:STABLE100_SIZE,count:rows.length,symbols:rows.map(x=>x.symbol),rows});}"
+w=w.replace(route_needle,route_needle+'\n    '+stable_route,1)
 
 marker="'V3.19 targets exactly 10 SCALP + 5 SWING active reference signals, counting both OPEN market entries and PENDING LIMIT/STOP entries.',"
 if marker in w:
