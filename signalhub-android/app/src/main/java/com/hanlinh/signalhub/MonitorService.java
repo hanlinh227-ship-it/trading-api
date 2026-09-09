@@ -37,7 +37,7 @@ public class MonitorService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent,int flags,int startId){
-        startForeground(FOREGROUND_ID,monitor("Đang đồng bộ 4 luồng FOREX/CRYPTO • SCALP/SWING"));
+        startForeground(FOREGROUND_ID,monitor("CRYPTO ONLY • đang đồng bộ SCALP / SWING"));
         if(!running){running=true;worker=Executors.newSingleThreadExecutor();worker.execute(this::loop);}
         return START_STICKY;
     }
@@ -54,28 +54,15 @@ public class MonitorService extends Service {
     private void syncAll(){
         try{ApiClient.getLive("/v3/crypto/tickers?limit=1000");}catch(Throwable ignored){}
         int active=0,failed=0;
-        for(String market:new String[]{"FOREX","CRYPTO"}){
-            for(String style:new String[]{"SCALP","SWING"}){
-                try{
-                    JSONObject root=new JSONObject(ApiClient.get("/v3/signals?market="+market+"&style="+style+"&status=all&limit=120"));
-                    JSONArray a=root.optJSONArray("signals");
-                    String dataState="";
-                    JSONObject health=root.optJSONObject("dataHealth");
-                    if(health!=null)dataState=health.optString("state","");
-                    if(a!=null)for(int i=0;i<a.length();i++){
-                        JSONObject s=a.optJSONObject(i);if(s==null)continue;
-                        String st=s.optString("status","");
-                        if("PENDING".equals(st)||"OPEN".equals(st))active++;
-                        process(market,style,s,dataState);
-                    }
-                }catch(Throwable e){failed++;}
-            }
+        for(String style:new String[]{"SCALP","SWING"}){
+            int styleActive=0;
+            try{
+                JSONObject root=new JSONObject(ApiClient.get("/v3/signals?market=CRYPTO&style="+style+"&status=all&limit=120"));JSONArray arr=root.optJSONArray("signals");
+                if(arr!=null)for(int i=0;i<arr.length();i++){JSONObject s=arr.optJSONObject(i);if(s==null)continue;String st=s.optString("status","");if("PENDING".equals(st)||"OPEN".equals(st)){active++;styleActive++;}process("CRYPTO",style,s,"SERVER_MONITORED");}
+            }catch(Throwable e){failed++;}
+            if(styleActive==0)try{ApiClient.get("/v3/scan?market=CRYPTO&style="+style);}catch(Throwable ignored){}
         }
-        NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        if(n!=null){
-            String text=failed==0?"LIVE • "+active+" tín hiệu đang theo dõi":"DEGRADED • "+failed+"/4 luồng đang nối lại • "+active+" active";
-            n.notify(FOREGROUND_ID,monitor(text));
-        }
+        NotificationManager n=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);if(n!=null){String text=failed==0?"CRYPTO LIVE • "+active+" tín hiệu SCALP/SWING đang theo dõi":"DEGRADED • "+failed+"/2 luồng đang nối lại • "+active+" active";n.notify(FOREGROUND_ID,monitor(text));}
     }
 
     private void process(String market,String style,JSONObject s,String dataState){
@@ -92,7 +79,7 @@ public class MonitorService extends Service {
         p.edit().putString(key,state).apply();
         String status=s.optString("status","");
         String outcome=s.optString("outcome","");
-        if("OPEN".equals(status))notifySignal(s.optBoolean("brokerConfirmed",false)?"ĐÃ KHỚP EXNESS":"ACTIVE",market,style,s,dataState,id+":open");
+        if("OPEN".equals(status))notifySignal("ENTRY ĐÃ KÍCH HOẠT",market,style,s,dataState,id+":open");
         else if("CLOSED".equals(status)&&"TP".equals(outcome))notifySignal("TP ĐẠT",market,style,s,dataState,id+":tp");
         else if("CLOSED".equals(status)&&"SL".equals(outcome))notifySignal("SL CHẠM",market,style,s,dataState,id+":sl");
         else if("CANCELLED".equals(status))notifySignal("ĐÃ HỦY / SETUP MẤT HIỆU LỰC",market,style,s,dataState,id+":cancel");
@@ -129,7 +116,7 @@ public class MonitorService extends Service {
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.11 • ATOMIC QUALITY BOOK LIVE")
+                .setContentTitle("SignalHub V3.13 • CRYPTO QUALITY LIVE")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 
