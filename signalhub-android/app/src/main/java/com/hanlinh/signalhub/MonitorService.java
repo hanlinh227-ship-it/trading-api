@@ -116,7 +116,7 @@ public class MonitorService extends Service {
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.13 • CRYPTO QUALITY LIVE")
+                .setContentTitle("SignalHub V3.14 • CRYPTO STABILITY LIVE")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 

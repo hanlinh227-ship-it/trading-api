@@ -19,6 +19,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.content.SharedPreferences;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -45,9 +46,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS=42;
-    private static final String APP_VERSION="3.13.0";
+    private static final String APP_VERSION="3.14.0";
     private static final long LIVE_REFRESH_MS=500L; // REST fallback; WebSocket is primary
-    private static final long PAGE_REFRESH_MS=3000L;
+    private static final long PAGE_REFRESH_MS=2500L;
     private static final long SCAN_MS=30000L;
     private static final int BG=Color.rgb(2,6,10),PANEL=Color.rgb(7,14,21),PANEL2=Color.rgb(12,23,33),BORDER=Color.rgb(28,52,70);
     private static final int TEXT=Color.rgb(242,248,252),MUTED=Color.rgb(123,148,166),GREEN=Color.rgb(48,232,159),RED=Color.rgb(255,76,102),YELLOW=Color.rgb(255,201,67),BLUE=Color.rgb(78,154,255),CYAN=Color.rgb(59,224,238);
@@ -101,32 +102,22 @@ public class SignalHubActivity extends Activity {
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private GradientDrawable shape(int fill,int radius,int stroke){GradientDrawable d=new GradientDrawable();d.setColor(fill);d.setCornerRadius(dp(radius));if(stroke!=Color.TRANSPARENT)d.setStroke(dp(1),stroke);return d;}
-    private TextView tv(String s,int sp,int color,boolean bold){TextView v=new TextView(this);v.setText(s);v.setTextSize(sp);v.setTextColor(color);v.setTypeface(Typeface.create(Typeface.MONOSPACE,bold?Typeface.BOLD:Typeface.NORMAL));v.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);return v;}
+    private TextView tv(String s,int sp,int color,boolean bold){TextView v=new TextView(this);v.setText(s);v.setTextSize(sp);v.setTextColor(color);v.setTypeface(Typeface.create(Typeface.DEFAULT,bold?Typeface.BOLD:Typeface.NORMAL));v.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);return v;}
     private LinearLayout row(){LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);r.setGravity(Gravity.CENTER_VERTICAL);return r;}
     private LinearLayout column(){LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);return c;}
     private LinearLayout card(){LinearLayout c=column();c.setPadding(dp(15),dp(13),dp(15),dp(13));c.setBackground(shape(PANEL,15,BORDER));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(6),0,dp(6));c.setLayoutParams(p);return c;}
     private TextView chip(String s,int color){TextView v=tv(s,9,color,true);v.setPadding(dp(8),dp(5),dp(8),dp(5));v.setGravity(Gravity.CENTER);v.setBackground(shape(Color.argb(28,Color.red(color),Color.green(color),Color.blue(color)),9,color));return v;}
-    private Button button(String s,boolean selected,View.OnClickListener l){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(10);b.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);b.setTextColor(selected?BG:TEXT);b.setPadding(dp(8),0,dp(8),0);b.setMinHeight(0);b.setMinimumHeight(0);b.setStateListAnimator(null);b.setBackground(shape(selected?GREEN:PANEL2,11,selected?GREEN:BORDER));b.setOnClickListener(l);pressFeedback(b);return b;}
+    private Button button(String s,boolean selected,View.OnClickListener l){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(10);b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);b.setTextColor(selected?BG:TEXT);b.setPadding(dp(8),0,dp(8),0);b.setMinHeight(0);b.setMinimumHeight(0);b.setStateListAnimator(null);b.setBackground(shape(selected?GREEN:PANEL2,11,selected?GREEN:BORDER));b.setOnClickListener(l);pressFeedback(b);return b;}
     private void pressFeedback(View v){v.setOnTouchListener((x,e)->{if(e.getAction()==MotionEvent.ACTION_DOWN)x.animate().scaleX(.985f).scaleY(.985f).alpha(.82f).setDuration(55).start();else if(e.getAction()==MotionEvent.ACTION_UP||e.getAction()==MotionEvent.ACTION_CANCEL)x.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(90).start();return false;});}
     private TextView line(String k,String v,int c){TextView t=tv(k+"  "+v,11,c,true);t.setPadding(0,dp(3),0,dp(3));return t;}
 
     private void buildUi(){
         LinearLayout root=column();root.setBackgroundColor(BG);
-        LinearLayout head=column();head.setPadding(dp(14),dp(12),dp(14),dp(7));
-        LinearLayout top=row();LinearLayout titles=column();
-        TextView logo=tv("SIGNALHUB CRYPTO",22,TEXT,true);subtitle=tv("CRYPTO ONLY • SCALP ≠ SWING • REALTIME • V3.13",8,MUTED,true);
-        titles.addView(logo);titles.addView(subtitle);top.addView(titles,new LinearLayout.LayoutParams(0,-2,1f));top.addView(chip("V"+APP_VERSION,BLUE));head.addView(top);
-
-        LinearLayout live=row();fxLive=chip("FOREX • DISABLED",MUTED);cryptoLive=chip("CRYPTO • OFFLINE",RED);
-        LinearLayout.LayoutParams lp2=new LinearLayout.LayoutParams(0,-2,1f);lp2.setMargins(0,dp(8),0,0);live.addView(cryptoLive,lp2);head.addView(live);
-
-        signalControls=column();
-        LinearLayout styles=row();scalpBtn=button("SCALP",true,v->setStyle("SCALP"));swingBtn=button("SWING",false,v->setStyle("SWING"));
-        LinearLayout.LayoutParams sp1=new LinearLayout.LayoutParams(0,dp(43),1f);sp1.setMargins(0,dp(9),dp(4),0);LinearLayout.LayoutParams sp2=new LinearLayout.LayoutParams(0,dp(43),1f);sp2.setMargins(dp(4),dp(9),0,0);styles.addView(scalpBtn,sp1);styles.addView(swingBtn,sp2);signalControls.addView(styles);
-        head.addView(signalControls);root.addView(head);
-
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);content=column();content.setPadding(dp(14),dp(3),dp(14),dp(12));scroll.addView(content);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));
-        bottom=row();bottom.setPadding(dp(7),dp(6),dp(7),dp(8));bottom.setBackgroundColor(PANEL);root.addView(bottom);setContentView(root);drawBottom();signalControls.setVisibility(screen.equals("SIGNALS")?View.VISIBLE:View.GONE);
+        LinearLayout head=column();head.setPadding(dp(16),dp(12),dp(16),dp(8));
+        LinearLayout top=row();ImageView brand=new ImageView(this);brand.setImageResource(R.drawable.ic_signalhub);brand.setColorFilter(CYAN);LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(34),dp(34));bp.setMargins(0,0,dp(10),0);top.addView(brand,bp);
+        LinearLayout titles=column();TextView logo=tv("SignalHub",22,TEXT,true);subtitle=tv("CRYPTO • SCALP / SWING • V3.14",9,MUTED,false);titles.addView(logo);titles.addView(subtitle);top.addView(titles,new LinearLayout.LayoutParams(0,-2,1f));cryptoLive=chip("CRYPTO • OFFLINE",RED);top.addView(cryptoLive);head.addView(top);
+        signalControls=column();LinearLayout styles=row();scalpBtn=button("SCALP",true,v->setStyle("SCALP"));swingBtn=button("SWING",false,v->setStyle("SWING"));LinearLayout.LayoutParams s1=new LinearLayout.LayoutParams(0,dp(42),1f);s1.setMargins(0,dp(10),dp(4),0);LinearLayout.LayoutParams s2=new LinearLayout.LayoutParams(0,dp(42),1f);s2.setMargins(dp(4),dp(10),0,0);styles.addView(scalpBtn,s1);styles.addView(swingBtn,s2);signalControls.addView(styles);head.addView(signalControls);root.addView(head);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);content=column();content.setPadding(dp(16),dp(4),dp(16),dp(14));scroll.addView(content);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));bottom=row();bottom.setPadding(dp(8),dp(5),dp(8),dp(7));bottom.setBackgroundColor(PANEL);root.addView(bottom);setContentView(root);drawBottom();signalControls.setVisibility(screen.equals("SIGNALS")?View.VISIBLE:View.GONE);
     }
 
     private void setStyle(String s){if(style.equals(s))return;style=s;detail=false;selectedSignal=null;paintControls();renderSignals(true);kickScanIfDue();refreshPage(true);}
@@ -140,14 +131,8 @@ public class SignalHubActivity extends Activity {
         drawBottom();renderCurrent(true);refreshPage(true);
     }
     private void drawBottom(){
-        bottom.removeAllViews();
-        String[] keys={"HOME","SIGNALS","STATS","ALERTS","SETTINGS"};
-        String[] names={"⌂\nTRANG CHỦ","⚡\nTÍN HIỆU","▥\nTHỐNG KÊ","♢\nTHÔNG BÁO","⚙\nCÀI ĐẶT"};
-        for(int i=0;i<keys.length;i++){
-            final String x=keys[i];Button b=button(names[i],screen.equals(x),v->selectScreen(x));
-            b.setTextSize(8);b.setGravity(Gravity.CENTER);b.setPadding(dp(2),0,dp(2),0);
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(54),1f);p.setMargins(dp(1),0,dp(1),0);bottom.addView(b,p);
-        }
+        bottom.removeAllViews();String[] keys={"HOME","SIGNALS","STATS","SETTINGS"},names={"TRANG CHỦ","TÍN HIỆU","THỐNG KÊ","CÀI ĐẶT"};int[] icons={R.drawable.ic_home,R.drawable.ic_signal,R.drawable.ic_stats,R.drawable.ic_settings};
+        for(int i=0;i<keys.length;i++){final String x=keys[i];Button b=button(names[i],screen.equals(x),v->selectScreen(x));b.setTextSize(9);b.setGravity(Gravity.CENTER);b.setCompoundDrawablesWithIntrinsicBounds(0,icons[i],0,0);b.setCompoundDrawablePadding(dp(2));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(58),1f);p.setMargins(dp(2),0,dp(2),0);bottom.addView(b,p);}
     }
     private void swap(Runnable r){content.animate().cancel();content.setAlpha(.78f);r.run();content.animate().alpha(1f).setDuration(120).start();}
 
@@ -155,7 +140,6 @@ public class SignalHubActivity extends Activity {
         if(screen.equals("HOME"))renderHome(animate);
         else if(screen.equals("SIGNALS"))renderSignals(animate);
         else if(screen.equals("STATS"))renderStats(animate);
-        else if(screen.equals("ALERTS"))renderAlerts(animate);
         else renderSettings(animate);
     }
 
@@ -199,44 +183,28 @@ public class SignalHubActivity extends Activity {
         for(JSONObject s:rows)content.addView(signalCard(s));
     }
 
-    private String performanceSummary(){StringBuilder b=new StringBuilder();for(String m:new String[]{"FOREX","CRYPTO"}){if(filter.equals("CRYPTO")&&!m.equals("CRYPTO"))continue;if(!filter.equals("ALL")&&!filter.equals("CRYPTO")&&!m.equals("FOREX"))continue;JSONObject p=perfCache.get(m+":"+style);if(p==null)continue;if(b.length()>0)b.append("  •  ");b.append(m).append(" WR ").append(p.optString("winRateLabel","—"));int n=p.optInt("resolved",p.optInt("tp",0)+p.optInt("sl",0));if(n>0)b.append(" (").append(n).append(" lệnh)");}return b.length()==0?"WR chỉ tính từ lệnh đã TP/SL":""+b;}
-
-    private View signalCard(JSONObject s){
-        LinearLayout c=card();String sym=s.optString("symbol","—"),side=sideVi(s.optString("side","—")),order=s.optString("orderType","MARKET"),market=s.optString("market","FOREX"),signalStyle=s.optString("style",style);int col=side.equals("BUY")?GREEN:side.equals("SELL")?RED:MUTED;
-        LinearLayout h=row();h.addView(tv(sym,18,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(side,col));TextView regime=chip(s.optString("marketRegime","MARKET READ").replace('_',' '),BLUE);LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-2,-2);gp.setMargins(dp(7),0,0,0);h.addView(regime,gp);c.addView(h);
-        LinearLayout meta=row();meta.addView(tv(signalStyle+" • "+orderDisplay(s,pxForOrder(s)),10,orderColor(s,pxForOrder(s)),true),new LinearLayout.LayoutParams(0,-2,1f));meta.addView(chip(lifecycleVi(s),lifecycleColor(s)));c.addView(meta);
-        String id=s.optString("signalId",s.optString("id",sym+":"+signalStyle));double e=s.optDouble("entry",0),sl=s.optDouble("sl",0),tp3=s.optDouble("tp3",s.optDouble("tp",0));double px=priceFor(s,e);
-        TextView pv=tv(fmt(px),21,CYAN,true);pv.setPadding(0,dp(8),0,0);c.addView(pv);priceViews.put(id,pv);viewMarkets.put(id,market);
-        TextView sv=tv(sourceText(market),9,stateColor(market.equals("FOREX")?fxState:cryptoState),true);c.addView(sv);sourceViews.put(id,sv);
-        TextView pnl=tv(tradeStatusText(s,px),11,tradeStatusColor(s,px),true);pnl.setPadding(0,dp(7),0,dp(2));c.addView(pnl);pnlViews.put(id,pnl);
-        if(isDisplayLive(s,px)){TradeGauge gauge=new TradeGauge();gauge.setData(currentR(s,px),targetR(s));c.addView(gauge,new LinearLayout.LayoutParams(-1,dp(58)));gaugeViews.put(id,gauge);}else{EntryGauge eg=new EntryGauge();eg.setData(s,px);c.addView(eg,new LinearLayout.LayoutParams(-1,dp(64)));entryGaugeViews.put(id,eg);}
-        LinearLayout levels=row();LinearLayout left=column(),right=column();left.addView(metric("ENTRY",fmt(e),TEXT));left.addView(metric("SL",fmt(sl),RED));left.addView(metric("RR","1 : "+String.format(Locale.US,"%.2f",targetR(s)),CYAN));right.addView(metric("TP1",fmt(s.optDouble("tp1",0)),GREEN));right.addView(metric("TP2",fmt(s.optDouble("tp2",0)),GREEN));right.addView(metric("TP3",fmt(tp3),GREEN));levels.addView(left,new LinearLayout.LayoutParams(0,-2,1f));LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,-2,1f);rp.setMargins(dp(16),0,0,0);levels.addView(right,rp);c.addView(levels);
-        c.addView(tv("BOT • "+s.optString("judgment",s.optString("marketRegime","MARKET JUDGMENT").replace('_',' '))+" • "+historicalWr(market,signalStyle),9,MUTED,false));
-        pressFeedback(c);c.setClickable(true);c.setOnClickListener(v->{selectedSignal=s;detail=true;renderDetail(s,true);});return c;
+    private String performanceSummary(){JSONObject p=perfCache.get("CRYPTO:"+style);if(p==null)return "Hiệu suất: chưa đủ dữ liệu";int n=p.optInt("resolved",0);return n==0?"Hiệu suất: chưa có lệnh đóng":("WR "+p.optString("winRateLabel","—")+"  •  Net "+String.format(Locale.US,"%+.2fR",p.optDouble("netRResolved",0)));}    private View signalCard(JSONObject s){
+        LinearLayout c=card();String sym=s.optString("symbol","—"),side=sideVi(s.optString("side","—")),signalStyle=s.optString("style",style),id=s.optString("signalId",s.optString("id",sym+":"+signalStyle));int col=side.equals("BUY")?GREEN:RED;double e=s.optDouble("entry",0),sl=s.optDouble("sl",0),tp3=s.optDouble("tp3",s.optDouble("tp",0)),px=priceFor(s,e);
+        LinearLayout h=row();ImageView coin=new ImageView(this);coin.setImageResource(R.drawable.ic_crypto_coin);coin.setColorFilter(CYAN);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(dp(30),dp(30));cp.setMargins(0,0,dp(9),0);h.addView(coin,cp);LinearLayout names=column();names.addView(tv(sym,17,TEXT,true));names.addView(tv(signalStyle+" • "+s.optString("executionPriceAuthority",s.optString("provider","CRYPTO")),9,MUTED,false));h.addView(names,new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(side,col));LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-2,-2);op.setMargins(dp(6),0,0,0);TextView oc=chip(orderDisplay(s,px),orderColor(s,px));h.addView(oc,op);c.addView(h);
+        TextView pv=tv(fmt(px),23,TEXT,true);pv.setPadding(0,dp(9),0,0);c.addView(pv);priceViews.put(id,pv);viewMarkets.put(id,"CRYPTO");TextView pnl=tv(tradeStatusText(s,px),11,tradeStatusColor(s,px),true);pnl.setPadding(0,dp(5),0,dp(1));c.addView(pnl);pnlViews.put(id,pnl);
+        if(isDisplayLive(s,px)){TradeGauge g=new TradeGauge();g.setData(currentR(s,px),targetR(s));c.addView(g,new LinearLayout.LayoutParams(-1,dp(58)));gaugeViews.put(id,g);}else{EntryGauge g=new EntryGauge();g.setData(s,px);c.addView(g,new LinearLayout.LayoutParams(-1,dp(62)));entryGaugeViews.put(id,g);}
+        LinearLayout lv=row();lv.addView(simpleLevel("ENTRY",fmt(e),TEXT),new LinearLayout.LayoutParams(0,-2,1f));lv.addView(simpleLevel("SL",fmt(sl),RED),new LinearLayout.LayoutParams(0,-2,1f));lv.addView(simpleLevel("TP3",fmt(tp3),GREEN),new LinearLayout.LayoutParams(0,-2,1f));c.addView(lv);
+        TextView reason=tv(shortReason(s),9,MUTED,false);reason.setPadding(0,dp(7),0,0);c.addView(reason);pressFeedback(c);c.setClickable(true);c.setOnClickListener(v->{selectedSignal=s;detail=true;renderDetail(s,true);});return c;
     }
-
+    private View simpleLevel(String k,String v,int color){LinearLayout x=column();x.setPadding(dp(2),dp(7),dp(2),0);x.addView(tv(k,8,MUTED,true));x.addView(tv(v,11,color,true));return x;}
+    private String shortReason(JSONObject s){String r=s.optString("marketRegime","MARKET READ").replace('_',' '),cluster=s.optString("riskCluster","");return cluster.isEmpty()?r:(r+" • "+cluster);}
     private TextView metric(String k,String v,int color){TextView t=tv(String.format(Locale.US,"%-6s %s",k,v),11,color,true);t.setPadding(0,dp(3),0,dp(3));return t;}
     private String historicalWr(String market){return historicalWr(market,style);}
 
     private void renderSignals(boolean animate){
-        if(detail&&selectedSignal!=null){renderDetail(selectedSignal,animate);return;}
-        Runnable body=()->{
-            content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();
-            subtitle.setText("CRYPTO REALTIME • SCALP / SWING • LIVE / LIMIT / STOP");
-            LinearLayout title=row();title.addView(tv("CRYPTO SIGNALS",16,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));title.addView(chip(style,CYAN));content.addView(title);
-            List<JSONObject> rows=collectSignals(),liveRows=new ArrayList<>(),limitRows=new ArrayList<>(),stopRows=new ArrayList<>();
-            for(JSONObject x:rows){double px=priceFor(x,x.optDouble("entry",0));if(isDisplayLive(x,px))liveRows.add(x);else if("STOP".equalsIgnoreCase(x.optString("orderType","")))stopRows.add(x);else limitRows.add(x);}
-            LinearLayout summary=card();summary.addView(tv("CRYPTO ONLY • QUALITY-FIRST",10,CYAN,true));summary.addView(tv("SCALP / SWING độc lập • LIVE "+liveRows.size()+" • LIMIT "+limitRows.size()+" • STOP "+stopRows.size(),12,TEXT,true));summary.addView(tv(performanceSummary(),9,MUTED,true));content.addView(summary);
-            addCryptoSignalGroup("●  LIVE",liveRows,GREEN);
-            addCryptoSignalGroup("◷  LIMIT",limitRows,YELLOW);
-            addCryptoSignalGroup("△  STOP",stopRows,YELLOW);
-        };
-        if(animate)swap(body);else body.run();updateAllPriceViews();
+        if(detail&&selectedSignal!=null){renderDetail(selectedSignal,animate);return;}Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();subtitle.setText("CRYPTO REALTIME • "+style);
+            List<JSONObject> rows=collectSignals(),liveRows=new ArrayList<>(),waitRows=new ArrayList<>();for(JSONObject x:rows){double px=priceFor(x,x.optDouble("entry",0));if(isDisplayLive(x,px))liveRows.add(x);else waitRows.add(x);}
+            LinearLayout top=row();top.addView(tv(style+" SIGNALS",18,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));top.addView(chip(cryptoState,stateColor(cryptoState)));content.addView(top);LinearLayout summary=card();summary.addView(tv(liveRows.size()+" LIVE   •   "+waitRows.size()+" CHỜ ENTRY",14,TEXT,true));summary.addView(tv(performanceSummary(),9,MUTED,false));content.addView(summary);addCryptoSignalGroup("LIVE",liveRows,GREEN);addCryptoSignalGroup("CHỜ ENTRY",waitRows,YELLOW);
+        };if(animate)swap(body);else body.run();updateAllPriceViews();
     }
-
     private void addCryptoSignalGroup(String name,List<JSONObject> rows,int color){
         LinearLayout h=row();h.addView(tv(name,13,color,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(String.valueOf(rows.size()),color));content.addView(h);
-        if(rows.isEmpty()){LinearLayout z=card();z.addView(tv("Chưa có setup đạt hard-quality trong nhóm này.",10,MUTED,true));content.addView(z);return;}
+        if(rows.isEmpty()){LinearLayout z=card();z.addView(tv("Chưa có setup phù hợp lúc này.",10,MUTED,true));content.addView(z);return;}
         for(JSONObject x:rows)content.addView(signalCard(x));
     }
 
@@ -259,9 +227,7 @@ public class SignalHubActivity extends Activity {
     }
 
     private List<JSONObject> allSignals(){
-        List<JSONObject> out=new ArrayList<>();
-        for(String st:new String[]{"SCALP","SWING"})for(String m:new String[]{"FOREX","CRYPTO"}){JSONArray a=signalCache.get(m+":"+st);if(a==null)continue;for(int i=0;i<a.length();i++){JSONObject s=a.optJSONObject(i);if(s!=null)out.add(s);}}
-        out.sort(Comparator.comparingLong((JSONObject x)->parseMs(x.optString("issuedAt",""))).reversed());return out;
+        List<JSONObject> out=new ArrayList<>();for(String st:new String[]{"SCALP","SWING"}){JSONArray arr=signalCache.get("CRYPTO:"+st);if(arr==null)continue;for(int i=0;i<arr.length();i++){JSONObject s=arr.optJSONObject(i);if(s!=null)out.add(s);}}out.sort(Comparator.comparingLong((JSONObject x)->parseMs(x.optString("issuedAt",""))).reversed());return out;
     }
 
     private int activeCount(String st){int n=0;for(JSONObject s:allSignals())if((st==null||st.equals(s.optString("style","")))&&isDisplayLive(s,priceFor(s,s.optDouble("entry",0))))n++;return n;}
@@ -271,30 +237,29 @@ public class SignalHubActivity extends Activity {
 
     private View statTile(String icon,String title,String value,String sub,int color){LinearLayout c=card();LinearLayout h=row();h.addView(tv(icon,18,color,true));TextView t=tv(title,9,MUTED,true);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,-2,1f);tp.setMargins(dp(8),0,0,0);h.addView(t,tp);c.addView(h);c.addView(tv(value,23,TEXT,true));c.addView(tv(sub,9,color,false));return c;}
 
-    private void renderHome(boolean animate){Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();subtitle.setText("CRYPTO EXECUTION INTELLIGENCE • QUALITY-FIRST");
-        LinearLayout hero=card();LinearLayout h=row();LinearLayout l=column();l.addView(tv("EXECUTION INTELLIGENCE",15,TEXT,true));l.addView(tv("REALTIME CONTROL",21,CYAN,true));l.addView(tv("LIVE  •  LIMIT  •  STOP  •  STRUCTURE ASSESSMENT",9,MUTED,true));h.addView(l,new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(cryptoProvider+" • "+cryptoState,stateColor(cryptoState)));hero.addView(h);content.addView(hero);
-        LinearLayout r1=row();View a=statTile("◎","Tín hiệu đang chạy",String.valueOf(activeCount(null)),"LIVE • chờ "+pendingCount(),CYAN);View b=statTile("⚡","Scalp",String.valueOf(activeCount("SCALP")),"đang theo dõi",GREEN);LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(0,-2,1f);p1.setMargins(0,0,dp(3),0);LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(0,-2,1f);p2.setMargins(dp(3),0,0,0);r1.addView(a,p1);r1.addView(b,p2);content.addView(r1);
-        LinearLayout r2=row();View d=statTile("▥","Swing",String.valueOf(activeCount("SWING")),"đang theo dõi",BLUE);View e=statTile("★","Tỷ lệ thắng",combinedWr(),"resolved TP/SL",GREEN);r2.addView(d,p1);r2.addView(e,p2);content.addView(r2);
-        LinearLayout r3=row();View f=statTile("$","Net kết quả",String.format(Locale.US,"%+.1fR",totalNetR()),"lịch sử đã đóng",totalNetR()>=0?GREEN:RED);View g=statTile("✓","Hệ thống",systemState,"API + engine",stateColor(systemState));r3.addView(f,p1);r3.addView(g,p2);content.addView(r3);
-        LinearLayout conn=card();conn.addView(tv("KẾT NỐI",12,TEXT,true));conn.addView(statusRow("Quote Feed • "+cryptoProvider,cryptoState));conn.addView(statusRow("Signal Engine",systemState));content.addView(conn);
-        content.addView(tv("TÍN HIỆU ĐANG CHẠY",13,TEXT,true));List<JSONObject> rows=allSignals();int max=Math.min(4,rows.size());if(max==0){LinearLayout z=card();z.addView(tv("Đang đồng bộ tín hiệu…",10,MUTED,false));content.addView(z);}else for(int i=0;i<max;i++)content.addView(signalCard(rows.get(i)));
+    private void renderHome(boolean animate){Runnable body=()->{content.removeAllViews();priceViews.clear();sourceViews.clear();viewMarkets.clear();gaugeViews.clear();entryGaugeViews.clear();pnlViews.clear();subtitle.setText("CRYPTO SIGNALS • SIMPLE & REALTIME");
+        LinearLayout hero=card();LinearLayout h=row();LinearLayout left=column();left.addView(tv("CRYPTO SIGNALS",11,CYAN,true));left.addView(tv(systemState.equals("RUNNING")?"Hệ thống đang hoạt động":"Đang kết nối lại",21,TEXT,true));left.addView(tv(cryptoProvider+" • "+cryptoState,9,stateColor(cryptoState),true));h.addView(left,new LinearLayout.LayoutParams(0,-2,1f));ImageView mark=new ImageView(this);mark.setImageResource(R.drawable.ic_signalhub);mark.setColorFilter(CYAN);h.addView(mark,new LinearLayout.LayoutParams(dp(44),dp(44)));hero.addView(h);content.addView(hero);
+        LinearLayout counts=row();View sc=statTile("S","SCALP",String.valueOf(countStyle("SCALP")),"active + waiting",CYAN),sw=statTile("W","SWING",String.valueOf(countStyle("SWING")),"active + waiting",BLUE);LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(0,-2,1f);p1.setMargins(0,0,dp(4),0);LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(0,-2,1f);p2.setMargins(dp(4),0,0,0);counts.addView(sc,p1);counts.addView(sw,p2);content.addView(counts);
+        JSONObject ps=perfCache.get("CRYPTO:SCALP"),pw=perfCache.get("CRYPTO:SWING");LinearLayout evidence=card();evidence.addView(tv("HIỆU SUẤT THỰC TẾ",11,TEXT,true));evidence.addView(evidenceLine("SCALP",ps));evidence.addView(evidenceLine("SWING",pw));evidence.addView(tv("Chỉ tính TP/SL đã đóng • sample nhỏ sẽ được ghi rõ.",8,MUTED,false));content.addView(evidence);
+        List<JSONObject> rows=allSignals();content.addView(tv("LỆNH GẦN NHẤT",12,TEXT,true));if(rows.isEmpty()){LinearLayout z=card();z.addView(tv("Bot đang chờ cấu trúc phù hợp.",10,MUTED,false));content.addView(z);}else content.addView(signalCard(rows.get(0)));
     };if(animate)swap(body);else body.run();updateAllPriceViews();}
+    private int countStyle(String st){int n=0;for(JSONObject s:allSignals())if(st.equals(s.optString("style","")))n++;return n;}
+    private View evidenceLine(String st,JSONObject p){LinearLayout r=row();r.setPadding(0,dp(5),0,dp(5));r.addView(tv(st,10,st.equals("SCALP")?CYAN:BLUE,true),new LinearLayout.LayoutParams(0,-2,1f));if(p==null){r.addView(tv("đang tải",9,MUTED,false));return r;}int n=p.optInt("resolved",0);String x=n==0?"chưa có mẫu":p.optString("winRateLabel","—")+" • "+String.format(Locale.US,"%+.1fR",p.optDouble("netRResolved",0));r.addView(tv(x,10,n>=30?TEXT:YELLOW,true));return r;}
 
     private void renderAlerts(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("THÔNG BÁO • TÍN HIỆU • TP/SL • HỆ THỐNG");content.addView(tv("THÔNG BÁO",16,TEXT,true));
         SharedPreferences p=getSharedPreferences("signalhub_v32",MODE_PRIVATE);String raw=p.getString("alert_history_v33","[]");try{JSONArray a=new JSONArray(raw);if(a.length()==0){LinearLayout z=card();z.addView(tv("Chưa có thông báo mới.",11,MUTED,true));z.addView(tv("SignalHub sẽ lưu các sự kiện MỚI / ACTIVE / TP / SL tại đây.",9,MUTED,false));content.addView(z);}for(int i=0;i<a.length();i++){JSONObject x=a.optJSONObject(i);if(x==null)continue;LinearLayout c=card();String title=x.optString("title","SignalHub"),bodyText=x.optString("body","");int color=title.contains("SL")?RED:title.contains("TP")||title.contains("BUY")?GREEN:title.contains("SELL")?RED:CYAN;c.addView(tv(title,12,color,true));c.addView(tv(bodyText,9,MUTED,false));long ts=x.optLong("ts",0);if(ts>0)c.addView(tv(relativeAge(Math.max(0,System.currentTimeMillis()-ts)),8,MUTED,false));content.addView(c);}}catch(Exception ex){LinearLayout z=card();z.addView(tv("Không đọc được lịch sử thông báo.",10,RED,true));content.addView(z);}
     };if(animate)swap(body);else body.run();}
 
-    private void renderSettings(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("CÀI ĐẶT • CRYPTO DATA • QUALITY ENGINE");content.addView(tv("CÀI ĐẶT",16,TEXT,true));
-        LinearLayout notify=card();notify.addView(tv("🔔  THÔNG BÁO",12,TEXT,true));notify.addView(statusRow("Push Monitor",monitorStarted?"RUNNING":"OFFLINE"));notify.addView(statusRow("Quyền thông báo",notifyPermission()?"ONLINE":"OFFLINE"));if(!monitorStarted){Button b=button("BẬT PUSH MONITOR",true,v->ensureMonitor(true));notify.addView(b,new LinearLayout.LayoutParams(-1,dp(42)));}content.addView(notify);
-        LinearLayout source=card();source.addView(tv("◉  NGUỒN DỮ LIỆU CRYPTO",12,TEXT,true));source.addView(statusRow(cryptoProvider,cryptoState));source.addView(line("Crypto symbols",String.valueOf(cryptoCount),TEXT));source.addView(line("Price authority","Provider-pinned per signal",CYAN));content.addView(source);
-        LinearLayout sys=card();sys.addView(tv("⚙  HỆ THỐNG",12,TEXT,true));sys.addView(statusRow("Crypto Signal Engine",systemState));sys.addView(statusRow("API Connectivity",lastApiOkMs>0&&System.currentTimeMillis()-lastApiOkMs<15000?"ONLINE":"DEGRADED"));sys.addView(line("App version",APP_VERSION,BLUE));if(systemStatus!=null){sys.addView(line("Backend",systemStatus.optString("version","—"),TEXT));sys.addView(line("Mode",systemStatus.optString("mode","—"),CYAN));}content.addView(sys);
-        LinearLayout ui=card();ui.addView(tv("✦  CRYPTO QUALITY ENGINE",12,TEXT,true));ui.addView(line("SCALP","5m / 15m / 1h",CYAN));ui.addView(line("SWING","1h / 4h / 1d",BLUE));ui.addView(line("Entry Routing","MARKET / LIMIT / STOP tự động",TEXT));ui.addView(line("Pending Trigger","Server monitor 1s • provider-pinned",GREEN));ui.addView(line("Quality","Structure + context + spread + liquidity + RR",CYAN));ui.addView(line("Coverage","Mục tiêu ≥1 setup đạt chuẩn mỗi style",GREEN));ui.addView(line("Forex","ĐÃ TẮT",MUTED));content.addView(ui);
+    private void renderSettings(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("CÀI ĐẶT • CRYPTO ONLY");content.addView(tv("CÀI ĐẶT",18,TEXT,true));
+        LinearLayout notify=card();notify.addView(tv("THÔNG BÁO",12,TEXT,true));notify.addView(statusRow("Theo dõi nền",monitorStarted?"RUNNING":"OFFLINE"));notify.addView(statusRow("Quyền thông báo",notifyPermission()?"ONLINE":"OFFLINE"));if(!monitorStarted){Button b=button("BẬT THEO DÕI",true,v->ensureMonitor(true));notify.addView(b,new LinearLayout.LayoutParams(-1,dp(42)));}content.addView(notify);
+        LinearLayout data=card();data.addView(tv("DỮ LIỆU",12,TEXT,true));data.addView(statusRow(cryptoProvider,cryptoState));data.addView(line("Execution","Theo đúng provider của từng signal",CYAN));data.addView(line("Pending","Server monitor ~1s",GREEN));content.addView(data);
+        LinearLayout engine=card();engine.addView(tv("ENGINE",12,TEXT,true));engine.addView(line("SCALP","5m • 15m • 1h confirmation-first",CYAN));engine.addView(line("SWING","1h • 4h • 1D HTF-confirmed",BLUE));engine.addView(line("Risk cluster","Không dồn toàn bộ vào meme-beta",YELLOW));engine.addView(line("Version",APP_VERSION,TEXT));if(systemStatus!=null)engine.addView(line("Backend",systemStatus.optString("version","—"),MUTED));content.addView(engine);
     };if(animate)swap(body);else body.run();}
 
     private double pxForOrder(JSONObject s){return priceFor(s,s.optDouble("entry",0));}
     private boolean pendingTriggered(JSONObject s,double px){
         if(!"PENDING".equalsIgnoreCase(s.optString("status",""))||!(px>0))return false;
-        String market=s.optString("market","FOREX").toUpperCase(Locale.US),sym=s.optString("symbol","");
+        String market=s.optString("market","CRYPTO").toUpperCase(Locale.US),sym=s.optString("symbol","");
         if(market.equals("FOREX")&&(!fxPrices.containsKey(sym)||!fxState.equals("LIVE")))return false;
         if(market.equals("CRYPTO")&&!cryptoPrices.containsKey(sym))return false;
         String type=s.optString("orderType","LIMIT").toUpperCase(Locale.US),side=sideVi(s.optString("side",""));double entry=s.optDouble("entry",0);if(!(entry>0))return false;
@@ -308,7 +273,7 @@ public class SignalHubActivity extends Activity {
     private double entryProgressPct(JSONObject s,double px){double e=s.optDouble("entry",0),start=s.optDouble("sourcePrice",s.optDouble("lastPrice",0));double initial=Math.abs(start-e);if(!(initial>0)){double sl=s.optDouble("sl",0);initial=Math.max(Math.abs(e-sl),1e-12);}double remaining=Math.abs(px-e);return Math.max(0,Math.min(100,(1.0-remaining/initial)*100.0));}
     private String pendingDistanceText(JSONObject s,double px){double e=s.optDouble("entry",0);double pct=entryProgressPct(s,px),remain=Math.abs(px-e);return s.optString("orderType","LIMIT").toUpperCase(Locale.US)+" • CHỜ ENTRY • "+String.format(Locale.US,"%.0f%% tiến độ • còn %s",pct,fmt(remain));}
 
-    private String historicalWr(String market,String st){JSONObject p=perfCache.get(market+":"+st);if(p==null)return"WR: chưa đủ dữ liệu";return "WR lịch sử "+p.optString("winRateLabel","—");}
+    private String historicalWr(String market,String st){JSONObject p=perfCache.get("CRYPTO:"+st);if(p==null)return"WR: chưa đủ dữ liệu";return "WR lịch sử "+p.optString("winRateLabel","—");}
     private double targetR(JSONObject s){double rr=s.optDouble("targetRR",0);if(rr>0)return rr;double e=s.optDouble("entry",0),sl=s.optDouble("sl",0),tp=s.optDouble("tp3",s.optDouble("tp",0));double risk=Math.abs(e-sl);return risk>0&&tp>0?Math.max(0.1,Math.abs(tp-e)/risk):1.0;}
     private double currentR(JSONObject s,double px){double e=s.optDouble("entry",0),sl=s.optDouble("sl",0),risk=Math.abs(e-sl);if(!(risk>0)||!(px>0))return 0;String side=sideVi(s.optString("side",""));return (side.equals("SELL")?(e-px):(px-e))/risk;}
     private String tradeStatusText(JSONObject s,double px){if(!isDisplayLive(s,px))return pendingDistanceText(s,px);double r=currentR(s,px),rr=targetR(s);if(r<0){int pct=(int)Math.round(Math.min(100,Math.max(0,-r*100)));return String.format(Locale.US,"ÂM  %+.2fR  •  %d%% TỚI SL",r,pct);}int pct=(int)Math.round(Math.min(100,Math.max(0,r/Math.max(.1,rr)*100)));return String.format(Locale.US,"DƯƠNG  %+.2fR  •  %d%% TỚI TP3",r,pct);}
@@ -318,18 +283,18 @@ public class SignalHubActivity extends Activity {
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);private double progress=0,current=0,entry=0;
         EntryGauge(){super(SignalHubActivity.this);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
         void setData(JSONObject s,double px){current=px;entry=s.optDouble("entry",0);progress=entryProgressPct(s,px);invalidate();}
-        @Override protected void onDraw(Canvas c){super.onDraw(c);float w=getWidth(),h=getHeight(),cy=h*.62f,barH=dp(11);p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(47,42,20));c.drawRoundRect(new RectF(dp(2),cy-barH/2,w-dp(2),cy+barH/2),barH/2,barH/2,p);float x=dp(2)+(float)((w-dp(4))*progress/100.0);p.setColor(YELLOW);p.setShadowLayer(dp(8),0,0,YELLOW);c.drawRoundRect(new RectF(dp(2),cy-barH/2,Math.max(dp(3),x),cy+barH/2),barH/2,barH/2,p);p.clearShadowLayer();p.setColor(TEXT);c.drawCircle(x,cy,dp(5),p);p.setTypeface(Typeface.create(Typeface.MONOSPACE,Typeface.BOLD));p.setTextSize(dp(9));p.setTextAlign(Paint.Align.LEFT);p.setColor(MUTED);c.drawText("NOW  "+fmt(current),dp(2),dp(13),p);p.setTextAlign(Paint.Align.RIGHT);p.setColor(YELLOW);c.drawText("ENTRY  "+fmt(entry),w-dp(2),dp(13),p);p.setTextAlign(Paint.Align.CENTER);p.setColor(YELLOW);c.drawText(String.format(Locale.US,"%.0f%% TỚI ENTRY",progress),w*.5f,h-dp(3),p);}
+        @Override protected void onDraw(Canvas c){super.onDraw(c);float w=getWidth(),h=getHeight(),cy=h*.62f,barH=dp(11);p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(47,42,20));c.drawRoundRect(new RectF(dp(2),cy-barH/2,w-dp(2),cy+barH/2),barH/2,barH/2,p);float x=dp(2)+(float)((w-dp(4))*progress/100.0);p.setColor(YELLOW);p.setShadowLayer(dp(8),0,0,YELLOW);c.drawRoundRect(new RectF(dp(2),cy-barH/2,Math.max(dp(3),x),cy+barH/2),barH/2,barH/2,p);p.clearShadowLayer();p.setColor(TEXT);c.drawCircle(x,cy,dp(5),p);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(dp(9));p.setTextAlign(Paint.Align.LEFT);p.setColor(MUTED);c.drawText("NOW  "+fmt(current),dp(2),dp(13),p);p.setTextAlign(Paint.Align.RIGHT);p.setColor(YELLOW);c.drawText("ENTRY  "+fmt(entry),w-dp(2),dp(13),p);p.setTextAlign(Paint.Align.CENTER);p.setColor(YELLOW);c.drawText(String.format(Locale.US,"%.0f%% TỚI ENTRY",progress),w*.5f,h-dp(3),p);}
     }
 
     private class TradeGauge extends View{
         private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);private double r=0,target=1;
         TradeGauge(){super(SignalHubActivity.this);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
         void setData(double rr,double t){r=Double.isFinite(rr)?rr:0;target=t>0?t:1;invalidate();}
-        @Override protected void onDraw(Canvas c){super.onDraw(c);float w=getWidth(),h=getHeight(),cy=h*.58f,barH=dp(12),mid=w*.5f;p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(120,25,39));c.drawRoundRect(new RectF(dp(2),cy-barH/2,mid,cy+barH/2),barH/2,barH/2,p);p.setColor(Color.rgb(12,112,75));c.drawRoundRect(new RectF(mid,cy-barH/2,w-dp(2),cy+barH/2),barH/2,barH/2,p);p.setColor(Color.WHITE);p.setStrokeWidth(dp(2));c.drawLine(mid,cy-dp(13),mid,cy+dp(13),p);double clamped=r<0?Math.max(-1,Math.min(0,r)):Math.max(0,Math.min(target,r));float x=r<0?(float)(mid*(1+clamped)):(float)(mid+(w-mid)*(clamped/target));p.setColor(r>=0?GREEN:RED);p.setShadowLayer(dp(7),0,0,p.getColor());c.drawCircle(x,cy,dp(6),p);p.clearShadowLayer();p.setTextSize(dp(9));p.setTypeface(Typeface.create(Typeface.MONOSPACE,Typeface.BOLD));p.setColor(RED);p.setTextAlign(Paint.Align.LEFT);c.drawText("SL  -100%",dp(2),dp(12),p);p.setColor(TEXT);p.setTextAlign(Paint.Align.CENTER);c.drawText("ENTRY",mid,dp(12),p);p.setColor(GREEN);p.setTextAlign(Paint.Align.RIGHT);c.drawText("TP3  +100%",w-dp(2),dp(12),p);}
+        @Override protected void onDraw(Canvas c){super.onDraw(c);float w=getWidth(),h=getHeight(),cy=h*.58f,barH=dp(12),mid=w*.5f;p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(120,25,39));c.drawRoundRect(new RectF(dp(2),cy-barH/2,mid,cy+barH/2),barH/2,barH/2,p);p.setColor(Color.rgb(12,112,75));c.drawRoundRect(new RectF(mid,cy-barH/2,w-dp(2),cy+barH/2),barH/2,barH/2,p);p.setColor(Color.WHITE);p.setStrokeWidth(dp(2));c.drawLine(mid,cy-dp(13),mid,cy+dp(13),p);double clamped=r<0?Math.max(-1,Math.min(0,r)):Math.max(0,Math.min(target,r));float x=r<0?(float)(mid*(1+clamped)):(float)(mid+(w-mid)*(clamped/target));p.setColor(r>=0?GREEN:RED);p.setShadowLayer(dp(7),0,0,p.getColor());c.drawCircle(x,cy,dp(6),p);p.clearShadowLayer();p.setTextSize(dp(9));p.setTypeface(Typeface.DEFAULT_BOLD);p.setColor(RED);p.setTextAlign(Paint.Align.LEFT);c.drawText("SL  -100%",dp(2),dp(12),p);p.setColor(TEXT);p.setTextAlign(Paint.Align.CENTER);c.drawText("ENTRY",mid,dp(12),p);p.setColor(GREEN);p.setTextAlign(Paint.Align.RIGHT);c.drawText("TP3  +100%",w-dp(2),dp(12),p);}
     }
 
     private void loadAllPerformance(){boolean changed=false;for(String st:new String[]{"SCALP","SWING"}){try{JSONObject p=new JSONObject(ApiClient.get("/v3/performance?market=CRYPTO&style="+st)).optJSONObject("performance");if(p!=null){String k="CRYPTO:"+st,old=perfCache.containsKey(k)?perfCache.get(k).toString():"";perfCache.put(k,p);if(!old.equals(p.toString()))changed=true;lastApiOkMs=System.currentTimeMillis();}}catch(Throwable ignored){}}if(changed&&screen.equals("STATS"))main.post(()->renderStats(false));}
-    private void renderStats(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("PERFORMANCE STATISTICS • RESOLVED TRADES ONLY");content.addView(tv("THỐNG KÊ HIỆU SUẤT",16,TEXT,true));LinearLayout note=card();note.addView(tv("Win Rate chỉ tính lệnh đã đóng bằng TP/SL.",11,YELLOW,true));note.addView(tv("WATCH/PENDING không được tính thắng thua. Bot không dùng điểm số để quyết định entry.",9,MUTED,false));content.addView(note);for(String st:new String[]{"SCALP","SWING"})content.addView(perfCard("CRYPTO",st));};if(animate)swap(body);else body.run();}
+    private void renderStats(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("HIỆU SUẤT • CHỈ LỆNH ĐÃ ĐÓNG");content.addView(tv("THỐNG KÊ",18,TEXT,true));LinearLayout note=card();note.addView(tv("WR chỉ là kết quả lệnh đã đóng, không phải xác suất thắng dự đoán.",10,YELLOW,true));note.addView(tv("Dưới 30 lệnh mỗi style: coi là dữ liệu sơ bộ.",9,MUTED,false));content.addView(note);for(String st:new String[]{"SCALP","SWING"})content.addView(perfCard("CRYPTO",st));};if(animate)swap(body);else body.run();}
     private View perfCard(String m,String st){LinearLayout c=card(),h=row();h.addView(tv(m+" • "+st,14,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));h.addView(chip(st,st.equals("SCALP")?CYAN:BLUE));c.addView(h);JSONObject p=perfCache.get(m+":"+st);if(p==null){c.addView(tv("Đang đồng bộ lịch sử…",10,MUTED,false));return c;}int tp=p.optInt("tp",0),sl=p.optInt("sl",0),n=p.optInt("resolved",tp+sl);c.addView(line("WIN RATE",p.optString("winRateLabel","—"),GREEN));c.addView(line("RESOLVED",String.valueOf(n),TEXT));c.addView(line("TP / SL",tp+" / "+sl,TEXT));c.addView(line("NET R",String.format(Locale.US,"%+.2fR",p.optDouble("netRResolved",0)),p.optDouble("netRResolved",0)>=0?GREEN:RED));c.addView(tv(p.optBoolean("sampleAdequate",false)?"Sample ≥30 • đủ để tham khảo tốt hơn":"Sample <30 • dữ liệu còn sơ bộ",9,p.optBoolean("sampleAdequate",false)?MUTED:YELLOW,false));return c;}
 
     private void renderSources(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("CRYPTO DATA • FRESHNESS • CONNECTION HEALTH");content.addView(tv("NGUỒN DỮ LIỆU CRYPTO",16,TEXT,true));LinearLayout cr=card();cr.addView(tv("CRYPTO • "+cryptoProvider,13,TEXT,true));cr.addView(line("STATUS",cryptoState,stateColor(cryptoState)));cr.addView(line("SYMBOLS",String.valueOf(cryptoCount),TEXT));cr.addView(tv("Bybit ưu tiên; OKX/Binance fallback được gắn đúng nguồn. Entry/SL/TP lifecycle luôn dùng đúng executionPriceAuthority của từng tín hiệu.",9,MUTED,false));content.addView(cr);LinearLayout rule=card();rule.addView(tv("QUALITY + DATA INTEGRITY",12,CYAN,true));rule.addView(tv("SCALP và SWING tách riêng. Không giả win-rate dự đoán; chỉ thống kê TP/SL đã đóng. Quote lỗi không được giả thành LIVE.",10,MUTED,false));content.addView(rule);};if(animate)swap(body);else body.run();}
