@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.1.0';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.4.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_05';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,14 +16,16 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 8,
-  versionName: '3.2.0',
-  title: 'SignalHub 3.2.0',
+  versionCode: 10,
+  versionName: '3.4.0',
+  title: 'SignalHub 3.4.0',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.1.0',
+  artifactName: 'SignalHub-Android-v3.4.0',
   notes: [
+    'Realtime Durable Object price bus + WebSocket stream for Exness MT5 quotes.',
+    'LIMIT and STOP pending orders are displayed separately and become LIVE immediately when trigger price is crossed.',
     'Low-latency Exness patch: 500ms bridge target, heartbeat-aware health, faster Android live refresh.',
     'V3.2 rebuild: hard partition integrity for FOREX/CRYPTO and SCALP/SWING.',
     'Signal payloads expose lifecycle plus ENTRY/SL/TP1/TP2/TP3 without changing the final tracked TP.',
@@ -53,6 +55,70 @@ const nowIso = () => new Date().toISOString();
 const canonical = s => String(s || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 const isFinitePositive = v => Number.isFinite(Number(v)) && Number(v) > 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+
+export class MT5LiveState {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.clients = new Set();
+  }
+  async fetch(req) {
+    const url = new URL(req.url);
+    if (req.headers.get('Upgrade') === 'websocket') {
+      const pair = new WebSocketPair();
+      const client = pair[0], server = pair[1];
+      server.accept();
+      this.clients.add(server);
+      const drop = () => this.clients.delete(server);
+      server.addEventListener('close', drop);
+      server.addEventListener('error', drop);
+      try {
+        const quotes = await this.state.storage.get('quotes');
+        const heartbeat = await this.state.storage.get('heartbeat');
+        if (quotes) server.send(JSON.stringify({type:'quotes', ...quotes, heartbeat:heartbeat||null}));
+      } catch {}
+      return new Response(null, {status:101, webSocket:client});
+    }
+    if (req.method === 'POST' && url.pathname === '/prices') {
+      const packet = await req.json();
+      await this.state.storage.put('quotes', packet);
+      const msg = JSON.stringify({type:'quotes', ...packet});
+      for (const ws of [...this.clients]) {
+        try { ws.send(msg); } catch { this.clients.delete(ws); }
+      }
+      return new Response(JSON.stringify({ok:true,accepted:Number(packet.count||0),receivedAt:packet.receivedAt}), {headers:{'content-type':'application/json'}});
+    }
+    if (req.method === 'POST' && url.pathname === '/heartbeat') {
+      const heartbeat = await req.json();
+      await this.state.storage.put('heartbeat', heartbeat);
+      const msg = JSON.stringify({type:'heartbeat', heartbeat});
+      for (const ws of [...this.clients]) {
+        try { ws.send(msg); } catch { this.clients.delete(ws); }
+      }
+      return new Response(JSON.stringify({ok:true,receivedAt:heartbeat.receivedAt}), {headers:{'content-type':'application/json'}});
+    }
+    if (url.pathname === '/snapshot') {
+      const [quotes,heartbeat] = await Promise.all([this.state.storage.get('quotes'),this.state.storage.get('heartbeat')]);
+      return new Response(JSON.stringify({ok:!!quotes,quotes:quotes||null,heartbeat:heartbeat||null}), {headers:{'content-type':'application/json','cache-control':'no-store'}});
+    }
+    return new Response('not found',{status:404});
+  }
+}
+function mt5LiveStub(env){
+  if(!env?.MT5_LIVE)return null;
+  return env.MT5_LIVE.get(env.MT5_LIVE.idFromName('primary'));
+}
+async function readMt5Realtime(env){
+  const stub=mt5LiveStub(env);
+  if(stub){
+    try{const r=await stub.fetch('https://mt5-live/snapshot');if(r.ok)return await r.json()}catch{}
+  }
+  let quotes=null,heartbeat=null;
+  try{const raw=await env?.SIGNALS_KV?.get('v3:mt5:quotes:latest');if(raw)quotes=JSON.parse(raw)}catch{}
+  try{const raw=await env?.SIGNALS_KV?.get('v3:mt5:heartbeat:latest');if(raw)heartbeat=JSON.parse(raw)}catch{}
+  return {ok:!!quotes,quotes,heartbeat};
+}
 
 async function fetchJson(url, init = {}, timeoutMs = PROVIDER_TIMEOUT_MS) {
   const c = new AbortController();
@@ -92,20 +158,29 @@ function sanitizeQuote(q) {
 }
 async function mt5Prices(req, env) {
   if (!bridgeAllowed(req,env)) return json({ok:false,error:'MT5_BRIDGE_UNAUTHORIZED'},401);
-  if (!env?.SIGNALS_KV) return json({ok:false,error:'NO_KV'},503);
   const body=await readJson(req,2_000_000), quotes=(Array.isArray(body?.quotes)?body.quotes:[]).slice(0,120).map(sanitizeQuote).filter(Boolean), receivedAt=nowIso();
   const packet={ok:true,version:V3_VERSION,source:'EXNESS_MT5',bridgeVersion:String(body?.bridgeVersion||''),server:String(body?.server||''),receivedAt,quotes,count:quotes.length};
+  const stub=mt5LiveStub(env);
+  if(stub){
+    const r=await stub.fetch('https://mt5-live/prices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(packet)});
+    if(r.ok)return json({ok:true,accepted:quotes.length,receivedAt,transport:'DURABLE_OBJECT_REALTIME'});
+  }
+  if(!env?.SIGNALS_KV)return json({ok:false,error:'NO_REALTIME_STORE'},503);
   await env.SIGNALS_KV.put('v3:mt5:quotes:latest',JSON.stringify(packet),{expirationTtl:MT5_QUOTE_TTL});
-  await Promise.all(quotes.map(q=>env.SIGNALS_KV.put(`v3:mt5:quote:${q.symbol}`,JSON.stringify({...q,receivedAt,source:'EXNESS_MT5'}),{expirationTtl:MT5_QUOTE_TTL})));
-  return json({ok:true,accepted:quotes.length,receivedAt});
+  return json({ok:true,accepted:quotes.length,receivedAt,transport:'KV_FALLBACK'});
 }
 async function mt5Heartbeat(req,env){
   if(!bridgeAllowed(req,env))return json({ok:false,error:'MT5_BRIDGE_UNAUTHORIZED'},401);
-  if(!env?.SIGNALS_KV)return json({ok:false,error:'NO_KV'},503);
   const body=await readJson(req),receivedAt=nowIso();
   const heartbeat={bridgeVersion:String(body?.bridgeVersion||''),status:String(body?.status||''),server:String(body?.server||''),company:String(body?.company||''),terminalConnected:body?.terminalConnected===true,tradeAllowed:body?.tradeAllowed===true,resolvedSymbols:Number(body?.resolvedSymbols||0),positions:Number(body?.positions||0),orders:Number(body?.orders||0),queuedEvents:Number(body?.queuedEvents||0),receivedAt};
+  const stub=mt5LiveStub(env);
+  if(stub){
+    const r=await stub.fetch('https://mt5-live/heartbeat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(heartbeat)});
+    if(r.ok)return json({ok:true,receivedAt,transport:'DURABLE_OBJECT_REALTIME'});
+  }
+  if(!env?.SIGNALS_KV)return json({ok:false,error:'NO_REALTIME_STORE'},503);
   await env.SIGNALS_KV.put('v3:mt5:heartbeat:latest',JSON.stringify(heartbeat),{expirationTtl:MT5_HEARTBEAT_TTL});
-  return json({ok:true,receivedAt});
+  return json({ok:true,receivedAt,transport:'KV_FALLBACK'});
 }
 async function loadSignalById(kv,id){
   for(const key of [`signal:${id}`,`v31:signal:${id}`]){
@@ -139,12 +214,17 @@ async function mt5Event(req,env){
   return json({ok:true,eventId,receivedAt,signalPatch:await patchSignalFromBrokerEvent(env,evt,receivedAt)});
 }
 async function mt5Live(env){
-  const [qr,hr,er]=await Promise.all([env?.SIGNALS_KV?.get('v3:mt5:quotes:latest'),env?.SIGNALS_KV?.get('v3:mt5:heartbeat:latest'),env?.SIGNALS_KV?.get('v3:mt5:event:latest')]);
-  let quotes=null,heartbeat=null,lastEvent=null;try{if(qr)quotes=JSON.parse(qr)}catch{}try{if(hr)heartbeat=JSON.parse(hr)}catch{}try{if(er)lastEvent=JSON.parse(er)}catch{}
+  const snap=await readMt5Realtime(env),quotes=snap?.quotes||null,heartbeat=snap?.heartbeat||null;
+  let lastEvent=null;try{const er=await env?.SIGNALS_KV?.get('v3:mt5:event:latest');if(er)lastEvent=JSON.parse(er)}catch{}
   const qAt=Date.parse(quotes?.receivedAt||''),hAt=Date.parse(heartbeat?.receivedAt||''),quoteAgeMs=Number.isFinite(qAt)?Math.max(0,Date.now()-qAt):null,heartbeatAgeMs=Number.isFinite(hAt)?Math.max(0,Date.now()-hAt):null;
   const terminalConnected=heartbeat?.terminalConnected!==false;
-  const state=quoteAgeMs===null?'OFFLINE':!terminalConnected?'OFFLINE':heartbeatAgeMs!==null&&heartbeatAgeMs>15000?'OFFLINE':quoteAgeMs<=3500?'LIVE':quoteAgeMs<=8000?'DELAYED':quoteAgeMs<=20000?'STALE':'OFFLINE';
-  return json({ok:!!quotes,version:V3_VERSION,market:'FOREX_EXNESS',state,quoteAgeMs,heartbeatAgeMs,quotes:quotes?.quotes||[],count:quotes?.count||0,heartbeat,lastEvent:lastEvent?{event:lastEvent.event,signalId:lastEvent.signalId||'',brokerSymbol:lastEvent.brokerSymbol||'',price:num(lastEvent.price),dealReason:lastEvent.dealReason||'',receivedAt:lastEvent.receivedAt}:null},quotes?200:503);
+  const state=quoteAgeMs===null?'OFFLINE':!terminalConnected?'OFFLINE':heartbeatAgeMs!==null&&heartbeatAgeMs>10000?'OFFLINE':quoteAgeMs<=1800?'LIVE':quoteAgeMs<=4000?'DELAYED':quoteAgeMs<=10000?'STALE':'OFFLINE';
+  return json({ok:!!quotes,version:V3_VERSION,market:'FOREX_EXNESS',transport:mt5LiveStub(env)?'DURABLE_OBJECT_REALTIME':'KV_FALLBACK',stream:'/v3/forex/stream',state,quoteAgeMs,heartbeatAgeMs,quotes:quotes?.quotes||[],count:quotes?.count||0,heartbeat,lastEvent:lastEvent?{event:lastEvent.event,signalId:lastEvent.signalId||'',brokerSymbol:lastEvent.brokerSymbol||'',price:num(lastEvent.price),dealReason:lastEvent.dealReason||'',receivedAt:lastEvent.receivedAt}:null},quotes?200:503);
+}
+async function mt5Stream(req,env){
+  const stub=mt5LiveStub(env);if(!stub)return new Response('realtime stream unavailable',{status:503});
+  const headers=new Headers(req.headers);headers.set('Upgrade','websocket');
+  return stub.fetch(new Request('https://mt5-live/stream',{method:'GET',headers}));
 }
 
 function cleanBybitTicker(x){
@@ -267,7 +347,8 @@ async function scanCrypto(env,style){
 }
 
 async function exnessQuoteMap(env){
-  const raw=await env?.SIGNALS_KV?.get('v3:mt5:quotes:latest');if(!raw)return {map:new Map(),state:'OFFLINE',ageMs:null};let p;try{p=JSON.parse(raw)}catch{return {map:new Map(),state:'OFFLINE',ageMs:null}}const ageMs=Math.max(0,Date.now()-Date.parse(p.receivedAt||'')),state=ageMs<=3500?'LIVE':ageMs<=8000?'DELAYED':'STALE',map=new Map((p.quotes||[]).map(q=>[canonical(q.symbol),Number(q.mid)]));return {map,state,ageMs};
+  const snap=await readMt5Realtime(env),p=snap?.quotes||null;if(!p)return {map:new Map(),state:'OFFLINE',ageMs:null};
+  const ageMs=Math.max(0,Date.now()-Date.parse(p.receivedAt||'')),state=ageMs<=1800?'LIVE':ageMs<=4000?'DELAYED':'STALE',map=new Map((p.quotes||[]).map(q=>[canonical(q.symbol),Number(q.mid)]));return {map,state,ageMs};
 }
 async function tvForexSwing(){
   const body={symbols:{tickers:FOREX.map(s=>`OANDA:${s}`),query:{types:[]}},columns:['name','close','change','Recommend.All|60','Recommend.All|240','Recommend.All|1D','RSI|60','RSI|240','EMA20|60','EMA50|60','EMA20|240','EMA50|240','ATR|60','ATR|240']};
@@ -355,8 +436,8 @@ async function scanRoute(url,env,ctx){
   try{const req=new Request(new URL('/run-now?group=forex',url).toString(),{method:'GET'}),r=await legacy.fetch(req,env,ctx),body=await r.json();return json({ok:r.ok,version:V3_VERSION,market:'FOREX',style:'SCALP',legacy:body},r.status);}catch(e){return json({ok:false,version:V3_VERSION,market:'FOREX',style:'SCALP',error:String(e?.message||e)},503);}
 }
 async function v3Status(env){
-  let mt5=null;try{const raw=await env?.SIGNALS_KV?.get('v3:mt5:heartbeat:latest');if(raw)mt5=JSON.parse(raw)}catch{}
-  return json({ok:true,version:V3_VERSION,service:'SignalHub multi-market gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,forex:{executionPriceAuthority:'EXNESS_MT5',scalp:'LEGACY_2.1_QUALITY_ENGINE',swing:'V31_SEPARATE_1H_4H_1D_ENGINE'},crypto:{priceAuthority:'BYBIT_PREFERRED_WITH_LABELED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'V31_MULTI_TF_ENGINE',swing:'V31_MULTI_TF_ENGINE',antiFomo:true},engines:{forexScalp:'ACTIVE',forexSwing:'ACTIVE_REQUIRES_FRESH_EXNESS',cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},mt5Heartbeat:mt5?{bridgeVersion:mt5.bridgeVersion,terminalConnected:mt5.terminalConnected,tradeAllowed:mt5.tradeAllowed,resolvedSymbols:mt5.resolvedSymbols,receivedAt:mt5.receivedAt}:null,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
+  const snap=await readMt5Realtime(env),mt5=snap?.heartbeat||null;
+  return json({ok:true,version:V3_VERSION,service:'SignalHub multi-market gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,forex:{executionPriceAuthority:'EXNESS_MT5',transport:mt5LiveStub(env)?'DURABLE_OBJECT_REALTIME_WEBSOCKET':'KV_FALLBACK',scalp:'LEGACY_2.1_QUALITY_ENGINE',swing:'V31_SEPARATE_1H_4H_1D_ENGINE'},crypto:{priceAuthority:'BYBIT_PREFERRED_WITH_LABELED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'V31_MULTI_TF_ENGINE',swing:'V31_MULTI_TF_ENGINE',antiFomo:true},engines:{forexScalp:'ACTIVE',forexSwing:'ACTIVE_REQUIRES_FRESH_EXNESS',cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},mt5Heartbeat:mt5?{bridgeVersion:mt5.bridgeVersion,terminalConnected:mt5.terminalConnected,tradeAllowed:mt5.tradeAllowed,resolvedSymbols:mt5.resolvedSymbols,receivedAt:mt5.receivedAt}:null,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
 }
 async function handleV3(req,env,ctx){
   const url=new URL(req.url);if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'content-type, authorization, x-signalhub-bridge','access-control-allow-methods':'GET,POST,OPTIONS'}});
@@ -367,6 +448,7 @@ async function handleV3(req,env,ctx){
     if(url.pathname==='/v3/mt5/heartbeat'&&req.method==='POST')return mt5Heartbeat(req,env);
     if(url.pathname==='/v3/mt5/events'&&req.method==='POST')return mt5Event(req,env);
     if(url.pathname==='/v3/forex/live'&&req.method==='GET')return mt5Live(env);
+    if(url.pathname==='/v3/forex/stream'&&req.method==='GET'&&String(req.headers.get('Upgrade')||'').toLowerCase()==='websocket')return mt5Stream(req,env);
     if(url.pathname==='/v3/crypto/tickers'&&req.method==='GET')return cryptoTickers(url,env);
     if(url.pathname==='/v3/crypto/discovery'&&req.method==='GET')return cryptoDiscovery(url,env);
     if(url.pathname==='/v3/scan'&&req.method==='GET')return scanRoute(url,env,ctx);

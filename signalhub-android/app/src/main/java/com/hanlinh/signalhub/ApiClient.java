@@ -6,10 +6,24 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import java.util.concurrent.TimeUnit;
+
 public final class ApiClient {
     public static final String BASE_URL = "https://signalhub-forex.hanlinh227.workers.dev";
 
+    private static final OkHttpClient LIVE_CLIENT = new OkHttpClient.Builder().pingInterval(10, TimeUnit.SECONDS).retryOnConnectionFailure(true).build();
+
     private ApiClient() {}
+
+    public static WebSocket connectForexStream(WebSocketListener listener) {
+        String ws = BASE_URL.replace("https://","wss://").replace("http://","ws://") + "/v3/forex/stream";
+        Request r = new Request.Builder().url(ws).header("Cache-Control","no-cache").build();
+        return LIVE_CLIENT.newWebSocket(r, listener);
+    }
 
     public static String get(String path) throws Exception {
         return getInternal(path,7000,12000);

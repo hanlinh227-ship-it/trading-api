@@ -11,6 +11,14 @@
       "id": "96ca4ccc87a4462c8797c7f5e20cea4b"
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "MT5_LIVE", "class_name": "MT5LiveState" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v34-mt5-live-v1", "new_sqlite_classes": ["MT5LiveState"] }
+  ],
   "triggers": {
     "crons": ["*/5 * * * *"]
   }
