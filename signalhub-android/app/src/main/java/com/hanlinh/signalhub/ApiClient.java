@@ -15,11 +15,13 @@ public final class ApiClient {
         URL url = new URL(path.startsWith("http") ? path : BASE_URL + path);
         HttpURLConnection c = (HttpURLConnection) url.openConnection();
         c.setRequestMethod("GET");
-        c.setConnectTimeout(12000);
-        c.setReadTimeout(30000);
+        c.setConnectTimeout(7000);
+        c.setReadTimeout(12000);
+        c.setUseCaches(false);
         c.setRequestProperty("Accept", "application/json");
-        c.setRequestProperty("Cache-Control", "no-cache");
-        c.setRequestProperty("User-Agent", "SignalHub-Android/1.0.2");
+        c.setRequestProperty("Cache-Control", "no-cache, no-store");
+        c.setRequestProperty("Pragma", "no-cache");
+        c.setRequestProperty("User-Agent", "SignalHub-Android/3.2.0");
         int code = c.getResponseCode();
         BufferedReader br = new BufferedReader(new InputStreamReader(
                 code >= 200 && code < 400 ? c.getInputStream() : c.getErrorStream(),
