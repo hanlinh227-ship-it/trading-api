@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.9.0';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.11.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_05';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,14 +16,19 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 15,
-  versionName: '3.9.0',
-  title: 'SignalHub 3.9.0',
+  versionCode: 17,
+  versionName: '3.11.0',
+  title: 'SignalHub 3.11.0',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.9.0',
+  artifactName: 'SignalHub-Android-v3.11.0',
   notes: [
+    'V3.11 Atomic Quality Book reserves every active slot transactionally inside one Durable Object so concurrent scans cannot overbook the portfolio.',
+    'V3.11 also caps Forex currency concentration at two active ideas per currency and tightens market-entry location / pending-trigger reachability checks.',
+    'V3.10 Disciplined Book keeps the clean market story model and adds portfolio-level concurrency discipline plus a mandatory hard-check assessment for every order.',
+    'Only one active idea is allowed per symbol across SCALP/SWING. The whole app is capped at 6 active ideas, 4 per market, 3 per style and 2 new ideas per scan.',
+    'No numeric score is used as an admission gate: orders pass or fail explicit structure, context, entry-location, invalidation and target-path checks.',
     'V3.9 Clean Market Story removes permissive transition entries and requires a coherent structure/liquidity narrative before the bot emits an order.',
     'V3.9 uses one realtime lifecycle source of truth; scanner cycles no longer trigger or close orders from mid price.',
     'Pending LIMIT/STOP ideas invalidate immediately by price if the setup fails before entry, and LIMIT ideas retire if the move reaches TP1 without the pullback entry.',
@@ -80,7 +85,9 @@ const MARKET_JUDGMENT_POLICY = Object.freeze({
   styleSeparation:'SCALP_MICROSTRUCTURE_VS_SWING_HTF_STRUCTURE',
   pendingActivation:'PRICE_TOUCH_EVENT_DRIVEN_NO_COOLDOWN',
   qualityMode:'CLEAN_MARKET_STORY_NO_SCORE',
-  lifecycleSource:'DURABLE_OBJECT_REALTIME_SINGLE_SOURCE'
+  lifecycleSource:'DURABLE_OBJECT_REALTIME_SINGLE_SOURCE',
+  entryAssessment:'HARD_STRUCTURE_CHECKS_NO_NUMERIC_SCORE',
+  portfolioPolicy:{maxActiveTotal:6,maxActivePerMarket:4,maxActivePerStyle:3,maxNewPerScan:2,maxForexPerCurrency:2,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC'}
 });
 
 const STYLE_EXECUTION_POLICY = Object.freeze({
@@ -120,12 +127,35 @@ export class MT5LiveState {
   async persistRegistry(){await this.state.storage.put('signalRegistry',this.signalRegistry||{});}
   broadcast(obj){const msg=JSON.stringify(obj);for(const ws of [...this.clients]){try{ws.send(msg);}catch{this.clients.delete(ws);}}}
   async registerSignal(payload){
-    const s=payload?.signal||payload,id=String(s?.id||s?.signalId||'');if(!id)return {ok:false,error:'NO_SIGNAL_ID'};
-    const reg=await this.registry();
-    if(s.status==='PENDING'||s.status==='OPEN')reg[id]={...s,kvKey:String(payload?.kvKey||`v31:signal:${s.market}:${s.style}:${id}`)};else delete reg[id];
-    await this.persistRegistry();return {ok:true,id,status:s.status};
+    const s=payload?.signal||payload,id=String(s?.id||s?.signalId||'');if(!id)return {ok:false,accepted:false,error:'NO_SIGNAL_ID'};
+    const result=await this.state.storage.transaction(async txn=>{
+      const reg=(await txn.get('signalRegistry'))||{},activeStatus=s.status==='PENDING'||s.status==='OPEN';
+      if(!activeStatus){delete reg[id];await txn.put('signalRegistry',reg);return {ok:true,accepted:true,id,status:s.status,removed:true,reg};}
+      const kvKey=String(payload?.kvKey||`v31:signal:${s.market}:${s.style}:${id}`),existing=reg[id];
+      if(existing){reg[id]={...s,kvKey};await txn.put('signalRegistry',reg);return {ok:true,accepted:true,id,status:s.status,idempotent:true,reg};}
+      const active=Object.values(reg).filter(x=>x&&(x.status==='PENDING'||x.status==='OPEN'));
+      const market=String(s.market||'').toUpperCase(),style=String(s.style||'').toUpperCase(),symbol=canonical(s.symbol),policy=PORTFOLIO_POLICY;
+      const reject=reason=>({ok:true,accepted:false,id,status:s.status,reason,activeTotal:active.length,reg});
+      const duplicate=active.find(x=>String(x.market||'').toUpperCase()===market&&canonical(x.symbol)===symbol);
+      if(duplicate)return reject(`SYMBOL_ALREADY_ACTIVE:${duplicate.id||duplicate.symbol}`);
+      if(active.length>=policy.maxActiveTotal)return reject('MAX_ACTIVE_TOTAL');
+      if(active.filter(x=>String(x.market||'').toUpperCase()===market).length>=policy.maxActivePerMarket)return reject('MAX_ACTIVE_MARKET');
+      if(active.filter(x=>String(x.style||'').toUpperCase()===style).length>=policy.maxActivePerStyle)return reject('MAX_ACTIVE_STYLE');
+      if(market==='FOREX'&&symbol.length===6){
+        const ccys=[symbol.slice(0,3),symbol.slice(3,6)];
+        for(const ccy of ccys){
+          const exposure=active.filter(x=>String(x.market||'').toUpperCase()==='FOREX').filter(x=>{const z=canonical(x.symbol);return z.length===6&&(z.slice(0,3)===ccy||z.slice(3,6)===ccy);}).length;
+          if(exposure>=policy.maxForexPerCurrency)return reject(`MAX_FOREX_CURRENCY:${ccy}`);
+        }
+      }
+      reg[id]={...s,kvKey};await txn.put('signalRegistry',reg);return {ok:true,accepted:true,id,status:s.status,activeTotal:active.length+1,reg};
+    });
+    this.signalRegistry=result.reg||this.signalRegistry;delete result.reg;return result;
   }
-  async unregisterSignal(payload){const id=String(payload?.id||payload?.signalId||'');if(!id)return {ok:false};const reg=await this.registry();delete reg[id];await this.persistRegistry();return {ok:true,id};}
+  async unregisterSignal(payload){
+    const id=String(payload?.id||payload?.signalId||'');if(!id)return {ok:false};
+    let next={};await this.state.storage.transaction(async txn=>{const reg=(await txn.get('signalRegistry'))||{};delete reg[id];await txn.put('signalRegistry',reg);next=reg;});this.signalRegistry=next;return {ok:true,id};
+  }
   async evaluate(market,rows,receivedAt){
     const reg=await this.registry(),by=new Map();
     for(const q of rows||[]){const sym=canonical(q?.symbol);if(!sym)continue;by.set(sym,q);}
@@ -160,7 +190,7 @@ export class MT5LiveState {
         s.lastPrice=exitPx;s.lastCheckedAt=at;
         const kvKey=String(s.kvKey||`v31:signal:${s.market}:${s.style}:${id}`),clean={...s};delete clean.kvKey;
         const active=clean.status==='PENDING'||clean.status==='OPEN';
-        if(this.env?.SIGNALS_KV){await this.env.SIGNALS_KV.put(kvKey,JSON.stringify(clean),{expirationTtl:SIGNAL_TTL});if(!active)await this.env.SIGNALS_KV.delete(`v31:active:${clean.market}:${clean.style}:${clean.symbol}`);}
+        if(this.env?.SIGNALS_KV){await this.env.SIGNALS_KV.put(kvKey,JSON.stringify(clean),{expirationTtl:SIGNAL_TTL});if(active){await this.env.SIGNALS_KV.put(`v31:active:${clean.market}:${clean.style}:${clean.symbol}`,clean.id,{expirationTtl:SIGNAL_TTL});await this.env.SIGNALS_KV.put(`v31:active:any:${clean.market}:${clean.symbol}`,clean.id,{expirationTtl:SIGNAL_TTL});}else{await this.env.SIGNALS_KV.delete(`v31:active:${clean.market}:${clean.style}:${clean.symbol}`);const anyId=await this.env.SIGNALS_KV.get(`v31:active:any:${clean.market}:${clean.symbol}`);if(!anyId||anyId===clean.id)await this.env.SIGNALS_KV.delete(`v31:active:any:${clean.market}:${clean.symbol}`);}}
         if(active)reg[id]={...clean,kvKey};else delete reg[id];dirty=true;
         changed.push({type:eventType,signal:clean,price:eventType==='TRIGGERED'?entryPx:exitPx,at});this.broadcast({type:'signal_event',event:eventType,signal:clean,price:eventType==='TRIGGERED'?entryPx:exitPx,receivedAt:at});
       }
@@ -433,44 +463,101 @@ async function analyzeCryptoCandidate(t,style){try{const rows=await Promise.all(
 
 function v31Prefix(market,style){return `v31:signal:${market}:${style}:`;}
 function activePointer(market,style,symbol){return `v31:active:${market}:${style}:${symbol}`;}
+function activeAnyPointer(market,symbol){return `v31:active:any:${market}:${symbol}`;}
 async function getV31Signals(env,market,style){
   if(!env?.SIGNALS_KV)return[];const prefix=v31Prefix(market,style),listing=await env.SIGNALS_KV.list({prefix,limit:1000}),out=[];for(let i=0;i<listing.keys.length;i+=50){const raws=await Promise.all(listing.keys.slice(i,i+50).map(k=>env.SIGNALS_KV.get(k.name)));for(const raw of raws){if(!raw)continue;try{out.push(JSON.parse(raw))}catch{}}}out.sort((a,b)=>Date.parse(b.issuedAt||0)-Date.parse(a.issuedAt||0));return out;
 }
-async function writeV31Signal(env,s){const key=v31Prefix(s.market,s.style)+s.id;await env.SIGNALS_KV.put(key,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});if(s.status==='PENDING'||s.status==='OPEN')await env.SIGNALS_KV.put(activePointer(s.market,s.style,s.symbol),s.id,{expirationTtl:SIGNAL_TTL});else await env.SIGNALS_KV.delete(activePointer(s.market,s.style,s.symbol));await syncRealtimeSignal(env,s,key);}
+async function writeV31Signal(env,s){
+  const key=v31Prefix(s.market,s.style)+s.id;await env.SIGNALS_KV.put(key,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});
+  const active=s.status==='PENDING'||s.status==='OPEN',styleKey=activePointer(s.market,s.style,s.symbol),anyKey=activeAnyPointer(s.market,s.symbol);
+  if(active){await env.SIGNALS_KV.put(styleKey,s.id,{expirationTtl:SIGNAL_TTL});await env.SIGNALS_KV.put(anyKey,s.id,{expirationTtl:SIGNAL_TTL});}
+  else{await env.SIGNALS_KV.delete(styleKey);const anyId=await env.SIGNALS_KV.get(anyKey);if(!anyId||anyId===s.id)await env.SIGNALS_KV.delete(anyKey);}
+  await syncRealtimeSignal(env,s,key);
+}
 async function trackV31Signals(env,market,style,priceMap){
   return [];
 }
-async function retireLegacyPendingSignals(env,market,style){
-  if(!env?.SIGNALS_KV)return[];
-  const all=await getV31Signals(env,market,style),events=[],at=nowIso();
+const PORTFOLIO_POLICY=Object.freeze({maxActiveTotal:6,maxActivePerMarket:4,maxActivePerStyle:3,maxNewPerScan:2,maxForexPerCurrency:2,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC'});
+function signOf(v){const n=Number(v);return n>0?1:n<0?-1:0;}
+function assessEntrySetup(raw){
+  const s=raw||{},dir=String(s.side||'').toUpperCase()==='LONG'||String(s.side||'').toUpperCase()==='BUY'?1:-1;
+  const entry=Number(s.entry),sl=Number(s.sl),t1=Number(s.tp1),t2=Number(s.tp2),t3=Number(s.tp3||s.tp),src=Number(s.sourcePrice||s.lastPrice||0),inv=Number(s.invalidationLevel),tech=s.technicalAtIssue||{};
+  const order=String(s.orderType||'').toUpperCase(),regime=String(s.marketRegime||''),expectedStyle=s.style==='SWING'?'SWING_HTF_STRUCTURE':'SCALP_MICROSTRUCTURE';
+  const levels=dir>0?sl<entry&&entry<t1&&t1<t2&&t2<t3:sl>entry&&entry>t1&&t1>t2&&t2>t3;
+  const contextSeries=Array.isArray(tech.tfTrend)?tech.tfTrend:Array.isArray(tech.recommend)?tech.recommend:[];
+  const contextTail=contextSeries.slice(1).map(signOf).filter(Boolean),contextAligned=contextTail.length>0&&contextTail.every(x=>x!==-dir);
+  const ext=Math.abs(Number(tech.extensionAtr||0)),maxMarketExt=s.style==='SWING'?.24:.30,risk=Math.abs(entry-sl),triggerDistance=risk>0&&src>0?Math.abs(src-entry)/risk:999;
+  const marketLocation=order==='MARKET'?(regime.includes('LIQUIDITY')||ext<=maxMarketExt):order==='LIMIT'?(dir>0?entry<src:entry>src):order==='STOP'?(dir>0?entry>src:entry<src):false;
+  const pendingReachable=order==='MARKET'||(order==='LIMIT'?triggerDistance<=1.20:order==='STOP'?triggerDistance<=.75:false);
+  const invalidation=Number.isFinite(inv)&&inv>0&&(dir>0?inv<entry:inv>entry);
+  const rationale=Array.isArray(s.rationale)?s.rationale:[],wide=String(s.executionCaution||'NORMAL').toUpperCase()==='WIDE';
+  const checks={
+    cleanStory:typeof s.marketStory==='string'&&s.marketStory.trim().length>=18,
+    styleModel:s.styleExecutionModel===expectedStyle,
+    contextAligned,
+    entryLocation:src>0&&marketLocation,
+    pendingReachable,
+    invalidation,
+    targetPath:levels,
+    executionModel:typeof s.entryModel==='string'&&s.entryModel.length>8&&typeof s.slModel==='string'&&s.slModel.length>8&&typeof s.tpModel==='string'&&s.tpModel.length>8,
+    rationaleComplete:rationale.length>=4,
+    executionConditions:!wide,
+    liveSource:src>0
+  };
+  const failed=Object.entries(checks).filter(([,v])=>!v).map(([k])=>k),pass=failed.length===0;
+  return {verdict:pass?'PASS':'NO_TRADE',method:'HARD_STRUCTURE_CHECKS_NO_NUMERIC_SCORE',checks,failed,geometry:{extensionAtr:Number(ext.toFixed(3)),triggerDistanceR:Number(triggerDistance.toFixed(3)),maxMarketExtensionAtr:maxMarketExt}};
+}
+function setupPriority(s){
+  const r=String(s.marketRegime||'');
+  const family=r.includes('LIQUIDITY')?0:r.includes('HTF_TREND')?1:r.includes('TREND')?2:r.includes('BREAKOUT')?3:4;
+  const ext=Math.abs(Number(s?.technicalAtIssue?.extensionAtr||0)),rr=Number(s.targetRR||0);
+  return [family,ext,-rr];
+}
+function compareSetupPriority(a,b){const x=setupPriority(a),y=setupPriority(b);for(let i=0;i<x.length;i++){if(x[i]!==y[i])return x[i]-y[i];}return String(a.symbol).localeCompare(String(b.symbol));}
+async function getActiveBook(env){
+  const out=[];for(const market of ['FOREX','CRYPTO'])for(const style of ['SCALP','SWING']){const rows=await getV31Signals(env,market,style);for(const s of rows)if((s.status==='PENDING'||s.status==='OPEN')&&String(s.engineVersion||'')===V3_VERSION)out.push(s);}return out;
+}
+async function retireLegacyActiveSignals(env,market,style){
+  if(!env?.SIGNALS_KV)return[];const all=await getV31Signals(env,market,style),events=[],at=nowIso();
   for(const s of all){
-    if(s.status!=='PENDING'||String(s.engineVersion||'')===V3_VERSION)continue;
-    s.status='CANCELLED';s.entryState='CANCELLED';s.lifecycle='REPLACED_BY_V39_CLEAN_STORY';s.outcome='CONTEXT_REFRESH';s.cancelledAt=at;s.resolution='V39_PENDING_MIGRATION';s.lastCheckedAt=at;
+    if((s.status!=='PENDING'&&s.status!=='OPEN')||String(s.engineVersion||'')===V3_VERSION)continue;
+    s.status='CANCELLED';s.entryState='CANCELLED';s.lifecycle='REPLACED_BY_V310_DISCIPLINED_BOOK';s.outcome='CONTEXT_REFRESH';s.cancelledAt=at;s.resolution='V310_ACTIVE_BOOK_RESET';s.lastCheckedAt=at;s.resultR=null;s.brokerAction='NONE_SIGNAL_FEED_ONLY';
     await writeV31Signal(env,s);events.push({type:'CANCELLED',id:s.id,symbol:s.symbol,reason:s.lifecycle});
   }
   return events;
 }
+async function retireAllLegacyActiveSignals(env){
+  const events=[];for(const m of ['FOREX','CRYPTO'])for(const s of ['SCALP','SWING'])events.push(...await retireLegacyActiveSignals(env,m,s));return events;
+}
+async function reserveRealtimeSignal(env,s,kvKey){
+  const stub=mt5LiveStub(env);if(!stub)return {accepted:false,reason:'NO_ATOMIC_RESERVATION_BUS'};
+  try{const r=await stub.fetch('https://mt5-live/register-signal',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({signal:s,kvKey})});if(!r.ok)return {accepted:false,reason:`RESERVATION_HTTP_${r.status}`};return await r.json();}catch(e){return {accepted:false,reason:`RESERVATION_ERROR:${String(e?.message||e)}`};}
+}
+async function releaseRealtimeSignal(env,id){const stub=mt5LiveStub(env);if(!stub)return;try{await stub.fetch('https://mt5-live/unregister-signal',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});}catch{}}
 async function maybeCreateV31(env,market,style,setups){
   if(!env?.SIGNALS_KV)return[];
-  const current=await getV31Signals(env,market,style),active=current.filter(x=>x.status==='PENDING'||x.status==='OPEN'),made=[];
-  for(const rawSetup of setups){
-    const setup=stampMarketJudgment({...rawSetup},market,style);
-    if(!validSignalStructure(setup))continue;
-    if(active.some(x=>x.symbol===setup.symbol))continue;
-    const ptr=await env.SIGNALS_KV.get(activePointer(market,style,setup.symbol));if(ptr)continue;
-    const issuedAt=nowIso(),id=`V39-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
-    const s=normalizeDisplaySignal({...setup,id,issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT},market,style);
-    await writeV31Signal(env,s);made.push(s);active.push(s);
+  const book=await getActiveBook(env),made=[],candidates=(setups||[]).map(x=>{const assessment=assessEntrySetup(x);return {...x,entryAssessment:assessment};}).filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority);
+  const activeTotal=()=>book.length,marketCount=()=>book.filter(x=>x.market===market).length,styleCount=()=>book.filter(x=>x.style===style).length;
+  for(const rawSetup of candidates){
+    if(made.length>=PORTFOLIO_POLICY.maxNewPerScan||activeTotal()>=PORTFOLIO_POLICY.maxActiveTotal||marketCount()>=PORTFOLIO_POLICY.maxActivePerMarket||styleCount()>=PORTFOLIO_POLICY.maxActivePerStyle)break;
+    const setup=stampMarketJudgment({...rawSetup},market,style);if(!validSignalStructure(setup))continue;
+    if(book.some(x=>x.market===market&&x.symbol===setup.symbol))continue;
+    const issuedAt=nowIso(),id=`V311-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
+    const s=normalizeDisplaySignal({...setup,id,issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT,portfolioPolicy:PORTFOLIO_POLICY,reservationMode:'DURABLE_OBJECT_ATOMIC'},market,style),kvKey=v31Prefix(market,style)+id;
+    const reservation=await reserveRealtimeSignal(env,s,kvKey);if(!reservation?.accepted)continue;
+    s.portfolioReservation={accepted:true,mode:'DURABLE_OBJECT_ATOMIC',activeTotal:Number(reservation.activeTotal||0)};
+    try{await writeV31Signal(env,s);}catch(e){await releaseRealtimeSignal(env,id);throw e;}
+    made.push(s);book.push(s);
   }
   return made;
 }
 async function scanCrypto(env,style){
+  const trackerEvents=await retireAllLegacyActiveSignals(env);
   const snap=await loadCryptoSnapshot(env),all=snap.rows;
   const ranked=all.filter(x=>Number(x.lastPrice)>0).sort((a,b)=>Number(b.turnover24h||0)-Number(a.turnover24h||0)).slice(0,style==='SCALP'?12:10);
-  const trackerEvents=await retireLegacyPendingSignals(env,'CRYPTO',style);
-  const analyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean);
+  const rawAnalyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean),assessed=rawAnalyses.map(x=>({...x,entryAssessment:assessEntrySetup(x)})),analyses=assessed.filter(x=>x.entryAssessment.verdict==='PASS');
   const created=await maybeCreateV31(env,'CRYPTO',style,analyses);
-  return {ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,deepAnalyzed:ranked.length,actionable:analyses.length,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),decisionPolicy:MARKET_JUDGMENT_POLICY,note:'No score/time/RR admission gate. The bot emits an order only when it can form a coherent market story; otherwise NO TRADE.'};
+  return {ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,deepAnalyzed:ranked.length,evaluated:rawAnalyses.length,actionable:analyses.length,rejectedByAssessment:rawAnalyses.length-analyses.length,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,portfolioBlocked:Math.max(0,analyses.length-created.length),newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'Every order must PASS hard structure checks. No numeric score gate. Atomic Durable Object reservation and portfolio caps prevent duplicate and excessive simultaneous entries.'};
 }
 
 async function exnessQuoteMap(env){
@@ -533,9 +620,10 @@ function forexJudgmentSetup(r,px,style){
   return stampMarketJudgment({market:'FOREX',style,symbol:r.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry,sl,tp1,tp2,tp3,tp:tp3,targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:'EXNESS_MT5+TRADINGVIEW_FOREX',executionPriceAuthority:'EXNESS_MT5',marketRegime:regime,marketStory:story,judgment,entryModel,slModel:'VALIDATED_LIQUIDITY_STRUCTURE_INVALIDATION_PLUS_VOLATILITY_BUFFER',tpModel:'LOCAL_HTF_LIQUIDITY_LADDER_THEN_EXPANSION',invalidationLevel:anchor,styleExecutionModel:profile.name,executionFrames:profile.frames,technicalAtIssue:{frames:r.frames,recommend:[r.recA,r.recB,r.recC],rsi:[r.rsiA,r.rsiB],atr:[r.atrA,r.atrB],ema20:[r.ema20A,r.ema20B],ema50:[r.ema50A,r.ema50B],extensionAtr:Number(ext.toFixed(2)),localStructure:[lowA,highA],htfStructure:[lowB,highB],bullReject,bearReject,rangePosition:Number(pos.toFixed(2))},rationale:[story,`entry ${entryModel}`,`SL outside invalidation ${Number(anchor.toPrecision(8))} plus volatility buffer`,`TP1/TP2 use local and HTF liquidity; TP3 expands only beyond those objectives`,`RSI ${Number(r.rsiA).toFixed(1)} / ${Number(r.rsiB).toFixed(1)}`]},'FOREX',style);
 }
 async function scanForexJudgment(env,style){
-  const ex=await exnessQuoteMap(env);if(ex.state==='OFFLINE'||ex.state==='STALE')return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'NO_CURRENT_EXNESS_QUOTE',created:0,state:ex.state,ageMs:ex.ageMs,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'No score/time gate is applied, but stale data is never treated as a current market price.'};
-  const rows=await tvForexFrames(style),priceMap=ex.map,trackerEvents=await retireLegacyPendingSignals(env,'FOREX',style),setups=rows.map(r=>forexJudgmentSetup(r,priceMap.get(r.symbol),style)).filter(Boolean),created=await maybeCreateV31(env,'FOREX',style,setups);
-  return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'OK',state:ex.state,scanned:rows.length,actionable:setups.length,noTrade:Math.max(0,rows.length-setups.length),created:created.length,newSignals:created,trackerEvents,topAnalyses:setups.slice(0,8),decisionPolicy:MARKET_JUDGMENT_POLICY};
+  const trackerEvents=await retireAllLegacyActiveSignals(env);
+  const ex=await exnessQuoteMap(env);if(ex.state==='OFFLINE'||ex.state==='STALE')return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'NO_CURRENT_EXNESS_QUOTE',created:0,state:ex.state,ageMs:ex.ageMs,trackerEvents,portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'No score/time gate is applied, but stale data is never treated as a current market price.'};
+  const rows=await tvForexFrames(style),priceMap=ex.map,rawSetups=rows.map(r=>forexJudgmentSetup(r,priceMap.get(r.symbol),style)).filter(Boolean),assessed=rawSetups.map(x=>({...x,entryAssessment:assessEntrySetup(x)})),setups=assessed.filter(x=>x.entryAssessment.verdict==='PASS'),created=await maybeCreateV31(env,'FOREX',style,setups);
+  return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'OK',state:ex.state,scanned:rows.length,evaluated:rawSetups.length,actionable:setups.length,rejectedByAssessment:rawSetups.length-setups.length,noTrade:Math.max(0,rows.length-setups.length),created:created.length,portfolioBlocked:Math.max(0,setups.length-created.length),newSignals:created,trackerEvents,topAnalyses:setups.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY};
 }
 async function scanForexScalp(env){return scanForexJudgment(env,'SCALP');}
 async function scanForexSwing(env){return scanForexJudgment(env,'SWING');}
