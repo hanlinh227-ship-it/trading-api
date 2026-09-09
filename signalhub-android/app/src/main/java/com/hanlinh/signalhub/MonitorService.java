@@ -108,7 +108,7 @@ public class MonitorService extends Service {
         if(tp3>0)b.append("  |  TP3 ").append(price(tp3));
         b.append("\n").append(market).append(" • ").append(s.optString("orderType","MARKET"));
         if(!dataState.isEmpty())b.append(" • ").append(dataState);
-        b.append(" • Setup ").append(s.optInt("score",0)).append("/100");
+        String regime=s.optString("marketRegime","").replace('_',' ');if(!regime.isEmpty())b.append(" • ").append(regime);
         appendHistory(title,b.toString());
         notifyHigh(title,b.toString(),key);
     }
@@ -128,7 +128,7 @@ public class MonitorService extends Service {
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.3 • LIVE MONITOR")
+                .setContentTitle("SignalHub V3.6 • LIVE MONITOR")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 

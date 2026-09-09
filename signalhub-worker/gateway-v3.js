@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.5.0';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.6.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_05';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,15 +16,16 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 11,
-  versionName: '3.5.0',
-  title: 'SignalHub 3.5.0',
+  versionCode: 12,
+  versionName: '3.6.0',
+  title: 'SignalHub 3.6.0',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.5.0',
+  artifactName: 'SignalHub-Android-v3.6.0',
   notes: [
-    'V3.5 strict admission gate: fewer but higher-quality signals; historical win rate remains resolved TP/SL only.',
+    'V3.6 Market Judgment Engine: no score gate, no minimum score, no RR admission threshold and no signal cooldown.',
+    'Bot classifies regime and actively chooses MARKET / LIMIT / STOP / NO TRADE from current market structure.',
     'Modern LIVE / LIMIT / STOP UI with yellow pending-entry progress gauge.',
     'Realtime Durable Object price bus + WebSocket stream for Exness MT5 quotes.',
     'LIMIT and STOP pending orders are displayed separately and become LIVE immediately when trigger price is crossed.',
@@ -37,7 +38,7 @@ const V31_RELEASE = {
     'Crypto market data uses Bybit first with OKX/Binance public-data fallback and never labels fallback quotes as Bybit live.',
     'Crypto signals use multi-timeframe EMA/RSI/ATR structure, liquidity/spread gates, anti-FOMO extension checks and MARKET/LIMIT/STOP routing.',
     'Signal cards show ENTRY / NOW / TP / SL and live R progress; history and win rate are calculated from resolved TP/SL only.',
-    'No score is presented as a guaranteed win probability.'
+    'No setup score is generated or displayed; historical win rate remains resolved TP/SL only.'
   ]
 };
 
@@ -59,37 +60,33 @@ const isFinitePositive = v => Number.isFinite(Number(v)) && Number(v) > 0;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 
-const V35_QUALITY_POLICY = Object.freeze({
-  FOREX_SCALP: {minScore:90,minRR:2.0},
-  FOREX_SWING: {minScore:90,minRR:2.3},
-  CRYPTO_SCALP:{minScore:92,minRR:2.0},
-  CRYPTO_SWING:{minScore:90,minRR:2.3},
+const MARKET_JUDGMENT_POLICY = Object.freeze({
+  name:'BOT_MARKET_JUDGMENT',
+  scoreGate:false,
+  timeGate:false,
+  rrGate:false,
+  orderRouting:'DYNAMIC_MARKET_LIMIT_STOP',
+  historicalWinRateMode:'RESOLVED_TP_SL_ONLY'
 });
-function v35Policy(market,style){
-  return V35_QUALITY_POLICY[`${String(market||'FOREX').toUpperCase()}_${String(style||'SCALP').toUpperCase()}`]||{minScore:90,minRR:2.0};
-}
-function passesV35QualityGate(signal,market,style){
+function validSignalStructure(signal){
   if(!signal)return false;
-  const p=v35Policy(market,style),score=Number(signal.score||0),rr=Number(signal.targetRR||0),entry=Number(signal.entry||0),sl=Number(signal.sl||0),tp=Number(signal.tp3||signal.tp||0);
-  if(!(entry>0&&sl>0&&tp>0))return false;
-  if(Math.abs(entry-sl)<=0)return false;
-  if(score<p.minScore)return false;
-  if(!(rr>=p.minRR))return false;
+  const entry=Number(signal.entry||0),sl=Number(signal.sl||0),tp=Number(signal.tp3||signal.tp||0);
+  if(!(entry>0&&sl>0&&tp>0&&Math.abs(entry-sl)>0))return false;
   const side=String(signal.side||'').toUpperCase();
   const dir=(side==='LONG'||side==='BUY')?1:(side==='SHORT'||side==='SELL')?-1:0;
   if(!dir)return false;
   if(dir>0&&!(sl<entry&&tp>entry))return false;
   if(dir<0&&!(sl>entry&&tp<entry))return false;
-  const order=String(signal.orderType||'MARKET').toUpperCase();
-  if(!['MARKET','LIMIT','STOP'].includes(order))return false;
-  return true;
+  return ['MARKET','LIMIT','STOP'].includes(String(signal.orderType||'MARKET').toUpperCase());
 }
-function stampV35Quality(signal,market,style){
-  const p=v35Policy(market,style);
-  signal.admissionGate='V35_STRICT';
-  signal.admissionMinScore=p.minScore;
-  signal.admissionMinRR=p.minRR;
+function stampMarketJudgment(signal,market,style){
+  signal.decisionMode='BOT_MARKET_JUDGMENT';
+  signal.admissionMode='NO_SCORE_NO_TIME_GATE';
   signal.entryState=String(signal.orderType||'MARKET').toUpperCase()==='MARKET'?'LIVE':'PENDING_ENTRY';
+  signal.market=String(market||signal.market||'FOREX').toUpperCase();
+  signal.style=String(style||signal.style||'SCALP').toUpperCase();
+  delete signal.score;delete signal.qualityGrade;delete signal.scoreMeaning;
+  delete signal.admissionGate;
   return signal;
 }
 
@@ -295,13 +292,11 @@ async function cryptoTickers(url,env){
   const snap=await loadCryptoSnapshot(env),limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit')||1000)));
   return json({ok:true,version:V3_VERSION,market:'CRYPTO_USDT_PERP',provider:snap.provider,live:snap.live!==false,staleFallback:snap.staleFallback===true,ageMs:snap.ageMs??0,count:snap.rows.length,tickers:snap.rows.slice(0,limit),exchangeTime:snap.exchangeTime,receivedAt:snap.receivedAt,providerErrors:snap.errors||[],note:'Bybit is preferred. Any fallback exchange is explicitly labeled and is never presented as Bybit live.'});
 }
-function discoveryScore(t,style){
-  const turn=Math.max(0,t.turnover24h||0),spread=Math.max(0,t.spreadBps??999),change=Math.abs(t.change24hPct||0),oi=Math.max(0,t.openInterestValue||0),fund=Math.abs((t.fundingRate||0)*100),liq=Math.min(1,Math.log10(Math.max(1,turn))/9),oiScore=oi>0?Math.min(1,Math.log10(Math.max(1,oi))/9):.45,spreadScore=Math.max(0,1-spread/(style==='SCALP'?15:35)),moveScore=Math.min(1,change/(style==='SCALP'?8:18)),fundingPenalty=Math.min(.35,fund/2);
-  return 100*Math.max(0,Math.min(1,.40*liq+.22*spreadScore+.17*moveScore+.15*oiScore+.06*(1-fundingPenalty)));
-}
 async function cryptoDiscovery(url,env){
-  const style=String(url.searchParams.get('style')||'scalp').toUpperCase()==='SWING'?'SWING':'SCALP',limit=Math.min(100,Math.max(5,Number(url.searchParams.get('limit')||40))),snap=await loadCryptoSnapshot(env),all=snap.rows,eligible=all.filter(x=>(x.turnover24h||0)>=1_000_000&&(x.spreadBps??999)<=(style==='SCALP'?20:50)),candidates=eligible.map(t=>({...t,discoveryScore:Number(discoveryScore(t,style).toFixed(1))})).sort((a,b)=>b.discoveryScore-a.discoveryScore).slice(0,limit);
-  return json({ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,eligible:eligible.length,candidates,classification:'DISCOVERY_ONLY_NOT_TRADE_SIGNAL',note:'This list is only the deep-analysis universe. Trade signals are emitted by /v3/scan after multi-timeframe confirmation.',receivedAt:snap.receivedAt});
+  const style=String(url.searchParams.get('style')||'scalp').toUpperCase()==='SWING'?'SWING':'SCALP';
+  const limit=Math.min(100,Math.max(5,Number(url.searchParams.get('limit')||40))),snap=await loadCryptoSnapshot(env),all=snap.rows;
+  const candidates=all.filter(t=>Number(t.lastPrice)>0).sort((a,b)=>Number(b.turnover24h||0)-Number(a.turnover24h||0)).slice(0,limit).map(t=>({...t,marketRead:'DISCOVERY_FOR_BOT_JUDGMENT'}));
+  return json({ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,candidates,classification:'DISCOVERY_ONLY_NOT_TRADE_SIGNAL',decisionMode:'BOT_MARKET_JUDGMENT',note:'No composite score is used. Candidates are handed to the market-judgment engine for regime classification and entry routing.',receivedAt:snap.receivedAt});
 }
 
 function ema(values,period){if(!Array.isArray(values)||values.length<period)return null;const k=2/(period+1);let x=values.slice(0,period).reduce((a,b)=>a+b,0)/period;for(let i=period;i<values.length;i++)x=values[i]*k+x*(1-k);return x;}
@@ -321,18 +316,32 @@ async function providerCandles(symbol,interval,preferred){
   const order=preferred==='OKX'?[okxCandles,bybitCandles,binanceCandles]:preferred==='BINANCE'?[binanceCandles,bybitCandles,okxCandles]:[bybitCandles,okxCandles,binanceCandles];let last=null;for(const fn of order){try{return await fn(symbol,interval)}catch(e){last=e;}}throw last||new Error('NO_CANDLES');
 }
 function buildCryptoSetup(t,style,stats){
-  const [a,b,c]=stats,dir=(a.trend===b.trend&&a.trend!==0&&c.trend!==-a.trend)?a.trend:0;if(!dir)return null;
-  const directionalRsi=dir>0?(a.rsi>=50&&a.rsi<=70&&b.rsi>=50):(a.rsi<=50&&a.rsi>=30&&b.rsi<=50);if(!directionalRsi)return null;
-  const antiFomo=a.extensionAtr<=1.55&&!(Math.abs(t.change24hPct||0)>18&&a.extensionAtr>.8);if(!antiFomo)return null;
-  const spread=t.spreadBps??999,maxSpread=style==='SCALP'?12:30;if(spread>maxSpread)return null;
-  const liq=Math.min(1,Math.log10(Math.max(1,t.turnover24h||0))/9),align=(a.trend===dir?1:0)+(b.trend===dir?1:0)+(c.trend===dir?1:0),slopeOk=dir*a.slope>-.05&&dir*b.slope>-.05,extensionPenalty=Math.min(18,a.extensionAtr*10),fundPenalty=Math.min(8,Math.abs((t.fundingRate||0)*100)*8),score=64+align*6+(slopeOk?5:0)+liq*10-Math.min(12,spread/(style==='SCALP'?1.5:3))-extensionPenalty-fundPenalty;
-  const threshold=style==='SCALP'?84:86;if(score<threshold)return null;
-  const px=t.lastPrice,atr1=a.atr,nearBreak=dir>0?(a.priorHigh-px)/atr1:(px-a.priorLow)/atr1;let orderType='MARKET',entry=px;
-  if(nearBreak>=0&&nearBreak<=.25&&a.extensionAtr<=.75){orderType='STOP';entry=dir>0?a.priorHigh+.08*atr1:a.priorLow-.08*atr1;}
-  else if(a.extensionAtr>.42){orderType='LIMIT';entry=a.ema20;}
-  const structure=dir>0?Math.min(...[a.priorLow,entry-(style==='SCALP'?1.20:1.55)*atr1]):Math.max(...[a.priorHigh,entry+(style==='SCALP'?1.20:1.55)*atr1]);
-  let sl=dir>0?Math.min(entry-.9*atr1,structure-.08*atr1):Math.max(entry+.9*atr1,structure+.08*atr1),risk=Math.abs(entry-sl);if(!(risk>0))return null;const rr=style==='SCALP'?2.2:2.5,tp=entry+dir*risk*rr;
-  return {market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp:Number(tp.toPrecision(10)),targetRR:rr,score:Math.round(score),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend]},rationale:[`${intervalMap[style].join('/')} aligned`,dir>0?'EMA structure bullish':'EMA structure bearish',`RSI ${a.rsi.toFixed(1)}`,`spread ${spread.toFixed(2)} bps`,`extension ${a.extensionAtr.toFixed(2)} ATR`,orderType==='LIMIT'?'pullback entry avoids chasing':orderType==='STOP'?'breakout trigger waits for confirmation':'price is inside acceptable execution zone']};
+  const [a,b,c]=stats,px=Number(t.lastPrice||0);if(!(px>0&&a?.atr>0&&b?.atr>0&&c))return null;
+  const sameAB=a.trend!==0&&a.trend===b.trend,sameBC=b.trend!==0&&b.trend===c.trend;
+  const nearHigh=(a.priorHigh-px)/a.atr,nearLow=(px-a.priorLow)/a.atr;
+  const breakoutUp=nearHigh>=-.18&&nearHigh<=.45&&(a.momentum>=0||a.slope>0);
+  const breakoutDown=nearLow>=-.18&&nearLow<=.45&&(a.momentum<=0||a.slope<0);
+  let dir=0,regime='TRANSITION';
+  if(sameAB&&(c.trend===0||c.trend===a.trend)){dir=a.trend;regime=a.extensionAtr>.55?'TREND_PULLBACK':'TREND_CONTINUATION';}
+  else if(sameBC&&(a.trend===0||a.trend===b.trend)){dir=b.trend;regime='HTF_TREND_REJOIN';}
+  else if(breakoutUp&&!breakoutDown){dir=1;regime='BREAKOUT_BUILDUP';}
+  else if(breakoutDown&&!breakoutUp){dir=-1;regime='BREAKOUT_BUILDUP';}
+  else if(a.trend!==0&&a.momentum===a.trend&&Math.sign(a.slope||0)===a.trend){dir=a.trend;regime='MOMENTUM_CONTINUATION';}
+  else return null;
+
+  const spread=Number(t.spreadBps??0),atr1=a.atr;
+  let orderType='MARKET',entry=px;
+  if(regime==='BREAKOUT_BUILDUP'){
+    orderType='STOP';entry=dir>0?a.priorHigh+.08*atr1:a.priorLow-.08*atr1;
+  }else if(a.extensionAtr>.48||((dir>0&&px<a.ema20)||(dir<0&&px>a.ema20))){
+    orderType='LIMIT';entry=a.ema20;
+  }
+  const structure=dir>0?Math.min(a.priorLow,entry-(style==='SCALP'?1.05:1.45)*atr1):Math.max(a.priorHigh,entry+(style==='SCALP'?1.05:1.45)*atr1);
+  const sl=dir>0?Math.min(entry-.82*atr1,structure-.06*atr1):Math.max(entry+.82*atr1,structure+.06*atr1),risk=Math.abs(entry-sl);if(!(risk>0))return null;
+  const rr=regime==='BREAKOUT_BUILDUP'?(style==='SCALP'?2.25:2.6):regime==='TREND_PULLBACK'?(style==='SCALP'?2.15:2.45):(style==='SCALP'?1.95:2.25),tp=entry+dir*risk*rr;
+  const spreadState=spread>(style==='SCALP'?12:30)?'WIDE':'NORMAL';
+  const judgment=`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} CONTEXT`;
+  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp:Number(tp.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,marketRegime:regime,judgment,executionCaution:spreadState,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread},rationale:[`${intervalMap[style].join('/')} market context read`,dir>0?'bot reads bullish pressure':'bot reads bearish pressure',`regime ${regime}`,`RSI ${a.rsi.toFixed(1)}`,`extension ${a.extensionAtr.toFixed(2)} ATR`,`spread ${spread.toFixed(2)} bps • ${spreadState}`,orderType==='LIMIT'?'bot waits for pullback to entry':orderType==='STOP'?'bot requires price trigger through breakout level':'bot accepts current market price']},'CRYPTO',style);
 }
 async function analyzeCryptoCandidate(t,style){try{const rows=await Promise.all(intervalMap[style].map(i=>providerCandles(t.symbol,i,t.exchange))),stats=rows.map(tfStats);if(stats.some(x=>!x))return null;return buildCryptoSetup(t,style,stats)}catch{return null;}}
 
@@ -353,52 +362,67 @@ async function trackV31Signals(env,market,style,priceMap){
     await writeV31Signal(env,s);
   }return events;
 }
-async function maybeCreateV31(env,market,style,setups,maxNew=1){
+async function maybeCreateV31(env,market,style,setups){
   if(!env?.SIGNALS_KV)return[];
-  const current=await getV31Signals(env,market,style),active=current.filter(x=>x.status==='PENDING'||x.status==='OPEN');
-  if(active.length>=6)return[];
-  const lastKey=`v31:lastnew:${market}:${style}`,raw=await env.SIGNALS_KV.get(lastKey),last=raw?Date.parse(raw):0,minGap=style==='SCALP'?10*60*1000:30*60*1000;
-  if(Number.isFinite(last)&&Date.now()-last<minGap)return[];
-  const made=[];
-  for(const setup of setups){
-    if(made.length>=maxNew)break;
-    if(!passesV35QualityGate(setup,market,style))continue;
-    stampV35Quality(setup,market,style);
+  const current=await getV31Signals(env,market,style),active=current.filter(x=>x.status==='PENDING'||x.status==='OPEN'),made=[];
+  for(const rawSetup of setups){
+    const setup=stampMarketJudgment({...rawSetup},market,style);
+    if(!validSignalStructure(setup))continue;
     if(active.some(x=>x.symbol===setup.symbol))continue;
-    const ptr=await env.SIGNALS_KV.get(activePointer(market,style,setup.symbol));
-    if(ptr)continue;
-    if(market==='FOREX'){
-      const legacyPtr=await env.SIGNALS_KV.get(`active:${setup.symbol}`);
-      const otherStyle=style==='SCALP'?'SWING':'SCALP';
-      const otherStylePtr=await env.SIGNALS_KV.get(activePointer('FOREX',otherStyle,setup.symbol));
-      if(legacyPtr||otherStylePtr)continue;
-    }
-    const issuedAt=nowIso(),id=`V31-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
+    const ptr=await env.SIGNALS_KV.get(activePointer(market,style,setup.symbol));if(ptr)continue;
+    const issuedAt=nowIso(),id=`V36-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
     const s=normalizeDisplaySignal({...setup,id,issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT},market,style);
     await writeV31Signal(env,s);made.push(s);active.push(s);
-    await env.SIGNALS_KV.put(lastKey,issuedAt,{expirationTtl:SIGNAL_TTL});
   }
   return made;
 }
 async function scanCrypto(env,style){
-  const snap=await loadCryptoSnapshot(env),all=snap.rows,eligible=all.filter(x=>(x.turnover24h||0)>=2_000_000&&(x.spreadBps??999)<=(style==='SCALP'?15:35)),ranked=eligible.map(t=>({...t,discoveryScore:discoveryScore(t,style)})).sort((a,b)=>b.discoveryScore-a.discoveryScore).slice(0,style==='SCALP'?8:6),priceMap=new Map(all.map(x=>[x.symbol,x.lastPrice])),trackerEvents=await trackV31Signals(env,'CRYPTO',style,priceMap),analyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean).sort((a,b)=>b.score-a.score),created=await maybeCreateV31(env,'CRYPTO',style,analyses,1);
-  return {ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,eligible:eligible.length,deepAnalyzed:ranked.length,qualified:analyses.length,created:created.length,newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,5),note:'Signals require multi-timeframe alignment and anti-FOMO gates. No signal is emitted when the setup does not clear the threshold.'};
+  const snap=await loadCryptoSnapshot(env),all=snap.rows;
+  const ranked=all.filter(x=>Number(x.lastPrice)>0).sort((a,b)=>Number(b.turnover24h||0)-Number(a.turnover24h||0)).slice(0,style==='SCALP'?12:10);
+  const priceMap=new Map(all.map(x=>[x.symbol,x.lastPrice])),trackerEvents=await trackV31Signals(env,'CRYPTO',style,priceMap);
+  const analyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean);
+  const created=await maybeCreateV31(env,'CRYPTO',style,analyses);
+  return {ok:true,version:V3_VERSION,market:'CRYPTO',style,provider:snap.provider,live:snap.live!==false,scanned:all.length,deepAnalyzed:ranked.length,actionable:analyses.length,created:created.length,newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),decisionPolicy:MARKET_JUDGMENT_POLICY,note:'No score gate and no signal cooldown. The bot classifies regime and routes each actionable idea as MARKET, LIMIT or STOP.'};
 }
 
 async function exnessQuoteMap(env){
   const snap=await readMt5Realtime(env),p=snap?.quotes||null;if(!p)return {map:new Map(),state:'OFFLINE',ageMs:null};
   const ageMs=Math.max(0,Date.now()-Date.parse(p.receivedAt||'')),state=ageMs<=1800?'LIVE':ageMs<=4000?'DELAYED':'STALE',map=new Map((p.quotes||[]).map(q=>[canonical(q.symbol),Number(q.mid)]));return {map,state,ageMs};
 }
-async function tvForexSwing(){
-  const body={symbols:{tickers:FOREX.map(s=>`OANDA:${s}`),query:{types:[]}},columns:['name','close','change','Recommend.All|60','Recommend.All|240','Recommend.All|1D','RSI|60','RSI|240','EMA20|60','EMA50|60','EMA20|240','EMA50|240','ATR|60','ATR|240']};
-  const raw=await fetchJson('https://scanner.tradingview.com/forex/scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)},9000);if(!Array.isArray(raw?.data))throw new Error('TV_FOREX_BAD_JSON');return raw.data.map(r=>{const d=r.d||[];return {symbol:canonical(d[0]||String(r.s||'').split(':').pop()),close:num(d[1]),change:num(d[2]),r60:num(d[3]),r240:num(d[4]),r1d:num(d[5]),rsi60:num(d[6]),rsi240:num(d[7]),ema20_60:num(d[8]),ema50_60:num(d[9]),ema20_240:num(d[10]),ema50_240:num(d[11]),atr60:num(d[12]),atr240:num(d[13])};});
+async function tvForexFrames(style){
+  const f=style==='SCALP'?['5','15','60']:['60','240','1D'];
+  const cols=['name','close','change'];for(const x of f)cols.push(`Recommend.All|${x}`);for(const x of f.slice(0,2))cols.push(`RSI|${x}`);for(const x of f.slice(0,2)){cols.push(`EMA20|${x}`);cols.push(`EMA50|${x}`);cols.push(`ATR|${x}`);}
+  const body={symbols:{tickers:FOREX.map(s=>`OANDA:${s}`),query:{types:[]}},columns:cols};
+  const raw=await fetchJson('https://scanner.tradingview.com/forex/scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)},9000);if(!Array.isArray(raw?.data))throw new Error('TV_FOREX_BAD_JSON');
+  return raw.data.map(r=>{const d=r.d||[];return {symbol:canonical(d[0]||String(r.s||'').split(':').pop()),close:num(d[1]),change:num(d[2]),recA:num(d[3]),recB:num(d[4]),recC:num(d[5]),rsiA:num(d[6]),rsiB:num(d[7]),ema20A:num(d[8]),ema50A:num(d[9]),atrA:num(d[10]),ema20B:num(d[11]),ema50B:num(d[12]),atrB:num(d[13]),frames:f};});
 }
-function forexSwingSetup(r,px){
-  if(!(px>0&&r.atr60>0&&r.atr240>0))return null;const dir=r.r60>=.28&&r.r240>=.22&&r.r1d>=-.05?1:r.r60<=-.28&&r.r240<=-.22&&r.r1d<=.05?-1:0;if(!dir)return null;const emaAligned=dir>0?r.ema20_60>r.ema50_60&&r.ema20_240>r.ema50_240:r.ema20_60<r.ema50_60&&r.ema20_240<r.ema50_240;if(!emaAligned)return null;const rsiOk=dir>0?r.rsi60>=50&&r.rsi60<=68&&r.rsi240>=48:r.rsi60<=50&&r.rsi60>=32&&r.rsi240<=52;if(!rsiOk)return null;const atr=Math.max(r.atr60,r.atr240*.45),dist=Math.abs(px-r.ema20_60)/atr;if(dist>1.45)return null;let score=74+Math.min(12,Math.abs(r.r60)*16)+Math.min(10,Math.abs(r.r240)*14)+(Math.abs(r.r1d)>.1?4:0)-Math.min(12,dist*8);if(score<86)return null;let orderType=dist>.42?'LIMIT':'MARKET',entry=orderType==='LIMIT'?r.ema20_60:px,risk=atr*1.55,sl=entry-dir*risk,tp=entry+dir*risk*2.5;return {market:'FOREX',style:'SWING',symbol:r.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry,sl,tp,targetRR:2.5,score:Math.round(score),sourcePrice:px,lastPrice:px,source:'EXNESS_MT5+TRADINGVIEW_FOREX',executionPriceAuthority:'EXNESS_MT5',technicalAtIssue:{recommend1h:r.r60,recommend4h:r.r240,recommend1d:r.r1d,rsi1h:r.rsi60,rsi4h:r.rsi240,atr1h:r.atr60,atr4h:r.atr240,extensionAtr:Number(dist.toFixed(2))},rationale:['1H/4H directional alignment','1D is not materially opposing','EMA20/EMA50 structure aligned','RSI directional and non-extreme',orderType==='LIMIT'?'pullback LIMIT avoids chasing':'Exness price is inside acceptable swing execution zone']};}
-async function scanForexSwing(env){
-  const ex=await exnessQuoteMap(env);if(ex.state==='OFFLINE'||ex.state==='STALE')return {ok:true,version:V3_VERSION,market:'FOREX',style:'SWING',status:'NO_FRESH_EXNESS',created:0,state:ex.state,ageMs:ex.ageMs,note:'No swing signal is emitted without fresh Exness execution-price data.'};
-  const rows=await tvForexSwing(),priceMap=ex.map,trackerEvents=await trackV31Signals(env,'FOREX','SWING',priceMap),setups=rows.map(r=>forexSwingSetup(r,priceMap.get(r.symbol))).filter(Boolean).sort((a,b)=>b.score-a.score),created=await maybeCreateV31(env,'FOREX','SWING',setups,1);return {ok:true,version:V3_VERSION,market:'FOREX',style:'SWING',status:'OK',state:ex.state,scanned:rows.length,qualified:setups.length,created:created.length,newSignals:created,trackerEvents,topAnalyses:setups.slice(0,5)};
+function forexJudgmentSetup(r,px,style){
+  if(!(px>0&&r.atrA>0&&r.atrB>0&&r.ema20A>0&&r.ema50A>0&&r.ema20B>0&&r.ema50B>0))return null;
+  const emaA=r.ema20A>r.ema50A?1:r.ema20A<r.ema50A?-1:0,emaB=r.ema20B>r.ema50B?1:r.ema20B<r.ema50B?-1:0;
+  const recA=r.recA>0?1:r.recA<0?-1:0,recB=r.recB>0?1:r.recB<0?-1:0,recC=r.recC>0?1:r.recC<0?-1:0;
+  const atr=Math.max(r.atrA,r.atrB*(style==='SCALP'?.38:.45)),ext=(px-r.ema20A)/atr;
+  let dir=0,regime='TRANSITION';
+  if(emaA!==0&&emaA===emaB&&(recC===0||recC===emaA)){dir=emaA;regime=Math.abs(ext)>.55?'TREND_PULLBACK':'TREND_CONTINUATION';}
+  else if(recA!==0&&recA===recB&&(recC===0||recC===recA)){dir=recA;regime='MOMENTUM_CONTINUATION';}
+  else if(recA!==0&&((recA>0&&r.rsiA>=50)||(recA<0&&r.rsiA<=50))){dir=recA;regime='TRANSITION_MOMENTUM';}
+  else return null;
+
+  let orderType='MARKET',entry=px;
+  const strongImpulse=Math.abs(Number(r.recA||0))>.45&&Math.abs(Number(r.recB||0))>.25;
+  if(strongImpulse&&Math.abs(ext)<.45){orderType='STOP';entry=px+dir*atr*(style==='SCALP'?.08:.12);regime='BREAKOUT_CONFIRMATION';}
+  else if(Math.abs(ext)>.46||((dir>0&&px<r.ema20A)||(dir<0&&px>r.ema20A))){orderType='LIMIT';entry=r.ema20A;}
+  const risk=atr*(style==='SCALP'?1.05:1.48),sl=entry-dir*risk;
+  const rr=regime==='BREAKOUT_CONFIRMATION'?(style==='SCALP'?2.2:2.55):regime==='TREND_PULLBACK'?(style==='SCALP'?2.1:2.4):(style==='SCALP'?1.9:2.25),tp=entry+dir*risk*rr;
+  const judgment=`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} CONTEXT`;
+  return stampMarketJudgment({market:'FOREX',style,symbol:r.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry,sl,tp,targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:'EXNESS_MT5+TRADINGVIEW_FOREX',executionPriceAuthority:'EXNESS_MT5',marketRegime:regime,judgment,technicalAtIssue:{frames:r.frames,recommend:[r.recA,r.recB,r.recC],rsi:[r.rsiA,r.rsiB],atr:[r.atrA,r.atrB],ema20:[r.ema20A,r.ema20B],ema50:[r.ema50A,r.ema50B],extensionAtr:Number(ext.toFixed(2))},rationale:[`${r.frames.join('/')} market context read`,dir>0?'bot reads bullish pressure':'bot reads bearish pressure',`regime ${regime}`,`RSI ${Number(r.rsiA).toFixed(1)} / ${Number(r.rsiB).toFixed(1)}`,orderType==='LIMIT'?'bot waits for pullback to entry':orderType==='STOP'?'bot waits for continuation trigger':'bot accepts current Exness price']},'FOREX',style);
 }
+async function scanForexJudgment(env,style){
+  const ex=await exnessQuoteMap(env);if(ex.state==='OFFLINE'||ex.state==='STALE')return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'NO_CURRENT_EXNESS_QUOTE',created:0,state:ex.state,ageMs:ex.ageMs,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'No score/time gate is applied, but stale data is never treated as a current market price.'};
+  const rows=await tvForexFrames(style),priceMap=ex.map,trackerEvents=await trackV31Signals(env,'FOREX',style,priceMap),setups=rows.map(r=>forexJudgmentSetup(r,priceMap.get(r.symbol),style)).filter(Boolean),created=await maybeCreateV31(env,'FOREX',style,setups);
+  return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'OK',state:ex.state,scanned:rows.length,actionable:setups.length,created:created.length,newSignals:created,trackerEvents,topAnalyses:setups.slice(0,8),decisionPolicy:MARKET_JUDGMENT_POLICY};
+}
+async function scanForexScalp(env){return scanForexJudgment(env,'SCALP');}
+async function scanForexSwing(env){return scanForexJudgment(env,'SWING');}
 function normalizeDisplaySignal(input,market,style){
   const s={...(input||{})};
   s.market=String(market||s.market||'FOREX').toUpperCase();
@@ -421,9 +445,9 @@ function normalizeDisplaySignal(input,market,style){
   }
   const st=String(s.status||'').toUpperCase(),out=String(s.outcome||'').toUpperCase();
   s.lifecycle=st==='PENDING'?'PENDING_ENTRY':st==='OPEN'?'ACTIVE':st==='CLOSED'&&out==='TP'?'TP3_HIT':st==='CLOSED'&&out==='SL'?'STOP_LOSS_HIT':st==='CLOSED'&&out==='CANCELLED'?'CANCELLED':st==='CLOSED'?'CLOSED':st||'WATCHING';
-  const score=Number(s.score||0);
-  s.qualityGrade=score>=95?'A+':score>=90?'A':score>=85?'A-':score>=80?'B+':'B';
-  s.scoreMeaning='SETUP_QUALITY_NOT_WIN_PROBABILITY';
+  s.decisionMode=String(s.decisionMode||'BOT_MARKET_JUDGMENT');
+  s.admissionMode=String(s.admissionMode||'NO_SCORE_NO_TIME_GATE');
+  delete s.score;delete s.qualityGrade;delete s.scoreMeaning;
   return s;
 }
 
@@ -453,33 +477,24 @@ async function unifiedSignals(url,env){
   const style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';
   const status=String(url.searchParams.get('status')||'active').toLowerCase();
   const limit=Math.min(300,Math.max(1,Number(url.searchParams.get('limit')||120)));
-  let rows=market==='FOREX'&&style==='SCALP'?await legacyScalpSignals(env):await getV31Signals(env,market,style);
-  rows=rows.map(x=>normalizeDisplaySignal(x,market,style));
-  // V3.5 admission is intentionally applied to ACTIVE delivery only. Closed history is never rewritten,
-  // so historical WR remains honest and comparable instead of being retroactively cherry-picked.
-  if(status==='active') rows=rows.filter(s=>passesV35QualityGate(s,market,style)).map(s=>stampV35Quality(s,market,style));
+  let rows=await getV31Signals(env,market,style);rows=rows.map(x=>normalizeDisplaySignal(x,market,style));
   rows=rows.filter(s=>status==='all'||(status==='active'&&(s.status==='PENDING'||s.status==='OPEN'))||(status==='closed'&&s.status==='CLOSED')||String(s.status||'').toLowerCase()===status).slice(0,limit);
-  let dataHealth=null;
-  if(market==='FOREX'){
-    const ex=await exnessQuoteMap(env);
-    dataHealth={provider:'EXNESS_MT5',state:ex.state,quoteAgeMs:ex.ageMs};
-  }
-  return json({ok:true,version:V3_VERSION,market,style,partitionKey:`${market}:${style}`,status,count:rows.length,dataHealth,qualityPolicy:{name:'V35_STRICT',...v35Policy(market,style),historicalWinRateMode:'RESOLVED_TP_SL_ONLY'},signals:rows});
+  let dataHealth=null;if(market==='FOREX'){const ex=await exnessQuoteMap(env);dataHealth={provider:'EXNESS_MT5',state:ex.state,quoteAgeMs:ex.ageMs};}
+  return json({ok:true,version:V3_VERSION,market,style,partitionKey:`${market}:${style}`,status,count:rows.length,dataHealth,decisionPolicy:MARKET_JUDGMENT_POLICY,signals:rows});
 }
 
 async function unifiedPerformance(url,env){
-  const market=String(url.searchParams.get('market')||'FOREX').toUpperCase()==='CRYPTO'?'CRYPTO':'FOREX',style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP',rows=market==='FOREX'&&style==='SCALP'?await legacyScalpSignals(env):await getV31Signals(env,market,style),active=rows.filter(s=>s.status==='PENDING'||s.status==='OPEN'),resolved=rows.filter(s=>s.status==='CLOSED'&&(s.outcome==='TP'||s.outcome==='SL')),tp=resolved.filter(s=>s.outcome==='TP').length,sl=resolved.filter(s=>s.outcome==='SL').length,netR=resolved.reduce((a,s)=>a+Number(s.resultR||0),0),wr=resolved.length?tp/resolved.length*100:null;
+  const market=String(url.searchParams.get('market')||'FOREX').toUpperCase()==='CRYPTO'?'CRYPTO':'FOREX',style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP',rows=await getV31Signals(env,market,style),active=rows.filter(s=>s.status==='PENDING'||s.status==='OPEN'),resolved=rows.filter(s=>s.status==='CLOSED'&&(s.outcome==='TP'||s.outcome==='SL')),tp=resolved.filter(s=>s.outcome==='TP').length,sl=resolved.filter(s=>s.outcome==='SL').length,netR=resolved.reduce((a,s)=>a+Number(s.resultR||0),0),wr=resolved.length?tp/resolved.length*100:null;
   return json({ok:true,version:V3_VERSION,market,style,performance:{total:rows.length,active:active.length,pending:active.filter(s=>s.status==='PENDING').length,open:active.filter(s=>s.status==='OPEN').length,resolved:resolved.length,tp,sl,winRateResolved:wr,netRResolved:Number(netR.toFixed(2)),sampleAdequate:resolved.length>=30,winRateLabel:resolved.length?`${wr.toFixed(1)}% (${tp}/${resolved.length})`:'CHƯA CÓ MẪU'}});
 }
 async function scanRoute(url,env,ctx){
   const market=String(url.searchParams.get('market')||'FOREX').toUpperCase()==='CRYPTO'?'CRYPTO':'FOREX',style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';
   if(market==='CRYPTO')return json(await scanCrypto(env,style));
-  if(style==='SWING')return json(await scanForexSwing(env));
-  try{const req=new Request(new URL('/run-now?group=forex',url).toString(),{method:'GET'}),r=await legacy.fetch(req,env,ctx),body=await r.json();return json({ok:r.ok,version:V3_VERSION,market:'FOREX',style:'SCALP',legacy:body},r.status);}catch(e){return json({ok:false,version:V3_VERSION,market:'FOREX',style:'SCALP',error:String(e?.message||e)},503);}
+  return json(await scanForexJudgment(env,style));
 }
 async function v3Status(env){
   const snap=await readMt5Realtime(env),mt5=snap?.heartbeat||null;
-  return json({ok:true,version:V3_VERSION,service:'SignalHub multi-market gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,forex:{executionPriceAuthority:'EXNESS_MT5',transport:mt5LiveStub(env)?'DURABLE_OBJECT_REALTIME_WEBSOCKET':'KV_FALLBACK',scalp:'LEGACY_2.1_QUALITY_ENGINE',swing:'V31_SEPARATE_1H_4H_1D_ENGINE'},crypto:{priceAuthority:'BYBIT_PREFERRED_WITH_LABELED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'V31_MULTI_TF_ENGINE',swing:'V31_MULTI_TF_ENGINE',antiFomo:true},engines:{forexScalp:'ACTIVE',forexSwing:'ACTIVE_REQUIRES_FRESH_EXNESS',cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},mt5Heartbeat:mt5?{bridgeVersion:mt5.bridgeVersion,terminalConnected:mt5.terminalConnected,tradeAllowed:mt5.tradeAllowed,resolvedSymbols:mt5.resolvedSymbols,receivedAt:mt5.receivedAt}:null,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
+  return json({ok:true,version:V3_VERSION,service:'SignalHub multi-market gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,forex:{executionPriceAuthority:'EXNESS_MT5',transport:mt5LiveStub(env)?'DURABLE_OBJECT_REALTIME_WEBSOCKET':'KV_FALLBACK',scalp:'V36_MARKET_JUDGMENT_5M_15M_1H',swing:'V36_MARKET_JUDGMENT_1H_4H_1D'},crypto:{priceAuthority:'BYBIT_PREFERRED_WITH_LABELED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'V36_MARKET_JUDGMENT_MULTI_TF',swing:'V36_MARKET_JUDGMENT_MULTI_TF',antiFomo:false},engines:{forexScalp:'ACTIVE',forexSwing:'ACTIVE_REQUIRES_FRESH_EXNESS',cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},mt5Heartbeat:mt5?{bridgeVersion:mt5.bridgeVersion,terminalConnected:mt5.terminalConnected,tradeAllowed:mt5.tradeAllowed,resolvedSymbols:mt5.resolvedSymbols,receivedAt:mt5.receivedAt}:null,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
 }
 async function handleV3(req,env,ctx){
   const url=new URL(req.url);if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'content-type, authorization, x-signalhub-bridge','access-control-allow-methods':'GET,POST,OPTIONS'}});
@@ -504,6 +519,6 @@ export default {
   async fetch(req,env,ctx){const v3=await handleV3(req,env,ctx);if(v3)return v3;return legacy.fetch(req,env,ctx);},
   async scheduled(event,env,ctx){
     if(typeof legacy.scheduled==='function')ctx.waitUntil(Promise.resolve(legacy.scheduled(event,env,ctx)).catch(()=>{}));
-    ctx.waitUntil((async()=>{await scanForexSwing(env).catch(()=>{});await sleep(150);await scanCrypto(env,'SCALP').catch(()=>{});await sleep(150);await scanCrypto(env,'SWING').catch(()=>{});})());
+    ctx.waitUntil((async()=>{await scanForexScalp(env).catch(()=>{});await sleep(100);await scanForexSwing(env).catch(()=>{});await sleep(100);await scanCrypto(env,'SCALP').catch(()=>{});await sleep(100);await scanCrypto(env,'SWING').catch(()=>{});})());
   },
 };
