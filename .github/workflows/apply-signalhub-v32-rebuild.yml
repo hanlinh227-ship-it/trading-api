@@ -1,0 +1,39 @@
+name: Apply SignalHub V3.2 Rebuild Patch
+
+on:
+  push:
+    branches: [signalhub-v3-rebuild-20260909]
+    paths:
+      - 'scripts/patch_signalhub_v32_rebuild.py'
+      - '.github/workflows/apply-signalhub-v32-rebuild.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Apply deterministic patch
+        run: python scripts/patch_signalhub_v32_rebuild.py
+      - name: Static checks
+        run: |
+          git diff --check
+          node --check signalhub-worker/gateway-v3.js
+          grep -q "versionName: '3.2.0'" signalhub-worker/gateway-v3.js
+          grep -q "normalizeDisplaySignal" signalhub-worker/gateway-v3.js
+          grep -q "explicitStyle&&explicitStyle!=='SCALP'" signalhub-worker/gateway-v3.js
+      - name: Commit patched worker
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add signalhub-worker/gateway-v3.js
+          git commit -m "fix(signalhub): V3.2 partition integrity and canonical TP lifecycle" || true
+          git push origin HEAD:${GITHUB_REF_NAME}
