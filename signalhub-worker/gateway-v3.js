@@ -24,6 +24,7 @@ const V31_RELEASE = {
   minSupportedVersionCode: 6,
   artifactName: 'SignalHub-Android-v3.1.0',
   notes: [
+    'Low-latency Exness patch: 500ms bridge target, heartbeat-aware health, faster Android live refresh.',
     'V3.2 rebuild: hard partition integrity for FOREX/CRYPTO and SCALP/SWING.',
     'Signal payloads expose lifecycle plus ENTRY/SL/TP1/TP2/TP3 without changing the final tracked TP.',
     'New Forex V31 signals refuse cross-style symbol overlap while an existing exposure is active.',
@@ -141,7 +142,8 @@ async function mt5Live(env){
   const [qr,hr,er]=await Promise.all([env?.SIGNALS_KV?.get('v3:mt5:quotes:latest'),env?.SIGNALS_KV?.get('v3:mt5:heartbeat:latest'),env?.SIGNALS_KV?.get('v3:mt5:event:latest')]);
   let quotes=null,heartbeat=null,lastEvent=null;try{if(qr)quotes=JSON.parse(qr)}catch{}try{if(hr)heartbeat=JSON.parse(hr)}catch{}try{if(er)lastEvent=JSON.parse(er)}catch{}
   const qAt=Date.parse(quotes?.receivedAt||''),hAt=Date.parse(heartbeat?.receivedAt||''),quoteAgeMs=Number.isFinite(qAt)?Math.max(0,Date.now()-qAt):null,heartbeatAgeMs=Number.isFinite(hAt)?Math.max(0,Date.now()-hAt):null;
-  const state=quoteAgeMs===null?'OFFLINE':quoteAgeMs<=2500?'LIVE':quoteAgeMs<=10000?'DELAYED':'STALE';
+  const terminalConnected=heartbeat?.terminalConnected!==false;
+  const state=quoteAgeMs===null?'OFFLINE':!terminalConnected?'OFFLINE':heartbeatAgeMs!==null&&heartbeatAgeMs>15000?'OFFLINE':quoteAgeMs<=3500?'LIVE':quoteAgeMs<=8000?'DELAYED':quoteAgeMs<=20000?'STALE':'OFFLINE';
   return json({ok:!!quotes,version:V3_VERSION,market:'FOREX_EXNESS',state,quoteAgeMs,heartbeatAgeMs,quotes:quotes?.quotes||[],count:quotes?.count||0,heartbeat,lastEvent:lastEvent?{event:lastEvent.event,signalId:lastEvent.signalId||'',brokerSymbol:lastEvent.brokerSymbol||'',price:num(lastEvent.price),dealReason:lastEvent.dealReason||'',receivedAt:lastEvent.receivedAt}:null},quotes?200:503);
 }
 
@@ -265,7 +267,7 @@ async function scanCrypto(env,style){
 }
 
 async function exnessQuoteMap(env){
-  const raw=await env?.SIGNALS_KV?.get('v3:mt5:quotes:latest');if(!raw)return {map:new Map(),state:'OFFLINE',ageMs:null};let p;try{p=JSON.parse(raw)}catch{return {map:new Map(),state:'OFFLINE',ageMs:null}}const ageMs=Math.max(0,Date.now()-Date.parse(p.receivedAt||'')),state=ageMs<=2500?'LIVE':ageMs<=10000?'DELAYED':'STALE',map=new Map((p.quotes||[]).map(q=>[canonical(q.symbol),Number(q.mid)]));return {map,state,ageMs};
+  const raw=await env?.SIGNALS_KV?.get('v3:mt5:quotes:latest');if(!raw)return {map:new Map(),state:'OFFLINE',ageMs:null};let p;try{p=JSON.parse(raw)}catch{return {map:new Map(),state:'OFFLINE',ageMs:null}}const ageMs=Math.max(0,Date.now()-Date.parse(p.receivedAt||'')),state=ageMs<=3500?'LIVE':ageMs<=8000?'DELAYED':'STALE',map=new Map((p.quotes||[]).map(q=>[canonical(q.symbol),Number(q.mid)]));return {map,state,ageMs};
 }
 async function tvForexSwing(){
   const body={symbols:{tickers:FOREX.map(s=>`OANDA:${s}`),query:{types:[]}},columns:['name','close','change','Recommend.All|60','Recommend.All|240','Recommend.All|1D','RSI|60','RSI|240','EMA20|60','EMA50|60','EMA20|240','EMA50|240','ATR|60','ATR|240']};

@@ -38,7 +38,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SignalHubActivity extends Activity {
     private static final int REQ_NOTIFICATIONS=42;
     private static final String APP_VERSION="3.2.0";
-    private static final long REFRESH_MS=2500L;
+    private static final long LIVE_REFRESH_MS=1000L;
+    private static final long PAGE_REFRESH_MS=3000L;
     private static final long SCAN_MS=30000L;
     private static final int BG=Color.rgb(3,7,11),PANEL=Color.rgb(9,16,23),PANEL2=Color.rgb(15,25,35),BORDER=Color.rgb(30,49,64);
     private static final int TEXT=Color.rgb(238,246,252),MUTED=Color.rgb(126,151,169),GREEN=Color.rgb(44,226,155),RED=Color.rgb(255,82,104),YELLOW=Color.rgb(246,194,76),BLUE=Color.rgb(68,170,255),CYAN=Color.rgb(60,220,235);
@@ -64,13 +65,15 @@ public class SignalHubActivity extends Activity {
     private String screen="SIGNALS",style="SCALP",filter="ALL";
     private JSONObject selectedSignal,systemStatus;
     private volatile String fxState="OFFLINE",cryptoState="OFFLINE",cryptoProvider="CRYPTO",systemState="CONNECTING";
-    private volatile long fxQuoteAgeMs=-1,fxLastOkMs=0,cryptoLastOkMs=0,lastApiOkMs=0;
+    private volatile long fxQuoteAgeMs=-1,fxLastOkMs=0,cryptoLastOkMs=0,lastApiOkMs=0,lastUiPageRefreshMs=0;
     private volatile int fxCount=0,cryptoCount=0;
 
     private final Runnable loop=new Runnable(){@Override public void run(){
         if(!resumed)return;
-        refreshForexLive();refreshCryptoLive();refreshPage(false);
-        main.postDelayed(this,REFRESH_MS);
+        refreshForexLive();refreshCryptoLive();
+        long now=System.currentTimeMillis();
+        if(now-lastUiPageRefreshMs>=PAGE_REFRESH_MS){lastUiPageRefreshMs=now;refreshPage(false);}
+        main.postDelayed(this,LIVE_REFRESH_MS);
     }};
 
     @Override public void onCreate(Bundle b){
@@ -220,8 +223,8 @@ public class SignalHubActivity extends Activity {
     private void renderSystem(boolean animate){Runnable body=()->{content.removeAllViews();subtitle.setText("SYSTEM STATUS • SIGNAL ENGINE • LIVE FEEDS");content.addView(tv("HỆ THỐNG",16,TEXT,true));LinearLayout c=card();c.addView(statusRow("Signal Engine",systemState));c.addView(statusRow("Quote Feed • Forex",fxState));c.addView(statusRow("Quote Feed • Crypto",cryptoState));c.addView(statusRow("Push Monitor",monitorStarted?"RUNNING":"OFFLINE"));c.addView(statusRow("API Connectivity",lastApiOkMs>0&&System.currentTimeMillis()-lastApiOkMs<15000?"ONLINE":"DEGRADED"));content.addView(c);LinearLayout meta=card();meta.addView(line("APP VERSION",APP_VERSION,BLUE));if(systemStatus!=null){meta.addView(line("BACKEND",systemStatus.optString("version","—"),TEXT));meta.addView(line("CHECKPOINT",systemStatus.optString("checkpoint","—"),TEXT));}meta.addView(line("LAST API SYNC",lastApiOkMs==0?"—":relativeAge(System.currentTimeMillis()-lastApiOkMs),MUTED));content.addView(meta);};if(animate)swap(body);else body.run();}
     private View statusRow(String name,String state){LinearLayout r=row();r.setPadding(0,dp(5),0,dp(5));r.addView(tv(name,11,TEXT,true),new LinearLayout.LayoutParams(0,-2,1f));r.addView(chip(state,stateColor(state)));return r;}
 
-    private void refreshForexLive(){if(!fxBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.get("/v3/forex/live"));JSONArray a=p.optJSONArray("quotes");fxPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null){double mid=q.optDouble("mid",0);if(mid>0)fxPrices.put(q.optString("symbol",""),mid);}}fxState=p.optString("state","OFFLINE");fxQuoteAgeMs=p.optLong("quoteAgeMs",-1);fxCount=p.optInt("count",a==null?0:a.length());fxLastOkMs=System.currentTimeMillis();lastApiOkMs=fxLastOkMs;}catch(Throwable e){long age=fxLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-fxLastOkMs;fxState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{fxBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);});}});}
-    private void refreshCryptoLive(){if(!cryptoBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.get("/v3/crypto/tickers?limit=1000"));JSONArray a=p.optJSONArray("tickers");cryptoPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null)cryptoPrices.put(q.optString("symbol",""),q);}cryptoProvider=p.optString("provider","CRYPTO");cryptoState=p.optBoolean("live",true)?"LIVE":"DELAYED";cryptoCount=p.optInt("count",a==null?0:a.length());cryptoLastOkMs=System.currentTimeMillis();lastApiOkMs=cryptoLastOkMs;}catch(Throwable e){long age=cryptoLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-cryptoLastOkMs;cryptoState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{cryptoBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);});}});}
+    private void refreshForexLive(){if(!fxBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.getLive("/v3/forex/live"));JSONArray a=p.optJSONArray("quotes");fxPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null){double mid=q.optDouble("mid",0);if(mid>0)fxPrices.put(q.optString("symbol",""),mid);}}fxState=p.optString("state","OFFLINE");fxQuoteAgeMs=p.optLong("quoteAgeMs",-1);fxCount=p.optInt("count",a==null?0:a.length());fxLastOkMs=System.currentTimeMillis();lastApiOkMs=fxLastOkMs;}catch(Throwable e){long age=fxLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-fxLastOkMs;fxState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{fxBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);});}});}
+    private void refreshCryptoLive(){if(!cryptoBusy.compareAndSet(false,true))return;io.execute(()->{try{JSONObject p=new JSONObject(ApiClient.getLive("/v3/crypto/tickers?limit=1000"));JSONArray a=p.optJSONArray("tickers");cryptoPrices.clear();if(a!=null)for(int i=0;i<a.length();i++){JSONObject q=a.optJSONObject(i);if(q!=null)cryptoPrices.put(q.optString("symbol",""),q);}cryptoProvider=p.optString("provider","CRYPTO");cryptoState=p.optBoolean("live",true)?"LIVE":"DELAYED";cryptoCount=p.optInt("count",a==null?0:a.length());cryptoLastOkMs=System.currentTimeMillis();lastApiOkMs=cryptoLastOkMs;}catch(Throwable e){long age=cryptoLastOkMs==0?Long.MAX_VALUE:System.currentTimeMillis()-cryptoLastOkMs;cryptoState=age<10000?"DELAYED":age<30000?"STALE":"OFFLINE";}finally{cryptoBusy.set(false);main.post(()->{updateConnectionViews();updateAllPriceViews();if(screen.equals("SOURCES"))renderSources(false);if(screen.equals("SYSTEM"))renderSystem(false);});}});}
 
     private void updateConnectionViews(){int fc=stateColor(fxState),cc=stateColor(cryptoState);fxLive.setText("EXNESS • "+fxState+(fxQuoteAgeMs>=0?" • "+String.format(Locale.US,"%.1fs",fxQuoteAgeMs/1000.0):""));fxLive.setTextColor(fc);fxLive.setBackground(shape(Color.argb(28,Color.red(fc),Color.green(fc),Color.blue(fc)),9,fc));cryptoLive.setText(cryptoProvider+" • "+cryptoState);cryptoLive.setTextColor(cc);cryptoLive.setBackground(shape(Color.argb(28,Color.red(cc),Color.green(cc),Color.blue(cc)),9,cc));}
     private void updateAllPriceViews(){for(Map.Entry<String,TextView> e:priceViews.entrySet()){String id=e.getKey(),m=viewMarkets.getOrDefault(id,"FOREX");JSONObject s=findSignal(id);double fallback=s==null?0:s.optDouble("entry",0),px=s==null?fallback:priceFor(s,fallback);e.getValue().setText(fmt(px));e.getValue().setTextColor(CYAN);TextView sv=sourceViews.get(id);if(sv!=null){String state=m.equals("FOREX")?fxState:cryptoState;sv.setText(sourceText(m));sv.setTextColor(stateColor(state));}}}

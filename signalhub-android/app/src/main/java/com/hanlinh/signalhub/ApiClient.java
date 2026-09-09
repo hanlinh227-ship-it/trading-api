@@ -12,16 +12,24 @@ public final class ApiClient {
     private ApiClient() {}
 
     public static String get(String path) throws Exception {
+        return getInternal(path,7000,12000);
+    }
+
+    public static String getLive(String path) throws Exception {
+        return getInternal(path,2500,3500);
+    }
+
+    private static String getInternal(String path,int connectTimeoutMs,int readTimeoutMs) throws Exception {
         URL url = new URL(path.startsWith("http") ? path : BASE_URL + path);
         HttpURLConnection c = (HttpURLConnection) url.openConnection();
         c.setRequestMethod("GET");
-        c.setConnectTimeout(7000);
-        c.setReadTimeout(12000);
+        c.setConnectTimeout(connectTimeoutMs);
+        c.setReadTimeout(readTimeoutMs);
         c.setUseCaches(false);
         c.setRequestProperty("Accept", "application/json");
         c.setRequestProperty("Cache-Control", "no-cache, no-store");
         c.setRequestProperty("Pragma", "no-cache");
-        c.setRequestProperty("User-Agent", "SignalHub-Android/3.2.0");
+        c.setRequestProperty("User-Agent", "SignalHub-Android/3.2.0-low-latency");
         int code = c.getResponseCode();
         BufferedReader br = new BufferedReader(new InputStreamReader(
                 code >= 200 && code < 400 ? c.getInputStream() : c.getErrorStream(),
