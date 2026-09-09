@@ -1,4 +1,4 @@
-name: Run SignalHub V3.13b Crypto Only Consistency
+name: Run SignalHub V3.13 Crypto Only Quality
 
 on:
   push:
@@ -34,6 +34,7 @@ jobs:
         run: |
           python3 scripts/patch_signalhub_v313_crypto_only_quality.py
           python3 scripts/patch_signalhub_v313b_registry_consistency.py
+          python3 scripts/patch_signalhub_v313c_alarm_recovery.py
 
       - name: Verify source contract
         run: |
@@ -43,16 +44,16 @@ jobs:
           w=Path('signalhub-worker/gateway-v3.js').read_text()
           a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
           m=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java').read_text()
-          for x in ['SIGNALHUB-V3-GATEWAY-3.13.0','CRYPTO_ONLY_QUALITY','FOREX_DISABLED_CRYPTO_ONLY','CRYPTO_HARD_QUALITY_CHECKS_NO_PREDICTED_SCORE','DURABLE_OBJECT_STRONG_CONSISTENCY','/active-signals','realtimeActiveSignals','repairRealtimeActiveKv']:
+          for x in ['SIGNALHUB-V3-GATEWAY-3.13.0','CRYPTO_ONLY_QUALITY','FOREX_DISABLED_CRYPTO_ONLY','CRYPTO_HARD_QUALITY_CHECKS_NO_PREDICTED_SCORE','DURABLE_OBJECT_STRONG_CONSISTENCY','/active-signals','realtimeActiveSignals','repairRealtimeActiveKv','rearmed:true','alarmArmed']:
               assert x in w,x
           assert 'return legacy.fetch' not in w and 'legacy.scheduled' not in w
           assert 'APP_VERSION="3.13.0"' in a and 'filter="CRYPTO"' in a
           assert 'for(String style:new String[]{"SCALP","SWING"})' in m
-          print('V313B_SOURCE_CONTRACT_OK')
+          print('V313_SOURCE_CONTRACT_OK')
           PY
 
       - name: Validate Worker bundle
-        run: npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v313b-worker
+        run: npx --yes wrangler@latest deploy --dry-run --config signalhub-worker/wrangler.jsonc --outdir /tmp/v313-worker
 
       - name: Deploy production
         env:
@@ -65,7 +66,7 @@ jobs:
           set -euo pipefail
           ready=0
           for n in $(seq 1 45); do
-            if curl -A 'SignalHub-CI/3.13b' -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
+            if curl -A 'SignalHub-CI/3.13' -fsS --max-time 30 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/status?probe=$RANDOM-$n" >/tmp/status.json; then
               if python3 - <<'PY'
           import json
           p=json.load(open('/tmp/status.json')); pp=((p.get('decisionPolicy') or {}).get('portfolioPolicy') or {})
@@ -99,7 +100,7 @@ jobs:
           ok=0
           for round in $(seq 1 10); do
             for st in SCALP SWING; do
-              curl -A 'SignalHub-CI/3.13b-scan' -fsS --retry 2 --retry-delay 1 --max-time 150 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=$st&probe=$RANDOM-$round" >"/tmp/scan-$st.json" || true
+              curl -A 'SignalHub-CI/3.13-scan' -fsS --retry 2 --retry-delay 1 --max-time 150 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/scan?market=CRYPTO&style=$st&probe=$RANDOM-$round" >"/tmp/scan-$st.json" || true
               ST="$st" ROUND="$round" python3 - <<'PY' >>/tmp/engine-summary.txt
           import json,os
           try:p=json.load(open('/tmp/scan-'+os.environ['ST']+'.json'))
@@ -130,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           for st in SCALP SWING; do
-            curl -A 'SignalHub-CI/3.13b-audit' -fsS --retry 3 --max-time 40 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=100&probe=$RANDOM" >"/tmp/book-$st.json"
+            curl -A 'SignalHub-CI/3.13-audit' -fsS --retry 3 --max-time 40 -H 'Cache-Control: no-cache' "$SIGNALHUB_URL/v3/signals?market=CRYPTO&style=$st&status=active&limit=100&probe=$RANDOM" >"/tmp/book-$st.json"
           done
           python3 - <<'PY'
           import json
@@ -156,21 +157,27 @@ jobs:
           PY
           cat /tmp/ACTIVE-BOOK-SUMMARY.txt
 
-      - name: Verify app-independent lifecycle monitor
+      - name: Verify app-independent lifecycle monitor and alarm recovery
         run: |
           set -euo pipefail
           curl -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?kick=1&probe=$RANDOM" >/tmp/mon1.json
           python3 - <<'PY'
-          import json
+          import json,time
           p=json.load(open('/tmp/mon1.json')); s=p.get('status') or {}; k=p.get('kick') or {}
-          assert k.get('running') is True,(p,k); open('/tmp/cycle','w').write(str(int(s.get('cycle') or 0))); print('START',s)
+          print('KICK',k); print('START',s)
+          assert k.get('running') is True and k.get('rearmed') is True,(p,k)
+          assert int(k.get('activeCrypto') or 0)>=2,k
+          open('/tmp/cycle','w').write(str(int(s.get('cycle') or 0)))
           PY
-          sleep 4
+          sleep 5
           curl -fsS --max-time 30 "$SIGNALHUB_URL/v3/crypto/monitor?probe=$RANDOM" >/tmp/mon2.json
           python3 - <<'PY'
-          import json
+          import json,time
           c=int(open('/tmp/cycle').read()); p=json.load(open('/tmp/mon2.json')); s=p.get('status') or {}; print('AFTER',s)
-          assert s.get('running') is True and int(s.get('cycle') or 0)>c and int(s.get('activeCrypto') or 0)>=2,s
+          assert s.get('running') is True and int(s.get('cycle') or 0)>c,s
+          assert int(s.get('activeCrypto') or 0)>=2,s
+          assert s.get('alarmArmed') is True,s
+          assert s.get('alarmAtMs') is not None and int(s.get('alarmAtMs'))>=int(time.time()*1000)-2000,s
           PY
 
       - name: Build Android APK
@@ -198,7 +205,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add signalhub-worker/gateway-v3.js signalhub-android/app/build.gradle signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java
-          git commit -m 'SignalHub v3.13 crypto-only quality + strong active book' || true
+          git commit -m 'SignalHub v3.13 crypto-only quality production' || true
           git push origin HEAD:signalhub-v313-crypto-only-quality
 
       - uses: actions/upload-artifact@v4
@@ -216,5 +223,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$TAG" dist/* --target signalhub-v313-crypto-only-quality --prerelease --title 'SignalHub v3.13.0 Crypto Only Quality' --notes 'Crypto-only SignalHub. Forex is disabled. Separate hard-quality SCALP and SWING engines, provider-pinned 1s lifecycle monitor, and Durable Object strong-consistency active book. Historical win rate remains based only on resolved TP/SL outcomes.'
+            gh release create "$TAG" dist/* --target signalhub-v313-crypto-only-quality --prerelease --title 'SignalHub v3.13.0 Crypto Only Quality' --notes 'Crypto-only SignalHub. Forex is disabled. Separate hard-quality SCALP and SWING engines, provider-pinned 1s lifecycle monitor with deployment-safe alarm re-arm, and Durable Object strong-consistency active book. Historical win rate remains based only on resolved TP/SL outcomes.'
           fi
