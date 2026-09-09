@@ -1,0 +1,26 @@
+name: Diagnose V321 Watch UI
+on:
+  push:
+    branches: [signalhub-v321-standardized-watch-ideal]
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Watch UI
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v319_15slot_liquidity_universe.py
+          python3 scripts/patch_signalhub_v3191_reference_fallback.py
+          python3 scripts/patch_signalhub_v320_stable100_continuous.py
+          python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          for term in ['private void renderWatchlist','private void refreshWatchlistAnalyses','private View watch','private void fetchWatch','watchAnalysis','watchState','watchCache.put','/v3/watch/analyze']:
+              p=a.find(term)
+              print('\n===== '+term+' =====')
+              print(a[max(0,p-1200):min(len(a),p+15000)] if p>=0 else 'NOT FOUND')
+          PY
