@@ -1,7 +1,7 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.14.0';
-const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_06';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.15.2';
+const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_07';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
 const SIGNAL_TTL = 60 * 60 * 24 * 90;
@@ -102,8 +102,8 @@ const MARKET_JUDGMENT_POLICY = Object.freeze({
   pendingActivation:'PRICE_TOUCH_EVENT_DRIVEN_NO_COOLDOWN',
   qualityMode:'CRYPTO_STABILITY_STRUCTURE_NO_SCORE',
   lifecycleSource:'DURABLE_OBJECT_REALTIME_SINGLE_SOURCE',
-  entryAssessment:'V314_CRYPTO_EVIDENCE_CHECKS_NO_NUMERIC_SCORE',
-  portfolioPolicy:{maxActiveTotal:4,maxActivePerMarket:4,maxActivePerStyle:2,maxNewPerScan:1,minActivePerStyle:1,maxActivePerRiskCluster:2,maxMemeActiveTotal:1,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC',coverageMode:'CRYPTO_ONLY_STYLE_COVERAGE_QUALITY_FIRST',cryptoPendingMonitor:'DURABLE_OBJECT_ALARM_1S',forexDisabled:true}
+  entryAssessment:'V315_FIXED_2X2_HARD_SAFETY',
+  portfolioPolicy:{maxActiveTotal:4,maxActivePerMarket:4,maxActivePerStyle:2,maxNewPerScan:2,minActivePerStyle:2,targetActivePerStyle:2,maxActivePerRiskCluster:2,maxMemeActiveTotal:1,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC',coverageMode:'CRYPTO_FIXED_2X2_STRICT_THEN_CONDITIONAL',cryptoPendingMonitor:'DURABLE_OBJECT_ALARM_1S',standbyPerStyle:3,replacementMode:'DURABLE_OBJECT_HOT_SPARE_ATOMIC_RESERVE_POOL',forexDisabled:true}
 });
 
 const STYLE_EXECUTION_POLICY = Object.freeze({
@@ -182,7 +182,9 @@ export class MT5LiveState {
       try{const snap=await cryptoSnapshotForProvider(this.env,provider);if(snap.live===false||!snap.rows?.length){errors.push(`${provider}:NO_LIVE_ROWS`);continue;}quotes+=snap.rows.length;events.push(...await this.evaluate('CRYPTO',snap.rows,snap.receivedAt||at));}
       catch(e){errors.push(`${provider}:${String(e?.message||e)}`);}
     }
-    const status={ok:errors.length<providers.length,running:true,cycle,activeCrypto:active.length,providers,quotes,events:events.length,errors,receivedAt:at};
+    const depleted=[...new Set(events.filter(e=>['CANCELLED','TP','SL'].includes(String(e?.type||''))).map(e=>String(e?.signal?.style||'').toUpperCase()).filter(x=>['SCALP','SWING'].includes(x)))],replacements=[];
+    for(const style of depleted){const r=await this.promoteStandby(style,'LIFECYCLE_EVENT');if(r?.promoted?.length)replacements.push({style,...r});}
+    const activeNow=this.activeRows(await this.registry()),status={ok:errors.length<providers.length,running:true,cycle,activeCrypto:activeNow.length,providers,quotes,events:events.length,replacements,errors,receivedAt:at};
     await this.state.storage.put('cryptoMonitorStatus',status);this.broadcast({type:'crypto_monitor',...status});return status;
   }
   async alarm(){
@@ -226,6 +228,41 @@ export class MT5LiveState {
   async unregisterSignal(payload){
     const id=String(payload?.id||payload?.signalId||'');if(!id)return {ok:false};
     let next={};await this.state.storage.transaction(async txn=>{const reg=(await txn.get('signalRegistry'))||{};delete reg[id];await txn.put('signalRegistry',reg);next=reg;});this.signalRegistry=next;return {ok:true,id};
+  }
+  async setStandbys(payload){
+    const style=String(payload?.style||'').toUpperCase();if(!['SCALP','SWING'].includes(style))return {ok:false,error:'BAD_STYLE'};
+    const key=`standby:${style}`,old=(await this.state.storage.get(key))||{rows:[]},reg=await this.registry(),active=this.activeRows(reg),activeSymbols=new Set(active.map(x=>canonical(x.symbol))),rows=[],seen=new Set(),incoming=Array.isArray(payload?.signals)?payload.signals:[];
+    const combined=[...incoming,...(Array.isArray(old.rows)?old.rows:[])];
+    for(const raw of combined){
+      if(rows.length>=Number(PORTFOLIO_POLICY.standbyPerStyle||3))break;
+      const s={...(raw||{})},symbol=canonical(s.symbol),order=String(s.orderType||'').toUpperCase();
+      if(!symbol||seen.has(symbol)||activeSymbols.has(symbol))continue;
+      if(String(s.market||'CRYPTO').toUpperCase()!=='CRYPTO'||String(s.style||style).toUpperCase()!==style)continue;
+      if(!['LIMIT','STOP'].includes(order)||!validSignalStructure(s))continue;
+      const assessment=assessCoverageSetup(s);if(assessment?.verdict!=='PASS')continue;
+      rows.push({...s,market:'CRYPTO',style,status:'PENDING',entryState:'PENDING_ENTRY',coverageFallback:true,coverageTier:s.coverageTier||'HOT_SPARE_CONDITIONAL',entryAssessment:assessment,engineVersion:V3_VERSION,checkpoint:CHECKPOINT,standbyPreparedAt:s.standbyPreparedAt||nowIso()});seen.add(symbol);
+    }
+    const pack={style,preparedAt:Date.now(),receivedAt:nowIso(),rows};await this.state.storage.put(key,pack);return {ok:true,style,count:rows.length,symbols:rows.map(x=>x.symbol)};
+  }
+  async standbySnapshot(){
+    const out={};for(const style of ['SCALP','SWING']){const p=(await this.state.storage.get(`standby:${style}`))||{style,preparedAt:null,rows:[]};out[style]={preparedAt:p.preparedAt||null,ageMs:p.preparedAt?Math.max(0,Date.now()-Number(p.preparedAt)):null,count:Array.isArray(p.rows)?p.rows.length:0,symbols:Array.isArray(p.rows)?p.rows.map(x=>x.symbol):[]};}return out;
+  }
+  async promoteStandby(style,reason='AUTO_REPLACE'){
+    style=String(style||'').toUpperCase();if(!['SCALP','SWING'].includes(style))return {ok:false,promoted:[],error:'BAD_STYLE'};
+    const key=`standby:${style}`,pack=(await this.state.storage.get(key))||{style,preparedAt:0,rows:[]},pool=Array.isArray(pack.rows)?[...pack.rows]:[],promoted=[];
+    let reg=await this.registry(),active=this.activeRows(reg),styleCount=active.filter(x=>String(x.style||'').toUpperCase()===style).length;
+    const maxAge=style==='SCALP'?10*60*1000:60*60*1000;if(pack.preparedAt&&Date.now()-Number(pack.preparedAt)>maxAge)pool.splice(0,pool.length);
+    while(styleCount<Number(PORTFOLIO_POLICY.targetActivePerStyle||2)&&pool.length){
+      const raw=pool.shift(),symbol=canonical(raw?.symbol),order=String(raw?.orderType||'').toUpperCase();if(!symbol||!['LIMIT','STOP'].includes(order)||!validSignalStructure(raw))continue;
+      active=this.activeRows(reg);if(active.some(x=>canonical(x.symbol)===symbol))continue;
+      const cluster=cryptoRiskCluster(symbol),clusterCount=active.filter(x=>cryptoRiskCluster(x.symbol)===cluster).length;if(cluster==='MEME'&&clusterCount>=PORTFOLIO_POLICY.maxMemeActiveTotal)continue;if(clusterCount>=PORTFOLIO_POLICY.maxActivePerRiskCluster)continue;
+      if(active.length>=PORTFOLIO_POLICY.maxActiveTotal||active.filter(x=>String(x.style||'').toUpperCase()===style).length>=PORTFOLIO_POLICY.maxActivePerStyle)break;
+      const issuedAt=nowIso(),id=`V3152R-CRYPTO-${style}-${symbol}-${Date.now().toString(36)}`,s={...raw,id,signalId:id,market:'CRYPTO',style,symbol,status:'PENDING',entryState:'PENDING_ENTRY',lifecycle:'PENDING_ENTRY',issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT,riskCluster:cluster,coverageReplacement:true,replacementReason:reason,reservationMode:'DURABLE_OBJECT_HOT_SPARE_PROMOTION',portfolioPolicy:PORTFOLIO_POLICY};
+      const kvKey=`v31:signal:CRYPTO:${style}:${id}`;reg[id]={...s,kvKey};styleCount++;promoted.push(s);
+      if(this.env?.SIGNALS_KV){await this.env.SIGNALS_KV.put(kvKey,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});await this.env.SIGNALS_KV.put(`v31:active:CRYPTO:${style}:${symbol}`,id,{expirationTtl:SIGNAL_TTL});await this.env.SIGNALS_KV.put(`v31:active:any:CRYPTO:${symbol}`,id,{expirationTtl:SIGNAL_TTL});}
+      this.broadcast({type:'signal_event',event:'HOT_SPARE_PROMOTED',signal:s,receivedAt:issuedAt});
+    }
+    this.signalRegistry=reg;await this.state.storage.put('signalRegistry',reg);await this.state.storage.put(key,{...pack,rows:pool,updatedAt:Date.now()});return {ok:true,style,promoted:promoted.map(x=>({id:x.id,symbol:x.symbol,orderType:x.orderType})),remaining:pool.length};
   }
   async evaluate(market,rows,receivedAt){
     const reg=await this.registry(),by=new Map();
@@ -278,6 +315,9 @@ export class MT5LiveState {
     }
     if(req.method==='POST'&&url.pathname==='/register-signal'){const p=await req.json();return new Response(JSON.stringify(await this.registerSignal(p)),{headers:{'content-type':'application/json'}});}
     if(req.method==='POST'&&url.pathname==='/unregister-signal'){const p=await req.json();return new Response(JSON.stringify(await this.unregisterSignal(p)),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/set-standbys'){const p=await req.json();return new Response(JSON.stringify(await this.setStandbys(p)),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/promote-standby'){const p=await req.json();return new Response(JSON.stringify(await this.promoteStandby(p?.style,p?.reason||'EXTERNAL_REFILL')),{headers:{'content-type':'application/json'}});}
+    if(req.method==='GET'&&url.pathname==='/standbys'){return new Response(JSON.stringify(await this.standbySnapshot()),{headers:{'content-type':'application/json'}});}
     if(req.method==='POST'&&url.pathname==='/kick-crypto-monitor'){return new Response(JSON.stringify(await this.ensureCryptoMonitor(25)),{headers:{'content-type':'application/json'}});}
     if(req.method==='GET'&&url.pathname==='/crypto-monitor-status'){const status=(await this.state.storage.get('cryptoMonitorStatus'))||{ok:true,running:false,cycle:0};return new Response(JSON.stringify(status),{headers:{'content-type':'application/json'}});}
     if(req.method==='GET'&&url.pathname==='/portfolio-snapshot'){return new Response(JSON.stringify(await this.portfolioSnapshot()),{headers:{'content-type':'application/json'}});}
@@ -300,6 +340,9 @@ async function realtimePortfolioSnapshot(env){
   try{const r=await stub.fetch('https://mt5-live/portfolio-snapshot');if(r.ok)return await r.json();}catch{}return {activeTotal:0,counts:{FOREX:0,CRYPTO:0},styles:{SCALP:0,SWING:0}};
 }
 async function releaseCoverageClaim(env,market){const stub=mt5LiveStub(env);if(!stub)return;try{await stub.fetch('https://mt5-live/release-coverage',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({market})});}catch{}}
+async function setCryptoStandbys(env,style,signals){const stub=mt5LiveStub(env);if(!stub)return {ok:false,count:0};try{const r=await stub.fetch('https://mt5-live/set-standbys',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({style,signals})});return r.ok?await r.json():{ok:false,count:0};}catch(e){return {ok:false,count:0,error:String(e?.message||e)};}}
+async function promoteCryptoStandby(env,style,reason='EXTERNAL_REFILL'){const stub=mt5LiveStub(env);if(!stub)return {ok:false,promoted:[]};try{const r=await stub.fetch('https://mt5-live/promote-standby',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({style,reason})});return r.ok?await r.json():{ok:false,promoted:[]};}catch(e){return {ok:false,promoted:[],error:String(e?.message||e)};}}
+async function cryptoStandbyStatus(env){const stub=mt5LiveStub(env);if(!stub)return {};try{const r=await stub.fetch('https://mt5-live/standbys');return r.ok?await r.json():{};}catch{return {};}}
 async function kickCryptoServerMonitor(env){const stub=mt5LiveStub(env);if(!stub)return {ok:false,running:false};try{const r=await stub.fetch('https://mt5-live/kick-crypto-monitor',{method:'POST'});return r.ok?await r.json():{ok:false,running:false};}catch(e){return {ok:false,running:false,error:String(e?.message||e)};}}
 async function cryptoServerMonitorStatus(env){const stub=mt5LiveStub(env);if(!stub)return {ok:false,running:false};try{const r=await stub.fetch('https://mt5-live/crypto-monitor-status');return r.ok?await r.json():{ok:false,running:false};}catch(e){return {ok:false,running:false,error:String(e?.message||e)};}}
 async function refillMarketCoverage(env,market){
@@ -520,7 +563,7 @@ function buildCryptoSetup(t,style,stats){
   const profile=STYLE_EXECUTION_POLICY[style]||STYLE_EXECUTION_POLICY.SCALP,spread=Number(t.spreadBps??0),atr1=a.atr;
   const breakoutUp=(a.bosUp||((a.priorHigh-px)/atr1>=-.05&&(a.priorHigh-px)/atr1<=.14))&&a.bullDisplacement&&a.momentum>=0;
   const breakoutDown=(a.bosDown||((px-a.priorLow)/atr1>=-.05&&(px-a.priorLow)/atr1<=.14))&&a.bearDisplacement&&a.momentum<=0;
-  let dir=0,regime='NO_TRADE',story='',reclaimed=false,displacement=false,liquidityEvent=false;
+  let dir=0,regime='NO_TRADE',story='',reclaimed=false,displacement=false,liquidityEvent=false,coverageFallback=false;
   if(style==='SWING'){
     const htf=b.trend!==0&&b.trend===c.trend?b.trend:0;if(!htf)return null;
     if(htf===1&&a.sweepLow&&a.close>a.priorLow&&(a.bullDisplacement||a.close>a.ema20)){dir=1;regime='HTF_LIQUIDITY_SWEEP_RECLAIM';story='H4/D1 bullish + H1 sweep/reclaim with bullish recovery';reclaimed=true;liquidityEvent=true;displacement=a.bullDisplacement;}
@@ -529,7 +572,11 @@ function buildCryptoSetup(t,style,stats){
     else if(htf===-1&&(a.emaReclaimDown||a.bosDown)&&a.bearDisplacement&&a.momentum===-1){dir=-1;regime='HTF_TREND_RECLAIM';story='H4/D1 bearish + H1 displacement reclaims execution structure';reclaimed=true;displacement=true;}
     else if(htf===1&&breakoutUp){dir=1;regime='HTF_BREAKOUT_CONFIRMATION';story='H4/D1 bullish + H1 displacement confirms breakout';reclaimed=a.bosUp;displacement=true;}
     else if(htf===-1&&breakoutDown){dir=-1;regime='HTF_BREAKOUT_CONFIRMATION';story='H4/D1 bearish + H1 displacement confirms breakdown';reclaimed=a.bosDown;displacement=true;}
-    else return null;
+    else{
+      const vote=Number(c.trend||0)*3+Number(b.trend||0)*2+Number(a.trend||0)+Number(b.momentum||0)+Number(a.momentum||0);
+      dir=vote>0?1:vote<0?-1:(px>=Number(b.ema20||px)?1:-1);
+      regime='HTF_COVERAGE_CONDITIONAL';story='Best-available H4/D1 context; wait for a conditional pending trigger instead of forcing a market entry';coverageFallback=true;
+    }
   }else{
     const bullCtx=b.trend!==-1&&c.trend!==-1&&(b.trend===1||c.trend===1),bearCtx=b.trend!==1&&c.trend!==1&&(b.trend===-1||c.trend===-1),allBull=a.trend===1&&b.trend===1&&c.trend===1,allBear=a.trend===-1&&b.trend===-1&&c.trend===-1;
     if(a.sweepLow&&bullCtx&&a.close>a.priorLow&&(a.bullDisplacement||a.close>a.ema20)){dir=1;regime='LIQUIDITY_SWEEP_RECLAIM';story='5m downside sweep/reclaim + supportive 15m/1h context';reclaimed=true;liquidityEvent=true;displacement=a.bullDisplacement;}
@@ -540,13 +587,21 @@ function buildCryptoSetup(t,style,stats){
     else if(allBear&&a.bearDisplacement&&a.extensionAtr<=.24){dir=-1;regime='TREND_CONTINUATION_CONFIRMED';story='5m/15m/1h bearish alignment + fresh 5m displacement';displacement=true;reclaimed=a.bosDown||a.close<a.recentLow;}
     else if(breakoutUp&&b.trend===1&&c.trend!==-1){dir=1;regime='BREAKOUT_CONFIRMATION';story='5m displacement at breakout edge + bullish 15m context';reclaimed=a.bosUp;displacement=true;}
     else if(breakoutDown&&b.trend===-1&&c.trend!==1){dir=-1;regime='BREAKOUT_CONFIRMATION';story='5m displacement at breakdown edge + bearish 15m context';reclaimed=a.bosDown;displacement=true;}
-    else return null;
+    else{
+      const vote=Number(c.trend||0)*2+Number(b.trend||0)*2+Number(a.trend||0)+Number(a.momentum||0)+Number(b.momentum||0);
+      dir=vote>0?1:vote<0?-1:(px>=Number(a.ema20||px)?1:-1);
+      regime='MICRO_COVERAGE_CONDITIONAL';story='Best-available 5m/15m/1h context; wait for a conditional pending trigger instead of forcing a market entry';coverageFallback=true;
+    }
   }
 
   const spreadPx=Math.max(0,px*spread/10000),entryBuffer=Math.max(atr1*(style==='SCALP'?.045:.08),spreadPx*(style==='SCALP'?2.5:3.0));
   const tooExtended=Math.abs(a.extensionAtr)>(style==='SCALP'?.28:.24),badMarketLocation=dir>0?a.rangePosition>.78:a.rangePosition<.22;
   let orderType='MARKET',entry=px,entryModel=liquidityEvent?'SWEEP_RECLAIM_MARKET':'CONFIRMED_STRUCTURE_MARKET';
-  if(regime.includes('BREAKOUT')){orderType='STOP';entry=dir>0?a.priorHigh+entryBuffer:a.priorLow-entryBuffer;entryModel='CONFIRMED_BREAKOUT_TRIGGER';}
+  if(coverageFallback){
+    const raw=dir>0?Math.max(a.ema20,a.recentLow+.34*atr1):Math.min(a.ema20,a.recentHigh-.34*atr1);
+    if((dir>0&&raw<px-entryBuffer*.20)||(dir<0&&raw>px+entryBuffer*.20)){orderType='LIMIT';entry=raw;entryModel='COVERAGE_PULLBACK_TRIGGER';}
+    else{orderType='STOP';entry=dir>0?Math.max(a.priorHigh,a.recentHigh)+entryBuffer:Math.min(a.priorLow,a.recentLow)-entryBuffer;entryModel='COVERAGE_BREAKOUT_TRIGGER';}
+  }else if(regime.includes('BREAKOUT')){orderType='STOP';entry=dir>0?a.priorHigh+entryBuffer:a.priorLow-entryBuffer;entryModel='CONFIRMED_BREAKOUT_TRIGGER';}
   else if(!liquidityEvent&&(tooExtended||badMarketLocation||regime.includes('RECLAIM'))){
     const raw=dir>0?Math.max(a.ema20,a.recentLow+.42*atr1):Math.min(a.ema20,a.recentHigh-.42*atr1);
     if((dir>0&&raw<px-entryBuffer*.35)||(dir<0&&raw>px+entryBuffer*.35)){orderType='LIMIT';entry=raw;entryModel='RETEST_AFTER_DISPLACEMENT_RECLAIM';}
@@ -558,15 +613,15 @@ function buildCryptoSetup(t,style,stats){
   if(dir>0){anchor=Math.min(a.low,a.recentLow,a.ema50-.08*atr1);if(liquidityEvent)anchor=Math.min(anchor,a.priorLow);if(style==='SWING')anchor=Math.min(anchor,a.priorLow,b.low,b.recentLow,b.ema50-.10*b.atr);}
   else{anchor=Math.max(a.high,a.recentHigh,a.ema50+.08*atr1);if(liquidityEvent)anchor=Math.max(anchor,a.priorHigh);if(style==='SWING')anchor=Math.max(anchor,a.priorHigh,b.high,b.recentHigh,b.ema50+.10*b.atr);}
   let sl=dir>0?anchor-stopBuffer:anchor+stopBuffer,risk=Math.abs(entry-sl),minRisk=atr1*(style==='SCALP'?.75:1.12),maxRisk=atr1*(style==='SCALP'?2.10:4.0);
-  if(risk<minRisk){risk=minRisk;sl=entry-dir*risk;}if(!(risk>0)||risk>maxRisk)return null;
+  if(risk<minRisk){risk=minRisk;sl=entry-dir*risk;}if(!(risk>0))return null;if(risk>maxRisk){if(!coverageFallback)return null;risk=maxRisk;sl=entry-dir*risk;}
   const above=(vals,fallback)=>Math.max(...vals.filter(Number.isFinite),fallback),below=(vals,fallback)=>Math.min(...vals.filter(Number.isFinite),fallback);
   let tp1,tp2,tp3;
   if(dir>0){tp1=above([a.priorHigh,a.recentHigh],entry+risk*.95);tp2=above([b.priorHigh,b.recentHigh],Math.max(tp1+risk*.30,entry+risk*1.55));tp3=above([c.priorHigh,c.recentHigh],Math.max(tp2+risk*.35,entry+risk*(style==='SCALP'?2.20:2.85)));}
   else{tp1=below([a.priorLow,a.recentLow],entry-risk*.95);tp2=below([b.priorLow,b.recentLow],Math.min(tp1-risk*.30,entry-risk*1.55));tp3=below([c.priorLow,c.recentLow],Math.min(tp2-risk*.35,entry-risk*(style==='SCALP'?2.20:2.85)));}
   const rr=Math.abs(tp3-entry)/risk,spreadState=spread>(style==='SCALP'?8:18)?'WIDE':'NORMAL',cluster=cryptoRiskCluster(t.symbol);
-  const qualityEvidence={contextAligned:true,liquidityEvent,displacementConfirmed:displacement,structureReclaimed:reclaimed,secondaryProviderConfirmed:false,entryNotChasing:orderType!=='MARKET'||!tooExtended,invalidationStructural:Number.isFinite(anchor),targetPathClear:dir>0?sl<entry&&entry<tp1&&tp1<tp2&&tp2<tp3:sl>entry&&entry>tp1&&tp1>tp2&&tp2>tp3};
-  const judgment=`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} • EVIDENCE CONFIRMED`;
-  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp1:Number(tp1.toPrecision(10)),tp2:Number(tp2.toPrecision(10)),tp3:Number(tp3.toPrecision(10)),tp:Number(tp3.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,executionPriceAuthority:t.exchange,riskCluster:cluster,marketRegime:regime,marketStory:story,judgment,entryModel,slModel:'STRUCTURE_INVALIDATION_PLUS_VOLATILITY_SPREAD_BUFFER',tpModel:'STRUCTURE_LIQUIDITY_LADDER_THEN_EXPANSION',invalidationLevel:Number(anchor.toPrecision(10)),styleExecutionModel:profile.name,executionFrames:profile.frames,executionCaution:spreadState,qualityEvidence,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread,turnover24h:Number(t.turnover24h||0),sweepHigh:a.sweepHigh,sweepLow:a.sweepLow,bosUp:a.bosUp,bosDown:a.bosDown,bullDisplacement:a.bullDisplacement,bearDisplacement:a.bearDisplacement,emaReclaimUp:a.emaReclaimUp,emaReclaimDown:a.emaReclaimDown,recentHigh:a.recentHigh,recentLow:a.recentLow},rationale:[story,`entry ${entryModel}`,`SL outside structural invalidation ${Number(anchor.toPrecision(8))} plus volatility/spread buffer`,`TP ladder targets local/context/HTF liquidity before expansion`,`risk cluster ${cluster} • RSI ${a.rsi.toFixed(1)} • extension ${a.extensionAtr.toFixed(2)} ATR • spread ${spread.toFixed(2)} bps`]},'CRYPTO',style);
+  const qualityEvidence={contextAligned:true,liquidityEvent,displacementConfirmed:displacement,structureReclaimed:reclaimed,secondaryProviderConfirmed:false,entryNotChasing:orderType!=='MARKET'||!tooExtended,invalidationStructural:Number.isFinite(anchor),targetPathClear:dir>0?sl<entry&&entry<tp1&&tp1<tp2&&tp2<tp3:sl>entry&&entry>tp1&&tp1>tp2&&tp2>tp3,coverageConditional:coverageFallback};
+  const judgment=coverageFallback?`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} • CONDITIONAL COVERAGE`:`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} • EVIDENCE CONFIRMED`;
+  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp1:Number(tp1.toPrecision(10)),tp2:Number(tp2.toPrecision(10)),tp3:Number(tp3.toPrecision(10)),tp:Number(tp3.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,executionPriceAuthority:t.exchange,riskCluster:cluster,marketRegime:regime,marketStory:story,judgment,entryModel,coverageFallback,coverageTier:coverageFallback?'BEST_AVAILABLE_CONDITIONAL':'STRICT_CONFIRMED',slModel:'STRUCTURE_INVALIDATION_PLUS_VOLATILITY_SPREAD_BUFFER',tpModel:'STRUCTURE_LIQUIDITY_LADDER_THEN_EXPANSION',invalidationLevel:Number(anchor.toPrecision(10)),styleExecutionModel:profile.name,executionFrames:profile.frames,executionCaution:spreadState,qualityEvidence,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread,turnover24h:Number(t.turnover24h||0),sweepHigh:a.sweepHigh,sweepLow:a.sweepLow,bosUp:a.bosUp,bosDown:a.bosDown,bullDisplacement:a.bullDisplacement,bearDisplacement:a.bearDisplacement,emaReclaimUp:a.emaReclaimUp,emaReclaimDown:a.emaReclaimDown,recentHigh:a.recentHigh,recentLow:a.recentLow},rationale:[story,`entry ${entryModel}`,`SL outside structural invalidation ${Number(anchor.toPrecision(8))} plus volatility/spread buffer`,`TP ladder targets local/context/HTF liquidity before expansion`,`risk cluster ${cluster} • RSI ${a.rsi.toFixed(1)} • extension ${a.extensionAtr.toFixed(2)} ATR • spread ${spread.toFixed(2)} bps`]},'CRYPTO',style);
 }
 async function analyzeCryptoCandidate(t,style){
   try{
@@ -604,7 +659,7 @@ async function writeV31Signal(env,s){
 async function trackV31Signals(env,market,style,priceMap){
   return [];
 }
-const PORTFOLIO_POLICY=Object.freeze({maxActiveTotal:4,maxActivePerMarket:4,maxActivePerStyle:2,maxNewPerScan:1,minActivePerStyle:1,maxActivePerRiskCluster:2,maxMemeActiveTotal:1,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC',coverageMode:'CRYPTO_ONLY_STYLE_COVERAGE_QUALITY_FIRST',cryptoPendingMonitor:'DURABLE_OBJECT_ALARM_1S',forexDisabled:true});
+const PORTFOLIO_POLICY=Object.freeze({maxActiveTotal:4,maxActivePerMarket:4,maxActivePerStyle:2,maxNewPerScan:2,minActivePerStyle:2,targetActivePerStyle:2,maxActivePerRiskCluster:2,maxMemeActiveTotal:1,oneActivePerSymbolAcrossStyles:true,reservation:'DURABLE_OBJECT_ATOMIC',coverageMode:'CRYPTO_FIXED_2X2_STRICT_THEN_CONDITIONAL',cryptoPendingMonitor:'DURABLE_OBJECT_ALARM_1S',standbyPerStyle:3,replacementMode:'DURABLE_OBJECT_HOT_SPARE_ATOMIC_RESERVE_POOL',forexDisabled:true});
 function signOf(v){const n=Number(v);return n>0?1:n<0?-1:0;}
 function assessEntrySetup(raw){
   const s=raw||{},dir=['LONG','BUY'].includes(String(s.side||'').toUpperCase())?1:-1,entry=Number(s.entry),sl=Number(s.sl),t1=Number(s.tp1),t2=Number(s.tp2),t3=Number(s.tp3||s.tp),src=Number(s.sourcePrice||s.lastPrice||0),inv=Number(s.invalidationLevel),tech=s.technicalAtIssue||{},ev=s.qualityEvidence||{};
@@ -617,6 +672,31 @@ function assessEntrySetup(raw){
   const checks={cryptoOnly:String(s.market||'CRYPTO').toUpperCase()==='CRYPTO',cleanStory:typeof s.marketStory==='string'&&s.marketStory.length>=18,styleModel:s.styleExecutionModel===expectedStyle,contextAligned,confirmationStory,displacementOrLiquidity,structureEvidence,secondaryProvider:s.crossProviderConfirmation===true,entryLocation:src>0&&marketLocation,pendingReachable,invalidation:Number.isFinite(inv)&&inv>0&&(dir>0?inv<entry:inv>entry),targetPath,spreadQuality,liquidityQuality,momentumSanity,executionConditions:String(s.executionCaution||'NORMAL').toUpperCase()!=='WIDE',liveSource:src>0};
   const failed=Object.entries(checks).filter(([,v])=>!v).map(([k])=>k),pass=failed.length===0;s.qualityEvidence={...ev,contextAligned,secondaryProviderConfirmed:s.crossProviderConfirmation===true,entryNotChasing:src>0&&marketLocation,invalidationStructural:checks.invalidation,targetPathClear:targetPath};
   return {verdict:pass?'PASS':'NO_TRADE',method:'V314_CRYPTO_EVIDENCE_CHECKS_NO_NUMERIC_SCORE',checks,failed,executionFacts:{extensionAtr:Number(ext.toFixed(3)),triggerDistanceR:Number(triggerDistance.toFixed(3)),spreadBps:spread,turnover24h:turnover,riskCluster:s.riskCluster||cryptoRiskCluster(s.symbol)}};
+}
+function assessCoverageSetup(raw){
+  const s=raw||{},dir=['LONG','BUY'].includes(String(s.side||'').toUpperCase())?1:-1,entry=Number(s.entry),sl=Number(s.sl),t1=Number(s.tp1),t2=Number(s.tp2),t3=Number(s.tp3||s.tp),src=Number(s.sourcePrice||s.lastPrice||0),inv=Number(s.invalidationLevel),tech=s.technicalAtIssue||{};
+  const style=String(s.style||'SCALP').toUpperCase(),order=String(s.orderType||'').toUpperCase(),risk=Math.abs(entry-sl),triggerDistance=risk>0&&src>0?Math.abs(src-entry)/risk:999;
+  const targetPath=dir>0?sl<entry&&entry<t1&&t1<t2&&t2<t3:sl>entry&&entry>t1&&t1>t2&&t2>t3;
+  const entryLocation=order==='LIMIT'?(dir>0?entry<src:entry>src):order==='STOP'?(dir>0?entry>src:entry<src):false;
+  const spread=Number(tech.spreadBps||0),turnover=Number(tech.turnover24h||0);
+  const checks={cryptoOnly:String(s.market||'CRYPTO').toUpperCase()==='CRYPTO',pendingOnly:['LIMIT','STOP'].includes(order),structure:validSignalStructure(s),cleanStory:typeof s.marketStory==='string'&&s.marketStory.length>=18,styleModel:s.styleExecutionModel===(style==='SWING'?'SWING_HTF_STRUCTURE':'SCALP_MICROSTRUCTURE'),liveSource:src>0,entryLocation,pendingReachable:triggerDistance<=(style==='SWING'?1.80:1.40),invalidation:Number.isFinite(inv)&&inv>0&&(dir>0?inv<entry:inv>entry),targetPath,spreadHard:spread>=0&&spread<=(style==='SWING'?18:8),liquidityHard:turnover>=(style==='SWING'?10_000_000:20_000_000)};
+  const failed=Object.entries(checks).filter(([,v])=>!v).map(([k])=>k),pass=failed.length===0;
+  return {verdict:pass?'PASS':'NO_TRADE',method:'V315_FIXED_2X2_HARD_SAFETY',tier:'BEST_AVAILABLE_CONDITIONAL',checks,failed,executionFacts:{triggerDistanceR:Number(triggerDistance.toFixed(3)),spreadBps:spread,turnover24h:turnover,riskCluster:s.riskCluster||cryptoRiskCluster(s.symbol)}};
+}
+function toStandbyCandidate(raw){
+  if(!raw)return null;const s={...raw,technicalAtIssue:{...(raw.technicalAtIssue||{})},qualityEvidence:{...(raw.qualityEvidence||{})}},style=String(s.style||'SCALP').toUpperCase(),dir=['LONG','BUY'].includes(String(s.side||'').toUpperCase())?1:-1,src=Number(s.sourcePrice||s.lastPrice||0);if(!(src>0))return null;
+  let entry=Number(s.entry||src),sl=Number(s.sl||0),risk=Math.abs(entry-sl),order=String(s.orderType||'').toUpperCase();if(!(risk>0))return null;
+  if(!['LIMIT','STOP'].includes(order)){
+    const spreadPx=Math.max(0,src*Number(s.technicalAtIssue?.spreadBps||0)/10000),offset=Math.max(risk*(style==='SWING'?.16:.11),spreadPx*2.5);
+    order='STOP';entry=src+dir*offset;
+    if((dir>0&&!(sl<entry))||(dir<0&&!(sl>entry)))sl=entry-dir*risk;
+    risk=Math.abs(entry-sl);if(!(risk>0))return null;
+    const minRR=style==='SWING'?2.85:2.20;
+    s.tp1=entry+dir*risk*.92;s.tp2=entry+dir*risk*1.58;s.tp3=entry+dir*risk*minRR;s.tp=s.tp3;s.targetRR=minRR;s.entryModel='HOT_SPARE_CONFIRMATION_STOP';
+  }
+  s.orderType=order;s.entry=entry;s.sl=sl;s.status='PENDING';s.entryState='PENDING_ENTRY';s.lifecycle='PENDING_ENTRY';s.coverageFallback=true;s.coverageTier='HOT_SPARE_CONDITIONAL';s.standbySource='DERIVED_FROM_CURRENT_ANALYSIS';s.qualityEvidence.coverageConditional=true;
+  if(!Number.isFinite(Number(s.invalidationLevel))||Number(s.invalidationLevel)<=0)s.invalidationLevel=sl;
+  const a=assessCoverageSetup(s);if(a.verdict!=='PASS')return null;s.entryAssessment=a;return s;
 }
 function setupPriority(s){
   const r=String(s.marketRegime||''),family=r.includes('LIQUIDITY')?0:r.includes('RECLAIM')?1:r.includes('BREAKOUT')?2:r.includes('CONTINUATION')?3:4,spread=Number(s?.technicalAtIssue?.spreadBps||999),ext=Math.abs(Number(s?.technicalAtIssue?.extensionAtr||0)),turnover=Number(s?.technicalAtIssue?.turnover24h||0);
@@ -645,13 +725,13 @@ async function reserveRealtimeSignal(env,s,kvKey){
 async function releaseRealtimeSignal(env,id){const stub=mt5LiveStub(env);if(!stub)return;try{await stub.fetch('https://mt5-live/unregister-signal',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});}catch{}}
 async function maybeCreateV31(env,market,style,setups){
   if(!env?.SIGNALS_KV)return[];
-  const book=await getActiveBook(env),made=[],candidates=(setups||[]).map(x=>{const assessment=assessEntrySetup(x);return {...x,entryAssessment:assessment};}).filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority);
+  const book=await getActiveBook(env),made=[],candidates=(setups||[]).map(x=>{const strict=assessEntrySetup(x);if(strict.verdict==='PASS')return {...x,coverageTier:'STRICT_CONFIRMED',entryAssessment:strict};const fallback=Boolean(x.coverageFallback)?assessCoverageSetup(x):strict;return {...x,entryAssessment:fallback};}).filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority);
   const activeTotal=()=>book.length,marketCount=()=>book.filter(x=>x.market===market).length,styleCount=()=>book.filter(x=>x.style===style).length;
   for(const rawSetup of candidates){
     if(made.length>=PORTFOLIO_POLICY.maxNewPerScan||activeTotal()>=PORTFOLIO_POLICY.maxActiveTotal||marketCount()>=PORTFOLIO_POLICY.maxActivePerMarket||styleCount()>=PORTFOLIO_POLICY.maxActivePerStyle)break;
     const setup=stampMarketJudgment({...rawSetup},market,style);if(!validSignalStructure(setup))continue;
     if(book.some(x=>x.market===market&&x.symbol===setup.symbol))continue;
-    const issuedAt=nowIso(),id=`V314-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
+    const issuedAt=nowIso(),id=`V315-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
     const s=normalizeDisplaySignal({...setup,id,issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT,portfolioPolicy:PORTFOLIO_POLICY,reservationMode:'DURABLE_OBJECT_ATOMIC'},market,style),kvKey=v31Prefix(market,style)+id;
     const reservation=await reserveRealtimeSignal(env,s,kvKey);if(!reservation?.accepted)continue;
     s.portfolioReservation={accepted:true,mode:'DURABLE_OBJECT_ATOMIC',activeTotal:Number(reservation.activeTotal||0)};
@@ -664,22 +744,22 @@ async function scanCrypto(env,style){
   style=String(style||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';
   const trackerEvents=await retireAllLegacyActiveSignals(env);
   const snap=await loadCryptoSnapshot(env);if(snap.live===false)return {ok:true,version:V3_VERSION,market:'CRYPTO',style,status:'NO_FRESH_CRYPTO_SNAPSHOT',created:0,provider:snap.provider,live:false,portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY};
-  const all=snap.rows,portfolio=await realtimePortfolioSnapshot(env),styleEmpty=Number(portfolio.styles?.[style]||0)<PORTFOLIO_POLICY.minActivePerStyle;
-  const rankedLimit=style==='SCALP'?(styleEmpty?20:14):(styleEmpty?18:12),minTurnover=style==='SCALP'?20_000_000:10_000_000,maxSpread=style==='SCALP'?8:18;
+  const all=snap.rows,portfolio=await realtimePortfolioSnapshot(env),styleUnderfilled=Number(portfolio.styles?.[style]||0)<PORTFOLIO_POLICY.targetActivePerStyle;
+  const rankedLimit=style==='SCALP'?(styleUnderfilled?30:14):(styleUnderfilled?26:12),minTurnover=style==='SCALP'?20_000_000:10_000_000,maxSpread=style==='SCALP'?8:18;
   const liquid=all.filter(x=>Number(x.lastPrice)>0&&Number(x.turnover24h||0)>=minTurnover&&(x.spreadBps==null||Number(x.spreadBps)<=maxSpread));
   const ranked=liquid.sort((a,b)=>Number(b.turnover24h||0)-Number(a.turnover24h||0)).slice(0,rankedLimit);
-  const rawAnalyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean),assessed=rawAnalyses.map(x=>({...x,entryAssessment:assessEntrySetup(x)})),analyses=assessed.filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority);
-  const created=await maybeCreateV31(env,'CRYPTO',style,analyses);await kickCryptoServerMonitor(env).catch(()=>{});
-  return {ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market:'CRYPTO',style,provider:snap.provider,live:true,scanned:all.length,liquidUniverse:liquid.length,deepAnalyzed:ranked.length,evaluated:rawAnalyses.length,actionable:analyses.length,rejectedByAssessment:rawAnalyses.length-analyses.length,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,portfolioBlocked:Math.max(0,analyses.length-created.length),newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'V3.14 crypto stability engine: confirmation-first SCALP/SWING, secondary-provider evidence and cluster concentration control. No predicted win-rate or numeric setup score.'};
+  const rawAnalyses=(await Promise.all(ranked.map(t=>analyzeCryptoCandidate(t,style)))).filter(Boolean),assessed=rawAnalyses.map(x=>{const strict=assessEntrySetup(x);const assessment=strict.verdict==='PASS'?strict:(x.coverageFallback?assessCoverageSetup(x):strict);return {...x,entryAssessment:assessment};}),analyses=assessed.filter(x=>x.entryAssessment.verdict==='PASS').sort(compareSetupPriority);
+  const created=await maybeCreateV31(env,'CRYPTO',style,analyses),activeBook=await getActiveBook(env),activeSymbols=new Set(activeBook.map(x=>canonical(x.symbol))),standbyCandidates=rawAnalyses.map(toStandbyCandidate).filter(Boolean).filter(x=>!activeSymbols.has(canonical(x.symbol))).sort(compareSetupPriority).slice(0,PORTFOLIO_POLICY.standbyPerStyle),standby=await setCryptoStandbys(env,style,standbyCandidates);let promotion=null,afterCreate=await realtimePortfolioSnapshot(env);if(Number(afterCreate.styles?.[style]||0)<PORTFOLIO_POLICY.targetActivePerStyle)promotion=await promoteCryptoStandby(env,style,'SCAN_IMMEDIATE_REFILL');await kickCryptoServerMonitor(env).catch(()=>{});
+  return {ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market:'CRYPTO',style,provider:snap.provider,live:true,scanned:all.length,liquidUniverse:liquid.length,deepAnalyzed:ranked.length,evaluated:rawAnalyses.length,actionable:analyses.length,rejectedByAssessment:rawAnalyses.length-analyses.length,noTrade:Math.max(0,ranked.length-analyses.length),created:created.length,portfolioBlocked:Math.max(0,analyses.length-created.length),standby,promotion,newSignals:created,trackerEvents,topAnalyses:analyses.slice(0,8),portfolioPolicy:PORTFOLIO_POLICY,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'V3.15.2 fixed 2x2 reserve-pool engine: strict signals are preferred; every scan also derives hard-safety checked conditional pending reserves from the broader live analysis set, preserves prior valid reserves, and atomically promotes a reserve whenever a style drops below two.'};
 }
 
 async function cryptoOnlyMaintenance(env){
   let p=await realtimePortfolioSnapshot(env),attempted=[];
   for(const style of ['SCALP','SWING']){
-    if(Number(p.styles?.[style]||0)>=PORTFOLIO_POLICY.minActivePerStyle)continue;
-    attempted.push(style);await scanCrypto(env,style).catch(()=>{});p=await realtimePortfolioSnapshot(env);
+    const underfilled=Number(p.styles?.[style]||0)<PORTFOLIO_POLICY.minActivePerStyle;attempted.push(`${style}:${underfilled?'REFILL':'STANDBY_REFRESH'}`);await scanCrypto(env,style).catch(()=>{});p=await realtimePortfolioSnapshot(env);
+    if(Number(p.styles?.[style]||0)<PORTFOLIO_POLICY.targetActivePerStyle){await promoteCryptoStandby(env,style,'MAINTENANCE_REFILL').catch(()=>{});p=await realtimePortfolioSnapshot(env);}
   }
-  await kickCryptoServerMonitor(env).catch(()=>{});return {attempted,portfolio:p};
+  await kickCryptoServerMonitor(env).catch(()=>{});return {attempted,portfolio:p,standbys:await cryptoStandbyStatus(env)};
 }
 
 async function exnessQuoteMap(env){
@@ -803,8 +883,13 @@ async function unifiedSignals(url,env,ctx){
   const market='CRYPTO',style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP',status=String(url.searchParams.get('status')||'active').toLowerCase(),limit=Math.min(300,Math.max(1,Number(url.searchParams.get('limit')||120)));
   let rows=await getV31Signals(env,market,style);rows=rows.map(x=>normalizeDisplaySignal(x,market,style));
   rows=rows.filter(s=>status==='all'||(status==='active'&&(s.status==='PENDING'||s.status==='OPEN'))||(status==='closed'&&s.status==='CLOSED')||String(s.status||'').toLowerCase()===status).slice(0,limit);
-  if(status==='active'&&rows.length===0&&ctx?.waitUntil)ctx.waitUntil(Promise.resolve(scanCrypto(env,style)).catch(()=>{}));
-  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market,style,partitionKey:`CRYPTO:${style}`,status,count:rows.length,dataHealth:{provider:'LIVE_CRYPTO_PROVIDER_PINNED',state:'SERVER_MONITORED'},decisionPolicy:MARKET_JUDGMENT_POLICY,signals:rows});
+  if(status==='active'&&rows.length<PORTFOLIO_POLICY.targetActivePerStyle){
+    for(let attempt=0;attempt<3&&rows.length<PORTFOLIO_POLICY.targetActivePerStyle;attempt++){
+      await promoteCryptoStandby(env,style,'ACTIVE_READ_REFILL').catch(()=>{});await scanCrypto(env,style).catch(()=>{});await promoteCryptoStandby(env,style,'ACTIVE_READ_REFILL_AFTER_SCAN').catch(()=>{});
+      let refreshed=await getV31Signals(env,market,style);refreshed=refreshed.map(x=>normalizeDisplaySignal(x,market,style));rows=refreshed.filter(s=>s.status==='PENDING'||s.status==='OPEN').slice(0,limit);
+    }
+  }
+  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',market,style,partitionKey:`CRYPTO:${style}`,status,count:rows.length,targetActive:PORTFOLIO_POLICY.targetActivePerStyle,dataHealth:{provider:'LIVE_CRYPTO_PROVIDER_PINNED',state:'SERVER_MONITORED'},decisionPolicy:MARKET_JUDGMENT_POLICY,signals:rows});
 }
 
 async function unifiedPerformance(url,env){
@@ -817,7 +902,7 @@ async function scanRoute(url,env,ctx){
   const style=String(url.searchParams.get('style')||'SCALP').toUpperCase()==='SWING'?'SWING':'SCALP';return json(await scanCrypto(env,style));
 }
 
-async function v314Stability(env){
+async function v315Stability(env){
   const portfolio=await realtimePortfolioSnapshot(env),monitor=await cryptoServerMonitorStatus(env),styles={};let totalResolved=0,totalTp=0,totalSl=0,totalNetR=0;
   for(const style of ['SCALP','SWING']){
     const rows=await getV31Signals(env,'CRYPTO',style),resolved=rows.filter(s=>s.status==='CLOSED'&&(s.outcome==='TP'||s.outcome==='SL')),tp=resolved.filter(s=>s.outcome==='TP').length,sl=resolved.filter(s=>s.outcome==='SL').length,netR=resolved.reduce((a,s)=>a+Number(s.resultR||0),0),wr=resolved.length?tp/resolved.length*100:null;
@@ -831,19 +916,20 @@ async function v314Stability(env){
 async function v3Status(env,ctx){
   const portfolio=await realtimePortfolioSnapshot(env),cryptoMonitor=await cryptoServerMonitorStatus(env),missing=['SCALP','SWING'].filter(st=>Number(portfolio.styles?.[st]||0)<PORTFOLIO_POLICY.minActivePerStyle);
   if(missing.length&&ctx?.waitUntil)ctx.waitUntil(Promise.resolve(cryptoOnlyMaintenance(env)).catch(()=>{}));
-  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',service:'SignalHub Crypto Stability SCALP/SWING gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,crypto:{priceAuthority:'PROVIDER_PINNED_BYBIT_PREFERRED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'CONFIRMATION_FIRST_5M_15M_1H',swing:'HTF_CONFIRMED_1H_4H_1D',pendingLifecycle:'DURABLE_OBJECT_ALARM_1S',crossProviderContextCheck:true},engines:{cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},forexDisabled:true,portfolio,missingStyles:missing,cryptoMonitor,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
+  return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',service:'SignalHub Crypto Fixed 2x2 SCALP/SWING gateway',checkpoint:CHECKPOINT,app:V31_RELEASE,crypto:{priceAuthority:'PROVIDER_PINNED_BYBIT_PREFERRED_OKX_BINANCE_FALLBACK',universe:'USDT_PERPETUAL',scalp:'FIXED_2_ACTIVE_STRICT_THEN_CONDITIONAL_5M_15M_1H',swing:'FIXED_2_ACTIVE_STRICT_THEN_CONDITIONAL_1H_4H_1D',pendingLifecycle:'DURABLE_OBJECT_ALARM_1S',crossProviderContextCheck:true},engines:{cryptoScalp:'ACTIVE',cryptoSwing:'ACTIVE'},forexDisabled:true,portfolio,missingStyles:missing,cryptoMonitor,decisionPolicy:MARKET_JUDGMENT_POLICY,winRatePolicy:'HISTORICAL_RESOLVED_TP_SL_ONLY_NOT_PREDICTED_PROBABILITY'});
 }
 async function handleV3(req,env,ctx){
   const url=new URL(req.url);if(req.method==='OPTIONS')return new Response(null,{status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'content-type, authorization, x-signalhub-bridge','access-control-allow-methods':'GET,POST,OPTIONS'}});
   try{
     if(url.pathname==='/v3/status'&&req.method==='GET')return v3Status(env,ctx);
-    if(url.pathname==='/v3/stability'&&req.method==='GET')return v314Stability(env);
+    if(url.pathname==='/v3/stability'&&req.method==='GET')return v315Stability(env);
     if(url.pathname==='/v3/app-version'&&req.method==='GET')return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',checkpoint:CHECKPOINT,app:V31_RELEASE});
     if(url.pathname.startsWith('/v3/mt5/')&&req.method==='POST')return json({ok:true,version:V3_VERSION,ignored:true,mode:'CRYPTO_ONLY_STABILITY',reason:'FOREX_BRANCH_DISABLED'});
     if(url.pathname.startsWith('/v3/forex/'))return json({ok:false,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',error:'FOREX_DISABLED_CRYPTO_ONLY'},410);
     if(url.pathname==='/v3/crypto/tickers'&&req.method==='GET')return cryptoTickers(url,env);
     if(url.pathname==='/v3/crypto/monitor'&&req.method==='GET'){const kick=url.searchParams.get('kick')==='1'?await kickCryptoServerMonitor(env):null;if(ctx?.waitUntil)ctx.waitUntil(Promise.resolve(cryptoOnlyMaintenance(env)).catch(()=>{}));return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',status:await cryptoServerMonitorStatus(env),kick,portfolio:await realtimePortfolioSnapshot(env)});}
     if(url.pathname==='/v3/portfolio'&&req.method==='GET')return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',portfolio:await realtimePortfolioSnapshot(env),policy:PORTFOLIO_POLICY});
+    if(url.pathname==='/v3/standbys'&&req.method==='GET')return json({ok:true,version:V3_VERSION,mode:'CRYPTO_ONLY_STABILITY',standbys:await cryptoStandbyStatus(env)});
     if(url.pathname==='/v3/crypto/discovery'&&req.method==='GET')return cryptoDiscovery(url,env);
     if(url.pathname==='/v3/scan'&&req.method==='GET')return scanRoute(url,env,ctx);
     if(url.pathname==='/v3/signals'&&req.method==='GET')return unifiedSignals(url,env,ctx);
