@@ -5,6 +5,7 @@ on:
     branches: [signalhub-v321-standardized-watch-ideal]
     paths:
       - 'scripts/patch_signalhub_v321_standardized_watch_ideal.py'
+      - 'scripts/patch_signalhub_v321_precompat.py'
       - '.github/workflows/build-deploy-signalhub-v321-standardized-watch-ideal.yml'
   workflow_dispatch:
 
@@ -33,6 +34,7 @@ jobs:
           python3 scripts/patch_signalhub_v3191_reference_fallback.py
           python3 scripts/patch_signalhub_v320_stable100_continuous.py
           python3 scripts/patch_signalhub_v3201_okx_liquidity.py
+          python3 scripts/patch_signalhub_v321_precompat.py
           python3 scripts/patch_signalhub_v321_standardized_watch_ideal.py
           node --check signalhub-worker/gateway-v3.js
 
@@ -89,7 +91,6 @@ jobs:
       - name: Build and prove standardized Stable100
         run: |
           set -euo pipefail
-          # First request may rebuild the new schema namespace from all three venues.
           ok=0
           for n in $(seq 1 8); do
             curl -fsS --max-time 120 "$BASE/v3/crypto/stable100?v321=$RANDOM-$n" >/tmp/u.json || true
@@ -140,7 +141,7 @@ jobs:
           assert not x.get('problems'),x
           PY
 
-      - name: Prove Watchlist always has ideal Entry SL TP reference when market data is available
+      - name: Prove Watchlist ideal Entry SL TP and isolation
         run: |
           set -euo pipefail
           curl -fsS --max-time 30 "$BASE/v3/portfolio?before=$RANDOM" >/tmp/p0.json
@@ -191,7 +192,7 @@ jobs:
           set -euo pipefail
           cat > SIGNALHUB_V3_CHECKPOINT_13_STANDARDIZED_WATCH_IDEAL.md <<'EOF'
           # SignalHub V3.21 — Standardized Data + Ideal Watchlist
-          Stable100 now has a versioned CRYPTO_MARKET_ROW_V3 schema, a normalization-version identity and a V3.21-specific cache namespace. Old/incompatible snapshots cannot silently survive an engine update. The crypto universe is composed from live Bybit, OKX and Binance perpetual tickers, canonicalized by symbol, normalized to quote turnover, ranked by quality tier/turnover/OI/spread/move, and stripped of known tokenized TradFi/metals/stablecoin bases. The scanner retains stricter SCALP/SWING liquidity rules and the 10 SCALP + 5 SWING portfolio target with 20 hot spares/style. Watchlist analysis is read-only. When a confirmed/conditional active-style setup is unavailable but valid live ticker+candle data exist, Watchlist generates an IDEAL_REFERENCE LIMIT/STOP plan with structure-derived Entry, invalidation-buffered SL and TP1/TP2/TP3. Reference plans explicitly set studyOnly=true, occupiesActiveSlot=false and performanceEligible=false and are never persisted as active signals.
+          Stable100 uses versioned CRYPTO_MARKET_ROW_V3 data, strict normalization identity, and a V3.21-specific cache namespace. Incompatible snapshots are rejected after updates. The universe is composed from Bybit, OKX and Binance perpetual data, canonicalized, normalized to quote turnover, quality-tier ranked, and stripped of known tokenized TradFi/metals/stablecoin bases. Watchlist stays read-only and returns structure-derived ideal LIMIT/STOP Entry, invalidation-buffered SL and TP1/TP2/TP3 when valid data exist. Reference plans never consume active slots or performance history.
           EOF
           mkdir -p dist
           cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.21.0-Standardized-Watch-Ideal.apk
