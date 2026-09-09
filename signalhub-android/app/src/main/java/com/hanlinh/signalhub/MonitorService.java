@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
 public class MonitorService extends Service {
     private static final String CH_MONITOR="signalhub_monitor_v33", CH_SIGNAL="signalhub_signal_v33";
     private static final int FOREGROUND_ID=7201;
-    private static final long LOOP_MS=5000L;
+    private static final long LOOP_MS=2000L;
     private static final long RECENT_NEW_MS=10*60*1000L;
     private volatile boolean running;
     private ExecutorService worker;
@@ -52,6 +52,7 @@ public class MonitorService extends Service {
     }
 
     private void syncAll(){
+        try{ApiClient.getLive("/v3/crypto/tickers?limit=1000");}catch(Throwable ignored){}
         int active=0,failed=0;
         for(String market:new String[]{"FOREX","CRYPTO"}){
             for(String style:new String[]{"SCALP","SWING"}){
@@ -128,7 +129,7 @@ public class MonitorService extends Service {
     private Notification monitor(String text){
         return new Notification.Builder(this,CH_MONITOR)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("SignalHub V3.7 • LIVE MONITOR")
+                .setContentTitle("SignalHub V3.8 • LIVE MONITOR")
                 .setContentText(text).setOngoing(true).setOnlyAlertOnce(true).setContentIntent(open()).build();
     }
 

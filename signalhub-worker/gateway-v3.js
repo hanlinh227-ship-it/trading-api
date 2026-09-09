@@ -1,6 +1,6 @@
 import legacy from './gateway.js';
 
-const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.7.0';
+const V3_VERSION = 'SIGNALHUB-V3-GATEWAY-3.8.0';
 const CHECKPOINT = 'SIGNALHUB_V3_CHECKPOINT_05';
 const MT5_QUOTE_TTL = 120;
 const MT5_HEARTBEAT_TTL = 180;
@@ -16,15 +16,17 @@ const FOREX = [
   'NZDCAD','NZDCHF','NZDJPY','NZDUSD','USDCAD','USDCHF','USDJPY'
 ];
 const V31_RELEASE = {
-  versionCode: 13,
-  versionName: '3.7.0',
-  title: 'SignalHub 3.7.0',
+  versionCode: 14,
+  versionName: '3.8.0',
+  title: 'SignalHub 3.8.0',
   releasedAt: '2026-09-09T00:00:00Z',
   mandatory: false,
   minSupportedVersionCode: 6,
-  artifactName: 'SignalHub-Android-v3.7.0',
+  artifactName: 'SignalHub-Android-v3.8.0',
   notes: [
-    'V3.7 Structure-Liquidity Engine: entries, stops and targets are derived from live structure, liquidity/rejection and volatility context.',
+    'V3.8 separates SCALP microstructure execution from SWING higher-timeframe execution and tracks pending triggers continuously.',
+    'LIMIT/STOP activation is event-driven from live prices; Forex uses MT5 Ask for BUY triggers and Bid for SELL triggers.',
+    'V3.7 Structure-Liquidity Engine retained: entries, stops and targets are derived from live structure, liquidity/rejection and volatility context.',
     'Stops sit beyond the bot-selected invalidation structure with ATR buffer; targets prefer structure/liquidity objectives before expansion.',
     'V3.6 Market Judgment retained: no score gate, no minimum score, no RR admission threshold and no signal cooldown.',
     'Bot classifies regime and actively chooses MARKET / LIMIT / STOP / NO TRADE from current market structure.',
@@ -71,8 +73,16 @@ const MARKET_JUDGMENT_POLICY = Object.freeze({
   historicalWinRateMode:'RESOLVED_TP_SL_ONLY',
   entryModel:'STRUCTURE_LIQUIDITY_CONTEXT',
   stopModel:'INVALIDATION_STRUCTURE_PLUS_VOLATILITY_BUFFER',
-  targetModel:'LIQUIDITY_STRUCTURE_THEN_EXPANSION'
+  targetModel:'LIQUIDITY_STRUCTURE_THEN_EXPANSION',
+  styleSeparation:'SCALP_MICROSTRUCTURE_VS_SWING_HTF_STRUCTURE',
+  pendingActivation:'PRICE_TOUCH_EVENT_DRIVEN_NO_COOLDOWN'
 });
+
+const STYLE_EXECUTION_POLICY = Object.freeze({
+  SCALP:Object.freeze({name:'SCALP_MICROSTRUCTURE',frames:['5m','15m','1h'],execution:'5m',context:'15m/1h',entryFocus:'sweep/reclaim, micro pullback, momentum continuation, breakout trigger',stopFocus:'nearest validated microstructure invalidation + volatility/spread buffer',targetFocus:'local liquidity then 15m/1h structure',holdModel:'short-horizon active management'}),
+  SWING:Object.freeze({name:'SWING_HTF_STRUCTURE',frames:['1h','4h','1d'],execution:'1h',context:'4h/1d',entryFocus:'H1 pullback/reclaim, HTF continuation, H1 breakout confirmation',stopFocus:'H1/H4 invalidation + wider volatility buffer',targetFocus:'H4/D1 liquidity and structural expansion',holdModel:'multi-session structure hold'})
+});
+
 function validSignalStructure(signal){
   if(!signal)return false;
   const entry=Number(signal.entry||0),sl=Number(signal.sl||0),tp=Number(signal.tp3||signal.tp||0);
@@ -90,6 +100,7 @@ function stampMarketJudgment(signal,market,style){
   signal.entryState=String(signal.orderType||'MARKET').toUpperCase()==='MARKET'?'LIVE':'PENDING_ENTRY';
   signal.market=String(market||signal.market||'FOREX').toUpperCase();
   signal.style=String(style||signal.style||'SCALP').toUpperCase();
+  signal.styleProfile=STYLE_EXECUTION_POLICY[signal.style]||STYLE_EXECUTION_POLICY.SCALP;
   delete signal.score;delete signal.qualityGrade;delete signal.scoreMeaning;
   delete signal.admissionGate;
   return signal;
@@ -98,49 +109,66 @@ function stampMarketJudgment(signal,market,style){
 
 export class MT5LiveState {
   constructor(state, env) {
-    this.state = state;
-    this.env = env;
-    this.clients = new Set();
+    this.state=state;this.env=env;this.clients=new Set();this.signalRegistry=null;
+  }
+  async registry(){if(this.signalRegistry===null)this.signalRegistry=(await this.state.storage.get('signalRegistry'))||{};return this.signalRegistry;}
+  async persistRegistry(){await this.state.storage.put('signalRegistry',this.signalRegistry||{});}
+  broadcast(obj){const msg=JSON.stringify(obj);for(const ws of [...this.clients]){try{ws.send(msg);}catch{this.clients.delete(ws);}}}
+  async registerSignal(payload){
+    const s=payload?.signal||payload,id=String(s?.id||s?.signalId||'');if(!id)return {ok:false,error:'NO_SIGNAL_ID'};
+    const reg=await this.registry();
+    if(s.status==='PENDING'||s.status==='OPEN')reg[id]={...s,kvKey:String(payload?.kvKey||`v31:signal:${s.market}:${s.style}:${id}`)};else delete reg[id];
+    await this.persistRegistry();return {ok:true,id,status:s.status};
+  }
+  async unregisterSignal(payload){const id=String(payload?.id||payload?.signalId||'');if(!id)return {ok:false};const reg=await this.registry();delete reg[id];await this.persistRegistry();return {ok:true,id};}
+  async evaluate(market,rows,receivedAt){
+    const reg=await this.registry(),by=new Map();
+    for(const q of rows||[]){const sym=canonical(q?.symbol);if(!sym)continue;by.set(sym,q);}
+    const changed=[],at=receivedAt||nowIso();let dirty=false;
+    for(const [id,s] of Object.entries(reg)){
+      if(String(s.market||'').toUpperCase()!==String(market||'').toUpperCase())continue;
+      if(s.status!=='PENDING'&&s.status!=='OPEN'){delete reg[id];dirty=true;continue;}
+      const q=by.get(canonical(s.symbol));if(!q)continue;
+      const dir=String(s.side||'').toUpperCase()==='LONG'||String(s.side||'').toUpperCase()==='BUY'?1:-1;
+      let entryPx,exitPx;
+      if(String(market).toUpperCase()==='FOREX'){
+        const bid=Number(q.bid||q.mid||0),ask=Number(q.ask||q.mid||0);entryPx=dir>0?ask:bid;exitPx=dir>0?bid:ask;
+      }else{const last=Number(q.lastPrice||q.last||q.mid||0);entryPx=last;exitPx=last;}
+      if(!(entryPx>0&&exitPx>0))continue;
+      const entry=Number(s.entry),sl=Number(s.sl),tp=Number(s.tp3||s.tp);let mutated=false,eventType='';
+      if(s.status==='PENDING'){
+        const type=String(s.orderType||'').toUpperCase();
+        const trigger=type==='LIMIT'?(dir>0?entryPx<=entry:entryPx>=entry):type==='STOP'?(dir>0?entryPx>=entry:entryPx<=entry):false;
+        if(trigger){s.status='OPEN';s.lifecycle='ACTIVE';s.entryState='LIVE';s.triggeredAt=at;s.triggerPrice=entryPx;s.actualEntry=s.actualEntry||entry;s.executionStatus='PRICE_TRIGGERED_AWAITING_BROKER_CONFIRM';eventType='TRIGGERED';mutated=true;}
+      }
+      if(s.status==='OPEN'){
+        const hitTp=dir>0?exitPx>=tp:exitPx<=tp,hitSl=dir>0?exitPx<=sl:exitPx>=sl;
+        if(hitTp||hitSl){s.status='CLOSED';s.outcome=hitTp?'TP':'SL';s.lifecycle=hitTp?'TP3_HIT':'STOP_LOSS_HIT';s.closedAt=at;s.exitPrice=hitTp?tp:sl;s.resultR=hitTp?Number(s.targetRR||0):-1;s.resolution='REALTIME_EVENT_TRACKER';eventType=s.outcome;mutated=true;delete reg[id];dirty=true;}
+      }
+      if(mutated){
+        s.lastPrice=exitPx;s.lastCheckedAt=at;
+        const kvKey=String(s.kvKey||`v31:signal:${s.market}:${s.style}:${id}`);const clean={...s};delete clean.kvKey;
+        if(this.env?.SIGNALS_KV){await this.env.SIGNALS_KV.put(kvKey,JSON.stringify(clean),{expirationTtl:SIGNAL_TTL});if(clean.status==='CLOSED')await this.env.SIGNALS_KV.delete(`v31:active:${clean.market}:${clean.style}:${clean.symbol}`);}
+        if(clean.status!=='CLOSED')reg[id]={...clean,kvKey};dirty=true;changed.push({type:eventType,signal:clean,price:eventType==='TRIGGERED'?entryPx:exitPx,at});this.broadcast({type:'signal_event',event:eventType,signal:clean,price:eventType==='TRIGGERED'?entryPx:exitPx,receivedAt:at});
+      }
+    }
+    if(dirty)await this.persistRegistry();return changed;
   }
   async fetch(req) {
-    const url = new URL(req.url);
-    if (req.headers.get('Upgrade') === 'websocket') {
-      const pair = new WebSocketPair();
-      const client = pair[0], server = pair[1];
-      server.accept();
-      this.clients.add(server);
-      const drop = () => this.clients.delete(server);
-      server.addEventListener('close', drop);
-      server.addEventListener('error', drop);
-      try {
-        const quotes = await this.state.storage.get('quotes');
-        const heartbeat = await this.state.storage.get('heartbeat');
-        if (quotes) server.send(JSON.stringify({type:'quotes', ...quotes, heartbeat:heartbeat||null}));
-      } catch {}
-      return new Response(null, {status:101, webSocket:client});
+    const url=new URL(req.url);
+    if(req.headers.get('Upgrade')==='websocket'){
+      const pair=new WebSocketPair(),client=pair[0],server=pair[1];server.accept();this.clients.add(server);const drop=()=>this.clients.delete(server);server.addEventListener('close',drop);server.addEventListener('error',drop);
+      try{const quotes=await this.state.storage.get('quotes'),heartbeat=await this.state.storage.get('heartbeat');if(quotes)server.send(JSON.stringify({type:'quotes',...quotes,heartbeat:heartbeat||null}));}catch{}
+      return new Response(null,{status:101,webSocket:client});
     }
-    if (req.method === 'POST' && url.pathname === '/prices') {
-      const packet = await req.json();
-      await this.state.storage.put('quotes', packet);
-      const msg = JSON.stringify({type:'quotes', ...packet});
-      for (const ws of [...this.clients]) {
-        try { ws.send(msg); } catch { this.clients.delete(ws); }
-      }
-      return new Response(JSON.stringify({ok:true,accepted:Number(packet.count||0),receivedAt:packet.receivedAt}), {headers:{'content-type':'application/json'}});
+    if(req.method==='POST'&&url.pathname==='/register-signal'){const p=await req.json();return new Response(JSON.stringify(await this.registerSignal(p)),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/unregister-signal'){const p=await req.json();return new Response(JSON.stringify(await this.unregisterSignal(p)),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/evaluate'){const p=await req.json(),events=await this.evaluate(p.market,p.rows||[],p.receivedAt);return new Response(JSON.stringify({ok:true,events}),{headers:{'content-type':'application/json'}});}
+    if(req.method==='POST'&&url.pathname==='/prices'){
+      const packet=await req.json();await this.state.storage.put('quotes',packet);this.broadcast({type:'quotes',...packet});const events=await this.evaluate('FOREX',packet.quotes||[],packet.receivedAt);return new Response(JSON.stringify({ok:true,accepted:Number(packet.count||0),receivedAt:packet.receivedAt,events:events.length}),{headers:{'content-type':'application/json'}});
     }
-    if (req.method === 'POST' && url.pathname === '/heartbeat') {
-      const heartbeat = await req.json();
-      await this.state.storage.put('heartbeat', heartbeat);
-      const msg = JSON.stringify({type:'heartbeat', heartbeat});
-      for (const ws of [...this.clients]) {
-        try { ws.send(msg); } catch { this.clients.delete(ws); }
-      }
-      return new Response(JSON.stringify({ok:true,receivedAt:heartbeat.receivedAt}), {headers:{'content-type':'application/json'}});
-    }
-    if (url.pathname === '/snapshot') {
-      const [quotes,heartbeat] = await Promise.all([this.state.storage.get('quotes'),this.state.storage.get('heartbeat')]);
-      return new Response(JSON.stringify({ok:!!quotes,quotes:quotes||null,heartbeat:heartbeat||null}), {headers:{'content-type':'application/json','cache-control':'no-store'}});
-    }
+    if(req.method==='POST'&&url.pathname==='/heartbeat'){const heartbeat=await req.json();await this.state.storage.put('heartbeat',heartbeat);this.broadcast({type:'heartbeat',heartbeat});return new Response(JSON.stringify({ok:true,receivedAt:heartbeat.receivedAt}),{headers:{'content-type':'application/json'}});}
+    if(url.pathname==='/snapshot'){const [quotes,heartbeat]=await Promise.all([this.state.storage.get('quotes'),this.state.storage.get('heartbeat')]);return new Response(JSON.stringify({ok:!!quotes,quotes:quotes||null,heartbeat:heartbeat||null}),{headers:{'content-type':'application/json','cache-control':'no-store'}});}
     return new Response('not found',{status:404});
   }
 }
@@ -148,6 +176,15 @@ function mt5LiveStub(env){
   if(!env?.MT5_LIVE)return null;
   return env.MT5_LIVE.get(env.MT5_LIVE.idFromName('primary'));
 }
+
+async function syncRealtimeSignal(env,s,kvKey){
+  const stub=mt5LiveStub(env);if(!stub||!s)return;
+  try{
+    if(s.status==='PENDING'||s.status==='OPEN')await stub.fetch('https://mt5-live/register-signal',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({signal:s,kvKey})});
+    else await stub.fetch('https://mt5-live/unregister-signal',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id:s.id||s.signalId})});
+  }catch{}
+}
+
 async function readMt5Realtime(env){
   const stub=mt5LiveStub(env);
   if(stub){
@@ -222,7 +259,8 @@ async function mt5Heartbeat(req,env){
   return json({ok:true,receivedAt,transport:'KV_FALLBACK'});
 }
 async function loadSignalById(kv,id){
-  for(const key of [`signal:${id}`,`v31:signal:${id}`]){
+  const parts=String(id||'').split('-'),partition=(parts.length>3&&/^V3\d+$/.test(parts[0]))?`v31:signal:${parts[1]}:${parts[2]}:${id}`:null;
+  for(const key of [`signal:${id}`,`v31:signal:${id}`,partition].filter(Boolean)){
     const raw=await kv.get(key); if(!raw)continue; try{return {key,signal:JSON.parse(raw)}}catch{}
   }
   return null;
@@ -242,7 +280,7 @@ async function patchSignalFromBrokerEvent(env,evt,receivedAt){
       s.status='CLOSED';s.outcome=reason;s.closedAt=receivedAt;s.exitPrice=price;if(risk&&risk>0)s.resultR=Number((dir*(price-entry)/risk).toFixed(4));s.resolution='BROKER_CONFIRMED_'+reason;
     }
   }else return {patched:false,reason:'EVENT_NOT_PATCHABLE'};
-  s.lastCheckedAt=receivedAt;await env.SIGNALS_KV.put(found.key,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});
+  s.lastCheckedAt=receivedAt;await env.SIGNALS_KV.put(found.key,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});await syncRealtimeSignal(env,s,found.key);
   return {patched:true,status:s.status,outcome:s.outcome||null};
 }
 async function mt5Event(req,env){
@@ -295,7 +333,8 @@ async function loadCryptoSnapshot(env){
 }
 async function cryptoTickers(url,env){
   const snap=await loadCryptoSnapshot(env),limit=Math.min(1000,Math.max(1,Number(url.searchParams.get('limit')||1000)));
-  return json({ok:true,version:V3_VERSION,market:'CRYPTO_USDT_PERP',provider:snap.provider,live:snap.live!==false,staleFallback:snap.staleFallback===true,ageMs:snap.ageMs??0,count:snap.rows.length,tickers:snap.rows.slice(0,limit),exchangeTime:snap.exchangeTime,receivedAt:snap.receivedAt,providerErrors:snap.errors||[],note:'Bybit is preferred. Any fallback exchange is explicitly labeled and is never presented as Bybit live.'});
+  if(snap.live!==false){const stub=mt5LiveStub(env);if(stub){try{await stub.fetch('https://mt5-live/evaluate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({market:'CRYPTO',rows:snap.rows,receivedAt:snap.receivedAt})});}catch{}}}
+  return json({ok:true,version:V3_VERSION,market:'CRYPTO_USDT_PERP',provider:snap.provider,live:snap.live!==false,staleFallback:snap.staleFallback===true,ageMs:snap.ageMs??0,count:snap.rows.length,tickers:snap.rows.slice(0,limit),exchangeTime:snap.exchangeTime,receivedAt:snap.receivedAt,providerErrors:snap.errors||[],note:'Bybit is preferred. Live snapshots also drive pending-order activation; fallback exchange is explicitly labeled.'});
 }
 async function cryptoDiscovery(url,env){
   const style=String(url.searchParams.get('style')||'scalp').toUpperCase()==='SWING'?'SWING':'SCALP';
@@ -344,7 +383,7 @@ function buildCryptoSetup(t,style,stats){
   else if(a.trend!==0&&a.momentum===a.trend&&Math.sign(a.slope||0)===a.trend){dir=a.trend;regime='MOMENTUM_CONTINUATION';}
   else return null;
 
-  const spread=Number(t.spreadBps??0),atr1=a.atr,spreadPx=Math.max(0,px*spread/10000),entryBuffer=Math.max(atr1*(style==='SCALP'?.055:.075),spreadPx*1.8);
+  const spread=Number(t.spreadBps??0),atr1=a.atr,spreadPx=Math.max(0,px*spread/10000),profile=STYLE_EXECUTION_POLICY[style]||STYLE_EXECUTION_POLICY.SCALP,entryBuffer=Math.max(atr1*(style==='SCALP'?.045:.085),spreadPx*(style==='SCALP'?1.8:2.2));
   let orderType='MARKET',entry=px,entryModel='MARKET_AT_ACCEPTABLE_STRUCTURE_LOCATION';
   if(regime==='BREAKOUT_BUILDUP'){
     orderType='STOP';entry=dir>0?a.priorHigh+entryBuffer:a.priorLow-entryBuffer;entryModel='BREAKOUT_TRIGGER_BEYOND_LIQUIDITY';
@@ -355,16 +394,16 @@ function buildCryptoSetup(t,style,stats){
     orderType='STOP';entry=px+dir*entryBuffer;entryModel='MOMENTUM_CONTINUATION_TRIGGER';
   }else if(regime==='LIQUIDITY_SWEEP_RECLAIM')entryModel='SWEEP_RECLAIM_MARKET_ENTRY';
 
-  const stopBuffer=Math.max(atr1*(style==='SCALP'?.12:.17),spreadPx*2.6);
+  const stopBuffer=Math.max(atr1*(style==='SCALP'?.11:.22),spreadPx*(style==='SCALP'?2.6:3.2));
   let anchor;
   if(dir>0){
     if(regime==='LIQUIDITY_SWEEP_RECLAIM')anchor=Math.min(a.low,a.priorLow);
     else if(regime==='BREAKOUT_BUILDUP')anchor=Math.min(a.recentLow,a.priorHigh-.38*atr1);
-    else anchor=Math.min(a.recentLow,a.ema50-.08*atr1);
+    else anchor=style==='SCALP'?Math.min(a.recentLow,a.ema50-.08*atr1):Math.min(a.recentLow,b.recentLow,b.ema50-.10*b.atr);
   }else{
     if(regime==='LIQUIDITY_SWEEP_RECLAIM')anchor=Math.max(a.high,a.priorHigh);
     else if(regime==='BREAKOUT_BUILDUP')anchor=Math.max(a.recentHigh,a.priorLow+.38*atr1);
-    else anchor=Math.max(a.recentHigh,a.ema50+.08*atr1);
+    else anchor=style==='SCALP'?Math.max(a.recentHigh,a.ema50+.08*atr1):Math.max(a.recentHigh,b.recentHigh,b.ema50+.10*b.atr);
   }
   let sl=dir>0?anchor-stopBuffer:anchor+stopBuffer;
   let risk=Math.abs(entry-sl);if(!(risk>atr1*.18)) {risk=atr1*(style==='SCALP'?.82:1.12);sl=entry-dir*risk;}
@@ -374,15 +413,15 @@ function buildCryptoSetup(t,style,stats){
   if(dir>0){
     tp1=target(a.priorHigh,entry+risk*.95,1);
     tp2=target(b.priorHigh,Math.max(tp1+risk*.25,entry+risk*1.65),1);
-    tp3=target(c.priorHigh,Math.max(tp2+risk*.30,entry+risk*(style==='SCALP'?2.25:2.65)),1);
+    tp3=target(c.priorHigh,Math.max(tp2+risk*.30,entry+risk*(style==='SCALP'?2.10:2.85)),1);
   }else{
     tp1=target(a.priorLow,entry-risk*.95,-1);
     tp2=target(b.priorLow,Math.min(tp1-risk*.25,entry-risk*1.65),-1);
-    tp3=target(c.priorLow,Math.min(tp2-risk*.30,entry-risk*(style==='SCALP'?2.25:2.65)),-1);
+    tp3=target(c.priorLow,Math.min(tp2-risk*.30,entry-risk*(style==='SCALP'?2.10:2.85)),-1);
   }
   const rr=Math.abs(tp3-entry)/risk,spreadState=spread>(style==='SCALP'?12:30)?'WIDE':'NORMAL';
   const judgment=`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} • STRUCTURE SL/TP`;
-  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp1:Number(tp1.toPrecision(10)),tp2:Number(tp2.toPrecision(10)),tp3:Number(tp3.toPrecision(10)),tp:Number(tp3.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,marketRegime:regime,judgment,entryModel,slModel:'INVALIDATION_SWING_LIQUIDITY_PLUS_ATR_SPREAD_BUFFER',tpModel:'STRUCTURE_LIQUIDITY_TARGETS_THEN_EXPANSION',invalidationLevel:Number(anchor.toPrecision(10)),executionCaution:spreadState,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread,sweepHigh:a.sweepHigh,sweepLow:a.sweepLow,bosUp:a.bosUp,bosDown:a.bosDown,recentHigh:a.recentHigh,recentLow:a.recentLow},rationale:[`${intervalMap[style].join('/')} structure/liquidity context`,dir>0?'bot reads bullish pressure':'bot reads bearish pressure',`regime ${regime}`,`entry ${entryModel}`,`SL beyond invalidation ${Number(anchor.toPrecision(8))} + volatility/spread buffer`,`TPs seek nearby and higher-timeframe liquidity before expansion`,`RSI ${a.rsi.toFixed(1)} • extension ${a.extensionAtr.toFixed(2)} ATR • spread ${spread.toFixed(2)} bps`]},'CRYPTO',style);
+  return stampMarketJudgment({market:'CRYPTO',style,symbol:t.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry:Number(entry.toPrecision(10)),sl:Number(sl.toPrecision(10)),tp1:Number(tp1.toPrecision(10)),tp2:Number(tp2.toPrecision(10)),tp3:Number(tp3.toPrecision(10)),tp:Number(tp3.toPrecision(10)),targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:t.source,exchange:t.exchange,provider:t.exchange,marketRegime:regime,judgment,entryModel,slModel:'INVALIDATION_SWING_LIQUIDITY_PLUS_ATR_SPREAD_BUFFER',tpModel:'STRUCTURE_LIQUIDITY_TARGETS_THEN_EXPANSION',invalidationLevel:Number(anchor.toPrecision(10)),styleExecutionModel:profile.name,executionFrames:profile.frames,executionCaution:spreadState,technicalAtIssue:{primary:intervalMap[style][0],rsi:Number(a.rsi.toFixed(1)),atr:Number(a.atr.toPrecision(8)),ema20:Number(a.ema20.toPrecision(10)),ema50:Number(a.ema50.toPrecision(10)),extensionAtr:Number(a.extensionAtr.toFixed(2)),tfTrend:[a.trend,b.trend,c.trend],spreadBps:spread,sweepHigh:a.sweepHigh,sweepLow:a.sweepLow,bosUp:a.bosUp,bosDown:a.bosDown,recentHigh:a.recentHigh,recentLow:a.recentLow},rationale:[`${intervalMap[style].join('/')} structure/liquidity context`,dir>0?'bot reads bullish pressure':'bot reads bearish pressure',`regime ${regime}`,`entry ${entryModel}`,`SL beyond invalidation ${Number(anchor.toPrecision(8))} + volatility/spread buffer`,`TPs seek nearby and higher-timeframe liquidity before expansion`,`RSI ${a.rsi.toFixed(1)} • extension ${a.extensionAtr.toFixed(2)} ATR • spread ${spread.toFixed(2)} bps`]},'CRYPTO',style);
 }
 async function analyzeCryptoCandidate(t,style){try{const rows=await Promise.all(intervalMap[style].map(i=>providerCandles(t.symbol,i,t.exchange))),stats=rows.map(tfStats);if(stats.some(x=>!x))return null;return buildCryptoSetup(t,style,stats)}catch{return null;}}
 
@@ -391,7 +430,7 @@ function activePointer(market,style,symbol){return `v31:active:${market}:${style
 async function getV31Signals(env,market,style){
   if(!env?.SIGNALS_KV)return[];const prefix=v31Prefix(market,style),listing=await env.SIGNALS_KV.list({prefix,limit:1000}),out=[];for(let i=0;i<listing.keys.length;i+=50){const raws=await Promise.all(listing.keys.slice(i,i+50).map(k=>env.SIGNALS_KV.get(k.name)));for(const raw of raws){if(!raw)continue;try{out.push(JSON.parse(raw))}catch{}}}out.sort((a,b)=>Date.parse(b.issuedAt||0)-Date.parse(a.issuedAt||0));return out;
 }
-async function writeV31Signal(env,s){const key=v31Prefix(s.market,s.style)+s.id;await env.SIGNALS_KV.put(key,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});if(s.status==='PENDING'||s.status==='OPEN')await env.SIGNALS_KV.put(activePointer(s.market,s.style,s.symbol),s.id,{expirationTtl:SIGNAL_TTL});else await env.SIGNALS_KV.delete(activePointer(s.market,s.style,s.symbol));}
+async function writeV31Signal(env,s){const key=v31Prefix(s.market,s.style)+s.id;await env.SIGNALS_KV.put(key,JSON.stringify(s),{expirationTtl:SIGNAL_TTL});if(s.status==='PENDING'||s.status==='OPEN')await env.SIGNALS_KV.put(activePointer(s.market,s.style,s.symbol),s.id,{expirationTtl:SIGNAL_TTL});else await env.SIGNALS_KV.delete(activePointer(s.market,s.style,s.symbol));await syncRealtimeSignal(env,s,key);}
 async function trackV31Signals(env,market,style,priceMap){
   const all=await getV31Signals(env,market,style),events=[],at=nowIso();for(const s of all){if(s.status!=='PENDING'&&s.status!=='OPEN')continue;const px=Number(priceMap.get(s.symbol));if(!(px>0))continue;const dir=s.side==='LONG'?1:-1,entry=Number(s.entry),sl=Number(s.sl),tp=Number(s.tp);s.lastPrice=px;s.lastCheckedAt=at;
     if(s.status==='PENDING'){
@@ -411,7 +450,7 @@ async function maybeCreateV31(env,market,style,setups){
     if(!validSignalStructure(setup))continue;
     if(active.some(x=>x.symbol===setup.symbol))continue;
     const ptr=await env.SIGNALS_KV.get(activePointer(market,style,setup.symbol));if(ptr)continue;
-    const issuedAt=nowIso(),id=`V36-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
+    const issuedAt=nowIso(),id=`V38-${market}-${style}-${setup.symbol}-${Date.now().toString(36)}`;
     const s=normalizeDisplaySignal({...setup,id,issuedAt,lastCheckedAt:issuedAt,outcome:null,resultR:null,engineVersion:V3_VERSION,checkpoint:CHECKPOINT},market,style);
     await writeV31Signal(env,s);made.push(s);active.push(s);
   }
@@ -454,20 +493,20 @@ function forexJudgmentSetup(r,px,style){
   else if(recA!==0&&((recA>0&&r.rsiA>=50)||(recA<0&&r.rsiA<=50))){dir=recA;regime='TRANSITION_MOMENTUM';}
   else return null;
 
-  const entryBuffer=atr*(style==='SCALP'?.055:.075),strongImpulse=Math.abs(Number(r.recA||0))>.45&&Math.abs(Number(r.recB||0))>.25;
+  const profile=STYLE_EXECUTION_POLICY[style]||STYLE_EXECUTION_POLICY.SCALP,entryBuffer=atr*(style==='SCALP'?.045:.09),strongImpulse=Math.abs(Number(r.recA||0))>.45&&Math.abs(Number(r.recB||0))>.25;
   let orderType='MARKET',entry=px,entryModel='MARKET_AT_ACCEPTABLE_STRUCTURE_LOCATION';
   if(strongImpulse&&Math.abs(ext)<.38&&regime!=='LIQUIDITY_REJECTION'){orderType='STOP';entry=dir>0?highA+entryBuffer:lowA-entryBuffer;regime='BREAKOUT_CONFIRMATION';entryModel='BREAKOUT_TRIGGER_OUTSIDE_CURRENT_STRUCTURE';}
   else if(regime==='TREND_PULLBACK'||Math.abs(ext)>.42||((dir>0&&px<r.ema20A)||(dir<0&&px>r.ema20A))){const raw=dir>0?Math.max(r.ema20A,lowA+.30*atr):Math.min(r.ema20A,highA-.30*atr);if((dir>0&&raw<px-entryBuffer*.3)||(dir<0&&raw>px+entryBuffer*.3)){orderType='LIMIT';entry=raw;entryModel='PULLBACK_TO_EMA_STRUCTURE';}}
   else if(regime==='LIQUIDITY_REJECTION')entryModel='REJECTION_RECLAIM_MARKET_ENTRY';
 
-  const stopBuffer=atr*(style==='SCALP'?.13:.18);let anchor;
-  if(dir>0){anchor=regime==='LIQUIDITY_REJECTION'?lowA:regime==='BREAKOUT_CONFIRMATION'?Math.min(lowA,r.ema20A-.35*atr):Math.min(lowA,r.ema50A-.08*atr);if(style==='SWING'&&lowB<entry&&entry-lowB<2.8*atr)anchor=Math.min(anchor,lowB);}
-  else{anchor=regime==='LIQUIDITY_REJECTION'?highA:regime==='BREAKOUT_CONFIRMATION'?Math.max(highA,r.ema20A+.35*atr):Math.max(highA,r.ema50A+.08*atr);if(style==='SWING'&&highB>entry&&highB-entry<2.8*atr)anchor=Math.max(anchor,highB);}
+  const stopBuffer=atr*(style==='SCALP'?.12:.24);let anchor;
+  if(dir>0){anchor=regime==='LIQUIDITY_REJECTION'?lowA:regime==='BREAKOUT_CONFIRMATION'?Math.min(lowA,r.ema20A-.35*atr):Math.min(lowA,r.ema50A-.08*atr);if(style==='SWING'&&lowB<entry)anchor=Math.min(anchor,lowB,r.ema50B-.12*r.atrB);}
+  else{anchor=regime==='LIQUIDITY_REJECTION'?highA:regime==='BREAKOUT_CONFIRMATION'?Math.max(highA,r.ema20A+.35*atr):Math.max(highA,r.ema50A+.08*atr);if(style==='SWING'&&highB>entry)anchor=Math.max(anchor,highB,r.ema50B+.12*r.atrB);}
   let sl=dir>0?anchor-stopBuffer:anchor+stopBuffer,risk=Math.abs(entry-sl);if(!(risk>atr*.18)){risk=atr*(style==='SCALP'?.88:1.18);sl=entry-dir*risk;}
   const pick=(candidate,fallback,sign)=>sign>0?(Number(candidate)>fallback?Number(candidate):fallback):(Number(candidate)<fallback?Number(candidate):fallback);
-  let tp1,tp2,tp3;if(dir>0){tp1=pick(highA,entry+risk*.95,1);tp2=pick(highB,Math.max(tp1+risk*.25,entry+risk*1.65),1);tp3=Math.max(tp2+risk*.30,entry+risk*(style==='SCALP'?2.20:2.60));}else{tp1=pick(lowA,entry-risk*.95,-1);tp2=pick(lowB,Math.min(tp1-risk*.25,entry-risk*1.65),-1);tp3=Math.min(tp2-risk*.30,entry-risk*(style==='SCALP'?2.20:2.60));}
+  let tp1,tp2,tp3;if(dir>0){tp1=pick(highA,entry+risk*.95,1);tp2=pick(highB,Math.max(tp1+risk*.25,entry+risk*1.65),1);tp3=Math.max(tp2+risk*.30,entry+risk*(style==='SCALP'?2.05:2.90));}else{tp1=pick(lowA,entry-risk*.95,-1);tp2=pick(lowB,Math.min(tp1-risk*.25,entry-risk*1.65),-1);tp3=Math.min(tp2-risk*.30,entry-risk*(style==='SCALP'?2.05:2.90));}
   const rr=Math.abs(tp3-entry)/risk,judgment=`${regime} • ${orderType} • ${dir>0?'BULLISH':'BEARISH'} • STRUCTURE SL/TP`;
-  return stampMarketJudgment({market:'FOREX',style,symbol:r.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry,sl,tp1,tp2,tp3,tp:tp3,targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:'EXNESS_MT5+TRADINGVIEW_FOREX',executionPriceAuthority:'EXNESS_MT5',marketRegime:regime,judgment,entryModel,slModel:'INVALIDATION_STRUCTURE_PLUS_ATR_BUFFER',tpModel:'LOCAL_HTF_STRUCTURE_THEN_EXPANSION',invalidationLevel:anchor,technicalAtIssue:{frames:r.frames,recommend:[r.recA,r.recB,r.recC],rsi:[r.rsiA,r.rsiB],atr:[r.atrA,r.atrB],ema20:[r.ema20A,r.ema20B],ema50:[r.ema50A,r.ema50B],extensionAtr:Number(ext.toFixed(2)),localStructure:[lowA,highA],htfStructure:[lowB,highB],bullReject,bearReject},rationale:[`${r.frames.join('/')} context with local/HTF structure`,dir>0?'bot reads bullish pressure':'bot reads bearish pressure',`regime ${regime}`,`entry ${entryModel}`,`SL beyond invalidation ${Number(anchor.toPrecision(8))} + volatility buffer`,`TP1/TP2 use local and HTF structure when available; TP3 extends only after those objectives`,`RSI ${Number(r.rsiA).toFixed(1)} / ${Number(r.rsiB).toFixed(1)}`]},'FOREX',style);
+  return stampMarketJudgment({market:'FOREX',style,symbol:r.symbol,side:dir>0?'LONG':'SHORT',orderType,status:orderType==='MARKET'?'OPEN':'PENDING',entry,sl,tp1,tp2,tp3,tp:tp3,targetRR:Number(rr.toFixed(2)),sourcePrice:px,lastPrice:px,source:'EXNESS_MT5+TRADINGVIEW_FOREX',executionPriceAuthority:'EXNESS_MT5',marketRegime:regime,judgment,entryModel,slModel:'INVALIDATION_STRUCTURE_PLUS_ATR_BUFFER',tpModel:'LOCAL_HTF_STRUCTURE_THEN_EXPANSION',invalidationLevel:anchor,styleExecutionModel:profile.name,executionFrames:profile.frames,technicalAtIssue:{frames:r.frames,recommend:[r.recA,r.recB,r.recC],rsi:[r.rsiA,r.rsiB],atr:[r.atrA,r.atrB],ema20:[r.ema20A,r.ema20B],ema50:[r.ema50A,r.ema50B],extensionAtr:Number(ext.toFixed(2)),localStructure:[lowA,highA],htfStructure:[lowB,highB],bullReject,bearReject},rationale:[`${r.frames.join('/')} context with local/HTF structure`,dir>0?'bot reads bullish pressure':'bot reads bearish pressure',`regime ${regime}`,`entry ${entryModel}`,`SL beyond invalidation ${Number(anchor.toPrecision(8))} + volatility buffer`,`TP1/TP2 use local and HTF structure when available; TP3 extends only after those objectives`,`RSI ${Number(r.rsiA).toFixed(1)} / ${Number(r.rsiB).toFixed(1)}`]},'FOREX',style);
 }
 async function scanForexJudgment(env,style){
   const ex=await exnessQuoteMap(env);if(ex.state==='OFFLINE'||ex.state==='STALE')return {ok:true,version:V3_VERSION,market:'FOREX',style,status:'NO_CURRENT_EXNESS_QUOTE',created:0,state:ex.state,ageMs:ex.ageMs,decisionPolicy:MARKET_JUDGMENT_POLICY,note:'No score/time gate is applied, but stale data is never treated as a current market price.'};

@@ -20,6 +20,6 @@
     { "tag": "v34-mt5-live-v1", "new_sqlite_classes": ["MT5LiveState"] }
   ],
   "triggers": {
-    "crons": ["*/5 * * * *"]
+    "crons": ["* * * * *"]
   }
 }
