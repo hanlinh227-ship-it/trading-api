@@ -1,4 +1,4 @@
-"""V5.6 profit-first ladder search with continuous, monotonic capital learning."""
+"""V5.7 profit-first ladder search with monotonic capital and agro-economic learning."""
 import argparse,json,random
 from pathlib import Path
 from benchmark_v5 import evaluate,save,digest
@@ -15,6 +15,10 @@ from monotonic_rank import (
     accepted_params,is_taboo,failure_penalty,decide_and_record,
     record_monotonic_round,summary as monotonic_summary,
 )
+from agro_reasoning import (
+    PUBLIC_META_PRIORS,observe_agro_evaluation,agro_penalty,agro_quality_score,
+    recovery_patches,summary as agro_summary,
+)
 
 META_KEYS={'cow_max','sheep_max','goose_max','target_hands','sell_batch','land_target_quadrants'}
 # Stable regression panel. Search/holdout seeds are always >=100000, so these fixed seeds are
@@ -23,7 +27,7 @@ MONOTONIC_SEEDS=(7319,29077)
 MONOTONIC_FAMILIES=SUITE
 
 CHOICES={
-    'distance_cost':(5.,6.,7.,8.,9.),'target_hands':(9,10,11,12,13),'crop_mode':('roi','demand','fast_cash','balanced'),
+    'distance_cost':(5.,6.,7.,8.,9.),'target_hands':(9,10,11,12,13),'crop_mode':('roi','demand','fast_cash','balanced','grains'),
     'expansion_mode':('balanced','fast','max'),'land_buffer':(40,80,120,180,260),'land_target_quadrants':(3,3,3,4),
     'fill_target':(.68,.75,.82,.88),'fill_priority':(70.,82.,92.,105.),'seed_scale':(1.0,1.25,1.45,1.7),
     'herd_mode':('none','cow_sheep','cow_sheep','dynamic'),'cow_max':(5,6,7,8,9,10),'sheep_max':(0,3,4,5,6),
@@ -45,7 +49,9 @@ def load_meta_prior(path):
 
 def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
     rng=random.Random(seed);base=dict(V3_DEFAULT);pool=[];plan=plan or {};learning_state=learning_state or {}
-    presets=[
+    # Historical public top patterns are only priors.  Failure-derived recovery hypotheses and
+    # our accepted champion are inserted ahead of them, so the system becomes increasingly personal.
+    presets=list(PUBLIC_META_PRIORS)+[
         {'land_target_quadrants':4,'herd_mode':'cow_sheep','cow_max':6,'sheep_max':4,'target_hands':11,'sell_batch':5,'livestock_start_day':2},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':9,'sheep_max':4,'goose_max':0,'target_hands':10,'livestock_start_day':0,'sell_batch':5,'fertilizer_reserve':1,'animal_roi_floor':.10},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':9,'sheep_max':5,'goose_max':0,'target_hands':9,'livestock_start_day':0,'sell_batch':6,'fertilizer_reserve':1,'animal_roi_floor':.05},
@@ -76,6 +82,9 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
         patch=best_learned_patch(learning_state,CHOICES,min_samples=4,focus_families=plan.get('focus_families'))
         if patch:
             learned=dict(base);learned.update(patch);add(learned)
+    # Mistakes are converted into new hypotheses before generic/public presets are tried again.
+    for recovery in recovery_patches(learning_state,accepted or base,limit=max(4,min(8,n//3))):
+        add(recovery)
     for patch in presets:
         p=dict(base);p.update(patch);add(p)
         if len(pool)>=n:return pool[:n]
@@ -113,13 +122,16 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     meta_prior=load_meta_prior(meta_prior_path);pool=candidates(effective_n,study_seed,meta_prior,state,plan);history=[];rng=random.Random(study_seed ^ 0x54A7)
     print('POTENTIAL_PLAN',json.dumps(plan,sort_keys=True),flush=True)
     print('MONOTONIC_START',json.dumps(monotonic_summary(state),sort_keys=True),flush=True)
+    print('AGRO_START',json.dumps(agro_summary(state),sort_keys=True),flush=True)
 
     def ev(p,seeds,fams,label,steps=720,kind='v3',path=None,learn=True):
         nonlocal state
         r=evaluate(p,seeds,fams,steps,workers,kind,path);save(out/(label+'.json'),r);print(label,json.dumps(r['metrics']),flush=True)
         if learn and kind=='v3' and path is None:
-            state=observe_evaluation(state,p,r,label);save_state(learning_state_path,state)
-            print('LEARNING',json.dumps({'matches':state['matches'],'wins':state['wins'],'losses':state['losses'],'ties':state['ties'],'invalid':state['invalid'],'weak_families':weak_families(state),'last_label':label},sort_keys=True),flush=True)
+            state=observe_evaluation(state,p,r,label)
+            state=observe_agro_evaluation(state,p,r,label)
+            save_state(learning_state_path,state)
+            print('LEARNING',json.dumps({'matches':state['matches'],'wins':state['wins'],'losses':state['losses'],'ties':state['ties'],'invalid':state['invalid'],'weak_families':weak_families(state),'agro':agro_summary(state),'last_label':label},sort_keys=True),flush=True)
         return r
 
     stages=[
@@ -133,14 +145,16 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
         for p in pool:
             r=ev(p,seeds,fams,stage+'-'+digest(p)[:10],steps)
             penalty=failure_penalty(state,p)
-            rank_score=r['metrics']['objective']-18.0*min(4.0,penalty)
-            ranked.append((rank_score,p,r,penalty))
+            agro_p=agro_penalty(state,p)
+            agro_q=agro_quality_score(r,p)
+            rank_score=r['metrics']['objective']+0.8*agro_q-18.0*min(4.0,penalty)-12.0*min(4.0,agro_p)
+            ranked.append((rank_score,p,r,penalty,agro_p,agro_q))
         ranked.sort(key=lambda x:(x[0],digest(x[1])),reverse=True)
-        history.append(dict(stage=stage,ranking=[dict(params=p,metrics=r['metrics'],failure_penalty=pen,rank_score=score) for score,p,r,pen in ranked],learning_matches=state['matches']))
+        history.append(dict(stage=stage,ranking=[dict(params=p,metrics=r['metrics'],failure_penalty=pen,agro_penalty=ap,agro_quality=aq,rank_score=score) for score,p,r,pen,ap,aq in ranked],learning_matches=state['matches']))
         if stage=='C':
-            pool=[p for _,p,_,_ in ranked[:keep]];frozen=ranked[0][2]
+            pool=[p for _,p,_,_,_,_ in ranked[:keep]];frozen=ranked[0][2]
         else:
-            elite_count=max(2,min(keep,(keep+1)//2));elites=[p for _,p,_,_ in ranked[:elite_count]]
+            elite_count=max(2,min(keep,(keep+1)//2));elites=[p for _,p,_,_,_,_ in ranked[:elite_count]]
             generated=learned_variants(
                 elites,state,CHOICES,validate_params,rng,max(keep*2,keep+4),
                 focus_families=plan.get('focus_families'),
@@ -148,10 +162,10 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
                 mutation_steps=plan.get('mutation_steps',1),
             )
             new_pool=[]
-            for p in sorted(generated,key=lambda q:(failure_penalty(state,q),digest(q))):
+            for p in sorted(generated,key=lambda q:(failure_penalty(state,q)+agro_penalty(state,q),digest(q))):
                 if not is_taboo(state,p) and p not in new_pool:new_pool.append(p)
                 if len(new_pool)>=keep:break
-            for _,p,_,_ in ranked:
+            for _,p,_,_,_,_ in ranked:
                 if len(new_pool)>=keep:break
                 if not is_taboo(state,p) and p not in new_pool:new_pool.append(p)
             pool=new_pool
@@ -187,23 +201,24 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     state=record_monotonic_round(state,best,d['metrics'],h['metrics'],f['metrics'],decision,mono_decision,label='run-'+str(study_seed))
     next_plan=adaptive_plan(state,n)
     learned_patch=best_learned_patch(state,CHOICES,min_samples=4,focus_families=next_plan.get('focus_families'))
-    mono_state=monotonic_summary(state)
+    mono_state=monotonic_summary(state);agro_state=agro_summary(state)
     result=dict(
         best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,
         duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],
         capital_regression=capital['metrics'],capital_regression_incumbent=(capital_incumbent or {}).get('metrics'),
         capital_regression_seeds=list(MONOTONIC_SEEDS),capital_regression_families=list(MONOTONIC_FAMILIES),
-        monotonic=mono_state,
+        monotonic=mono_state,agro_reasoning=agro_state,
         provenance=frozen['provenance'],study_seed=study_seed,
         seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),
-        submission_performed=False,public_meta_prior=meta_prior or 'built-in public high-Elo livestock priors',
-        lane='monotonic-continuous-potential-rank-climb',round_plan=plan,next_round=next_plan,
+        submission_performed=False,public_meta_prior=meta_prior or 'public top patterns used as priors, never copied trajectories',
+        lane='agro-economic-monotonic-continuous-potential-rank-climb',round_plan=plan,next_round=next_plan,
         learning=dict(matches=state['matches'],wins=state['wins'],losses=state['losses'],ties=state['ties'],invalid=state['invalid'],weak_families=weak_families(state),best_learned_patch=learned_patch,champion_count=len(state.get('champions',[])),control=state.get('control',{}),state_path=str(learning_state_path or 'ephemeral')),
     )
     save(out/'search.json',result);save_state(learning_state_path,state)
     if decision['pass_gate']:save(out/'PROMOTION_READY_rank.json',dict(params=best,evidence=result))
     print('MONOTONIC_DECISION',json.dumps(mono_decision,sort_keys=True),flush=True)
     print('MONOTONIC_STATE',json.dumps(mono_state,sort_keys=True),flush=True)
+    print('AGRO_STATE',json.dumps(agro_state,sort_keys=True),flush=True)
     print('NEXT_POTENTIAL_PLAN',json.dumps(next_plan,sort_keys=True),flush=True)
     print(json.dumps(result,indent=2));return result
 
