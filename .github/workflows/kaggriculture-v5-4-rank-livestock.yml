@@ -1,10 +1,10 @@
-name: Kaggriculture V5.4 - Rank Livestock Challenger
+name: Kaggriculture V5.5 - Continuous Potential Challenger
 
 on:
   workflow_dispatch:
     inputs:
       candidates:
-        description: Profit-first challenger count (8-64)
+        description: Base challenger count; controller may adapt within 8-64
         required: true
         default: '24'
   push:
@@ -38,39 +38,39 @@ jobs:
         run: |
           python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
           python -m pip install --no-deps 'kaggle-environments==1.32.7'
-      - name: Compile, regression and adaptive-learning contracts
+      - name: Compile, regression and continuous-potential contracts
         run: |
           python -m compileall -q reward-hunter/kaggriculture-v3
           python -m unittest discover -s reward-hunter/kaggriculture-v3/tests -v
       - name: Self-contained package gate
         run: |
-          mkdir -p /tmp/v54
-          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v54/main.py | tee /tmp/v54/package.json
-          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v54/main.py | tee /tmp/v54/raw.json
+          mkdir -p /tmp/v55
+          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v55/main.py | tee /tmp/v55/package.json
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v55/main.py | tee /tmp/v55/raw.json
       - name: Rank-livestock smoke both seats
         run: |
           python reward-hunter/kaggriculture-v3/run_v5_eval.py \
             --seeds 917,929 --families starter,incumbent,early_sell,expansion \
-            --steps 360 --workers 4 --output /tmp/v54/smoke.json
+            --steps 360 --workers 4 --output /tmp/v55/smoke.json
           python - <<'PY'
           import json
-          m=json.load(open('/tmp/v54/smoke.json'))['metrics']
+          m=json.load(open('/tmp/v55/smoke.json'))['metrics']
           assert m['valid_games']==m['games'],m
           assert m['noop_rate']==0,m
-          print('V5.4_SMOKE_PASS',json.dumps(m,sort_keys=True))
+          print('V5.5_SMOKE_PASS',json.dumps(m,sort_keys=True))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v5-4-validation-${{ github.run_id }}
-          path: /tmp/v54/
+          name: kaggriculture-v5-5-validation-${{ github.run_id }}
+          path: /tmp/v55/
           retention-days: 30
 
   research:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 300
     permissions:
       contents: read
       actions: write
@@ -95,20 +95,24 @@ jobs:
           key: kaggriculture-v54-learning-${{ github.run_id }}
           restore-keys: |
             kaggriculture-v54-learning-
-      - name: Initialize conflict-free memory if needed
+      - name: Initialize conflict-free potential memory if needed
         run: |
           mkdir -p /tmp/kaggriculture-v54-learning
           python - <<'PY'
-          import sys
+          import json,sys
           from pathlib import Path
           sys.path.insert(0,'reward-hunter/kaggriculture-v3')
-          from learning_rank import blank_state,save_state,load_state
+          from learning_rank import blank_state,save_state,load_state,adaptive_plan
           p=Path('/tmp/kaggriculture-v54-learning/learning_state.json')
           if not p.exists(): save_state(p,blank_state())
           s=load_state(p)
-          print('LEARNING_MEMORY',{'matches':s['matches'],'wins':s['wins'],'losses':s['losses'],'invalid':s['invalid']})
+          print('LEARNING_MEMORY',json.dumps({
+              'matches':s['matches'],'wins':s['wins'],'losses':s['losses'],'invalid':s['invalid'],
+              'champions':len(s.get('champions',[])),'control':s.get('control',{}),
+              'plan':adaptive_plan(s,24),
+          },sort_keys=True))
           PY
-      - name: Profit-first livestock challenger league with win-loss learning
+      - name: Continuous-potential livestock challenger league
         env:
           CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
         run: |
@@ -125,6 +129,8 @@ jobs:
           print('PROMOTION',r['promotion']['pass_gate'])
           print('REASONS',json.dumps(r['promotion']['reasons'],sort_keys=True))
           print('BEST',json.dumps(r['best_params'],sort_keys=True))
+          print('ROUND_PLAN',json.dumps(r['round_plan'],sort_keys=True))
+          print('NEXT_ROUND',json.dumps(r['next_round'],sort_keys=True))
           print('LEARNING',json.dumps(r['learning'],sort_keys=True))
           print('DUEL',json.dumps(r['duel'],sort_keys=True))
           print('HOLDOUT',json.dumps(r['holdout'],sort_keys=True))
@@ -162,7 +168,7 @@ jobs:
           decision={
               'eligible':eligible,
               'sha256':sha,
-              'description':'V5.4 promoted '+sha[:12]+' adaptive livestock',
+              'description':'V5.5 promoted '+sha[:12]+' continuous potential',
               'reason':reason,
           }
           pathlib.Path(os.environ['DECISION']).write_text(json.dumps(decision,sort_keys=True)+'\n')
@@ -219,20 +225,28 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v5-4-rank-research-${{ github.run_id }}
+          name: kaggriculture-v5-5-rank-research-${{ github.run_id }}
           path: /tmp/kaggriculture-v54-${{ github.run_id }}/
           if-no-files-found: warn
           retention-days: 30
-      - name: Queue next adaptive round
+      - name: Queue next potential round
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
-          NEXT_CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
         run: |
-          echo "Current adaptive round completed; queueing the next conflict-free round."
+          OUT=/tmp/kaggriculture-v54-${GITHUB_RUN_ID}
+          NEXT_CANDIDATES="$(python - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path('/tmp/kaggriculture-v54-'+os.environ['GITHUB_RUN_ID'])/'search.json'
+          r=json.loads(p.read_text())
+          n=int(r.get('next_round',{}).get('candidate_count',24))
+          print(max(8,min(64,n)))
+          PY
+          )"
+          echo "Current potential round completed; next candidate budget=$NEXT_CANDIDATES"
           sleep 30
           gh workflow run kaggriculture-v5-4-rank-livestock.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref research/kaggriculture-v5-4-rank-livestock \
             -f candidates="$NEXT_CANDIDATES"
-          echo "NEXT_ADAPTIVE_ROUND_QUEUED"
+          echo "NEXT_POTENTIAL_ROUND_QUEUED"
