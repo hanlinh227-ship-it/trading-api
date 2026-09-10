@@ -6,6 +6,7 @@ on:
       - reward-solver-kaggriculture-quick-submit
     paths:
       - '.github/reward-kaggriculture-status-check-trigger'
+      - '.github/workflows/reward-kaggriculture-status-check.yml'
 
 jobs:
   check:
@@ -13,6 +14,7 @@ jobs:
     timeout-minutes: 10
     env:
       KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      SUBMISSION_ID: '56139515'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,9 +22,14 @@ jobs:
           python-version: '3.12'
       - name: Install Kaggle CLI
         run: python -m pip install -U kaggle
-      - name: Check Kaggriculture submissions
+      - name: Check Kaggriculture submission and diagnostics
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           test -n "${KAGGLE_API_TOKEN:-}" || { echo 'KAGGLE_API_TOKEN missing'; exit 20; }
-          kaggle competitions submissions -c kaggriculture | head -n 20
+          echo '=== SUBMISSIONS ==='
+          kaggle competitions submissions -c kaggriculture | head -n 20 || true
+          echo '=== EPISODES ==='
+          kaggle competitions episodes "$SUBMISSION_ID" || true
+          echo '=== CLI HELP: LOGS ==='
+          kaggle competitions logs --help || true
