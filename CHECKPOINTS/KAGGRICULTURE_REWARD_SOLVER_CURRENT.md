@@ -81,3 +81,8 @@ Updated: 2026-09-10
 - Keep secrets only in GitHub Actions secrets.
 - Do not manipulate accounts, submission limits, or competition rules.
 - Do not claim a Kaggle leaderboard improvement until Kaggle confirms it.
+
+## V3 isolated research lane — 2026-09-10
+Branch: `codex/kaggriculture-v3-meta-orchestrator`.
+Read `CHECKPOINTS/KAGGRICULTURE_V3_CODEX_HANDOFF.md` on this branch for current evidence.
+V1 remains the live incumbent; no Kaggle submission is authorized or performed by this task.

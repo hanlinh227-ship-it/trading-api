@@ -1,0 +1,99 @@
+name: Kaggriculture V3 - validation and research
+on:
+  pull_request:
+    paths:
+      - 'reward-hunter/kaggriculture-v3/**'
+      - '.github/workflows/reward-kaggriculture-v3.yml'
+  workflow_dispatch:
+    inputs:
+      full_search:
+        description: 'Run frozen-seed search and promotion checks (never submits)'
+        type: boolean
+        default: false
+      candidates:
+        description: 'Structured search budget: 2 to 64'
+        default: '8'
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: kaggriculture-v3-${{ github.head_ref || github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned official simulator
+        run: python -m pip install 'kaggle-environments==1.32.4'
+      - name: Compilation and adversarial contract tests
+        run: |
+          python -m compileall -q reward-hunter/kaggriculture-v3
+          python -m unittest discover -s reward-hunter/kaggriculture-v3/tests -v
+      - name: Raw exec and deterministic packaging
+        run: |
+          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v3-default.py
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v3-default.py
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py reward-hunter/kaggriculture-v3/main.py
+      - name: Official file episodes - both seats and multiple seeds
+        run: |
+          python reward-hunter/kaggriculture-v3/benchmark.py --agent-path reward-hunter/kaggriculture-v3/main.py --seeds 811,821 --families starter,incumbent,early_sell,grains --steps 120 --workers 2 --output /tmp/v3-ci/smoke.json
+      - name: Full-horizon endgame contract
+        run: |
+          python reward-hunter/kaggriculture-v3/benchmark.py --agent-path reward-hunter/kaggriculture-v3/main.py --seeds 823 --families incumbent --workers 2 --output /tmp/v3-ci/full.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v3-ci-${{ github.run_id }}
+          path: /tmp/v3-ci/*.json
+          retention-days: 30
+  research:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_search == true
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      SEARCH_BUDGET: ${{ inputs.candidates }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'kaggle-environments==1.32.4'
+      - name: Search and unseen validation
+        run: python reward-hunter/kaggriculture-v3/search.py --candidates "$SEARCH_BUDGET" --workers 2 --output /tmp/v3-study
+      - name: Commit champion only on promotion
+        if: github.ref == 'refs/heads/codex/kaggriculture-v3-meta-orchestrator'
+        run: |
+          if [ -f /tmp/v3-study/champion.json ]; then
+            cp /tmp/v3-study/champion.json reward-hunter/kaggriculture-v3/champion.json
+            cp /tmp/v3-study/candidate-main.py reward-hunter/kaggriculture-v3/main.py
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add reward-hunter/kaggriculture-v3/champion.json reward-hunter/kaggriculture-v3/main.py
+            if ! git diff --cached --quiet; then
+              git commit -m 'Promote gate-validated V3 research champion'
+              git push origin HEAD:refs/heads/codex/kaggriculture-v3-meta-orchestrator
+            fi
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v3-search-${{ github.run_id }}
+          path: /tmp/v3-study/
+          retention-days: 30
