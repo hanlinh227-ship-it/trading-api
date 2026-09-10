@@ -2,7 +2,8 @@
 import contextlib, hashlib, importlib, io, json, math, os, statistics, subprocess, time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from policy import make_v3, validate_params
+from policy import validate_params
+from agent_factory import make_agent
 from opponents import opponent, SUITE
 
 HERE=Path(__file__).resolve().parent
@@ -50,11 +51,7 @@ def _track(agent,tracker):
 
 
 def _two_arg_adapter(agent):
-    """Adapt legacy one-argument baselines to the modern Kaggle callable contract.
-
-    The V1 incumbent intentionally ignores configuration. Benchmarking it through
-    ``_track`` must not turn that legacy signature into an invalid game.
-    """
+    """Adapt legacy one-argument baselines to the modern Kaggle callable contract."""
     def wrapped(obs, configuration=None):
         return agent(obs)
     return wrapped
@@ -75,7 +72,7 @@ def play(job):
     engine._apply_unit_action=audited;tracker=dict(full_unlock_step=None,max_unlocked=1,peak_productive=0.,full_peak_productive=0.,peak_animals=0)
     row=dict(seed=seed,seat=seat,opponent=family,steps=steps,kind=kind,valid=False,error=None)
     try:
-        base=opponent('incumbent') if kind=='incumbent' else make_v3(params)
+        base=opponent('incumbent') if kind=='incumbent' else make_agent(params)
         if kind=='incumbent':base=_two_arg_adapter(base)
         candidate=agent_path if agent_path else _track(base,tracker);agents=[candidate,opponent(family)] if seat==0 else [opponent(family),candidate]
         env=make('kaggriculture',configuration={'seed':int(seed),'episodeSteps':steps},debug=True)
@@ -98,9 +95,10 @@ def summary(rows):
     if not valid:return dict(games=n,valid_games=0,win_rate=0,mean_margin=None,p20_margin=None,worst_margin=None,objective=-1e9)
     margins=sorted(r['margin'] for r in valid);wins=sum(x>0 for x in margins);ties=sum(x==0 for x in margins);mean=statistics.mean(margins);p20=margins[int(.2*(len(margins)-1))];worst=margins[0]
     actions=sum(r['efficiency']['actions'] for r in valid);noop=sum(r['efficiency']['noops'] for r in valid)/max(1,actions);waste=sum(r['efficiency']['moves']+r['efficiency']['passes'] for r in valid)/max(1,actions);tail=sum(m<-5000 for m in margins)/n
-    unlock=sum(r['final_unlocked_quadrants']>=4 for r in valid)/n;days=[r['full_unlock_day'] if r['full_unlock_day'] is not None else r['steps']/24+1 for r in valid];productive=statistics.mean(r['full_farm_peak_productive_utilization'] for r in valid);animals=statistics.mean(r['peak_animals'] for r in valid)
+    unlock=sum(r['final_unlocked_quadrants']>=4 for r in valid)/n;days=[r['full_unlock_day'] if r['full_unlock_day'] is not None else r['steps']/24+1 for r in valid]
+    productive=statistics.mean(r['full_farm_peak_productive_utilization'] for r in valid);productive_any=statistics.mean(r['peak_productive_utilization'] for r in valid);animals=statistics.mean(r['peak_animals'] for r in valid)
     objective=(600*(wins+.5*ties)/n+150*math.tanh(mean/6000)+110*math.tanh(p20/6000)+45*math.tanh(worst/6000)-2200*(n-len(valid))/n-180*noop-22*waste-180*tail+60*unlock+30*productive+8*min(1,animals/8)-2.0*statistics.mean(days))
-    return dict(games=n,valid_games=len(valid),wins=wins,ties=ties,win_rate=wins/n,mean_margin=mean,median_margin=statistics.median(margins),p20_margin=p20,worst_margin=worst,mean_money=statistics.mean(r['candidate_money'] for r in valid),noop_rate=noop,movement_idle_rate=waste,catastrophic_rate=tail,objective=objective,full_unlock_rate=unlock,mean_full_unlock_day=statistics.mean(days),mean_full_farm_peak_productive_utilization=productive,mean_peak_animals=animals,mean_terminal_unsold_units=statistics.mean(r['terminal_unsold_units'] for r in valid))
+    return dict(games=n,valid_games=len(valid),wins=wins,ties=ties,win_rate=wins/n,mean_margin=mean,median_margin=statistics.median(margins),p20_margin=p20,worst_margin=worst,mean_money=statistics.mean(r['candidate_money'] for r in valid),noop_rate=noop,movement_idle_rate=waste,catastrophic_rate=tail,objective=objective,full_unlock_rate=unlock,mean_full_unlock_day=statistics.mean(days),mean_full_farm_peak_productive_utilization=productive,mean_peak_productive_utilization=productive_any,mean_peak_animals=animals,mean_final_plants=statistics.mean(r['final_plants'] for r in valid),mean_final_animals=statistics.mean(r['final_animals'] for r in valid),mean_final_structures=statistics.mean(r['final_structures'] for r in valid),mean_terminal_unsold_units=statistics.mean(r['terminal_unsold_units'] for r in valid))
 
 
 def evaluate(params=None,seeds=(101,),families=SUITE,steps=720,workers=0,kind='v3',agent_path=None):
