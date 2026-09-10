@@ -3,93 +3,110 @@
 Updated: 2026-09-10
 
 ## Project
-- Repository: hanlinh227-ship-it/trading-api
+- Repository: `hanlinh227-ship-it/trading-api`
 - Competition: Kaggle Kaggriculture 2026
-- Main integration PR: #215
-- PR #215 merged to main at commit 0624e73c079b3097b1b97f69279ea625bd77ec53
-- User joined Kaggriculture and accepted competition rules.
-- User reports KAGGLE_API_TOKEN is stored as a GitHub Actions repository secret. Never request, print, or commit the token value.
+- Main integration PR #215 merged at `0624e73c079b3097b1b97f69279ea625bd77ec53`.
+- `KAGGLE_API_TOKEN` is stored only as a GitHub Actions secret. Never request, print or commit its value.
+- Current promotion evidence must use `kaggle-environments==1.32.7`.
 
-## Lane V1 — deep/stable solver
-- Branch: reward-solver-kaggriculture-v1
-- Solver path: reward-hunter/kaggriculture/
-- Workflow: Reward Solver - Kaggriculture
-- workflow_dispatch run: 34446634238
-- User selected iterations=40 and submit=true.
-- validate: SUCCESS
-- optimize: SUCCESS
-- Baseline/Search-Holdout/Final-Holdout/Package/Artifact: all SUCCESS
-- Current V1 champion validation: holdout win_rate=1.0, mean_margin=18429; duel vs previous incumbent 6/6 wins.
-- Current V1 champion params include target_hands=11 and sell_floor_ratio=0.75991; these match the self-contained V1 currently accepted by Kaggle.
-- submit job also ran and Kaggle accepted another submission command at 2026-09-10T07:26:33Z.
-- That old V1 submit path packaged `submission.tar.gz` and the branch main.py still contains the known `Path(__file__)` loader, so this extra submission is not considered the canonical baseline until Kaggle validates it.
+## Live Kaggle incumbent
+- Accepted self-contained V1 submission: `56139689`, COMPLETE.
+- Last confirmed live publicScore: `337.0` from status run `34453161833`.
+- Old tar submissions `56139515` / `56139862` are invalid/error paths and must not be reused.
+- The first raw-exec failure was caused by assuming `__file__`; every future candidate must remain self-contained and pass raw-exec + official loader + package/source equivalence before submission.
 
-## Lane V2 FAST
-- Branch: reward-solver-kaggriculture-v2-fast
-- Workflow run: 34447831809
-- validate/search/final holdout/package: SUCCESS
-- V2 final holdout vs starter: 8/8 wins, mean_margin=12271.75, worst_margin=7676.
-- Direct duel vs V1: win_rate=0.25, mean_margin=-728.5.
-- improved_vs_v1=false; no V2 champion promotion.
-- V1 remains incumbent.
+## Historical lanes
+- V1: `reward-solver-kaggriculture-v1`, path `reward-hunter/kaggriculture/`.
+- V2 Fast: `reward-solver-kaggriculture-v2-fast`; final holdout vs starter 8/8 but direct V1 duel only 25% / mean margin -728.5, so not promoted.
+- V3 Codex: PR #216 `[KAGGLE-V3] Meta Orchestrator and Robust Search System`, branch `codex/kaggriculture-v3-meta-orchestrator`; historical strong numbers are not submission evidence because an early study used a mismatched simulator source despite the same version label.
+- V4 Full Farm: PR #217 `[KAGGLE-V4] Full-Farm Expansion and Utilization Campaign`, branch `codex/kaggriculture-v4-full-farm-expansion`; research lane for rapid four-quadrant expansion/utilization, no auto-submit.
 
-## Kaggle submissions
-### 56139515
-- File: submission.tar.gz
-- Final status: ERROR
-- Root cause: `NameError: name '__file__' is not defined` during Kaggle raw execution.
+## ACTIVE LANE — V5 Mixed-Farm Economy
+- Branch: `codex/kaggriculture-v5-mixed-farm-economy`
+- Draft PR: #218 `[KAGGLE-V5] Mixed-Farm Economy and Cyclic Challenger League`
+- PR URL: https://github.com/hanlinh227-ship-it/trading-api/pull/218
+- Dedicated checkpoint: `CHECKPOINTS/KAGGRICULTURE_V5_MIXED_FARM.md`
+- Claude audit prompt: `CHECKPOINTS/CLAUDE_KAGGRICULTURE_V5_REVIEW_PROMPT.md`
+- Kaggle submission from V5: **NO**.
 
-### 56139689 — canonical live baseline
-- File: main.py
-- Description: Reward Solver V1 raw-exec fix
-- Status: COMPLETE
-- publicScore: 600.0
-- privateScore: blank at last check
-- Validation episode: 107394181, COMPLETED
-- This is the first confirmed working Kaggle submission and is the canonical live baseline.
+### V5 objective
+Treat the farm as one capital-allocation system:
+`crop cashflow -> market selling -> working capital -> land/labor/livestock -> feed/care/fertilizer -> harvest -> reinvest`.
+Opening four quadrants is a campaign goal but never overrides profitability or promotion evidence.
 
-### 56139862 — extra V1 deep submit
-- File: submission.tar.gz
-- Description: Reward Solver validated champion
-- Submitted by V1 deep workflow after optimize completed.
-- Latest confirmed status at 2026-09-10T07:27:13Z: PENDING.
-- Kaggle CLI reported 3 submissions remaining today after this submit.
-- Because this path still uses the old tar package/runtime loader, do not treat it as valid until Kaggle confirms COMPLETE.
+### V5.0 failure
+Canonical run `34458086918` exposed an economic deadlock:
+- 16/16 valid
+- 0 wins
+- mean margin `-2400.625`
+- mean money `0.0`
+- movement/idle `0.9834`
+Root cause: almost the full next-land price was reserved while hiring/building continued, starving the seed income engine; structures also ran too far ahead of the funded herd.
 
-## Status checker
-- Workflow: `.github/workflows/reward-kaggriculture-status-check.yml`
-- It targets canonical submission 56139689.
-- Run 34449786623 confirmed 56139689 COMPLETE with publicScore 600.0.
-- Run 34450005641 additionally observed 56139862 PENDING.
+### V5.1 recovery
+Run `34458596933` validation/economic smoke after working-capital fixes:
+- 16/16 valid
+- 4 wins / 16
+- mean money `1392.25`
+- mean margin `-889.4375`
+- mean peak animals `12.0625`
+- terminal unsold units `31.75`
+- movement/idle `0.6550`
+- unit no-op `0`
+- raw-exec PASS
+- official loader PASS
+This is progress, not a champion.
 
-## Architecture rule going forward
-1. Keep 56139689 as the canonical live baseline.
-2. Do not spend another Kaggle submission slot on V1/V2 unless a candidate is materially different and clears raw-exec + holdout + direct-duel gates.
-3. V2 FAST failed direct V1 duel, so do not submit it.
-4. Start the next isolated upgrade lane focused on opponent-aware/meta play and larger structural improvements rather than more tiny parameter tuning.
-5. Every future Kaggle candidate must be self-contained and pass a raw-exec compatibility gate before submission.
+### V5.2 hardening now in branch
+- Seat-safe canonical clock: derive turn from `day * turnsPerDay + hour` because 1.32.7 may omit `obs['step']` for seat 1; inject derived step only as a compatibility shim for legacy routing helpers.
+- Benchmark full-unlock telemetry uses the same seat-safe clock.
+- Regression tests cover missing-step seat 1 behavior and replay JSON decoding.
+- Public replay analyzer now supports JSON/JSONL/Parquet, JSON-like string/binary cells, bounded file/row scans, deduplication and schema diagnostics.
+- Public-meta workflow installs PyArrow, retries archive download, fails closed on empty/stale data and uploads diagnostics even on failure.
+- Cyclic local challenger league: public replay refresh -> meta prior -> staged candidates -> incumbent duel -> multi-family opponents -> unseen holdout/final -> raw-exec/package equivalence -> `PROMOTION_READY` only on PASS.
+- No scheduled or push path ever auto-submits to Kaggle.
+- Scheduled workflows only recur after the workflow exists on the repository default branch; do not claim feature-branch cron is already continuously active.
+
+### Current V5.2 runs
+- Canonical research run: `34459804967`
+  - `validate`: SUCCESS
+  - `research / Crop-herd-expansion search and unseen gates`: IN PROGRESS at latest check.
+- Public-meta/challenger run: `34459819333`
+  - replay-analysis dependencies: SUCCESS
+  - public top-replay archive download: SUCCESS
+  - `Analyze JSON and Parquet public episodes offline`: IN PROGRESS at latest check.
+- Previous public-meta run `34458096559` failed because the archive was Parquet and the old parser only read JSON/JSONL; V5.2 explicitly fixes that root cause.
+
+## Current promotion rule
+Do not promote or submit because a candidate resembles a top replay, opens all land, or wins one smoke block. Require current 1.32.7 evidence covering:
+- all games valid / both seats
+- direct incumbent duel
+- multiple opponent families
+- unseen holdout + final
+- tail risk
+- full-farm timing + productive utilization
+- unit no-op / movement waste
+- terminal unsold inventory
+- raw-exec + official loader
+- exact package/source episode equivalence
+
+## Continuous improvement semantics
+“Continuous rematch” means periodic **local challenger-league research** plus public-meta refresh. Kaggle controls live ladder matchmaking. Do not attempt to force matchmaking, bypass submission limits or manipulate ranking infrastructure.
+
+## Claude second-opinion handoff
+No Claude/Anthropic connector is available in the current ChatGPT session. The exact audit prompt is committed at `CHECKPOINTS/CLAUDE_KAGGRICULTURE_V5_REVIEW_PROMPT.md`. If the user pastes it into Claude with GitHub access, Claude is instructed to create branch `claude/kaggriculture-v5-crop-cycle-audit`, open a PR titled `[KAGGLE-V5-CLAUDE]...` back into the V5 branch, run evidence-based tests, and leave `CHECKPOINTS/KAGGRICULTURE_V5_CLAUDE_AUDIT.md`.
 
 ## What the next chat should do first
-1. Check whether 56139862 becomes COMPLETE or ERROR; do not rely on it meanwhile.
-2. Track the live rating/episodes of canonical submission 56139689.
-3. Build the next isolated opponent-aware/meta upgrade lane and benchmark it against V1 on both seats with unseen seeds.
-4. Submit only if it robustly beats V1 and passes raw-exec validation.
-5. Keep updating this checkpoint after material changes.
+If user says `check PR kaggle`:
+1. inspect PR #218 and read `CHECKPOINTS/KAGGRICULTURE_V5_MIXED_FARM.md` from its head branch;
+2. inspect V5.2 runs `34459804967` and `34459819333` first;
+3. if the Parquet analyzer fails, use emitted schema diagnostics and repair the real schema rather than guessing;
+4. if canonical search fails, repair the exact runtime/economic issue and rerun;
+5. look for a `[KAGGLE-V5-CLAUDE]` PR and evaluate it if the user has run the Claude prompt;
+6. do not submit V5 until promotion/raw-exec/package-equivalence pass and the exact candidate hash is identified;
+7. never expose `KAGGLE_API_TOKEN`.
 
-## Safety/handling
-- Never expose KAGGLE_API_TOKEN or private credentials.
+## Safety
 - Keep secrets only in GitHub Actions secrets.
-- Do not manipulate accounts, submission limits, or competition rules.
-- Do not claim a Kaggle leaderboard improvement until Kaggle confirms it.
-
-## V3 isolated research lane — 2026-09-10
-Branch: `codex/kaggriculture-v3-meta-orchestrator`.
-Read `CHECKPOINTS/KAGGRICULTURE_V3_CODEX_HANDOFF.md` on this branch for current evidence.
-V1 remains the live incumbent; no Kaggle submission is authorized or performed by this task.
-
-V3 PR #216: https://github.com/hanlinh227-ship-it/trading-api/pull/216
-Local promotion PASS: V1 duel 8/8, mean +5299.25; E/F each 64/64 wins.
-Self-contained raw-exec and packaged/source parity PASS. Kaggle submission: NO.
-First V3 CI 34451717476 PASS; final revision CI pending.
-
-Audit correction: study-001 simulator source differed from clean pinned wheel despite matching version label. Canonical revalidation is running; prior V3 promotion remains research-only until it passes. See handoff.
+- No multi-accounting, submission-limit bypass, hidden/private test extraction, collusion or matchmaking manipulation.
+- Do not claim leaderboard improvement without real Kaggle ladder evidence.
