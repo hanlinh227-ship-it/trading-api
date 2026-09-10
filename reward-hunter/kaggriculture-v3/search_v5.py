@@ -2,14 +2,30 @@
 import argparse,json,random
 from pathlib import Path
 from benchmark_v5 import evaluate,save,digest
-from policy import V3_DEFAULT
+from policy import V3_DEFAULT,validate_params
 from opponents import SUITE
 from package_submission import build
 from raw_exec_test import check
 from promotion_v5 import gate
 
+META_KEYS={'cow_max','sheep_max','goose_max','target_hands','sell_batch'}
 
-def candidates(n,seed):
+
+def load_meta_prior(path):
+    if not path:
+        return None
+    raw=json.loads(Path(path).read_text())
+    src=raw.get('summary',raw).get('recommended_params',{}) if isinstance(raw,dict) else {}
+    patch={k:src[k] for k in META_KEYS if k in src}
+    if any(int(patch.get(k,0) or 0)>0 for k in ('cow_max','sheep_max','goose_max')):
+        patch['herd_mode']='dynamic'
+    if not patch:
+        return None
+    p=dict(V3_DEFAULT);p.update(patch)
+    return validate_params(p)
+
+
+def candidates(n,seed,meta_prior=None):
     rng=random.Random(seed); base=dict(V3_DEFAULT); pool=[]
     presets=[
         {},
@@ -33,8 +49,12 @@ def candidates(n,seed):
         {'herd_mode':'dynamic','cow_max':8,'sheep_max':6,'goose_max':0,'crop_mode':'roi','expansion_mode':'fast','land_buffer':260,'fill_target':.82},
         {'herd_mode':'dynamic','cow_max':5,'sheep_max':3,'goose_max':2,'crop_mode':'roi','fertilizer_mode':'adaptive','sell_batch':4,'drop_at':6},
     ]
+    if meta_prior:
+        # Fresh public replay statistics enter only as one candidate family. They never
+        # bypass local evaluation, unseen seeds, direct incumbent duel or runtime gates.
+        presets.insert(1,{k:v for k,v in meta_prior.items() if k in base})
     for patch in presets:
-        p=dict(base);p.update(patch)
+        p=dict(base);p.update(patch);p=validate_params(p)
         if p not in pool:pool.append(p)
         if len(pool)>=n:return pool[:n]
     keys=('distance_cost','target_hands','crop_mode','expansion_mode','land_buffer','fill_target','fill_priority','seed_scale','herd_mode','cow_max','sheep_max','goose_max','livestock_start_day','livestock_cash_buffer','feed_carry','drop_at','fertilizer_mode','sell_batch')
@@ -48,17 +68,17 @@ def candidates(n,seed):
             'livestock_cash_buffer':(200,400,600,900,1300),'feed_carry':(3,4,5,6,8),'drop_at':(5,7,8,10,12),
             'fertilizer_mode':('off','herd_only','adaptive'),'sell_batch':(3,4,5,6,8,10),
         }
-        p[k]=rng.choice(choices[k])
+        p[k]=rng.choice(choices[k]);p=validate_params(p)
         if p not in pool:pool.append(p)
     return pool
 
 
-def run(out,n=20,workers=0,study_seed=5059):
+def run(out,n=20,workers=0,study_seed=5059,meta_prior_path=None):
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     if (out/'search.json').exists():raise ValueError('fresh output directory required')
     blocks=random.Random(study_seed).sample(range(100000,2000000000),18)
     train=blocks[:3];duel=blocks[3:7];hold=blocks[7:11];final=blocks[11:15];package_seed=blocks[15]
-    pool=candidates(n,study_seed);history=[]
+    meta_prior=load_meta_prior(meta_prior_path);pool=candidates(n,study_seed,meta_prior);history=[]
     def ev(p,seeds,fams,label,steps=720,kind='v3',path=None):
         r=evaluate(p,seeds,fams,steps,workers,kind,path);save(out/(label+'.json'),r);print(label,json.dumps(r['metrics']),flush=True);return r
     stages=[
@@ -85,13 +105,13 @@ def run(out,n=20,workers=0,study_seed=5059):
     result=dict(best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],
                 baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],provenance=frozen['provenance'],study_seed=study_seed,
                 seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),submission_performed=False,
-                public_meta_prior='9 cow / 4 sheep / 10 hands family included only as an independently implemented search seed')
+                public_meta_prior=meta_prior or 'built-in 9 cow / 4 sheep / 10 hands prior')
     save(out/'search.json',result)
     if decision['pass_gate']:save(out/'champion_v5.json',dict(params=best,evidence=result))
     print(json.dumps(result,indent=2));return result
 
 
 if __name__=='__main__':
-    ap=argparse.ArgumentParser();ap.add_argument('--output',required=True);ap.add_argument('--candidates',type=int,default=20);ap.add_argument('--workers',type=int,default=0);ap.add_argument('--study-seed',type=int,default=5059);a=ap.parse_args()
+    ap=argparse.ArgumentParser();ap.add_argument('--output',required=True);ap.add_argument('--candidates',type=int,default=20);ap.add_argument('--workers',type=int,default=0);ap.add_argument('--study-seed',type=int,default=5059);ap.add_argument('--meta-prior');a=ap.parse_args()
     if not 4<=a.candidates<=64:ap.error('candidates 4..64')
-    run(a.output,a.candidates,a.workers,a.study_seed)
+    run(a.output,a.candidates,a.workers,a.study_seed,a.meta_prior)
