@@ -1,0 +1,39 @@
+name: Puzzle71 VPS Capability Probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/puzzle71-vps-probe-trigger'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - name: Probe compute capabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== PUZZLE71 VPS PROBE ==='
+          echo "host=$(hostname)"
+          echo "kernel=$(uname -srmo)"
+          echo "cpu_threads=$(nproc)"
+          echo "memory="; free -h || true
+          echo "disk="; df -h / || true
+          echo "gpu="
+          if command -v nvidia-smi >/dev/null 2>&1; then
+            nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+          else
+            echo 'NO_NVIDIA_SMI'
+          fi
+          echo "cuda_compiler="
+          if command -v nvcc >/dev/null 2>&1; then nvcc --version | tail -n 1; else echo 'NO_NVCC'; fi
+          echo "compiler="
+          (gcc --version | head -n 1) || true
+          (g++ --version | head -n 1) || true
+          echo "git=$(git --version 2>/dev/null || true)"
+          echo "cmake=$(cmake --version 2>/dev/null | head -n 1 || true)"
+          echo "sudo_noninteractive=$(sudo -n true >/dev/null 2>&1 && echo YES || echo NO)"
+          echo '=== END PROBE ==='
