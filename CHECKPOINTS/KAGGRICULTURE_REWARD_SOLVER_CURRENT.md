@@ -33,6 +33,11 @@ Updated: 2026-09-10
 - Trigger file: .github/reward-kaggriculture-v2-fast-trigger
 - Trigger commit/head: 0a9fa0e0eec29d9ccc6b1b6fbb452e92bf7baae8
 - Workflow run: 34447831809
+- Latest checked state:
+  - validate: SUCCESS
+  - search: IN PROGRESS
+  - Parallel successive-halving search: IN PROGRESS
+  - final holdout / package / promotion: pending
 - V2 runs on GitHub-hosted ubuntu-latest, not on `trading-vps`, so it can execute while V1 uses the VPS.
 - V2 does NOT auto-submit to Kaggle. It searches, validates, packages and promotes a local V2 champion only when it clears the V1 comparison gate.
 
@@ -48,9 +53,14 @@ Updated: 2026-09-10
 - Kaggle confirmation: `Successfully submitted to Kaggriculture`.
 - Submission reference: 56139515.
 - Description: `Reward Solver V1 validated quick submit`.
-- Latest Kaggle status observed by CLI: `SubmissionStatus.PENDING` at 2026-09-10 07:06:30 UTC-side workflow log timestamp.
+- Dedicated status-check workflow added on quick-submit branch:
+  - workflow: `.github/workflows/reward-kaggriculture-status-check.yml`
+  - run: 34448577621
+  - status-check job: SUCCESS
+  - latest observed Kaggle state at 2026-09-10T07:09:48Z: `SubmissionStatus.PENDING`
+  - publicScore/privateScore still blank at that instant.
 - Kaggle CLI reported 4 submissions remaining today after this submit.
-- Purpose achieved: real leaderboard evaluation has started without waiting for V1 deep optimization or V2 fast search.
+- Meaning: Kaggle has accepted the submission, but leaderboard evaluation has not completed yet.
 
 ## V2 FAST changes
 - Density control: tunable max_quadrants=1..3.
@@ -73,7 +83,7 @@ Updated: 2026-09-10
 
 ## Architecture rule going forward
 Three lanes are intentionally isolated and may run simultaneously:
-1. QUICK SUBMIT = real leaderboard baseline is now pending on Kaggle.
+1. QUICK SUBMIT = real leaderboard baseline is accepted by Kaggle but still PENDING evaluation.
 2. V1 DEEP = stable 40-iteration optimization on the VPS.
 3. V2 FAST = broad structural search on GitHub-hosted compute.
 Do not edit the running V1 lane mid-run. Compare actual leaderboard feedback plus holdout/duel evidence before replacing a champion.
@@ -82,7 +92,7 @@ Do not edit the running V1 lane mid-run. Compare actual leaderboard feedback plu
 Livestock/fertilizer/carry logistics (cows/sheep, CARE, FEED, fertilizer use, shed pickup/drop and action-density routing) is the next high-value architecture upgrade. Keep it isolated from V1 while the current run is active.
 
 ## What the next chat should do first
-1. Check Kaggle submission ref 56139515 status if possible. Current known state is PENDING; do not claim a leaderboard score until confirmed.
+1. Check Kaggle submission ref 56139515 status. Current confirmed state is still PENDING as of status-check run 34448577621.
 2. Fetch V1 run 34446634238 and V2 run 34447831809.
 3. If V1 finishes optimize, inspect its submit job and avoid unnecessary duplicate submissions if the champion is unchanged.
 4. If V2 finishes, compare V2 holdout/duel vs V1 before promotion/submission.
