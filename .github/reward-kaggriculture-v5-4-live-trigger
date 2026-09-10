@@ -1,0 +1,5 @@
+run=v5.4-live-shadow-001
+source_run=34496666630
+candidate_sha=b113a5da49a5
+mode=guarded-second-live-probe
+requested=2026-09-10T23:00+07:00
