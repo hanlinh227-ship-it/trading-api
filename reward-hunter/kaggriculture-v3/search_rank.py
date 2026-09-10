@@ -1,4 +1,4 @@
-"""V5.5 profit-first ladder search with continuous potential adaptation."""
+"""V5.6 profit-first ladder search with continuous, monotonic capital learning."""
 import argparse,json,random
 from pathlib import Path
 from benchmark_v5 import evaluate,save,digest
@@ -9,7 +9,11 @@ from raw_exec_test import check
 from promotion_rank import gate
 from learning_rank import (
     load_state,save_state,observe_evaluation,best_learned_patch,learned_variants,
-    adaptive_plan,champion_params,record_round,weak_families,
+    adaptive_plan,champion_params,weak_families,
+)
+from monotonic_rank import (
+    accepted_params,is_taboo,failure_penalty,decide_and_record,
+    record_monotonic_round,summary as monotonic_summary,
 )
 
 META_KEYS={'cow_max','sheep_max','goose_max','target_hands','sell_batch','land_target_quadrants'}
@@ -36,7 +40,7 @@ def load_meta_prior(path):
 
 
 def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
-    rng=random.Random(seed);base=dict(V3_DEFAULT);pool=[];plan=plan or {}
+    rng=random.Random(seed);base=dict(V3_DEFAULT);pool=[];plan=plan or {};learning_state=learning_state or {}
     presets=[
         {'land_target_quadrants':4,'herd_mode':'cow_sheep','cow_max':6,'sheep_max':4,'target_hands':11,'sell_batch':5,'livestock_start_day':2},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':9,'sheep_max':4,'goose_max':0,'target_hands':10,'livestock_start_day':0,'sell_batch':5,'fertilizer_reserve':1,'animal_roi_floor':.10},
@@ -51,25 +55,42 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':10,'sheep_max':3,'target_hands':10,'livestock_start_day':0,'animal_roi_floor':0.0,'fertilizer_reserve':0},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':6,'sheep_max':6,'target_hands':10,'livestock_start_day':0,'animal_roi_floor':.15,'fertilizer_reserve':2},
     ]
-    # Long-lived elites are evaluated first so a good lineage cannot disappear because of one noisy round.
-    if learning_state:
-        for elite in reversed(champion_params(learning_state,limit=4)):
-            presets.insert(0,elite)
+
+    def add(p):
+        p=validate_params(dict(p))
+        if is_taboo(learning_state,p):return False
+        if p in pool:return False
+        pool.append(p);return True
+
+    # The accepted monotonic champion always gets first right of comparison. Other historical
+    # elites remain useful parents, but exact rejected configurations never return to the pool.
+    accepted=accepted_params(learning_state)
+    if accepted:add(accepted)
+    for elite in champion_params(learning_state,limit=4):add(elite)
     if meta_prior:
-        patch={k:v for k,v in meta_prior.items() if k in base};patch.setdefault('land_target_quadrants',3);presets.insert(1,patch)
+        patch={k:v for k,v in meta_prior.items() if k in base};patch.setdefault('land_target_quadrants',3)
+        p=dict(base);p.update(patch);add(p)
     if learning_state and int(learning_state.get('matches',0) or 0)>=8:
         patch=best_learned_patch(learning_state,CHOICES,min_samples=4,focus_families=plan.get('focus_families'))
         if patch:
-            learned=dict(base);learned.update(patch);presets.insert(1,learned)
+            learned=dict(base);learned.update(patch);add(learned)
     for patch in presets:
-        p=dict(base);p.update(patch);p=validate_params(p)
-        if p not in pool:pool.append(p)
+        p=dict(base);p.update(patch);add(p)
         if len(pool)>=n:return pool[:n]
-    keys=tuple(CHOICES)
-    while len(pool)<n:
-        p=dict(rng.choice(pool));k=rng.choice(keys);p[k]=rng.choice(CHOICES[k]);p=validate_params(p)
-        if p not in pool:pool.append(p)
-    return pool
+
+    keys=tuple(CHOICES);attempts=0
+    while len(pool)<n and attempts<n*250:
+        attempts+=1
+        parent=dict(rng.choice(pool or [validate_params(base)]))
+        # Add more diversity as the controller raises mutation depth. This also prevents the
+        # generator getting stuck when several exact configurations have entered failure memory.
+        edits=max(1,min(4,int(plan.get('mutation_steps',1))))
+        for _ in range(1+rng.randrange(edits)):
+            k=rng.choice(keys);parent[k]=rng.choice(CHOICES[k])
+        add(parent)
+    if len(pool)<n:
+        raise RuntimeError('unable to build non-taboo candidate pool')
+    return pool[:n]
 
 
 def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_path=None):
@@ -79,8 +100,13 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     train=blocks[:3];duel=blocks[3:7];hold=blocks[7:11];final=blocks[11:15];package_seed=blocks[15]
     state=load_state(learning_state_path)
     plan=adaptive_plan(state,n);effective_n=plan['candidate_count']
+    monotonic_base=accepted_params(state)
+    if monotonic_base is None:
+        archived=champion_params(state,limit=1)
+        monotonic_base=archived[0] if archived else None
     meta_prior=load_meta_prior(meta_prior_path);pool=candidates(effective_n,study_seed,meta_prior,state,plan);history=[];rng=random.Random(study_seed ^ 0x54A7)
     print('POTENTIAL_PLAN',json.dumps(plan,sort_keys=True),flush=True)
+    print('MONOTONIC_START',json.dumps(monotonic_summary(state),sort_keys=True),flush=True)
 
     def ev(p,seeds,fams,label,steps=720,kind='v3',path=None,learn=True):
         nonlocal state
@@ -99,44 +125,80 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
     for stage,seeds,fams,steps,keep in stages:
         ranked=[]
         for p in pool:
-            r=ev(p,seeds,fams,stage+'-'+digest(p)[:10],steps);ranked.append((r['metrics']['objective'],p,r))
+            r=ev(p,seeds,fams,stage+'-'+digest(p)[:10],steps)
+            penalty=failure_penalty(state,p)
+            rank_score=r['metrics']['objective']-18.0*min(4.0,penalty)
+            ranked.append((rank_score,p,r,penalty))
         ranked.sort(key=lambda x:(x[0],digest(x[1])),reverse=True)
-        history.append(dict(stage=stage,ranking=[dict(params=p,metrics=r['metrics']) for _,p,r in ranked],learning_matches=state['matches']))
+        history.append(dict(stage=stage,ranking=[dict(params=p,metrics=r['metrics'],failure_penalty=pen,rank_score=score) for score,p,r,pen in ranked],learning_matches=state['matches']))
         if stage=='C':
-            pool=[p for _,p,_ in ranked[:keep]];frozen=ranked[0][2]
+            pool=[p for _,p,_,_ in ranked[:keep]];frozen=ranked[0][2]
         else:
-            elite_count=max(2,min(keep,(keep+1)//2));elites=[p for _,p,_ in ranked[:elite_count]]
-            pool=learned_variants(
-                elites,state,CHOICES,validate_params,rng,keep,
+            elite_count=max(2,min(keep,(keep+1)//2));elites=[p for _,p,_,_ in ranked[:elite_count]]
+            generated=learned_variants(
+                elites,state,CHOICES,validate_params,rng,max(keep*2,keep+4),
                 focus_families=plan.get('focus_families'),
                 exploration=plan.get('exploration',.18),
                 mutation_steps=plan.get('mutation_steps',1),
             )
-            for _,p,_ in ranked:
-                if len(pool)>=keep:break
-                if p not in pool:pool.append(p)
+            new_pool=[]
+            # Keep non-taboo candidates with the lowest accumulated failure burden first.
+            for p in sorted(generated,key=lambda q:(failure_penalty(state,q),digest(q))):
+                if not is_taboo(state,p) and p not in new_pool:new_pool.append(p)
+                if len(new_pool)>=keep:break
+            for _,p,_,_ in ranked:
+                if len(new_pool)>=keep:break
+                if not is_taboo(state,p) and p not in new_pool:new_pool.append(p)
+            pool=new_pool
+            if not pool:raise RuntimeError('all stage survivors were taboo')
+
     best=pool[0]
     d=ev(best,duel,('incumbent',),'D-duel');h=ev(best,hold,SUITE,'E-holdout');bh=ev(best,hold,SUITE,'E-baseline',kind='incumbent',learn=False)
     f=ev(best,final,SUITE,'F-final');bf=ev(best,final,SUITE,'F-baseline',kind='incumbent',learn=False)
+
+    mono_incumbent=None
+    if monotonic_base is not None and digest(monotonic_base)!=digest(best):
+        md=ev(monotonic_base,duel,('incumbent',),'M-incumbent-duel',learn=False)
+        mh=ev(monotonic_base,hold,SUITE,'M-incumbent-holdout',learn=False)
+        mf=ev(monotonic_base,final,SUITE,'M-incumbent-final',learn=False)
+        mono_incumbent={'duel':md['metrics'],'holdout':mh['metrics'],'final':mf['metrics'],'params':monotonic_base}
+
+    candidate_metrics={'duel':d['metrics'],'holdout':h['metrics'],'final':f['metrics']}
+    state,mono_decision=decide_and_record(state,best,candidate_metrics,mono_incumbent,label='run-'+str(study_seed))
+
     package=build(best,out/'candidate-main.py');runtime=check(out/'candidate-main.py')
     packaged=ev(best,[package_seed],('incumbent',),'package-check',path=out/'candidate-main.py',learn=False);source=ev(best,[package_seed],('incumbent',),'source-check',learn=False)
     keys=('margin','valid','statuses','terminal_unsold_units','final_unlocked_quadrants','final_animals')
     runtime['episode_equivalence']='PASS' if all(all(a.get(k)==b.get(k) for k in keys) for a,b in zip(packaged['rows'],source['rows'])) and all(r['valid'] for r in packaged['rows']) else 'FAIL'
-    decision=gate(frozen,d,h,f,bh,bf,runtime)
-    state=record_round(state,best,d['metrics'],h['metrics'],f['metrics'],decision,label='run-'+str(study_seed))
+
+    strict=gate(frozen,d,h,f,bh,bf,runtime)
+    decision=dict(strict);decision['strict_pass_gate']=bool(strict.get('pass_gate',False));decision['monotonic']=mono_decision
+    reasons=list(strict.get('reasons',[]))
+    if not mono_decision.get('pass',False):
+        reasons.append('monotonic_non_regression')
+        reasons.extend('monotonic_'+str(x) for x in mono_decision.get('reasons',[]))
+    decision['reasons']=list(dict.fromkeys(reasons))
+    decision['pass_gate']=bool(strict.get('pass_gate',False) and mono_decision.get('pass',False))
+
+    state=record_monotonic_round(state,best,d['metrics'],h['metrics'],f['metrics'],decision,mono_decision,label='run-'+str(study_seed))
     next_plan=adaptive_plan(state,n)
     learned_patch=best_learned_patch(state,CHOICES,min_samples=4,focus_families=next_plan.get('focus_families'))
+    mono_state=monotonic_summary(state)
     result=dict(
         best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,
         duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],
+        monotonic_baseline=mono_incumbent or {'params':monotonic_base,'same_as_candidate':bool(monotonic_base is not None and digest(monotonic_base)==digest(best))},
+        monotonic=mono_state,
         provenance=frozen['provenance'],study_seed=study_seed,
         seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),
         submission_performed=False,public_meta_prior=meta_prior or 'built-in public high-Elo livestock priors',
-        lane='continuous-potential-rank-climb',round_plan=plan,next_round=next_plan,
+        lane='monotonic-continuous-potential-rank-climb',round_plan=plan,next_round=next_plan,
         learning=dict(matches=state['matches'],wins=state['wins'],losses=state['losses'],ties=state['ties'],invalid=state['invalid'],weak_families=weak_families(state),best_learned_patch=learned_patch,champion_count=len(state.get('champions',[])),control=state.get('control',{}),state_path=str(learning_state_path or 'ephemeral')),
     )
     save(out/'search.json',result);save_state(learning_state_path,state)
     if decision['pass_gate']:save(out/'PROMOTION_READY_rank.json',dict(params=best,evidence=result))
+    print('MONOTONIC_DECISION',json.dumps(mono_decision,sort_keys=True),flush=True)
+    print('MONOTONIC_STATE',json.dumps(mono_state,sort_keys=True),flush=True)
     print('NEXT_POTENTIAL_PLAN',json.dumps(next_plan,sort_keys=True),flush=True)
     print(json.dumps(result,indent=2));return result
 
