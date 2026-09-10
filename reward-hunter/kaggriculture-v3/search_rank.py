@@ -1,10 +1,10 @@
 """V5.7 profit-first ladder search with monotonic capital and agro-economic learning."""
 import argparse,json,random
 from pathlib import Path
-from benchmark_v5 import evaluate,save,digest
+from benchmark_v57 import evaluate,save,digest
 from policy import V3_DEFAULT,validate_params
 from opponents import SUITE
-from package_submission import build
+from package_submission_v57 import build
 from raw_exec_test import check
 from promotion_rank import gate
 from learning_rank import (
@@ -21,8 +21,6 @@ from agro_reasoning import (
 )
 
 META_KEYS={'cow_max','sheep_max','goose_max','target_hands','sell_batch','land_target_quadrants'}
-# Stable regression panel. Search/holdout seeds are always >=100000, so these fixed seeds are
-# never part of candidate selection. They provide a comparable capital high-water mark across rounds.
 MONOTONIC_SEEDS=(7319,29077)
 MONOTONIC_FAMILIES=SUITE
 
@@ -49,8 +47,6 @@ def load_meta_prior(path):
 
 def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
     rng=random.Random(seed);base=dict(V3_DEFAULT);pool=[];plan=plan or {};learning_state=learning_state or {}
-    # Historical public top patterns are only priors.  Failure-derived recovery hypotheses and
-    # our accepted champion are inserted ahead of them, so the system becomes increasingly personal.
     presets=list(PUBLIC_META_PRIORS)+[
         {'land_target_quadrants':4,'herd_mode':'cow_sheep','cow_max':6,'sheep_max':4,'target_hands':11,'sell_batch':5,'livestock_start_day':2},
         {'land_target_quadrants':3,'herd_mode':'cow_sheep','cow_max':9,'sheep_max':4,'goose_max':0,'target_hands':10,'livestock_start_day':0,'sell_batch':5,'fertilizer_reserve':1,'animal_roi_floor':.10},
@@ -82,8 +78,7 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
         patch=best_learned_patch(learning_state,CHOICES,min_samples=4,focus_families=plan.get('focus_families'))
         if patch:
             learned=dict(base);learned.update(patch);add(learned)
-    # Mistakes are converted into new hypotheses before generic/public presets are tried again.
-    for recovery in recovery_patches(learning_state,accepted or base,limit=max(4,min(8,n//3))):
+    for recovery in recovery_patches(learning_state,accepted or base,limit=max(4,min(10,n//3))):
         add(recovery)
     for patch in presets:
         p=dict(base);p.update(patch);add(p)
@@ -103,8 +98,6 @@ def candidates(n,seed,meta_prior=None,learning_state=None,plan=None):
 
 
 def _repeat_panel(metrics):
-    # monotonic_rank expects three blocks. Feeding the same fixed regression panel into all three
-    # preserves its strict per-block checks without tripling compute.
     return {'duel':metrics,'holdout':metrics,'final':metrics}
 
 
@@ -210,7 +203,7 @@ def run(out,n=24,workers=0,study_seed=7549,meta_prior_path=None,learning_state_p
         monotonic=mono_state,agro_reasoning=agro_state,
         provenance=frozen['provenance'],study_seed=study_seed,
         seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),
-        submission_performed=False,public_meta_prior=meta_prior or 'public top patterns used as priors, never copied trajectories',
+        submission_performed=False,public_meta_prior=meta_prior or 'public top patterns used only as structural priors',
         lane='agro-economic-monotonic-continuous-potential-rank-climb',round_plan=plan,next_round=next_plan,
         learning=dict(matches=state['matches'],wins=state['wins'],losses=state['losses'],ties=state['ties'],invalid=state['invalid'],weak_families=weak_families(state),best_learned_patch=learned_patch,champion_count=len(state.get('champions',[])),control=state.get('control',{}),state_path=str(learning_state_path or 'ephemeral')),
     )
