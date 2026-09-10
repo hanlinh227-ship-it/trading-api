@@ -1,3 +1,4 @@
-run=v5.3-bounded-recent-public-meta
+run=v5.3-main-live-start
 source=public-kaggle-top-replay-archive
-mode=latest-two-parquet-then-cyclic-challenger
+mode=main-bounded-meta-plus-adaptive-challenger
+requested=2026-09-10T20:50+07:00
