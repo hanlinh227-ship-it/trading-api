@@ -14,16 +14,22 @@ Updated: 2026-09-10
 - Branch: reward-solver-kaggriculture-v1
 - Solver path: reward-hunter/kaggriculture/
 - Workflow: Reward Solver - Kaggriculture
-- Current workflow_dispatch run: 34446634238
+- workflow_dispatch run: 34446634238
 - User selected iterations=40 and submit=true.
 - Latest checked state:
   - validate: SUCCESS
-  - optimize: IN PROGRESS on self-hosted runner `trading-vps`
+  - optimize: SUCCESS
   - Prepare isolated environment: SUCCESS
   - Baseline gate: SUCCESS
-  - Search and holdout gate: IN PROGRESS
-  - Final holdout / package / commit / submit: pending
-- Previous validated V1 champion file reports holdout win_rate=1.0, mean_margin=18429 and duel vs previous incumbent 6/6 wins. These are local simulator metrics, not leaderboard proof.
+  - Search and holdout gate: SUCCESS
+  - Final holdout verification: SUCCESS
+  - Package champion: SUCCESS
+  - Commit improved champion state: SUCCESS
+  - Artifact upload: SUCCESS
+  - submit job: QUEUED at last check
+- Current V1 champion file reports holdout win_rate=1.0, mean_margin=18429 and duel vs previous incumbent 6/6 wins.
+- Current V1 champion params include target_hands=11 and sell_floor_ratio=0.75991; these match the self-contained V1 currently accepted by Kaggle.
+- Important: V1 branch main.py still contains the old `Path(__file__)` runtime loader. The existing submit job packages `submission.tar.gz`, so it should not be treated as a new distinct champion unless raw-exec compatibility is fixed first.
 
 ## Lane V2 FAST — parallel, isolated, non-conflicting
 - Branch: reward-solver-kaggriculture-v2-fast
@@ -55,34 +61,37 @@ Updated: 2026-09-10
 - A raw-exec compatibility gate was added and passed: `RAW_EXEC_GATE_OK`.
 - Submission path changed to a self-contained `main.py`.
 
-### Submission 56139689 — current live attempt
+### Submission 56139689 — current live baseline
 - File: main.py
 - Description: Reward Solver V1 raw-exec fix
 - Quick-submit workflow run: 34449193248
-- GitHub job: SUCCESS
+- GitHub submit job: SUCCESS
 - Kaggle CLI confirmation: `Successfully submitted to Kaggriculture`.
-- Latest confirmed Kaggle status at 2026-09-10T07:20:32Z: `SubmissionStatus.PENDING`.
-- publicScore/privateScore are still blank at that instant.
-- Therefore the corrected submission has not yet completed Kaggle validation/leaderboard activation.
+- Latest confirmed Kaggle status at 2026-09-10T07:24:39Z: `SubmissionStatus.COMPLETE`.
+- publicScore: 600.0
+- privateScore: blank at that instant.
+- Validation episode: 107394181, COMPLETED at 2026-09-10T07:21:58Z.
+- Meaning: corrected V1 is now accepted and activated by Kaggle; 600.0 is the first confirmed live baseline score.
 
 ## Status checker
 - Workflow: `.github/workflows/reward-kaggriculture-status-check.yml`
-- It was previously hardcoded to the failed submission 56139515.
-- Fixed on quick-submit branch to point to current submission 56139689 and list its validation episodes.
-- Fix commit: f8d8b9bd86381aade9bfb7ce677f8df1abf2e7d9
+- It now points to current submission 56139689.
+- Latest status-check run: 34449786623
+- Result: SUCCESS
+- It confirmed submission 56139689 is COMPLETE with publicScore 600.0.
 
 ## Architecture rule going forward
 Three lanes are intentionally isolated:
-1. CURRENT KAGGLE SUBMISSION = 56139689, corrected self-contained V1, currently PENDING.
-2. V1 DEEP = stable 40-iteration optimization still running on VPS.
+1. CURRENT KAGGLE BASELINE = 56139689, self-contained V1, COMPLETE, publicScore 600.0.
+2. V1 DEEP = optimization completed successfully; its current champion params match the accepted V1 baseline, and its queued old tar submit path still has known raw-exec risk.
 3. V2 FAST = completed, but failed V1 duel promotion gate and must not replace V1.
 Do not submit V2 merely because its starter-benchmark is strong; V1 remains incumbent until a candidate beats it robustly.
 
 ## What the next chat should do first
-1. Check Kaggle submission 56139689 status, not 56139515.
-2. If 56139689 becomes ERROR, fetch its validation episode/logs and repair before using another submission slot.
-3. If 56139689 passes, record its leaderboard/rating/episode state and use that as the real baseline.
-4. Check V1 run 34446634238; if it finishes with a genuinely improved champion, validate Kaggle raw-exec compatibility before submission.
+1. Treat submission 56139689 / score 600.0 as the real Kaggle baseline.
+2. Check V1 run 34446634238 submit job before allowing another Kaggle submission; avoid wasting a slot on the same champion or the known old tar/raw-exec path.
+3. Start the next isolated upgrade lane focused on stronger opponent-aware/meta play rather than more small parameter tuning.
+4. Compare every new candidate against V1 on holdout + direct duel before considering a submission.
 5. Keep updating this checkpoint after material changes.
 
 ## Safety/handling
