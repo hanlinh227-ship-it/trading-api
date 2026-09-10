@@ -75,31 +75,55 @@ Updated: 2026-09-10
 - `package_submission.py` with no `--params` generates the default `harvest_wait=True`, so future submission must use the validated self-contained `main.py` or explicitly pass the validated champion params. Do not submit the default package by mistake.
 - V3 has NOT been submitted to Kaggle.
 
-## Canonical V3 revalidation launched
-- To avoid manual workflow dispatch, V3 workflow was extended with an isolated push trigger file. No Kaggle submission job was added.
+## Canonical V3 revalidation
 - Workflow modification commit: 112a288bf4160cce3228ba18f3cd6958fdd38d59
 - Research trigger commit: 347cb1f2f1b22b5136d10dc9d6abfc62387e7fb5
 - Canonical full-search workflow run: 34453319508
 - Event: push on codex/kaggriculture-v3-meta-orchestrator
-- Latest checked state: validate IN PROGRESS, installing pinned official simulator; research will run after validate.
-- Research uses fresh deterministic study seed = GitHub run ID and search budget 8, both seats, meta opponent suite, unseen holdout/final blocks, raw-exec/package checks and fail-closed promotion.
-- If promotion passes, workflow may commit only V3 `champion.json` and generated `main.py`; it never submits to Kaggle.
+- V3 runs independently from the new V4 lane and should not be cancelled merely because V4 exists.
+
+## V4 full-farm expansion lane — NEW
+- Branch: `codex/kaggriculture-v4-full-farm-expansion`
+- Created from V3 snapshot `347cb1f2f1b22b5136d10dc9d6abfc62387e7fb5`, so it cannot disturb the in-flight V3 canonical research run.
+- Dedicated checkpoint: `CHECKPOINTS/KAGGRICULTURE_V4_FULL_FARM.md`.
+- Dedicated workflow: `.github/workflows/reward-kaggriculture-v4-full-farm.yml`.
+- Trigger commit: `531467e9428eb17668c6a1254344df4b1a32dc65`.
+- Workflow run: `34454305004`.
+- Latest checked state: V4 `validate` IN PROGRESS on GitHub-hosted runner.
+- No Kaggle secret or submission command is used by V4.
+
+### V4 design goals
+- Mandatory rapid progression to all 4 quadrants rather than treating land unlock as a late optional purchase.
+- Explicit 1000/2000/4000 land economics and expansion modes: balanced / fast / max.
+- Reordered market capital flow: SELL -> BUY_LAND -> HIRE -> BUY_SEED.
+- Liquidity pressure lowers sell floor near an expansion deadline to convert inventory into land capital.
+- Dynamic workforce scales with owned acreage/workload, up to 14 hands.
+- Fast-cash crop mix before full unlock helps finance the next quadrant.
+- Seed throughput and stock targets expand while new acreage is under-filled.
+- Plant/DIG priority rises until target utilization is reached.
+- Benchmark now measures full unlock rate, mean full-unlock day, peak utilization and full-farm peak utilization in addition to win/margin/tail/no-op metrics.
+- Search jointly explores expansion aggressiveness, land buffer, crop mode, labor, distance cost, fill target, fill priority and seed throughput.
+- Search stages A/B use shorter horizons to reject weak candidates quickly; C/D/E/F remain canonical full-horizon evidence.
+- V4 promotion hard requirements on unseen holdout and final blocks: 100% full unlock, mean full unlock <= day 12, full-farm peak utilization >= 68%, zero unit no-ops, robust multi-family performance and positive direct V1 duel.
+- V4 does NOT auto-submit to Kaggle. Even a local PASS must be reviewed before consuming a submission slot.
 
 ## Current architecture rule
 1. Live incumbent is 56139689 / current confirmed publicScore 337.0.
 2. Old tar submissions are invalid and must not be reused.
 3. V2 failed the V1 direct-duel promotion gate.
-4. V3 is the strongest architectural candidate, but DO NOT submit yet because canonical full-search revalidation run 34453319508 is still running.
-5. Submit V3 only if canonical run clears promotion, candidate raw-exec remains PASS, generated candidate hash is identified, and no packaging mismatch remains.
-6. Keep PR #216 open until canonical evidence is captured and reviewed.
+4. V3 canonical research continues as the clean meta baseline.
+5. V4 runs in parallel as an aggressive full-farm lane and must prove both performance and expansion/utilization requirements.
+6. Do not submit V3/V4 until the relevant canonical run clears promotion, raw-exec remains PASS, exact candidate hash is identified, and packaging matches the validated candidate.
+7. Keep PR #216 open while V3 evidence is under review; V4 should remain isolated until its own validation is known.
 
 ## What the next chat should do first
-1. Fetch jobs for V3 run 34453319508.
-2. When research completes, inspect its logs and artifact `kaggriculture-v3-search-34453319508`.
-3. If promotion PASS, fetch updated PR #216 head/champion/main and verify the exact candidate hash and raw-exec evidence.
-4. If promotion FAIL, keep V1 live and improve V3; do not submit merely on historical study-001 numbers.
-5. Recheck Kaggle live score before consuming another submission slot.
-6. Never expose KAGGLE_API_TOKEN.
+1. Fetch V4 workflow run `34454305004` and inspect validation/research status.
+2. Fetch V3 run `34453319508` in parallel; do not confuse their results.
+3. If V4 validation fails, inspect logs and repair the V4 branch only.
+4. If V4 research completes, compare: direct V1 duel, holdout/final margins, full_unlock_rate, mean_full_unlock_day, full_farm_peak_utilization, no-op rate and raw-exec result.
+5. Only consider V4 superior if it clears the full promotion gate; opening land faster alone is not enough if expected leaderboard performance collapses.
+6. Recheck Kaggle live score before consuming another submission slot.
+7. Never expose KAGGLE_API_TOKEN.
 
 ## Safety/handling
 - Never expose KAGGLE_API_TOKEN or private credentials.
