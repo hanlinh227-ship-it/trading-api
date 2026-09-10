@@ -49,6 +49,17 @@ def _track(agent,tracker):
     return wrapped
 
 
+def _two_arg_adapter(agent):
+    """Adapt legacy one-argument baselines to the modern Kaggle callable contract.
+
+    The V1 incumbent intentionally ignores configuration. Benchmarking it through
+    ``_track`` must not turn that legacy signature into an invalid game.
+    """
+    def wrapped(obs, configuration=None):
+        return agent(obs)
+    return wrapped
+
+
 def play(job):
     params,family,seed,seat,steps,kind,agent_path=job
     from kaggle_environments import make
@@ -64,7 +75,9 @@ def play(job):
     engine._apply_unit_action=audited;tracker=dict(full_unlock_step=None,max_unlocked=1,peak_productive=0.,full_peak_productive=0.,peak_animals=0)
     row=dict(seed=seed,seat=seat,opponent=family,steps=steps,kind=kind,valid=False,error=None)
     try:
-        base=opponent('incumbent') if kind=='incumbent' else make_v3(params);candidate=agent_path if agent_path else _track(base,tracker);agents=[candidate,opponent(family)] if seat==0 else [opponent(family),candidate]
+        base=opponent('incumbent') if kind=='incumbent' else make_v3(params)
+        if kind=='incumbent':base=_two_arg_adapter(base)
+        candidate=agent_path if agent_path else _track(base,tracker);agents=[candidate,opponent(family)] if seat==0 else [opponent(family),candidate]
         env=make('kaggriculture',configuration={'seed':int(seed),'episodeSteps':steps},debug=True)
         with contextlib.redirect_stdout(io.StringIO()) as cap:env.run(agents)
         statuses=[str(s.status) for s in env.state];row['statuses']=statuses;row['valid']=statuses==['DONE','DONE']
