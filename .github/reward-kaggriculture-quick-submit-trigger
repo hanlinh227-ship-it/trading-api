@@ -1,2 +1,2 @@
-trigger: 2026-09-10T07:05:00+07:00
-purpose: submit already-validated V1 champion immediately while optimization lanes continue
+trigger: 2026-09-10T14:16:00+07:00
+purpose: resubmit self-contained V1 after Kaggle raw-exec __file__ fix
