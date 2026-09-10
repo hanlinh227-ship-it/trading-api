@@ -1,3 +1,3 @@
-run=v5.2-parquet-public-meta-cyclic
+run=v5.3-bounded-recent-public-meta
 source=public-kaggle-top-replay-archive
-mode=parse-parquet-and-run-challenger-league
+mode=latest-two-parquet-then-cyclic-challenger
