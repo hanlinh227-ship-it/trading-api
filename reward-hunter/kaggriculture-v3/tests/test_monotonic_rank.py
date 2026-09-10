@@ -9,6 +9,7 @@ from monotonic_rank import (
     accepted_params,
     decide_and_record,
     failure_penalty,
+    investment_pattern_signature,
     is_taboo,
     record_monotonic_round,
     summary,
@@ -108,6 +109,45 @@ class MonotonicRankTests(unittest.TestCase):
         fresh = validate_params({'land_target_quadrants': 4, 'cow_max': 8, 'target_hands': 13})
         self.assertFalse(is_taboo(state, fresh))
         self.assertGreater(failure_penalty(state, fresh), 0)
+
+    def test_same_losing_investment_thesis_cannot_repeat_after_two_independent_failures(self):
+        state = blank_state()
+        base = validate_params({'land_target_quadrants': 3, 'cow_max': 9, 'sheep_max': 4})
+        state, _ = decide_and_record(state, base, self.pack(money=50000), None, 'base')
+
+        common = {
+            'land_target_quadrants': 4,
+            'expansion_mode': 'max',
+            'land_buffer': 40,
+            'target_hands': 13,
+            'herd_mode': 'cow_sheep',
+            'cow_max': 6,
+            'sheep_max': 6,
+            'livestock_start_day': 0,
+            'livestock_cash_buffer': 350,
+            'animal_roi_floor': 0.0,
+            'fertilizer_mode': 'adaptive',
+            'fertilizer_reserve': 2,
+            'sell_batch': 10,
+            'seed_scale': 1.7,
+            'crop_mode': 'fast_cash',
+        }
+        first = validate_params(dict(common, distance_cost=5.0, fill_priority=70.0))
+        second = validate_params(dict(common, distance_cost=9.0, fill_priority=105.0))
+        future_cosmetic_variant = validate_params(dict(common, distance_cost=7.0, fill_priority=92.0))
+
+        self.assertEqual(investment_pattern_signature(first), investment_pattern_signature(second))
+        self.assertEqual(investment_pattern_signature(first), investment_pattern_signature(future_cosmetic_variant))
+
+        state, _ = decide_and_record(state, first, self.pack(money=44500), self.pack(money=50000), 'thesis-fail-1')
+        self.assertFalse(is_taboo(state, future_cosmetic_variant))
+        self.assertGreater(failure_penalty(state, future_cosmetic_variant), 0)
+
+        state, _ = decide_and_record(state, second, self.pack(money=43800), self.pack(money=50000), 'thesis-fail-2')
+        self.assertTrue(is_taboo(state, future_cosmetic_variant))
+        self.assertEqual(summary(state)['taboo_pattern_count'], 1)
+        self.assertEqual(accepted_params(state), base)
+        self.assertFalse(is_taboo(state, base))
 
 
 if __name__ == '__main__':
