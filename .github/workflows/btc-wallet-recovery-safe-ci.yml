@@ -1,0 +1,40 @@
+name: BTC Wallet Recovery Safe CI
+
+on:
+  push:
+    branches:
+      - btc-wallet-recovery-protocol-v1
+    paths:
+      - 'btc-wallet-recovery/**'
+      - 'docs/btc-wallet-recovery/**'
+      - '.github/workflows/btc-wallet-recovery-safe-ci.yml'
+  pull_request:
+    paths:
+      - 'btc-wallet-recovery/**'
+      - 'docs/btc-wallet-recovery/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fail on forbidden wallet material in repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \
+            \( -name '*.dat' -o -name '*.wallet' -o -name '*.seed' -o -name '*.mnemonic' -o -name '*.xprv' -o -name '*.wif' -o -name '*.secret' \) \
+            -not -path './.git/*' | grep -q .; then
+            echo 'Forbidden wallet material detected in repository.' >&2
+            exit 9
+          fi
+      - name: Compile
+        run: python -m py_compile btc-wallet-recovery/recovery_runner.py
+      - name: Test
+        run: python -m pytest -q btc-wallet-recovery/test_recovery_runner.py
