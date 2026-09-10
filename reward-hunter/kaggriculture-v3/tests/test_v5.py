@@ -3,6 +3,7 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from policy import V3_DEFAULT,validate_params,_animal_targets,_crop_score,make_v3
 from features import features,canonical_step
+from benchmark_v5 import evaluate
 from meta.replay_intelligence import _decode_jsonish,_episodes
 
 class V5EconomyTests(unittest.TestCase):
@@ -43,5 +44,9 @@ class V5EconomyTests(unittest.TestCase):
         payload='{"steps":[[{"action":{"farmer":["PASS"],"hands":[],"market":[]},"observation":{"day":0,"farms":[{"money":3000,"tiles":[],"hands":[]},{"money":3000,"tiles":[],"hands":[]}]}}]]}'
         decoded=_decode_jsonish(payload);self.assertIsInstance(decoded,dict)
         eps=list(_episodes({'replay_json':payload}));self.assertEqual(len(eps),1);self.assertIn('steps',eps[0])
+    def test_legacy_incumbent_baseline_is_valid_when_tracked(self):
+        r=evaluate(None,seeds=(553,),families=('starter',),steps=48,workers=1,kind='incumbent')
+        self.assertEqual(r['metrics']['games'],2)
+        self.assertEqual(r['metrics']['valid_games'],2)
 
 if __name__=='__main__':unittest.main()
