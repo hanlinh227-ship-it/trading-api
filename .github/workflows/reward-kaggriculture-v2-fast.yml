@@ -1,0 +1,144 @@
+name: Reward Solver - Kaggriculture V2 Fast Lane
+
+on:
+  push:
+    branches:
+      - reward-solver-kaggriculture-v2-fast
+    paths:
+      - '.github/reward-kaggriculture-v2-fast-trigger'
+  workflow_dispatch:
+    inputs:
+      candidates:
+        description: 'Fast-screen candidate count'
+        required: false
+        default: '64'
+      shortlist:
+        description: 'Candidates promoted to full-seed evaluation'
+        required: false
+        default: '10'
+      workers:
+        description: 'Parallel simulator workers; 0 = auto'
+        required: false
+        default: '0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reward-kaggriculture-v2-fast
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reward-solver-kaggriculture-v2-fast
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install official simulator
+        run: |
+          python -m pip install -U pip wheel
+          python -m pip install 'kaggle-environments>=1.32.4,<1.33'
+      - name: Compile isolated V2 lane
+        run: |
+          python -m py_compile \
+            reward-hunter/kaggriculture-v2-fast/main.py \
+            reward-hunter/kaggriculture-v2-fast/benchmark.py \
+            reward-hunter/kaggriculture-v2-fast/tuner.py \
+            reward-hunter/kaggriculture-v2-fast/package_submission.py
+      - name: Two-seat contract smoke gate
+        run: |
+          python reward-hunter/kaggriculture-v2-fast/benchmark.py \
+            --seeds 20260910 \
+            --opponents starter \
+            --steps 120 \
+            --output /tmp/kaggriculture-v2-smoke.json
+
+  search:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reward-solver-kaggriculture-v2-fast
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare isolated V2 environment
+        run: |
+          python -m pip install -U pip wheel
+          python -m pip install 'kaggle-environments>=1.32.4,<1.33'
+      - name: Parallel successive-halving search
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANDS='${{ github.event.inputs.candidates }}'
+          SHORT='${{ github.event.inputs.shortlist }}'
+          WORKERS='${{ github.event.inputs.workers }}'
+          if [ -z "$CANDS" ]; then CANDS=64; fi
+          if [ -z "$SHORT" ]; then SHORT=10; fi
+          if [ -z "$WORKERS" ]; then WORKERS=0; fi
+          mkdir -p reward-hunter/kaggriculture-v2-fast/artifacts
+          python reward-hunter/kaggriculture-v2-fast/tuner.py \
+            --candidates "$CANDS" \
+            --shortlist "$SHORT" \
+            --workers "$WORKERS" \
+            --fast-seeds 20260805 \
+            --seeds 20260805,20260811,20260829 \
+            --holdout-seeds 20260901,20260903,20260907,20260911 \
+            --steps 720 \
+            --baseline reward-hunter/kaggriculture/champion.json \
+            --champion reward-hunter/kaggriculture-v2-fast/champion.json \
+            --report reward-hunter/kaggriculture-v2-fast/artifacts/tuning-report.json
+      - name: Independent final holdout
+        run: |
+          python reward-hunter/kaggriculture-v2-fast/benchmark.py \
+            --params reward-hunter/kaggriculture-v2-fast/champion.json \
+            --seeds 20260902,20260905,20260909,20260913 \
+            --opponents starter \
+            --steps 720 \
+            --output reward-hunter/kaggriculture-v2-fast/artifacts/final-holdout.json
+      - name: Package V2 candidate
+        run: |
+          python reward-hunter/kaggriculture-v2-fast/package_submission.py
+      - name: Commit only a validated V2 promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMPROVED=$(python - <<'PY'
+          import json
+          p='reward-hunter/kaggriculture-v2-fast/artifacts/tuning-report.json'
+          print('true' if json.load(open(p)).get('improved_vs_v1') else 'false')
+          PY
+          )
+          if [ "$IMPROVED" != "true" ]; then
+            echo 'V2 candidate did not clear the V1 promotion gate; no champion commit.'
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add reward-hunter/kaggriculture-v2-fast/champion.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Promote validated Kaggriculture V2 fast champion [skip v2]'
+            git pull --rebase origin reward-solver-kaggriculture-v2-fast
+            git push origin HEAD:reward-solver-kaggriculture-v2-fast
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaggriculture-v2-fast-lane
+          path: |
+            reward-hunter/kaggriculture-v2-fast/dist/submission.tar.gz
+            reward-hunter/kaggriculture-v2-fast/dist/manifest.json
+            reward-hunter/kaggriculture-v2-fast/artifacts/*.json
+          retention-days: 14
