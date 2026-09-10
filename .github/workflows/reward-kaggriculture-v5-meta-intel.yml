@@ -4,12 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       run_adaptive_search:
-        description: Run a full local V5 search after replay analysis
+        description: Run local challenger league after replay analysis
         required: true
         type: boolean
-        default: false
+        default: true
+      candidates:
+        description: Manual challenger count (4-64)
+        required: true
+        default: '20'
   schedule:
+    # Fast public-meta scan + challenger league every 6 hours.
     - cron: '17 */6 * * *'
+    # One deeper daily league; GitHub schedules execute only from the default branch.
     - cron: '43 2 * * *'
   push:
     branches:
@@ -32,42 +38,67 @@ env:
 jobs:
   analyze-public-meta:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Kaggle CLI
-        run: python -m pip install 'kaggle>=1.7,<2'
-      - name: Download public scheduled top-replay archive
+      - name: Install replay-analysis dependencies
+        run: |
+          python -m pip install --disable-pip-version-check 'kaggle>=1.8,<2' 'pyarrow>=19,<25'
+      - name: Download public scheduled top-replay archive with retry
         env:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: |
+          set -euo pipefail
           mkdir -p /tmp/v5-public-replays /tmp/v5-meta
-          kaggle kernels output ashok205/top10-replay-dataset-archive -p /tmp/v5-public-replays
-          find /tmp/v5-public-replays -type f -maxdepth 3 -printf '%P\n' | sort | head -200
-      - name: Analyze public episodes offline
+          for attempt in 1 2 3; do
+            if kaggle kernels output ashok205/top10-replay-dataset-archive -p /tmp/v5-public-replays; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo 'Public replay download failed after 3 attempts' >&2
+              exit 1
+            fi
+            sleep $((attempt * 20))
+          done
+          find /tmp/v5-public-replays -type f -maxdepth 4 -printf '%P\n' | sort | head -250
+      - name: Analyze JSON and Parquet public episodes offline
         run: |
+          set -euo pipefail
           python reward-hunter/kaggriculture-v3/meta/replay_intelligence.py \
             --input /tmp/v5-public-replays \
-            --output /tmp/v5-meta/meta-report.json
+            --output /tmp/v5-meta/meta-report.json \
+            --max-parquet-files 12 \
+            --max-rows-per-file 2500 \
+            --max-records 5000
           python - <<'PY'
           import json
           r=json.load(open('/tmp/v5-meta/meta-report.json'))
-          print(json.dumps(r['summary'],indent=2,sort_keys=True))
-          if r['summary']['records'] == 0:
-              raise SystemExit('No public replay records parsed; fail instead of learning from empty input')
+          s=r['summary']
+          print(json.dumps(s,indent=2,sort_keys=True))
+          print('SOURCE_DIAGNOSTICS')
+          print(json.dumps(r.get('diagnostics',[]),indent=2,sort_keys=True))
+          if s['records'] < 20:
+              raise SystemExit(f"Only {s['records']} replay seat-records parsed; refuse empty/stale meta prior")
+          if s['ranked_records'] < 4:
+              raise SystemExit(f"Only {s['ranked_records']} records have usable final reward")
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Upload meta diagnostics even on failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
         with:
           name: kaggriculture-v5-public-meta-${{ github.run_id }}
-          path: /tmp/v5-meta/meta-report.json
+          path: /tmp/v5-meta/
+          if-no-files-found: warn
           retention-days: 30
 
   adaptive-local-search:
     needs: analyze-public-meta
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_adaptive_search) || github.event.schedule == '43 2 * * *' }}
+    if: ${{ success() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_adaptive_search) || github.event_name == 'push') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 110
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -79,28 +110,54 @@ jobs:
           path: /tmp/v5-meta
       - name: Install current official simulator
         run: |
-          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --disable-pip-version-check 'jsonschema==4.25.1' 'requests==2.32.5'
           python -m pip install --no-deps 'kaggle-environments==1.32.7'
-      - name: Fresh-meta adaptive local research
+      - name: Fresh-meta cyclic challenger league
+        env:
+          SCHEDULE_KIND: ${{ github.event.schedule }}
+          MANUAL_CANDIDATES: ${{ github.event.inputs.candidates || '20' }}
         run: |
+          set -euo pipefail
+          if [ "$SCHEDULE_KIND" = '43 2 * * *' ]; then
+            CANDIDATES=24
+            MODE=daily-deep
+          elif [ "$SCHEDULE_KIND" = '17 */6 * * *' ]; then
+            CANDIDATES=12
+            MODE=six-hour-fast
+          else
+            CANDIDATES="$MANUAL_CANDIDATES"
+            MODE=manual-or-push
+          fi
+          echo "challenger_mode=$MODE candidates=$CANDIDATES"
           OUT=/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}
           python reward-hunter/kaggriculture-v3/search_v5.py \
             --output "$OUT" \
-            --candidates 20 \
+            --candidates "$CANDIDATES" \
             --workers 0 \
             --study-seed ${{ github.run_id }} \
             --meta-prior /tmp/v5-meta/meta-report.json
           python - <<'PY'
-          import json
-          r=json.load(open('/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}/search.json'))
+          import json, pathlib
+          p=pathlib.Path('/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}/search.json')
+          r=json.loads(p.read_text())
           print('PROMOTION',r['promotion']['pass_gate'])
-          print('REASONS',r['promotion']['reasons'])
+          print('REASONS',json.dumps(r['promotion']['reasons'],sort_keys=True))
           print('META_PRIOR',json.dumps(r['public_meta_prior'],sort_keys=True))
           print('BEST',json.dumps(r['best_params'],sort_keys=True))
+          print('DUEL',json.dumps(r['duel'],sort_keys=True))
+          print('HOLDOUT',json.dumps(r['holdout'],sort_keys=True))
           print('FINAL',json.dumps(r['final'],sort_keys=True))
+          marker=pathlib.Path('/tmp/kaggriculture-v5-adaptive-${{ github.run_id }}/PROMOTION_READY.txt')
+          if r['promotion']['pass_gate']:
+              marker.write_text('PASS: candidate cleared current 1.32.7 local gates. Kaggle submission still requires explicit review/dispatch.\n')
+          else:
+              marker.write_text('FAIL: candidate remains research-only; do not submit.\n')
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Upload challenger evidence even if a later reporting step fails
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
         with:
           name: kaggriculture-v5-adaptive-research-${{ github.run_id }}
           path: /tmp/kaggriculture-v5-adaptive-${{ github.run_id }}/
+          if-no-files-found: warn
           retention-days: 30
