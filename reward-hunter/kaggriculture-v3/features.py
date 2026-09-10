@@ -1,4 +1,9 @@
-"""Pure public-observation features for the V5 mixed-farm economy lane."""
+"""Pure public-observation features for the V5 mixed-farm economy lane.
+
+Important: Kaggriculture 1.32.7 can omit ``obs['step']`` for seat 1. Never use that
+field as the authoritative clock. ``day * turnsPerDay + hour`` is available to both
+seats and is therefore the canonical turn index used by V5.
+"""
 from incumbent import BASE_PRICE
 
 FIRST = {'WHEAT': 2, 'CARROT': 2, 'TOMATO': 8, 'STRAWBERRY': 10, 'MELON': 10}
@@ -19,9 +24,16 @@ def _count_kind(tiles, predicate):
     return sum(1 for row in tiles for t in row if predicate(t))
 
 
+def canonical_step(obs, cfg):
+    turns = int(cfg.get('turnsPerDay', 24) or 24)
+    # day/hour are synchronized to both players by the environment interpreter.
+    return int(obs.get('day', 0) or 0) * turns + int(obs.get('hour', 0) or 0)
+
+
 def features(obs, cfg):
     me, opp = obs['farms'][obs['player']], obs['farms'][1 - obs['player']]
     day, hour = int(obs['day']), int(obs['hour'])
+    step = canonical_step(obs, cfg)
     tiles = me['tiles']
     plants = [t for row in tiles for t in row if isinstance(t, dict) and t.get('kind') == 'PLANT']
     weeds = [t for row in tiles for t in row if isinstance(t, dict) and t.get('kind') == 'WEED']
@@ -58,7 +70,7 @@ def features(obs, cfg):
 
     gap = float(me['money']) - float(opp['money'])
     end_step = int(cfg.get('episodeSteps', 720)) - 2
-    remain = end_step - int(obs['step']) + 1
+    remain = max(0, end_step - step + 1)
     utilization = len(plants) / max(1, unlocked_tiles)
     productive_tiles = len(plants) + len(structures)
     productive_utilization = productive_tiles / max(1, unlocked_tiles)
@@ -109,7 +121,7 @@ def features(obs, cfg):
     carried_wheat = sum(int(i.get('WHEAT', 0) or 0) for i in inventories)
     carried_fertilizer = sum(int(i.get('FERTILIZER', 0) or 0) for i in inventories)
     return dict(
-        day=day, hour=hour, remaining_turns=remain, money=float(me['money']), gap=gap,
+        step=step, day=day, hour=hour, remaining_turns=remain, money=float(me['money']), gap=gap,
         hands=len(me.get('hands', [])), plants=len(plants), weeds=len(weeds), animals=len(animals),
         structures=len(structures), crop_counts=crop_counts, animal_counts=animal_counts,
         ripe=ripe, animal_ripe=animal_ripe, feed_due=feed_due, feed_urgent=feed_urgent,
