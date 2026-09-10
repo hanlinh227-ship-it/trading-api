@@ -1,10 +1,10 @@
-name: Kaggriculture V5.5 - Continuous Potential Challenger
+name: Kaggriculture V5.6 - Monotonic Capital Challenger
 
 on:
   workflow_dispatch:
     inputs:
       candidates:
-        description: Base challenger count; controller may adapt within 8-64
+        description: Base challenger count; failure controller may adapt within 8-64
         required: true
         default: '24'
   push:
@@ -38,32 +38,32 @@ jobs:
         run: |
           python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
           python -m pip install --no-deps 'kaggle-environments==1.32.7'
-      - name: Compile, regression and continuous-potential contracts
+      - name: Compile, regression and monotonic-capital contracts
         run: |
           python -m compileall -q reward-hunter/kaggriculture-v3
           python -m unittest discover -s reward-hunter/kaggriculture-v3/tests -v
       - name: Self-contained package gate
         run: |
-          mkdir -p /tmp/v55
-          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v55/main.py | tee /tmp/v55/package.json
-          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v55/main.py | tee /tmp/v55/raw.json
+          mkdir -p /tmp/v56
+          python reward-hunter/kaggriculture-v3/package_submission.py --output /tmp/v56/main.py | tee /tmp/v56/package.json
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v56/main.py | tee /tmp/v56/raw.json
       - name: Rank-livestock smoke both seats
         run: |
           python reward-hunter/kaggriculture-v3/run_v5_eval.py \
             --seeds 917,929 --families starter,incumbent,early_sell,expansion \
-            --steps 360 --workers 4 --output /tmp/v55/smoke.json
+            --steps 360 --workers 4 --output /tmp/v56/smoke.json
           python - <<'PY'
           import json
-          m=json.load(open('/tmp/v55/smoke.json'))['metrics']
+          m=json.load(open('/tmp/v56/smoke.json'))['metrics']
           assert m['valid_games']==m['games'],m
           assert m['noop_rate']==0,m
-          print('V5.5_SMOKE_PASS',json.dumps(m,sort_keys=True))
+          print('V5.6_SMOKE_PASS',json.dumps(m,sort_keys=True))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v5-5-validation-${{ github.run_id }}
-          path: /tmp/v55/
+          name: kaggriculture-v5-6-validation-${{ github.run_id }}
+          path: /tmp/v56/
           retention-days: 30
 
   research:
@@ -95,7 +95,7 @@ jobs:
           key: kaggriculture-v54-learning-${{ github.run_id }}
           restore-keys: |
             kaggriculture-v54-learning-
-      - name: Initialize conflict-free potential memory if needed
+      - name: Initialize conflict-free monotonic memory if needed
         run: |
           mkdir -p /tmp/kaggriculture-v54-learning
           python - <<'PY'
@@ -103,16 +103,17 @@ jobs:
           from pathlib import Path
           sys.path.insert(0,'reward-hunter/kaggriculture-v3')
           from learning_rank import blank_state,save_state,load_state,adaptive_plan
+          from monotonic_rank import summary as monotonic_summary
           p=Path('/tmp/kaggriculture-v54-learning/learning_state.json')
           if not p.exists(): save_state(p,blank_state())
           s=load_state(p)
           print('LEARNING_MEMORY',json.dumps({
               'matches':s['matches'],'wins':s['wins'],'losses':s['losses'],'invalid':s['invalid'],
               'champions':len(s.get('champions',[])),'control':s.get('control',{}),
-              'plan':adaptive_plan(s,24),
+              'monotonic':monotonic_summary(s),'plan':adaptive_plan(s,24),
           },sort_keys=True))
           PY
-      - name: Continuous-potential livestock challenger league
+      - name: Monotonic continuous-potential livestock challenger league
         env:
           CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
         run: |
@@ -126,12 +127,17 @@ jobs:
           import json,pathlib
           root=pathlib.Path('/tmp/kaggriculture-v54-${{ github.run_id }}')
           r=json.loads((root/'search.json').read_text())
+          if r['promotion']['pass_gate'] and not r['promotion'].get('monotonic',{}).get('pass'):
+              raise SystemExit('fail-closed: promotion cannot bypass monotonic capital gate')
           print('PROMOTION',r['promotion']['pass_gate'])
           print('REASONS',json.dumps(r['promotion']['reasons'],sort_keys=True))
           print('BEST',json.dumps(r['best_params'],sort_keys=True))
           print('ROUND_PLAN',json.dumps(r['round_plan'],sort_keys=True))
           print('NEXT_ROUND',json.dumps(r['next_round'],sort_keys=True))
           print('LEARNING',json.dumps(r['learning'],sort_keys=True))
+          print('MONOTONIC',json.dumps(r['monotonic'],sort_keys=True))
+          print('CAPITAL_REGRESSION',json.dumps(r['capital_regression'],sort_keys=True))
+          print('CAPITAL_INCUMBENT',json.dumps(r.get('capital_regression_incumbent'),sort_keys=True))
           print('DUEL',json.dumps(r['duel'],sort_keys=True))
           print('HOLDOUT',json.dumps(r['holdout'],sort_keys=True))
           print('FINAL',json.dumps(r['final'],sort_keys=True))
@@ -145,13 +151,17 @@ jobs:
           set -eo pipefail
           OUT="/tmp/kaggriculture-v54-${GITHUB_RUN_ID}"
           LEDGER=/tmp/kaggriculture-v54-learning/kaggle_live.json
-          DECISION=/tmp/v54-live-decision.json
+          DECISION=/tmp/v56-live-decision.json
           export OUT LEDGER DECISION
           python - <<'PY'
           import datetime,hashlib,json,os,pathlib
           root=pathlib.Path(os.environ['OUT']); ledger=pathlib.Path(os.environ['LEDGER'])
           r=json.loads((root/'search.json').read_text())
           code=root/'candidate-main.py'; sha=hashlib.sha256(code.read_bytes()).hexdigest()
+          mono=bool(r.get('promotion',{}).get('monotonic',{}).get('pass'))
+          strict=bool(r.get('promotion',{}).get('strict_pass_gate'))
+          if r.get('promotion',{}).get('pass_gate') and not (mono and strict):
+              raise SystemExit('fail-closed: composite promotion gate is inconsistent')
           live={}
           if ledger.exists():
               try: live=json.loads(ledger.read_text())
@@ -168,7 +178,7 @@ jobs:
           decision={
               'eligible':eligible,
               'sha256':sha,
-              'description':'V5.5 promoted '+sha[:12]+' continuous potential',
+              'description':'V5.6 promoted '+sha[:12]+' monotonic capital',
               'reason':reason,
           }
           pathlib.Path(os.environ['DECISION']).write_text(json.dumps(decision,sort_keys=True)+'\n')
@@ -188,15 +198,15 @@ jobs:
             exit 0
           fi
           python -m pip install -q -U kaggle
-          kaggle competitions submissions -c kaggriculture | tee /tmp/v54-kaggle-before.txt
-          if grep -Fq "$DESC" /tmp/v54-kaggle-before.txt; then
+          kaggle competitions submissions -c kaggriculture | tee /tmp/v56-kaggle-before.txt
+          if grep -Fq "$DESC" /tmp/v56-kaggle-before.txt; then
             echo 'KAGGLE_LIVE_PROMOTION_DUPLICATE_SKIP'
             exit 0
           fi
           if kaggle competitions submit -c kaggriculture -f "$OUT/candidate-main.py" -m "$DESC"; then
             sleep 10
-            kaggle competitions submissions -c kaggriculture | tee /tmp/v54-kaggle-after.txt
-            if grep -Fq "$DESC" /tmp/v54-kaggle-after.txt; then
+            kaggle competitions submissions -c kaggriculture | tee /tmp/v56-kaggle-after.txt
+            if grep -Fq "$DESC" /tmp/v56-kaggle-after.txt; then
               python - <<'PY'
               import datetime,json,os,pathlib
               p=pathlib.Path(os.environ['LEDGER'])
@@ -225,11 +235,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kaggriculture-v5-5-rank-research-${{ github.run_id }}
+          name: kaggriculture-v5-6-rank-research-${{ github.run_id }}
           path: /tmp/kaggriculture-v54-${{ github.run_id }}/
           if-no-files-found: warn
           retention-days: 30
-      - name: Queue next potential round
+      - name: Queue next monotonic potential round
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -243,10 +253,10 @@ jobs:
           print(max(8,min(64,n)))
           PY
           )"
-          echo "Current potential round completed; next candidate budget=$NEXT_CANDIDATES"
+          echo "Current monotonic round completed; next candidate budget=$NEXT_CANDIDATES"
           sleep 30
           gh workflow run kaggriculture-v5-4-rank-livestock.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref research/kaggriculture-v5-4-rank-livestock \
             -f candidates="$NEXT_CANDIDATES"
-          echo "NEXT_POTENTIAL_ROUND_QUEUED"
+          echo "NEXT_MONOTONIC_ROUND_QUEUED"
