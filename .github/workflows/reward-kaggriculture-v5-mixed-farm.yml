@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: reward-kaggriculture-v5-mixed-farm
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   OMP_NUM_THREADS: '1'
@@ -66,6 +66,15 @@ jobs:
             --steps 360 \
             --workers 4 \
             --output /tmp/v5-validate/smoke.json
+          python - <<'PY'
+          import json
+          m=json.load(open('/tmp/v5-validate/smoke.json'))['metrics']
+          assert m['valid_games'] == m['games'], m
+          assert m['mean_money'] > 0, m
+          assert m['wins'] >= 1, m
+          assert m['noop_rate'] == 0, m
+          print('economic_smoke_gate PASS')
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: kaggriculture-v5-validation-${{ github.run_id }}
@@ -96,7 +105,7 @@ jobs:
             --workers "$V5_WORKERS" \
             --study-seed ${{ github.run_id }}
           python - <<'PY'
-          import json, pathlib, os
+          import json, pathlib
           p=pathlib.Path('/tmp/kaggriculture-v5-${{ github.run_id }}/search.json')
           r=json.loads(p.read_text())
           print('PROMOTION', r['promotion']['pass_gate'])
