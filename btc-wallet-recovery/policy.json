@@ -1,0 +1,15 @@
+{
+  "protocol": "BTC_WALLET_RECOVERY_V1",
+  "owner_authorization_required": true,
+  "local_only_secret_processing": true,
+  "github_actions_secret_processing": false,
+  "candidate_generation": false,
+  "dictionary_attack": false,
+  "bruteforce": false,
+  "missing_seed_word_search": false,
+  "known_candidate_verification": true,
+  "backup_integrity_check": true,
+  "bitcoin_core_known_passphrase_check": true,
+  "private_material_in_repo": false,
+  "sanitized_reports_only": true
+}
