@@ -1,0 +1,118 @@
+name: Kaggriculture V5.4 - Guarded Live Shadow
+
+on:
+  push:
+    branches:
+      - research/kaggriculture-v5-4-rank-livestock
+    paths:
+      - '.github/reward-kaggriculture-v5-4-live-trigger'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: kaggriculture-v54-live-submit
+  cancel-in-progress: false
+
+jobs:
+  submit-shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '34496666630'
+      ARTIFACT_NAME: 'kaggriculture-v5-4-rank-research-34496666630'
+      EXPECTED_SHA256: 'b113a5da49a597baaacae7de76041b9702f99881d1e35db02beda4408192996f'
+      SUBMISSION_DESC: 'V5.4 shadow b113a5da49a5 adaptive livestock'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/kaggriculture-v5-4-rank-livestock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Guard credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${KAGGLE_API_TOKEN:-}" || { echo 'KAGGLE_API_TOKEN is not configured'; exit 20; }
+      - name: Download frozen validated candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/v54-live
+          mkdir -p /tmp/v54-live
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT_NAME" --dir /tmp/v54-live
+          test -s /tmp/v54-live/candidate-main.py
+          test -s /tmp/v54-live/search.json
+      - name: Verify frozen evidence and exact code hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os,pathlib
+          root=pathlib.Path('/tmp/v54-live')
+          code=root/'candidate-main.py'
+          got=hashlib.sha256(code.read_bytes()).hexdigest()
+          assert got==os.environ['EXPECTED_SHA256'],(got,os.environ['EXPECTED_SHA256'])
+          r=json.loads((root/'search.json').read_text())
+          assert set(r['promotion']['reasons'])=={'holdout_terminal_waste','final_terminal_waste'},r['promotion']
+          assert r['runtime']['raw_exec']=='PASS',r['runtime']
+          assert r['runtime']['official_loader']=='PASS',r['runtime']
+          assert r['runtime']['episode_equivalence']=='PASS',r['runtime']
+          for name in ('duel','holdout','final'):
+              m=r[name]
+              assert m['valid_games']==m['games'],(name,m)
+              assert m['win_rate']==1.0,(name,m)
+              assert m['catastrophic_rate']==0,(name,m)
+              assert m['noop_rate']==0,(name,m)
+          env={}
+          exec(compile(code.read_text(), 'main.py', 'exec'), env)
+          assert callable(env.get('agent')),'agent callable missing'
+          print('V54_SHADOW_EVIDENCE_GATE_PASS',got[:12])
+          PY
+      - name: Install Kaggle CLI and inspect current submissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q -U pip kaggle
+          kaggle competitions submissions -c kaggriculture | tee /tmp/kaggle-before.txt
+      - name: Submit once as live shadow
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Fq "$SUBMISSION_DESC" /tmp/kaggle-before.txt; then
+            echo 'Candidate already exists on Kaggle; duplicate submission skipped.'
+            exit 0
+          fi
+          kaggle competitions submit \
+            -c kaggriculture \
+            -f /tmp/v54-live/candidate-main.py \
+            -m "$SUBMISSION_DESC"
+          echo 'KAGGLE_SUBMIT_REQUEST_ACCEPTED'
+      - name: Confirm submission appears
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            kaggle competitions submissions -c kaggriculture | tee /tmp/kaggle-after.txt
+            if grep -Fq "$SUBMISSION_DESC" /tmp/kaggle-after.txt; then
+              echo 'KAGGLE_V54_SHADOW_VISIBLE'
+              exit 0
+            fi
+          done
+          echo 'Submission request was sent but is not visible yet.'
+          exit 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v5-4-live-shadow-${{ github.run_id }}
+          path: |
+            /tmp/kaggle-before.txt
+            /tmp/kaggle-after.txt
+          if-no-files-found: ignore
+          retention-days: 14
