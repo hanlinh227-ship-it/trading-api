@@ -15,10 +15,11 @@ on:
   schedule:
     # Fast public-meta refresh every 6 hours; avoids overlapping hour-long full leagues.
     - cron: '17 */6 * * *'
-    # One deeper daily league; schedules execute from the default branch only.
+    # One deeper daily league.
     - cron: '43 2 * * *'
   push:
     branches:
+      - main
       - codex/kaggriculture-v5-mixed-farm-economy
     paths:
       - .github/reward-kaggriculture-v5-meta-trigger
