@@ -1,0 +1,113 @@
+name: Kaggriculture V5.7 - Immediate Kaggle Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/reward-kaggriculture-v5-7-deploy-now
+
+permissions:
+  contents: read
+
+env:
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install official simulator
+        run: |
+          python -m pip install 'jsonschema==4.25.1' 'requests==2.32.5'
+          python -m pip install --no-deps 'kaggle-environments==1.32.7'
+      - name: Build top-prior personalized V5.7 candidate
+        run: |
+          mkdir -p /tmp/v57deploy
+          cat > /tmp/v57deploy/params.json <<'JSON'
+          {
+            "route": true,
+            "market": true,
+            "endgame": true,
+            "distance_cost": 7.0,
+            "target_hands": 10,
+            "crop_mode": "roi",
+            "harvest_wait": false,
+            "expansion_mode": "fast",
+            "land_buffer": 180,
+            "land_target_quadrants": 3,
+            "fill_target": 0.84,
+            "fill_priority": 84.0,
+            "seed_scale": 1.45,
+            "dynamic_labor": true,
+            "herd_mode": "cow_sheep",
+            "cow_max": 9,
+            "sheep_max": 4,
+            "goose_max": 0,
+            "livestock_start_day": 0,
+            "livestock_cash_buffer": 650,
+            "animal_roi_floor": 0.10,
+            "feed_carry": 8,
+            "drop_at": 8,
+            "fertilizer_mode": "adaptive",
+            "fertilizer_reserve": 1,
+            "sell_batch": 4,
+            "structure_radius": 4
+          }
+          JSON
+          python reward-hunter/kaggriculture-v3/package_submission_v57.py \
+            --params /tmp/v57deploy/params.json \
+            --output /tmp/v57deploy/main.py | tee /tmp/v57deploy/package.json
+          python reward-hunter/kaggriculture-v3/raw_exec_test.py /tmp/v57deploy/main.py | tee /tmp/v57deploy/raw.json
+      - name: Fast current-engine safety and value gate
+        run: |
+          python - <<'PY'
+          import json,sys
+          sys.path.insert(0,'reward-hunter/kaggriculture-v3')
+          from benchmark_v57 import evaluate,save
+          p=json.load(open('/tmp/v57deploy/params.json'))
+          r=evaluate(p,seeds=(917,929),families=('starter','incumbent','early_sell','expansion'),steps=360,workers=4)
+          save('/tmp/v57deploy/smoke.json',r)
+          m=r['metrics']
+          assert m['valid_games']==m['games'],m
+          assert m['noop_rate']==0,m
+          assert m['mean_money']>0,m
+          print('V57_IMMEDIATE_GATE_PASS',json.dumps(m,sort_keys=True))
+          PY
+      - name: Submit V5.7 candidate to Kaggle now
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -eo pipefail
+          if [ -z "${KAGGLE_API_TOKEN:-}" ]; then
+            echo 'KAGGLE_DEPLOY_FAILED missing KAGGLE_API_TOKEN secret'
+            exit 1
+          fi
+          python -m pip install -q -U kaggle
+          SHA="$(sha256sum /tmp/v57deploy/main.py | awk '{print $1}')"
+          DESC="V5.7 agro-economic immediate ${SHA:0:12}"
+          echo "candidate_sha256=$SHA"
+          kaggle competitions submissions -c kaggriculture | tee /tmp/v57deploy/before.txt
+          if grep -Fq "$DESC" /tmp/v57deploy/before.txt; then
+            echo 'KAGGLE_DEPLOY_DUPLICATE_SKIP'
+            exit 0
+          fi
+          kaggle competitions submit -c kaggriculture -f /tmp/v57deploy/main.py -m "$DESC"
+          sleep 10
+          kaggle competitions submissions -c kaggriculture | tee /tmp/v57deploy/after.txt
+          grep -F "$DESC" /tmp/v57deploy/after.txt || true
+          echo "KAGGLE_DEPLOY_SENT description=$DESC"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaggriculture-v5-7-immediate-deploy-${{ github.run_id }}
+          path: /tmp/v57deploy/
+          if-no-files-found: warn
+          retention-days: 30
