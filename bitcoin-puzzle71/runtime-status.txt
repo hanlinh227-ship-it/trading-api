@@ -1,0 +1,10 @@
+updated_utc=2026-09-10T04:59:13Z
+target=Puzzle-71-public
+mode=userspace
+service=active
+enabled=userspace-detached
+engine=keyhunt-cpu
+cpu_threads=1
+gpu_count=0
+result=SEARCHING
+last_rate= [+] Total 17893376 keys in 10 seconds: ~1 Mkeys/s (1789337 keys/s)  [+] Total 36608000 keys in 20 seconds: ~1 Mkeys/s (1830400 keys/s)  [+] Total 56084480 keys in 30 seconds: ~1 Mkeys/s (1869482 keys/s)  [+] Total 73709568 keys in 40 secon
