@@ -27,75 +27,62 @@ Updated: 2026-09-10
 
 ## Lane V2 FAST — parallel, isolated, non-conflicting
 - Branch: reward-solver-kaggriculture-v2-fast
-- Created from V1 head aa883d99a774f390795f3d0a1ca3d899142f111a.
-- Isolated solver path: reward-hunter/kaggriculture-v2-fast/
-- Isolated workflow: .github/workflows/reward-kaggriculture-v2-fast.yml
-- Trigger file: .github/reward-kaggriculture-v2-fast-trigger
-- Trigger commit/head: 0a9fa0e0eec29d9ccc6b1b6fbb452e92bf7baae8
 - Workflow run: 34447831809
-- Latest checked state:
-  - validate: SUCCESS
-  - search: IN PROGRESS
-  - Parallel successive-halving search: IN PROGRESS
-  - final holdout / package / promotion: pending
-- V2 runs on GitHub-hosted ubuntu-latest, not on `trading-vps`, so it can execute while V1 uses the VPS.
-- V2 does NOT auto-submit to Kaggle. It searches, validates, packages and promotes a local V2 champion only when it clears the V1 comparison gate.
+- validate: SUCCESS
+- search: SUCCESS
+- Parallel successive-halving search: SUCCESS
+- Independent final holdout: SUCCESS
+- Package V2 candidate: SUCCESS
+- V2 candidate final holdout vs starter: 8/8 wins, mean_margin=12271.75, worst_margin=7676.
+- However V2 candidate did NOT clear the direct V1 promotion gate:
+  - duel_vs_v1 win_rate=0.25
+  - mean_margin=-728.5
+  - therefore improved_vs_v1=false and no champion commit was made.
+- Artifact produced: kaggriculture-v2-fast-lane, artifact ID 10140604526.
+- Conclusion: V2 FAST completed successfully as a search experiment, but V1 remains the stronger incumbent.
 
-## Quick-submit acceleration lane — leaderboard campaign started
-- Branch: reward-solver-kaggriculture-quick-submit
-- Workflow: .github/workflows/reward-kaggriculture-quick-submit.yml
-- Trigger commit: fb4834fe99be0e1600948f3a98d9327a7250c5c1
-- Workflow run: 34448297489
-- Job: SUCCESS in about 20 seconds on GitHub-hosted ubuntu-latest.
-- KAGGLE_API_TOKEN guard: SUCCESS; secret value was not exposed.
-- Packaging: SUCCESS.
-- Kaggle submission command: SUCCESS.
-- Kaggle confirmation: `Successfully submitted to Kaggriculture`.
-- Submission reference: 56139515.
-- Description: `Reward Solver V1 validated quick submit`.
-- Dedicated status-check workflow added on quick-submit branch:
-  - workflow: `.github/workflows/reward-kaggriculture-status-check.yml`
-  - run: 34448577621
-  - status-check job: SUCCESS
-  - latest observed Kaggle state at 2026-09-10T07:09:48Z: `SubmissionStatus.PENDING`
-  - publicScore/privateScore still blank at that instant.
-- Kaggle CLI reported 4 submissions remaining today after this submit.
-- Meaning: Kaggle has accepted the submission, but leaderboard evaluation has not completed yet.
+## Kaggle submission status
+### Submission 56139515 — first quick-submit attempt
+- File: submission.tar.gz
+- Description: Reward Solver V1 validated quick submit
+- Final status: ERROR
+- Validation episode: 107391264 completed.
+- Root cause from Kaggle agent logs: `NameError: name '__file__' is not defined` inside `_load_submission_params()` when Kaggle raw-executed main.py.
+- This was an execution-environment compatibility issue, not a Kaggle API/auth failure.
 
-## V2 FAST changes
-- Density control: tunable max_quadrants=1..3.
-- Market pacing: tunable sell_batch_limit.
-- Opponent-aware selling: separate ahead / neutral / behind sell floors and cash-gap trigger.
-- Action efficiency: tunable movement-distance penalty.
-- Phase timing: tunable early/mid/late crop boundaries.
-- Crop composition mutation: nested crop weights are mutable.
-- Strategic seed biases toward wheat + strawberry and away from melon-heavy play.
-- Robust objective includes win rate, mean margin, p20 margin, worst margin and final money.
-- Honest gate: V2 candidate duels the original V1 agent on both seats.
-- Promotion requires holdout robustness and non-negative duel margin vs V1.
+### Fix applied
+- Quick-submit branch was changed so `main.py` no longer depends on `__file__`/champion.json at Kaggle runtime.
+- A raw-exec compatibility gate was added and passed: `RAW_EXEC_GATE_OK`.
+- Submission path changed to a self-contained `main.py`.
 
-## V2 search acceleration
-- Default pool: 64 candidates.
-- Fast screen: one full 720-turn seed, both seats.
-- Successive halving: top 10 advance to full multi-seed evaluation.
-- ProcessPoolExecutor uses available CPU cores, auto capped at 8 workers.
-- Separate holdout seeds are used after training seeds.
+### Submission 56139689 — current live attempt
+- File: main.py
+- Description: Reward Solver V1 raw-exec fix
+- Quick-submit workflow run: 34449193248
+- GitHub job: SUCCESS
+- Kaggle CLI confirmation: `Successfully submitted to Kaggriculture`.
+- Latest confirmed Kaggle status at 2026-09-10T07:20:32Z: `SubmissionStatus.PENDING`.
+- publicScore/privateScore are still blank at that instant.
+- Therefore the corrected submission has not yet completed Kaggle validation/leaderboard activation.
+
+## Status checker
+- Workflow: `.github/workflows/reward-kaggriculture-status-check.yml`
+- It was previously hardcoded to the failed submission 56139515.
+- Fixed on quick-submit branch to point to current submission 56139689 and list its validation episodes.
+- Fix commit: f8d8b9bd86381aade9bfb7ce677f8df1abf2e7d9
 
 ## Architecture rule going forward
-Three lanes are intentionally isolated and may run simultaneously:
-1. QUICK SUBMIT = real leaderboard baseline is accepted by Kaggle but still PENDING evaluation.
-2. V1 DEEP = stable 40-iteration optimization on the VPS.
-3. V2 FAST = broad structural search on GitHub-hosted compute.
-Do not edit the running V1 lane mid-run. Compare actual leaderboard feedback plus holdout/duel evidence before replacing a champion.
-
-## Next strategic lane after V2 FAST
-Livestock/fertilizer/carry logistics (cows/sheep, CARE, FEED, fertilizer use, shed pickup/drop and action-density routing) is the next high-value architecture upgrade. Keep it isolated from V1 while the current run is active.
+Three lanes are intentionally isolated:
+1. CURRENT KAGGLE SUBMISSION = 56139689, corrected self-contained V1, currently PENDING.
+2. V1 DEEP = stable 40-iteration optimization still running on VPS.
+3. V2 FAST = completed, but failed V1 duel promotion gate and must not replace V1.
+Do not submit V2 merely because its starter-benchmark is strong; V1 remains incumbent until a candidate beats it robustly.
 
 ## What the next chat should do first
-1. Check Kaggle submission ref 56139515 status. Current confirmed state is still PENDING as of status-check run 34448577621.
-2. Fetch V1 run 34446634238 and V2 run 34447831809.
-3. If V1 finishes optimize, inspect its submit job and avoid unnecessary duplicate submissions if the champion is unchanged.
-4. If V2 finishes, compare V2 holdout/duel vs V1 before promotion/submission.
+1. Check Kaggle submission 56139689 status, not 56139515.
+2. If 56139689 becomes ERROR, fetch its validation episode/logs and repair before using another submission slot.
+3. If 56139689 passes, record its leaderboard/rating/episode state and use that as the real baseline.
+4. Check V1 run 34446634238; if it finishes with a genuinely improved champion, validate Kaggle raw-exec compatibility before submission.
 5. Keep updating this checkpoint after material changes.
 
 ## Safety/handling
