@@ -13,16 +13,24 @@ def candidates(n,seed):
     rng=random.Random(seed); base=dict(V3_DEFAULT); pool=[]
     presets=[
         {},
+        # Crop-only controls: prove that livestock earns its extra logistics/actions.
         {'herd_mode':'none','fertilizer_mode':'off','crop_mode':'roi'},
+        {'herd_mode':'none','crop_mode':'demand','target_hands':13,'seed_scale':1.8,'sell_batch':5},
+        # Independent implementation of a strong PUBLIC meta prior: livestock-led economy,
+        # roughly 9 cows / 4 sheep / 10 hands. It is only a search seed, never assumed best.
+        {'herd_mode':'cow_sheep','cow_max':9,'sheep_max':4,'goose_max':0,'crop_mode':'roi','fertilizer_mode':'adaptive','target_hands':10,'feed_carry':5,'sell_batch':5},
+        # Public measured cow/sheep support-farm family.
         {'herd_mode':'cow_sheep','cow_max':8,'sheep_max':6,'goose_max':0,'crop_mode':'roi','fertilizer_mode':'adaptive','target_hands':12},
         {'herd_mode':'cow_sheep','cow_max':6,'sheep_max':4,'crop_mode':'roi','target_hands':11,'sell_batch':5},
+        # 1.32.7 can make eggs viable in high-demand/no-production games, so goose exposure is
+        # conditional at runtime rather than a fixed universal recommendation.
         {'herd_mode':'dynamic','cow_max':8,'sheep_max':6,'goose_max':2,'crop_mode':'roi','fertilizer_mode':'adaptive','feed_carry':5},
         {'herd_mode':'dynamic','cow_max':6,'sheep_max':6,'goose_max':3,'crop_mode':'demand','fertilizer_mode':'adaptive','feed_carry':6},
         {'herd_mode':'dynamic','cow_max':10,'sheep_max':4,'goose_max':0,'crop_mode':'roi','fertilizer_mode':'herd_only','target_hands':13},
+        # Expansion/cashflow variations: all still face the full-farm promotion gate.
         {'herd_mode':'cow_sheep','cow_max':8,'sheep_max':4,'crop_mode':'fast_cash','livestock_start_day':2,'land_buffer':100},
         {'herd_mode':'dynamic','cow_max':7,'sheep_max':5,'goose_max':1,'crop_mode':'roi','expansion_mode':'max','land_buffer':80,'seed_scale':1.7},
         {'herd_mode':'dynamic','cow_max':8,'sheep_max':6,'goose_max':0,'crop_mode':'roi','expansion_mode':'fast','land_buffer':260,'fill_target':.82},
-        {'herd_mode':'none','crop_mode':'demand','target_hands':13,'seed_scale':1.8,'sell_batch':5},
         {'herd_mode':'dynamic','cow_max':5,'sheep_max':3,'goose_max':2,'crop_mode':'roi','fertilizer_mode':'adaptive','sell_batch':4,'drop_at':6},
     ]
     for patch in presets:
@@ -36,7 +44,7 @@ def candidates(n,seed):
             'distance_cost':(5.,7.,9.,12.),'target_hands':(10,11,12,13,14),'crop_mode':('roi','demand','fast_cash','balanced'),
             'expansion_mode':('balanced','fast','max'),'land_buffer':(50,100,180,260,400),'fill_target':(.70,.78,.84,.90,.94),
             'fill_priority':(70.,82.,90.,102.,115.),'seed_scale':(1.0,1.3,1.55,1.8,2.1),'herd_mode':('none','cow_sheep','dynamic'),
-            'cow_max':(4,6,8,10),'sheep_max':(0,3,4,6,8),'goose_max':(0,1,2,4),'livestock_start_day':(0,1,2,3,4),
+            'cow_max':(4,6,8,9,10),'sheep_max':(0,3,4,6,8),'goose_max':(0,1,2,4),'livestock_start_day':(0,1,2,3,4),
             'livestock_cash_buffer':(200,400,600,900,1300),'feed_carry':(3,4,5,6,8),'drop_at':(5,7,8,10,12),
             'fertilizer_mode':('off','herd_only','adaptive'),'sell_batch':(3,4,5,6,8,10),
         }
@@ -76,7 +84,8 @@ def run(out,n=20,workers=0,study_seed=5059):
     decision=gate(frozen,d,h,f,bh,bf,runtime)
     result=dict(best_params=best,stages=history,promotion=decision,runtime=runtime,package=package,duel=d['metrics'],holdout=h['metrics'],final=f['metrics'],
                 baseline_holdout=bh['metrics'],baseline_final=bf['metrics'],provenance=frozen['provenance'],study_seed=study_seed,
-                seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),submission_performed=False)
+                seed_sets=dict(train=train,duel=duel,holdout=hold,final=final,package=[package_seed]),submission_performed=False,
+                public_meta_prior='9 cow / 4 sheep / 10 hands family included only as an independently implemented search seed')
     save(out/'search.json',result)
     if decision['pass_gate']:save(out/'champion_v5.json',dict(params=best,evidence=result))
     print(json.dumps(result,indent=2));return result
