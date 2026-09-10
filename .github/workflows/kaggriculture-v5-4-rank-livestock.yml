@@ -71,6 +71,9 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: write
     concurrency:
       group: kaggriculture-v54-learning-single-writer
       cancel-in-progress: false
@@ -138,3 +141,16 @@ jobs:
           path: /tmp/kaggriculture-v54-${{ github.run_id }}/
           if-no-files-found: warn
           retention-days: 30
+      - name: Queue next adaptive round
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT_CANDIDATES: ${{ github.event.inputs.candidates || '24' }}
+        run: |
+          echo "Current adaptive round completed; queueing the next conflict-free round."
+          sleep 30
+          gh workflow run kaggriculture-v5-4-rank-livestock.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref research/kaggriculture-v5-4-rank-livestock \
+            -f candidates="$NEXT_CANDIDATES"
+          echo "NEXT_ADAPTIVE_ROUND_QUEUED"
