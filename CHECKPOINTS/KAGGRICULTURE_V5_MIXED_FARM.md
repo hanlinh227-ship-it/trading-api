@@ -1,61 +1,103 @@
 # Kaggriculture V5 Mixed-Farm Economy Checkpoint
 
-Updated: 2026-09-10
+Updated: 2026-09-10 20:45 +07
 
 ## Identity
 - Repository: `hanlinh227-ship-it/trading-api`
 - Branch: `codex/kaggriculture-v5-mixed-farm-economy`
-- Base: `codex/kaggriculture-v4-full-farm-expansion`
-- Current engine target: `kaggle-environments==1.32.7`
-- Kaggle submission: **NO**
+- PR: #218 `[KAGGLE-V5] Mixed-Farm Economy and Cyclic Challenger League`
+- Engine for current evidence: `kaggle-environments==1.32.7`
+- Kaggle submission from V5: **NO**
+- Live incumbent remains self-contained V1 submission `56139689`; last confirmed publicScore `337.0`.
 
-## Mission
-Build a resilient mixed-farm economy that converts crops, market sales, livestock, fertilizer and labor into working capital, opens land without bankrupting production, and only promotes a candidate that beats the incumbent on current-engine unseen games. Public replay intelligence is research input only; it can never bypass local promotion gates.
+## Purpose
+V5 treats Kaggriculture as one capital-allocation system: crop cashflow -> market sales -> working capital -> land/labor/livestock -> feed/care/fertilizer -> harvest -> reinvest. Full-farm expansion is a research objective but never overrides profitability or evidence gates.
 
-## V5.0 failure and V5.1 recovery
-Canonical run `34458086918` exposed an economic deadlock: 16/16 valid but 0 wins, mean margin -2400.625, mean money 0.0. Root cause was reserving almost the full next-land cost while continuing to hire/build, starving the seed engine.
+## V5.0 / V5.1 history
+V5.0 canonical run `34458086918` exposed a cash deadlock: 16/16 valid, 0 wins, mean margin -2400.625, mean money 0.0. It reserved almost all next-land cash while hiring/building, starving seeds.
 
-V5.1 fixed working-capital ordering, limited hires, limited animal pipeline, synchronized structures with actual/queued livestock, reduced duplicate shed pickups, diversified crop ROI and preserved feed wheat. Run `34458596933` then passed the economic smoke: 16/16 valid, 4 wins, mean money 1392.25, mean margin -889.4375, mean peak animals 12.0625, no unit no-ops. It is improved but not yet a champion.
+V5.1 reordered working capital, bounded hires/animal purchases/structures, reserved feed wheat and diversified crop ROI. Validation run `34458596933`: 16/16 valid, 4 wins, mean money 1392.25, mean margin -889.4375, zero unit no-ops. Progress only; not promotion evidence.
 
-## V5.2 hardening
-V5.2 adds failure-prevention and the cyclic challenger loop:
-- `features.py` now derives the canonical clock from `day * turnsPerDay + hour`; it no longer trusts `obs['step']`, which can be absent for seat 1 in 1.32.7. A compatibility shim injects the derived step for older routing helpers.
-- `benchmark_v5.py` uses the same seat-safe clock for full-unlock telemetry so seat 1 cannot report false day-zero unlocks.
-- regression tests cover missing-step seat behavior and JSON-encoded replay cells.
-- `meta/replay_intelligence.py` now reads JSON, JSONL and Parquet archives, including JSON-like string/binary cells, with bounded row/file limits, deduplication and schema diagnostics.
-- `.github/workflows/reward-kaggriculture-v5-meta-intel.yml` installs PyArrow, retries public archive download, fails closed on empty/stale replay parsing, uploads diagnostics even on failure, and runs a cyclic local challenger league.
-- cyclic cadence after merge to default branch: fast public-meta + challenger run every 6 hours; one deeper daily challenger run. No automatic Kaggle submission.
-- every challenger still runs staged screening, multiple opponent families, direct incumbent duel, unseen holdout/final, raw-exec and package/source equivalence before `PROMOTION_READY` can be written.
+## V5.2 strong canonical research result
+Run `34459804967` completed validate + research successfully on 1.32.7. Best candidate parameter hash prefix `d3dd324477`:
+- crop_mode `roi`
+- expansion_mode `fast`
+- land_buffer 180
+- target_hands 11
+- herd_mode `cow_sheep`
+- cow_max 6
+- sheep_max 4
+- goose_max 0
+- livestock_start_day 2
+- fertilizer_mode `adaptive`
+- sell_batch 5
+- seed_scale 1.45
 
-## Public-meta input
-Public Kaggle top replay archive notebook output currently contains Parquet files such as `episodes.parquet`, dated `replays_YYYY-MM-DD.parquet` shards and `top10_history.parquet`. The original analyzer only read JSON/JSONL and therefore parsed 0 records in run `34458096559`; that specific failure is now fixed in code and being re-tested.
+Current-engine evidence from that run:
+- Stage C: 48/48 wins, mean margin +33488.3125, p20 +23825, worst +15643.
+- Direct V1 duel D: 8/8 wins, mean margin +21765.5, p20 +4976, worst +2546.
+- Holdout E: 64/64 valid, 63 wins, mean margin +33243.90625, p20 +26695, worst -2888, catastrophic rate 0.
+- Final F: 64/64 wins, mean margin +31518.953125, p20 +22293, worst +3410, catastrophic rate 0.
+- candidate raw-exec PASS, official loader PASS, package/source episode equivalence PASS.
+- candidate-main.py sha256: `88acdcffe5840f673e4f26edcdf3d03c4b02622c73c73e20f045b475c6027893`.
+- research artifact: `kaggriculture-v5-research-34459804967`, artifact id `10145994708`.
 
-Research notes: `reward-hunter/kaggriculture-v3/meta/PUBLIC_META_RESEARCH.md`
-Analyzer: `reward-hunter/kaggriculture-v3/meta/replay_intelligence.py`
+The run still returned PROMOTION=false because incumbent baseline holdout/final blocks were invalid (`invalid_4`, `invalid_5`). Root cause was benchmark plumbing, not the candidate: legacy V1 `make_agent()` accepted one argument but `_track()` called tracked baselines with `(obs, configuration)`.
 
-## Current workflows / runs
-- Canonical V5.2 research: run `34459804967`, trigger commit `2037eb40919517484a88d71a1b978d0aaa55f1f4`.
-- Public-meta V5.2 loop: run `34459819333`, trigger commit `392f84984a76f31260c1b09d88cf201348730900`.
-- Previous V5.1 canonical run: `34458596933`.
-- Previous public-meta run with JSON-only parser: `34458096559` FAILED because the downloaded archive was Parquet; superseded by V5.2.
+Even after fixing that plumbing, the measured candidate is **not automatically promotion-ready** because the strict campaign requirements still include mean full unlock <= day 12, >=0.60 full-farm productive utilization and <=8 mean terminal unsold units. V5.2 measured roughly day 17.9 unlock, ~0.50-0.53 utilization and ~21-22 terminal unsold units. Do not weaken those gates merely to manufacture PASS.
 
-Do not claim V5.2 is complete until both new runs have been inspected. If either fails, repair the exact failing step and rerun before considering merge/submission.
+## V5.3 hardening performed by ChatGPT
+- `benchmark_v5.py`: added `_two_arg_adapter()` for the legacy V1 baseline so baseline evidence can be valid without modifying the live V1 agent.
+- `tests/test_v5.py`: added a real 1.32.7 regression that evaluates legacy incumbent as a tracked candidate in both seats; expects 2/2 valid games.
+- shared PR workflow `.github/workflows/reward-kaggriculture-v3.yml`: now detects the V5 lane, installs 1.32.7, runs V5 contract tests, raw-exec, both-seat smoke and full-horizon incumbent check instead of stale V3-only tests. Latest PR validation run `34484026991` is SUCCESS across every validation step.
+- public-meta workflow now samples only the two most recent dated replay Parquet shards instead of scanning aggregate history first, caps parsing at 80 rows/file and 160 seat-records, has a 10-minute parser timeout and writes a preflight artifact.
+- public-meta workflow concurrency is non-cancelling so a new scheduled scan cannot kill an in-flight challenger league.
+- branch cyclic cadence remains every 6 hours plus one deeper daily run after merge to default branch. No auto-submit.
 
-## Promotion/submission rule
-Acreage, local money, similarity to a top replay, or one smoke win are not sufficient. V5 may be considered promotion-ready only when current 1.32.7 evidence passes all validity, seat symmetry, incumbent duel, meta-opponent, unseen holdout/final, tail-risk, full-farm/utilization, terminal inventory, raw-exec and package-equivalence gates. Kaggle submission remains explicit/manual and must never be triggered by schedule or push.
+## V5.3 active runs
+Canonical V5.3 run:
+- run id `34483998540`
+- trigger commit `dfcde4231a7e42ea2ad07eeada3ee13bb9f5c09d`
+- current status at checkpoint update: IN PROGRESS.
+- purpose: rerun canonical search with valid incumbent baseline blocks.
 
-## Continuous improvement semantics
-“Continuous rematch” means continuous **local challenger-league evaluation** against incumbent and distinct opponent families plus periodic public-meta refresh. Kaggle itself controls live ladder matchmaking; the repository must not try to force/bypass matchmaking or submission limits.
+Public-meta/challenger V5.3 run:
+- run id `34484024952`
+- trigger commit `3df5f9e043fa8b031398855fb2e3b19b277671dc`
+- `analyze-public-meta`: SUCCESS.
+- archive download: SUCCESS.
+- bounded recent Parquet analysis: SUCCESS (fixes the previous 25-minute timeout).
+- `adaptive-local-search`: IN PROGRESS at checkpoint update.
+
+Shared PR validation:
+- run id `34484026991`
+- conclusion: SUCCESS.
+- compile/contracts: PASS.
+- generated raw-exec: PASS.
+- official both-seat episodes: PASS.
+- full-horizon endgame/incumbent check: PASS.
+
+## Public meta architecture
+Research-only analyzer: `reward-hunter/kaggriculture-v3/meta/replay_intelligence.py`.
+Workflow: `.github/workflows/reward-kaggriculture-v5-meta-intel.yml`.
+It reads public replay data offline and converts recent top-play behavior into one search prior. That prior still must survive local candidate screening, incumbent duel, multiple opponent families, unseen holdout/final and runtime/package gates. The submitted agent never uses network/replay files.
+
+## Claude V6 status
+Claude reported a local V6 branch/commit (`claude/kaggriculture-v6-adaptive-continuous`, local HEAD `8e223bcc`) and local tests, but its session could not push because of GitHub permission. No V6 branch/PR exists on GitHub and the reported bundle/patch has not been uploaded into this ChatGPT conversation. Therefore V6 is **not integrated** and must not be represented as deployed evidence.
+
+## Promotion / submission rules
+- Never submit a candidate merely because it wins local starter/meta games.
+- Require exact 1.32.7 engine provenance, complete both-seat coverage, valid incumbent baselines, direct incumbent duel, unseen holdout/final, tail-risk checks, full-farm economics, zero invalid unit actions, low terminal waste, raw-exec, official loader and exact package/source equivalence.
+- Kaggle submission is separate and explicit; no scheduled workflow can submit.
+- Kaggle controls live matchmaking; this repository may monitor public results but must not force or manipulate matchmaking or submission quotas.
 
 ## NEXT CHAT COMMAND
 User can type: `check PR kaggle`
 
-The next AI should:
-1. find the open PR beginning `[KAGGLE-V5]`,
-2. read this checkpoint from the PR head branch,
-3. inspect runs `34459804967` and `34459819333` first,
-4. if public-meta parsing still fails, inspect the emitted Parquet schema diagnostics and adapt the parser rather than guessing,
-5. if canonical research fails, fix the exact test/economy/runtime error and rerun,
-6. compare V5 evidence with incumbent/live Kaggle baseline only after current-engine gates finish,
-7. never expose `KAGGLE_API_TOKEN`,
-8. never auto-submit a candidate that has not passed promotion/raw-exec/package-equivalence gates.
+Next AI should first:
+1. inspect PR #218 and this checkpoint;
+2. inspect runs `34483998540`, `34484024952`, and `34484026991`;
+3. confirm whether V5.3 baseline blocks are now valid and whether the adaptive challenger completes;
+4. if PR #218 has been merged, verify schedules on `main` and inspect the first default-branch scheduled/manual run;
+5. do not call any candidate PROMOTION_READY until the strict gate itself passes;
+6. never expose `KAGGLE_API_TOKEN`.
