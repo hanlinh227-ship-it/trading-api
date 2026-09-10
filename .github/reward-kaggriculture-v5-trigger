@@ -1,2 +1,2 @@
-run=v5.1-working-capital-recovery
-reason=replace-deadlocked-v5.0-smoke-and-rerun-canonical-1.32.7
+run=v5.2-seat-safe-parquet-cyclic
+reason=rerun-canonical-after-seat-clock-replay-parser-and-cycle-hardening
