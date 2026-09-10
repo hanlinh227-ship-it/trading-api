@@ -37,4 +37,4 @@ jobs:
       - name: Compile
         run: python -m py_compile btc-wallet-recovery/recovery_runner.py
       - name: Test
-        run: python -m pytest -q btc-wallet-recovery/test_recovery_runner.py
+        run: python btc-wallet-recovery/test_recovery_runner.py
