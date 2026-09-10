@@ -1,0 +1,70 @@
+name: Puzzle71 Converge Single Worker
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/puzzle71-converge.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: puzzle71-converge-vps
+  cancel-in-progress: false
+jobs:
+  converge:
+    runs-on: [self-hosted, Linux, X64, trading-vps]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Keep exactly one bounded Puzzle71 worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEW_BASE="$HOME/puzzle71"
+          NEW_RT="$NEW_BASE/runtime"
+          NEW_PIDFILE="$NEW_RT/worker-w0.pid"
+          OLD_STATE="$HOME/.local/state/bitcoin-puzzle71"
+
+          # Never change process topology after either implementation reports a hit.
+          if [ -f "$NEW_RT/FOUND.flag" ] || [ -f "$OLD_STATE/FOUND.lock" ]; then
+            echo 'PUZZLE71_RESULT=FOUND_REDACTED'
+            echo 'No process migration performed; sensitive result remains local.'
+            exit 0
+          fi
+
+          new_alive=0
+          if [ -s "$NEW_PIDFILE" ]; then
+            pid=$(cat "$NEW_PIDFILE" 2>/dev/null || true)
+            if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+              cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
+              if [[ "$cmd" == *"$NEW_BASE/worker.py"* ]]; then
+                new_alive=1
+              fi
+            fi
+          fi
+
+          if [ "$new_alive" -eq 1 ]; then
+            # New deterministic checkpointed worker passed deployment checks and is alive.
+            # Retire only the legacy bounded Puzzle71 supervisor, never unrelated processes.
+            bash bitcoin-puzzle71/puzzle71ctl.sh stop || true
+            sleep 1
+            kill -0 "$pid"
+            echo 'PUZZLE71_PRIMARY=deterministic-checkpoint-worker'
+            echo "PID=$pid"
+            if [ -f "$NEW_RT/status-w0.json" ]; then
+              python3 - <<'PY'
+          import json, os
+          p=os.path.expanduser('~/puzzle71/runtime/status-w0.json')
+          d=json.load(open(p))
+          safe={k:d.get(k) for k in ('state','puzzle','worker_id','threads','counter','shard_index','shard_range','shard_keys','updated_at')}
+          print(json.dumps(safe, sort_keys=True))
+          PY
+            fi
+          else
+            # Deployment did not yield a validated new worker. Preserve the already-working
+            # bounded legacy solver rather than interrupting search.
+            echo 'PUZZLE71_PRIMARY=legacy-bounded-worker'
+            bash bitcoin-puzzle71/status.sh || true
+          fi
