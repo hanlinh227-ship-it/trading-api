@@ -1,0 +1,284 @@
+name: Build Deploy SignalHub V3.22.5 Realtime Unique Book R2
+
+on:
+  push:
+    branches: [signalhub-v3225-realtime-unique-book]
+    paths:
+      - 'scripts/patch_signalhub_v3225_build_compat.py'
+      - '.github/workflows/build-deploy-signalhub-v3225-realtime-unique-book-r2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+      WS: wss://signalhub-forex.hanlinh227.workers.dev/v3/crypto/stream
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply complete V3.22.5 repair chain
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text()
+          a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text()
+          c=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text()
+          m=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java').read_text()
+          g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.22.5' in w
+          assert "'/v3/crypto/stream'" in w and "'/v3/crypto/live-active'" in w
+          assert 'cryptoLiveQuotes' in w and "type:'crypto_quotes'" in w
+          assert 'duplicateSymbols' in w and 'exactTarget' in w
+          assert "styles.SCALP===10&&styles.SWING===5" in w
+          assert 'APP_VERSION="3.22.5"' in a and 'consumeCryptoStream' in a
+          assert 'cryptoSignalPrices' in a and 'REST FALLBACK' in a
+          assert 'ConnectionPool(10' in c and 'connectCryptoStream' in c and 'connectForexStream' in c
+          assert 'LOOP_MS=2000L' in m and '10 SCALP + 5 SWING' in m
+          assert 'versionCode 34' in g and "versionName '3.22.5'" in g
+          print('SOURCE CONTRACTS PASS')
+          PY
+
+      - name: Worker dry-run
+        run: npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3225-worker
+
+      - name: Android build and package test
+        run: |
+          set -euo pipefail
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.5 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Verify production identity and Stable100
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 40); do
+            curl -fsS --max-time 20 "$BASE/v3/status?v3225=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('ok') is True
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.5',s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':10,'SWING':5},p
+          assert p.get('oneActivePerSymbolAcrossStyles') is True,p
+          assert p.get('stableUniverseSize')==100,p
+          assert s.get('forexDisabled') is True,s
+          PY
+            then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          curl -fsS --max-time 120 "$BASE/v3/crypto/stable100?v3225=$RANDOM" >/tmp/u.json
+          python3 - <<'PY'
+          import json
+          u=json.load(open('/tmp/u.json'));rows=u.get('rows') or []
+          assert u.get('ok') is True,u
+          assert len(rows)==100 and len({r.get('symbol') for r in rows})==100
+          assert all(r.get('assetClass')=='CRYPTO' for r in rows)
+          print('STABLE100 PASS')
+          PY
+
+      - name: Rebuild exact 10 SCALP plus 5 SWING unique book
+        run: |
+          set -euo pipefail
+          exact=0
+          for round in $(seq 1 10); do
+            echo "EXACT BOOK ROUND $round"
+            for style in SCALP SWING; do
+              code=$(curl -sS --max-time 240 -o "/tmp/scan-$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&v3225=$RANDOM-$round" || true)
+              echo "$style HTTP=$code"
+              test "$code" = 200
+              python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/scan-'+st+'.json'))
+          assert x.get('ok') is True,x
+          assert x.get('market')=='CRYPTO' and x.get('style')==st,x
+          assert x.get('live') is True,x
+          assert int(x.get('stable100Count') or 0)==100,x
+          assert int(x.get('deepAnalyzed') or 0)>0,x
+          assert 'error' not in x,x
+          print('SCAN PASS',st,'created',x.get('created'),'actionable',x.get('actionable'))
+          PY
+            done
+            curl -fsS --max-time 20 "$BASE/v3/portfolio?v3225=$RANDOM-$round" >/tmp/p.json
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {});st=p.get('styles') or {};ot=p.get('orderTypes') or {}
+          print('PORTFOLIO',p)
+          assert st.get('SCALP')==10,p
+          assert st.get('SWING')==5,p
+          assert p.get('activeTotal')==15,p
+          assert p.get('uniqueSymbols')==15,p
+          assert (p.get('duplicateSymbols') or [])==[],p
+          assert p.get('exactTarget') is True,p
+          for style,target in [('SCALP',10),('SWING',5)]:
+              d=ot.get(style) or {}
+              assert sum(int(d.get(k) or 0) for k in ('MARKET','LIMIT','STOP'))==target,(style,d)
+          PY
+            then exact=1; break; fi
+            curl -fsS --max-time 20 "$BASE/v3/status?refill=1&v3225=$RANDOM" >/dev/null || true
+            sleep 4
+          done
+          test "$exact" = 1
+
+      - name: Verify app-facing rows exact and globally unique
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            expected=10; test "$style" = SWING && expected=5
+            curl -fsS --max-time 12 -o "/tmp/signals-$style.json" -w '%{time_total}' "$BASE/v3/signals?market=CRYPTO&style=$style&status=active&limit=120&v3225=$RANDOM" >"/tmp/time-$style.txt"
+            python3 - "$style" "$expected" <<'PY'
+          import json,sys
+          st=sys.argv[1];expected=int(sys.argv[2]);x=json.load(open('/tmp/signals-'+st+'.json'));rows=x.get('signals') or [];elapsed=float(open('/tmp/time-'+st+'.txt').read())
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.5',x
+          assert x.get('style')==st and x.get('targetActive')==expected,x
+          assert len(rows)==expected,(st,len(rows),x)
+          assert elapsed<12,(st,elapsed)
+          syms=[]
+          for r in rows:
+              assert str(r.get('status','')).upper() in ('OPEN','PENDING'),r
+              assert str(r.get('style','')).upper()==st,r
+              assert str(r.get('orderType','')).upper() in ('MARKET','LIMIT','STOP'),r
+              assert r.get('symbol') and float(r.get('entry') or 0)>0 and float(r.get('sl') or 0)>0 and float(r.get('tp3') or r.get('tp') or 0)>0,r
+              assert str(r.get('executionPriceAuthority') or r.get('provider') or r.get('exchange') or '').upper() in ('BYBIT','OKX','BINANCE'),r
+              syms.append(r['symbol'])
+          assert len(set(syms))==expected,syms
+          print('APP ROWS PASS',st,expected,'latency',elapsed)
+          PY
+          done
+          python3 - <<'PY'
+          import json
+          a=json.load(open('/tmp/signals-SCALP.json')).get('signals') or []
+          b=json.load(open('/tmp/signals-SWING.json')).get('signals') or []
+          syms=[x.get('symbol') for x in a+b];ids=[x.get('signalId') or x.get('id') for x in a+b]
+          assert len(syms)==15 and len(set(syms))==15,syms
+          assert len(ids)==15 and len(set(ids))==15,ids
+          print('GLOBAL UNIQUE 15/15 PASS')
+          PY
+
+      - name: Verify provider-pinned live quote path continuously
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 "$BASE/v3/crypto/monitor?kick=1&v3225=$RANDOM" >/tmp/kick.json
+          good=0
+          for n in $(seq 1 30); do
+            curl -fsS --max-time 8 "$BASE/v3/crypto/live-active?v3225=$RANDOM-$n" >/tmp/live.json || true
+            if python3 - <<'PY'
+          import json,datetime
+          try:x=json.load(open('/tmp/live.json'))
+          except:raise SystemExit(1)
+          q=x.get('quotes') or []
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.5',x
+          assert len(q)==15,(len(q),x)
+          ids=[z.get('signalId') for z in q];assert len(set(ids))==15,ids
+          for z in q:
+              assert z.get('signalId') and z.get('symbol')
+              assert str(z.get('provider','')).upper() in ('BYBIT','OKX','BINANCE')
+              assert float(z.get('lastPrice') or 0)>0
+              assert float(z.get('bid') or 0)>0 and float(z.get('ask') or 0)>0
+          at=x.get('receivedAt');assert at
+          dt=datetime.datetime.fromisoformat(at.replace('Z','+00:00'))
+          age=(datetime.datetime.now(datetime.timezone.utc)-dt).total_seconds()
+          assert -1<=age<5,(age,x)
+          print('LIVE ACTIVE PASS',len(q),'age',age)
+          PY
+            then good=1; break; fi
+            sleep 1
+          done
+          test "$good" = 1
+          cp /tmp/live.json /tmp/live-first.json
+          sleep 2
+          curl -fsS --max-time 8 "$BASE/v3/crypto/live-active?v3225=$RANDOM-after" >/tmp/live-second.json
+          python3 - <<'PY'
+          import json
+          a=json.load(open('/tmp/live-first.json'));b=json.load(open('/tmp/live-second.json'))
+          assert len(b.get('quotes') or [])==15,b
+          assert a.get('receivedAt')!=b.get('receivedAt'),(a.get('receivedAt'),b.get('receivedAt'))
+          ids1={q.get('signalId') for q in a.get('quotes') or []};ids2={q.get('signalId') for q in b.get('quotes') or []}
+          assert ids1==ids2 and len(ids2)==15,(ids1,ids2)
+          print('LIVE FEED ADVANCES PASS',a.get('receivedAt'),'->',b.get('receivedAt'))
+          PY
+
+      - name: Verify crypto WebSocket stream
+        run: |
+          set -euo pipefail
+          node - <<'JS'
+          const timer=setTimeout(()=>{console.error('WS_TIMEOUT');process.exit(1)},15000);
+          const ws=new WebSocket(process.env.WS);
+          ws.onmessage=(ev)=>{
+            try{const x=JSON.parse(String(ev.data));if(x.type!=='crypto_quotes')return;const q=Array.isArray(x.quotes)?x.quotes:[];if(q.length!==15)return;const ids=new Set(q.map(z=>z.signalId));if(ids.size!==15||q.some(z=>!(Number(z.lastPrice)>0)))return;clearTimeout(timer);console.log('CRYPTO WS PASS',x.receivedAt,q.length);ws.close();setTimeout(()=>process.exit(0),100);}catch(e){}
+          };
+          ws.onerror=()=>console.error('WS_ERROR');
+          JS
+
+      - name: Integrity and Watch contract audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 30 "$BASE/v3/data-integrity?v3225=$RANDOM" >/tmp/i.json
+          curl -fsS --max-time 180 "$BASE/v3/watch/analyze?symbol=BTCUSDT&v3225=$RANDOM" >/tmp/w.json
+          python3 - <<'PY'
+          import json
+          i=json.load(open('/tmp/i.json'));assert i.get('ok') is True and not i.get('problems'),i
+          w=json.load(open('/tmp/w.json'));assert w.get('ok') is True,w
+          allowed={'ACTIVE_SIGNAL','TRADEABLE_NOW','CONDITIONAL_WAIT','IDEAL_REFERENCE','DATA_UNAVAILABLE'}
+          for st in ('SCALP','SWING'):
+              s=(w.get('styles') or {}).get(st) or {};assert s.get('state') in allowed,(st,s)
+              if s.get('state')=='ACTIVE_SIGNAL':assert float(s.get('entry') or 0)>0 and float(s.get('sl') or 0)>0 and float(s.get('tp3') or 0)>0,(st,s)
+          print('INTEGRITY + WATCH PASS')
+          PY
+
+      - name: Stage verified APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.5-Realtime-Unique-Book.apk
+          sha256sum dist/SignalHub-v3.22.5-Realtime-Unique-Book.apk | tee dist/SignalHub-v3.22.5-Realtime-Unique-Book-SHA256SUMS.txt
+          cat > SIGNALHUB_V3_CHECKPOINT_18_V3225_REALTIME_UNIQUE_BOOK.md <<'EOF'
+          # SignalHub V3.22.5 — Realtime Unique Book
+          Verified production baseline. Active crypto book is exactly 10 SCALP + 5 SWING, counting MARKET/LIMIT/STOP together, with 15 globally unique symbols and atomic cross-style duplicate rejection. The same 1-second server-side provider-pinned monitor that activates pending entries and resolves TP/SL now emits a crypto WebSocket quote stream and a live-active REST fallback. Android uses the WebSocket as primary, pooled OkHttp with bounded retries as fallback, preserves last-good prices instead of blanking on transient failures, and displays provider/live age. Release is fail-closed unless exact-book, app-row, live quote freshness/continuity, WebSocket, Stable100, integrity, Watch and Android build audits all pass.
+          EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add signalhub-worker/gateway-v3.js signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java signalhub-android/app/build.gradle SIGNALHUB_V3_CHECKPOINT_18_V3225_REALTIME_UNIQUE_BOOK.md
+          git commit -m 'SignalHub v3.22.5 verified realtime unique book' || true
+          git push origin HEAD:signalhub-v3225-realtime-unique-book
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.22.5-Realtime-Unique-Book
+          path: dist/
+          retention-days: 30
+
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.22.5-realtime-unique-book
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v3225-realtime-unique-book --prerelease --title 'SignalHub v3.22.5 — Realtime Unique Book' --notes 'Exact 10 SCALP + 5 SWING active book across MARKET/LIMIT/STOP with global symbol uniqueness. Provider-pinned 1-second crypto quote stream to Android, live-active REST fallback, pooled OkHttp retries and last-good price retention. Published only after exact-book, live-stream, app-facing, integrity and build audits pass.'
