@@ -1,0 +1,260 @@
+name: Build Deploy SignalHub V3.22.8 Safety First
+
+on:
+  push:
+    branches: [signalhub-v3228-safety-first-market-gate]
+    paths:
+      - 'scripts/patch_signalhub_v3228_safety_first_market_gate.py'
+      - '.github/workflows/build-deploy-signalhub-v3228-safety-first.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+      WS: wss://signalhub-forex.hanlinh227.workers.dev/v3/crypto/stream
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply complete V3.22.8 repair chain
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/patch_signalhub_v3227_market_only_health_seven.py')
+          s=p.read_text()
+          old="a=block(a,'    private void renderSignals(boolean animate){','    private String performanceSummary(){',render,'renderSignals')"
+          new="a=block(a,'    private void renderSignals(boolean animate){','    private void addCryptoSignalGroup(',render,'renderSignals')"
+          if old in s:p.write_text(s.replace(old,new,1))
+          PY
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+          python3 scripts/patch_signalhub_v3228_safety_first_market_gate.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.22.8 source contracts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();c=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.22.8' in w
+          assert "SIGNALHUB_V3_CHECKPOINT_21" in w
+          assert w.count('const PORTFOLIO_POLICY=Object.freeze(')==1
+          assert 'const PORTFOLIO_POLICY=Object.freeze({maxActiveTotal:7' in w
+          assert 'targetActiveByStyle:{SCALP:5,SWING:2}' in w
+          assert 'minActivePerMarket:0' in w and 'minActivePerStyle:0' in w
+          assert 'publicationGateV3228' in w and 'NO_QUALIFIED_MARKET_SIGNAL_DO_NOT_FORCE_ENTRY' in w
+          assert 'SEARCH_TO_TARGET_WITHOUT_FORCING_WEAK_MARKET_ENTRY' in w
+          assert 'SIGNAL_RETIRE_ONLY_USER_CLOSES_MANUAL_POSITION' in w
+          assert 'APP_VERSION="3.22.8"' in a and 'SAFETY FIRST' in a
+          assert 'SignalHub-Android/3.22.8' in c
+          assert 'versionCode 37' in g and "versionName '3.22.8'" in g
+          print('SOURCE CONTRACTS PASS')
+          PY
+
+      - name: Worker dry-run and Android package build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3228-worker
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.8 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Production identity and one-policy audit
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 45); do
+            curl -fsS --max-time 15 "$BASE/v3/status?v3228=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('ok') is True,s
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {};rp=(s.get('portfolio') or {}).get('policy') or {}
+          for x in (p,rp):
+              assert x.get('maxActiveTotal')==7,x
+              assert (x.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2},x
+              assert x.get('minActivePerMarket')==0 and x.get('minActivePerStyle')==0,x
+              assert x.get('standbyPerStyle')==0,x
+              assert x.get('oneActivePerSymbolAcrossStyles') is True,x
+          assert s.get('forcedFill') is False,s
+          assert s.get('forexDisabled') is True,s
+          PY
+            then ready=1;break;fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Stable100 freshness and integrity audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,time,os
+          base=os.environ['BASE'];seen=[]
+          for i in range(4):
+              raw=subprocess.check_output(['curl','-fsS','--max-time','120',f'{base}/v3/crypto/stable100?v3228={i}-{time.time_ns()}'],text=True)
+              u=json.loads(raw);rows=u.get('rows') or []
+              assert u.get('ok') is True,u
+              assert len(rows)==100 and len({r.get('symbol') for r in rows})==100,u
+              assert all(r.get('assetClass')=='CRYPTO' for r in rows),rows[:3]
+              seen.append(u.get('refreshedAt'))
+              time.sleep(1)
+          raw=subprocess.check_output(['curl','-fsS','--max-time','30',f'{base}/v3/data-integrity?v3228={time.time_ns()}'],text=True)
+          d=json.loads(raw);assert d.get('ok') is True and not (d.get('problems') or []),d
+          print('STABLE100 INTEGRITY PASS',seen)
+          PY
+
+      - name: Scanner safety audit no forced fill
+        run: |
+          set -euo pipefail
+          for round in 1 2 3; do
+            for style in SWING SCALP; do
+              ok=0
+              for retry in 1 2 3; do
+                code=$(curl -sS --max-time 260 -o "/tmp/scan-$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&v3228=$RANDOM-$round-$retry" || true)
+                test "$code" = 200 || { sleep 2; continue; }
+                if python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/scan-'+st+'.json'))
+          assert x.get('ok') is True,x
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+          assert x.get('market')=='CRYPTO' and x.get('style')==st,x
+          if x.get('live') is False: raise SystemExit(1)
+          assert int(x.get('stable100Count') or 0)==100,x
+          assert int(x.get('deepAnalyzed') or 0)>0,x
+          for s in x.get('newSignals') or []:
+              assert str(s.get('orderType','')).upper()=='MARKET',s
+              assert str(s.get('status','')).upper()=='OPEN',s
+              assert (s.get('entryAssessment') or {}).get('verdict')=='PASS',s
+              e=float(s.get('entry') or 0);sl=float(s.get('sl') or 0);tp=float(s.get('tp3') or s.get('tp') or 0);assert e>0 and sl>0 and tp>0,s
+          print('SCAN SAFE',st,'actionable',x.get('actionable'),'created',x.get('created'))
+          PY
+                then ok=1;break;fi
+                sleep 3
+              done
+              test "$ok" = 1
+            done
+          done
+
+      - name: App publication gate and global uniqueness audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,os,time
+          base=os.environ['BASE'];allrows=[]
+          for st,target in [('SCALP',5),('SWING',2)]:
+              raw=subprocess.check_output(['curl','-fsS','--max-time','15',f'{base}/v3/signals?market=CRYPTO&style={st}&status=active&limit=100&v3228={time.time_ns()}'],text=True)
+              x=json.loads(raw);rows=x.get('signals') or []
+              assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+              assert x.get('style')==st and x.get('targetActive')==target,x
+              assert len(rows)<=target,(st,len(rows),x)
+              assert x.get('forcedFill') is False,x
+              if len(rows)<target: assert x.get('underfillReason')=='NO_QUALIFIED_MARKET_SIGNAL_DO_NOT_FORCE_ENTRY',x
+              for r in rows:
+                  assert r.get('engineVersion')=='SIGNALHUB-V3-GATEWAY-3.22.8',r
+                  assert str(r.get('market','')).upper()=='CRYPTO' and str(r.get('style','')).upper()==st,r
+                  assert str(r.get('status','')).upper()=='OPEN' and str(r.get('orderType','')).upper()=='MARKET',r
+                  assert str(r.get('executionPriceAuthority') or r.get('provider') or r.get('exchange') or '').upper() in ('BYBIT','OKX','BINANCE'),r
+                  assert (r.get('entryAssessment') or {}).get('verdict')=='PASS',r
+                  assert str(r.get('healthState','HEALTHY')).upper()!='CUT',r
+                  e=float(r.get('entry') or 0);sl=float(r.get('sl') or 0);tp=float(r.get('tp3') or r.get('tp') or 0);assert e>0 and sl>0 and tp>0,r
+                  side=str(r.get('side','')).upper();assert (side in ('LONG','BUY') and sl<e<tp) or (side in ('SHORT','SELL') and sl>e>tp),r
+              allrows += rows
+              print('APP SAFE',st,len(rows),'/',target)
+          syms=[str(r.get('symbol','')).upper() for r in allrows];ids=[r.get('signalId') or r.get('id') for r in allrows]
+          assert len(syms)==len(set(syms)),syms
+          assert len(ids)==len(set(ids)),ids
+          assert len(allrows)<=7,allrows
+          print('GLOBAL UNIQUE PASS',len(allrows))
+          PY
+
+      - name: Performance history policy audit
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            curl -fsS --max-time 30 "$BASE/v3/performance?market=CRYPTO&style=$style&v3228=$RANDOM" >"/tmp/perf-$style.json"
+            python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/perf-'+st+'.json'));p=x.get('performance') or {}
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',x
+          assert p.get('retentionDays')==365,p
+          assert p.get('resolved')==int(p.get('tp') or 0)+int(p.get('sl') or 0),p
+          assert 'TP_SL_WR_STRICT' in str(p.get('policy') or ''),p
+          assert int(p.get('autoCut') or 0)>=0,p
+          print('PERF POLICY PASS',st,p.get('winRateLabel'))
+          PY
+          done
+
+      - name: Realtime health and WebSocket transport audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 "$BASE/v3/crypto/monitor?kick=1&v3228=$RANDOM" >/tmp/mon.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/mon.json'));assert x.get('ok') is True,x
+          p=x.get('portfolio') or {};assert int(p.get('activeTotal') or 0)<=7,p
+          st=p.get('styles') or {};assert int(st.get('SCALP') or 0)<=5 and int(st.get('SWING') or 0)<=2,p
+          assert not (p.get('duplicateSymbols') or []),p
+          print('HEALTH MONITOR PASS',p)
+          PY
+          node - <<'JS'
+          const seen=[];const timer=setTimeout(()=>{console.error('WS timeout',seen);process.exit(1)},18000);const ws=new WebSocket(process.env.WS);
+          ws.onmessage=(ev)=>{try{const x=JSON.parse(String(ev.data));if(!x||!x.type)return;seen.push(x.type);if(seen.length>=2){clearTimeout(timer);ws.close();console.log('WS TRANSPORT PASS',seen.slice(0,6));setTimeout(()=>process.exit(0),100);}}catch{}};
+          ws.onerror=()=>{};
+          JS
+
+      - name: Final production integrity audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 "$BASE/v3/status?final=$RANDOM" >/tmp/final-status.json
+          curl -fsS --max-time 20 "$BASE/v3/portfolio?final=$RANDOM" >/tmp/final-p.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/final-status.json'));p=(json.load(open('/tmp/final-p.json')).get('portfolio') or {})
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.8',s
+          assert s.get('forcedFill') is False,s
+          assert int(p.get('activeTotal') or 0)<=7,p
+          st=p.get('styles') or {};assert int(st.get('SCALP') or 0)<=5 and int(st.get('SWING') or 0)<=2,p
+          ot=p.get('orderTypes') or {};assert all(int((ot.get(st) or {}).get(k) or 0)==0 for st in ('SCALP','SWING') for k in ('LIMIT','STOP')),ot
+          assert not (p.get('duplicateSymbols') or []),p
+          assert ((p.get('policy') or {}).get('maxActiveTotal'))==7,p
+          print('FINAL SAFETY PASS',p)
+          PY
+
+      - name: Stage audited APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.8-Safety-First-Market-Gate.apk
+          sha256sum dist/SignalHub-v3.22.8-Safety-First-Market-Gate.apk | tee dist/SignalHub-v3.22.8-Safety-First-Market-Gate-SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-v3.22.8-Safety-First-Market-Gate
+          path: dist/*
+          retention-days: 30
