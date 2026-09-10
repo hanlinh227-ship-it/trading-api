@@ -1,0 +1,34 @@
+name: Diagnose SignalHub V3.22.5 Runtime
+
+on:
+  push:
+    branches: [signalhub-v3225-realtime-unique-book]
+    paths: ['.github/workflows/diag-v3225-runtime.yml']
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Snapshot production runtime
+        env:
+          BASE: https://signalhub-forex.hanlinh227.workers.dev
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 "$BASE/v3/status?diag=$RANDOM" >status.json
+          curl -fsS --max-time 15 "$BASE/v3/portfolio?diag=$RANDOM" >portfolio.json
+          curl -fsS --max-time 15 "$BASE/v3/signals?market=CRYPTO&style=SCALP&status=active&limit=120&diag=$RANDOM" >scalp.json
+          curl -fsS --max-time 15 "$BASE/v3/signals?market=CRYPTO&style=SWING&status=active&limit=120&diag=$RANDOM" >swing.json
+          curl -fsS --max-time 15 "$BASE/v3/crypto/live-active?diag=$RANDOM" >live.json || echo '{}' >live.json
+          python3 - <<'PY'
+          import json
+          s=json.load(open('status.json'));p=json.load(open('portfolio.json')).get('portfolio') or {};a=json.load(open('scalp.json')).get('signals') or [];b=json.load(open('swing.json')).get('signals') or [];l=json.load(open('live.json'))
+          print('VERSION',s.get('version'))
+          print('PORTFOLIO',json.dumps(p,ensure_ascii=False))
+          print('SCALP',len(a),[(x.get('symbol'),x.get('orderType'),x.get('status'),x.get('executionPriceAuthority')) for x in a])
+          print('SWING',len(b),[(x.get('symbol'),x.get('orderType'),x.get('status'),x.get('executionPriceAuthority')) for x in b])
+          allsym=[x.get('symbol') for x in a+b]
+          print('GLOBAL_UNIQUE',len(set(allsym)),'OF',len(allsym),'DUPES',[x for x in set(allsym) if allsym.count(x)>1])
+          q=l.get('quotes') or []
+          print('LIVE_ACTIVE',l.get('version'),l.get('receivedAt'),'COUNT',len(q),[(x.get('symbol'),x.get('provider'),x.get('lastPrice')) for x in q])
+          PY
