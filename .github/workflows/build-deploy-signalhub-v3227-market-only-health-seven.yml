@@ -1,0 +1,280 @@
+name: Build Deploy SignalHub V3.22.7 Market Only Health Seven
+
+on:
+  push:
+    branches: [signalhub-v3227-market-only-health-seven]
+    paths:
+      - 'scripts/patch_signalhub_v3227_market_only_health_seven.py'
+      - 'scripts/patch_signalhub_v3227_runtime_fix.py'
+      - '.github/workflows/build-deploy-signalhub-v3227-market-only-health-seven.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE: https://signalhub-forex.hanlinh227.workers.dev
+      WS: wss://signalhub-forex.hanlinh227.workers.dev/v3/crypto/stream
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: {gradle-version: '8.9'}
+
+      - name: Apply complete V3.22.7 chain
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_signalhub_v3225_realtime_unique_book.py
+          python3 scripts/patch_signalhub_v3225_build_compat.py
+          python3 scripts/patch_signalhub_v3226_balanced_realtime_book.py
+          python3 scripts/patch_signalhub_v3227_market_only_health_seven.py
+          python3 scripts/patch_signalhub_v3227_runtime_fix.py
+          node --check signalhub-worker/gateway-v3.js
+
+      - name: Verify V3.22.7 source contracts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('signalhub-worker/gateway-v3.js').read_text();a=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/SignalHubActivity.java').read_text();c=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/ApiClient.java').read_text();m=Path('signalhub-android/app/src/main/java/com/hanlinh/signalhub/MonitorService.java').read_text();g=Path('signalhub-android/app/build.gradle').read_text()
+          assert 'SIGNALHUB-V3-GATEWAY-3.22.7' in w
+          assert "SIGNALHUB_V3_CHECKPOINT_20" in w
+          assert 'MARKET_ONLY_TOP_5_SCALP_2_SWING' in w and 'maxActiveTotal:7' in w
+          assert "targetActiveByStyle:{SCALP:5,SWING:2}" in w
+          assert "function styleTarget(style){return String(style||'').toUpperCase()==='SWING'?2:5;}" in w
+          assert 'marketOnlySevenCandidate' in w and 'compareMarketOnlyQuality' in w
+          assert 'MARKET_HEALTH_POLICY' in w and "outcome='AUTO_CUT'" in w
+          assert 'SIGNAL_RETIRED_ONLY_NO_BROKER_EXECUTION' in w
+          assert 'getV31HistorySignals' in w and 'retentionDays:365' in w
+          assert "String(signal.orderType||'MARKET').toUpperCase()==='MARKET'" in w
+          assert 'APP_VERSION="3.22.7"' in a and 'MARKET ONLY' in a and 'healthLabel' in a
+          assert 'AUTO-CUT chỉ đóng tín hiệu trên app' in a
+          assert 'SignalHub-Android/3.22.7' in c
+          assert 'REFILL_CHECK_MS=2000L' in m and 'ĐÓNG THỦ CÔNG' in m
+          assert 'versionCode 36' in g and "versionName '3.22.7'" in g
+          print('SOURCE CONTRACTS PASS')
+          PY
+
+      - name: Worker dry-run and Android package build
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@latest deploy --dry-run --config wrangler.jsonc --outdir /tmp/v3227-worker
+          cd signalhub-android
+          gradle :app:assembleDebug --stacktrace --no-daemon
+          cd ..
+          unzip -t signalhub-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Deploy V3.22.7 production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Production identity and policy audit
+        run: |
+          set -euo pipefail
+          ready=0
+          for n in $(seq 1 40); do
+            curl -fsS --max-time 15 "$BASE/v3/status?v3227=$RANDOM-$n" >/tmp/status.json || true
+            if python3 - <<'PY'
+          import json
+          try:s=json.load(open('/tmp/status.json'))
+          except:raise SystemExit(1)
+          assert s.get('ok') is True,s
+          assert s.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.7',s
+          p=(s.get('decisionPolicy') or {}).get('portfolioPolicy') or {}
+          assert p.get('maxActiveTotal')==7,p
+          assert (p.get('targetActiveByStyle') or {})=={'SCALP':5,'SWING':2},p
+          assert p.get('oneActivePerSymbolAcrossStyles') is True,p
+          assert p.get('standbyPerStyle')==0,p
+          assert (s.get('healthPolicy') or {}).get('action')=='SIGNAL_RETIRE_ONLY_USER_CLOSES_MANUAL_POSITION',s
+          assert s.get('forexDisabled') is True,s
+          PY
+            then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+
+      - name: Build exact 5 SCALP plus 2 SWING MARKET book
+        run: |
+          set -euo pipefail
+          exact=0
+          for round in $(seq 1 12); do
+            echo "MARKET BOOK ROUND $round"
+            for style in SWING SCALP; do
+              code=$(curl -sS --max-time 260 -o "/tmp/scan-$style.json" -w '%{http_code}' "$BASE/v3/scan?market=CRYPTO&style=$style&v3227=$RANDOM-$round" || true)
+              echo "$style HTTP=$code"
+              test "$code" = 200
+              python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/scan-'+st+'.json'))
+          assert x.get('ok') is True,x
+          assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.7',x
+          assert x.get('marketOnly') is True,x
+          assert x.get('live') is True,x
+          assert int(x.get('stable100Count') or 0)==100,x
+          assert int(x.get('deepAnalyzed') or 0)>0,x
+          print('SCAN',st,'market candidates',x.get('actionable'),'strict',x.get('strictConfirmed'),'safe',x.get('safeFill'),'created',x.get('created'))
+          PY
+            done
+            curl -fsS --max-time 15 "$BASE/v3/portfolio?v3227=$RANDOM-$round" >/tmp/p.json
+            if python3 - <<'PY'
+          import json
+          p=(json.load(open('/tmp/p.json')).get('portfolio') or {});st=p.get('styles') or {};ot=p.get('orderTypes') or {}
+          print('BOOK',json.dumps(p,ensure_ascii=False))
+          assert st.get('SCALP')==5,p
+          assert st.get('SWING')==2,p
+          assert p.get('activeTotal')==7,p
+          assert p.get('uniqueSymbols')==7,p
+          assert not (p.get('duplicateSymbols') or []),p
+          assert p.get('marketOnly') is True and p.get('exactTarget') is True,p
+          for style,target in [('SCALP',5),('SWING',2)]:
+              d=ot.get(style) or {}
+              assert int(d.get('MARKET') or 0)==target,(style,d)
+              assert int(d.get('LIMIT') or 0)==0 and int(d.get('STOP') or 0)==0,(style,d)
+          PY
+            then exact=1; break; fi
+            curl -fsS --max-time 15 "$BASE/v3/status?refill=$RANDOM-$round" >/dev/null || true
+            sleep 3
+          done
+          test "$exact" = 1
+
+      - name: Prove app-facing rows are exactly MARKET only and unique
+        run: |
+          set -euo pipefail
+          for repeat in $(seq 1 4); do
+            for style in SCALP SWING; do
+              expected=5; test "$style" = SWING && expected=2
+              curl -fsS --max-time 10 -o "/tmp/${style}-${repeat}.json" -w '%{time_total}' "$BASE/v3/signals?market=CRYPTO&style=$style&status=active&limit=120&v3227=$RANDOM-$repeat" >"/tmp/${style}-${repeat}.time"
+              python3 - "$style" "$expected" "$repeat" <<'PY'
+          import json,sys
+          st=sys.argv[1];expected=int(sys.argv[2]);rep=sys.argv[3]
+          x=json.load(open(f'/tmp/{st}-{rep}.json'));rows=x.get('signals') or [];elapsed=float(open(f'/tmp/{st}-{rep}.time').read())
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.7',x
+          assert x.get('marketOnly') is True and x.get('exactActive') is True,x
+          assert len(rows)==expected,(st,len(rows),x)
+          assert elapsed<10,(st,elapsed)
+          for r in rows:
+              assert r.get('status')=='OPEN',r
+              assert str(r.get('orderType','')).upper()=='MARKET',r
+              assert r.get('symbol') and float(r.get('entry') or 0)>0 and float(r.get('sl') or 0)>0 and float(r.get('tp3') or r.get('tp') or 0)>0,r
+              assert r.get('healthState') in ('HEALTHY','WATCH','WARNING'),r
+              assert r.get('manualTradeMonitoring') is True,r
+          assert len({r['symbol'] for r in rows})==expected,rows
+          print('APP PASS',st,expected,'latency',elapsed)
+          PY
+            done
+            python3 - "$repeat" <<'PY'
+          import json,sys
+          r=sys.argv[1];a=json.load(open(f'/tmp/SCALP-{r}.json')).get('signals') or [];b=json.load(open(f'/tmp/SWING-{r}.json')).get('signals') or [];syms=[x.get('symbol') for x in a+b];ids=[x.get('signalId') or x.get('id') for x in a+b]
+          assert len(syms)==7 and len(set(syms))==7,syms
+          assert len(ids)==7 and len(set(ids))==7,ids
+          print('GLOBAL UNIQUE 7/7 PASS')
+          PY
+            sleep 1
+          done
+
+      - name: Prove live-active price continuity and freshness
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 "$BASE/v3/crypto/monitor?kick=1&v3227=$RANDOM" >/dev/null
+          python3 - <<'PY'
+          import json,subprocess,time,datetime,os
+          base=os.environ['BASE'];timestamps=[]
+          for i in range(8):
+              raw=subprocess.check_output(['curl','-fsS','--max-time','8',f'{base}/v3/crypto/live-active?v3227={i}-{time.time_ns()}'],text=True);x=json.loads(raw);q=x.get('quotes') or []
+              assert x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.7',x
+              assert len(q)==7,(i,len(q),x)
+              assert len({z.get('signalId') for z in q})==7,q
+              assert len({z.get('symbol') for z in q})==7,q
+              for z in q:
+                  assert str(z.get('provider','')).upper() in ('BYBIT','OKX','BINANCE'),z
+                  assert float(z.get('lastPrice') or 0)>0 and float(z.get('bid') or 0)>0 and float(z.get('ask') or 0)>0,z
+              at=x.get('receivedAt');assert at
+              dt=datetime.datetime.fromisoformat(at.replace('Z','+00:00'));age=(datetime.datetime.now(datetime.timezone.utc)-dt).total_seconds();assert -1<=age<5,(i,age,at)
+              timestamps.append(at);print('LIVE',i,'7/7 age',round(age,3),at);time.sleep(1)
+          assert len(set(timestamps))>=4,timestamps
+          print('LIVE CONTINUITY PASS')
+          PY
+
+      - name: Prove crypto WebSocket continuity
+        run: |
+          set -euo pipefail
+          node - <<'JS'
+          const received=[];const timer=setTimeout(()=>{console.error('WS_TIMEOUT',received);process.exit(1)},20000);const ws=new WebSocket(process.env.WS);
+          ws.onmessage=(ev)=>{try{const x=JSON.parse(String(ev.data));if(x.type!=='crypto_quotes')return;const q=Array.isArray(x.quotes)?x.quotes:[];if(q.length!==7)return;if(new Set(q.map(z=>z.signalId)).size!==7||new Set(q.map(z=>z.symbol)).size!==7||q.some(z=>!(Number(z.lastPrice)>0)))return;received.push(x.receivedAt);console.log('WS FRAME',received.length,x.receivedAt);if(received.length>=3&&new Set(received).size>=3){clearTimeout(timer);ws.close();setTimeout(()=>process.exit(0),100);}}catch{}};ws.onerror=()=>console.error('WS_ERROR');
+          JS
+
+      - name: Performance history and health policy audit
+        run: |
+          set -euo pipefail
+          for style in SCALP SWING; do
+            curl -fsS --max-time 30 "$BASE/v3/performance?market=CRYPTO&style=$style&v3227=$RANDOM" >"/tmp/perf-$style.json"
+            python3 - "$style" <<'PY'
+          import json,sys
+          st=sys.argv[1];x=json.load(open('/tmp/perf-'+st+'.json'));p=x.get('performance') or {}
+          assert x.get('ok') is True and x.get('version')=='SIGNALHUB-V3-GATEWAY-3.22.7',x
+          assert p.get('retentionDays')==365,p
+          for k in ('resolved','tp','sl','winRateResolved','autoCut','autoCutProfit','autoCutLoss','allResolved','winRateAllResolved','netRResolved','policy'): assert k in p,(k,p)
+          assert p.get('pending')==0,p
+          print('PERF PASS',st,p.get('winRateLabel'),p.get('winRateAllLabel'),'cuts',p.get('autoCut'))
+          PY
+          done
+          curl -fsS --max-time 30 "$BASE/v3/stability?v3227=$RANDOM" >/tmp/stability.json
+          python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/stability.json'));assert x.get('ok') is True,x
+          t=x.get('tradingEvidence') or {};assert t.get('retentionDays')==365,t
+          assert 'strictWinRateResolved' in t and 'autoCut' in t and 'allExitWinRate' in t,t
+          print('STATS POLICY PASS')
+          PY
+
+      - name: Final portfolio integrity and Watch audit
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 "$BASE/v3/portfolio?final=$RANDOM" >/tmp/final-p.json
+          curl -fsS --max-time 30 "$BASE/v3/data-integrity?final=$RANDOM" >/tmp/i.json
+          curl -fsS --max-time 180 "$BASE/v3/watch/analyze?symbol=BTCUSDT&final=$RANDOM" >/tmp/w.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/final-p.json')).get('portfolio') or {};st=p.get('styles') or {};ot=p.get('orderTypes') or {}
+          assert st=={'SCALP':5,'SWING':2},p
+          assert p.get('activeTotal')==7 and p.get('uniqueSymbols')==7 and not (p.get('duplicateSymbols') or []) and p.get('exactTarget') is True and p.get('marketOnly') is True,p
+          assert (ot.get('SCALP') or {}).get('MARKET')==5 and (ot.get('SWING') or {}).get('MARKET')==2,ot
+          assert all((ot.get(s) or {}).get(k,0)==0 for s in ('SCALP','SWING') for k in ('LIMIT','STOP')),ot
+          i=json.load(open('/tmp/i.json'));assert i.get('ok') is True and not i.get('problems'),i
+          w=json.load(open('/tmp/w.json'));assert w.get('ok') is True,w
+          ab=w.get('activeBook') or {};assert ab.get('targetScalp')==5 and ab.get('targetSwing')==2,ab
+          print('FINAL INTEGRITY PASS')
+          PY
+
+      - name: Stage verified APK and checkpoint
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp signalhub-android/app/build/outputs/apk/debug/app-debug.apk dist/SignalHub-v3.22.7-Market-Only-Health-Seven.apk
+          sha256sum dist/SignalHub-v3.22.7-Market-Only-Health-Seven.apk | tee dist/SignalHub-v3.22.7-Market-Only-Health-Seven-SHA256SUMS.txt
+          cat > dist/SIGNALHUB_V3_CHECKPOINT_20_V3227_MARKET_ONLY_HEALTH_SEVEN.md <<'EOF'
+          # SignalHub V3 Checkpoint 20 — V3.22.7 Market-Only Health Seven
+          Production audit contract: exactly 5 SCALP + 2 SWING, all OPEN MARKET, seven globally unique symbols, zero LIMIT/STOP, provider-pinned 1-second price stream, 1-second HEALTHY/WATCH/WARNING monitor, conservative AUTO_CUT signal retirement and async replacement. AUTO_CUT does not close a manually opened broker/exchange position. Historical strict TP/SL win rate is separated from AUTO_CUT/all-exit statistics and retained for up to 365 days.
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SignalHub-Android-v3.22.7-Market-Only-Health-Seven
+          path: dist/
+          retention-days: 30
+
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=signalhub-v3.22.7-market-only-health-seven
+          gh release view "$TAG" >/dev/null 2>&1 && gh release upload "$TAG" dist/* --clobber || gh release create "$TAG" dist/* --target signalhub-v3227-market-only-health-seven --prerelease --title 'SignalHub v3.22.7 — Market-Only Health Seven' --notes 'Verified production build: exactly 5 SCALP + 2 SWING active signals, MARKET only, zero LIMIT/STOP, global symbol uniqueness, provider-pinned WebSocket live prices, realtime HEALTHY/WATCH/WARNING monitoring, conservative AUTO_CUT signal retirement with replacement refill, and separate long-history TP/SL vs all-exit statistics. AUTO_CUT is signal-feed only and does not execute a manual broker position.'
